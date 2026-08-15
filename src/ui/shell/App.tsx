@@ -4,7 +4,7 @@
  * to share and nothing to deep-link to, and a router would only add a way for
  * the back button to lose someone's place mid-session.
  */
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useApp, useStats } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
 import { AppMark } from '../shared/DomainMark.tsx';
@@ -12,13 +12,14 @@ import { Attribution } from '../shared/CompatibleMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
-import { warmImporterCache } from '../../pwa/register.ts';
+import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { BackupBanner } from './BackupBanner.tsx';
 import { Header } from './Header.tsx';
 import { Recovery } from './Recovery.tsx';
 import { ScreenBoundary } from './ScreenBoundary.tsx';
 import { TabBar } from './TabBar.tsx';
+import { UpdateBanner } from './UpdateBanner.tsx';
 
 // Play and Cards are what a session actually uses, so they ship in the shell.
 // Build, GM and Settings are large, rarely open at the table, and each pulls in
@@ -48,10 +49,52 @@ export function App(): React.JSX.Element {
   const storageError = useApp((s) => s.storageError);
   const stats = useStats();
   const phone = useIsPhone();
+  const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  // Register the worker. Everything offline depends on this one call: without
+  // it `public/sw.js` is a file the browser never reads, the precache never
+  // happens, and an app whose entire premise is working with the radio off
+  // would quietly need the network for every load.
+  //
+  // The visibility check is how an update is noticed at all. A worker that
+  // installed while the app sat in a background tab announces itself only when
+  // asked, and coming back to the app is the one moment the user is present
+  // and not yet mid-action.
+  useEffect(() => {
+    const handle = registerServiceWorker({
+      // `setState` treats a bare function as an updater, so the callback has to
+      // be wrapped to be stored rather than called.
+      onUpdateReady: (apply) => setApplyUpdate(() => apply),
+      onError: (error) => console.warn('[pwa] service worker', error),
+    });
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') void handle.check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      handle.dispose();
+    };
+  }, []);
+
+  // Hold the screen awake while the preference is on. The setting is on by
+  // default and says a sheet that dims every thirty seconds is unusable at a
+  // table; this is the code that makes that true rather than a claim. The
+  // handle re-takes the lock after every interruption on its own, so the only
+  // thing owned here is the on/off.
+  useEffect(() => {
+    if (!prefs.wakeLock) return;
+    const lock = createWakeLock();
+    void lock.request();
+    return () => {
+      void lock.release();
+      lock.dispose();
+    };
+  }, [prefs.wakeLock]);
 
   // The importer's pdf.js worker is not in the install-time precache; a device
   // that could actually run the importer asks for it here, once, so the
@@ -120,6 +163,7 @@ export function App(): React.JSX.Element {
             </button>
           </div>
         )}
+        <UpdateBanner apply={applyUpdate} />
         <BackupBanner />
         {screen === 'play' && (
           <ScreenBoundary name="Play">
