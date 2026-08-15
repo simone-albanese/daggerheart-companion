@@ -237,6 +237,49 @@ describe('degraded import', () => {
     expect(unresolved).toEqual([RESERVED_MIN + 7]);
     expect(character.loadout).toEqual([unresolvedRef(RESERVED_MIN + 7), 'book-of-ava']);
   });
+
+  it('carries a parked id that no field on the sheet still points at', async () => {
+    // Every other parking test above leaves the placeholder somewhere the
+    // decoder can find it - in the loadout, in a level-up record - and the
+    // decoder rebuilds unresolvedRefs from those refs. So the list the encoder
+    // writes is redundant in exactly the cases that are tested, and could be
+    // sent as "nothing parked" without a single one of them noticing.
+    //
+    // It stops being redundant the moment the player deletes the card they
+    // could not name. The placeholder leaves the loadout; the id survives only
+    // in unresolvedRefs, which is the sheet's own record that it is carrying
+    // someone else's content. Lose it on the wire and the character arrives
+    // looking complete, with nothing left for resolvePlaceholders to repair on
+    // the day the homebrew finally shows up.
+    const dropped = wizard({ unresolvedRefs: [RESERVED_MIN, RESERVED_MIN + 41] });
+    expect(characterRefs(dropped).filter((r) => r.startsWith('?'))).toEqual([]);
+
+    const payload = await encodeCharacter(dropped, testRegistry);
+    const { character, unresolved } = await decodeCharacter(payload, testRegistry);
+
+    expect(character.unresolvedRefs).toEqual([RESERVED_MIN, RESERVED_MIN + 41]);
+    // No field points at them, so nothing was newly discovered as unresolvable:
+    // these ids were carried across, not re-derived from a placeholder.
+    expect(unresolved).toEqual([]);
+    expect(character.loadout).toEqual(dropped.loadout);
+
+    // And the next hop carries them again, byte for byte.
+    expect([...(await encodeCharacter(character, testRegistry))]).toEqual([...payload]);
+  });
+
+  it('stops parking an id the receiving device turns out to know', async () => {
+    // The mirror of the test above: a list entry is a claim about the SENDER's
+    // content, not a permanent label. A device that can name the id resolves it
+    // and hands back a sheet with nothing parked at all.
+    const known = testRegistry.idOf('book-of-korvax')!;
+    const stale = wizard({ unresolvedRefs: [known] });
+    const { character } = await decodeCharacter(
+      await encodeCharacter(stale, testRegistry),
+      testRegistry,
+    );
+    expect(known).toBeGreaterThan(0);
+    expect(character.unresolvedRefs).toBeUndefined();
+  });
 });
 
 describe('refusing to guess', () => {

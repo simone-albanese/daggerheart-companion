@@ -171,6 +171,9 @@ function world(dist: string, base: string = BASE) {
     dispatch,
     cached: (name: string): string[] => [...(caches.get(name)?.entries.keys() ?? [])].sort(),
     caches,
+    /** What a browser does to a site it has not seen for a while, and what
+     *  clearing site data does: the caches go, the registration stays. */
+    reclaimStorage: (): void => caches.clear(),
     get: (path: string): Promise<Dispatch> => dispatch('fetch', { url: ORIGIN + path, method: 'GET' }),
     /** A client posting to the worker: the payload rides on `data`, not `request`. */
     post: (data: unknown): Promise<Dispatch> => dispatch('message', undefined, { data }),
@@ -262,6 +265,68 @@ describe('service worker, against what the build actually emitted', () => {
       const hit = await app.get(new URL(url).pathname);
       expect(hit.response?.status, url).toBe(200);
     }
+  });
+
+  /**
+   * The caches are not as durable as the worker that fills them.
+   *
+   * A browser reclaims Cache Storage under pressure and clears it for sites it
+   * has not seen in a while; clearing site data by hand takes the caches and
+   * leaves the registration. What is left over is an activated worker sitting
+   * on nothing - and install, which is the only thing here that fills a cache,
+   * is never coming back, because a browser installs a replacement worker only
+   * when the bytes of sw.js change and a deploy is what changes them.
+   *
+   * This is what was happening in production: one registration, activated, one
+   * cache named `dhc-shell-v1` with nothing in it, and no `dhc-assets-v1` at
+   * all. Which reads like a precache that ran and wrote nothing, and was not:
+   * nothing had precached in that profile for days. The empty cache was opened
+   * by `warmImporter` - a *read* - and the app was one flight away from being
+   * a white screen.
+   */
+  it('rebuilds a precache the browser reclaimed, rather than sit on an empty cache', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+    expect(app.cached(SHELL)).toContain(`${ORIGIN}${BASE}index.html`);
+
+    app.reclaimStorage();
+    // A desktop client saying hello, which is every event this worker gets
+    // while it is activated but not yet controlling the page that just loaded.
+    await app.post({ type: 'warm-importer' });
+
+    expect(app.cached(SHELL), 'the document is back').toContain(`${ORIGIN}${BASE}index.html`);
+    expect(app.cached(ASSETS).some((url) => /\/srd-/.test(url)), 'and the dataset with it').toBe(true);
+    expect(
+      app.cached(ASSETS).some((url) => /\/import-worker-/.test(url)),
+      'and the client got the importer it actually asked for',
+    ).toBe(true);
+
+    app.net.online = false;
+    expect((await app.navigate(BASE)).response?.status, 'so the app still opens in flight mode').toBe(200);
+  });
+
+  it('rebuilds a reclaimed precache as it activates, so an update never lands on an empty cache', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    app.reclaimStorage();
+    await app.dispatch('activate');
+
+    expect(app.cached(SHELL)).toContain(`${ORIGIN}${BASE}index.html`);
+    app.net.online = false;
+    expect((await app.navigate(BASE)).response?.status).toBe(200);
+  });
+
+  it('says so when it cannot rebuild one, rather than leave an empty cache and no explanation', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+    app.reclaimStorage();
+    app.net.online = false;
+
+    await app.post({ type: 'warm-importer' });
+
+    expect(app.warnings.join(' ')).toContain('precache');
   });
 
   it('fetches the importer worker only when a client says it can use it', async () => {

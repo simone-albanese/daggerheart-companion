@@ -1,10 +1,15 @@
 /**
- * Character creation: the SRD's ten steps, in order.
+ * Character creation, one decision at a time.
  *
- * A wizard rather than one long sheet because the ten steps are not
- * independent - the class decides the domains, the domains decide which cards
- * you may take, the armor decides the thresholds - and a form that shows all of
- * it at once asks a new player to hold the dependency graph in their head.
+ * A wizard rather than one long sheet because the steps are not independent -
+ * the class decides the domains, the domains decide which cards you may take,
+ * the armor decides the thresholds - and a form that shows all of it at once
+ * asks a new player to hold the dependency graph in their head.
+ *
+ * This file is the screen only. What a character in progress is, and what is
+ * still missing from it, live in creation.ts, which knows nothing about React.
+ * The step components below read that model; they never invent a second opinion
+ * about whether a choice was required.
  *
  * The header never moves; the step panel scrolls. On a phone the rail collapses
  * to a hairline and Back/Next live in the thumb arc, because creation is the
@@ -16,19 +21,37 @@ import {
   TRAIT_LABELS,
   type Ancestry,
   type CharClass,
-  type Character,
-  type Dataset,
-  type Experience,
-  type Gold,
-  type InventoryEntry,
   type Ref,
   type Trait,
 } from '../../../shared/types.ts';
-import { deriveStats, newCharacter, syncCounters, tierOf } from '../../engine/character.ts';
+import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import {
+  BASE_STARTING_CARDS,
+  cardCountWord,
+  startingCardAllowance,
+  startingCardGrants,
+} from './cardAllowance.ts';
+import {
+  assemble,
+  emptyDraft,
+  furthestReachable,
+  heldAt,
+  noteLine,
+  POTIONS,
+  review,
+  STARTER_KIT,
+  STEPS,
+  stepNumber,
+  stepsDone,
+  type Blocker,
+  type Draft,
+  type StepId,
+  type Warning,
+} from './creation.ts';
 import { tierNote } from './gear.ts';
 import {
   ArmorPicker,
@@ -52,7 +75,7 @@ import {
   Segmented,
 } from './parts.tsx';
 
-/** The fixed array from step 3. Distributed, never rolled. */
+/** The fixed array the traits step distributes. Placed, never rolled. */
 const TRAIT_ARRAY = [2, 1, 1, 0, 0, -1] as const;
 const TRAIT_VALUES = [2, 1, 0, -1] as const;
 
@@ -68,79 +91,6 @@ const TRAIT_VERBS: Record<Trait, string> = {
   presence: 'Charm · Perform · Deceive',
   knowledge: 'Recall · Analyze · Comprehend',
 };
-
-const STEPS = [
-  'Class & subclass',
-  'Heritage',
-  'Character traits',
-  'Level, Evasion & HP',
-  'Starting equipment',
-  'Background',
-  'Experiences',
-  'Domain cards',
-  'Connections',
-  'Gold & inventory',
-] as const;
-
-const POTIONS = [
-  { ref: 'minor-health-potion', name: 'Minor Health Potion', text: 'Clear 1d4 Hit Points.' },
-  { ref: 'minor-stamina-potion', name: 'Minor Stamina Potion', text: 'Clear 1d4 Stress.' },
-] as const;
-
-interface Draft {
-  name: string;
-  pronouns: string;
-  classRef: Ref;
-  subclassRef: Ref | null;
-  /** Mixed Ancestry takes the first feature from one lineage, the second from another. */
-  mixed: boolean;
-  ancestryTop: Ref | null;
-  ancestryBottom: Ref | null;
-  communityRef: Ref | null;
-  traits: Partial<Record<Trait, number>>;
-  primary: Ref | null;
-  secondary: Ref | null;
-  armor: Ref | null;
-  background: string[];
-  experiences: Experience[];
-  cards: Ref[];
-  connections: string[];
-  /** Which of the SRD's starting-kit lines are being carried. */
-  kit: Record<string, boolean>;
-  /** Index into the class's own items. The SRD gives one of them, not all. */
-  classItem: number | null;
-  potion: string | null;
-  gold: Gold;
-  inventory: InventoryEntry[];
-}
-
-const emptyDraft = (): Draft => ({
-  name: '',
-  pronouns: '',
-  classRef: '',
-  subclassRef: null,
-  mixed: false,
-  ancestryTop: null,
-  ancestryBottom: null,
-  communityRef: null,
-  traits: {},
-  primary: null,
-  secondary: null,
-  armor: null,
-  background: [],
-  experiences: [
-    { id: crypto.randomUUID(), name: '', bonus: 2 },
-    { id: crypto.randomUUID(), name: '', bonus: 2 },
-  ],
-  cards: [],
-  connections: [],
-  kit: { torch: true, rope: true, supplies: true },
-  classItem: 0,
-  potion: POTIONS[0].ref,
-  // The SRD hands you one handful of gold at step 5.
-  gold: { handfuls: 1, bags: 0, chests: 0 },
-  inventory: [],
-});
 
 function poolRemaining(traits: Draft['traits']): Map<number, number> {
   const pool = new Map<number, number>();
@@ -177,7 +127,7 @@ export function Wizard({
 
   const klass = dataset.classes.find((c) => c.id === draft.classRef);
 
-  const done = useMemo(() => stepsDone(draft, klass), [draft, klass]);
+  const done = useMemo(() => stepsDone(draft, klass, dataset), [draft, klass, dataset]);
   const { blockers, warnings } = useMemo(() => review(draft, klass, dataset), [draft, klass, dataset]);
 
   const finish = async (): Promise<void> => {
@@ -192,10 +142,46 @@ export function Wizard({
   };
 
   const last = step === STEPS.length - 1;
+  const current = STEPS[step] ?? STEPS[0];
+
+  // What refuses the button under the player's thumb, if anything.
+  //
+  // Next only owes an answer for the step you are standing on: nobody should be
+  // refused on the equipment screen for a community they have not picked four
+  // screens back, because the screen they are on is where that gets fixed. The
+  // last step's button is different - it creates the character - so it answers
+  // for every blocker at once and names the step each one belongs to.
+  const held = current === undefined ? null : heldAt(blockers, current.id);
+  const stuck = last ? (blockers[0] ?? null) : held;
+  const reason =
+    stuck === null
+      ? null
+      : !last
+        ? stuck.text
+        : blockers.length === 1
+          ? noteLine(stuck)
+          : `${noteLine(stuck)} And ${blockers.length - 1} more, listed above.`;
+
+  // The rail's gate and the nav's gate are the same gate; only the shape of the
+  // refusal differs. The rail stops at a step that is not necessarily the one
+  // being stood on - with a class chosen and no subclass yet, Next is free and
+  // everything past the subclass is not - so its tooltip has to name that step
+  // rather than repeating whatever the nav happens to be saying.
+  const furthest = furthestReachable(blockers, step);
+  const wall = STEPS[furthest];
+  const wallBlocker = wall === undefined ? null : heldAt(blockers, wall.id);
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
-      <WizardHeader step={step} setStep={setStep} done={done} phone={phone} onCancel={onCancel} />
+      <WizardHeader
+        step={step}
+        setStep={setStep}
+        done={done}
+        phone={phone}
+        onCancel={onCancel}
+        furthest={furthest}
+        lockedReason={wallBlocker === null ? null : noteLine(wallBlocker)}
+      />
 
       <div
         ref={panel}
@@ -203,73 +189,143 @@ export function Wizard({
         style={{ flex: 1, minHeight: 0, padding: phone ? '14px 12px 20px' : '18px 20px 24px' }}
       >
         <div className="stack" style={{ gap: 18, maxWidth: 980, margin: '0 auto' }}>
-          {step === 0 && <StepClass draft={draft} set={set} />}
-          {step === 1 && <StepHeritage draft={draft} set={set} />}
-          {step === 2 && <StepTraits draft={draft} set={set} />}
-          {step === 3 && <StepRecord klass={klass} armorRef={draft.armor} />}
-          {step === 4 && <StepEquipment draft={draft} set={set} klass={klass} />}
-          {step === 5 && <StepBackground draft={draft} set={set} klass={klass} />}
-          {step === 6 && <StepExperiences draft={draft} set={set} />}
-          {step === 7 && <StepCards draft={draft} set={set} klass={klass} />}
-          {step === 8 && <StepConnections draft={draft} set={set} klass={klass} />}
-          {step === 9 && (
-            <StepGold draft={draft} set={set} klass={klass} blockers={blockers} warnings={warnings} />
+          {current !== undefined && (
+            <StepBody
+              id={current.id}
+              draft={draft}
+              set={set}
+              klass={klass}
+              blockers={blockers}
+              warnings={warnings}
+            />
           )}
         </div>
       </div>
 
       <nav
-        className="row"
+        className="stack"
         aria-label="Wizard navigation"
         style={{
           flex: 'none',
-          gap: 10,
+          gap: 8,
           padding: phone ? '10px 12px' : '12px 20px',
           borderTop: '1px solid var(--line-soft)',
           background: 'var(--panel)',
         }}
       >
-        <button
-          type="button"
-          className="btn"
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
-          style={{ flex: phone ? 1 : 'none', minHeight: 48, minWidth: 108 }}
-        >
-          Back
-        </button>
-        {!phone && (
-          <span className="t-meta" style={{ flex: 1, color: 'var(--dim)' }}>
-            {last
-              ? blockers.length === 0
-                ? 'READY TO CREATE'
-                : `${blockers.length} THING${blockers.length === 1 ? '' : 'S'} STILL MISSING`
-              : `NEXT — ${STEPS[step + 1]?.toUpperCase()}`}
+        {/* On a phone this line is the only place a refusal can be read. The
+            panel scrolls itself back to the top on every step change, so a
+            message left at the foot of the step is a message nobody sees, and
+            at 390px there is no room beside the buttons for it to sit. It
+            appears only when something is actually being withheld: the rest of
+            the time that vertical space belongs to the choices. */}
+        {phone && reason !== null && (
+          <span className="t-dense" role="status" style={{ color: 'var(--stress)' }}>
+            {reason}
           </span>
         )}
-        {last ? (
+        <div className="row" style={{ gap: 10 }}>
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => void finish()}
-            disabled={blockers.length > 0}
-            style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 168 }}
+            className="btn"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            style={{ flex: phone ? 1 : 'none', minHeight: 48, minWidth: 108 }}
           >
-            Create character
+            Back
           </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-            style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 128 }}
-          >
-            Next
-          </button>
-        )}
+          {!phone &&
+            (reason === null ? (
+              <span className="t-meta" style={{ flex: 1, color: 'var(--dim)' }}>
+                {last ? 'READY TO CREATE' : `NEXT — ${(STEPS[step + 1]?.title ?? '').toUpperCase()}`}
+              </span>
+            ) : (
+              <span className="t-dense" role="status" style={{ flex: 1, color: 'var(--stress)' }}>
+                {reason}
+              </span>
+            ))}
+          {last ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void finish()}
+              disabled={blockers.length > 0}
+              style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 168 }}
+            >
+              Create character
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+              disabled={held !== null}
+              style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 128 }}
+            >
+              Next
+            </button>
+          )}
+        </div>
       </nav>
     </div>
   );
+}
+
+/**
+ * The step you are on, rendered.
+ *
+ * A switch on the step's id rather than on its position, so that adding a step
+ * to STEPS fails to compile until it has a screen. The old chain of
+ * `step === 4 && <StepEquipment/>` type-checked perfectly while pointing at the
+ * wrong component, which is the exact mistake renumbering invites.
+ */
+function StepBody({
+  id,
+  draft,
+  set,
+  klass,
+  blockers,
+  warnings,
+}: {
+  id: StepId;
+  draft: Draft;
+  set: (p: Partial<Draft>) => void;
+  klass: CharClass | undefined;
+  blockers: Blocker[];
+  warnings: Warning[];
+}): React.JSX.Element {
+  switch (id) {
+    case 'class':
+      return <StepClass draft={draft} set={set} />;
+    case 'subclass':
+      return <StepSubclass draft={draft} set={set} klass={klass} />;
+    case 'ancestry':
+      return <StepAncestry draft={draft} set={set} />;
+    case 'community':
+      return <StepCommunity draft={draft} set={set} />;
+    case 'traits':
+      return <StepTraits draft={draft} set={set} />;
+    case 'record':
+      return <StepRecord klass={klass} armorRef={draft.armor} />;
+    case 'equipment':
+      return <StepEquipment draft={draft} set={set} klass={klass} />;
+    case 'background':
+      return <StepBackground draft={draft} set={set} klass={klass} />;
+    case 'experiences':
+      return <StepExperiences draft={draft} set={set} />;
+    case 'cards':
+      return <StepCards draft={draft} set={set} klass={klass} />;
+    case 'connections':
+      return <StepConnections draft={draft} set={set} klass={klass} />;
+    case 'inventory':
+      return (
+        <StepGold draft={draft} set={set} klass={klass} blockers={blockers} warnings={warnings} />
+      );
+    default: {
+      const unbuilt: never = id;
+      throw new Error(`no screen for step "${String(unbuilt)}"`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -282,14 +338,20 @@ function WizardHeader({
   done,
   phone,
   onCancel,
+  furthest,
+  lockedReason,
 }: {
   step: number;
   setStep: (n: number) => void;
   done: boolean[];
   phone: boolean;
   onCancel?: () => void;
+  /** The last step the rail may jump to. See `furthestReachable`. */
+  furthest: number;
+  /** Why the rail stops there, for the tooltip on a step it refuses. */
+  lockedReason: string | null;
 }): React.JSX.Element {
-  const title = STEPS[step] ?? '';
+  const title = STEPS[step]?.title ?? '';
 
   if (phone) {
     return (
@@ -330,7 +392,7 @@ function WizardHeader({
         <div style={{ display: 'flex', gap: 2, height: 2, padding: '0 12px 0' }}>
           {STEPS.map((s, i) => (
             <span
-              key={s}
+              key={s.id}
               style={{
                 flex: 1,
                 background:
@@ -367,32 +429,47 @@ function WizardHeader({
           </button>
         )}
       </div>
+      {/* Backwards is always free: going back to change your class after
+          reading its cards is ordinary play, not a mistake to be prevented.
+          Forwards runs as far as the first step still holding you and stops
+          there, because past it the rail would only be offering screens built
+          on a choice that has not been made - a domain card list with no
+          domains, thresholds with no armor. The step you are standing on is
+          always inside the range, so no sequence of choices can leave you
+          somewhere the rail then refuses to bring you back from. */}
       <ol
         className="row"
         style={{ gap: 4, margin: 0, padding: 0, listStyle: 'none', flexWrap: 'wrap' }}
       >
         {STEPS.map((s, i) => {
-          const current = i === step;
+          const here = i === step;
+          const locked = i > furthest;
           return (
-            <li key={s}>
+            <li key={s.id}>
               <button
                 type="button"
                 onClick={() => setStep(i)}
-                aria-current={current ? 'step' : undefined}
-                title={`${i + 1}. ${s}`}
+                disabled={locked}
+                aria-current={here ? 'step' : undefined}
+                title={
+                  locked && lockedReason !== null
+                    ? `${lockedReason} Then step ${i + 1} opens.`
+                    : `${i + 1}. ${s.title}`
+                }
                 className="row"
                 style={{
                   gap: 7,
                   height: 34,
                   padding: '0 11px',
                   borderRadius: 'var(--r2)',
-                  background: current ? 'var(--raised)' : 'transparent',
-                  border: `1px solid ${current ? 'var(--line)' : 'transparent'}`,
+                  background: here ? 'var(--raised)' : 'transparent',
+                  border: `1px solid ${here ? 'var(--line)' : 'transparent'}`,
+                  opacity: locked ? 0.38 : 1,
                 }}
               >
                 <span
                   className="t-num"
-                  style={{ fontSize: 11, color: current ? 'var(--text)' : 'var(--dim)' }}
+                  style={{ fontSize: 11, color: here ? 'var(--text)' : 'var(--dim)' }}
                 >
                   {i + 1}
                 </span>
@@ -415,7 +492,7 @@ function WizardHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — class and subclass
+// Name and class
 // ---------------------------------------------------------------------------
 
 function StepClass({
@@ -428,7 +505,6 @@ function StepClass({
   const dataset = useApp((s) => s.dataset);
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const klass = dataset.classes.find((c) => c.id === draft.classRef);
-  const subclasses = dataset.subclasses.filter((s) => s.classRef === draft.classRef);
 
   return (
     <>
@@ -489,47 +565,81 @@ function StepClass({
       </Section>
 
       {klass && (
-        <>
-          <Section label={`${klass.name} features`} hint="Text, not automation">
-            <div className="stack" style={{ gap: 8 }}>
-              <FeatureBlock name={klass.hopeFeature.name} text={klass.hopeFeature.text} tag="HOPE" />
-              {klass.classFeatures.map((f) => (
-                <FeatureBlock key={f.name} name={f.name} text={f.text} />
-              ))}
-            </div>
-          </Section>
-
-          <Section label="Choose a subclass" hint="You take its Foundation card">
-            <Columns min={300}>
-              {subclasses.map((s) => (
-                <Choice
-                  key={s.id}
-                  selected={draft.subclassRef === s.id}
-                  onClick={() => set({ subclassRef: s.id })}
-                  title={s.name}
-                  meta={
-                    s.spellcastTrait === null
-                      ? 'NO SPELLCAST TRAIT'
-                      : `SPELLCAST · ${TRAIT_LABELS[s.spellcastTrait].toUpperCase()}`
-                  }
-                >
-                  <span className="stack" style={{ gap: 6, width: '100%' }}>
-                    {s.foundationFeatures.map((f) => (
-                      <FeatureBlock key={f.name} name={f.name} text={f.text} tag="FOUNDATION" />
-                    ))}
-                  </span>
-                </Choice>
-              ))}
-            </Columns>
-          </Section>
-        </>
+        <Section label={`${klass.name} features`} hint="Text, not automation">
+          <div className="stack" style={{ gap: 8 }}>
+            <FeatureBlock name={klass.hopeFeature.name} text={klass.hopeFeature.text} tag="HOPE" />
+            {klass.classFeatures.map((f) => (
+              <FeatureBlock key={f.name} name={f.name} text={f.text} />
+            ))}
+          </div>
+        </Section>
       )}
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — heritage
+// Subclass
+// ---------------------------------------------------------------------------
+
+/**
+ * A screen of its own, because it used to be the bottom half of the class
+ * screen: nine class cards and a block of feature text stood between the
+ * heading and the second of that screen's two required choices, which on a
+ * phone put it about two screens below the words that promised it. A choice
+ * nobody scrolls to is a choice nobody makes.
+ */
+function StepSubclass({
+  draft,
+  set,
+  klass,
+}: {
+  draft: Draft;
+  set: (p: Partial<Draft>) => void;
+  klass: CharClass | undefined;
+}): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const subclasses = dataset.subclasses.filter((s) => s.classRef === draft.classRef);
+
+  if (!klass) {
+    return (
+      <Callout
+        tone="warn"
+        items={[`Choose a class at step ${stepNumber('class')} to see its subclasses.`]}
+      />
+    );
+  }
+  if (subclasses.length === 0) return <DatasetEmpty what={`subclasses for ${klass.name}`} />;
+
+  return (
+    <Section label="Choose a subclass" hint={`${klass.name.toUpperCase()} — YOU TAKE ITS FOUNDATION CARD`}>
+      <Columns min={300}>
+        {subclasses.map((s) => (
+          <Choice
+            key={s.id}
+            selected={draft.subclassRef === s.id}
+            onClick={() => set({ subclassRef: s.id })}
+            title={s.name}
+            meta={
+              s.spellcastTrait === null
+                ? 'NO SPELLCAST TRAIT'
+                : `SPELLCAST · ${TRAIT_LABELS[s.spellcastTrait].toUpperCase()}`
+            }
+          >
+            <span className="stack" style={{ gap: 6, width: '100%' }}>
+              {s.foundationFeatures.map((f) => (
+                <FeatureBlock key={f.name} name={f.name} text={f.text} tag="FOUNDATION" />
+              ))}
+            </span>
+          </Choice>
+        ))}
+      </Columns>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Heritage: ancestry, then community
 // ---------------------------------------------------------------------------
 
 function AncestryFeature({ ancestry, which }: { ancestry: Ancestry; which: 0 | 1 }): React.JSX.Element {
@@ -537,7 +647,14 @@ function AncestryFeature({ ancestry, which }: { ancestry: Ancestry; which: 0 | 1
   return <FeatureBlock name={f.name} text={f.text} tag={which === 0 ? 'FIRST' : 'SECOND'} />;
 }
 
-function StepHeritage({
+/**
+ * Ancestry and community are the SRD's one heritage step, and they are two
+ * screens here for the same reason the class and its subclass are: eighteen
+ * ancestry cards stood between the top of the page and the nine communities,
+ * so the second of the step's required choices was a long scroll past the
+ * point where the page looked finished.
+ */
+function StepAncestry({
   draft,
   set,
 }: {
@@ -547,9 +664,8 @@ function StepHeritage({
   const dataset = useApp((s) => s.dataset);
   const top = dataset.ancestries.find((a) => a.id === draft.ancestryTop);
   const bottom = dataset.ancestries.find((a) => a.id === draft.ancestryBottom);
-  const community = dataset.communities.find((c) => c.id === draft.communityRef);
 
-  if (dataset.ancestries.length === 0) return <DatasetEmpty what="ancestries or communities" />;
+  if (dataset.ancestries.length === 0) return <DatasetEmpty what="ancestries" />;
 
   return (
     <>
@@ -634,42 +750,57 @@ function StepHeritage({
           </div>
         )}
       </Section>
-
-      <Section label="Community" hint={`${dataset.communities.length} to choose from`}>
-        <Columns min={250}>
-          {dataset.communities.map((c) => (
-            <Choice
-              key={c.id}
-              selected={draft.communityRef === c.id}
-              onClick={() => set({ communityRef: c.id })}
-              title={c.name}
-              meta={c.feature.name.toUpperCase()}
-              body={c.description}
-              clamp={2}
-            />
-          ))}
-        </Columns>
-        {community && (
-          <div className="stack" style={{ gap: 8 }}>
-            <FeatureBlock name={community.feature.name} text={community.feature.text} tag="COMMUNITY" />
-            {community.traits.length > 0 && (
-              <div className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
-                {community.traits.map((t) => (
-                  <span key={t} className="chip">
-                    {t.toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </Section>
     </>
   );
 }
 
+function StepCommunity({
+  draft,
+  set,
+}: {
+  draft: Draft;
+  set: (p: Partial<Draft>) => void;
+}): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const community = dataset.communities.find((c) => c.id === draft.communityRef);
+
+  if (dataset.communities.length === 0) return <DatasetEmpty what="communities" />;
+
+  return (
+    <Section label="Community" hint={`${dataset.communities.length} to choose from`}>
+      <Columns min={250}>
+        {dataset.communities.map((c) => (
+          <Choice
+            key={c.id}
+            selected={draft.communityRef === c.id}
+            onClick={() => set({ communityRef: c.id })}
+            title={c.name}
+            meta={c.feature.name.toUpperCase()}
+            body={c.description}
+            clamp={2}
+          />
+        ))}
+      </Columns>
+      {community && (
+        <div className="stack" style={{ gap: 8 }}>
+          <FeatureBlock name={community.feature.name} text={community.feature.text} tag="COMMUNITY" />
+          {community.traits.length > 0 && (
+            <div className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
+              {community.traits.map((t) => (
+                <span key={t} className="chip">
+                  {t.toUpperCase()}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Step 3 — traits
+// Character traits
 // ---------------------------------------------------------------------------
 
 function StepTraits({
@@ -790,7 +921,7 @@ function StepTraits({
 }
 
 // ---------------------------------------------------------------------------
-// Step 4 — the numbers the class hands you
+// Level, Evasion & HP — the numbers the class hands you
 // ---------------------------------------------------------------------------
 
 function Readout({
@@ -828,7 +959,12 @@ function StepRecord({
   const index = useApp((s) => s.index);
 
   if (!klass) {
-    return <Callout tone="warn" items={['Choose a class at step 1 and these numbers fill in.']} />;
+    return (
+      <Callout
+        tone="warn"
+        items={[`Choose a class at step ${stepNumber('class')} and these numbers fill in.`]}
+      />
+    );
   }
 
   // Every number here is the engine's, read off a sheet built from the choices
@@ -866,7 +1002,7 @@ function StepRecord({
             tone="info"
             word="THRESHOLDS"
             items={[
-              'Your thresholds are your armor’s base thresholds plus your level. Pick armor at step 5 and they appear here.',
+              `Your thresholds are your armor’s base thresholds plus your level. Pick armor at step ${stepNumber('equipment')} and they appear here.`,
             ]}
           />
         )}
@@ -876,7 +1012,7 @@ function StepRecord({
 }
 
 // ---------------------------------------------------------------------------
-// Step 5 — equipment
+// Starting equipment
 // ---------------------------------------------------------------------------
 
 function StepEquipment({
@@ -986,7 +1122,7 @@ function StepEquipment({
 }
 
 // ---------------------------------------------------------------------------
-// Steps 6 and 9 — the class's written questions
+// Background and connections — the class's written questions
 // ---------------------------------------------------------------------------
 
 function QuestionList({
@@ -1050,7 +1186,7 @@ function StepBackground({
         questions={klass?.backgroundQuestions ?? []}
         answers={draft.background}
         onChange={(background) => set({ background })}
-        emptyNote="Choose a class at step 1 to see its background questions."
+        emptyNote={`Choose a class at step ${stepNumber('class')} to see its background questions.`}
       />
       <p className="t-meta" style={{ margin: 0, color: 'var(--dim)' }}>
         SAVED INTO THE CHARACTER'S NOTES
@@ -1078,14 +1214,14 @@ function StepConnections({
         questions={klass?.connectionQuestions ?? []}
         answers={draft.connections}
         onChange={(connections) => set({ connections })}
-        emptyNote="Choose a class at step 1 to see its connection questions."
+        emptyNote={`Choose a class at step ${stepNumber('class')} to see its connection questions.`}
       />
     </Section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step 7 — experiences
+// Experiences
 // ---------------------------------------------------------------------------
 
 function StepExperiences({
@@ -1115,10 +1251,21 @@ function StepExperiences({
 }
 
 // ---------------------------------------------------------------------------
-// Step 8 — domain cards
+// Domain cards
 // ---------------------------------------------------------------------------
 
-function StepCards({
+/**
+ * Exported, alone among the step screens, so a test can render it.
+ *
+ * Two things land here that land nowhere else: how many cards this character
+ * takes, which is not always two, and whether a card can be read without being
+ * opened. Both were wrong until recently and both were wrong in a way every
+ * unit test agreed with, so the evidence that they are right has to be this
+ * screen's own markup rather than the functions behind it. Getting here by
+ * tapping would mean driving eight screens, including an equipment picker, in a
+ * runner with no DOM.
+ */
+export function StepCards({
   draft,
   set,
   klass,
@@ -1132,7 +1279,11 @@ function StepCards({
   const setOpenCard = useApp((s) => s.setOpenCard);
   const phone = useIsPhone();
 
-  if (!klass) return <Callout tone="warn" items={['Choose a class at step 1 to see its domains.']} />;
+  if (!klass) {
+    return (
+      <Callout tone="warn" items={[`Choose a class at step ${stepNumber('class')} to see its domains.`]} />
+    );
+  }
 
   const cards = dataset.domainCards
     .filter((c) => c.level === 1 && klass.domains.includes(c.domain))
@@ -1140,15 +1291,35 @@ function StepCards({
 
   if (cards.length === 0) return <DatasetEmpty what="domain cards" />;
 
+  // Two, unless the subclass says three. Nothing else on this screen would tell
+  // a School of Knowledge wizard that Prepared owes them another card, so the
+  // heading carries the number and the hint carries the reason.
+  const grants = startingCardGrants([draft.subclassRef], dataset);
+  const allowance = startingCardAllowance([draft.subclassRef], dataset);
+  const why =
+    grants.length === 0
+      ? ''
+      : ` — ${cardCountWord(allowance - BASE_STARTING_CARDS).toUpperCase()} EXTRA FROM ${grants
+          .map((g) => g.feature.toUpperCase())
+          .join(' AND ')}`;
+
+  // "One from each, or two from one" stops being true the moment a subclass
+  // pays for a third card, and an instruction that is wrong about the number is
+  // worse than no instruction at all.
+  const split =
+    allowance === BASE_STARTING_CARDS
+      ? 'ONE FROM EACH, OR TWO FROM ONE — WHICHEVER YOU PREFER'
+      : `SPLIT THE ${cardCountWord(allowance).toUpperCase()} BETWEEN THEM HOWEVER YOU LIKE`;
+
   const toggle = (id: Ref): void => {
     if (draft.cards.includes(id)) set({ cards: draft.cards.filter((r) => r !== id) });
-    else if (draft.cards.length < 2) set({ cards: [...draft.cards, id] });
+    else if (draft.cards.length < allowance) set({ cards: [...draft.cards, id] });
   };
 
   return (
     <Section
-      label="Two level 1 cards"
-      hint={`${draft.cards.length} / 2 CHOSEN`}
+      label={`${cardCountWord(allowance)} level 1 cards`}
+      hint={`${draft.cards.length} / ${allowance} CHOSEN${why}`}
     >
       <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
         {klass.domains.map((d) => (
@@ -1158,43 +1329,45 @@ function StepCards({
           </span>
         ))}
         <span className="t-meta" style={{ color: 'var(--dim)' }}>
-          ONE FROM EACH, OR TWO FROM ONE — WHICHEVER YOU PREFER
+          {split}
         </span>
       </div>
 
+      {/* Wide columns, because this is the one grid in the app whose cards have
+          to be read rather than recognised. 280px gives a 390px phone one card
+          per row - a 342px text column, which is where every level 1 card in
+          the SRD fits whole - and 290px stacks three in the 980px panel at
+          295px each, where all but one does. The old 150/200px columns are what
+          left a new player comparing six cards by their first three lines. */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(auto-fill, minmax(${phone ? 150 : 200}px, 1fr))`,
+          gridTemplateColumns: `repeat(auto-fill, minmax(${phone ? 280 : 290}px, 1fr))`,
           gap: 12,
         }}
       >
         {cards.map((card) => {
           const taken = draft.cards.includes(card.id);
-          const full = draft.cards.length >= 2 && !taken;
+          const full = draft.cards.length >= allowance && !taken;
           return (
             // Two separate targets rather than a control nested inside the
             // card's own button: tapping the card reads it, the bar below
             // commits to it. Taking a card is a decision and earns its own tap.
             <div key={card.id} className="stack" style={{ gap: 6 }}>
+              {/* The reading card: no banner, the rules text at reading size,
+                  and no clamp. This is the one screen where the question is
+                  "what does this do", and a card that answered it with three
+                  lines and an ellipsis under a domain wordmark was answering a
+                  different one. `height` is a floor here rather than a height -
+                  the card grows to fit its text - and 168px is where the fourth
+                  line sits, below which a card stops reading as a card. */}
               <DomainCardView
                 card={card}
                 shapes={shapes}
                 onOpen={() => setOpenCard(card)}
-                height={phone ? 262 : 300}
-                headHeight={phone ? 76 : 92}
-                clamp={phone ? 3 : 4}
+                variant="reading"
+                height={168}
                 dimmed={full}
-                footer={
-                  <>
-                    <span className="t-meta" style={{ letterSpacing: '0.09em' }}>
-                      TAP FOR FULL TEXT
-                    </span>
-                    <span className="t-meta" style={{ color: 'var(--dim)' }}>
-                      RECALL {card.recallCost}
-                    </span>
-                  </>
-                }
               />
               <button
                 type="button"
@@ -1217,7 +1390,7 @@ function StepCards({
                   className="t-meta"
                   style={{ letterSpacing: '0.12em', color: taken ? 'var(--text)' : 'var(--muted)' }}
                 >
-                  {taken ? 'TAKEN' : full ? 'TWO ALREADY' : 'TAKE'}
+                  {taken ? 'TAKEN' : full ? `${cardCountWord(allowance).toUpperCase()} ALREADY` : 'TAKE'}
                 </span>
               </button>
             </div>
@@ -1229,7 +1402,7 @@ function StepCards({
 }
 
 // ---------------------------------------------------------------------------
-// Step 10 — gold and inventory
+// Gold and inventory
 // ---------------------------------------------------------------------------
 
 function StepGold({
@@ -1242,8 +1415,8 @@ function StepGold({
   draft: Draft;
   set: (p: Partial<Draft>) => void;
   klass: CharClass | undefined;
-  blockers: string[];
-  warnings: string[];
+  blockers: Blocker[];
+  warnings: Warning[];
 }): React.JSX.Element {
   const kitLines = STARTER_KIT;
 
@@ -1305,206 +1478,17 @@ function StepGold({
         </Section>
       </Columns>
 
-      <Callout tone="error" items={blockers} />
-      <Callout tone="warn" items={warnings} word="YOU CAN STILL CREATE" />
+      {/* The last word before Create. Next now refuses at the step that owns
+          each blocker, so on a straight run through nothing survives to be
+          listed here - but a player who goes back and un-picks something, or a
+          dataset that cannot offer a class at all, still arrives with one. Each
+          line names the step it belongs to, because from here that step is a
+          jump away rather than the one under your thumb. */}
+      <Callout tone="error" items={blockers.map(noteLine)} />
+      <Callout tone="warn" items={warnings.map(noteLine)} word="YOU CAN STILL CREATE" />
       {blockers.length === 0 && warnings.length === 0 && (
         <Callout tone="ok" items={['Every step is answered. Create the character.']} />
       )}
     </>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Rules of completion
-// ---------------------------------------------------------------------------
-
-interface KitLine {
-  key: string;
-  name: string;
-  tag: string;
-}
-
-/** The three lines step 5 gives every character regardless of class. */
-const STARTER_KIT: KitLine[] = [
-  { key: 'torch', name: 'A torch', tag: 'SRD' },
-  { key: 'rope', name: '50 feet of rope', tag: 'SRD' },
-  { key: 'supplies', name: 'Basic supplies', tag: 'SRD' },
-];
-
-function stepsDone(draft: Draft, klass: CharClass | undefined): boolean[] {
-  const heritage =
-    draft.ancestryTop !== null &&
-    draft.communityRef !== null &&
-    (!draft.mixed || draft.ancestryBottom !== null);
-  const answered = (a: string[]): boolean => a.some((s) => s.trim() !== '');
-  return [
-    draft.classRef !== '' && draft.subclassRef !== null,
-    heritage,
-    TRAITS.every((t) => draft.traits[t] !== undefined),
-    klass !== undefined,
-    draft.primary !== null && draft.armor !== null,
-    answered(draft.background),
-    draft.experiences.filter((e) => e.name.trim() !== '').length >= 2,
-    draft.cards.length === 2,
-    answered(draft.connections),
-    klass !== undefined,
-  ];
-}
-
-/**
- * Blockers stop creation; warnings do not. The split follows the SRD: the
- * mechanical choices are required, the written ones can be discovered in play.
- */
-function review(
-  draft: Draft,
-  klass: CharClass | undefined,
-  dataset: Dataset,
-): { blockers: string[]; warnings: string[] } {
-  const blockers: string[] = [];
-  const warnings: string[] = [];
-
-  // A choice is only a blocker when the dataset can actually offer it.
-  // Otherwise the wizard demands something nobody can give and the Create
-  // button is dead with no way to explain itself.
-  if (dataset.classes.length === 0) {
-    blockers.push('Step 1: this dataset has no classes, and a character cannot be built without one.');
-  } else if (!klass) {
-    blockers.push('Step 1: choose a class.');
-  } else if (draft.subclassRef === null) {
-    if (dataset.subclasses.some((s) => s.classRef === klass.id)) {
-      blockers.push('Step 1: choose a subclass.');
-    } else {
-      warnings.push(`Step 1: this dataset has no subclasses for ${klass.name}.`);
-    }
-  }
-
-  if (dataset.ancestries.length === 0) {
-    warnings.push('Step 2: no ancestries in this dataset.');
-  } else {
-    if (draft.ancestryTop === null) blockers.push('Step 2: choose an ancestry.');
-    if (draft.mixed && draft.ancestryBottom === null) {
-      blockers.push('Step 2: a Mixed Ancestry needs a second lineage for its second feature.');
-    }
-  }
-  if (dataset.communities.length === 0) {
-    warnings.push('Step 2: no communities in this dataset.');
-  } else if (draft.communityRef === null) {
-    blockers.push('Step 2: choose a community.');
-  }
-
-  const unassigned = TRAITS.filter((t) => draft.traits[t] === undefined).length;
-  if (unassigned > 0) {
-    blockers.push(
-      `Step 3: ${unassigned} trait${unassigned === 1 ? '' : 's'} still have no modifier.`,
-    );
-  }
-
-  if (dataset.weapons.length > 0 || dataset.armors.length > 0) {
-    if (draft.primary === null) blockers.push('Step 5: choose a primary weapon.');
-    if (draft.armor === null) blockers.push('Step 5: choose a set of armor.');
-    // Above tier 1 is a warning, never a blocker: the SRD starts a character
-    // at tier 1, but a table that hands out an heirloom at creation has not
-    // done anything this app gets to refuse.
-    const gear = [
-      draft.primary === null ? undefined : dataset.weapons.find((w) => w.id === draft.primary),
-      draft.secondary === null ? undefined : dataset.weapons.find((w) => w.id === draft.secondary),
-      draft.armor === null ? undefined : dataset.armors.find((a) => a.id === draft.armor),
-    ];
-    for (const item of gear) {
-      if (item !== undefined && item.tier > tierOf(1)) {
-        warnings.push(`Step 5: ${item.name} is tier ${item.tier} — the SRD starts you at tier 1.`);
-      }
-    }
-  } else {
-    warnings.push('Step 5: no weapon or armor tables in this dataset, so equipment is empty.');
-  }
-
-  if (dataset.domainCards.length > 0) {
-    const missing = 2 - draft.cards.length;
-    if (missing > 0) {
-      blockers.push(`Step 8: take ${missing} more domain card${missing === 1 ? '' : 's'}.`);
-    }
-  } else {
-    warnings.push('Step 8: no domain cards in this dataset.');
-  }
-
-  if (draft.name.trim() === '') warnings.push('No name yet — the sheet will read "Unnamed".');
-  if (draft.experiences.filter((e) => e.name.trim() !== '').length < 2) {
-    warnings.push('Step 7: both Experiences are worth +2 whether or not you have named them.');
-  }
-  if (!draft.background.some((a) => a.trim() !== '')) {
-    warnings.push('Step 6: no background answers — fine, you can discover them in play.');
-  }
-  if (!draft.connections.some((a) => a.trim() !== '')) {
-    warnings.push('Step 9: no connections yet — these are usually written with the other players.');
-  }
-
-  return { blockers, warnings };
-}
-
-function assemble(
-  draft: Draft,
-  klass: CharClass,
-  consumables: Array<{ id: string; name: string; text: string }>,
-): Partial<Character> {
-  const traits = {} as Record<Trait, number>;
-  for (const t of TRAITS) traits[t] = draft.traits[t] ?? 0;
-
-  const inventory: InventoryEntry[] = STARTER_KIT.filter(
-    (line) => draft.kit[line.key] !== false,
-  ).map((line) => ({ ref: null, name: line.name, quantity: 1 }));
-
-  const classItem = draft.classItem === null ? undefined : klass.classItems[draft.classItem];
-  if (classItem !== undefined) inventory.push({ ref: null, name: classItem, quantity: 1 });
-
-  if (draft.potion !== null) {
-    const known = consumables.find((c) => c.id === draft.potion);
-    const printed = POTIONS.find((p) => p.ref === draft.potion);
-    inventory.push({
-      ref: known?.id ?? null,
-      name: known?.name ?? printed?.name ?? 'Potion',
-      quantity: 1,
-      note: known?.text ?? printed?.text,
-    });
-  }
-  inventory.push(...draft.inventory.filter((e) => e.name.trim() !== ''));
-
-  const notes = klass.backgroundQuestions
-    .map((q, i) => ({ q, a: (draft.background[i] ?? '').trim() }))
-    .filter((row) => row.a !== '')
-    .map((row) => `${row.q}\n${row.a}`)
-    .join('\n\n');
-
-  const connections = klass.connectionQuestions
-    .map((q, i) => ({ q, a: (draft.connections[i] ?? '').trim() }))
-    .filter((row) => row.a !== '')
-    .map((row) => `${row.q} — ${row.a}`);
-
-  const ancestryRefs = draft.mixed
-    ? [draft.ancestryTop, draft.ancestryBottom].filter((r): r is Ref => r !== null)
-    : draft.ancestryTop !== null
-      ? [draft.ancestryTop]
-      : [];
-
-  return {
-    name: draft.name.trim(),
-    pronouns: draft.pronouns.trim(),
-    classRef: klass.id,
-    subclassRefs: draft.subclassRef === null ? [] : [draft.subclassRef],
-    ancestryRefs,
-    communityRef: draft.communityRef,
-    level: 1,
-    traits,
-    // Two cards at level 1 fit inside the five-card loadout, so they start active.
-    loadout: draft.cards,
-    vault: [],
-    activePrimaryWeapon: draft.primary,
-    activeSecondaryWeapon: draft.secondary,
-    activeArmor: draft.armor,
-    inventory,
-    experiences: draft.experiences.filter((e) => e.name.trim() !== ''),
-    gold: draft.gold,
-    connections,
-    notes,
-  };
 }

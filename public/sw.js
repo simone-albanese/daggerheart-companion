@@ -87,6 +87,45 @@ async function precache() {
   // mid-session is the one thing an offline app must never do.
 }
 
+/**
+ * Fill the caches again if something has emptied them.
+ *
+ * `precache` runs on install, and install happens once: a browser installs a
+ * replacement worker only when the bytes of this file change, and between
+ * deploys they do not. The caches are nowhere near as durable as the
+ * registration that owns them - a browser reclaims Cache Storage under pressure
+ * and clears it for a site nobody has opened in a while, and clearing site data
+ * by hand takes the caches and leaves the worker behind. Every one of those
+ * ends the same way: an activated worker sitting on an empty cache, an app that
+ * still looks installed, and no path back, because the one thing that fills
+ * these caches has already run and will not run again.
+ *
+ * The symptom is silent until it is total. The app opens fine on a train with
+ * signal - the fetch handler misses, goes to the network, and refills as it
+ * goes - and then one evening it is opened in a basement and it is a white
+ * screen, with a character sheet inside it that the user cannot reach.
+ *
+ * So the check happens whenever the worker is awake and in a position to do
+ * something about it: as it activates, and whenever a client talks to it. Best
+ * effort, because offline there is nothing to fetch and an activation that
+ * failed over it would leave the user worse off than one that quietly tried;
+ * loud, because a precache that will not rebuild is worth a console line.
+ *
+ * Returns the cached document, or nothing if it could not be had.
+ */
+async function ensurePrecached() {
+  const shellCache = await caches.open(SHELL_CACHE);
+  const cached = await shellCache.match(SHELL_URL);
+  if (cached) return cached;
+  try {
+    await precache();
+  } catch (error) {
+    console.warn('[sw] could not rebuild the precache', error);
+    return undefined;
+  }
+  return shellCache.match(SHELL_URL);
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(takeOver());
 });
@@ -104,6 +143,11 @@ async function takeOver() {
   // importer would silently stop working offline - the kind of regression that
   // only shows up on a machine with no signal and a 319 MB PDF to hand.
   const wanted = await importerWasWanted();
+  // Refill before pruning, not after. A cache the browser reclaimed has nothing
+  // to prune and everything to rebuild, and `pruneAssets` reads the very
+  // document that is missing - so on its own it looks at an empty cache, finds
+  // no document, and returns satisfied.
+  await ensurePrecached();
   await pruneAssets();
   if (wanted) await warmImporter();
 
@@ -131,8 +175,14 @@ async function importerWasWanted() {
 }
 
 async function warmImporter() {
-  const shellCache = await caches.open(SHELL_CACHE);
-  const document = await shellCache.match(SHELL_URL);
+  // Not a bare read of the shell cache. A client only posts this once it knows
+  // it can run the importer, which is to say on a desktop that has just loaded
+  // the app - so it is the one event that reliably reaches a worker that is
+  // activated but not yet controlling anything, and the best chance the worker
+  // gets to notice its cache is gone. Reading first and giving up quietly is
+  // what left production with a `dhc-shell-v1` holding nothing, opened by this
+  // line and never written to by anyone.
+  const document = await ensurePrecached();
   if (!document) return;
   const assets = await caches.open(ASSET_CACHE);
   const { hashed } = await reachableFrom(await document.text(), assets);

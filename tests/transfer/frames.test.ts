@@ -194,6 +194,47 @@ describe('reassembling', () => {
     if (finishTwo.status === 'complete') expect(finishTwo.payload).toEqual(two);
   });
 
+  it('keeps two senders apart even when they are sending the same sheet', () => {
+    // Every other "two senders" test here sends two DIFFERENT payloads, so the
+    // crc alone does all the separating and the transfer id in the group key is
+    // never load-bearing. Two players at the same table exporting the same
+    // pregen is the case that reads on the crc as one transfer: identical
+    // bytes, identical crc, identical frame count, different ids.
+    //
+    // If the collector filed by crc alone, B's frames would land in A's
+    // half-scanned set: B's first two scans would report "duplicate" while the
+    // progress bar stood still, the set would finish under A's id, and B's own
+    // cancel button would have nothing to cancel.
+    const payload = payloadOf(400, 5);
+    const fromA = toFrameBytes(payload, 0x1111);
+    const fromB = toFrameBytes(payload, 0x2222);
+    expect(fromA).toHaveLength(3);
+    const collector = new FrameCollector();
+
+    expect(collector.accept(fromA[0]!).status).toBe('partial');
+    expect(collector.accept(fromA[1]!).status).toBe('partial');
+
+    const bResults = fromB.map((frame) => collector.accept(frame));
+    expect(bResults.map((r) => r.status)).toEqual(['partial', 'partial', 'complete']);
+
+    const finished = bResults[2]!;
+    expect(finished.status === 'complete' ? finished.transferId : null).toBe(0x2222);
+    expect(finished.status === 'complete' ? [...finished.payload] : null).toEqual([...payload]);
+
+    // Two sets on screen, not one: A is still waiting for its last frame.
+    const inFlight = new Map(collector.progress().map((p) => [p.transferId, p]));
+    expect([...inFlight.keys()].sort()).toEqual([0x1111, 0x2222]);
+    expect(inFlight.get(0x1111)!.received).toBe(2);
+    expect(inFlight.get(0x1111)!.missing).toEqual([3]);
+    expect(inFlight.get(0x1111)!.complete).toBe(false);
+    expect(inFlight.get(0x2222)!.received).toBe(3);
+    expect(inFlight.get(0x2222)!.complete).toBe(true);
+
+    // And B can put its own transfer away without touching A's.
+    collector.forget(0x2222);
+    expect(collector.progress().map((p) => p.transferId)).toEqual([0x1111]);
+  });
+
   it('rejects a set that does not add up, rather than handing over a wrong character', () => {
     const payload = payloadOf(400);
     const frames = chunkPayload(payload, 0x6666);

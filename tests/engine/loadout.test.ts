@@ -1,3 +1,16 @@
+/**
+ * The loadout is the five cards a player can actually reach mid-scene; the
+ * vault is everything else they own. Swapping between them is the one move a
+ * character makes over and over in a session, and it costs Stress, so getting
+ * it wrong costs the player something real at the table.
+ *
+ * Two properties matter beyond "the ref moved". First, a recall may only ever
+ * move a card the character already owns - vault membership is the gate that
+ * stops a Stress-priced recall from being a way to acquire a card the sheet
+ * has no right to. Second, both movers stamp updatedAt: the store sorts by it
+ * and a backup merge keeps whichever copy claims to be newer, so a swap that
+ * does not move the clock is a swap the next restore can silently put back.
+ */
 import { describe, expect, it } from 'vitest';
 import {
   canAddToLoadout,
@@ -138,6 +151,57 @@ describe('vaultCard', () => {
     let c = makeCharacter({ loadout: [...five], vault: ['f'], stress: { marked: 0, max: 6 } });
     c = vaultCard(c, 'a');
     expect(canAddToLoadout(c, card('f')).allowed).toBe(true);
+  });
+
+  it('stamps the sheet as changed, so a restore cannot put the card back', () => {
+    // A card moved out of the loadout is a decision the player made about what
+    // they can reach this scene. src/store/backup.ts:587 keeps the local copy
+    // on merge whenever here.updatedAt >= theirs, so an unstamped swap is one a
+    // backup restore may quietly undo - the player looks down mid-combat and
+    // the card they vaulted is holding a slot again.
+    const c = makeCharacter({ loadout: ['x'], updatedAt: '2020-01-01T00:00:00.000Z' });
+    const next = vaultCard(c, 'x');
+
+    expect(next.vault).toEqual(['x']);
+    expect(Number.isNaN(Date.parse(next.updatedAt))).toBe(false);
+    expect(Date.parse(next.updatedAt)).toBeGreaterThan(Date.parse(c.updatedAt));
+    expect(c.updatedAt).toBe('2020-01-01T00:00:00.000Z');
+  });
+
+  it('leaves the clock alone when there was nothing to move', () => {
+    // The no-op returns the same object, so a tap on a card that is not in the
+    // loadout cannot win a merge against a real change made elsewhere.
+    const c = makeCharacter({ loadout: ['y'], vault: ['x'], updatedAt: '2020-01-01T00:00:00.000Z' });
+    expect(vaultCard(c, 'x').updatedAt).toBe('2020-01-01T00:00:00.000Z');
+  });
+});
+
+describe('a recall stamps the sheet too', () => {
+  it('moves the clock on a free downtime swap', () => {
+    const c = makeCharacter({ vault: ['x'], updatedAt: '2020-01-01T00:00:00.000Z' });
+    const r = recallCard(c, card('x', 3), { downtime: true });
+    expect(r.character.loadout).toEqual(['x']);
+    expect(Date.parse(r.character.updatedAt)).toBeGreaterThan(Date.parse(c.updatedAt));
+  });
+
+  it('moves the clock on a swap paid for in Stress', () => {
+    const c = makeCharacter({
+      vault: ['x'],
+      stress: { marked: 0, max: 6 },
+      updatedAt: '2020-01-01T00:00:00.000Z',
+    });
+    const r = recallCard(c, card('x', 2));
+    expect(r.character.stress.marked).toBe(2);
+    expect(Date.parse(r.character.updatedAt)).toBeGreaterThan(Date.parse(c.updatedAt));
+  });
+
+  it('leaves the clock alone on a swap that was refused', () => {
+    const c = makeCharacter({
+      loadout: [...five],
+      vault: ['f'],
+      updatedAt: '2020-01-01T00:00:00.000Z',
+    });
+    expect(recallCard(c, card('f', 1)).character.updatedAt).toBe('2020-01-01T00:00:00.000Z');
   });
 });
 

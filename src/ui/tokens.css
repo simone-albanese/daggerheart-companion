@@ -117,6 +117,17 @@
   --control: 34px;
   --motion: 150ms;
 
+  /*
+   * Card prose, as its own metric rather than a size.
+   *
+   * A card being *chosen* is read, not glanced at, and the only way to bound
+   * how much of it fits is to count lines - so the size and the leading are
+   * tokens a component can multiply, instead of numbers it has to re-declare
+   * and get wrong. Changing either here moves the budget with it.
+   */
+  --read-size: 13px;
+  --read-lh: 1.45;
+
   color-scheme: dark;
 }
 
@@ -224,6 +235,21 @@
 .t-dense {
   font: 400 11.5px/1.38 var(--sans);
   color: var(--text-3);
+}
+/*
+ * Prose someone is reading in order to decide something.
+ *
+ * .t-dense is a glance size - it exists so a dozen facts fit in a panel you
+ * are scanning past. Picking two domain cards is the opposite job: six cards,
+ * one question, and the answer is only in the rules text. So this sits in the
+ * gap the ramp had between 11.5px and 14.5px, and takes the higher of the two
+ * body inks (9.7:1 on the dark panel, 12.4:1 on the light one) because the
+ * room the choice is made in is usually dim.
+ */
+.t-read {
+  font: 400 var(--read-size) / var(--read-lh) var(--sans);
+  color: var(--text-2);
+  text-wrap: pretty;
 }
 .t-label {
   font: 600 10px/1 var(--mono);

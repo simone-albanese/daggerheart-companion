@@ -2,8 +2,8 @@
  * Build: where a character is made, changed and levelled.
  *
  * Two flows share this screen because they are the same job at two moments -
- * deciding what a character is. Creation is a wizard, because its ten steps
- * depend on each other. Everything afterwards is a sheet, because it does not.
+ * deciding what a character is. Creation is a wizard, because its steps depend
+ * on each other. Everything afterwards is a sheet, because it does not.
  *
  * The screen owns no rules. Creation reads the dataset, levelling reads
  * engine/levelUp.ts, and the arithmetic on both comes from engine/character.ts.

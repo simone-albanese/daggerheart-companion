@@ -1,3 +1,15 @@
+/**
+ * Levelling up is the one moment a Daggerheart sheet changes shape, and it
+ * happens perhaps nine times in a campaign. There is no undo: the player picks
+ * two advancements, the sheet is rewritten, and the session moves on.
+ *
+ * So this file proves two different things. validatePlan is the gate - it must
+ * refuse a plan that spends a slot twice, multiclasses at level 4 or clears a
+ * tier's trait marks a level early, because applyLevelUp trusts it completely
+ * and will happily write level 11. And applyLevelUp is the record - it must
+ * write down not only how many advancements were taken, which every derived
+ * number can be recomputed from, but WHICH ones they were, which nothing can.
+ */
 import { describe, expect, it } from 'vitest';
 import type { Character, Tier } from '@shared/types.ts';
 import { deriveStats, tierOf } from '@engine/character.ts';
@@ -424,10 +436,52 @@ describe('applyLevelUp', () => {
     expect(next.subclassRefs).toContain('other-subclass');
   });
 
-  it('grants the tier achievement Experience at +2', () => {
-    const next = applyLevelUp(at(2), plan(2, [pick('evasion', 2), pick('experience', 2)]));
+  it('grants the tier achievement Experience at +2, under the name the player typed', () => {
+    // The bonus is the rule; the name is the player's. Levels 2, 5 and 8 are
+    // the only three times a campaign asks "what did you learn getting here?",
+    // and the answer is typed into the level-up screen and read off pick zero.
+    // An Experience that arrives blank three times over is the whole feature
+    // silently missing, with the +2 still there to make it look like it worked.
+    const next = applyLevelUp(
+      at(2),
+      plan(2, [
+        pick('evasion', 2, { achievementExperience: 'Walked out of Bloodstone alive' }),
+        pick('experience', 2),
+      ]),
+    );
     expect(next.experiences).toHaveLength(1);
+    expect(next.experiences[0]!.name).toBe('Walked out of Bloodstone alive');
     expect(next.experiences[0]!.bonus).toBe(2);
+
+    // Same at the other two achievement levels, so this is the rule and not
+    // an accident of level 2.
+    for (const level of [5, 8] as const) {
+      const tier = tierOf(level);
+      const grown = applyLevelUp(
+        at(level),
+        plan(level, [
+          pick('evasion', tier, { achievementExperience: `Learned at ${level}` }),
+          pick('experience', tier),
+        ]),
+      );
+      expect(grown.experiences.map((e) => [e.name, e.bonus])).toEqual([
+        [`Learned at ${level}`, 2],
+      ]);
+    }
+  });
+
+  it('reads that name off the first pick only, and grants the Experience regardless', () => {
+    // Documented and deliberate: applyLevelUp looks at plan.picks[0] alone.
+    // A screen that attaches the name to the second pick gets an Experience
+    // with an empty name rather than no Experience - pinned here so the day
+    // someone widens the search, the change is a decision and not a surprise.
+    const misfiled = applyLevelUp(
+      at(2),
+      plan(2, [pick('evasion', 2), pick('experience', 2, { achievementExperience: 'Too late' })]),
+    );
+    expect(misfiled.experiences).toHaveLength(1);
+    expect(misfiled.experiences[0]!.name).toBe('');
+    expect(misfiled.experiences[0]!.bonus).toBe(2);
   });
 
   it('grants no Experience at a level without an achievement', () => {
@@ -463,6 +517,128 @@ describe('applyLevelUp', () => {
     expect(c.level).toBe(2);
     expect(c.hp.max).toBe(6);
     expect(c.levelUpHistory).toEqual([]);
+  });
+
+  it('stamps the sheet as changed, so a restore cannot quietly undo the level', () => {
+    // updatedAt is not decoration. src/store/db.ts sorts the library by it, and
+    // src/store/backup.ts:587 keeps the LOCAL copy on merge whenever
+    // here.updatedAt >= theirs. A level-up that never moves the clock is a
+    // level-up the next restore is entitled to throw away - the player levels
+    // to 6, syncs their backup, and comes back a level 5 character with the
+    // advancement screen offering the same two picks again.
+    const before = at(3, {
+      createdAt: '2019-01-01T00:00:00.000Z',
+      updatedAt: '2020-01-01T00:00:00.000Z',
+    });
+    const next = applyLevelUp(before, plan(3, [pick('evasion', 2), pick('experience', 2)]));
+
+    expect(Number.isNaN(Date.parse(next.updatedAt))).toBe(false);
+    expect(Date.parse(next.updatedAt)).toBeGreaterThan(Date.parse(before.updatedAt));
+    // The sheet was changed, not re-made: its birthday stays where it was.
+    expect(next.createdAt).toBe('2019-01-01T00:00:00.000Z');
+    expect(before.updatedAt).toBe('2020-01-01T00:00:00.000Z');
+  });
+});
+
+/**
+ * `levelUpHistory` is the only place the app remembers WHICH advancement a
+ * player took, as opposed to how many. deriveStats counts entries by `kind`
+ * and slotUsage keys off `detail.optionId` + `detail.optionTier`, so every
+ * other key in a record can be dropped without one derived number moving:
+ * the sheet still reads level 6 with the right Evasion, and the level-up
+ * journal simply stops saying which two traits went up or which card was
+ * taken. These tests read the record itself, not what it happens to derive.
+ */
+describe('the level-up record keeps what the player actually chose', () => {
+  it('writes the whole pick detail, not only the two keys slotUsage reads', () => {
+    const next = applyLevelUp(
+      at(3),
+      plan(3, [
+        pick('domain-card', 2, { cardRef: 'valor-extra' }),
+        pick('traits', 2, { traits: ['agility', 'finesse'] }),
+      ]),
+    );
+
+    expect(next.levelUpHistory).toHaveLength(2);
+    expect(next.levelUpHistory[0]!.detail).toEqual({
+      cardRef: 'valor-extra',
+      optionId: 'domain-card',
+      optionTier: 2,
+    });
+    expect(next.levelUpHistory[1]!.detail).toEqual({
+      traits: ['agility', 'finesse'],
+      optionId: 'traits',
+      optionTier: 2,
+    });
+  });
+
+  it('names the class, domain and foundation card a multiclass was spent on', () => {
+    // Without this the sheet says "you multiclassed at 5" and cannot say into
+    // what - and the transfer codec, which reads detail.classRef and
+    // detail.subclassRef to put refs on the wire, sends a sheet that has
+    // forgotten half of its own second class.
+    const next = applyLevelUp(
+      at(5),
+      plan(5, [
+        pick('multiclass', 3, {
+          classRef: 'other-class',
+          domain: 'grace',
+          subclassRef: 'other-subclass',
+          achievementExperience: 'Studied under a rival',
+        }),
+      ]),
+    );
+
+    expect(next.levelUpHistory).toHaveLength(1);
+    expect(next.levelUpHistory[0]!.detail).toEqual({
+      classRef: 'other-class',
+      domain: 'grace',
+      subclassRef: 'other-subclass',
+      achievementExperience: 'Studied under a rival',
+      optionId: 'multiclass',
+      optionTier: 3,
+    });
+  });
+
+  it('carries a note the engine itself has no use for', () => {
+    // The detail is a Record<string, unknown> on purpose: a GM's ruling, or a
+    // future screen's field, rides along in it. If applyLevelUp only copied
+    // the keys it knows, anything a later version adds would vanish at the
+    // moment it was written.
+    const next = applyLevelUp(
+      at(3),
+      plan(3, [pick('evasion', 2, { gmNote: 'earned in the Hush' }), pick('experience', 2)]),
+    );
+    expect(next.levelUpHistory[0]!.detail['gmNote']).toBe('earned in the Hush');
+  });
+
+  it('numbers the two advancements of a level 0 and 1, which is what the wire packs', () => {
+    // src/transfer/codec.ts branches on (choice.slot === 0 || choice.slot === 1)
+    // and packs slot & 1 into a header bit. Pin both slots to 0 and that branch
+    // stops being exercised by anything, while the level-up journal loses the
+    // order the two picks were made in.
+    const next = applyLevelUp(at(3), plan(3, [pick('evasion', 2), pick('hit-point', 2)]));
+
+    expect(next.levelUpHistory.map((h) => h.slot)).toEqual([0, 1]);
+    expect(next.levelUpHistory.map((h) => h.kind)).toEqual(['evasion', 'hitPoint']);
+    expect(next.levelUpHistory.map((h) => h.level)).toEqual([3, 3]);
+  });
+
+  it('keeps slot 0 and slot 1 straight across two levels', () => {
+    let c = at(3);
+    c = applyLevelUp(c, plan(3, [pick('evasion', 2), pick('experience', 2)]));
+    c = applyLevelUp(c, plan(4, [pick('hit-point', 2), pick('stress', 2)]));
+    expect(c.levelUpHistory.map((h) => `${h.level}.${h.slot}`)).toEqual([
+      '3.0',
+      '3.1',
+      '4.0',
+      '4.1',
+    ]);
+  });
+
+  it('gives a boxed advancement the one slot it occupies', () => {
+    const next = applyLevelUp(at(6), plan(6, [pick('proficiency', 3)]));
+    expect(next.levelUpHistory.map((h) => h.slot)).toEqual([0]);
   });
 });
 

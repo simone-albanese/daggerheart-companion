@@ -9,6 +9,57 @@ import type { Character, LevelUpChoice } from '../../shared/types.ts';
 import { createRegistry, registry, type Registry } from '../../src/transfer/registry.ts';
 import type { SlugSource } from '../../tools/buildRegistry.ts';
 
+// ---------------------------------------------------------------------------
+// Measuring a transfer
+//
+// `matrix.test.ts` and `fullMatrix.test.ts` both weigh payloads and both
+// reassemble frames out of order, over a 93-row cross-section and over all
+// 3240 respectively. They shared these four helpers by copy until the numbers
+// they print were reconciled; they share them by import now, so that a byte
+// counted in one file is a byte counted the same way in the other.
+// ---------------------------------------------------------------------------
+
+const utf8 = new TextEncoder();
+
+/** Bytes on the wire, not UTF-16 code units: `é` is two, an emoji is four. */
+export const bytesOf = (s: string): number => utf8.encode(s).length;
+
+/** Every word this character's player typed. What a QR mostly carries. */
+export function freeTextBytes(c: Character): number {
+  const parts = [
+    c.name,
+    c.pronouns,
+    c.notes,
+    ...c.connections,
+    ...c.scars,
+    ...c.experiences.map((e) => e.name),
+    ...c.inventory.flatMap((e) => [e.name, e.note ?? '']),
+    ...(c.companion === null
+      ? []
+      : [c.companion.name, c.companion.description, ...c.companion.experiences.map((e) => e.name)]),
+  ];
+  return parts.reduce((n, s) => n + bytesOf(s), 0);
+}
+
+/**
+ * A deterministic shuffle, for handing frames to the collector in the order a
+ * camera really sees them. Seeded so a reassembly failure can be replayed.
+ */
+export const shuffled = <T>(items: T[], seed: number): T[] => {
+  const out = [...items];
+  let n = seed;
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    n = (n * 1103515245 + 12345) % 2147483648;
+    const j = n % (i + 1);
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+};
+
+/** Nearest-rank percentile over an already-sorted array. */
+export const percentile = (sorted: number[], p: number): number =>
+  sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]!;
+
 /** The committed registry: what a device actually has. */
 export const testRegistry: Registry = registry;
 

@@ -18,6 +18,13 @@
  * architecture says a transfer past about fifteen frames should be offered as
  * a file instead, and the only way to know whether a real character gets near
  * that line is to measure every real character.
+ *
+ * `fullMatrix.test.ts` runs the same sweep over all 3240 - every subclass at
+ * every ancestry at every level - and is where the fifteen-frame question is
+ * answered over the whole population. This file keeps the three sheets that
+ * matrix cannot produce, and with them the degraded-import and reserved-id
+ * paths: a blank sheet, a sheet somebody writes a journal on, and a sheet that
+ * arrived from a device holding content this build has never heard of.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Character, Ref } from '../../shared/types.ts';
@@ -53,7 +60,15 @@ import {
   type Band,
 } from '../../src/transfer/registry.ts';
 import { hasDataset, loadDataset, sampleMatrix, type Sample } from '../../tools/sampleCharacters.ts';
-import { normalizeHandles, registryWithout, testRegistry } from './fixtures.ts';
+import {
+  bytesOf,
+  freeTextBytes,
+  normalizeHandles,
+  percentile,
+  registryWithout,
+  shuffled,
+  testRegistry,
+} from './fixtures.ts';
 
 /** The dataset is the SRD build; without it there is no matrix to speak of. */
 const MATRIX: Sample[] = hasDataset() ? sampleMatrix(loadDataset()) : [];
@@ -68,40 +83,6 @@ interface Row {
 }
 
 let rows: Row[] = [];
-
-const utf8 = new TextEncoder();
-const bytesOf = (s: string): number => utf8.encode(s).length;
-
-/** Every word this character's player typed. What a QR mostly carries. */
-function freeTextBytes(c: Character): number {
-  const parts = [
-    c.name,
-    c.pronouns,
-    c.notes,
-    ...c.connections,
-    ...c.scars,
-    ...c.experiences.flatMap((e) => e.name),
-    ...c.inventory.flatMap((e) => [e.name, e.note ?? '']),
-    ...(c.companion === null
-      ? []
-      : [c.companion.name, c.companion.description, ...c.companion.experiences.map((e) => e.name)]),
-  ];
-  return parts.reduce((n, s) => n + bytesOf(s), 0);
-}
-
-const shuffled = <T>(items: T[], seed: number): T[] => {
-  const out = [...items];
-  let n = seed;
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    n = (n * 1103515245 + 12345) % 2147483648;
-    const j = n % (i + 1);
-    [out[i], out[j]] = [out[j]!, out[i]!];
-  }
-  return out;
-};
-
-const percentile = (sorted: number[], p: number): number =>
-  sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]!;
 
 const nonAscii = (s: string): boolean => /[^\u0000-\u007f]/.test(s);
 

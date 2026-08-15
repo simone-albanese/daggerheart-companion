@@ -1,18 +1,26 @@
 /**
- * The domain card, in its three states.
+ * The domain card, in the two jobs it has to do, plus the reader.
  *
- * A card has two normal appearances - with the manual's illustration, and text
- * only - and both have to look deliberate. Without the manual, text-only *is*
- * the normal state, so it gets a real design of its own: an oversized domain
- * wordmark and the domain's silhouette bled off the corner, not an apologetic
- * grey box where a picture should be.
+ * SHOWCASE is a card you are looking at. It has two appearances - with the
+ * manual's illustration, and text only - and both have to look deliberate.
+ * Without the manual, text-only *is* the normal state, so it gets a real
+ * design of its own: an oversized domain wordmark and the domain's silhouette
+ * bled off the corner, not an apologetic grey box where a picture should be.
+ *
+ * READING is a card you are choosing between. That is a different job and the
+ * banner is actively in the way of it: it announces a domain the player has
+ * already filtered by, in display type, across the top third of the one panel
+ * where the answer to "what does this do" was supposed to go. So the reading
+ * card has no banner. The domain becomes a mark and a word on one line, the
+ * rules text moves up to `.t-read` and takes everything that is left, and the
+ * card grows to fit its text instead of ellipsising it after three lines.
  *
  * The third state is the reader: full text, no clamping, no scrolling.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
 import { getArt } from '../../store/db.ts';
-import { DOMAIN_MARKS, domainColor } from './DomainMark.tsx';
+import { DOMAIN_MARKS, DomainMark, domainColor } from './DomainMark.tsx';
 
 function useArt(key: string | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null);
@@ -90,6 +98,56 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
 
 /** The footer's height, shared so the overlay button can stop short of it. */
 const FOOTER_HEIGHT = 34;
+
+/**
+ * Which of the two jobs this card is doing. See the file header.
+ *
+ * `showcase` is what every existing screen asks for and is the default, so
+ * nothing changes anywhere until a call site says otherwise.
+ */
+export type CardVariant = 'showcase' | 'reading';
+
+/**
+ * How many lines of rules text a card being chosen shows before it stops.
+ *
+ * Counted in lines rather than pixels because the thing that decides whether a
+ * card fits is its measure, not its height, and the measure is set by whatever
+ * grid the card lands in. Measured against the real SRD - 189 cards, median
+ * 275 characters, longest 655 - at 13px Archivo:
+ *
+ *   text column                | 10 lines |  12  |  14  |  16
+ *   -------------------------- | -------- | ---- | ---- | ----
+ *   155px (2 up on a phone)         41%   |  56% |  63% |  67%
+ *   295px (3 up on a desktop)       81%   |  89% |  96% | 100%
+ *   342px (1 up on a phone)         81%   |  93% | 100% | 100%
+ *
+ * (share of the 27 level 1 cards - the ones creation actually offers - shown
+ * whole.) Fourteen is where a one-column phone shows every candidate entire
+ * and a three-column desktop shows all but one, and it costs about 264px of
+ * text: roughly the height the card already occupied, spent on the card
+ * instead of on its banner. Two of the 189 - the two longest Grimoires - still
+ * run over at any measure a card grid can give them, which is why the reader
+ * stays and why the "there is more" line is not dead code.
+ */
+export const READING_LINES = 14;
+
+/** The line budget as a length, in the tokens that define the line. */
+const READING_MAX = `calc(${READING_LINES} * var(--read-lh) * var(--read-size))`;
+
+/**
+ * Whether a box is showing less than it holds.
+ *
+ * Pure and exported because it is the whole truncation story: the fade, the
+ * "there is more" line and the reader are all this one answer, and it is the
+ * only part of the story a test without a layout engine can reach.
+ *
+ * The one-pixel slack is not superstition. A fractional line height rounds
+ * `scrollHeight` and `clientHeight` a hair apart on a card that is in fact
+ * showing everything, and a card that claims to be hiding text it is not is
+ * worse than one that says nothing at all.
+ */
+export const overflows = (box: { scrollHeight: number; clientHeight: number }): boolean =>
+  box.scrollHeight - box.clientHeight > 1;
 
 const tint = (domain: DomainCard['domain']): string =>
   `linear-gradient(155deg, color-mix(in srgb, ${domainColor(domain)} 26%, transparent), color-mix(in srgb, ${domainColor(domain)} 5%, transparent))`;
@@ -186,18 +244,28 @@ interface Props {
   card: DomainCard;
   shapes?: boolean;
   onOpen?: () => void;
-  /** A number for a fixed card, or '100%' to fill a grid cell. */
+  /**
+   * A number for a fixed card, or '100%' to fill a grid cell.
+   *
+   * In the reading variant this is a floor rather than a height: the card
+   * grows past it to fit its text, because a card being chosen that is the
+   * same height as its neighbours but shows a quarter of what they show has
+   * not told you anything you can compare.
+   */
   height?: number | string;
   headHeight?: number;
   /**
-   * Line clamp. Omit it - which is the normal case - and the text simply
-   * fills whatever height the card has and fades out. A fixed line count
-   * cannot be right at two card sizes at once: it leaves a gap above the
-   * footer in a tall card and eats the first sentence in a short one.
+   * Line clamp, showcase only. Omit it - which is the normal case - and the
+   * text simply fills whatever height the card has and fades out. A fixed
+   * line count cannot be right at two card sizes at once: it leaves a gap
+   * above the footer in a tall card and eats the first sentence in a short
+   * one. The reading variant ignores it and uses READING_LINES.
    */
   clamp?: number;
   dimmed?: boolean;
   footer?: React.ReactNode;
+  /** See CardVariant. Defaults to the card every existing screen renders. */
+  variant?: CardVariant;
 }
 
 export function DomainCardView({
@@ -209,9 +277,30 @@ export function DomainCardView({
   clamp,
   dimmed = false,
   footer,
+  variant = 'showcase',
 }: Props): React.JSX.Element {
-  const art = useArt(card.artKey);
+  const reading = variant === 'reading';
+  // No head, so no illustration to fetch. Asking for one anyway would decode a
+  // blob and mint an object URL for a picture this variant never draws.
+  const art = useArt(reading ? undefined : card.artKey);
   const color = domainColor(card.domain);
+
+  // Whether the rules text ran past its budget. Only a browser knows - it
+  // depends on the column the card landed in - so the card starts by claiming
+  // nothing and is corrected once there is a layout to ask.
+  const textRef = useRef<HTMLDivElement>(null);
+  const [clipped, setClipped] = useState(false);
+  useEffect(() => {
+    const box = textRef.current;
+    if (!reading || box === null) return;
+    const measure = (): void => setClipped(overflows(box));
+    measure();
+    // A phone that rotates re-flows the grid, and the answer changes with it.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [reading, card.text]);
 
   // The card used to be one big <button> with the footer's own buttons inside
   // it. That is invalid HTML - a button may not contain interactive content -
@@ -224,7 +313,12 @@ export function DomainCardView({
     <div
       style={{
         position: 'relative',
-        height,
+        // Reading: a floor, and `flex` so that a card sitting in a flex column
+        // beside a commit button still reaches the bottom of its grid row -
+        // otherwise the buttons under a row of cards end up at six different
+        // heights. A grid item ignores `flex`, so the showcase call sites that
+        // put the card straight into a grid are unaffected either way.
+        ...(reading ? { minHeight: height, flex: '1 1 auto' } : { height }),
         width: '100%',
         borderRadius: 'var(--r4)',
         overflow: 'hidden',
@@ -251,63 +345,113 @@ export function DomainCardView({
           }}
         />
       )}
-      <CardHead card={card} shapes={shapes} height={headHeight} art={art} />
+      {!reading && <CardHead card={card} shapes={shapes} height={headHeight} art={art} />}
 
       <div
         style={{
           flex: 1,
           minHeight: 0,
-          padding: '10px 11px 0',
+          padding: reading ? 'var(--s4) var(--s4) 0' : '10px 11px 0',
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        <div className="row" style={{ gap: 6 }}>
-          <span
-            className="chip"
-            style={{
-              background: `color-mix(in srgb, ${color} 16%, transparent)`,
-              color,
-              fontWeight: 700,
-            }}
-          >
-            LV{card.level}
-          </span>
-          <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            {card.type.toUpperCase()}
-          </span>
-        </div>
+        {reading ? (
+          // The whole banner, on one line. The mark is the same shape-coded
+          // silhouette the loadout and the filters use, so the domain is
+          // readable without colour; the word beside it says so in letters, so
+          // it is readable with the shapes switched off too.
+          <div className="row" style={{ gap: 'var(--s2)' }}>
+            <DomainMark domain={card.domain} size={12} shapes={shapes} />
+            <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
+              {card.domain.toUpperCase()} · LV{card.level} · {card.type.toUpperCase()}
+            </span>
+          </div>
+        ) : (
+          <div className="row" style={{ gap: 6 }}>
+            <span
+              className="chip"
+              style={{
+                background: `color-mix(in srgb, ${color} 16%, transparent)`,
+                color,
+                fontWeight: 700,
+              }}
+            >
+              LV{card.level}
+            </span>
+            <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
+              {card.type.toUpperCase()}
+            </span>
+          </div>
+        )}
 
-        <div className="t-card" style={{ marginTop: 8 }}>
+        <div className="t-card" style={{ marginTop: reading ? 'var(--s2)' : 8 }}>
           {card.name}
         </div>
 
-        <div style={{ marginTop: 8, flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-          <div
-            className="t-dense"
-            style={
-              clamp === undefined
-                ? undefined
-                : {
-                    display: '-webkit-box',
-                    WebkitLineClamp: clamp,
-                    WebkitBoxOrient: 'vertical' as const,
-                    overflow: 'hidden',
-                  }
-            }
-          >
-            <CardText text={card.text} />
+        {reading ? (
+          // The box hugs the text rather than filling the card, so the "there
+          // is more" line lands on the cut and not somewhere below it. The
+          // fade is the shared `.scroll-fade` mask and appears only when
+          // something is actually behind it - an unconditional fade over the
+          // last line of a card that ends there just makes it harder to read.
+          <div style={{ marginTop: 'var(--s3)', flex: '0 0 auto', position: 'relative' }}>
+            <div
+              ref={textRef}
+              className={clipped ? 't-read scroll-fade' : 't-read'}
+              style={{ maxHeight: READING_MAX, overflow: 'hidden' }}
+            >
+              <CardText text={card.text} />
+            </div>
+            {clipped && (
+              <span
+                className="t-meta"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  bottom: 0,
+                  letterSpacing: '0.1em',
+                  color: 'var(--text-2)',
+                  background: 'var(--panel)',
+                  paddingLeft: 'var(--s3)',
+                  // Inside the overlay button's area, so the words are the
+                  // target. In the footer they were a label on the one strip
+                  // that deliberately is not tappable.
+                  pointerEvents: 'none',
+                }}
+              >
+                MORE — TAP TO READ
+              </span>
+            )}
           </div>
-          <span
-            style={{
-              position: 'absolute',
-              inset: 'auto 0 0 0',
-              height: 26,
-              background: 'linear-gradient(180deg, transparent, var(--panel))',
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
+        ) : (
+          <div style={{ marginTop: 8, flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+            <div
+              className="t-dense"
+              style={
+                clamp === undefined
+                  ? undefined
+                  : {
+                      display: '-webkit-box',
+                      WebkitLineClamp: clamp,
+                      WebkitBoxOrient: 'vertical' as const,
+                      overflow: 'hidden',
+                    }
+              }
+            >
+              <CardText text={card.text} />
+            </div>
+            <span
+              style={{
+                position: 'absolute',
+                inset: 'auto 0 0 0',
+                height: 26,
+                background: 'linear-gradient(180deg, transparent, var(--panel))',
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div
@@ -317,15 +461,19 @@ export function DomainCardView({
           zIndex: 2,
           flex: 'none',
           height: FOOTER_HEIGHT,
-          padding: '0 11px',
+          // Lined up with whichever body sits above it.
+          padding: reading ? '0 var(--s4)' : '0 11px',
           alignItems: 'center',
           borderTop: '1px solid var(--line-soft)',
         }}
       >
         {footer ?? (
           <>
+            {/* Reading cards say "there is more" on the cut, where the text
+                stopped, and only when there is. The showcase default guesses
+                from length because a showcase card measures nothing. */}
             <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
-              {card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}
+              {!reading && card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}
             </span>
             <span className="row" style={{ gap: 5 }}>
               <span className="t-meta">RECALL</span>

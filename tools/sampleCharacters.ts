@@ -1,7 +1,8 @@
 /**
  * A cross-section of the game, built the way the app builds one character.
  *
- *   npx tsx tools/sampleCharacters.ts        # print the matrix
+ *   npx tsx tools/sampleCharacters.ts        # print the cross-section (93 rows)
+ *   npx tsx tools/sampleCharacters.ts --full # print the full matrix (3240 rows)
  *
  * The transfer layer carries months of somebody's play between their own
  * devices, so proving it on one wizard proves it on one wizard. This walks all
@@ -180,7 +181,8 @@ const TASTES: Record<string, readonly string[]> = {
   devotee: ['subclass', 'traits', 'experience', 'evasion', 'domain-card', 'stress'],
 };
 
-const TASTE_NAMES = Object.keys(TASTES);
+/** The five routes by name, so a caller can rotate over them deliberately. */
+export const TASTE_NAMES: readonly string[] = Object.keys(TASTES);
 
 /** Level 1 trait array from the SRD: +2, +1, +1, +0, +0, -1. */
 const TRAIT_ARRAY = [2, 1, 1, 0, 0, -1];
@@ -189,6 +191,14 @@ const pick = <T>(list: readonly T[], n: number): T => list[((n % list.length) + 
 
 /** UUID-shaped and stable, so two runs produce the same bytes. */
 const idFor = (n: number): string => `a1c7ed00-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+/**
+ * Where a row's ids live. Character ids come from `idFor(base)` and the two
+ * Experiences from `idFor(1000 + base * 2)` upwards, so the two spaces only
+ * stay apart while `base` is under a thousand. `sampleMatrix` builds ninety
+ * rows and is safe; `fullMatrix` builds thousands and moves its base clear.
+ */
+const EXPERIENCE_ID_FLOOR = 1000;
 
 const whenFor = (n: number, hour: number): string =>
   new Date(Date.UTC(2026, 0, 1 + (n % 300), hour, (n * 7) % 60, 0)).toISOString();
@@ -201,11 +211,36 @@ interface PlanContext {
   ds: Dataset;
   ix: DatasetIndex;
   taste: readonly string[];
+  /**
+   * How far down the eligible list a card *bought with an advancement* may
+   * reach. Four is a player's instinct - take one of the best cards on offer -
+   * and is what every sample has always done. Zero means the whole eligible
+   * list, which is how a matrix of thousands touches all 189 cards instead of
+   * the same two dozen. The free card a level brings is always one of the best
+   * on offer regardless, because that is what a player takes.
+   */
+  cardSpread?: number;
+  /** Rotates the pick, so two identical builds do not take identical cards. */
+  cardOffset?: number;
+  /**
+   * Read card eligibility at the level being arrived at rather than the one
+   * being left. This is what the level-up screen does - `LevelUp.tsx` hands its
+   * card picker `deriveStats(applyLevelUp(character, plan), ...)`, so a player
+   * stepping up to level 10 is offered the level 10 cards. Left off, the last
+   * eighteen cards in the game are unreachable by any climb.
+   *
+   * Off by default only so the published byte counts of `sampleMatrix` keep
+   * meaning the same thing run to run.
+   */
+  cardsAtNewLevel?: boolean;
+  /** Set by `planFor`: the level card eligibility is read at. */
+  atLevel?: number;
 }
 
 /** Cards this character may take: their domains, at or under their cap. */
 function eligibleCards(c: Character, ctx: PlanContext, taken: Set<Ref>): DomainCard[] {
-  const stats = deriveStats(c, ctx.ds, ctx.ix);
+  const sheet = ctx.atLevel === undefined || ctx.atLevel === c.level ? c : { ...c, level: ctx.atLevel };
+  const stats = deriveStats(sheet, ctx.ds, ctx.ix);
   const owned = new Set<Ref>([...c.loadout, ...c.vault, ...taken]);
   return ctx.ds.domainCards
     .filter(
@@ -217,11 +252,24 @@ function eligibleCards(c: Character, ctx: PlanContext, taken: Set<Ref>): DomainC
     .sort((a, b) => b.level - a.level || a.id.localeCompare(b.id));
 }
 
+/**
+ * How far down the eligible list "one of the best on offer" reaches. The list
+ * is sorted by level descending, so this is the newest handful of cards - what
+ * a player takes with the free pick a level brings them.
+ */
+const BEST_ON_OFFER = 4;
+
 /** The best card on offer, varied a little so nine wizards are not one wizard. */
-function nextCard(c: Character, ctx: PlanContext, taken: Set<Ref>): Ref | null {
+function nextCard(
+  c: Character,
+  ctx: PlanContext,
+  taken: Set<Ref>,
+  spread: number = ctx.cardSpread ?? BEST_ON_OFFER,
+): Ref | null {
   const cards = eligibleCards(c, ctx, taken);
   if (cards.length === 0) return null;
-  const card = cards[(c.level * 3 + taken.size) % Math.min(4, cards.length)]!;
+  const width = spread <= 0 ? cards.length : Math.min(spread, cards.length);
+  const card = cards[(c.level * 3 + taken.size + (ctx.cardOffset ?? 0)) % width]!;
   taken.add(card.id);
   return card.id;
 }
@@ -295,11 +343,15 @@ function detailFor(
  * The search is over the real option table and the real validator, so a plan
  * that comes out of here is one the app would have let somebody build.
  */
-function planFor(c: Character, ctx: PlanContext): LevelUpPlan {
+function planFor(c: Character, outer: PlanContext): LevelUpPlan {
   const toLevel = c.level + 1;
   const tier = tierOf(toLevel);
   const achievement = tierAchievementFor(toLevel);
   const clearsMarks = achievement?.clearTraitMarks === true;
+  // The screen offers the cards of the level you are arriving at, not the one
+  // you are leaving; see `PlanContext.cardsAtNewLevel`.
+  const ctx: PlanContext =
+    outer.cardsAtNewLevel === true ? { ...outer, atLevel: toLevel } : outer;
 
   const rank = (id: string): number => {
     const at = ctx.taste.indexOf(id);
@@ -327,7 +379,9 @@ function planFor(c: Character, ctx: PlanContext): LevelUpPlan {
       tier,
       achievement,
       picks,
-      newCardRef: nextCard(c, ctx, taken.cards),
+      // Step four: the card the level itself brings. A player takes one of the
+      // best on offer, whatever they might spend an advancement reaching for.
+      newCardRef: nextCard(c, ctx, taken.cards, BEST_ON_OFFER),
     };
     return validatePlan(c, plan).ok ? plan : null;
   };
@@ -345,7 +399,8 @@ function planFor(c: Character, ctx: PlanContext): LevelUpPlan {
     }
   }
   throw new Error(
-    `No valid level-up plan for ${c.classRef} going to level ${toLevel}. ` +
+    `No valid level-up plan for ${c.classRef}/${c.subclassRefs.join('+')} ` +
+      `(${c.ancestryRefs.join('+')}) going to level ${toLevel}. ` +
       `Either the option table changed or the sampler needs to know about it.`,
   );
 }
@@ -354,6 +409,52 @@ function planFor(c: Character, ctx: PlanContext): LevelUpPlan {
 // Building one character
 // ---------------------------------------------------------------------------
 
+/**
+ * The axes a caller can pin instead of leaving to the row index.
+ *
+ * Everything here is optional and everything absent keeps the index-derived
+ * behaviour exactly, so `sampleMatrix` is byte-for-byte the matrix it was
+ * before these knobs existed. They exist because `pick(ds.communities, n * 3)`
+ * gives a caller no way to *ask* for a community - and a stride that shares a
+ * factor with a list length quietly visits a third of it.
+ */
+export interface AxisChoices {
+  subclassRef?: Ref;
+  /** The whole list, first entry first: a mixed-ancestry sheet is two refs. */
+  ancestryRefs?: readonly Ref[];
+  communityRef?: Ref;
+  /** `null` empties the slot on purpose; absent means "as the index says". */
+  primaryWeapon?: Ref | null;
+  secondaryWeapon?: Ref | null;
+  armor?: Ref | null;
+  /** Scars, which are what a Hope slot is spent on permanently. */
+  scarCount?: number;
+  /**
+   * The Beastform to be wearing, or `null` for none. Only a class whose
+   * features include Beastform can wear one at all, and only a form its level
+   * unlocks: asking for anything else throws rather than quietly producing an
+   * untransformed sheet. Absent leaves the choice to the row index.
+   */
+  beastformRef?: Ref | null;
+  /**
+   * Which route through the advancement table this player prefers, by name from
+   * `TASTE_NAMES`. Left to the row index it is `pick(TASTE_NAMES, index)`, and
+   * a caller stepping ten levels per row would then hand every row at a given
+   * level the same taste - five names and ten levels share a factor of five.
+   */
+  taste?: string;
+  /** See `PlanContext.cardSpread`. */
+  cardSpread?: number;
+  /**
+   * See `PlanContext.cardOffset`. Also rotates the two starting cards. Pick a
+   * value that changes between rows *at the same level*, or every sheet at that
+   * level takes the same cards.
+   */
+  cardOffset?: number;
+  /** See `PlanContext.cardsAtNewLevel`. */
+  cardsAtNewLevel?: boolean;
+}
+
 export interface BuildOptions {
   classRef: Ref;
   level: number;
@@ -361,6 +462,14 @@ export interface BuildOptions {
   index: number;
   ds: Dataset;
   ix: DatasetIndex;
+  /** Axes pinned by the caller. Absent axes stay a function of `index`. */
+  choose?: AxisChoices;
+  /**
+   * Base for this row's ids, defaulting to `index`. `fullMatrix` moves it clear
+   * of `EXPERIENCE_ID_FLOOR` so that three thousand rows cannot land a
+   * character's id on an earlier row's Experience id.
+   */
+  idBase?: number;
 }
 
 const gearFor = (ds: Dataset, tier: Tier, n: number) => {
@@ -403,14 +512,21 @@ function startingInventory(ds: Dataset, klassItems: readonly string[], n: number
 /** One row of the matrix: a class, a level, and the fields that class earns. */
 export function buildCharacter(options: BuildOptions): Sample {
   const { classRef, level, index: n, ds, ix } = options;
+  const choose: AxisChoices = options.choose ?? {};
+  const base = options.idBase ?? n;
   const klass = ds.classes.find((k) => k.id === classRef);
   if (klass === undefined) throw new Error(`No class "${classRef}" in the dataset.`);
 
   const exercises: string[] = [];
   const tier = tierOf(level);
   const gear = gearFor(ds, tier, n);
-  const subclass = pick(klass.subclasses, n);
-  const ancestries = n % 4 === 0 ? [pick(ds.ancestries, n).id, pick(ds.ancestries, n + 5).id] : [pick(ds.ancestries, n).id];
+  const subclass = choose.subclassRef ?? pick(klass.subclasses, n);
+  const ancestries =
+    choose.ancestryRefs !== undefined
+      ? [...choose.ancestryRefs]
+      : n % 4 === 0
+        ? [pick(ds.ancestries, n).id, pick(ds.ancestries, n + 5).id]
+        : [pick(ds.ancestries, n).id];
   if (ancestries.length === 2) exercises.push('mixed ancestry');
 
   const traits = {} as Record<Trait, number>;
@@ -419,21 +535,30 @@ export function buildCharacter(options: BuildOptions): Sample {
   });
 
   let c = newCharacter({
-    id: idFor(n),
+    id: idFor(base),
     name: pick(NAMES, n),
     pronouns: pick(PRONOUNS, n),
     classRef,
     subclassRefs: [subclass],
     ancestryRefs: ancestries,
-    communityRef: pick(ds.communities, n * 3).id,
+    communityRef: choose.communityRef ?? pick(ds.communities, n * 3).id,
     traits,
-    activePrimaryWeapon: gear.primary,
-    activeSecondaryWeapon: gear.secondary,
-    activeArmor: gear.armor,
+    activePrimaryWeapon: choose.primaryWeapon === undefined ? gear.primary : choose.primaryWeapon,
+    activeSecondaryWeapon:
+      choose.secondaryWeapon === undefined ? gear.secondary : choose.secondaryWeapon,
+    activeArmor: choose.armor === undefined ? gear.armor : choose.armor,
     inventory: startingInventory(ds, klass.classItems, n),
     experiences: [
-      { id: idFor(1000 + n * 2), name: pick(EXPERIENCE_NAMES, n), bonus: 2 },
-      { id: idFor(1001 + n * 2), name: pick(EXPERIENCE_NAMES, n + 3), bonus: 2 },
+      {
+        id: idFor(EXPERIENCE_ID_FLOOR + base * 2),
+        name: pick(EXPERIENCE_NAMES, n),
+        bonus: 2,
+      },
+      {
+        id: idFor(EXPERIENCE_ID_FLOOR + base * 2 + 1),
+        name: pick(EXPERIENCE_NAMES, n + 3),
+        bonus: 2,
+      },
     ],
     gold: { handfuls: n % 10, bags: n % 5, chests: n % 3 },
     createdAt: whenFor(n, 9),
@@ -441,12 +566,28 @@ export function buildCharacter(options: BuildOptions): Sample {
   });
 
   // Two level 1 domain cards from the class's own domains, as the sheet starts.
-  const starting = eligibleCards(c, { ds, ix, taste: [] }, new Set())
-    .filter((card) => card.level === 1)
+  // Rotated by the same offset as every other card pick, so a matrix does not
+  // hand every bard in it the same two cards.
+  const firstCards = eligibleCards(c, { ds, ix, taste: [] }, new Set()).filter(
+    (card) => card.level === 1,
+  );
+  const from = firstCards.length === 0 ? 0 : (choose.cardOffset ?? 0) % firstCards.length;
+  const starting = firstCards
+    .map((_card, i) => firstCards[(from + i) % firstCards.length]!)
     .slice(0, 2);
   c = { ...c, vault: starting.map((card) => card.id) };
 
-  const ctx: PlanContext = { ds, ix, taste: TASTES[pick(TASTE_NAMES, n)]! };
+  const tasteName = choose.taste ?? pick(TASTE_NAMES, n);
+  const taste = TASTES[tasteName];
+  if (taste === undefined) throw new Error(`No advancement taste "${tasteName}".`);
+  const ctx: PlanContext = {
+    ds,
+    ix,
+    taste,
+    cardSpread: choose.cardSpread,
+    cardOffset: choose.cardOffset,
+    cardsAtNewLevel: choose.cardsAtNewLevel,
+  };
   for (let at = c.level; at < level; at += 1) {
     c = applyLevelUp(c, planFor(c, ctx));
   }
@@ -460,7 +601,14 @@ export function buildCharacter(options: BuildOptions): Sample {
     if (card !== undefined) c = recallCard(c, card, { downtime: true }).character;
   }
 
-  c = decorate(c, { ds, ix, index: n, exercises });
+  c = decorate(c, {
+    ds,
+    ix,
+    index: n,
+    exercises,
+    scarCount: choose.scarCount,
+    beastformRef: choose.beastformRef,
+  });
 
   const stats = deriveStats(c, ds, ix);
   c = syncCounters(c, stats);
@@ -480,7 +628,14 @@ export function buildCharacter(options: BuildOptions): Sample {
 /** The fields a fixture forgets. Hung on by row index so coverage is spread. */
 function decorate(
   c: Character,
-  options: { ds: Dataset; ix: DatasetIndex; index: number; exercises: string[] },
+  options: {
+    ds: Dataset;
+    ix: DatasetIndex;
+    index: number;
+    exercises: string[];
+    scarCount?: number;
+    beastformRef?: Ref | null;
+  },
 ): Character {
   const { ds, ix, index: n, exercises } = options;
   let next = c;
@@ -491,7 +646,7 @@ function decorate(
   const connections = Array.from({ length: connectionCount }, (_u, i) => pick(CONNECTIONS, n + i));
   if (connectionCount > 0) exercises.push(`${connectionCount} connections`);
 
-  const scarCount = next.level >= 5 ? n % 3 : n % 2;
+  const scarCount = options.scarCount ?? (next.level >= 5 ? n % 3 : n % 2);
   const scars = Array.from({ length: scarCount }, (_u, i) => pick(SCARS, n + i * 2));
   if (scarCount > 0) exercises.push(`${scarCount} scars`);
 
@@ -528,8 +683,24 @@ function decorate(
   const transforms =
     ix.classes.get(next.classRef)?.classFeatures.some((f) => f.name === 'Beastform') === true;
   const forms = transforms ? beastformOptions(next.level, ds) : [];
-  if (forms.length > 0 && n % 2 === 0) {
-    const form = pick(forms, n);
+  const asked = options.beastformRef;
+  const chooseForm = (): (typeof forms)[number] | undefined => {
+    // A class that does not transform cannot be talked into it, so the caller's
+    // request is simply not theirs to honour.
+    if (asked === undefined || !transforms) {
+      return forms.length > 0 && n % 2 === 0 ? pick(forms, n) : undefined;
+    }
+    if (asked === null) return undefined;
+    const wanted = forms.find((f) => f.id === asked);
+    if (wanted === undefined) {
+      throw new Error(
+        `Beastform "${asked}" is not one a level ${next.level} ${next.classRef} can take.`,
+      );
+    }
+    return wanted;
+  };
+  const form = chooseForm();
+  if (form !== undefined) {
     next = { ...next, beastform: { ref: form.id, activatedAt: whenFor(n, 22) } };
     exercises.push(`beastform ${form.id}`);
   }
@@ -563,6 +734,156 @@ export function sampleMatrix(ds: Dataset = loadDataset()): Sample[] {
   samples.push(journal(ds, ix, n + 1));
   samples.push(fromANewerDevice(ds, ix, n + 2));
   return samples;
+}
+
+// ---------------------------------------------------------------------------
+// The full matrix
+// ---------------------------------------------------------------------------
+
+/** One row of the full matrix, with the axes it was built from spelled out. */
+export interface FullMatrixRow extends Sample {
+  /** 0-based row number. Every choice in the row is a function of it. */
+  index: number;
+  classRef: Ref;
+  subclassRef: Ref;
+  /** The ancestry this row is the cell for. A mixed sheet carries a second. */
+  ancestryRef: Ref;
+  communityRef: Ref;
+  level: number;
+}
+
+/** 18 subclasses x 18 ancestries x 10 levels. */
+export const FULL_MATRIX_SIZE = 3240;
+
+/**
+ * Ids for the full matrix start here, clear of `EXPERIENCE_ID_FLOOR + 2n` for
+ * every n the matrix can reach, so no character id equals another row's
+ * Experience id.
+ */
+const FULL_MATRIX_ID_BASE = 100_000;
+
+/**
+ * The whole space of sheets, one cell at a time.
+ *
+ * Every subclass at every ancestry at every level, each one started at level 1
+ * and walked up through `validatePlan` / `applyLevelUp` a level at a time - the
+ * same climb a player makes, never a sheet written out by hand. The axes the
+ * cells do not name - community, weapons, armor, domain cards, scars, the
+ * advancement route, the Beastform a Druid is wearing - rotate so that nothing
+ * in the dataset goes untouched, and they rotate by index rather than at random
+ * so a failing row can be rebuilt by name tomorrow.
+ *
+ * Gear rotates inside its own tier. A level 1 sheet can only be handed tier 1
+ * gear, so one global counter would step through the tier 1 rack in strides of
+ * ten and visit half of it; a counter per tier walks each rack one shelf at a
+ * time and reaches every weapon and every armor the game has. The same trap is
+ * why the taste is keyed on the block of ten rows rather than the row, and the
+ * scar count on block plus level: any stride sharing a factor with the length
+ * of the list it indexes covers a fraction of it and reports nothing amiss.
+ */
+export function fullMatrix(ds: Dataset = loadDataset()): FullMatrixRow[] {
+  const ix = indexDataset(ds);
+  const rack = new Map<
+    Tier,
+    { primaries: Ref[]; secondaries: Ref[]; armors: Ref[] }
+  >();
+  for (const tier of [1, 2, 3, 4] as Tier[]) {
+    rack.set(tier, {
+      primaries: ds.weapons.filter((w) => w.slot === 'primary' && w.tier === tier).map((w) => w.id),
+      secondaries: ds.weapons
+        .filter((w) => w.slot === 'secondary' && w.tier === tier)
+        .map((w) => w.id),
+      armors: ds.armors.filter((a) => a.tier === tier).map((a) => a.id),
+    });
+  }
+  const shelf: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  // Beastforms rotate inside their tier too, and on their own counter: only a
+  // Druid can wear one, so counting Druid rows is the only way the count steps
+  // one at a time and reaches every form the tier unlocks.
+  const den: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+  const rows: FullMatrixRow[] = [];
+  let n = 0;
+  for (const sub of ds.subclasses) {
+    const transforms =
+      ix.classes.get(sub.classRef)?.classFeatures.some((f) => f.name === 'Beastform') === true;
+    for (const [ancestryAt, ancestry] of ds.ancestries.entries()) {
+      for (let level = 1; level <= 10; level += 1) {
+        const tier = tierOf(level);
+        const shelves = rack.get(tier)!;
+        const g = shelf[tier]!;
+        shelf[tier] = g + 1;
+
+        // Mixed ancestry is somebody's real sheet, not a curiosity. The cell's
+        // own ancestry always comes first, so the coverage count stays honest.
+        const second =
+          ds.ancestries[(ancestryAt + 1 + (n % 5)) % ds.ancestries.length]!.id;
+        const ancestryRefs = n % 7 === 0 ? [ancestry.id, second] : [ancestry.id];
+        const community = pick(ds.communities, n);
+        // One taste per (subclass, ancestry) block, so the ten rows of a block
+        // are one player's route and the 324 blocks cover all five routes at
+        // every level. Rotating per row instead would hand every level 10 sheet
+        // in the matrix the same taste, ten levels and five tastes being what
+        // they are.
+        const block = Math.floor(n / 10);
+
+        // Every other Druid sheet is transformed, walking the forms their level
+        // has unlocked one at a time.
+        let beastformRef: Ref | null | undefined;
+        if (transforms) {
+          const forms = beastformOptions(level, ds);
+          const k = den[tier]!;
+          den[tier] = k + 1;
+          beastformRef = k % 2 === 0 && forms.length > 0 ? pick(forms, k / 2).id : null;
+        }
+
+        const sample = buildCharacter({
+          classRef: sub.classRef,
+          level,
+          index: n,
+          ds,
+          ix,
+          idBase: FULL_MATRIX_ID_BASE + n,
+          choose: {
+            subclassRef: sub.id,
+            ancestryRefs,
+            communityRef: community.id,
+            primaryWeapon: pick(shelves.primaries, g),
+            // A third of sheets keep the off hand free, as two-handed ones must.
+            secondaryWeapon: g % 3 === 0 ? null : pick(shelves.secondaries, g),
+            // One row in eleven is unarmored, which is the only way the
+            // [level, 2 x level] threshold rule gets proven at all.
+            armor: g % 11 === 0 ? null : pick(shelves.armors, g),
+            // Scars are death moves survived, so they cannot outrun the levels.
+            // Keyed on block + level, not on the row index: ten rows a block
+            // and six scar counts share a factor of two, and a row index would
+            // hand every level 10 sheet in the matrix an odd number of scars.
+            scarCount: Math.min(Math.max(0, level - 1), (block + level) % 6),
+            taste: pick(TASTE_NAMES, block),
+            beastformRef,
+            cardSpread: 0,
+            cardOffset: block,
+            cardsAtNewLevel: true,
+          },
+        });
+
+        rows.push({
+          ...sample,
+          label: `#${n} ${sub.classRef}/${sub.id} · ${ancestry.id} · L${level}${
+            sample.exercises.length === 0 ? '' : ` · ${sample.exercises.join(' · ')}`
+          }`,
+          index: n,
+          classRef: sub.classRef,
+          subclassRef: sub.id,
+          ancestryRef: ancestry.id,
+          communityRef: community.id,
+          level,
+        });
+        n += 1;
+      }
+    }
+  }
+  return rows;
 }
 
 /** Character creation, step one, before anything has been chosen. */
@@ -640,7 +961,10 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
-  const samples = sampleMatrix();
+  const full = process.argv.includes('--full');
+  const started = Date.now();
+  const samples: Sample[] = full ? fullMatrix() : sampleMatrix();
+  const built = Date.now() - started;
   const json = (c: Character): number => new TextEncoder().encode(JSON.stringify(c)).length;
   for (const s of samples) {
     console.log(
@@ -649,7 +973,7 @@ function main(): void {
         `${s.character.levelUpHistory.length} advancements`,
     );
   }
-  console.log(`\n${samples.length} characters`);
+  console.log(`\n${samples.length} characters in ${built} ms`);
 }
 
 // Only when run as a script: the tests import the matrix from here.
