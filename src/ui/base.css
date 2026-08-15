@@ -1,0 +1,245 @@
+/*
+ * The cockpit shell.
+ *
+ * 100svh, CSS Grid, no document scroll. Play holds a fixed amount of content -
+ * six traits, four tracks, five cards - so it fits by construction. The screens
+ * where the content is unbounded (189 cards, 129 adversaries) scroll inside
+ * their own region, never the page.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--app);
+  color: var(--text);
+  font-family: var(--sans);
+  /* Fingers on a table drag; text selection mid-session is never wanted. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  text-rendering: optimizeLegibility;
+}
+
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--hope);
+  outline-offset: 2px;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--app);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  padding: 10px 12px;
+  min-height: var(--tap);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+::placeholder {
+  color: var(--dim);
+}
+
+/*
+ * Nothing animates for longer than a glance, except the QR frame cycler.
+ *
+ * Scoped to the properties that carry an affordance, and to the elements that
+ * have one. A bare `* { transition-duration }` inherits `transition-property:
+ * all`, which makes every layout change in the app animate - including the
+ * whole palette when the theme flips, so switching themes cross-fades the page
+ * through an unreadable middle.
+ */
+button,
+a,
+input,
+textarea,
+select,
+.panel,
+.chip,
+.btn {
+  transition-property: background-color, border-color, color, opacity, box-shadow;
+  transition-duration: var(--motion);
+  transition-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+  * {
+    animation: none !important;
+  }
+}
+
+:root[data-reduce-motion='true'] {
+  --motion: 0ms;
+}
+
+.app {
+  /*
+   * `svh`, not `dvh`.
+   *
+   * The dynamic viewport grows and shrinks as Safari's URL bar collapses, and
+   * this screen is laid out to fit rather than to flow - so with `dvh` the
+   * fit target moves while you are using it, and the fifth loadout row appears
+   * and disappears under your thumb. `svh` is the smallest stable viewport and
+   * never moves; the cost is a strip of background when the bar is hidden.
+   */
+  height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r4);
+}
+
+.scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/*
+ * A scrollable region that says so.
+ *
+ * The loadout on a phone genuinely does not fit - five 46px rows plus the
+ * thumb-zone controls exceed 852px, and shrinking either would break the
+ * touch floor. Scrolling it is the honest answer, but a hard edge reads as
+ * "that is all there is". The mask fades the last few pixels so the edge
+ * looks like a continuation, and disappears once you reach the end.
+ */
+.scroll-fade {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+}
+
+.scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.spread {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A button that reads as a button at the table: big, flat, unmistakable. */
+.btn {
+  min-height: var(--tap);
+  padding: 0 var(--s5);
+  border-radius: var(--r3);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  font: 600 13px/1 var(--sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--text);
+  color: var(--app);
+  border-color: transparent;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #fff;
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.chip {
+  font: 600 9.5px/1 var(--mono);
+  letter-spacing: 0.06em;
+  padding: 4px 6px;
+  border-radius: var(--r1);
+  background: var(--raised);
+  color: var(--muted);
+  white-space: nowrap;
+}

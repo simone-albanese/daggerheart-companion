@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One publish at a time, and never cancel one that is already mid-flight:
+# a half-uploaded Pages artifact is a broken site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # Vite bakes the base path into every asset URL and into the service
+      # worker's scope, so getting it wrong is a blank page with 404s in the
+      # console. Project sites are served from /<repo>/; a user or org site
+      # (<owner>.github.io) is served from the root and must not be prefixed.
+      # Read from the shell environment rather than interpolated, so nothing
+      # from the event payload can reach the script.
+      - name: Work out the base path
+        id: base
+        run: |
+          repo="${GITHUB_REPOSITORY#*/}"
+          owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          if [ "$(printf '%s' "$repo" | tr '[:upper:]' '[:lower:]')" = "$owner.github.io" ]; then
+            path="/"
+          else
+            path="/$repo/"
+          fi
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "Building for base path $path"
+
+      # Publishing over a working site is the one irreversible thing here, so
+      # the whole gate runs first. `npm run build` is `tsc --noEmit && vite
+      # build`; the tests are not in it, and a green type check has never once
+      # proved the dice roll correctly.
+      - name: Test
+        run: npx vitest run
+
+      - name: Build
+        env:
+          BASE_PATH: ${{ steps.base.outputs.path }}
+        run: npm run build
+
+      # A browser installs a replacement service worker only when the bytes of
+      # sw.js change, and a deploy does not touch that file: unstamped, every
+      # deploy after the first would install no worker, so the update prompt
+      # would never appear and `activate` - which sweeps superseded caches -
+      # would never run. The commit is the one thing guaranteed to differ.
+      # Left as the literal placeholder in a local build, where there is only
+      # ever one build and a changing worker would just be noise.
+      - name: Stamp the build into the service worker
+        run: |
+          grep -q '__BUILD__' dist/sw.js || {
+            echo "::error title=Service worker not stampable::dist/sw.js has no __BUILD__ placeholder, so this deploy would ship a worker byte-identical to the last one and no client would ever update."
+            exit 1
+          }
+          sed -i "s|__BUILD__|${GITHUB_SHA}|" dist/sw.js
+          grep -q "${GITHUB_SHA}" dist/sw.js
+
+      # Pages has no rewrite rules. Until the service worker is installed and
+      # answering navigations itself, a reload on a deep link is served by
+      # 404.html - which is the same document, so the app simply boots.
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

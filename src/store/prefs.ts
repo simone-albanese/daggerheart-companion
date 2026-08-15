@@ -1,0 +1,67 @@
+/**
+ * Preferences live in localStorage: they are small, synchronous, and losing
+ * them costs nothing. Everything that would hurt to lose is in IndexedDB.
+ */
+import type { Screen } from './state.ts';
+
+export interface Prefs {
+  theme: 'dark' | 'light' | 'system';
+  /** Turn the digital roller off for tables that only use physical dice. */
+  digitalDice: boolean;
+  /** The optional Massive Damage rule (twice Severe marks 4 HP). */
+  massiveDamageRule: boolean;
+  /** Colour-blind safe mode also shapes the domain marks. Shapes are always on. */
+  shapeCoding: boolean;
+  wakeLock: boolean;
+  reduceMotion: boolean;
+  lastScreen: Screen;
+  lastCharacterId?: string;
+  /** ISO date of the last successful export. Drives the backup nag. */
+  lastBackupAt?: string;
+  /** Directory handle name, when the File System Access API is available. */
+  backupTarget?: string;
+  /** Suppresses the "cards have no art" offer once it has been seen. */
+  seenArtOffer: boolean;
+  gmPartySize: number;
+}
+
+const KEY = 'dhc.prefs.v1';
+
+export const DEFAULT_PREFS: Prefs = {
+  theme: 'dark',
+  digitalDice: true,
+  massiveDamageRule: false,
+  shapeCoding: true,
+  wakeLock: true,
+  reduceMotion: false,
+  lastScreen: 'play',
+  seenArtOffer: false,
+  gmPartySize: 4,
+};
+
+export function loadPrefs(): Prefs {
+  if (typeof localStorage === 'undefined') return DEFAULT_PREFS;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw === null) return DEFAULT_PREFS;
+    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Prefs>) };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+export function savePrefs(prefs: Prefs): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(prefs));
+  } catch {
+    // Private mode, quota, or a browser that refuses. Not worth surfacing.
+  }
+}
+
+/** Days since the last export, or null if there has never been one. */
+export function daysSinceBackup(prefs: Prefs): number | null {
+  if (prefs.lastBackupAt === undefined) return null;
+  const then = Date.parse(prefs.lastBackupAt);
+  if (Number.isNaN(then)) return null;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}

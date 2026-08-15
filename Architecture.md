@@ -1,0 +1,646 @@
+# Daggerheart Companion — Architettura
+
+Scheda personaggio digitale e strumenti da GM. Locale-first, offline, senza account.
+L'app **nasce già con tutte le regole**: l'SRD 1.0 è contenuto pubblico ridistribuibile
+e viene estratto una volta sola in fase di build. Il manuale completo è un'aggiunta
+facoltativa, importata dall'utente per avere le illustrazioni.
+
+---
+
+## 0. Decisioni prese
+
+| Scelta | Valore | Conseguenza |
+|---|---|---|
+| Dati SRD | **Estratti in build, committati** | Avvio istantaneo, dati deterministici, parser testabile in CI |
+| Dati manuale | Parsing in-app, opzionale, **desktop** | Il parser fragile non blocca più nessuno |
+| Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla |
+| Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
+| Niente scroll | Vale per Play lato giocatore | Encounter e Bestiary scorrono nel corpo |
+| Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
+| Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
+| Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
+| Lingua | **Inglese: interfaccia e dati** | Nessun layer di traduzione |
+| Contenuti | Solo ufficiali, niente homebrew | Dataset immutabile, QR minuscolo per sempre |
+| Multiplayer | Nessuno: ognuno gestisce la sua scheda | Zero networking, zero permessi |
+| Distribuzione | Static site su GitHub Pages, PWA | Zero backend |
+
+---
+
+## 1. Le due pipeline
+
+La distinzione più importante del progetto: **due parser diversi, in due momenti diversi,
+con due profili di rischio opposti.**
+
+```
+BUILD TIME (la tua macchina, CI)          RUNTIME (browser dell'utente)
+─────────────────────────────────         ─────────────────────────────────
+tools/build-srd.ts                        src/import/*
+     ↓                                         ↓
+SRD 1.0 (68 pp, 0,9 MB)                   Core Rulebook (397 pp, 318 MB)
+     ↓                                         ↓
+data/srd-1.0.json  (~341 KB)              strato "core" in IndexedDB
+     ↓                                         ↓
+committato nel repo                       arte + flavour + campaign frame
+     ↓                                         ↓
+precache del service worker               facoltativo, solo desktop
+```
+
+Se il parser di build sbaglia, **se ne accorge la CI**. Se sbagliasse il parser
+runtime, se ne accorgerebbe l'utente a tavolo, mentre gioca, e tu non riusciresti
+a riprodurre il caso. Questa asimmetria giustifica da sola tutta la separazione.
+
+### 1.1 Build time — `tools/build-srd.ts`
+
+Gira in Node, non nel browser: può usare poppler, che sull'SRD legge il testo
+in modo pulito e senza perdere le legature.
+
+```
+tools/
+├─ build-srd.ts          # orchestratore
+├─ fetchSrd.ts           # scarica il PDF, verifica lo SHA-256 atteso
+├─ glyphs.ts             # rimappatura Private Use Area  ⚠
+├─ textLayout.ts         # de-colonnazione (condiviso col runtime)
+├─ parsers/              # condivisi col runtime
+└─ validate.ts           # conteggi attesi, fallisce la build
+```
+
+Il PDF **non si committa**: lo scarica lo script, con l'hash bloccato.
+
+```ts
+const SRD = {
+  url: 'https://www.daggerheart.com/wp-content/uploads/2025/09/Daggerheart-SRD-9-09-25.pdf',
+  sha256: '<da calcolare al primo run>',
+  revision: 'srd-1.0-2025-09-09',
+};
+```
+
+Così la build è riproducibile, il repo resta leggero, e quando esce una revisione
+nuova l'hash non torna e te ne accorgi subito.
+
+### 1.2 La trappola dei glifi invisibili ⚠
+
+Nell'SRD i numeri di tier degli stat block **non sono cifre**: sono glifi decorativi
+nella Private Use Area. Un parser normale li scarta senza errori e produce un dataset
+che *sembra* corretto.
+
+```
+Estrazione grezza:  "Tier \uE541 Solo"        atteso: "Tier 1 Solo"
+                    "Horde (\uE542/HP)"       atteso: "Horde (2/HP)"
+                    "Horde (\uE541\uE53F/HP)" atteso: "Horde (10/HP)"
+```
+
+| Codepoint | Valore | Occorrenze |
+|---|---|---|
+| `U+E53F` | `0` | 1 |
+| `U+E541` | `1` | 63 |
+| `U+E542` | `2` | 43 |
+| `U+E543` | `3` | 29 |
+| `U+E544` | `4` | 23 |
+| `U+E545` | `5` | 1 |
+| `U+E546` | `6` | 1 |
+| `U+F0E0` | `→` | 4 |
+
+Colpisce `Tier N Tipo`, `Horde (N/HP)`, `Minion (N)`, `Countdown (Loop N)`.
+
+**Tripla difesa**, perché la tabella può cambiare in una revisione futura:
+
+1. Rimappa i PUA con la tabella sopra.
+2. Deduci comunque il tier dall'intestazione di sezione (`TIER 1 ADVERSARIES`).
+3. Recupera `Minion (N)` e `Horde (N)` dal testo delle FEATURES, dove gli stessi
+   numeri compaiono in cifre normali.
+
+E soprattutto: **se un PUA sconosciuto sopravvive al parsing, fallisci la build.**
+
+### 1.3 Validazione che blocca la build
+
+```
+domini 9 · carte dominio 189 (21 per dominio) · classi 9 · sottoclassi 18
+ancestry 18 · community 9 · beastform 22 · avversari ~129 · ambienti 19
+0 caratteri PUA residui · 0 token con legature perse
+```
+
+Test di regressione sulle legature, perché dipendono dall'estrattore:
+
+```ts
+expect(text).not.toMatch(/\b(diculty|benets|modier|nesse|specic|reect)\b/i);
+expect(text).toMatch(/\bDifficulty\b/);
+```
+
+Le fixture ricavate dall'SRD **si possono committare**: è Public Game Content.
+Quelle ricavate dal manuale no.
+
+### 1.4 Runtime — solo il manuale
+
+`src/import/` gestisce esclusivamente il Core Rulebook, con pdf.js in un Web Worker.
+Riusa `textLayout.ts` e i `parsers/` dalla pipeline di build, ma non ha più bisogno
+di `glyphs.ts`: il manuale usa cifre vere.
+
+Compiti: estrarre l'arte delle carte, il flavour text più ricco, i campaign frame,
+e i contenuti presenti nel manuale ma non nell'SRD.
+
+**Solo desktop.** Renderizzare 30 pagine a scala 2.0 e ricomprimere 200 ritagli in
+WebP da un file di 318 MB è un candidato serio all'out-of-memory su mobile.
+Dalla schermata su telefono l'opzione appare disabilitata, con una riga che spiega
+perché e come portare l'arte dal computer (§ 5.4).
+
+---
+
+## 2. Primo avvio
+
+L'app non è più vuota. All'apertura hai già 189 carte dominio, 129 avversari,
+tutte le classi e tutte le tabelle. **Il primo schermo è "crea un personaggio",
+non "carica un PDF".**
+
+L'invito all'acquisto resta, ma smette di essere un pedaggio e diventa un'offerta:
+una riga discreta e persistente nelle impostazioni, più una comparsa contestuale
+la prima volta che apri una carta senza illustrazione.
+
+> Cards here are text-only — the free SRD doesn't include artwork.
+> Own the **Daggerheart Core Rulebook** PDF? Load it from a computer and the app
+> will use the official illustrations. Don't own it? Buying it supports the people
+> who made the game → daggerheart.com/buy
+
+Attribuzione richiesta, sempre visibile nel footer e nel README:
+
+> This product includes materials from the Daggerheart System Reference Document 1.0,
+> © Critical Role, LLC, under the terms of the Darrington Press Community Gaming License.
+> More information at www.daggerheart.com.
+> Daggerheart Compatible. Independent community content, not affiliated with or
+> endorsed by Critical Role, LLC or Darrington Press.
+
+### 2.1 Una lingua sola: inglese
+
+Interfaccia, dati, messaggi di errore, nomi dei file: tutto in inglese.
+
+Non è solo una scelta di comodità. I dati dell'SRD sono in inglese e i termini
+di gioco sono **meccanici**, non descrittivi: quando una carta dice *"mark a Stress"*,
+un'etichetta tradotta accanto crea un attimo di traduzione mentale a ogni sguardo —
+esattamente ciò che il vincolo del mezzo secondo vuole eliminare. Meglio zero
+attrito e una lingua sola che due lingue che si rincorrono.
+
+Conseguenze pratiche:
+
+- Niente `i18n`, niente file di stringhe, niente selettore di lingua. Un sottosistema
+  intero che non esiste.
+- Le stringhe stanno inline nei componenti. Se un giorno servisse la traduzione,
+  estrarle è lavoro meccanico.
+- L'app è pubblicabile a chiunque nel mondo senza lavoro aggiuntivo.
+- Anche codice, commenti e commit in inglese: coerenza dall'alto in basso.
+
+Questo documento resta in italiano perché è il tuo documento di lavoro; tutte le
+stringhe citate qui dentro sono quelle vere, in inglese.
+
+---
+
+## 3. Cosa fa e cosa non fa il motore
+
+La ragione per cui le schede digitali di GDR diventano ingestibili è che provano
+a eseguire le regole. Qui il confine è dichiarato.
+
+### 3.1 Calcola (aritmetica, nessuna ambiguità)
+
+- Soglie di danno = soglie base dell'armatura + livello
+- Danno in ingresso → HP da segnare (Minor 1, Major 2, Severe 3), con la riduzione
+  di un gradino se si segna uno slot armatura
+- Proficiency per livello (1 · +1 a liv. 2 · +1 a liv. 5 · +1 a liv. 8)
+- Tiro di danno = Proficiency × dado dell'arma + modificatore fisso
+- Esito del Duality Roll: successo/fallimento, con Hope o Fear, critico sui pari
+- Loadout massimo 5, Recall Cost da pagare in Stress
+- Conversione dell'oro (10 manciate = 1 sacca, 10 sacche = 1 forziere)
+- Battle points del GM: `(3 × PG) + 2`, con i costi per ruolo
+- Vincoli di livellamento: quali avanzamenti sono disponibili in quale tier
+
+### 3.2 Non calcola (mostra il testo, applica l'utente)
+
+- Le feature di classe, sottoclasse, ancestry e community
+- Il testo delle 189 carte dominio
+- Le feature di avversari e ambienti
+- I countdown: li mostra e li fa scorrere a mano, non deduce quando avanzano
+- Condizioni (Hidden, Restrained, Vulnerable, e tutte quelle speciali)
+- Qualsiasi regola della casa
+
+Il motivo non è pigrizia: è che modellare 189 carte con le loro eccezioni è un
+progetto più grande di tutto il resto insieme, e ogni tavolo con una variante
+finirebbe a combattere contro l'app invece di usarla.
+
+**Via di mezzo utile:** le feature con un effetto numerico dichiarato ottengono un
+pulsante che *propone* l'azione — "Tusks: +1d6 al danno" applica il bonus al tiro
+corrente se lo tocchi. Proposta, mai automatismo.
+
+---
+
+## 4. Sorgenti a strati
+
+```ts
+type Layer = { id: string; label: string; priority: number; importedAt?: string };
+
+const layers = [
+  { id: 'srd-1.0-2025-09-09', label: 'SRD 1.0',       priority: 0 },  // sempre presente
+  { id: 'core-2025-09-07',    label: 'Core Rulebook', priority: 1 },  // facoltativo
+];
+```
+
+**Niente homebrew.** Solo contenuto ufficiale: il dataset è immutabile, non serve
+un editor, né validazione dei contenuti utente, né allocazione dinamica di ID.
+Il QR non deve mai trasportare definizioni di carte, solo riferimenti — e resta
+minuscolo per sempre.
+
+Costa zero però lasciare la porta socchiusa, perché l'homebrew è la richiesta numero
+uno per app di questo tipo e Daggerheart lo incoraggia esplicitamente:
+
+- `priority: 2` resta libero nel modello a strati
+- gli **ID ≥ 60000 sono riservati** nel registry ai futuri contenuti utente
+
+Due righe oggi che evitano una migrazione dolorosa domani. Non implementare nulla.
+
+Risoluzione **campo per campo**: vince lo strato di priorità più alta che definisce
+la proprietà. Il manuale porta `art`, `flavorText`, `sourcePage` senza cancellare
+quello che l'SRD aveva già. Rimuovere il manuale riporta all'SRD senza riparsare.
+
+Abbinamento fra strati con slug normalizzato condiviso:
+
+```ts
+const slugify = (s: string) => s
+  .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[\u2018\u2019']/g, '')      // Monett's Cloak → monetts-cloak
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-|-$/g, '');
+```
+
+Dopo l'import del manuale, **schermata di riconciliazione**: quanti abbinati, quanti
+solo nel manuale, quanti solo nell'SRD, con abbinamento manuale per i casi dubbi.
+
+---
+
+## 5. Trasferimento e mobilità
+
+Tutto passa dallo stesso codec. Cambia solo il vettore.
+
+### 5.1 Registro degli ID stabili
+
+`data/registry.json`, committato, **append-only**. Generato dalla build dell'SRD,
+poi mai rinumerato.
+
+```json
+{ "version": 1, "ids": { "arcana-rune-ward": 5101, "wizard": 1009, "elf": 3004 } }
+```
+
+Serve perché il QR trasporta interi, non slug: è la differenza fra 604 e 147 byte.
+Test in CI che fallisce se un ID esistente cambia o sparisce.
+
+Fasce assegnate: `1000–1999` classi · `2000–2999` sottoclassi · `3000–3999` ancestry ·
+`4000–4999` community · `5000–5999` carte dominio · `7000–7999` armi ·
+`8000–8999` armature · `9000–9999` oggetti · **`≥ 60000` riservati** (mai emessi).
+
+### 5.2 Codec
+
+```
+1. Serializzazione binaria compatta
+   - ogni Ref → varint dal registry
+   - testo libero → UTF-8 con prefisso di lunghezza varint
+2. deflate raw (applicato solo se riduce davvero)
+3. framing multi-frame (solo per il QR)
+```
+
+Misure reali, wizard di livello 5 con 5 carte in loadout, 6 nel vault, 3 esperienze:
+
+| Codifica | Dimensione |
+|---|---|
+| JSON con slug | 796 byte |
+| JSON + deflate | 451 byte |
+| JSON + deflate + base64 | 604 caratteri |
+| **Binario con ID dal registry** | **147 byte** |
+| Con 400 caratteri di note e connessioni | ~580 byte |
+
+### 5.3 I due vettori
+
+**File `.dhchar`** — JSON leggibile, contiene solo riferimenti e valori. È il backup,
+il canale affidabile e il formato condivisibile senza problemi di copyright.
+Funziona identico su desktop e mobile: share sheet su iOS/Android, download su desktop.
+
+**QR animato** — header di 11 byte per frame:
+
+```
+"DH1" | transferId u16 | index u8 | total u8 | crc32 del payload completo u32 | chunk
+```
+
+- `transferId` casuale: distingue trasferimenti concorrenti allo stesso tavolo
+- `crc32` sul payload ricostruito: rifiuta le mescolanze
+- chunk ≤ 180 byte → QR versione ≤ 12 (65×65 moduli), correzione M
+
+Il mittente **cicla i frame in loop a 5 fps**. Il ricevente tiene puntata la fotocamera,
+accumula gli indici e mostra "4 di 6 ricevuti". Nessun handshake, nessun ordine da
+rispettare, nessuna rete.
+
+- Scheda tipica: 1 frame, istantanea
+- Con note lunghe: 4 frame, ciclo completo in 0,8 s
+- Oltre ~15 frame: l'app propone il file al posto del QR
+
+Contro i limiti fisici della scansione schermo-fotocamera (riflessi, moiré fra le due
+griglie di pixel, autofocus ravvicinato): massima luminosità automatica sul mittente,
+quiet zone generosa, correzione M anziché L.
+
+**Import degradato, sempre.** Se il ricevente non riconosce alcuni ID, importa lo stesso
+e segnala. I riferimenti ignoti restano nella scheda come `unresolvedRefs` e si
+risolvono da soli quando arriva la fonte mancante. Non scartare mai nulla.
+
+### 5.4 Portare l'arte dal computer al telefono
+
+L'import dell'arte è da desktop, ma l'arte deve poter arrivare sul telefono.
+Stesso principio del trasferimento schede: un file.
+
+**Art pack** (`.dhart`) — generato dal desktop dopo l'import del manuale.
+Contiene solo le WebP a 600 px indicizzate per slug, senza testo.
+
+- Pacchetto completo: ~20 MB
+- Per singolo dominio: ~2 MB — chi gioca un Wizard scarica Codex e Splendor e basta
+
+Sul telefono si importa dal file picker come qualsiasi altro file. Nessun PDF,
+nessun parsing, nessun rischio di memoria.
+
+> ⚠️ L'art pack contiene illustrazioni del manuale: è per uso personale sui propri
+> dispositivi, non si condivide. L'app lo dice esplicitamente al momento della creazione.
+
+### 5.5 Il telefono deve bastare
+
+Tutto il ciclo di vita della scheda funziona su mobile, senza mai toccare un computer:
+
+creare un personaggio · giocare · salire di livello · gestire loadout e vault ·
+inventario e oro · esportare e importare via file o QR · backup e ripristino ·
+usare gli strumenti da GM
+
+L'unica cosa che il telefono non fa è **estrarre l'arte da un PDF di 318 MB**.
+Riceverla in un art pack, sì.
+
+---
+
+## 6. Persistenza e durabilità
+
+| Cosa | Dove | Perché |
+|---|---|---|
+| Dataset SRD | Precache del service worker (~97 KB gzip) | Immutabile, versionato col deploy |
+| Strato manuale | IndexedDB, store separato | Rimuoverlo non tocca l'SRD |
+| Arte | IndexedDB `art` | Blob nativi, niente base64 |
+| Personaggi | IndexedDB `characters` | Multi-personaggio |
+| Preferenze | localStorage | Piccole e sincrone |
+| I PDF | **mai salvati** | Si ri-importano |
+
+### Il problema iOS, trattato seriamente
+
+ITP può cancellare IndexedDB dopo circa **sette giorni di inattività**, e
+`navigator.storage.persist()` viene concesso in modo incostante. Un gruppo che gioca
+ogni tre settimane perde il personaggio fra una sessione e l'altra.
+
+1. Richiedi `navigator.storage.persist()` alla creazione del primo personaggio,
+   spiegando perché — l'installazione della PWA in home screen aumenta molto le
+   probabilità che venga concesso.
+2. **Export automatico** a fine sessione e alla chiusura dell'app, nella cartella
+   scelta dall'utente (File System Access API dove c'è, share sheet altrove).
+3. Indicatore permanente e discreto: *"ultimo backup: 3 giorni fa"*, che diventa
+   evidente dopo cinque.
+4. Sopra i 7 giorni di inattività, all'apertura: verifica l'integrità e proponi il
+   ripristino dall'ultimo export.
+
+Il personaggio è il lavoro di mesi dell'utente. Perderlo è l'unico bug davvero
+imperdonabile di un'app come questa.
+
+---
+
+## 7. Modello dati
+
+```ts
+type Ref = string;  // slug: "arcana-rune-ward"
+
+interface Dataset {
+  schemaVersion: 3;
+  layers: Layer[];
+  domains: Domain[]; domainCards: DomainCard[];
+  classes: CharClass[]; subclasses: Subclass[]; beastforms: Beastform[];
+  ancestries: Ancestry[]; communities: Community[];
+  weapons: Weapon[]; armors: Armor[]; loot: Item[]; consumables: Item[];
+  adversaries: Adversary[]; environments: Environment[];
+}
+
+interface DomainCard {
+  id: Ref; name: string; domain: Ref;
+  level: number; type: 'Spell' | 'Ability' | 'Grimoire';
+  recallCost: number; text: string;
+  artKey?: string;
+  provenance: Record<string, string>;   // campo → strato che lo definisce
+}
+
+interface Adversary {
+  id: Ref; name: string; tier: 1|2|3|4; role: AdversaryRole;
+  description: string; motives: string[];
+  difficulty: number | 'special';
+  thresholds: [number, number] | null;  // i Minion non le hanno
+  hp: number; stress: number;
+  attack: { bonus: number; name: string; range: Range; damage: string };
+  experiences: { name: string; bonus: number }[];
+  features: Feature[];                  // testo, mai eseguito
+}
+
+interface Character {
+  id: string; schemaVersion: 3;
+  name: string; pronouns: string;
+  classRef: Ref; subclassRefs: Ref[]; ancestryRefs: Ref[]; communityRef: Ref;
+  level: number; proficiency: number;
+  traits: Record<Trait, number>;
+  hp: Counter; stress: Counter; hope: Counter; armorSlots: Counter;
+  evasion: number; thresholds: [number, number];
+  loadout: Ref[]; vault: Ref[];
+  activeWeapons: Ref[]; activeArmor: Ref | null; inventory: InventoryEntry[];
+  experiences: { name: string; bonus: number }[];
+  gold: { handfuls: number; bags: number; chests: number };
+  connections: string[]; notes: string;
+  levelUpHistory: LevelUpChoice[];
+  unresolvedRefs?: number[];
+}
+```
+
+**Regola d'oro**: il personaggio salva solo `Ref` e valori, mai copie dei contenuti.
+Aggiornare il dataset non tocca i personaggi.
+
+---
+
+## 8. Struttura del repo
+
+```
+daggerheart-companion/
+├─ tools/                      # ⭐ gira in Node, non spedito al browser
+│  ├─ build-srd.ts  fetchSrd.ts  glyphs.ts  validate.ts
+│  └─ buildRegistry.ts
+├─ data/                       # ⭐ l'unico contenuto committato
+│  ├─ srd-1.0.json             # ~341 KB, generato dalla build
+│  └─ registry.json            # slug ↔ ID, append-only
+├─ shared/                     # usato sia da tools/ che da src/
+│  ├─ textLayout.ts  slugify.ts
+│  └─ parsers/
+│     ├─ domainCards.ts  adversaries.ts  environments.ts
+│     ├─ classes.ts      ancestries.ts   communities.ts
+│     └─ beastforms.ts   equipment.ts    loot.ts
+├─ src/
+│  ├─ import/                  # SOLO manuale, solo desktop
+│  │  ├─ worker.ts  detectSource.ts  reconcile.ts  art.ts  artPack.ts
+│  ├─ engine/                  # PURO: zero UI, zero pdf.js
+│  │  ├─ character.ts  levelUp.ts  loadout.ts  damage.ts  dice.ts  encounter.ts
+│  ├─ transfer/
+│  │  ├─ codec.ts  frames.ts  qrOut.tsx  qrIn.tsx  fileIo.ts
+│  ├─ store/  db.ts  state.ts  backup.ts
+│  ├─ ui/
+│  │  ├─ shell/  player/  gm/  settings/  shared/
+│  └─ main.tsx
+├─ public/  manifest.webmanifest  sw.js
+└─ tests/fixtures/             # righe di testo dall'SRD, MAI un PDF
+```
+
+`.gitignore`, prima riga: `*.pdf`
+
+---
+
+## 9. UI
+
+È un **cockpit**, non un documento. `100dvh`, CSS Grid, `clamp()` sui font.
+
+### 9.1 Regola dello scroll, per modalità
+
+| Modalità | Scroll | Perché |
+|---|---|---|
+| **Play** (giocatore) | **Nessuno** | Il contenuto è limitato e noto: 6 tratti, 4 contatori, 5 carte |
+| **Cards** | Nella griglia | 189 carte, ovvio |
+| **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
+| **Encounter** (GM) | Nel corpo | Fear pool e barra di scena restano fissi |
+| **Bestiary** (GM) | Nell'elenco | 129 avversari |
+
+Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
+Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
+ambiente e due countdown non entrano in 390×844 a corpo leggibile. Fingere di sì
+produce testo a 9px, che a tavolo non si legge.
+
+### 9.2 Desktop / Mac — 3 colonne
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Kaelith  Wizard Lv.5   [Build][Play][Cards]       ☰      │
+├──────────────┬──────────────────────┬────────────────────┤
+│ TRAITS       │ LOADOUT (5 cards)    │ DUALITY ROLL       │
+│ Agi +1 Str+0 │ ┌────┐┌────┐┌────┐   │  ⬡ Hope  ⬡ Fear   │
+│ Fin +1 Ins+2 │ │    ││    ││    │   │   [ ROLL ]         │
+│ Pre −1 Kno+3 │ └────┘└────┘└────┘   ├────────────────────┤
+├──────────────┤ ┌────┐┌────┐         │ LOG                │
+│ HP  ●●○○○○○  │ │    ││    │         │ 14 vs 12 · Hope    │
+│ Str ●●●○○○   │ └────┘└────┘         │ 3d6+4 → 17 dmg     │
+│ Hope ●●●●○○  ├──────────────────────┤                    │
+│ Arm ●○○○     │ WEAPON · Impr. Wand  │                    │
+│ Evasion 12   │ 3d6+4 mag · Far      │                    │
+│ Thresh 14/25 │ [ ATTACK ]           │                    │
+└──────────────┴──────────────────────┴────────────────────┘
+```
+
+### 9.3 Tablet — 2 colonne + drawer · Telefono — 1 colonna + tab bar
+
+```
+┌─────────────────┐
+│ Kaelith · Wiz 5 │
+├─────────────────┤
+│  HP  ●●○○○○○    │
+│  Str ●●●○○○     │
+│  Hope ●●●●○○    │
+│                 │
+│  Agi +1  Str +0 │
+│  Fin +1  Ins +2 │
+│  Pre −1  Kno +3 │
+├─────────────────┤
+│ [🎲 ROLL]       │
+├─────────────────┤
+│ Stats│Cards│Gear│
+└─────────────────┘
+```
+
+### 9.4 Dettagli che contano a tavolo
+
+- Tap target minimo 44 px; contatori: tap segna, pressione lunga libera
+- `user-select: none` ovunque tranne le note
+- Wake lock durante la sessione
+- Tema scuro predefinito, alto contrasto: si gioca in stanze buie
+- Nessuna animazione oltre 150 ms, tranne il QR animato
+- La carta dominio ha **due stati** — con arte e solo testo — ed entrambi devono
+  sembrare voluti. Senza manuale, il solo testo è lo stato normale.
+
+---
+
+## 10. Strumenti GM
+
+Stesso motore, stesso dataset. **Nessuna rete**: il GM non vede le schede dei
+giocatori e non c'è niente da sincronizzare. Sono strumenti personali — consultazione
+e tracciamento — non un tavolo condiviso. Niente WebRTC, niente discovery sulla LAN,
+niente stati di connessione da gestire o da spiegare.
+
+Il canale di trasferimento (§ 5) serve quindi soprattutto a **spostare il tuo
+personaggio fra i tuoi dispositivi**: costruito su desktop, giocato su telefono,
+consultato su tablet. In secondo piano, passare un pregenerato a un giocatore nuovo.
+
+- **Encounter builder**: `(3 × PG) + 2` battle points. Costi: gruppo di Minion 1,
+  Social/Support 1, Horde/Ranged/Skulk/Standard 2, Leader 3, Bruiser 4, Solo 5.
+  Aggiustamenti: −1 più facile, −2 con 2+ Solo, +1 da tier inferiore, +2 più duro.
+- **Tracker di scena**: HP e Stress tappabili, soglie sempre visibili, spotlight.
+- **Fear pool**: contatore grande, massimo 12, sempre visibile.
+- **Countdown**: standard, dinamici, loop, long-term. Si fanno scorrere a mano.
+- **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
+
+---
+
+## 11. Roadmap
+
+La sequenza è cambiata: il parser fragile è finito in fondo, dove non blocca nulla.
+
+**Fase 1 — Il dataset.** `tools/build-srd.ts` completo: glifi PUA, de-colonnazione,
+tutti i parser, validazione che fallisce la build. Deliverable: `data/srd-1.0.json`
+committato e verde in CI. *Nessuna UI.* È il fondamento di tutto.
+
+**Fase 2 — Motore e persistenza.** `engine/` puro con test, IndexedDB, scheda in
+sola lettura che renderizza un personaggio scritto a mano.
+
+**Fase 3 — Play.** Contatori, dadi, loadout, log. La schermata che si usa il 90%
+del tempo. Con questa l'app è già utile a tavolo.
+
+**Fase 4 — Build.** Creazione e passaggio di livello.
+
+**Fase 5 — Trasferimento e backup.** Registry, codec, file `.dhchar`, QR animato,
+export automatico, ripristino.
+
+**Fase 6 — Strumenti GM.** Encounter, Bestiary, Fear, countdown.
+
+**Fase 7 — PWA.** Service worker, installazione, wake lock, `persist()`.
+
+**Fase 8 — Manuale completo (facoltativa).** Parser runtime, riconciliazione,
+pipeline arte, art pack. Se non la fai mai, l'app resta completa.
+
+---
+
+## 12. Legale
+
+- Nel repo: codice, `data/srd-1.0.json`, `data/registry.json`. Nessun PDF, nessuna arte.
+- L'SRD 1.0 è Public Game Content sotto DPCGL: ridistribuibile con attribuzione.
+- Il manuale completo no: resta sul dispositivo dell'utente, l'art pack è personale.
+- Nessun logo ufficiale. Per un marchio, usa i loghi "Daggerheart Compatible" della
+  licenza: `https://darringtonpress.com/license/`
+- Attribuzione SRD nel footer e nel README.
+- Nessuna telemetria, nessuna analitica.
+
+---
+
+## 13. Rischi residui
+
+| Rischio | Mitigazione |
+|---|---|
+| Glifi PUA cambiati in una revisione futura | Tripla difesa + build che fallisce, mai in produzione |
+| Revisioni SRD con correzioni meccaniche | SHA-256 bloccato: la build si rompe e te ne accorgi |
+| De-colonnazione fragile su certe pagine | Fixture committabili + validazione sui conteggi |
+| Safari iOS cancella IndexedDB | `persist()` + export automatico + indicatore di backup |
+| Scansione QR difficile schermo-fotocamera | Luminosità automatica, ECC M, quiet zone, e il file come alternativa |
+| Import del manuale che esaurisce la memoria | Solo desktop, dichiarato; l'arte viaggia in art pack |
+| Abbinamento sbagliato fra SRD e manuale | Schermata di riconciliazione con abbinamento manuale |
+| Aspettativa che l'app "esegua" le regole | Confine dichiarato nel README e nell'onboarding |
+| Richieste di homebrew (arriveranno) | `priority: 2` e ID ≥ 60000 già riservati: aggiungerlo non richiede migrazioni |

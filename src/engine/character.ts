@@ -1,0 +1,325 @@
+/**
+ * Everything derivable from a character plus the dataset.
+ *
+ * Nothing here interprets a feature's text. If a value cannot be reached by
+ * unambiguous arithmetic from the rules, it is not computed - it is left to
+ * the player, with an override field where one is needed.
+ */
+import { TRAITS } from '../../shared/types.ts';
+import type {
+  Armor,
+  Beastform,
+  CharClass,
+  Character,
+  Dataset,
+  DomainCard,
+  DomainId,
+  Ref,
+  Subclass,
+  Tier,
+  Trait,
+  Weapon,
+} from '../../shared/types.ts';
+import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
+
+export const MAX_HP = 12;
+export const MAX_STRESS = 12;
+export const MAX_ARMOR_SCORE = 12;
+export const MAX_LOADOUT = 5;
+export const BASE_HOPE = 6;
+export const MAX_LEVEL = 10;
+
+/** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
+export function tierOf(level: number): Tier {
+  if (level <= 1) return 1;
+  if (level <= 4) return 2;
+  if (level <= 7) return 3;
+  return 4;
+}
+
+export const TIER_LEVELS: Record<Tier, number[]> = {
+  1: [1],
+  2: [2, 3, 4],
+  3: [5, 6, 7],
+  4: [8, 9, 10],
+};
+
+/**
+ * Proficiency starts at 1 and rises by 1 as a tier achievement at levels 2, 5
+ * and 8. Advancements can raise it further, so the tier achievement is the
+ * floor, not the value.
+ */
+export function baseProficiency(level: number): number {
+  return 1 + [2, 5, 8].filter((l) => level >= l).length;
+}
+
+export interface DatasetIndex {
+  classes: Map<Ref, CharClass>;
+  subclasses: Map<Ref, Subclass>;
+  weapons: Map<Ref, Weapon>;
+  armors: Map<Ref, Armor>;
+  cards: Map<Ref, DomainCard>;
+  beastforms: Map<Ref, Beastform>;
+  byRef: Map<Ref, unknown>;
+}
+
+export function indexDataset(ds: Dataset): DatasetIndex {
+  const byRef = new Map<Ref, unknown>();
+  const put = <T extends { id: Ref }>(items: T[]): Map<Ref, T> => {
+    const m = new Map<Ref, T>();
+    for (const it of items) {
+      m.set(it.id, it);
+      byRef.set(it.id, it);
+    }
+    return m;
+  };
+  const classes = put(ds.classes);
+  const subclasses = put(ds.subclasses);
+  const weapons = put(ds.weapons);
+  const armors = put(ds.armors);
+  const cards = put(ds.domainCards);
+  const beastforms = put(ds.beastforms);
+  put(ds.ancestries);
+  put(ds.communities);
+  put(ds.adversaries);
+  put(ds.environments);
+  put(ds.loot);
+  put(ds.consumables);
+  return { classes, subclasses, weapons, armors, cards, beastforms, byRef };
+}
+
+/**
+ * What an active Beastform replaces, alongside what it replaced it with.
+ *
+ * The character's own traits and Evasion are never written to, so dropping out
+ * of the form is lossless; this is the layer that sits on top of them for as
+ * long as the Druid is transformed.
+ */
+export interface BeastformInPlay {
+  form: Beastform;
+  /** Evasion before the form's bonus, so the sheet can show what it replaced. */
+  baseEvasion: number;
+  /** Every trait the form raises, with the value it had before. */
+  raised: Array<{ trait: Trait; from: number; to: number }>;
+}
+
+export interface DerivedStats {
+  tier: Tier;
+  proficiency: number;
+  evasion: number;
+  /** Trait values in play: the character's own, plus an active Beastform's. */
+  traits: Record<Trait, number>;
+  /** The Beastform being worn right now, or null. */
+  beastform: BeastformInPlay | null;
+  /** [Major, Severe]. */
+  thresholds: [number, number];
+  /** Twice Severe: the optional Massive Damage rule. */
+  massiveThreshold: number;
+  armorScore: number;
+  maxHp: number;
+  maxStress: number;
+  maxHope: number;
+  /** Which trait a Spellcast Roll uses, from the subclass. Null if none. */
+  spellcastTrait: Trait | null;
+  /** Domains this character may draw cards from. */
+  domains: DomainId[];
+  /** Highest card level that may be taken, per domain. */
+  cardLevelCap: (domain: DomainId) => number;
+  loadoutLimit: number;
+}
+
+/**
+ * Count the advancements of a given kind the character has taken. Advancement
+ * effects that are pure arithmetic are applied here; everything else is text.
+ */
+function advancementCount(c: Character, kind: string): number {
+  return c.levelUpHistory.filter((a) => a.kind === kind).length;
+}
+
+export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): DerivedStats {
+  const ix = index ?? indexDataset(ds);
+  const klass = ix.classes.get(c.classRef);
+  const tier = tierOf(c.level);
+
+  // Each "increase Proficiency" advancement costs two slots but adds one.
+  const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
+
+  const armor = c.activeArmor ? ix.armors.get(c.activeArmor) : undefined;
+  // Unarmored: Major equals level, Severe equals twice level, no armor slots.
+  const baseThresholds: [number, number] = armor
+    ? [armor.baseThresholds[0], armor.baseThresholds[1]]
+    : [0, c.level];
+  const thresholds: [number, number] = c.thresholdOverride ?? [
+    baseThresholds[0] + c.level,
+    baseThresholds[1] + c.level,
+  ];
+
+  const armorScore = Math.min(MAX_ARMOR_SCORE, armor ? armor.baseScore : 0);
+
+  const baseEvasion =
+    c.evasionOverride ??
+    (klass?.startingEvasion ?? 10) + advancementCount(c, 'evasion');
+
+  // A Beastform is a state, not a fact about the character. It is layered here,
+  // at read time, and never written back - a Druid who drops out of a form must
+  // find their own numbers untouched. An unresolvable ref simply means no form.
+  const form = c.beastform ? (ix.beastforms.get(c.beastform.ref) ?? null) : null;
+  const traits = form
+    ? Object.fromEntries(
+        TRAITS.map((t) => [t, c.traits[t] + (form.traitBonus[t] ?? 0)]),
+      ) as Record<Trait, number>
+    : c.traits;
+  const evasion = baseEvasion + (form?.evasionBonus ?? 0);
+  const beastform: BeastformInPlay | null = form
+    ? {
+        form,
+        baseEvasion,
+        raised: TRAITS.filter((t) => (form.traitBonus[t] ?? 0) !== 0).map((t) => ({
+          trait: t,
+          from: c.traits[t],
+          to: traits[t],
+        })),
+      }
+    : null;
+
+  const maxHp = Math.min(
+    MAX_HP,
+    (klass?.startingHitPoints ?? 6) + advancementCount(c, 'hitPoint'),
+  );
+  const maxStress = Math.min(MAX_STRESS, 6 + advancementCount(c, 'stress'));
+  // A scar permanently crosses out a Hope slot.
+  const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
+
+  const subclasses = c.subclassRefs
+    .map((r) => ix.subclasses.get(r))
+    .filter((s): s is Subclass => s !== undefined);
+  const spellcastTrait = subclasses.find((s) => s.spellcastTrait !== null)?.spellcastTrait ?? null;
+
+  const domains: DomainId[] = [...(klass?.domains ?? [])];
+  if (c.multiclassDomain && !domains.includes(c.multiclassDomain)) {
+    domains.push(c.multiclassDomain);
+  }
+
+  // A multiclass domain only opens cards at or below half your level, rounded
+  // up; Daggerheart rounds up everywhere unless it says otherwise.
+  const cardLevelCap = (domain: DomainId): number =>
+    domain === c.multiclassDomain ? Math.ceil(c.level / 2) : c.level;
+
+  return {
+    tier,
+    proficiency,
+    evasion,
+    traits,
+    beastform,
+    thresholds,
+    massiveThreshold: thresholds[1] * 2,
+    armorScore,
+    maxHp,
+    maxStress,
+    maxHope,
+    spellcastTrait,
+    domains,
+    cardLevelCap,
+    loadoutLimit: MAX_LOADOUT,
+  };
+}
+
+/**
+ * The modifier a roll uses, given a trait or the special Spellcast slot.
+ *
+ * Reads `stats.traits`, not the character's own, so a Druid in a Beastform
+ * rolls the trait the form actually gives them.
+ */
+export function rollModifier(
+  _c: Character,
+  stats: DerivedStats,
+  which: Trait | 'spellcast',
+): { trait: Trait | null; value: number; label: string } {
+  if (which === 'spellcast') {
+    const t = stats.spellcastTrait;
+    return {
+      trait: t,
+      value: t ? stats.traits[t] : 0,
+      label: t ? `Spellcast (${t})` : 'Spellcast',
+    };
+  }
+  return { trait: which, value: stats.traits[which], label: which };
+}
+
+/**
+ * Weapon damage after Proficiency, ready to roll.
+ *
+ * Goes through `parseDamage` rather than a second regex of its own: a layer
+ * that spells a weapon `d10 + 2` must not quietly lose the +2 here while the
+ * damage roller reads it correctly.
+ */
+export function weaponDamage(
+  weapon: Weapon,
+  stats: DerivedStats,
+): { spec: string; count: number; sides: number; modifier: number } | null {
+  const parsed = parseDamage(weapon.damage);
+  if (!parsed) return null;
+  const scaled = applyProficiency(parsed, stats.proficiency);
+  return { spec: formatDamage(scaled), ...scaled };
+}
+
+export function newCharacter(partial: Partial<Character> = {}): Character {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    schemaVersion: 3,
+    name: '',
+    pronouns: '',
+    classRef: '',
+    subclassRefs: [],
+    ancestryRefs: [],
+    communityRef: null,
+    multiclassRef: null,
+    multiclassDomain: null,
+    level: 1,
+    traits: { agility: 0, strength: 0, finesse: 0, instinct: 0, presence: 0, knowledge: 0 },
+    traitMarks: {},
+    hp: { marked: 0, max: 6 },
+    stress: { marked: 0, max: 6 },
+    hope: { marked: 2, max: BASE_HOPE },
+    armorSlots: { marked: 0, max: 0 },
+    evasionOverride: null,
+    thresholdOverride: null,
+    loadout: [],
+    vault: [],
+    activePrimaryWeapon: null,
+    activeSecondaryWeapon: null,
+    activeArmor: null,
+    inventory: [],
+    experiences: [],
+    gold: { handfuls: 0, bags: 0, chests: 0 },
+    connections: [],
+    notes: '',
+    levelUpHistory: [],
+    companion: null,
+    beastform: null,
+    scars: [],
+    createdAt: now,
+    updatedAt: now,
+    ...partial,
+  };
+}
+
+/**
+ * Re-clamp the counters after anything that can change a maximum.
+ *
+ * Hope is stored as *available*, every other track as *marked*, because that
+ * is how each is read at the table: "4 Hope left", "3 HP marked".
+ */
+export function syncCounters(c: Character, stats: DerivedStats): Character {
+  return {
+    ...c,
+    hp: { marked: Math.min(c.hp.marked, stats.maxHp), max: stats.maxHp },
+    stress: { marked: Math.min(c.stress.marked, stats.maxStress), max: stats.maxStress },
+    hope: { marked: Math.min(c.hope.marked, stats.maxHope), max: stats.maxHope },
+    armorSlots: {
+      marked: Math.min(c.armorSlots.marked, stats.armorScore),
+      max: stats.armorScore,
+    },
+  };
+}

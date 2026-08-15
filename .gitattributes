@@ -1,0 +1,10 @@
+# The dataset is a build artifact: generated, deterministic, and reviewed by
+# its counts rather than its diff.
+data/srd-1.0.json linguist-generated=true -diff
+data/registry.json -diff
+
+# Keep line endings stable across the platforms this gets edited on.
+* text=auto eol=lf
+*.woff2 binary
+*.png binary
+*.pdf binary

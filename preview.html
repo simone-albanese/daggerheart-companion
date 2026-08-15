@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Device preview</title>
+    <style>
+      /*
+       * A dev-only harness. Desktop browsers refuse to make a window narrower
+       * than about 750px, so the phone layout cannot be exercised by resizing;
+       * an iframe gets its own viewport and the media queries resolve against
+       * that. Only reachable in `npm run dev` - the production build has a
+       * single entry, index.html.
+       */
+      body {
+        margin: 0;
+        background: #0d0e12;
+        color: #e8e6e1;
+        font: 500 12px/1 'IBM Plex Mono', ui-monospace, monospace;
+        display: flex;
+        gap: 28px;
+        padding: 24px;
+        align-items: flex-start;
+        overflow: auto;
+      }
+      figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+      figcaption { letter-spacing: 0.12em; color: #8990a0; }
+      iframe { border: 1px solid #2b303c; border-radius: 14px; background: #14161c; }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>IPHONE 14 PRO — 393 × 852</figcaption>
+      <iframe src="/" width="393" height="852" title="Phone preview"></iframe>
+    </figure>
+    <figure>
+      <figcaption>IPHONE SE — 375 × 667</figcaption>
+      <iframe src="/" width="375" height="667" title="Small phone preview"></iframe>
+    </figure>
+    <figure>
+      <figcaption>IPAD MINI — 744 × 1000</figcaption>
+      <iframe src="/" width="744" height="1000" title="Tablet preview"></iframe>
+    </figure>
+  </body>
+</html>

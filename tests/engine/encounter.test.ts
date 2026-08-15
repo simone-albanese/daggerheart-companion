@@ -1,0 +1,271 @@
+import { describe, expect, it } from 'vitest';
+import type { AdversaryRole, Tier } from '@shared/types.ts';
+import {
+  MAX_FEAR,
+  NO_ADJUSTMENTS,
+  ROLE_COST,
+  TIER_BENCHMARKS,
+  computeBudget,
+  entryCost,
+  makeCombatant,
+  tickCountdown,
+  type Countdown,
+  type EncounterEntry,
+} from '@engine/encounter.ts';
+import { adversaryOfRole, makeAdversary } from '../fixtures/factories.ts';
+
+const entry = (role: AdversaryRole, count = 1, tier: Tier = 2): EncounterEntry => ({
+  adversary: adversaryOfRole(role, tier),
+  count,
+});
+
+const lineFor = (label: RegExp, budget: ReturnType<typeof computeBudget>) =>
+  budget.adjustments.find((l) => label.test(l.label))!;
+
+describe('the base budget', () => {
+  it.each([
+    [1, 5],
+    [2, 8],
+    [3, 11],
+    [4, 14],
+    [5, 17],
+    [6, 20],
+  ])('gives %i PCs %i Battle Points', (partySize, base) => {
+    const b = computeBudget(partySize, 2, []);
+    expect(b.base).toBe(base);
+    expect(b.budget).toBe(base);
+    expect(b.partySize).toBe(partySize);
+  });
+
+  it('never goes below a party of one', () => {
+    expect(computeBudget(0, 2, []).base).toBe(5);
+  });
+});
+
+describe('the five adjustments', () => {
+  const roster = [entry('Standard'), entry('Solo')];
+
+  it('takes one point off for an easier or shorter fight', () => {
+    const b = computeBudget(4, 2, roster, { ...NO_ADJUSTMENTS, easier: true });
+    expect(lineFor(/Easier/, b)).toMatchObject({ points: -1, active: true, automatic: false });
+    expect(b.budget).toBe(14 - 1);
+  });
+
+  it('adds two for a harder or longer fight', () => {
+    const b = computeBudget(4, 2, roster, { ...NO_ADJUSTMENTS, harder: true });
+    expect(lineFor(/Harder/, b)).toMatchObject({ points: 2, active: true });
+    expect(b.budget).toBe(14 + 2);
+  });
+
+  it('takes two off for bumping every adversary damage roll', () => {
+    const b = computeBudget(4, 2, roster, { ...NO_ADJUSTMENTS, damageBump: true });
+    expect(lineFor(/\+1d4/, b)).toMatchObject({ points: -2, active: true, automatic: false });
+    expect(b.budget).toBe(14 - 2);
+  });
+
+  it('takes two off automatically for two or more Solos', () => {
+    const one = computeBudget(4, 2, [entry('Solo'), entry('Standard')]);
+    expect(lineFor(/Solo adversaries/, one).active).toBe(false);
+    expect(one.budget).toBe(14);
+
+    const two = computeBudget(4, 2, [entry('Solo'), entry('Solo')]);
+    expect(lineFor(/Solo adversaries/, two)).toMatchObject({ active: true, automatic: true });
+    expect(two.budget).toBe(14 - 2);
+  });
+
+  it('counts two Solos bought as one entry of two', () => {
+    const b = computeBudget(4, 2, [entry('Solo', 2)]);
+    expect(lineFor(/Solo adversaries/, b).active).toBe(true);
+  });
+
+  it('adds one automatically for an adversary from a lower tier', () => {
+    const same = computeBudget(4, 2, [entry('Bruiser', 1, 2)]);
+    expect(lineFor(/lower tier/, same).active).toBe(false);
+
+    const lower = computeBudget(4, 2, [entry('Bruiser', 1, 1)]);
+    expect(lineFor(/lower tier/, lower)).toMatchObject({ active: true, automatic: true, points: 1 });
+    expect(lower.budget).toBe(15);
+  });
+
+  it('does not pay for an adversary from a higher tier', () => {
+    expect(lineFor(/lower tier/, computeBudget(4, 2, [entry('Bruiser', 1, 4)])).active).toBe(false);
+  });
+
+  it('adds one automatically when nothing heavy is on the table', () => {
+    const light = computeBudget(4, 2, [entry('Standard'), entry('Ranged'), entry('Minion')]);
+    expect(lineFor(/No Bruisers/, light)).toMatchObject({ active: true, automatic: true, points: 1 });
+    expect(light.budget).toBe(15);
+  });
+
+  it.each(['Bruiser', 'Horde', 'Leader', 'Solo'] as AdversaryRole[])(
+    'withdraws the rebate once a %s joins',
+    (role) => {
+      const b = computeBudget(4, 2, [entry('Standard'), entry(role)]);
+      expect(lineFor(/No Bruisers/, b).active).toBe(false);
+    },
+  );
+
+  it('gives no rebate for an empty roster', () => {
+    const b = computeBudget(4, 2, []);
+    expect(lineFor(/No Bruisers/, b).active).toBe(false);
+    expect(b.budget).toBe(14);
+  });
+
+  it('stacks every adjustment at once', () => {
+    const b = computeBudget(
+      4,
+      3,
+      [entry('Solo', 2, 2), entry('Standard', 1, 3)],
+      { easier: true, harder: true, damageBump: true },
+    );
+    // 14 - 1 (easier) - 2 (two Solos) - 2 (damage bump) + 1 (lower tier) + 2 (harder)
+    expect(b.budget).toBe(12);
+    expect(b.adjustments.filter((l) => l.active)).toHaveLength(5);
+  });
+
+  it('lists every adjustment whether it applies or not, so the GM can see them', () => {
+    const b = computeBudget(4, 2, []);
+    expect(b.adjustments).toHaveLength(6);
+    expect(b.adjustments.filter((l) => l.automatic)).toHaveLength(3);
+  });
+});
+
+describe('what a roster costs', () => {
+  it('prices each role', () => {
+    expect(ROLE_COST).toEqual({
+      Minion: 1,
+      Social: 1,
+      Support: 1,
+      Horde: 2,
+      Ranged: 2,
+      Skulk: 2,
+      Standard: 2,
+      Leader: 3,
+      Bruiser: 4,
+      Solo: 5,
+    });
+  });
+
+  it.each(Object.keys(ROLE_COST) as AdversaryRole[])('charges the listed cost for a %s', (role) => {
+    expect(entryCost(entry(role))).toBe(ROLE_COST[role]);
+  });
+
+  it('multiplies by the count', () => {
+    expect(entryCost(entry('Standard', 3))).toBe(6);
+    expect(entryCost(entry('Solo', 2))).toBe(10);
+  });
+
+  it('charges a Minion group - not a Minion - one point', () => {
+    // A group is as many Minions as there are PCs, so three groups cost three.
+    expect(entryCost(entry('Minion', 3))).toBe(3);
+  });
+
+  it('treats a count of zero as one', () => {
+    expect(entryCost(entry('Standard', 0))).toBe(2);
+  });
+
+  it('adds the roster up and reports what is left', () => {
+    const roster = [entry('Solo'), entry('Standard', 2), entry('Minion', 2)];
+    const b = computeBudget(4, 2, roster);
+    expect(b.costs).toEqual([5, 4, 2]);
+    expect(b.spent).toBe(11);
+    expect(b.budget).toBe(14);
+    expect(b.remaining).toBe(3);
+  });
+
+  it('goes negative when the GM overspends', () => {
+    const b = computeBudget(2, 2, [entry('Solo'), entry('Bruiser')]);
+    expect(b.spent).toBe(9);
+    expect(b.remaining).toBe(8 - 9);
+  });
+});
+
+describe('countdowns', () => {
+  const cd = (over: Partial<Countdown> = {}): Countdown => ({
+    id: 'c1',
+    name: 'The ritual',
+    kind: 'standard',
+    start: 4,
+    value: 4,
+    notes: '',
+    ...over,
+  });
+
+  it('ticks down and stops at zero', () => {
+    expect(tickCountdown(cd(), -1).value).toBe(3);
+    expect(tickCountdown(cd({ value: 1 }), -1).value).toBe(0);
+    expect(tickCountdown(cd({ value: 1 }), -9).value).toBe(0);
+  });
+
+  it('ticks up but never past its starting value', () => {
+    expect(tickCountdown(cd({ value: 1 }), 2).value).toBe(3);
+    expect(tickCountdown(cd({ value: 3 }), 5).value).toBe(4);
+  });
+
+  it('wraps a loop countdown back to its start when it runs out', () => {
+    const loop = cd({ kind: 'loop', start: 3, value: 1 });
+    expect(tickCountdown(loop, -1).value).toBe(3);
+    expect(tickCountdown(loop, -5).value).toBe(3);
+    expect(tickCountdown(cd({ kind: 'loop', start: 3, value: 3 }), -1).value).toBe(2);
+  });
+
+  it('caps a loop countdown at its start like any other', () => {
+    expect(tickCountdown(cd({ kind: 'loop', start: 3, value: 2 }), 4).value).toBe(3);
+  });
+
+  it('treats dynamic and long-term countdowns like standard ones', () => {
+    for (const kind of ['dynamic', 'long-term'] as const) {
+      expect(tickCountdown(cd({ kind, value: 1 }), -3).value).toBe(0);
+    }
+  });
+
+  it('keeps everything else about the countdown', () => {
+    const next = tickCountdown(cd({ notes: 'GM only' }), -1);
+    expect(next).toMatchObject({ id: 'c1', name: 'The ritual', notes: 'GM only', start: 4 });
+  });
+});
+
+describe('scene combatants', () => {
+  it('copies the stat block into a fresh, unmarked combatant', () => {
+    const a = makeAdversary({ hp: 7, stress: 4, difficulty: 16, thresholds: [9, 18] });
+    const c = makeCombatant(a, 0, 4);
+    expect(c).toMatchObject({
+      id: 'test-adversary-0',
+      adversaryRef: 'test-adversary',
+      hp: { marked: 0, max: 7 },
+      stress: { marked: 0, max: 4 },
+      difficulty: 16,
+      thresholds: [9, 18],
+      spotlighted: false,
+    });
+    expect(c.minionsRemaining).toBeUndefined();
+  });
+
+  it('gives a Minion group as many Minions as there are PCs', () => {
+    expect(makeCombatant(adversaryOfRole('Minion'), 2, 5).minionsRemaining).toBe(5);
+  });
+
+  it('gives each copy its own id', () => {
+    const a = makeAdversary();
+    expect(makeCombatant(a, 0, 4).id).not.toBe(makeCombatant(a, 1, 4).id);
+  });
+
+  it('keeps a null threshold null - some adversaries have none', () => {
+    expect(makeCombatant(makeAdversary({ thresholds: null }), 0, 4).thresholds).toBeNull();
+  });
+});
+
+describe('GM reference values', () => {
+  it('caps Fear at 12', () => {
+    expect(MAX_FEAR).toBe(12);
+  });
+
+  it('has a benchmark row per tier', () => {
+    expect(Object.keys(TIER_BENCHMARKS)).toEqual(['1', '2', '3', '4']);
+    for (const tier of [1, 2, 3, 4] as Tier[]) {
+      const row = TIER_BENCHMARKS[tier];
+      expect(row.attack).toBe(tier);
+      expect(row.thresholds[0]).toBeLessThan(row.thresholds[1]);
+    }
+  });
+});

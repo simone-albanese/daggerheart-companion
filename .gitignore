@@ -1,0 +1,21 @@
+*.pdf
+
+# Source material stays on the machine that owns it. The PDFs are ignored by
+# the line above; the licensed Darrington Press community logos are ignored
+# here because the four the app actually uses are checked in under
+# public/brand/ and the rest is a 5 MB asset pack this repo has no use for.
+Manuali/
+.tools/
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.local
+.vite/
+tools/.cache/
+
+# Agent and developer scratch harnesses
+audit-*.html
+*-preview.html
+!preview.html
+.print-verify/

@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the toolchain env.sh pins. package.json allows >= 22; add a
+          # matrix here if that floor is ever worth defending.
+          node-version: '24'
+          cache: npm
+
+      # pdftotext and pdftohtml, for tools/loadSrd.ts. Installed unconditionally
+      # so that the moment a runner does have the SRD PDF, extraction works
+      # rather than failing on a missing binary.
+      - name: Install poppler-utils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          pdftotext -v
+
+      - run: npm ci
+
+      # The SRD PDF is not in the repo and never will be - `.gitignore` opens
+      # with `*.pdf`. Everything downstream that needs it is gated on this, so a
+      # stock runner skips those steps instead of failing four steps later with
+      # something that looks like a parser bug.
+      - name: Look for the SRD PDF
+        id: srd
+        run: |
+          if [ -f "Manuali/Daggerheart-SRD-9-09-25.pdf" ] \
+            || [ -f "tools/.cache/Daggerheart-SRD-9-09-25.pdf" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SRD PDF absent::Re-extraction is skipped. The app builds against the committed data/srd-1.0.json; parser tests that need the PDF skip themselves."
+          fi
+
+      # That JSON, unlike the PDF, is a committed build artifact: without it the
+      # app has no rules at all, and tsc would only say "cannot find module".
+      - name: Check the committed dataset
+        run: |
+          if [ ! -f "data/srd-1.0.json" ]; then
+            echo "::error title=Missing dataset::data/srd-1.0.json is a committed build artifact and it is absent. Regenerate it with 'npm run build:srd' (needs the SRD PDF) and commit the result."
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx vitest run
+
+      # The service worker is plain JS in public/, so neither tsc nor vitest
+      # ever looks at it. A syntax error there is invisible until it is live.
+      # The placeholder is checked here rather than only at deploy time: losing
+      # it is silent - the site still builds and still works - and the cost is
+      # that no installed client ever updates again.
+      - name: Check the service worker
+        run: |
+          node --check public/sw.js
+          grep -q '__BUILD__' public/sw.js || {
+            echo "::error title=Service worker not stampable::public/sw.js has no __BUILD__ placeholder for deploy.yml to stamp, so every deploy would ship a byte-identical worker and no installed client would ever update."
+            exit 1
+          }
+
+      - name: Build
+        run: npx vite build
+
+      # Only reachable on a runner that has been given the PDF. It proves the
+      # parsers still produce exactly the dataset that is committed, which is
+      # the one thing a stock runner cannot check.
+      - name: Re-extract the SRD and diff it against the committed dataset
+        if: steps.srd.outputs.present == 'true'
+        run: |
+          npm run build:srd
+          git diff --exit-code -- data/ || {
+            echo "::error title=Dataset out of date::The parsers no longer produce the committed data/srd-1.0.json. Run 'npm run build:srd' and commit the result."
+            exit 1
+          }

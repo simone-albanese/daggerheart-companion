@@ -1,0 +1,40 @@
+{
+  "name": "Daggerheart Companion",
+  "short_name": "Daggerheart",
+  "description": "Offline character sheet and GM tools for Daggerheart. No account, no network.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14161C",
+  "theme_color": "#14161C",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["games", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}
