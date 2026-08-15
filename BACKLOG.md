@@ -164,6 +164,63 @@ zeroes a *player's* HP.
       unverified backup is not a backup: re-open the handle with `getFile()`,
       parse it, assert the character count, and only then `stamp`. *(small)*
 
+### P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character
+`src/transfer/codec.ts` · **medium, 3–5 h**
+
+Measured, not theorised. 8136 single-bit flips across 15 real sheets, one bit
+per byte:
+
+| outcome | count | share |
+|---|---|---|
+| rejected with an error | 5621 | 69.1 % |
+| accepted, identical | 3 | 0.04 % |
+| **accepted, and a different character** | **2512** | **30.9 %** |
+
+Nearly a third of single-bit corruptions produce a sheet the app takes as
+valid. Flipping bit 0 of byte 3 of a real payload changes the decoded `id` to a
+different UUID with no error at all. Across a level-10 bard's payload the
+altered fields were `inventory` (823 cases), `notes` (386), `levelUpHistory`
+(372), `connections` (294), `scars` (255), `experiences` (205), `loadout` (75)
+and `level` (8).
+
+This is the format whose entire job is carrying someone's months of play from
+an old phone to a new one. A smudged QR frame, a truncated file on a flaky
+share, a bad byte on a USB stick — and the receiving device shows a character
+that looks right and is not. Silent corruption is worse than a refused import,
+because the refusal can be retried and the corruption is discovered weeks later
+with no clean copy left.
+
+The decoders are otherwise well hardened — see *Already good* — so this is a
+missing layer, not a broken one. Note the frame layer already carries a
+per-transfer id and the file layer has its own envelope; what has no checksum of
+its own is the encoded character.
+
+- [ ] Add a checksum over the encoded body (CRC-32 is enough, and cheap at
+      these sizes — median payload is 540 bytes) and verify it before decoding.
+- [ ] Version the format so an old build meeting a new payload says so rather
+      than guessing.
+- [ ] Re-run the bit-flip sweep as a test and assert the accepted-and-different
+      count is **zero**, not merely low. The sweep already exists in
+      `tests/adversarial.test.ts`; it currently pins the honest number.
+
+### P0-7 · Imported characters skip the counter sync every other write path runs
+`src/store/state.ts:232-238` · **small, 1–2 h**
+
+`importCharacter` persists a character exactly as it arrived, with no
+`syncCounters(c, deriveStats(...))` pass — unlike `normalizeActive`
+(`state.ts:284`), which every other mutation path goes through.
+
+Concrete: a sheet arrives from a newer device with its class ref parked as
+`?60007`. `deriveStats` cannot resolve the class and falls back to
+`startingHitPoints ?? 6` (`character.ts:187`), so the build derives `maxHp` 6
+while the stored `hp.max` stays at the wire's 12. The two disagree until the
+player next levels up or changes armor, and `validatePlan`'s at-maximum warnings
+(`levelUp.ts:306`) read the stored one.
+
+Three UI paths call `importCharacter` directly: `Settings.tsx:468` and `:675`,
+`Recovery.tsx:34`, `Transfer.tsx:302` — the same four that need the
+no-clobber guard in P0-1, so fix them together.
+
 ---
 
 ## P1 — Tells a player a wrong number
@@ -277,6 +334,16 @@ level-up path does not know that yet.
       no rest or downtime anywhere in the UI; `state.ts:29` declares a `'rest'`
       log kind nothing produces. It is fully tree-shaken, so it costs users
       nothing today. Decide: wire it, or say out loud that rest is not in 1.0.
+- [ ] **`newCharacter` seeds the wrong HP and Stress track for six of nine
+      classes.** `character.ts:282` hardcodes `max: 6` for both, but
+      `startingHitPoints` is 5 for bard and wizard and 7 for guardian and seraph.
+      Latent rather than live: the only persisting caller is `store.create`
+      (`state.ts:188`), whose single call site happens to pass an already-synced
+      sheet. The moment a second caller appears — duplicate-character, a template
+      flow, a test seed — a wizard is stored with a 6-box track the engine
+      derives as 5, and `validatePlan` warns *"Hit Points are already at the
+      maximum of 12"* one advancement early. Seed from the class, or make
+      `create()` sync. *(trivial)*
 
 ---
 
@@ -384,14 +451,39 @@ Recomputed from the real hex values:
       boundary. No reachable throw found today, so this is hardening: wrap `.app`
       in a boundary whose fallback is an unconditional "Export everything".
 
-### P3-2 · Untrusted input, second tier
+### P3-2 · The gear search does not read the axes players type
+`src/ui/build/gear.ts:112` · **small, 1–2 h** · *a decision, not a defect*
+
+The search box reads only `name` and `feature`. Measured against the real
+dataset:
+
+| typed | rows returned | rows that actually match |
+|---|---|---|
+| `melee` | 26 | 100 weapons are Melee |
+| `far` | 2 | 43 are Far |
+| `magic` | 1 | 71 are Magic |
+| `instinct` | 0 | 24 use that trait |
+| `d8` | 5 | 66 roll d8 |
+
+Nothing is unreachable — the chips cover every one of those axes, and the
+behaviour matches the module's documented contract. But a player who types
+`melee` gets a list that looks like the dataset is missing weapons, and that is
+the same failure the honesty rule exists to prevent: the screen implying an
+absence that is not real. The tests now pin these numbers, so the behaviour is
+an explicit choice rather than an accident.
+
+- [ ] Either fold range, trait, category, burden and the damage die into the
+      searched text, or say on screen that the box searches names and features
+      and the chips do the rest.
+
+### P3-3 · Untrusted input, second tier
 - [ ] **Decoded counter maxima are unbounded and render one DOM node each**
       (`codec.ts:295`). Clamp on the way in: run `syncCounters` inside
       `importCharacter`, or bound the readers to the engine's own ceilings, which
       are already exported. Belt and braces: have `Track` refuse to render more
       than a sane number of pips. *(small)*
 
-### P3-3 · Offline and weight
+### P3-4 · Offline and weight
 **~6 h total**
 
 - [ ] **`public/brand/*` is neither precached nor routed** (`sw.js:59`). Four
@@ -449,7 +541,7 @@ two-device tests.
 3. **Offline, cold** (5 min). Load once online, airplane mode, force-quit,
    reopen. *Pass:* all four tabs work, all 189 cards and 129 adversaries browse,
    the print sheet renders, and the compatibility mark is an image and not a
-   broken glyph (that is the `brand/` fix in P3-3).
+   broken glyph (that is the `brand/` fix in P3-4).
 4. **Backup actually writes a file** (3 min, desktop Chrome). Choose a folder,
    play two minutes, switch tabs, come back, close the tab. *Pass:* a
    `daggerheart-backup-YYYY-MM-DD.dhbackup` exists and parses; then tap three
@@ -482,7 +574,9 @@ Verified, and listed so effort goes where it is needed.
   consumes at least one byte, so a declared count of 2^50 terminates with a
   `CodecError` instead of allocating. Offsets are checked against the payload
   size before slicing, and the codec refuses a payload with leftover bytes rather
-  than producing a plausible-but-wrong character.
+  than producing a plausible-but-wrong character. *(This is about hostile input,
+  which it survives. Accidental corruption is a different problem and is not
+  covered — see P0-6.)*
 - **`public/sw.js` is the best-engineered file in the repo.** It derives its
   scope from `self.location`, splits shell from content-hashed assets, discovers
   the chunk graph from what Vite actually emitted rather than trusting a
@@ -523,4 +617,14 @@ Kept for context on what the numbers above are measured against.
   the whole dataset for any feature granting an additional card and fails if the
   table does not account for it.
 - **Domain cards are readable while you choose them.**
-- **786 → 995 tests**, 38 → 46 files, `tsc` clean.
+- **The matrix found a path tests could never reach.** The sampler read
+  domain-card eligibility from the level being *left*, while `LevelUp.tsx:97`
+  hands its picker the level being *arrived at*. No climb could ever take a
+  level-10 card, so all 18 of them had never been round-tripped by any test.
+  Card coverage went 171/189 → **189/189**, and every other axis is at 100 %:
+  204/204 weapons, 34/34 armors, 18/18 subclasses and ancestries, 9/9 classes
+  and communities, plus loot, consumables and beastforms entire.
+- **A mutation pass found two tests that proved nothing** — the loadout cap and
+  the encoder's unresolved references could both be broken with the suite still
+  green. Both now fail loudly; re-verified by hand after the fact.
+- **786 → 1039 tests**, 38 → 46 files, `tsc` clean.
