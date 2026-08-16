@@ -36,6 +36,7 @@ import { DomainMark } from '../shared/DomainMark.tsx';
 import { usePrintSheet } from '../print/usePrintSheet.tsx';
 import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import { usePrefersReducedMotion } from '../shared/useMedia.ts';
 import { About } from './About.tsx';
 import { Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
 import { Rulebook } from './Rulebook.tsx';
@@ -54,7 +55,14 @@ type SectionId = (typeof SECTIONS)[number][0];
 
 export function Settings(): React.JSX.Element {
   const phone = useIsPhone();
-  const reduceMotion = useApp((s) => s.prefs.reduceMotion);
+  // Two sources, either of which is a yes, exactly as `base.css` treats them:
+  // the switch below zeroes `--motion` through `[data-reduce-motion]`, and the
+  // OS zeroes it through `@media (prefers-reduced-motion: reduce)`. This scroll
+  // is the one piece of motion in the app that CSS does not own, so it has to
+  // read both by hand or the second of them stops applying here alone.
+  const setting = useApp((s) => s.prefs.reduceMotion);
+  const system = usePrefersReducedMotion();
+  const reduceMotion = setting || system;
   const anchors = useRef(new Map<SectionId, HTMLElement>());
   const scroller = useRef<HTMLDivElement | null>(null);
   const [here, setHere] = useState<SectionId>('display');
@@ -217,6 +225,7 @@ function Display({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
   // Local, and deliberately not a preference: the shapes stay on. This only
   // shows what the marks would be without them.
   const [demoShapes, setDemoShapes] = useState(true);
+  const systemReduceMotion = usePrefersReducedMotion();
   const wakeLockSupported = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
 
   return (
@@ -245,7 +254,17 @@ function Display({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
 
         <Field
           label="Reduce motion"
-          hint="Nothing in this app animates for longer than a glance anyway. This removes what is left, except the transfer codes, which have to move to work."
+          hint={
+            systemReduceMotion
+              ? // The switch reads OFF while nothing is animating, which without
+                // this sentence looks like a broken control. It is not off: the
+                // device has already answered the question, and the app obeys
+                // the device whatever this says. Leaving it live rather than
+                // disabling it keeps the choice recorded for a device that
+                // stops asking.
+                'This device is already set to reduce motion, so motion is off here whatever this switch says. Turning it on keeps it off on devices that are not.'
+              : 'Nothing in this app animates for longer than a glance anyway. This removes what is left, except the transfer codes, which have to move to work.'
+          }
         >
           <Switch
             label="Reduce motion"
