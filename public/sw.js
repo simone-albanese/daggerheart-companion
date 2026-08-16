@@ -6,9 +6,10 @@
  *
  * Two caches:
  *
- *   shell   the entry document, the manifest, the icons and the fonts. Their
- *           names never change, so the copy on disk can go stale:
- *           stale-while-revalidate.
+ *   shell   the entry document, the manifest, the icons, the fonts and the
+ *           licensed Daggerheart Compatible marks - everything Vite copies out
+ *           of `public/` verbatim. Their names never change, so the copy on
+ *           disk can go stale: stale-while-revalidate.
  *   assets  everything Vite emits under `assets/` with a content hash in the
  *           filename, the SRD dataset chunk included. The name *is* the
  *           version, so a hit can never be wrong: cache-first, no revalidation.
@@ -49,26 +50,67 @@ const isImmutable = (url) => url.pathname.startsWith(`${ROOT.pathname}assets/`);
  * importer is desktop-only, because rasterising a 319 MB PDF is an
  * out-of-memory risk there.
  *
- * So it is fetched on request rather than on install. A client that can
- * actually run the importer posts `warm-importer` once it knows, and it is
+ * So the first copy is fetched on request rather than on install. A client that
+ * can actually run the importer posts `warm-importer` once it knows, and it is
  * cached then; a phone never downloads it at all. The offline promise is kept
  * where the feature exists, and the bytes are not spent where it does not.
+ *
+ * Every copy after the first is fetched on install, because by then the device
+ * has already answered the question: see `installUpdate`.
  */
 const isDeferred = (url) => /\/import-worker-[^/]*\.js$/.test(url.pathname);
+
+/**
+ * The directories Vite copies out of `public/` untouched.
+ *
+ * `brand/` is the licensed Daggerheart Compatible mark, and it belongs here and
+ * emphatically not in the assets cache: Vite copies these four files verbatim,
+ * so their names carry no content hash, and the assets cache is cache-first on
+ * the strength of the name *being* the version. A hit there could be wrong
+ * forever. Here it is stale at worst, and revalidated on the next request.
+ */
+const STATIC_DIRS = ['icons/', 'fonts/', 'brand/'];
 
 const isShell = (url) =>
   url.href === SHELL_URL ||
   url.href === MANIFEST_URL ||
   url.pathname === ROOT.pathname ||
-  url.pathname.startsWith(`${ROOT.pathname}icons/`) ||
-  url.pathname.startsWith(`${ROOT.pathname}fonts/`);
+  STATIC_DIRS.some((dir) => url.pathname.startsWith(`${ROOT.pathname}${dir}`));
 
 // ---------------------------------------------------------------------------
 // Lifecycle
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(precache());
+  event.waitUntil(installUpdate());
 });
+
+/**
+ * Everything that has to happen while there is certainly a network.
+ *
+ * Which is the whole of install and nothing else. A worker installs only when
+ * it can fetch - the precache below is fetched, and an install that cannot
+ * fetch fails and leaves the old worker in charge - and then it sits in
+ * `waiting` for as long as it takes the user to notice the prompt and tap it.
+ * That tap can land in a tunnel, and everything downstream of it runs there.
+ *
+ * The importer's chunk is the only file that cares. It is held back from the
+ * precache on purpose, so nothing else fetches it, and activation prunes every
+ * hashed file the new document does not name - which after a deploy includes
+ * the copy under the old hash. Refetching it from `activate` meant refetching
+ * it at the one moment the network may be gone, and a user who took an update
+ * offline came out of the tunnel with an importer that had silently stopped
+ * existing. Keeping the old chunk instead would not have helped for a second:
+ * the new bundle asks for the new hash and would never look at it.
+ *
+ * So the fetch moves to the moment that is guaranteed. `wanted` is read before
+ * the precache to say what it is a question about - what this device had before
+ * the update, not what it has after - though nothing in `precache` touches it.
+ */
+async function installUpdate() {
+  const wanted = await importerWasWanted();
+  await precache();
+  if (wanted) await warmImporter();
+}
 
 async function precache() {
   const cache = await caches.open(SHELL_CACHE);
@@ -138,18 +180,22 @@ async function takeOver() {
   const stale = names.filter((name) => name.startsWith('dhc-') && !CURRENT.has(name));
   await Promise.all(stale.map((name) => caches.delete(name)));
 
-  // A device that asked for the importer once still wants it. Without this, a
-  // deploy would prune the old worker chunk, never fetch the new one, and the
-  // importer would silently stop working offline - the kind of regression that
-  // only shows up on a machine with no signal and a 319 MB PDF to hand.
+  // A device that asked for the importer once still wants it. `installUpdate`
+  // has already fetched this build's copy, back when there was a network to
+  // fetch it from; this is the retry for the install whose connection died on
+  // that one file, and it has to be asked before the prune, because the prune
+  // is what removes the evidence that this device ever wanted the thing.
   const wanted = await importerWasWanted();
   // Refill before pruning, not after. A cache the browser reclaimed has nothing
   // to prune and everything to rebuild, and `pruneAssets` reads the very
   // document that is missing - so on its own it looks at an empty cache, finds
   // no document, and returns satisfied.
   await ensurePrecached();
-  await pruneAssets();
+  // Both refills ahead of the delete, so that no ordering here can read as
+  // "drop the copy we have and then go looking". Offline the retry cannot
+  // help - which is exactly why install does not leave it until now.
   if (wanted) await warmImporter();
+  await pruneAssets();
 
   await self.clients.claim();
   console.info('[sw] active', VERSION, BUILD);
@@ -301,6 +347,26 @@ const CSS_URLS = /url\(\s*["']?([^"')]+?)["']?\s*\)/g;
  */
 const JS_IMPORTS = /["']((?:\.{1,2}\/|\/)[^"'\s]*\.(?:js|css))["']/g;
 
+/**
+ * Files a chunk hands to the DOM rather than to the module loader. Today that
+ * is the Daggerheart Compatible mark and nothing else: four unhashed files
+ * under `brand/`, named by an `<img src>` in a component and named nowhere
+ * else - not in the document, not in a stylesheet, not in the manifest.
+ *
+ * A separate pass, rather than three more extensions on `JS_IMPORTS`, because
+ * the base differs. A module specifier is relative to the module that writes
+ * it; an attribute is relative to the page that renders it. `"./brand/x.png"`
+ * sitting in `assets/index-1a2b.js` is `brand/x.png` to the browser and
+ * `assets/brand/x.png` to anything that resolves it the way an import is
+ * resolved - which is not a file, and would be a 404 and a console line on
+ * every install for as long as the app was installed.
+ *
+ * Being generous costs nothing: a match that is neither hashed nor already
+ * shell is dropped without a fetch, so a vendored bundle's stray "./icon.png"
+ * is never asked about.
+ */
+const DOM_ASSETS = /["']((?:\.{1,2}\/|\/)[^"'\s]*\.(?:svg|png|jpe?g|webp|avif|gif))["']/g;
+
 /** In-scope, same-origin URLs named by a document or a stylesheet, resolved
  *  against the file that names them - a stylesheet's `url()` is relative to the
  *  stylesheet, which is not where the document lives. */
@@ -338,14 +404,15 @@ function urlsIn(text, pattern, base = ROOT) {
  *                     among them, which is why the build keeps it a separate
  *                     chunk - and a <link rel="stylesheet"> for the CSS.
  *   the stylesheet    the fonts, which nothing else names.
- *   the chunks        the lazily loaded screens, and the Core Rulebook
- *                     importer's worker. Neither is named in the document, and
- *                     precaching only what the document names leaves the app
- *                     booting offline and then dead-ending on the first tap
- *                     into one of them. The worker is 1.6 MB, half a megabyte
- *                     gzipped, and every client pays it: worth knowing, since
- *                     the architecture calls that importer optional and
- *                     desktop-only.
+ *   the chunks        the lazily loaded screens, the Core Rulebook importer's
+ *                     worker, and the Daggerheart Compatible mark, which is an
+ *                     `<img src>` inside a component. None of the three is
+ *                     named in the document, and precaching only what the
+ *                     document names leaves the app booting offline and then
+ *                     dead-ending on the first tap into one of them. The worker
+ *                     is 1.6 MB, half a megabyte gzipped, and every client pays
+ *                     it: worth knowing, since the architecture calls that
+ *                     importer optional and desktop-only.
  *
  * Breadth-first, so each chunk is read once however many others point at it.
  * `fetchMissing` is what separates the two callers: the precache passes one and
@@ -367,12 +434,19 @@ async function reachableFrom(html, assets, fetchMissing) {
     if (fetchMissing) await fetchMissing(url);
     const cached = await assets.match(url.href);
     if (!cached) continue;
-    for (const ref of urlsIn(await cached.text(), isCss ? CSS_URLS : JS_IMPORTS, url)) {
-      if (isCss && !isImmutable(ref)) {
-        if (isShell(ref)) shell.set(ref.href, ref);
-      } else if (isImmutable(ref) && !hashed.has(ref.href)) {
+    const text = await cached.text();
+    // Two passes over a chunk, because a chunk names files in two coordinate
+    // systems: see DOM_ASSETS. A stylesheet names files in one.
+    const refs = isCss
+      ? urlsIn(text, CSS_URLS, url)
+      : [...urlsIn(text, JS_IMPORTS, url), ...urlsIn(text, DOM_ASSETS, ROOT)];
+    for (const ref of refs) {
+      if (isImmutable(ref)) {
+        if (hashed.has(ref.href)) continue;
         hashed.set(ref.href, ref);
         queue.push(ref);
+      } else if (isShell(ref)) {
+        shell.set(ref.href, ref);
       }
     }
   }

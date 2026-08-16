@@ -184,6 +184,38 @@ function world(dist: string, base: string = BASE) {
   };
 }
 
+/**
+ * A new deploy, on the server this world serves from: every hash moves, because
+ * every chunk names the ones it imports and the names are what changed.
+ *
+ * A distinct suffix per file: two chunks can share a stem (there is more than
+ * one `index-*.js`), and collapsing them onto one new name would make the
+ * fixture lose a chunk and look like a pruning bug.
+ */
+function redeploy(app: ReturnType<typeof world>): void {
+  const renamed = new Map(
+    [...app.files.keys()]
+      .filter((path) => /\/assets\/.+\.(js|css)$/.test(path))
+      .map((path, i) => {
+        // Only the hash moves. Cutting from the first hyphen would rename
+        // `import-worker-<hash>.js` to `import-<n>.js` and the fixture would
+        // stop modelling a real deploy: a Vite hash can itself contain a
+        // hyphen, so the boundary is the last one before the extension.
+        const name = path.split('/').pop()!;
+        const dot = name.indexOf('.');
+        const stem = name.slice(0, dot);
+        return [name, `${stem.slice(0, stem.lastIndexOf('-'))}-next${i}${name.slice(dot)}`];
+      }),
+  );
+  const rewrite = (text: string): string =>
+    [...renamed].reduce((out, [was, now]) => out.split(was).join(now), text);
+  for (const [path, body] of [...app.files]) {
+    if (!/\.(html|js|css)$/.test(path)) continue;
+    app.files.delete(path);
+    app.files.set(rewrite(path), Buffer.from(rewrite(body.toString())));
+  }
+}
+
 const SHELL = 'dhc-shell-v1';
 const ASSETS = 'dhc-assets-v1';
 
@@ -237,15 +269,72 @@ describe('service worker, against what the build actually emitted', () => {
     expect(app.net.requests.filter((path) => path.includes('qcms'))).toHaveLength(0);
   });
 
-  it('precaches the fonts and every icon the install prompt may ask for', async () => {
+  /**
+   * Every expectation here is derived from what Vite actually emitted, because
+   * a hand-written list of filenames is a test that passes while the app is
+   * broken - the worker infers its precache from the build, so the test has to
+   * infer its expectations from the same place or it is only checking that two
+   * copies of one guess agree.
+   *
+   * That was already true of the fonts and the icons. It was not true of
+   * anything else, and there was no anything else: `public/brand/` shipped
+   * uncovered because no clause here mentioned it, which is a shape of hole
+   * that repeats the day someone adds `public/sounds/`. So the last assertion
+   * is not a fourth directory - it is the whole of `public/` at once, with the
+   * two exemptions named out loud. Add a directory and it is covered before it
+   * exists; decide something must not be precached and you say so here, with a
+   * reason, where the next reader can disagree with you.
+   */
+  it('precaches everything the build copied out of public/, and says why for what it skips', async () => {
     const app = world(dist);
     await app.dispatch('install');
     const shell = app.cached(SHELL);
 
     expect(shell.filter((url) => url.endsWith('.woff2'))).toEqual(app.emitted(/\/fonts\/.+\.woff2$/));
+    // Every icon the install prompt may ask for - the 512s and the maskable,
+    // which the document never names - and not merely the one it does.
     expect(shell.filter((url) => url.includes('/icons/'))).toEqual(app.emitted(/\/icons\//));
-    // The font licences sit in the same directory and are nobody's business.
-    expect(shell.some((url) => url.endsWith('.txt'))).toBe(false);
+    // Both cuts of the licensed mark, named nowhere but an `<img src>` inside a
+    // chunk. Offline this is the difference between the mark and its alt text.
+    expect(shell.filter((url) => url.includes('/brand/'))).toEqual(app.emitted(/\/brand\//));
+
+    const exempt = (url: string): boolean =>
+      // The worker itself. The browser owns that copy and updates it out of
+      // band; a worker that cached its own bytes could pin its own successor.
+      url.endsWith('/sw.js') ||
+      // The font licences, which sit in the same directory as the fonts and are
+      // nobody's business offline. The licence the app must show is in the DOM.
+      url.endsWith('.txt');
+    expect(shell).toEqual(
+      app.emitted(/^(?!.*\/assets\/).*$/).filter((url) => !exempt(url)),
+    );
+  });
+
+  /**
+   * The licensed mark is the one asset whose absence the app papers over.
+   *
+   * A broken `<img>` paints its alt text, so offline the header kept saying
+   * "Daggerheart Compatible" in words while the mark Darrington Press licensed
+   * for that sentence was a 404 - the statement surviving without the thing it
+   * is a statement about, which is the worse half to lose. And it is on every
+   * screen at every width: `Header.tsx` renders `<CompatibleIcon />` outside
+   * both of its `{!phone && ...}` guards.
+   */
+  it('keeps the licensed compatibility mark offline, not just the words beside it', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+
+    // Every file, not one: the mark comes in a light and a dark cut, and the
+    // theme is a switch the user can throw in flight mode.
+    const marks = app.emitted(/\/brand\//);
+    expect(marks.length, 'this build ships no compatibility mark; the loop below is empty').toBeGreaterThan(0);
+
+    app.net.online = false;
+    for (const url of marks) {
+      const hit = await app.get(new URL(url).pathname);
+      expect(hit.response?.status, url).toBe(200);
+    }
   });
 
   it('serves the app offline: cold start, deep link, and a screen never opened before', async () => {
@@ -397,32 +486,7 @@ describe('service worker, against what the build actually emitted', () => {
     await app.post({ type: 'warm-importer' });
     const first = app.cached(ASSETS);
 
-    // A new deploy: every hash moves, because every chunk names the ones it
-    // imports and the names are what changed.
-    // A distinct suffix per file: two chunks can share a stem (there is more
-    // than one `index-*.js`), and collapsing them onto one new name would make
-    // the fixture lose a chunk and look like a pruning bug.
-    const renamed = new Map(
-      [...app.files.keys()]
-        .filter((path) => /\/assets\/.+\.(js|css)$/.test(path))
-        .map((path, i) => {
-          // Only the hash moves. Cutting from the first hyphen would rename
-          // `import-worker-<hash>.js` to `import-<n>.js` and the fixture would
-          // stop modelling a real deploy: a Vite hash can itself contain a
-          // hyphen, so the boundary is the last one before the extension.
-          const name = path.split('/').pop()!;
-          const dot = name.indexOf('.');
-          const stem = name.slice(0, dot);
-          return [name, `${stem.slice(0, stem.lastIndexOf('-'))}-next${i}${name.slice(dot)}`];
-        }),
-    );
-    const rewrite = (text: string): string =>
-      [...renamed].reduce((out, [was, now]) => out.split(was).join(now), text);
-    for (const [path, body] of [...app.files]) {
-      if (!/\.(html|js|css)$/.test(path)) continue;
-      app.files.delete(path);
-      app.files.set(rewrite(path), Buffer.from(rewrite(body.toString())));
-    }
+    redeploy(app);
 
     await app.dispatch('install');
     expect(app.cached(ASSETS), 'the running page keeps its bundle until it reloads').toEqual(
@@ -435,6 +499,43 @@ describe('service worker, against what the build actually emitted', () => {
     expect(after.every((url) => /-next\d+\./.test(url))).toBe(true);
     expect(after.some((url) => /\/srd-/.test(url)), 'the dataset is not collateral').toBe(true);
     expect(after.some((url) => /\/import-worker-/.test(url)), 'nor is the importer').toBe(true);
+  });
+
+  /**
+   * Downloading an update and accepting one are two different moments, and the
+   * network is only guaranteed at the first.
+   *
+   * A worker installs while the user is online - it cannot do otherwise, the
+   * precache is fetched - and then sits in `waiting` for as long as it takes the
+   * user to tap the prompt. That tap can land in a tunnel. Activation prunes
+   * every hashed file the new document does not name, and the importer's chunk
+   * is the one file the precache deliberately skips, so it was the one file the
+   * prune could drop with nothing left to put it back: the device came out of
+   * the tunnel with a working app and an importer that had quietly stopped
+   * existing until the next online launch.
+   *
+   * Keeping the old chunk instead would have been no fix at all - the new
+   * bundle asks for the new hash and would not have looked at it.
+   */
+  it('carries the importer through an update accepted in flight mode', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+    await app.post({ type: 'warm-importer' });
+
+    redeploy(app);
+    await app.dispatch('install'); // Downloaded on the platform,
+    app.net.online = false;
+    await app.dispatch('activate'); // and accepted in the tunnel.
+
+    const worker = app.emitted(/\/assets\/import-worker-.+\.js$/)[0]!;
+    expect(app.cached(ASSETS), 'this build\'s copy is there to serve').toContain(worker);
+    expect(
+      app.cached(ASSETS).filter((url) => /\/import-worker-/.test(url)),
+      'and only this build\'s: the prune still ran',
+    ).toHaveLength(1);
+    expect((await app.get(new URL(worker).pathname)).response?.status).toBe(200);
+    expect((await app.navigate(BASE)).response?.status, 'and the app itself came through').toBe(200);
   });
 
   it('never stores a document whose bundle it could not fetch', async () => {
