@@ -32,7 +32,44 @@ export interface CompanionUpgrade {
   text: string;
 }
 
-/** "When your character levels up, choose one available option." Folio 18. */
+/**
+ * "When your character levels up, choose one available option." Folio 18.
+ *
+ * BEASTBOUND'S EXPERT TRAINING AND ADVANCED TRAINING
+ * --------------------------------------------------
+ * They are the two SRD features that change how many of these a player may
+ * mark: the specialization's Expert Training reads "Choose an additional
+ * level-up option for your companion" and the mastery's Advanced Training
+ * "Choose two additional level-up options for your companion".
+ *
+ * They were once filed beside School of Knowledge's extra domain card, as the
+ * other subclass "that changes a count the app enforces". Checked against the
+ * shipped dataset and this file, that is wrong twice over, and the difference
+ * matters enough to write down rather than leave for someone to rediscover.
+ *
+ * They are not a domain-card grant. `src/ui/build/cardAllowance.ts` counts
+ * cards a character draws from their domains; these count boxes on the
+ * companion sheet, which is a different sheet, a different resource and a
+ * different eight-item list. The table there is keyed by subclass and tier and
+ * would happily hold a row for Beastbound, and every reader of it would then
+ * hand a Ranger a domain card the SRD never gave them.
+ *
+ * And there is no count here to correct. Nothing in this module or in
+ * `Companion.tsx` caps `upgrades`: the eight are free toggles, the sheet says
+ * "N OF 8 OPTIONS MARKED" - which is true of the boxes, not a claim about
+ * entitlement - and its hint already reads "ONE PER LEVEL-UP · TRAINING GRANTS
+ * MORE". So the app is not lying about this today; it is silent about it, which
+ * is the deliberate line this module opens with. The animal is played by its
+ * player.
+ *
+ * Enforcing it would be a real feature and a separate one: an allowance of
+ * `(level - 1) + 1 per Expert Training + 2 per Advanced Training`, a readout on
+ * the sheet, and a dataset scan of its own for /additional level-up option/ so
+ * the next subclass to grant one is caught. It would also have to answer a
+ * question this module has already answered the other way - whether the app
+ * should refuse a box a GM allowed. None of that is the domain-card item, and
+ * bolting it on there would have produced the wrong rule in the wrong table.
+ */
 export const COMPANION_UPGRADES: readonly CompanionUpgrade[] = [
   {
     id: 'intelligent',

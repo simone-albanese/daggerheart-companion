@@ -225,6 +225,40 @@ describe('the grant table in cardAllowance.ts', () => {
     ).toEqual(['Accomplished', 'Brilliant']);
   });
 
+  it('keeps the companion sheet out of it, which is the other count that moves', () => {
+    /*
+     * Beastbound's Expert Training reads "Choose an additional level-up option
+     * for your companion" and Advanced Training "Choose two additional
+     * level-up options". Those were once filed beside School of Knowledge as
+     * the same shape of bug. They are not: they add boxes to the Ranger
+     * Companion sheet, and this table hands out domain cards. A row here for
+     * Beastbound would give a Ranger a card the SRD never gave them, and the
+     * regex above would not catch it because the sentence does not say "domain
+     * card". So the two mechanisms are held apart on purpose, and the reasoning
+     * is written out above COMPANION_UPGRADES in src/engine/companion.ts.
+     *
+     * The list is pinned rather than merely counted so that a revision adding a
+     * third companion-training feature lands here, in front of somebody, rather
+     * than in neither guard.
+     */
+    const companionTraining = dataset.subclasses.flatMap((s) =>
+      featureLists(s).flatMap(([tier, features]) =>
+        features
+          .filter((f) => /additional level-up option/i.test(f.text))
+          .map((f) => `${s.id} · ${tier} · ${f.name}`),
+      ),
+    );
+    expect(companionTraining).toEqual([
+      'beastbound · specialization · Expert Training',
+      'beastbound · mastery · Advanced Training',
+    ]);
+    expect(
+      DOMAIN_CARD_GRANTS.map(key).filter((k) => companionTraining.includes(k)),
+      'a companion level-up option has been filed as a domain-card grant',
+    ).toEqual([]);
+    expect(DOMAIN_CARD_GRANTS.map((g) => g.subclass)).not.toContain('beastbound');
+  });
+
   it('is not needed for any class feature, which it could not express anyway', () => {
     // The table is keyed by subclass. A grant printed on a class instead would
     // slip past it entirely, so the scan says out loud that none exists.
