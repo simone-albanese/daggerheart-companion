@@ -19,3 +19,5 @@ audit-*.html
 *-preview.html
 !preview.html
 .print-verify/
+.design-verify/
+.blueprints/
