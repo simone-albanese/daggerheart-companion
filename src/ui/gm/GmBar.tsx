@@ -29,11 +29,20 @@
  * not there. `BACKLOG.md` carries its absence so it is a decision rather than
  * a silence.
  *
+ * ## SHOW leaves when there is nothing behind it
+ *
+ * Both halves of SHOW's fork are switchable in Settings - the bestiary and the
+ * party board are the two tools no session row can open, which is exactly why
+ * they are the two that can be switched off without making a row unopenable.
+ * With both off, SHOW is not drawn *disabled*: it is not drawn. The same
+ * argument as SEARCH above, arrived at from the other direction - a verb that
+ * opens a sheet with nothing in it is worse than a verb that is not there.
+ *
  * ## Ergonomics, 393x852
  *
  * The bar is `repeat(n, 1fr)` over the full width rather than a fixed three,
- * so a build that drops one of the verbs redistributes the width instead of
- * leaving a hole where it was. At three that is 131px each; at two it is 196.
+ * so dropping a verb redistributes the width instead of leaving a hole where it
+ * was. At three that is 131px each; at two it is 196.
  * Every button is `minHeight: 60` - `TabBar`'s own number, in the same slot on
  * the glass, so the muscle memory of the app's bottom bar survives entering
  * the GM section.
@@ -62,6 +71,7 @@
  *
  * Nothing here is read-only: the whole bar is target.
  */
+import { useApp } from '../../store/state.ts';
 
 /**
  * Which sheet is over the list.
@@ -90,19 +100,26 @@ export function GmBar({
   open: GmSheetId | null;
   onOpenSheet: (sheet: GmSheetId) => void;
 }): React.JSX.Element {
+  // Read here rather than taken as a prop: which verbs exist is this bar's own
+  // business, and threading two booleans through `Gm.tsx` would put the
+  // decision in the file that only mounts it.
+  const bestiary = useApp((s) => s.prefs.gmBestiary);
+  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
+  const verbs = VERBS.filter((verb) => verb.id !== 'show' || bestiary || partyBoard);
+
   return (
     <nav
       aria-label="Session tools"
       style={{
         flex: 'none',
         display: 'grid',
-        gridTemplateColumns: `repeat(${String(VERBS.length)}, 1fr)`,
+        gridTemplateColumns: `repeat(${String(verbs.length)}, 1fr)`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {VERBS.map((verb) => {
+      {verbs.map((verb) => {
         const active = open === verb.id;
         return (
           <button

@@ -1562,10 +1562,21 @@ Decisions taken:
       Settings, because the header does on every screen. The licence notice
       moved *into* the session list's scroll rather than off the screen: it is
       a licence obligation and a layout budget is not a reason to drop one.
-- [ ] **Each tool is switchable in Settings**, plus one master switch that hides
-      the GM section entirely — most people using this app are players. A tool
-      that is off leaves the bar, and the bar redistributes across what is left
-      rather than leaving a hole.
+- [x] ~~**Each tool is switchable in Settings**, plus one master switch that
+      hides the GM section entirely — most people using this app are players. A
+      tool that is off leaves the bar, and the bar redistributes across what is
+      left rather than leaving a hole.~~ — **done as three switches rather than
+      six, and the reduction is written down below.** The master switch takes
+      the GM tab off the phone's bar, the entry off the desktop header, and the
+      screen out of the app: `openingScreen` refuses to *open* on a stored
+      `'gm'` with the section off, and `allowedScreen` refuses to *draw* one, so
+      neither a boot nor a stray `setScreen` can leave a header over an empty
+      `<main>`. The two tool switches are the bestiary and the party board; with
+      both off SHOW leaves the bar and ADD and SAVE go from 131 px each to 196
+      on a 393 px phone. Nothing anywhere still offers a tool that is off — the
+      SHOW sheet narrows to one choice and is renamed for it, and the scene
+      runner's empty state drops both its bestiary button and the clause naming
+      it.
 
 **Deferred to 1.1, written down so they are not lost:** photos attached to a
 scene and shown to the table (*"se posso aggiungere delle foto e mostrarle a
@@ -1607,11 +1618,22 @@ silence:**
       weaker SEARCH beside it would make the bar claim a capability the app has
       in one place and not in the other. It goes in as a fourth entry in
       `GmBar`'s array when there is an index behind it.
-- [ ] **The bar cannot yet be made to redistribute.** `gridTemplateColumns` is
-      written from the verb array's length precisely so that dropping one closes
-      the gap, and nothing in this build can drop one, so the property is pinned
-      only as "three buttons, three columns". The per-tool preferences are what
-      make it provable.
+- [x] ~~**The bar cannot yet be made to redistribute.**~~ — **it can now, and
+      the test proves the property rather than the instance.** Switching the
+      bestiary and the party board both off drops SHOW and leaves
+      `repeat(2, 1fr)`; a grid hard-coded at three fails that case.
+- [ ] **Three tools of five are not switchable, where the item asked for
+      "each".** The encounter builder and the scene runner are the *content of a
+      session row*, and a switch that hid either would make a row the GM has
+      already written unopenable — a preference that breaks the list is not the
+      preference that was asked for. Fear and the countdowns is the one that
+      does not fit that defence: it is reached from the Fear readout rather than
+      from a row. It is left on because Fear is not optional at a Daggerheart
+      table — the pool is spent from every corner of the app, and the board
+      behind that readout is the only place it can be set outright rather than
+      one point at a time. A switch there would leave the GM a number they can
+      spend and nowhere to set it. If it is ever wanted, it hides the board and
+      not the pool, and the readout goes back to being the span it was.
 - [x] ~~**`GmBar` does not pay `env(safe-area-inset-bottom)`.**~~ — **it does
       now,** and it is the only thing on the screen that does, because the tab
       bar has gone and the notice is inside the scroll. No test reads it from

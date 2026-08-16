@@ -64,6 +64,7 @@
  * `LicenceFooter.tsx`.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useApp } from '../../store/state.ts';
 import { useLayout } from '../shared/useLayout.ts';
 import { AddSheet } from './AddSheet.tsx';
 import { Bestiary } from './Bestiary.tsx';
@@ -97,9 +98,24 @@ const SHEET_LABEL: Record<GmSheetId, string> = {
   save: 'Where this campaign is kept',
 };
 
+/**
+ * SHOW's name, which has to say what is behind it *today*.
+ *
+ * Both halves of the fork are switchable, so the fixed label above is only true
+ * while both are on. A dialog announced as "Bestiary and party board" that
+ * offers one of the two is the small, everyday version of the rule this project
+ * keeps: the screen does not get to claim something that is not there.
+ */
+function showLabel(bestiary: boolean, partyBoard: boolean): string {
+  if (bestiary && partyBoard) return SHEET_LABEL.show;
+  return bestiary ? 'Bestiary' : 'The party board';
+}
+
 export function Gm(): React.JSX.Element {
   const layout = useLayout();
   const phone = layout === 'phone';
+  const bestiary = useApp((s) => s.prefs.gmBestiary);
+  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
   const region = useGm((s) => s.region);
   const setRegion = useGm((s) => s.setRegion);
   const hydrated = useGm((s) => s.hydrated);
@@ -163,7 +179,10 @@ export function Gm(): React.JSX.Element {
       )}
 
       {sheet !== null && (
-        <GmSheet label={SHEET_LABEL[sheet]} onClose={closeSheet}>
+        <GmSheet
+          label={sheet === 'show' ? showLabel(bestiary, partyBoard) : SHEET_LABEL[sheet]}
+          onClose={closeSheet}
+        >
           {sheet === 'menu' && <MenuSheet onClose={closeSheet} />}
           {sheet === 'add' && <AddSheet onClose={closeSheet} />}
           {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}

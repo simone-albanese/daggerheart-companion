@@ -365,11 +365,41 @@ describe('the bottom bar', () => {
   it('declares one column per verb it draws', () => {
     // The grid is written from the verb array's length rather than fixed at
     // three, so a build that drops one redistributes the width instead of
-    // leaving a hole. Three buttons and `repeat(3, 1fr)` is all this can pin
-    // today; the property proper is provable when a preference can remove one.
+    // leaving a hole.
     gm();
     expect(bar().querySelectorAll('button')).toHaveLength(3);
     expect(bar().style.gridTemplateColumns).toBe('repeat(3, 1fr)');
+  });
+
+  it('drops SHOW when both halves of its fork are switched off, and redistributes', () => {
+    /*
+     * The property the test above could only half state. With the bestiary and
+     * the party board both off, SHOW opens a sheet with nothing in it - so it
+     * is not drawn, and the two verbs that are left take the width: 196px each
+     * on a 393px phone where three were 131. A hard-coded `repeat(3, 1fr)`
+     * would leave the third column empty and put ADD and SAVE where neither the
+     * eye nor the thumb expects them.
+     */
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false } });
+    gm();
+
+    const verbs = [...bar().querySelectorAll('button')];
+    expect(verbs.map((b) => (b.textContent ?? '').trim())).toEqual(['ADD', 'SAVE']);
+    expect(bar().style.gridTemplateColumns).toBe('repeat(2, 1fr)');
+    // And the two that remain are still the 60px targets they were.
+    for (const verb of verbs) expect(verb.style.minHeight).toBe('60px');
+  });
+
+  it('keeps SHOW while either half is still there', () => {
+    // Half a fork is still something to open, so the verb stays and the bar
+    // keeps its three columns. The sheet is what narrows.
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartyBoard: false } });
+    gm();
+    expect([...bar().querySelectorAll('button')].map((b) => (b.textContent ?? '').trim())).toEqual([
+      'ADD',
+      'SHOW',
+      'SAVE',
+    ]);
   });
 
   it('has no SEARCH, because there is nothing behind one', () => {
@@ -519,6 +549,76 @@ describe('SHOW', () => {
     gm();
     click(named('SHOW'));
     click(leading('BESTIARY'));
+    expect(openTool()).toBe('Bestiary');
+  });
+
+  it('offers only the half that is switched on, and is named for it', () => {
+    /*
+     * A fork with one arm is still a fork, and the sheet must not be announced
+     * as "Bestiary and party board" while it offers one of the two - that is
+     * the everyday size of the rule this screen is built on. Absent rather than
+     * disabled, for the reason SEARCH is absent from the bar: a choice that
+     * cannot be taken is a row the GM reads for nothing.
+     */
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
+    gm();
+    click(named('SHOW'));
+
+    const choices = [...container.querySelectorAll('[role="dialog"] button')]
+      // The sheet's own ✕ has no label span; every choice's first span is its
+      // heading and its second is the sentence under it.
+      .map((b) => (b.querySelector('span')?.textContent ?? '').trim())
+      .filter((label) => label !== '');
+    expect(choices).toEqual(['THE PARTY BOARD']);
+    expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
+      'The party board',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('a tool that is switched off', () => {
+  const sceneRow = (id: string, name: string): SessionItem => ({
+    id,
+    kind: 'scene',
+    name,
+    order: 0,
+    collapsed: false,
+    environmentRef: null,
+  });
+
+  /** Reach the scene runner the way a GM does: from a row, with nothing in it. */
+  const openEmptyScene = (): void => {
+    seed([sceneRow('s1', 'The Sablewood gate')]);
+    gm();
+    click(named('OPEN THE SCENE'));
+    expect(openTool()).toBe('The live scene');
+  };
+
+  it('is not offered by the one empty state that cross-links to it', () => {
+    /*
+     * SHOW is not the only door to the bestiary: the scene runner's empty state
+     * offers it too, and that button is a `setRegion('bestiary')` which this
+     * screen turns into an open tool. Left unguarded it would be the single
+     * control in the app that opens something the GM has switched off - and the
+     * sentence above it would name a tool that is not there, which is the same
+     * defect one step quieter.
+     */
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
+    openEmptyScene();
+
+    expect(buttons().map((b) => (b.textContent ?? '').trim())).not.toContain('Open the bestiary');
+    expect(text()).not.toContain('open the bestiary and drop a single adversary');
+    // Never buttonless: the encounter builder is a session row's content and is
+    // deliberately not switchable, so this state always has one way forward.
+    expect(buttons().map((b) => (b.textContent ?? '').trim())).toContain('Build an encounter');
+  });
+
+  it('is offered there, and works, while it is on', () => {
+    openEmptyScene();
+    expect(text()).toContain('open the bestiary and drop a single adversary');
+    click(named('Open the bestiary'));
     expect(openTool()).toBe('Bestiary');
   });
 });

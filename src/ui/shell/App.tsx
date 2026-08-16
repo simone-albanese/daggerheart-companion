@@ -12,6 +12,7 @@ import {
   type IntegrityReport,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
 import { AppMark } from '../shared/DomainMark.tsx';
@@ -71,7 +72,7 @@ export function App(): React.JSX.Element {
 function Shell(): React.JSX.Element {
   const ready = useApp((s) => s.ready);
   const init = useApp((s) => s.init);
-  const screen = useApp((s) => s.screen);
+  const stored = useApp((s) => s.screen);
   const setScreen = useApp((s) => s.setScreen);
   const openCard = useApp((s) => s.openCard);
   const setOpenCard = useApp((s) => s.setOpenCard);
@@ -197,6 +198,17 @@ function Shell(): React.JSX.Element {
     );
   }
 
+  /*
+   * What the store holds, filtered through what the preferences allow.
+   *
+   * `init` already refuses to *open* on a GM screen whose section is switched
+   * off, and that is the boot half. This is the running half: `setScreen` takes
+   * any of the five, the section can be switched off from Settings at any
+   * moment, and a `screen === 'gm'` with nothing behind it would draw a header,
+   * a bottom bar and 700px of nothing in between. One rule, in `prefs.ts`, so
+   * the two halves cannot drift apart.
+   */
+  const screen = allowedScreen(prefs, stored);
   const needsCharacter = characters.length === 0 || stats === null;
   // `EmptyState` carries its own copy of the notice, so the footer stands down
   // wherever it renders rather than printing the same 342 characters twice.

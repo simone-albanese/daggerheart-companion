@@ -26,6 +26,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   // only lookup that can actually promise the type.
   const adversaries = useApp((s) => s.dataset.adversaries);
   const environments = useApp((s) => s.dataset.environments);
+  const bestiary = useApp((s) => s.prefs.gmBestiary);
 
   const byRef = new Map(adversaries.map((a) => [a.id, a]));
   const environment = environments.find((e) => e.id === environmentRef);
@@ -82,18 +83,30 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
       {combatants.length === 0 ? (
         <div className="panel stack" style={{ flex: 'none', padding: 18, gap: 12, alignItems: 'flex-start' }}>
           <div className="t-vital">Nothing in the scene</div>
+          {/*
+            The sentence names the bestiary only while the bestiary is there.
+            It is switchable in Settings, and this empty state is the one place
+            in the app outside SHOW that offers it - a button here with the
+            preference off would be a door to a room the screen will not open,
+            and a sentence naming a tool that is gone is the same defect one
+            step quieter. The encounter builder is not switchable, which is what
+            keeps this state from ever being buttonless.
+          */}
           <p className="t-body" style={{ margin: 0, maxWidth: 460 }}>
-            Build an encounter and send the roster here, or open the bestiary and drop a single
-            adversary straight in. Whatever you add keeps its HP, Stress and spotlight through a
-            reload — this screen survives the browser closing mid-fight.
+            Build an encounter and send the roster here
+            {bestiary ? ', or open the bestiary and drop a single adversary straight in' : ''}.
+            Whatever you add keeps its HP, Stress and spotlight through a reload — this screen
+            survives the browser closing mid-fight.
           </p>
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn btn-primary" onClick={() => setRegion('encounter')}>
               Build an encounter
             </button>
-            <button type="button" className="btn" onClick={() => setRegion('bestiary')}>
-              Open the bestiary
-            </button>
+            {bestiary && (
+              <button type="button" className="btn" onClick={() => setRegion('bestiary')}>
+                Open the bestiary
+              </button>
+            )}
           </div>
         </div>
       ) : (

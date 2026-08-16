@@ -4,6 +4,7 @@
  * "SRD ONLY · NO ART" is how you know at a glance whether the manual import
  * landed, without opening settings.
  */
+import { allowedScreen } from '../../store/prefs.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
@@ -26,9 +27,18 @@ export function Header(): React.JSX.Element {
   const layers = useApp((s) => s.layers);
   const active = useActive();
   const index = useApp((s) => s.index);
+  const prefs = useApp((s) => s.prefs);
   const phone = useIsPhone();
 
   const hasManual = layers.some((l) => l.priority > 0);
+  /*
+   * The same filter the tab bar applies, for the same reason and by the same
+   * rule: this nav is the desktop's only navigation, so an entry pointing at a
+   * screen the shell substitutes away would be a button that appears to do
+   * nothing at all. Filtering only the phone's bar would have left exactly that
+   * on every laptop.
+   */
+  const screens = SCREENS.filter((s) => allowedScreen(prefs, s.id) === s.id);
 
   // Both classes, when there are two: a multiclassed character is two classes
   // and the line that says who they are should say so.
@@ -58,7 +68,7 @@ export function Header(): React.JSX.Element {
         <AppMark />
         {!phone && (
           <nav className="row" style={{ gap: 4 }}>
-            {SCREENS.map((s) => (
+            {screens.map((s) => (
               <button
                 key={s.id}
                 type="button"

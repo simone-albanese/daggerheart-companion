@@ -99,9 +99,27 @@ before the one below.
   layout, so it is the last thing in the session list instead of a strip above
   the bar.
 
+- **The whole GM section can be switched off, in Settings.** Most people holding
+  this app are players, and the GM tab is a quarter of the bar they navigate by.
+  Off, the tab goes, the desktop header's entry goes, and the app will not open
+  on the screen behind them — including on the next launch, when the last screen
+  you were on was that one. Nothing is deleted: every campaign is still on the
+  device and comes back with the switch.
+- **The bestiary and the party board can be switched off on their own,** and
+  when both are, SHOW leaves the bar rather than opening a sheet with nothing in
+  it — the two verbs that remain take the width it had. With one of the two off
+  SHOW still opens, offers the one that is left, and is announced as that one
+  rather than as both. The scene runner's empty state stops offering the
+  bestiary as well, so nowhere in the app points at a tool you have put away.
+
 **Not there yet, and named here rather than left to be discovered:** the bar has
 no SEARCH — full-text rule search is deferred, and the search a GM does at the
-table is the bestiary's own filter behind SHOW.
+table is the bestiary's own filter behind SHOW. The encounter builder and the
+scene runner have no switches of their own, because they are what a session row
+opens and a switch would make a row you had already written unopenable; Fear and
+the countdowns has none either, because the pool is spent from every corner of
+the app and the board behind that readout is the only place it can be set
+outright rather than one point at a time.
 
 ---
 

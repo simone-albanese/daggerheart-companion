@@ -25,7 +25,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import * as db from '../../src/store/db.ts';
-import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { DEFAULT_PREFS, openingScreen, savePrefs } from '../../src/store/prefs.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { ATTRIBUTION } from '../../src/ui/shared/CompatibleMark.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
@@ -50,16 +50,20 @@ class MemoryStorage {
 }
 
 /** A 393x852 phone, which is the width the tab bar exists at. */
-function setPhone(): void {
+const setPhone = (): void => setViewport(393);
+/** A laptop, where the tab bar is gone and the header's nav is the navigation. */
+const setDesktop = (): void => setViewport(1280);
+
+function setViewport(width: number): void {
   window.matchMedia = ((query: string) => {
     const max = /max-width:\s*(\d+)px/.exec(query);
     const min = /min-width:\s*(\d+)px/.exec(query);
     const coarse = /any-pointer:\s*coarse|pointer:\s*coarse/.test(query);
     return {
       matches:
-        (max !== null && 393 <= Number(max[1])) ||
-        (min !== null && 393 >= Number(min[1])) ||
-        coarse,
+        (max !== null && width <= Number(max[1])) ||
+        (min !== null && width >= Number(min[1])) ||
+        (coarse && width < 1180),
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},
@@ -127,13 +131,21 @@ async function settle(until: () => boolean = () => true, turns = 120): Promise<v
 const text = (): string => container.textContent ?? '';
 const main = (): HTMLElement => container.querySelector('main')!;
 
-/** Boot the real shell with one character in the library, on `screen`. */
-async function mountOn(screen: Screen, ready: () => boolean): Promise<void> {
+/**
+ * Boot the real shell with one character in the library, and let `init` decide
+ * where it lands - which is the whole subject of the last block in this file.
+ */
+async function boot(): Promise<void> {
   await db.putCharacter(playedCharacter());
   await act(async () => {
     root.render(createElement(App));
   });
   await settle(() => useApp.getState().ready);
+}
+
+/** The same, then switched to `screen` the way a person switches. */
+async function mountOn(screen: Screen, ready: () => boolean): Promise<void> {
+  await boot();
   await act(async () => {
     useApp.getState().setScreen(screen);
   });
@@ -223,6 +235,96 @@ describe('the bottom of the GM screen', () => {
     const src = (path: string): string => readFileSync(join(process.cwd(), 'src', path), 'utf8');
     expect(src('ui/gm/GmBar.tsx')).toContain("paddingBottom: 'env(safe-area-inset-bottom)'");
     expect(src('ui/gm/SessionList.tsx')).toContain('bottomMost={false}');
+  });
+});
+
+describe('the GM section, switched off', () => {
+  /** The words on the phone's bottom bar, in order. */
+  const tabs = (): string[] =>
+    [...main().querySelectorAll('nav button')].map((b) => (b.textContent ?? '').trim());
+
+  /** The words on the desktop header's nav, which is the other navigation. */
+  const headerNav = (): string[] =>
+    [...container.querySelectorAll('header nav button')].map((b) => (b.textContent ?? '').trim());
+
+  /**
+   * Where the app opens, as arithmetic rather than as a mounted screen.
+   *
+   * Both rules are in one function precisely so their order is a thing that can
+   * be asserted: reversed, a device with no characters and a stored GM screen
+   * would open on Play instead of on Build, and the empty-library rule that has
+   * been true since `init` was written would have regressed silently.
+   */
+  it('opens somewhere that exists, whatever the last screen was', () => {
+    const off = { ...DEFAULT_PREFS, lastScreen: 'gm' as const, gmSection: false };
+    const on = { ...DEFAULT_PREFS, lastScreen: 'gm' as const, gmSection: true };
+
+    expect(openingScreen(off, 2)).toBe('play');
+    expect(openingScreen(on, 2)).toBe('gm');
+    // The older rule, still first: an empty library goes to Build however the
+    // last session ended and whatever the GM preference says.
+    expect(openingScreen(off, 0)).toBe('build');
+    expect(openingScreen(on, 0)).toBe('build');
+    // And nothing else is touched by any of it.
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 2)).toBe('cards');
+  });
+
+  it('does not open the app on the screen it just took away', async () => {
+    // Written to the disk, not to the store: `init` reads `loadPrefs()`, so a
+    // preference set in memory would be overwritten by the boot this is about.
+    savePrefs({ ...DEFAULT_PREFS, lastScreen: 'gm', gmSection: false });
+    await boot();
+
+    expect(useApp.getState().screen, 'the app opened on a screen with no tab').toBe('play');
+    expect(text()).toContain('EVASION');
+    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD']);
+  });
+
+  it('draws Play rather than nothing if the store is told GM anyway', async () => {
+    /*
+     * The running half of the same rule, and it fails differently from the one
+     * above: `setScreen` accepts all five whatever the preferences say, and the
+     * section can be switched off from Settings in the middle of a session. A
+     * shell that only gated the *boot* would answer that with a header, a
+     * bottom bar, and 700px of nothing between them.
+     */
+    savePrefs({ ...DEFAULT_PREFS, gmSection: false });
+    await boot();
+    await act(async () => {
+      useApp.getState().setScreen('gm');
+    });
+    await settle();
+
+    expect(useApp.getState().screen, 'the store refused the value, so this proves nothing').toBe(
+      'gm',
+    );
+    expect(text(), 'the GM screen was drawn behind a switched-off section').not.toContain(
+      'Nothing planned yet',
+    );
+    expect(text(), 'the shell drew nothing at all').toContain('EVASION');
+  });
+
+  it('takes the desktop header entry with it, and not only the phone tab', async () => {
+    setDesktop();
+    savePrefs({ ...DEFAULT_PREFS, gmSection: false });
+    await boot();
+
+    expect(headerNav()).toEqual(['Play', 'Cards', 'Build']);
+    // The door to Settings is not in that nav and has to survive: it is the
+    // only permanent route there, and this is the screen a person switches the
+    // section back on from.
+    expect(text()).toContain('SETTINGS');
+  });
+
+  it('is four tabs and a GM entry again with the default preferences', async () => {
+    await boot();
+    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM']);
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    setDesktop();
+    await boot();
+    expect(headerNav()).toEqual(['Play', 'Cards', 'Build', 'GM']);
   });
 });
 

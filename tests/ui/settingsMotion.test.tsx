@@ -41,7 +41,7 @@ let scrolled: ReturnType<typeof vi.fn>;
  *
  * jsdom has no `matchMedia` at all, so this is the only thing standing in for
  * a real device here. Width answers false everywhere, which puts Settings in
- * its desktop layout - the one with the section nav down the left, whose six
+ * its desktop layout - the one with the section nav down the left, whose seven
  * buttons are what fire the jump.
  */
 function setMedia(reducedMotion: boolean): void {

@@ -21,7 +21,7 @@ import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
 import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
 import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from './merge.ts';
-import { loadPrefs, savePrefs, type Prefs } from './prefs.ts';
+import { loadPrefs, openingScreen, savePrefs, type Prefs } from './prefs.ts';
 
 export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'settings';
 
@@ -390,7 +390,12 @@ export const useApp = create<AppState>((set, get) => ({
       characters,
       activeId: characters.find((c) => c.id === prefs.lastCharacterId)?.id ?? characters[0]?.id ?? null,
       prefs,
-      screen: characters.length === 0 ? 'build' : prefs.lastScreen,
+      // Both rules live in `openingScreen` rather than here: the empty library
+      // that has to start in Build, and a stored `lastScreen` naming a screen
+      // the preferences have since switched off. This line used to carry the
+      // first alone, so a GM section turned off in one session opened the next
+      // one on a screen with no tab pointing at it.
+      screen: openingScreen(prefs, characters.length),
     });
   },
 

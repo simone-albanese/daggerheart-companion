@@ -25,23 +25,38 @@
  *
  * ## Ergonomics
  *
- * Two choices, full width of the sheet, `minHeight: 56` rather than 44. This
+ * Two choices - one, when the other is switched off - full width of the sheet,
+ * `minHeight: 56` rather than 44. This
  * is a sheet that opens under the thumb from a bar button and is answered
  * immediately, and 56 is what makes the second tap land without the eye moving
  * from where the first one was. On a 393px phone the sheet's inner column is
  * 393 - 28 of padding = 365px; the label and its sentence both fit on two
  * lines at that width, and the sentence is read rather than touched.
  */
+import { useApp } from '../../store/state.ts';
+import type { Prefs } from '../../store/prefs.ts';
 import type { GmRegion } from './gmStore.ts';
 
-const CHOICES: Array<{ tool: GmRegion; label: string; body: string }> = [
+/**
+ * Each fork, and the preference that decides whether it is offered.
+ *
+ * Both are switchable in Settings, and a fork switched off is *absent* here
+ * rather than present and disabled: this sheet exists to be answered in one
+ * tap, and a greyed choice makes the GM read a row that was never going to
+ * open. With both off nothing reaches this file at all - `GmBar` drops SHOW
+ * entirely - so the empty case is a state the screen cannot be in rather than
+ * one this component has to draw.
+ */
+const CHOICES: Array<{ tool: GmRegion; label: string; body: string; pref: keyof Prefs }> = [
   {
     tool: 'bestiary',
+    pref: 'gmBestiary',
     label: 'BESTIARY',
     body: 'Read the adversaries and environments this dataset carries, without adding any of them to tonight. An adversary can still be sent straight to the live scene from there.',
   },
   {
     tool: 'party',
+    pref: 'gmPartyBoard',
     label: 'THE PARTY BOARD',
     body: 'The sheets the players sent you, as they arrived, beside whatever you have marked on them since. Nothing here ever writes to their characters.',
   },
@@ -52,9 +67,11 @@ export function ShowSheet({
 }: {
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
+  const prefs = useApp((s) => s.prefs);
+
   return (
     <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: 14 }}>
-      {CHOICES.map((choice) => (
+      {CHOICES.filter((choice) => prefs[choice.pref] === true).map((choice) => (
         <button
           key={choice.tool}
           type="button"

@@ -1,0 +1,164 @@
+// @vitest-environment jsdom
+/**
+ * Can a player actually switch the GM section off, and does the screen say what
+ * that costs?
+ *
+ * Three preferences arrived with the GM screen - the section itself and the two
+ * tools behind SHOW - and a preference nothing can change is the same defect as
+ * a feature nothing calls: it typechecks, it has a default, and no person in
+ * the world can reach it. So the first question here is the dull one, asked of
+ * all three: does the control on the screen write the field.
+ *
+ * The second is about the two that depend on the first. With the section off,
+ * the bestiary and the party board decide nothing at all, and a live switch
+ * that decides nothing is a control making a promise the app cannot keep. They
+ * are disabled, and the row says what they are waiting for rather than leaving
+ * a person to work out why nothing happened.
+ *
+ * `tests/ui/settingsHints.test.tsx` covers the sentence-to-control wiring for
+ * the same three rows; this file is about what the switches do.
+ */
+import 'fake-indexeddb/auto';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_PREFS, type Prefs } from '../../src/store/prefs.ts';
+import { useApp } from '../../src/store/state.ts';
+import { Settings } from '../../src/ui/settings/Settings.tsx';
+import { dataset, index } from './fixture.ts';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  window.matchMedia = ((query: string) =>
+    ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView = (): void => {};
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+  useApp.setState({
+    ready: true,
+    storageError: null,
+    dataset,
+    index,
+    characters: [],
+    activeId: null,
+    screen: 'settings',
+    prefs: { ...DEFAULT_PREFS },
+    log: [],
+    openCard: null,
+  });
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+  // The store is a module singleton and `setPrefs` also writes localStorage.
+  useApp.setState({ prefs: { ...DEFAULT_PREFS } });
+});
+
+async function mount(prefs: Partial<Prefs> = {}): Promise<void> {
+  act(() => {
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, ...prefs } });
+  });
+  await act(async () => {
+    root.render(<Settings />);
+  });
+  // The backup section probes storage, the folder permission and the service
+  // worker on mount; let all of that land before anything is read back.
+  for (let i = 0; i < 10; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+}
+
+/** The switch a person would find by this name, wherever it sits on the page. */
+function toggle(label: string): HTMLButtonElement {
+  const found = [...container.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
+    (el) => el.getAttribute('aria-label') === label,
+  );
+  if (found === undefined) {
+    throw new Error(
+      `no switch called "${label}". Here: ${[...container.querySelectorAll('[role="switch"]')]
+        .map((el) => el.getAttribute('aria-label'))
+        .join(' | ')}`,
+    );
+  }
+  return found;
+}
+
+const press = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
+const text = (): string => container.textContent ?? '';
+
+describe('the GM tools section', () => {
+  it('writes each of its three preferences from its own switch', async () => {
+    await mount();
+
+    press(toggle('The GM section'));
+    expect(useApp.getState().prefs.gmSection).toBe(false);
+
+    // Back on, so the two below are live controls rather than disabled ones.
+    press(toggle('The GM section'));
+    expect(useApp.getState().prefs.gmSection).toBe(true);
+
+    press(toggle('Bestiary'));
+    expect(useApp.getState().prefs.gmBestiary).toBe(false);
+
+    press(toggle('The party board'));
+    expect(useApp.getState().prefs.gmPartyBoard).toBe(false);
+  });
+
+  it('reports the state it is in, in words as well as position', async () => {
+    await mount({ gmSection: false });
+    expect(toggle('The GM section').getAttribute('aria-checked')).toBe('false');
+    expect(toggle('The GM section').textContent).toContain('OFF');
+  });
+
+  it('stops the two tools deciding anything while the section is off, and says so', async () => {
+    await mount({ gmSection: false });
+
+    expect(toggle('Bestiary').disabled, 'a switch that changes nothing was left live').toBe(true);
+    expect(toggle('The party board').disabled).toBe(true);
+    expect(text()).toContain('these two decide nothing until it is back on');
+  });
+
+  it('leaves them live while the section is on', async () => {
+    await mount();
+    expect(toggle('Bestiary').disabled).toBe(false);
+    expect(toggle('The party board').disabled).toBe(false);
+  });
+
+  it('says what the GM screen loses when both tools are off', async () => {
+    // The same idiom as the two dice switches: the honest case where both of a
+    // pair are off is stated rather than quietly prevented - and here it is a
+    // visible consequence, because SHOW leaves the bar the GM presses all
+    // evening and the other two verbs take the width.
+    await mount({ gmBestiary: false, gmPartyBoard: false });
+    expect(text()).toContain('SHOW has nothing left to open');
+
+    await mount({ gmBestiary: false });
+    expect(text()).not.toContain('SHOW has nothing left to open');
+  });
+});

@@ -52,6 +52,31 @@ export interface Prefs {
   seenArtOffer: boolean;
   gmPartySize: number;
   /**
+   * The whole GM section: the night's plan, the encounter builder, the live
+   * scene, Fear and the countdowns.
+   *
+   * On by default and switchable, because most people holding this app are
+   * players and the section is a quarter of the tab bar they navigate by. Off,
+   * the tab goes, the desktop header drops its entry, and `openingScreen`
+   * below refuses to open the app on a screen nothing can reach. Nothing is
+   * deleted: every campaign stays on this device and comes back with the
+   * switch.
+   */
+  gmSection: boolean;
+  /**
+   * SHOW's first fork: reading the adversaries and environments this dataset
+   * carries without adding any of them to tonight.
+   *
+   * Switchable where the encounter builder and the scene runner are not, and
+   * the difference is not arbitrary - those two are the *content of a session
+   * row*, so a switch that hid them would make rows the GM has already written
+   * unopenable. This one and the party board are the two halves SHOW forks
+   * into, and neither is reachable from a row at all.
+   */
+  gmBestiary: boolean;
+  /** SHOW's other half: the party board, and the sheets the players sent. */
+  gmPartyBoard: boolean;
+  /**
    * Which collapsible sections of the Play screen are open, per character.
    *
    * Keyed `<characterId>:<sectionId>`, and here rather than on the character
@@ -87,8 +112,42 @@ export const DEFAULT_PREFS: Prefs = {
   lastScreen: 'play',
   seenArtOffer: false,
   gmPartySize: 4,
+  gmSection: true,
+  gmBestiary: true,
+  gmPartyBoard: true,
   playSections: {},
 };
+
+/**
+ * The screen the shell is allowed to draw, given what the preferences allow.
+ *
+ * `screen` in the store is a value anything can set, and one of its five is now
+ * conditional: with the GM section switched off there is no tab, no header
+ * entry and nothing behind `screen === 'gm'` at all, so drawing it would be an
+ * empty `<main>` under a header - a blank room with the door taken off. Both
+ * callers of this rule need it for different reasons, which is why it is one
+ * function and not two conditions: `openingScreen` applies it to a value read
+ * off the disk at boot, and `App` applies it to whatever the store holds now.
+ */
+export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
+  return screen === 'gm' && !prefs.gmSection ? 'play' : screen;
+}
+
+/**
+ * Where the app opens.
+ *
+ * Both rules, in the order they have to be asked. An empty library goes to
+ * Build whatever was last open - that has been true since `init` was written,
+ * and it comes first because a Play screen with no character is a screen with
+ * nothing on it. Then the stored screen, filtered through the preferences: a
+ * `lastScreen` of `'gm'` left over from before the section was switched off is
+ * a stored value that is no longer reachable, and honouring it would open the
+ * app on a screen with no tab and no way back to one.
+ */
+export function openingScreen(prefs: Prefs, characterCount: number): Screen {
+  if (characterCount === 0) return 'build';
+  return allowedScreen(prefs, prefs.lastScreen);
+}
 
 export function loadPrefs(): Prefs {
   if (typeof localStorage === 'undefined') return DEFAULT_PREFS;

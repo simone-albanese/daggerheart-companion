@@ -27,6 +27,8 @@ import { globSync } from 'node:fs';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { useApp } from '../../src/store/state.ts';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
 
 declare global {
@@ -42,11 +44,19 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  // Stated rather than inherited. The bar's shape is a function of the
+  // preferences now, so every case here says which ones it is drawn under -
+  // and the store is a module singleton, so a case that changes them and does
+  // not put them back would decide the next file's answer too.
+  act(() => {
+    useApp.setState({ prefs: { ...DEFAULT_PREFS } });
+  });
 });
 
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  useApp.setState({ prefs: { ...DEFAULT_PREFS } });
 });
 
 /** The glyph span in each tab, with what it would be drawn with. */
@@ -87,6 +97,57 @@ describe('the navigation glyphs', () => {
     expect(solid).toHaveLength(3);
     for (const { tab, fill } of solid) {
       expect(fill, `the ${tab} glyph has no background-color`).not.toBe('');
+    }
+  });
+});
+
+describe('a tab with nothing behind it', () => {
+  /** The bar's buttons, as the words a person reads on them. */
+  const labels = (): string[] =>
+    [...container.querySelectorAll('nav button')].map((b) => (b.textContent ?? '').trim());
+
+  const nav = (): HTMLElement => container.querySelector('nav')!;
+
+  it('is four tabs and four columns with the default preferences', () => {
+    act(() => root.render(createElement(TabBar)));
+
+    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM']);
+    expect(nav().style.gridTemplateColumns).toBe('repeat(4, 1fr)');
+  });
+
+  it('drops the GM tab when the GM section is switched off, and takes its column with it', () => {
+    /*
+     * The two halves fail differently and both matter. A tab that survives is
+     * a door to a screen `App` now substitutes away - it would look like a
+     * button that does nothing at all. A column that survives is a 98px hole
+     * in the middle of the bar and three tabs that no longer sit where the
+     * hand learned them: at three, each is 131px of a 393px phone, which is a
+     * wider target and not a smaller one.
+     */
+    act(() => {
+      useApp.setState({ prefs: { ...DEFAULT_PREFS, gmSection: false } });
+    });
+    act(() => root.render(createElement(TabBar)));
+
+    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD']);
+    expect(labels()).not.toContain('GM');
+    expect(nav().style.gridTemplateColumns).toBe('repeat(3, 1fr)');
+  });
+
+  it('keeps every surviving tab a 60px target with a glyph', () => {
+    // The GM tab leaving must not cost the other three anything they had.
+    act(() => {
+      useApp.setState({ prefs: { ...DEFAULT_PREFS, gmSection: false } });
+    });
+    act(() => root.render(createElement(TabBar)));
+
+    const drawn = glyphs();
+    expect(drawn).toHaveLength(3);
+    for (const { tab, fill, border } of drawn) {
+      expect(fill !== '' || border !== '', `the ${tab} glyph would paint nothing`).toBe(true);
+    }
+    for (const button of container.querySelectorAll<HTMLButtonElement>('nav button')) {
+      expect(button.style.minHeight).toBe('60px');
     }
   });
 });
