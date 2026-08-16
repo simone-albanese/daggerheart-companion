@@ -184,6 +184,38 @@ function world(dist: string, base: string = BASE) {
   };
 }
 
+/**
+ * A new deploy, on the server this world serves from: every hash moves, because
+ * every chunk names the ones it imports and the names are what changed.
+ *
+ * A distinct suffix per file: two chunks can share a stem (there is more than
+ * one `index-*.js`), and collapsing them onto one new name would make the
+ * fixture lose a chunk and look like a pruning bug.
+ */
+function redeploy(app: ReturnType<typeof world>): void {
+  const renamed = new Map(
+    [...app.files.keys()]
+      .filter((path) => /\/assets\/.+\.(js|css)$/.test(path))
+      .map((path, i) => {
+        // Only the hash moves. Cutting from the first hyphen would rename
+        // `import-worker-<hash>.js` to `import-<n>.js` and the fixture would
+        // stop modelling a real deploy: a Vite hash can itself contain a
+        // hyphen, so the boundary is the last one before the extension.
+        const name = path.split('/').pop()!;
+        const dot = name.indexOf('.');
+        const stem = name.slice(0, dot);
+        return [name, `${stem.slice(0, stem.lastIndexOf('-'))}-next${i}${name.slice(dot)}`];
+      }),
+  );
+  const rewrite = (text: string): string =>
+    [...renamed].reduce((out, [was, now]) => out.split(was).join(now), text);
+  for (const [path, body] of [...app.files]) {
+    if (!/\.(html|js|css)$/.test(path)) continue;
+    app.files.delete(path);
+    app.files.set(rewrite(path), Buffer.from(rewrite(body.toString())));
+  }
+}
+
 const SHELL = 'dhc-shell-v1';
 const ASSETS = 'dhc-assets-v1';
 
@@ -454,32 +486,7 @@ describe('service worker, against what the build actually emitted', () => {
     await app.post({ type: 'warm-importer' });
     const first = app.cached(ASSETS);
 
-    // A new deploy: every hash moves, because every chunk names the ones it
-    // imports and the names are what changed.
-    // A distinct suffix per file: two chunks can share a stem (there is more
-    // than one `index-*.js`), and collapsing them onto one new name would make
-    // the fixture lose a chunk and look like a pruning bug.
-    const renamed = new Map(
-      [...app.files.keys()]
-        .filter((path) => /\/assets\/.+\.(js|css)$/.test(path))
-        .map((path, i) => {
-          // Only the hash moves. Cutting from the first hyphen would rename
-          // `import-worker-<hash>.js` to `import-<n>.js` and the fixture would
-          // stop modelling a real deploy: a Vite hash can itself contain a
-          // hyphen, so the boundary is the last one before the extension.
-          const name = path.split('/').pop()!;
-          const dot = name.indexOf('.');
-          const stem = name.slice(0, dot);
-          return [name, `${stem.slice(0, stem.lastIndexOf('-'))}-next${i}${name.slice(dot)}`];
-        }),
-    );
-    const rewrite = (text: string): string =>
-      [...renamed].reduce((out, [was, now]) => out.split(was).join(now), text);
-    for (const [path, body] of [...app.files]) {
-      if (!/\.(html|js|css)$/.test(path)) continue;
-      app.files.delete(path);
-      app.files.set(rewrite(path), Buffer.from(rewrite(body.toString())));
-    }
+    redeploy(app);
 
     await app.dispatch('install');
     expect(app.cached(ASSETS), 'the running page keeps its bundle until it reloads').toEqual(
@@ -492,6 +499,43 @@ describe('service worker, against what the build actually emitted', () => {
     expect(after.every((url) => /-next\d+\./.test(url))).toBe(true);
     expect(after.some((url) => /\/srd-/.test(url)), 'the dataset is not collateral').toBe(true);
     expect(after.some((url) => /\/import-worker-/.test(url)), 'nor is the importer').toBe(true);
+  });
+
+  /**
+   * Downloading an update and accepting one are two different moments, and the
+   * network is only guaranteed at the first.
+   *
+   * A worker installs while the user is online - it cannot do otherwise, the
+   * precache is fetched - and then sits in `waiting` for as long as it takes the
+   * user to tap the prompt. That tap can land in a tunnel. Activation prunes
+   * every hashed file the new document does not name, and the importer's chunk
+   * is the one file the precache deliberately skips, so it was the one file the
+   * prune could drop with nothing left to put it back: the device came out of
+   * the tunnel with a working app and an importer that had quietly stopped
+   * existing until the next online launch.
+   *
+   * Keeping the old chunk instead would have been no fix at all - the new
+   * bundle asks for the new hash and would not have looked at it.
+   */
+  it('carries the importer through an update accepted in flight mode', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+    await app.post({ type: 'warm-importer' });
+
+    redeploy(app);
+    await app.dispatch('install'); // Downloaded on the platform,
+    app.net.online = false;
+    await app.dispatch('activate'); // and accepted in the tunnel.
+
+    const worker = app.emitted(/\/assets\/import-worker-.+\.js$/)[0]!;
+    expect(app.cached(ASSETS), 'this build\'s copy is there to serve').toContain(worker);
+    expect(
+      app.cached(ASSETS).filter((url) => /\/import-worker-/.test(url)),
+      'and only this build\'s: the prune still ran',
+    ).toHaveLength(1);
+    expect((await app.get(new URL(worker).pathname)).response?.status).toBe(200);
+    expect((await app.navigate(BASE)).response?.status, 'and the app itself came through').toBe(200);
   });
 
   it('never stores a document whose bundle it could not fetch', async () => {

@@ -50,10 +50,13 @@ const isImmutable = (url) => url.pathname.startsWith(`${ROOT.pathname}assets/`);
  * importer is desktop-only, because rasterising a 319 MB PDF is an
  * out-of-memory risk there.
  *
- * So it is fetched on request rather than on install. A client that can
- * actually run the importer posts `warm-importer` once it knows, and it is
+ * So the first copy is fetched on request rather than on install. A client that
+ * can actually run the importer posts `warm-importer` once it knows, and it is
  * cached then; a phone never downloads it at all. The offline promise is kept
  * where the feature exists, and the bytes are not spent where it does not.
+ *
+ * Every copy after the first is fetched on install, because by then the device
+ * has already answered the question: see `installUpdate`.
  */
 const isDeferred = (url) => /\/import-worker-[^/]*\.js$/.test(url.pathname);
 
@@ -78,8 +81,36 @@ const isShell = (url) =>
 // Lifecycle
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(precache());
+  event.waitUntil(installUpdate());
 });
+
+/**
+ * Everything that has to happen while there is certainly a network.
+ *
+ * Which is the whole of install and nothing else. A worker installs only when
+ * it can fetch - the precache below is fetched, and an install that cannot
+ * fetch fails and leaves the old worker in charge - and then it sits in
+ * `waiting` for as long as it takes the user to notice the prompt and tap it.
+ * That tap can land in a tunnel, and everything downstream of it runs there.
+ *
+ * The importer's chunk is the only file that cares. It is held back from the
+ * precache on purpose, so nothing else fetches it, and activation prunes every
+ * hashed file the new document does not name - which after a deploy includes
+ * the copy under the old hash. Refetching it from `activate` meant refetching
+ * it at the one moment the network may be gone, and a user who took an update
+ * offline came out of the tunnel with an importer that had silently stopped
+ * existing. Keeping the old chunk instead would not have helped for a second:
+ * the new bundle asks for the new hash and would never look at it.
+ *
+ * So the fetch moves to the moment that is guaranteed. `wanted` is read before
+ * the precache to say what it is a question about - what this device had before
+ * the update, not what it has after - though nothing in `precache` touches it.
+ */
+async function installUpdate() {
+  const wanted = await importerWasWanted();
+  await precache();
+  if (wanted) await warmImporter();
+}
 
 async function precache() {
   const cache = await caches.open(SHELL_CACHE);
@@ -149,18 +180,22 @@ async function takeOver() {
   const stale = names.filter((name) => name.startsWith('dhc-') && !CURRENT.has(name));
   await Promise.all(stale.map((name) => caches.delete(name)));
 
-  // A device that asked for the importer once still wants it. Without this, a
-  // deploy would prune the old worker chunk, never fetch the new one, and the
-  // importer would silently stop working offline - the kind of regression that
-  // only shows up on a machine with no signal and a 319 MB PDF to hand.
+  // A device that asked for the importer once still wants it. `installUpdate`
+  // has already fetched this build's copy, back when there was a network to
+  // fetch it from; this is the retry for the install whose connection died on
+  // that one file, and it has to be asked before the prune, because the prune
+  // is what removes the evidence that this device ever wanted the thing.
   const wanted = await importerWasWanted();
   // Refill before pruning, not after. A cache the browser reclaimed has nothing
   // to prune and everything to rebuild, and `pruneAssets` reads the very
   // document that is missing - so on its own it looks at an empty cache, finds
   // no document, and returns satisfied.
   await ensurePrecached();
-  await pruneAssets();
+  // Both refills ahead of the delete, so that no ordering here can read as
+  // "drop the copy we have and then go looking". Offline the retry cannot
+  // help - which is exactly why install does not leave it until now.
   if (wanted) await warmImporter();
+  await pruneAssets();
 
   await self.clients.claim();
   console.info('[sw] active', VERSION, BUILD);
