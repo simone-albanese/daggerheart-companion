@@ -475,6 +475,42 @@ describe('opening and deleting a row', () => {
     expect(names).toContain('DELETE — Scene one');
     expect(names).toContain('DELETE — Unreadable item');
   });
+
+  it('says which row every control in an open arm belongs to, not just DELETE', () => {
+    /*
+     * The row already argued this for DELETE, MOVE UP, MOVE DOWN and the drag
+     * handle - "a list of identical DELETE buttons is a list a screen reader
+     * cannot tell apart" - and then the arms made exactly the same list one
+     * level down. A planned night with two scenes and two countdowns in it drew
+     * OPEN THE SCENE, PUT THIS ON THE BOARD, RESET, PIN IT TO THE TOP BAR and
+     * OPEN FEAR AND COUNTDOWNS twice each, with nothing to choose between them,
+     * on the one screen whose whole point is an ordered list of similar rows.
+     *
+     * Asserted over the whole list rather than over a chosen few, because the
+     * next arm somebody writes gets the property for free or fails here.
+     */
+    seed([
+      { ...base({ id: 's1', name: 'The Sablewood gate', order: 0, collapsed: false }), kind: 'scene', environmentRef: environment.id },
+      { ...base({ id: 's2', name: 'The frozen ford', order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 'e1', name: 'The ambush', order: 2, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
+      { ...base({ id: 'e2', name: 'The bridge', order: 3, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 1 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
+      { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' } },
+      { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '' } },
+      { ...base({ id: 'l1', name: 'The grove', order: 6, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
+      { ...base({ id: 'l2', name: 'The other grove', order: 7, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: dataset.environments[1]!.id } },
+    ]);
+    list();
+
+    const controls = [...container.querySelectorAll('button, select')];
+    const names = controls.map(
+      (el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim(),
+    );
+    const duplicated = [...new Set(names.filter((n, i) => names.indexOf(n) !== i))];
+    expect(
+      duplicated,
+      'two controls in this list answer to the same name, on a screen made of similar rows',
+    ).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

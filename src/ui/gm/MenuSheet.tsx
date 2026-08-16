@@ -9,7 +9,7 @@
  * is only defensible if the door is somewhere. It is here, at the top of the
  * screen, behind the campaign name that was already drawn there.
  *
- * ## Three blocks, in the order a hand reaches them
+ * ## Four blocks, in the order a hand reaches them
  *
  * **Where to go** is first because it is the reason the sheet has to exist at
  * all, and because a GM who opened it by accident wants out. Play, Cards and
@@ -17,7 +17,23 @@
  * including this one and a second route to it would be the only duplicated
  * destination in the app.
  *
- * **The campaigns** are second. Switching, making a new one, renaming the open
+ * **The two tools with no door of their own** are second, and they are here
+ * because the screen otherwise had no way to reach them. The five regions are
+ * the content of a session row now, which is the whole point of the rebuild -
+ * but three of them have a fixed control as well and two did not. Fear and the
+ * countdowns are behind the Fear readout, which is always drawn; the bestiary
+ * and the party board are behind SHOW. The encounter builder had nothing, and
+ * the live scene had only a chip that exists while adversaries are on the
+ * board - so a GM improvising a fight had to ADD an encounter row, name it,
+ * submit it, open it and press OPEN THE BUILDER, creating a plan row they may
+ * not have wanted, where the old screen had a tab.
+ *
+ * The other three are deliberately *not* repeated here, and that is the same
+ * rule Settings is kept out by: a second route to a destination that already
+ * has one is a door nobody chose to build. The sentence under these two says
+ * where those three are, so their absence is an answer rather than a gap.
+ *
+ * **The campaigns** are third. Switching, making a new one, renaming the open
  * one, and removing one behind two taps.
  *
  * **This device** is last, and is the block nothing had ever drawn. `useGm`
@@ -59,6 +75,9 @@
  * thumb. The inner column is 393 - 28 = 365px.
  *
  *   the three destinations   three across at (365 - 16) / 3 = 116 x 56 each
+ *   the two tools            two across at (365 - 8) / 2 = 178 x 56 each, the
+ *                            same height as the row above them because they are
+ *                            the same gesture: one tap, and the sheet is gone
  *   a campaign row           the name is the target, 365 - 44 - 8 = 313 x 44,
  *                            with REMOVE beside it as a 44px word
  *   RENAME / NEW CAMPAIGN    full-width, minHeight var(--tap) = 44
@@ -70,7 +89,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useApp, type Screen } from '../../store/state.ts';
-import { useGm } from './gmStore.ts';
+import { useGm, type GmRegion } from './gmStore.ts';
 
 /** Where MENU can go. Settings is deliberately not here - see the docblock. */
 const WAYS_OUT: Array<{ id: Screen; label: string }> = [
@@ -79,7 +98,29 @@ const WAYS_OUT: Array<{ id: Screen; label: string }> = [
   { id: 'build', label: 'BUILD' },
 ];
 
-export function MenuSheet({ onClose }: { onClose: () => void }): React.JSX.Element {
+/**
+ * The tools nothing else on this screen can open.
+ *
+ * Not all five, and the two that are missing from the list are missing on
+ * purpose: the bestiary and the party board are behind SHOW, Fear and the
+ * countdowns is behind the readout that is always in the top bar, and none of
+ * the three is switchable in the way that would make this list a hedge. These
+ * two are the content of a row and nothing else, which was fine until a GM
+ * wanted one without a row.
+ */
+const TOOLS: Array<{ id: GmRegion; label: string }> = [
+  { id: 'encounter', label: 'THE ENCOUNTER BUILDER' },
+  { id: 'scene', label: 'THE LIVE SCENE' },
+];
+
+export function MenuSheet({
+  onClose,
+  onOpenTool,
+}: {
+  onClose: () => void;
+  /** Opens over the list and closes this sheet, through `Gm.tsx::openTool`. */
+  onOpenTool: (tool: GmRegion) => void;
+}): React.JSX.Element {
   const setScreen = useApp((s) => s.setScreen);
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
@@ -115,6 +156,30 @@ export function MenuSheet({ onClose }: { onClose: () => void }): React.JSX.Eleme
         <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tab bar is not on this screen: the bottom of it belongs to ADD, SHOW and SAVE while
           you are running a session. Settings is where it always is, in the header.
+        </p>
+      </div>
+
+      <div className="stack" style={{ flex: 'none', gap: 8 }}>
+        <span className="t-label">OPEN A TOOL WITHOUT A ROW</span>
+        <div className="row" style={{ gap: 8 }}>
+          {TOOLS.map((tool) => (
+            <button
+              key={tool.id}
+              type="button"
+              onClick={() => onOpenTool(tool.id)}
+              aria-haspopup="dialog"
+              className="btn"
+              style={{ flex: 1, minWidth: 0, minHeight: 56, letterSpacing: '0.08em' }}
+            >
+              {tool.label}
+            </button>
+          ))}
+        </div>
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          These two are otherwise the content of a session row, so improvising a fight meant
+          writing a row for it first. The other three already have a way in and are not repeated
+          here: Fear and the countdowns are behind the Fear number at the top, the bestiary and
+          the party board are behind SHOW.
         </p>
       </div>
 

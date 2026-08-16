@@ -33,9 +33,12 @@ before the one below.
 - **A tool that is closed is gone, not hidden.** The party board opens the
   camera to scan a player's character; a panel kept alive behind the screen
   would leave it running.
-- **Arriving at the GM screen opens nothing.** The record remembers which tool
-  was last open, which is worth keeping and is not an instruction — reading it
-  as one would have put the encounter builder over the plan every single time.
+- **Arriving at the GM screen opens nothing, and neither does changing table.**
+  The record remembers which tool was last open, which is worth keeping and is
+  not an instruction — reading it as one would have put the encounter builder
+  over the plan every single time you arrived, and switching campaign or making
+  a new one would have dropped you into whatever that table had open last,
+  including a tool you had switched off in Settings.
 - **Rows move.** A handle at the right edge of every row: hold it for a quarter
   of a second and drag, and the row goes where you put it. The list under the
   same thumb still scrolls, because only the handle itself is taken away from
@@ -66,7 +69,17 @@ before the one below.
   the database, so the sheet flushes whatever is still in flight and then says
   when the last change actually reached the disk — not when the record changed,
   when the *write landed*. If a write failed, that sentence is replaced by the
-  failure and a retry that now does something.
+  failure and by a retry that does something.
+- **TRY AGAIN only appears where trying again would do something, and says when
+  it did not work.** It used to be drawn over every failure and to call the same
+  flush every time — which writes the open campaign, and so could do nothing at
+  all about a campaign that failed to be *deleted*, a device that could not be
+  *read*, or a new campaign whose write threw and left nothing marked as
+  unwritten. You pressed a red button, watched it say TRYING…, and got the same
+  red strip back. Now: the new campaign is written by the retry, a failed read
+  is retried by reading again, and a failed delete draws no button because
+  nothing was lost and the REMOVE you already have is the retry. A retry that
+  fails says so instead of settling back into the same sentence.
 - **A first campaign that could not be written says so.** On a device with no
   campaign at all the app makes one, and if that very first write failed the
   error was swallowed with a comment. Nothing read it, so nothing was visibly
@@ -82,6 +95,13 @@ before the one below.
   is now a button the width of the screen rather than a label. Leaving the GM
   tools is a rare gesture and the easiest reach should go to the ones you make
   all evening. Settings is where it always was, in the header.
+- **MENU opens the two tools that a row would otherwise be needed for.** The
+  encounter builder and the live scene are the content of a session row, which
+  is the point of the rebuild — but improvising a fight should not mean writing
+  a plan row for it first. The other three are not repeated there: Fear and the
+  countdowns is behind the Fear number at the top, the bestiary and the party
+  board are behind SHOW, and the sheet says so rather than leaving you to
+  wonder.
 - **The campaigns you already had have a door.** Switch between them, make
   another, rename the open one, remove one behind two taps. Renaming is offered
   on the open campaign only, and the sheet says why: for any other row the app
@@ -93,6 +113,19 @@ before the one below.
   the app made while reading them, and campaigns written by a newer version of
   the app that this one will not open — named, not counted, with the sentence
   that nothing has been deleted.
+- **If the saved table wins a race against your hand, the screen says so.** The
+  campaign is read off the disk as the GM screen arrives, and anything you
+  change in that window is replaced by what was saved — the alternative is
+  writing an empty board over a real campaign. The loading panel used to promise
+  the opposite in the same breath ("nothing you do before it arrives will be
+  lost — it is the saved campaign that wins"), and the notice that it had
+  happened lived behind the MENU button. It says what actually happens now, and
+  if it happens it is a line under the top bar with a ✕, on the screen where you
+  made the change.
+- **Every control inside an open row says which row it belongs to.** A night
+  with three scenes drew three buttons called OPEN THE SCENE and three called
+  PUT THIS ON THE BOARD; on a screen read out loud they were indistinguishable.
+  The row already named its own DELETE that way; now the contents do too.
 - **The licence notice did not leave the GM screen; it moved into the scroll.**
   It is 111px on a phone, and that screen now has bars at the top and the
   bottom — but a notice the licence asks to be displayed is not what pays for a

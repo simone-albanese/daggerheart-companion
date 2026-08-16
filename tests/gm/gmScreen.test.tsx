@@ -98,6 +98,7 @@ beforeEach(() => {
     fear: 0,
     region: 'encounter',
     writeError: null,
+    writeRetry: null,
     replacedOnLoad: false,
     exportActiveCampaign: REAL_EXPORT,
     // MENU makes and removes campaigns, and the store is a module singleton.
@@ -739,7 +740,13 @@ describe('SAVE', () => {
   });
 
   it('says a write has not landed instead of stamping one that did not', async () => {
-    useGm.setState({ writeError: 'The quota has been exceeded. What is on this screen is only in this tab.' });
+    // Both fields, because the store never sets one without the other: a
+    // `writeError` seeded on its own is a state this app cannot be in, and a
+    // test that asserts a TRY AGAIN over it is asserting against fiction.
+    useGm.setState({
+      writeError: 'The quota has been exceeded. What is on this screen is only in this tab.',
+      writeRetry: 'write',
+    });
     gm();
     click(named('SAVE'));
     await settle();
@@ -839,15 +846,15 @@ describe('a write that did not happen', () => {
   it('retries the write from there, and goes when it lands', async () => {
     /*
      * The whole point of the button. `flushGm` returns early when nothing is
-     * dirty, and every path that sets this field leaves the campaign dirty on
-     * purpose - so the retry is only worth drawing because there is something
-     * for it to write. `setFear` is the change that makes this campaign dirty;
-     * the seeded error stands in for the write that failed.
+     * dirty, so the retry is only worth drawing where the store says there is
+     * something for it to write - which is what `writeRetry` carries. `setFear`
+     * is the change that makes this campaign dirty; the seeded pair stands in
+     * for the write that failed with it.
      */
     act(() => {
       useGm.getState().setFear(3);
     });
-    useGm.setState({ writeError: FAILED });
+    useGm.setState({ writeError: FAILED, writeRetry: 'write' });
     gm();
     click(named('TRY AGAIN'));
     await settle(10);
@@ -857,6 +864,52 @@ describe('a write that did not happen', () => {
     // And the write that landed is the one that was on screen.
     expect(activeCampaign()).toBeDefined();
     expect(useGm.getState().fear).toBe(3);
+  });
+
+  it('draws no retry where a retry can do nothing, and says what does', () => {
+    /*
+     * A delete that threw. `flushGm` writes the open campaign, which is not
+     * what failed and - when the doomed campaign is the open one - is the
+     * opposite of what was asked for. The old strip drew TRY AGAIN over it
+     * anyway: the GM pressed a red button, watched it say TRYING…, and got the
+     * same strip back with nothing done. The store's sentence names the control
+     * that does help instead.
+     */
+    useGm.setState({
+      writeError:
+        'That campaign could not be deleted (The database is closed). It is still on this device and still in the list, and nothing else has changed — REMOVE tries again.',
+      writeRetry: null,
+    });
+    gm();
+
+    expect(text()).toContain('NOT ON THIS DEVICE');
+    expect(text()).toContain('REMOVE tries again');
+    expect(
+      buttons().map((b) => (b.textContent ?? '').trim()),
+      'a retry was offered for a failure it cannot fix',
+    ).not.toContain('TRY AGAIN');
+  });
+
+  it('says a retry did not land, instead of flashing and leaving the same strip', async () => {
+    /*
+     * The other half of the same button. On success the strip goes, which is
+     * visible; on failure it stayed exactly as it was, so a retry that failed
+     * and a button that was never wired looked identical.
+     *
+     * The retry is made to fail by pointing the store at a campaign that is not
+     * in the list: `writeActive` returns at `base === undefined` with the store
+     * still dirty, which is one of the shapes the real failure has.
+     */
+    act(() => {
+      useGm.getState().setFear(3);
+    });
+    useGm.setState({ writeError: FAILED, writeRetry: 'write', activeCampaignId: 'nobody' });
+    gm();
+    click(named('TRY AGAIN'));
+    await settle(10);
+
+    expect(useGm.getState().writeError).not.toBeNull();
+    expect(text()).toContain('THAT TRY DID NOT LAND EITHER');
   });
 });
 
@@ -934,6 +987,35 @@ describe('MENU', () => {
     // And it closes behind itself: a dialog left open over a screen the GM has
     // just left is a dialog they have to dismiss to see where they went.
     expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('opens the two tools nothing else on this screen can', () => {
+    /*
+     * The five regions are the content of a row now, which is the point of the
+     * rebuild - but three of them kept a fixed control and two did not. A GM
+     * improvising a fight had to ADD an encounter, name it, submit it, open the
+     * row and press OPEN THE BUILDER, creating a plan row they may not want,
+     * where the old screen had a tab.
+     */
+    openMenu();
+    click(named('THE ENCOUNTER BUILDER'));
+    expect(openTool()).toBe('Encounter builder');
+
+    // And the sheet handed the screen over rather than stacking under it.
+    expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  });
+
+  it('leaves the three that already have a door where they are', () => {
+    // The rule that keeps Settings out of this sheet: a second route to a
+    // destination that already has one is a door nobody chose to build. The
+    // sentence says where they are, so the absence is an answer, not a gap.
+    openMenu();
+    const labels = buttons().map((b) => (b.textContent ?? '').trim());
+    expect(labels).not.toContain('BESTIARY');
+    expect(labels).not.toContain('THE PARTY BOARD');
+    expect(labels).not.toContain('FEAR AND COUNTDOWNS');
+    expect(text()).toContain('behind the Fear number at the top');
+    expect(text()).toContain('behind SHOW');
   });
 
   it('does not offer Settings, because the header already does on every screen', () => {

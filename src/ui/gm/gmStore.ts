@@ -76,6 +76,18 @@ import {
 export type { GmRegion } from '../../../shared/campaigns.ts';
 export type { RosterEntry } from '../../../shared/types.ts';
 
+/**
+ * The two remedies this store has for a failure, and the absence of one.
+ *
+ * `'write'` is "there is something in memory that is not on the disk", so
+ * `flushGm` will try it again. `'read'` is the opposite direction: the disk
+ * could not be *read*, there is no campaign to write, and the retry is another
+ * attempt at reading it. `null` is a failure with no remedy in this store -
+ * today that is a delete that threw, where the campaign is untouched and the
+ * only retry is the REMOVE control the GM already has.
+ */
+export type WriteRetry = 'write' | 'read' | null;
+
 /** Which sheets landed on the board, and which ones were already on it. */
 export interface PartyImportSummary {
   added: string[];
@@ -128,6 +140,19 @@ export interface GmState extends GmLive {
    * around `localStorage.setItem` was not good enough here.
    */
   writeError: string | null;
+  /**
+   * What retrying would actually do about `writeError`, and null when the
+   * honest answer is nothing.
+   *
+   * Set by every path that sets `writeError`, because no screen can work it
+   * out: `flushGm` writes the active campaign **if the store is dirty**, which
+   * is true of a write that threw and was false of two of the four failures
+   * below. A TRY AGAIN drawn over one of those is a button that flashes and
+   * writes nothing - the founding rule failing on the control offered to
+   * repair it. `retryGm` dispatches on this, and the two screens that draw the
+   * button read it to decide whether there is a button to draw.
+   */
+  writeRetry: WriteRetry;
 
   /** Take the sentence off the screen. It stays in `notices`. */
   dismissReplacedOnLoad: () => void;
@@ -278,6 +303,7 @@ async function writeActive(): Promise<void> {
     useGm.setState({
       campaigns: state.campaigns.map((c) => (c.id === record.id ? record : c)),
       writeError: null,
+      writeRetry: null,
     });
   } catch (error) {
     /*
@@ -290,6 +316,7 @@ async function writeActive(): Promise<void> {
         error instanceof Error
           ? `${error.message} What is on this screen is only in this tab, so closing it now loses it.`
           : 'This campaign could not be written to this device’s storage. What is on this screen is only in this tab, so closing it now loses it.',
+      writeRetry: 'write',
     });
   }
 }
@@ -354,13 +381,21 @@ export function hydrateGm(): Promise<void> {
       quarantined = read.quarantined;
       notices.push(...read.warnings);
     } catch (error) {
-      // The board still works in memory; it just will not be written. Saying
-      // so is the whole point - the old code caught this and said nothing.
+      /*
+       * The board still works in memory; it just will not be written. Saying
+       * so is the whole point - the old code caught this and said nothing.
+       *
+       * `'read'` rather than `'write'`, because a flush is inert on this path
+       * forever: there are no campaigns and `activeCampaignId` is null, so
+       * `writeActive` returns at `base === undefined` every time. Reading
+       * again is the only thing that can help, and `retryGm` is what does it.
+       */
       useGm.setState({
         hydrated: true,
         writeError: `This device’s storage could not be read (${
           error instanceof Error ? error.message : String(error)
         }), so nothing on this screen is being saved.`,
+        writeRetry: 'read',
         notices,
       });
       return;
@@ -400,6 +435,7 @@ export function hydrateGm(): Promise<void> {
             error instanceof Error
               ? `This device’s first campaign could not be written (${error.message}). Nothing you plan here is reaching the disk, so closing this tab loses it.`
               : 'This device’s first campaign could not be written. Nothing you plan here is reaching the disk, so closing this tab loses it.',
+          writeRetry: 'write',
         });
       }
       campaigns = [first];
@@ -434,6 +470,15 @@ export function hydrateGm(): Promise<void> {
       quarantined,
       notices,
       replacedOnLoad,
+      /*
+       * A read that worked clears the last one that did not, and only that.
+       * On the first hydration of a tab this is a no-op; it matters when this
+       * run *is* the retry of a failed read, where leaving the sentence up
+       * over a campaign that has just arrived would be the alarm outliving the
+       * failure. It cannot be unconditional: the first-write failure above set
+       * `writeError` a few lines ago and that one is still true.
+       */
+      ...(firstWriteFailed ? {} : { writeError: null, writeRetry: null }),
       ...spread(active),
     });
 
@@ -450,6 +495,32 @@ export function hydrateGm(): Promise<void> {
     if (firstWriteFailed) dirty = true;
   })();
   return hydration;
+}
+
+/**
+ * TRY AGAIN, wherever it is drawn.
+ *
+ * One function rather than a `flushGm` in each of the two screens, because
+ * "what would fix this" is a property of the failure and the store is the only
+ * thing that knows which failure it was. The docblock on `NotSaved` used to
+ * claim `flushGm` "does something on every path that sets this field"; it does
+ * something on the paths that leave the store dirty, and the read failure is
+ * not one of them - there `activeCampaignId` is null, `writeActive` returns at
+ * `base === undefined`, and the only thing that can help is reading again.
+ *
+ * A `null` retry never reaches here, because neither screen draws the button
+ * for one; if one ever does, a flush is the harmless answer.
+ */
+export function retryGm(): Promise<void> {
+  if (useGm.getState().writeRetry !== 'read') return flushGm();
+  /*
+   * The memo is dropped here rather than in the failing branch, because this
+   * is the one caller that means "again". `hydrateGm` is idempotent so that a
+   * second arrival joins the first, and a retry that joined a settled, failed
+   * promise would report the same failure for the life of the tab.
+   */
+  hydration = null;
+  return hydrateGm();
 }
 
 // ---------------------------------------------------------------------------
@@ -487,6 +558,7 @@ export const useGm = create<GmState>((set, get) => {
     quarantined: [],
     notices: [],
     writeError: null,
+    writeRetry: null,
     replacedOnLoad: false,
 
     dismissReplacedOnLoad: () => set({ replacedOnLoad: false }),
@@ -639,14 +711,17 @@ export const useGm = create<GmState>((set, get) => {
         at,
         crypto.randomUUID(),
       );
+      let failed = false;
       try {
         await putCampaign(campaign);
       } catch (error) {
+        failed = true;
         set({
           writeError:
             error instanceof Error
               ? `That campaign could not be saved (${error.message}), so it only exists in this tab.`
               : 'That campaign could not be saved, so it only exists in this tab.',
+          writeRetry: 'write',
         });
       }
       set({
@@ -654,6 +729,16 @@ export const useGm = create<GmState>((set, get) => {
         activeCampaignId: campaign.id,
         ...spread(campaign),
       });
+      /*
+       * Left dirty, and after the `set` that makes it the open one - exactly
+       * what `hydrateGm` does for the first campaign of a device, and for the
+       * same reason. `dirty` answers "is what is in memory anywhere else yet",
+       * and for a campaign whose write threw the answer is no. Without this
+       * line the next flush returns at `if (!dirty)`, so the retry the strip
+       * offers writes nothing, `pagehide` writes nothing, and the campaign
+       * survives only because some later unrelated change happens to carry it.
+       */
+      if (failed) dirty = true;
       return campaign;
     },
 
@@ -706,11 +791,21 @@ export const useGm = create<GmState>((set, get) => {
       try {
         await deleteCampaign(id);
       } catch (error) {
+        /*
+         * No retry, and the sentence says what to do instead.
+         *
+         * Nothing in this store can retry a delete: `flushGm` writes the open
+         * campaign, which is not what failed and, when the doomed one *is* the
+         * open one, is the opposite of what was asked for. What did happen is
+         * nothing at all - the record is untouched and still in the list - so
+         * the control that retries this is the REMOVE the GM already has.
+         */
         set({
           writeError:
             error instanceof Error
-              ? `That campaign could not be deleted (${error.message}).`
-              : 'That campaign could not be deleted.',
+              ? `That campaign could not be deleted (${error.message}). It is still on this device and still in the list, and nothing else has changed — REMOVE tries again.`
+              : 'That campaign could not be deleted. It is still on this device and still in the list, and nothing else has changed — REMOVE tries again.',
+          writeRetry: null,
         });
         return;
       }
