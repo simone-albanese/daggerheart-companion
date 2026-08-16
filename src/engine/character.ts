@@ -29,6 +29,31 @@ export const MAX_LOADOUT = 5;
 export const BASE_HOPE = 6;
 export const MAX_LEVEL = 10;
 
+/**
+ * The Hit Points to start a track with when no class can be read.
+ *
+ * Measured against `data/srd-1.0.json` rather than taken on trust: bard 5,
+ * druid 6, guardian 7, ranger 6, rogue 6, seraph 7, sorcerer 6, warrior 6,
+ * wizard 5. Six is the most common of the nine and it is what `deriveStats`
+ * has always fallen back to, so it is the one number that cannot make a seeded
+ * track disagree with the maximum the engine derives for the same sheet. It is
+ * a fallback and never an answer: a character with a class gets the class's.
+ */
+const HIT_POINTS_WITHOUT_A_CLASS = 6;
+
+/**
+ * Stress is six for every character in the game.
+ *
+ * Not a fallback, unlike the constant above: there is no per-class Stress in
+ * the SRD, none in `data/srd-1.0.json`, and no field for one on `CharClass`.
+ * Named so the seeded track and the derived maximum read it from one place.
+ */
+const BASE_STRESS = 6;
+
+/** Hit Points at level 1, from the class if this build can name it. */
+const startingHitPoints = (klass: CharClass | undefined): number =>
+  klass?.startingHitPoints ?? HIT_POINTS_WITHOUT_A_CLASS;
+
 /** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
 export function tierOf(level: number): Tier {
   if (level <= 1) return 1;
@@ -220,11 +245,8 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
       }
     : null;
 
-  const maxHp = Math.min(
-    MAX_HP,
-    (klass?.startingHitPoints ?? 6) + advancementCount(c, 'hitPoint'),
-  );
-  const maxStress = Math.min(MAX_STRESS, 6 + advancementCount(c, 'stress'));
+  const maxHp = Math.min(MAX_HP, startingHitPoints(klass) + advancementCount(c, 'hitPoint'));
+  const maxStress = Math.min(MAX_STRESS, BASE_STRESS + advancementCount(c, 'stress'));
   // A scar permanently crosses out a Hope slot.
   const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
 
@@ -302,8 +324,31 @@ export function weaponDamage(
   return { spec: formatDamage(scaled), ...scaled };
 }
 
-export function newCharacter(partial: Partial<Character> = {}): Character {
+/**
+ * A blank sheet, optionally with a class already chosen.
+ *
+ * The index is optional and it is what makes the Hit Point track right. Without
+ * it there is no way to look a class up, and the hardcoded 6 this used to write
+ * is wrong for four of the nine SRD classes - a wizard or a bard starts on 5, a
+ * guardian or a seraph on 7 - which is a 6-box track under an engine deriving
+ * 5, and `validatePlan` warning "Hit Points are already at the maximum of 12"
+ * one advancement early. It has stayed latent only because the one persisting
+ * caller, `store.create`, happens to be handed an already-synced sheet; a
+ * second caller - duplicate-character, a template, a test seed - is all it
+ * takes. So the class is read here when it can be, and the store passes its
+ * index in.
+ *
+ * With no index, or with a class this build cannot resolve, the track is seeded
+ * at `HIT_POINTS_WITHOUT_A_CLASS`, which is exactly what `deriveStats` derives
+ * for the same sheet. Both read the one constant, so the two cannot drift: a
+ * blank sheet is never stored disagreeing with the engine about itself.
+ */
+export function newCharacter(
+  partial: Partial<Character> = {},
+  index?: DatasetIndex,
+): Character {
   const now = new Date().toISOString();
+  const klass = index?.classes.get(partial.classRef ?? '');
   return {
     id: crypto.randomUUID(),
     schemaVersion: 3,
@@ -318,8 +363,8 @@ export function newCharacter(partial: Partial<Character> = {}): Character {
     level: 1,
     traits: { agility: 0, strength: 0, finesse: 0, instinct: 0, presence: 0, knowledge: 0 },
     traitMarks: {},
-    hp: { marked: 0, max: 6 },
-    stress: { marked: 0, max: 6 },
+    hp: { marked: 0, max: Math.min(MAX_HP, startingHitPoints(klass)) },
+    stress: { marked: 0, max: BASE_STRESS },
     hope: { marked: 2, max: BASE_HOPE },
     armorSlots: { marked: 0, max: 0 },
     evasionOverride: null,

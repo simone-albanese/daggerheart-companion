@@ -15,6 +15,7 @@ import {
   weaponDamage,
 } from '@engine/character.ts';
 import type { Character, Dataset } from '@shared/types.ts';
+import { hasDataset, loadDataset } from '../../tools/sampleCharacters.ts';
 import {
   advancement,
   makeArmor,
@@ -348,6 +349,82 @@ describe('newCharacter', () => {
 
   it('gives every character its own id', () => {
     expect(newCharacter().id).not.toBe(newCharacter().id);
+  });
+
+  it('seeds the Hit Point track from the class when it is given one to read', () => {
+    // The fixture class starts on 5, not the 6 this used to write for everyone.
+    const ix = indexDataset(ds);
+    const c = newCharacter({ classRef: 'test-class' }, ix);
+    expect(c.hp).toEqual({ marked: 0, max: 5 });
+    // And the point of it: what is stored agrees with what the engine derives,
+    // with no syncCounters pass in between to paper over the difference.
+    expect(c.hp.max).toBe(deriveStats(c, ds, ix).maxHp);
+    // Control, and the limit of the fix said out loud: with no index there is
+    // nothing to look the class up in, so the same call falls back to 6 while
+    // the engine, which has the dataset, derives 5. That is why every path
+    // that stores a character passes one, and why the wizard's preview sheets
+    // - which read `deriveStats` and not this track - can do without.
+    expect(newCharacter({ classRef: 'test-class' }).hp.max).toBe(6);
+  });
+
+  it('falls back to the engine’s own six when there is no class to read', () => {
+    // Two ways to have no class: the wizard's blank sheet before the class
+    // step, and a class this build cannot resolve. Both seed the number
+    // `deriveStats` falls back to, so neither is stored disagreeing with it.
+    for (const c of [newCharacter(), newCharacter({ classRef: 'no-such-class' }, indexDataset(ds))]) {
+      expect(c.hp).toEqual({ marked: 0, max: 6 });
+      expect(c.hp.max).toBe(deriveStats(c, ds).maxHp);
+    }
+  });
+
+  it('still lets a caller hand over a Hit Point track of its own', () => {
+    const c = newCharacter({ classRef: 'test-class', hp: { marked: 3, max: 9 } }, indexDataset(ds));
+    expect(c.hp).toEqual({ marked: 3, max: 9 });
+  });
+
+  it('starts Stress at six, which no class in the game changes', () => {
+    expect(newCharacter({ classRef: 'test-class' }, indexDataset(ds)).stress).toEqual({
+      marked: 0,
+      max: 6,
+    });
+  });
+});
+
+/**
+ * The nine classes as the SRD really prints them.
+ *
+ * The backlog said six of nine were wrong and an auditor said four; neither is
+ * worth taking on trust, so the numbers are read off `data/srd-1.0.json` here
+ * and pinned. Four of the nine differ from six, and the Stress track does not
+ * vary at all - there is no per-class Stress anywhere in the data.
+ */
+describe.skipIf(!hasDataset())('the SRD’s own Hit Point numbers', () => {
+  it('seeds every class from its own number rather than from six', () => {
+    const dataset = loadDataset();
+    const ix = indexDataset(dataset);
+    const seeded = Object.fromEntries(
+      dataset.classes.map((k) => [k.id, newCharacter({ classRef: k.id }, ix).hp.max]),
+    );
+    expect(seeded).toEqual({
+      bard: 5,
+      druid: 6,
+      guardian: 7,
+      ranger: 6,
+      rogue: 6,
+      seraph: 7,
+      sorcerer: 6,
+      warrior: 6,
+      wizard: 5,
+    });
+    expect(Object.values(seeded).filter((hp) => hp !== 6)).toHaveLength(4);
+
+    // Every one of them stored in agreement with the engine, HP and Stress
+    // both, and named in the failure so a wrong one says which class it was.
+    for (const k of dataset.classes) {
+      const c = newCharacter({ classRef: k.id }, ix);
+      const stats = deriveStats(c, dataset, ix);
+      expect([k.id, c.hp.max, c.stress.max]).toEqual([k.id, stats.maxHp, stats.maxStress]);
+    }
   });
 });
 
