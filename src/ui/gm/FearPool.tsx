@@ -8,7 +8,9 @@
  * set the pool outright when someone says "you had seven".
  */
 import { MAX_FEAR } from '../../engine/encounter.ts';
+import { Fold } from '../shared/Fold.tsx';
 import { useGm } from './gmStore.ts';
+import { FearGuide } from './ReferenceTables.tsx';
 
 const DIAMOND = 'polygon(50% 0,100% 50%,50% 100%,0 50%)';
 
@@ -126,7 +128,21 @@ export function FearBar({
   );
 }
 
-/** The board: twelve targets big enough to hit without looking down. */
+/**
+ * The board: twelve targets big enough to hit without looking down, and the
+ * only sentence in the app that says what to spend them on.
+ *
+ * The counter has had a maximum on it since the GM screen was built and has
+ * never said what a scene is worth. `Spend a Fear to:` and the Fear-per-scene
+ * table are both in the shipped SRD, and both are now one tap below the pips -
+ * behind a `Fold` that is **shut on mount** and placed **under** the twelve
+ * targets, so the gesture the GM makes forty times an evening keeps its exact
+ * position and its exact 52px. Open, it is about 800px inside `Countdowns`,
+ * whose root is already a scroller.
+ *
+ * The same `FearGuide` draws the reference screen's FEAR topic. One drawing,
+ * two doors - a table rendered twice is a table that goes out of step once.
+ */
 export function FearBoard({ phone }: { phone: boolean }): React.JSX.Element {
   const fear = useGm((s) => s.fear);
   const setFear = useGm((s) => s.setFear);
@@ -200,6 +216,10 @@ export function FearBoard({ phone }: { phone: boolean }): React.JSX.Element {
           })}
         </div>
       </div>
+
+      <Fold label="WHAT TO SPEND IT ON" summary="SRD 1.0">
+        <FearGuide />
+      </Fold>
     </section>
   );
 }

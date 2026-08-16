@@ -215,11 +215,13 @@ describe('what the reference draws', () => {
     expect(text()).toContain('the tier this campaign is set to');
   });
 
-  it('offers nothing to press, because a benchmark is a number you copy down', () => {
+  it('offers nothing to press in the body, because a benchmark is a number you copy down', () => {
     openReference();
+    // Everything but the sheet's CLOSE and the strip that chooses the subject.
     const inside = container.querySelector('[role="dialog"]')!;
+    const strip = inside.querySelector('[aria-label="What to look up"]')!;
     const pressable = [...inside.querySelectorAll('button')].filter(
-      (b) => b.getAttribute('aria-label') !== 'Close The rules at hand',
+      (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
     );
     expect(pressable.map((b) => b.textContent)).toEqual([]);
   });
@@ -265,5 +267,86 @@ describe('the shape of it on a phone', () => {
       openReference();
       expect(text(), `nothing drawn at ${String(width)}`).toContain('Attack Modifier');
     }
+  });
+});
+
+describe('the Fear guidance, beside the Fear counter', () => {
+  /** The Fear board lives inside the countdowns tool, reached from the readout. */
+  const openFearBoard = (): void => {
+    gm();
+    click(named('0 of 12 Fear — open Fear and countdowns'));
+  };
+
+  /** The fold header carries its label and its summary, so exact text will not do. */
+  const fold = (): HTMLButtonElement => {
+    const found = buttons().find((b) =>
+      (b.textContent ?? '').trim().startsWith('WHAT TO SPEND IT ON'),
+    );
+    if (found === undefined) throw new Error('the Fear board has no guidance fold');
+    return found;
+  };
+
+  it('is shut on mount, and its contents are not on the page until it is opened', () => {
+    openFearBoard();
+    expect(fold().getAttribute('aria-expanded')).toBe('false');
+    expect(text()).not.toContain('0-1 Fear');
+    expect(text()).not.toContain('steal the spotlight');
+
+    click(fold());
+    expect(fold().getAttribute('aria-expanded')).toBe('true');
+    expect(text()).toContain('0-1 Fear');
+    expect(text()).toContain('Interrupt the players to steal the spotlight and make a move');
+    expect(text()).toContain('SRD 1.0 · P.65');
+  });
+
+  it('says what is behind it open and closed alike', () => {
+    openFearBoard();
+    expect((fold().textContent ?? '')).toContain('SRD 1.0');
+    click(fold());
+    expect((fold().textContent ?? '')).toContain('SRD 1.0');
+  });
+
+  it('leaves the twelve targets exactly where they were, at 52px', () => {
+    openFearBoard();
+    click(fold());
+    const pips = [...Array(12).keys()].map((i) => named(`Fear ${String(i + 1)}`));
+    expect(pips).toHaveLength(12);
+    expect(new Set(pips.map((b) => b.style.height))).toEqual(new Set(['52px']));
+    // The fold is below them: the gesture made forty times an evening does not
+    // move because a reference was attached to the board.
+    expect(pips[11]!.compareDocumentPosition(fold()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('draws the same guidance on the reference screen, from the same component', () => {
+    openReference();
+    click(named('Fear'));
+    expect(text()).toContain('0-1 Fear');
+    expect(text()).toContain('SRD 1.0 · P.65');
+    // The whole section, not the two parts a screen might have picked: the
+    // large-pool advice and the anatomy of a Fear move are here too.
+    expect(text()).toContain('Spending Fast');
+    expect(text()).toContain('Fear carries over between sessions.');
+  });
+});
+
+describe('the topic strip', () => {
+  it('names every subject and presses exactly one', () => {
+    openReference();
+    const strip = container.querySelector('[aria-label="What to look up"]')!;
+    const chips = [...strip.querySelectorAll('button')];
+    expect(chips.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Improvise an adversary',
+      'Fear',
+    ]);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+    click(chips[1]!);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+  });
+
+  it('shows one subject at a time, so the other is gone rather than below', () => {
+    openReference();
+    expect(text()).toContain('Attack Modifier');
+    click(named('Fear'));
+    expect(text()).not.toContain('Attack Modifier');
   });
 });

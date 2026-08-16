@@ -20,6 +20,8 @@ import type { Dataset, RulesSection } from '@shared/types.ts';
 import {
   adversaryBenchmarks,
   environmentBenchmarks,
+  fearGuidance,
+  type FearScene,
 } from '../../src/ui/shared/srdReference.ts';
 
 const dataset = srd as unknown as Dataset;
@@ -102,6 +104,95 @@ describe('environmentBenchmarks', () => {
     expect(table.columns[2]!.stats).toEqual([
       { statistic: 'Damage Dice', value: '3d8+3 to 3d10+1' },
       { statistic: 'Difficulty', value: '17' },
+    ]);
+  });
+});
+
+describe('fearGuidance', () => {
+  const guidance = (): ReturnType<typeof fearGuidance> => fearGuidance(rules);
+  const scenes = (): FearScene[] => {
+    const part = guidance().parts.find((p) => p.kind === 'scenes');
+    if (part?.kind !== 'scenes') throw new Error('no scene table in using-fear');
+    return part.scenes;
+  };
+  const lists = (): string[][] =>
+    guidance().parts.flatMap((p) => (p.kind === 'list' ? [p.items] : []));
+
+  it('gives the five scene types in the SRD’s order, with the SRD’s numbers', () => {
+    expect(scenes().map((s) => s.scene)).toEqual([
+      'Incidental',
+      'Minor',
+      'Standard',
+      'Major',
+      'Climactic',
+    ]);
+    // BACKLOG.md says an incidental scene is worth `1-2`. The shipped dataset
+    // says `0-1 Fear`, and a builder copying the backlog would have printed
+    // the backlog's number under an `SRD 1.0` stamp.
+    expect(scenes()[0]).toMatchObject({ scene: 'Incidental', spend: '0-1 Fear' });
+    expect(scenes().map((s) => s.spend)).toEqual([
+      '0-1 Fear',
+      '1-3 Fear',
+      '2-4 Fear',
+      '4-8 Fear',
+      '6-12 Fear',
+    ]);
+  });
+
+  it('keeps the examples cell whole, which is the half a GM actually reads', () => {
+    expect(scenes()[4]!.examples).toContain('villain of a story arc');
+    expect(scenes()[0]!.examples.length).toBeGreaterThan(100);
+  });
+
+  it('keeps each list under the sentence the book put above it', () => {
+    // Three lists ship: what to spend a Fear on, what to do with a large pool,
+    // and what a Fear move is made of. Picking one out by position would drop
+    // the other two - which is the whole reason `parts` is a sequence.
+    expect(lists()).toHaveLength(3);
+    expect(lists()[0]).toHaveLength(5);
+    expect(lists()[0]![0]).toBe('Interrupt the players to steal the spotlight and make a move');
+    expect(lists()[0]!.join(' ')).not.toContain('Spending Fast');
+    expect(lists()[1]![0]).toContain('Spending Fast');
+
+    // Every list is immediately preceded by its own lead paragraph, and every
+    // lead ends in the colon that introduces it.
+    const parts = guidance().parts;
+    for (const [i, part] of parts.entries()) {
+      if (part.kind !== 'list') continue;
+      const before = parts[i - 1];
+      expect(before?.kind, `list ${String(i)} has no lead`).toBe('text');
+      expect(before?.kind === 'text' ? before.text : '').toMatch(/:$/);
+    }
+  });
+
+  it('keeps the pool’s own four rules as prose, not as a list', () => {
+    const first = guidance().parts[0];
+    expect(first?.kind).toBe('text');
+    expect(first?.kind === 'text' ? first.text : '').toContain('1 Fear per PC');
+    expect(guidance().title).toBe('Using Fear');
+    expect(guidance().page).toBe(65);
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(fearGuidance([])).toEqual({ title: '', parts: [], page: null });
+  });
+
+  it('keeps a lead run together with its bullets as the prose it is', () => {
+    // A layer that writes the lead and the bullets as one paragraph must not
+    // have its first line vanish. Drop the "every line is a bullet" condition
+    // and `Spend a Fear to:` is silently gone from the screen.
+    const guide = fearGuidance([
+      {
+        id: 'using-fear',
+        title: 'Using Fear',
+        body: 'Spend a Fear to:\n- Interrupt the players\n- Make an additional GM move',
+      } as RulesSection,
+    ]);
+    expect(guide.parts).toEqual([
+      {
+        kind: 'text',
+        text: 'Spend a Fear to:\n- Interrupt the players\n- Make an additional GM move',
+      },
     ]);
   });
 });

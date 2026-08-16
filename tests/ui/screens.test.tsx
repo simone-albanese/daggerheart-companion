@@ -79,7 +79,7 @@ import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
-import { TierBenchmarks } from '../../src/ui/gm/ReferenceTables.tsx';
+import { FearGuide, TierBenchmarks } from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
@@ -123,6 +123,7 @@ import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
+import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
@@ -491,6 +492,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/Reference.tsx::Reference': () => <Reference />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
+  'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (
@@ -609,6 +611,12 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <Disclosure id="fixture" characterId="c1" label="Carried" summary="2 ITEMS" defaultOpen>
       <p>Inside the fold.</p>
     </Disclosure>
+  ),
+
+  'shared/Fold.tsx::Fold': () => (
+    <Fold label="Examples" summary="SRD 1.0" defaultOpen>
+      <p>Inside the fold.</p>
+    </Fold>
   ),
 
   'shell/App.tsx::App': () => <App />,

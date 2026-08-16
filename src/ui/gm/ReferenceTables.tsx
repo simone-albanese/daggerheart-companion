@@ -25,6 +25,7 @@ import type { Tier } from '../../../shared/types.ts';
 import {
   adversaryBenchmarks,
   environmentBenchmarks,
+  fearGuidance,
   type BenchmarkTable,
 } from '../shared/srdReference.ts';
 import { useGm } from './gmStore.ts';
@@ -156,5 +157,112 @@ function BenchmarkGrid({
         })}
       </div>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Fear: the pool's own rules, what to spend it on, and what a scene is worth.
+ *
+ * Drawn once and used twice - the reference's FEAR topic, and a shut fold under
+ * the Fear board's twelve targets. The app has carried a Fear counter with a
+ * maximum on it since the GM screen was built and has never once said what a
+ * scene should cost; this is that sentence, in the SRD's own words, beside the
+ * control it is about.
+ *
+ * The whole section is drawn, in the book's order, rather than the two parts a
+ * screen might pick out. Picking would mean indexing the lists by position and
+ * dropping the rest, and the rest is how to spend a large pool and what a Fear
+ * move is made of - which is exactly the guidance a GM sitting on nine Fear
+ * came here for.
+ *
+ * ## Ergonomics
+ *
+ * The scene table is five stacked panels, not a `<table>`: three columns of
+ * which one holds a 190-character sentence would scroll a 393px phone sideways
+ * whatever the column widths were. Inside the Fear board the column is
+ * 393 - 24 of region padding - 28 of panel padding = 341px, so the longest
+ * examples cell is four lines at `.t-dense` (11.5px, about 5.5px a character)
+ * and a row is about 102px. Five rows and the prose come to roughly 800px,
+ * which is why it lives behind a fold that starts shut, in a region that
+ * already scrolls.
+ *
+ * Nothing here is a target. The Fear pool is set on the twelve buttons above
+ * it; a table that offered to spend for you would be the app deciding what a
+ * scene was worth.
+ */
+export function FearGuide(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const fear = useMemo(() => fearGuidance(dataset.rules), [dataset]);
+
+  if (fear.parts.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no Fear section, so there is nothing to quote. The pool above still
+        works; it is the guidance that is missing.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--fear)' }}>
+          {fear.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{fear.page === null ? '' : ` · P.${String(fear.page)}`}
+        </span>
+      </div>
+
+      {fear.parts.map((part, i) => {
+        // The index is the key because the SRD's order *is* the identity here:
+        // two paragraphs of a rules body may legitimately be equal strings, and
+        // nothing in this list ever moves.
+        const key = `${part.kind}-${String(i)}`;
+        if (part.kind === 'text') {
+          return (
+            <p key={key} className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+              {part.text}
+            </p>
+          );
+        }
+        if (part.kind === 'list') {
+          return (
+            <ul key={key} className="stack" style={{ flex: 'none', gap: 6, margin: 0, paddingLeft: 18 }}>
+              {part.items.map((item) => (
+                <li key={item} className="t-body" style={{ maxWidth: '62ch' }}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <div key={key} className="stack" style={{ flex: 'none', gap: 6 }}>
+            {part.scenes.map((scene) => (
+              <article
+                key={scene.scene}
+                className="panel stack"
+                style={{ flex: 'none', gap: 5, padding: 10, minWidth: 0 }}
+              >
+                <div className="row" style={{ gap: 8 }}>
+                  <span style={{ flex: 1, minWidth: 0, font: '700 14px/1.2 var(--sans)' }}>
+                    {scene.scene}
+                  </span>
+                  <span className="t-num" style={{ flex: 'none', color: 'var(--fear)' }}>
+                    {scene.spend}
+                  </span>
+                </div>
+                <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+                  {scene.examples}
+                </span>
+              </article>
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }

@@ -106,6 +106,25 @@ export function ruleTables(text: string): RuleTable[] {
   return out;
 }
 
+/**
+ * Bare `- ` bullets, without the dash.
+ *
+ * `ruleBullets` below cannot see these: it needs a bounded `Label:` at the
+ * front, and most of the SRD's lists carry none - "Interrupt the players to
+ * steal the spotlight and make a move" is one whole bullet, not a label and a
+ * gloss. A line that is not a bullet is skipped rather than kept as an empty
+ * item, so a lead paragraph handed to this comes back as nothing at all, which
+ * is what lets a caller tell a list apart from prose.
+ */
+export function ruleList(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    const match = /^-\s+(.+)$/.exec(line.trim());
+    if (match) out.push(match[1]!.trim());
+  }
+  return out;
+}
+
 export interface RuleBullet {
   label: string;
   text: string;

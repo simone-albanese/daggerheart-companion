@@ -32,7 +32,7 @@
  * anywhere in `src`; the counts belong in the tests, against the shipped file.
  */
 import type { RulesSection, Tier } from '../../../shared/types.ts';
-import { ruleBlocks, ruleTables } from './ruleText.ts';
+import { paragraphs, ruleBlocks, ruleList, ruleTables } from './ruleText.ts';
 
 // ---------------------------------------------------------------------------
 // Benchmarks by tier
@@ -115,4 +115,86 @@ export function adversaryBenchmarks(rules: RulesSection[]): BenchmarkTable {
  */
 export function environmentBenchmarks(rules: RulesSection[]): BenchmarkTable {
   return benchmarkTable(rules, 'adapting-environments');
+}
+
+// ---------------------------------------------------------------------------
+// Fear
+// ---------------------------------------------------------------------------
+
+export interface FearScene {
+  scene: string;
+  examples: string;
+  /** `0-1 Fear` for an incidental scene. The dataset's figure, not the backlog's. */
+  spend: string;
+}
+
+/**
+ * One piece of the section, in the order the SRD wrote it.
+ *
+ * A sequence rather than a set of named fields, and that is the whole design
+ * decision here. `rules['using-fear']` is four rules about the pool, then three
+ * lists each under its own lead sentence, with the scene table in the middle of
+ * them. Naming the parts - `spends`, `spendLead`, `sceneLead` - means picking
+ * them out by position and *dropping the rest*, and what would have been
+ * dropped is two thirds of the section: how to spend a large pool, and what a
+ * Fear move is made of. Keeping the order keeps all of it, and keeps every
+ * bullet under the sentence the book put above it.
+ */
+export type FearPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'list'; items: string[] }
+  | { kind: 'scenes'; scenes: FearScene[] };
+
+export interface FearGuidance {
+  /** The section's own title. */
+  title: string;
+  parts: FearPart[];
+  page: number | null;
+}
+
+const NO_FEAR: FearGuidance = { title: '', parts: [], page: null };
+
+/**
+ * `rules['using-fear']`, p.65 - the pool's own rules, what to spend it on, and
+ * how much a scene is worth.
+ *
+ * The scene table is the reason this exists: the app has carried a Fear counter
+ * with a maximum on it since the GM screen was built and has never once said
+ * what a scene should cost. Incidental is `0-1 Fear` in the shipped dataset;
+ * `BACKLOG.md` says `1-2`, and a builder copying the backlog would have shipped
+ * a wrong number under an `SRD 1.0` stamp. Nothing here is typed - the numbers
+ * and the examples both come off the table's own rows.
+ */
+export function fearGuidance(rules: RulesSection[]): FearGuidance {
+  const section = rules.find((r) => r.id === 'using-fear');
+  if (section === undefined) return NO_FEAR;
+
+  const parts: FearPart[] = [];
+  for (const para of paragraphs(section.body)) {
+    const table = ruleTables(para)[0];
+    if (table !== undefined) {
+      parts.push({
+        kind: 'scenes',
+        scenes: table.rows.flatMap((row) => {
+          const [scene, examples, spend] = row;
+          return scene === undefined || examples === undefined || spend === undefined
+            ? []
+            : [{ scene, examples, spend }];
+        }),
+      });
+      continue;
+    }
+    // A paragraph is a list only when *every* line in it is a bullet. A lead
+    // sentence and its bullets are separate paragraphs in this dataset, and a
+    // layer that runs them together should be drawn as the prose it is rather
+    // than have its first line silently vanish.
+    const items = ruleList(para);
+    const lines = para.split('\n').filter((line) => line.trim() !== '');
+    parts.push(
+      items.length > 0 && items.length === lines.length
+        ? { kind: 'list', items }
+        : { kind: 'text', text: para },
+    );
+  }
+  return { title: section.title, parts, page: section.sourcePage ?? null };
 }

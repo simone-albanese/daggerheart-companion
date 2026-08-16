@@ -14,6 +14,7 @@ import {
   paragraphs,
   ruleBlocks,
   ruleBullets,
+  ruleList,
   ruleTables,
   traitVerbs,
 } from '../../src/ui/shared/ruleText.ts';
@@ -88,6 +89,30 @@ describe('ruleTables', () => {
 
   it('is not fooled by a line that only starts with a pipe', () => {
     expect(ruleTables('| this is prose that happens to open with a bar')).toEqual([]);
+  });
+});
+
+describe('ruleList', () => {
+  it('returns the text of a bare bullet without its dash', () => {
+    expect(ruleList('- Interrupt the players\n- Make an additional GM move')).toEqual([
+      'Interrupt the players',
+      'Make an additional GM move',
+    ]);
+  });
+
+  it('reads a labelled bullet whole, where `ruleBullets` would split it', () => {
+    // Both readers see this line; they answer different questions about it.
+    expect(ruleList('- Spending Fast: Spend Fear before the players react')).toEqual([
+      'Spending Fast: Spend Fear before the players react',
+    ]);
+    expect(ruleBullets('- Spending Fast: Spend Fear before the players react')).toEqual([
+      { label: 'Spending Fast', text: 'Spend Fear before the players react' },
+    ]);
+  });
+
+  it('answers nothing for prose, which is what tells a list from a paragraph', () => {
+    expect(ruleList('Spend a Fear to:')).toEqual([]);
+    expect(ruleList('An em-dash — is not a bullet.')).toEqual([]);
   });
 });
 
