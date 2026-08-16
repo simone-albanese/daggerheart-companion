@@ -560,9 +560,27 @@ level-up path does not know that yet.
 - [ ] **"Free during downtime" is printed mid-combat** for the 31 SRD cards with
       `recallCost: 0` (`Play.tsx:370`, `Cards.tsx:116`). Branch on the `downtime`
       option, not on the resulting cost. *(trivial)*
-- [ ] **Unarmored thresholds are the app's own invention presented as rules**
-      (`character.ts:149`), and the damage calculator lets one attack spend up to
-      3 armor slots (`Vitals.tsx:99`). Label them as house rules or gate them.
+- [ ] **~~Unarmored thresholds are the app's own invention presented as rules~~**
+      **[corrected — half of this was wrong, and the other half is now sourced]**
+
+      The first clause does not survive checking: an auditor traced
+      `character.ts`'s unarmoured formula and it is not an invention. Do not
+      label as a house rule something the rules say.
+
+      The second clause is real and now has a citation. `Vitals.tsx` lets one
+      incoming attack spend **up to three** Armor Slots; the official GM screen
+      states the rule outright: *"You can only mark **ONE** armour slot per
+      incoming damage (unless an ability or domain card says otherwise)."* So
+      this is not a house rule to label — it is a wrong number the app offers,
+      three times too generous, on the control a player reaches for at the
+      worst moment of a fight.
+
+      Fix it in `applyDamage`/`markDamage` rather than in the screen, so the cap
+      cannot be re-invented by the next surface that spends armour; the
+      parenthesis is why the cap must be a parameter with a default of 1 and not
+      a hard-coded `1`. Verify the shipped SRD carries the sentence before
+      quoting it on screen — if it does not, the app may enforce the cap but
+      must not cite a rule the user cannot read in the app.
 - [x] ~~**`src/engine/rest.ts` has zero callers** — 226 lines, 28 passing tests, and
       no rest or downtime anywhere in the UI; `state.ts:29` declares a `'rest'`
       log kind nothing produces. It is fully tree-shaken, so it costs users
@@ -1289,6 +1307,230 @@ where being wrong stops the project rather than costing a character.
       3, 4, and *Already good* points at "the `brand/` fix in P3-3" when it is
       P3-4. Cheap, and this document is the thing everything else is tracked
       against.
+
+---
+
+# P5 — The two screens that were redrawn from outside
+
+Everything above this line was found by reading the code. Everything below it
+was found by two people using the app and drawing what they wanted instead: a
+WhatsApp exchange about the Play screen, and a pencil wireframe plus two
+recorded walkthroughs about the GM screen. Both are the same class of finding
+as the four defects that shipped for months — the kind no lens pointed at the
+source can produce, because the source is not wrong, it is *incomplete against
+what a person at a table needs*.
+
+Both were **decided by the owner in the session that opened this section**, so
+the choices below are settled and are recorded here as decisions rather than as
+options. Where a decision overrules something written above, the older text is
+marked.
+
+## P5-1 · The Play screen is not the sheet, and on a phone it is not close
+
+**decided: it becomes the sheet** · `src/ui/player/Play.tsx` · `src/ui/player/Vitals.tsx` ·
+`src/ui/player/DualityRoll.tsx` · **large, 12–16 h**
+
+Measured against the phone layout at HEAD, not asserted. `PlayPhone` renders
+Beastform, the loadout rows, Equipped, the damage calculator, conditions, items,
+the four tracks, the trait chips and the roll block. What it therefore **does
+not render at all** is:
+
+| missing on a phone | where it exists | why it matters |
+|---|---|---|
+| Evasion | `Defenses`, desktop only | the number the GM asks for on every attack against you |
+| Damage thresholds | 10 px `--dim` text beside the damage input | the ladder every incoming hit is read against |
+| Proficiency | `Defenses`, desktop only | how many damage dice you roll |
+| Class, subclass, ancestry, community | `Identity`, desktop only | who the character is |
+| The vault | `Vault`, desktop only | half the cards you own |
+| Gold | nowhere in Play at any width | it is on the printed sheet and in the type |
+
+`Identity`, `TraitGrid`, `Defenses` and `Vault` are all defined in `Play.tsx`
+and all four are called only from `PlayDesktop`. Nothing is broken; four
+sections of the character sheet are simply absent from the width the README says
+is used ninety percent of the time.
+
+**The outside reading, verbatim:** *"puoi sempre mettere le robe in piccolo,
+quindi Hope armour e hp non a token ma a numero. E fare entrare le armi e le
+experience. […] metterei le stat in alto, i counter Hope, armour (e threshold
+bene in vista) stress e hp, sotto armi e armature e ultime le carte. […] Sempre
+con la tendina, clicco e via."*
+
+**That order is not an opinion, it is the official sheet.** Checked against the
+Darrington Press character sheet PDF: class banner and identity, then Evasion,
+Armor and the six traits with their verbs, then the threshold ladder with HP and
+Stress under it, then Hope, then Experiences, then Gold; and in the right column
+Active Weapons with Proficiency, then Active Armor, then Inventory. Reflow that
+one column and it is the wireframe the message describes. The redesign is
+therefore not a new invention to be argued about — it is the app finally showing
+what the paper shows.
+
+- [ ] **Rebuild `PlayPhone` in sheet order**, with every section above present.
+      The pinned block at the bottom stays: it holds the trait chips and ROLL,
+      because those are touched on every single action and a control you have to
+      scroll to find is a control that stops being used.
+- [ ] **Collapsible sections — the *tendina*.** Weapons & armour, cards,
+      inventory, and lineage each behind a disclosure that remembers whether it
+      was open. This is what makes "the whole sheet at once" fit: a closed
+      section costs one row.
+- [ ] **Counters as numbers, with `[−]` and `[+]`** — and the number itself is a
+      target that opens a numeric entry, because five taps to go from 2 to 7 is
+      the one thing a stepper is worse at than a pip row.
+- [ ] **A `counterStyle` preference, defaulting to numbers.** Boxes stay
+      available for people who want them. **Scope, decided:** the Play screen on
+      phone and tablet only. The desktop cockpit keeps pips — it has the room
+      and a precise pointer — and the GM's PartyBoard and the Companion panel
+      keep them too, because there you are reading someone else's state rather
+      than marking your own.
+- [ ] **Thresholds prominent**, not 10 px dim text. They are read under pressure
+      by someone who has just been told a number.
+- [ ] **Trait verbs on the trait tiles** — Sprint/Leap/Manoeuvre, Lift/Smash/
+      Grapple, Control/Hide/Tinker, Perceive/Sense/Navigate, Charm/Perform/
+      Deceive, Recall/Analyse/Comprehend. They are on the official sheet under
+      every trait, and they are what tells a new player which trait a thing is.
+      Source them from the shipped SRD, not from the PDF.
+- [ ] **The advantage / disadvantage / reaction row moves behind a disclosure**,
+      collapsed by default, showing the net modifier on its closed header. The
+      request was to delete it; it is kept because advantage and disadvantage
+      are core roll modifiers and an app that cannot roll with them is wrong at
+      the table. Collapsing reclaims the band that was actually being asked for.
+
+**Five items above are folded into this rebuild rather than done before it**,
+because they all live in `Play.tsx` and doing them first means building them
+twice: **P1-2** (recall with every Stress marked), **P1-6** (the ghost cards and
+the cap that counts them), **P3-9(a)** (the vault card whose reason is only in a
+`title`), **P3-9(b)** (five buttons all called USE), **P2-1** (the tablet band
+cannot roll — it gets the phone stack) and **P2-4** (the scroll budget, which
+stops being a fixed-block problem once the page is a document).
+
+**[corrected]** `Play.tsx:1-9`'s docblock still opens *"No scrolling on this
+screen. The content is bounded and known"*. It has not been true since
+`91097eb`. It is the founding rule failing inside a comment.
+
+## P5-2 · The GM screen is five menus, and a session is not a menu
+
+**decided: it becomes one composable session, with multiple campaigns** ·
+`src/ui/gm/` · **large, 16–20 h**
+
+`Gm.tsx` switches between five regions — encounter, scene, party, bestiary,
+countdowns — each of which works. What no region does is *be the night*: a GM
+running a session has scene one, then an encounter, then scene two, in an order
+they decided beforehand and change on the fly, and this app makes them navigate
+a menu to reach each one.
+
+**The outside reading**, from a pencil wireframe and two walkthroughs. Top: the
+campaign name and a menu; then Fear as `− N +` (*"alla fine non serve vedere i
+token"*) and the **primary countdown**. Body: one ordered list the GM composes —
+scene, encounter, link, countdown — each row with a *tendina* that opens it in
+place. Bottom bar, replacing the player tab bar: **ADD**, **SHOW**, **SEARCH**,
+**SAVE**.
+
+Decisions taken:
+
+- [ ] **The session list becomes the GM home; the five regions become its
+      content.** Encounter builder, Scene runner, Bestiary and PartyBoard stop
+      being top-level regions and become what opens from a row or from ADD —
+      but stay reachable from the top MENU, because browsing the bestiary
+      without adding anything to a session is a real thing a GM does.
+- [ ] **ADD** → countdown, encounter, scene (environment), link. A countdown can
+      be marked **primary**, which pins it to the top bar; otherwise it joins the
+      list. An encounter opens the encounter builder that already exists.
+- [ ] **Rows reorder by drag.** *"Sarebbe fighissimo se tu potessi fare oui, oui,
+      e te li metti dove vuoi."* This is the feature that makes the list a plan
+      rather than a log.
+- [ ] **SHOW** forks in two: **Consulta** — browse adversaries and environments
+      read-only, without adding them, for when the GM is improvising — and
+      **Gruppo**, which is the PartyBoard that already exists, reached from here.
+- [ ] **SAVE** writes the campaign: the list, Fear, the countdowns, and the
+      party. `PartyMember` already stores each sheet whole, so a saved campaign
+      already contains what *"tutti i PG con quello che hanno"* asks for.
+- [ ] **Multiple campaigns.** A campaign owns its name, its session list, its
+      Fear, its countdowns and its imported party. It does **not** own the
+      characters you play: those stay in `characters` and in the header,
+      untouched, so a sheet can appear in two campaigns and switching campaign
+      cannot cost anyone a character.
+- [ ] **Campaigns move to their own IndexedDB store**, with their own schema
+      version and their own converter chain, so `Character` is untouched and
+      `SCHEMA_VERSION` is not bumped. The existing GM state migrates out of
+      `localStorage` once and the old key is dropped. This is the load-bearing
+      change: `gmStore.ts` writes the whole of the GM's state to `localStorage`
+      synchronously on every mutation — including every `+1` of Fear — and
+      `localStorage` is the first thing iOS clears. It currently holds whole
+      character sheets belonging to other people, in the least durable store the
+      platform has.
+- [ ] **The bottom bar swaps to the GM tools inside the GM section**, and the
+      way back to Play, Cards and Build moves into the top MENU, which the
+      wireframe already draws. Leaving the GM section is a rare gesture; ADD and
+      SHOW are continuous ones, and the thumb arc should go to the continuous.
+- [ ] **Each tool is switchable in Settings**, plus one master switch that hides
+      the GM section entirely — most people using this app are players. A tool
+      that is off leaves the bar, and the bar redistributes across what is left
+      rather than leaving a hole.
+
+**Deferred to 1.1, written down so they are not lost:** photos attached to a
+scene and shown to the table (*"se posso aggiungere delle foto e mostrarle a
+loro"*) — it needs a quota story before it needs a screen, and P0-3 exists
+because quota failures were being swallowed; **link rows that open external
+URLs**, which would put a second outbound link in an app whose strongest claim
+is that it has exactly one; and **full-text rule search** behind SEARCH.
+The LINK row still ships, resolving to something already inside the app — an
+adversary, an environment, a card, a rule — so it works offline and changes no
+promise.
+
+## P5-3 · What the GM screen could have at hand, and does not
+
+**source: the official GM screen** · **medium, 4–6 h**
+
+Read off the portrait GM screen and checked against what the app already does.
+**None of this text may be copied into the repo** — `Manuali/` is gitignored
+precisely because source material stays on the machine that owns it, and the
+licensed wording belongs to Darrington Press. What ships is the *structure*,
+with the words sourced from `data/srd-1.0.json`, which is already carried under
+the DPCGL. Anything the shipped SRD does not contain does not ship.
+
+- [ ] **The improvised-adversary table by tier** — attack modifier, damage dice,
+      difficulty, damage thresholds. The single most useful thing on that screen
+      for a GM who has just been surprised, and the app has no answer for it
+      today.
+- [ ] **Difficulty as a labelled ladder** (5 · 10 · 15 · 20 · 25 · 30, Very Easy
+      to Very Hard) wherever a difficulty is set, instead of a bare number.
+- [ ] **Fear per scene type** — incidental 1–2, minor 1–3, standard 2–4, major
+      4–8, climactic 6–12. It belongs beside the Fear counter, which is the one
+      control that has no guidance attached to it at all.
+- [ ] **Dynamic countdown advancement** — the roll-result table that says how
+      far a progress or consequence countdown ticks. `Countdowns.tsx` advances
+      by hand only, so the GM is doing this lookup in their head.
+- [ ] **Range and distance in squares, feet *and metres*.** The metric column is
+      why the owner keeps the `con_metri` variant, and this app has no distance
+      reference anywhere.
+- [ ] **The name and place generators**, and the Experience examples — the
+      improvising GM's other half.
+- [ ] **GM moves, principles and best practices** as reference the MENU can
+      reach. Check the shipped SRD first: much of this is in it, and what is not
+      does not ship.
+
+## P5-4 · The printed sheet against the official one
+
+**source: the official character sheet** · `src/ui/print/` · **medium, 4–6 h**
+
+The comparison the owner asked for, and it is favourable: `Gold` is already
+`{ handfuls, bags, chests }`, exactly the paper model, and the level-up tier
+boxes in `LevelUp.tsx` already mirror the guide page — including the black box
+that `33a7d92` and `0fb3365` just made behave.
+
+- [ ] Compare `src/ui/print/CharacterSheet.tsx` field by field against the
+      official sheet and list what is missing, what is named differently, and
+      what the app has that the paper does not. Report before changing.
+- [ ] Match the **information architecture**, not the artwork. The field set and
+      its order are functional and mostly SRD; the layout, the frames and the
+      class banners are Darrington Press's design. Reproducing the look is a
+      licensing question this project cannot afford to get wrong — P3-10 exists
+      because the attribution is already thinner than the licence asks for.
+- [ ] Specifics visible on the paper and worth checking for: *"Start at 10"*
+      under Evasion, *"Add your current level to your damage thresholds"*,
+      the `Mark 1 HP / 2 HP / 3 HP` labels on the ladder, HP and Stress drawn as
+      filled boxes up to the current maximum and dashed to twelve, six Hope
+      diamonds, five Experience lines, the class feature printed in full, and
+      inventory weapons carrying primary/secondary checkboxes.
 
 ## Needs a human, two devices and a dim room
 
