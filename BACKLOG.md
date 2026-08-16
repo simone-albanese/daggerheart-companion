@@ -245,7 +245,7 @@ zeroes a *player's* HP.
       unverified backup is not a backup: re-open the handle with `getFile()`,
       parse it, assert the character count, and only then `stamp`. *(small)*
 
-### P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character
+### ~~P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character~~ — **done, `4f2ada4`, `57f6cb2`**
 `src/transfer/codec.ts` · **medium, 3–5 h**
 
 Measured, not theorised. 8136 single-bit flips across 15 real sheets, one bit
@@ -276,15 +276,50 @@ missing layer, not a broken one. Note the frame layer already carries a
 per-transfer id and the file layer has its own envelope; what has no checksum of
 its own is the encoded character.
 
-- [ ] Add a checksum over the encoded body (CRC-32 is enough, and cheap at
-      these sizes — median payload is 540 bytes) and verify it before decoding.
-- [ ] Version the format so an old build meeting a new payload says so rather
-      than guessing.
-- [ ] Re-run the bit-flip sweep as a test and assert the accepted-and-different
-      count is **zero**, not merely low. The sweep already exists in
-      `tests/adversarial.test.ts`; it currently pins the honest number.
+**[corrected before building]** The framing above is wrong in one load-bearing
+way: the app was **not** exposed. Every route into `decodeCharacter` arrives
+through the frame layer, both receive surfaces passed `verify: crc32`, and the
+same sweep measures that the frame header's checksum caught **all 2512** of
+them. So "a smudged QR frame and the receiving device shows a character that
+looks right and is not" was not reachable. What was real is that the *format*
+carried no integrity of its own and the check belonged to whoever happened to
+call it — `qr.ts` read `if (options.verify !== undefined && ...)` — so anything
+feeding bytes in from anywhere else inherited nothing, silently.
 
-### P0-7 · Imported characters skip the counter sync every other write path runs
+- [x] ~~Add a checksum over the encoded body and verify it before decoding.~~ —
+      **done.** crc32 over the whole payload with its own four bytes zeroed, so
+      the header byte is inside it too: that closes the three header bits
+      nothing read, which were a separate written-down finding. Four bytes; no
+      payload in the 93-sheet matrix crosses a frame boundary because of them.
+- [x] ~~Version the format so an old build meeting a new payload says so rather
+      than guessing.~~ — **done**, `CODEC_VERSION = 2`, with format 1 still
+      **read** and never written: the hand-off this vector exists for is an old
+      phone sending to a new one, so the sender is the build that has not
+      updated. The message is deliberately *not* the actionable one the plan
+      proposed — "the sending device is newer, update this app" is a confident
+      guess in exactly the corruption case the item exists for, since a damaged
+      nibble reads as a format number just as well as a real one. It says what
+      the code knows: this transfer says it is format N, this app reads 1 and 2,
+      either it came from a different version or it is damaged.
+
+      **Known transitional cost, accepted:** an *updated* player sending to a
+      *stale* GM's PartyBoard is refused, because the receiver's build is not
+      one the sender controls. Nothing is lost — nothing is imported — and the
+      message names the disagreement. Weighed against a format that can never
+      be adopted wrongly again.
+- [x] ~~Re-run the bit-flip sweep as a test and assert the accepted-and-different
+      count is **zero**~~ — **done**, and the zero is not empirical: CRC-32
+      detects every single-bit error because `x^k` is never divisible by the
+      generator. 8196 flips, 100 % refused. The test carries two sets of teeth:
+      untouched payloads still round-trip, and a payload tampered with *and
+      resealed* decodes into a different character — so the guard is a checksum
+      and not a decoder that refuses everything.
+- [x] **[not in the item]** ~~The check a receive surface could forget.~~ —
+      `createAccumulator`'s `verify` option is gone; every reassembled payload is
+      measured against the checksum its own frames declared, always. That was the
+      only live exposure this item had, and it was not in the item.
+
+### ~~P0-7 · Imported characters skip the counter sync every other write path runs~~ — **done, `2c176c5`**
 `src/store/state.ts:232-238` · **small, 1–2 h**
 
 `importCharacter` persists a character exactly as it arrived, with no
@@ -301,6 +336,16 @@ player next levels up or changes armor, and `validatePlan`'s at-maximum warnings
 Three UI paths call `importCharacter` directly: `Settings.tsx:468` and `:675`,
 `Recovery.tsx:34`, `Transfer.tsx:302` — the same four that need the
 no-clobber guard in P0-1, so fix them together.
+
+- [x] ~~Sync the counters on the import path~~ — **done**, in `normalizeIncoming`
+      (`state.ts`), and it does one thing the item did not ask for: when this
+      build cannot resolve the character's class or their armour, it leaves the
+      record exactly as it arrived. Clamping against `startingHitPoints ?? 6`
+      would have thrown away the numbers the sheet came with, and a ref this
+      build cannot name today may well resolve after the next update. Pinned by
+      two tests in `tests/store/import.test.ts`.
+- [x] ~~Four UI paths~~ — **done**, and it was four sites at three doors: every
+      one now goes through `useImportFlow`, so there is one import path.
 
 ---
 
