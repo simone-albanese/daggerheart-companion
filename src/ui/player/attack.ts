@@ -32,7 +32,7 @@
  * Roll's own Hope and Stress, which are applied because they are unambiguous
  * and belong to the sheet in front of you.
  */
-import type { Weapon } from '../../../shared/types.ts';
+import type { Trait, Weapon } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
 import {
@@ -55,6 +55,12 @@ export type AttackSource =
       damageType: 'phy' | 'mag';
     }
   | { kind: 'unarmed'; damage: DamageDice }
+  | {
+      kind: 'spellcast';
+      /** Which trait the count came from, so the panel can name it. */
+      trait: Trait;
+      damage: DamageDice;
+    }
   | { kind: 'companion'; name: string; damage: DamageDice };
 
 /**
@@ -68,8 +74,17 @@ export type AttackSource =
  *
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
+ *
+ * `spellcast` carries the die and only the die. The count is the Spellcast
+ * trait, which is on the sheet and moves with a level-up or a Beastform, and
+ * the modifier is typed beside the chips - so what is remembered here is the
+ * one thing the app cannot work out for itself, which is which die the card in
+ * the player's hand names.
  */
-export type Declaration = { kind: 'weapon'; ref: string } | { kind: 'unarmed' };
+export type Declaration =
+  | { kind: 'weapon'; ref: string }
+  | { kind: 'unarmed' }
+  | { kind: 'spellcast'; sides: number };
 
 /**
  * The declaration, what it resolves to, and the one way to change it.
@@ -90,13 +105,32 @@ export interface Arming {
    *
    * A weapon also arms its own trait, because the weapon is what decides it:
    * *"The trait that applies to an attack roll is specified by the weapon or
-   * spell being used."* An unarmed declaration does not, because the same rule
+   * spell being used."* A spell arms the Spellcast slot for the same half of
+   * the same sentence. An unarmed declaration does not, because the same rule
    * hands that one over: *"Unarmed attack rolls use either Strength or Finesse
    * (GM's choice)"*, and the app does not choose on the GM's behalf.
    * Withdrawing leaves the trait alone too - putting a sword down is not a
    * statement about what you are rolling instead.
+   *
+   * This is deliberately not the same route as picking a trait by hand. Arming
+   * sets the trait the declaration specifies; `chooseTrait` withdraws a
+   * declaration that specified one. Sending the spell chips through
+   * `chooseTrait` would put the spell down in the same tap that armed it.
    */
   arm: (declaration: Declaration | null) => void;
+  /**
+   * The flat modifier the card carries - the `+3` in *"d8+3 using your
+   * Spellcast trait"*.
+   *
+   * It is asked for rather than read, because a `DomainCard` carries only free
+   * prose and parsing a formula out of it would be the app guessing at the one
+   * number a player can see in their own hand. It lives beside the declaration
+   * rather than inside it so that changing the die does not clear it: on a card
+   * the die and the modifier are one formula, and re-typing the `+3` after
+   * every chip tap would be the app forgetting something it was just told.
+   */
+  spellModifier: number;
+  setSpellModifier: (value: number) => void;
 }
 
 export interface ArmedAttack {
@@ -164,8 +198,80 @@ export function unarmedSource(stats: DerivedStats): AttackSource {
   };
 }
 
-/** The dice a typed damage result can be entered for, largest first. */
+/**
+ * Every die this app will build a damage pool out of, smallest first.
+ *
+ * The docblock over this array used to say "largest first" above an ascending
+ * list, which is the kind of sentence that is believed until somebody sorts
+ * something by it. It is ascending because that is the order a die is read in
+ * on a card - d4 through d20 - and it is one list because the spell chips and
+ * the typed faces have to offer the same dice: two lists is two lists that
+ * disagree eventually.
+ */
 export const DAMAGE_SIDES: readonly number[] = [4, 6, 8, 10, 12, 20];
+
+/**
+ * How many dice a spell rolls, and what to say when the answer is none.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait. Note: If your Spellcast trait
+ * is +0 or lower, you don't roll anything."*
+ *
+ * Two shapes rather than a number and a flag, because the refusal is not a
+ * degenerate roll: it is a different thing to put on the screen, and a `count:
+ * 0` would travel happily into a pool and come back out as a total of `+3`.
+ * The value is carried on the refusal so the panel can say *which* +0 it means
+ * - a player whose Spellcast trait is Presence needs to be told it is Presence
+ * that is stopping them, not left to work out which of six numbers it reads.
+ */
+export type SpellcastDamage =
+  | { rollable: true; trait: Trait; count: number }
+  | { rollable: false; trait: Trait; value: number };
+
+/**
+ * The Spellcast damage this character can roll, or null when they have no
+ * Spellcast trait at all - most Warriors, Rogues and Guardians.
+ *
+ * It reads `stats.traits` and not the character's own, so a Beastform that
+ * raises the trait raises the number of dice. That is the same source
+ * `rollModifier` uses for the attack roll itself, and the alternative is a
+ * sheet whose spell attack and spell damage disagree about what the trait is.
+ */
+export function spellcastDamage(stats: DerivedStats): SpellcastDamage | null {
+  const trait = stats.spellcastTrait;
+  if (trait === null) return null;
+  const value = stats.traits[trait];
+  // `>= 1` and not `>= 0`: +0 is the case the rule is written about, and a
+  // pool of zero dice is exactly what `isRollableDamage` exists to refuse.
+  return value >= 1 ? { rollable: true, trait, count: value } : { rollable: false, trait, value };
+}
+
+/**
+ * A spell as something the damage row can roll.
+ *
+ * The die and the modifier come from the card in the player's hand and the
+ * count comes from the sheet, which is the whole division of labour here: a
+ * `DomainCard` carries only free text, so parsing `2d8+4` out of prose would
+ * mean the app silently overwriting the `2` a card actually printed with a
+ * Proficiency or a trait it invented. Nothing is parsed. The app supplies the
+ * one number that is genuinely its own - the count - and asks for the rest.
+ *
+ * Null at +0 or lower, so the unrollable pool is never built rather than built
+ * and then refused downstream.
+ */
+export function spellcastSource(
+  stats: DerivedStats,
+  sides: number,
+  modifier: number,
+): AttackSource | null {
+  const damage = spellcastDamage(stats);
+  if (damage === null || !damage.rollable) return null;
+  return {
+    kind: 'spellcast',
+    trait: damage.trait,
+    damage: { count: damage.count, sides, modifier },
+  };
+}
 
 /** A damage pool that can actually be rolled. */
 export const isRollableDamage = (d: DamageDice): boolean =>
@@ -241,9 +347,16 @@ export function damageOffer(attack: ArmedAttack): DamageOffer {
   };
 }
 
-/** The name to put on a log line or an arming chip. */
+/**
+ * The name to put on a log line or an arming chip.
+ *
+ * A spell is `Spellcast` and not the name of a card. The declaration is a die
+ * and a modifier typed off whatever the player is holding, so naming a card
+ * here would be the app claiming to know which one - and being wrong the first
+ * time somebody rolls the same d8+3 for a different spell.
+ */
 export const sourceName = (source: AttackSource): string =>
-  source.kind === 'unarmed' ? 'Unarmed' : source.name;
+  source.kind === 'unarmed' ? 'Unarmed' : source.kind === 'spellcast' ? 'Spellcast' : source.name;
 
 /**
  * Which of the two damage types this source deals.
@@ -254,13 +367,13 @@ export const sourceName = (source: AttackSource): string =>
  *
  * A weapon carries its own answer and it is read rather than guessed: 70 of the
  * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
- * than a third of the time. Nothing else on this union states otherwise - an
- * unarmed attack is physical by the sentence above, and a companion's attack is
- * the Ranger's beast biting something - so both take the default. The magic
- * branch arrives with the spellcast source, which is the rest of P1-1.
+ * than a third of the time. A spell is the sentence's other half and is magic.
+ * The two that state nothing take the default: an unarmed attack is physical by
+ * the sentence above, and a companion's attack is the Ranger's beast biting
+ * something.
  */
 export const damageTypeOf = (source: AttackSource): 'phy' | 'mag' =>
-  source.kind === 'weapon' ? source.damageType : 'phy';
+  source.kind === 'weapon' ? source.damageType : source.kind === 'spellcast' ? 'mag' : 'phy';
 
 /**
  * Every number that went into the total, in the order it was added.

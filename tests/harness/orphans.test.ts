@@ -59,7 +59,6 @@ const tree = (): Map<string, string> => {
 const DELIBERATE: Record<string, string> = {
   // --- Features built before they were wired. Each is a backlog item, and
   //     wiring it deletes the line.
-  'ui/player/attack.ts::DAMAGE_SIDES': 'P1-1: the dice a typed damage result could be entered for.',
   'engine/rest.ts::takeRest': 'P1-7: rest ships, and has no screen yet.',
   'engine/rest.ts::movesFor': 'P1-7.',
   'engine/rest.ts::mustTakeLongRest': 'P1-7.',

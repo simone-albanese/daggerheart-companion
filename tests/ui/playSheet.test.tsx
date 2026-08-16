@@ -994,6 +994,154 @@ describe('what the attack is made with', () => {
 });
 
 /**
+ * The spell, which is the one attack this sheet cannot read off a card.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait"* - so the count is the app's
+ * to supply and the die and the modifier are the player's, because a domain
+ * card carries free prose and parsing a pool out of it would mean overwriting
+ * the `2` on a card that prints its own `2d8+4`.
+ *
+ * The fixture is a Bard/Troubadour, whose Spellcast trait is Presence, and the
+ * fixture's Presence is +0. So the default sheet is the refusal, and the
+ * rollable panel needs the trait raised.
+ */
+describe('the spell, and the +0 that rolls nothing', () => {
+  /** Every die chip in the Spellcast panel, in the order they are drawn. */
+  const dieChips = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Cast with a d'));
+
+  /** The panel itself: a div, where the weapon rows are buttons. */
+  function panel(): HTMLElement {
+    const found = [...container.querySelectorAll<HTMLElement>('div.panel')].find((el) =>
+      (el.textContent ?? '').startsWith('Spellcast'),
+    );
+    if (found === undefined) throw new Error('no Spellcast panel on the sheet');
+    return found;
+  }
+
+  function armable(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  function pinnedChip(abbreviation: string): HTMLButtonElement {
+    const found = buttons().find((b) =>
+      new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
+    );
+    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
+    return found;
+  }
+
+  function tile(label: string): HTMLButtonElement {
+    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
+    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    return found;
+  }
+
+  /**
+   * Type into a controlled input the way a keyboard does: React tracks the
+   * last value it wrote on the node, so assigning `.value` looks like no
+   * change at all and `onChange` never runs.
+   */
+  function type(field: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setter?.call(field, value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  const casting = (presence: number): Character =>
+    seed({ traits: { ...playedCharacter().traits, presence } });
+
+  it('refuses at +0 in the book’s own words, with nothing to press', () => {
+    // Not a disabled chip row, and not a greyed control still saying ROLL
+    // DAMAGE: at +0 there is no roll to make, and a target that cannot do
+    // anything is the app saying it could and won't.
+    play(seed());
+    expect(dieChips(), 'the +0 panel offered dice to tap').toHaveLength(0);
+    expect(panel().textContent).toContain('NO DICE');
+    expect(panel().textContent).toMatch(/\+0 or lower/);
+    // In quotation marks, because these are the SRD's words and not ours. The
+    // app's own fallback sentence, for a rules layer that does not carry it,
+    // is deliberately not quoted.
+    expect(panel().textContent).toContain('“');
+    // And it names which of the six numbers is the one at +0, since "Spellcast
+    // trait" is not printed anywhere on the trait chips.
+    expect(panel().textContent).toContain('PRESENCE +0');
+  });
+
+  it('counts the dice off the trait, not off Proficiency', () => {
+    // Presence +3 with Proficiency 2. Reading the count off Proficiency - the
+    // rule every other pool on this screen follows - would say 2d8.
+    play(casting(3));
+    expect(dieChips()).toHaveLength(6);
+    click(dieChips()[2]!);
+    expect(panel().textContent, 'the die count came from somewhere else').toContain('3d8');
+    expect(panel().textContent).toContain('PRESENCE +3');
+    expect(panel().textContent).toContain('3 DICE');
+  });
+
+  it('arms the Spellcast slot with the same tap, since the spell specifies it', () => {
+    play(casting(3));
+    click(dieChips()[2]!);
+    expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('true');
+    // "The trait that applies to an attack roll is specified by the weapon or
+    // spell being used." SPELLCAST is not one of the six pinned chips, so the
+    // modifier row is where the sheet says which slot is armed.
+    expect(pinnedChip('PRE').getAttribute('aria-pressed')).toBe('false');
+    expect(fold('Modifiers').textContent).toContain('SPELLCAST');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · SPELLCAST');
+  });
+
+  it('keeps the modifier the card printed when the die changes', () => {
+    /*
+     * A card prints one formula. Clearing the +3 because the player corrected
+     * the die would be the app forgetting a thing it was told two seconds
+     * before, and it is typed rather than parsed because a DomainCard carries
+     * prose: only three shipped cards say "using your Spellcast trait" at all,
+     * and only one of them pairs it with a formula.
+     */
+    play(casting(3));
+    const mod = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(
+      (el) => (el.parentElement?.textContent ?? '').startsWith('MOD'),
+    );
+    expect(mod, 'the panel has no MOD input').toBeDefined();
+    type(mod!, '3');
+    click(dieChips()[2]!);
+    expect(panel().textContent).toContain('3d8+3');
+    click(dieChips()[3]!);
+    expect(panel().textContent, 'changing the die threw the card’s modifier away').toContain(
+      '3d10+3',
+    );
+  });
+
+  it('puts the sword down when a spell is declared, and the spell down when a trait is picked', () => {
+    play(casting(3));
+    click(armable('Broadsword'));
+    click(dieChips()[2]!);
+    expect(armable('Broadsword').getAttribute('aria-pressed')).toBe('false');
+    // And back the other way: picking a trait by hand is declaring a roll the
+    // spell did not, so the spell steps back the way a weapon does.
+    click(tile('Agility'));
+    expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('false');
+    expect(pinnedChip('AGI').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('draws no panel at all for a character who cannot cast', () => {
+    // A Guardian/Stalwart has no Spellcast trait. Four lines explaining that
+    // would be the sheet answering a question this character never asked.
+    play(seed({ classRef: 'guardian', subclassRefs: ['stalwart'], loadout: [], vault: [] }));
+    expect(text()).not.toContain('Spellcast');
+    expect(dieChips()).toHaveLength(0);
+  });
+});
+
+/**
  * The link the app has never had: an attack roll leading into its damage roll.
  *
  * `rollDamage` has been correct since the first commit and has never had a
@@ -1115,15 +1263,18 @@ describe('rolling the damage the attack earned', () => {
     click(weaponRow('Battleaxe'));
     typeFace('HOPE', 6);
     typeFace('FEAR', 3);
-    click(damageControl()!);
+    // Held, rather than looked up again after the tap: the control renames
+    // itself once it has rolled, and a search for the word "damage" now also
+    // finds the Spellcast chips, which name the damage they would cast for.
+    const control = damageControl()!;
+    click(control);
 
     const entry = useApp.getState().log.find((e) => e.kind === 'damage');
     expect(entry, 'no damage was written to the log').toBeDefined();
     expect(entry!.label, 'the log claims a hit the GM never gave').toMatch(/^IF IT HIT/);
     // There is no log surface on a phone, so the number has to be on the
     // control itself.
-    const shown = buttons().find((b) => (b.getAttribute('aria-label') ?? '').includes('damage'));
-    expect(shown!.textContent).toContain(String(entry!.total));
+    expect(control.textContent).toContain(String(entry!.total));
   });
 
   /*

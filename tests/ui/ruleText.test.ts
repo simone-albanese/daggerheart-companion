@@ -14,6 +14,7 @@ import {
   paragraphs,
   ruleBlocks,
   ruleBullets,
+  spellcastZeroNote,
   traitVerbs,
 } from '../../src/ui/player/ruleText.ts';
 
@@ -128,5 +129,58 @@ describe('the SRD sections the player screens quote', () => {
     const prose = paragraphs(section('death')).filter((p) => !p.startsWith('-'));
     expect(prose[0]).toContain('last Hit Point');
     expect(prose[prose.length - 1]).toContain('new character');
+  });
+});
+
+/**
+ * The sentence the Spellcast panel refuses with.
+ *
+ * A refusal is where an app is most tempted to invent a rule, so this one is
+ * lifted rather than written. What these really pin is that it is *lifted*: a
+ * hardcoded string in `ruleText.ts` would satisfy every assertion about the
+ * shipped dataset and would still be the app presenting its own words as the
+ * book's, which is the one thing this module exists to prevent.
+ */
+describe('spellcastZeroNote', () => {
+  it('finds the SRD’s own sentence about a Spellcast trait of +0', () => {
+    const note = spellcastZeroNote(dataset.rules);
+    expect(note).not.toBeNull();
+    expect(note).toMatch(/\+0 or lower/);
+    expect(note).toMatch(/roll/i);
+  });
+
+  it('drops the leading Note:, because the row prints a sentence', () => {
+    // The shipped line is "Note: If your Spellcast trait is +0 or lower, you
+    // don't roll anything." An annotation annotates a paragraph, and that
+    // paragraph is not on the Play screen - so what is left is the sentence.
+    expect(spellcastZeroNote(dataset.rules)).toMatch(/^If your Spellcast trait/);
+    expect(spellcastZeroNote(dataset.rules)).not.toMatch(/^Note:/i);
+  });
+
+  it('is null when no rules layer carries the sentence at all', () => {
+    // And then the screen says it in the app's own words, unquoted. Returning
+    // a hardcoded sentence here instead would put quotation marks around
+    // something no book ever printed.
+    expect(spellcastZeroNote([])).toBeNull();
+    expect(
+      spellcastZeroNote([
+        { id: 'attacking', title: 'Attacking', body: 'On a successful attack, roll damage.' },
+      ]),
+    ).toBeNull();
+  });
+
+  it('follows the sentence rather than the section it is filed under', () => {
+    // Pinned to the `attacking` id this would go quiet the moment a homebrew
+    // layer reorganised its sections, and going quiet is exactly how a
+    // rules-quoting surface fails without anybody noticing.
+    expect(
+      spellcastZeroNote([
+        {
+          id: 'house-rules',
+          title: 'House rules',
+          body: 'Some preamble.\n\nNote: If your Spellcast trait is +0 or lower, you roll one die anyway.',
+        },
+      ]),
+    ).toBe('If your Spellcast trait is +0 or lower, you roll one die anyway.');
   });
 });

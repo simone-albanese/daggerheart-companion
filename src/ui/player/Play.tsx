@@ -51,8 +51,11 @@ import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import {
+  DAMAGE_SIDES,
   sourceFromWeapon,
   sourceName,
+  spellcastDamage,
+  spellcastSource,
   unarmedSource,
   type Arming,
   type AttackSource,
@@ -62,7 +65,7 @@ import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
-import { traitVerbs } from './ruleText.ts';
+import { spellcastZeroNote, traitVerbs } from './ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
@@ -71,6 +74,15 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const index = useApp((s) => s.index);
   const [trait, setTrait] = useState<RollTrait>('agility');
   const [declared, setDeclared] = useState<Declaration | null>(null);
+  /*
+   * The `+3` in "d8+3 using your Spellcast trait", kept beside the declaration
+   * rather than inside it.
+   *
+   * A card prints one formula, so changing the die must not clear the modifier
+   * that came with it - and re-typing it after every chip tap would be the app
+   * forgetting a thing it was told two seconds ago.
+   */
+  const [spellModifier, setSpellModifier] = useState(0);
 
   /*
    * The pool the declaration resolves to, re-derived on every render.
@@ -86,9 +98,15 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const source = useMemo<AttackSource | null>(() => {
     if (declared === null) return null;
     if (declared.kind === 'unarmed') return unarmedSource(stats);
+    // A spell's count comes off the trait every render for the same reason: a
+    // Beastform or a level-up that moves the Spellcast trait moves the number
+    // of dice, and at +0 `spellcastSource` returns null and the offer goes.
+    if (declared.kind === 'spellcast') {
+      return spellcastSource(stats, declared.sides, spellModifier);
+    }
     const weapon = index.weapons.get(declared.ref);
     return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
-  }, [declared, index, stats]);
+  }, [declared, index, spellModifier, stats]);
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:
@@ -109,7 +127,14 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const arm = (declaration: Declaration | null): void => {
     setDeclared(declaration);
-    if (declaration === null || declaration.kind !== 'weapon') return;
+    if (declaration === null || declaration.kind === 'unarmed') return;
+    // Not through `chooseTrait`: that one is the route for picking a trait *by
+    // hand*, and it withdraws the declaration that specified one. A spell sent
+    // through it would be put down by the same tap that armed it.
+    if (declaration.kind === 'spellcast') {
+      setTrait('spellcast');
+      return;
+    }
     const weapon = index.weapons.get(declaration.ref);
     if (weapon !== undefined) setTrait(weapon.trait);
   };
@@ -136,7 +161,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     setDeclared((d) => (d?.kind === 'unarmed' ? d : null));
   };
 
-  const arming: Arming = { declared, source, arm };
+  const arming: Arming = { declared, source, arm, spellModifier, setSpellModifier };
 
   if (!character) return null;
   if (layout !== 'desktop') {
@@ -780,6 +805,7 @@ function Equipped({
           {unarmed ? 'ARMED · ' : ''}STRENGTH OR FINESSE · GM’S CHOICE · PHYSICAL
         </span>
       </button>
+      <SpellcastPanel stats={stats} arming={arming} />
       {armor && (
         <div
           className="panel"
@@ -795,6 +821,143 @@ function Equipped({
             BASE THRESHOLDS {armor.baseThresholds[0]} / {armor.baseThresholds[1]}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Spellcast damage, which is the one attack the sheet cannot work out alone.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait."* 77 of the 189 shipped
+ * domain cards mention Spellcast and 43 carry a dice formula, and not one of
+ * them was rollable in this app.
+ *
+ * WHO SUPPLIES WHAT, which is the whole design of this panel. A `DomainCard`
+ * carries free prose and nothing else - only three cards in the SRD say the
+ * exact phrase "using your Spellcast trait", and only one of those pairs it
+ * with a formula - so parsing a pool out of card text would mean the app
+ * silently rewriting a card that prints its own `2d8+4`. Nothing is parsed. The
+ * app supplies the one number that is genuinely on the sheet, the die count,
+ * and the player taps the die and types the modifier that are in their hand.
+ * There is deliberately no COUNT field: a count you could type is a count the
+ * app would let you contradict.
+ *
+ * AND WHEN IT REFUSES IT QUOTES. At +0 or lower there are no chips, no input
+ * and no disabled control - a greyed button still saying ROLL DAMAGE is the app
+ * announcing something it will not do. What stands in their place is the SRD's
+ * own sentence, in quotation marks, because on this row what is quoted is the
+ * book's and what is not is the app's own words for a rules layer that does not
+ * carry the sentence.
+ */
+function SpellcastPanel({
+  stats,
+  arming,
+}: {
+  stats: DerivedStats;
+  arming: Arming;
+}): React.JSX.Element | null {
+  const rules = useApp((s) => s.dataset.rules);
+  const zeroNote = useMemo(() => spellcastZeroNote(rules), [rules]);
+  const spell = spellcastDamage(stats);
+  // No Spellcast trait at all - most Warriors, Rogues and Guardians. A panel
+  // saying "you cannot cast" would be four lines about something the character
+  // sheet never claimed in the first place.
+  if (spell === null) return null;
+
+  const armed = arming.declared?.kind === 'spellcast' ? arming.declared.sides : null;
+  const modifier = arming.spellModifier;
+  const modText = modifier === 0 ? '' : modifier > 0 ? `+${modifier}` : `${modifier}`;
+  const value = spell.rollable ? spell.count : spell.value;
+  const spec = !spell.rollable
+    ? 'NO DICE'
+    : armed === null
+      ? // The count is settled and the die is not, and it says exactly that
+        // rather than picking a d6 on the player's behalf.
+        `${spell.count}d—${modText}`
+      : formatDamage({ count: spell.count, sides: armed, modifier });
+
+  return (
+    <div
+      className="stack panel"
+      style={{
+        flex: 'none',
+        gap: 8,
+        borderLeft: `3px solid ${armed === null ? 'var(--edge)' : 'var(--hope)'}`,
+        background: armed === null ? undefined : 'var(--hope-wash)',
+        padding: '10px 11px',
+      }}
+    >
+      <span className="spread">
+        <span style={{ font: '700 14px/1.15 var(--sans)' }}>Spellcast</span>
+        <span className="t-num" style={{ color: spell.rollable ? 'var(--hope)' : 'var(--damage)' }}>
+          {spec}
+        </span>
+      </span>
+      {/* The trait by name and by number, not just the count. A Beastform can
+          move this and the player has no other way to connect "3 dice" to the
+          reason it is three. */}
+      <span className="t-meta" style={{ display: 'block', letterSpacing: '0.05em' }}>
+        {armed === null ? '' : 'ARMED · '}
+        {TRAIT_LABELS[spell.trait].toUpperCase()} {value >= 0 ? '+' : '−'}
+        {Math.abs(value)} · {spell.rollable ? `${spell.count} ${spell.count === 1 ? 'DIE' : 'DICE'} · ` : ''}
+        MAGIC
+      </span>
+      {spell.rollable ? (
+        <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+          {DAMAGE_SIDES.map((sides) => {
+            const on = armed === sides;
+            return (
+              <button
+                key={sides}
+                type="button"
+                aria-pressed={on}
+                aria-label={`Cast with a d${sides}: ${formatDamage({ count: spell.count, sides, modifier })} magic damage`}
+                onClick={() => arming.arm(on ? null : { kind: 'spellcast', sides })}
+                className="chip"
+                style={{
+                  flex: 'none',
+                  minHeight: 'var(--control)',
+                  minWidth: 'var(--control)',
+                  background: on ? 'var(--hope)' : 'var(--raised)',
+                  color: on ? 'var(--app)' : 'var(--muted)',
+                }}
+              >
+                d{sides}
+              </button>
+            );
+          })}
+          {/* The DIFF input's shape exactly: 58px and the control height. It is
+              a modifier a player reads off a card, so it wants the same target
+              and the same numeric keyboard as the other number on this screen
+              that is copied from somewhere else. */}
+          <label className="row" style={{ flex: 'none', gap: 4, alignItems: 'center' }}>
+            <span className="t-meta">MOD</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={modifier === 0 ? '' : modifier}
+              placeholder="—"
+              onChange={(e) =>
+                arming.setSpellModifier(e.target.value === '' ? 0 : Number(e.target.value))
+              }
+              style={{
+                width: 58,
+                minHeight: 'var(--control)',
+                padding: '4px 6px',
+                textAlign: 'center',
+                font: '600 13px/1 var(--mono)',
+              }}
+            />
+          </label>
+        </div>
+      ) : (
+        <span className="t-dense">
+          {zeroNote === null
+            ? 'A Spellcast trait of +0 or lower rolls no damage dice.'
+            : `“${zeroNote}”`}
+        </span>
       )}
     </div>
   );

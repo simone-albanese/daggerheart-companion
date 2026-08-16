@@ -23,7 +23,8 @@
  * as perfectly plausible at the table, which is the worst kind.
  */
 import { describe, expect, it } from 'vitest';
-import { rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
+import type { DerivedStats } from '../../src/engine/character.ts';
+import { formatDamage, rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
   damageArithmetic,
   damageLogEntry,
@@ -32,11 +33,13 @@ import {
   isRollableDamage,
   sourceFromWeapon,
   sourceName,
+  spellcastDamage,
+  spellcastSource,
   unarmedSource,
   type ArmedAttack,
   type AttackSource,
 } from '../../src/ui/player/attack.ts';
-import { makeStats, makeWeapon } from '../fixtures/factories.ts';
+import { makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
 
 const weaponSource = (damage: string, proficiency: number): AttackSource => {
   const source = sourceFromWeapon(
@@ -46,6 +49,19 @@ const weaponSource = (damage: string, proficiency: number): AttackSource => {
   if (source === null) throw new Error(`weapon damage did not parse: ${damage}`);
   return source;
 };
+
+/**
+ * A caster whose Spellcast trait is Knowledge, at whatever value is asked for.
+ *
+ * Proficiency is 4 and never equal to the trait, on purpose: the mistake this
+ * whole group is written against is scaling spell damage by Proficiency the way
+ * a weapon is scaled, and two numbers that happen to match would hide it.
+ */
+const spellStats = (knowledge: number): DerivedStats =>
+  makeStats({ spellcastTrait: 'knowledge', traits: traits({ knowledge }), proficiency: 4 });
+
+const spellSource = (knowledge: number, sides: number, modifier: number): AttackSource | null =>
+  spellcastSource(spellStats(knowledge), sides, modifier);
 
 const attack = (over: Partial<ArmedAttack> = {}): ArmedAttack => ({
   source: weaponSource('d10+3', 3),
@@ -174,6 +190,75 @@ describe('rollable damage', () => {
   });
 });
 
+/**
+ * Spell damage, which is counted by a different rule from every other attack.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait."* Not Proficiency - which is
+ * the whole trap, because every other pool on this screen is Proficiency and
+ * the two numbers are usually close enough that a wrong one reads as plausible.
+ * And *"Note: If your Spellcast trait is +0 or lower, you don't roll anything"*,
+ * which is a refusal the app has to be able to make rather than a zero it
+ * quietly rolls.
+ */
+describe('how many dice a spell rolls', () => {
+  it('has nothing to say about a character with no Spellcast trait', () => {
+    // Most Warriors, Rogues and Guardians. Null and not a zero-dice refusal:
+    // there is no rule being refused, there is simply no spellcasting here.
+    expect(spellcastDamage(makeStats({ proficiency: 2 }))).toBeNull();
+  });
+
+  it('rolls a number of dice equal to the trait, not to Proficiency', () => {
+    expect(spellcastDamage(spellStats(3))).toEqual({
+      rollable: true,
+      trait: 'knowledge',
+      count: 3,
+    });
+    // Proficiency is 4 on these stats. If it were the multiplier this would be
+    // four dice, which at 4d8 against 3d8 is about four points a hit.
+    expect(spellSource(3, 8, 3)?.damage).toEqual({ count: 3, sides: 8, modifier: 3 });
+  });
+
+  it('builds the SRD’s own worked spell, d8+3 using your Spellcast trait', () => {
+    // preservation-blast is the one shipped card that pairs the phrase with a
+    // formula: "deal d8+3 magic damage using your Spellcast trait". At +3 that
+    // is 3d8+3, and the +3 stays a flat +3 rather than being multiplied too.
+    const source = spellSource(3, 8, 3);
+    expect(source?.kind).toBe('spellcast');
+    expect(formatDamage(source!.damage)).toBe('3d8+3');
+    expect(sourceName(source!)).toBe('Spellcast');
+  });
+
+  it('refuses at +0 and below, and says which trait is at +0', () => {
+    expect(spellcastDamage(spellStats(0))).toEqual({
+      rollable: false,
+      trait: 'knowledge',
+      value: 0,
+    });
+    expect(spellcastDamage(spellStats(-1))).toEqual({
+      rollable: false,
+      trait: 'knowledge',
+      value: -1,
+    });
+  });
+
+  it('never builds the pool it would then have to refuse', () => {
+    // A `count: 0` pool travels perfectly happily into rollDamage and comes
+    // back out as a total of +3 with no dice under it. The pool is not built.
+    expect(spellSource(0, 8, 3)).toBeNull();
+    expect(spellSource(-1, 8, 3)).toBeNull();
+    expect(isRollableDamage({ count: 0, sides: 8, modifier: 3 })).toBe(false);
+  });
+
+  it('follows the trait a Beastform is wearing, like the attack roll does', () => {
+    // `spellcastDamage` reads stats.traits, which is where a Beastform's
+    // raised trait lands. `rollModifier` reads the same place for the attack
+    // roll, so a sheet whose spell attack and spell damage disagreed about the
+    // trait would be this app contradicting itself mid-roll.
+    expect(spellcastDamage(spellStats(5))).toEqual({ rollable: true, trait: 'knowledge', count: 5 });
+  });
+});
+
 describe('which of the two damage types', () => {
   it('reads a weapon rather than assuming weapons are physical', () => {
     // "Unless stated otherwise, mundane weapons and unarmed attacks deal
@@ -185,6 +270,14 @@ describe('which of the two damage types', () => {
       makeStats({ proficiency: 2 }),
     );
     expect(damageTypeOf(magic!)).toBe('mag');
+  });
+
+  it('gives a spell the other half of the same sentence', () => {
+    // A spell rolled as physical would be reduced by the wrong resistances at
+    // the table and would print PHY in the log beside a card that says
+    // otherwise. The weapon branch is a lookup; this one is the SRD's default
+    // for spells and there is nothing on the variant to look up.
+    expect(damageTypeOf(spellSource(3, 8, 3)!)).toBe('mag');
   });
 
   it('gives an unarmed attack and a companion the default', () => {

@@ -483,8 +483,8 @@ caller: `src/ui/player/DamageRoll.tsx`, mounted last in the phone's roll block
 and between ROLL and the log on desktop. `DualityRoll` snapshots the attack out
 of the `DualityResult` that produced it and hands it over; the row asks
 `damageOffer` and never reads `succeeded` for itself. Unarmed attacks have a row
-in `Equipped`. **What remains open is the two boxes below that are still
-unticked:** typed damage dice, and Spellcast damage with its refusal at +0.
+in `Equipped`, and so does Spellcast damage with its refusal at +0. **What
+remains open is the one box below that is still unticked:** typed damage dice.
 
 - [x] ~~Carry the resolved attack — including `critical` — into a damage roll
       offered on success. Offer, never auto-apply~~ — **done, `9b4053a`**. The
@@ -497,11 +497,22 @@ unticked:** typed damage dice, and Spellcast damage with its refusal at +0.
       thing it will not do.
 - [ ] Damage must be typeable as well as rollable, the way the Duality dice
       already are, for tables that roll physical dice.
-- [ ] **Spellcast damage is a different rule and is not implemented.** *"Any time
-      an effect says to deal damage using your Spellcast trait, you roll a number
-      of dice equal to your Spellcast trait"*, and at +0 or lower you roll
+- [x] ~~**Spellcast damage is a different rule and is not implemented.** *"Any
+      time an effect says to deal damage using your Spellcast trait, you roll a
+      number of dice equal to your Spellcast trait"*, and at +0 or lower you roll
       nothing. 77 of the 189 domain cards mention Spellcast and 43 carry a dice
-      formula; none is rollable today.
+      formula; none is rollable today.~~ — **done, the commit after `d708b38`**;
+      the house form names a sha and a commit cannot name its own. A panel in
+      `Equipped`, drawn only for a character who has a Spellcast trait at all.
+      The app supplies the one number that is on the sheet — the die count, which
+      is the trait and not Proficiency — and the player taps the die and types
+      the modifier, which are on the card in their hand: a `DomainCard` carries
+      free prose, only three of the 189 say *"using your Spellcast trait"* and
+      only preservation-blast pairs the phrase with a formula, so parsing a pool
+      out of card text would mean overwriting the `2` a card printed itself. At
+      +0 or lower there are no chips, no input and no greyed control — the SRD's
+      own sentence stands where the dice would be, in quotation marks because it
+      is the book's and not ours.
 - [x] ~~**Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
       hits for "unarmed" in `src/`.~~ — **done, the commit after `9b4053a`**;
       the house form names a sha and a commit cannot name its own. A row after
