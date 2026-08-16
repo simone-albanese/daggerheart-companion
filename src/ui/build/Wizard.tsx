@@ -110,6 +110,35 @@ export function Wizard({
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const set = (patch: Partial<Draft>): void => setDraft((d) => ({ ...d, ...patch }));
 
+  /** The write is in the air. Shown on the button; see `finish`. */
+  const [creating, setCreating] = useState(false);
+  /** What the device said when it refused, in its own words. */
+  const [failed, setFailed] = useState<string | null>(null);
+
+  /*
+   * The same fact as `creating`, kept where a second tap can see it.
+   *
+   * `disabled` closes the door on the next render, and two taps inside one
+   * React batch are both dispatched before that render happens - which is
+   * precisely the double-tap on a slow phone this is here to stop. A ref is
+   * set synchronously, inside the first tap, so the second one finds it shut.
+   * Both are kept: the ref makes it true, the disabled attribute makes it
+   * visible and keeps the button off the tab order while it is true.
+   */
+  const writing = useRef(false);
+
+  /*
+   * Moving between steps takes the failure notice with it.
+   *
+   * It is a sentence about the button at the foot of the last step. Left
+   * standing while the player goes back to change something, it would sit
+   * under a step it is not about and compete with that step's own refusal.
+   */
+  const goTo = (n: number): void => {
+    setFailed(null);
+    setStep(Math.max(0, Math.min(STEPS.length - 1, n)));
+  };
+
   // A new step starts at its own top, never halfway down the last one's list.
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -121,16 +150,46 @@ export function Wizard({
   const done = useMemo(() => stepsDone(draft, klass, dataset), [draft, klass, dataset]);
   const { blockers, warnings } = useMemo(() => review(draft, klass, dataset), [draft, klass, dataset]);
 
-  const finish = async (): Promise<void> => {
-    if (blockers.length > 0 || !klass) return;
+  /*
+   * Create the character, or say why there is no character.
+   *
+   * `create()` writes to IndexedDB *before* it touches the store, so a device
+   * that refuses the write leaves nothing behind: no record, no entry in the
+   * library, and twelve steps of choices sitting in this component's `useState`
+   * and nowhere else. This used to be `void finish()` over an unguarded
+   * `await`, so a refusal produced an unhandled rejection - which no error
+   * boundary can see, `ScreenBoundary` being a render-phase boundary - and a
+   * button that did nothing. Pressing it again did nothing again.
+   *
+   * The shape is `Edit.tsx`'s delete: settle the promise here, navigate on the
+   * fulfilled side only, and put the device's own sentence on screen on the
+   * other. Deliberately *not* routed through the store's `writeError`; the
+   * commit message says why at length.
+   */
+  const finish = (): void => {
+    if (blockers.length > 0 || !klass || writing.current) return;
+    writing.current = true;
+    setCreating(true);
+    setFailed(null);
     // The starting HP, Stress, Hope and armor slots are not written down here:
     // `newCharacter` seeds the Hit Point track from the class - which is what
     // the index is for - and syncCounters settles every maximum against the
     // engine, the way a level up and an armor change already do.
     const sheet = newCharacter(assemble(draft, klass, dataset.consumables), index);
-    await create(syncCounters(sheet, deriveStats(sheet, dataset, index)));
-    onCreated?.();
-    setScreen('play');
+    void create(syncCounters(sheet, deriveStats(sheet, dataset, index))).then(
+      () => {
+        // Nothing is re-armed on this side on purpose. Both calls below unmount
+        // this screen, and a button that goes live again on the way out is a
+        // frame in which one more tap creates a second character.
+        onCreated?.();
+        setScreen('play');
+      },
+      (error: unknown) => {
+        writing.current = false;
+        setCreating(false);
+        setFailed(error instanceof Error ? error.message : String(error));
+      },
+    );
   };
 
   const last = step === STEPS.length - 1;
@@ -167,7 +226,7 @@ export function Wizard({
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <WizardHeader
         step={step}
-        setStep={setStep}
+        setStep={goTo}
         done={done}
         phone={phone}
         onCancel={onCancel}
@@ -216,11 +275,27 @@ export function Wizard({
             {reason}
           </span>
         )}
+        {/* A refused write, in the nav rather than at the top of the panel.
+            The panel is scrolled back to its own top on every step change, and
+            the last step is the longest one in the wizard - a message left up
+            there is about two screens above the thumb that pressed the button.
+            Above the row, not in it: this is read, and reading belongs outside
+            the touch zone. */}
+        {failed !== null && (
+          <Callout
+            tone="error"
+            word="NOTHING WAS CREATED"
+            items={[
+              `This device refused to save the character: ${failed}`,
+              'Every choice you have made is still on this screen and nowhere else, so closing this tab loses them. Try Create again, or fix what the message names first.',
+            ]}
+          />
+        )}
         <div className="row" style={{ gap: 10 }}>
           <button
             type="button"
             className="btn"
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            onClick={() => goTo(step - 1)}
             disabled={step === 0}
             style={{ flex: phone ? 1 : 'none', minHeight: 48, minWidth: 108 }}
           >
@@ -240,17 +315,17 @@ export function Wizard({
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => void finish()}
-              disabled={blockers.length > 0}
+              onClick={finish}
+              disabled={blockers.length > 0 || creating}
               style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 168 }}
             >
-              Create character
+              {creating ? 'Creating…' : 'Create character'}
             </button>
           ) : (
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+              onClick={() => goTo(step + 1)}
               disabled={held !== null}
               style={{ flex: phone ? 2 : 'none', minHeight: 48, minWidth: 128 }}
             >
