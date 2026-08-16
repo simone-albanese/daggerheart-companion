@@ -33,16 +33,27 @@
  * of the count, so at three in a row it says the short rest is off the screen
  * rather than sending the reader up to a button that is not there.
  *
+ * THE FREE SWAP IS PART OF THE REST, SO IT WAITS FOR THE REST. Cards move
+ * between loadout and vault at no cost *because* a rest is happening, and until
+ * COMMIT no rest is happening. So a tap stages a `Swap` and `applySwaps` builds
+ * the sheet the rest is proposed against; the rows, the counts and the gate are
+ * all read back off that sheet, and one press applies the moves and the card
+ * moves together and writes them into one log entry. Applied on the tap
+ * instead, the price was taken for a downtime that had not occurred and might
+ * never - and worse, it was only available then: COMMIT clears `kind`, which
+ * takes the section off the screen, so the free swap existed exactly while no
+ * rest did.
+ *
  * Two things this file deliberately does not do. It never sets
  * `aria-expanded`: `playSheet.test.tsx` sweeps every button carrying that
  * attribute anywhere on Play and demands `var(--tap)` and `width: 100%`,
  * because that attribute belongs to `Disclosure` alone, and a second use of it
  * here would fail a test naming a rule about a different file. And it never
- * counts to five: the free swap goes through `canAddToLoadout` and `recallCard`
- * with `{ downtime: true }`, which is the flag `loadout.ts` has carried since it
- * was written and this is its first caller, so MAX_LOADOUT stays enforced in
- * one place and the vault charges Recall Cost during a scene and nothing during
- * a rest out of one function rather than out of two screens that agree today.
+ * counts to five: the swap goes through `canAddToLoadout` and `recallCard` with
+ * `{ downtime: true }`, which is the flag `loadout.ts` has carried since it was
+ * written and this is its first caller, so MAX_LOADOUT stays enforced in one
+ * place and the vault charges Recall Cost during a scene and nothing during a
+ * rest out of one function rather than out of two screens that agree today.
  *
  * ERGONOMICS, at 393x852 (column 369px), 375x667 (351px), 744 and 1024 (both
  * the one-column sheet), and 1180+ (the cockpit's first column, 300-336px).
@@ -68,11 +79,13 @@
  * THUMB ARC. In the scroll window - roughly y=88..545 at 393x852 - a right
  * thumb rests around y=420..545. The kind switch is at the top of the fold, so
  * opening the fold puts it ~300px above that rest and it is chosen with the
- * eyes. COMMIT is at the bottom, some 800px of content later, so it arrives
- * under the thumb only after two deliberate scrolls; above it sit a 12px pad
- * and a 1px rule, so a thumb overshooting the last move row lands on the
- * divider. And COMMIT does not exist until a rest kind has been chosen, so the
- * first tap on this surface can never be the last one.
+ * eyes. COMMIT is last on the surface - it applies everything drawn above it,
+ * including the swaps, so it cannot sit in the middle of what it applies - and
+ * on the played fixture that is some 1,100px of content later, three deliberate
+ * scrolls rather than two; above it sit a 12px pad and a 1px rule, so a thumb
+ * overshooting the last swap row lands on the divider. And COMMIT does not
+ * exist until a rest kind has been chosen, so the first tap on this surface can
+ * never be the last one.
  *
  * READ VERSUS TOUCH. Touched: three controls before a kind is chosen, up to
  * eighteen after. Read and never touched: the SRD's own move text, at
@@ -93,10 +106,10 @@
  * control by control.
  */
 import { useMemo, useState } from 'react';
-import type { Character, DomainCard } from '../../../shared/types.ts';
-import type { DerivedStats } from '../../engine/character.ts';
+import type { Character, DomainCard, Ref } from '../../../shared/types.ts';
+import type { DatasetIndex, DerivedStats } from '../../engine/character.ts';
 import type { Rng } from '../../engine/dice.ts';
-import { canAddToLoadout, resolveCards, vaultCard } from '../../engine/loadout.ts';
+import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
 import {
   movesFor,
   mustTakeLongRest,
@@ -108,7 +121,7 @@ import {
 } from '../../engine/rest.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
-import { shortReason, useRecall } from './recall.ts';
+import { shortReason } from './recall.ts';
 import { interruptedRestRule, longRestRule } from './ruleText.ts';
 
 interface Props {
@@ -271,6 +284,34 @@ function rowText(b: Bracket): string {
   return parts.join(' · ');
 }
 
+/** A card this rest will move, and which way it will go. */
+interface Swap {
+  ref: Ref;
+  to: 'vault' | 'loadout';
+}
+
+/**
+ * The sheet as the rest would leave it, before the rest has been taken.
+ *
+ * Proposed rather than applied, for the same reason the moves are: the free
+ * price is the rest's price. A tap that moved the card immediately spent a
+ * downtime that had not happened - and could not be made to happen, because
+ * COMMIT clears `kind` and takes the whole section off the screen, so the free
+ * swap was reachable exactly while no rest existed and gone the moment one did.
+ *
+ * Everything the section draws is resolved from what this returns, so a staged
+ * swap that the engine will not perform is a swap the screen does not show
+ * either: `recallCard` returns the sheet untouched when `canAddToLoadout`
+ * refuses, and the rows, the counts and the gate are all read back off the
+ * result. The screen and the commit run the same reduction over the same list.
+ */
+const applySwaps = (c: Character, swaps: Swap[], index: DatasetIndex): Character =>
+  swaps.reduce((sheet, swap) => {
+    if (swap.to === 'vault') return vaultCard(sheet, swap.ref);
+    const card = index.cards.get(swap.ref);
+    return card === undefined ? sheet : recallCard(sheet, card, { downtime: true }).character;
+  }, c);
+
 export function Rest({ stats, rng }: Props): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
@@ -278,14 +319,20 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
   const partySize = useApp((s) => s.prefs.gmPartySize);
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
-  const recallFree = useRecall({ downtime: true });
   const [kind, setKind] = useState<RestKind | null>(null);
   const [picks, setPicks] = useState<DowntimeMoveId[]>([]);
   const [withParty, setWithParty] = useState(false);
+  const [swaps, setSwaps] = useState<Swap[]>([]);
+
+  /** The sheet this rest is being proposed against: the swaps are part of it. */
+  const staged = useMemo(
+    () => (character === null ? null : applySwaps(character, swaps, index)),
+    [character, swaps, index],
+  );
 
   /*
    * `picks` and `withParty` are in the key, and that is not decoration: the
-   * panel under the rows is built out of `takeRest(character, …, picks)`, so a
+   * panel under the rows is built out of `takeRest(staged, …, picks)`, so a
    * key without them would leave it printing the numbers for the *previous*
    * selection - the one surface whose entire reason for existing is saying what
    * a move will clear before you commit to it, stating a clearing that will not
@@ -293,13 +340,13 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
    */
   const view = useMemo(
     () =>
-      character === null || kind === null
+      staged === null || kind === null
         ? null
-        : buildView(character, stats, kind, picks, withParty, partySize),
-    [character, stats, kind, picks, withParty, partySize],
+        : buildView(staged, stats, kind, picks, withParty, partySize),
+    [staged, stats, kind, picks, withParty, partySize],
   );
 
-  if (!character) return null;
+  if (!character || staged === null) return null;
 
   const counted = character.consecutiveShortRests;
   const longDue = mustTakeLongRest(counted);
@@ -312,6 +359,18 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
   const moves = kind === null ? [] : movesFor(kind);
   const nameOf = (id: DowntimeMoveId): string => moves.find((m) => m.id === id)?.name ?? id;
   const preparing = picks.some((id) => PREPARE.includes(id));
+
+  /*
+   * What the staged swaps come to, netted rather than counted.
+   *
+   * A card sent to the vault and recalled again is in neither list, because
+   * nothing will have moved - the log and the panel both describe the sheet
+   * before and the sheet after, not the taps in between.
+   */
+  const cardName = (ref: Ref): string => index.cards.get(ref)?.name ?? ref;
+  const movingOut = character.loadout.filter((r) => !staged.loadout.includes(r));
+  const movingIn = staged.loadout.filter((r) => !character.loadout.includes(r));
+  const moving = movingOut.length + movingIn.length;
 
   const chooseKind = (next: RestKind): void => {
     if (next === kind) return;
@@ -329,10 +388,23 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
     setPicks((current) => (current.length < 2 ? [...current, id] : [current[0]!, id]));
   };
 
+  /*
+   * Appended, never applied. There is no cap and no de-duplication here on
+   * purpose: `applySwaps` replays the list through `vaultCard` and
+   * `recallCard`, so the five is enforced by `canAddToLoadout` in the one place
+   * it has always been enforced, and a card sent out and recalled again ends up
+   * exactly where it started rather than in a second list that has to agree.
+   */
+  const stage = (ref: Ref, to: 'vault' | 'loadout'): void => {
+    setSwaps((current) => [...current, { ref, to }]);
+  };
+
   const commit = (): void => {
     if (kind === null) return;
     const choices: DowntimeChoice[] = picks.map((move) => ({ move, withParty }));
-    const outcome = takeRest(character, stats, kind, choices, { partySize }, rng);
+    // Against the staged sheet, so the one press applies the rest and the card
+    // moves that are free *because of* it, in one write and one entry.
+    const outcome = takeRest(staged, stats, kind, choices, { partySize }, rng);
     update(() => outcome.character);
     /*
      * The `'rest'` entry `state.ts` has declared since the first commit and
@@ -343,11 +415,19 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
      * Fear is the number that was actually rolled, where the panel above could
      * only name the die. The rule is appended at the moment it becomes true
      * rather than on every short rest, because that is when it is news.
+     *
+     * The swaps are read off the difference between the sheet and the staged
+     * sheet rather than off the tap history, so a card moved out and back is
+     * not reported as having moved, and a swap the engine refused cannot be
+     * reported at all: it is not in the difference, because it is not in the
+     * sheet that was written.
      */
     const becameDue =
       mustTakeLongRest(outcome.character.consecutiveShortRests) && !mustTakeLongRest(counted);
     const detail = [
       ...outcome.log,
+      ...movingOut.map((r) => `Moved ${cardName(r)} to the vault`),
+      ...movingIn.map((r) => `Recalled ${cardName(r)}, free during this rest`),
       `GM gains ${String(outcome.gmFear)} Fear`,
       becameDue ? longRestRule(rules) : null,
     ]
@@ -357,6 +437,7 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
     setKind(null);
     setPicks([]);
     setWithParty(false);
+    setSwaps([]);
   };
 
   const kindButton = (which: RestKind, label: string): React.JSX.Element => (
@@ -389,9 +470,9 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
     </p>
   );
 
-  const loadout = resolveCards(character.loadout, index);
-  const vault = resolveCards(character.vault, index);
-  const unreadable = character.loadout.length - loadout.length;
+  const loadout = resolveCards(staged.loadout, index);
+  const vault = resolveCards(staged.vault, index);
+  const unreadable = staged.loadout.length - loadout.length;
 
   return (
     <Disclosure id="rest" characterId={character.id} label="Rest & downtime" summary={summary}>
@@ -671,6 +752,15 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                   {note.toUpperCase()}
                 </span>
               ))}
+              {/* The cards are part of what this press will do, so they are in
+                  the panel that says what it will do. Netted, and named by the
+                  same two lists the log entry is built from. */}
+              {moving > 0 && (
+                <span className="t-meta" style={{ color: 'var(--dim)' }}>
+                  {moving === 1 ? '1 CARD WILL MOVE' : `${String(moving)} CARDS WILL MOVE`} WITH
+                  THIS REST
+                </span>
+              )}
               {/* The die, not a number. The app has not rolled it - the log
                   says the real one afterwards - and the flat half comes back
                   from `takeRest` with the die suppressed rather than being
@@ -688,25 +778,11 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
               )}
             </div>
 
-            <div
-              className="stack"
-              style={{ flex: 'none', gap: 12, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}
-            >
-              <button
-                type="button"
-                onClick={commit}
-                className="btn btn-primary"
-                style={{ flex: 'none', minHeight: 56, width: '100%' }}
-              >
-                TAKE THE {kind === 'short' ? 'SHORT' : 'LONG'} REST
-              </button>
-            </div>
-
             <div className="stack" style={{ flex: 'none', gap: 6 }}>
               <div className="spread" style={{ flex: 'none' }}>
-                <span className="t-label">Cards move free during a rest</span>
+                <span className="t-label">Cards move free during this rest</span>
                 <span className="t-meta" style={{ color: 'var(--muted)' }}>
-                  {character.loadout.length} / 5 HELD
+                  {staged.loadout.length} / 5 HELD
                 </span>
               </div>
               {loadout.map((card) => (
@@ -719,7 +795,7 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                      a name that does not contain the words on the control
                      cannot be reached by saying them. */
                   label={`Move ${card.name} to vault, free during this rest`}
-                  onAct={() => update((c) => vaultCard(c, card.id))}
+                  onAct={() => stage(card.id, 'vault')}
                 />
               ))}
               {unreadable > 0 && (
@@ -728,7 +804,11 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                 </span>
               )}
               {vault.map((card) => {
-                const check = canAddToLoadout(character, card, { downtime: true });
+                // Against the staged sheet: a card sent to the vault a tap ago
+                // has freed its slot in the rest being proposed, and a gate
+                // reading the untouched sheet would refuse the recall with
+                // "Loadout is full (5)" while showing four rows above it.
+                const check = canAddToLoadout(staged, card, { downtime: true });
                 return (
                   <SwapRow
                     key={card.id}
@@ -741,7 +821,7 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                         ? `Recall ${card.name} free during this rest`
                         : `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
                     }
-                    onAct={() => recallFree(card)}
+                    onAct={() => stage(card.id, 'loadout')}
                   />
                 );
               })}
@@ -750,6 +830,24 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                   This sheet is holding no cards this build can read, so there is nothing to move.
                 </p>
               )}
+            </div>
+
+            {/* Last on the surface, because it is the only thing here that
+                writes: the moves above it and the card moves above it are both
+                proposals until this is pressed, and a control that applied half
+                of what is drawn over it would be the worse of the two. */}
+            <div
+              className="stack"
+              style={{ flex: 'none', gap: 12, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}
+            >
+              <button
+                type="button"
+                onClick={commit}
+                className="btn btn-primary"
+                style={{ flex: 'none', minHeight: 56, width: '100%' }}
+              >
+                TAKE THE {kind === 'short' ? 'SHORT' : 'LONG'} REST
+              </button>
             </div>
           </>
         )}

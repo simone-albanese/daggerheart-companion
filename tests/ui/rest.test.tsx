@@ -541,34 +541,119 @@ describe('the interrupted long rest', () => {
 });
 
 describe('the free swap', () => {
-  it('moves a card in through the loadout’s own gate, at no Stress', () => {
+  it('moves a card in when the rest happens, and not on the tap that asks', () => {
     const base = playedCharacter();
     const c = seed({ stress: { marked: 0, max: base.stress.max } });
     const card = index.cards.get(c.vault[0]!)!;
     expect(card.recallCost, 'the fixture card is free anyway').toBeGreaterThan(0);
 
-    mount(c);
+    mount(c, scriptedRng(2));
     open('short');
     click(named(`Recall ${card.name} free during this rest`));
 
+    /*
+     * Nothing yet. The card is free *because* a rest is happening, and no rest
+     * has happened: the price would have been taken for a downtime that had not
+     * occurred and, if the player walked away here, never would.
+     */
+    const staged = useApp.getState().characters[0]!;
+    expect(staged.loadout, 'the card moved before the rest it is free during').not.toContain(
+      card.id,
+    );
+    expect(staged.vault).toContain(card.id);
+    expect(useApp.getState().log, 'a free recall logged before the rest').toEqual([]);
+    // The proposal is on the screen, though: the row has changed sides, so the
+    // one press left is the one that writes.
+    expect(text()).toContain('1 CARD WILL MOVE WITH THIS REST');
+    expect(maybe(`Move ${card.name} to vault, free during this rest`)).toBeDefined();
+
+    click(byText('TAKE THE SHORT REST')!);
     const after = useApp.getState().characters[0]!;
     expect(after.loadout).toContain(card.id);
     expect(after.vault).not.toContain(card.id);
     expect(after.stress.marked, 'the rest charged the scene price').toBe(0);
-    // And the log says which of the two zeroes this was.
-    expect(useApp.getState().log[0]!.label).toBe(`Recalled ${card.name}`);
-    expect(useApp.getState().log[0]!.detail).toBe('Free during this rest');
+    expect(after.consecutiveShortRests, 'the rest that made it free').toBe(1);
+    // One event, one entry: the card moved as part of this rest, so it is in
+    // the entry that records the rest rather than in a note beside it.
+    const entry = useApp.getState().log[0]!;
+    expect(useApp.getState().log).toHaveLength(1);
+    expect(entry.kind).toBe('rest');
+    expect(entry.detail).toContain(`Recalled ${card.name}, free during this rest`);
+  });
+
+  it('leaves the sheet alone when the rest is never taken', () => {
+    const c = seed();
+    const out = index.cards.get(c.loadout[0]!)!;
+    const back = index.cards.get(c.vault[0]!)!;
+    mount(c);
+    open('short');
+    click(named(`Move ${out.name} to vault, free during this rest`));
+    click(named(`Recall ${back.name} free during this rest`));
+    expect(text()).toContain('2 CARDS WILL MOVE WITH THIS REST');
+
+    // Walking away is the case the old shape got wrong: two cards had already
+    // moved at the vault's rest price with no rest anywhere on the record.
+    expect(useApp.getState().characters[0]).toStrictEqual(c);
+    expect(useApp.getState().log).toEqual([]);
   });
 
   it('sends a card out to the vault, which was always free', () => {
     const c = seed();
     const card = index.cards.get(c.loadout[0]!)!;
-    mount(c);
+    mount(c, scriptedRng(2));
     open('short');
     click(named(`Move ${card.name} to vault, free during this rest`));
+    expect(useApp.getState().characters[0]!.loadout, 'moved before the rest').toContain(card.id);
+
+    click(byText('TAKE THE SHORT REST')!);
     const after = useApp.getState().characters[0]!;
     expect(after.loadout).not.toContain(card.id);
     expect(after.vault).toContain(card.id);
+    expect(useApp.getState().log[0]!.detail).toContain(`Moved ${card.name} to the vault`);
+  });
+
+  it('nets a card sent out and brought back rather than reporting two moves', () => {
+    const c = seed();
+    const card = index.cards.get(c.loadout[0]!)!;
+    mount(c, scriptedRng(2));
+    open('short');
+    click(named(`Move ${card.name} to vault, free during this rest`));
+    click(named(`Recall ${card.name} free during this rest`));
+    // Nothing will move, so the panel says nothing and the log says nothing:
+    // the entry describes the sheet before and after, not the taps between.
+    expect(text()).not.toContain('WILL MOVE WITH THIS REST');
+
+    click(byText('TAKE THE SHORT REST')!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).toContain(card.id);
+    expect(useApp.getState().log[0]!.detail).not.toContain(card.name);
+  });
+
+  it('re-gates a recall against the rest as proposed, not the sheet as it stands', () => {
+    // Five held, so every vault row is refused. Sending one out frees the slot
+    // in the rest being proposed - and the cap that says so is the engine's, on
+    // the staged sheet, rather than a second count kept by this screen.
+    const base = playedCharacter();
+    const c = seed({
+      loadout: [...base.loadout, ...base.vault.slice(0, 2)],
+      vault: base.vault.slice(2),
+    });
+    const wanted = index.cards.get(c.vault[0]!)!;
+    const spare = index.cards.get(c.loadout[0]!)!;
+    mount(c, scriptedRng(2));
+    open('short');
+    expect(maybe(`Recall ${wanted.name} free during this rest`)).toBeUndefined();
+
+    click(named(`Move ${spare.name} to vault, free during this rest`));
+    expect(text()).toContain('4 / 5 HELD');
+    click(named(`Recall ${wanted.name} free during this rest`));
+    expect(text()).toContain('5 / 5 HELD');
+
+    click(byText('TAKE THE SHORT REST')!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout, 'the swap the screen promised').toContain(wanted.id);
+    expect(after.loadout).not.toContain(spare.id);
+    expect(after.loadout, 'the cap the engine enforces').toHaveLength(5);
   });
 
   it('refuses with the cap everybody else uses, in words', () => {

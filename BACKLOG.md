@@ -724,9 +724,14 @@ of. It is also the one place a player looks after a fight ends.
 - [x] ~~Offer the free loadout/vault swap in the same flow.~~ — **done**,
       through `canAddToLoadout` / `recallCard` with `{ downtime: true }` — the
       flag `loadout.ts` has carried since it was written and this is its first
-      caller. `useRecall` moved to `src/ui/player/recall.ts` and now serves the
-      vault, the card browser and the rest, so MAX_LOADOUT and the log line
-      each exist once.
+      caller. *In the same flow* means in the same press: a tap stages the swap
+      against the sheet the rest is being proposed against, and COMMIT applies
+      the moves and the card moves together and records both in one `'rest'`
+      entry. Applied on the tap it was the rest's price for a rest that had not
+      happened — and it vanished the moment one did, because COMMIT clears
+      `kind`. `useRecall` in `src/ui/player/recall.ts` keeps the *scene* recall
+      for the vault and the card browser; MAX_LOADOUT is enforced in one place
+      whichever surface is asking.
 - [x] ~~Refuse a short rest, in words.~~ — **done**, and the shape matters: the
       SHORT control is *removed* and replaced by the SRD's own sentence, read
       out of `dataset.rules`, plus the count this sheet holds and the fact that

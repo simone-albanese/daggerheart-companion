@@ -119,8 +119,11 @@ be wrong* at the foot of this entry.
   what this device watched: a sheet that arrived by QR arrives having counted
   nothing, and the fold says so instead of claiming you are ready.
 - **Cards move between loadout and vault for free during a rest**, through the
-  same five-card cap and the same recall as everywhere else, so the price
-  changes and nothing else does.
+  same five-card cap as everywhere else, so the price changes and nothing else
+  does. The move is part of the rest rather than something done beside it: it is
+  proposed with the moves, applied by the same press, and written into the
+  rest's own log entry. A card that moved the moment you tapped it would have
+  been charged the rest's price before the rest — and the rest might never come.
 - A recall that cost nothing used to be logged as "Free during downtime" even
   in the middle of a fight — 31 of the 189 cards have a Recall Cost of 0. The
   log now says which of the two it was.
