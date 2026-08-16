@@ -78,6 +78,8 @@ import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
+import { Reference } from '../../src/ui/gm/Reference.tsx';
+import { TierBenchmarks } from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
@@ -485,8 +487,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/GmTopBar.tsx::GmTopBar': () => (
     <GmTopBar layout="tablet" onOpenMenu={noop} onOpenTool={noop} />
   ),
-  'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} />,
+  'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
+  'gm/Reference.tsx::Reference': () => <Reference />,
+  'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (

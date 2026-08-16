@@ -9,7 +9,7 @@
  * is only defensible if the door is somewhere. It is here, at the top of the
  * screen, behind the campaign name that was already drawn there.
  *
- * ## Three blocks, in the order a hand reaches them
+ * ## Four blocks, in the order a hand reaches them
  *
  * **Where to go** is first because it is the reason the sheet has to exist at
  * all, and because a GM who opened it by accident wants out. Play, Cards and
@@ -17,7 +17,15 @@
  * including this one and a second route to it would be the only duplicated
  * destination in the app.
  *
- * **The campaigns** are second. Switching, making a new one, renaming the open
+ * **The rules** are second, and they are here rather than in the bottom bar for
+ * the reason `Reference.tsx` gives at length: ADD and SHOW are the continuous
+ * gestures of an evening and hold the thumb arc, while looking a rule up stops
+ * play, happens once or twice a session, and is read rather than pressed. That
+ * is the same kind of act as leaving the section or changing table, which is
+ * what this sheet already is. It is the second block and not the last because
+ * it is the one of the four a GM reaches for *during* a session.
+ *
+ * **The campaigns** are third. Switching, making a new one, renaming the open
  * one, and removing one behind two taps.
  *
  * **This device** is last, and is the block nothing had ever drawn. `useGm`
@@ -59,6 +67,7 @@
  * thumb. The inner column is 393 - 28 = 365px.
  *
  *   the three destinations   three across at (365 - 16) / 3 = 116 x 56 each
+ *   THE RULES AT HAND        full width, 365 x 44
  *   a campaign row           the name is the target, 365 - 44 - 8 = 313 x 44,
  *                            with REMOVE beside it as a 44px word
  *   RENAME / NEW CAMPAIGN    full-width, minHeight var(--tap) = 44
@@ -70,7 +79,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useApp, type Screen } from '../../store/state.ts';
-import { useGm } from './gmStore.ts';
+import { useGm, type GmRegion } from './gmStore.ts';
 
 /** Where MENU can go. Settings is deliberately not here - see the docblock. */
 const WAYS_OUT: Array<{ id: Screen; label: string }> = [
@@ -79,7 +88,18 @@ const WAYS_OUT: Array<{ id: Screen; label: string }> = [
   { id: 'build', label: 'BUILD' },
 ];
 
-export function MenuSheet({ onClose }: { onClose: () => void }): React.JSX.Element {
+export function MenuSheet({
+  onClose,
+  onOpenTool,
+}: {
+  onClose: () => void;
+  /**
+   * Opening a tool closes this sheet on its own - `Gm.tsx`'s `openTool` clears
+   * the sheet before it sets the tool - so this is not paired with `onClose`
+   * the way the destinations above it are.
+   */
+  onOpenTool: (tool: GmRegion) => void;
+}): React.JSX.Element {
   const setScreen = useApp((s) => s.setScreen);
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
@@ -115,6 +135,23 @@ export function MenuSheet({ onClose }: { onClose: () => void }): React.JSX.Eleme
         <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tab bar is not on this screen: the bottom of it belongs to ADD, SHOW and SAVE while
           you are running a session. Settings is where it always is, in the header.
+        </p>
+      </div>
+
+      <div className="stack" style={{ flex: 'none', gap: 8 }}>
+        <span className="t-label">THE RULES AT HAND</span>
+        <button
+          type="button"
+          onClick={() => onOpenTool('reference')}
+          aria-haspopup="dialog"
+          className="btn"
+          style={{ flex: 'none', minHeight: 'var(--tap)' }}
+        >
+          OPEN THE REFERENCE
+        </button>
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          The tables you would otherwise be turning pages for, read out of the SRD this app ships
+          rather than retyped from it — so a rules layer that changes one changes what you see.
         </p>
       </div>
 

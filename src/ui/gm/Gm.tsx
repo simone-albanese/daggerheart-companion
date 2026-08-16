@@ -20,7 +20,8 @@
  *
  * ## This file is the integrator, and holds two pieces of state
  *
- * `tool` is which of the five is open over the list, or none. Each one is
+ * `tool` is which of them is open over the list, or none - the five, plus the
+ * SRD reference MENU opens, which is a tool no session row can hold. Each one is
  * rendered inside a `GmSheet` and **unmounted** when it closes - never hidden.
  * That is not tidiness: `PartyBoard`'s scanner opens the camera in an effect
  * and stops it on unmount, so a sheet kept alive behind `display: none` leaves
@@ -104,6 +105,7 @@ import { GmTopBar } from './GmTopBar.tsx';
 import { flushGm, REPLACED_ON_LOAD, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
+import { Reference } from './Reference.tsx';
 import { SaveSheet } from './SaveSheet.tsx';
 import { Scene } from './Scene.tsx';
 import { SessionList } from './SessionList.tsx';
@@ -116,6 +118,7 @@ const TOOL_LABEL: Record<GmRegion, string> = {
   party: 'The party board',
   bestiary: 'Bestiary',
   countdowns: 'Fear and countdowns',
+  reference: 'The rules at hand',
 };
 
 /** The same, one per sheet. A dialog with no name is a dialog nobody can find. */
@@ -225,6 +228,7 @@ export function Gm(): React.JSX.Element {
           {tool === 'party' && <PartyBoard phone={phone} />}
           {tool === 'bestiary' && <Bestiary phone={phone} />}
           {tool === 'countdowns' && <Countdowns phone={phone} />}
+          {tool === 'reference' && <Reference />}
         </GmSheet>
       )}
 
@@ -233,7 +237,7 @@ export function Gm(): React.JSX.Element {
           label={sheet === 'show' ? showLabel(bestiary, partyBoard) : SHEET_LABEL[sheet]}
           onClose={closeSheet}
         >
-          {sheet === 'menu' && <MenuSheet onClose={closeSheet} />}
+          {sheet === 'menu' && <MenuSheet onClose={closeSheet} onOpenTool={openTool} />}
           {sheet === 'add' && <AddSheet onClose={closeSheet} />}
           {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
           {sheet === 'save' && <SaveSheet />}

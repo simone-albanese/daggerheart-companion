@@ -298,7 +298,16 @@ export interface Environment extends Sourced {
 export interface RulesSection extends Sourced {
   id: Ref;
   title: string;
-  /** Markdown-ish: paragraphs, `- ` bullets, `## ` subheads. */
+  /**
+   * Markdown-ish: paragraphs, `- ` bullets, `## ` subheads, and **pipe
+   * tables** - twelve of them across seven sections.
+   *
+   * The tables were missing from this sentence for a year, and that is a large
+   * part of why the benchmark tables a GM looks up by hand had no screen:
+   * anyone reading this type saw three shapes, the parser beside it read three
+   * shapes, and a table came through `paragraphs()` as one undifferentiated
+   * string. `src/ui/shared/ruleText.ts` reads all four.
+   */
   body: string;
 }
 
