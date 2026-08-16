@@ -258,6 +258,21 @@ describe('typing the dice in, for a table that rolls its own', () => {
   const slots = (): HTMLButtonElement[] =>
     buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Damage die '));
 
+  /**
+   * The one button in the row that is not a die slot.
+   *
+   * Found structurally rather than by its name, because the name is the thing
+   * under test: it changes three times over the life of this row, and a helper
+   * that searched for one of them could only ever see the state it named.
+   */
+  const control = (): HTMLButtonElement => {
+    const found = buttons().find(
+      (b) => !(b.getAttribute('aria-label') ?? '').startsWith('Damage die '),
+    );
+    if (found === undefined) throw new Error('no control beside the dice slots');
+    return found;
+  };
+
   it('draws one slot per die, each one saying which die it is', () => {
     mount(attack({ source: weapon({ count: 3, sides: 20, modifier: 2 }) }), typing);
     expect(slots()).toHaveLength(3);
@@ -319,26 +334,47 @@ describe('typing the dice in, for a table that rolls its own', () => {
     expect(shown.reduce((a, b) => a + b, 0) + 2).toBe(entry.total);
   });
 
-  it('names the switch that is off instead of greying out ROLL DAMAGE', () => {
+  it('names the switch that is off instead of greying out ROLL DAMAGE, before the dice and after', () => {
     /*
      * Typed dice on, digital dice off: the slots are the only way in, and the
      * button knows it. It takes its word from the affordance - ENTER YOUR DICE,
      * the same word the Duality bar wears in this state - because a disabled
      * control still saying ROLL DAMAGE is the app naming the thing it will not
      * do.
+     *
+     * And it has to hold on both sides of the roll. The control stays
+     * `disabled` for the whole of this build, so the accessible name after the
+     * dice land is on exactly the same dead target as the name before them -
+     * and it is the one nobody looks at, because the visible text is right.
      */
     mount(attack({ source: weapon({ count: 2, sides: 8, modifier: 2 }) }), rollAffordance(false, true));
     expect(slots()).toHaveLength(2);
-    const control = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Enter'));
-    expect(control, 'no control at all where the disabled one should be').toBeDefined();
-    expect(control!.disabled).toBe(true);
-    expect(control!.textContent).toContain('ENTER YOUR DICE');
-    expect(control!.textContent).not.toContain('ROLL DAMAGE ·');
+    expect(control().disabled).toBe(true);
+    expect(control().getAttribute('aria-label')).toBe('Enter each of the 2d8+2 dice above');
+    expect(control().textContent).toContain('ENTER YOUR DICE');
+    expect(control().textContent).not.toContain('ROLL DAMAGE ·');
 
     // And it still works: the roll this build cannot make is made by hand.
     typeFace(0, 6);
     typeFace(1, 7);
     expect(useApp.getState().log[0]!.total).toBe(15);
+
+    // Typing a total does not turn the roller on. The visible text is honest
+    // here - DAMAGE · 2d8+2 over 6 + 7 +2 = 15 - so the name is the only place
+    // this can lie, and it told the one user who cannot see the button is dead
+    // to press it.
+    expect(control().disabled, 'the control woke up when the last die landed').toBe(true);
+    const named = control().getAttribute('aria-label') ?? '';
+    expect(named).toContain('15 damage');
+    expect(named, 'a disabled control asked for a tap it cannot take').not.toMatch(/tap/i);
+    click(control());
+    expect(useApp.getState().log, 'the dead control rolled after all').toHaveLength(1);
+
+    // The way out this build does have: correct a face and the pool resolves
+    // again, which is what the name now says.
+    expect(named).toMatch(/change one/i);
+    typeFace(1, 8);
+    expect(useApp.getState().log[0]!.total).toBe(16);
   });
 
   it('leaves the character record alone on the typed path too', () => {

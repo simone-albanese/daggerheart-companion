@@ -286,16 +286,33 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
       : confirming
         ? `TAP AGAIN TO REPLACE ${result.total}`
         : damageArithmetic(result);
-  const name =
-    result === null
-      ? affordance.canRoll
-        ? `Roll ${spec} damage${attack.critical ? ', with the critical bonus' : ''}${
-            attack.succeeded === null ? ', if the attack hit' : ''
-          }`
-        : `Enter each of the ${spec} dice above`
+  /*
+   * The accessible name forks on `canRoll` first, and it has to.
+   *
+   * `disabled={!affordance.canRoll}` is on this control for the whole
+   * typed-dice-only build, and the name used to fork on `result` first - so the
+   * moment the last die landed it fell through to "Tap to roll it again." on a
+   * button that is dead. The visible text was right the whole time (`DAMAGE ·
+   * 2d8+2`, `6 + 7 +2 = 15`), which is what made it the worst version of this
+   * bug: the only user who was given the instruction was the one who could not
+   * see that there was nothing to press.
+   *
+   * What that build can actually do is what it is now told: correct a face
+   * above, and `setFace` resolves the pool again. `confirming` is only on the
+   * rollable side because only `roll` can set it, and only a live control can
+   * call `roll`.
+   */
+  const name = affordance.canRoll
+    ? result === null
+      ? `Roll ${spec} damage${attack.critical ? ', with the critical bonus' : ''}${
+          attack.succeeded === null ? ', if the attack hit' : ''
+        }`
       : confirming
         ? `Roll ${spec} again, replacing ${result.total}`
-        : `${result.total} damage. Tap to roll it again.`;
+        : `${result.total} damage. Tap to roll it again.`
+    : result === null
+      ? `Enter each of the ${spec} dice above`
+      : `${result.total} damage, off the dice above. Change one to work it out again.`;
 
   const button = (
     <button
