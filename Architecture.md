@@ -405,6 +405,36 @@ ogni tre settimane perde il personaggio fra una sessione e l'altra.
 Il personaggio è il lavoro di mesi dell'utente. Perderlo è l'unico bug davvero
 imperdonabile di un'app come questa.
 
+### 6.1 Regola dello schema: nessuno schema parte senza il suo convertitore
+
+`SCHEMA_VERSION` (`shared/types.ts`) governa i file `.dhchar` e `.dhbackup` **e**
+i record in IndexedDB. Alzarlo è un'operazione incompleta finché non ci sono
+tutte e tre queste cose, e `tests/store/migrations.test.ts` fallisce se ne manca
+una:
+
+1. un convertitore in `shared/migrations.ts` con chiave sulla versione che si
+   lascia — la catena avanza di un passo per volta, così nessuno dovrà mai
+   scrivere un convertitore da N a corrente;
+2. una fixture committata in `tests/fixtures/schema/` scritta dalla build che si
+   sta superando, mai rigenerata dalla build nuova: una fixture riscritta
+   dimostrerebbe soltanto che il codice attuale sa leggere il proprio output,
+   che non è la domanda;
+3. `DB_VERSION` con il suo ramo `oldVersion` in `src/store/db.ts`, se cambia
+   anche la forma del database.
+
+Il motivo è che questa app fa **convivere due build sullo stesso dispositivo per
+scelta**: `UpdateBanner` propone il worker in attesa invece di sostituire il
+bundle a sessione aperta. Senza il controllo, la build vecchia legge un record
+nuovo, lo interpreta con il proprio schema e lo riscrive attraverso il debounce
+di 400 ms — degradando il personaggio sul posto, nell'unica copia, senza una
+parola sullo schermo. Perciò `readLibrary()` mette in quarantena ciò che è più
+recente della build invece di renderizzarlo, e `putCharacter()` si rifiuta di
+scriverci sopra.
+
+`OLDEST_READABLE` è 3 e non 1 perché gli schemi 1 e 2 non sono mai esistiti fuori
+dallo sviluppo: `SCHEMA_VERSION` vale 3 dal primo commit. Scrivere convertitori
+per loro significherebbe inventarsi una storia con cui essere compatibili.
+
 ---
 
 ## 7. Modello dati
