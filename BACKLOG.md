@@ -659,8 +659,8 @@ import time, which assumes the ref stays parked forever and fixes the counter
 disagreement instead. The backlog cannot accept the scenario as real there and
 treat it as hypothetical here.
 
-### P1-7 · Rests and downtime, wired to a screen — *decided: it ships*
-`src/engine/rest.ts` · `src/ui/player/Play.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
+### ~~P1-7 · Rests and downtime, wired to a screen~~ — **done, `d88289c` · `adeaae4` · `851d04c`**
+`src/engine/rest.ts` · `src/ui/player/Rest.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
 
 P1-5 left this as a question — wire the rest engine or say out loud that rest
 is not in 1.0. It is answered: rest ships, with the arithmetic done for the
@@ -701,22 +701,51 @@ block. A rest happens between conflicts and never mid-roll, so it must not take
 a pixel from the tokens or the roll path, which is what P2-4 measures the cost
 of. It is also the one place a player looks after a fight ends.
 
-- [ ] Persist the consecutive-short-rest count on `Character`. **After P0-8**,
-      or behind it in the same change.
-- [ ] A rest surface in the Play scroll: choose short or long, pick two moves
-      with repeats allowed, see what each will clear *before* committing, then
-      commit. Propose and then apply, the way the incoming-damage calculator
-      does — never apply on open, because `takeRest` rolls dice and a roll that
-      happens because you looked at a screen is a roll you cannot refuse.
-- [ ] Offer the free loadout/vault swap in the same flow, through the existing
-      loadout operations rather than a second implementation of the cap.
-- [ ] Refuse a short rest, in words, when `mustTakeLongRest` says the next one
-      must be long — and say why, citing the rule rather than just disabling.
-- [ ] Produce the `'rest'` log entry. `state.ts:29` has declared that kind since
-      the first commit and nothing has ever written one.
-- [ ] The engine takes an injected `rng`; the screen must pass the real one and
-      the test must pass a scripted one, so the numbers in a test are the
-      numbers on screen.
+- [x] ~~Persist the consecutive-short-rest count on `Character`.~~ — **done**,
+      `d88289c`, and it is the first real `SCHEMA_VERSION` bump this repository
+      has taken: 3 → 4, one converter writing `0` (a schema-3 build never
+      counted, so the app does not know and will not guess), two new committed
+      fixtures, and `tests/fixtures/schema/v3.*` left byte-identical, because
+      those are the evidence and regenerating them would only prove the new
+      code can read its own output. `DB_VERSION` and `CODEC_VERSION` did not
+      move; Architecture 6.1 records what that cost. The write itself is
+      `adeaae4`, and it lives in `takeRest` rather than on the screen because
+      `mustTakeLongRest` reads the number eight lines below it — a screen that
+      forgot to increment would leave the refusal permanently unreachable,
+      which is the state this field was added out of.
+- [x] ~~A rest surface in the Play scroll.~~ — **done**, `851d04c`,
+      `src/ui/player/Rest.tsx`, between the vault and the carried items. It
+      proposes by calling `takeRest` itself with every `fixedRoll` pinned to 1
+      and then to 4 and an `Rng` that **throws**, so the bracket on screen and
+      the numbers at the commit come out of one implementation and the preview
+      cannot spend a die. Each row is bracketed against the moves that would
+      already have run, so a second Tend to Wounds reads what is actually left
+      rather than repeating the first one's promise.
+- [x] ~~Offer the free loadout/vault swap in the same flow.~~ — **done**,
+      through `canAddToLoadout` / `recallCard` with `{ downtime: true }` — the
+      flag `loadout.ts` has carried since it was written and this is its first
+      caller. `useRecall` moved to `src/ui/player/recall.ts` and now serves the
+      vault, the card browser and the rest, so MAX_LOADOUT and the log line
+      each exist once.
+- [x] ~~Refuse a short rest, in words.~~ — **done**, and the shape matters: the
+      SHORT control is *removed* and replaced by the SRD's own sentence, read
+      out of `dataset.rules`, plus the count this sheet holds and the fact that
+      a sheet arriving by QR arrives at zero. A disabled button with the word
+      SHORT still on it says the app could do this and will not.
+- [x] ~~Produce the `'rest'` log entry.~~ — **done**. The detail is the
+      engine's own lines verbatim, refusals included, plus the Fear that was
+      really rolled, plus the rule at the one moment it becomes true.
+- [x] ~~The engine takes an injected `rng`.~~ — **done**: `Play.tsx` passes
+      `cryptoRng` at both mounts, `tests/ui/rest.test.tsx` passes
+      `scriptedRng(3, 4, 2)` and asserts the marks, the log strings and
+      `rng.calls`, and every test that does not commit passes `refusingRng`.
+
+**One thing the item asked for and did not get a control:** *"an interrupted
+long rest gives only a short rest's benefits."* It is answered with the SRD's
+sentence quoted beside the long rest and nothing else, because nothing on the
+device can observe an interruption, and the honest route out — a short rest —
+is already a button on the same surface. A second control would have resolved
+to the same call while implying the app had seen something it cannot see.
 
 ## P2 — Unusable on a device we support
 

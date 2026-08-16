@@ -84,10 +84,30 @@ by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown
 advancement, distances in metres, the name generators. Source every word from
 `data/srd-1.0.json`; anything the shipped SRD does not carry does not ship.
 
-**P1-1 damage rolls** and **P1-7 rests**. Both were deliberately held back
-because they touch `Play.tsx` and `DualityRoll.tsx`, which the rebuild was
-rewriting. They are unblocked now. P1-7 adds a field to `Character`, so it is a
-schema change — the machinery exists, the policy is `Architecture.md` §6.1.
+**P1-1 damage rolls.** Held back because it touches `Play.tsx` and
+`DualityRoll.tsx`, which the rebuild was rewriting. Unblocked now.
+
+**P1-7 rests is done** — `d88289c`, `adeaae4`, `851d04c` — and it left three
+things a cold start needs to know before touching anything near the schema.
+
+- **`SCHEMA_VERSION` is 4, and `MIGRATIONS` is no longer empty.** There is one
+  converter, `from: 3`, and `OLDEST_READABLE` is still 3 because 3 is exactly
+  the version of the files already on people's disks. `Architecture.md` §6.1
+  now records what the bump cost rather than what it would cost.
+- **`tests/fixtures/schema/v3.dhchar` and `v3.dhbackup` are evidence, not
+  fixtures to be refreshed.** They were written by the build being superseded
+  and their *not* carrying `consecutiveShortRests` is the entire test. Do not
+  regenerate them, and do not "tidy them up" by adding the field: the existing
+  'keeps the fixture at the version its name claims' test would not catch that,
+  because a hand-added field leaves the stamp at 3. A test added with the bump
+  does. The `v4.*` pair beside them is this build's own output, committed so
+  whoever bumps to 5 has real schema-4 bytes to convert.
+- **The count does not ride the QR.** `CODEC_VERSION` stays 2 — the next format
+  number would be 3, and `adversarial.test.ts` pins that a single-bit flip of
+  the version nibble from 2 can never land on a readable format, which stops
+  being true from 3. So a sheet handed over by QR arrives having counted
+  nothing, and **no screen may present that number as the history of the
+  table**. It is why the fold's summary reads NONE COUNTED rather than READY.
 
 **P5-1(b) rename.** Renaming a character already works and is four gestures deep
 in the tab visited least, and the rename path does not enforce the unique-name
@@ -103,12 +123,13 @@ external URLs, full-text rule search. Written into `BACKLOG.md` P5-2.
 ## The fastest way to see what is still unwired
 
 `tests/harness/orphans.test.ts` holds `DELIBERATE`, and every entry names the
-backlog item that deletes it. It is the honest inventory: 43 exported symbols
-nothing in the shipped app reaches. `rollDamage` and the five `attack.ts`
-helpers are P1-1; the four `rest.ts` exports are P1-7; `resolvePlaceholders`,
-`characterRefs` and `missingSlugs` are P1-6's *healing* half, which is still
-open even though its *display* half shipped. **Wiring one of them fails the
-suite until its line is removed. That is the intended behaviour.**
+backlog item that deletes it. It is the honest inventory of what the shipped
+app does not reach. `rollDamage` and the five `attack.ts` helpers are P1-1;
+`resolvePlaceholders`, `characterRefs` and `missingSlugs` are P1-6's *healing*
+half, which is still open even though its *display* half shipped. **Wiring one
+of them fails the suite until its line is removed. That is the intended
+behaviour** — and it has now happened once for real: the four `rest.ts` entries
+came off the list in `851d04c`, in the same commit that gave them a caller.
 
 ## Loose ends left deliberately
 

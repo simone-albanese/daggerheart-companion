@@ -206,7 +206,12 @@ a eseguire le regole. Qui il confine è dichiarato.
 - Proficiency per livello (1 · +1 a liv. 2 · +1 a liv. 5 · +1 a liv. 8)
 - Tiro di danno = Proficiency × dado dell'arma + modificatore fisso
 - Esito del Duality Roll: successo/fallimento, con Hope o Fear, critico sui pari
-- Loadout massimo 5, Recall Cost da pagare in Stress
+- Loadout massimo 5, Recall Cost da pagare in Stress — zero durante un riposo,
+  che è lo stesso `canAddToLoadout` con un flag e non un secondo tetto
+- Riposi: 1d4+Tier su Ferite, Stress e slot armatura, tagliato a quanto è
+  davvero segnato; Hope da Prepare (1 da solo, 2 con il gruppo); Fear del GM
+  (1d4 sul breve, 1d4 + PG sul lungo); e il conteggio dei riposi brevi
+  consecutivi, che è ciò che fa scattare la regola dei tre
 - Conversione dell'oro (10 manciate = 1 sacca, 10 sacche = 1 forziere)
 - Battle points del GM: `(3 × PG) + 2`, con i costi per ruolo
 - Vincoli di livellamento: quali avanzamenti sono disponibili in quale tier
@@ -227,6 +232,17 @@ finirebbe a combattere contro l'app invece di usarla.
 **Via di mezzo utile:** le feature con un effetto numerico dichiarato ottengono un
 pulsante che *propone* l'azione — "Tusks: +1d6 al danno" applica il bonus al tiro
 corrente se lo tocchi. Proposta, mai automatismo.
+
+Il riposo (P1-7) è la stessa forma portata all'estremo, ed è il caso che la
+rende una regola invece che un'abitudine: `takeRest` tira i dadi, quindi
+l'anteprima chiama *la stessa funzione* con ogni 1d4 fissato a 1 e poi a 4 e le
+passa un `Rng` che solleva un'eccezione. Il giocatore vede la forbice — "3–5
+Ferite di 5" — prima di toccare qualsiasi cosa, e i dadi veri vengono tirati
+solo al commit. Un'anteprima che tirasse davvero spenderebbe i dadi del tavolo
+per disegnare uno schermo, e un tiro che avviene perché hai aperto una
+schermata è un tiro che non puoi rifiutare. Corollario: dell'unica riga che
+l'app non sa calcolare — la Fear del GM, che non è ancora stata tirata —
+l'anteprima stampa il dado e non un numero.
 
 ---
 
