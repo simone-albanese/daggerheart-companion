@@ -148,6 +148,38 @@ const openReference = (): void => {
   click(named('OPEN THE REFERENCE'));
 };
 
+/**
+ * Every topic in turn, with every fold on it opened, and the check run on each.
+ *
+ * The two whole-screen properties below - the 44px floor and the column width -
+ * are only worth having if they cover the topic a builder added last, so they
+ * are swept rather than pointed at the one the region opens on.
+ */
+const eachTopic = (check: (topic: string) => void): void => {
+  const strip = container.querySelector('[aria-label="What to look up"]')!;
+  const topics = [...strip.querySelectorAll('button')].map(
+    (b) => b.getAttribute('aria-label') ?? '',
+  );
+  for (const topic of topics) {
+    click(named(topic));
+    // Only the folds inside the reference: the GM bar behind the sheet carries
+    // `aria-expanded` on ADD, SHOW and SAVE, and opening one of those would
+    // close the very dialog this is sweeping.
+    for (let i = 0; i < 40; i++) {
+      const shut = folds().find((b) => b.getAttribute('aria-expanded') === 'false');
+      if (shut === undefined) break;
+      click(shut);
+    }
+    check(topic);
+  }
+};
+
+/** The folds of whatever the reference is currently drawing. */
+const folds = (): HTMLButtonElement[] =>
+  [
+    ...(container.querySelector('[role="dialog"]')?.querySelectorAll('button') ?? []),
+  ].filter((b) => b.getAttribute('aria-expanded') !== null);
+
 /** A declared length in px. Tokens resolve as they do below 1180px. */
 function px(value: string): number {
   if (value === 'var(--tap)' || value === 'var(--control)') return 44;
@@ -229,25 +261,29 @@ describe('what the reference draws', () => {
 });
 
 describe('the shape of it on a phone', () => {
-  it('never declares a target under the 44px floor', () => {
+  it('never declares a target under the 44px floor, on any topic', () => {
     openReference();
-    const small = buttons()
-      .map((b) => ({
-        name: b.getAttribute('aria-label') ?? (b.textContent ?? '').trim().slice(0, 30),
-        h: Math.max(px(b.style.height), px(b.style.minHeight)),
-      }))
-      .filter((t) => t.h < 44);
-    expect(small.map((t) => `${t.name} (${String(t.h)}px)`)).toEqual([]);
+    eachTopic((topic) => {
+      const small = buttons()
+        .map((b) => ({
+          name: b.getAttribute('aria-label') ?? (b.textContent ?? '').trim().slice(0, 30),
+          h: Math.max(px(b.style.height), px(b.style.minHeight)),
+        }))
+        .filter((t) => t.h < 44);
+      expect(small.map((t) => `${t.name} (${String(t.h)}px)`), topic).toEqual([]);
+    });
   });
 
-  it('never forces the column wider than the phone', () => {
+  it('never forces the column wider than the phone, on any topic', () => {
     openReference();
     // 393 less the 12px this region pads either side.
     const COLUMN = 369;
-    const wide = [...container.querySelectorAll<HTMLElement>('*')]
-      .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
-      .map((el) => `${el.tagName}.${String(el.className)} ${el.style.width}/${el.style.minWidth}`);
-    expect(wide, 'these are wider than the column, so the page scrolls sideways').toEqual([]);
+    eachTopic((topic) => {
+      const wide = [...container.querySelectorAll<HTMLElement>('*')]
+        .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
+        .map((el) => `${el.tagName}.${String(el.className)} ${el.style.width}/${el.style.minWidth}`);
+      expect(wide, `${topic}: wider than the column, so the page scrolls sideways`).toEqual([]);
+    });
   });
 
   it('carries its own scroller, because the sheet it opens in clips', () => {
@@ -339,10 +375,21 @@ describe('the topic strip', () => {
       'Improvise an adversary',
       'Fear',
       'Advancing a countdown',
+      'Range and distance',
     ]);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+      'true',
+      'false',
+      'false',
+      'false',
+    ]);
     click(chips[1]!);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+      'false',
+      'true',
+      'false',
+      'false',
+    ]);
   });
 
   it('shows one subject at a time, so the other is gone rather than below', () => {
@@ -442,5 +489,76 @@ describe('the advancement chart, on a dynamic countdown', () => {
       (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
     );
     expect(pressable.map((b) => b.textContent)).toEqual([]);
+  });
+});
+
+describe('the distances, and the metres the SRD does not print', () => {
+  const distance = (): void => {
+    openReference();
+    click(named('Range and distance'));
+  };
+
+  it('prints the SRD’s own sentence for every range', () => {
+    distance();
+    expect(text()).toContain('Close enough to see fine details, about 5-10 feet away.');
+    expect(text()).toContain('SRD 1.0 · P.40');
+    // The six names, including the two the SRD gives no distance for.
+    for (const name of ['Melee', 'Very Close', 'Close', 'Far', 'Very Far', 'Out of Range']) {
+      expect(text(), name).toContain(name);
+    }
+  });
+
+  it('never prints a metric figure without saying whose arithmetic it is', () => {
+    distance();
+    const figures = [...container.querySelectorAll<HTMLElement>('*')].filter((el) =>
+      /≈ [\d.]+(-[\d.]+)? m/.test(el.textContent ?? ''),
+    );
+    expect(figures.length).toBeGreaterThan(0);
+    // Every element that carries a figure carries the label too, down to the
+    // innermost one - a metric number on its own beside an SRD stamp is the
+    // app quoting itself as the book.
+    for (const el of figures) {
+      expect(el.textContent, el.textContent ?? '').toContain('COMPUTED BY THIS APP');
+    }
+    // And the legend states the multiplication and the rounding in full.
+    expect(text()).toContain('0.3048');
+    expect(text()).toContain('nearest half metre below ten');
+  });
+
+  it('converts what the SRD gives, at the figures the arithmetic actually yields', () => {
+    distance();
+    expect(text()).toContain('≈ 1.5-3 m');
+    expect(text()).toContain('≈ 30-91 m');
+    // 0.3 instead of 0.3048 and 300 feet reads 90 m; whole metres everywhere
+    // and 5 feet reads 2 m.
+    expect(text()).not.toContain('≈ 30-90 m');
+  });
+
+  it('gives Melee no metric figure, because the SRD gives it no number', () => {
+    distance();
+    const melee = [...container.querySelectorAll<HTMLElement>('article')].find((el) =>
+      (el.textContent ?? '').startsWith('Melee'),
+    )!;
+    expect(melee.textContent).toContain('up to a few feet away');
+    expect(melee.textContent).not.toContain('≈');
+  });
+
+  it('folds away the four subheads that are read once, and opens shut', () => {
+    distance();
+    expect(folds().map((b) => (b.textContent ?? '').trim())).toEqual([
+      'Optional Rule: Defined Ranges',
+      'MOVEMENT UNDER PRESSURE',
+      'AREA OF EFFECT',
+      'LINE OF SIGHT & COVER',
+    ]);
+    expect(folds().map((b) => b.getAttribute('aria-expanded'))).toEqual([
+      'false',
+      'false',
+      'false',
+      'false',
+    ]);
+    expect(text()).not.toContain('3 squares');
+    click(folds()[0]!);
+    expect(text()).toContain('3 squares');
   });
 });

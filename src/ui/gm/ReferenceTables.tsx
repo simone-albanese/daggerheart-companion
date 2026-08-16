@@ -23,12 +23,15 @@ import { Fragment, useMemo } from 'react';
 import { useApp } from '../../store/state.ts';
 import type { Countdown } from '../../engine/encounter.ts';
 import type { Tier } from '../../../shared/types.ts';
+import { Fold } from '../shared/Fold.tsx';
 import {
   adversaryBenchmarks,
   countdownAdvancement,
   environmentBenchmarks,
   fearGuidance,
+  rangeReference,
   type BenchmarkTable,
+  type RangePart,
 } from '../shared/srdReference.ts';
 import { useGm } from './gmStore.ts';
 
@@ -402,6 +405,140 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
           </Fragment>
         ))}
       </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * What Close and Far are in feet, and what this app makes of that in metres.
+ *
+ * ## The metres are the app talking, and the screen says so twice
+ *
+ * `data/srd-1.0.json` carries no metric column; the book is written in feet and
+ * inches. So every metric figure here is arithmetic this app did - feet times
+ * 0.3048 - and it is drawn in `--dim` on its own line, prefixed `≈`, with the
+ * words COMPUTED BY THIS APP in the same element as the number, under a legend
+ * that states the multiplication and the rounding in full. A metric figure
+ * printed bare beside an `SRD 1.0 · P.40` stamp would be the app quoting itself
+ * as the book, which is the licence-shaped version of the rule this project
+ * keeps everywhere else.
+ *
+ * A bullet the SRD gives no figure for gets no figure here. Two of the six
+ * ranges are like that, and a default would be the app inventing a distance the
+ * book deliberately left to the fiction.
+ *
+ * ## Six cards, then four folds
+ *
+ * The GM who opens this wants the six ranges; the rest of the section - the
+ * grid rule, moving under pressure, area of effect, cover - is what they read
+ * once. So the opening block is drawn out and every `## ` subhead after it
+ * becomes a shut `Fold` labelled with the SRD's own heading, which takes the
+ * topic from about 2,600px to about 1,250 and puts four 44px targets where
+ * three screens of prose were.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * The column is 393 - 24 of region padding = 369px, and inside a card's 10px
+ * padding 349. The longest bullet in the shipped section is 258 characters at
+ * `.t-read` - 13px/1.45, about 6.3px a character - so 56 to a line, five lines,
+ * 94px; with the label row and the metric line a card is about 150px and the
+ * six come to 940. `≈ 1.5-3 m · COMPUTED BY THIS APP` is 32 characters at
+ * `.t-meta` (10px mono at 0.06em, about 6.6px each) = 211px, one line inside
+ * 349 at every width this app draws.
+ *
+ * Nothing in the six cards is a target. A range is a fact you read; there is
+ * nothing for the app to do with it, and this component draws no button of its
+ * own beyond the fold headers, which are 44px and full width.
+ */
+export function RangeReference(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const ranges = useMemo(() => rangeReference(dataset.rules), [dataset]);
+
+  if (ranges.opening.length === 0 && ranges.sections.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no range section, so there is nothing to quote and nothing to convert.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {ranges.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{ranges.page === null ? '' : ` · P.${String(ranges.page)}`}
+        </span>
+      </div>
+
+      {/*
+        Above the text it qualifies, and named for what it is. The rest of this
+        screen is the SRD; this paragraph and the ≈ lines below are not.
+      */}
+      <div className="panel stack" style={{ flex: 'none', gap: 6, padding: 10 }}>
+        <span className="t-label" style={{ color: 'var(--hope)' }}>
+          THE METRES ARE THIS APP&rsquo;S ARITHMETIC
+        </span>
+        <span className="t-dense" style={{ color: 'var(--text-3)' }}>
+          The rules are written in feet and carry no metric figure at all. Where they give one in
+          feet, this app multiplies it by 0.3048 — the international foot — and rounds to the
+          nearest half metre below ten and the nearest whole metre above. Where they give none,
+          neither does this.
+        </span>
+      </div>
+
+      <RangeParts parts={ranges.opening} />
+
+      {ranges.sections.map((section) => (
+        <Fold key={section.heading} label={section.heading}>
+          <RangeParts parts={section.parts} />
+        </Fold>
+      ))}
+    </>
+  );
+}
+
+/** A block of the range section: its prose and its labelled bullets, in order. */
+function RangeParts({ parts }: { parts: RangePart[] }): React.JSX.Element {
+  return (
+    <>
+      {parts.map((part, i) => {
+        // The index is the key because the book's order is the identity: two
+        // paragraphs of a rules body may legitimately be equal strings.
+        const key = `${part.kind}-${String(i)}`;
+        if (part.kind === 'text') {
+          return (
+            <p key={key} className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+              {part.text}
+            </p>
+          );
+        }
+        return (
+          <div key={key} className="stack" style={{ flex: 'none', gap: 6 }}>
+            {part.entries.map((entry) => (
+              <article
+                key={entry.label}
+                className="panel stack"
+                style={{ flex: 'none', gap: 5, padding: 10, minWidth: 0 }}
+              >
+                <span style={{ font: '700 14px/1.2 var(--sans)' }}>{entry.label}</span>
+                <span className="t-read" style={{ maxWidth: '62ch' }}>
+                  {entry.text}
+                </span>
+                {entry.metres !== null && (
+                  <span className="t-meta" style={{ color: 'var(--dim)' }}>
+                    ≈ {entry.metres} · COMPUTED BY THIS APP
+                  </span>
+                )}
+              </article>
+            ))}
+          </div>
+        );
+      })}
     </>
   );
 }

@@ -22,7 +22,11 @@ import {
   countdownAdvancement,
   environmentBenchmarks,
   fearGuidance,
+  metreRange,
+  metresFromFeet,
+  rangeReference,
   type FearScene,
+  type RangeEntry,
 } from '../../src/ui/shared/srdReference.ts';
 
 const dataset = srd as unknown as Dataset;
@@ -243,5 +247,140 @@ describe('countdownAdvancement', () => {
       rows: [],
       page: null,
     });
+  });
+});
+
+describe('metresFromFeet', () => {
+  it('gives the SRD’s own five figures the metres they come to', () => {
+    // 0.3048 exactly. Use 0.3 and 300 feet comes out at 90 instead of 91.
+    expect(metresFromFeet(5)).toBe(1.5);
+    expect(metresFromFeet(10)).toBe(3);
+    expect(metresFromFeet(30)).toBe(9);
+    expect(metresFromFeet(100)).toBe(30);
+    expect(metresFromFeet(300)).toBe(91);
+  });
+
+  it('keeps half metres while they still say something, and drops them after', () => {
+    // Round to whole metres everywhere and the two shortest ranges collapse
+    // into each other: 5 feet and 10 feet would both read 2 m and 3 m.
+    expect(metresFromFeet(5)).toBe(1.5);
+    // Continuous across the change of rounding: no gap and no jump at ten.
+    expect(metresFromFeet(32)).toBe(10);
+    expect(metresFromFeet(33)).toBe(10);
+  });
+});
+
+describe('metreRange', () => {
+  it('prints the two ends, and one end when they round together', () => {
+    expect(metreRange([5, 10])).toBe('1.5-3 m');
+    expect(metreRange([30, 100])).toBe('9-30 m');
+    // "3-3 m" is not a range, it is a rounding artefact wearing a dash.
+    expect(metreRange([10, 10])).toBe('3 m');
+  });
+});
+
+describe('rangeReference', () => {
+  const guide = (): ReturnType<typeof rangeReference> => rangeReference(rules);
+  const ranges = (): RangeEntry[] => {
+    const part = guide().opening.find((p) => p.kind === 'entries');
+    if (part?.kind !== 'entries') throw new Error('no range list in maps-range-and-movement');
+    return part.entries;
+  };
+
+  it('gives the six ranges in the SRD’s order, under the SRD’s own names', () => {
+    expect(ranges().map((e) => e.label)).toEqual([
+      'Melee',
+      'Very Close',
+      'Close',
+      'Far',
+      'Very Far',
+      'Out of Range',
+    ]);
+    expect(guide().title).toBe('Maps, Range, and Movement');
+    expect(guide().page).toBe(40);
+  });
+
+  it('converts every figure the SRD prints, and invents none where it prints nothing', () => {
+    // Melee is "up to a few feet away" and Out of Range is "beyond a
+    // character's Very Far range". Neither carries a number, so neither gets
+    // one - a default here would be the app inventing a distance the book
+    // declined to give.
+    expect(ranges().map((e) => e.feet)).toEqual([
+      null,
+      [5, 10],
+      [10, 30],
+      [30, 100],
+      [100, 300],
+      null,
+    ]);
+    expect(ranges().map((e) => e.metres)).toEqual([
+      null,
+      '1.5-3 m',
+      '3-9 m',
+      '9-30 m',
+      '30-91 m',
+      null,
+    ]);
+  });
+
+  it('keeps each bullet whole, because the movement rule is inside it', () => {
+    // The half a GM needs is not the distance, it is the sentence after it:
+    // Close range can be crossed as part of an action, Far cannot.
+    expect(ranges()[3]!.text).toContain('must make an Agility Roll');
+    expect(ranges()[0]!.text).toBe('Close enough to touch, up to a few feet away.');
+  });
+
+  it('carries the premise the conversion rests on, in the SRD’s words', () => {
+    const first = guide().opening[0];
+    expect(first?.kind).toBe('text');
+    expect(first?.kind === 'text' ? first.text : '').toContain(
+      '1 inch of map represents about 5 feet',
+    );
+  });
+
+  it('keeps every subhead after the ranges, which had no home in the app at all', () => {
+    expect(guide().sections.map((s) => s.heading)).toEqual([
+      'Optional Rule: Defined Ranges',
+      'MOVEMENT UNDER PRESSURE',
+      'AREA OF EFFECT',
+      'LINE OF SIGHT & COVER',
+    ]);
+    // The grid rule is a labelled list of its own, and it carries no feet, so
+    // the app adds nothing to it.
+    const squares = guide().sections[0]!.parts.find((p) => p.kind === 'entries');
+    expect(squares?.kind === 'entries' ? squares.entries.map((e) => e.text) : []).toEqual([
+      '1 square',
+      '3 squares',
+      '6 squares',
+      '12 squares',
+      '13+ squares',
+      'Off the battlemap',
+    ]);
+    expect(
+      squares?.kind === 'entries' ? squares.entries.every((e) => e.metres === null) : false,
+    ).toBe(true);
+  });
+
+  it('reads the figure off the shape of it, not off the sentence around it', () => {
+    // The SRD writes "about 5-10 feet away". Key on the word "about" and a
+    // layer that drops it loses every metric figure on the screen.
+    const guide2 = rangeReference([
+      {
+        id: 'maps-range-and-movement',
+        title: 'Ranges',
+        body: '- Nearby: roughly 20 - 40 feet from you.',
+      } as RulesSection,
+    ]);
+    const part = guide2.opening[0];
+    expect(part?.kind === 'entries' ? part.entries[0] : null).toEqual({
+      label: 'Nearby',
+      text: 'roughly 20 - 40 feet from you.',
+      feet: [20, 40],
+      metres: '6-12 m',
+    });
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(rangeReference([])).toEqual({ title: '', opening: [], sections: [], page: null });
   });
 });

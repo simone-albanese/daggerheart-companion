@@ -32,7 +32,7 @@
  * anywhere in `src`; the counts belong in the tests, against the shipped file.
  */
 import type { RulesSection, Tier } from '../../../shared/types.ts';
-import { paragraphs, ruleBlocks, ruleList, ruleTables } from './ruleText.ts';
+import { paragraphs, ruleBlocks, ruleBullets, ruleList, ruleTables } from './ruleText.ts';
 
 // ---------------------------------------------------------------------------
 // Benchmarks by tier
@@ -292,4 +292,153 @@ export function countdownAdvancement(rules: RulesSection[]): CountdownGuidance {
     };
   }
   return NO_COUNTDOWNS;
+}
+
+// ---------------------------------------------------------------------------
+// Range and distance - and the one figure on this screen the SRD does not give
+// ---------------------------------------------------------------------------
+
+/**
+ * The international foot, exactly. 0.3048 metres, by definition since 1959.
+ *
+ * This is the only number in this file that did not come out of the dataset,
+ * and it is not a rule - it is a unit conversion, the same kind of arithmetic
+ * `Architecture.md` 3.1 already lets the app do on the rules' behalf.
+ */
+export const METRES_PER_FOOT = 0.3048;
+
+/**
+ * Feet to metres, rounded to the nearest half metre below ten and the nearest
+ * whole metre from ten up.
+ *
+ * The SRD's distances are approximations - it writes "about 5-10 feet away" -
+ * so printing 9.144 would claim a precision the source does not have, and
+ * printing 9 for everything would lose the difference between the two shortest
+ * ranges. Half metres where the numbers are small, whole ones where they are
+ * not.
+ *
+ *   5 -> 1.5   10 -> 3   30 -> 9   100 -> 30   300 -> 91
+ *
+ * Continuous across the change of rounding: 32 feet is 9.75 m, which rounds up
+ * to 10, and 33 feet is 10.06 m, which rounds down to 10. No gap and no jump.
+ */
+export function metresFromFeet(feet: number): number {
+  const metres = feet * METRES_PER_FOOT;
+  return metres < 10 ? Math.round(metres * 2) / 2 : Math.round(metres);
+}
+
+/**
+ * `[5, 10]` -> `'1.5-3 m'`, and `[10, 10]` -> `'3 m'`.
+ *
+ * Two ends that round to the same figure are printed once. "3-3 m" is not a
+ * range, it is a rounding artefact wearing a dash.
+ */
+export function metreRange(feet: [number, number]): string {
+  const low = metresFromFeet(feet[0]);
+  const high = metresFromFeet(feet[1]);
+  return low === high ? `${String(low)} m` : `${String(low)}-${String(high)} m`;
+}
+
+export interface RangeEntry {
+  /** The bullet's own label - the range's name, as the dataset writes it. */
+  label: string;
+  /** The rest of the bullet, verbatim. */
+  text: string;
+  /**
+   * The two figures in the bullet, when it carries a distance in feet.
+   *
+   * Null for a bullet with no such figure, and that is load-bearing: two of
+   * the six ranges the SRD lists carry no number at all, and a default here
+   * would be the app inventing a distance the book declined to give.
+   */
+  feet: [number, number] | null;
+  /** This app's conversion of `feet`. Null exactly when `feet` is. */
+  metres: string | null;
+}
+
+export type RangePart =
+  | { kind: 'text'; text: string }
+  | { kind: 'entries'; entries: RangeEntry[] };
+
+export interface RangeGuidance {
+  title: string;
+  /** Everything before the first `## ` subhead, in the book's order. */
+  opening: RangePart[];
+  /** Each subhead after it, with its own body. */
+  sections: Array<{ heading: string; parts: RangePart[] }>;
+  page: number | null;
+}
+
+const NO_RANGES: RangeGuidance = { title: '', opening: [], sections: [], page: null };
+
+/**
+ * A distance in feet, read out of a bullet that happens to carry one.
+ *
+ * Matched on the shape of the figure - two numbers, a dash, the unit - and not
+ * on the sentence around it. The SRD writes "about 5-10 feet away"; keying on
+ * the word "about" would put the book's phrasing in this file, and a layer that
+ * dropped it would silently lose every metric figure on the screen.
+ *
+ * The first figure in the bullet wins. No bullet in the shipped section carries
+ * two, and one that did would be a sentence about two different distances -
+ * which is a thing to print whole, not to summarise into one conversion.
+ */
+function rangeEntry(bullet: { label: string; text: string }): RangeEntry {
+  const match = /(\d+)\s*-\s*(\d+)\s+feet/i.exec(bullet.text);
+  const feet: [number, number] | null =
+    match === null ? null : [Number(match[1]), Number(match[2])];
+  return {
+    label: bullet.label,
+    text: bullet.text,
+    feet,
+    metres: feet === null ? null : metreRange(feet),
+  };
+}
+
+/**
+ * A block's paragraphs, each one either a labelled list or the prose it is.
+ *
+ * The same "every line is a bullet" test `fearGuidance` uses, and for the same
+ * reason: a lead sentence and its bullets are separate paragraphs here, and a
+ * layer that runs them together must be drawn as prose rather than have its
+ * first line silently vanish.
+ */
+function rangeParts(text: string): RangePart[] {
+  return paragraphs(text).map((para) => {
+    const bullets = ruleBullets(para);
+    const lines = para.split('\n').filter((line) => line.trim() !== '');
+    return bullets.length > 0 && bullets.length === lines.length
+      ? { kind: 'entries', entries: bullets.map(rangeEntry) }
+      : { kind: 'text', text: para };
+  });
+}
+
+/**
+ * `rules['maps-range-and-movement']`, p.40 - what Close and Far actually mean,
+ * on a map and off one.
+ *
+ * The section is returned whole and in the book's order, because it is one
+ * argument: the ranges, then how a range is measured, then the grid rule for a
+ * table that wants squares, then moving, area of effect and cover. Nothing here
+ * picks a paragraph out by position.
+ *
+ * The one thing this adds is `metres`, on every bullet that carries a figure in
+ * feet. The SRD prints no metric column - it is not there to read - so the
+ * number is the app's arithmetic and every screen that draws it says so on the
+ * same line as the figure.
+ */
+export function rangeReference(rules: RulesSection[]): RangeGuidance {
+  const section = rules.find((r) => r.id === 'maps-range-and-movement');
+  if (section === undefined) return NO_RANGES;
+
+  const blocks = ruleBlocks(section.body);
+  const opening = blocks.find((b) => b.heading === null);
+  return {
+    title: section.title,
+    opening: opening === undefined ? [] : rangeParts(opening.text),
+    sections: blocks.flatMap((b) =>
+      b.heading === null ? [] : [{ heading: b.heading, parts: rangeParts(b.text) }],
+    ),
+    page: section.sourcePage ?? null,
+  };
 }

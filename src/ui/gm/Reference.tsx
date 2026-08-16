@@ -45,9 +45,9 @@
  * ## The topic strip
  *
  * Chips at `var(--tap)` with `padding: 0 12px`. `.t-label` is 10px mono at
- * `0.16em`, so about 7.6px a character: IMPROVISE is 92px, FEAR 54 and
- * COUNTDOWNS 100, which with two 6px gaps is 258 of the 369px column - one row
- * with room to spare, and room for the four topics still to come.
+ * `0.16em`, so about 7.6px a character: IMPROVISE is 92px, FEAR 54,
+ * COUNTDOWNS 100 and DISTANCE 85, which with three 6px gaps is 349 of the
+ * 369px column - one row still, and the topics still to come take it to two.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a
@@ -70,9 +70,14 @@
  */
 import { useState } from 'react';
 import { useIsPhone } from '../shared/useLayout.ts';
-import { CountdownChart, FearGuide, TierBenchmarks } from './ReferenceTables.tsx';
+import {
+  CountdownChart,
+  FearGuide,
+  RangeReference,
+  TierBenchmarks,
+} from './ReferenceTables.tsx';
 
-export type ReferenceTopic = 'improvise' | 'fear' | 'countdowns';
+export type ReferenceTopic = 'improvise' | 'fear' | 'countdowns' | 'distance';
 
 /**
  * What a menu maps over to build its items.
@@ -88,6 +93,7 @@ export const REFERENCE_TOPICS: ReadonlyArray<{
   { id: 'improvise', label: 'Improvise an adversary', short: 'IMPROVISE' },
   { id: 'fear', label: 'Fear', short: 'FEAR' },
   { id: 'countdowns', label: 'Advancing a countdown', short: 'COUNTDOWNS' },
+  { id: 'distance', label: 'Range and distance', short: 'DISTANCE' },
 ];
 
 export function Reference(): React.JSX.Element {
@@ -145,6 +151,7 @@ export function Reference(): React.JSX.Element {
         cannot act is a control that lies about what it does.
       */}
       {topic === 'countdowns' && <CountdownChart countdown={null} />}
+      {topic === 'distance' && <RangeReference />}
     </div>
   );
 }
