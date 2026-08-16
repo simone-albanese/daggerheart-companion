@@ -4,8 +4,10 @@
  * to share and nothing to deep-link to, and a router would only add a way for
  * the back button to lose someone's place mid-session.
  */
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { useApp, useStats } from '../../store/state.ts';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { runBackup } from '../../store/backup.ts';
+import { appBackupDeps } from '../../store/backupDeps.ts';
+import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { Attribution } from '../shared/CompatibleMark.tsx';
@@ -47,6 +49,7 @@ export function App(): React.JSX.Element {
   const prefs = useApp((s) => s.prefs);
   const characters = useApp((s) => s.characters);
   const storageError = useApp((s) => s.storageError);
+  const writeError = useApp((s) => s.writeError);
   const quarantined = useApp((s) => s.quarantined);
   const stats = useStats();
   const phone = useIsPhone();
@@ -118,8 +121,7 @@ export function App(): React.JSX.Element {
   }, [prefs.theme, prefs.reduceMotion]);
 
   if (!ready) {
-    return (
-      <div
+    return (      <div
         className="app"
         style={{ placeContent: 'center', justifyItems: 'center', gridTemplateRows: '1fr' }}
       >
@@ -134,6 +136,7 @@ export function App(): React.JSX.Element {
     <div className="app">
       <Header />
       <main className="stack" style={{ minHeight: 0, overflow: 'hidden' }}>
+        {writeError !== null && <UnsavedWork failure={writeError} />}
         {storageError !== null && (
           <div
             role="alert"
@@ -152,7 +155,13 @@ export function App(): React.JSX.Element {
             <span className="t-dense" style={{ color: 'var(--text-2)' }}>
               {storageError}. Your characters are almost certainly still there — this is the
               browser refusing to open its own database, usually because another tab has it.
-              Close the other tabs and reload; nothing has been written in the meantime.
+              Close the other tabs and reload
+              {/*
+                The rest of that sentence used to be "; nothing has been written in the
+                meantime", which is an invitation to reload. It is only true while every
+                write has succeeded, and the alert above says when they have not.
+              */}
+              {writeError === null ? '; nothing has been written in the meantime.' : '.'}
             </span>
             <button
               type="button"
@@ -244,6 +253,92 @@ export function App(): React.JSX.Element {
           onClose={() => setOpenCard(null)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The one thing the app must never do quietly: fail to save.
+ *
+ * Ergonomics. This sits at the very top of `<main>`, above the storage and
+ * quarantine banners and furthest from the thumb, because it has to be *read* -
+ * and because its one control is a decision rather than a reflex. The chip
+ * carries `minHeight: var(--control)`, which is 34px on a precise pointer and
+ * `var(--tap)` = 44px under `(max-width: 1179px), (pointer: coarse)`, so the
+ * touch floor is met on every phone and tablet without inventing a number.
+ *
+ * It is not dismissible. A dismissed warning about work that is not saved is
+ * exactly the false reassurance this app is not allowed to give, and unlike the
+ * backup nag - a standing condition - this is an event with a remedy.
+ *
+ * It costs a block at the top of the phone's scroll window, and it appears only
+ * while writes are actually failing.
+ */
+function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element {
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  /*
+   * Straight to `runBackup` rather than sending the user to Settings: the
+   * window in which this matters is the one before the tab closes. It takes
+   * `appBackupDeps`, which is what makes the export contain the work that did
+   * not reach the disk - the default reads IndexedDB, where by definition it is
+   * not, and the unchanged fingerprint would have it report that nothing has
+   * changed since the last backup.
+   */
+  const saveACopy = useCallback(() => {
+    setSaving(true);
+    setNote(null);
+    void runBackup('manual', { interactive: true }, appBackupDeps)
+      .then((outcome) => {
+        setNote(
+          outcome.wrote
+            ? `Saved ${outcome.fileName ?? 'the copy'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}.`
+            : outcome.reason,
+        );
+      })
+      .catch((cause: unknown) => {
+        setNote(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => setSaving(false));
+  }, []);
+
+  return (
+    <div
+      role="alert"
+      className="stack"
+      style={{
+        flex: 'none',
+        gap: 8,
+        margin: '8px 20px 0',
+        padding: '10px 12px',
+        borderRadius: 'var(--r2)',
+        background: 'var(--fear-wash)',
+        border: '1px solid var(--fear)',
+      }}
+    >
+      <span className="t-label" style={{ color: 'var(--text)' }}>
+        {failure.count === 1 ? 'ONE CHANGE IS NOT SAVED' : `${failure.count} CHANGES ARE NOT SAVED`}
+      </span>
+      <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+        {failure.message}
+      </span>
+      <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          className="chip"
+          onClick={saveACopy}
+          disabled={saving}
+          style={{ flex: 'none', minHeight: 'var(--control)', color: 'var(--text)', background: 'var(--raised)' }}
+        >
+          {saving ? 'SAVING…' : 'SAVE A COPY NOW'}
+        </button>
+        {note !== null && (
+          <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            {note}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

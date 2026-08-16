@@ -49,10 +49,38 @@ export interface LogEntry {
   total?: number;
 }
 
+/**
+ * Work that is on screen and not on the disk.
+ *
+ * Every mark, every point of Hope and every level-up is applied to the store
+ * first and written on a 400 ms debounce, which is what makes a counter feel
+ * instant. The cost of that is a window in which the two can disagree, and
+ * until this existed the app never noticed: `flush` awaited its writes with no
+ * catch, so a rejected `putCharacter` became an unhandled rejection that no
+ * error boundary can see - `ScreenBoundary` is a render-phase boundary - while
+ * the sheet kept showing every change as applied. Three hours later the tab
+ * closes and the evening is gone.
+ */
+export interface WriteFailure {
+  /** English, ready to render. */
+  message: string;
+  /** How many characters are unwritten right now. */
+  count: number;
+  kind: 'quota' | 'stale' | 'other';
+}
+
 interface AppState {
   ready: boolean;
   /** Set when storage would not answer. The app still runs, read-only. */
   storageError: string | null;
+  /**
+   * Set while a character on screen has failed to reach the disk.
+   *
+   * Deliberately not folded into `storageError`: that banner tells the user
+   * nothing has been written in the meantime and it is safe to reload, which
+   * is the opposite of the truth here.
+   */
+  writeError: WriteFailure | null;
   /**
    * Records on this device that this build must not touch, and why.
    *
@@ -120,16 +148,135 @@ function askForPersistence(): void {
  * `pagehide` is the only lifecycle event iOS Safari reliably delivers.
  */
 const pending = new Map<string, Character>();
+/** Ids whose last write attempt failed and which are still not on the disk. */
+const failing = new Set<string>();
+/**
+ * Ids being deleted right now. Nothing may write them back.
+ *
+ * `pending.delete(id)` on its own was not enough: a batch already in flight has
+ * taken its copy out of `pending` before `remove` runs, so its `put` could
+ * still land after the `delete` - and the retry below would then put it back a
+ * second time. This is what both of those check.
+ */
+const removed = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+/** The first error of the most recent failing batch, for the sentence. */
+let lastCause: unknown = null;
 
-async function flush(): Promise<void> {
+/**
+ * One batch at a time, in order.
+ *
+ * `flush` used to clear `pending` synchronously and then await the writes, so a
+ * second `flush` while the first was in flight saw an empty map and resolved
+ * *immediately* - before the first one's writes had landed. Anything awaiting a
+ * flush to mean "the disk has it" was being told yes too early. Chaining every
+ * batch onto one queue is what makes that promise true, and it is what lets
+ * `remove` put a delete strictly behind the write it is racing.
+ */
+let queue: Promise<void> = Promise.resolve();
+
+function flush(): Promise<void> {
   if (flushTimer !== null) {
     clearTimeout(flushTimer);
     flushTimer = null;
   }
-  const batch = [...pending.values()];
+  queue = queue.then(writeBatch, writeBatch);
+  return queue;
+}
+
+async function writeBatch(): Promise<void> {
+  const batch = [...pending.values()].filter((c) => !removed.has(c.id));
   pending.clear();
-  await Promise.all(batch.map((c) => db.putCharacter(c)));
+  if (batch.length === 0) return;
+
+  /*
+   * Each write is caught on its own, so one refusal cannot take the rest of
+   * the batch with it, and the batch is not lost on the way past the failure:
+   * the old code cleared `pending` before the await, so a rejection threw away
+   * the only record that those changes still needed writing.
+   */
+  const failures: Character[] = [];
+  await Promise.all(
+    batch.map(async (c) => {
+      try {
+        await db.putCharacter(c);
+        failing.delete(c.id);
+      } catch (error) {
+        failures.push(c);
+        lastCause = error;
+      }
+    }),
+  );
+
+  for (const c of failures) {
+    failing.add(c.id);
+    // Never over a newer edit the user made while the write was in flight, and
+    // never over a character they deleted in that window.
+    if (!removed.has(c.id) && !pending.has(c.id)) pending.set(c.id, c);
+  }
+
+  publishWriteError();
+}
+
+/**
+ * Say what is unwritten, or take the sentence away.
+ *
+ * Only when *nothing* is outstanding, which is stricter than "this batch
+ * succeeded": a successful write of one character while another is still
+ * failing would otherwise clear a warning that is still true.
+ */
+function publishWriteError(): void {
+  if (failing.size === 0) lastCause = null;
+  const next = failing.size === 0 ? null : describeWriteFailure(lastCause, failing.size);
+  if (next !== null || useApp.getState().writeError !== null) {
+    useApp.setState({ writeError: next });
+  }
+}
+
+/**
+ * An error and whatever it wraps.
+ *
+ * A refused IndexedDB write does not always arrive as the browser's own error:
+ * a transaction that aborts carries the request's error underneath. Anything
+ * this cannot see, the sentence below does not claim.
+ */
+function chain(error: unknown): unknown[] {
+  const seen: unknown[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current !== null && current !== undefined; depth += 1) {
+    seen.push(current);
+    current = current instanceof Error ? current.cause : null;
+  }
+  return seen;
+}
+
+const named = (error: unknown, name: string): boolean =>
+  chain(error).some((e) => e instanceof Error && e.name === name);
+
+function describeWriteFailure(cause: unknown, count: number): WriteFailure {
+  const changes = `${String(count)} change${count === 1 ? '' : 's'}`;
+  // The one sentence that has to be in every version of this: what is at stake
+  // is the tab, not the device.
+  const onlyHere = 'What is on screen is only in this tab, so closing it now loses it.';
+
+  // A build refusing to write over a newer record already says exactly why, in
+  // its own words, and inventing a second sentence for it would be worse.
+  if (named(cause, 'StaleBuildError') && cause instanceof Error) {
+    return { kind: 'stale', count, message: `${cause.message} ${onlyHere}` };
+  }
+  if (named(cause, 'QuotaExceededError')) {
+    return {
+      kind: 'quota',
+      count,
+      message: `This device is out of space, so the last ${changes} could not be saved. ${onlyHere} Save a copy somewhere else, then free some space.`,
+    };
+  }
+  const what = cause instanceof Error && cause.name !== '' ? ` (${cause.name})` : '';
+  return {
+    kind: 'other',
+    count,
+    message: `The last ${changes} could not be written to this device’s storage${what}. ${onlyHere} Save a copy somewhere else.`,
+  };
 }
 
 function schedule(c: Character): void {
@@ -152,6 +299,7 @@ if (typeof window !== 'undefined') {
 export const useApp = create<AppState>((set, get) => ({
   ready: false,
   storageError: null,
+  writeError: null,
   quarantined: [],
   dataset: baseDataset,
   index: indexDataset(baseDataset),
@@ -204,13 +352,14 @@ export const useApp = create<AppState>((set, get) => ({
        * real. It is deliberately not awaited into the boot: a slow write must
        * not delay the first paint, and the debounce would have written it
        * anyway on the next edit.
+       *
+       * Through the debounce rather than a bare `void db.putCharacter(c)`,
+       * which is where these used to go: a rejection there was swallowed by a
+       * comment saying it was the same failure P0-3 is about. It is, so it
+       * takes the same route as every other write and reaches the same
+       * sentence on screen.
        */
-      for (const c of library.repaired) {
-        void db.putCharacter(c).catch(() => {
-          // The in-memory copy is already converted, so this is a retry at
-          // worst. A failure here is the same failure P0-3 is about.
-        });
-      }
+      for (const c of library.repaired) schedule(c);
     } catch (error) {
       /*
        * A stale build meeting a newer database is not the same failure as a
@@ -290,11 +439,30 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   async remove(id) {
-    // Before the delete, not after: a debounced write still holding this
-    // character would put it straight back a few hundred milliseconds later,
-    // and the user would watch a character they deleted return.
+    /*
+     * Before the delete, not after: a debounced write still holding this
+     * character would put it straight back a few hundred milliseconds later,
+     * and the user would watch a character they deleted return.
+     *
+     * Dropping it from `pending` closes only the first of the two windows. The
+     * second is a batch that has *already* taken its copy and is awaiting the
+     * put - so the delete waits for the queue to drain, which puts it strictly
+     * behind that write, and `removed` stops the retry path re-queueing it in
+     * the meantime.
+     */
     pending.delete(id);
-    await db.deleteCharacter(id);
+    failing.delete(id);
+    removed.add(id);
+    publishWriteError();
+    try {
+      await flush();
+      await db.deleteCharacter(id);
+    } finally {
+      // Cleared either way, or a delete that failed would block every later
+      // write of that id for the life of the tab - and a re-import of the same
+      // character would be silently dropped.
+      removed.delete(id);
+    }
     set((s) => {
       const characters = s.characters.filter((c) => c.id !== id);
       return {

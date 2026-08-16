@@ -80,11 +80,12 @@ const DELIBERATE: Record<string, string> = {
   'store/backup.ts::integrityCheck': 'P0-2: the seven-day check the README describes.',
   'store/backup.ts::restoreFromText': 'P0-1: the merge-safe restore; every UI path uses the blind put.',
   'store/backup.ts::restoreFromPicker': 'P0-1: same, one layer up.',
-  'store/state.ts::flushPending': 'P0-3: runBackup must flush before it reads IndexedDB.',
   'engine/encounter.ts::TIER_BENCHMARKS': 'P1-5: a GM feature with no screen. Wire it or say so.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',
 
   // --- Consumed outside the shipped bundle. Not dead, just not the app's.
+  'store/state.ts::flushPending':
+    'Awaited by the store tests. Inside the app `flush` is reached by the debounce, by pagehide and by remove(); runBackup reads the store rather than the disk, so it needs no flush of its own.',
   'engine/dice.ts::seededRng': 'Injected by tests and tools/simulate.ts; the app must use the real RNG.',
   'transfer/registry.ts::bandFor': 'tools/buildRegistry.ts builds registry.json; the app only reads it.',
   'transfer/registry.ts::REGISTRY_VERSION': 'Written by tools/buildRegistry.ts, checked by createRegistry on load.',
