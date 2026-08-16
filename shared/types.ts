@@ -38,6 +38,28 @@ export const TRAIT_LABELS: Record<Trait, string> = {
   knowledge: 'Knowledge',
 };
 
+/**
+ * The three verbs the SRD prints in brackets beside each trait.
+ *
+ * Straight out of `data/srd-1.0.json`, rule `character-creation`, step 3:
+ * "Agility (Use it to Sprint, Leap, Maneuver, etc.)" and its five siblings. The
+ * SRD's own spellings are kept - Maneuver and Analyze, not the British forms -
+ * because this table has to agree with the rules text the app also ships.
+ *
+ * It lives beside TRAIT_LABELS rather than in either screen that prints it:
+ * character creation names the verbs while you are assigning the array, and the
+ * printed sheet names them again beside the finished modifier. Two copies of six
+ * triples is how one of them ends up saying Manoeuvre and the other Maneuver.
+ */
+export const TRAIT_VERBS: Record<Trait, readonly [string, string, string]> = {
+  agility: ['Sprint', 'Leap', 'Maneuver'],
+  strength: ['Lift', 'Smash', 'Grapple'],
+  finesse: ['Control', 'Hide', 'Tinker'],
+  instinct: ['Perceive', 'Sense', 'Navigate'],
+  presence: ['Charm', 'Perform', 'Deceive'],
+  knowledge: ['Recall', 'Analyze', 'Comprehend'],
+};
+
 export const DOMAINS = [
   'arcana',
   'blade',
