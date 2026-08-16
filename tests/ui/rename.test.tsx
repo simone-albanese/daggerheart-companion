@@ -35,8 +35,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Character } from '@shared/types.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
+import { Edit } from '../../src/ui/build/Edit.tsx';
 import { RenameField } from '../../src/ui/shared/RenameField.tsx';
-import { dataset, index, playedCharacter } from './fixture.ts';
+import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -327,6 +328,69 @@ describe('renaming to nothing', () => {
     expect(stored()).toBe('');
     expect(stored()).not.toBe('Unnamed');
     expect(field().placeholder).toBe('Unnamed');
+  });
+});
+
+/**
+ * The Build sheet's Name field, which is the second door and not a second rule.
+ *
+ * It used to be a `LabelledInput` calling `patch({ name })` on every keystroke,
+ * with no guard of any kind: renaming Marek to Ilya here produced by hand the
+ * two-identical-names state `merge.ts` spends a paragraph preventing when a
+ * file arrives. It is the same component as the sheet's now, so what these
+ * assert is that it really is the same one - a field this query can find, a
+ * refusal that appears, and nothing written while a taken name is on screen.
+ */
+describe('the Build sheet, the second door', () => {
+  const openEdit = (): void => {
+    const c = useApp.getState().characters[0]!;
+    render(createElement(Edit, { stats: playedStats(c), onLevelUp: () => undefined }));
+  };
+
+  it('is the second door, not the second rule', () => {
+    seed('Fixture', 'Ilya');
+    openEdit();
+    expect(
+      container.querySelector('input[aria-label="Character name"]'),
+      'Build draws no field the rename control would recognise',
+    ).not.toBeNull();
+    expect(text(), 'the form field lost its caption').toContain('Name');
+
+    type('Ilya');
+    expect(text()).toContain('already called "Ilya"');
+    expect(save().disabled).toBe(true);
+    expect(stored(), 'Build wrote a name the sheet would have refused').toBe('Fixture');
+  });
+
+  it('draws no cancel, because there is nothing here to cancel back to', () => {
+    seed('Fixture');
+    openEdit();
+    expect(byLabel('Leave the name as')).toBeUndefined();
+  });
+
+  it('does not lose a typed name to a tab tap', () => {
+    // Every other field on this screen writes on the keystroke. A Name that
+    // needed SAVE and nothing else would let a half-entered name disappear
+    // when the component unmounts, silently, which is the one thing this
+    // project's rules never allow a screen to do.
+    seed('Fixture');
+    openEdit();
+    type('Marek');
+    expect(stored(), 'Build is back to writing on every keystroke').toBe('Fixture');
+    act(() => {
+      field().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(stored()).toBe('Marek');
+  });
+
+  it('will not commit a refused name on the way out either', () => {
+    seed('Fixture', 'Ilya');
+    openEdit();
+    type('Ilya');
+    act(() => {
+      field().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(stored()).toBe('Fixture');
   });
 });
 
