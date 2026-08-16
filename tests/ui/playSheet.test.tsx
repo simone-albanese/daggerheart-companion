@@ -954,15 +954,28 @@ describe('renaming from the sheet', () => {
     expect(chip()!.style.minWidth).toBe('72px');
   });
 
-  it('opens the field only on a deliberate tap, and only then', () => {
+  it('opens the field only on a deliberate tap, and puts the cursor in it', () => {
     play(seed());
     expect(nameField()).toBeNull();
+    expect(
+      document.activeElement,
+      'something on the sheet took focus before anything was tapped',
+    ).toBe(document.body);
+
     click(chip()!);
     const field = nameField();
     expect(field, 'tapping RENAME opened nothing').not.toBeNull();
     expect(field!.value).toBe('Fixture');
     expect(field!.style.minHeight).toBe('var(--tap)');
     expect(field!.maxLength).toBe(40);
+    // The other half of the deliberate gesture, and the reason `autoFocus` is
+    // passed here and not on the Build door. A chip has already been tapped to
+    // get here, so the keyboard the tap asked for opens with it; a field that
+    // arrived without focus would mean tapping the chip, seeing a field, and
+    // tapping again to type. Nothing else in this file or in `rename.test.tsx`
+    // was asking for it: `autoFocus` could be deleted from `Play.tsx` with
+    // every gate in the repo still green.
+    expect(document.activeElement, 'the field opened with no cursor in it').toBe(field);
   });
 
   it('arming the rename moves nothing above it', () => {
@@ -1014,6 +1027,10 @@ describe('renaming from the sheet', () => {
     play(fixture);
     click(chip()!);
     expect(nameField()).not.toBeNull();
+    // The premise the rest of this test rests on, asserted rather than
+    // assumed: an armed field *is* a focused field, so an armed field that
+    // survived the switch would be a keyboard opening on arrival.
+    expect(document.activeElement, 'arming the field does not focus it').toBe(nameField());
 
     act(() => useApp.setState({ activeId: 'the-other-sheet' }));
     expect(nameField(), 'the editor followed the picker onto another sheet').toBeNull();

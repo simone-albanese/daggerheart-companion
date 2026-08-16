@@ -414,6 +414,18 @@ describe('the Build sheet, the second door', () => {
     expect(byLabel('Leave the name as')).toBeUndefined();
   });
 
+  it('does not open a keyboard just because the screen arrived', () => {
+    // The other half of the `autoFocus` argument, and the half only this door
+    // can make. Play passes it because a chip was tapped to get to the field;
+    // here the field is one of a form of fields nobody has pointed at yet, and
+    // focusing it on mount would open a software keyboard on arrival and scroll
+    // the form to wherever Identity happens to sit.
+    seed('Fixture');
+    openEdit();
+    expect(container.querySelector('input[aria-label="Character name"]')).not.toBeNull();
+    expect(document.activeElement, 'the Build form took focus on arrival').toBe(document.body);
+  });
+
   it('does not lose a typed name to a tab tap', () => {
     // Every other field on this screen writes on the keystroke. A Name that
     // needed SAVE and nothing else would let a half-entered name disappear
