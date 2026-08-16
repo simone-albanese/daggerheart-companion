@@ -79,9 +79,15 @@ stock one has not — the rest of CI builds against the committed JSON.
 
 ### Toolchain note
 
-The repo carries no Node of its own. If your system Node is broken, drop a
-release tarball into `.tools/node` and `. ./env.sh` will pick it up — the
-project never asks you to repair anything outside it.
+The repo carries no Node of its own. If you already manage Node per project —
+nvm, fnm, asdf, mise, Volta — they all read `.nvmrc` and there is nothing here
+for you to do.
+
+If you do not, and you would rather not move a system Node that other projects
+on the machine are relying on, unpack a release of that major into
+`.tools/node`; `. ./env.sh` puts it first on PATH for that shell. Either way,
+`env.sh` warns when the Node you end up with is a different major from the one
+CI runs, so the mismatch surfaces on the machine that has it.
 
 ---
 
