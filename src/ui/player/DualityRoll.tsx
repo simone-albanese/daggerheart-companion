@@ -395,6 +395,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       reaction={reaction}
       setReaction={setReaction}
       experiences={experiences}
+      inlineExperiences={layout !== 'phone'}
       armedExperiences={armedExperiences}
       toggleExperience={(id) =>
         setArmedExperiences((ids) =>
@@ -415,26 +416,50 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
 
   if (layout === 'phone') {
     return (
-      <div className="stack" style={{ gap: 8 }}>
+      <div className="stack" style={{ gap: 6 }}>
         {control}
-        <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
-          <Die
-            label="HOPE"
-            color="var(--hope)"
-            value={manual.hope}
-            onSet={setDie('hope')}
-            size={26}
-            editable={canType}
-          />
-          <Die
-            label="FEAR"
-            color="var(--fear)"
-            value={manual.fear}
-            onSet={setDie('fear')}
-            size={26}
-            editable={canType}
-          />
-        </div>
+        <ExperienceRow
+          experiences={experiences}
+          armedExperiences={armedExperiences}
+          hopeCost={hopeCost}
+          hopeAvailable={hopeAvailable}
+          toggleExperience={(id) =>
+            setArmedExperiences((ids) =>
+              ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+            )
+          }
+        />
+        {/*
+         * The faces only take a row when they are inputs.
+         *
+         * Measured on a real phone, this pair held 62px of the best band on
+         * the screen - directly above ROLL, directly under the thumb - to
+         * display two em dashes, because with the digital roller on nothing
+         * ever typed into them. What they carry that the verdict bar does not
+         * is the two raw numbers, and those go into the bar's own second line
+         * instead. When typing is switched on they come back full size, since
+         * a table entering real dice needs a target rather than a readout.
+         */}
+        {canType && (
+          <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
+            <Die
+              label="HOPE"
+              color="var(--hope)"
+              value={manual.hope}
+              onSet={setDie('hope')}
+              size={26}
+              editable
+            />
+            <Die
+              label="FEAR"
+              color="var(--fear)"
+              value={manual.fear}
+              onSet={setDie('fear')}
+              size={26}
+              editable
+            />
+          </div>
+        )}
         <button
           type="button"
           onClick={() => canRoll && resolve()}
@@ -459,11 +484,11 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
               className="t-meta"
               style={{ marginTop: 4, color: verdictColor(result), opacity: 0.75 }}
             >
-              {armSummary !== ''
-                ? armSummary
-                : result === null
-                  ? idleDetail
-                  : OUTCOME_DETAIL[result.outcome]}
+              {result === null
+                ? armSummary !== ''
+                  ? armSummary
+                  : idleDetail
+                : `${canType ? '' : `${result.hope} / ${result.fear} · `}${OUTCOME_DETAIL[result.outcome]}`}
             </span>
           </span>
           <span
@@ -573,6 +598,142 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
   );
 }
 
+/**
+ * One Experience, as a control you can hit.
+ *
+ * SRD, character creation: "An Experience is a word or phrase used to
+ * encapsulate a specific set of skills, personality traits, or aptitudes your
+ * character has acquired... When your PC makes a move, they can spend a Hope
+ * to add a relevant Experience's modifier to an action or reaction roll."
+ *
+ * Whether an Experience is *relevant* is a table conversation, so every one is
+ * offered on every roll and the app only counts the Hope.
+ *
+ * An unaffordable one is not greyed to 45% and left to be guessed at. That
+ * measured 1.72:1, which reads as absent rather than as disabled, and it hid
+ * the one fact the player needs - which is why it cannot be used. It says so
+ * in place of its bonus instead.
+ */
+function ExperienceChip({
+  experience,
+  armed,
+  affordable,
+  onToggle,
+  basis,
+}: {
+  experience: Experience;
+  armed: boolean;
+  affordable: boolean;
+  onToggle: () => void;
+  /** Flex basis when the chip is laid out in a row of equals. Unset hugs. */
+  basis?: string;
+}): React.JSX.Element {
+  const sign = experience.bonus >= 0 ? '+' : '−';
+  // A character always has two Experiences from creation; naming them is a
+  // thing the SRD expects some players to leave for play. An unnamed one is
+  // still armable and still costs a Hope, so it needs a word on it rather
+  // than an empty chip.
+  const name = experience.name.trim() === '' ? 'Unnamed' : experience.name;
+
+  return (
+    <button
+      type="button"
+      className="chip"
+      aria-pressed={armed}
+      aria-label={`Utilize ${name}, ${sign}${Math.abs(experience.bonus)}, for one Hope${affordable ? '' : ' - not enough Hope'}`}
+      aria-disabled={affordable ? undefined : true}
+      disabled={!affordable}
+      onClick={onToggle}
+      title={affordable ? `${name} · spends 1 Hope` : `${name} · not enough Hope`}
+      style={{
+        flex: basis === undefined ? 'none' : `1 1 ${basis}`,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        maxWidth: basis === undefined ? 124 : undefined,
+        minWidth: 0,
+        minHeight: 'var(--tap)',
+        background: armed ? 'var(--hope-wash)' : 'var(--raised)',
+        border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
+        // The border and the filled pip carry the Hope; the name stays at full
+        // text contrast, which amber on its own wash is not.
+        color: armed ? 'var(--text)' : 'var(--muted)',
+      }}
+    >
+      <HopePip on={armed} />
+      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
+        {name.toUpperCase()}
+      </span>
+      <span style={{ flex: 'none', fontWeight: 700 }}>
+        {affordable ? `${sign}${Math.abs(experience.bonus)}` : 'NO HOPE'}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Every Experience at once, wrapping, each one a full-height target.
+ *
+ * They used to live in the control row, which scrolls sideways, behind
+ * REACTION and the advantage group - so on a 393px phone the second one was
+ * already off screen, and the file's own comment admitted that a chip you had
+ * armed could be out of sight by the time you reached ROLL. Declaring a
+ * modifier you cannot see is not a declaration.
+ *
+ * Two across is deliberate. It is the count a character starts with, it keeps
+ * each chip wide enough for a real phrase rather than an ellipsis, and it puts
+ * the whole set inside the thumb arc directly above ROLL - which is also the
+ * order the rules ask for, since Experiences are declared before the dice.
+ */
+function ExperienceRow({
+  experiences,
+  armedExperiences,
+  hopeCost,
+  hopeAvailable,
+  toggleExperience,
+}: {
+  experiences: Experience[];
+  armedExperiences: string[];
+  hopeCost: number;
+  hopeAvailable: number;
+  toggleExperience: (id: string) => void;
+}): React.JSX.Element | null {
+  if (experiences.length === 0) return null;
+
+  /*
+   * How many to a row, and why it changes.
+   *
+   * The SRD hands out a new Experience at levels 2, 5 and 8, so a character
+   * starts with two and tops out at five - that is the whole range this has to
+   * hold, and it is worth designing for the top of it rather than the bottom.
+   *
+   * Two across is right up to four: it fills two rows at most and leaves each
+   * chip wide enough for a real phrase instead of an ellipsis. Five at two
+   * across would take three rows, 144px of a block that is already the tallest
+   * thing on a small phone, so from five it goes three across and back to two
+   * rows. The names get tighter; the count of rows is what the screen can
+   * actually afford, and the full name is still on the chip's accessible name
+   * and in the armed summary beside ROLL.
+   */
+  const perRow = experiences.length > 4 ? 3 : 2;
+  const basis = `calc(${(100 / perRow).toFixed(3)}% - ${String((6 * (perRow - 1)) / perRow)}px)`;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {experiences.map((experience) => (
+        <ExperienceChip
+          key={experience.id}
+          experience={experience}
+          basis={basis}
+          armed={armedExperiences.includes(experience.id)}
+          affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
+          onToggle={() => toggleExperience(experience.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface ControlProps {
   difficulty: number | null;
   setDifficulty: (n: number | null) => void;
@@ -584,6 +745,8 @@ interface ControlProps {
   reaction: boolean;
   setReaction: (v: boolean) => void;
   experiences: Experience[];
+  /** False when the layout gives the Experiences a row of their own. */
+  inlineExperiences: boolean;
   armedExperiences: string[];
   toggleExperience: (id: string) => void;
   /** Hope the armed Experiences will cost, and Hope there is to pay with. */
@@ -696,6 +859,7 @@ function ControlRow({
   reaction,
   setReaction,
   experiences,
+  inlineExperiences,
   armedExperiences,
   toggleExperience,
   hopeCost,
@@ -829,73 +993,16 @@ function ControlRow({
           </button>
         ))}
 
-        {/*
-         * Experiences.
-         *
-         * SRD, character creation: "An Experience is a word or phrase used to
-         * encapsulate a specific set of skills, personality traits, or
-         * aptitudes your character has acquired... When your PC makes a move,
-         * they can spend a Hope to add a relevant Experience's modifier to an
-         * action or reaction roll."
-         *
-         * Whether an Experience is *relevant* is a table conversation, so every
-         * one of them is offered on every roll; the app only counts the Hope.
-         */}
-        {experiences.map((experience) => {
-          const armed = armedExperiences.includes(experience.id);
-          const affordable = armed || hopeCost < hopeAvailable;
-          const sign = experience.bonus >= 0 ? '+' : '−';
-          // A character always has two Experiences from creation; naming them
-          // is a thing the SRD expects some players to leave for play. An
-          // unnamed one is still armable and still costs a Hope, so it needs a
-          // word on it rather than an empty chip.
-          const name = experience.name.trim() === '' ? 'Unnamed' : experience.name;
-          return (
-            <button
+        {inlineExperiences &&
+          experiences.map((experience) => (
+            <ExperienceChip
               key={experience.id}
-              type="button"
-              className="chip"
-              aria-pressed={armed}
-              aria-label={`Utilize ${name}, ${sign}${Math.abs(experience.bonus)}, for one Hope${affordable ? '' : ' - not enough Hope'}`}
-              disabled={!affordable}
-              onClick={() => toggleExperience(experience.id)}
-              title={
-                affordable
-                  ? `${name} · spends 1 Hope`
-                  : `${name} · not enough Hope`
-              }
-              style={{
-                flex: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                maxWidth: 124,
-                minHeight: 'var(--control)',
-                background: armed ? 'var(--hope-wash)' : 'var(--raised)',
-                border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
-                // The border and the filled pip carry the Hope; the name stays
-                // at full text contrast, which amber on its own wash is not.
-                color: armed ? 'var(--text)' : 'var(--muted)',
-                opacity: affordable ? 1 : 0.45,
-              }}
-            >
-              <HopePip on={armed} />
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {name.toUpperCase()}
-              </span>
-              <span style={{ flex: 'none', fontWeight: 700 }}>
-                {sign}
-                {Math.abs(experience.bonus)}
-              </span>
-            </button>
-          );
-        })}
+              experience={experience}
+              armed={armedExperiences.includes(experience.id)}
+              affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
+              onToggle={() => toggleExperience(experience.id)}
+            />
+          ))}
 
         {held.map((die) => (
           <HeldDieChip

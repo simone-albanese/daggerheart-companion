@@ -104,13 +104,43 @@ describe('both layouts read the one decision', () => {
   const source = readFileSync(SOURCE, 'utf8');
 
   it('gates every die face on the affordance, not on a switch', () => {
-    // Four faces: two on the phone, two on the desktop. Each must be gated,
-    // and gated on the same thing - a bare `editable` is how they were all
-    // unconditionally editable in the first place.
-    const gated = source.match(/editable=\{canType\}/g) ?? [];
-    expect(gated).toHaveLength(4);
-    expect(source).not.toMatch(/\n\s*editable\s*\n/);
-    expect(source).not.toMatch(/\seditable\s*\/>/);
+    /*
+     * Four faces: two on the phone, two on the desktop. They are gated two
+     * different ways and both are legitimate, so the assertion is about the
+     * invariant rather than about the spelling of it.
+     *
+     * Desktop keeps its faces on screen always - they are the result readout
+     * there - and passes `editable={canType}`. The phone renders the pair only
+     * when typing is on at all, because with the roller on they were holding
+     * 62px of the thumb arc to show two em dashes; with the row conditional,
+     * the faces inside it are unconditionally editable *because* they only
+     * exist when they are.
+     *
+     * What must never come back is a face that is editable with neither gate,
+     * which is how all four were editable to begin with.
+     */
+    const faces = source.match(/<Die\b/g) ?? [];
+    expect(faces).toHaveLength(4);
+
+    const byProp = source.match(/editable=\{canType\}/g) ?? [];
+    expect(byProp).toHaveLength(2);
+
+    // The conditional block, from `{canType && (` to the brace that closes it.
+    const at = source.indexOf('{canType && (');
+    expect(at, 'the phone no longer gates its die row on canType').toBeGreaterThan(0);
+    let depth = 0;
+    let i = at;
+    do {
+      if (source[i] === '{') depth += 1;
+      else if (source[i] === '}') depth -= 1;
+      i += 1;
+    } while (i < source.length && depth > 0);
+    const guarded = source.slice(at, i);
+    expect(guarded.match(/<Die\b/g) ?? []).toHaveLength(2);
+
+    // Every face is accounted for by one gate or the other, and none by
+    // neither: two by prop, two by the guard.
+    expect(byProp.length + (guarded.match(/<Die\b/g) ?? []).length).toBe(faces.length);
   });
 
   it('gates both roll buttons on the affordance', () => {

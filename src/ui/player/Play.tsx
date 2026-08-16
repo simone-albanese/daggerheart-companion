@@ -8,14 +8,16 @@
  * are *touched*, inside the one-handed thumb arc.
  */
 import { useMemo, useState } from 'react';
-import { TRAITS, TRAIT_LABELS, type DomainCard, type Trait } from '../../../shared/types.ts';
-import type { DerivedStats } from '../../engine/character.ts';
+import { TRAITS, TRAIT_LABELS, type DomainCard, type Trait, type Weapon } from '../../../shared/types.ts';
+import { weaponDamage, type DerivedStats } from '../../engine/character.ts';
 import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import { Beastform } from './Beastform.tsx';
+import { ActiveConditions } from './Conditions.tsx';
+import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
 import { Vitals } from './Vitals.tsx';
 
@@ -23,14 +25,39 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const character = useActive();
   const layout = useLayout();
   const [trait, setTrait] = useState<RollTrait>('agility');
+  const [armedWeapon, setArmedWeapon] = useState<string | null>(null);
+
+  /*
+   * Arming a weapon arms its trait, because the weapon is what decides it:
+   * "The trait that applies to an attack roll is specified by the weapon or
+   * spell being used." A player who taps a sword has declared that roll, and
+   * making them then find the matching trait chip would be the app asking for
+   * the same decision twice.
+   */
+  const armWeapon = (weapon: Weapon | null): void => {
+    setArmedWeapon(weapon?.id ?? null);
+    if (weapon) setTrait(weapon.trait);
+  };
 
   if (!character) return null;
-  if (layout === 'phone') return <PlayPhone stats={stats} trait={trait} setTrait={setTrait} />;
+  if (layout === 'phone') {
+    return (
+      <PlayPhone
+        stats={stats}
+        trait={trait}
+        setTrait={setTrait}
+        armedWeapon={armedWeapon}
+        armWeapon={armWeapon}
+      />
+    );
+  }
   return (
     <PlayDesktop
       stats={stats}
       trait={trait}
       setTrait={setTrait}
+      armedWeapon={armedWeapon}
+      armWeapon={armWeapon}
       columns={layout === 'tablet' ? 2 : 3}
     />
   );
@@ -40,6 +67,9 @@ interface ViewProps {
   stats: DerivedStats;
   trait: RollTrait;
   setTrait: (t: RollTrait) => void;
+  /** Ref of the weapon the next attack is declared with, if any. */
+  armedWeapon: string | null;
+  armWeapon: (weapon: Weapon | null) => void;
 }
 
 function useLoadout(): { loadout: DomainCard[]; vault: DomainCard[] } {
@@ -254,10 +284,31 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
   );
 }
 
-function Equipped({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+/**
+ * What you are holding, and what happens when you tap it.
+ *
+ * This used to render only inside the desktop cockpit, so on a phone - the way
+ * most of this app is used - your weapons were not on the Play screen at all.
+ * And on desktop a tap only pushed a note into the log: the button looked like
+ * an action and was a label.
+ *
+ * Now a tap arms the roll with the weapon's own trait and remembers what the
+ * attack was made with, so that a successful Duality Roll can offer the damage
+ * the SRD says follows it. Tapping the armed weapon again puts it down, because
+ * a declaration you cannot withdraw is a trap.
+ */
+function Equipped({
+  stats,
+  armed,
+  onArm,
+}: {
+  stats: DerivedStats;
+  /** Weapon ref currently armed, if any. */
+  armed: string | null;
+  onArm: (weapon: Weapon | null) => void;
+}): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
-  const pushLog = useApp((s) => s.pushLog);
   if (!character) return null;
 
   const primary = character.activePrimaryWeapon
@@ -269,7 +320,10 @@ function Equipped({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
 
   return (
-    <div className="stack" style={{ gap: 8 }}>
+    // flex: none, because this lives inside a scrolling flex column and a flex
+    // child shrinks by default - which squashed the whole section to nothing
+    // and left its label sitting on top of the next one.
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
       <div className="t-label">Equipped</div>
       {primary === undefined && secondary === undefined && armor === undefined && (
         <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
@@ -278,18 +332,27 @@ function Equipped({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
       )}
       {[primary, secondary].filter(Boolean).map((w) => {
         if (!w) return null;
-        const dice = w.damage.replace(/^(\d*)d/, (_m, n: string) =>
-          `${(n === '' ? 1 : Number(n)) * stats.proficiency}d`,
-        );
+        // weaponDamage, not a regex. The inline `replace(/^(\d*)d/, ...)` that
+        // used to live here is exactly what the note at sheetModel.ts:249 warns
+        // against - two routes to one number is two numbers eventually, and
+        // this one had no clamp.
+        const scaled = weaponDamage(w, stats);
+        const dice = scaled?.spec ?? w.damage;
+        const isArmed = armed === w.id;
         return (
           <button
             key={w.id}
             type="button"
-            onClick={() =>
-              pushLog({ kind: 'note', label: w.name, detail: `${dice} ${w.damageType} · ${w.range}` })
-            }
+            aria-pressed={isArmed}
+            onClick={() => onArm(isArmed ? null : w)}
             className="panel"
-            style={{ borderLeft: '3px solid var(--hope)', padding: '10px 11px', textAlign: 'left' }}
+            style={{
+              borderLeft: `3px solid ${isArmed ? 'var(--hope)' : 'var(--edge)'}`,
+              background: isArmed ? 'var(--hope-wash)' : undefined,
+              padding: '10px 11px',
+              textAlign: 'left',
+              minHeight: 'var(--tap)',
+            }}
           >
             <span className="spread">
               <span style={{ font: '700 14px/1.15 var(--sans)' }}>{w.name}</span>
@@ -301,6 +364,7 @@ function Equipped({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
               className="t-meta"
               style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}
             >
+              {isArmed ? 'ARMED · ' : ''}
               {(w.trait === 'spellcast' ? 'SPELLCAST' : TRAIT_LABELS[w.trait].toUpperCase())} ·{' '}
               {w.range.toUpperCase()} · {w.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'}
             </span>
@@ -323,6 +387,111 @@ function Equipped({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The things you are carrying, and spending one of them.
+ *
+ * The inventory existed on the sheet and on the printout and nowhere you could
+ * reach mid-scene, so a potion bought at creation was invisible for the rest of
+ * the campaign. What a consumable does is its own printed text - "Clear 1d4 Hit
+ * Points" - and the app does not read that text or apply it: it shows it, and
+ * it counts. USE decrements the count and writes a log line, which is the
+ * player saying they drank it, not the app deciding what happened.
+ *
+ * Nothing here is offered for an item with no quantity left; a row that stays
+ * pressable after the last one is gone is a row that lies about what you have.
+ */
+function Items(): React.JSX.Element | null {
+  const character = useActive();
+  const update = useApp((s) => s.update);
+  const pushLog = useApp((s) => s.pushLog);
+  const [open, setOpen] = useState<number | null>(null);
+  if (!character) return null;
+
+  const carried = character.inventory;
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      <div className="spread" style={{ flex: 'none' }}>
+        <span className="t-label">Carried</span>
+        <span className="t-meta" style={{ color: 'var(--muted)' }}>
+          {carried.length} {carried.length === 1 ? 'ITEM' : 'ITEMS'}
+        </span>
+      </div>
+      {carried.length === 0 && (
+        <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+          Nothing carried — add items in Build.
+        </div>
+      )}
+      {carried.map((entry, i) => {
+        const showing = open === i;
+        const spent = entry.quantity <= 0;
+        return (
+          <div
+            key={`${entry.name}-${String(i)}`}
+            className="panel"
+            style={{ padding: '8px 11px', opacity: spent ? 0.55 : 1 }}
+          >
+            <div className="spread" style={{ gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setOpen(showing ? null : i)}
+                aria-expanded={showing}
+                disabled={entry.note === undefined}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  minHeight: 'var(--tap)',
+                  textAlign: 'left',
+                  font: '600 14px/1.2 var(--sans)',
+                }}
+              >
+                {entry.name}
+                {entry.quantity > 1 && (
+                  <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
+                    ×{entry.quantity}
+                  </span>
+                )}
+              </button>
+              {!spent && (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    update((c) => ({
+                      ...c,
+                      inventory: c.inventory.map((e, j) =>
+                        j === i ? { ...e, quantity: e.quantity - 1 } : e,
+                      ),
+                    }));
+                    pushLog({
+                      kind: 'note',
+                      label: `Used ${entry.name}`,
+                      detail: entry.note ?? 'One spent.',
+                    });
+                  }}
+                  style={{
+                    flex: 'none',
+                    minHeight: 'var(--tap)',
+                    background: 'var(--raised)',
+                    color: 'var(--text)',
+                  }}
+                >
+                  USE
+                </button>
+              )}
+            </div>
+            {showing && entry.note !== undefined && (
+              <p className="t-dense" style={{ margin: '6px 2px 2px', color: 'var(--text-2)' }}>
+                {entry.note}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -424,7 +593,14 @@ function Vault(): React.JSX.Element | null {
  * stopped doing a card's job. A row that says name, domain and Recall, with the
  * full text one tap away, is the honest shape for the space.
  */
-function LoadoutRows({ minHeight = 46 }: { minHeight?: number }): React.JSX.Element {
+function LoadoutRows({
+  minHeight = 46,
+  fill = false,
+}: {
+  minHeight?: number;
+  /** Divide the container between the rows, for the fixed-height desktop box. */
+  fill?: boolean;
+}): React.JSX.Element {
   const { loadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
@@ -438,7 +614,7 @@ function LoadoutRows({ minHeight = 46 }: { minHeight?: number }): React.JSX.Elem
           onClick={() => setOpenCard(card)}
           className="row"
           style={{
-            flex: '1 1 0',
+            flex: fill ? '1 1 0' : 'none',
             minHeight,
             overflow: 'hidden',
             borderRadius: 'var(--r3)',
@@ -489,6 +665,8 @@ function PlayDesktop({
   stats,
   trait,
   setTrait,
+  armedWeapon,
+  armWeapon,
   columns,
 }: ViewProps & { columns: 2 | 3 }): React.JSX.Element {
   const character = useActive();
@@ -520,7 +698,7 @@ function PlayDesktop({
             <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
           </>
         )}
-        <Equipped stats={stats} />
+        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
       </div>
 
       {columns === 3 && (
@@ -542,7 +720,7 @@ function PlayDesktop({
             on a 900px display, which is the one thing Play must never do. */}
         {columns === 2 ? (
           <div className="stack" style={{ flex: 1, minHeight: 0, gap: 6, overflow: 'hidden' }}>
-            <LoadoutRows minHeight={52} />
+            <LoadoutRows minHeight={52} fill />
           </div>
         ) : (
         <div
@@ -618,7 +796,40 @@ function PlayDesktop({
   );
 }
 
-function PlayPhone({ stats, trait, setTrait }: ViewProps): React.JSX.Element {
+/**
+ * The phone screen.
+ *
+ * The page scrolls. It used to refuse to, and the refusal cost more than it
+ * saved: with every band fixed, one region had to absorb every shortfall, and
+ * that region was the loadout - measured at 130px of the 230 it needs on a
+ * 393px phone, and at *zero* on a 375px one, where five cards rendered into a
+ * box with no height and the ROLL button came out 33px tall and partly under
+ * the tab bar. A screen that hides your cards to avoid a scrollbar has its
+ * priorities backwards.
+ *
+ * So everything scrolls except the roll block, and the ergonomics are in the
+ * order rather than in the fitting:
+ *
+ *   - The roll block stays out of the scroll because it is the one thing
+ *     touched on every single action. It holds the trait chips, the modifier
+ *     row, the Experiences and ROLL - which is also the order the rules ask
+ *     for, since all of those are declared *before* the dice. Nothing in it
+ *     can scroll out from under a thumb that is already moving.
+ *   - Inside the scroll, the order runs from read at the top to touched at the
+ *     bottom: identity, then cards, then the weapons and items you reach for
+ *     during a turn, then the tracks. So the things touched most are already
+ *     in the thumb arc when the screen opens, and everything else is one flick
+ *     away rather than absent.
+ *   - The tracks sit last, immediately above the roll block, because after a
+ *     roll resolves the next thing a hand does is mark something.
+ */
+function PlayPhone({
+  stats,
+  trait,
+  setTrait,
+  armedWeapon,
+  armWeapon,
+}: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
@@ -643,75 +854,104 @@ function PlayPhone({ stats, trait, setTrait }: ViewProps): React.JSX.Element {
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8 }}>
-      <div className="spread" style={{ alignItems: 'flex-end', paddingTop: 4 }}>
-        <div>
-          <div style={{ font: '800 21px/1 var(--sans)', letterSpacing: '-0.02em' }}>
+      {/*
+       * Everything that is read, or reached for during a turn. It scrolls, and
+       * it is ordered so the least-touched thing is furthest from the thumb.
+       */}
+      <div
+        className="stack scroll scroll-fade"
+        style={{ flex: 1, minHeight: 0, gap: 10, overflowX: 'hidden' }}
+      >
+        {/* A worn Beastform changes what every number under it means, so it
+            leads: a state banner nobody scrolls to is a state banner nobody
+            reads. It renders nothing when no form is worn. */}
+        <Beastform stats={stats} layout="phone" />
+
+        {/* Conditions are set once a scene rather than once a turn, so they
+            live here rather than in the fixed block - visible, one flick, and
+            not paying for permanence they do not need. */}
+        <ActiveConditions />
+
+        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+
+        <div className="stack" style={{ flex: 'none', gap: 4 }}>
+          <div className="spread" style={{ flex: 'none' }}>
+            <span className="t-label">Loadout</span>
+            <span className="t-meta">{loadout.length} / 5</span>
+          </div>
+          <LoadoutRows />
+        </div>
+
+        <Items />
+
+        {/* Last, and deliberately. Your own name and class are the one thing
+            on this screen you already know: they are here to be checked once,
+            not reached for, so they pay the scroll rather than the tracks. */}
+        <div style={{ flex: 'none', paddingBottom: 4 }}>
+          <div style={{ font: '800 19px/1 var(--sans)', letterSpacing: '-0.02em' }}>
             {character.name || 'Unnamed'}
           </div>
-          {/* Evasion and the thresholds used to sit here too. They are numbers
-              the GM reads out when they attack you, not numbers you act on -
-              and the damage control prints them again two rows down, where you
-              do act on them. On a screen that was 78px short, a duplicate was
-              the first thing to go. */}
           <div className="t-meta" style={{ marginTop: 5 }}>
             {(klass === '' ? '—' : klass).toUpperCase()} · LV{character.level}
           </div>
         </div>
-        <div style={{ textAlign: 'right', flex: 'none' }}>
-          <div className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            {modLabel}
-          </div>
-          <div style={{ font: '800 22px/1 var(--sans)', color: 'var(--hope)', marginTop: 4 }}>
-            {modValue >= 0 ? '+' : '−'}
-            {Math.abs(modValue)}
-          </div>
+      </div>
+
+      {/*
+       * The roll block. Out of the scroll on purpose - it is the one thing
+       * touched on every single action, and a control you have to go looking
+       * for is a control you stop using. It also holds everything the rules
+       * make you declare before the dice, in that order.
+       */}
+      <div className="stack" style={{ flex: 'none', gap: 6 }}>
+        {/* When you have fallen, this is the only thing that matters, so it
+            goes above everything else and outside the scroll. It renders
+            nothing the rest of the time. */}
+        <DeathMoveOffer />
+
+        {/* The tokens, in the foreground.
+            They are not in the scroll because they are not reference material:
+            they are the state of the character, changed several times a turn,
+            and a counter you have to go and find is a counter that stops being
+            marked. They sit directly above the declaration row, which puts the
+            Hope track against the Experience chips that spend it. */}
+        <Vitals stats={stats} layout="phone" showState={false} />
+
+        <div
+          className="row"
+          style={{ gap: 4, overflowX: 'auto', flex: 'none', scrollbarWidth: 'none' }}
+        >
+          {TRAITS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTrait(t);
+                // Picking a trait by hand is declaring a different roll from
+                // the one the weapon declared, so the weapon steps back rather
+                // than silently offering its damage for a persuasion check.
+                if (armedWeapon !== null) armWeapon(null);
+              }}
+              className="chip"
+              aria-pressed={trait === t}
+              style={{
+                minHeight: 'var(--tap)',
+                flex: '1 0 auto',
+                background: trait === t ? 'var(--hope)' : 'var(--raised)',
+                color: trait === t ? 'var(--app)' : 'var(--muted)',
+                borderBottom:
+                  stats.beastform?.raised.some((r) => r.trait === t) === true
+                    ? '2px solid var(--sage)'
+                    : '2px solid transparent',
+              }}
+            >
+              {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {stats.traits[t] >= 0 ? '+' : '−'}
+              {Math.abs(stats.traits[t])}
+            </button>
+          ))}
         </div>
+        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="phone" />
       </div>
-
-      <Beastform stats={stats} layout="phone" />
-
-      <div
-        className="row"
-        style={{ gap: 4, overflowX: 'auto', flex: 'none', scrollbarWidth: 'none' }}
-      >
-        {TRAITS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTrait(t)}
-            className="chip"
-            aria-pressed={trait === t}
-            style={{
-              minHeight: 'var(--control)',
-              flex: 'none',
-              background: trait === t ? 'var(--hope)' : 'var(--raised)',
-              color: trait === t ? 'var(--app)' : 'var(--muted)',
-              borderBottom:
-                stats.beastform?.raised.some((r) => r.trait === t) === true
-                  ? '2px solid var(--sage)'
-                  : '2px solid transparent',
-            }}
-          >
-            {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {stats.traits[t] >= 0 ? '+' : '−'}
-            {Math.abs(stats.traits[t])}
-          </button>
-        ))}
-      </div>
-
-      {/* The safety valve. This region used to clip: at 852px the fourth row
-          lost 28px and the fifth was invisible entirely, and a card you cannot
-          see is a card you do not have. The page still never scrolls; a list
-          that outgrows its box does. */}
-      <div className="stack scroll scroll-fade" style={{ flex: 1, minHeight: 0, gap: 4, overflowX: 'hidden' }}>
-        <div className="spread" style={{ flex: 'none' }}>
-          <span className="t-label">Loadout</span>
-          <span className="t-meta">{loadout.length} / 5</span>
-        </div>
-        <LoadoutRows />
-      </div>
-
-      <Vitals stats={stats} layout="phone" />
-      <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="phone" />
     </div>
   );
 }
