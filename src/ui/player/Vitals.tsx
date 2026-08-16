@@ -32,15 +32,12 @@ interface Props {
   /**
    * Which half of this panel to draw. Only the phone splits it.
    *
-   * 'tracks' is HP, Stress and Hope - the three the game makes you touch on
-   * something like every roll. 'damage' is the incoming-damage calculator and
-   * the Armor track, which belong together because armour slots exist to be
-   * spent reducing exactly that damage, and which are both event-driven: they
-   * are reached for when something hits you rather than continuously.
-   *
-   * The split buys the scroll region back. With all four tracks and the
-   * calculator pinned, the fixed block took about 500px of an 852px phone and
-   * left 188px to read weapons and cards through.
+   * 'tracks' is all four counters - they are the state of the character and
+   * they are pinned. 'damage' is the incoming-damage calculator on its own:
+   * it is the one part of this panel that is a question rather than a state
+   * ("someone hit you for 14 - how many HP is that?"), it is asked when
+   * something hits you rather than continuously, and its answer lands on the
+   * Armor and HP tracks, which stay pinned above it either way.
    */
   part?: 'all' | 'tracks' | 'damage';
 }
@@ -217,7 +214,7 @@ export function Vitals({
          * in the game had targets under WCAG's 24px floor. About 43px now.
          */
         <>
-          {part !== 'tracks' && (
+          {part !== 'damage' && (
             <Track
               kind="armor"
               label="ARMOR"

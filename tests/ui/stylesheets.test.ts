@@ -301,3 +301,30 @@ describe('the pip tokens', () => {
     expect(tokensCss).toMatch(/--pip-min:\s*24px/);
   });
 });
+
+describe('form controls on a touch screen', () => {
+  /**
+   * iOS Safari zooms the page when a focused control's text is under 16px, and
+   * it does not zoom back out. Reported from a phone: typing a damage number
+   * magnified the sheet mid-scene. Ten controls in this app set a smaller size
+   * inline, so the floor has to be able to beat an inline `font:` shorthand.
+   *
+   * The alternative fix - `maximum-scale=1` on the viewport meta - would take
+   * pinch-zoom away from everyone permanently to correct a text size we
+   * control, so the test also refuses that.
+   */
+  const base = readFileSync(join(DIR, 'base.css'), 'utf8');
+  const html = readFileSync('index.html', 'utf8');
+
+  it('floors form-control text at 16px where the pointer is coarse', () => {
+    const rule = /@media\s*\(pointer:\s*coarse\)\s*\{[\s\S]*?font-size:\s*max\(16px[^;]*\)\s*!important/;
+    expect(base).toMatch(rule);
+  });
+
+  it('does not buy that by disabling pinch-zoom', () => {
+    const viewport = /<meta[^>]*name="viewport"[^>]*content="([^"]*)"/s.exec(html)?.[1] ?? '';
+    expect(viewport, 'no viewport meta found').not.toBe('');
+    expect(viewport).not.toMatch(/maximum-scale/);
+    expect(viewport).not.toMatch(/user-scalable\s*=\s*no/);
+  });
+});

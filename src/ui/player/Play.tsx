@@ -853,14 +853,33 @@ function PlayPhone({
       : stats.traits[trait as Trait];
 
   return (
-    <div className="stack" style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8 }}>
+    /*
+     * The outer column scrolls only as a last resort.
+     *
+     * Pinning the tokens and the roll is right until the two of them do not
+     * fit, and on a 375x667 phone carrying five Experiences they do not: the
+     * fixed block wants 480 of the 553 this screen gets, which left the
+     * reference region *three pixels* for 943px of cards, weapons and items.
+     * That is P2-1's failure wearing the other hat - one region absorbing
+     * every shortfall - and a floor is the fix in both directions.
+     *
+     * So the scrolling region can never go below two rows, and when the sum
+     * overflows, the page itself takes up the slack instead of crushing
+     * anything. On any phone with room the outer scroller never engages at all.
+     */
+    <div
+      className="stack"
+      style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8, overflowY: 'auto' }}
+    >
       {/*
        * Everything that is read, or reached for during a turn. It scrolls, and
        * it is ordered so the least-touched thing is furthest from the thumb.
        */}
       <div
         className="stack scroll scroll-fade"
-        style={{ flex: 1, minHeight: 0, gap: 10, overflowX: 'hidden' }}
+        // The floor. Two rows of something is the least that can be called a
+        // region rather than a slot.
+        style={{ flex: '1 1 auto', minHeight: 88, gap: 10, overflowX: 'hidden' }}
       >
         {/* A worn Beastform changes what every number under it means, so it
             leads: a state banner nobody scrolls to is a state banner nobody
@@ -888,11 +907,11 @@ function PlayPhone({
             "what can I do this turn", so they lead together. */}
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
 
-        {/* Armour and the damage calculator: one control in two parts, since
-            armour slots exist to be spent reducing exactly the damage the
-            calculator is working out. Both are reached for when something hits
-            you rather than continuously, and the HP track stays pinned below,
-            so the state they change is never out of sight. */}
+        {/* The damage calculator. It is the one part of the vitals panel that
+            is a question rather than a state - "someone hit you for 14, how
+            many HP is that" - and it is asked when something hits you rather
+            than continuously, so it does not need to be pinned. Its answer
+            lands on the Armor and HP tracks, which are. */}
         <Vitals stats={stats} layout="phone" showState={false} part="damage" />
 
         {/* Conditions are set once a scene rather than once a turn. */}
@@ -925,12 +944,12 @@ function PlayPhone({
             nothing the rest of the time. */}
         <DeathMoveOffer />
 
-        {/* The tokens, in the foreground.
-            They are not in the scroll because they are not reference material:
-            they are the state of the character, changed several times a turn,
-            and a counter you have to go and find is a counter that stops being
-            marked. They sit directly above the declaration row, which puts the
-            Hope track against the Experience chips that spend it. */}
+        {/* The tokens, in the foreground - all four of them.
+            They are not reference material: they are the state of the
+            character, changed several times a turn, and a counter you have to
+            go and find is a counter that stops being marked. They sit directly
+            above the declaration row, which puts the Hope track against the
+            Experience chips that spend it. */}
         <Vitals stats={stats} layout="phone" showState={false} part="tracks" />
 
         <div

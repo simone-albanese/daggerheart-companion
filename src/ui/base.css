@@ -80,6 +80,33 @@ textarea {
   line-height: 1.5;
 }
 
+/*
+ * Sixteen pixels, wherever a finger is the pointer.
+ *
+ * iOS Safari zooms the whole page in when you focus a form control whose text
+ * is smaller than 16px, and it does not zoom back out afterwards - so typing a
+ * damage number left the sheet magnified and scrolled somewhere else, mid
+ * scene, every single time. Ten controls in this app set a smaller size
+ * inline: the damage box at 12px, the Difficulty box at 13, the GM's filters
+ * and the header's character picker.
+ *
+ * The other way to stop it is `maximum-scale=1` on the viewport meta, and that
+ * is the wrong trade: it takes pinch-zoom away from everyone, permanently, to
+ * fix a text size we control. WCAG 1.4.4 exists for the people who need that
+ * gesture most.
+ *
+ * `!important` because the sizes it has to beat are inline `font:` shorthands,
+ * which no ordinary rule can reach - and `(pointer: coarse)` because a mouse
+ * never had this problem and the dense controls read better small.
+ */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem) !important;
+  }
+}
+
 ::placeholder {
   color: var(--dim);
 }

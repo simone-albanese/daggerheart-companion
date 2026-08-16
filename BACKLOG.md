@@ -441,24 +441,29 @@ Recomputed from the real hex values:
 The phone Play screen keeps two things out of the scroll: the tokens and the
 roll. Measured with a level 8 character:
 
-| viewport | Experiences | fixed block | scroll window | content |
-|---|---|---|---|---|
-| 393 × 852 | 2 | ~450 | **288** | 993 |
-| 393 × 852 | 5 | ~500 | 238 | 993 |
-| 375 × 667 | 2 | ~450 | ~105 | 993 |
-| 375 × 667 | 5 | ~500 | **53** | 993 |
+All four tracks are pinned, on an explicit instruction. Measured with a level 8
+character after the Armor track joined them:
 
-Nothing is clipped and nothing is unreachable — every Experience shows its full
-name, every pip clears 31 px, ROLL keeps its 66 px clear of the tab bar. But 53
-px is a slot, not a region, and reading five cards through it is unpleasant.
+| viewport | Experiences | scroll window | page also scrolls |
+|---|---|---|---|
+| 393 × 852 | 2 | 288 | no |
+| 393 × 852 | 5 | **188** | no |
+| 375 × 667 | 5 | **88** (the floor) | yes, by 85 px |
 
-The tokens are pinned on an explicit instruction, so this is not a bug to go
-and fix quietly; it is a trade that has to be re-decided if it bites.
+Before the floor existed, the last row measured **3 px** for 943 px of content —
+cards, weapons and items present and unreachable. That is P2-1's failure wearing
+the other hat, one region absorbing every shortfall, so the fix is the same in
+both directions: the scrolling region can never go below two rows, and when the
+sum overflows, the page itself takes up the slack. On any phone with room the
+outer scroller never engages.
 
-- [ ] If it bites: on a short viewport only, let the Experience rows join the
-      top of the scroll, or drop Stress out of the pinned set. Both cost
-      something the owner has already said they want, so neither happens
-      without asking.
+Nothing is clipped anywhere: every Experience shows its whole name, every pip
+clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
+
+- [ ] 188 px on a tall phone is workable but not generous. If it grates, the
+      levers are: let the Experience rows join the top of the scroll on short
+      viewports, or unpin Stress. Both cost something already asked for, so
+      neither happens without asking.
 
 ### P2-3 · Touch targets and the tablet header
 **~3 h total**
