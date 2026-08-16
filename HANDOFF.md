@@ -87,8 +87,19 @@ advancement, distances in metres, the name generators. Source every word from
 **P1-1 damage rolls.** Held back because it touches `Play.tsx` and
 `DualityRoll.tsx`, which the rebuild was rewriting. Unblocked now.
 
-**P1-7 rests is done** — `d88289c`, `adeaae4`, `851d04c` — and it left three
-things a cold start needs to know before touching anything near the schema.
+**P1-7 rests is done** — `d88289c`, `adeaae4`, `851d04c`, plus the five fixes
+the review of it produced (`50fb64a`, `e0b0e94`, `dad45bd`, `6c7b897`,
+`4a99811`) — and it left four things a cold start needs to know before touching
+the surface or anything near the schema.
+
+- **The free card swap is proposed, not applied on the tap.** Cards move at no
+  cost *because* a rest is happening, so a tap stages a `Swap`, `applySwaps`
+  builds the sheet the rest is proposed against, and COMMIT applies the moves
+  and the card moves together in one write and one `'rest'` entry. Applied on
+  the tap it charged the rest's price before the rest — and COMMIT then cleared
+  `kind` and removed the section, so the free swap was reachable exactly while
+  no rest existed. `useRecall` no longer takes `downtime`: it is the *scene*
+  recall, for the vault shelf and the card browser.
 
 - **`SCHEMA_VERSION` is 4, and `MIGRATIONS` is no longer empty.** There is one
   converter, `from: 3`, and `OLDEST_READABLE` is still 3 because 3 is exactly
