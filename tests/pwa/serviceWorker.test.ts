@@ -237,15 +237,45 @@ describe('service worker, against what the build actually emitted', () => {
     expect(app.net.requests.filter((path) => path.includes('qcms'))).toHaveLength(0);
   });
 
-  it('precaches the fonts and every icon the install prompt may ask for', async () => {
+  /**
+   * Every expectation here is derived from what Vite actually emitted, because
+   * a hand-written list of filenames is a test that passes while the app is
+   * broken - the worker infers its precache from the build, so the test has to
+   * infer its expectations from the same place or it is only checking that two
+   * copies of one guess agree.
+   *
+   * That was already true of the fonts and the icons. It was not true of
+   * anything else, and there was no anything else: `public/brand/` shipped
+   * uncovered because no clause here mentioned it, which is a shape of hole
+   * that repeats the day someone adds `public/sounds/`. So the last assertion
+   * is not a fourth directory - it is the whole of `public/` at once, with the
+   * two exemptions named out loud. Add a directory and it is covered before it
+   * exists; decide something must not be precached and you say so here, with a
+   * reason, where the next reader can disagree with you.
+   */
+  it('precaches everything the build copied out of public/, and says why for what it skips', async () => {
     const app = world(dist);
     await app.dispatch('install');
     const shell = app.cached(SHELL);
 
     expect(shell.filter((url) => url.endsWith('.woff2'))).toEqual(app.emitted(/\/fonts\/.+\.woff2$/));
+    // Every icon the install prompt may ask for - the 512s and the maskable,
+    // which the document never names - and not merely the one it does.
     expect(shell.filter((url) => url.includes('/icons/'))).toEqual(app.emitted(/\/icons\//));
-    // The font licences sit in the same directory and are nobody's business.
-    expect(shell.some((url) => url.endsWith('.txt'))).toBe(false);
+    // Both cuts of the licensed mark, named nowhere but an `<img src>` inside a
+    // chunk. Offline this is the difference between the mark and its alt text.
+    expect(shell.filter((url) => url.includes('/brand/'))).toEqual(app.emitted(/\/brand\//));
+
+    const exempt = (url: string): boolean =>
+      // The worker itself. The browser owns that copy and updates it out of
+      // band; a worker that cached its own bytes could pin its own successor.
+      url.endsWith('/sw.js') ||
+      // The font licences, which sit in the same directory as the fonts and are
+      // nobody's business offline. The licence the app must show is in the DOM.
+      url.endsWith('.txt');
+    expect(shell).toEqual(
+      app.emitted(/^(?!.*\/assets\/).*$/).filter((url) => !exempt(url)),
+    );
   });
 
   /**
