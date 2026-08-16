@@ -59,6 +59,8 @@ import {
   type EncounterAdjustments,
   type SceneCombatant,
 } from '../../engine/encounter.ts';
+import { exportCampaign } from '../../transfer/campaignFile.ts';
+import type { SaveOptions, SaveResult } from '../../transfer/fileIo.ts';
 import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaigns.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import type { QuarantinedRecord } from '../../store/db.ts';
@@ -149,6 +151,8 @@ export interface GmState extends GmLive {
   switchCampaign: (id: string) => Promise<void>;
   renameCampaign: (id: string, name: string) => void;
   removeCampaign: (id: string) => Promise<void>;
+  /** The open campaign as a `.dhcampaign` file. Never throws; read `ok`. */
+  exportActiveCampaign: (options?: SaveOptions & { at?: Date }) => Promise<SaveResult>;
 
   /** Put sheets on the party board. Never writes to the character store. */
   importParty: (sheets: Character[], source: PartySource) => PartyImportSummary;
@@ -585,6 +589,30 @@ export const useGm = create<GmState>((set, get) => {
 
     renameCampaign(id, name) {
       patchCampaign(id, { name: name.trim() });
+    },
+
+    async exportActiveCampaign(options) {
+      /*
+       * Flush first, so the file holds what is on the screen.
+       *
+       * Without it the export runs off the last record written, which on a
+       * 400 ms debounce is up to four hundred milliseconds behind the GM - and
+       * a backup that is *nearly* the state you were in is the kind of quiet
+       * wrongness this app exists not to have.
+       */
+      await flushGm();
+      const state = get();
+      const campaign = state.campaigns.find((c) => c.id === state.activeCampaignId);
+      if (campaign === undefined) {
+        return {
+          ok: false,
+          route: null,
+          fileName: '',
+          cancelled: false,
+          reason: 'There is no campaign open to export.',
+        };
+      }
+      return exportCampaign(campaign, options);
     },
 
     async removeCampaign(id) {

@@ -408,6 +408,43 @@ describe('the party board, which holds other people’s sheets', () => {
   });
 });
 
+describe('exporting the open campaign', () => {
+  it('writes what is on the screen, not what the debounce last wrote', async () => {
+    // The debounce is 400 ms. An export that ran off the last written record
+    // would hand the GM a file that is nearly the state they were in, which is
+    // the kind of quiet wrongness this app exists not to have.
+    const fileIo = await import('../../src/transfer/fileIo.ts');
+    const campaignFile = await import('../../src/transfer/campaignFile.ts');
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: true,
+      route: 'download',
+      fileName: 'x',
+      cancelled: false,
+      reason: null,
+    });
+
+    const s = gm.useGm.getState();
+    s.renameCampaign(s.activeCampaignId!, 'The Sablewood Winter');
+    s.setFear(7);
+    await s.exportActiveCampaign();
+
+    expect(spy).toHaveBeenCalledOnce();
+    const [fileName, text] = spy.mock.calls[0]!;
+    expect(fileName).toBe('the-sablewood-winter.dhcampaign');
+    const back = campaignFile.parseCampaignFile(text);
+    expect(back.campaign.fear).toBe(7);
+    expect(back.campaign.name).toBe('The Sablewood Winter');
+    spy.mockRestore();
+  });
+
+  it('says there is nothing to export rather than writing an empty file', async () => {
+    gm.useGm.setState({ activeCampaignId: null });
+    const result = await gm.useGm.getState().exportActiveCampaign();
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/no campaign open/);
+  });
+});
+
 describe('a write that did not happen', () => {
   it('says so instead of swallowing it', async () => {
     // The line this replaces was `catch { /* Private mode or quota. */ }`.
