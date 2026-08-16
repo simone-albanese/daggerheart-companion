@@ -6,10 +6,22 @@
  * you read the outcome from across a table without hunting for where the
  * answer went.
  *
- * Two ways in. Tap ROLL and the app rolls, or tap either die and type what your
- * physical dice actually showed - the app still resolves the outcome, the
- * Hope/Fear economy and the critical. A table that only uses real dice can turn
- * the digital roller off entirely in settings, and then the dice are the input.
+ * Two ways in, and only one of them is on by default. Tap ROLL and the app
+ * rolls. A table that rolls real dice turns on "Type your own dice" in
+ * settings, and then either face can be tapped and typed into - the app still
+ * resolves the outcome, the Hope/Fear economy and the critical.
+ *
+ * Typing used to be unconditional, and it cost more than it looked. The two
+ * faces hold the best band on a phone, directly above ROLL and directly under
+ * the thumb, and with the roller on they spend it showing two em dashes until
+ * somebody taps one. Worse, a resolved roll stayed one tap from being
+ * rewritten by a thumb resting where thumbs rest. Off by default the faces
+ * only report, and the band they were holding goes to the things a player
+ * actually reaches for mid-scene.
+ *
+ * The two switches are independent, so both can be off. That state is real and
+ * is not prevented: the control says which switch is missing rather than
+ * sitting there greyed out with the word ROLL still on it.
  *
  * Before the dice comes the declaration, and the SRD is strict about the order:
  * "Unless an action, ability, or feature specifically allows for it, a player
@@ -33,6 +45,68 @@ import { useIsNarrow } from '../shared/useLayout.ts';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
 export type RollTrait = Trait | 'spellcast';
+
+/** What the two dice switches leave a player able to do. */
+export interface RollAffordance {
+  /** Pressing the control can produce a roll. */
+  canRoll: boolean;
+  /** The Hope and Fear faces accept a typed value. */
+  canType: boolean;
+  /** The word on the control before a roll has been made. */
+  label: string;
+  /** What to do next, for whichever idle readout the layout has. */
+  prompt: string;
+  /** The prompt is a thing to go and fix, not an instruction to follow. */
+  blocked: boolean;
+}
+
+/**
+ * The honesty rule, in one place.
+ *
+ * "Digital dice" and "Type your own dice" are independent switches, so there
+ * are four states and one of them - both off - leaves nothing on the screen
+ * that can resolve a roll. That state is real, it is reachable from Settings
+ * in two taps, and it is not prevented. What it must never do is present a
+ * disabled control still saying ROLL, because a greyed-out button with the
+ * name of the thing you wanted on it says the app could do it and won't,
+ * rather than that nothing is switched on. So the control names the missing
+ * switch and where to find it.
+ *
+ * Both layouts read this rather than deciding for themselves; the phone and
+ * the desktop disagreeing about what the app can do would be its own bug. The
+ * desktop was that bug for a while - its verdict strip kept its own idle copy
+ * and went on saying READY and "tap ROLL" next to a button that could not
+ * roll, while this comment claimed otherwise. Hence `prompt`: there is one
+ * instruction line, and whichever readout a layout has, it shows that one.
+ */
+export function rollAffordance(digitalDice: boolean, manualDice: boolean): RollAffordance {
+  if (digitalDice) {
+    return {
+      canRoll: true,
+      canType: manualDice,
+      label: 'ROLL',
+      prompt: 'PICK A TRAIT · TAP ROLL',
+      blocked: false,
+    };
+  }
+  if (manualDice) {
+    return {
+      canRoll: false,
+      canType: true,
+      label: 'ENTER YOUR DICE',
+      // No ROLL to tap: the faces are the only way in, and the line says so.
+      prompt: 'PICK A TRAIT · TYPE YOUR DICE',
+      blocked: false,
+    };
+  }
+  return {
+    canRoll: false,
+    canType: false,
+    label: 'NO DICE TURNED ON',
+    prompt: 'TURN ON DIGITAL OR TYPED DICE IN SETTINGS',
+    blocked: true,
+  };
+}
 
 export interface RollState {
   result: DualityResult | null;
@@ -60,7 +134,14 @@ interface DieProps {
   editable: boolean;
 }
 
-/** A die face that is also its own input, so physical dice have somewhere to go. */
+/**
+ * A die face. It reports what the die showed, and when `editable` it is also
+ * its own input, so physical dice have somewhere to go.
+ *
+ * Not editable is the default state of the app, and then this is a readout and
+ * says so: no pointer cursor, and an accessible name without the invitation to
+ * tap. A control that looks pressable and does nothing is worse than a label.
+ */
 function Die({ label, color, value, onSet, size, editable }: DieProps): React.JSX.Element {
   const [editing, setEditing] = useState(false);
 
@@ -152,6 +233,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
   const pushLog = useApp((s) => s.pushLog);
   const update = useApp((s) => s.update);
   const digitalDice = useApp((s) => s.prefs.digitalDice);
+  const manualDice = useApp((s) => s.prefs.manualDice);
 
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [advantage, setAdvantage] = useState<0 | 1 | -1>(0);
@@ -294,6 +376,13 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
     ...bonusDice.map((sides) => `+D${sides}`),
   ].join(' · ');
 
+  const affordance = rollAffordance(digitalDice, manualDice);
+  const { canRoll, canType } = affordance;
+  const idleLabel = affordance.label;
+  // The phone's second line normally carries the arithmetic of the next roll.
+  // When there is nothing to roll with, the arithmetic is beside the point.
+  const idleDetail = affordance.blocked ? affordance.prompt : `2d12 ${modSign} · ${traitLabel}`;
+
   const control = (
     <ControlRow
       difficulty={difficulty}
@@ -335,7 +424,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
             value={manual.hope}
             onSet={setDie('hope')}
             size={26}
-            editable
+            editable={canType}
           />
           <Die
             label="FEAR"
@@ -343,13 +432,13 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
             value={manual.fear}
             onSet={setDie('fear')}
             size={26}
-            editable
+            editable={canType}
           />
         </div>
         <button
           type="button"
-          onClick={() => digitalDice && resolve()}
-          disabled={!digitalDice}
+          onClick={() => canRoll && resolve()}
+          disabled={!canRoll}
           style={{
             height: 66,
             borderRadius: 'var(--r5)',
@@ -364,7 +453,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
         >
           <span className="stack" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
             <span style={{ font: '900 17px/1 var(--sans)', color: verdictColor(result) }}>
-              {result === null ? (digitalDice ? 'ROLL' : 'ENTER YOUR DICE') : OUTCOME_LABEL[result.outcome]}
+              {result === null ? idleLabel : OUTCOME_LABEL[result.outcome]}
             </span>
             <span
               className="t-meta"
@@ -373,7 +462,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
               {armSummary !== ''
                 ? armSummary
                 : result === null
-                  ? `2d12 ${modSign} · ${traitLabel}`
+                  ? idleDetail
                   : OUTCOME_DETAIL[result.outcome]}
             </span>
           </span>
@@ -396,8 +485,8 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       {control}
 
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
-        <Die label="HOPE" color="var(--hope)" value={manual.hope} onSet={setDie('hope')} size={46} editable />
-        <Die label="FEAR" color="var(--fear)" value={manual.fear} onSet={setDie('fear')} size={46} editable />
+        <Die label="HOPE" color="var(--hope)" value={manual.hope} onSet={setDie('hope')} size={46} editable={canType} />
+        <Die label="FEAR" color="var(--fear)" value={manual.fear} onSet={setDie('fear')} size={46} editable={canType} />
         <div
           style={{
             width: 132,
@@ -440,13 +529,17 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
             color: verdictColor(result),
           }}
         >
-          {result === null ? 'READY' : OUTCOME_LABEL[result.outcome].toUpperCase()}
+          {result === null
+            ? affordance.blocked
+              ? affordance.label
+              : 'READY'
+            : OUTCOME_LABEL[result.outcome].toUpperCase()}
         </span>
         <span className="t-meta" style={{ color: verdictColor(result), opacity: 0.8 }}>
           {armSummary !== ''
             ? armSummary
             : result === null
-              ? 'PICK A TRAIT · TAP ROLL'
+              ? affordance.prompt
               : OUTCOME_DETAIL[result.outcome].toUpperCase()}
         </span>
       </div>
@@ -454,8 +547,8 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       <button
         type="button"
         className="btn-primary"
-        onClick={() => resolve()}
-        disabled={!digitalDice}
+        onClick={() => canRoll && resolve()}
+        disabled={!canRoll}
         style={{
           height: 54,
           flex: 'none',
@@ -467,7 +560,7 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
         }}
       >
         <span style={{ font: '900 19px/1 var(--sans)', letterSpacing: '0.06em' }}>
-          {digitalDice ? 'ROLL' : 'DIGITAL DICE OFF'}
+          {idleLabel}
         </span>
         <span className="t-num" style={{ color: 'var(--app)', opacity: 0.55 }}>
           2d12 {modSign}

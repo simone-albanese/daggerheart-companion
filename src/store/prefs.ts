@@ -8,6 +8,18 @@ export interface Prefs {
   theme: 'dark' | 'light' | 'system';
   /** Turn the digital roller off for tables that only use physical dice. */
   digitalDice: boolean;
+  /**
+   * Let the Hope and Fear faces be typed into.
+   *
+   * Off by default, and that is the point. The faces used to be inputs
+   * unconditionally, which spent the best band on the phone - directly above
+   * ROLL, directly under the thumb - on two controls that showed an em dash
+   * until somebody tapped them, and put a one-tap edit of a resolved roll
+   * where a thumb rests. A table rolling real dice turns this on and gets the
+   * faces back; everyone else gets the height, and the roll they just made
+   * cannot be changed by brushing it.
+   */
+  manualDice: boolean;
   /** The optional Massive Damage rule (twice Severe marks 4 HP). */
   massiveDamageRule: boolean;
   /** Colour-blind safe mode also shapes the domain marks. Shapes are always on. */
@@ -30,6 +42,7 @@ const KEY = 'dhc.prefs.v1';
 export const DEFAULT_PREFS: Prefs = {
   theme: 'dark',
   digitalDice: true,
+  manualDice: false,
   massiveDamageRule: false,
   shapeCoding: true,
   wakeLock: true,

@@ -302,9 +302,18 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
   return (
     <Section id="dice" title="Dice" innerRef={innerRef}>
       <Rows>
+        {/*
+          These two used to be one switch, and the hint on it described a
+          behaviour it did not control: turning digital dice off was said to
+          turn the Hope and Fear faces into inputs, when in truth the faces
+          were always inputs and the switch only greyed out ROLL. Two switches,
+          each saying what it actually does - and because they are independent,
+          the honest case where both are off is stated below rather than
+          quietly prevented.
+        */}
         <Field
           label="Digital dice"
-          hint="Off for tables that only roll physical dice. The two dice on the Play screen become inputs — type what your Hope and Fear dice show — and the app still works out the outcome, the critical and what it does to Hope and Fear."
+          hint="On, the app rolls 2d12 for you and works out the outcome, the critical, and what it does to your Hope and Stress. Off for tables that only roll physical dice."
         >
           <Switch
             label="Digital dice"
@@ -312,6 +321,33 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
             onChange={(digitalDice) => setPrefs({ digitalDice })}
           />
         </Field>
+
+        <Field
+          label="Type your own dice"
+          hint="Tap either die on the Play screen and enter what your physical dice showed. The app works out the outcome the same way. Off by default: the faces then only report, so a roll you have already made cannot be changed by a stray tap."
+        >
+          <Switch
+            label="Type your own dice"
+            checked={prefs.manualDice}
+            onChange={(manualDice) => setPrefs({ manualDice })}
+          />
+        </Field>
+
+        {!prefs.digitalDice && !prefs.manualDice && (
+          <div
+            className="t-dense"
+            style={{
+              padding: '10px 12px',
+              borderRadius: 'var(--r3)',
+              background: 'var(--raised)',
+              borderLeft: '3px solid var(--fear)',
+              color: 'var(--text-2)',
+            }}
+          >
+            With both off there is no way to resolve a roll on the Play screen — no dice to
+            press and no faces to type into. Turn one of them back on.
+          </div>
+        )}
 
         <Field
           label="Massive Damage"
