@@ -60,8 +60,12 @@
  * made - the opposite of Play's roll block, which is pinned because it is used
  * continuously.
  *
- * And the strip is not drawn at all while there is only one topic: a chip that
- * is always pressed and cannot be unpressed is a label, not a control.
+ * The strip is guarded on `REFERENCE_TOPICS.length > 1`, because a chip that is
+ * always pressed and cannot be unpressed is a label rather than a control. With
+ * the seven topics below that guard never fires and has never fired: it is
+ * there for the edit that cuts the list down to one, not for anything the
+ * shipped build does. Nothing tests it, and nothing can - a test would have to
+ * shorten a `const` this module exports.
  *
  * ## Adding a section
  *

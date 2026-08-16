@@ -623,13 +623,16 @@ function RangeParts({ parts }: { parts: RangePart[] }): React.JSX.Element {
  *
  * ## Ergonomics, 393 x 852
  *
- * The column is 369px, 349 inside a panel. Six trait chips at
- * `minWidth: var(--tap)` and 4px gaps are 6x44 + 5x4 = 284: one row, no wrap.
+ * The column is 369px, 349 inside a panel. A trait chip is three characters at
+ * `.t-label` (10px mono at 0.16em, about 7.6px a character) plus 24 of padding
+ * = about 47, so `minWidth: var(--tap)` is a floor these clear rather than the
+ * width they take; six of them at 4px gaps are 6x47 + 5x4 = 302 in a 369px
+ * column: one row, no wrap.
  * The verb row is ALL plus three chips read off the table's own header; the
  * widest set in the shipped dataset is Knowledge - RECALL 70, ANALYZE 77,
- * COMPREHEND 100 at `.t-label` (10px mono at 0.16em, about 7.6px a character,
- * plus 24 of padding) - so 44 + 70 + 77 + 100 + 3x4 = 303, one row again. Both
- * rows wrap rather than scroll if a layer writes longer verbs.
+ * COMPREHEND 100 by the same arithmetic - so 47 + 70 + 77 + 100 + 3x4 = 306,
+ * one row again. Both rows wrap rather than scroll if a layer writes longer
+ * verbs.
  *
  * A cell is about 69 characters at `.t-read` (13px/1.45, about 6.3px each), so
  * 55 to a line, two lines, 38px; with its verb label a block is 51px and a roll
@@ -782,9 +785,10 @@ function Chip({
  * single stamp for the topic would print one of them over the other four.
  *
  * Every section is drawn whole. These are lists of one-line instructions, and a
- * screen that showed three principles out of eight would be choosing which
- * principles a GM gets; the fold costs a tap and keeps all of them. `pitfalls-
- * to-avoid` writes five of its six subheads in capitals and one in mixed case,
+ * screen that showed three principles out of the seven `rules['gm-principles']`
+ * carries would be choosing which principles a GM gets; the fold costs a tap
+ * and keeps all of them. `pitfalls-to-avoid` writes five of its six subheads in
+ * capitals and one in mixed case,
  * which is exactly why nothing here matches a heading - the app never gets to
  * decide which of the SRD's warnings is worth reading.
  *
