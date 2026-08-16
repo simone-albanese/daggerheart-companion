@@ -4,9 +4,20 @@
  * Every other test in this suite feeds the engine fixed dice, which is the only
  * way to test a rule - and it means nothing at all here ever exercises the
  * generator itself. So this file does, against the production RNG, with no
- * seed: if `cryptoRng` were ever swapped for `Math.random()` and a modulo, or
- * the rejection loop were "simplified" away, the numbers below would move and
- * nothing else in the project would notice.
+ * seed: give `cryptoRng` a face it favours or a face it skips and the numbers
+ * below move, where nothing else in the project would notice.
+ *
+ * WHAT IT CANNOT SEE, said out loud because this header used to claim the
+ * opposite. Deleting the rejection loop passes every test here, and so does
+ * `((Math.random() * 2 ** 32) >>> 0) % sides + 1`. 2^32 misses being a multiple
+ * of 12 by four, so a plain modulo makes faces 1-4 heavier by a relative
+ * 2.8e-9, while one standard error on 240000 d12 rolls is 0.677% of a face's
+ * share - about two and a half million times larger. Catching that bias at five
+ * sigma would take 3.5e19 rolls. The rejection loop stays because 2^32 is not a
+ * multiple of 12, and `crypto.getRandomValues` stays because a sheet two people
+ * are watching should not roll predictably. Neither reason is a test result,
+ * and a comment that pretends otherwise is how a guard gets deleted on a green
+ * build.
  *
  * Thresholds are chi-square quantiles at roughly p = 0.99999, or five standard
  * errors where the quantity is a single proportion, so a passing build fails
@@ -47,10 +58,11 @@ describe('cryptoRng', () => {
   });
 
   it('never returns a face the die does not have', () => {
-    // The rejection loop is the whole reason this holds. A plain
-    // `value % sides` would still stay in range but would favour the low
-    // faces, because 2^32 is not a multiple of 12 - the bias is small, real,
-    // and invisible without a test like the one above.
+    // Not the rejection loop's doing: `(v % sides) + 1` lands in [1, sides]
+    // with or without it, and the flatness the loop buys is 2.8e-9, far under
+    // anything measurable here - see the header. What this catches is the
+    // coarse kind of wrong that the chi-square above would only report as an
+    // odd number: a 0, a sides + 1, a NaN, a fraction.
     for (const sides of [4, 6, 8, 10, 12, 20, 100] as const) {
       for (let i = 0; i < 20_000; i++) {
         const v = cryptoRng(sides);
