@@ -4,7 +4,6 @@ import {
   MAX_FEAR,
   NO_ADJUSTMENTS,
   ROLE_COST,
-  TIER_BENCHMARKS,
   computeBudget,
   entryCost,
   makeCombatant,
@@ -260,12 +259,15 @@ describe('GM reference values', () => {
     expect(MAX_FEAR).toBe(12);
   });
 
-  it('has a benchmark row per tier', () => {
-    expect(Object.keys(TIER_BENCHMARKS)).toEqual(['1', '2', '3', '4']);
-    for (const tier of [1, 2, 3, 4] as Tier[]) {
-      const row = TIER_BENCHMARKS[tier];
-      expect(row.attack).toBe(tier);
-      expect(row.thresholds[0]).toBeLessThan(row.thresholds[1]);
-    }
-  });
+  /*
+   * `has a benchmark row per tier` was here, over `TIER_BENCHMARKS`, and both
+   * are gone. The coverage did not go with them - it improved. That case asked
+   * the constant three questions about its own shape (four keys, `attack ===
+   * tier`, ascending thresholds) and never once compared a value to the SRD,
+   * which is precisely the drift it was nominally guarding against: the
+   * constant had already re-worded `Major 7/Severe 12` into `[7, 12]` and
+   * dropped the `+` from `+1`, and every one of those three questions still
+   * passed. `tests/ui/srdReference.test.ts` now pins all sixteen cells against
+   * the shipped `data/srd-1.0.json`, sign and slash included.
+   */
 });

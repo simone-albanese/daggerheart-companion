@@ -130,16 +130,22 @@ export function computeBudget(
   return { partySize, base, adjustments: lines, budget, spent, remaining: budget - spent, costs };
 }
 
-/** Adversary benchmark stats per tier, for improvising or re-tiering. */
-export const TIER_BENCHMARKS: Record<
-  Tier,
-  { attack: number; damage: string; difficulty: number; thresholds: [number, number] }
-> = {
-  1: { attack: 1, damage: '1d6+2 to 1d12+4', difficulty: 11, thresholds: [7, 12] },
-  2: { attack: 2, damage: '2d6+3 to 2d12+4', difficulty: 14, thresholds: [10, 20] },
-  3: { attack: 3, damage: '3d8+3 to 3d12+5', difficulty: 17, thresholds: [20, 32] },
-  4: { attack: 4, damage: '4d8+10 to 4d12+15', difficulty: 20, thresholds: [25, 45] },
-};
+/*
+ * `TIER_BENCHMARKS` was here, and is deleted rather than wired.
+ *
+ * It was `rules['adversary-stat-block-benchmarks']` typed into a `.ts` file -
+ * the same sixteen cells that ship inside `data/srd-1.0.json`, transcribed. It
+ * had already lost two of them on the way in: `thresholds: [7, 12]` re-worded
+ * the SRD's `Major 7/Severe 12` and `attack: 1` dropped its `+`. A screen built
+ * on it would have carried an `SRD 1.0 · P.73` stamp over text that was not the
+ * dataset's, and the stamp would have become false outright the first time a
+ * rules layer overrode that section.
+ *
+ * `src/ui/shared/srdReference.ts` reads the table itself now, and
+ * `tests/ui/srdReference.test.ts` pins all sixteen values against the shipped
+ * file - coverage the deleted test never had, because it only ever asked the
+ * constant about its own shape.
+ */
 
 // ---------------------------------------------------------------------------
 // Live scene state

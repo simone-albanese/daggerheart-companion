@@ -1019,7 +1019,9 @@ asserting the app registers the `pagehide` hook."* One hook, one instance.
 the last test already walks all of `src/` for callers. The docblock claims the
 general property: *"It does not name the seams; it derives them, so a seam added
 next year and forgotten is caught by a test written today."* Pointed at `src/`
-as a whole it fails **today** on `TIER_BENCHMARKS`, `resolvePlaceholders`,
+as a whole it fails **today** on ~~`TIER_BENCHMARKS`~~ (**gone, P5-3**: deleted
+rather than wired — the same table ships inside `data/srd-1.0.json` and the GM
+reference reads it from there), `resolvePlaceholders`,
 `missingCardRefs`, `reorderLoadout`, `takeRest`/`movesFor`/`mustTakeLongRest`,
 `rollDamage`, and `installBackupHooks`/`backupAtSessionEnd`/`noteSession`/
 `integrityCheck` — every instance this backlog lists, plus P1-6. One caveat
