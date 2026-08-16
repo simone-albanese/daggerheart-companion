@@ -19,7 +19,7 @@ import type { Character } from '../../../shared/types.ts';
 import { deriveStats, type DerivedStats } from '../../engine/character.ts';
 import { useApp } from '../../store/state.ts';
 import { parseTransferFile, pickFile } from '../../transfer/fileIo.ts';
-import { characterFromPayload, crc32 } from '../../transfer/frames.ts';
+import { characterFromPayload } from '../../transfer/frames.ts';
 import { createQrScanner, type TransferProgress } from '../../transfer/qr.ts';
 import { Track } from '../shared/Track.tsx';
 import { useGm, type PartyImportSummary } from './gmStore.ts';
@@ -636,7 +636,6 @@ function Scanner({
 
     const scanner = createQrScanner({
       video,
-      verify: crc32,
       onFrame: (result) => setProgress(result.progress),
       onComplete: (transfer) => {
         void characterFromPayload(transfer.payload)

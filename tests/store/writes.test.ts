@@ -179,11 +179,14 @@ describe('a request the database itself refuses', () => {
    */
   function refuseTheNextWrite(): () => void {
     const real = IDBObjectStore.prototype.put;
-    IDBObjectStore.prototype.put = function refused(this: IDBObjectStore, ...args: never[]) {
+    IDBObjectStore.prototype.put = function refused(
+      this: IDBObjectStore,
+      ...args: Parameters<IDBObjectStore['put']>
+    ): IDBRequest<IDBValidKey> {
       const request = real.apply(this, args);
       this.transaction.abort();
       return request;
-    } as never;
+    };
     return () => {
       IDBObjectStore.prototype.put = real;
     };

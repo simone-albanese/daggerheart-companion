@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 
+import { crc32 } from '../../src/transfer/crc32.ts';
 import {
   DEFAULT_QUIET_ZONE,
   FILE_PREFERRED_ABOVE,
@@ -42,12 +43,25 @@ class StubImageData {
 }
 (globalThis as { ImageData?: unknown }).ImageData ??= StubImageData;
 
+const chunkFor = (index: number): Uint8Array => new Uint8Array([index, index + 100]);
+
+const joined = (chunks: Uint8Array[]): Uint8Array =>
+  Uint8Array.from(chunks.flatMap((c) => [...c]));
+
+/**
+ * A frame whose declared checksum is the real one for the set it belongs to.
+ *
+ * It used to be a fixed `0xdead_beef`, which was harmless while the accumulator
+ * only checked the payload if the caller asked it to. It always checks now, so
+ * a fixture that lies about its own checksum is a fixture that can never
+ * complete - and the tests below are about completing.
+ */
 const frame = (index: number, total: number, over: Partial<TransferFrame> = {}): TransferFrame => ({
   transferId: 0x1234,
   index,
   total,
-  crc32: 0xdead_beef,
-  chunk: new Uint8Array([index, index + 100]),
+  crc32: crc32(joined(Array.from({ length: total }, (_, i) => chunkFor(i)))),
+  chunk: chunkFor(index),
   ...over,
 });
 
@@ -273,9 +287,11 @@ describe('accumulator', () => {
   it('accepts frames in any order and completes on the last one', () => {
     const acc = createAccumulator();
     const order = [2, 0, 1];
+    const chunks = [0, 1, 2].map((i) => Uint8Array.from([i * 10, i * 10 + 1]));
+    const sum = crc32(joined(chunks));
     let completed = null;
     for (const index of order) {
-      const result = acc.accept(frame(index, 3, { chunk: Uint8Array.from([index * 10, index * 10 + 1]) }));
+      const result = acc.accept(frame(index, 3, { chunk: chunks[index], crc32: sum }));
       expect(result.outcome).toBe('added');
       completed ??= result.completed;
     }
@@ -346,23 +362,34 @@ describe('accumulator', () => {
     expect(conflict).toMatchObject({ outcome: 'rejected', reason: 'conflicting-chunk' });
   });
 
-  it('verifies the reassembled payload when given a checksum', () => {
-    const verify = vi.fn((_payload: Uint8Array) => 0xdead_beef);
-    const acc = createAccumulator({ verify });
-    acc.accept(frame(0, 2));
-    const done = acc.accept(frame(1, 2));
-    expect(verify).toHaveBeenCalledTimes(1);
-    expect(verify.mock.calls[0]?.[0]).toEqual(Uint8Array.from([0, 100, 1, 101]));
-    expect(done.completed).not.toBeNull();
-  });
-
-  it('starts over when the checksum does not match, so a retry can work', () => {
-    const acc = createAccumulator({ verify: () => 0 });
-    acc.accept(frame(0, 2));
-    const failed = acc.accept(frame(1, 2));
+  /**
+   * Nobody has to ask for this, and that is the point.
+   *
+   * `verify` used to be an option, and both surfaces that ship passed it - so
+   * nothing was ever wrong. What was wrong is that a third receive surface
+   * would have inherited nothing by writing one line fewer than the other two,
+   * and no test anywhere would have noticed.
+   */
+  it('checks what it reassembled without being asked to', () => {
+    const acc = createAccumulator();
+    // Every frame agrees on a checksum, and every frame is wrong about it - so
+    // the frame-header comparison passes and only the payload check can refuse.
+    const lying = { crc32: 0xdead_beef };
+    acc.accept(frame(0, 2, lying));
+    const failed = acc.accept(frame(1, 2, lying));
     expect(failed).toMatchObject({ outcome: 'rejected', reason: 'checksum-failed', completed: null });
     expect(acc.completed).toBeNull();
+    // Starting over, rather than keeping frames that would fail the same way
+    // forever: the user just points the camera back at the loop.
     expect(acc.progress.label).toBe('Waiting for a code');
+  });
+
+  it('completes a set whose checksum is the truth, so it is not refusing everything', () => {
+    const acc = createAccumulator();
+    acc.accept(frame(0, 2));
+    const done = acc.accept(frame(1, 2));
+    expect(done.completed).not.toBeNull();
+    expect([...done.completed!.payload]).toEqual([0, 100, 1, 101]);
   });
 
   it('forgets everything on reset', () => {
@@ -625,7 +652,14 @@ describe('scanner camera lifecycle', () => {
   });
 
   it('stops itself and hands over the payload when the set completes', async () => {
-    const set = [frame(0, 2, { chunk: Uint8Array.from([7, 8]) }), frame(1, 2, { chunk: Uint8Array.from([9]) })];
+    // The declared checksum has to be the payload's real one: the accumulator
+    // checks it on completion now, without being asked to.
+    const chunks = [Uint8Array.from([7, 8]), Uint8Array.from([9])];
+    const sum = crc32(joined(chunks));
+    const set = [
+      frame(0, 2, { chunk: chunks[0], crc32: sum }),
+      frame(1, 2, { chunk: chunks[1], crc32: sum }),
+    ];
     const camera = fakeCamera();
     const timer = manualTimer();
     const onComplete = vi.fn();

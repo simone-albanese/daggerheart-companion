@@ -17,11 +17,14 @@
  * The eleven-byte frame header, the crc32 and the reassembly live in
  * `frames.ts`; this module re-exports them so there is one implementation of
  * the wire format and one place to change it. What is here is pixels: modules,
- * layout, the sender's loop and the receiver's camera.
+ * layout, the sender's loop and the receiver's camera - and the one check that
+ * cannot be left to a caller: every reassembled payload is measured against the
+ * checksum its own frames declared, always.
  */
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import {
+  crc32,
   FRAME_HEADER_BYTES,
   FRAME_MAGIC,
   MAX_CHUNK_BYTES,
@@ -483,16 +486,6 @@ export interface Accumulator {
   readonly completed: CompletedTransfer | null;
 }
 
-export interface AccumulatorOptions {
-  /**
-   * Pass `crc32` from frames.ts to have the finished payload checked here. Left
-   * out, the payload is handed over with the sender's declared checksum for the
-   * caller to verify - this module deliberately does not carry a second copy of
-   * that algorithm.
-   */
-  verify?: (payload: Uint8Array) => number;
-}
-
 const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
@@ -502,10 +495,10 @@ const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
  * alternative, silently switching to whichever code drifted into frame last,
  * loses the half-received set and tells the user nothing.
  */
-export function createAccumulator(options: AccumulatorOptions = {}): Accumulator {
+export function createAccumulator(): Accumulator {
   let transferId: number | null = null;
   let total: number | null = null;
-  let crc32: number | null = null;
+  let declaredCrc: number | null = null;
   let chunks: (Uint8Array | undefined)[] = [];
   let received = 0;
   let completed: CompletedTransfer | null = null;
@@ -513,7 +506,7 @@ export function createAccumulator(options: AccumulatorOptions = {}): Accumulator
   const clear = (): void => {
     transferId = null;
     total = null;
-    crc32 = null;
+    declaredCrc = null;
     chunks = [];
     received = 0;
     completed = null;
@@ -548,13 +541,13 @@ export function createAccumulator(options: AccumulatorOptions = {}): Accumulator
       if (transferId === null) {
         transferId = frame.transferId;
         total = frame.total;
-        crc32 = frame.crc32;
+        declaredCrc = frame.crc32;
         chunks = new Array<Uint8Array | undefined>(frame.total);
       } else if (frame.transferId !== transferId) {
         return reject('other-transfer');
       } else if (frame.total !== total) {
         return reject('total-mismatch');
-      } else if (frame.crc32 !== crc32) {
+      } else if (frame.crc32 !== declaredCrc) {
         // Same transferId, different payload checksum: the sender restarted
         // with an edited character and happened to draw the same id.
         return reject('crc-mismatch');
@@ -582,7 +575,18 @@ export function createAccumulator(options: AccumulatorOptions = {}): Accumulator
         offset += chunk!.length;
       }
 
-      if (options.verify !== undefined && options.verify(payload) !== frame.crc32) {
+      /*
+       * Not an option any more. This used to be `if (options.verify !==
+       * undefined && ...)`, with a docblock handing the check to the caller on
+       * the reasoning that this module should not carry a second copy of the
+       * algorithm - which confused importing with reimplementing. It already
+       * imports the frame header from `frames.ts`; the checksum is one
+       * identifier further, and there is no cycle. Both shipped surfaces passed
+       * `verify`, so nothing was wrong; what was wrong is that a third one
+       * would have inherited nothing by writing one line fewer, and nothing
+       * anywhere would have said so.
+       */
+      if (crc32(payload) !== frame.crc32) {
         // Keeping the frames would fail the same way forever; start over so the
         // user can just point the camera back at the loop.
         clear();
@@ -631,8 +635,9 @@ interface BarcodeDetectorConstructor {
  * of arbitrary binary turns every invalid sequence into U+FFFD, and encoding
  * that back yields EF BF BD where a byte used to be. Our header is ASCII and
  * survives that intact, so a mangled frame still passes `unpackFrame` and a
- * corrupted chunk reaches the accumulator - silently, unless a `verify` was
- * supplied. Dropping the reading instead costs nothing: the frame is on screen
+ * corrupted chunk reaches the accumulator, where the payload checksum is what
+ * throws the set away. Dropping the reading here instead costs nothing: the
+ * frame is on screen
  * five times a second, and a detector that mangles one code mangles them all,
  * which is what demotes the scanner to jsQR.
  */
@@ -672,7 +677,7 @@ export function frameFromRawValue(rawValue: string): TransferFrame | null {
 
 export type DecoderKind = 'barcode-detector' | 'jsqr';
 
-export interface ScannerOptions extends AccumulatorOptions {
+export interface ScannerOptions {
   /** Where the preview goes. A detached element is made if none is given. */
   video?: HTMLVideoElement;
   facingMode?: 'environment' | 'user';
@@ -773,7 +778,7 @@ export function createQrScanner(options: ScannerOptions = {}): QrScanner {
   const sampleSize = options.sampleSize ?? 480;
   const interval = options.scanIntervalMs ?? 100;
   const timer = options.timer ?? defaultTimer;
-  const accumulator = createAccumulator(options);
+  const accumulator = createAccumulator();
 
   let stream: MediaStream | null = null;
   let decoder: DecoderKind | null = null;

@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Character } from '../../../shared/types.ts';
 import { exportCharacter } from '../../transfer/fileIo.ts';
-import { characterFromPayload, crc32, framesForCharacter } from '../../transfer/frames.ts';
+import { characterFromPayload, framesForCharacter } from '../../transfer/frames.ts';
 import {
   createFrameCycler,
   createQrScanner,
@@ -313,7 +313,6 @@ function Receiver(): React.JSX.Element {
 
     const scanner = createQrScanner({
       video,
-      verify: crc32,
       onFrame: (result) => {
         setProgress(result.progress);
         if (result.reason === 'other-transfer') setConflict(true);
