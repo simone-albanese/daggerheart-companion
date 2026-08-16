@@ -282,6 +282,30 @@ be wrong* at the foot of this entry.
   discarding whenever they were left unnamed — two lines after the review
   screen promised they were worth +2 named or not. Adding one later starts at
   +2, the value the rules grant, rather than +1.
+- **Resting does its own arithmetic, and shows you the numbers first.** The app
+  could apply a rest correctly from the first commit and there was no screen
+  that did it, so somebody at the table was adding 1d4+Tier to three tracks by
+  hand while the scene waited. Rest & downtime is now a fold on the Play
+  screen: pick short or long, pick two moves — the same one twice if you like —
+  and every row says what tapping it will clear before you tap it, down to the
+  second copy of a move only getting what the first one left. Nothing is rolled
+  or applied until you commit, because a roll that happens because you opened a
+  screen is a roll you cannot refuse. The one number the app has not got is the
+  GM's Fear, and until you commit it says `1d4` rather than a number.
+- **The app will tell you the next rest has to be a long one**, in the SRD's own
+  words rather than by greying out a button — three short rests in a row is a
+  rule, and a dead control says the app could do this and will not. It counts
+  what this device watched: a sheet that arrived by QR arrives having counted
+  nothing, and the fold says so instead of claiming you are ready.
+- **Cards move between loadout and vault for free during a rest**, through the
+  same five-card cap as everywhere else, so the price changes and nothing else
+  does. The move is part of the rest rather than something done beside it: it is
+  proposed with the moves, applied by the same press, and written into the
+  rest's own log entry. A card that moved the moment you tapped it would have
+  been charged the rest's price before the rest — and the rest might never come.
+- A recall that cost nothing used to be logged as "Free during downtime" even
+  in the middle of a fight — 31 of the 189 cards have a Recall Cost of 0. The
+  log now says which of the two it was.
 
 ### On a phone
 
@@ -334,7 +358,13 @@ be wrong* at the foot of this entry.
   navigation icons, the discarded Experiences — and each one passed every unit
   test, because every unit worked.
 - A schema bump now requires a converter and a committed fixture, enforced
-  rather than described, built before the first bump instead of after it.
+  rather than described, built before the first bump instead of after it — and
+  then taken for the first time, to store how many short rests you have had in
+  a row. Every file written by an older build still opens, says it was
+  converted and says what changed; the fixtures those older builds wrote are
+  committed untouched, because they are the only proof the conversion works.
+  The first launch after the update rewrites your library once and produces one
+  fresh backup, which is expected rather than a fault.
 - Documentation: the README's factual claims are checked against the code, the
   Node version is written down once in `.nvmrc`, and `env.sh` explains why it
   exists today rather than why it existed once.

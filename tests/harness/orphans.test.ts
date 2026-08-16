@@ -59,10 +59,6 @@ const tree = (): Map<string, string> => {
 const DELIBERATE: Record<string, string> = {
   // --- Features built before they were wired. Each is a backlog item, and
   //     wiring it deletes the line.
-  'engine/rest.ts::takeRest': 'P1-7: rest ships, and has no screen yet.',
-  'engine/rest.ts::movesFor': 'P1-7.',
-  'engine/rest.ts::mustTakeLongRest': 'P1-7.',
-  'engine/rest.ts::DOWNTIME_MOVES': 'P1-7.',
   'transfer/codec.ts::resolvePlaceholders': 'P1-6: the repair Transfer.tsx already promises on screen.',
   'transfer/codec.ts::characterRefs': 'P1-6: reached only by missingSlugs, which is itself unwired.',
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',

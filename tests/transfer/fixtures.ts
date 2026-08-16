@@ -5,7 +5,7 @@
  * Every slug here is a real one from `data/registry.json`, so the sizes these
  * tests print are the sizes a real sheet takes on the wire.
  */
-import type { Character, LevelUpChoice } from '../../shared/types.ts';
+import { SCHEMA_VERSION, type Character, type LevelUpChoice } from '../../shared/types.ts';
 import { createRegistry, registry, type Registry } from '../../src/transfer/registry.ts';
 import type { SlugSource } from '../../tools/buildRegistry.ts';
 
@@ -127,7 +127,7 @@ const HISTORY: LevelUpChoice[] = [
 export function wizard(patch: Partial<Character> = {}): Character {
   return {
     id: 'd2a4e9b0-5c31-4f7a-8b6d-1e0c9f2a3b4c',
-    schemaVersion: 3,
+    schemaVersion: SCHEMA_VERSION,
     name: 'Kaelith',
     pronouns: 'she/her',
 
@@ -171,6 +171,7 @@ export function wizard(patch: Partial<Character> = {}): Character {
     companion: null,
     beastform: null,
     scars: [],
+    consecutiveShortRests: 0,
 
     createdAt: '2026-02-14T19:05:00.000Z',
     updatedAt: '2026-08-15T21:30:00.000Z',
@@ -213,9 +214,17 @@ export function loadedWizard(): Character {
 }
 
 /**
- * Experience ids are local handles the codec deliberately does not carry, so a
- * round-trip is compared with them replaced by their position - which is also
- * the check that the level-up records still point at the right one.
+ * Both sides of a round-trip, reduced to what the wire promises to carry.
+ *
+ * Experience ids are local handles the codec deliberately does not carry, so
+ * they are replaced by their position - which is also the check that the
+ * level-up records still point at the right one.
+ *
+ * `consecutiveShortRests` is the third documented loss (see the header of
+ * `src/transfer/codec.ts` for why it stays off the wire), so it is zeroed on
+ * both sides rather than compared. Zeroing it here rather than deleting it is
+ * deliberate: a codec that stopped writing the *field* would still be caught,
+ * because the decoded sheet would then be missing a key this one has.
  */
 export function normalizeHandles(c: Character): unknown {
   const at = new Map(c.experiences.map((e, i) => [e.id, `experience#${i}`]));
@@ -226,6 +235,7 @@ export function normalizeHandles(c: Character): unknown {
 
   return {
     ...c,
+    consecutiveShortRests: 0,
     experiences: c.experiences.map((e) => ({ ...e, id: rename(e.id) })),
     companion:
       c.companion === null

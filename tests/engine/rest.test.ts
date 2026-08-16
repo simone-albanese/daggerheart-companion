@@ -228,11 +228,77 @@ describe('mustTakeLongRest', () => {
   });
 });
 
+/**
+ * The number `mustTakeLongRest` reads, and who writes it.
+ *
+ * It is written here rather than by a caller because the read is here: a screen
+ * that forgot to increment would leave the refusal permanently unreachable,
+ * which is the state this field was added out of.
+ */
+describe('counting the rests', () => {
+  const at = (n: number) => makeCharacter({ consecutiveShortRests: n });
+
+  it('counts a short rest and clears the count on a long one', () => {
+    expect(rest([], 'short', at(0)).character.consecutiveShortRests).toBe(1);
+    expect(rest([], 'short', at(2)).character.consecutiveShortRests).toBe(3);
+    expect(rest([], 'long', at(3)).character.consecutiveShortRests).toBe(0);
+    // A long rest clears it even when there was nothing to clear.
+    expect(rest([], 'long', at(0)).character.consecutiveShortRests).toBe(0);
+  });
+
+  it('counts the rest once, whatever happened inside it', () => {
+    // No moves, two moves, and two moves from the wrong rest that were refused
+    // outright: one rest is one rest. Counting inside the choices loop would
+    // give 0, 2 and 2.
+    expect(rest([], 'short', at(0)).character.consecutiveShortRests).toBe(1);
+    expect(
+      rest([{ move: 'clear-stress', fixedRoll: 1 }, { move: 'repair-armor', fixedRoll: 1 }], 'short', at(0))
+        .character.consecutiveShortRests,
+    ).toBe(1);
+
+    const refused = rest(
+      [{ move: 'tend-to-all-wounds' }, { move: 'clear-all-stress' }],
+      'short',
+      at(0),
+    );
+    expect(refused.log.every((line) => line.includes('not applied'))).toBe(true);
+    expect(refused.character.consecutiveShortRests).toBe(1);
+  });
+
+  it('reports the count and does not police it', () => {
+    // Refusing is a sentence on a screen, and this file has no screen. A short
+    // rest asked for at 3 is applied in full and comes back at 4, so the caller
+    // is told what happened rather than being quietly given nothing.
+    const spent = at(3);
+    expect(mustTakeLongRest(spent.consecutiveShortRests)).toBe(true);
+
+    const out = takeRest(
+      { ...spent, stress: { marked: 5, max: 6 } },
+      stats,
+      'short',
+      [{ move: 'clear-stress', fixedRoll: 4 }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.stress.marked).toBe(0);
+    expect(out.log[0]).toContain('cleared 5 Stress');
+    expect(out.character.consecutiveShortRests).toBe(4);
+    expect(mustTakeLongRest(out.character.consecutiveShortRests)).toBe(true);
+  });
+});
+
 describe('the rest itself', () => {
   it('leaves the character it was given untouched', () => {
-    const c = hurt();
+    const c = makeCharacter({
+      hp: { marked: 5, max: 6 },
+      stress: { marked: 5, max: 6 },
+      consecutiveShortRests: 2,
+    });
     rest([{ move: 'clear-stress', fixedRoll: 4 }], 'short', c);
     expect(c.stress.marked).toBe(5);
+    // The rest count is the one field `takeRest` writes without a move having
+    // asked it to, so it is the one most likely to be written in place.
+    expect(c.consecutiveShortRests).toBe(2);
   });
 
   it('stamps updatedAt', () => {

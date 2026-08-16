@@ -1,14 +1,13 @@
 /**
  * Can this build still read what an older build wrote?
  *
- * Today the honest answer is "there is nothing older", and that is exactly why
- * this file has to exist now rather than later. `SCHEMA_VERSION` has read 3
- * since the first commit, so no record numbered 1 or 2 has ever left a
- * machine - which means the first bump is the first time any of this is
- * exercised, on files that are already on people's disks, in an app they
- * reached for *because* IndexedDB was evicted.
+ * The answer used to be "there is nothing older", which is exactly why this
+ * file was written before it was needed: `SCHEMA_VERSION` read 3 from the first
+ * commit until P1-7 moved it to 4, so the bump was the first time any of this
+ * ran against files that are already on people's disks, in an app they reached
+ * for *because* IndexedDB was evicted.
  *
- * So the policy is enforced ahead of the event rather than described:
+ * The policy, enforced rather than described:
  *
  *   - the converter chain must have no gap between the oldest readable
  *     version and this build's;
@@ -16,12 +15,14 @@
  *     the build that shipped it and never regenerated;
  *   - every fixture must still parse into a character at the current schema.
  *
- * Bump `SCHEMA_VERSION` to 4 and change nothing else, and the first two of
- * those fail. That is the whole point: the failure is cheap on the day of the
- * bump and unfixable a year later.
+ * That is what the bump to 4 cost, and it cost it on the day: the converter
+ * leaving 3, and `v4.dhchar`/`v4.dhbackup` beside the schema-3 pair. The
+ * schema-3 pair is evidence, not a fixture to be refreshed - regenerating it
+ * from this build would prove only that the current code can read its own
+ * output, which is not the question.
  *
- * The chain-walking itself is checked against synthetic migrations, because
- * the real list is empty and an empty list proves nothing.
+ * The chain-walking itself is still checked against synthetic migrations
+ * rather than the real list: one real converter is not enough steps to walk.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,9 +40,13 @@ import {
   versionOf,
   type Migration,
 } from '../../shared/migrations.ts';
+import { baseDataset } from '../../src/store/dataset.ts';
 import { parseTransferFile } from '../../src/transfer/fileIo.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
+
+const rawFixture = (name: string): Record<string, unknown> =>
+  JSON.parse(readFileSync(join(FIXTURES, name), 'utf8')) as Record<string, unknown>;
 
 describe('the policy: no schema ships without its converter', () => {
   it('has a converter for every step from the oldest readable version to this one', () => {
@@ -118,6 +123,36 @@ describe('the committed fixtures', () => {
     });
   }
 
+  /**
+   * The first real converter, run against the bytes of the build it converts
+   * from - and run on the raw record rather than through `parseTransferFile`.
+   *
+   * `readCharacterRecord` spreads whatever the converter returns over
+   * `newCharacter()`, which now seeds `consecutiveShortRests: 0` itself. So the
+   * file path would report a 0 with `MIGRATIONS` empty, with the converter
+   * gutted, or with the chain working - it cannot tell those apart, and a test
+   * that cannot tell them apart is not evidence that anything converted.
+   */
+  it('gives a schema 3 record the rest count it never had', () => {
+    const record = rawFixture('v3.dhchar')['character'] as Record<string, unknown>;
+    expect(record['consecutiveShortRests'], 'the v3 fixture must not carry the field').toBe(
+      undefined,
+    );
+
+    const migrated = migrateCharacterRecord(record);
+
+    expect(migrated.from).toBe(3);
+    expect(migrated.applied).toEqual([
+      'a count of consecutive short rests was added, starting at zero',
+    ]);
+    expect(migrated.record['consecutiveShortRests']).toBe(0);
+    expect(migrated.record['schemaVersion']).toBe(SCHEMA_VERSION);
+    // Converting is not rewriting: everything the schema-3 build wrote is still
+    // there afterwards, byte for byte.
+    expect(migrated.record['name']).toBe('Fixture');
+    expect(migrated.record['scars']).toEqual(['A ledger of names']);
+  });
+
   it('keeps the fixture at the version its name claims', () => {
     // A fixture silently rewritten by a later build is worse than none: it
     // would prove the current code can read its own output, which is not the
@@ -130,6 +165,23 @@ describe('the committed fixtures', () => {
         expect(raw.schemaVersion, `v${version}.${ext}`).toBe(version);
       }
     }
+  });
+});
+
+describe('the stamp on the shipped dataset', () => {
+  /**
+   * The coupling a bump can break in silence.
+   *
+   * `Dataset.schemaVersion` is typed `typeof SCHEMA_VERSION`, but the shipped
+   * dataset reaches the app through `srd as unknown as Dataset`
+   * (`src/store/dataset.ts`), so the cast believes whatever number is in the
+   * JSON. Move the constant and leave `data/srd-1.0.json` behind and there is
+   * no compile error and no other failing test - just a type asserting one
+   * value over another, and `About.tsx` printing "schema 3" under a build at 4
+   * on the one screen a user opens to find out what they are running.
+   */
+  it('is the schema this build actually is', () => {
+    expect(baseDataset.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
 

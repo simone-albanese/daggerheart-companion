@@ -3,11 +3,12 @@
  *
  * This app has no server and no second copy. Its whole durability story is
  * "IndexedDB can be evicted, so keep exported files" - and the day
- * `SCHEMA_VERSION` becomes 4, every `.dhchar` and `.dhbackup` on a disk, in a
- * Drive folder, or in the daily backup folder becomes unreadable by the only
- * app that can read it. It fails at the worst possible moment, too, because
- * you reach for the backup precisely *when* IndexedDB was evicted, by which
- * point no old build is left on the device to open it with.
+ * `SCHEMA_VERSION` moved to 4, every `.dhchar` and `.dhbackup` on a disk, in a
+ * Drive folder, or in the daily backup folder would have become unreadable by
+ * the only app that can read it. It fails at the worst possible moment, too,
+ * because you reach for the backup precisely *when* IndexedDB was evicted, by
+ * which point no old build is left on the device to open it with. That day has
+ * now happened, and the converter below is what made it a non-event.
  *
  * The refusal it replaces said *"There is no converter for that version yet,
  * so it has not been imported - nothing has been changed or lost."* True of
@@ -52,18 +53,42 @@ export interface Migration {
  * The lowest version any released build ever wrote.
  *
  * Three, and not one, because schema 1 and schema 2 never existed outside
- * development: `shared/types.ts` has read `SCHEMA_VERSION = 3` since the first
- * commit of this repository (`8c83f78`), so no file and no database record
- * numbered 1 or 2 has ever left a machine. Writing converters for them would
- * be inventing a history to be compatible with.
+ * development: `shared/types.ts` read `SCHEMA_VERSION = 3` from the first
+ * commit of this repository (`8c83f78`) until P1-7 moved it to 4, so no file
+ * and no database record numbered 1 or 2 has ever left a machine. Writing
+ * converters for them would be inventing a history to be compatible with.
  *
- * So `MIGRATIONS` is empty today, and that is the correct content rather than
- * an omission. What matters is that the machinery, the policy and the test are
- * in place *before* the first bump, because after it they are too late.
+ * It stays 3 across the bump. Every `.dhchar` in somebody's Drive folder is a
+ * schema-3 file, and 3 is exactly the version the list below now leaves.
  */
 export const OLDEST_READABLE = 3;
 
-export const MIGRATIONS: readonly Migration[] = [];
+/**
+ * The chain, one entry per version this build has left behind.
+ *
+ * The first entry is P1-7's, and it is the first time any of the machinery
+ * above ran against a real file rather than a synthetic one. It is deliberately
+ * dull: the policy is proved by a converter existing on the day of the bump,
+ * committed beside `tests/fixtures/schema/v3.dhchar` - bytes written by the
+ * schema-3 build, never regenerated - not by the converter being clever.
+ */
+export const MIGRATIONS: readonly Migration[] = [
+  {
+    from: 3,
+    note: 'a count of consecutive short rests was added, starting at zero',
+    /*
+     * Zero, and not a guess. A schema-3 build never counted, so the app does
+     * not know what the table did, and zero is the value that leaves the choice
+     * with the players rather than refusing a rest nobody recorded.
+     *
+     * It overwrites rather than preserving a key that is already there: a
+     * record stamped 3 that carries a schema-4 field is a record whose own
+     * header is wrong, and believing the field over the header is how a
+     * hand-edited file gets to decide what the schema means.
+     */
+    apply: (r) => ({ ...r, consecutiveShortRests: 0 }),
+  },
+];
 
 export class SchemaError extends Error {
   readonly version: number;
@@ -142,10 +167,10 @@ export interface MigrationResult {
  * Steps between two versions that no migration covers.
  *
  * Separate and exported so the chain can be checked against a version this
- * build is not yet at. That is the only way to prove the policy has teeth
- * before the bump that would test it for real: ask what would be missing if
- * `SCHEMA_VERSION` were one higher, and the answer today is "the converter
- * leaving 3".
+ * build is not yet at. That is the only way to keep the policy's teeth between
+ * bumps: ask what would be missing if `SCHEMA_VERSION` were one higher, and the
+ * answer is always "the converter leaving the current version" - today the one
+ * leaving 4, as it was the one leaving 3 until P1-7 wrote it.
  */
 export function missingConverters(
   from: number,

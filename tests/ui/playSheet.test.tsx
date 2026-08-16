@@ -237,6 +237,10 @@ describe('what a phone shows of the character sheet', () => {
       'HP', // the counters
       'Weapons & armour',
       'Loadout',
+      // Between the cards and the two sections read once a session: a rest is
+      // between-scenes work, and the free swap it offers is the vault's own
+      // operation at the other price.
+      'Rest & downtime',
       'Carried',
       'Gold',
       'Lineage & domains',
@@ -275,13 +279,26 @@ describe('what a phone shows of the character sheet', () => {
  * checked here over every element the sheet draws with all its folds open.
  */
 describe('the whole sheet, at 393x852', () => {
-  /** Open every fold, so nothing is exempt by being hidden. */
+  /**
+   * Open every fold, so nothing is exempt by being hidden.
+   *
+   * The bound used to be 8 and nothing checked that it was enough, which is a
+   * silent failure mode rather than a loud one: the loop simply stops and the
+   * 44px sweep below quietly skips whatever stayed shut. Opening `carried`
+   * also reveals one more expandable per inventory item with a note, so the
+   * count grows with the fixture as well as with the screen. So it drains, and
+   * says so.
+   */
   function openEverything(): void {
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 20; i += 1) {
       const shut = buttons().find((b) => b.getAttribute('aria-expanded') === 'false');
-      if (shut === undefined) return;
+      if (shut === undefined) break;
       click(shut);
     }
+    const stuck = buttons()
+      .filter((b) => b.getAttribute('aria-expanded') === 'false')
+      .map((b) => (b.textContent ?? '').trim().slice(0, 30));
+    expect(stuck, 'these folds are still shut, so the sweeps below never saw them').toEqual([]);
   }
 
   /** A declared length in px. Tokens resolve as they do below 1180px. */
@@ -463,6 +480,25 @@ describe('the vault', () => {
     expect(after.loadout).toContain(card.id);
     expect(after.vault).not.toContain(card.id);
     expect(after.stress.marked).toBe(before + card.recallCost);
+  });
+
+  it('does not call a recall that cost nothing a downtime', () => {
+    // The log line read "Free during downtime" whenever the price was zero,
+    // and nothing had ever passed `{ downtime: true }` - so the only way to
+    // reach it was one of the 31 SRD cards whose Recall Cost is 0, in the
+    // middle of a scene. Two zeroes, two reasons, and now two sentences.
+    const free = dataset.domainCards.find((k) => k.recallCost === 0);
+    expect(free, 'the shipped dataset has no card with a Recall Cost of 0').toBeDefined();
+    const c = seed({ vault: [free!.id] });
+    play(c);
+    click(fold('Vault'));
+    click(
+      buttons().find(
+        (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${free!.name} for 0 Stress`,
+      )!,
+    );
+    expect(useApp.getState().characters[0]!.loadout).toContain(free!.id);
+    expect(useApp.getState().log[0]!.detail).toBe('This card costs nothing to recall');
   });
 
   it('says why on the screen when it will not recall, not in a title', () => {

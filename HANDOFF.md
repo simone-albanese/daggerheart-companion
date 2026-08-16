@@ -145,14 +145,13 @@ by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown
 advancement, distances in metres, the name generators. Source every word from
 `data/srd-1.0.json`; anything the shipped SRD does not carry does not ship.
 
-**P1-7 rests.** Held back alongside P1-1 because both touch `Play.tsx` and
-`DualityRoll.tsx`, which the rebuild was rewriting. **P1-1 is built** — an
-attack roll offers the damage roll it earned, unarmed attacks have a row,
-Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's
-own sentence, and damage dice can be typed the way the Duality dice already
-could — so what is left of that pair is the rest. P1-7 adds a field to
-`Character`, so it is a schema change: the machinery exists, the policy is
-`Architecture.md` §6.1.
+**P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
+they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
+rewriting; both landed in this pass, in parallel worktrees, and were merged here.
+
+An attack roll now offers the damage roll it earned, unarmed attacks have a row,
+Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's own
+sentence, and damage dice can be typed the way the Duality dice already could.
 
 What P1-1 deliberately did **not** build, so nobody goes looking for it: extra
 damage *dice* — `rollDamage` takes a flat `extraModifier` and the held-dice tray
@@ -160,6 +159,37 @@ feeds the attack roll, so the SRD's "Tusks: +1d6" still has nowhere to go — th
 `companion` attack source, which needs a second armed slot on Play, and a way
 out of an opened die-face grid that is not answering it. That last one is
 `Die`'s behaviour as much as the damage row's and is written up as P3-12.
+
+ **P1-7** left four things a cold start needs to know before touching the rest
+surface or anything near the schema.
+
+- **The free card swap is proposed, not applied on the tap.** Cards move at no
+  cost *because* a rest is happening, so a tap stages a `Swap`, `applySwaps`
+  builds the sheet the rest is proposed against, and COMMIT applies the moves
+  and the card moves together in one write and one `'rest'` entry. Applied on
+  the tap it charged the rest's price before the rest — and COMMIT then cleared
+  `kind` and removed the section, so the free swap was reachable exactly while
+  no rest existed. `useRecall` no longer takes `downtime`: it is the *scene*
+  recall, for the vault shelf and the card browser.
+
+- **`SCHEMA_VERSION` is 4, and `MIGRATIONS` is no longer empty.** There is one
+  converter, `from: 3`, and `OLDEST_READABLE` is still 3 because 3 is exactly
+  the version of the files already on people's disks. `Architecture.md` §6.1
+  now records what the bump cost rather than what it would cost.
+- **`tests/fixtures/schema/v3.dhchar` and `v3.dhbackup` are evidence, not
+  fixtures to be refreshed.** They were written by the build being superseded
+  and their *not* carrying `consecutiveShortRests` is the entire test. Do not
+  regenerate them, and do not "tidy them up" by adding the field: the existing
+  'keeps the fixture at the version its name claims' test would not catch that,
+  because a hand-added field leaves the stamp at 3. A test added with the bump
+  does. The `v4.*` pair beside them is this build's own output, committed so
+  whoever bumps to 5 has real schema-4 bytes to convert.
+- **The count does not ride the QR.** `CODEC_VERSION` stays 2 — the next format
+  number would be 3, and `adversarial.test.ts` pins that a single-bit flip of
+  the version nibble from 2 can never land on a readable format, which stops
+  being true from 3. So a sheet handed over by QR arrives having counted
+  nothing, and **no screen may present that number as the history of the
+  table**. It is why the fold's summary reads NONE COUNTED rather than READY.
 
 **P5-1(b) rename.** Renaming a character already works and is four gestures deep
 in the tab visited least, and the rename path does not enforce the unique-name
@@ -180,16 +210,22 @@ and the grid redistributes on its own.
 ## The fastest way to see what is still unwired
 
 `tests/harness/orphans.test.ts` holds `DELIBERATE`, and every entry names the
-backlog item that deletes it. It is the honest inventory: **28 exported symbols
+backlog item that deletes it. It is the honest inventory: **24 exported symbols
 nothing in the shipped app reaches** — counted off the list rather than
-remembered, because the figure here said 43 when the list held 35, which is the
-one number in this file nobody can check by reading it. P1-1's seven are gone:
-`rollDamage`, `damageOffer`, `isRollableDamage`, `sourceFromWeapon`,
-`sourceName`, `unarmedSource` and `DAMAGE_SIDES` all have callers now. The four
-`rest.ts` exports are P1-7; `resolvePlaceholders`, `characterRefs` and
-`missingSlugs` are P1-6's *healing* half, which is still open even though its
-*display* half shipped. **Wiring one of them fails the suite until its line is
-removed. That is the intended behaviour.**
+remembered, because the figure here once said 43 when the list held 35, and it
+is the one number in this file nobody can check by reading it.
+
+Eleven came off in this pass, each in the same commit that gave the symbol a
+caller: P1-1's seven (`rollDamage`, `damageOffer`, `isRollableDamage`,
+`sourceFromWeapon`, `sourceName`, `unarmedSource`, `DAMAGE_SIDES`) and P1-7's
+four (`takeRest`, `movesFor`, `mustTakeLongRest`, `DOWNTIME_MOVES`). That is the
+mechanism working as designed for the first time on this scale.
+
+What is left that is a feature rather than a seam: `TIER_BENCHMARKS` is P5-3's,
+`reorderLoadout` still has no control, and `resolvePlaceholders`,
+`characterRefs` and `missingSlugs` are P1-6's *healing* half, which is still
+open even though its *display* half shipped. **Wiring one of them fails the
+suite until its line is removed. That is the intended behaviour.**
 
 ## Loose ends left deliberately
 
