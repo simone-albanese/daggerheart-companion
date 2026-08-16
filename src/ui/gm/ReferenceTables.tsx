@@ -1,9 +1,9 @@
 /**
- * The SRD's own tables, drawn.
+ * The SRD's own tables and sections, drawn.
  *
- * One drawing of each table in the app: the reference region composes these,
- * and so do the two controls that get a table folded in beside them. A table
- * rendered twice is a table that goes out of step once.
+ * One drawing of each in the app: the reference region composes these, and so
+ * do the two controls that get a table folded in beside them. A table rendered
+ * twice is a table that goes out of step once.
  *
  * Each renderer reads the dataset itself through a narrow `useApp` selector
  * inside a `useMemo` keyed on the whole `dataset` object, the way
@@ -26,12 +26,15 @@ import { TRAITS, TRAIT_LABELS, type Tier, type Trait } from '../../../shared/typ
 import { Fold } from '../shared/Fold.tsx';
 import {
   adversaryBenchmarks,
+  adversaryExperiences,
   countdownAdvancement,
   difficultyBenchmarks,
   environmentBenchmarks,
   fearGuidance,
+  gmMoves,
   rangeReference,
   type BenchmarkTable,
+  type MovesBlock,
   type RangePart,
 } from '../shared/srdReference.ts';
 import { useGm } from './gmStore.ts';
@@ -719,5 +722,167 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The GM chapter: principles, practices, how a move is made, and the pitfalls.
+ *
+ * Five sections, five shut folds, each labelled with the SRD's own title and
+ * summarised with its own page - because they are on four different pages and a
+ * single stamp for the topic would print one of them over the other four.
+ *
+ * Every section is drawn whole. These are lists of one-line instructions, and a
+ * screen that showed three principles out of eight would be choosing which
+ * principles a GM gets; the fold costs a tap and keeps all of them. `pitfalls-
+ * to-avoid` writes five of its six subheads in capitals and one in mixed case,
+ * which is exactly why nothing here matches a heading - the app never gets to
+ * decide which of the SRD's warnings is worth reading.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * Shut, the topic is five 44px headers and four 8px gaps = 252px: one screen,
+ * and the choice of which chapter to read is made without scrolling. Open, the
+ * longest is `making-gm-moves` at 3,736 characters - about 1,900px at
+ * `.t-read` in a 369px column - so opening all five at once would be 3,600px,
+ * and shut-by-default is what keeps that behind a deliberate tap rather than in
+ * front of a thumb.
+ *
+ * Each fold header is the full width of the column and 44px tall, which makes
+ * it the largest target on the screen and the only one that can be hit without
+ * looking. Nothing inside a fold is a target at all: a principle is a sentence
+ * you read.
+ */
+export function GmMoves(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const sections = useMemo(() => gmMoves(dataset.rules), [dataset]);
+
+  if (sections.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries none of the GM chapter. The tools still work; it is the advice that is
+        missing.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {sections.map((section) => (
+        <Fold
+          key={section.id}
+          label={section.title}
+          summary={`SRD 1.0${section.page === null ? '' : ` · P.${String(section.page)}`}`}
+        >
+          {section.blocks.map((block, i) => (
+            <ProseBlock key={`${block.heading ?? ''}-${String(i)}`} block={block} />
+          ))}
+        </Fold>
+      ))}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The eighteen Experiences the SRD offers a GM inventing an adversary.
+ *
+ * This is the GM's half of a list the app already half-had: the player-facing
+ * examples live in character creation, and these - Ambusher, Hunt from Above,
+ * Keen Senses - are for the creature on the other side of the table. Nothing in
+ * the app had ever drawn them.
+ *
+ * Read as chips because that is what they are: eighteen single words a GM scans
+ * and picks one from. They are **not** buttons. There is nothing for a tap to
+ * do - an adversary's Experience is written on its stat block, and this app
+ * does not let you edit one - and a chip that looked pressable would be
+ * promising an edit that does not exist.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * Chips wrap in a 369px column at `.t-dense` (11.5px, about 5.5px a character)
+ * with 8px of padding either side: the longest, `Magical Knowledge`, is 17
+ * characters = 110px, and the median is about 60. Eighteen of them come to
+ * roughly four rows of 28px plus 6px gaps = 130px, so the whole topic including
+ * its lead is under 300 and needs no fold.
+ */
+export function AdversaryExperiences(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const examples = useMemo(() => adversaryExperiences(dataset.rules), [dataset]);
+
+  if (examples.items.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no adversary Experiences to suggest.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {examples.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{examples.page === null ? '' : ` · P.${String(examples.page)}`}
+        </span>
+      </div>
+      {examples.lead !== null && <ProseBlock block={examples.lead} />}
+      <div className="row" style={{ flex: 'none', gap: 6, flexWrap: 'wrap' }}>
+        {examples.items.map((item) => (
+          <span
+            key={item}
+            className="t-dense"
+            style={{
+              flex: 'none',
+              padding: '5px 8px',
+              borderRadius: 'var(--r3)',
+              border: '1px solid var(--line)',
+              color: 'var(--text-2)',
+            }}
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** One `## ` block of a rules section: its subhead, its prose and its bullets. */
+function ProseBlock({ block }: { block: MovesBlock }): React.JSX.Element {
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 6 }}>
+      {block.heading !== null && (
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {block.heading}
+        </span>
+      )}
+      {block.parts.map((part, i) => {
+        // The index is the key because the book's order is the identity here:
+        // two paragraphs of a rules body may legitimately be equal strings.
+        const key = `${part.kind}-${String(i)}`;
+        if (part.kind === 'text') {
+          return (
+            <p key={key} className="t-read" style={{ margin: 0, maxWidth: '62ch' }}>
+              {part.text}
+            </p>
+          );
+        }
+        return (
+          <ul key={key} className="stack" style={{ flex: 'none', gap: 5, margin: 0, paddingLeft: 18 }}>
+            {part.items.map((item) => (
+              <li key={item} className="t-read" style={{ maxWidth: '62ch' }}>
+                {item}
+              </li>
+            ))}
+          </ul>
+        );
+      })}
+    </div>
   );
 }

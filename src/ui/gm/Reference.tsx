@@ -46,8 +46,9 @@
  *
  * Chips at `var(--tap)` with `padding: 0 12px`. `.t-label` is 10px mono at
  * `0.16em`, so about 7.6px a character: IMPROVISE 92, DIFFICULTY 100, FEAR 54,
- * COUNTDOWNS 100 and DISTANCE 85, which with four 6px gaps is 455 against a
- * 369px column - so it wraps to two rows, 44 + 6 + 44 = 94px.
+ * COUNTDOWNS 100, DISTANCE 85, GM MOVES 85 and EXPERIENCES 108, which with six
+ * 6px gaps is 660 against a 369px column - so it wraps to two rows,
+ * 44 + 6 + 44 = 94px, paid once at the top of the scroll rather than pinned.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a
@@ -71,14 +72,23 @@
 import { useState } from 'react';
 import { useIsPhone } from '../shared/useLayout.ts';
 import {
+  AdversaryExperiences,
   CountdownChart,
   DifficultyLadder,
   FearGuide,
+  GmMoves,
   RangeReference,
   TierBenchmarks,
 } from './ReferenceTables.tsx';
 
-export type ReferenceTopic = 'improvise' | 'difficulty' | 'fear' | 'countdowns' | 'distance';
+export type ReferenceTopic =
+  | 'improvise'
+  | 'difficulty'
+  | 'fear'
+  | 'countdowns'
+  | 'distance'
+  | 'moves'
+  | 'experiences';
 
 /**
  * What a menu maps over to build its items.
@@ -96,6 +106,8 @@ export const REFERENCE_TOPICS: ReadonlyArray<{
   { id: 'fear', label: 'Fear', short: 'FEAR' },
   { id: 'countdowns', label: 'Advancing a countdown', short: 'COUNTDOWNS' },
   { id: 'distance', label: 'Range and distance', short: 'DISTANCE' },
+  { id: 'moves', label: 'GM moves and principles', short: 'GM MOVES' },
+  { id: 'experiences', label: 'Adversary Experiences', short: 'EXPERIENCES' },
 ];
 
 export function Reference(): React.JSX.Element {
@@ -155,6 +167,8 @@ export function Reference(): React.JSX.Element {
       */}
       {topic === 'countdowns' && <CountdownChart countdown={null} />}
       {topic === 'distance' && <RangeReference />}
+      {topic === 'moves' && <GmMoves />}
+      {topic === 'experiences' && <AdversaryExperiences />}
     </div>
   );
 }

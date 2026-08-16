@@ -377,22 +377,13 @@ describe('the topic strip', () => {
       'Fear',
       'Advancing a countdown',
       'Range and distance',
+      'GM moves and principles',
+      'Adversary Experiences',
     ]);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
-      'true',
-      'false',
-      'false',
-      'false',
-      'false',
-    ]);
+    expect(chips.filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
+    expect(chips[0]!.getAttribute('aria-pressed')).toBe('true');
     click(chips[2]!);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
-      'false',
-      'false',
-      'true',
-      'false',
-      'false',
-    ]);
+    expect(chips.filter((b) => b.getAttribute('aria-pressed') === 'true')).toEqual([chips[2]]);
   });
 
   it('shows one subject at a time, so the other is gone rather than below', () => {
@@ -664,5 +655,74 @@ describe('setting a Difficulty, with the SRD’s worked examples', () => {
     expect(first.textContent).toContain('Leap');
     expect(first.textContent).toContain('Make a running jump of half your height');
     expect(first.textContent).not.toContain('Sprint within Close range');
+  });
+});
+
+describe('the GM chapter, behind five folds', () => {
+  const moves = (): void => {
+    openReference();
+    click(named('GM moves and principles'));
+  };
+
+  it('names the five sections and opens none of them', () => {
+    moves();
+    expect(folds().map((b) => (b.textContent ?? '').trim())).toEqual([
+      'GM PrinciplesSRD 1.0 · P.63',
+      'GM PracticesSRD 1.0 · P.63',
+      'Making GM MovesSRD 1.0 · P.64',
+      'GM Moves and Adversary ActionsSRD 1.0 · P.37',
+      'Pitfalls to AvoidSRD 1.0 · P.64',
+    ]);
+    // Four pages between them, so the stamp sits on each fold and never on the
+    // topic: one number over the other four would be false four times.
+    expect(folds().every((b) => b.getAttribute('aria-expanded') === 'false')).toBe(true);
+    expect(text()).not.toContain('Use the fiction to drive mechanics');
+  });
+
+  it('draws a whole section when one is opened, headings and bullets alike', () => {
+    moves();
+    click(folds()[0]!);
+    expect(text()).toContain('BEGIN AND END WITH THE FICTION');
+    expect(text()).toContain('Use the fiction to drive mechanics, then connect the mechanics back');
+    click(folds()[4]!);
+    // Five of the six pitfalls are in capitals and this one is not. Match
+    // headings as all-caps and the app decides one of the SRD's warnings is
+    // not worth reading.
+    expect(text()).toContain('Overplanning');
+    expect(text()).toContain('HOARDING FEAR');
+  });
+
+  it('gives the p.37 restatement a home, which nothing in the app had', () => {
+    moves();
+    click(folds()[3]!);
+    expect(text()).toContain('Gives them a golden opportunity.');
+    expect(text()).toContain('Fear Features');
+  });
+});
+
+describe('the adversary Experiences', () => {
+  const experiences = (): void => {
+    openReference();
+    click(named('Adversary Experiences'));
+  };
+
+  it('lists all eighteen with the rule that makes them do anything', () => {
+    experiences();
+    expect(text()).toContain('EXPERIENCE (OPTIONAL)');
+    expect(text()).toContain('spend a Fear');
+    expect(text()).toContain('SRD 1.0 · P.71');
+    for (const name of ['Acrobatics', 'Hunt from Above', 'Magical Knowledge', 'Tracker']) {
+      expect(text(), name).toContain(name);
+    }
+  });
+
+  it('offers not one of them as a tap, because there is no adversary to edit', () => {
+    experiences();
+    const inside = container.querySelector('[role="dialog"]')!;
+    const strip = inside.querySelector('[aria-label="What to look up"]')!;
+    const pressable = [...inside.querySelectorAll('button')].filter(
+      (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
+    );
+    expect(pressable.map((b) => b.textContent)).toEqual([]);
   });
 });

@@ -21,10 +21,12 @@ import srd from '../../data/srd-1.0.json' with { type: 'json' };
 import type { Dataset, RulesSection } from '@shared/types.ts';
 import {
   adversaryBenchmarks,
+  adversaryExperiences,
   countdownAdvancement,
-  environmentBenchmarks,
   difficultyBenchmarks,
+  environmentBenchmarks,
   fearGuidance,
+  gmMoves,
   metreRange,
   metresFromFeet,
   rangeReference,
@@ -491,5 +493,97 @@ describe('the adjectives that are not in the SRD', () => {
       'these type a Difficulty label the shipped SRD does not contain:\n' +
         guilty.map((f) => `  ${f}`).join('\n'),
     ).toEqual([]);
+  });
+});
+
+describe('gmMoves', () => {
+  const sections = (): ReturnType<typeof gmMoves> => gmMoves(rules);
+  const byId = (id: string): ReturnType<typeof gmMoves>[number] =>
+    sections().find((s) => s.id === id)!;
+
+  it('gathers all five sections of the GM chapter, in this app’s order', () => {
+    // The fifth is `gm-moves-and-adversary-actions` on p.37, which restates
+    // when to make a move inside the combat chapter and adds the Fear Feature
+    // note. It had no home anywhere in this app.
+    expect(sections().map((s) => s.id)).toEqual([
+      'gm-principles',
+      'gm-practices',
+      'making-gm-moves',
+      'gm-moves-and-adversary-actions',
+      'pitfalls-to-avoid',
+    ]);
+    expect(sections().map((s) => s.title)).toEqual([
+      'GM Principles',
+      'GM Practices',
+      'Making GM Moves',
+      'GM Moves and Adversary Actions',
+      'Pitfalls to Avoid',
+    ]);
+    expect(sections().map((s) => s.page)).toEqual([63, 63, 64, 37, 64]);
+  });
+
+  it('keeps the pitfall the SRD wrote in mixed case beside five in capitals', () => {
+    const headings = byId('pitfalls-to-avoid').blocks.map((b) => b.heading);
+    // Match headings as all-caps and exactly this one goes missing, which is
+    // the app quietly deciding one of the SRD's six warnings is not worth
+    // reading.
+    expect(headings).toEqual([
+      'UNDERMINING THE HEROES',
+      'ALWAYS TELLING THE PLAYERS WHAT TO ROLL',
+      'LETTING SCENES DRAG',
+      'SINGULAR SOLUTIONS',
+      'Overplanning',
+      'HOARDING FEAR',
+    ]);
+  });
+
+  it('keeps a bullet list as a list and the sentence above it as prose', () => {
+    const when = byId('making-gm-moves').blocks.find((b) => b.heading === 'WHEN TO MAKE A MOVE')!;
+    expect(when.parts.map((p) => p.kind)).toEqual(['text', 'text', 'list']);
+    const list = when.parts[2];
+    expect(list?.kind === 'list' ? list.items : []).toEqual([
+      'Roll with Fear',
+      'Fail an action roll',
+      'Do something that has unavoidable consequences',
+      'Give you a "golden opportunity" (an opening that demands an immediate response)',
+      'Look to you for what happens next',
+    ]);
+  });
+
+  it('draws whatever came before the first subhead rather than dropping it', () => {
+    const first = byId('making-gm-moves').blocks[0]!;
+    expect(first.heading).toBeNull();
+    expect(first.parts[0]?.kind === 'text' ? first.parts[0].text : '').toContain(
+      'GM moves that change the story',
+    );
+  });
+
+  it('skips a section the dataset does not carry rather than drawing it empty', () => {
+    expect(gmMoves([])).toEqual([]);
+  });
+});
+
+describe('adversaryExperiences', () => {
+  const examples = (): ReturnType<typeof adversaryExperiences> => adversaryExperiences(rules);
+
+  it('finds the list without knowing what its heading is called', () => {
+    // The heading carries a trailing colon here and does not in
+    // `character-creation`, so a lookup by name would have to know both
+    // spellings - and knowing them means typing them into src.
+    expect(examples().title).toBe('EXAMPLE EXPERIENCES:');
+    expect(examples().page).toBe(71);
+    expect(examples().items).toHaveLength(18);
+    expect(examples().items[0]).toBe('Acrobatics');
+    expect(examples().items[17]).toBe('Tracker');
+  });
+
+  it('carries the rule above it, without which the list has no stated effect', () => {
+    const lead = examples().lead!;
+    expect(lead.heading).toBe('EXPERIENCE (OPTIONAL)');
+    expect(lead.parts[0]?.kind === 'text' ? lead.parts[0].text : '').toContain('spend a Fear');
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(adversaryExperiences([])).toEqual({ title: '', lead: null, items: [], page: null });
   });
 });

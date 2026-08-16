@@ -80,9 +80,11 @@ import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import {
+  AdversaryExperiences,
   CountdownChart,
   DifficultyLadder,
   FearGuide,
+  GmMoves,
   RangeReference,
   TierBenchmarks,
 } from '../../src/ui/gm/ReferenceTables.tsx';
@@ -498,8 +500,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/Reference.tsx::Reference': () => <Reference />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
+  'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
+  'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
   // The metric figures are the app's arithmetic and say so; everything else on

@@ -534,3 +534,142 @@ export function difficultyBenchmarks(rules: RulesSection[]): DifficultyGuidance 
   }
   return { title: section.title, lead, ladder, page: section.sourcePage ?? null };
 }
+
+// ---------------------------------------------------------------------------
+// The GM chapter, and the adversary Experiences
+// ---------------------------------------------------------------------------
+
+export type ProsePart = { kind: 'text'; text: string } | { kind: 'list'; items: string[] };
+
+/**
+ * A body's paragraphs, each one either a bare bullet list or the prose it is.
+ *
+ * The "every line is a bullet" test is the same one `fearGuidance` makes, and
+ * for the same reason: a lead sentence and the bullets under it are separate
+ * paragraphs in this dataset, and a layer that runs them together must be drawn
+ * as the prose it now is rather than have its first line silently vanish.
+ *
+ * The SRD's own emitted markdown has no nesting - `making-gm-moves` writes a
+ * lead bullet and its four sub-bullets at the same depth - so this flattens
+ * nothing that was not already flat.
+ */
+function proseParts(text: string): ProsePart[] {
+  return paragraphs(text).map((para) => {
+    const items = ruleList(para);
+    const lines = para.split('\n').filter((line) => line.trim() !== '');
+    return items.length > 0 && items.length === lines.length
+      ? { kind: 'list', items }
+      : { kind: 'text', text: para };
+  });
+}
+
+export interface MovesBlock {
+  /** The `## ` subhead, or null for whatever came before the first one. */
+  heading: string | null;
+  parts: ProsePart[];
+}
+
+export interface MovesSection {
+  id: string;
+  title: string;
+  page: number | null;
+  blocks: MovesBlock[];
+}
+
+/**
+ * The five sections of the SRD that tell a GM what to actually do, in the order
+ * this app draws them.
+ *
+ * Principles and practices are the pair the book keeps together on p.63; then
+ * the mechanism on p.64; then the shorter restatement from the combat chapter
+ * on p.37, which is the one that adds the Fear Feature note and which had no
+ * home anywhere in this app; then the pitfalls, last, as the SRD has them.
+ *
+ * A section the dataset does not carry is skipped rather than drawn empty.
+ */
+const MOVE_SECTIONS = [
+  'gm-principles',
+  'gm-practices',
+  'making-gm-moves',
+  'gm-moves-and-adversary-actions',
+  'pitfalls-to-avoid',
+];
+
+/**
+ * `rules['gm-principles']` and its four siblings, whole.
+ *
+ * Nothing is picked out and nothing is summarised: every one of these sections
+ * is a list of one-line instructions, and a screen that showed three of them
+ * would be choosing which principles a GM gets. The screens fold them instead,
+ * which costs a tap and keeps all of it.
+ *
+ * Headings are taken as they come. `pitfalls-to-avoid` writes five of its six
+ * subheads in capitals and one in mixed case, so any matching that assumed
+ * either would lose exactly one pitfall - and the app never gets to decide
+ * which of the SRD's warnings is worth reading.
+ */
+export function gmMoves(rules: RulesSection[]): MovesSection[] {
+  return MOVE_SECTIONS.flatMap((id) => {
+    const section = rules.find((r) => r.id === id);
+    if (section === undefined) return [];
+    return [
+      {
+        id,
+        title: section.title,
+        page: section.sourcePage ?? null,
+        blocks: ruleBlocks(section.body).map((block) => ({
+          heading: block.heading,
+          parts: proseParts(block.text),
+        })),
+      },
+    ];
+  });
+}
+
+export interface ExperienceExamples {
+  /** The list's own `## ` subhead. */
+  title: string;
+  /** The block immediately above it: its subhead and its paragraphs. */
+  lead: MovesBlock | null;
+  items: string[];
+  page: number | null;
+}
+
+const NO_EXAMPLES: ExperienceExamples = { title: '', lead: null, items: [], page: null };
+
+/**
+ * `rules['using-adversaries']`, p.71 - the eighteen Experiences the SRD offers
+ * a GM improvising an adversary.
+ *
+ * Found as **the first block in the section that is nothing but bare bullets**,
+ * not by its heading. The heading carries a trailing colon here and does not in
+ * `character-creation`, so a lookup by name would have to know both spellings -
+ * and knowing them means typing them. The bullet-only test picks it out of
+ * fourteen blocks on its own: every other list in the section sits under a
+ * paragraph of prose.
+ *
+ * `lead` is the block above it, which is the rule about spending a Fear to use
+ * one. Without it the list is eighteen words with no stated effect.
+ */
+export function adversaryExperiences(rules: RulesSection[]): ExperienceExamples {
+  const section = rules.find((r) => r.id === 'using-adversaries');
+  if (section === undefined) return NO_EXAMPLES;
+
+  const blocks = ruleBlocks(section.body);
+  for (const [i, block] of blocks.entries()) {
+    const parts = proseParts(block.text);
+    const only = parts.length === 1 ? parts[0] : undefined;
+    if (only?.kind !== 'list') continue;
+    const before = blocks[i - 1];
+    return {
+      title: block.heading ?? section.title,
+      lead:
+        before === undefined
+          ? null
+          : { heading: before.heading, parts: proseParts(before.text) },
+      items: only.items,
+      page: section.sourcePage ?? null,
+    };
+  }
+  return NO_EXAMPLES;
+}
