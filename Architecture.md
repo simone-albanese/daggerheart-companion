@@ -19,6 +19,7 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 | Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
 | Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
 | Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
+| Campagne | Store IndexedDB e schema propri | Più tavoli, e le schede altrui fuori da localStorage |
 | Lingua | **Inglese: interfaccia e dati** | Nessun layer di traduzione |
 | Contenuti | Solo ufficiali, niente homebrew | Dataset immutabile, QR minuscolo per sempre |
 | Multiplayer | Nessuno: ognuno gestisce la sua scheda | Zero networking, zero permessi |
@@ -406,8 +407,23 @@ Riceverla in un art pack, sì.
 | Strato manuale | IndexedDB, store separato | Rimuoverlo non tocca l'SRD |
 | Arte | IndexedDB `art` | Blob nativi, niente base64 |
 | Personaggi | IndexedDB `characters` | Multi-personaggio |
+| Campagne | IndexedDB `campaigns` | Multi-campagna, e contengono schede altrui |
 | Preferenze | localStorage | Piccole e sincrone |
 | I PDF | **mai salvati** | Si ri-importano |
+
+Le campagne stavano in una sola chiave di localStorage, `dhc.gm.v1`, riscritta
+in modo sincrono a ogni `+1` di Fear. Misurato su un tavolo reale — quattro PG
+di livello 5, sei combattenti, quattro countdown — il blob è di 7.662 byte, di
+cui 5.464 sono **quattro schede personaggio complete**: la party board tiene le
+schede intere di proposito (`src/ui/gm/party.ts`). Tenere le schede di altre
+persone nello store che iOS cancella per primo era l'unico punto dell'app in cui
+niente di questa sezione era mai stato applicato.
+
+Una campagna possiede: nome, session list, Fear, countdown (uno può essere il
+primario), party importata e il tavolo vivo. **Non** possiede i personaggi che
+l'utente gioca: quelli restano in `characters`, non c'è nessun `campaignId` su
+`Character`, e cambiare campagna non tocca quello store. Così una scheda può
+stare su due tavoli senza che i due si contraddicano.
 
 ### Il problema iOS, trattato seriamente
 
@@ -457,6 +473,34 @@ scriverci sopra.
 `OLDEST_READABLE` è 3 e non 1 perché gli schemi 1 e 2 non sono mai esistiti fuori
 dallo sviluppo: `SCHEMA_VERSION` vale 3 dal primo commit. Scrivere convertitori
 per loro significherebbe inventarsi una storia con cui essere compatibili.
+
+#### Una regola sola, due numerazioni
+
+`CAMPAIGN_SCHEMA_VERSION` (`shared/campaigns.ts`) governa i record `campaigns` e
+i file `.dhcampaign`. È un numero separato **di proposito**: una campagna è un
+record diverso in uno store diverso con una storia diversa, e infilarla dentro
+`SCHEMA_VERSION` renderebbe ogni futuro campo di campagna una migrazione di
+personaggi, obbligando a riscrivere ogni fixture committata per un campo che
+nessun personaggio ha.
+
+Quello che *non* è separato è la regola. Stessi tre requisiti, stessa
+macchinaria: `CAMPAIGN_MIGRATIONS` usa l'interfaccia `Migration` e le funzioni
+di `shared/migrations.ts` — `versionOf`, `checkReadable`, `applyChain`,
+`missingConverters` prendono i numeri come parametri invece di leggerli inline —
+la fixture committata è `tests/fixtures/schema/v1.campaign.json`, e
+`tests/store/campaignSchema.test.ts` chiede al secondo numero esattamente ciò
+che `tests/store/migrations.test.ts` chiede al primo, compreso il test che
+domanda cosa mancherebbe se la costante salisse di uno.
+
+`readCampaigns()` mette in quarantena un record più recente della build e
+`putCampaign()` si rifiuta di scriverci sopra, per lo stesso motivo delle loro
+controparti sui personaggi — con in più che qui il record contiene le schede di
+altre persone.
+
+Terzo requisito, esercitato per la prima volta: `DB_VERSION` è passato da 1 a 2
+con il suo ramo `oldVersion < 2`. È il primo secondo ramo che questo database
+abbia mai avuto, e il test che lo copre parte da un database di versione 1 con
+un personaggio dentro e verifica che il personaggio ci sia ancora dopo l'upgrade.
 
 ### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
 
@@ -578,7 +622,7 @@ daggerheart-companion/
 │  ├─ srd-1.0.json             # ~341 KB, generato dalla build
 │  └─ registry.json            # slug ↔ ID, append-only
 ├─ shared/                     # usato sia da tools/ che da src/
-│  ├─ textLayout.ts  slugify.ts
+│  ├─ textLayout.ts  slugify.ts  types.ts  migrations.ts  campaigns.ts
 │  └─ parsers/
 │     ├─ domainCards.ts  adversaries.ts  environments.ts
 │     ├─ classes.ts      ancestries.ts   communities.ts
@@ -589,8 +633,8 @@ daggerheart-companion/
 │  ├─ engine/                  # PURO: zero UI, zero pdf.js
 │  │  ├─ character.ts  levelUp.ts  loadout.ts  damage.ts  dice.ts  encounter.ts
 │  ├─ transfer/
-│  │  ├─ codec.ts  frames.ts  qrOut.tsx  qrIn.tsx  fileIo.ts
-│  ├─ store/  db.ts  state.ts  backup.ts
+│  │  ├─ codec.ts  frames.ts  qrOut.tsx  qrIn.tsx  fileIo.ts  campaignFile.ts
+│  ├─ store/  db.ts  state.ts  backup.ts  campaigns.ts  campaignMigration.ts
 │  ├─ ui/
 │  │  ├─ shell/  player/  gm/  settings/  shared/
 │  └─ main.tsx

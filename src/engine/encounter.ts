@@ -5,7 +5,30 @@
  * All five adjustments from the SRD are here, including the two that are easy
  * to forget: the damage-bump discount and the no-heavies rebate.
  */
-import type { Adversary, AdversaryRole, Tier } from '../../shared/types.ts';
+import type {
+  Adversary,
+  AdversaryRole,
+  Countdown,
+  EncounterAdjustments,
+  SceneCombatant,
+  Tier,
+} from '../../shared/types.ts';
+
+/*
+ * The shapes moved, the names did not.
+ *
+ * `Countdown`, `CountdownKind`, `SceneCombatant` and `EncounterAdjustments`
+ * are now declared in `shared/types.ts`, because a campaign record stores all
+ * four of them verbatim in IndexedDB and a persisted shape belongs beside
+ * `Character` rather than inside the module that happens to do arithmetic on
+ * it. Re-exported here so every import in the tree keeps reading the same.
+ */
+export type {
+  Countdown,
+  CountdownKind,
+  EncounterAdjustments,
+  SceneCombatant,
+} from '../../shared/types.ts';
 
 export const ROLE_COST: Record<AdversaryRole, number> = {
   Minion: 1, // per group of Minions equal to the party size
@@ -19,15 +42,6 @@ export const ROLE_COST: Record<AdversaryRole, number> = {
   Bruiser: 4,
   Solo: 5,
 };
-
-export interface EncounterAdjustments {
-  /** -1 for an easier or shorter fight. */
-  easier: boolean;
-  /** +2 for a harder or longer fight. */
-  harder: boolean;
-  /** -2 if you add +1d4 (or a static +2) to all adversaries' damage rolls. */
-  damageBump: boolean;
-}
 
 export const NO_ADJUSTMENTS: EncounterAdjustments = {
   easier: false,
@@ -131,18 +145,8 @@ export const TIER_BENCHMARKS: Record<
 // Live scene state
 // ---------------------------------------------------------------------------
 
-export const MAX_FEAR = 12;
-
-export type CountdownKind = 'standard' | 'dynamic' | 'loop' | 'long-term';
-
-export interface Countdown {
-  id: string;
-  name: string;
-  kind: CountdownKind;
-  start: number;
-  value: number;
-  notes: string;
-}
+/** Moved beside the shapes it bounds; the campaign reader clamps `fear` too. */
+export { MAX_FEAR } from '../../shared/types.ts';
 
 /** Countdowns advance by hand: the app never infers when a trigger fired. */
 export function tickCountdown(c: Countdown, delta: number): Countdown {
@@ -153,20 +157,6 @@ export function tickCountdown(c: Countdown, delta: number): Countdown {
     return { ...c, value: Math.min(c.start, next) };
   }
   return { ...c, value: Math.max(0, Math.min(c.start, next)) };
-}
-
-export interface SceneCombatant {
-  id: string;
-  adversaryRef: string;
-  name: string;
-  hp: { marked: number; max: number };
-  stress: { marked: number; max: number };
-  thresholds: [number, number] | null;
-  difficulty: number;
-  spotlighted: boolean;
-  /** Minions in this group still standing. */
-  minionsRemaining?: number;
-  notes: string;
 }
 
 export function makeCombatant(a: Adversary, index: number, partySize: number): SceneCombatant {

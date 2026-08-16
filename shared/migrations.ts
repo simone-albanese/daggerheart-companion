@@ -76,17 +76,26 @@ export class SchemaError extends Error {
 }
 
 /**
- * The version stamped on a record, or `SCHEMA_VERSION` when there is none.
+ * The version stamped on a record, or the current one when there is none.
  *
  * A missing version is read as current rather than as ancient. Everything that
  * writes one has written one since the first commit, so the only records
  * without one are hand-edited files - and `readCharacter` already accepts a
  * bare character object on purpose, for somebody who pulled the `character`
  * field out of a file in a text editor.
+ *
+ * `current` is a parameter rather than `SCHEMA_VERSION` inline because there is
+ * now a second numbering to police: campaigns are their own store with their
+ * own version and their own chain (`shared/campaigns.ts`). The policy in
+ * Architecture 6.1 is one policy, so it gets one implementation with the
+ * numbers passed in, rather than a second copy that can drift from this one.
  */
-export function versionOf(record: Record<string, unknown>): number {
+export function versionOf(
+  record: Record<string, unknown>,
+  current: number = SCHEMA_VERSION,
+): number {
   const raw = record['schemaVersion'];
-  if (raw === undefined || raw === null) return SCHEMA_VERSION;
+  if (raw === undefined || raw === null) return current;
   if (typeof raw !== 'number' || !Number.isInteger(raw)) {
     throw new SchemaError('has a schema version that is not a whole number.', NaN);
   }
@@ -102,16 +111,20 @@ export function versionOf(record: Record<string, unknown>): number {
  * and not one - a version from the future means update the app, and a version
  * below the oldest means the file predates anything this app has ever written.
  */
-export function checkReadable(version: number): void {
-  if (version > SCHEMA_VERSION) {
+export function checkReadable(
+  version: number,
+  current: number = SCHEMA_VERSION,
+  oldest: number = OLDEST_READABLE,
+): void {
+  if (version > current) {
     throw new SchemaError(
-      `was written by a newer version of the app (schema ${version}; this app reads ${SCHEMA_VERSION}). Update the app, then open it again - it has not been changed.`,
+      `was written by a newer version of the app (schema ${version}; this app reads ${current}). Update the app, then open it again - it has not been changed.`,
       version,
     );
   }
-  if (version < OLDEST_READABLE) {
+  if (version < oldest) {
     throw new SchemaError(
-      `uses schema ${version}, which no released version of this app has ever written (the oldest is ${OLDEST_READABLE}). It has not been imported and nothing has been changed.`,
+      `uses schema ${version}, which no released version of this app has ever written (the oldest is ${oldest}). It has not been imported and nothing has been changed.`,
       version,
     );
   }
@@ -188,5 +201,7 @@ export function migrateCharacterRecord(record: Record<string, unknown>): Migrati
 }
 
 /** Every version this build can read, oldest first. */
-export const readableVersions = (): number[] =>
-  Array.from({ length: SCHEMA_VERSION - OLDEST_READABLE + 1 }, (_, i) => OLDEST_READABLE + i);
+export const readableVersions = (
+  oldest: number = OLDEST_READABLE,
+  current: number = SCHEMA_VERSION,
+): number[] => Array.from({ length: current - oldest + 1 }, (_, i) => oldest + i);

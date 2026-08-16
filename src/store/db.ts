@@ -1,22 +1,43 @@
 /**
- * IndexedDB. Four stores, deliberately separate:
+ * IndexedDB. Five stores, deliberately separate:
  *
  *   characters  the user's work of months. The only truly precious data.
+ *   campaigns   the GM's: one per table, with its own schema and own chain
  *   layers      imported source layers (the Core Rulebook), removable
  *   content     per-layer field overlays, keyed `<layerId>:<entityId>`
  *   art         card illustrations as Blobs, keyed by slug
  *
  * Keeping the manual's content and art out of the character store means
  * removing the manual can never damage a character, and re-importing it never
- * has to touch one.
+ * has to touch one. `campaigns` is separate for the harder version of the same
+ * reason: a campaign holds whole copies of other people's sheets, and the one
+ * thing that must never happen is a campaign write reaching the store those
+ * sheets actually live in. Nothing here writes across the two.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { Campaign } from '../../shared/campaigns.ts';
 import { checkReadable, versionOf } from '../../shared/migrations.ts';
 import { readCharacterRecord } from '../transfer/fileIo.ts';
 import { SCHEMA_VERSION, type Character, type Layer } from '../../shared/types.ts';
 
 export const DB_NAME = 'daggerheart-companion';
-export const DB_VERSION = 1;
+
+/**
+ * The shape of the database, which is a different number from any schema.
+ *
+ * Two, because the `campaigns` store was added. `SCHEMA_VERSION` did not move
+ * with it and neither did `CAMPAIGN_SCHEMA_VERSION`: this number is about
+ * which object stores and indexes exist, and Architecture 6.1 lists it as the
+ * third of the three things a change may need rather than as a synonym for
+ * either of the other two.
+ *
+ * The cost of raising it is real and is already handled: a build still on
+ * version 1 that meets a version 2 database gets `VersionError` from `openDB`,
+ * which becomes the `StaleBuildError` below - "close every tab and open it
+ * again" - rather than a blank screen. That is the same coexistence the whole
+ * schema policy is written around.
+ */
+export const DB_VERSION = 2;
 
 /**
  * The database refused to open because it is newer than this build.
@@ -50,10 +71,14 @@ export interface ArtRecord {
 
 interface CompanionDB extends DBSchema {
   characters: { key: string; value: Character; indexes: { updatedAt: string } };
+  campaigns: { key: string; value: Campaign; indexes: { updatedAt: string } };
   layers: { key: string; value: Layer };
   content: { key: string; value: ContentOverlay; indexes: { layerId: string } };
   art: { key: string; value: ArtRecord; indexes: { layerId: string } };
 }
+
+/** Every store, for the two places that must not miss one. */
+export const STORES = ['characters', 'campaigns', 'layers', 'content', 'art'] as const;
 
 let dbPromise: Promise<IDBPDatabase<CompanionDB>> | null = null;
 
@@ -79,6 +104,14 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
         content.createIndex('layerId', 'layerId');
         const art = database.createObjectStore('art', { keyPath: 'key' });
         art.createIndex('layerId', 'layerId');
+      }
+      if (oldVersion < 2) {
+        // The GM's campaigns, moving out of localStorage. A device that has
+        // been running version 1 for months arrives here with four stores and
+        // gains the fifth without any of the other four being touched; a
+        // device that has never run the app runs both blocks in order.
+        const campaigns = database.createObjectStore('campaigns', { keyPath: 'id' });
+        campaigns.createIndex('updatedAt', 'updatedAt');
       }
     },
 
@@ -146,8 +179,12 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
  * pending, and the next request would then land on a finished transaction.
  * Whatever aborted it is already being thrown by the request that caused it, so
  * there is nothing here left to report.
+ *
+ * Exported because `campaigns.ts` hand-writes multi-request transactions of its
+ * own against the same database, and a second copy of this would be a second
+ * place for the unhandled rejection to come back.
  */
-function hold<T extends { done: Promise<void> }>(tx: T): T {
+export function hold<T extends { done: Promise<void> }>(tx: T): T {
   void tx.done.catch(() => {
     // Reported by the request that caused it. This exists so the abort is not
     // *also* an unhandled rejection.
@@ -402,15 +439,17 @@ export async function requestPersistence(): Promise<StorageHealth> {
   return { persisted, usage, quota };
 }
 
-/** Wipe everything. Used by "reset app" in settings, never automatically. */
+/**
+ * Wipe everything. Used by "reset app" in settings, never automatically.
+ *
+ * Over `STORES` rather than a list written out again here: the list written
+ * out again is how a new store gets added and quietly survives the button that
+ * promises to remove everything, which for `campaigns` would mean the reset
+ * leaving other people's character sheets on the device.
+ */
 export async function clearAll(): Promise<void> {
   const database = await db();
-  const tx = hold(database.transaction(['characters', 'layers', 'content', 'art'], 'readwrite'));
-  await Promise.all([
-    tx.objectStore('characters').clear(),
-    tx.objectStore('layers').clear(),
-    tx.objectStore('content').clear(),
-    tx.objectStore('art').clear(),
-  ]);
+  const tx = hold(database.transaction(STORES, 'readwrite'));
+  await Promise.all(STORES.map((name) => tx.objectStore(name).clear()));
   await tx.done;
 }
