@@ -205,13 +205,18 @@ export function Track({
             const clipped = shape.clip !== undefined;
             const rim = proposed ? shape.color : 'var(--edge)';
             const fill = proposed ? 'transparent' : on ? shape.color : 'var(--empty)';
+            const filled = on && !proposed;
             const outer: CSSProperties = {
               position: 'relative',
               display: 'block',
               width: '100%',
               height: markHeight,
-              background: clipped ? (on && !proposed ? shape.color : rim) : 'transparent',
-              border: clipped ? undefined : `1.5px solid ${on && !proposed ? shape.color : rim}`,
+              // Clipped shapes carry their rim as the outer fill with the
+              // interior drawn on top; unclipped ones can just take a border,
+              // and a filled one is filled either way. Losing that last clause
+              // is how HP and Stress briefly became outlines.
+              background: filled ? shape.color : clipped ? rim : 'transparent',
+              border: clipped ? undefined : `1.5px solid ${filled ? shape.color : rim}`,
               borderRadius: shape.radius,
               clipPath: shape.clip,
               transform: shape.transform,
@@ -243,7 +248,7 @@ export function Track({
                 }}
               >
                 <span style={outer}>
-                  {clipped && (on ? proposed : true) && (
+                  {clipped && !filled && (
                     <span
                       style={{
                         position: 'absolute',
