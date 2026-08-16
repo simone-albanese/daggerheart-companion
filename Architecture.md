@@ -300,8 +300,28 @@ Fasce assegnate: `1000–1999` classi · `2000–2999` sottoclassi · `3000–39
    - ogni Ref → varint dal registry
    - testo libero → UTF-8 con prefisso di lunghezza varint
 2. deflate raw (applicato solo se riduce davvero)
-3. framing multi-frame (solo per il QR)
+3. crc32 del payload, dentro il payload
+4. framing multi-frame (solo per il QR)
 ```
+
+**Formato 2** (quello scritto oggi):
+
+```
+byte 0     versione nel nibble basso, 0x80 se il corpo è deflated
+byte 1-4   crc32 big-endian su tutto il payload con questi quattro byte azzerati
+byte 5..   il corpo
+```
+
+Il formato 1 — stesso header, corpo dal byte 1, nessun checksum — si **legge e non
+si scrive più**. Il passaggio vecchio-telefono → nuovo-telefono è il caso per cui
+questo vettore esiste, e lì il mittente *è* la build vecchia.
+
+Il checksum sta qui e non solo nel frame perché è una proprietà del formato, non
+del canale: misurati 8136 flip di un bit su 15 schede reali, il 30,9 % decodificava
+in un personaggio **diverso** senza alcun errore. Il crc32 del frame li prendeva
+tutti, ma copriva le due superfici di ricezione che l'app spedisce, e lì la verifica
+è un'opzione di chi chiama (`qr.ts`). Un payload che arrivasse in qualunque altro
+modo non ereditava nulla.
 
 Misure reali, wizard di livello 5 con 5 carte in loadout, 6 nel vault, 3 esperienze:
 
@@ -326,7 +346,10 @@ Funziona identico su desktop e mobile: share sheet su iOS/Android, download su d
 ```
 
 - `transferId` casuale: distingue trasferimenti concorrenti allo stesso tavolo
-- `crc32` sul payload ricostruito: rifiuta le mescolanze
+- `crc32` sul payload ricostruito: rifiuta le mescolanze. È un'affermazione sul
+  *set* — i chunk arrivati sono quelli spediti, nell'ordine giusto, da un solo
+  mittente — diversa da quella del codec (§5.2), che vale anche per un payload
+  che non è mai passato dai frame
 - chunk ≤ 180 byte → QR versione ≤ 12 (65×65 moduli), correzione M
 
 Il mittente **cicla i frame in loop a 5 fps**. Il ricevente tiene puntata la fotocamera,

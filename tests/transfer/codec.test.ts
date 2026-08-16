@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { Character } from '../../shared/types.ts';
 import {
   CODEC_VERSION,
+  READABLE_CODEC_VERSIONS,
   CodecError,
   UnknownSlugError,
   characterRefs,
@@ -17,8 +18,28 @@ import {
   resolvePlaceholders,
 } from '../../src/transfer/codec.ts';
 import { RESERVED_MIN, unresolvedRef } from '../../src/transfer/registry.ts';
+import { crc32 } from '../../src/transfer/crc32.ts';
 import { framesNeeded, MAX_CHUNK_BYTES } from '../../src/transfer/frames.ts';
 import { loadedWizard, normalizeHandles, registryWithout, testRegistry, wizard } from './fixtures.ts';
+
+/**
+ * The checksum rule, recomputed from its description rather than by calling the
+ * encoder's own helper. A test that asked the code for the answer it is
+ * checking would agree with any answer.
+ *
+ *   crc32 over the whole payload with bytes 1-4 zeroed, big-endian in 1-4.
+ */
+const reseal = (payload: Uint8Array): Uint8Array => {
+  const out = payload.slice();
+  const scratch = out.slice();
+  scratch.fill(0, 1, 5);
+  const sum = crc32(scratch);
+  out[1] = (sum >>> 24) & 0xff;
+  out[2] = (sum >>> 16) & 0xff;
+  out[3] = (sum >>> 8) & 0xff;
+  out[4] = sum & 0xff;
+  return out;
+};
 
 const roundTrip = async (c: Character): Promise<Character> => {
   const payload = await encodeCharacter(c, testRegistry);
@@ -311,7 +332,95 @@ describe('refusing to guess', () => {
     const payload = await encodeCharacter(wizard(), testRegistry);
     const withTail = new Uint8Array(payload.length + 3);
     withTail.set(payload);
-    await expect(decodeCharacter(withTail, testRegistry)).rejects.toThrow(/3 bytes left over/);
+
+    // The checksum is in front of the structure now, and gets there first.
+    await expect(decodeCharacter(withTail, testRegistry)).rejects.toThrow(/checksum/);
+    // Sealed as if the sender had really written those three bytes, the
+    // structural guard is what refuses - which is what keeps it reachable, and
+    // proves the checksum is not the only thing standing between a tail and a
+    // character.
+    await expect(decodeCharacter(reseal(withTail), testRegistry)).rejects.toThrow(
+      /3 bytes left over/,
+    );
+  });
+});
+
+describe('the format number', () => {
+  /*
+   * A nibble holds sixteen formats and two are spent. The point of writing that
+   * down here is that a version bump is a compatibility decision - a payload
+   * this build writes cannot be read by any build that shipped before it - and
+   * the place to be reminded of that is the file where the constant changes.
+   */
+  it('writes the newest format it knows and reads every one before it', async () => {
+    expect(CODEC_VERSION).toBe(READABLE_CODEC_VERSIONS.at(-1));
+    expect([...READABLE_CODEC_VERSIONS].sort((a, b) => a - b)).toEqual([
+      ...READABLE_CODEC_VERSIONS,
+    ]);
+    expect(CODEC_VERSION).toBeLessThanOrEqual(0x0f);
+    expect((await encodeCharacter(wizard(), testRegistry))[0]! & 0x0f).toBe(CODEC_VERSION);
+  });
+
+  it('has no reader for a format that does not exist yet', async () => {
+    const payload = await encodeCharacter(wizard(), testRegistry);
+    const next = reseal(
+      Uint8Array.from(payload, (b, i) => (i === 0 ? (b & 0xf0) | (CODEC_VERSION + 1) : b)),
+    );
+    await expect(decodeCharacter(next, testRegistry)).rejects.toThrow(/different version/);
+  });
+
+  /**
+   * The old format is still readable, and carries no checksum of its own.
+   *
+   * That is not an oversight to be fixed later: the hand-off this vector exists
+   * for is an old phone sending to a new one, so the *sender* is the build that
+   * has not updated. Refusing it would break the transfer exactly when it is
+   * the only thing between a player and their months of play.
+   */
+  it('reads a format-1 payload, which has no checksum, and says so', async () => {
+    const v2 = await encodeCharacter(wizard(), testRegistry);
+    const v1 = new Uint8Array(v2.length - 4);
+    v1[0] = (v2[0]! & 0xf0) | 1;
+    v1.set(v2.subarray(5), 1);
+
+    const { character } = await decodeCharacter(v1, testRegistry);
+    expect(character.name).toBe(wizard().name);
+
+    // UNGUARDED (finding, by design). A format-1 payload has no integrity field,
+    // so a flip inside a number can still decode into a different character -
+    // the measurement in `adversarial.test.ts` is what format 2 exists for. On
+    // the QR vector the frame header's crc32 covers it; anything else feeding
+    // format-1 bytes in inherits nothing, which is the reason format 1 is read
+    // and never written.
+    let differed = 0;
+    for (let at = 1; at < v1.length; at += 1) {
+      const bad = v1.slice();
+      bad[at] = bad[at]! ^ 0x01;
+      try {
+        const decoded = await decodeCharacter(bad, testRegistry);
+        if (JSON.stringify(normalizeHandles(decoded.character)) !== JSON.stringify(normalizeHandles(character))) {
+          differed += 1;
+        }
+      } catch {
+        /* refused by structure, which is most of them */
+      }
+    }
+    expect(differed, 'format 1 has no checksum; this records that, it does not approve of it').toBeGreaterThan(0);
+
+    // And the same flips against format 2 are all refused, which is the whole
+    // difference between the two numbers.
+    let escaped = 0;
+    for (let at = 1; at < v2.length; at += 1) {
+      const bad = v2.slice();
+      bad[at] = bad[at]! ^ 0x01;
+      try {
+        await decodeCharacter(bad, testRegistry);
+        escaped += 1;
+      } catch {
+        /* every one of them */
+      }
+    }
+    expect(escaped, 'a single-bit flip got past the format-2 checksum').toBe(0);
   });
 });
 

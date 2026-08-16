@@ -5,9 +5,12 @@
  *   "DH1" | transferId u16 | index u8 | total u8 | crc32 of the whole payload u32 | chunk
  *      3         2             1          1                 4                       <=180
  *
- * `codec.ts` owns the bytes and `qr.ts` owns the pixels; neither carries a
- * checksum, because the checksum belongs to the thing that was cut up. So the
- * wire format lives here, together with the cutting (Architecture 5.2, 5.3).
+ * `codec.ts` owns the bytes and `qr.ts` owns the pixels, so the framing lives
+ * here together with the cutting (Architecture 5.2, 5.3). This header's crc32
+ * is about *the set*: it says the chunks that arrived are the chunks that were
+ * sent, in the right places, from one sender. `codec.ts` carries its own
+ * checksum about the payload, which is a different claim and is checked even
+ * when the payload never travelled as frames at all.
  *
  * There is no handshake. The sender loops its frames at 5 fps and the receiver
  * keeps the camera pointed until it has them all, so the collector has to
@@ -28,7 +31,15 @@
  */
 import type { Character } from '../../shared/types.ts';
 import { decodeCharacter, encodeCharacter, type DecodeResult } from './codec.ts';
+import { crc32 } from './crc32.ts';
 import { registry as committedRegistry, type Registry } from './registry.ts';
+
+/*
+ * Still exported from here. Every caller reads it as "the frame layer's
+ * checksum", which is what it is at this seam, and moving the implementation
+ * out should not make forty imports move with it.
+ */
+export { crc32 };
 
 export const FRAME_MAGIC = 'DH1';
 export const FRAME_HEADER_BYTES = 11;
@@ -48,29 +59,6 @@ export interface TransferFrame {
   /** Over the whole reassembled payload, not this chunk. Rejects mixtures. */
   crc32: number;
   chunk: Uint8Array;
-}
-
-// ---------------------------------------------------------------------------
-// crc32
-// ---------------------------------------------------------------------------
-
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n += 1) {
-    let c = n;
-    for (let k = 0; k < 8; k += 1) c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
-
-/** IEEE 802.3 - the one every other tool means by "crc32". */
-export function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (let i = 0; i < bytes.length; i += 1) {
-    crc = CRC_TABLE[(crc ^ bytes[i]!) & 0xff]! ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 // ---------------------------------------------------------------------------

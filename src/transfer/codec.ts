@@ -1,17 +1,35 @@
 /**
  * The compact character codec.
  *
- * One payload feeds both vectors: the QR frames in `frames.ts` and, when a
- * transfer is too big for a comfortable QR, the file in `fileIo.ts`. The shape
- * is the one Architecture 5.2 asks for:
+ * This payload is the QR vector. A transfer too big for a comfortable QR is
+ * offered as a file instead, and that file is JSON with its own envelope
+ * (`fileIo.ts`) rather than these bytes - so `frames.ts` is the only thing in
+ * `src` that calls either function here. The shape is the one Architecture 5.2
+ * asks for:
  *
  *   1. a binary body - every Ref is a varint from the registry, every piece of
  *      free text is UTF-8 behind a varint length
  *   2. raw deflate, applied only when it actually shrinks the body, with a bit
  *      in the header either way
+ *   3. a crc32 of the payload, inside the payload
  *
- *   byte 0   version in the low nibble, 0x80 set when the body is deflated
- *   byte 1.. the body, described field by field in `writeBody` below
+ *   format 2 (written)   byte 0     version in the low nibble, 0x80 when deflated
+ *                        bytes 1-4  crc32, big-endian, over this whole payload
+ *                                   with these four bytes zeroed
+ *                        bytes 5..  the body, field by field in `writeBody`
+ *   format 1 (read only) byte 0     the same header, bytes 1.. the body
+ *
+ * WHY THE CHECKSUM IS HERE AND NOT ONLY ONE LAYER UP. Measured: 8136 single-bit
+ * flips across 15 real sheets, and 30.9 % of them decoded into a *different*
+ * character with no complaint - a different weapon, a different scar, a
+ * different level-up record. Structure catches most corruption and cannot catch
+ * all of it, because a flip inside a number leaves every length intact. The
+ * frame header's crc32 did close that for the two receive surfaces this app
+ * ships, but it closed it for them and not for the format: verification there
+ * is the caller's option, and anything that ever feeds bytes in from somewhere
+ * else - a pasted code, a Bluetooth hand-off - would have inherited nothing.
+ * A format whose own bytes say whether they arrived intact cannot be adopted
+ * wrongly.
  *
  * TWO DELIBERATE LOSSES, both of local handles rather than of content:
  *
@@ -45,6 +63,7 @@ import {
   type Ref,
   type Trait,
 } from '../../shared/types.ts';
+import { crc32 } from './crc32.ts';
 import {
   isReserved,
   isUnresolvedRef,
@@ -53,10 +72,29 @@ import {
   type Registry,
 } from './registry.ts';
 
-export const CODEC_VERSION = 1;
+/** What this build writes. */
+export const CODEC_VERSION = 2;
+
+/**
+ * Every format this build can read, oldest first.
+ *
+ * 1 is read and never written. The old-phone-to-new-phone hand-off is the case
+ * this whole vector exists for, and in it the *sender* is the older build -
+ * `UpdateBanner` deliberately leaves a stale bundle in charge until the user
+ * accepts, so "both devices are current" is not something a receiver may
+ * assume. Refusing 1 would break the transfer exactly when it is the only thing
+ * standing between a player and their months of play. What a format-1 payload
+ * does not carry is a checksum of its own; on the QR vector the frame header's
+ * crc32 covers it, and `adversarial.test.ts` says so out loud rather than
+ * letting the reader assume otherwise.
+ */
+export const READABLE_CODEC_VERSIONS = [1, 2] as const;
 
 const VERSION_MASK = 0x0f;
 const DEFLATED_BIT = 0x80;
+/** Bytes 1-4 of a format-2 payload. */
+const CHECKSUM_BYTES = 4;
+const BODY_AT: Record<number, number> = { 1: 1, 2: 1 + CHECKSUM_BYTES };
 
 export class CodecError extends Error {
   override name = 'CodecError';
@@ -972,11 +1010,46 @@ export async function encodeCharacter(
   // bit means we can simply take whichever came out shorter.
   const useDeflate = squeezed !== null && squeezed.length < body.length;
   const chosen = useDeflate ? squeezed : body;
-  const out = new Uint8Array(1 + chosen.length);
+  const out = new Uint8Array(BODY_AT[CODEC_VERSION]! + chosen.length);
   out[0] = CODEC_VERSION | (useDeflate ? DEFLATED_BIT : 0);
-  out.set(chosen, 1);
+  out.set(chosen, BODY_AT[CODEC_VERSION]!);
+  writeChecksum(out, payloadChecksum(out));
   return out;
 }
+
+/**
+ * The checksum covers the payload with its own four bytes zeroed.
+ *
+ * Zeroed rather than skipped so that one sentence describes the coverage and
+ * nothing in a format-2 payload sits outside it - the version nibble, the
+ * deflate flag, the three header bits nothing reads, and every byte of the
+ * body. A reader can check the rule without knowing where the field is.
+ */
+function payloadChecksum(payload: Uint8Array): number {
+  const scratch = payload.slice();
+  scratch.fill(0, 1, 1 + CHECKSUM_BYTES);
+  return crc32(scratch);
+}
+
+/*
+ * Written and read a byte at a time rather than through a `DataView`. Callers
+ * hand this function a `subarray` - the reassembled QR payload is one - and a
+ * DataView built from `.buffer` without passing `byteOffset` and `byteLength`
+ * reads four bytes from the wrong place. `frames.ts` has that footgun twice and
+ * only gets away with it once. Four lines of shifting cannot have the bug.
+ */
+function writeChecksum(payload: Uint8Array, sum: number): void {
+  payload[1] = (sum >>> 24) & 0xff;
+  payload[2] = (sum >>> 16) & 0xff;
+  payload[3] = (sum >>> 8) & 0xff;
+  payload[4] = sum & 0xff;
+}
+
+const readChecksum = (payload: Uint8Array): number =>
+  ((payload[1]! << 24) | (payload[2]! << 16) | (payload[3]! << 8) | payload[4]!) >>> 0;
+
+const isReadable = (version: number): boolean =>
+  (READABLE_CODEC_VERSIONS as readonly number[]).includes(version);
 
 export async function decodeCharacter(
   payload: Uint8Array,
@@ -985,12 +1058,40 @@ export async function decodeCharacter(
   if (payload.length < 2) throw new CodecError('That is not a character transfer: it is empty.');
   const header = payload[0]!;
   const version = header & VERSION_MASK;
-  if (version !== CODEC_VERSION) {
+
+  /*
+   * The version is read before the checksum on purpose. A payload this build
+   * cannot parse at all should be told apart from one it can parse and found
+   * damaged, and checking the checksum first would report every unknown format
+   * as corruption.
+   *
+   * The sentence says both possibilities because the code knows only one thing
+   * - the nibble it read - and either could have produced it. Telling the user
+   * to update their app would be a confident guess in exactly the case this
+   * whole item exists to catch.
+   */
+  if (!isReadable(version)) {
     throw new CodecError(
-      `This transfer was written by a different version of the app (format ${version}, this app reads ${CODEC_VERSION}).`,
+      `This transfer says it is format ${version}, and this app reads ${READABLE_CODEC_VERSIONS.join(' and ')}. ` +
+        'Either it came from a different version of the app, or it is damaged. Nothing has been imported.',
     );
   }
-  const raw = payload.subarray(1);
+
+  const bodyAt = BODY_AT[version]!;
+  if (version >= 2) {
+    // Before reading the four bytes, not after: a three-byte payload declaring
+    // format 2 would otherwise read past the end and checksum whatever it found.
+    if (payload.length < bodyAt + 1) {
+      throw new CodecError('The transfer ended early - it is incomplete or damaged.');
+    }
+    if (readChecksum(payload) !== payloadChecksum(payload)) {
+      throw new CodecError(
+        'The transfer is damaged: its checksum does not match the bytes that arrived, so nothing has been imported. Send it again.',
+      );
+    }
+  }
+
+  const raw = payload.subarray(bodyAt);
   const body = (header & DEFLATED_BIT) !== 0 ? await inflateRaw(raw) : raw;
   return readBody(body, registry);
 }

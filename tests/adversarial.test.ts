@@ -24,15 +24,20 @@
  * to be accepted. That is what ties the refusal to the guard rather than to the
  * shape of the input.
  *
- * AND WHERE THERE IS NO GUARD, IT SAYS SO. Ten places in here do not check what
+ * AND WHERE THERE IS NO GUARD, IT SAYS SO. Nine places in here do not check what
  * a reader would assume they check. Each asserts the real current behaviour and
  * carries a comment beginning UNGUARDED, naming the input that gets through and
- * the layer that does catch it, if any. Seven are marked `UNGUARDED (finding)`:
+ * the layer that does catch it, if any. Six are marked `UNGUARDED (finding)`:
  * gaps nobody chose, written down rather than papered over. The other three say
  * `by design` and give the reason - a GM is allowed to hand out gear above the
  * party's tier, `affordable` is advice rather than a refusal, and a damage
  * threshold has no maximum. The distinction is the point: a gap that was argued
  * for and a gap nobody noticed should not read the same way.
+ *
+ * There were ten and seven. The one that closed is the transfer codec's missing
+ * integrity check: three header bits nothing read, and 30.9 % of single-bit
+ * flips decoding into a different character. Format 2 carries a crc32 of the
+ * payload inside the payload, and the sweep below is now a zero.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Character, DomainCard, Tier } from '../shared/types.ts';
@@ -108,6 +113,24 @@ import { normalizeHandles, registryWithout, testRegistry, wizard } from './trans
 
 /** The sheet with the local handles the codec deliberately reassigns removed. */
 const shape = (c: Character): string => JSON.stringify(normalizeHandles(c));
+
+/**
+ * Put a valid format-2 checksum on a payload, from the rule rather than from
+ * the encoder's own helper: crc32 over the whole payload with bytes 1-4 zeroed,
+ * written big-endian into 1-4. A test that asked the code under test for the
+ * answer it is checking would agree with any answer.
+ */
+const reseal = (payload: Uint8Array): Uint8Array => {
+  const out = payload.slice();
+  const scratch = out.slice();
+  scratch.fill(0, 1, 5);
+  const sum = crc32(scratch);
+  out[1] = (sum >>> 24) & 0xff;
+  out[2] = (sum >>> 16) & 0xff;
+  out[3] = (sum >>> 8) & 0xff;
+  out[4] = sum & 0xff;
+  return out;
+};
 
 type PlanPick = LevelUpPlan['picks'][number];
 
@@ -230,13 +253,22 @@ describe.skipIf(!hasDataset())('a transfer that arrived damaged', () => {
   it('refuses a payload whose version nibble was flipped, and names the version it read', async () => {
     const row = spread[0]!;
     // The low nibble of byte 0 is the format version; any of its four bits
-    // becomes a version this build does not read.
+    // becomes a version this build does not read. From 2 the four flips give
+    // 3, 0, 6 and 10 - never 1 - which is what keeps a single-bit flip from
+    // demoting a format-2 payload to the format that carries no checksum.
+    // Reaching that needs two coordinated flips, which is not corruption.
     for (const bit of [0, 1, 2, 3]) {
       const bad = row.payload.slice();
       bad[0] = bad[0]! ^ (1 << bit);
       expect(bad[0], `bit ${bit} must actually differ`).not.toBe(row.payload[0]);
       await expect(decodeCharacter(bad, testRegistry)).rejects.toThrow(
-        /written by a different version of the app \(format \d+, this app reads 1\)/,
+        /says it is format \d+, and this app reads 1 and 2/,
+      );
+      // And it does not guess which of the two things happened. Telling a user
+      // to update their app because a bit was knocked out of the nibble would
+      // be a confident false claim in exactly the case this file exists for.
+      await expect(decodeCharacter(bad, testRegistry)).rejects.toThrow(
+        /Either it came from a different version of the app, or it is damaged/,
       );
     }
     // Control: the same byte put back decodes into the same character.
@@ -255,44 +287,52 @@ describe.skipIf(!hasDataset())('a transfer that arrived damaged', () => {
     }
   });
 
-  it('never reads three of the eight header bits, so a flip in them is invisible', async () => {
-    // UNGUARDED (finding, benign). Bits 4, 5 and 6 of the header byte are
-    // neither the version nibble nor the deflate flag, and `decodeCharacter`
-    // never looks at them: `header & VERSION_MASK` and `header & DEFLATED_BIT`
-    // are the only two reads. Corruption there is undetected - and also inert,
-    // because the character that comes back is identical in every field.
-    // Recorded so nobody assumes the whole header is checked.
+  it('checks the three header bits it never reads, because they are inside the checksum', async () => {
+    // This used to be a finding: bits 4, 5 and 6 are neither the version nibble
+    // nor the deflate flag, `decodeCharacter` never looked at them, and a flip
+    // there was undetected. Inert, as it happened - the character came back
+    // identical - but undetected. The format-2 checksum is computed over the
+    // payload with only its own four bytes zeroed, so the header byte is inside
+    // it and there is no longer a bit of a payload that nothing checks.
     const row = spread[0]!;
     for (const bit of [4, 5, 6]) {
       const bad = row.payload.slice();
       bad[0] = bad[0]! ^ (1 << bit);
-      const { character } = await decodeCharacter(bad, testRegistry);
-      expect(shape(character), `header bit ${bit}`).toBe(row.baseline);
+      await expect(decodeCharacter(bad, testRegistry), `header bit ${bit}`).rejects.toThrow(
+        /checksum/,
+      );
     }
-    // Teeth: the same trick on a bit that IS read is rejected outright, so the
-    // three passes above are about those bits and not about a lenient decoder.
-    const versionBit = row.payload.slice();
-    versionBit[0] = versionBit[0]! ^ 0x01;
-    await expect(decodeCharacter(versionBit, testRegistry)).rejects.toBeInstanceOf(CodecError);
+    // Control, and it is the whole test: a decoder that refused everything
+    // would pass the loop above. The same three bits set back decode into the
+    // same character, so what was refused is the corruption and not the shape.
+    for (const bit of [4, 5, 6]) {
+      const restored = row.payload.slice();
+      restored[0] = restored[0]! ^ (1 << bit);
+      restored[0] = restored[0]! ^ (1 << bit);
+      expect(shape((await decodeCharacter(restored, testRegistry)).character), `bit ${bit} put back`).toBe(
+        row.baseline,
+      );
+    }
   });
 
-  it('catches two damaged payloads in three by itself, and the frame checksum catches the third', async () => {
+  it('refuses every single-bit corruption, because the payload carries its own checksum', async () => {
     // THE MEASUREMENT THIS FILE EXISTS FOR.
     //
-    // A deflated body carries no checksum: raw deflate has none, and the codec
-    // adds none. What rejects a damaged payload is the structure - a varint that
-    // runs off the end, text that is not UTF-8, a count that does not add up,
-    // bytes left over at the end. That catches most corruption and cannot catch
-    // all of it: a flip that lands inside a number keeps every length intact and
-    // decodes into a sheet with a different card, a different scar, a different
-    // level-up record, and no complaint.
+    // It used to read: 8136 flips, 5621 refused, 3 accepted unchanged, and
+    // **2512 accepted as a different character** - 30.9 %, altering `inventory`,
+    // `notes`, `levelUpHistory`, `connections`, `scars`, `experiences`,
+    // `loadout` and `level`. Structure catches most corruption and cannot catch
+    // all of it, because a flip inside a number leaves every length intact and
+    // decodes into a sheet with a different card in it and no complaint.
     //
-    // What closes the gap is one layer up: `crc32`, carried in every QR frame
-    // over the whole payload and re-checked on reassembly. Every production
-    // route into `decodeCharacter` arrives through `FrameCollector`
-    // (src/ui/settings/Transfer.tsx:301, src/ui/gm/PartyBoard.tsx:642), so the
-    // app is safe - but it is safe *because of the frame checksum*, and anyone
-    // feeding a payload in from somewhere else inherits nothing.
+    // What covered that was one layer up: the frame header's crc32, re-checked
+    // on reassembly. It caught every one of them - the `crcMissed` zero below
+    // is the same claim it always was - but it covered the two receive surfaces
+    // this app happens to ship rather than the format, and verification there is
+    // the caller's option. A payload arriving any other way inherited nothing.
+    //
+    // Format 2 puts the checksum inside the payload, so the number below is
+    // zero and stays zero for anything that ever calls `decodeCharacter`.
     let detected = 0;
     let acceptedIdentical = 0;
     let acceptedDifferent = 0;
@@ -347,17 +387,52 @@ describe.skipIf(!hasDataset())('a transfer that arrived damaged', () => {
     // TypeError from inside a reader. (One shape of corruption escapes this and
     // is proved separately, two tests below.)
     expect(notACodecError).toBe(0);
-    // Some corruption gets past the codec. This is the finding, and the
-    // assertion is deliberately written so that an integrity check added inside
-    // the codec turns this red and forces the comment above to be rewritten.
-    expect(acceptedDifferent).toBeGreaterThan(0);
-    // And this is why that is survivable today: the checksum the QR vector
-    // actually uses caught every single one of them.
+    // The finding, closed. Not "low": zero, and not empirically zero either -
+    // CRC-32 detects every single-bit error, because x^k is never divisible by
+    // the generator polynomial.
+    expect(acceptedDifferent, 'a single-bit flip decoded into a different character').toBe(0);
+    expect(acceptedIdentical, 'a single-bit flip was accepted at all').toBe(0);
+    expect(detected).toBe(total);
+    // The frame layer's own verdict on the same corruption, unchanged. It is a
+    // second layer now rather than the only one.
     expect(crcMissed).toBe(0);
     // Teeth for that zero: an untouched payload's crc matches itself, so
     // `crcMissed === 0` is a claim about the corruptions rather than a claim
     // that crc32 returns something constant.
     for (const row of spread) expect(crc32(row.payload.slice())).toBe(crc32(row.payload));
+
+    // Control. A decoder that refused everything would satisfy every assertion
+    // above, so the untouched payloads have to still come back.
+    for (const row of spread) {
+      expect(shape((await decodeCharacter(row.payload, testRegistry)).character), row.label).toBe(
+        row.baseline,
+      );
+    }
+
+    // TEETH. This is an integrity check, not a signature: anyone who can
+    // rewrite the bytes can rewrite the checksum with them. Tamper with a body
+    // byte, reseal the payload the way the format describes, and a *different*
+    // character comes back - which is what says the guard above is a checksum
+    // and not a blanket refusal. The offset is searched rather than pinned,
+    // because most single-byte flips are refused by structure and which ones is
+    // a property of the generated dataset.
+    const victim = spread[0]!;
+    let resealedDifferent = 0;
+    for (let at = 5; at < victim.payload.length && resealedDifferent === 0; at += 1) {
+      const tampered = reseal(
+        Uint8Array.from(victim.payload, (b, i) => (i === at ? b ^ 0x01 : b)),
+      );
+      try {
+        const { character } = await decodeCharacter(tampered, testRegistry);
+        if (shape(character) !== victim.baseline) resealedDifferent += 1;
+      } catch {
+        /* refused by structure, as most flips are; keep looking */
+      }
+    }
+    expect(
+      resealedDifferent,
+      'no resealed tamper produced a different character, so the guard may be refusing everything rather than checking a checksum',
+    ).toBe(1);
   });
 
   it('refuses a payload that stops early, at every length it could stop at', async () => {
@@ -404,25 +479,32 @@ describe('a payload that is not a payload at all', () => {
 
   it('refuses a body whose text length was tampered with, in either direction', async () => {
     // Written without deflate and without identity so the layout is legible:
-    // byte 0 is the header, byte 1 says "no id", byte 2 is the varint length of
-    // the name, and the name follows.
+    // byte 0 is the header, bytes 1-4 are the checksum, byte 5 says "no id",
+    // byte 6 is the varint length of the name, and the name follows.
     const sheet = wizard();
     const payload = await encodeCharacter(sheet, testRegistry, {
       compress: false,
       identity: false,
     });
-    // Teeth: prove byte 2 is the name's length before tampering with it, or this
+    const LENGTH_AT = 6;
+    // Teeth: prove byte 6 is the name's length before tampering with it, or this
     // would be flipping a byte at random and calling it a length prefix.
-    expect(payload[2]).toBe(sheet.name.length);
-    expect(new TextDecoder().decode(payload.subarray(3, 3 + sheet.name.length))).toBe(sheet.name);
+    expect(payload[LENGTH_AT]).toBe(sheet.name.length);
+    expect(
+      new TextDecoder().decode(payload.subarray(LENGTH_AT + 1, LENGTH_AT + 1 + sheet.name.length)),
+    ).toBe(sheet.name);
     // Control: untouched, the name reads back.
     expect((await decodeCharacter(payload, testRegistry)).character.name).toBe(sheet.name);
 
+    // Resealed, so that what refuses each one is the length guard rather than
+    // the checksum sitting in front of it. Both layers are meant to be there;
+    // this test is about the inner one, and without the reseal it would pass
+    // while the guard it names had been deleted.
     for (const delta of [-1, 1, 5, 40]) {
       const bad = payload.slice();
-      bad[2] = bad[2]! + delta;
+      bad[LENGTH_AT] = bad[LENGTH_AT]! + delta;
       await expect(
-        decodeCharacter(bad, testRegistry),
+        decodeCharacter(reseal(bad), testRegistry),
         `name length ${delta > 0 ? '+' : ''}${delta}`,
       ).rejects.toBeInstanceOf(CodecError);
     }
@@ -434,8 +516,14 @@ describe('a payload that is not a payload at all', () => {
     // 8.64e15 ms that a Date can hold, `toISOString` throws `RangeError:
     // Invalid time value`, which is not a `CodecError` - so a caller that
     // catches CodecError to say "this transfer is damaged" will instead see an
-    // unhandled error. It is rare (3 escapes in 19,960 single-bit flips
-    // measured across the spread) and it is real.
+    // unhandled error.
+    //
+    // It was measured at 3 escapes in 19,960 single-bit flips across the spread.
+    // That rate can no longer be reproduced by corrupting a payload: format 2's
+    // checksum refuses every flip before `readWhen` is reached. What is left is
+    // a payload whose checksum is valid and whose timestamp is nonsense - a
+    // sender with the bug, or a hand-built payload like the one below - so the
+    // finding is narrower than it was and is not gone.
     const crafted = new Uint8Array([
       1, // version 1, undeflated
       1, // the id is a UUID
