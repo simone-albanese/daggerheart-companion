@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { applyDamage, markDamage, SEVERITY_LABEL } from '../../engine/damage.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { Counter } from '../shared/Counter.tsx';
 import { Track } from '../shared/Track.tsx';
 import { CompanionPanel, useHasCompanion, WhoSwitch, type Who } from './Companion.tsx';
 import { ActiveConditions } from './Conditions.tsx';
@@ -52,6 +53,7 @@ export function Vitals({
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
   const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
+  const counterStyle = useApp((s) => s.prefs.counterStyle);
   const hasCompanion = useHasCompanion();
   const [incoming, setIncoming] = useState('');
   const [useArmor, setUseArmor] = useState(0);
@@ -195,7 +197,19 @@ export function Vitals({
     </>
   ) : null;
 
-  if (hasCompanion && who === 'companion') {
+  /*
+   * The companion switch belongs to the counters, not to the calculator.
+   *
+   * On a phone this component is mounted twice - once for `tracks` and once
+   * for `damage` - and the switch used to render inside both, so a Ranger with
+   * a wolf got two of them on one screen, each with its own idea of who was
+   * being looked at. The damage calculator is also always about the character:
+   * a companion has no Hit Points and no thresholds, so there is nothing for
+   * it to compute. So it never takes the switch and never gets taken over.
+   */
+  const companionSwitch = hasCompanion && part !== 'damage';
+
+  if (companionSwitch && who === 'companion') {
     return (
       <>
         {state}
@@ -211,7 +225,7 @@ export function Vitals({
     <>
     {state}
     <div className="panel stack" style={panel}>
-      {hasCompanion && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
+      {companionSwitch && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
       {phone ? (
         /*
          * One track to a row, full width, ordered by how often the game makes
@@ -239,54 +253,65 @@ export function Vitals({
          * in the game had targets under WCAG's 24px floor. About 43px now.
          */
         <>
-          {part !== 'damage' && (
-            <Track
-              kind="armor"
-              label="ARMOR"
-              value={character.armorSlots.marked}
-              max={character.armorSlots.max}
-              onChange={(v) => update((c) => ({ ...c, armorSlots: { ...c.armorSlots, marked: v } }))}
-              readout={`${character.armorSlots.marked}/${character.armorSlots.max}`}
-              headerLayout="gutter"
-              rowHeight={rowHeight}
-            />
-          )}
-          {part !== 'damage' && (
-            <>
-              <Track
-                kind="hp"
-                label="HP"
-                value={character.hp.marked}
-                max={character.hp.max}
-                onChange={(v) => update((c) => ({ ...c, hp: { ...c.hp, marked: v } }))}
-                readout={`${character.hp.marked}/${character.hp.max}`}
-                headerLayout="gutter"
-                rowHeight={rowHeight}
-              />
-              <Track
-                kind="stress"
-                label="STRESS"
-                value={character.stress.marked}
-                max={character.stress.max}
-                onChange={(v) => update((c) => ({ ...c, stress: { ...c.stress, marked: v } }))}
-                readout={`${character.stress.marked}/${character.stress.max}`}
-                headerLayout="gutter"
-                rowHeight={rowHeight}
-              />
-              <Track
-                kind="hope"
-                label="HOPE"
-                labelColor="var(--hope)"
-                value={character.hope.marked}
-                max={character.hope.max}
-                clearTo={character.hope.max}
-                onChange={(v) => update((c) => ({ ...c, hope: { ...c.hope, marked: v } }))}
-                readout={`${character.hope.marked}/${character.hope.max}`}
-                headerLayout="gutter"
-                rowHeight={rowHeight}
-              />
-            </>
-          )}
+          {part !== 'damage' &&
+            /*
+             * Sheet order, not frequency order.
+             *
+             * These used to run Armor, HP, Stress, Hope, argued from how often
+             * the game makes you touch each one, with Hope last so its pips sat
+             * against the Experience chips that spend them. Both halves of that
+             * argument have expired: the counters are no longer pinned under
+             * the thumb - the roll block is - so "nearest the thumb" is not a
+             * position this band has to allocate, and the chips are now several
+             * hundred pixels below in a block of their own.
+             *
+             * What is left is the paper sheet, where Hit Points and Stress sit
+             * directly under the damage thresholds and Hope follows them. Armor
+             * Slots come last here because they are the one counter that is not
+             * yours but your armour's, and the Active Armor row that says where
+             * they came from is the very next section on the screen.
+             */
+            (['hp', 'stress', 'hope', 'armor'] as const).map((kind) => {
+              const counter =
+                kind === 'hp'
+                  ? character.hp
+                  : kind === 'stress'
+                    ? character.stress
+                    : kind === 'hope'
+                      ? character.hope
+                      : character.armorSlots;
+              const label = kind === 'armor' ? 'ARMOR' : kind.toUpperCase();
+              const write = (v: number): void =>
+                update((c) => {
+                  const key = kind === 'armor' ? 'armorSlots' : kind;
+                  return { ...c, [key]: { ...c[key], marked: v } };
+                });
+              return counterStyle === 'numbers' ? (
+                <Counter
+                  key={kind}
+                  kind={kind}
+                  label={label}
+                  labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
+                  value={counter.marked}
+                  max={counter.max}
+                  onChange={write}
+                />
+              ) : (
+                <Track
+                  key={kind}
+                  kind={kind}
+                  label={label}
+                  labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
+                  value={counter.marked}
+                  max={counter.max}
+                  clearTo={kind === 'hope' ? counter.max : 0}
+                  onChange={write}
+                  readout={`${counter.marked}/${counter.max}`}
+                  headerLayout="gutter"
+                  rowHeight={rowHeight}
+                />
+              );
+            })}
           {part !== 'tracks' && (
             <div className="row" style={{ gap: 8, alignItems: 'center' }}>
               {/* No TOOK prompt when nothing can be typed into it. */}

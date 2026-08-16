@@ -108,6 +108,8 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { Counter } from '../../src/ui/shared/Counter.tsx';
+import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
@@ -532,6 +534,14 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
+  ),
+  'shared/Counter.tsx::Counter': () => (
+    <Counter kind="stress" value={2} max={6} onChange={noop} label="STRESS" />
+  ),
+  'shared/Disclosure.tsx::Disclosure': () => (
+    <Disclosure id="fixture" characterId="c1" label="Carried" summary="2 ITEMS" defaultOpen>
+      <p>Inside the fold.</p>
+    </Disclosure>
   ),
 
   'shell/App.tsx::App': () => <App />,

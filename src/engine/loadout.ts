@@ -16,38 +16,62 @@ export interface SwapCheck {
   stressCost: number;
   /** True when the player has the Stress to pay - they may still choose to. */
   affordable: boolean;
+  /**
+   * Hit Points this recall would mark, because the Stress track is full.
+   *
+   * `markStress` spends Stress until the track is full and then spends Hit
+   * Points, which is the SRD's rule for marking Stress you cannot pay - and it
+   * is the half of the cost `affordable` only hints at. No UI read `affordable`
+   * for the first year of this file's life, so a recall at 6/6 Stress marked
+   * HP without asking; at 5/6 HP that is the sixth Hit Point, `hasFallen`, and
+   * a death move offered for tapping a card. 158 of the 189 SRD cards have a
+   * recall cost of 1 or more, so this is not a corner.
+   *
+   * Zero whenever `affordable` is true, and zero whenever the recall is not
+   * allowed at all.
+   */
+  hpCost: number;
   reason: string | null;
 }
+
+/** A refusal: nothing is spent, so nothing is costed. */
+const refuse = (reason: string): SwapCheck => ({
+  allowed: false,
+  stressCost: 0,
+  affordable: true,
+  hpCost: 0,
+  reason,
+});
 
 export function canAddToLoadout(
   c: Character,
   card: DomainCard,
   options: { downtime?: boolean } = {},
 ): SwapCheck {
-  if (c.loadout.includes(card.id)) {
-    return { allowed: false, stressCost: 0, affordable: true, reason: 'Already in the loadout' };
-  }
+  if (c.loadout.includes(card.id)) return refuse('Already in the loadout');
   // Recall moves a card you already own out of the vault. Acquiring a card you
   // have never taken is a different act with different rules (level-up, a
   // domain-card advancement), and letting a recall do it quietly would let a
   // player pick up any card in the book for a Stress.
-  if (!c.vault.includes(card.id)) {
-    return { allowed: false, stressCost: 0, affordable: true, reason: 'Not in your vault' };
-  }
+  if (!c.vault.includes(card.id)) return refuse('Not in your vault');
   if (c.loadout.length >= MAX_LOADOUT) {
-    return {
-      allowed: false,
-      stressCost: 0,
-      affordable: true,
-      reason: `Loadout is full (${MAX_LOADOUT}) - move a card to the vault first`,
-    };
+    return refuse(`Loadout is full (${MAX_LOADOUT}) - move a card to the vault first`);
   }
   const stressCost = options.downtime === true ? 0 : card.recallCost;
-  const free = c.stress.max - c.stress.marked;
+  const free = Math.max(0, c.stress.max - c.stress.marked);
+  /*
+   * Costed the way `markStress` actually spends, rather than by a second rule
+   * that agrees with it today. Stress first, then Hit Points, and the Hit
+   * Points stop at the end of the track: a character with nothing left to mark
+   * pays nothing more, which is `markStress`'s own behaviour and not a
+   * rounding of it.
+   */
+  const overflow = Math.max(0, stressCost - free);
   return {
     allowed: true,
     stressCost,
-    affordable: stressCost <= free,
+    affordable: overflow === 0,
+    hpCost: Math.min(overflow, Math.max(0, c.hp.max - c.hp.marked)),
     reason: null,
   };
 }

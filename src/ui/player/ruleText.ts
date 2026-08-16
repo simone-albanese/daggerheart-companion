@@ -7,6 +7,7 @@
  * `dataset.rules`. These are the only two shapes those bodies come in: `## `
  * subheads and `- Label: text` bullets.
  */
+import { TRAITS, type RulesSection, type Trait } from '../../../shared/types.ts';
 
 export interface RuleBlock {
   /** The `## ` subhead, or null for whatever came before the first one. */
@@ -64,6 +65,46 @@ export function ruleBullets(body: string): RuleBullet[] {
   for (const line of body.split('\n')) {
     const match = /^-\s+([^:]{1,48}):\s+(.+)$/.exec(line.trim());
     if (match) out.push({ label: match[1]!.trim(), text: match[2]!.trim() });
+  }
+  return out;
+}
+
+/**
+ * The three verbs printed under each trait on the character sheet.
+ *
+ * "Use it to Sprint, Leap, Maneuver" is what tells a player who has never read
+ * the book which of the six numbers a thing they want to do is rolled against,
+ * and the sheet prints it under every trait for exactly that reason.
+ *
+ * Read out of the shipped dataset rather than typed in from the PDF. The SRD
+ * carries them in `character-creation`, one bullet a trait, in the shape
+ * `- Agility (Use it to Sprint, Leap, Maneuver,etc.) ...`. Typing them into
+ * this file instead would put licensed text in the repository, which is the
+ * whole reason `Manuali/` is gitignored - and it would also mean an app whose
+ * verbs cannot follow a homebrew rules layer that redefines them.
+ *
+ * Verbatim, including the book's American spellings: this is the SRD's own
+ * wording and the app does not re-word it. A trait the parse cannot find is
+ * simply absent from the map, and the tiles then draw no verb line rather than
+ * a guessed one.
+ */
+export function traitVerbs(rules: RulesSection[]): Partial<Record<Trait, string[]>> {
+  const creation = rules.find((r) => r.id === 'character-creation');
+  if (creation === undefined) return {};
+
+  const out: Partial<Record<Trait, string[]>> = {};
+  for (const line of creation.body.split('\n')) {
+    // `[Uu]se it to` because the bullet is the only place this phrase occurs,
+    // and the trailing `,etc.` in the shipped text has no space before it.
+    const match = /^-\s+([A-Za-z]+)\s+\(\s*Use it to\s+([^)]*)\)/.exec(line.trim());
+    if (match === null) continue;
+    const trait = TRAITS.find((t) => t === match[1]!.toLowerCase());
+    if (trait === undefined) continue;
+    const verbs = match[2]!
+      .split(',')
+      .map((v) => v.trim())
+      .filter((v) => v !== '' && !/^etc\.?$/i.test(v));
+    if (verbs.length > 0) out[trait] = verbs;
   }
   return out;
 }

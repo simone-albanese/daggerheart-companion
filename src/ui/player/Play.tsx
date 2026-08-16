@@ -1,17 +1,52 @@
 /**
  * Play: the screen that is open ninety percent of the time.
  *
- * No scrolling on this screen. The content is bounded and known - six traits,
- * four tracks, five cards - so it is laid out to fit rather than to flow. On a
- * phone the order inverts what you would expect from a document: cards on top
- * because they are *read*, vitals and the roll bar at the bottom because they
- * are *touched*, inside the one-handed thumb arc.
+ * The screen scrolls. It used to say here that it did not - "No scrolling on
+ * this screen. The content is bounded and known" - and that stopped being true
+ * at 91097eb, when refusing to scroll turned out to cost more than it saved:
+ * with every band fixed, one region had to absorb every shortfall, and that
+ * region was the loadout, measured at 130px of the 230 it needs on a 393px
+ * phone and at *zero* on a 375px one.
+ *
+ * Two layouts, at one breakpoint rather than two.
+ *
+ *   Below 1180px - every phone and every tablet - the sheet is one column in
+ *   the printed sheet's order, scrolling, with the trait chips and ROLL pinned
+ *   to the bottom. `PlayPhone`.
+ *
+ *   At 1180px and above, the three-column cockpit, which fits without
+ *   scrolling and is laid out for a mouse. `PlayDesktop`.
+ *
+ * The middle band used to run the cockpit at two columns, and that is P2-1:
+ * `DualityRoll`'s root is `flex: 1, minHeight: 0, overflow: hidden` inside a
+ * scrolling column, so on an iPad it was crushed - 45px at 744x1133, 26px at
+ * 1024x768 - while its children laid out to their natural height, putting ROLL
+ * about 228px past the clip. In the DOM, invisible, and still reachable by
+ * keyboard focus. On every iPad, and every phone in landscape, you could not
+ * roll.
  */
 import { useMemo, useState } from 'react';
-import { TRAITS, TRAIT_LABELS, type DomainCard, type Trait, type Weapon } from '../../../shared/types.ts';
-import { weaponDamage, type DerivedStats } from '../../engine/character.ts';
-import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
+import {
+  TRAITS,
+  TRAIT_LABELS,
+  type Character,
+  type DomainCard,
+  type Ref,
+  type Trait,
+  type Weapon,
+} from '../../../shared/types.ts';
+import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
+import { formatGold } from '../../engine/gold.ts';
+import {
+  canAddToLoadout,
+  missingCardRefs,
+  recallCard,
+  resolveCards,
+  vaultCard,
+  type SwapCheck,
+} from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
@@ -19,6 +54,7 @@ import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
+import { traitVerbs } from './ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
@@ -40,7 +76,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   };
 
   if (!character) return null;
-  if (layout === 'phone') {
+  if (layout !== 'desktop') {
     return (
       <PlayPhone
         stats={stats}
@@ -58,7 +94,6 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
       setTrait={setTrait}
       armedWeapon={armedWeapon}
       armWeapon={armWeapon}
-      columns={layout === 'tablet' ? 2 : 3}
     />
   );
 }
@@ -72,19 +107,131 @@ interface ViewProps {
   armWeapon: (weapon: Weapon | null) => void;
 }
 
-function useLoadout(): { loadout: DomainCard[]; vault: DomainCard[] } {
+interface Held {
+  loadout: DomainCard[];
+  vault: DomainCard[];
+  /** Loadout refs this build cannot name. They still fill a slot. */
+  ghostLoadout: Ref[];
+  ghostVault: Ref[];
+}
+
+/**
+ * What the character is holding, including what this build cannot read.
+ *
+ * P1-6. `resolveCards` is a `.filter()`, so an unresolvable ref - a card from a
+ * newer bundle, a homebrew layer that is not on this device - simply
+ * disappeared from every display path, while `canAddToLoadout` went on gating
+ * against the raw array. A character holding five cards of which two were
+ * unreadable rendered "3 / 5 ACTIVE", offered "2 SLOTS FREE", and then refused
+ * every recall with "Loadout is full (5)". The screen contradicted itself, and
+ * the player could not move the two ghosts out of the way because nothing drew
+ * them.
+ *
+ * `missingCardRefs` has existed the whole time, documented "Shown, never
+ * dropped", with five tests and no caller. This is the caller.
+ */
+function useLoadout(): Held {
   const character = useActive();
   const index = useApp((s) => s.index);
-  return useMemo(
-    () => ({
-      loadout: character ? resolveCards(character.loadout, index) : [],
-      vault: character ? resolveCards(character.vault, index) : [],
-    }),
-    [character, index],
+  return useMemo(() => {
+    if (!character) return { loadout: [], vault: [], ghostLoadout: [], ghostVault: [] };
+    const missing = new Set(missingCardRefs(character, index));
+    return {
+      loadout: resolveCards(character.loadout, index),
+      vault: resolveCards(character.vault, index),
+      ghostLoadout: character.loadout.filter((r) => missing.has(r)),
+      ghostVault: character.vault.filter((r) => missing.has(r)),
+    };
+  }, [character, index]);
+}
+
+/**
+ * A card this build cannot read, drawn rather than dropped.
+ *
+ * It names the ref, because that is the only thing anybody has to go on: it is
+ * what a newer build, or the device the sheet came from, would resolve. It
+ * counts against the five, because the gate counts it and a readout that
+ * disagrees with the gate is worse than either number on its own. And it can
+ * be moved to the vault by hand, because otherwise a sheet carrying two of
+ * these can never recall anything again.
+ *
+ * It is never dropped automatically. A ref this build does not know today is
+ * very often a ref it will know after the next update, and deleting somebody's
+ * card because this bundle is behind is the worst version of the failure this
+ * whole item is about.
+ */
+function GhostRow({ refId, onVault }: { refId: Ref; onVault?: () => void }): React.JSX.Element {
+  return (
+    <div className="row" style={{ flex: 'none', gap: 6 }}>
+      <div
+        className="stack"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 52,
+          justifyContent: 'center',
+          gap: 3,
+          borderRadius: 'var(--r3)',
+          background: 'var(--app)',
+          border: '1px dashed var(--edge)',
+          padding: '6px 11px',
+        }}
+      >
+        <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
+          CARD NOT IN THIS BUILD
+        </span>
+        <span
+          className="t-meta"
+          style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}
+        >
+          {refId}
+        </span>
+      </div>
+      {onVault !== undefined && (
+        <button
+          type="button"
+          onClick={onVault}
+          aria-label={`Move the unreadable card ${refId} to the vault, freeing its slot`}
+          className="stack"
+          style={{
+            flex: 'none',
+            minWidth: 72,
+            minHeight: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--r3)',
+            background: 'var(--raised)',
+            border: '1px solid var(--line)',
+            padding: '0 8px',
+          }}
+        >
+          <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+            TO VAULT
+          </span>
+        </button>
+      )}
+    </div>
   );
 }
 
-function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+/** Ancestry and community, as the dataset names them. */
+function lineageOf(character: Character, index: DatasetIndex): string {
+  return [
+    ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
+    (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Who this is.
+ *
+ * The `stats` prop this used to take was never read - `--noUnusedLocals` does
+ * not see an unused destructured prop, so it sat there through every edit
+ * looking load-bearing.
+ */
+function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   if (!character) return null;
@@ -98,15 +245,10 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
     .map((r) => index.subclasses.get(r)?.name)
     .filter(Boolean)
     .join(' · ');
-  const lineage = [
-    ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
-    (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const lineage = lineageOf(character, index);
 
   return (
-    <div>
+    <div style={{ flex: 'none' }}>
       <div className="t-vital">{character.name || 'Unnamed'}</div>
       <div className="row" style={{ marginTop: 7, gap: 8 }}>
         {character.pronouns !== '' && <span className="t-meta">{character.pronouns.toUpperCase()}</span>}
@@ -119,9 +261,89 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
         {klass === '' ? 'No class' : klass}
         {subclass !== '' && ` — ${subclass}`}
       </div>
-      {lineage !== '' && (
+      {showLineage && lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Where you are from, and what you can draw cards from.
+ *
+ * Both are read once a session at most - the ancestry decides nothing at the
+ * table that the features have not already been written onto the sheet, and
+ * the domains only matter when you are choosing a card - so on a phone this is
+ * the section behind a fold rather than the four lines of prose under the
+ * name. The card level cap is the one number here that answers a question
+ * asked mid-scene: "can I take that".
+ */
+function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+  const character = useActive();
+  const index = useApp((s) => s.index);
+  const shapes = useApp((s) => s.prefs.shapeCoding);
+  if (!character) return null;
+  const lineage = lineageOf(character, index);
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+        {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {stats.domains.map((domain) => (
+          <span
+            key={domain}
+            className="row"
+            style={{
+              gap: 6,
+              minHeight: 28,
+              padding: '0 9px',
+              borderRadius: 'var(--r3)',
+              background: 'var(--panel)',
+              border: '1px solid var(--line-soft)',
+            }}
+          >
+            <DomainMark domain={domain} size={12} shapes={shapes} />
+            <span className="t-meta" style={{ color: 'var(--text-2)' }}>
+              {domain.toUpperCase()}
+            </span>
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              TO LV{stats.cardLevelCap(domain)}
+            </span>
+          </span>
+        ))}
+        {stats.domains.length === 0 && (
+          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+            No domains — this sheet has no class the app can read.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What the sheet is carrying in gold.
+ *
+ * A readout and not an editor: the coins are changed in Build, where the
+ * denominations can be stepped without spending a band of the Play screen on
+ * three steppers that are touched once a session. It is here because it was
+ * nowhere on a phone at all - the printout had it and the screen the game is
+ * played on did not.
+ */
+function GoldRow(): React.JSX.Element | null {
+  const character = useActive();
+  if (!character) return null;
+  return (
+    <div className="row" style={{ flex: 'none', gap: 8, minHeight: 30, padding: '0 2px' }}>
+      <span className="t-label" style={{ flex: 'none', color: 'var(--text-2)' }}>
+        Gold
+      </span>
+      <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
+      <span className="t-meta" style={{ flex: 'none', color: 'var(--splendor)' }}>
+        {formatGold(character.gold).toUpperCase()}
+      </span>
     </div>
   );
 }
@@ -136,6 +358,10 @@ function TraitGrid({
   setTrait: (t: RollTrait) => void;
 }): React.JSX.Element | null {
   const character = useActive();
+  const rules = useApp((s) => s.dataset.rules);
+  // Parsed once per dataset, not once per render: the rules body is 4KB of
+  // prose and there are six tiles reading the same answer out of it.
+  const verbs = useMemo(() => traitVerbs(rules), [rules]);
   if (!character) return null;
   return (
     <div>
@@ -166,6 +392,19 @@ function TraitGrid({
                 minHeight: 64,
                 textAlign: 'left',
               }}
+              /*
+               * The verbs are on the tile *and* in its name.
+               *
+               * A tile reading "AGILITY +1" is announced as "Agility plus one"
+               * and tells a screen-reader user nothing about what Agility is
+               * for, which is precisely the gap the printed sheet fills with
+               * these three words.
+               */
+              aria-label={
+                verbs[t] === undefined
+                  ? undefined
+                  : `${TRAIT_LABELS[t]} ${value >= 0 ? '+' : '−'}${String(Math.abs(value))} - use it to ${verbs[t].join(', ')}`
+              }
             >
               <span className="t-meta" style={{ letterSpacing: '0.1em', color: 'var(--muted)' }}>
                 {TRAIT_LABELS[t].toUpperCase()}
@@ -189,6 +428,30 @@ function TraitGrid({
                   </s>
                 )}
               </span>
+              {/*
+                * "Use it to Sprint, Leap, Maneuver."
+                *
+                * Two lines at 9px, which is what the three words need at a
+                * tile width of about 97px inside a 393px phone - roughly 158px
+                * of text. It costs the tile 30px, so the six-tile grid goes
+                * from 136px to 194px, and it buys the one thing a new player
+                * cannot get from a number: which of the six to roll. The
+                * spellings are the book's, because they are read out of it.
+                */}
+              {verbs[t] !== undefined && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    font: '500 9px/1.35 var(--mono)',
+                    letterSpacing: '0.04em',
+                    color: active ? 'var(--text-2)' : 'var(--dim)',
+                  }}
+                >
+                  {verbs[t].join(' · ').toUpperCase()}
+                </span>
+              )}
               {marked && (
                 <span
                   aria-label="marked this tier"
@@ -230,6 +493,19 @@ function TraitGrid({
   );
 }
 
+/**
+ * The four numbers you are told under pressure.
+ *
+ * Evasion, the two thresholds and Proficiency. Somebody says "eighteen" and
+ * the answer is read off this band in the second before the table moves on -
+ * so it is four cells of one big number each, and not, as the thresholds were
+ * on a phone until now, 10px of `--dim` text beside a damage input.
+ *
+ * The order is the sheet's, and it is also the order the numbers are needed
+ * in: Evasion decides whether you were hit at all, the thresholds decide how
+ * badly, Proficiency is the one you reach for when it is your turn instead of
+ * theirs.
+ */
 function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
   // A Beastform replaces Evasion, so the panel says so twice: sage, and the
   // number it replaced printed struck through underneath it.
@@ -249,63 +525,81 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
    */
   const unknownThresholds =
     stats.unresolvedArmor !== null && character !== null && character.thresholdOverride === null;
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '96px 1fr', gap: 8 }}>
-      <div
-        className="panel"
-        style={{ padding: 10, borderColor: worn ? 'var(--sage)' : undefined }}
-      >
-        <div
-          className="t-meta"
-          style={{ letterSpacing: '0.1em', color: worn ? 'var(--sage)' : undefined }}
-        >
-          EVASION
+    <div
+      style={{
+        flex: 'none',
+        display: 'grid',
+        // Four across while the thresholds are numbers; when they are not, the
+        // sentence that replaces them takes both of their cells rather than
+        // being squeezed into 80px.
+        gridTemplateColumns: unknownThresholds ? '1fr 2fr 1fr' : 'repeat(4, 1fr)',
+        gap: 6,
+      }}
+    >
+      <Defence
+        label="EVASION"
+        value={stats.evasion}
+        tone={worn ? 'var(--sage)' : undefined}
+        under={worn ? String(worn.baseEvasion) : undefined}
+      />
+      {unknownThresholds ? (
+        <div className="panel stack" style={{ padding: '8px 9px', gap: 3, minWidth: 0 }}>
+          <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
+            ARMOR NOT IN THIS BUILD
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            {stats.unresolvedArmor}
+          </span>
         </div>
-        <div style={{ marginTop: 6, font: '800 30px/1 var(--sans)', letterSpacing: '-0.02em' }}>
-          {stats.evasion}
-        </div>
-        {worn && (
-          <s className="t-meta" style={{ display: 'block', marginTop: 4, color: 'var(--dim)' }}>
-            {worn.baseEvasion}
-          </s>
-        )}
-      </div>
-      <div
-        className="panel stack"
+      ) : (
+        <>
+          <Defence label="MAJOR" value={stats.thresholds[0]} tone="var(--stress)" />
+          <Defence label="SEVERE" value={stats.thresholds[1]} tone="var(--damage)" />
+        </>
+      )}
+      <Defence label="PROF" value={stats.proficiency} />
+    </div>
+  );
+}
+
+/** One cell of the defence band: a label, a number, and sometimes a was-. */
+function Defence({
+  label,
+  value,
+  tone,
+  under,
+}: {
+  label: string;
+  value: number;
+  /** Colour for the label, when the number means something in particular. */
+  tone?: string;
+  /** The number this one replaced, struck through. */
+  under?: string;
+}): React.JSX.Element {
+  return (
+    <div
+      className="panel stack"
+      style={{ padding: '8px 9px', gap: 4, minWidth: 0, borderColor: tone }}
+    >
+      <span className="t-meta" style={{ letterSpacing: '0.08em', color: tone }}>
+        {label}
+      </span>
+      <span
         style={{
-          padding: 10,
-          justifyContent: 'space-between',
-          borderColor: worn ? 'var(--sage)' : undefined,
+          font: '800 26px/1 var(--sans)',
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
-        <div>
-          <div className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            DAMAGE THRESHOLDS
-          </div>
-          {unknownThresholds ? (
-            <div className="stack" style={{ marginTop: 6, gap: 4 }}>
-              <span className="t-meta" style={{ color: 'var(--damage)' }}>
-                ARMOR NOT IN THIS BUILD
-              </span>
-              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
-                {stats.unresolvedArmor}
-              </span>
-            </div>
-          ) : (
-            <div className="row" style={{ marginTop: 6, alignItems: 'baseline', gap: 8 }}>
-              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[0]}</span>
-              <span className="t-meta">MAJOR</span>
-              <span style={{ width: 1, height: 14, background: 'var(--line)' }} />
-              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[1]}</span>
-              <span className="t-meta">SEVERE</span>
-            </div>
-          )}
-        </div>
-        <div className="t-meta" style={{ marginTop: 8, letterSpacing: '0.06em' }}>
-          PROFICIENCY{' '}
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.proficiency}</span>
-        </div>
-      </div>
+        {value}
+      </span>
+      {under !== undefined && (
+        <s className="t-meta" style={{ color: 'var(--dim)' }}>
+          {under}
+        </s>
+      )}
     </div>
   );
 }
@@ -327,11 +621,14 @@ function Equipped({
   stats,
   armed,
   onArm,
+  bare = false,
 }: {
   stats: DerivedStats;
   /** Weapon ref currently armed, if any. */
   armed: string | null;
   onArm: (weapon: Weapon | null) => void;
+  /** Drop the section's own heading: a disclosure is already carrying it. */
+  bare?: boolean;
 }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
@@ -350,7 +647,7 @@ function Equipped({
     // child shrinks by default - which squashed the whole section to nothing
     // and left its label sitting on top of the next one.
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
-      <div className="t-label">Equipped</div>
+      {!bare && <div className="t-label">Equipped</div>}
       {primary === undefined && secondary === undefined && armor === undefined && (
         <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing equipped — choose gear in Build.
@@ -430,7 +727,7 @@ function Equipped({
  * Nothing here is offered for an item with no quantity left; a row that stays
  * pressable after the last one is gone is a row that lies about what you have.
  */
-function Items(): React.JSX.Element | null {
+function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
@@ -441,12 +738,14 @@ function Items(): React.JSX.Element | null {
 
   return (
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
-      <div className="spread" style={{ flex: 'none' }}>
-        <span className="t-label">Carried</span>
-        <span className="t-meta" style={{ color: 'var(--muted)' }}>
-          {carried.length} {carried.length === 1 ? 'ITEM' : 'ITEMS'}
-        </span>
-      </div>
+      {!bare && (
+        <div className="spread" style={{ flex: 'none' }}>
+          <span className="t-label">Carried</span>
+          <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            {carried.length} {carried.length === 1 ? 'ITEM' : 'ITEMS'}
+          </span>
+        </div>
+      )}
       {carried.length === 0 && (
         <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing carried — add items in Build.
@@ -462,30 +761,59 @@ function Items(): React.JSX.Element | null {
             style={{ padding: '8px 11px', opacity: spent ? 0.55 : 1 }}
           >
             <div className="spread" style={{ gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setOpen(showing ? null : i)}
-                aria-expanded={showing}
-                disabled={entry.note === undefined}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  minHeight: 'var(--tap)',
-                  textAlign: 'left',
-                  font: '600 14px/1.2 var(--sans)',
-                }}
-              >
-                {entry.name}
-                {entry.quantity > 1 && (
-                  <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
-                    ×{entry.quantity}
-                  </span>
-                )}
-              </button>
+              {/*
+               * P3-9(b). This used to be a button always, `disabled` when the
+               * item had no note - so for a rope with no printed text the only
+               * thing on the row carrying its name was a control a screen
+               * reader skips, and the row announced as one button called
+               * "USE". A name is not a control. When there is something to
+               * expand it is a button; when there is not it is text.
+               */}
+              {entry.note === undefined ? (
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    font: '600 14px/1.2 var(--sans)',
+                  }}
+                >
+                  {entry.name}
+                  {entry.quantity > 1 && (
+                    <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
+                      ×{entry.quantity}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setOpen(showing ? null : i)}
+                  aria-expanded={showing}
+                  aria-label={`${entry.name} — ${showing ? 'hide' : 'show'} what it does`}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 'var(--tap)',
+                    textAlign: 'left',
+                    font: '600 14px/1.2 var(--sans)',
+                  }}
+                >
+                  {entry.name}
+                  {entry.quantity > 1 && (
+                    <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
+                      ×{entry.quantity}
+                    </span>
+                  )}
+                </button>
+              )}
               {!spent && (
                 <button
                   type="button"
                   className="chip"
+                  // Five carried items used to announce as five buttons called
+                  // "USE". The name is what tells them apart, and it is the
+                  // only thing a person listening has.
+                  aria-label={`Use one ${entry.name}${entry.quantity > 1 ? `, ${String(entry.quantity)} left` : ', the last one'}`}
                   onClick={() => {
                     update((c) => ({
                       ...c,
@@ -522,31 +850,183 @@ function Items(): React.JSX.Element | null {
   );
 }
 
-function Vault(): React.JSX.Element | null {
+/**
+ * Recalling a card, wherever the control for it is drawn.
+ *
+ * One place, because the shelf and the rows must not disagree about what a tap
+ * costs, and because the log line is the only record the table has of the
+ * Stress that was spent.
+ */
+function useRecall(): (card: DomainCard) => void {
   const character = useActive();
-  const { vault } = useLoadout();
   const update = useApp((s) => s.update);
+  const pushLog = useApp((s) => s.pushLog);
+  return (card: DomainCard) => {
+    if (!character) return;
+    const check = canAddToLoadout(character, card);
+    if (!check.allowed) return;
+    const out = recallCard(character, card);
+    update(() => out.character);
+    pushLog({
+      kind: 'note',
+      label: `Recalled ${card.name}`,
+      detail:
+        check.stressCost === 0
+          ? 'Free during downtime'
+          : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
+    });
+  };
+}
+
+/**
+ * The vault.
+ *
+ * Two shapes. On a desktop it is a shelf - one scrollable row, because the
+ * vault is something you reach along and the loadout beside it needs the
+ * vertical space its cards want. On a phone a shelf is the wrong object
+ * entirely: a level 8 character owns a dozen cards, a horizontal scroller
+ * inside a vertical one is a gesture nobody wins, and the vault had never been
+ * on a phone at all - it was defined here and called only from `PlayDesktop`.
+ * So the phone gets rows, in a fold, with the recall as its own control.
+ *
+ * P3-9(a) is fixed in both. A card that cannot be recalled used to say why in
+ * a `title` attribute and fade to 55% opacity, and a touchscreen has no hover:
+ * the player saw a dimmed card, tapped it, and got the card reader instead of
+ * a recall with no explanation of either. Now the reason is printed where the
+ * cost would be, which is the same trade `ExperienceChip` already makes one
+ * file over - NO HOPE in place of the bonus rather than a chip greyed to
+ * 1.72:1 and left to be guessed at.
+ */
+function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.Element | null {
+  const character = useActive();
+  const { vault, ghostVault } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
-  const pushLog = useApp((s) => s.pushLog);
+  const recall = useRecall();
+  /*
+   * The one card waiting for its second tap, if any. One at a time: arming a
+   * second card must put the first one down, or the vault ends up with two
+   * primed controls and no way to tell which one a thumb is over.
+   */
+  const [armed, setArmed] = useState<string | null>(null);
   if (!character) return null;
 
+  if (layout === 'rows') {
+    return (
+      <div className="stack" style={{ flex: 'none', gap: 4 }}>
+        {vault.map((card) => {
+          const check = canAddToLoadout(character, card);
+          return (
+            <div key={card.id} className="row" style={{ flex: 'none', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setOpenCard(card)}
+                className="row"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  minHeight: 52,
+                  overflow: 'hidden',
+                  borderRadius: 'var(--r3)',
+                  background: 'var(--app)',
+                  border: '1px solid var(--line-soft)',
+                  borderLeft: `4px solid var(--${card.domain})`,
+                  gap: 10,
+                  padding: '0 11px',
+                  textAlign: 'left',
+                }}
+              >
+                <DomainMark domain={card.domain} size={15} shapes={shapes} />
+                <span className="stack" style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      font: '600 14px/1.1 var(--sans)',
+                      color: 'var(--text-2)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {card.name}
+                  </span>
+                  <span className="t-meta" style={{ marginTop: 3, letterSpacing: '0.09em' }}>
+                    {card.domain.toUpperCase()} · LV{card.level}
+                  </span>
+                </span>
+              </button>
+              <RecallButton
+                card={card}
+                check={check}
+                armed={armed === card.id}
+                onArm={() => setArmed(card.id)}
+                onRecall={() => {
+                  setArmed(null);
+                  recall(card);
+                }}
+              />
+            </div>
+          );
+        })}
+        {/* A vault ghost has nowhere to be moved to, so it is a readout: it is
+            here so the count above the fold and the rows under it agree. */}
+        {ghostVault.map((refId) => (
+          <GhostRow key={refId} refId={refId} />
+        ))}
+        {vault.length === 0 && ghostVault.length === 0 && (
+          <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+            The vault is empty. Cards you own but are not carrying live here.
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    // A shelf, not a grid: the vault is something you reach along, and one
-    // scrollable row leaves the loadout the vertical space its cards need.
     <div className="stack" style={{ flex: 'none', gap: 6 }}>
       <div className="spread" style={{ flex: 'none' }}>
         <span className="t-label">Vault</span>
         <span className="t-meta" style={{ color: 'var(--muted)' }}>
-          {vault.length} INACTIVE · SWAP COSTS RECALL IN STRESS
+          {vault.length + ghostVault.length} INACTIVE · SWAP COSTS RECALL IN STRESS
         </span>
       </div>
       <div
         className="row"
         style={{ gap: 8, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 2 }}
       >
+        {ghostVault.map((refId) => (
+          <span
+            key={refId}
+            className="row"
+            style={{
+              flex: 'none',
+              minHeight: 44,
+              maxWidth: 190,
+              borderRadius: 'var(--r3)',
+              border: '1px dashed var(--edge)',
+              gap: 8,
+              padding: '0 10px',
+            }}
+          >
+            <span className="t-meta" style={{ color: 'var(--damage)' }}>
+              NOT IN BUILD
+            </span>
+            <span
+              className="t-meta"
+              style={{
+                color: 'var(--dim)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {refId}
+            </span>
+          </span>
+        ))}
         {vault.map((card) => {
           const check = canAddToLoadout(character, card);
+          const needsHp = check.allowed && !check.affordable;
+          const primed = armed === card.id;
           return (
             <button
               key={card.id}
@@ -556,29 +1036,32 @@ function Vault(): React.JSX.Element | null {
                   setOpenCard(card);
                   return;
                 }
-                const out = recallCard(character, card);
-                update(() => out.character);
-                pushLog({
-                  kind: 'note',
-                  label: `Recalled ${card.name}`,
-                  detail:
-                    check.stressCost === 0
-                      ? 'Free during downtime'
-                      : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
-                });
+                if (needsHp && !primed) {
+                  setArmed(card.id);
+                  return;
+                }
+                setArmed(null);
+                recall(card);
               }}
               className="row"
-              title={check.reason ?? `Recall for ${check.stressCost} Stress`}
+              aria-label={
+                !check.allowed
+                  ? `${card.name} - ${check.reason ?? 'cannot be recalled'}`
+                  : primed
+                    ? `Confirm: recall ${card.name} and mark ${String(check.hpCost)} HP`
+                    : needsHp
+                      ? `Recall ${card.name} - no Stress left, so it would mark ${String(check.hpCost)} HP`
+                      : `Recall ${card.name} for ${String(check.stressCost)} Stress`
+              }
               style={{
                 flex: 'none',
                 minHeight: 44,
                 maxWidth: 190,
                 borderRadius: 'var(--r3)',
-                background: 'var(--app)',
-                border: '1px solid var(--line-soft)',
+                background: primed ? 'var(--fear-wash)' : 'var(--app)',
+                border: `1px solid ${primed ? 'var(--damage)' : 'var(--line-soft)'}`,
                 gap: 8,
                 padding: '0 10px',
-                opacity: check.allowed ? 1 : 0.55,
               }}
             >
               <DomainMark domain={card.domain} size={12} shapes={shapes} />
@@ -596,17 +1079,142 @@ function Vault(): React.JSX.Element | null {
               >
                 {card.name}
               </span>
-              <span className="t-meta">LV{card.level}</span>
+              {/* The reason, in place of the level. Not a title attribute and
+                  not 55% opacity: both of those are the app knowing something
+                  the player cannot read. The same slot carries the Hit Points
+                  a recall with no Stress left would cost. */}
+              <span
+                className="t-meta"
+                style={{
+                  flex: 'none',
+                  color: check.allowed && !needsHp ? undefined : 'var(--damage)',
+                }}
+              >
+                {!check.allowed
+                  ? shortReason(check.reason)
+                  : primed
+                    ? `MARK ${check.hpCost} HP?`
+                    : needsHp
+                      ? `${check.hpCost} HP`
+                      : `LV${card.level}`}
+              </span>
             </button>
           );
         })}
-        {vault.length === 0 && (
+        {vault.length === 0 && ghostVault.length === 0 && (
           <span className="t-dense" style={{ color: 'var(--dim)' }}>
             The vault is empty.
           </span>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Why a card will not come back, in the space a chip has.
+ *
+ * `SwapCheck.reason` is a sentence written for a place with room. The shelf
+ * chip has about 40px left after the name, so it gets the noun; every surface
+ * with a row to spare prints the sentence itself.
+ */
+function shortReason(reason: string | null): string {
+  if (reason === null) return '';
+  if (reason.startsWith('Loadout is full')) return 'FULL';
+  if (reason.startsWith('Already')) return 'ACTIVE';
+  return reason.toUpperCase();
+}
+
+/**
+ * RECALL, as a control shaped like one.
+ *
+ * It carries the cost, and when the cost cannot be paid it carries the reason
+ * instead of the cost - the same substitution `ExperienceChip` makes for NO
+ * HOPE. A disabled button with the word RECALL still on it says the app could
+ * do this and will not, rather than that something is in the way.
+ *
+ * P1-2 is the second face. When the Stress track is full the recall is still
+ * offered - whether a recall is a "move" under the Stress rule is a table
+ * ruling, and the Recall Cost text is not in the shipped rules layer, so the
+ * app cannot cite a rule it would be enforcing - but it is not taken on one
+ * tap. The first tap arms it and the button says what it is about to spend,
+ * in Hit Points, in `--damage`; the second takes it.
+ */
+function RecallButton({
+  card,
+  check,
+  armed,
+  onArm,
+  onRecall,
+}: {
+  card: DomainCard;
+  check: SwapCheck;
+  /** This card is the one waiting for its second tap. */
+  armed: boolean;
+  onArm: () => void;
+  onRecall: () => void;
+}): React.JSX.Element {
+  const needsHp = check.allowed && !check.affordable;
+  const hp = `${String(check.hpCost)} HP`;
+
+  const label = !check.allowed
+    ? `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
+    : armed
+      ? `Confirm: recall ${card.name} and mark ${hp}`
+      : needsHp
+        ? `Recall ${card.name} - no Stress left, so it would mark ${hp}`
+        : `Recall ${card.name} for ${String(check.stressCost)} Stress`;
+
+  return (
+    <button
+      type="button"
+      onClick={() => (needsHp && !armed ? onArm() : onRecall())}
+      disabled={!check.allowed}
+      aria-label={label}
+      className="stack"
+      style={{
+        flex: 'none',
+        // Wider once it is armed: "MARK 2 HP" and "TAP AGAIN" both have to be
+        // readable in one line each, and a target that grows under the thumb
+        // grows away from its neighbour rather than over it.
+        minWidth: armed ? 104 : 72,
+        minHeight: 52,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        borderRadius: 'var(--r3)',
+        background: armed ? 'var(--fear-wash)' : check.allowed ? 'var(--raised)' : 'transparent',
+        border: `1px solid ${armed ? 'var(--damage)' : check.allowed ? 'var(--line)' : 'var(--line-soft)'}`,
+        padding: '0 8px',
+      }}
+    >
+      {!check.allowed ? (
+        <span className="t-meta" style={{ color: 'var(--damage)', textAlign: 'center' }}>
+          {shortReason(check.reason)}
+        </span>
+      ) : armed ? (
+        <>
+          <span className="t-meta" style={{ color: 'var(--damage)', fontWeight: 700 }}>
+            MARK {hp}
+          </span>
+          <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            TAP AGAIN
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+            RECALL
+          </span>
+          <span
+            className="t-meta"
+            style={{ color: needsHp ? 'var(--damage)' : 'var(--stress)' }}
+          >
+            {needsHp ? hp : `COST ${check.stressCost}`}
+          </span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -619,17 +1227,11 @@ function Vault(): React.JSX.Element | null {
  * stopped doing a card's job. A row that says name, domain and Recall, with the
  * full text one tap away, is the honest shape for the space.
  */
-function LoadoutRows({
-  minHeight = 46,
-  fill = false,
-}: {
-  minHeight?: number;
-  /** Divide the container between the rows, for the fixed-height desktop box. */
-  fill?: boolean;
-}): React.JSX.Element {
-  const { loadout } = useLoadout();
+function LoadoutRows(): React.JSX.Element {
+  const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
+  const update = useApp((s) => s.update);
 
   return (
     <>
@@ -640,8 +1242,8 @@ function LoadoutRows({
           onClick={() => setOpenCard(card)}
           className="row"
           style={{
-            flex: fill ? '1 1 0' : 'none',
-            minHeight,
+            flex: 'none',
+            minHeight: 46,
             overflow: 'hidden',
             borderRadius: 'var(--r3)',
             background: 'var(--panel)',
@@ -668,9 +1270,13 @@ function LoadoutRows({
               {card.domain.toUpperCase()} · LV{card.level} · {card.type.toUpperCase()}
             </span>
           </span>
+          {/* COST, not RECALL: this row has no recall on it - the card is
+              already in the loadout - and the number is what putting it back
+              would cost. The word RECALL belongs to the control in the vault
+              that does the thing. */}
           <span style={{ flex: 'none', textAlign: 'right' }}>
             <span className="t-meta" style={{ display: 'block' }}>
-              RECALL
+              COST
             </span>
             <span style={{ font: '800 15px/1 var(--sans)', marginTop: 3, display: 'block' }}>
               {card.recallCost}
@@ -678,7 +1284,14 @@ function LoadoutRows({
           </span>
         </button>
       ))}
-      {loadout.length === 0 && (
+      {ghostLoadout.map((refId) => (
+        <GhostRow
+          key={refId}
+          refId={refId}
+          onVault={() => update((c) => vaultCard(c, refId))}
+        />
+      ))}
+      {loadout.length === 0 && ghostLoadout.length === 0 && (
         <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
           No cards in the loadout yet. Add some in Cards.
         </div>
@@ -687,19 +1300,28 @@ function LoadoutRows({
   );
 }
 
+/**
+ * The three-column cockpit, at 1180px and up.
+ *
+ * It used to take a `columns` prop and draw a two-column variant for the
+ * 720-1179px band. That variant is gone with the band: everything under
+ * 1180px now runs the one-column sheet, which is both what the tablet
+ * measurements asked for and the end of a layout nobody could roll in.
+ */
 function PlayDesktop({
   stats,
   trait,
   setTrait,
   armedWeapon,
   armWeapon,
-  columns,
-}: ViewProps & { columns: 2 | 3 }): React.JSX.Element {
+}: ViewProps): React.JSX.Element {
   const character = useActive();
-  const { loadout } = useLoadout();
+  const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const update = useApp((s) => s.update);
+  // The number the gate uses, not the number that happened to resolve.
+  const held = loadout.length + ghostLoadout.length;
 
   return (
     <div
@@ -707,48 +1329,34 @@ function PlayDesktop({
         flex: 1,
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns:
-          columns === 3 ? 'minmax(300px, 336px) minmax(360px, 428px) 1fr' : 'minmax(340px, 5fr) 6fr',
+        gridTemplateColumns: 'minmax(300px, 336px) minmax(360px, 428px) 1fr',
         gap: 18,
         padding: '18px 20px 20px',
       }}
     >
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
-        <Identity stats={stats} />
+        <Identity />
         <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
         <Defenses stats={stats} />
-        {columns === 2 && (
-          <>
-            <Vitals stats={stats} layout="desktop" />
-            <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
-          </>
-        )}
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
       </div>
 
-      {columns === 3 && (
-        <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
-          <Vitals stats={stats} layout="desktop" />
-          <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
-        </div>
-      )}
+      <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
+        <Vitals stats={stats} layout="desktop" />
+        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
+      </div>
 
       <div className="stack" style={{ gap: 10, minHeight: 'var(--control)', minWidth: 0 }}>
         <div className="spread" style={{ flex: 'none' }}>
           <span className="t-label">Loadout</span>
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {loadout.length} / 5 ACTIVE
+            {held} / 5 ACTIVE
           </span>
         </div>
         {/* The grid owns the height, and the cards fill their cell. Fixing a
             card height instead pushes the vault off the bottom of the screen
             on a 900px display, which is the one thing Play must never do. */}
-        {columns === 2 ? (
-          <div className="stack" style={{ flex: 1, minHeight: 0, gap: 6, overflow: 'hidden' }}>
-            <LoadoutRows minHeight={52} fill />
-          </div>
-        ) : (
         <div
           style={{
             flex: 1,
@@ -781,14 +1389,51 @@ function PlayDesktop({
                     TO VAULT
                   </button>
                   <span className="row" style={{ gap: 5 }}>
-                    <span className="t-meta">RECALL</span>
+                    <span className="t-meta">COST</span>
                     <span style={{ font: '800 13px/1 var(--sans)' }}>{card.recallCost}</span>
                   </span>
                 </>
               }
             />
           ))}
-          {loadout.length < 5 && (
+          {/* A slot filled by a card this build cannot read. It gets a cell
+              rather than nothing, because the gate is already counting it. */}
+          {ghostLoadout.map((refId) => (
+            <div
+              key={refId}
+              className="stack"
+              style={{
+                minHeight: 0,
+                justifyContent: 'center',
+                gap: 8,
+                borderRadius: 'var(--r4)',
+                border: '1px dashed var(--edge)',
+                padding: 12,
+              }}
+            >
+              <span className="t-meta" style={{ color: 'var(--damage)' }}>
+                CARD NOT IN THIS BUILD
+              </span>
+              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+                {refId}
+              </span>
+              <button
+                type="button"
+                className="t-meta"
+                onClick={() => update((c) => vaultCard(c, refId))}
+                aria-label={`Move the unreadable card ${refId} to the vault, freeing its slot`}
+                style={{
+                  minHeight: 'var(--control)',
+                  letterSpacing: '0.1em',
+                  color: 'var(--text)',
+                  textAlign: 'left',
+                }}
+              >
+                TO VAULT
+              </button>
+            </div>
+          ))}
+          {held < 5 && (
             <div
               className="stack"
               style={{
@@ -808,14 +1453,13 @@ function PlayDesktop({
                 className="t-meta"
                 style={{ color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}
               >
-                {5 - loadout.length} SLOT{5 - loadout.length === 1 ? '' : 'S'} FREE
+                {5 - held} SLOT{5 - held === 1 ? '' : 'S'} FREE
                 <br />
                 RECALL FROM THE VAULT
               </span>
             </div>
           )}
         </div>
-        )}
         <Vault />
       </div>
     </div>
@@ -823,31 +1467,38 @@ function PlayDesktop({
 }
 
 /**
- * The phone screen.
+ * The phone screen: the whole character sheet, in the sheet's own order.
  *
- * The page scrolls. It used to refuse to, and the refusal cost more than it
- * saved: with every band fixed, one region had to absorb every shortfall, and
- * that region was the loadout - measured at 130px of the 230 it needs on a
- * 393px phone, and at *zero* on a 375px one, where five cards rendered into a
- * box with no height and the ROLL button came out 33px tall and partly under
- * the tab bar. A screen that hides your cards to avoid a scrollbar has its
- * priorities backwards.
+ * It used to render nine things and leave four out. Identity, the trait grid,
+ * the defences and the vault were defined in this file and called only from
+ * `PlayDesktop`, so on the width the README says is used ninety per cent of the
+ * time the app did not show Evasion, the damage thresholds - except as 10px
+ * `--dim` text beside a damage input - Proficiency, the class, the subclass,
+ * the ancestry, the community, the vault, or the gold. Nothing was broken.
+ * Four sections of the character sheet were simply absent.
  *
- * So everything scrolls except the roll block, and the ergonomics are in the
- * order rather than in the fitting:
+ * The order below is the printed sheet's, reflowed to one column: identity,
+ * the defence band, the traits with their verbs, the counters, weapons and
+ * armour, the cards, what you are carrying, gold, conditions, lineage. Read
+ * top to bottom it is the same document the player has in front of them on
+ * paper, which is the only ordering nobody has to learn.
  *
- *   - The roll block stays out of the scroll because it is the one thing
- *     touched on every single action. It holds the trait chips, the modifier
- *     row, the Experiences and ROLL - which is also the order the rules ask
- *     for, since all of those are declared *before* the dice. Nothing in it
- *     can scroll out from under a thumb that is already moving.
- *   - Inside the scroll, the order runs from read at the top to touched at the
- *     bottom: identity, then cards, then the weapons and items you reach for
- *     during a turn, then the tracks. So the things touched most are already
- *     in the thumb arc when the screen opens, and everything else is one flick
- *     away rather than absent.
- *   - The tracks sit last, immediately above the roll block, because after a
- *     roll resolves the next thing a hand does is mark something.
+ * Two things are not in that order, and both are ergonomic rather than
+ * editorial.
+ *
+ *   - A worn Beastform leads. It changes what every number under it means, and
+ *     a state banner nobody scrolls to is a state banner nobody reads. It
+ *     draws nothing the rest of the time.
+ *   - The roll block is pinned to the bottom, outside the scroll: the trait
+ *     chips and ROLL, plus the death move when it is offered. Those are
+ *     touched on every single action, and a control you have to go looking for
+ *     is a control that stops being used.
+ *
+ * Everything else scrolls, and four sections fold. A closed section costs one
+ * 44px row, which is what makes "the whole sheet at once" fit at all: the
+ * stack measures about 1290px fully open on a 393px phone against a scroll
+ * window of 457, and about 900 with the vault, the carried items and the
+ * lineage folded away.
  */
 function PlayPhone({
   stats,
@@ -857,49 +1508,35 @@ function PlayPhone({
   armWeapon,
 }: ViewProps): React.JSX.Element {
   const character = useActive();
-  const { loadout } = useLoadout();
-  const shapes = useApp((s) => s.prefs.shapeCoding);
-  const setOpenCard = useApp((s) => s.setOpenCard);
+  const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
+  const index = useApp((s) => s.index);
   if (!character) return <div />;
 
-  const modLabel =
-    trait === 'spellcast' && stats.spellcastTrait !== null
-      ? 'SPELLCAST'
-      : TRAIT_LABELS[(trait === 'spellcast' ? 'knowledge' : trait) as Trait].toUpperCase();
-  const modValue =
-    trait === 'spellcast'
-      ? stats.spellcastTrait
-        ? stats.traits[stats.spellcastTrait]
-        : 0
-      : stats.traits[trait as Trait];
+  const equippedCount = [
+    character.activePrimaryWeapon,
+    character.activeSecondaryWeapon,
+    character.activeArmor,
+  ].filter((r) => r !== null && index.byRef.has(r)).length;
+  const carried = character.inventory.length;
 
   return (
     /*
      * The outer column scrolls only as a last resort.
      *
-     * Pinning the tokens and the roll is right until the two of them do not
-     * fit, and on a 375x667 phone carrying five Experiences they do not: the
-     * fixed block wants 480 of the 553 this screen gets, which left the
-     * reference region *three pixels* for 943px of cards, weapons and items.
-     * That is P2-1's failure wearing the other hat - one region absorbing
-     * every shortfall - and a floor is the fix in both directions.
-     *
-     * So the scrolling region can never go below two rows, and when the sum
-     * overflows, the page itself takes up the slack instead of crushing
-     * anything. On any phone with room the outer scroller never engages at all.
+     * Pinning the roll block is right until it does not fit, and a floor stops
+     * the scrolling region absorbing every shortfall the way the loadout used
+     * to. Two rows of something is the least that can be called a region
+     * rather than a slot; below that the page itself takes up the slack. On
+     * both reference phones the outer scroller never engages: the roll block
+     * is 266px with two Experiences and 316px with five, against 731px at
+     * 393x852 and 546px at 375x667.
      */
     <div
       className="stack"
       style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8, overflowY: 'auto' }}
     >
-      {/*
-       * Everything that is read, or reached for during a turn. It scrolls, and
-       * it is ordered so the least-touched thing is furthest from the thumb.
-       */}
       <div
         className="stack scroll scroll-fade"
-        // The floor. Two rows of something is the least that can be called a
-        // region rather than a slot.
         style={{ flex: '1 1 auto', minHeight: 88, gap: 10, overflowX: 'hidden' }}
       >
         {/* A worn Beastform changes what every number under it means, so it
@@ -907,39 +1544,86 @@ function PlayPhone({
             reads. It renders nothing when no form is worn. */}
         <Beastform stats={stats} layout="phone" />
 
+        <Identity showLineage={false} />
+
+        {/* Read under pressure, so it is four numbers and not a footnote. */}
+        <Defenses stats={stats} />
+
+        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+
+        {/* The four counters, and under them the incoming-damage calculator -
+            which is a question rather than a state ("someone hit you for 14,
+            how many HP is that") and whose answer lands on the two tracks
+            directly above it. */}
+        <Vitals stats={stats} layout="phone" showState={false} />
+
+        <Disclosure
+          id="equipped"
+          characterId={character.id}
+          label="Weapons & armour"
+          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
+          defaultOpen
+        >
+          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
+        </Disclosure>
+
         {/*
-         * Cards first.
+         * The cards.
          *
          * They are the answer to "what can I do", which is the question a
-         * player asks on every turn of their own, and they were sitting about
-         * 350px down a 288px window - present, and in practice missing. What
-         * leads the scroll is what is on screen without a gesture, and nothing
-         * here earns that more.
+         * player asks on every turn of their own, so the loadout opens by
+         * default.
          */}
-        <div className="stack" style={{ flex: 'none', gap: 4 }}>
-          <div className="spread" style={{ flex: 'none' }}>
-            <span className="t-label">Loadout</span>
-            <span className="t-meta">{loadout.length} / 5</span>
+        <Disclosure
+          id="loadout"
+          characterId={character.id}
+          label="Loadout"
+          // The gate counts every ref, readable or not, so this does too: a
+          // header saying 3 / 5 over a recall that refuses with "Loadout is
+          // full (5)" is the screen contradicting itself.
+          summary={`${loadout.length + ghostLoadout.length} / 5`}
+          defaultOpen
+        >
+          <div className="stack" style={{ flex: 'none', gap: 4 }}>
+            <LoadoutRows />
           </div>
-          <LoadoutRows />
-        </div>
+        </Disclosure>
 
-        {/* Then what you attack with. Together these two are the whole of
-            "what can I do this turn", so they lead together. */}
-        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+        {/*
+         * The vault is a second fold rather than part of the first.
+         *
+         * A level 8 character owns about a dozen cards and carries five, so
+         * folding the two together would mean opening twelve rows to look at
+         * the five you are holding - which is the opposite of what the fold is
+         * for. Closed by default for the same reason: recalling is a downtime
+         * decision most of the time, and the loadout is a turn-by-turn one.
+         */}
+        <Disclosure
+          id="vault"
+          characterId={character.id}
+          label="Vault"
+          summary={`${vault.length + ghostVault.length} INACTIVE`}
+        >
+          <Vault layout="rows" />
+        </Disclosure>
 
-        {/* The damage calculator. It is the one part of the vitals panel that
-            is a question rather than a state - "someone hit you for 14, how
-            many HP is that" - and it is asked when something hits you rather
-            than continuously, so it does not need to be pinned. Its answer
-            lands on the Armor and HP tracks, which are. */}
-        <Vitals stats={stats} layout="phone" showState={false} part="damage" />
+        <Disclosure
+          id="carried"
+          characterId={character.id}
+          label="Carried"
+          summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'}`}
+        >
+          <Items bare />
+        </Disclosure>
+
+        <GoldRow />
 
         {/* Conditions are set once a scene rather than once a turn. */}
         <ActiveConditions />
 
-        <Items />
-
+        <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
+          <Lineage stats={stats} />
+        </Disclosure>
       </div>
 
       {/*
@@ -953,14 +1637,6 @@ function PlayPhone({
             goes above everything else and outside the scroll. It renders
             nothing the rest of the time. */}
         <DeathMoveOffer />
-
-        {/* The tokens, in the foreground - all four of them.
-            They are not reference material: they are the state of the
-            character, changed several times a turn, and a counter you have to
-            go and find is a counter that stops being marked. They sit directly
-            above the declaration row, which puts the Hope track against the
-            Experience chips that spend it. */}
-        <Vitals stats={stats} layout="phone" showState={false} part="tracks" />
 
         <div
           className="row"

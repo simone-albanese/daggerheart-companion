@@ -475,6 +475,23 @@ export const useApp = create<AppState>((set, get) => ({
         activeId: s.activeId === id ? (characters[0]?.id ?? null) : s.activeId,
       };
     });
+
+    /*
+     * The Play screen's disclosure states are keyed by character id, and
+     * nothing else would ever collect them: a library churned through import
+     * and delete would leave one entry per section per character that ever
+     * existed, in a localStorage blob that is read synchronously on every
+     * launch. Dropped here, where the id stops meaning anything.
+     */
+    const prefix = `${id}:`;
+    const sections = get().prefs.playSections;
+    if (Object.keys(sections).some((k) => k.startsWith(prefix))) {
+      get().setPrefs({
+        playSections: Object.fromEntries(
+          Object.entries(sections).filter(([k]) => !k.startsWith(prefix)),
+        ),
+      });
+    }
   },
 
   /**
