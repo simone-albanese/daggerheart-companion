@@ -217,7 +217,7 @@ export function takeRest(
    * `mustTakeLongRest` reads this number eight lines below, in this same file.
    * Writing it anywhere else would put the read and the write on opposite sides
    * of a module boundary - two routes to one number, which this repository has
-   * already been bitten by twice (`sheetModel.ts:249`, `loadout.ts`'s hpCost) -
+   * already been bitten by twice (`sheetModel.ts::describeWeapon`, `loadout.ts`'s hpCost) -
    * and a screen that forgot to increment would leave the refusal permanently
    * unreachable, which is the exact bug this field was added to fix.
    *

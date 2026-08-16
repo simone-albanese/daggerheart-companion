@@ -168,7 +168,7 @@ export interface ArmedAttack {
  *
  * `weaponDamage` and not a regex. `Play.tsx` rescaled the die count with an
  * inline `replace(/^(\d*)d/, ...)`, which is the exact thing the comment at
- * `sheetModel.ts:249` warns against: a weapon spelled `d10 + 2` has to keep
+ * `sheetModel.ts::describeWeapon` warns against: a weapon spelled `d10 + 2` has to keep
  * its modifier, and two routes to one number is two numbers eventually.
  * Returns null for a weapon whose damage string will not parse, and then no
  * damage is offered rather than a guess being printed.

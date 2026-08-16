@@ -85,7 +85,7 @@ describe('what the attack carries', () => {
   it('keeps the modifier on a weapon written with spaces', () => {
     // Why this goes through weaponDamage and not the regex Play.tsx used: that
     // one matched `^(\d*)d` and would have dropped nothing here, but the
-    // comment at sheetModel.ts:249 is about exactly this shape.
+    // note in sheetModel.ts::describeWeapon is about exactly this shape.
     const source = weaponSource('d10 + 2', 3);
     expect(source.damage).toEqual({ count: 3, sides: 10, modifier: 2 });
   });

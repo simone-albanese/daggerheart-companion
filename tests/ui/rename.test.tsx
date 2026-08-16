@@ -160,11 +160,11 @@ function type(value: string): void {
 
 describe('what the rename control writes, and when', () => {
   it('writes nothing while the name is being typed', () => {
-    // `Edit.tsx:115` bound `onChange` straight to `patch({ name })`, which
-    // stamps `updatedAt` once per character typed - and `updatedAt` is what
-    // `decideImport` compares, so one rename made the local copy win twenty
-    // comparisons against a sheet that was genuinely newer. It also makes
-    // "that name is taken" fire in the middle of a word.
+    // The Name field in `Edit.tsx`'s Identity section bound `onChange` straight
+    // to `patch({ name })`, which stamps `updatedAt` once per character typed -
+    // and `updatedAt` is what `decideImport` compares, so one rename made the
+    // local copy win twenty comparisons against a sheet that was genuinely
+    // newer. It also makes "that name is taken" fire in the middle of a word.
     seed('Fixture');
     openRename();
     for (const partial of ['M', 'Ma', 'Marek']) {
@@ -273,8 +273,9 @@ describe('a name somebody else already has', () => {
     type('Ilya');
     expect(text()).toContain('already called "Ilya"');
     expect(save().disabled).toBe(true);
-    // The reason is on the screen, not in a hover: `Play.tsx:1082-1085` writes
-    // that rule down and `playSheet.test.tsx:452` pins it on the vault.
+    // The reason is on the screen, not in a hover: the `Vault` docblock in
+    // `Play.tsx` writes that rule down as P3-9(a), and "says why on the screen
+    // when it will not recall, not in a title" pins it on the vault.
     expect(save().getAttribute('title')).toBeNull();
     click(save());
     expect(stored()).toBe('Fixture');

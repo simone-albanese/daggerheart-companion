@@ -231,8 +231,8 @@ describe('vaultCard', () => {
 
   it('stamps the sheet as changed, so a restore cannot put the card back', () => {
     // A card moved out of the loadout is a decision the player made about what
-    // they can reach this scene. src/store/backup.ts:587 keeps the local copy
-    // on merge whenever here.updatedAt >= theirs, so an unstamped swap is one a
+    // they can reach this scene. src/store/merge.ts::decideImport keeps the local
+    // copy on merge whenever local.updatedAt >= incoming.updatedAt, so an unstamped swap is one a
     // backup restore may quietly undo - the player looks down mid-combat and
     // the card they vaulted is holding a slot again.
     const c = makeCharacter({ loadout: ['x'], updatedAt: '2020-01-01T00:00:00.000Z' });

@@ -533,9 +533,11 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
             <span className="t-label">If it was interrupted</span>
             {quoted(interruptedRestRule(rules)!)}
             {/* Pointing at the short rest is only honest while the short rest
-                is drawn, and at three in a row line 406 has deliberately taken
-                it away. The two conditions are independent, so the sentence
-                reads the same flag the control does rather than assuming it. */}
+                is drawn, and at three in a row the `!longDue &&` on the SHORT
+                REST button in the "Which rest" group above has deliberately
+                taken it away. The two conditions are independent, so the
+                sentence reads the same flag the control does rather than
+                assuming it. */}
             <span className="t-meta" style={{ color: 'var(--dim)' }}>
               {longDue
                 ? 'THE APP CANNOT TELL · WITH A LONG REST DUE THE SHORT ONE IS NOT ON THIS SCREEN'

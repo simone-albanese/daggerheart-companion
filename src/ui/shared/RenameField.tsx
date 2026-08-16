@@ -21,11 +21,13 @@
  *
  * Three things it deliberately does not do.
  *
- *   It never writes on a keystroke. `Edit.tsx:115` did - `onChange={(name) =>
- *   patch({ name })}` - which stamps `updatedAt` once per character typed, and
- *   `updatedAt` is what `decideImport` compares: twenty stamps make the local
- *   copy win twenty comparisons against a sheet that is genuinely newer. It
- *   also makes "that name is taken" fire in the middle of a word.
+ *   It never writes on a keystroke. The Name field in `Edit.tsx`'s Identity
+ *   section did - `onChange={(name) => patch({ name })}`, where the
+ *   `<RenameField>` call now stands - which stamps `updatedAt` once per
+ *   character typed, and `updatedAt` is what `decideImport` compares: twenty
+ *   stamps make the local copy win twenty comparisons against a sheet that is
+ *   genuinely newer. It also makes "that name is taken" fire in the middle of
+ *   a word.
  *
  *   It never silently rewrites what was typed. When the name is taken it says
  *   so, names who has it, and *offers* the next free name in a control the
@@ -114,10 +116,12 @@ export function RenameField({
   const stored = character.name || 'Unnamed';
   const holder = nameHolder(draft, characters, character.id);
   const blank = draft.trim() === '';
-  // The refusal is a sentence, not a dimmed button. `Play.tsx:1082-1085` writes
-  // the rule down for the vault's blocked recall and `playSheet.test.tsx:452`
-  // pins it: a control that will not act says why in text a thumb can read,
-  // because 45% opacity announces nothing at all.
+  // The refusal is a sentence, not a dimmed button. The `Vault` docblock in
+  // `Play.tsx` writes the rule down as P3-9(a), `RecallButton` in the same file
+  // is where it is spent, and the "says why on the screen when it will not
+  // recall, not in a title" test in `playSheet.test.tsx` pins it: a control
+  // that will not act says why in text a thumb can read, because 45% opacity
+  // announces nothing at all.
   //
   // Opacity announces nothing to a screen reader either, and putting the reason
   // into the refused control's own accessible name does not answer that on its

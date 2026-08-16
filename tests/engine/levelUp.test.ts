@@ -521,8 +521,8 @@ describe('applyLevelUp', () => {
 
   it('stamps the sheet as changed, so a restore cannot quietly undo the level', () => {
     // updatedAt is not decoration. src/store/db.ts sorts the library by it, and
-    // src/store/backup.ts:587 keeps the LOCAL copy on merge whenever
-    // here.updatedAt >= theirs. A level-up that never moves the clock is a
+    // src/store/merge.ts::decideImport keeps the LOCAL copy on merge whenever
+    // local.updatedAt >= incoming.updatedAt. A level-up that never moves the clock is a
     // level-up the next restore is entitled to throw away - the player levels
     // to 6, syncs their backup, and comes back a level 5 character with the
     // advancement screen offering the same two picks again.

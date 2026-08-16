@@ -511,8 +511,8 @@ describe('a payload that is not a payload at all', () => {
   });
 
   it('lets a corrupted timestamp out as a RangeError instead of a damaged transfer', async () => {
-    // UNGUARDED (finding). `readWhen` does `new Date(ms).toISOString()` on a
-    // varint straight off the wire (src/transfer/codec.ts:285). Past the
+    // UNGUARDED (finding). `src/transfer/codec.ts::readWhen` does
+    // `new Date(ms).toISOString()` on a varint straight off the wire. Past the
     // 8.64e15 ms that a Date can hold, `toISOString` throws `RangeError:
     // Invalid time value`, which is not a `CodecError` - so a caller that
     // catches CodecError to say "this transfer is damaged" will instead see an
@@ -1034,7 +1034,7 @@ describe('a level-up plan that does not belong to this character', () => {
     const applied = applyLevelUp(veteran, forged);
     expect(applied.level).toBe(MAX_LEVEL + 1);
     expect(applied.multiclassRef).toBe('druid');
-    // The caller is the guard, and src/ui/build/LevelUp.tsx:154 is where it
+    // The caller is the guard, and src/ui/build/LevelUp.tsx::apply is where it
     // stands: `if (!validation.ok) return;` before applyLevelUp is ever reached.
   });
 });

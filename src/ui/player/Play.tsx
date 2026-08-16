@@ -892,9 +892,9 @@ function Equipped({
       {[primary, secondary].filter(Boolean).map((w) => {
         if (!w) return null;
         // weaponDamage, not a regex. The inline `replace(/^(\d*)d/, ...)` that
-        // used to live here is exactly what the note at sheetModel.ts:249 warns
-        // against - two routes to one number is two numbers eventually, and
-        // this one had no clamp.
+        // used to live here is exactly what the note in
+        // sheetModel.ts::describeWeapon warns against - two routes to one
+        // number is two numbers eventually, and this one had no clamp.
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
         const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
