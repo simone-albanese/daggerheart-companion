@@ -77,6 +77,30 @@ const isShell = (url) =>
   url.pathname === ROOT.pathname ||
   STATIC_DIRS.some((dir) => url.pathname.startsWith(`${ROOT.pathname}${dir}`));
 
+/**
+ * The licence texts the build emits: `LICENSE.txt` and everything under
+ * `legal/`.
+ *
+ * They exist because a deployed bundle is a copy and the MIT licence requires
+ * its notice in all copies. They are the one thing in this scope that must
+ * *not* be answered with the app: every in-scope navigation resolves to the
+ * document, because a deep link has no server to ask - and under that rule a
+ * browser pointed at `/legal/DPCGL-2025-07-30.txt` would be shown the character
+ * sheet instead of the licence, which is the app substituting itself for a
+ * legal document at the exact address that promises otherwise.
+ *
+ * So navigations to these fall through to the browser, which fetches the file
+ * as itself. They are deliberately not cached here either: nothing in the
+ * document names them, so the precache - which is inferred by reading what the
+ * build emitted - has no way to find them, and a hand-written list of URLs to
+ * cache is exactly the second source of truth the rest of this file avoids.
+ * The offline copy of both texts is compiled into the Settings chunk and
+ * rendered on the About screen, and that chunk *is* precached.
+ */
+const isLegalText = (url) =>
+  url.pathname === `${ROOT.pathname}LICENSE.txt` ||
+  url.pathname.startsWith(`${ROOT.pathname}legal/`);
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 
@@ -247,6 +271,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (!url.pathname.startsWith(ROOT.pathname)) return;
+
+  // A licence text is itself, not the app. See `isLegalText`.
+  if (isLegalText(url)) return;
 
   // Every in-scope navigation resolves to the one document. There is no server
   // to ask about a deep link, and on Pages a deep link is a 404.

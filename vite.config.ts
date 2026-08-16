@@ -1,7 +1,51 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+/**
+ * Put the two licence texts in the build output.
+ *
+ * `dist/` was 28 files and neither `LICENSE` nor any copy of the DPCGL was
+ * among them, while `LICENSE` itself requires its notice "in all copies or
+ * substantial portions of the Software" - and a deployed bundle is a copy. So
+ * the artifact anyone downloads, mirrors or serves now carries both.
+ *
+ * These are emitted rather than dropped into `public/` on purpose. A file in
+ * `public/` is a second copy that has to be kept in step by hand, and the whole
+ * point of the root `LICENSE` is that there is one of it; `emitFile` reads the
+ * canonical file at build time, so the two cannot drift. It also keeps them out
+ * of the dev server's static tree, where they would be answered by the service
+ * worker's shell rules rather than as themselves.
+ *
+ * These files are not the offline story. Nothing in the built document names
+ * them, so the worker - which infers its precache by reading what the build
+ * emitted - will not cache them, and they are readable only online. The offline
+ * copy is the one compiled into the Settings chunk and rendered on the About
+ * screen, which the worker already precaches because it precaches every chunk
+ * the document reaches. Two copies of each text, from one source file each,
+ * for two different readers: `dist/` is for whoever holds the software, About
+ * is for whoever is using it in a basement.
+ */
+function shipLicenceTexts(): Plugin {
+  const emitted: Array<[string, string]> = [
+    ['LICENSE.txt', './LICENSE'],
+    ['legal/DPCGL-2025-07-30.txt', './src/legal/dpcgl-2025-07-30.txt'],
+  ];
+  return {
+    name: 'dhc:ship-licence-texts',
+    apply: 'build',
+    generateBundle() {
+      for (const [fileName, source] of emitted) {
+        this.emitFile({
+          type: 'asset',
+          fileName,
+          source: readFileSync(fileURLToPath(new URL(source, import.meta.url)), 'utf8'),
+        });
+      }
+    },
+  };
+}
 
 // GitHub Pages serves project sites from /<repo>/. Override with BASE_PATH when
 // deploying elsewhere (a user site, a custom domain, or a local file server).
@@ -41,7 +85,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_ID__: JSON.stringify(buildId),
   },
-  plugins: [react()],
+  plugins: [react(), shipLicenceTexts()],
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('./shared', import.meta.url)),

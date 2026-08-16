@@ -1,0 +1,393 @@
+                                                                                     Last Updated 7/29/2025
+                                                                                                  7/30/2025
+
+
+
+
+                            Darrington Press Community Gaming License
+
+
+This Community Gaming License (“License”) describes how you (“you”) can use certain content owned by
+Darrington Press, LLC (“DRP”) in your own creations. By exercising the Licensed Rights (defined below),
+you accept and agree to be bound by the terms and conditions of this License. You should read and
+understand the terms of this License before adapting or sharing any content belonging to DRP. In this
+License, you and DRP may be referred to together as the “parties” and individually as a “party.”
+
+1. Definitions.
+
+    1.1. “DRP Games” means the role-playing game(s) offered by DRP titled Candela Obscura and
+        Daggerheart.
+
+    1.2. “Licensed Rights” means the rights that you are being permitted to use by agreeing to the terms
+        and conditions of this License.
+
+    1.3. “Licensed Content” means: (a) game rules (but not a copy/paste of rulebook content), mechanics,
+        systems, toolsets, reference cards, and stat blocks; and (b) the names and attributes of game
+        characters, settings, locations, monsters, classes, subclasses, and races featured in DRP Games.
+        This term excludes all Prohibited Content.
+
+    1.4. “DRP Published Content” means content released by DRP or its related companies, Critical Role
+        Productions, LLC and Gilmore’s Glorious Goods, LLC (together, “Related Companies”) in any
+        published works (print and digital) including without limitation in promotional material or in video,
+        audio, or audiovisual media (for example, podcasts, streams on streaming sites such as Twitch,
+        YouTube videos, and television episodes).
+
+    1.5. “Prohibited Content” means all of the following published or used in connection with the DRP
+        Games or by DRP or its Related Companies generally, unless such content is expressly addressed
+        elsewhere in this License: (a) trademarks, logos, trade dress, trade names, and service marks; (b)
+        videos, trailers, audio sounds, music, video games, comic books, novels, artwork, visual images,
+        illustrations, drawings, graphics, imagery, plots, storylines, published work titles, and maps; (c) the
+        exact text of manuals, guides, handbooks, Campaign Frames, and rulebooks; and (d) DRP
+        Published Content, unless such content is explicitly identified in writing by DRP as being Public
+        Game Content.
+
+    1.6. “Public Game Content” means Licensed Content and any additional content that is explicitly and
+        clearly identified in writing by DRP as Public Game Content, but specifically excludes all Prohibited
+        Content. Currently, in addition to Licensed Content, DRP offers the following as Public Game
+        Content: Daggerheart System Reference Document 1.0 (including Domain icons) and Candela
+        Obscura.
+
+    1.7. “Adaptive Content” means content that is derived from or is based on Public Game Content or in
+        which the Public Game Content is translated, altered, rearranged, transformed, or otherwise
+        modified.
+
+    1.8. “Share” means to provide content to the public by any means or process including without limitation
+        by way of reproduction, public display, public performance, distribution, dissemination, or
+        communication, as well as making content available to the public by any means or process. The
+        word “public” includes, without limitation, any person or entity other than you. For example, “public”
+        would cover members of a DRP subreddit.
+
+                                                      1
+       For clarity, “public” does not include private, non-commercial play among friends, family, or gaming
+       groups in a personal setting (in-person or online). Content used exclusively within such private
+       settings is not considered Shared under this License.
+
+   1.9. “Permitted Formats” means the following, subject to any further restrictions applicable to specific
+       types content stated below: (a) physical print and digital print formats in the form of supplements,
+       manuals, books, stories, novels, and cards; (b) live-streaming and video on sites such as Twitch.tv,
+       YouTube, and TikTok; (c) podcasts; and (d) virtual tabletop platforms ("VTTs") that are expressly
+       approved by DRP and listed in Section 1.9.1 below. This term excludes, without limitation, film,
+       television, video games, and any other audiovisual medium not expressly permitted.
+
+       1.9.1.Whitelisted Virtual Tabletop Platforms.
+             You can Share Public Game Content and Adaptive Content on the approved VTT platforms
+             (the "Whitelisted VTTs") listed below, subject to the terms of this License. Sharing on
+             Whitelisted VTTs is permitted solely for non-commercial purposes and may not be
+             monetized in any form. This includes, without limitation, selling access, charging
+             subscription fees, paywalling content, or soliciting donations tied to access or use.
+
+            The current list of Whitelisted VTTs is publicly available at
+            https://darringtonpress.com/license/. Sharing on any other VTT is prohibited unless
+            separately approved in writing by DRP. DRP reserves the right to add or remove VTT
+            platforms from this list at any time.
+
+       1.9.2.Playtest Materials.
+             From time to time we will make available DRP Games that we are still testing and
+             developing (collectively “Playtest Materials”). This includes materials found in our playtest
+             program known as The Void, found at www.daggerheart.com/thevoid. Materials for
+             Playtesting are described as alpha, beta, demo, demonstration, evaluation, trial, early
+             access, or preview (or some other words which impart a similar meaning). For Playtest
+             Materials, no commercial products are permitted in any format, regardless of whether it is a
+             Permitted Format identified above or some other format. For example, you can live-stream
+             gameplay from Playtest Materials for free, but you cannot sell written content such as
+             supplements or novels adapted from Playtest Materials.
+
+       1.9.3.Campaign Frames.
+             Daggerheart Campaign Frames may be Shared via live-streaming, video/audio or podcast
+             solely for the purpose of Sharing actual play content. Campaign Frames may not be Shared
+             in any other format or republished, printed, distributed, or adapted into new written works or
+             derivative works without separate written permission from DRP.
+
+       1.9.4.Live-streaming, Videos/Audio, and Podcasts.
+             Live-streams, videos/audio, and podcasts for actual play content may be Shared for free or
+             monetized through ad revenue, platform tips, or memberships.
+
+2. Scope.
+
+   2.1. License. Subject to the terms and conditions of this License, DRP grants you a worldwide, royalty-
+       free, non-transferable, non-exclusive license to exercise the following Licensed Rights: (a)
+       reproduce and Share the Public Game Content in whole or in part; and (b) produce, reproduce,
+       Share and sell Adaptive Content using the Public Game Content solely in the Permitted Formats
+       and as further limited for the types of content specified in Section 1.9.1-1.9.4.
+
+   2.2. No downstream restrictions. You may not impose any additional or different terms or conditions
+                                                    2
+         on the Public Game Content you Share or on the Public Game Content that is contained in
+         Adaptive Content, in the event that you decide to grant a license in the Adaptive Content.
+
+    2.3. No endorsement. Nothing in this License constitutes permission to assert or imply that you or your
+         use of the Public Game Content is connected with or sponsored by or endorsed by DRP and
+         Critical Role.
+
+    2.4. Other rights. This License does not license or give any rights to any of the following: (a) moral
+         rights of authors as defined in the U.S. Copyright Act; (b) publicity, privacy, or other similar
+         personality rights; and/or (c) rights related to Prohibited Content.
+
+    2.5. Use of Name Marks. DRP holds registered trademarks in the names identified on the Name Mark
+         List attached to this License (the "Name Marks"). You are authorized under the License to Share
+         Adaptive Content that includes any of the Name Marks, subject to the following additional
+         restrictions which you are automatically deemed to have accepted if you use any Name Marks in
+         any Adaptive Content:
+
+            (a) Name Marks cannot be used in the title of a work or a chapter title; and
+            (b) Name Marks cannot appear on the front cover of any work
+            (c) Name Marks must include ‘Compatible’ adjacent to it in marketing and descriptive text.
+
+3. Ownership. The Public Game Content and Prohibited Content is and will at all times remain the property
+    of DRP, and DRP may use, distribute, modify, and adapt the Public Game Content and the Prohibited
+    Content at any time for any purpose.
+
+4. Attribution.
+
+    4.1. Non-commercial. If you Share any Public Game Content or Adaptive Content, you must include
+         the following information in the materials that are being Shared by you:
+
+            (a)     a copyright notice in the format specified in Section 4.3 below;
+            (b)     an attribution statement identifying the Public Game Content and stating that DRP is
+                    the creator of that material;
+            (c)     a hyperlink to the Public Game Content or the URL where it can be found to the extent
+                    reasonably practicable;
+            (d)     a statement that the Public Game Content is licensed under this License and a
+                    hyperlink to this License or the URL where it may be found;
+            (e)     a statement indicating whether you have modified the Public Game Content and
+                    whether there were any previous modifications by you or others.
+
+    4.2. Commercial. If you Share any Public Game Content or Adaptive Content commercially (i.e., in
+         exchange for compensation), in addition to complying with Sections 4.1(a)-(e) above, you agree
+         to include the following additional information:
+
+            (f) Logo use on Published Material
+                   i.   On the front cover, a Darrington Press Community Content logo, which can be
+                        found at the URL https://darringtonpress.com/license/. For Daggerheart, use of
+                        the community gaming license logos featuring the alchemy bottle attributing
+                        Daggerheart are required https://darringtonpress.com/license/. If using Candela
+                        Obscura, use the community gaming logos attributing Candela Obscura
+                        https://darringtonpress.com/license/ are required.
+                  ii.   On the title page, along with the Copyright Notice and Attribution - a statement as
+                                                     3
+                        follows: “Darrington Press™ and the Darrington Press authorized work logo are
+                        trademarks of Critical Role, LLC and used with permission.”
+                  iii.  Cards created via the daggerheart.com card creator, as well as other forms must
+                        have the following attribution at the bottom of the card.
+                              i. Daggerheart™ Compatible. Terms at Daggerheart.com
+           (g) if audio/video work
+                    i.  On the material, the copyright and attribution must be visible for a time or read in
+                        its entirety. If images are used, such as thumbnails, the logo as described in 4.2.f.i-
+                        ii must be used.
+
+   4.3. Copyright Notice: This product includes materials from the [PUBLIC GAME CONTENT] © Critical
+        Role, LLC. All rights reserved.
+
+   4.4. If you Share Adaptive Content that you produce, any license that you apply with respect to use by
+        the public of that Adaptive Content must not prevent users of the Adaptive Content from complying
+        with this License.
+
+   Sections 4.1 a-e have been combined and provided below.
+
+               Copyright/Attribution:        This product includes materials from the
+               Daggerheart                   Daggerheart System Reference Document 1.0, ©
+                                             Critical Role, LLC. under the terms of the
+                                             Darrington Press Community Gaming (DPCGL)
+                                             License. More information can be found at
+                                             https://www.daggerheart.com. There are no
+                                             previous modifications by others.
+               Copyright/Attribution:        This product includes materials from Candela
+               Candela Obscura               Obscura, © Critical Role, LLC. under the terms of
+                                             the Darrington Press Community Gaming
+                                             (DPCGL) License. More information can be found
+                                             at https://www.darringtonpress.com. There are no
+                                             previous modifications by others.
+
+
+5. Release of Infringement Claims. DRP does not intend to copy or infringe upon any Adaptive Content
+   created by you. However, because of the possibility that DRP may independently develop or publish
+   materials that are similar to Adaptive Content created by third parties, in exchange for allowing you to
+   exercise the Licensed Rights within this document, you hereby waive and release any and all claims,
+   demands, or causes of action that you may now have or may in the future have against DRP for
+   infringement, misappropriation, or other violation of rights in or to any Adaptive Content, except to the
+   extent that DRP has copied such Adaptive Content in its entirety and without modification.
+
+   5.1. You agree that DRP has the right to develop, acquire, license, sell, exploit, and Share materials,
+        products, and content that are substantially similar to or otherwise compete with your Adaptive
+        Content; provided, however, that DRP agrees it will not identically copy your Adaptive Content.
+
+   5.2. You, on behalf of yourself and any affiliates, successors and assigns agree to fully and forever
+        release and discharge DRP and its owners, officers, directors, employees, assigns, agents,
+        affiliates and representatives from any and all known and unknown claims including all future
+        claims that you may or may not be aware of at the time that you create your Adaptive Content that
+        DRP has infringed or is infringing any rights you may hold in any Adaptive Content, except where
+        DRP has identically copied your Adaptive Content. For the avoidance of doubt, your release in this
+        paragraph includes claims that may arise in the future due to the later actions of a party or parties.
+
+                                                     4
+    5.3. You covenant and agree that you will not bring or assert any action, claim or cause of action in
+         any jurisdiction or forum against DRP asserting a claim released by this License.
+
+    5.4. DRP may plead this License as a complete defense and bar to any actions, claims, and demands
+         which have been released by you under this License, and, in the event that you bring such a barred
+         action, claim, or demand, you agree to defend and indemnify and hold DRP harmless from and
+         against any and all costs and expenses arising therefrom (including reasonable attorneys' fees
+         and expenses, whether or not litigation is actually commenced).
+
+    5.5. You specifically understand, acknowledge, and agree that this is a full and final release which
+         applies to any and all of the claims released herein whether known or unknown and whether past,
+         present, or future. You hereby expressly waive any right or benefit of the provisions of Section
+         1542 of the California Civil Code, the text of which is set out below, and any comparable law or
+         statute elsewhere in the world, as well as waiving all federal, state, and common-law statutes or
+         principles of similar effect:
+
+            California Civil Code § 1542: A GENERAL RELEASE DOES NOT EXTEND TO CLAIMS THAT
+                THE CREDITOR OR RELEASING PARTY DOES NOT KNOW OR SUSPECT TO EXIST
+                IN HIS OR HER FAVOR AT THE TIME OF EXECUTING THE RELEASE AND THAT, IF
+                KNOWN TO HIM OR HER, WOULD HAVE MATERIALLY AFFECTED HIS OR HER
+                SETTLEMENT WITH THE DEBTOR OR RELEASED PARTY.
+
+6. Warranties by You. You represent and warrant as follows:
+
+    6.1. You are over 18 years of age or, if younger, you have had your parent or guardian review this
+         License and agree to its terms on your behalf.
+
+    6.2. You have the power, authority and right to enter into this License and to carry out the obligations
+         you have agreed to undertake herein.
+
+    6.3. You will comply with all laws, rules, and regulations applicable to the Public Game Content and
+         any Adaptive Content.
+
+    6.4. You will not state, suggest, or imply that your Adaptive Content is endorsed or sponsored by or
+         associated with DRP, except that you will include any attribution statement required by this License
+         with your Adaptive Content.
+
+    6.5. You will not exercise the Licensed Rights in a way that is bigoted, discriminatory, prejudiced to
+         any real world groups, illegal, obscene, or harassing, as determined by DRP in its sole discretion.
+
+    6.6. You will not exercise the Licensed Rights in any way that could violate or infringe the intellectual
+         property rights of DRP or any third party.
+
+    6.7. You will not bring any action challenging DRP’s ownership of any Public Game Content or
+         Prohibited Content.
+
+7. Disclaimer of Warranties and Limitation of Liability.
+
+    7.1. DRP OFFERS THE PUBLIC GAME CONTENT AS-IS AND AS-AVAILABLE AND MAKES NO
+         REPRESENTATIONS OR WARRANTIES OF ANY KIND CONCERNING THE PUBLIC GAME
+         CONTENT, WHETHER EXPRESS, IMPLIED, STATUTORY OR OTHER. THIS INCLUDES
+         WITHOUT LIMITATION WARRANTIES OF TITLE, MERCHANTABILITY, FITNESS FOR A
+                                                      5
+         PARTICULAR PURPOSE, NONINFRINGEMENT, ABSENCE OF LATENT OR OTHER
+         DEFECTS, ACCURACY, OR THE PRESENCE OR ABSENCE OF ERRORS, WHETHER OR NOT
+         KNOWN OR DISCOVERABLE. YOU BEAR ALL RISK OF USING THE PUBLIC GAME CONTENT,
+         AND SUCH USE IS SOLELY AT YOUR OWN RISK.
+
+    7.2. IN NO EVENT SHALL DRP BE LIABLE TO YOU ON ANY LEGAL THEORY (INCLUDING,
+         WITHOUT LIMITATION, NEGLIGENCE) OR OTHERWISE FOR ANY DIRECT, SPECIAL,
+         INDIRECT, INCIDENTAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES; LOST
+         PROFITS, LOST GOODWILL, OR LOSS OF BUSINESS OPPORTUNITY; OR FOR OTHER
+         LOSSES, COSTS, EXPENSES, OR DAMAGES ARISING OUT OF THIS LICENSE, USE OF THE
+         PUBLIC GAME CONTENT, OR ANY ADAPTIVE CONTENT, EVEN IF DRP HAS BEEN ADVISED
+         OF THE POSSIBILITY OF SUCH LOSSES, COSTS, EXPENSES, OR DAMAGES. IN NO EVENT
+         SHALL DRP BE LIABLE TO YOU FOR ANY AMOUNTS EXCEEDING $1,000 OR THE NET
+         PROFITS YOU HAVE EARNED FROM SALES OF YOUR ADAPTIVE CONTENT IN THE PRIOR
+         CALENDAR YEAR, WHICHEVER IS GREATER.
+
+    7.3. The disclaimer of warranties and limitation of liability provided above shall be interpreted in a
+         manner that, to the extent possible, most closely approximates an absolute disclaimer and waiver
+         of all liability by DRP.
+
+8. Indemnification. You agree to defend, indemnify, and hold DRP and its owners, officers, directors,
+    employees, assigns, agents, affiliates, and representatives harmless from and against any liability,
+    claims, actions, demands, and damages (including attorneys’ fees and costs) arising from or relating
+    to: (a) your exercise of the Licensed Rights; (b) use or Sharing of any Public Game Content or Adaptive
+    Content; (c) breach or alleged breach of your representations and warranties herein; and (d) your
+    negligence or willful misconduct.
+
+9. Term and Termination.
+
+    9.1. This License applies for the term of the copyrights in Public Game Content used or Shared by you.
+         However, if you fail to comply with this License or do not accept any amended License terms, then,
+         except as limited in Section 11.3 below, your rights under this License terminate automatically and
+         without notice.
+
+    9.2. You may terminate this License for any reason by ceasing all use and Sharing of Public Game
+         Content and Adaptive Content.
+
+    9.3. DRP may stop distributing the Public Game Content at any time; however, doing so will not
+         automatically terminate this License.
+
+    9.4. On termination of this License, you agree to immediately cease exercising any Licensed Rights
+         and Sharing any Public Game Content and Adaptive Content.
+
+    9.5. Sections 1, 3, 5, 6, 7, 8, 9, 10 and 12 survive termination of this License.
+
+10. Limitation Period on Claims. All claims arising from or relating to this License must be brought no later
+    than one year after such claim arose or the party having such claim shall be deemed to have waived
+    and forever released it. A claim based on a claim by a third party shall be deemed to have arisen at the
+    time that the party asserting the claim first became aware of it.
+
+11. Amendments or Revisions to License.
+
+                                                      6
+   11.1. DRP may modify or revise the License at any time in its sole discretion by posting the amended
+         License on its website located at https://darringtonpress.com/ and announcing the change on at
+         least one of DRP’s social media channels. The modification or revision will become effective
+         after such postings. DRP will indicate on the License the date it was last amended. You are
+         responsible for checking the License regularly for changes, and you waive any right to receive
+         specific notice of changes.
+
+   11.2. Except as limited by Section 11.3 below, your continued Sharing of Public Game Content or
+         Adaptive Content after a License modification confirms your acceptance of any changes to the
+         License, and, except as expressly limited in Section 11.3 below, you will be bound by such
+         revised terms even if you did not receive specific notice of the changes and even if you failed to
+         check the License regularly for changes. If you do not accept such changes, the License will
+         terminate as described in Section 9.1.
+
+   11.3. If you are distributing Adaptive Content or have taken substantial steps in the production of
+         Adaptive Content at the time DRP issues a License amendment, you will be permitted to continue
+         distributing that exact Adaptive Content (“Existing Adaptive Content”) under the terms of the
+         License that was in place prior to the amendment even if you do not agree to the License as
+         amended. The prior License version will continue to cover such Existing Adaptive Content.
+         However, you agree that any modified version of such Existing Adaptive Content or derivative
+         work thereof or new creation of Adaptive Content (collectively “New Adaptive Content”) will be
+         subject to the amended License, and your use of any New Adaptive Content after the effective
+         date of any amended License shall automatically be deemed to be an agreement by you to the
+         terms and conditions of the amended License with respect to any exploitation by you of the New
+         Adaptive Content.
+
+12. Other Terms and Conditions.
+
+   12.1. DRP will not be bound by any additional or different terms or conditions communicated by you
+         unless expressly agreed in a writing that is signed by DRP.
+
+   12.2. This License sets forth the entire current agreement of the parties with respect to its subject
+         matter, supersedes any previous or contemporaneous oral or written agreements regarding such
+         subject matter and can only be amended or modified by DRP.
+
+   12.3. To the extent possible, if any provision of this License is deemed unenforceable, it shall be
+         automatically reformed to the minimum extent necessary to make it enforceable. If the provision
+         cannot be reformed, it shall be severed from this License without affecting the enforceability of
+         the remaining terms and conditions of this License.
+
+   12.4. Unless expressly agreed to by DRP, no term or condition of this License will be waived and no
+         failure by you to comply will be deemed to have been consented to by DRP.
+
+   12.5. You agree that you have carefully reviewed this agreement, that you understand its terms, that,
+         if desired, you have sought legal advice with respect to this agreement, and that you have relied
+         wholly on your own judgment and knowledge in entering into this agreement.
+
+   12.6. This License shall be construed and enforced in accordance with the laws of the State of
+         California without regard to principles of conflict of laws that would cause the laws of any other
+         jurisdiction to apply.
+
+
+
+
+                                                   7
+                     Name Mark List
+ILLUMINATED WORLDS
+CANDELA OBSCURA
+DAGGERHEART
+
+
+
+
+                           8
+
