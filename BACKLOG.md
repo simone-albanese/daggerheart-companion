@@ -1466,10 +1466,15 @@ invariant defended at one of its two doors.
       `Unnamed`, which is the same collision by another route. The fallback is
       already everywhere; the collision it can create is not considered anywhere.
 
-## P5-2 · The GM screen is five menus, and a session is not a menu
+## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `eab26d8`, `f6e264d`, `7b27e57`, `68c8cc7`, `63a2558`, `8e0d02f`**
 
 **decided: it becomes one composable session, with multiple campaigns** ·
 `src/ui/gm/` · **large, 16–20 h**
+
+Every decision below is taken and shipped. What is still unticked under *Left
+open* is not the item: it is the list of things these six commits decided **not**
+to do, each with the reason, so that none of them is a silence somebody has to
+rediscover from the source.
 
 `Gm.tsx` switches between five regions — encounter, scene, party, bestiary,
 countdowns — each of which works. What no region does is *be the night*: a GM
@@ -1544,15 +1549,20 @@ Decisions taken:
       re-sorted live by `updatedAt`: the open campaign is written every 400 ms,
       so that would move exactly one row — always the open one — to the top,
       under a thumb reaching for REMOVE on the row below it.
-- [ ] **Campaigns move to their own IndexedDB store**, with their own schema
+- [x] ~~**Campaigns move to their own IndexedDB store**, with their own schema
       version and their own converter chain, so `Character` is untouched and
       `SCHEMA_VERSION` is not bumped. The existing GM state migrates out of
-      `localStorage` once and the old key is dropped. This is the load-bearing
-      change: `gmStore.ts` writes the whole of the GM's state to `localStorage`
-      synchronously on every mutation — including every `+1` of Fear — and
-      `localStorage` is the first thing iOS clears. It currently holds whole
-      character sheets belonging to other people, in the least durable store the
-      platform has.
+      `localStorage` once and the old key is dropped.~~ — **done before the
+      screen was built, which is why the screen could be built at all.**
+      `DB_VERSION` went to 2 for the new store; `SCHEMA_VERSION` and
+      `CAMPAIGN_SCHEMA_VERSION` did not move, because the record's shape did
+      not. The migration reads the old key once, writes what it finds, and
+      proves the campaign before dropping it. It was the load-bearing change:
+      `gmStore.ts` used to write the whole of the GM's state to `localStorage`
+      synchronously on every mutation — every `+1` of Fear, whole character
+      sheets belonging to other people — in the least durable store the platform
+      has, and the first thing iOS clears. This entry was left unticked while it
+      was true; it is ticked here with the rest of the item's bookkeeping.
 - [x] ~~**The bottom bar swaps to the GM tools inside the GM section**, and the
       way back to Play, Cards and Build moves into the top MENU.~~ — **done,
       both halves in one commit**, because a tab bar removed before MENU existed
@@ -1578,15 +1588,26 @@ Decisions taken:
       runner's empty state drops both its bestiary button and the clause naming
       it.
 
-**Deferred to 1.1, written down so they are not lost:** photos attached to a
-scene and shown to the table (*"se posso aggiungere delle foto e mostrarle a
-loro"*) — it needs a quota story before it needs a screen, and P0-3 exists
-because quota failures were being swallowed; **link rows that open external
-URLs**, which would put a second outbound link in an app whose strongest claim
-is that it has exactly one; and **full-text rule search** behind SEARCH.
-The LINK row still ships, resolving to something already inside the app — an
-adversary, an environment, a card, a rule — so it works offline and changes no
-promise.
+**Deferred to 1.1, written down so they are not lost:**
+
+- **Photos attached to a scene and shown to the table** (*"se posso aggiungere
+  delle foto e mostrarle a loro"*). It needs a quota story before it needs a
+  screen: P0-3 exists because quota failures were being swallowed, and a photo
+  is the first thing in this app that could fill a device on its own.
+- **Link rows that open external URLs.** It would put a second outbound link in
+  an app whose strongest claim is that it has exactly one. The LINK row ships
+  now resolving only to something already inside the app — an adversary, an
+  environment, a card, a rule — so it works with the radio off and changes no
+  promise.
+- **Full-text rule search, behind SEARCH.** This is the one the wireframe draws
+  and 1.0 does not have: the bar ships three verbs where the drawing has four.
+  It is a 1.1 entry rather than a gap because what a GM actually searches for at
+  the table is already the Bestiary's filter behind SHOW — name, description,
+  motives, feature names — and a second, weaker SEARCH beside it would make the
+  bar claim a capability the app has in one place and not the other. When there
+  is an index behind it, it goes in as a fourth entry in `GmBar`'s `VERBS`
+  array and the grid redistributes to four on its own; nothing else has to
+  move.
 
 **Left open by the commits that built this screen, so none of it is a
 silence:**
@@ -1634,6 +1655,25 @@ silence:**
       one point at a time. A switch there would leave the GM a number they can
       spend and nowhere to set it. If it is ever wanted, it hides the board and
       not the pool, and the readout goes back to being the span it was.
+- [ ] **The shell substitutes the GM screen rather than correcting the store.**
+      `allowedScreen` makes `App` *draw* Play while `useApp.getState().screen` is
+      still `'gm'`, which is the state a `setScreen('gm')` with the section off
+      leaves behind. Nothing user-facing can produce it — no tab, no header
+      entry, and `init` folds the stored value on the way in — and the two
+      alternatives are both worse than the divergence: correcting the store from
+      a render is a write during render, and correcting it in an effect makes
+      the first paint the very blank screen the substitution exists to prevent.
+      If a third caller of `setScreen` ever appears, it should go through
+      `allowedScreen` rather than have this widened.
+- [ ] **A campaign that failed to write is only said on the GM screen.** The
+      strip under the top bar is `Gm.tsx`'s, so a GM who leaves for Play or
+      Cards with a failed write behind them is told nothing — `App.tsx`'s own
+      unsaved-work banner is about the *character* store and has never known
+      about campaigns. The two stores would have to agree on what a failure is
+      before one banner could carry both, and inventing a second, quieter
+      shell-level alert for the GM store is how two banners end up disagreeing
+      about the same disk. Until then the honest reading is: the sentence is on
+      the screen the work is on.
 - [x] ~~**`GmBar` does not pay `env(safe-area-inset-bottom)`.**~~ — **it does
       now,** and it is the only thing on the screen that does, because the tab
       bar has gone and the notice is inside the scroll. No test reads it from

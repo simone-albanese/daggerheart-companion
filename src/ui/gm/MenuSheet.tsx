@@ -3,8 +3,8 @@
  * is open.
  *
  * This sheet exists because the bottom bar took the tab bar's place. Inside the
- * GM section the four destinations are gone and ADD / SHOW / SAVE are in that
- * slot, which is the owner's decision and the right one - leaving the section
+ * GM section the tab bar's destinations are gone and ADD / SHOW / SAVE are in
+ * that slot, which is the owner's decision and the right one - leaving the section
  * is a rare gesture and the thumb arc belongs to the continuous ones - but it
  * is only defensible if the door is somewhere. It is here, at the top of the
  * screen, behind the campaign name that was already drawn there.

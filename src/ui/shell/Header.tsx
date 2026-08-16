@@ -209,8 +209,13 @@ export function Header(): React.JSX.Element {
          * so the two have nothing to drift apart from.
          *
          * Ergonomics. Below 720px the nav above is not rendered and TabBar
-         * carries only play/cards/build/gm, so this is the only permanent
-         * route to Settings on a phone - BackupBanner's BACK UP chip is the
+         * carries play/cards/build and, while the GM section is switched on,
+         * gm - never settings, whatever the preferences say - so this is the
+         * only permanent route to Settings on a phone. It is also the reason
+         * the GM filter above may never touch this button: switching a section
+         * off must not be able to take the door to Settings with it, which is
+         * the screen you switch it back on from. BackupBanner's BACK UP chip is
+         * the
          * other one, and it needs a character and five days without a backup
          * before it exists at all. The top-right corner is the worst place on
          * a phone for a thumb, and that is the right trade for this control:

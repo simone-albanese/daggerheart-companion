@@ -657,7 +657,7 @@ daggerheart-companion/
 | **Play** (giocatore) | **Sì, nel corpo** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Restano fissi l'identità e il blocco del tiro |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
-| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa |
+| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
 | **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
@@ -808,6 +808,45 @@ Un bottone che non apre niente è peggio di un bottone che non c'è.
   in silenzio. La lista non si riordina mentre è aperta: la campagna attiva
   viene scritta ogni 400 ms, e riordinare per `updatedAt` in render sposterebbe
   in cima proprio quella riga, sotto il pollice.
+
+**La sezione intera si spegne da Settings, e con lei i due strumenti che nessuna
+riga apre.** `gmSection`, `gmBestiary` e `gmPartyBoard` stanno su `Prefs`,
+quindi in `localStorage`: sono fatti su *questo dispositivo*, non sul record,
+nessuno schema si muove e §6.1 non viene toccata. La parte che conta non è
+l'interruttore ma cosa resta dietro, e la regola è una funzione sola —
+`allowedScreen(prefs, screen)`, che sostituisce `'gm'` con `'play'` quando la
+sezione è spenta. La usano in tre punti, per tre ragioni diverse:
+`openingScreen` all'avvio (un `lastScreen: 'gm'` salvato prima che la sezione
+venisse spenta non riapre una schermata senza tab, e la regola più vecchia —
+libreria vuota → Build — resta la prima), `App.tsx` a ogni render (`setScreen`
+accetta tutti e cinque i valori, e la sezione può spegnersi a metà sessione:
+senza questo resterebbero header, barra e 700px di niente in mezzo), e le due
+navigazioni — `TabBar` e `Header` — che chiedono «lo shell la disegnerebbe?»
+invece di controllare la preferenza per conto loro. Filtrare solo la tab bar
+avrebbe lasciato un bottone GM vivo su ogni portatile.
+
+Gli strumenti disattivabili sono **due su cinque**, ed è una riduzione scritta,
+non un'omissione. Encounter builder e scene runner sono il *contenuto di una
+riga*: un interruttore che li nascondesse renderebbe inapribile una riga già
+scritta. Fear e countdown si aprono dal numero in cima e non da una riga, ma il
+Fear non è opzionale a un tavolo Daggerheart — la board dietro quel numero è
+l'unico posto dove lo si imposta di netto invece che un punto per volta.
+`BACKLOG.md` porta entrambe le ragioni. Con i due strumenti spenti **SHOW esce
+dalla barra** e i 131px per verbo diventano 196 su un telefono da 393; con uno
+solo, la sheet si riduce a quella metà e il dialog prende il *suo* nome invece
+di annunciarsi come entrambi; e la scena vuota smette di offrire il bestiary —
+bottone e frase, perché una frase che nomina uno strumento che non c'è è lo
+stesso difetto un gradino più piano.
+
+**Una scrittura che non è arrivata si legge sulla schermata dov'è successa.**
+`writeError` dello store è una striscia `role="alert"` fra la barra in alto e la
+lista, con le parole dello store e un TRY AGAIN che chiama `flushGm` — ogni
+percorso che imposta quel campo lascia la campagna `dirty` apposta, quindi il
+bottone ha sempre qualcosa da scrivere. Non si chiude: un avviso archiviato su
+lavoro non salvato è esattamente la falsa rassicurazione che questa app non può
+dare. SAVE continua a mostrarlo, e non è un doppione: le due frasi vengono dallo
+stesso campo, e una sheet che dicesse «già su questo dispositivo» mentre la
+striscia sotto dice il contrario sarebbe peggio di tutte e due.
 
 Una riga della sessione porta il **suo** piano — roster, aggiustamenti,
 ambiente — e la campagna porta **un** tavolo solo (`GmBoard`). Sono due cose
