@@ -130,9 +130,44 @@ async function settle(until: () => boolean = () => true, turns = 120): Promise<v
 
 const text = (): string => container.textContent ?? '';
 
+/**
+ * The three screens `App.tsx` code-splits, by the specifier it splits them on.
+ *
+ * This file has to wait for the chunk explicitly, and the reason is worth
+ * writing down because it made the licence check answer differently depending
+ * on how it was run. `App` mounts Build, GM and Settings behind `lazy()`, so
+ * arriving on one of them renders a `<Suspense>` fallback until the dynamic
+ * import settles. `settle` below spends macrotask turns waiting, and a turn
+ * budget is a stopwatch, not a condition: run with the whole suite, another
+ * file has already paid Vite's transform cost for the GM tree and the import
+ * lands in a turn or two; run `npx vitest run tests/ui/attribution.test.tsx` on
+ * its own and the transform happens here for the first time, the 120 turns
+ * expire with the fallback still on screen, and "is on the gm screen" fails
+ * saying the GM screen carries no licence notice.
+ *
+ * That is a false alarm - `SessionList.tsx` renders `<LicenceFooter>`
+ * unconditionally inside the GM scroll - and it is the worst possible one to
+ * have here. This is the file standing between the project and a DPCGL
+ * takedown, and running exactly this file is what anybody would do to check
+ * the notice. A guard that cries wolf alone and is quiet in company teaches
+ * people to disbelieve it.
+ *
+ * So the wait is on the module rather than on the clock: awaiting the same
+ * specifier `App.tsx` awaits puts it in the runner's cache, and `lazy()` then
+ * resolves out of it. Nothing is asserted more weakly - the assertions below
+ * are untouched and still run against the real shell, mounted for real. What
+ * changed is that they run after the screen exists rather than after 120 turns.
+ */
+const CHUNK: Partial<Record<Screen, () => Promise<unknown>>> = {
+  build: () => import('../../src/ui/build/Build.tsx'),
+  gm: () => import('../../src/ui/gm/Gm.tsx'),
+  settings: () => import('../../src/ui/settings/Settings.tsx'),
+};
+
 /** Boot the real shell with one character in the library, on `screen`. */
 async function mountOn(screen: Screen): Promise<void> {
   await db.putCharacter(playedCharacter());
+  await CHUNK[screen]?.();
   await act(async () => {
     root.render(createElement(App));
   });
@@ -141,7 +176,8 @@ async function mountOn(screen: Screen): Promise<void> {
   await act(async () => {
     useApp.getState().setScreen(screen);
   });
-  // Build, GM and Settings are `lazy()`; the dynamic import needs turns.
+  // The chunk is in the cache by now; `lazy()` still resolves on a microtask
+  // and Suspense still needs the re-render, so the turns are still spent.
   await settle(() => text().includes(NOTICE));
 }
 
