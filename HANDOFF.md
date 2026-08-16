@@ -145,10 +145,21 @@ by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown
 advancement, distances in metres, the name generators. Source every word from
 `data/srd-1.0.json`; anything the shipped SRD does not carry does not ship.
 
-**P1-1 damage rolls** and **P1-7 rests**. Both were deliberately held back
-because they touch `Play.tsx` and `DualityRoll.tsx`, which the rebuild was
-rewriting. They are unblocked now. P1-7 adds a field to `Character`, so it is a
-schema change — the machinery exists, the policy is `Architecture.md` §6.1.
+**P1-7 rests.** Held back alongside P1-1 because both touch `Play.tsx` and
+`DualityRoll.tsx`, which the rebuild was rewriting. **P1-1 is built** — an
+attack roll offers the damage roll it earned, unarmed attacks have a row,
+Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's
+own sentence, and damage dice can be typed the way the Duality dice already
+could — so what is left of that pair is the rest. P1-7 adds a field to
+`Character`, so it is a schema change: the machinery exists, the policy is
+`Architecture.md` §6.1.
+
+What P1-1 deliberately did **not** build, so nobody goes looking for it: extra
+damage *dice* — `rollDamage` takes a flat `extraModifier` and the held-dice tray
+feeds the attack roll, so the SRD's "Tusks: +1d6" still has nowhere to go — the
+`companion` attack source, which needs a second armed slot on Play, and a way
+out of an opened die-face grid that is not answering it. That last one is
+`Die`'s behaviour as much as the damage row's and is written up as P3-12.
 
 **P5-1(b) rename.** Renaming a character already works and is four gestures deep
 in the tab visited least, and the rename path does not enforce the unique-name
@@ -169,12 +180,16 @@ and the grid redistributes on its own.
 ## The fastest way to see what is still unwired
 
 `tests/harness/orphans.test.ts` holds `DELIBERATE`, and every entry names the
-backlog item that deletes it. It is the honest inventory: 43 exported symbols
-nothing in the shipped app reaches. `rollDamage` and the five `attack.ts`
-helpers are P1-1; the four `rest.ts` exports are P1-7; `resolvePlaceholders`,
-`characterRefs` and `missingSlugs` are P1-6's *healing* half, which is still
-open even though its *display* half shipped. **Wiring one of them fails the
-suite until its line is removed. That is the intended behaviour.**
+backlog item that deletes it. It is the honest inventory: **28 exported symbols
+nothing in the shipped app reaches** — counted off the list rather than
+remembered, because the figure here said 43 when the list held 35, which is the
+one number in this file nobody can check by reading it. P1-1's seven are gone:
+`rollDamage`, `damageOffer`, `isRollableDamage`, `sourceFromWeapon`,
+`sourceName`, `unarmedSource` and `DAMAGE_SIDES` all have callers now. The four
+`rest.ts` exports are P1-7; `resolvePlaceholders`, `characterRefs` and
+`missingSlugs` are P1-6's *healing* half, which is still open even though its
+*display* half shipped. **Wiring one of them fails the suite until its line is
+removed. That is the intended behaviour.**
 
 ## Loose ends left deliberately
 

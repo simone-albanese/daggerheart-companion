@@ -43,6 +43,8 @@ import {
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
 import { useIsNarrow } from '../shared/useLayout.ts';
+import type { ArmedAttack, AttackSource } from './attack.ts';
+import { DamageRow } from './DamageRoll.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
 export type RollTrait = Trait | 'spellcast';
@@ -223,13 +225,28 @@ interface Props {
   stats: DerivedStats;
   trait: RollTrait;
   onTraitChange: (trait: RollTrait) => void;
+  /**
+   * What the next attack is made with, re-derived by `Play` on every render.
+   *
+   * It is snapshotted into an `ArmedAttack` at the instant a roll resolves and
+   * never read again by the damage row, so putting the weapon down after the
+   * roll cannot change the dice that roll earned. Null for a bare trait roll,
+   * and then the roll simply offers no damage.
+   */
+  source: AttackSource | null;
   layout: 'desktop' | 'phone';
 }
 
 /** A stable empty list, so a character without Experiences is not a new array. */
 const NO_EXPERIENCES: Experience[] = [];
 
-export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): React.JSX.Element {
+export function DualityRoll({
+  stats,
+  trait,
+  onTraitChange,
+  source,
+  layout,
+}: Props): React.JSX.Element {
   const character = useActive();
   const pushLog = useApp((s) => s.pushLog);
   const update = useApp((s) => s.update);
@@ -246,6 +263,18 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
   });
   const [armedExperiences, setArmedExperiences] = useState<string[]>([]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
+  /*
+   * The attack the damage row is answering, and which roll it came from.
+   *
+   * The snapshot is taken whole from the `DualityResult` that produced it and
+   * never recomputed, because the critical the player saw is the critical that
+   * has to pay. `rollId` exists so the row is keyed on the roll: the row keeps
+   * a rolled total in its own state, and without a remount the next attack
+   * would arrive under last turn's number - on a phone, where there is no log
+   * on screen to contradict it.
+   */
+  const [attack, setAttack] = useState<ArmedAttack | null>(null);
+  const [rollId, setRollId] = useState(0);
 
   const characterId = character?.id ?? null;
   const held = useHeldFor(characterId);
@@ -257,6 +286,9 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
   useEffect(() => {
     setArmedExperiences([]);
     setArmedDice([]);
+    // And nobody else's attack either: a damage offer left standing across a
+    // character switch would be this sheet being offered that sheet's sword.
+    setAttack(null);
   }, [characterId]);
 
   const experiences = character?.experiences ?? NO_EXPERIENCES;
@@ -306,6 +338,28 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       setArmedExperiences([]);
       setArmedDice([]);
 
+      /*
+       * Carry the attack across to the damage roll, which is the link the SRD
+       * rule is about and the one this app has never had. Every field is copied
+       * off the result that produced it - `succeeded` whole, all three of its
+       * values - so nothing downstream has to work out a verdict a second time.
+       * A roll made with nothing declared clears it rather than leaving the
+       * previous weapon's offer standing under a persuasion check.
+       */
+      setRollId((n) => n + 1);
+      setAttack(
+        source === null
+          ? null
+          : {
+              source,
+              critical: r.critical,
+              succeeded: r.succeeded,
+              outcome: r.outcome,
+              reaction: r.reaction,
+              proficiency: stats.proficiency,
+            },
+      );
+
       // The roll's Hope and Stress consequences are proposed by applying them,
       // because they are unambiguous; the GM's Fear is theirs to track.
       if (character) {
@@ -344,6 +398,12 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       modifier.value,
       pushLog,
       reaction,
+      // Without these two the snapshot is taken from the first render's
+      // closure: arm a weapon, roll, and the source is still null, so the
+      // offer never appears and nothing anywhere says why. There is no eslint
+      // in this repo to catch a stale dependency, so it is written down here.
+      source,
+      stats.proficiency,
       update,
     ],
   );
@@ -565,6 +625,17 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
             {result?.total ?? '—'}
           </span>
         </button>
+        {/*
+         * Last, and therefore hard against the bottom edge of the glass.
+         *
+         * When it exists it is the only thing you are about to press, so it
+         * gets the easiest point in the thumb arc; the Duality bar moves up by
+         * 58px to make room and is still well inside it. It also must stay
+         * below ROLL rather than above it, because everything above ROLL in
+         * this stack is something you declare *before* the dice, and this is
+         * the only thing here that comes after them.
+         */}
+        <DamageRow key={rollId} attack={attack} affordance={affordance} layout="phone" />
       </div>
     );
   }
@@ -656,6 +727,17 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
           {armSummary === '' ? '' : ` · ${armSummary}`}
         </span>
       </button>
+
+      {/*
+       * Between ROLL and the log, and never after it.
+       *
+       * This panel is `flex: 1, minHeight: 0, overflow: hidden`, and
+       * `RecentLog` is its only `flex: 1` child - so a row placed here takes
+       * its height out of the log, which can spare it, while a row placed
+       * after the log, or left shrinkable, would push ROLL past the clip. That
+       * is P2-1 exactly: laid out, invisible, and still reachable by keyboard.
+       */}
+      <DamageRow key={rollId} attack={attack} affordance={affordance} layout="desktop" />
 
       <RecentLog />
     </div>

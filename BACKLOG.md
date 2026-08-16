@@ -478,20 +478,71 @@ is gone in favour of `weaponDamage`. **What is still missing is the last link:
 nothing calls `rollDamage` yet.** A successful roll does not offer the damage
 step, so `rollDamage` still has zero callers outside tests.
 
-- [ ] Carry the resolved attack — including `critical` — into a damage roll
-      offered on success. Offer, never auto-apply: README promises the app
-      *"proposes"* and never applies a declared effect silently.
-      *(`attack.ts` is ready and tested; this is the wiring inside
-      `DualityRoll` plus the damage row itself.)*
-- [ ] Damage must be typeable as well as rollable, the way the Duality dice
-      already are, for tables that roll physical dice.
-- [ ] **Spellcast damage is a different rule and is not implemented.** *"Any time
-      an effect says to deal damage using your Spellcast trait, you roll a number
-      of dice equal to your Spellcast trait"*, and at +0 or lower you roll
+**[corrected again, `9b4053a`..] The last link is built.** `rollDamage` has a
+caller: `src/ui/player/DamageRoll.tsx`, mounted last in the phone's roll block
+and between ROLL and the log on desktop. `DualityRoll` snapshots the attack out
+of the `DualityResult` that produced it and hands it over; the row asks
+`damageOffer` and never reads `succeeded` for itself. Unarmed attacks have a row
+in `Equipped`, and so does Spellcast damage with its refusal at +0. Damage dice
+can be typed as well as rolled. **Every box below is ticked; what is left is
+named in the two paragraphs after them, and neither is this item.**
+
+**Not built, and out of scope for P1-1.** Extra damage *dice* are still
+unsupported: `rollDamage` takes a flat `extraModifier` and has no notion of an
+added die, and the held-dice tray feeds `DualityInput.bonusDice`, which is the
+attack roll and not the damage roll. So the SRD's own *"Tusks: +1d6"* example
+and `Architecture.md` §3.2's promise of a proposal button for it both remain
+unbuilt. The `companion` variant of `AttackSource` also stays unreachable:
+`companionDamage` exists and `CompanionPanel` prints it, but arming a companion
+needs a second armed slot on Play and a decision about whose Proficiency and
+whose roll it is.
+
+- [x] ~~Carry the resolved attack — including `critical` — into a damage roll
+      offered on success. Offer, never auto-apply~~ — **done, `9b4053a`**. The
+      row is `src/ui/player/DamageRoll.tsx`, in its own file so that it cannot
+      reach for `succeeded` instead of asking `damageOffer`, and so that
+      `rollAffordance.test.ts`'s counts over `DualityRoll.tsx` still mean what
+      they say. It imports neither `update` nor `engine/damage.ts`, and a miss,
+      a reaction roll, an unrollable pool and a build with the roller switched
+      off all draw text with no target rather than a disabled button naming the
+      thing it will not do.
+- [x] ~~Damage must be typeable as well as rollable, the way the Duality dice
+      already are, for tables that roll physical dice.~~ — **done, the commit
+      after the one that closed Spellcast damage**. It gates on the same
+      `affordance.canType` the Hope and Fear faces gate on, so one switch means
+      one thing and the two halves of a roll cannot disagree about whether this
+      table types its dice. One slot per die, `Die`'s grid at five faces across
+      instead of four, and the roll resolves the moment the last face lands —
+      through `rollDamage(pool, { fixed })`, so the engine still does all of the
+      arithmetic and the critical bonus cannot be got wrong by a second route. A
+      digital roll mirrors its faces back into the slots, the way the Duality bar
+      mirrors Hope and Fear, so the dice on screen never sit beside a total they
+      do not add up to. With the roller off the control is disabled and wears
+      `affordance.label` — ENTER YOUR DICE — rather than a greyed ROLL DAMAGE.
+      The face grid's one-way-in-one-way-out problem is P3-12, which is `Die`'s
+      as much as it is this row's.
+- [x] ~~**Spellcast damage is a different rule and is not implemented.** *"Any
+      time an effect says to deal damage using your Spellcast trait, you roll a
+      number of dice equal to your Spellcast trait"*, and at +0 or lower you roll
       nothing. 77 of the 189 domain cards mention Spellcast and 43 carry a dice
-      formula; none is rollable today.
-- [ ] **Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
-      hits for "unarmed" in `src/`.
+      formula; none is rollable today.~~ — **done, the commit after `d708b38`**;
+      the house form names a sha and a commit cannot name its own. A panel in
+      `Equipped`, drawn only for a character who has a Spellcast trait at all.
+      The app supplies the one number that is on the sheet — the die count, which
+      is the trait and not Proficiency — and the player taps the die and types
+      the modifier, which are on the card in their hand: a `DomainCard` carries
+      free prose, only three of the 189 say *"using your Spellcast trait"* and
+      only preservation-blast pairs the phrase with a formula, so parsing a pool
+      out of card text would mean overwriting the `2` a card printed itself. At
+      +0 or lower there are no chips, no input and no greyed control — the SRD's
+      own sentence stands where the dice would be, in quotation marks because it
+      is the book's and not ours.
+- [x] ~~**Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
+      hits for "unarmed" in `src/`.~~ — **done, the commit after `9b4053a`**;
+      the house form names a sha and a commit cannot name its own. A row after
+      the weapons in `Equipped`, drawn even when nothing is equipped, and
+      arming it moves no trait chip: *"Unarmed attack rolls use either Strength
+      or Finesse (GM's choice)"* is the GM's call and not the app's.
 - [x] ~~`Play.tsx:281` rescales Proficiency with an inline regex instead of
       calling `weaponDamage()`~~ — **done, `91097eb`**.
 
@@ -1171,6 +1222,25 @@ on screen distinguishes them.
 - [ ] The disabled state is `'—'`, which says nothing about why a card cannot
       be taken. `row.reason` already exists and is rendered in the cost slot —
       check whether it can carry that instead.
+
+### P3-12 · A die face grid, once opened, can only be closed by answering it
+`src/ui/player/DualityRoll.tsx:148-187` · `src/ui/player/DamageRoll.tsx` ·
+**trivial, 30 min** · *noticed while building P1-1's typed damage*
+
+`Die` turns into a twelve-face grid when it is tapped, and the grid has exactly
+one way out: pick a number. There is no cancel, no backdrop, and no second tap
+on the die that puts it back. A thumb that brushes the HOPE die on a scrolling
+screen has to enter a value it did not roll, and then re-open the die and enter
+the right one — which in the damage row means two log lines for one attack, the
+second one silently replacing a number the first one already announced.
+
+The typed damage slots copy the same idiom deliberately: inventing a cancel for
+one of the two and not the other would be two gestures for one gesture's job.
+So this is one fix in two places, not a divergence.
+
+- [ ] Give the open grid a way back that is not an answer — a tap on the die's
+      own label, or a CLEAR cell in the grid itself. Whatever it is, both the
+      Duality faces and the damage slots take it in the same commit.
 
 ### P3-10 · The licence notice is on screen only for a user who has no characters
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**

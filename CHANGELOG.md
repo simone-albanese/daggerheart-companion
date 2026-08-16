@@ -237,10 +237,37 @@ be wrong* at the foot of this entry.
 
 ### Numbers on the sheet
 
-- **An attack roll leads into a damage roll.** The engine could roll damage
-  correctly from the first commit and no screen had ever called it. Damage is
-  offered when the roll succeeds, never on a reaction roll, and never guessed
-  when the GM has kept the Difficulty to themselves.
+- **An attack roll leads into a damage roll, on the screen.** The engine could
+  roll damage correctly from the first commit — Proficiency multiplies the dice
+  and not the modifier, and a critical adds the maximum the dice could have
+  rolled — and `rollDamage` had never had a caller outside its own tests. So no
+  screen in this app had ever rolled damage, and the critical the Duality Roll
+  had just worked out was thrown away one line after it was computed. Now a
+  successful roll offers the damage roll it earned, as a control and not as a
+  note: it carries the pool the attack actually rolls, it writes what it rolled
+  to the log, and it never touches the sheet — there is no adversary on this
+  screen, so damage is read aloud rather than applied. A reaction roll is
+  offered nothing, because a reaction roll is not an attack roll. A miss says so
+  in words instead of leaving a gap where a button was. And when the GM has kept
+  the Difficulty to themselves the offer still appears, labelled IF IT HIT: the
+  engine returns "undecided" rather than guessing a verdict, so a table that
+  hides its Difficulties can roll damage like everyone else.
+- **Unarmed attacks exist.** `[Proficiency]d4`, as a row you can declare, drawn
+  even when nothing is equipped — having no gear is not the same fact as having
+  no attack. Arming it moves no trait chip: the rule hands Strength-or-Finesse
+  to the GM, and the app does not make that call on their behalf.
+- **Spellcast damage rolls a number of dice equal to your Spellcast trait**,
+  which is a different rule from every other pool on the sheet, and at +0 or
+  lower it rolls nothing and says so in the book's own sentence rather than in
+  ours. The app supplies the count, which is on your sheet; you tap the die and
+  type the modifier, which are on the card in your hand. Nothing is parsed out
+  of card text, so a card that prints its own `2d8+4` cannot be quietly
+  overwritten.
+- **Damage dice can be typed**, for tables that roll physical dice, behind the
+  same switch the Duality dice already used: one slot per die, and the engine
+  still does all of the arithmetic. Extra damage *dice* are still not supported
+  — the SRD's "Tusks: +1d6" has nowhere to go yet, and `Architecture.md` §3.2
+  now says so rather than promising the button in the present tense.
 - **Proficiency and Multiclass cost both of their tier's slots.** They are
   printed in a joined black box and the rule says to mark both; the app let you
   take Proficiency twice in one tier, reaching 8 at level 10 where the sheet

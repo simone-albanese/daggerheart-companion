@@ -70,6 +70,38 @@ export function ruleBullets(body: string): RuleBullet[] {
 }
 
 /**
+ * The book's own sentence about a Spellcast trait of +0 or lower.
+ *
+ * The Play screen has to refuse a spell damage roll for a character whose
+ * Spellcast trait is +0, and a refusal is exactly where an app is most tempted
+ * to invent a rule. This lifts the SRD's own words - *"Note: If your Spellcast
+ * trait is +0 or lower, you don't roll anything"* - so the screen quotes rather
+ * than paraphrases, and so a homebrew rules layer that changes the rule changes
+ * what the screen says.
+ *
+ * Found by the sentence and not by a section id: the phrase is specific enough
+ * to be unambiguous - it occurs exactly once in the shipped dataset - and
+ * pinning `attacking` would go quiet the moment a layer reorganised its
+ * sections, which is the failure this whole module is written against.
+ *
+ * The leading `Note:` goes because the row prints a sentence, not an
+ * annotation to a paragraph that is not on the screen. Null when no rules layer
+ * carries the sentence at all, and then the caller says it in the app's own
+ * words - unquoted, so that what is between quotation marks on that row is
+ * always the book's.
+ */
+export function spellcastZeroNote(rules: RulesSection[]): string | null {
+  for (const rule of rules) {
+    for (const line of rule.body.split('\n')) {
+      const text = line.trim();
+      if (!/spellcast trait is \+0 or lower/i.test(text)) continue;
+      return text.replace(/^note:\s*/i, '');
+    }
+  }
+  return null;
+}
+
+/**
  * The three verbs printed under each trait on the character sheet.
  *
  * "Use it to Sprint, Leap, Maneuver" is what tells a player who has never read

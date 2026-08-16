@@ -93,6 +93,34 @@ const play = (c: Character): void => {
   render(createElement(Play, { stats: playedStats(c) }));
 };
 
+/**
+ * The same sheet, edited under the screen - what Build does to a character the
+ * player then comes back to.
+ *
+ * It keeps the id and it keeps the mounted tree, because that is the whole
+ * point: `Play` holds the armed declaration in its own state, so a fixture that
+ * unmounted and remounted would answer a question nobody is asking.
+ */
+function rebuild(patch: Partial<Character>): Character {
+  const next = { ...useApp.getState().characters[0]!, ...patch };
+  act(() => {
+    useApp.setState({ characters: [next] });
+  });
+  play(next);
+  return next;
+}
+
+/**
+ * The header's character picker, as the store sees it: another sheet arrives
+ * beside this one and becomes the active one, with `Play` never unmounting.
+ */
+function switchTo(c: Character): void {
+  act(() => {
+    useApp.setState((s) => ({ characters: [...s.characters, c], activeId: c.id }));
+  });
+  play(c);
+}
+
 const text = (): string => container.textContent ?? '';
 
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
@@ -854,6 +882,683 @@ describe('the tendina', () => {
       );
       expect(b.style.width).toBe('100%');
     }
+  });
+});
+
+/**
+ * What the next attack is declared with.
+ *
+ * Three surfaces set the trait on this screen - the pinned chips, the trait
+ * grid inside the scroll, and the SPELLCAST chip in the modifier row - and only
+ * the pinned chips ever put an armed weapon down. So tapping a trait anywhere
+ * else left the sword armed, and the damage step P1-1 is about would have
+ * offered a sword's dice for a Knowledge check while the screen showed
+ * KNOWLEDGE on the roll bar. Nothing threw, and nothing on screen disagreed
+ * with anything else; the declaration was simply wrong.
+ */
+describe('what the attack is made with', () => {
+  /** A row you can arm: the weapon buttons carry the weapon's own name. */
+  function weaponRow(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  /** A pinned trait chip, by the three letters it prints. */
+  function traitChip(abbreviation: string): HTMLButtonElement {
+    const found = buttons().find((b) =>
+      new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
+    );
+    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
+    return found;
+  }
+
+  /** A tile in the scrolling trait grid, by the trait it announces. */
+  function traitTile(label: string): HTMLButtonElement {
+    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
+    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    return found;
+  }
+
+  /** A sheet whose primary weapon rolls with something other than the default. */
+  const withBattleaxe = (): Character => seed({ activePrimaryWeapon: 'battleaxe' });
+
+  it('takes the trait from the weapon, and takes the weapon back when a tile is tapped', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('true');
+    // "The trait that applies to an attack roll is specified by the weapon or
+    // spell being used." A player who taps a sword has declared that roll.
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
+
+    click(traitTile('Agility'));
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Battleaxe').getAttribute('aria-pressed'),
+      'the axe is still armed for an Agility roll it was not declared for',
+    ).toBe('false');
+  });
+
+  it('takes the weapon back when SPELLCAST is armed from the modifier row', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    click(fold('Modifiers'));
+    const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
+    expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
+    click(spellcast!);
+    expect(
+      weaponRow('Battleaxe').getAttribute('aria-pressed'),
+      'the axe is still armed for a Spellcast roll',
+    ).toBe('false');
+  });
+
+  it('says what is armed on the closed fold, so a declaration is never off screen', () => {
+    play(withBattleaxe());
+    expect(fold('Weapons & armour').textContent).toContain('3 WORN');
+    click(weaponRow('Battleaxe'));
+    expect(
+      fold('Weapons & armour').textContent,
+      'the fold can be shut with a weapon armed and nothing would say which',
+    ).toContain('ARMED · BATTLEAXE');
+  });
+
+  it('lets go of a weapon that comes off in Build', () => {
+    /*
+     * The declaration is a ref, and a ref has to be resolved against something.
+     * Resolved against `index.weapons` - the 204 shipped weapons, which is
+     * where a weapon's dice live and therefore the obvious place to look - the
+     * lookup answers "yes, a Battleaxe exists" to the question "is this
+     * character holding a Battleaxe". So the fold went on saying ARMED ·
+     * BATTLEAXE directly above its own section saying nothing is equipped, and
+     * the offer under the next roll stood at 2d10+3.
+     */
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · BATTLEAXE');
+
+    rebuild({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null });
+    expect(text()).toContain('Nothing equipped');
+    expect(
+      fold('Weapons & armour').textContent,
+      'the fold names a weapon the section beneath it says is not there',
+    ).not.toContain('BATTLEAXE');
+    expect(fold('Weapons & armour').textContent).toContain('NOTHING');
+  });
+
+  it('does not hand the next sheet the last one’s declaration', () => {
+    /*
+     * `Play` is rendered unkeyed and holds the declaration in its own state, so
+     * the header's picker swaps the character under a component that keeps
+     * whatever was armed. This other sheet carries the same kit on purpose:
+     * resolving against what the character is holding cannot catch this one,
+     * because the arriving character genuinely is holding a Battleaxe. It is
+     * still an attack nobody declared on this sheet, and the trait chip beside
+     * it is the one the previous player picked.
+     */
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+
+    switchTo({ ...playedCharacter(), name: 'The other one', activePrimaryWeapon: 'battleaxe' });
+    expect(
+      fold('Weapons & armour').textContent,
+      'the arriving sheet was handed an attack it never declared',
+    ).not.toContain('ARMED');
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not hand the next sheet the fists either', () => {
+    // Unarmed resolves off the arriving character's own Proficiency, so it
+    // never renders a wrong number - which is exactly why it would have gone
+    // unnoticed. It is still an attack this player did not declare.
+    play(seed());
+    click(weaponRow('Unarmed'));
+    switchTo({ ...playedCharacter(), name: 'The other one' });
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('false');
+  });
+
+
+  /*
+   * Unarmed attacks, which existed nowhere in `src/` at all - the word did not
+   * appear in a single rendered file, so a character who had lost their weapon
+   * had no attack on this screen and `[Proficiency]d4` was a rule the app had
+   * no way to reach.
+   */
+  it('carries a row for being empty-handed, at [Proficiency]d4', () => {
+    play(seed());
+    const row = weaponRow('Unarmed');
+    // Proficiency 2 at level 3, so 2d4 - the count is the Proficiency itself.
+    expect(row.textContent).toContain('2d4');
+    expect(row.textContent).toContain('STRENGTH OR FINESSE');
+  });
+
+  it('keeps that row when there is no gear at all', () => {
+    // Having nothing equipped is the state the rule is written for, so this is
+    // the one row that must not disappear with the loadout.
+    play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null }));
+    expect(text()).toContain('Nothing equipped');
+    expect(weaponRow('Unarmed').textContent).toContain('d4');
+  });
+
+  it('does not pick the trait for the GM when it is armed', () => {
+    play(seed());
+    click(weaponRow('Unarmed'));
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · UNARMED');
+    // "Unarmed attack rolls use either Strength or Finesse (GM's choice)", so
+    // the chips are exactly where they were.
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('false');
+    expect(traitChip('FIN').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('leaves it standing under either of the two the rule names', () => {
+    // A weapon steps back when you pick a trait by hand, because it had already
+    // specified one. An unarmed declaration never did: choosing Strength here
+    // is completing the declaration, not replacing it.
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(traitTile('Strength'));
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'picking the trait the GM asked for withdrew the attack it belongs to',
+    ).toBe('true');
+
+    // And the other half of "either Strength or Finesse".
+    click(traitTile('Finesse'));
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('withdraws it under a trait the rule does not name', () => {
+    /*
+     * *"Unarmed attack rolls use either Strength or Finesse (GM's choice)"* is
+     * the whole warrant for the fists surviving a trait tap, and it offers two
+     * traits. Under Knowledge the exemption is quoting a sentence that does not
+     * cover it - the fists stay declared for a Recall check and the damage
+     * offer says 2d4 PHY.
+     */
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(traitTile('Knowledge'));
+    expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'the fists are declared for a Knowledge check, which is not a punch',
+    ).toBe('false');
+  });
+
+  it('withdraws it under SPELLCAST, which is not one of the six at all', () => {
+    /*
+     * The one that shows on screen. The SPELLCAST chip in the modifier row is
+     * the third surface that picks a trait by hand, and it went through the
+     * same flat `kind === 'unarmed'` exemption - so the roll bar read SPELLCAST
+     * while the damage offer under it read 2d4 physical, which is a punch.
+     */
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(fold('Modifiers'));
+    const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
+    expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
+    click(spellcast!);
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'the fists are declared for a Spellcast roll',
+    ).toBe('false');
+  });
+
+  it('puts a weapon down when the fists come up', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    click(weaponRow('Unarmed'));
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('false');
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+/**
+ * The spell, which is the one attack this sheet cannot read off a card.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait"* - so the count is the app's
+ * to supply and the die and the modifier are the player's, because a domain
+ * card carries free prose and parsing a pool out of it would mean overwriting
+ * the `2` on a card that prints its own `2d8+4`.
+ *
+ * The fixture is a Bard/Troubadour, whose Spellcast trait is Presence, and the
+ * fixture's Presence is +0. So the default sheet is the refusal, and the
+ * rollable panel needs the trait raised.
+ */
+describe('the spell, and the +0 that rolls nothing', () => {
+  /** Every die chip in the Spellcast panel, in the order they are drawn. */
+  const dieChips = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Cast with a d'));
+
+  /** The panel itself: a div, where the weapon rows are buttons. */
+  function panel(): HTMLElement {
+    const found = [...container.querySelectorAll<HTMLElement>('div.panel')].find((el) =>
+      (el.textContent ?? '').startsWith('Spellcast'),
+    );
+    if (found === undefined) throw new Error('no Spellcast panel on the sheet');
+    return found;
+  }
+
+  function armable(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  function pinnedChip(abbreviation: string): HTMLButtonElement {
+    const found = buttons().find((b) =>
+      new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
+    );
+    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
+    return found;
+  }
+
+  function tile(label: string): HTMLButtonElement {
+    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
+    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    return found;
+  }
+
+  /** The MOD field, which is the `+3` a player reads off the card in their hand. */
+  function modInput(): HTMLInputElement {
+    const found = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(
+      (el) => (el.parentElement?.textContent ?? '').startsWith('MOD'),
+    );
+    if (found === undefined) throw new Error('the panel has no MOD input');
+    return found;
+  }
+
+  /**
+   * Type into a controlled input the way a keyboard does: React tracks the
+   * last value it wrote on the node, so assigning `.value` looks like no
+   * change at all and `onChange` never runs.
+   */
+  function type(field: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setter?.call(field, value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  /*
+   * The same caster at a different Presence, and the id is pinned because it
+   * has to be the same caster: `playedCharacter()` mints a fresh
+   * `crypto.randomUUID()` on every call, so re-seeding without pinning it is a
+   * character switch - and a declaration does not follow the player onto
+   * another sheet.
+   */
+  const casting = (presence: number): Character =>
+    seed({ id: 'the-caster', traits: { ...playedCharacter().traits, presence } });
+
+  it('refuses at +0 in the book’s own words, with nothing to press', () => {
+    // Not a disabled chip row, and not a greyed control still saying ROLL
+    // DAMAGE: at +0 there is no roll to make, and a target that cannot do
+    // anything is the app saying it could and won't.
+    play(seed());
+    expect(dieChips(), 'the +0 panel offered dice to tap').toHaveLength(0);
+    expect(panel().textContent).toContain('NO DICE');
+    expect(panel().textContent).toMatch(/\+0 or lower/);
+    // In quotation marks, because these are the SRD's words and not ours. The
+    // app's own fallback sentence, for a rules layer that does not carry it,
+    // is deliberately not quoted.
+    expect(panel().textContent).toContain('“');
+    // And it names which of the six numbers is the one at +0, since "Spellcast
+    // trait" is not printed anywhere on the trait chips.
+    expect(panel().textContent).toContain('PRESENCE +0');
+  });
+
+  it('counts the dice off the trait, not off Proficiency', () => {
+    // Presence +3 with Proficiency 2. Reading the count off Proficiency - the
+    // rule every other pool on this screen follows - would say 2d8.
+    play(casting(3));
+    expect(dieChips()).toHaveLength(6);
+    click(dieChips()[2]!);
+    expect(panel().textContent, 'the die count came from somewhere else').toContain('3d8');
+    expect(panel().textContent).toContain('PRESENCE +3');
+    expect(panel().textContent).toContain('3 DICE');
+  });
+
+  it('arms the Spellcast slot with the same tap, since the spell specifies it', () => {
+    play(casting(3));
+    click(dieChips()[2]!);
+    expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('true');
+    // "The trait that applies to an attack roll is specified by the weapon or
+    // spell being used." SPELLCAST is not one of the six pinned chips, so the
+    // modifier row is where the sheet says which slot is armed.
+    expect(pinnedChip('PRE').getAttribute('aria-pressed')).toBe('false');
+    expect(fold('Modifiers').textContent).toContain('SPELLCAST');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · SPELLCAST');
+  });
+
+  it('keeps the modifier the card printed when the die changes', () => {
+    /*
+     * A card prints one formula. Clearing the +3 because the player corrected
+     * the die would be the app forgetting a thing it was told two seconds
+     * before, and it is typed rather than parsed because a DomainCard carries
+     * prose: only three shipped cards say "using your Spellcast trait" at all,
+     * and only one of them pairs it with a formula.
+     */
+    play(casting(3));
+    type(modInput(), '3');
+    click(dieChips()[2]!);
+    expect(panel().textContent).toContain('3d8+3');
+    click(dieChips()[3]!);
+    expect(panel().textContent, 'changing the die threw the card’s modifier away').toContain(
+      '3d10+3',
+    );
+  });
+
+  it('keeps the unknown die’s dash off the modifier’s sign', () => {
+    /*
+     * Two dashes in a row. The em-dash stands in for the die nobody has picked
+     * yet and the hyphen is the sign of the modifier off the card, so a spell
+     * written d?-3 printed `3d—-3` and a player reading their own damage had to
+     * work out which dash was which first.
+     */
+    play(casting(3));
+    type(modInput(), '-3');
+    expect(dieChips().every((c) => c.getAttribute('aria-pressed') === 'false')).toBe(true);
+    expect(panel().textContent, 'the placeholder ran into the sign').not.toContain('—-');
+    expect(panel().textContent).toContain('3d— -3');
+  });
+
+  it('puts the sword down when a spell is declared, and the spell down when a trait is picked', () => {
+    play(casting(3));
+    click(armable('Broadsword'));
+    click(dieChips()[2]!);
+    expect(armable('Broadsword').getAttribute('aria-pressed')).toBe('false');
+    // And back the other way: picking a trait by hand is declaring a roll the
+    // spell did not, so the spell steps back the way a weapon does.
+    click(tile('Agility'));
+    expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('false');
+    expect(pinnedChip('AGI').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('stops calling a spell armed when the trait that counted its dice is gone', () => {
+    /*
+     * The declaration outlives the pool. It is a die and a modifier, and the
+     * count is re-derived from the trait every render - so a spell armed at
+     * Presence +3 is still declared when something takes Presence to +0, and it
+     * now resolves to nothing at all. Read off the declaration rather than off
+     * what it resolves to, this panel would draw ARMED and a hope-washed border
+     * around the words NO DICE: the sheet saying a spell is ready to cast in
+     * the same breath as the rule that says it is not.
+     */
+    play(casting(3));
+    click(dieChips()[2]!);
+    expect(panel().textContent).toContain('ARMED');
+    expect(panel().textContent).toContain('3d8');
+
+    play(casting(0));
+    expect(panel().textContent).toContain('NO DICE');
+    expect(panel().textContent, 'a spell with no dice under it still says ARMED').not.toContain(
+      'ARMED',
+    );
+  });
+
+  it('draws no panel at all for a character who cannot cast', () => {
+    // A Guardian/Stalwart has no Spellcast trait. Four lines explaining that
+    // would be the sheet answering a question this character never asked.
+    play(seed({ classRef: 'guardian', subclassRefs: ['stalwart'], loadout: [], vault: [] }));
+    expect(text()).not.toContain('Spellcast');
+    expect(dieChips()).toHaveLength(0);
+  });
+});
+
+/**
+ * The link the app has never had: an attack roll leading into its damage roll.
+ *
+ * `rollDamage` has been correct since the first commit and has never had a
+ * caller, so this is the first test in the repo that can watch a damage roll
+ * happen on a screen. Typing is switched on for these, because it is the only
+ * way to decide what the Duality dice show - a critical needs matching faces,
+ * and an undecided roll needs two that do not match.
+ */
+describe('rolling the damage the attack earned', () => {
+  /** A sheet at 393px with typed dice on, so the faces can be dictated. */
+  function withTypedDice(patch: Partial<Character> = {}): Character {
+    const c = seed(patch);
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, manualDice: true } });
+    play(c);
+    return c;
+  }
+
+  function weaponRow(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  /** Tap a die face open and pick a value out of its 4-column grid. */
+  function typeFace(label: 'HOPE' | 'FEAR', value: number): void {
+    const face = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${label} die`),
+    );
+    if (face === undefined) throw new Error(`no ${label} die face to type into`);
+    click(face);
+    // Inside the pinned block: the defence band up in the scroll is a
+    // `repeat(4, 1fr)` grid too, and it comes first in document order.
+    const pinned = container.firstElementChild!.children[1]!;
+    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+      (d) => d.style.gridTemplateColumns === 'repeat(4, 1fr)',
+    );
+    if (grid === undefined) throw new Error('the die did not open its face grid');
+    const cell = [...grid.querySelectorAll('button')].find((b) => b.textContent === String(value));
+    if (cell === undefined) throw new Error(`the face grid has no ${String(value)}`);
+    click(cell);
+  }
+
+  /** The damage control, which is the only thing here that announces a roll. */
+  const damageControl = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Roll '));
+
+  /** The damage dice, which only exist when this table types its own. */
+  const damageSlots = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Damage die '));
+
+  /** The same gesture as `typeFace`, on a grid that is five across, not four. */
+  function typeDamageFace(index: number, value: number): void {
+    const slot = damageSlots()[index];
+    if (slot === undefined) throw new Error(`no damage slot ${String(index + 1)}`);
+    click(slot);
+    const pinned = container.firstElementChild!.children[1]!;
+    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+      (d) => d.style.gridTemplateColumns === 'repeat(5, 1fr)',
+    );
+    if (grid === undefined) throw new Error('the damage die did not open its face grid');
+    const cell = [...grid.querySelectorAll('button')].find((b) => b.textContent === String(value));
+    if (cell === undefined) throw new Error(`the face grid has no ${String(value)}`);
+    click(cell);
+  }
+
+  it('offers the scaled pool, and the critical bonus that pool earns', () => {
+    // Battleaxe is d10+3, and the fixture is Proficiency 2 - so the pool is
+    // 2d10+3 and the critical adds 20, not 10. Matching faces are a critical.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+
+    const damage = damageControl();
+    expect(damage, 'a successful attack offered no damage roll').toBeDefined();
+    const label = damage!.textContent ?? '';
+    expect(label).toContain('CRITICAL');
+    expect(label).toContain('2d10+3');
+    expect(label, 'the bonus was read off the unscaled weapon').toContain('+20');
+    expect(label).not.toContain('+10');
+  });
+
+  it('offers it with no Difficulty typed, which is the default and the common case', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'no Difficulty meant no offer at all').toBeDefined();
+    expect((damage!.textContent ?? '').trim()).toMatch(/^IF IT HIT/);
+  });
+
+  it('offers it even when arming the weapon moves nothing else', () => {
+    /*
+     * The Broadsword rolls with Agility, and Agility is already the armed
+     * trait - so arming it changes the declaration and not one other thing on
+     * this screen. That is exactly where a stale `resolve` closure hides: every
+     * other value that callback depends on stays put, so if `source` is not
+     * among them the snapshot is taken from the first render, where nothing was
+     * declared, and the offer never appears with nothing on screen saying why.
+     * There is no eslint in this repo to notice a missing dependency.
+     */
+    withTypedDice();
+    click(weaponRow('Broadsword'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'the declaration never reached the roll that resolved').toBeDefined();
+    expect(damage!.textContent).toContain('2d8');
+  });
+
+  it('offers [Proficiency]d4 for a roll made with the fists', () => {
+    withTypedDice();
+    click(weaponRow('Unarmed'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'an unarmed attack offered no damage roll').toBeDefined();
+    expect(damage!.textContent).toContain('2d4');
+  });
+
+  it('offers nothing for a roll made with nothing declared', () => {
+    // A persuasion check is a Duality Roll too. It carries no source, and a
+    // damage offer standing under it would be the sheet inventing an attack.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+    expect(damageControl()).toBeUndefined();
+  });
+
+  it('offers nothing for a weapon the character is no longer holding', () => {
+    // The founding rule at its narrowest: the log line this used to write was
+    // `Battleaxe 2d10+3 · 9 + 4 +3 = 16` for a character with empty hands.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    rebuild({ activePrimaryWeapon: null, activeSecondaryWeapon: null });
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    expect(
+      damageControl(),
+      'the sheet offered damage for a weapon it had already said was not equipped',
+    ).toBeUndefined();
+    expect(useApp.getState().log.some((e) => e.kind === 'damage')).toBe(false);
+  });
+
+  it('rolls it, and puts the total where a phone can read it', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+    // Held, rather than looked up again after the tap: the control renames
+    // itself once it has rolled, and a search for the word "damage" now also
+    // finds the Spellcast chips, which name the damage they would cast for.
+    const control = damageControl()!;
+    click(control);
+
+    const entry = useApp.getState().log.find((e) => e.kind === 'damage');
+    expect(entry, 'no damage was written to the log').toBeDefined();
+    expect(entry!.label, 'the log claims a hit the GM never gave').toMatch(/^IF IT HIT/);
+    // There is no log surface on a phone, so the number has to be on the
+    // control itself.
+    expect(control.textContent).toContain(String(entry!.total));
+  });
+
+  it('takes the damage dice by hand, for a table that rolls them on the table', () => {
+    /*
+     * The whole path, through the real screen: arm the axe, type the two
+     * Duality faces, then type the two damage faces the same way. Typing was
+     * half-built before this - the Duality dice took a typed value and the
+     * damage dice had nowhere to put one - so a table with real dice resolved
+     * the attack in the app and did the damage in their heads.
+     */
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+    expect(damageSlots(), 'the axe rolls 2d10+3 and drew no slots for it').toHaveLength(2);
+    // Held before the dice land, because the control renames itself the moment
+    // it has a total to announce.
+    const control = damageControl()!;
+
+    typeDamageFace(0, 7);
+    expect(useApp.getState().log.some((e) => e.kind === 'damage')).toBe(false);
+    typeDamageFace(1, 9);
+
+    const entry = useApp.getState().log.find((e) => e.kind === 'damage');
+    expect(entry, 'the typed dice never reached a damage roll').toBeDefined();
+    // 7 + 9 + 3 on a 2d10+3 pool, and the engine did the addition.
+    expect(entry!.total).toBe(19);
+    expect(entry!.detail).toContain('7 + 9 +3 = 19');
+    expect(control.textContent).toContain('19');
+  });
+
+  /*
+   * The pinned block, measured again after a roll.
+   *
+   * Every sweep in this file runs before any roll has happened, so none of them
+   * has ever seen the damage row. The Duality bar cannot be found by text here:
+   * once a roll resolves its label becomes OUTCOME_LABEL - "Critical Success",
+   * "Rolled with Hope" - and not one of those contains the substring ROLL. It
+   * is found structurally instead, as the one control in the block that fixes
+   * its own height rather than declaring a floor.
+   */
+  it('still costs the pinned block exactly two regions, with typing on', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+    expect(damageControl(), 'this test is not measuring a block with a damage row in it').toBeDefined();
+
+    const rootEl = container.firstElementChild!;
+    expect(rootEl.children, 'the damage row was mounted as a sibling of the scroll').toHaveLength(2);
+    const pinned = rootEl.children[1]!;
+    expect(pinned.children, 'the damage row was mounted beside the roll block').toHaveLength(2);
+  });
+
+  it('leaves every target in the pinned block at the floor after a roll', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+
+    const pinned = container.firstElementChild!.children[1]!;
+    const targets = [...pinned.querySelectorAll('button')];
+    for (const t of targets) {
+      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
+      const value =
+        declared === 'var(--tap)' || declared === 'var(--control)' ? 44 : Number.parseFloat(declared);
+      expect(
+        value,
+        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+
+    const fixed = targets.filter((b) => b.style.height !== '');
+    expect(
+      fixed.map((b) => b.style.height),
+      'the roll bar is no longer the one control that fixes its own height',
+    ).toEqual(['66px']);
   });
 });
 

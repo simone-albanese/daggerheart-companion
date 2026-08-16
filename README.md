@@ -38,8 +38,13 @@ That is not laziness. Modelling 189 cards and their exceptions is a bigger
 project than everything else combined, and every table with a house rule would
 end up fighting the app instead of using it.
 
-Where a feature has a *declared* numeric effect, the app offers a button that
-**proposes** it — never one that applies it silently.
+Where the app can work a number out, it **proposes** it and never applies it
+silently: a successful attack roll offers the damage roll that follows, rather
+than rolling one for you, and the total is read aloud rather than written onto
+anybody's sheet. The same is promised for features with a *declared* numeric
+effect — *"Tusks: +1d6 damage"* — and that half is not built: `rollDamage` takes
+a flat modifier and has no notion of an added die. `BACKLOG.md` P1-1 says so
+under what it leaves out.
 
 ---
 
