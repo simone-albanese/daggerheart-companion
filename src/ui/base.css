@@ -56,6 +56,19 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
+/*
+ * A dialog takes focus itself when it opens - `useDialog.ts` says why it is the
+ * container and not the first control - and the container is not a control, so
+ * the ring above would be reporting something that cannot be pressed. It would
+ * also be drawn on the overlay, which is `position: fixed; inset: 0`: a 2px
+ * hope-coloured rectangle around the entire viewport, offset 2px past its own
+ * edge and half clipped. The panel appearing over a dimmed page is what says
+ * focus has moved, and it is already there. Every control inside keeps its ring.
+ */
+[role='dialog'][tabindex='-1']:focus {
+  outline: none;
+}
+
 input,
 textarea,
 select {
