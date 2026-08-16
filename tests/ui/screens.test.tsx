@@ -108,6 +108,7 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
@@ -531,6 +532,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
+  ),
+  'shared/Counter.tsx::Counter': () => (
+    <Counter kind="stress" value={2} max={6} onChange={noop} label="STRESS" />
   ),
 
   'shell/App.tsx::App': () => <App />,

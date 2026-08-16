@@ -24,6 +24,22 @@ export interface Prefs {
   massiveDamageRule: boolean;
   /** Colour-blind safe mode also shapes the domain marks. Shapes are always on. */
   shapeCoding: boolean;
+  /**
+   * How the four resource counters are drawn on the Play screen.
+   *
+   * Numbers by default. A pip row is the better readout - it shows the size of
+   * the track and how much of it is gone in one glance - and it is the worse
+   * *control*, because moving from 2 to 7 is five separate taps at the touch
+   * floor and any one of them landing wrong is a wrong number on the sheet.
+   * The numeric row keeps a stepper for the one-at-a-time case and puts the
+   * whole value one tap from being typed.
+   *
+   * Scoped to the Play screen on phone and tablet. The desktop cockpit keeps
+   * pips because it has the room and a precise pointer; the GM's party board
+   * and the companion panel keep them because there you are reading somebody
+   * else's state rather than marking your own.
+   */
+  counterStyle: 'numbers' | 'pips';
   wakeLock: boolean;
   reduceMotion: boolean;
   lastScreen: Screen;
@@ -45,6 +61,7 @@ export const DEFAULT_PREFS: Prefs = {
   manualDice: false,
   massiveDamageRule: false,
   shapeCoding: true,
+  counterStyle: 'numbers',
   wakeLock: true,
   reduceMotion: false,
   lastScreen: 'play',

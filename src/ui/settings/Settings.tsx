@@ -293,6 +293,21 @@ function Display({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
         </Field>
 
         <Field
+          label="Counters"
+          hint="On a phone or a tablet, the Play screen's Hit Points, Stress, Hope and Armor Slots can be a number with a stepper, or the row of pips. Numbers also let you tap the value and type it, which pips cannot. The desktop layout, the party board and the companion keep pips either way."
+        >
+          <Choice
+            label="Counters"
+            value={prefs.counterStyle}
+            onChange={(counterStyle) => setPrefs({ counterStyle })}
+            options={[
+              ['numbers', 'Numbers'],
+              ['pips', 'Pips'],
+            ]}
+          />
+        </Field>
+
+        <Field
           label="Keep the screen awake"
           hint={
             wakeLockSupported

@@ -24,7 +24,7 @@ import type { CSSProperties } from 'react';
 
 export type TrackKind = 'hp' | 'stress' | 'hope' | 'armor';
 
-interface Shape {
+export interface Shape {
   clip?: string;
   radius?: string;
   transform?: string;
@@ -33,7 +33,17 @@ interface Shape {
   markHeight: number;
 }
 
-const SHAPES: Record<TrackKind, Shape> = {
+/**
+ * The four silhouettes, exported because the numeric counter row draws them
+ * too.
+ *
+ * The shapes are the reason a thumb reaching for a track without looking
+ * cannot mark the wrong one, and that argument does not stop applying when the
+ * pips are replaced by a number - it applies harder, because four rows of
+ * digits look more alike than four rows of pips do. One table, so the two
+ * readouts cannot drift into disagreeing about which shape Stress has.
+ */
+export const TRACK_SHAPES: Record<TrackKind, Shape> = {
   hp: { radius: '5px', color: 'var(--damage)', markHeight: 38 },
   stress: { radius: '3px', transform: 'skewX(-14deg)', color: 'var(--stress)', markHeight: 30 },
   hope: {
@@ -123,7 +133,7 @@ export function Track({
   headerLayout = 'stacked',
   pending = 0,
 }: Props): React.JSX.Element {
-  const shape = SHAPES[kind];
+  const shape = TRACK_SHAPES[kind];
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
   const [holding, setHolding] = useState(false);
