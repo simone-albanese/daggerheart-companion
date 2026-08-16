@@ -1132,6 +1132,28 @@ describe('the spell, and the +0 that rolls nothing', () => {
     expect(pinnedChip('AGI').getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('stops calling a spell armed when the trait that counted its dice is gone', () => {
+    /*
+     * The declaration outlives the pool. It is a die and a modifier, and the
+     * count is re-derived from the trait every render - so a spell armed at
+     * Presence +3 is still declared when something takes Presence to +0, and it
+     * now resolves to nothing at all. Read off the declaration rather than off
+     * what it resolves to, this panel would draw ARMED and a hope-washed border
+     * around the words NO DICE: the sheet saying a spell is ready to cast in
+     * the same breath as the rule that says it is not.
+     */
+    play(casting(3));
+    click(dieChips()[2]!);
+    expect(panel().textContent).toContain('ARMED');
+    expect(panel().textContent).toContain('3d8');
+
+    play(casting(0));
+    expect(panel().textContent).toContain('NO DICE');
+    expect(panel().textContent, 'a spell with no dice under it still says ARMED').not.toContain(
+      'ARMED',
+    );
+  });
+
   it('draws no panel at all for a character who cannot cast', () => {
     // A Guardian/Stalwart has no Spellcast trait. Four lines explaining that
     // would be the sheet answering a question this character never asked.

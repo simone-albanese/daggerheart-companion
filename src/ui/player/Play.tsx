@@ -866,7 +866,17 @@ function SpellcastPanel({
   // sheet never claimed in the first place.
   if (spell === null) return null;
 
-  const armed = arming.declared?.kind === 'spellcast' ? arming.declared.sides : null;
+  /*
+   * What is armed is what the declaration *resolves to*, not the declaration.
+   *
+   * The two differ in exactly one place, and it is the place this panel is
+   * about: a spell declared while the Spellcast trait was +3 is still declared
+   * when something takes that trait to +0, and `spellcastSource` then resolves
+   * it to nothing. Read off the declaration, this row would draw ARMED and a
+   * hope-washed border around the words NO DICE - the sheet saying a spell is
+   * ready to cast in the same breath as the rule that says it is not.
+   */
+  const armed = arming.source?.kind === 'spellcast' ? arming.source.damage.sides : null;
   const modifier = arming.spellModifier;
   const modText = modifier === 0 ? '' : modifier > 0 ? `+${modifier}` : `${modifier}`;
   const value = spell.rollable ? spell.count : spell.value;
