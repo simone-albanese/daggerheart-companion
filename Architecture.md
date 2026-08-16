@@ -609,6 +609,27 @@ interface Character {
 **Regola d'oro**: il personaggio salva solo `Ref` e valori, mai copie dei contenuti.
 Aggiornare il dataset non tocca i personaggi.
 
+**Nomi uguali** (P5-1(b)). Due personaggi collidono quando coincide il nome
+*come lo pronuncia l'app*, non la stringa salvata: `nameKey` in
+`src/store/merge.ts` toglie gli spazi ai bordi, riduce a uno le sequenze di
+spazi, ignora maiuscole e minuscole, e legge la stringa vuota come `Unnamed` —
+la parola che tredici punti di visualizzazione già stampano al posto di un nome
+mancante. La definizione è una sola ed è privata; `freeName` e `nameHolder` sono
+i due modi di interrogarla.
+
+La regola è applicata in **due punti, non ovunque**: il controllo di rinomina
+(`src/ui/shared/RenameField.tsx`, raggiunto dalla scheda in Play e dal form in
+Build) e la copia *keep-both* di `duplicateFor`. **Non è un invariante del
+device.** Restano scoperte la creazione (`create()` in `state.ts`, che non
+confronta nulla) e l'import di un personaggio con `id` nuovo (`importCharacters`
+decide su `id` e scrive senza guardare i nomi): due `Ilya` possono ancora
+esistere sullo stesso telefono passando da quelle porte — vedi `BACKLOG.md`
+P5-1(c).
+
+Il record può contenere `''`. Nessuna scrittura mette mai la parola `Unnamed`
+sulla scheda: `Unnamed` è ciò che lo schermo stampa, non ciò che il file
+contiene.
+
 ---
 
 ## 8. Struttura del repo

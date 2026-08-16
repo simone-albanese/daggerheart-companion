@@ -1422,7 +1422,7 @@ stops being a fixed-block problem once the page is a document).
 screen. The content is bounded and known"*. It has not been true since
 `91097eb`. It is the founding rule failing inside a comment.
 
-### P5-1(b) · Renaming a character exists, is unreachable, and is unguarded
+### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~ — **done, `14c4118`, `077c5e5`, `aa21391`**
 
 **requested directly** · `src/ui/build/Edit.tsx:113` · `src/store/merge.ts:77` ·
 **small, 2–3 h** · *lands after the rebuild, in the block the rebuild creates*
@@ -1449,22 +1449,56 @@ paragraph preventing when a file arrives.
 One defect wearing two hats: a real capability nobody can reach, and a written
 invariant defended at one of its two doors.
 
-- [ ] Put rename where the name is. The Identity block at the top of the rebuilt
-      Play screen is the sheet's NAME field and is the honest home; the header
-      carries the name on every screen and is the other candidate. Whichever is
-      chosen, the gesture must be deliberate — a name at the top of a scrolling
-      screen that opens a keyboard when a thumb brushes it is worse than a name
-      you cannot edit. State the target size and why it cannot fire by accident.
-- [ ] Enforce uniqueness on the rename path *through* `duplicateFor`'s logic
-      rather than beside it — one rule, two callers, the shape P0-1 settled on
-      for `decideImport` after finding that the correct implementation had no
-      callers at all. Do **not** silently rewrite what the user typed: say the
-      name is taken and offer the suffix. Renaming someone and quietly calling
-      them something else is the honesty rule failing on the one string the user
-      chose personally.
-- [ ] Renaming *to* empty must not produce two characters both displaying
-      `Unnamed`, which is the same collision by another route. The fallback is
-      already everywhere; the collision it can create is not considered anywhere.
+- [x] ~~Put rename where the name is.~~ — **done, `077c5e5`.** The Identity
+      block, on a 72×44 RENAME chip on the class/subclass row, 51 px clear of
+      the header's SETTINGS button (95 px centre to centre, against a ~38–40 px
+      fingertip). The name line itself is still a `<div>` with no role, no
+      `tabIndex` and no handler, because the failure this bullet describes
+      requires the name to be the target. Arming swaps one 44 px row for
+      another inside the same wrapper, so nothing above it moves; the block
+      grows 25 px against a 457 px scroll window, once, permanently.
+- [x] ~~Enforce uniqueness on the rename path *through* `duplicateFor`'s
+      logic.~~ — **done, `14c4118`.** The rule left `duplicateFor`'s body and
+      became `freeName`/`nameHolder`, over one private `nameKey`. The
+      comparison also changed: it was `new Set(taken.map((c) => c.name))`,
+      which could not see "ilya", " Ilya", or two characters both stored as
+      `''`. Nothing is silently rewritten — the refusal names who holds the
+      name and offers the next free one in a control you have to press.
+- [x] ~~Renaming *to* empty must not produce two characters both displaying
+      `Unnamed`.~~ — **done, `14c4118`, `077c5e5`.** `spokenName` reads `''` as
+      `Unnamed`, so the empty case is the same collision as any other and is
+      refused with "both would read \"Unnamed\"". Clearing the field on a lone
+      character still stores `''` and never the word.
+
+### P5-1(c) · The unique-name rule is now enforced at two doors, and there are five
+
+**found while closing P5-1(b)** · `src/store/state.ts:413`, `:508-541` ·
+`src/transfer/fileIo.ts:101-102` · **small, 2–3 h**
+
+P5-1(b) put one comparison behind two callers — the rename control, which Play
+and Build both reach, and `duplicateFor`'s *keep-both* copy. That is not the
+same thing as an invariant, and `Architecture.md` §7 now says so rather than
+claiming one. Three doors are still open, listed separately so that none of
+them becomes silence:
+
+- [ ] **Creation has no guard at all.** `Wizard.tsx:583` sets the draft name,
+      `creation.ts:362` only warns when it is empty, and `state.ts:413`'s
+      `create()` compares nothing. Make a second Ilya from the wizard and both
+      rows of the header's `<select>` read "Ilya". The control already exists —
+      the wizard's name step could go through `RenameField`, or through
+      `nameHolder` for the warning line it already draws.
+- [ ] **A plain import compares `id` and nothing else.** `importCharacters`
+      (`state.ts:508-541`) runs `decideImport` on the id; for an arriving
+      character whose id is new it does `db.putCharacter` with no name
+      comparison. So a `.dhchar` for a genuinely *different* character called
+      Ilya still lands beside the local Ilya. Only the *conflict* path — same
+      id, keep both — is guarded. This is the door `merge.ts`'s own paragraph
+      reads as if it covered, and it does not.
+- [ ] **`characterFileName` slugifies two distinguishable names to one file.**
+      `fileIo.ts:101-102` is `slugify(c.name) || 'character'`, so "Ilya!" and
+      "Ilya?" both export as `ilya.dhchar` and the second silently replaces the
+      first in a folder. The picker can now tell those two apart; the file
+      system still cannot.
 
 ## P5-2 · The GM screen is five menus, and a session is not a menu
 

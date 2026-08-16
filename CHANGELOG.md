@@ -122,6 +122,22 @@ be wrong* at the foot of this entry.
 - **Experiences show their whole name.** They are what the player wrote, so a
   truncated chip has thrown away the entire content of the thing.
 - The character's name, class and level are in the top bar.
+- **You can rename a character from the sheet, and the app will no longer let
+  you make two you cannot tell apart.** Renaming already worked and was four
+  gestures deep in the tab visited least. It is now a 72×44 RENAME chip on the
+  Identity block, 51px clear of the only other target in that band; the name
+  line itself is still not a target, because a name at the top of a scrolling
+  screen that opens a keyboard when a thumb brushes it is worse than a name you
+  cannot edit. Nothing is written until you press SAVE — the old field wrote on
+  every keystroke, which stamped the sheet's "last edited" clock once per
+  letter typed. If another character already answers to the name the app says
+  whose it is and offers the next free one, instead of quietly changing what
+  you typed; "ilya", " Ilya" and a second character with no name at all all
+  count, because the picker draws all three the same. Clearing the name stores
+  nothing rather than writing the word "Unnamed" onto your sheet. This holds on
+  the rename path and on the *keep both* copy of an import. Creating a
+  character, and importing a file that is a genuinely different character with
+  the same name, are still unguarded — `BACKLOG.md` P5-1(c).
 - **iOS stopped zooming the page** when you focus the damage box — done with a
   16px floor on the controls rather than by taking pinch-zoom away from
   everyone.
