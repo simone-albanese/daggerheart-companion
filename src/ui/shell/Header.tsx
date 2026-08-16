@@ -4,7 +4,7 @@
  * "SRD ONLY · NO ART" is how you know at a glance whether the manual import
  * landed, without opening settings.
  */
-import { useApp } from '../../store/state.ts';
+import { useActive, useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -25,6 +25,7 @@ export function Header(): React.JSX.Element {
   const select = useApp((s) => s.select);
   const layers = useApp((s) => s.layers);
   const theme = useApp((s) => s.prefs.theme);
+  const active = useActive();
   const phone = useIsPhone();
 
   const hasManual = layers.some((l) => l.priority > 0);
@@ -69,20 +70,6 @@ export function Header(): React.JSX.Element {
             ))}
           </nav>
         )}
-        {characters.length > 1 && (
-          <select
-            aria-label="Active character"
-            value={activeId ?? ''}
-            onChange={(e) => select(e.target.value)}
-            style={{ minHeight: 'var(--control)', padding: '4px 8px', font: '600 12px/1 var(--sans)' }}
-          >
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name || 'Unnamed'}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
 
       <div className="row" style={{ gap: 14, flex: 'none' }}>
@@ -95,6 +82,61 @@ export function Header(): React.JSX.Element {
             </span>
             <span style={{ color: 'var(--line)' }}>|</span>
           </>
+        )}
+        {/*
+         * Who you are, beside the menu.
+         *
+         * It belongs in the top bar precisely because it is read and never
+         * touched: the top corner of a phone is the hardest place to reach
+         * one-handed, which makes it the right home for a label and the wrong
+         * one for a control - and it costs the Play screen, where every pixel
+         * is contested, nothing at all.
+         *
+         * With one character this is a name, which is new: the picker below
+         * only rendered from two characters up, so a player with a single
+         * character - the ordinary case - had their own name nowhere in the
+         * chrome. With several it is the picker, in the same place, because
+         * "which character" and "who is this" are the same question asked once.
+         *
+         * It moved here from the left row, which also helps: that row wanted
+         * 480px and was allotted 338 at 768px, so this control was being
+         * painted over from the tablet band up. The cap and the ellipsis are
+         * what stop a long name doing the same thing to MENU.
+         */}
+        {characters.length > 1 ? (
+          <select
+            aria-label="Active character"
+            value={activeId ?? ''}
+            onChange={(e) => select(e.target.value)}
+            style={{
+              maxWidth: phone ? 128 : 180,
+              minHeight: 'var(--control)',
+              padding: '4px 8px',
+              font: '600 12px/1 var(--sans)',
+            }}
+          >
+            {characters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name || 'Unnamed'}
+              </option>
+            ))}
+          </select>
+        ) : (
+          active !== null && (
+            <span
+              style={{
+                maxWidth: phone ? 132 : 200,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                font: '700 13px/1 var(--sans)',
+                color: 'var(--text)',
+              }}
+              title={active.name || 'Unnamed'}
+            >
+              {active.name || 'Unnamed'}
+            </span>
+          )
         )}
         <CompatibleIcon size={18} />
         <button

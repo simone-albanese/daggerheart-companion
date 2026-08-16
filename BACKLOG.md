@@ -532,6 +532,31 @@ clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
       boundary. No reachable throw found today, so this is hardening: wrap `.app`
       in a boundary whose fallback is an unconditional "Export everything".
 
+### P3-6 · The card reader says "tap anywhere to close" and means "tap outside"
+`src/ui/shared/DomainCardView.tsx:613, 531, 518` · **trivial, 20 min** · *reported from a phone*
+
+The reader's footer reads **TAP ANYWHERE TO CLOSE**. The backdrop carries
+`onClick={onClose}` at `:518`, and the card panel itself carries
+`onClick={(e) => e.stopPropagation()}` at `:531` — which exists precisely to
+stop a tap on the card from reaching that handler, so that scrolling and
+selecting inside the card do not dismiss it.
+
+Both halves are defensible on their own. Together they put a sentence on screen
+that is not true of the thing it describes, on the surface a player reads most:
+somebody follows the instruction, taps the card, nothing happens, and the app
+has taught them that its words are unreliable. That is the failure this
+project's own rule is written against, and it is worse than a missing hint.
+
+Note the footer text is itself a button and does close, so a tap on those exact
+words works — which is how it survived: whoever tested it tapped the label.
+
+- [ ] Decide which half is the truth and make the other match. Either close on
+      a tap anywhere on the card that is not a scroll or a text selection, or
+      change the copy to say what it does — "TAP OUTSIDE TO CLOSE", with the
+      footer button staying as the explicit control.
+- [ ] Whichever way it goes, the Escape handler at `:507` is already correct and
+      undocumented on screen; a keyboard user is told nothing.
+
 ### P3-5 · One test fails about one run in five, and nothing knows which
 **small, 1–2 h** · *found in this pass, not in the first audit*
 

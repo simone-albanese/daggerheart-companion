@@ -919,14 +919,11 @@ function PlayPhone({
 
         <Items />
 
-        {/* Last, and deliberately. Your own name and class are the one thing
-            on this screen you already know: they are here to be checked once,
-            not reached for, so they pay the scroll rather than the tracks. */}
+        {/* Last, and deliberately: checked once, not reached for. The name
+            itself is not repeated here - it lives in the top bar now, where it
+            costs this screen nothing. */}
         <div style={{ flex: 'none', paddingBottom: 4 }}>
-          <div style={{ font: '800 19px/1 var(--sans)', letterSpacing: '-0.02em' }}>
-            {character.name || 'Unnamed'}
-          </div>
-          <div className="t-meta" style={{ marginTop: 5 }}>
+          <div className="t-meta">
             {(klass === '' ? '—' : klass).toUpperCase()} · LV{character.level}
           </div>
         </div>
