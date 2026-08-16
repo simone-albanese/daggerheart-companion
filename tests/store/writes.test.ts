@@ -170,6 +170,63 @@ describe('a write the device refuses', () => {
   });
 });
 
+describe('a request the database itself refuses', () => {
+  /**
+   * The shape a full disk has: the `put` request fails, and the transaction
+   * aborts because of it. Reached here by aborting the transaction from inside
+   * `put`, which produces exactly that pair - a request error and an abort -
+   * without needing a device that is actually out of space.
+   */
+  function refuseTheNextWrite(): () => void {
+    const real = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function refused(this: IDBObjectStore, ...args: never[]) {
+      const request = real.apply(this, args);
+      this.transaction.abort();
+      return request;
+    } as never;
+    return () => {
+      IDBObjectStore.prototype.put = real;
+    };
+  }
+
+  /**
+   * `idb` builds `tx.done` the moment the transaction is made and attaches its
+   * reject to `error` and `abort` immediately. `putCharacter` is written as
+   * `await tx.store.put(c); await tx.done;`, so a refused request skips the
+   * second line, the transaction aborts anyway, and `tx.done` rejects with an
+   * `AbortError` nobody is holding.
+   *
+   * Catching `putCharacter` does not help: the rejection is on a promise the
+   * caller has never seen. So the one function whose job is to report a failed
+   * write was emitting a second, invisible failure every time it did - which is
+   * the defect this whole file exists for, coming out of the fix for it.
+   */
+  it('does not leave a second rejection behind that nobody is holding', async () => {
+    const seen: unknown[] = [];
+    const record = (reason: unknown): void => void seen.push(reason);
+    process.on('unhandledRejection', record);
+
+    const restore = refuseTheNextWrite();
+    const c = makeCharacter({ name: 'Rook' });
+    seed([c]);
+    store.useApp.getState().update((x) => ({ ...x, name: 'Renamed' }));
+    await store.flushPending();
+    restore();
+
+    // A turn of the loop, which is when Node decides a rejection is unhandled.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    process.off('unhandledRejection', record);
+
+    expect(
+      seen.map((e) => (e instanceof Error ? e.name : String(e))),
+      'the refused write reported itself once to the store and once to nobody',
+    ).toEqual([]);
+    // And it did report itself: without this the test would pass against a
+    // write that simply succeeded.
+    expect(store.useApp.getState().writeError).not.toBeNull();
+  });
+});
+
 describe('a full device', () => {
   it('says it is out of space rather than naming no cause at all', async () => {
     const quota = new DOMException('The quota has been exceeded.', 'QuotaExceededError');

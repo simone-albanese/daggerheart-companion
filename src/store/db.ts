@@ -124,6 +124,37 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
   return dbPromise;
 }
 
+/**
+ * Hold a transaction's `done`, so a refused request is one failure and not two.
+ *
+ * `idb` creates `tx.done` the moment a transaction is wrapped and attaches its
+ * `reject` to the transaction's `error` and `abort` events straight away. Every
+ * function below is written as `await request; await tx.done;` - so when the
+ * request fails, the `await tx.done` line is never reached, the transaction
+ * aborts anyway, and `tx.done` rejects with an `AbortError` that nobody is
+ * holding. Measured: one unhandled rejection per refused write, *in addition*
+ * to the error the caller catches.
+ *
+ * That is the exact failure P0-3 is about, arriving from the code that reports
+ * it. `idb`'s own shorthand methods avoid it with
+ * `Promise.all([op, isWrite && tx.done])` under the comment "Must handle both
+ * promises (no unhandled rejections)"; these transactions are hand-written
+ * because they need more than one request, so they have to do it themselves.
+ *
+ * A `catch` rather than that `Promise.all`: awaiting `tx.done` between two
+ * requests would wait for a transaction that only finishes once no request is
+ * pending, and the next request would then land on a finished transaction.
+ * Whatever aborted it is already being thrown by the request that caused it, so
+ * there is nothing here left to report.
+ */
+function hold<T extends { done: Promise<void> }>(tx: T): T {
+  void tx.done.catch(() => {
+    // Reported by the request that caused it. This exists so the abort is not
+    // *also* an unhandled rejection.
+  });
+  return tx;
+}
+
 // ---------------------------------------------------------------------------
 // Characters
 // ---------------------------------------------------------------------------
@@ -247,7 +278,7 @@ export const getCharacter = async (id: string): Promise<Character | undefined> =
  */
 export async function putCharacter(c: Character): Promise<void> {
   const database = await db();
-  const tx = database.transaction('characters', 'readwrite');
+  const tx = hold(database.transaction('characters', 'readwrite'));
   const existing = (await tx.store.get(c.id)) as unknown as Record<string, unknown> | undefined;
 
   if (existing !== undefined) {
@@ -298,7 +329,7 @@ export async function putLayer(layer: Layer): Promise<void> {
 /** Remove a layer and everything it contributed. The SRD is untouched. */
 export async function removeLayer(layerId: string): Promise<void> {
   const database = await db();
-  const tx = database.transaction(['layers', 'content', 'art'], 'readwrite');
+  const tx = hold(database.transaction(['layers', 'content', 'art'], 'readwrite'));
   await tx.objectStore('layers').delete(layerId);
   for (const store of ['content', 'art'] as const) {
     const index = tx.objectStore(store).index('layerId');
@@ -315,7 +346,7 @@ export const listOverlays = async (): Promise<ContentOverlay[]> => (await db()).
 
 export async function putOverlays(overlays: ContentOverlay[]): Promise<void> {
   const database = await db();
-  const tx = database.transaction('content', 'readwrite');
+  const tx = hold(database.transaction('content', 'readwrite'));
   await Promise.all(overlays.map((o) => tx.store.put(o)));
   await tx.done;
 }
@@ -325,7 +356,7 @@ export const getArt = async (key: string): Promise<ArtRecord | undefined> =>
 
 export async function putArt(records: ArtRecord[]): Promise<void> {
   const database = await db();
-  const tx = database.transaction('art', 'readwrite');
+  const tx = hold(database.transaction('art', 'readwrite'));
   await Promise.all(records.map((r) => tx.store.put(r)));
   await tx.done;
 }
@@ -374,7 +405,7 @@ export async function requestPersistence(): Promise<StorageHealth> {
 /** Wipe everything. Used by "reset app" in settings, never automatically. */
 export async function clearAll(): Promise<void> {
   const database = await db();
-  const tx = database.transaction(['characters', 'layers', 'content', 'art'], 'readwrite');
+  const tx = hold(database.transaction(['characters', 'layers', 'content', 'art'], 'readwrite'));
   await Promise.all([
     tx.objectStore('characters').clear(),
     tx.objectStore('layers').clear(),
