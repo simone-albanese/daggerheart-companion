@@ -329,10 +329,23 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
              * The chip. `TO VAULT` at :207-209 is the in-file precedent for a
              * chip label on this screen and this matches it: `.t-meta` is 10px
              * mono at 0.06em, and legibility in a dim room is bought by the
-             * weight and the ink colour rather than by the word. `--control`
-             * resolves to `--tap`, 44px, at every width below 1180 and on any
-             * coarse pointer; 34px is reached only by a mouse on a wide
-             * screen, which is that token's stated purpose.
+             * weight and the ink colour rather than by the word.
+             *
+             * `--control` resolves to `--tap`, 44px, at every width below 1180
+             * and whenever the *primary* pointer is coarse - `tokens.css:174`,
+             * pinned by `header.test.ts:189`. Primary, not `any-pointer`:
+             * `tokens.css:180-186` makes that distinction on purpose for
+             * `--pip-h` and `stylesheets.test.ts:287` keeps `--control` out of
+             * it, because widening it would crush the desktop cockpit's roll
+             * panel from the inside. So a touchscreen laptop at 1280px answers
+             * `pointer: fine` and gets a 34px chip with a finger available.
+             * That is the token's behaviour for every chip in the app rather
+             * than a choice made here, and this chip follows it instead of
+             * pinning `--tap`: a rename that was the one 44px chip on a
+             * cockpit of 34px ones would be answering the token's question
+             * again, in one place, where the answer would then disagree with
+             * `TO VAULT` eleven rows down. Every width the sheet is actually
+             * played at is coarse-primary and gets 44.
              */}
             <button
               type="button"
