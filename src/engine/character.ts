@@ -111,11 +111,28 @@ export interface DerivedStats {
   traits: Record<Trait, number>;
   /** The Beastform being worn right now, or null. */
   beastform: BeastformInPlay | null;
-  /** [Major, Severe]. */
+  /** [Major, Severe]. Not this character's numbers when `unresolvedArmor` is set. */
   thresholds: [number, number];
   /** Twice Severe: the optional Massive Damage rule. */
   massiveThreshold: number;
   armorScore: number;
+  /**
+   * The armor the sheet names that this build cannot resolve, or null.
+   *
+   * "Wearing armor this build cannot name" and "wearing no armor" are two
+   * different situations and they must not read as one number. When this is
+   * set, `thresholds` above is the *unarmored* ladder - a floor, not a fact:
+   * a level 5 character in improved chainmail reads 16/29 on the sheet the
+   * armor came from and 5/10 out of that formula. Anything that prints those
+   * two numbers without saying where they came from is telling the table
+   * something untrue, so the ref rides out with the stats rather than being
+   * swallowed by the branch that means "no armor".
+   *
+   * `armorScore` is the other half: with the armor unknown its Score is
+   * unknown too, so the sheet's own Armor Slot maximum is carried through
+   * instead of the unarmored zero.
+   */
+  unresolvedArmor: Ref | null;
   maxHp: number;
   maxStress: number;
   maxHope: number;
@@ -144,7 +161,17 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   // Each "increase Proficiency" advancement costs two slots but adds one.
   const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
 
-  const armor = c.activeArmor ? ix.armors.get(c.activeArmor) : undefined;
+  // A ref this dataset does not hold is not the same fact as an empty slot, and
+  // taking the same branch for both is how a Guardian in improved chainmail
+  // reads 5/10 at level 5 instead of 16/29 with nothing on screen saying the
+  // armor was not understood. The unresolved ref is carried out with the stats
+  // so a caller can tell the two apart; this is the call `normalizeIncoming`
+  // (P0-7) already makes at the store's door, where a maximum this build had to
+  // guess at is not allowed to clamp the numbers a sheet arrived with.
+  const wornRef: Ref | null = c.activeArmor === null || c.activeArmor === '' ? null : c.activeArmor;
+  const armor = wornRef === null ? undefined : ix.armors.get(wornRef);
+  const unresolvedArmor: Ref | null = armor === undefined ? wornRef : null;
+
   // Unarmored: Major equals level, Severe equals twice level, no armor slots.
   const baseThresholds: [number, number] = armor
     ? [armor.baseThresholds[0], armor.baseThresholds[1]]
@@ -154,7 +181,18 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     baseThresholds[1] + c.level,
   ];
 
-  const armorScore = Math.min(MAX_ARMOR_SCORE, armor ? armor.baseScore : 0);
+  /*
+   * Zero is an answer, and it is the wrong one for armor nobody can name.
+   * `syncCounters` writes this number straight into `armorSlots.max` and pulls
+   * `marked` down with it, so answering "no slots" for an unresolvable ref
+   * empties the Armor track of a character who is wearing armor - permanently,
+   * at the next level-up or armor change, on a sheet that was only ever passing
+   * through this build. The slot maximum the sheet already carries was written
+   * by a build that *could* name the armor, so it is kept rather than replaced.
+   */
+  const baseScore =
+    armor?.baseScore ?? (unresolvedArmor === null ? 0 : Math.max(0, c.armorSlots.max));
+  const armorScore = Math.min(MAX_ARMOR_SCORE, baseScore);
 
   const baseEvasion =
     c.evasionOverride ??
@@ -214,6 +252,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     thresholds,
     massiveThreshold: thresholds[1] * 2,
     armorScore,
+    unresolvedArmor,
     maxHp,
     maxStress,
     maxHope,

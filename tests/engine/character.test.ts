@@ -112,6 +112,59 @@ describe('damage thresholds', () => {
   });
 });
 
+/**
+ * Armor the sheet names and this build cannot resolve.
+ *
+ * It happens whenever a character crosses builds: a `.dhchar` written where a
+ * homebrew layer was installed, a QR from a newer bundle whose registry has
+ * grown, a ref parked as `?60007` by the codec. The sheet still says the
+ * character is wearing armor. What this build must not do is answer the
+ * question it was not asked - "what are the thresholds of someone wearing
+ * nothing" - and hand back the answer as though it were theirs.
+ */
+describe('armor this build cannot resolve', () => {
+  const parked = { level: 5, activeArmor: '?60007' } as const;
+
+  it('says so, instead of quietly deriving the unarmored numbers', () => {
+    const s = stats(parked);
+    expect(s.unresolvedArmor).toBe('?60007');
+    // Control: the same level with the slot really empty is the same numbers
+    // and no ref, which is exactly the pair that used to be indistinguishable.
+    const bare = stats({ level: 5 });
+    expect(bare.unresolvedArmor).toBeNull();
+    expect(bare.thresholds).toEqual(s.thresholds);
+  });
+
+  it('is null for armor the dataset holds, and for an empty slot', () => {
+    expect(stats({ activeArmor: 'plate' }).unresolvedArmor).toBeNull();
+    expect(stats({ activeArmor: null }).unresolvedArmor).toBeNull();
+  });
+
+  it('keeps the Armor Slots the sheet arrived with rather than zeroing them', () => {
+    // The score cannot be recomputed - the armor is unknown - so the maximum
+    // the sheet carries is the last one a build that could read it wrote.
+    const s = stats({ ...parked, armorSlots: { marked: 2, max: 6 } });
+    expect(s.armorScore).toBe(6);
+    // Control: with nothing equipped there is nothing to preserve, and a
+    // stored maximum is not evidence of armor.
+    expect(stats({ armorSlots: { marked: 2, max: 6 } }).armorScore).toBe(0);
+  });
+
+  it('still clamps a preserved Armor Score at twelve', () => {
+    expect(stats({ ...parked, armorSlots: { marked: 0, max: 99 } }).armorScore).toBe(
+      MAX_ARMOR_SCORE,
+    );
+  });
+
+  it('does not let syncCounters empty the Armor track of armor it cannot name', () => {
+    // This is where zero used to do its damage: `normalizeActive` runs on every
+    // level-up and armor change, and it would have written max 0 over a track
+    // the player is marking, taking their marked slots with it.
+    const c = makeCharacter({ ...parked, armorSlots: { marked: 3, max: 6 } });
+    expect(syncCounters(c, deriveStats(c, ds)).armorSlots).toEqual({ marked: 3, max: 6 });
+  });
+});
+
 describe('maxima', () => {
   it('clamps Hit Points at 12', () => {
     const history = Array.from({ length: 20 }, () => advancement('hitPoint', 'hit-point', 2));

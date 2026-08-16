@@ -234,6 +234,21 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
   // A Beastform replaces Evasion, so the panel says so twice: sage, and the
   // number it replaced printed struck through underneath it.
   const worn = stats.beastform;
+  const character = useActive();
+  /*
+   * Two numbers this panel is not entitled to print.
+   *
+   * With the armor on the sheet unresolvable, what `deriveStats` hands over is
+   * the unarmored ladder - level and twice level - and a level 5 character in
+   * improved chainmail would read 5/10 here where their sheet says 16/29.
+   * Printing it in the same weight as the real thing is the app claiming
+   * something it does not know, so the panel names the armor it cannot find
+   * instead. A manual threshold override closes the gap: the sheet then states
+   * the numbers outright rather than deriving them, which is the same rule the
+   * GM's party board applies in `findGaps`.
+   */
+  const unknownThresholds =
+    stats.unresolvedArmor !== null && character !== null && character.thresholdOverride === null;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '96px 1fr', gap: 8 }}>
       <div
@@ -267,13 +282,24 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
           <div className="t-meta" style={{ letterSpacing: '0.1em' }}>
             DAMAGE THRESHOLDS
           </div>
-          <div className="row" style={{ marginTop: 6, alignItems: 'baseline', gap: 8 }}>
-            <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[0]}</span>
-            <span className="t-meta">MAJOR</span>
-            <span style={{ width: 1, height: 14, background: 'var(--line)' }} />
-            <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[1]}</span>
-            <span className="t-meta">SEVERE</span>
-          </div>
+          {unknownThresholds ? (
+            <div className="stack" style={{ marginTop: 6, gap: 4 }}>
+              <span className="t-meta" style={{ color: 'var(--damage)' }}>
+                ARMOR NOT IN THIS BUILD
+              </span>
+              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+                {stats.unresolvedArmor}
+              </span>
+            </div>
+          ) : (
+            <div className="row" style={{ marginTop: 6, alignItems: 'baseline', gap: 8 }}>
+              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[0]}</span>
+              <span className="t-meta">MAJOR</span>
+              <span style={{ width: 1, height: 14, background: 'var(--line)' }} />
+              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[1]}</span>
+              <span className="t-meta">SEVERE</span>
+            </div>
+          )}
         </div>
         <div className="t-meta" style={{ marginTop: 8, letterSpacing: '0.06em' }}>
           PROFICIENCY{' '}

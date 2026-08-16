@@ -61,10 +61,35 @@ export function Vitals({
 
   const amount = Number(incoming);
   const available = character.armorSlots.max - character.armorSlots.marked;
+
+  /*
+   * The one question this panel cannot answer.
+   *
+   * Every verdict below is read off the damage thresholds, and the thresholds
+   * are the armor's. When the sheet names armor this build does not have -
+   * a `.dhchar` from a device with a homebrew layer, a QR from a newer bundle -
+   * `deriveStats` says so with `unresolvedArmor` and falls back to the
+   * unarmored ladder, which is a floor and not this character's numbers. Every
+   * threshold real armor prints is higher, so answering from it would call a
+   * Minor hit Major and have the player mark HP they did not take. So the
+   * calculator stops asking for a number it cannot read: the tracks above are
+   * still there to be marked by hand, which is what the table does anyway when
+   * the app is not sure. A manual threshold override settles the thresholds by
+   * itself - they are then a fact the sheet carries rather than a lookup - so
+   * it puts the calculator back in business.
+   */
+  const ladderUnknown = stats.unresolvedArmor !== null && character.thresholdOverride === null;
+
   const preview =
-    incoming !== '' && Number.isFinite(amount)
+    !ladderUnknown && incoming !== '' && Number.isFinite(amount)
       ? applyDamage(amount, stats, available, { armorSlots: useArmor, massiveDamageRule })
       : null;
+
+  const unknownLadder = (
+    <span className="t-meta" style={{ color: 'var(--damage)', flex: 1, minWidth: 0 }}>
+      ARMOR NOT IN THIS BUILD · MARK HP BY HAND
+    </span>
+  );
 
   const phone = layout === 'phone';
   // 46px on a phone is the thumb target from the design. On desktop the mouse
@@ -264,10 +289,16 @@ export function Vitals({
           )}
           {part !== 'tracks' && (
             <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <span className="t-label" style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}>
-                TOOK
-              </span>
-              {inlineDamage}
+              {/* No TOOK prompt when nothing can be typed into it. */}
+              {!ladderUnknown && (
+                <span
+                  className="t-label"
+                  style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}
+                >
+                  TOOK
+                </span>
+              )}
+              {ladderUnknown ? unknownLadder : inlineDamage}
             </div>
           )}
         </>
@@ -329,22 +360,27 @@ export function Vitals({
           display: phone ? 'none' : 'flex',
         }}
       >
-        <span className="t-meta" style={{ flex: 'none' }}>
-          TOOK
-        </span>
-        <input
-          type="number"
-          inputMode="numeric"
-          value={incoming}
-          placeholder="damage"
-          onChange={(e) => {
-            setIncoming(e.target.value);
-            setUseArmor(0);
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && commit()}
-          style={{ width: 84, minHeight: 'var(--control)', padding: '6px 8px', font: '600 15px/1 var(--mono)' }}
-        />
-        {preview === null ? (
+        {ladderUnknown && unknownLadder}
+        {!ladderUnknown && (
+          <>
+            <span className="t-meta" style={{ flex: 'none' }}>
+              TOOK
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={incoming}
+              placeholder="damage"
+              onChange={(e) => {
+                setIncoming(e.target.value);
+                setUseArmor(0);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && commit()}
+              style={{ width: 84, minHeight: 'var(--control)', padding: '6px 8px', font: '600 15px/1 var(--mono)' }}
+            />
+          </>
+        )}
+        {ladderUnknown ? null : preview === null ? (
           <span className="t-meta" style={{ color: 'var(--dim)' }}>
             {stats.thresholds[0]} MAJOR · {stats.thresholds[1]} SEVERE
           </span>
