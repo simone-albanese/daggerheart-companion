@@ -772,3 +772,73 @@ describe('validatePlan: the upgraded subclass and multiclass cross each other ou
     ).toBe(true);
   });
 });
+
+describe('validatePlan: a black-boxed option marks both of its boxes', () => {
+  /**
+   * The rule is explicit: *"you must spend two advancements and mark BOTH
+   * level-up slots in order to take it."* Proficiency and Multiclass are the two
+   * printed inside a black box, and each prints two boxes joined.
+   *
+   * Everything counted one box per taking, and `slots` was documented as the
+   * number of takings - which is true only of the options whose boxes are
+   * separate. So Proficiency validated `ok` at level 5 and again at level 6,
+   * `LevelUp.tsx` even rendered "TIER 3 · 1 OF 2 LEFT" in between, and a level 10
+   * character reached Proficiency 8 where the sheet allows 6. That is a `d8+2`
+   * weapon rolling `8d8+2` instead of `6d8+2` - two extra damage dice on the roll
+   * a player makes most, with nothing on screen saying anything was wrong.
+   */
+  const proficiencyAt = (level: number, tier: Tier): Character =>
+    at(level, { levelUpHistory: [advancement('proficiency', 'proficiency', tier, level - 1)] });
+
+  it('fills the tier in one taking', () => {
+    const c = proficiencyAt(6, 3);
+    const usage = slotUsage(c).find((u) => u.optionId === 'proficiency' && u.tier === 3)!;
+    expect(usage.used, 'one taking marked one box, so the other is still on offer').toBe(2);
+    expect(usage.remaining).toBe(0);
+  });
+
+  it('refuses a second Proficiency in the same tier', () => {
+    expect(errorsOf(proficiencyAt(6, 3), plan(6, [pick('proficiency', 3)]))).toMatch(
+      /has no unmarked slots left at tier 3/,
+    );
+  });
+
+  it('refuses a second Multiclass in the same tier', () => {
+    const c = at(7, { levelUpHistory: [advancement('multiclass', 'multiclass', 3, 6)] });
+    expect(errorsOf(c, plan(7, [pick('multiclass', 3, { classRef: 'c2', subclassRef: 's2', domain: 'blade' })]))).toMatch(
+      /has no unmarked slots left at tier 3/,
+    );
+  });
+
+  it('offers it again in the next tier, which prints its own pair of boxes', () => {
+    const c = at(9, { levelUpHistory: [advancement('proficiency', 'proficiency', 3, 5)] });
+    expect(validatePlan(c, plan(9, [pick('proficiency', 4)])).ok).toBe(true);
+  });
+
+  /**
+   * The control. A change that made every option single-take would satisfy every
+   * assertion above, so an unboxed option with two boxes has to still take two.
+   */
+  it('leaves the options whose boxes are separate taking one box each', () => {
+    const c = at(4, { levelUpHistory: [advancement('hitPoint', 'hit-point', 2, 3)] });
+    const usage = slotUsage(c).find((u) => u.optionId === 'hit-point' && u.tier === 2)!;
+    expect(usage.used).toBe(1);
+    expect(usage.remaining).toBe(1);
+    expect(validatePlan(c, plan(4, [pick('hit-point', 2), pick('evasion', 2)])).ok).toBe(true);
+  });
+
+  /**
+   * And the number the player actually reads. Two legal takings, one per tier,
+   * and the weapon rolls two more dice than it did - not four.
+   */
+  it('is worth exactly one damage die per tier', () => {
+    const c = at(10, {
+      level: 10,
+      levelUpHistory: [
+        advancement('proficiency', 'proficiency', 3, 5),
+        advancement('proficiency', 'proficiency', 4, 8),
+      ],
+    });
+    expect(deriveStats(c, ds).proficiency).toBe(baseAt(10) + 2);
+  });
+});

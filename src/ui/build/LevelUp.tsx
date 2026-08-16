@@ -27,6 +27,7 @@ import {
   applyLevelUp,
   availableOptions,
   slotUsage,
+  slotsPerTaking,
   tierAchievementFor,
   validatePlan,
   type AdvancementOption,
@@ -101,8 +102,12 @@ export function LevelUp({
   const options = availableOptions(tier);
   const usage = new Map(slotUsage(character).map((u) => [`${u.optionId}@${u.tier}`, u]));
 
-  const spentThisPlan = (id: string, t: Tier): number =>
-    picks.filter((p) => p.optionId === id && p.optionTier === t).length;
+  // Boxes, not takings, and through the engine's own helper - this used to be
+  // its own count of entries, so the button and the validator disagreed about
+  // whether a black-boxed option still had room.
+  const spentThisPlan = (option: AdvancementOption & { tier: Tier }): number =>
+    picks.filter((p) => p.optionId === option.id && p.optionTier === option.tier).length *
+    slotsPerTaking(option);
 
   const picksUsed = picks.reduce(
     (n, p) => n + (options.find((o) => o.id === p.optionId && o.tier === p.optionTier)?.costsBothPicks === true ? 2 : 1),
@@ -280,7 +285,7 @@ export function LevelUp({
                     </span>
                     {inTier.map((option) => {
                       const key = `${option.id}@${option.tier}`;
-                      const used = (usage.get(key)?.used ?? 0) + spentThisPlan(option.id, option.tier);
+                      const used = (usage.get(key)?.used ?? 0) + spentThisPlan(option);
                       const pick = chosen(option.id, option.tier);
                       const full = used >= option.slots && pick === undefined;
                       return (
@@ -322,7 +327,7 @@ export function LevelUp({
               <BlackBox>
                 {boxed.map((option) => {
                   const key = `${option.id}@${option.tier}`;
-                  const used = (usage.get(key)?.used ?? 0) + spentThisPlan(option.id, option.tier);
+                  const used = (usage.get(key)?.used ?? 0) + spentThisPlan(option);
                   const pick = chosen(option.id, option.tier);
                   const full = used >= option.slots && pick === undefined;
                   return (

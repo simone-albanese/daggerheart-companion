@@ -23,7 +23,12 @@ export interface AdvancementOption {
   id: string;
   label: string;
   detail: string;
-  /** How many times this option may be taken within the tier. */
+  /**
+   * How many of the tier's boxes this option prints on the sheet.
+   *
+   * Not "how many times it may be taken" - that is only the same number for the
+   * options whose boxes are separate. See `slotsPerTaking`.
+   */
   slots: number;
   /**
    * Proficiency and Multiclass are printed inside a black box: taking one
@@ -182,6 +187,24 @@ export function tierAchievementFor(level: number): TierAchievement | null {
   return null;
 }
 
+/**
+ * How many of a tier's boxes one taking of this option marks.
+ *
+ * The black-boxed options - Proficiency and Multiclass - print their two boxes
+ * joined, and the rule is explicit: *"you must spend two advancements and mark
+ * BOTH level-up slots in order to take it."* One taking therefore fills the
+ * option for that tier.
+ *
+ * Everything here used to count one box per taking, and `slots` was documented
+ * as the number of takings - true only of the unboxed options. So Proficiency
+ * could be taken at level 5 and again at level 6, both validating `ok`, and a
+ * level 10 character reached Proficiency 8 where the sheet allows 6: a `d8+2`
+ * weapon rolling `8d8+2` instead of `6d8+2`, which is a wrong number on the one
+ * roll a player makes most.
+ */
+export const slotsPerTaking = (option: AdvancementOption): number =>
+  option.costsBothPicks ? option.slots : 1;
+
 export interface SlotUsage {
   optionId: string;
   tier: Tier;
@@ -193,10 +216,25 @@ export interface SlotUsage {
 /** How many slots of each option the character has already spent. */
 export function slotUsage(c: Character): SlotUsage[] {
   return availableOptions(4).map((o) => {
-    const used = c.levelUpHistory.filter(
+    const takings = c.levelUpHistory.filter(
       (h) => h.detail['optionId'] === o.id && h.detail['optionTier'] === o.tier,
     ).length;
-    return { optionId: o.id, tier: o.tier, used, slots: o.slots, remaining: o.slots - used };
+    const used = takings * slotsPerTaking(o);
+    /*
+     * Clamped, because a character levelled by a build that had this wrong
+     * carries two takings of a boxed option in one tier and would report four
+     * boxes used of two. Their sheet is not rewritten: the advancement was
+     * taken, the history says so, and quietly removing one would be the app
+     * deciding a player's record was wrong. What changes is that the tier is
+     * full from here on.
+     */
+    return {
+      optionId: o.id,
+      tier: o.tier,
+      used,
+      slots: o.slots,
+      remaining: Math.max(0, o.slots - used),
+    };
   });
 }
 
@@ -271,7 +309,7 @@ export function validatePlan(c: Character, plan: LevelUpPlan): Validation {
     picksUsed += option.costsBothPicks ? 2 : 1;
 
     const already = (usage.get(key)?.used ?? 0) + (takenThisLevel.get(key) ?? 0);
-    takenThisLevel.set(key, (takenThisLevel.get(key) ?? 0) + 1);
+    takenThisLevel.set(key, (takenThisLevel.get(key) ?? 0) + slotsPerTaking(option));
     if (already >= option.slots) {
       errors.push(`"${option.label}" has no unmarked slots left at tier ${option.tier}.`);
     }
