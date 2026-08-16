@@ -117,3 +117,187 @@ describe('stylesheets', () => {
     expect(tokens).toMatch(/@media[^{]*pointer:\s*coarse[\s\S]*?--control:\s*var\(--tap\)/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The palettes
+// ---------------------------------------------------------------------------
+
+const tokensCss = readFileSync(join(DIR, 'tokens.css'), 'utf8');
+
+/**
+ * The custom properties declared in one block.
+ *
+ * None of the three palette blocks contains a nested rule, so the first `}`
+ * really is the end of it - checked by the brace test above, which is what
+ * makes this parse safe to rely on.
+ */
+/*
+ * Comments only. `strip` above also blanks quoted strings so that a brace
+ * inside one cannot be miscounted, which is right for balancing and wrong
+ * here: it turns `[data-theme='light']` into `[data-theme='']` and every
+ * selector below stops matching.
+ */
+const withoutComments = tokensCss.replace(/\/\*[\s\S]*?\*\//g, '');
+
+const block = (selector: string): Record<string, string> => {
+  const at = withoutComments.indexOf(selector);
+  expect(at, `${selector} is not in tokens.css`).toBeGreaterThanOrEqual(0);
+  const body = withoutComments.slice(at + selector.length);
+  const end = body.indexOf('}');
+  const out: Record<string, string> = {};
+  for (const [, name, value] of body.slice(0, end).matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+    out[name!] = value!.trim();
+  }
+  return out;
+};
+
+const DARK = block(':root {');
+const LIGHT_CHOSEN = block(":root[data-theme='light'] {");
+const LIGHT_SYSTEM = block(":root[data-theme='system'] {");
+
+describe('the two light palettes', () => {
+  /*
+   * There are two of them and both are live: `App.tsx` writes `prefs.theme`
+   * onto the root, and 'system' is a legal value, so a user who never touched
+   * the theme setting is served by the media block while a user who chose
+   * Light is served by the attribute block. They are the same 23 declarations
+   * written out twice, and a media query cannot be folded into a selector
+   * list, so they stay duplicated until this project is willing to require
+   * `light-dark()` - which is newer than anything else this tree uses, and not
+   * worth a browser floor for a colour refactor.
+   *
+   * What that leaves is the real hazard: an edit to one and not the other,
+   * which nobody would see, because seeing it means having the theme set the
+   * other way. So they are pinned to each other.
+   */
+  it('declare exactly the same tokens', () => {
+    expect(Object.keys(LIGHT_SYSTEM).sort()).toEqual(Object.keys(LIGHT_CHOSEN).sort());
+  });
+
+  it('declare exactly the same values', () => {
+    expect(LIGHT_SYSTEM).toEqual(LIGHT_CHOSEN);
+  });
+
+  it('override every colour the dark palette sets', () => {
+    // A colour left out of the light blocks silently keeps its dark value,
+    // which is how a dark-only token ends up unreadable on paper-white.
+    const colours = Object.entries(DARK)
+      .filter(([, v]) => /^#[0-9a-f]{3,8}$/i.test(v))
+      .map(([k]) => k);
+    expect(colours.length).toBeGreaterThan(10);
+    for (const name of colours) {
+      expect(LIGHT_CHOSEN, `${name} has no light value`).toHaveProperty(name);
+    }
+  });
+});
+
+// WCAG relative luminance, straight from the spec.
+const luminance = (hex: string): number => {
+  const h = hex.replace('#', '');
+  const channels = [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+};
+
+const contrast = (a: string, b: string): number => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+};
+
+describe('contrast, computed from the tokens themselves', () => {
+  /*
+   * Six pairs were below AA when this was measured, and `--dim` alone carries
+   * 44 of the 61 small-caps labels in the app - the 10px word naming every
+   * control on a screen used in a dim room. Numbers in a table go stale the
+   * moment somebody nudges a hex value, so this computes them instead.
+   *
+   * The floors are the ones WCAG actually sets, and the distinction matters:
+   * 4.5 is for text, 3.0 is for a boundary or a shape that carries meaning.
+   * An unmarked pip is the second kind - it is not read, it is counted.
+   */
+  const SURFACES = ['--app', '--panel', '--raised'] as const;
+
+  const palettes: Array<[string, Record<string, string>]> = [
+    ['dark', DARK],
+    ['light', LIGHT_CHOSEN],
+  ];
+
+  it.each(palettes)('%s: every text token clears 4.5:1 on every surface', (_name, palette) => {
+    const failures: string[] = [];
+    for (const token of ['--text', '--text-2', '--text-3', '--muted', '--dim']) {
+      for (const surface of SURFACES) {
+        const ratio = contrast(palette[token]!, palette[surface]!);
+        if (ratio < 4.5) failures.push(`${token} on ${surface} = ${ratio.toFixed(2)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it.each(palettes)('%s: the boundary token clears 3:1 on every surface', (_name, palette) => {
+    const failures: string[] = [];
+    for (const surface of SURFACES) {
+      const ratio = contrast(palette['--edge']!, palette[surface]!);
+      if (ratio < 3) failures.push(`--edge on ${surface} = ${ratio.toFixed(2)}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it.each(palettes)('%s: a marked pip is 3:1 against the panel it sits on', (_name, palette) => {
+    // These are shapes, not text: the question is whether you can see how many
+    // are filled from across a table, not whether you can read them.
+    const failures: string[] = [];
+    for (const token of ['--damage', '--stress', '--hope', '--armor']) {
+      const ratio = contrast(palette[token]!, palette['--panel']!);
+      if (ratio < 3) failures.push(`${token} on --panel = ${ratio.toFixed(2)}`);
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('light --hope is readable on its own wash, which is where the verdict prints it', () => {
+    // The phone's verdict line is --hope over --hope-wash over --panel, and
+    // that composite was 3.17:1 - a heading nobody could read in daylight.
+    const wash = /--hope-wash:\s*rgb\(([\d\s]+)\/\s*([\d.]+)\)/.exec(
+      Object.entries(LIGHT_CHOSEN).map(([k, v]) => `${k}: ${v}`).join('\n'),
+    );
+    expect(wash, 'the light hope wash is not an rgb() with an alpha').not.toBeNull();
+    const [r, g, b] = wash![1]!.trim().split(/\s+/).map(Number);
+    const alpha = Number(wash![2]);
+    const panel = LIGHT_CHOSEN['--panel']!.replace('#', '');
+    const composite =
+      '#' +
+      [r!, g!, b!]
+        .map((channel, i) => {
+          const under = Number.parseInt(panel.slice(i * 2, i * 2 + 2), 16);
+          return Math.round(channel * alpha + under * (1 - alpha))
+            .toString(16)
+            .padStart(2, '0');
+        })
+        .join('');
+    expect(contrast(LIGHT_CHOSEN['--hope']!, composite)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('the pip tokens', () => {
+  it('size for any coarse pointer, not just the primary one', () => {
+    // An iPad in a keyboard case reports `pointer: fine` and still has a
+    // finger attached to it.
+    expect(tokensCss).toMatch(/@media[^{]*any-pointer:\s*coarse[\s\S]*?--pip-h:\s*var\(--tap\)/);
+  });
+
+  it('does not drag --control along with them', () => {
+    /*
+     * The trap this token exists to avoid. `--control` gates every chip in the
+     * app including the ones inside the desktop cockpit's roll panel, which
+     * clips its own overflow - so widening --control to `any-pointer` would
+     * crush that panel from the inside, which is the very failure the tablet
+     * band already has.
+     */
+    const anyPointerBlocks = tokensCss.match(/@media[^{]*any-pointer:\s*coarse[^{]*\{[\s\S]*?\n\}/g) ?? [];
+    expect(anyPointerBlocks.length).toBeGreaterThan(0);
+    for (const rule of anyPointerBlocks) expect(rule).not.toMatch(/--control:/);
+  });
+
+  it('never lets a pip go below the WCAG target floor', () => {
+    expect(tokensCss).toMatch(/--pip-min:\s*24px/);
+  });
+});

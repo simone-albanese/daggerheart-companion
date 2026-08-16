@@ -62,7 +62,13 @@ select {
   font: inherit;
   color: var(--text);
   background: var(--app);
-  border: 1px solid var(--line);
+  /*
+   * --edge, not --line. A field's fill is --app on a ground that is also
+   * --app, so this hairline is the entire boundary of the control - there is
+   * nothing else saying where it begins. --line is a divider colour and at
+   * 1.45:1 it was doing a job it is not bright enough for.
+   */
+  border: 1px solid var(--edge);
   border-radius: var(--r2);
   padding: 10px 12px;
   min-height: var(--tap);

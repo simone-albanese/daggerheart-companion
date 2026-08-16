@@ -59,14 +59,14 @@
   --text: #e8e6e1;
   --text-2: #c8c5be;
   --text-3: #b4b1ab;
-  --muted: #9aa0ad;
-  --dim: #6b7180;
+  --muted: #a6acb7;
+  --dim: #888e9c;
   --empty: #343a49;
 
   /* The two forces. Hope reads as light, Fear as pressure - never as
      good and bad. */
   --hope: #ffd98e;
-  --fear: #a97bf2;
+  --fear: #ae83f3;
   --damage: #ff5d52;
   --stress: #e08c3c;
   --armor: #9ba6c4;
@@ -115,6 +115,46 @@
    * has to be in a value they can read rather than a rule applied over them.
    */
   --control: 34px;
+
+  /*
+   * How tall a pip is, and how narrow it is ever allowed to get.
+   *
+   * Deliberately not `--control`. That token gates every chip in the app,
+   * including the ones inside the desktop cockpit's roll panel, and that panel
+   * is `flex: 1, min-height: 0, overflow: hidden` - so widening `--control`'s
+   * query to catch touchscreens would inflate the panel's contents from the
+   * inside and crush them against its own clip. That is the same failure the
+   * tablet band already has, arriving on the desktop as a side effect of
+   * fixing it. A pip is a different question from a chip anyway: the honest
+   * test for "a thumb may land here" is whether the machine has *a* coarse
+   * pointer at all, because an iPad with a keyboard attached, and every
+   * touchscreen laptop, reports `pointer: fine` while a finger can still
+   * reach the glass.
+   */
+  --pip-h: 34px;
+  /*
+   * WCAG 2.5.8's target floor. A track that would push its pips below this
+   * sheds a column and wraps instead of shrinking further - thirteen of the
+   * thirty-four SRD armours score 6 or more, and at score 8 in a fixed column
+   * an armour pip measured 12.1px, which is not a small target but a
+   * non-compliant one.
+   */
+  --pip-min: 24px;
+  --pip-gap: 5px;
+
+  /*
+   * The boundary that has to be *seen*, as opposed to the ones that only have
+   * to be sensed.
+   *
+   * `--line` is correctly a whisper: a divider carries no information on its
+   * own and 1.4.11 does not ask it to. Three places are not dividers - the rim
+   * of an unmarked pip, which is the only thing saying how big a track is; the
+   * border of a text field, whose fill is `--app` on an `--app` ground, so the
+   * hairline is the entire boundary; and the inactive tab glyph. Those read
+   * this instead, and it clears 3:1 on `--app`, `--panel` and `--raised`
+   * alike, because all three of them occur.
+   */
+  --edge: #67718d;
   --motion: 150ms;
 
   /*
@@ -138,6 +178,22 @@
 }
 
 /*
+ * The pip height answers a wider question than the control height, on purpose.
+ *
+ * `any-pointer` is true when *some* pointer on the machine is coarse, where
+ * `pointer` only describes the primary one. An iPad in a keyboard case and a
+ * touchscreen laptop both answer `pointer: fine` and both have a finger
+ * available; the tracks are the one surface where that finger is the normal
+ * way in, so they size for it. This is a separate query rather than a wider
+ * one because `--control` must not follow it - see the note beside `--pip-h`.
+ */
+@media (max-width: 1179px), (any-pointer: coarse) {
+  :root {
+    --pip-h: var(--tap);
+  }
+}
+
+/*
  * Light theme: the same tokens with an inverted ramp. Domain hues drop
  * lightness and gain chroma so they keep the same separation on paper-white.
  */
@@ -150,16 +206,17 @@
   --text: #1a1c22;
   --text-2: #2f3441;
   --text-3: #4a4f5c;
-  --muted: #6b7180;
-  --dim: #8990a0;
+  --muted: #575b68;
+  --dim: #616979;
   --empty: #d6d2c8;
+  --edge: #8e8369;
 
-  --hope: #b07b12;
-  --fear: #7b3fd4;
+  --hope: #815a0d;
+  --fear: #793cd3;
   --damage: #c0271c;
   --stress: #a35c0c;
   --armor: #5a668a;
-  --ok: #1f7a41;
+  --ok: #1e773f;
 
   --hope-wash: rgb(176 123 18 / 0.14);
   --fear-wash: rgb(123 63 212 / 0.14);
@@ -188,15 +245,16 @@
     --text: #1a1c22;
     --text-2: #2f3441;
     --text-3: #4a4f5c;
-    --muted: #6b7180;
-    --dim: #8990a0;
+    --muted: #575b68;
+    --dim: #616979;
     --empty: #d6d2c8;
-    --hope: #b07b12;
-    --fear: #7b3fd4;
+    --edge: #8e8369;
+    --hope: #815a0d;
+    --fear: #793cd3;
     --damage: #c0271c;
     --stress: #a35c0c;
     --armor: #5a668a;
-    --ok: #1f7a41;
+    --ok: #1e773f;
     --hope-wash: rgb(176 123 18 / 0.14);
     --fear-wash: rgb(123 63 212 / 0.14);
     --crit-wash: linear-gradient(90deg, rgb(176 123 18 / 0.22), rgb(123 63 212 / 0.22));

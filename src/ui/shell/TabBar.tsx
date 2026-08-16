@@ -63,8 +63,12 @@ export function TabBar(): React.JSX.Element {
             <span
               style={{
                 ...tab.mark,
-                background: active ? 'var(--hope)' : 'var(--dim)',
-                border: tab.id === 'cards' ? `1.5px solid ${active ? 'var(--hope)' : 'var(--dim)'}` : undefined,
+                // The inactive glyph is a shape, not a label: --edge is the
+                // token for a boundary that has to be seen, and it clears the
+                // 3:1 a meaningful graphic needs where --dim was tuned for
+                // 10px text on a panel.
+                background: active ? 'var(--hope)' : 'var(--edge)',
+                border: tab.id === 'cards' ? `1.5px solid ${active ? 'var(--hope)' : 'var(--edge)'}` : undefined,
                 backgroundColor: tab.id === 'cards' ? 'transparent' : undefined,
               }}
             />
