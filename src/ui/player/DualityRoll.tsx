@@ -666,6 +666,14 @@ function ExperienceChip({
         minHeight: 'var(--tap)',
         paddingTop: 4,
         paddingBottom: 4,
+        /*
+         * Larger than `.chip`'s 9.5px, because this is not a shelf label being
+         * scanned past: it is a phrase the player wrote, read across a table
+         * in a dim room at the moment they decide to spend a Hope on it. The
+         * row is 44px for the touch floor rather than for the text, so the
+         * bigger type costs no height at all.
+         */
+        font: '600 11.5px/1.15 var(--mono)',
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
         border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
         // The border and the filled pip carry the Hope; the name stays at full
@@ -691,6 +699,9 @@ function ExperienceChip({
           minWidth: 0,
           overflow: 'hidden',
           textAlign: 'left',
+          // `.chip` sets `white-space: nowrap`, which cancels wrapping
+          // outright - the line clamp below does nothing without this.
+          whiteSpace: 'normal',
           lineHeight: 1.15,
           display: '-webkit-box',
           WebkitBoxOrient: 'vertical',

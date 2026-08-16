@@ -26,9 +26,20 @@ export function Header(): React.JSX.Element {
   const layers = useApp((s) => s.layers);
   const theme = useApp((s) => s.prefs.theme);
   const active = useActive();
+  const index = useApp((s) => s.index);
   const phone = useIsPhone();
 
   const hasManual = layers.some((l) => l.priority > 0);
+
+  // Both classes, when there are two: a multiclassed character is two classes
+  // and the line that says who they are should say so.
+  const klass =
+    active === null
+      ? ''
+      : [active.classRef, active.multiclassRef]
+          .map((r) => (r === null || r === '' ? undefined : index.classes.get(r)?.name))
+          .filter(Boolean)
+          .join(' / ');
 
   return (
     <header
@@ -103,40 +114,61 @@ export function Header(): React.JSX.Element {
          * painted over from the tablet band up. The cap and the ellipsis are
          * what stop a long name doing the same thing to MENU.
          */}
-        {characters.length > 1 ? (
-          <select
-            aria-label="Active character"
-            value={activeId ?? ''}
-            onChange={(e) => select(e.target.value)}
-            style={{
-              maxWidth: phone ? 128 : 180,
-              minHeight: 'var(--control)',
-              padding: '4px 8px',
-              font: '600 12px/1 var(--sans)',
-            }}
-          >
-            {characters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name || 'Unnamed'}
-              </option>
-            ))}
-          </select>
-        ) : (
-          active !== null && (
+        {active !== null && (
+          /*
+           * Two lines rather than two columns. The header is 52px tall and the
+           * phone is 393 wide: the name, the class, the level, the
+           * compatibility mark and MENU do not fit on one line beside each
+           * other, and stacking costs no width at all. Right-aligned because
+           * this sits against the right edge, so the eye finds the same margin
+           * every time.
+           */
+          <div className="stack" style={{ minWidth: 0, alignItems: 'flex-end', gap: 2 }}>
+            {characters.length > 1 ? (
+              <select
+                aria-label="Active character"
+                value={activeId ?? ''}
+                onChange={(e) => select(e.target.value)}
+                style={{
+                  maxWidth: phone ? 150 : 200,
+                  minHeight: 0,
+                  padding: '2px 6px',
+                  font: '700 13px/1 var(--sans)',
+                }}
+              >
+                {characters.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name || 'Unnamed'}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                style={{
+                  maxWidth: phone ? 168 : 220,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  font: '700 13px/1 var(--sans)',
+                  color: 'var(--text)',
+                }}
+                title={active.name || 'Unnamed'}
+              >
+                {active.name || 'Unnamed'}
+              </span>
+            )}
             <span
+              className="t-meta"
               style={{
-                maxWidth: phone ? 132 : 200,
+                maxWidth: phone ? 168 : 220,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                font: '700 13px/1 var(--sans)',
-                color: 'var(--text)',
               }}
-              title={active.name || 'Unnamed'}
             >
-              {active.name || 'Unnamed'}
+              {(klass === '' ? '—' : klass).toUpperCase()} · LV{active.level}
             </span>
-          )
+          </div>
         )}
         <CompatibleIcon size={18} />
         <button

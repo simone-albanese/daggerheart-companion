@@ -834,13 +834,8 @@ function PlayPhone({
   const { loadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
-  const index = useApp((s) => s.index);
   if (!character) return <div />;
 
-  const klass = [character.classRef, character.multiclassRef]
-    .map((r) => (r === null ? undefined : index.classes.get(r)?.name))
-    .filter(Boolean)
-    .join(' / ');
   const modLabel =
     trait === 'spellcast' && stats.spellcastTrait !== null
       ? 'SPELLCAST'
@@ -919,14 +914,6 @@ function PlayPhone({
 
         <Items />
 
-        {/* Last, and deliberately: checked once, not reached for. The name
-            itself is not repeated here - it lives in the top bar now, where it
-            costs this screen nothing. */}
-        <div style={{ flex: 'none', paddingBottom: 4 }}>
-          <div className="t-meta">
-            {(klass === '' ? '—' : klass).toUpperCase()} · LV{character.level}
-          </div>
-        </div>
       </div>
 
       {/*
