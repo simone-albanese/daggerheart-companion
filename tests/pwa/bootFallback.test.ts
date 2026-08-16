@@ -387,11 +387,21 @@ describe('the hatch that does not need the bundle', () => {
 
     expect(await indexedDB.databases()).toEqual([]);
 
-    // And the real thing still gets its stores.
+    /*
+     * And the real thing still gets its stores - derived from `STORES` rather
+     * than written out a third time. This assertion was a literal four-name
+     * array and it broke the day a fifth store landed, which is the drift
+     * `db.ts:445` already warns about in so many words: "the list written twice
+     * is the list that drifts." The claim here is not "there are four stores",
+     * it is "the naked rescue `open` did not leave a version-1 database behind
+     * that makes `openDB` skip its own upgrade" - and that claim is strongest
+     * when it asks for whatever `db.ts` currently declares.
+     */
     vi.resetModules();
     const db = await import('../../src/store/db.ts');
     const database = await db.db();
-    expect([...database.objectStoreNames].sort()).toEqual(['art', 'characters', 'content', 'layers']);
+    expect([...database.objectStoreNames].sort()).toEqual([...db.STORES].sort());
+    expect(db.STORES.length, 'a database with no stores would pass the line above').toBeGreaterThan(0);
   });
 });
 
