@@ -28,7 +28,10 @@
  * somebody reads. At three in a row the SHORT control is not drawn greyed out -
  * a dead control with the word SHORT still on it says the app could do this and
  * will not - it is replaced by the SRD's own sentence and the count this sheet
- * actually holds.
+ * actually holds. Every other line that names that control reads the same flag
+ * it does: the interrupted-rest panel is drawn on `kind`, which is independent
+ * of the count, so at three in a row it says the short rest is off the screen
+ * rather than sending the reader up to a button that is not there.
  *
  * Two things this file deliberately does not do. It never sets
  * `aria-expanded`: `playSheet.test.tsx` sweeps every button carrying that
@@ -411,8 +414,14 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
           <div className="panel stack" style={{ flex: 'none', gap: 6, padding: '10px 11px' }}>
             <span className="t-label">If it was interrupted</span>
             {quoted(interruptedRestRule(rules)!)}
+            {/* Pointing at the short rest is only honest while the short rest
+                is drawn, and at three in a row line 406 has deliberately taken
+                it away. The two conditions are independent, so the sentence
+                reads the same flag the control does rather than assuming it. */}
             <span className="t-meta" style={{ color: 'var(--dim)' }}>
-              THE APP CANNOT TELL · THE SHORT REST ABOVE APPLIES EXACTLY THAT
+              {longDue
+                ? 'THE APP CANNOT TELL · WITH A LONG REST DUE THE SHORT ONE IS NOT ON THIS SCREEN'
+                : 'THE APP CANNOT TELL · THE SHORT REST ABOVE APPLIES EXACTLY THAT'}
             </span>
           </div>
         )}

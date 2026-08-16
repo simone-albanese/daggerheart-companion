@@ -423,6 +423,15 @@ describe('the refusal, at three short rests in a row', () => {
       [...group.querySelectorAll('button')].filter((b) => b.disabled),
       'a dead control with the word SHORT still on it says the app could and will not',
     ).toEqual([]);
+
+    // And nothing left on the screen sends the reader to it. This is the same
+    // render the interrupted-rest panel is drawn into, and that panel used to
+    // finish "THE SHORT REST ABOVE APPLIES EXACTLY THAT" over a switch holding
+    // one button.
+    expect(
+      text(),
+      'a sentence pointing at the control this state has just removed',
+    ).not.toContain('THE SHORT REST ABOVE');
   });
 });
 
@@ -432,12 +441,29 @@ describe('the interrupted long rest', () => {
     open('long');
     expect(text()).toContain(srdSentence('long rest is interrupted'));
     // Nothing here claims to know: the app cannot see the table, and the route
-    // out is the short rest already on the screen.
+    // out is the short rest already on the screen - which has to *be* on the
+    // screen for the sentence beside it to be true.
     expect(text()).toContain('THE APP CANNOT TELL');
+    expect(text()).toContain('THE SHORT REST ABOVE APPLIES EXACTLY THAT');
+    expect(maybe('Take a short rest'), 'the sentence names a control that is not drawn').toBeDefined();
     expect(
       buttons().filter((b) => /interrupt/i.test(b.getAttribute('aria-label') ?? '')),
       'a control claiming to model an interruption the app cannot observe',
     ).toEqual([]);
+  });
+
+  it('stops pointing at the short rest in the one state that has removed it', () => {
+    // Three in a row is where this panel is most likely to be read: the long
+    // rest is the only kind on offer, so it is the only kind that can be
+    // interrupted, and the control the panel used to name is gone.
+    mount(hurt({ consecutiveShortRests: 3 }));
+    open('long');
+    expect(text(), 'the rule itself is still the reader’s').toContain(
+      srdSentence('long rest is interrupted'),
+    );
+    expect(maybe('Take a short rest')).toBeUndefined();
+    expect(text()).not.toContain('THE SHORT REST ABOVE');
+    expect(text()).toContain('WITH A LONG REST DUE THE SHORT ONE IS NOT ON THIS SCREEN');
   });
 });
 

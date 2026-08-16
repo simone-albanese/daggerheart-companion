@@ -116,7 +116,10 @@ export const longRestRule = (rules: RulesSection[]): string | null =>
  * prints the rule beside the long rest and leaves the choice where it already
  * is: the short rest on the same surface *is* a short rest's benefits, so the
  * route out of an interrupted long rest is the button that is already there
- * rather than a second one that would resolve to the same call.
+ * rather than a second one that would resolve to the same call - except at
+ * three short rests in a row, where that button is deliberately not drawn, and
+ * `Rest.tsx` then says the short rest is off the screen instead of pointing at
+ * a control it has just taken away.
  */
 export const interruptedRestRule = (rules: RulesSection[]): string | null =>
   downtimeSentence(rules, 'long rest is interrupted');
