@@ -19,6 +19,7 @@ import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
+import { traitVerbs } from './ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
@@ -136,6 +137,10 @@ function TraitGrid({
   setTrait: (t: RollTrait) => void;
 }): React.JSX.Element | null {
   const character = useActive();
+  const rules = useApp((s) => s.dataset.rules);
+  // Parsed once per dataset, not once per render: the rules body is 4KB of
+  // prose and there are six tiles reading the same answer out of it.
+  const verbs = useMemo(() => traitVerbs(rules), [rules]);
   if (!character) return null;
   return (
     <div>
@@ -166,6 +171,19 @@ function TraitGrid({
                 minHeight: 64,
                 textAlign: 'left',
               }}
+              /*
+               * The verbs are on the tile *and* in its name.
+               *
+               * A tile reading "AGILITY +1" is announced as "Agility plus one"
+               * and tells a screen-reader user nothing about what Agility is
+               * for, which is precisely the gap the printed sheet fills with
+               * these three words.
+               */
+              aria-label={
+                verbs[t] === undefined
+                  ? undefined
+                  : `${TRAIT_LABELS[t]} ${value >= 0 ? '+' : '−'}${String(Math.abs(value))} - use it to ${verbs[t].join(', ')}`
+              }
             >
               <span className="t-meta" style={{ letterSpacing: '0.1em', color: 'var(--muted)' }}>
                 {TRAIT_LABELS[t].toUpperCase()}
@@ -189,6 +207,30 @@ function TraitGrid({
                   </s>
                 )}
               </span>
+              {/*
+                * "Use it to Sprint, Leap, Maneuver."
+                *
+                * Two lines at 9px, which is what the three words need at a
+                * tile width of about 97px inside a 393px phone - roughly 158px
+                * of text. It costs the tile 30px, so the six-tile grid goes
+                * from 136px to 194px, and it buys the one thing a new player
+                * cannot get from a number: which of the six to roll. The
+                * spellings are the book's, because they are read out of it.
+                */}
+              {verbs[t] !== undefined && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    font: '500 9px/1.35 var(--mono)',
+                    letterSpacing: '0.04em',
+                    color: active ? 'var(--text-2)' : 'var(--dim)',
+                  }}
+                >
+                  {verbs[t].join(' · ').toUpperCase()}
+                </span>
+              )}
               {marked && (
                 <span
                   aria-label="marked this tier"

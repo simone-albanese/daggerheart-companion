@@ -64,6 +64,21 @@ const render = (element: ReactElement): void => {
   act(() => root.render(element));
 };
 
+/**
+ * Let the effects a mount started finish before the test ends.
+ *
+ * Settings asks the backup folder for its health in an effect, and that
+ * promise resolving after the environment has been torn down is an unhandled
+ * rejection with no test attached to it.
+ */
+async function settle(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+}
+
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const named = (name: string): HTMLButtonElement => {
   const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '') === name);
@@ -301,9 +316,10 @@ describe('where the numbers are allowed to be', () => {
    * another lane, so this asks the smallest question that would notice the row
    * going missing rather than pinning anything about the section around it.
    */
-  it('can be changed from Settings, and changing it writes the preference', () => {
+  it('can be changed from Settings, and changing it writes the preference', async () => {
     seed('numbers');
     render(createElement(Settings));
+    await settle();
     const row = container.querySelector('[role="group"][aria-label="Counters"]');
     expect(row, 'Settings has no Counters row').not.toBeNull();
     const pips = [...row!.querySelectorAll('button')].find(

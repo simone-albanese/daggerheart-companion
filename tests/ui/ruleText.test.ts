@@ -8,11 +8,13 @@
 import { describe, expect, it } from 'vitest';
 import srd from '../../data/srd-1.0.json' with { type: 'json' };
 import type { Dataset } from '@shared/types.ts';
+import { TRAITS } from '@shared/types.ts';
 import {
   blockNamed,
   paragraphs,
   ruleBlocks,
   ruleBullets,
+  traitVerbs,
 } from '../../src/ui/player/ruleText.ts';
 
 const dataset = srd as unknown as Dataset;
@@ -49,6 +51,59 @@ describe('ruleBullets', () => {
   it('ignores a bullet whose colon is a sentence in, not a label', () => {
     const longish = `- ${'x'.repeat(60)}: not a label.`;
     expect(ruleBullets(longish)).toEqual([]);
+  });
+});
+
+/*
+ * The verbs under the traits.
+ *
+ * They are what tells a player who has not read the book which of the six
+ * numbers a thing they want to do is rolled against, and they are in the
+ * shipped SRD - so the app reads them rather than carrying licensed text of
+ * its own. The parse is the load-bearing part: a revision that reflows this
+ * one bullet list would take the verbs off six tiles silently, which is
+ * exactly the kind of quiet absence this project keeps shipping.
+ */
+describe('traitVerbs', () => {
+  it('reads the bullet the SRD actually writes, trailing "etc." and all', () => {
+    const out = traitVerbs([
+      {
+        id: 'character-creation',
+        title: 'Character Creation',
+        body: '- Agility (Use it to Sprint, Leap, Maneuver,etc.) A high Agility means...',
+      },
+    ]);
+    expect(out.agility).toEqual(['Sprint', 'Leap', 'Maneuver']);
+  });
+
+  it('answers nothing rather than guessing when the section is absent', () => {
+    expect(traitVerbs([])).toEqual({});
+    expect(
+      traitVerbs([{ id: 'character-creation', title: 'x', body: 'No bullets here.' }]),
+    ).toEqual({});
+  });
+
+  it('ignores a bullet that is not one of the six traits', () => {
+    const out = traitVerbs([
+      {
+        id: 'character-creation',
+        title: 'x',
+        body: '- Charisma (Use it to Emote, Wink, etc.) not a Daggerheart trait',
+      },
+    ]);
+    expect(out).toEqual({});
+  });
+
+  it('finds three verbs for every trait in the shipped dataset', () => {
+    const out = traitVerbs(dataset.rules);
+    for (const trait of TRAITS) {
+      expect(out[trait], `no verbs for ${trait}`).toBeDefined();
+      expect(out[trait], `${trait} has ${String(out[trait]?.length)} verbs`).toHaveLength(3);
+    }
+    // Spot-checked against the book, and deliberately its spelling rather
+    // than ours: the app quotes the SRD instead of re-wording it.
+    expect(out.agility).toEqual(['Sprint', 'Leap', 'Maneuver']);
+    expect(out.knowledge).toEqual(['Recall', 'Analyze', 'Comprehend']);
   });
 });
 
