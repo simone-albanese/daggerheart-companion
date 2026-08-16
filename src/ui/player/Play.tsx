@@ -49,6 +49,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { RenameField } from '../shared/RenameField.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
@@ -225,15 +226,51 @@ function lineageOf(character: Character, index: DatasetIndex): string {
 }
 
 /**
- * Who this is.
+ * Who this is, and the one place the name can be changed.
  *
  * The `stats` prop this used to take was never read - `--noUnusedLocals` does
  * not see an unused destructured prop, so it sat there through every edit
  * looking load-bearing.
+ *
+ * The name line stays a `<div>`. That is the whole design of P5-1(b)'s first
+ * bullet, which forbids "a name at the top of a scrolling screen that opens a
+ * keyboard when a thumb brushes it": the failure it describes requires the
+ * name itself to be the target, so the name is not the target. It carries no
+ * `role`, no `tabIndex`, no handler and no wrapping `<button>`. The rename
+ * lives on a 72x44 chip on the row below, pinned to the right edge with the
+ * whole flexible middle of the row between the text that is read and the
+ * control that is touched - `Counter.tsx:13-19`'s rule, applied to a name
+ * instead of a number.
+ *
+ * Vertically, at 393x852: the header is 52px, the phone root has no top
+ * padding and `Beastform` draws nothing for a class without one, so the name
+ * runs y 52-73, the metadata row y 80-90, and the chip's row y 99-143. The
+ * header's SETTINGS button is 44px in a 52px bar, so y 4-48. That is 51px of
+ * dead space between the only two 44px targets in the top band, and 95px
+ * centre to centre, against an adult fingertip contact patch of about 38-40
+ * CSS px. On the name line the clearance would be 4px; on the metadata row,
+ * 32px - less than one fingertip. On a fourth row of its own it would be 104px
+ * and cost 53px of the 457px scroll window instead of 25px.
+ *
+ * Arming cannot outlive the character it was armed for. `Header.tsx:138-154`
+ * draws the character `<select>` on every screen, Play included, as soon as
+ * there are two characters - so an armed flag that survived a switch would
+ * remount `RenameField` with `autoFocus` on a sheet nobody asked to rename: a
+ * software keyboard opening on arrival, which is the failure the backlog
+ * bullet forbids. The reset happens *during* the render that changes character
+ * rather than in an effect, because an effect runs after a commit and that
+ * commit is the one frame in which the field is on the wrong sheet.
  */
 function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
+  const [renaming, setRenaming] = useState(false);
+  const [armedFor, setArmedFor] = useState<string | null>(character?.id ?? null);
+  const activeId = character?.id ?? null;
+  if (activeId !== armedFor) {
+    setArmedFor(activeId);
+    setRenaming(false);
+  }
   if (!character) return null;
   // A multiclassed character is two classes and two subclasses, and both belong
   // on the line that says who they are.
@@ -257,9 +294,68 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
           LEVEL {character.level}
         </span>
       </div>
-      <div style={{ marginTop: 9, font: '600 14px/1.35 var(--sans)', color: 'var(--text-2)' }}>
-        {klass === '' ? 'No class' : klass}
-        {subclass !== '' && ` — ${subclass}`}
+      {/*
+       * One wrapper, two contents, so arming costs nothing.
+       *
+       * The `marginTop: 9` lives here rather than on either child: the class
+       * line and the editor swap inside it, the row is 44px tall both ways,
+       * and the sheet below Identity does not move by a pixel when the chip is
+       * tapped. Putting the margin on the class line and none on the editor
+       * would jump the whole sheet up 9px on arming, which is the opposite of
+       * the point.
+       *
+       * While the editor is open this row stops saying what class the
+       * character is. That is the deliberate half of the trade: the
+       * alternative is a fourth row and 53px of permanent scroll window
+       * instead of 25px, and the class is one tap and no scroll away.
+       */}
+      <div style={{ marginTop: 9 }}>
+        {renaming ? (
+          <RenameField key={character.id} autoFocus onDone={() => setRenaming(false)} />
+        ) : (
+          <div className="row" style={{ gap: 8 }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                font: '600 14px/1.35 var(--sans)',
+                color: 'var(--text-2)',
+              }}
+            >
+              {klass === '' ? 'No class' : klass}
+              {subclass !== '' && ` — ${subclass}`}
+            </div>
+            {/*
+             * The chip. `TO VAULT` at :207-209 is the in-file precedent for a
+             * chip label on this screen and this matches it: `.t-meta` is 10px
+             * mono at 0.06em, and legibility in a dim room is bought by the
+             * weight and the ink colour rather than by the word. `--control`
+             * resolves to `--tap`, 44px, at every width below 1180 and on any
+             * coarse pointer; 34px is reached only by a mouse on a wide
+             * screen, which is that token's stated purpose.
+             */}
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              aria-label={`Rename ${character.name || 'Unnamed'}`}
+              className="row"
+              style={{
+                flex: 'none',
+                minWidth: 72,
+                minHeight: 'var(--control)',
+                justifyContent: 'center',
+                borderRadius: 'var(--r3)',
+                background: 'var(--raised)',
+                border: '1px solid var(--line)',
+                padding: '0 8px',
+              }}
+            >
+              <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+                RENAME
+              </span>
+            </button>
+          </div>
+        )}
       </div>
       {showLineage && lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>

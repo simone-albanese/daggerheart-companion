@@ -857,6 +857,172 @@ describe('the tendina', () => {
   });
 });
 
+/**
+ * P5-1(b), the half that is on this screen.
+ *
+ * The name is the first field on the paper sheet and the most-shown string in
+ * the app - it is in the top bar of every screen - and the way to change it was
+ * four gestures deep in the tab visited least. Putting it back on the sheet is
+ * only half the item, though: the backlog names the failure the other half
+ * would be, and names it as worse. *"A name at the top of a scrolling screen
+ * that opens a keyboard when a thumb brushes it is worse than a name you cannot
+ * edit."*
+ *
+ * So these are about where the target is and where it is not. The name line is
+ * not a target at all; the chip is a separate 72x44 control on the row below,
+ * 51px clear of the only other 44px target in the top band; arming it moves
+ * nothing; and it cannot outlive the character it was armed for, because the
+ * header draws a character picker on this very screen.
+ *
+ * Every input query here is scoped to `input[aria-label="Character name"]`. A
+ * bare `container.querySelector('input')` would be non-null before anything is
+ * tapped and after: `Vitals.tsx:128-133` draws the incoming-damage field on the
+ * phone, which :190-193 of this file pins green on purpose.
+ */
+describe('renaming from the sheet', () => {
+  const nameField = (): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('input[aria-label="Character name"]');
+
+  const chip = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '));
+
+  /** The Identity block: whatever holds the name line. */
+  const identity = (): HTMLElement => container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
+
+  /**
+   * A second character, because `seed()` only ever sets one.
+   *
+   * Without this the rule has nobody to refuse for: typing "Ilya" into a
+   * library of one collides with nothing, no refusal row and no offer button
+   * are ever drawn, and a sweep over "every rename target" quietly covers two
+   * of the four.
+   */
+  function seedTwo(neighbour: string): Character {
+    const fixture = seed();
+    useApp.setState({
+      characters: [fixture, { ...playedCharacter(), id: 'the-other-sheet', name: neighbour }],
+      activeId: fixture.id,
+    });
+    return fixture;
+  }
+
+  /**
+   * Type, the way a person does.
+   *
+   * jsdom does not notify React when `input.value` is assigned, so the obvious
+   * spelling of this helper asserts against an unchanged field and passes for
+   * the wrong reason. The native setter plus a bubbling `input` event is what
+   * React's synthetic `onChange` actually listens for.
+   */
+  function type(input: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    act(() => {
+      setter.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  /** A declared length in px, the same resolution the sweep at :260-265 uses. */
+  function px(value: string): number {
+    if (value === 'var(--tap)' || value === 'var(--control)') return 44;
+    const n = Number.parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  it('puts the rename on a control of its own, and leaves the name itself untouchable', () => {
+    play(seed());
+    expect(chip(), 'there is no rename control on the sheet').toBeDefined();
+    expect(chip()!.getAttribute('aria-label')).toBe('Rename Fixture');
+
+    const name = container.querySelector('.t-vital')!;
+    expect(name.closest('button'), 'the name line is inside a button').toBeNull();
+    expect(name.tagName).toBe('DIV');
+    expect(name.getAttribute('role')).toBeNull();
+    expect(name.getAttribute('tabindex')).toBeNull();
+
+    expect(nameField(), 'the field is open before anything was tapped').toBeNull();
+  });
+
+  it('names the chip after a character with no name, rather than trailing off', () => {
+    play(seed({ name: '' }));
+    expect(chip()!.getAttribute('aria-label')).toBe('Rename Unnamed');
+  });
+
+  it('declares the chip at the touch floor and inside the column', () => {
+    play(seed());
+    expect(chip()!.style.minHeight).toBe('var(--control)');
+    expect(chip()!.style.minWidth).toBe('72px');
+  });
+
+  it('opens the field only on a deliberate tap, and only then', () => {
+    play(seed());
+    expect(nameField()).toBeNull();
+    click(chip()!);
+    const field = nameField();
+    expect(field, 'tapping RENAME opened nothing').not.toBeNull();
+    expect(field!.value).toBe('Fixture');
+    expect(field!.style.minHeight).toBe('var(--tap)');
+    expect(field!.maxLength).toBe(40);
+  });
+
+  it('arming the rename moves nothing above it', () => {
+    play(seed());
+    // Name, metadata row, and the wrapper that holds either the class line or
+    // the editor. The editor replaces the class line inside that wrapper, so
+    // the count and the margin are the same before and after.
+    expect(identity().children).toHaveLength(3);
+    const wrapper = (): HTMLElement => identity().children[2] as HTMLElement;
+    expect(wrapper().style.marginTop).toBe('9px');
+    click(chip()!);
+    expect(identity().children, 'the editor was added instead of swapped in').toHaveLength(3);
+    expect(wrapper().style.marginTop).toBe('9px');
+  });
+
+  it('holds every rename target at the touch floor, refusal and all', () => {
+    play(seedTwo('Ilya'));
+    click(chip()!);
+    type(nameField()!, 'Ilya');
+    expect(text(), 'no refusal, so the offer button was never drawn').toContain(
+      'already called "Ilya"',
+    );
+
+    const targets = [...identity().querySelectorAll('button')];
+    // SAVE, the cancel, and the offer.
+    expect(targets.length, 'the refusal row drew no controls').toBeGreaterThanOrEqual(3);
+    for (const t of targets) {
+      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
+      expect(
+        px(declared),
+        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  it('gives the desktop cockpit the same control', () => {
+    setViewport(1280);
+    play(seed());
+    expect(chip(), 'the cockpit has no rename').toBeDefined();
+  });
+
+  it('closes the rename when the picker changes character, so no keyboard opens by navigation', () => {
+    // `Header.tsx:138-154` draws the character `<select>` on every screen,
+    // Play included, as soon as there are two characters. An armed editor that
+    // survived that switch would remount with `autoFocus` on a sheet nobody
+    // asked to rename - a software keyboard opening on arrival, which is the
+    // exact failure the backlog bullet forbids.
+    const fixture = seedTwo('Ilya');
+    play(fixture);
+    click(chip()!);
+    expect(nameField()).not.toBeNull();
+
+    act(() => useApp.setState({ activeId: 'the-other-sheet' }));
+    expect(nameField(), 'the editor followed the picker onto another sheet').toBeNull();
+
+    act(() => useApp.setState({ activeId: fixture.id }));
+    expect(nameField(), 'the editor reopened on a sheet nobody armed').toBeNull();
+  });
+});
+
 describe('the verbs under the traits', () => {
   it('prints all six sets, in the words the SRD uses', () => {
     play(seed());

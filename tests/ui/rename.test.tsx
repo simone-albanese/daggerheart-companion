@@ -1,0 +1,355 @@
+// @vitest-environment jsdom
+/**
+ * The unique-name rule, seen through the control that enforces it.
+ *
+ * `merge.ts:63-75` states the rule and argues for it: the character picker in
+ * the header is a `<select>` of names, so two characters called "Ilya" are
+ * indistinguishable at exactly the moment you most need to tell them apart.
+ * `duplicateFor` enforced it on the import path. The rename path - the one
+ * where a person types a name deliberately - enforced nothing, so renaming
+ * Marek to Ilya produced by hand precisely the state that paragraph prevents
+ * when a file arrives.
+ *
+ * `tests/store/import.test.ts` tests the rule. This tests the door: that
+ * nothing is written until SAVE, that a refusal is a sentence rather than a
+ * dimmed button, that the offer goes into the field instead of onto the record,
+ * and that renaming to nothing stores nothing rather than the word "Unnamed".
+ *
+ * Two harness notes, because both have bitten this repo before.
+ *
+ *   `screens.test.tsx`'s `nameless()` sweeps `button, [role="button"]` and
+ *   nothing else. It has never looked at an `<input>`, so this file is the only
+ *   thing standing between the rename field and a control a screen reader
+ *   announces as "edit text, blank".
+ *
+ *   jsdom does not notify React when `input.value` is assigned directly, so
+ *   `type()` below goes through the native setter and dispatches the event
+ *   React actually listens for. Without that every typing test here would
+ *   assert against an unchanged field and pass for the wrong reason.
+ */
+import 'fake-indexeddb/auto';
+import { act } from 'react';
+import { createElement, type ReactElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { Character } from '@shared/types.ts';
+import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { useApp } from '../../src/store/state.ts';
+import { RenameField } from '../../src/ui/shared/RenameField.tsx';
+import { dataset, index, playedCharacter } from './fixture.ts';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
+let container: HTMLDivElement;
+let root: Root;
+let done = 0;
+
+/** Answer media queries as a 393px phone would: coarse pointer, --control = 44. */
+function setViewport(width: number): void {
+  window.matchMedia = ((query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    const coarse = /any-pointer:\s*coarse|pointer:\s*coarse/.test(query);
+    return {
+      matches:
+        (max !== null && width <= Number(max[1])) ||
+        (min !== null && width >= Number(min[1])) ||
+        (coarse && width < 1180),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
+
+beforeEach(() => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  setViewport(393);
+  done = 0;
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+const render = (element: ReactElement): void => {
+  act(() => root.render(element));
+};
+
+/**
+ * A library, first character active.
+ *
+ * `playSheet.test.tsx`'s `seed()` sets exactly one character, which is why the
+ * refusal cannot be exercised through it: a name collides with nobody in a
+ * library of one. Every field the store is booted with is set explicitly rather
+ * than left to a default, so a change to the store's initial state cannot
+ * quietly change what these tests are running against.
+ */
+function seed(...names: string[]): Character[] {
+  const characters = names.map((name, i) => ({ ...playedCharacter(), id: `sheet-${i}`, name }));
+  useApp.setState({
+    ready: true,
+    storageError: null,
+    dataset,
+    index,
+    characters,
+    activeId: characters[0]!.id,
+    prefs: { ...DEFAULT_PREFS },
+    log: [],
+    openCard: null,
+  });
+  return characters;
+}
+
+/** The Play door: a field, a SAVE and a cancel. */
+const openRename = (): void => {
+  render(createElement(RenameField, { onDone: () => (done += 1) }));
+};
+
+const field = (): HTMLInputElement =>
+  container.querySelector<HTMLInputElement>('input[aria-label="Character name"]')!;
+
+const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
+
+const byLabel = (prefix: string): HTMLButtonElement | undefined =>
+  buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(prefix));
+
+const save = (): HTMLButtonElement =>
+  buttons().find((b) => (b.textContent ?? '').trim() === 'SAVE')!;
+
+const cancel = (): HTMLButtonElement => byLabel('Leave the name as')!;
+
+const offer = (): HTMLButtonElement | undefined => byLabel('Put ');
+
+const text = (): string => container.textContent ?? '';
+
+const stored = (): string => useApp.getState().characters[0]!.name;
+
+const click = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
+const press = (el: Element, key: string): void => {
+  act(() => {
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  });
+};
+
+function type(value: string): void {
+  const input = field();
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  act(() => {
+    setter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+describe('what the rename control writes, and when', () => {
+  it('writes nothing while the name is being typed', () => {
+    // `Edit.tsx:115` bound `onChange` straight to `patch({ name })`, which
+    // stamps `updatedAt` once per character typed - and `updatedAt` is what
+    // `decideImport` compares, so one rename made the local copy win twenty
+    // comparisons against a sheet that was genuinely newer. It also makes
+    // "that name is taken" fire in the middle of a word.
+    seed('Fixture');
+    openRename();
+    for (const partial of ['M', 'Ma', 'Marek']) {
+      type(partial);
+      expect(stored(), `the store was written after typing "${partial}"`).toBe('Fixture');
+    }
+    click(save());
+    expect(stored()).toBe('Marek');
+    expect(done).toBe(1);
+  });
+
+  it('trims what it writes, so a trailing space is not a second name', () => {
+    seed('Fixture');
+    openRename();
+    type('  Marek  ');
+    click(save());
+    expect(stored()).toBe('Marek');
+  });
+
+  it('stores an inner run of spaces the way it was typed', () => {
+    // The guard collapses inner runs to decide whether two names are the same;
+    // the write does not. Being stricter about collisions than about storage
+    // can only refuse a name nobody would have confused - never the reverse.
+    seed('Fixture');
+    openRename();
+    type('Il  ya');
+    click(save());
+    expect(stored()).toBe('Il  ya');
+  });
+
+  it('lets a character keep its own name', () => {
+    // Without `except`, the character collides with itself and SAVE can never
+    // be pressed at all.
+    seed('Fixture');
+    openRename();
+    expect(save().disabled).toBe(false);
+    click(save());
+    expect(stored()).toBe('Fixture');
+    expect(done).toBe(1);
+  });
+
+  it('leaves the name alone on cancel', () => {
+    seed('Fixture');
+    openRename();
+    type('Marek');
+    click(cancel());
+    expect(stored()).toBe('Fixture');
+    expect(done).toBe(1);
+  });
+
+  it('leaves the name alone on Escape, and puts back what is stored', () => {
+    seed('Fixture');
+    openRename();
+    type('Marek');
+    press(field(), 'Escape');
+    expect(stored()).toBe('Fixture');
+    expect(done).toBe(1);
+  });
+
+  it('commits on Enter, because a name field with a keyboard open has a return key', () => {
+    seed('Fixture');
+    openRename();
+    type('Marek');
+    press(field(), 'Enter');
+    expect(stored()).toBe('Marek');
+  });
+});
+
+describe('a name somebody else already has', () => {
+  it('refuses it, and says whose it is', () => {
+    seed('Fixture', 'Ilya');
+    openRename();
+    type('Ilya');
+    expect(text()).toContain('already called "Ilya"');
+    expect(save().disabled).toBe(true);
+    // The reason is on the screen, not in a hover: `Play.tsx:1082-1085` writes
+    // that rule down and `playSheet.test.tsx:452` pins it on the vault.
+    expect(save().getAttribute('title')).toBeNull();
+    click(save());
+    expect(stored()).toBe('Fixture');
+  });
+
+  it('refuses a name that differs only in case', () => {
+    seed('Fixture', 'Ilya');
+    openRename();
+    type('ilya');
+    expect(text(), 'a difference the picker cannot show was read as a difference').toContain(
+      'already called "Ilya"',
+    );
+    expect(save().disabled).toBe(true);
+  });
+
+  it('refuses a name that differs only in space', () => {
+    seed('Fixture', 'Ilya');
+    openRename();
+    type(' Ilya ');
+    expect(text()).toContain('already called "Ilya"');
+    expect(save().disabled).toBe(true);
+  });
+
+  it('says why in visible text, and in the refused control’s own name', () => {
+    // `.btn:disabled` is `opacity: 0.45` and nothing else, which announces
+    // nothing at all. A control that will not act has to say why to a screen
+    // reader as well as to an eye.
+    seed('Fixture', 'Ilya');
+    openRename();
+    type('Ilya');
+    expect(text()).toContain('already called "Ilya"');
+    expect(save().disabled).toBe(true);
+    expect(save().getAttribute('aria-label')).toContain('already called "Ilya"');
+  });
+
+  it('offers the first free name and puts it in the field rather than on the record', () => {
+    seed('Fixture', 'Ilya');
+    openRename();
+    type('Ilya');
+    expect(offer(), 'the refusal offers no way forward').toBeDefined();
+    expect(offer()!.getAttribute('aria-label')).toBe('Put Ilya (2) in the name field');
+
+    click(offer()!);
+    expect(field().value).toBe('Ilya (2)');
+    expect(stored(), 'the offer wrote itself onto the character').toBe('Fixture');
+    expect(save().disabled).toBe(false);
+
+    click(save());
+    expect(stored()).toBe('Ilya (2)');
+  });
+
+  it('does not offer the import path’s wording to somebody typing by hand', () => {
+    // `duplicateFor` says "Ilya (imported)" because its job is a copy. Nothing
+    // was imported here.
+    seed('Fixture', 'Ilya');
+    openRename();
+    type('Ilya');
+    expect(text()).not.toContain('imported');
+  });
+});
+
+describe('renaming to nothing', () => {
+  it('will not produce a second character reading Unnamed', () => {
+    // P5-1(b)'s third bullet. The old comparison held raw stored strings, so
+    // two characters both stored as '' collided with nothing - and both rows of
+    // the header's `<select>` read "Unnamed".
+    seed('Fixture', '');
+    openRename();
+    type('');
+    expect(text()).toContain('both would read "Unnamed"');
+    expect(save().disabled).toBe(true);
+    expect(offer()!.getAttribute('aria-label')).toBe('Put Unnamed (2) in the name field');
+  });
+
+  it('goes through when nobody else is unnamed, and stores nothing rather than the word', () => {
+    // The honesty rule on the one string the user chose personally: the app
+    // prints "Unnamed" in thirteen places and does not put that word in
+    // somebody's mouth by writing it onto their record.
+    seed('Fixture');
+    openRename();
+    type('');
+    expect(save().disabled).toBe(false);
+    click(save());
+    expect(stored()).toBe('');
+    expect(stored()).not.toBe('Unnamed');
+    expect(field().placeholder).toBe('Unnamed');
+  });
+});
+
+describe('what the control announces', () => {
+  it('names the field, the save and the cancel', () => {
+    seed('Fixture');
+    openRename();
+    expect(field().getAttribute('aria-label')).toBe('Character name');
+    expect(cancel().getAttribute('aria-label')).toBe('Leave the name as Fixture');
+    type('Marek');
+    expect(save().getAttribute('aria-label')).toBe('Save the name Marek');
+  });
+
+  it('says Unnamed rather than nothing when the field is empty', () => {
+    seed('Fixture');
+    openRename();
+    type('');
+    expect(save().getAttribute('aria-label')).toBe('Save the name Unnamed');
+  });
+
+  it('names the cancel after a character with no name, rather than trailing off', () => {
+    seed('');
+    openRename();
+    expect(cancel().getAttribute('aria-label')).toBe('Leave the name as Unnamed');
+  });
+});

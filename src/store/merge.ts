@@ -109,7 +109,7 @@ function nameKey(name: string): string {
  * `except` is the character being renamed. Without it every rename would
  * collide with itself and SAVE could never be pressed.
  */
-function nameHolder(
+export function nameHolder(
   name: string,
   taken: readonly Character[],
   except?: string,
@@ -129,10 +129,10 @@ function nameHolder(
  * original, not the nearest free name. That difference is the reason the
  * rename path cannot simply call `duplicateFor`.
  *
- * `except` has no caller in this commit: `duplicateFor` is minting a character
- * that is not in `taken` yet and never needs it. It is here for the second
- * caller, the rename control, which arrives in the next commit and would
- * otherwise be offered "Ilya (2)" for a character already called Ilya.
+ * `except` is only ever passed by the rename door: `duplicateFor` is minting a
+ * character that is not in `taken` yet and never needs it, while a rename that
+ * did not exclude the character being renamed would offer "Ilya (2)" to a
+ * character already called Ilya.
  */
 export function freeName(
   base: string,
