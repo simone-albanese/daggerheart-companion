@@ -411,7 +411,11 @@ export const useApp = create<AppState>((set, get) => ({
 
   async create(partial) {
     const first = get().characters.length === 0;
-    const c = newCharacter(partial);
+    // The index, so a sheet that names a class is stored with that class's Hit
+    // Point track rather than the six the engine falls back to when it cannot
+    // look one up. The wizard hands over an already-synced sheet and never
+    // notices; the next caller to arrive without one would have.
+    const c = newCharacter(partial, get().index);
     await db.putCharacter(c);
     set((s) => ({ characters: [c, ...s.characters], activeId: c.id }));
     get().setPrefs({ lastCharacterId: c.id });

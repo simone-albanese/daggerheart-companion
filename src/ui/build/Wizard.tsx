@@ -133,9 +133,10 @@ export function Wizard({
   const finish = async (): Promise<void> => {
     if (blockers.length > 0 || !klass) return;
     // The starting HP, Stress, Hope and armor slots are not written down here:
-    // the engine derives every maximum from the class and the armor, and
-    // syncCounters is what a level up and an armor change already go through.
-    const sheet = newCharacter(assemble(draft, klass, dataset.consumables));
+    // `newCharacter` seeds the Hit Point track from the class - which is what
+    // the index is for - and syncCounters settles every maximum against the
+    // engine, the way a level up and an armor change already do.
+    const sheet = newCharacter(assemble(draft, klass, dataset.consumables), index);
     await create(syncCounters(sheet, deriveStats(sheet, dataset, index)));
     onCreated?.();
     setScreen('play');

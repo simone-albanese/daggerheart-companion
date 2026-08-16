@@ -174,6 +174,7 @@ export const makeStats = (p: Partial<DerivedStats> = {}): DerivedStats => {
     thresholds: [7, 12],
     massiveThreshold: 24,
     armorScore: 3,
+    unresolvedArmor: null,
     maxHp: 6,
     maxStress: 6,
     maxHope: 6,

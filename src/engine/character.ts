@@ -29,6 +29,31 @@ export const MAX_LOADOUT = 5;
 export const BASE_HOPE = 6;
 export const MAX_LEVEL = 10;
 
+/**
+ * The Hit Points to start a track with when no class can be read.
+ *
+ * Measured against `data/srd-1.0.json` rather than taken on trust: bard 5,
+ * druid 6, guardian 7, ranger 6, rogue 6, seraph 7, sorcerer 6, warrior 6,
+ * wizard 5. Six is the most common of the nine and it is what `deriveStats`
+ * has always fallen back to, so it is the one number that cannot make a seeded
+ * track disagree with the maximum the engine derives for the same sheet. It is
+ * a fallback and never an answer: a character with a class gets the class's.
+ */
+const HIT_POINTS_WITHOUT_A_CLASS = 6;
+
+/**
+ * Stress is six for every character in the game.
+ *
+ * Not a fallback, unlike the constant above: there is no per-class Stress in
+ * the SRD, none in `data/srd-1.0.json`, and no field for one on `CharClass`.
+ * Named so the seeded track and the derived maximum read it from one place.
+ */
+const BASE_STRESS = 6;
+
+/** Hit Points at level 1, from the class if this build can name it. */
+const startingHitPoints = (klass: CharClass | undefined): number =>
+  klass?.startingHitPoints ?? HIT_POINTS_WITHOUT_A_CLASS;
+
 /** Tier 1 is level 1, tier 2 is 2-4, tier 3 is 5-7, tier 4 is 8-10. */
 export function tierOf(level: number): Tier {
   if (level <= 1) return 1;
@@ -111,11 +136,28 @@ export interface DerivedStats {
   traits: Record<Trait, number>;
   /** The Beastform being worn right now, or null. */
   beastform: BeastformInPlay | null;
-  /** [Major, Severe]. */
+  /** [Major, Severe]. Not this character's numbers when `unresolvedArmor` is set. */
   thresholds: [number, number];
   /** Twice Severe: the optional Massive Damage rule. */
   massiveThreshold: number;
   armorScore: number;
+  /**
+   * The armor the sheet names that this build cannot resolve, or null.
+   *
+   * "Wearing armor this build cannot name" and "wearing no armor" are two
+   * different situations and they must not read as one number. When this is
+   * set, `thresholds` above is the *unarmored* ladder - a floor, not a fact:
+   * a level 5 character in improved chainmail reads 16/29 on the sheet the
+   * armor came from and 5/10 out of that formula. Anything that prints those
+   * two numbers without saying where they came from is telling the table
+   * something untrue, so the ref rides out with the stats rather than being
+   * swallowed by the branch that means "no armor".
+   *
+   * `armorScore` is the other half: with the armor unknown its Score is
+   * unknown too, so the sheet's own Armor Slot maximum is carried through
+   * instead of the unarmored zero.
+   */
+  unresolvedArmor: Ref | null;
   maxHp: number;
   maxStress: number;
   maxHope: number;
@@ -144,7 +186,17 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   // Each "increase Proficiency" advancement costs two slots but adds one.
   const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
 
-  const armor = c.activeArmor ? ix.armors.get(c.activeArmor) : undefined;
+  // A ref this dataset does not hold is not the same fact as an empty slot, and
+  // taking the same branch for both is how a Guardian in improved chainmail
+  // reads 5/10 at level 5 instead of 16/29 with nothing on screen saying the
+  // armor was not understood. The unresolved ref is carried out with the stats
+  // so a caller can tell the two apart; this is the call `normalizeIncoming`
+  // (P0-7) already makes at the store's door, where a maximum this build had to
+  // guess at is not allowed to clamp the numbers a sheet arrived with.
+  const wornRef: Ref | null = c.activeArmor === null || c.activeArmor === '' ? null : c.activeArmor;
+  const armor = wornRef === null ? undefined : ix.armors.get(wornRef);
+  const unresolvedArmor: Ref | null = armor === undefined ? wornRef : null;
+
   // Unarmored: Major equals level, Severe equals twice level, no armor slots.
   const baseThresholds: [number, number] = armor
     ? [armor.baseThresholds[0], armor.baseThresholds[1]]
@@ -154,7 +206,18 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     baseThresholds[1] + c.level,
   ];
 
-  const armorScore = Math.min(MAX_ARMOR_SCORE, armor ? armor.baseScore : 0);
+  /*
+   * Zero is an answer, and it is the wrong one for armor nobody can name.
+   * `syncCounters` writes this number straight into `armorSlots.max` and pulls
+   * `marked` down with it, so answering "no slots" for an unresolvable ref
+   * empties the Armor track of a character who is wearing armor - permanently,
+   * at the next level-up or armor change, on a sheet that was only ever passing
+   * through this build. The slot maximum the sheet already carries was written
+   * by a build that *could* name the armor, so it is kept rather than replaced.
+   */
+  const baseScore =
+    armor?.baseScore ?? (unresolvedArmor === null ? 0 : Math.max(0, c.armorSlots.max));
+  const armorScore = Math.min(MAX_ARMOR_SCORE, baseScore);
 
   const baseEvasion =
     c.evasionOverride ??
@@ -182,11 +245,8 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
       }
     : null;
 
-  const maxHp = Math.min(
-    MAX_HP,
-    (klass?.startingHitPoints ?? 6) + advancementCount(c, 'hitPoint'),
-  );
-  const maxStress = Math.min(MAX_STRESS, 6 + advancementCount(c, 'stress'));
+  const maxHp = Math.min(MAX_HP, startingHitPoints(klass) + advancementCount(c, 'hitPoint'));
+  const maxStress = Math.min(MAX_STRESS, BASE_STRESS + advancementCount(c, 'stress'));
   // A scar permanently crosses out a Hope slot.
   const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
 
@@ -214,6 +274,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     thresholds,
     massiveThreshold: thresholds[1] * 2,
     armorScore,
+    unresolvedArmor,
     maxHp,
     maxStress,
     maxHope,
@@ -263,8 +324,31 @@ export function weaponDamage(
   return { spec: formatDamage(scaled), ...scaled };
 }
 
-export function newCharacter(partial: Partial<Character> = {}): Character {
+/**
+ * A blank sheet, optionally with a class already chosen.
+ *
+ * The index is optional and it is what makes the Hit Point track right. Without
+ * it there is no way to look a class up, and the hardcoded 6 this used to write
+ * is wrong for four of the nine SRD classes - a wizard or a bard starts on 5, a
+ * guardian or a seraph on 7 - which is a 6-box track under an engine deriving
+ * 5, and `validatePlan` warning "Hit Points are already at the maximum of 12"
+ * one advancement early. It has stayed latent only because the one persisting
+ * caller, `store.create`, happens to be handed an already-synced sheet; a
+ * second caller - duplicate-character, a template, a test seed - is all it
+ * takes. So the class is read here when it can be, and the store passes its
+ * index in.
+ *
+ * With no index, or with a class this build cannot resolve, the track is seeded
+ * at `HIT_POINTS_WITHOUT_A_CLASS`, which is exactly what `deriveStats` derives
+ * for the same sheet. Both read the one constant, so the two cannot drift: a
+ * blank sheet is never stored disagreeing with the engine about itself.
+ */
+export function newCharacter(
+  partial: Partial<Character> = {},
+  index?: DatasetIndex,
+): Character {
   const now = new Date().toISOString();
+  const klass = index?.classes.get(partial.classRef ?? '');
   return {
     id: crypto.randomUUID(),
     schemaVersion: SCHEMA_VERSION,
@@ -279,8 +363,8 @@ export function newCharacter(partial: Partial<Character> = {}): Character {
     level: 1,
     traits: { agility: 0, strength: 0, finesse: 0, instinct: 0, presence: 0, knowledge: 0 },
     traitMarks: {},
-    hp: { marked: 0, max: 6 },
-    stress: { marked: 0, max: 6 },
+    hp: { marked: 0, max: Math.min(MAX_HP, startingHitPoints(klass)) },
+    stress: { marked: 0, max: BASE_STRESS },
     hope: { marked: 2, max: BASE_HOPE },
     armorSlots: { marked: 0, max: 0 },
     evasionOverride: null,

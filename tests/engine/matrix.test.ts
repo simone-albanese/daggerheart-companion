@@ -152,7 +152,17 @@ const NULLABLE_ON_A_CHARACTER: ReadonlySet<string> = new Set([
   'inventory[].ref',
 ]);
 
-const NULLABLE_ON_DERIVED_STATS: ReadonlySet<string> = new Set(['beastform', 'spellcastTrait']);
+/**
+ * `unresolvedArmor` is null on all 3240 of these and has to be: every row wears
+ * armor this dataset holds, so a ref parked here would mean the matrix built a
+ * sheet pointing at armor that does not exist. Null is the answer that says the
+ * thresholds beside it are the real ones.
+ */
+const NULLABLE_ON_DERIVED_STATS: ReadonlySet<string> = new Set([
+  'beastform',
+  'spellcastTrait',
+  'unresolvedArmor',
+]);
 
 /** `cardLevelCap` is a closure by design; every other function is a mistake. */
 const CALLABLE_ON_DERIVED_STATS: ReadonlySet<string> = new Set(['cardLevelCap']);
@@ -264,6 +274,7 @@ const DERIVED_FIELDS = [
   'thresholds',
   'massiveThreshold',
   'armorScore',
+  'unresolvedArmor',
   'maxHp',
   'maxStress',
   'maxHope',
@@ -624,6 +635,12 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
         if (c.activeArmor !== null && armor === undefined) {
           wrong.push(`${row.label}: armor ${c.activeArmor} is not in the dataset`);
           continue;
+        }
+        // And the stats have to agree that they were able to read the armor:
+        // a parked ref here would mean the thresholds below are the unarmored
+        // ladder wearing the armored one's clothes.
+        if (row.stats.unresolvedArmor !== null) {
+          wrong.push(`${row.label}: stats report armor ${row.stats.unresolvedArmor} as unresolvable`);
         }
         // The rule, spelled out rather than borrowed: an armored character's
         // thresholds are the armor's own plus their level; an unarmored one's
