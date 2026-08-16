@@ -242,6 +242,67 @@ no-clobber guard in P0-1, so fix them together.
 
 ---
 
+### P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all
+`shared/types.ts:16` · `src/transfer/fileIo.ts:127-132` · `src/store/db.ts:47-68` · **medium, 3–5 h**
+
+`SCHEMA_VERSION = 3`, and `checkSchema` throws in **both** directions. The
+downward branch reads: *"There is no converter for that version yet, so it has
+not been imported."* There is no converter. `grep -rn migrat src shared tools
+tests` returns one prose comment (`backup.ts:23`) and nothing else — no version
+table, no converter chain, no fixture for any historic schema. The refusal is
+pinned as intended behaviour by `tests/transfer/fileIo.test.ts:133-145`, so it
+cannot drift into working by accident.
+
+The app's whole durability story is "IndexedDB can be evicted, so keep exported
+files" (`backup.ts:1-24`, README:136-146). The moment that constant becomes 4,
+every `.dhchar` and `.dhbackup` on disk, in a Drive folder, and in the daily
+folder P0-2 exists to fill becomes permanently unreadable by the only app that
+can read it — and it fails at the worst possible moment, because you reach for
+the backup precisely *when* IndexedDB was evicted, by which point no old build
+is left on the device to open it with. The error even says *"nothing has been
+changed or lost"*, which is true of the file and false of the user's situation.
+
+The database path has the opposite problem: it never looks. `schemaVersion` is
+written in three places (`character.ts:270`, `codec.ts:811`, `fileIo.ts:358`)
+and read in exactly one — `checkSchema`, on the file path only. `listCharacters`
+(`db.ts:65`) is a `getAll` and a sort; `init()` drops the result into the store;
+`flush()` writes it straight back. `DB_VERSION = 1` has a single
+`upgrade(database)` that only calls `createObjectStore` four times, with no
+`oldVersion` branch. And **no test in this repo ever opens a database** —
+`tests/store/` is two backup files and there is no `fake-indexeddb` in
+`package.json` — so `upgrade`, `listCharacters`, `removeLayer` and `clearAll`
+are entirely unexercised.
+
+This bites because this app makes two builds coexist on one device *by design*:
+`UpdateBanner` offers the waiting worker rather than swapping the bundle
+mid-session. After a bump the old bundle reads a v4 record with no check,
+renders it as v3, and writes it back through the 400 ms debounce — degrading the
+character in place, in the only copy, with nothing on screen. That is exactly
+the silent misinterpretation `fileIo.ts` spends ten lines and a test preventing
+on the file path. And `openDB(DB_NAME, 1, …)` against an already-upgraded
+version-2 database rejects with `VersionError`, which `state.ts:143-149` catches
+into the generic `storageError` — so `App.tsx:152` tells the user to *"close the
+other tabs and reload"*, advice that cannot work, because the stale bundle
+reloads into the same failure.
+
+Costs nothing today. It is a precondition attached to a version bump, on the
+same footing as P0-5's `blocked`/`blocking` bullet — and the only thing that
+would currently make a maintainer notice is a `tsc` error, because
+`character.ts:270` hardcodes the literal `3` against a `typeof SCHEMA_VERSION`
+field. That error points at the wrong file.
+
+- [ ] A converter chain keyed by version, applied on read rather than rejected,
+      with a committed fixture per historic schema and a test that every one
+      still loads.
+- [ ] Read `schemaVersion` in `listCharacters`: quarantine anything newer than
+      the build, never render it and never write over it. Make `flush()` refuse
+      to overwrite a stored record whose version exceeds the build's.
+- [ ] Give `db()` an `oldVersion` branch, and a `VersionError` message that says
+      the app is out of date rather than that another tab has the database.
+- [ ] A stated policy: no schema ships without its converter, and no
+      `SCHEMA_VERSION` bump without both of the above. Add `fake-indexeddb` so a
+      test can prove it — today nothing can.
+
 ## P1 — Tells a player a wrong number
 
 Nothing here loses data, but each one makes the app confidently wrong about a
@@ -378,6 +439,67 @@ level-up path does not know that yet.
 
 ---
 
+### P1-6 · A card this build cannot name vanishes from the sheet, the cap still counts it, and the parked ref never heals
+`src/engine/loadout.ts:37, 133-142` · `src/transfer/codec.ts:1047` ·
+`src/ui/player/Play.tsx:80, 715, 785` · **medium, 3–5 h** · *found independently by two lenses*
+
+Two dead functions, one defect.
+
+`missingCardRefs` (`loadout.ts:140`) is doc-commented *"Refs the current dataset
+cannot resolve. Shown, never dropped."* It has five tests and **zero callers in
+`src/`**. What both display paths actually use is `resolveCards`
+(`loadout.ts:133`), seven lines above it, which is a `.filter()` that drops them
+— at `Play.tsx:80-81` for loadout *and* vault, and at `sheetModel.ts:207` for
+the printed sheet. Nothing under `src/ui` references `isUnresolvedRef` or
+`UNRESOLVED_PREFIX` at all.
+
+Meanwhile the cap gates on the **raw** array: `loadout.ts:37` is
+`if (c.loadout.length >= MAX_LOADOUT)`. So a character holding five cards, two
+of which this build cannot name, renders `3 / 5 ACTIVE` (`Play.tsx:715`), offers
+`2 SLOTS FREE` (`Play.tsx:785`), and then refuses every recall with *"Loadout is
+full (5) - move a card to the vault first."* The screen contradicts itself; the
+player cannot move the ghosts because no screen renders them and no control
+reaches them (`Cards.tsx:100` does `dataset.domainCards.find(...)` and returns
+early on `undefined`); the loadout is two slots short for the life of the
+character, with no message anywhere naming the cause. The card is missing from
+the printed sheet too, which is the paper backup.
+
+The healing half is dead as well. `resolvePlaceholders` (`codec.ts:1047`) has
+zero callers in `src/` — only three test files. This is not merely a stale doc
+comment: `codec.ts:851-853` builds the warning *"They are kept on the sheet and
+will resolve when the missing source is added."*, `Transfer.tsx:301-308` renders
+it verbatim to the user, and `Architecture.md:345-346` states the same promise
+as a rule. **A sentence on screen promises a repair that no code path in `src/`
+can perform** — P3-6's failure on a surface that matters more.
+
+One correction for whoever does this: `resolvePlaceholders` resolves against
+`registry.slugOf`, which is the committed append-only `data/registry.json`
+compiled into the bundle. It does not change when the dataset reloads, so the
+doc comment's *"call it after a dataset reload"* is itself wrong. The real
+trigger is app startup after a build whose registry has grown.
+
+Nothing is destroyed — the ref survives on disk and round-trips through the
+codec, which `matrix.test.ts:216` pins. This is a wrong number the player acts
+on, plus a jammed control, plus a promise the app cannot keep. Note the
+precedent: P1-2 is the same defect shape in the same file — `canAddToLoadout`
+returns `affordable` and no UI reads it. The audit caught one unread return
+value in `loadout.ts` and missed the other.
+
+- [ ] Render what `missingCardRefs` returns, on Play and on the print sheet: a
+      ghost row naming the ref, counted against the cap so `n / 5 ACTIVE` and
+      `SLOTS FREE` agree with the gate, and removable to the vault by hand.
+- [ ] Call `resolvePlaceholders` at startup, after `init()` loads the library,
+      and re-persist what it heals — so an update that grows the registry
+      repairs the sheets already on the device.
+- [ ] Until it does, `codec.ts:851` must not promise a repair that never
+      happens. Wire the resolver or change the sentence.
+
+P0-7 already uses this exact scenario — *"a sheet arrives from a newer device
+with its class ref parked as `?60007`"* — but only asks for `syncCounters` at
+import time, which assumes the ref stays parked forever and fixes the counter
+disagreement instead. The backlog cannot accept the scenario as real there and
+treat it as hypothetical here.
+
 ## P2 — Unusable on a device we support
 
 ### P2-1 · The Play screen collapses below 1180 px wide or 700 px tall — **phone done, tablet open**
@@ -506,6 +628,42 @@ clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
 
 ---
 
+### P2-5 · If the bundle does not evaluate, the app is a blank rectangle with no words and no escape
+`index.html:30-31` · `src/main.tsx:8` · `public/sw.js:151, 478-490` · **small, 1–2 h**
+
+`<body>` is the inline theme script and `<div id="root"></div>`. No static text,
+no `<noscript>`, nothing inside `#root` for React to replace. `main.tsx:8`
+throws at module scope. On accepting an update, `sw.js:151` calls
+`pruneAssets()`, which deletes every hashed asset the new document does not name
+— so the previous build's chunks are gone from Cache Storage, by design.
+
+P3-1's last bullet — *"No boundary above the screen level… wrap `.app` in a
+boundary whose fallback is an unconditional 'Export everything'"* — is a React
+boundary and cannot see a module graph that never evaluated. `init()`'s 8 s
+deadline (`state.ts:134-149`) genuinely covers the adjacent case, where init
+hangs and the app renders a failure state. The residual is strictly *the bundle
+did not run*, and it has no observer at all: nothing in `tests/` boots the
+document, and none of the six *Needs a human* drills exercises the update path
+against a second real deploy.
+
+When it lands, the app is unbootable on every device at once with not one word
+on screen saying so. The character is intact in IndexedDB and unreachable, and
+the remedy every support page gives — clear site data, delete and reinstall the
+PWA — destroys the only copy that exists. Rare per deploy; note that the deploy
+gate is the same suite P3-5 records as failing about one run in five, and there
+is no post-deploy check of any kind.
+
+- [ ] Static text inside `#root` that React overwrites on mount: what the app
+      is, that the character is still in the browser's storage, and what to do —
+      explicitly *not* "clear site data".
+- [ ] Better: an escape that does not need the bundle. A small inline script
+      that opens IndexedDB, reads `characters` and offers the JSON turns a
+      broken build into a bad evening rather than a lost character.
+- [ ] Write down the un-ship lever, which today exists only in a code comment:
+      bumping `sw.js:29`'s `VERSION` renames both caches so `takeOver()` sweeps
+      them and rebuilds from the network, at the cost of a full re-download for
+      every installed client.
+
 ## P3 — Fails without telling anyone
 
 ### P3-1 · UI chains with no catch
@@ -626,6 +784,187 @@ an explicit choice rather than an accident.
 
 ---
 
+### P3-7 · The harness cannot see the class of defect this project keeps shipping
+`tests/pwa/wiring.test.ts:29` · `vitest.config.ts:9` · **small, 2–3 h**
+
+Four defects have now reached users with the same shape — code that exists,
+typechecks, is tested, and is never reached: the service worker was never
+registered, the wake lock was never taken, four navigation icons were never
+painted, and creation discarded both Experiences. The only guard against
+recurrence anywhere on this page is instance-shaped: P0-2's *"Add a test
+asserting the app registers the `pagehide` hook."* One hook, one instance.
+
+**The orphan test is one file wide, and its own docblock says it should not be.**
+`wiring.test.ts:29` is `const REGISTER = join(SRC, 'pwa/register.ts')`, while
+the last test already walks all of `src/` for callers. The docblock claims the
+general property: *"It does not name the seams; it derives them, so a seam added
+next year and forgotten is caught by a test written today."* Pointed at `src/`
+as a whole it fails **today** on `TIER_BENCHMARKS`, `resolvePlaceholders`,
+`missingCardRefs`, `reorderLoadout`, `takeRest`/`movesFor`/`mustTakeLongRest`,
+`rollDamage`, and `installBackupHooks`/`backupAtSessionEnd`/`noteSession`/
+`integrityCheck` — every instance this backlog lists, plus P1-6. One caveat
+measured rather than assumed: the extractor is `/^export function (\w+)/gm`, so
+it is blind to `export const f = () => …`, which is how `dice.ts:206`,
+`fileIo.ts:574` and `:763`, `db.ts:70` and `state.ts:263` are all written.
+Generalising the path alone still misses those.
+
+**No test has ever mounted a screen.** Exactly two test files carry
+`// @vitest-environment jsdom` and `createRoot` — `tests/ui/tabBar.test.ts` and
+`tests/ui/track.test.ts` — and both were written *after* a person found the bug
+on their own phone (`9454289`, `7aa8965`). Four more render through
+`renderToStaticMarkup`, which does not run `useEffect`, and every act of wiring
+in this app lives in an effect. Six `.tsx` files are imported by any test at
+all; `App.tsx` appears only as a `readFileSync` path and `Play.tsx` only inside
+a comment, on the screen the README says is used 90 % of the time.
+
+**And the natural fix would pass CI at zero tests.** `vitest.config.ts:9`
+includes `tests/**/*.test.ts` and no `.tsx` pattern. There are no `.test.tsx`
+files today, so nothing is skipped right now — but `tests/ui/play.test.tsx`, the
+obvious filename for the first real component test, is collected by nothing,
+reported by nothing, and exits green.
+
+- [ ] Lift `REGISTER` out and walk all of `src/`; extend the pattern to arrow
+      exports. Keep both hard-won decisions verbatim — it strips comments first,
+      because a mention is not a call, and it matches `\bname\s*\(` rather than a
+      bare substring. Deliberate seams get an allowlist with a one-line reason
+      each, which then *is* the honest inventory of "shipped switched off" that
+      P1-5 asks for by hand about `rest.ts`.
+- [ ] Add `.tsx` to `include` **first**, or the next bullet ships as a file
+      nothing runs.
+- [ ] One parameterised smoke mount: every exported screen, in jsdom, under
+      `act()`, with a fixture character — asserting it renders without throwing,
+      that `document.body.textContent` is non-empty, and that every element whose
+      job is to be visible resolves to a non-transparent colour.
+      `tabBar.test.ts` already contains the whole technique, against one
+      component instead of 43.
+- [ ] Coverage is not the tool for this, and buying it would give false comfort:
+      `rest.ts` has 28 passing tests over a module the app never reaches, and a
+      coverage report would call those 226 lines fully covered. The question is
+      not whether a test executed the line; it is whether the shipped app has a
+      path to it.
+
+### P3-8 · Nothing tells the user whether the app is actually offline-ready
+`src/ui/shell/App.tsx:72` · `src/pwa/register.ts:45-46, 87-94` · **trivial, 1 h**
+
+A failed registration becomes `console.warn('[pwa] service worker', error)` and
+nothing else. `register.ts:45-46` returns an inert handle silently when the
+context is not secure or a Firefox private window refuses. `register.ts:87-94`
+catches an install that threw on a chunk 404 against a half-published deploy,
+and its own comment reads: *"The previous worker stays in charge, so the app is
+still offline-capable — on the old bundle, indefinitely, and nothing else would
+ever say so."* A grep across `src/ui/` for serviceWorker / controller /
+precache / offline returns only prose in comments.
+
+The README's headline claim is *offline*. This is the only place the app could
+tell the truth about it, and it says nothing — so someone walks into a basement
+believing an app is installed that is not, and the sheet does not open at all.
+The right pattern already exists one screen away: `Settings.tsx:672-674` renders
+persistence as GRANTED / NOT GRANTED / UNKNOWN.
+
+- [ ] One line beside the persistence indicator: whether a worker controls this
+      page (`navigator.serviceWorker.controller`, a one-liner) and whether the
+      precache is filled — `sw.js:158` already has a message handler that could
+      answer with its cache counts.
+
+### P3-9 · Three controls on the phone say the wrong thing, or nothing
+**~1 h total** · *same class as P3-6*
+
+- [ ] **A vault card that will not recall says why only in a `title`.**
+      `Play.tsx:545` is `title={check.reason ?? …}` and `:555` is
+      `opacity: check.allowed ? 1 : 0.55`. For a card in the vault,
+      `loadout.ts:37-44` makes `allowed` false for exactly one reachable reason
+      — *"Loadout is full (5) - move a card to the vault first"* — and
+      `Play.tsx:529-531` makes the tap open the card reader instead. A
+      touchscreen has no hover, so the player taps a vault card, gets the card's
+      rules text, and never learns the loadout was full. A full loadout is the
+      normal state past level 4. `91097eb`'s own commit message fixes this exact
+      mechanism one file over: *"An unaffordable chip now says NO HOPE instead of
+      fading to 45 % opacity, which… read as absent while hiding the one fact the
+      player needed."* Two surfaces were left. *(trivial)*
+- [ ] **Every USE button in the carried-items list has the same accessible
+      name.** `Play.tsx:459-484` — the button's whole content is the literal
+      `USE`, no `aria-label`. The sibling row button carrying the item's name is
+      `disabled={entry.note === undefined}` (`:443`), so for any item without a
+      note the name is not reachable as a focusable label at all. Five carried
+      items announce as five buttons called "USE", and the player spends the
+      wrong consumable mid-scene. `aria-label={`Use ${entry.name}`}`. *(trivial)*
+- [ ] **On a phone the only route to Settings is a button labelled with the name
+      of the current theme.** `Header.tsx:186` renders
+      `{theme === 'light' ? 'LIGHT' : 'MENU'}` inside a button whose `onClick` is
+      `setScreen('settings')`. `Header.tsx:49` hides the desktop nav under 720 px
+      and `TabBar` has only play/cards/build/gm, so below that width this is the
+      sole door to export, import, backup, persistent storage, print and About.
+      The `aria-label` is correct, which is exactly why nothing has caught it: a
+      light-theme user scanning the header for their backups reads a theme name
+      on a control that looks like a toggle. `theme: 'system'` renders MENU on a
+      light OS too, so the label is not even a reliable indicator of the thing it
+      appears to indicate. Shipped in `8c83f78`; `rg -l Header tests/` returns
+      nothing. *(trivial)*
+
+### P3-11 · The card's only action does not look like one, and shares its word with the cost
+`src/ui/player/Cards.tsx:239, 241-242` · **small, 1–2 h** · *reported from a phone*
+
+The footer of every card in the browser carries the one thing you can do with
+it — TAKE, RECALL, or IN LOADOUT — and it is drawn as text. It really is a
+`<button>` and it really does have `minHeight: 'var(--control)'`, so the target
+is there and it works; what is missing is any signal that it is pressable. No
+background, no border, `className="t-meta"`, and a colour of `var(--muted)`.
+
+That last part is what finishes it: the readout beside it at `:241` is also
+`t-meta`, and its colour is `var(--dim)`. Two small grey capitals at opposite
+ends of the same row read as a matched pair of labels, which is exactly what
+one of them is. A player scanning 189 cards has no reason to try tapping
+either.
+
+The words make it worse. The button says **RECALL** — an action, "bring this
+back into the loadout" — and eleven characters to its right the app prints
+**RECALL 2**, which is not that action but its price, the Recall Cost from the
+card. The same word, twice, in one row, meaning two different things. Nothing
+on screen distinguishes them.
+
+- [ ] Give the action the shape of a control: the chip treatment the rest of
+      the app uses, or a border. It already has the height; it needs the
+      affordance.
+- [ ] Separate the two senses of "recall". The cost is a property of the card
+      and reads fine as `COST 2`; the action can keep the verb. Whatever is
+      chosen, the same row must not use one word for both.
+- [ ] The disabled state is `'—'`, which says nothing about why a card cannot
+      be taken. `row.reason` already exists and is rendered in the cost slot —
+      check whether it can carry that instead.
+
+### P3-10 · The licence notice is on screen only for a user who has no characters
+`src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
+
+`<Attribution compact />` lives inside `EmptyState`, and `App.tsx:170` and `:175`
+render `EmptyState` only when `needsCharacter` is true. So the DPCGL notice and
+the Daggerheart Compatible lockup are on screen only for a user who has *no*
+character, and disappear permanently the moment someone creates one — which is
+every real user at every real table. The only other in-app copy is
+`About.tsx:111`, at the bottom of Settings, behind the button in P3-9. Meanwhile
+`Architecture.md:163` says *"Attribuzione richiesta, sempre visibile nel footer e
+nel README"* and `:629` repeats it, and there is no `<footer>` anywhere in the
+app shell — the only one in `src/` is `print/CharacterSheet.tsx:259`, on paper.
+
+Nothing fails at a table. What it costs is the project: if the licence requires
+the notice to be *displayed* rather than merely available, the app is out of
+compliance on every install past the first character, and the remedy for that is
+a takedown demand, which loses nobody's data but ends updates and the URL. Same
+shape as the four defects already found — a spec that promises, code that exists
+and looks right, and a rendering path nobody exercises — sitting on the one axis
+where being wrong stops the project rather than costing a character.
+
+- [ ] Put the attribution somewhere that survives having a character. A footer on
+      Settings and About is the minimum; `Architecture.md` asks for the shell.
+- [ ] Delete `About.tsx:18-22` and import the copy at `CompatibleMark.tsx:54-57`.
+      They are two independent literals that both normalise to the same 342
+      characters today with nothing pinning them together — and `About.tsx` is
+      already on the P4 work list, so the next refactor drops the notice with CI
+      green. The repo learned this exact lesson for a lower-stakes duplicate:
+      *"the two duplicated light palettes are now pinned to each other."*
+- [ ] A render test asserting the string reaches the DOM on the screens that must
+      carry it. Across 50 test files the only assertion is
+      `printSheet.test.ts:236`, which covers the paper sheet.
+
 ## P4 — Release hygiene
 
 - [ ] **No version or build id anywhere in the UI.** A user on a stale cached
@@ -644,6 +983,92 @@ an explicit choice rather than an accident.
       real gaps.
 
 ---
+
+- [ ] **Nothing in the pipeline objects to unused code, and the free compiler
+      flags find nine hits today.** `tsconfig.json` sets `strict`,
+      `noUncheckedIndexedAccess`, `noImplicitOverride` and
+      `noFallthroughCasesInSwitch` — and neither `noUnusedLocals` nor
+      `noUnusedParameters`. There is no eslint/biome/knip config and no `lint`
+      script. Measured at `7815030`, not assumed:
+      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` reports **9
+      errors** — `GearPicker.tsx:84`, `Play.tsx:87` (`stats`, accepted by
+      `Identity` and never read), `:835 shapes`, `:836 setOpenCard`,
+      `:840 klass`, `:844 modLabel`, `:848 modValue` (all leftovers of the phone
+      Play rebuild), `Settings.tsx:33`, `tools/simulate.ts:22`. Two tsconfig
+      lines, and `tsc --noEmit` already runs in CI. Add an unused-*exports* pass
+      as well (`knip` or `ts-prune`): it catches `exportBackup`
+      (`fileIo.ts:574`), `readFile` (`:763`), `getCharacter` (`db.ts:70`) and
+      `outcomeLabel` (`dice.ts:206`), all zero callers, all pure dead weight.
+      Note what it would *not* have caught: the `background` +
+      `backgroundColor: undefined` collision. That one is already covered by a
+      test that fails on the pattern.
+- [ ] **The browser floor is stated nowhere, and eight `color-mix()` values sit
+      where no build target can reach them.** No `browserslist`, no browser
+      section in the README, no version in `Architecture.md` §13, no `@supports`
+      anywhere in `src/` or `public/` — zero hits. The single statement of intent
+      is `vite.config.ts:20` `build.target: 'es2022'`, which governs JS only.
+      Against it, eight `color-mix(in srgb, …)` uses, every one an inline React
+      style string that esbuild never sees as CSS — `Beastform.tsx:31`,
+      `Play.tsx:216`, `Companion.tsx:554`, `Conditions.tsx:116`,
+      `DeathMove.tsx:105` and `:484`, `DomainCardView.tsx:153` and `:375` — so
+      setting `cssTarget` would be a false sense of control. Also `base.css:159`
+      `height: 100svh`, load-bearing for the no-document-scroll layout. Below the
+      floor (Safari before 16.2 — an iPhone 7 capped at iOS 15) the app loses its
+      colour coding and keeps its legibility: every site keeps a border and a
+      text colour, and domains carry shape-coding independently. The cost is that
+      a contributor has nothing to check a change against, and no CI check can
+      exist for a floor nobody wrote down.
+- [ ] **A screen crash gives the user one line of text and no way to convey it.**
+      `ScreenBoundary.tsx:29-31` — *"No telemetry anywhere in this app; the
+      console is the only reporter"* — then `console.error`. The fallback renders
+      `error.message` alone (`:60`) in a `<code>` block with no stack and no copy
+      affordance. Those two `console.*` calls are the only ones in all of `src/`,
+      and on iOS reaching a console needs a Mac and a cable. The two defects that
+      shipped for months were found by a person opening the app on their own
+      phone; that channel is this project's only working bug-finding mechanism,
+      and it gives that person nothing to send back but a retyped sentence.
+      `pasteboard.ts:54` already does `navigator.clipboard.writeText`.
+- [ ] **Settings hints are never tied to the control they explain.**
+      `settings/parts.tsx:94-101` renders `label` and `hint` as bare `<div>`s
+      with no `id`; `Switch` (`:117-178`) is a sibling carrying only
+      `aria-label={label}`. `rg aria-describedby src/` returns **zero** across
+      the tree. The hint is adjacent visible text and reachable by swipe, so this
+      costs the fast path rather than all paths — but the prose in question is
+      `Settings.tsx:670` (what persistent storage is for), `:761` (*"the
+      installed app gets its own storage and will open empty"*) and
+      `About.tsx:196` (*"no undo and no copy anywhere else"*).
+- [ ] **The precache test derives its expectations for fonts and icons and not
+      for brand assets.** `tests/pwa/serviceWorker.test.ts:245-246` compares the
+      shell against what Vite actually emitted for `.woff2` and `/icons/`; there
+      is no equivalent clause for `/brand/`. That is the mechanism by which
+      P3-4's first bullet shipped, and without the clause the identical gap
+      returns the next time an asset directory is added. Precision the backlog
+      understates: `Header.tsx:141` renders `<CompatibleIcon size={18} />`
+      *outside* the `{!phone && …}` guard, so the mark is on every screen at
+      every width, and a broken `<img>` still paints its alt text — offline the
+      statement survives and the licensed mark does not.
+- [ ] **The deployed bundle carries no copy of the MIT notice, and the app never
+      states its own code licence.** `dist/` is 28 files and `LICENSE` is not
+      among them; `deploy.yml:89` uploads `path: dist` verbatim and its only
+      file-shuffling step is `cp dist/index.html dist/404.html` (`:83`).
+      `LICENSE:12-13` requires the notice in all copies. No adverse party — it is
+      the author's own copyright — but it is one line beside the existing `cp`,
+      and one line on About in the same commit as the version string above.
+- [ ] **No copy of the DPCGL and no record of which version was accepted.**
+      `LICENSE:27-30` cites it by bare URL with no version or retrieval date, and
+      `find . -maxdepth 2 -iname "*licen*"` outside `node_modules` returns only
+      `./LICENSE`. The contrast is inside the same file: `LICENSE:32-33` says of
+      the fonts *"each licence text sits beside the files it covers"*, and it
+      does. `About.tsx:139` is the only outbound link in the app and it points at
+      `daggerheart.com/buy`; `rg darringtonpress src/ public/ index.html` returns
+      nothing, so a user of an offline-first app has no way to read the terms
+      under which the content they are looking at was published. Vendor the text
+      with a retrieval date and link it beside the About attribution panel.
+- [ ] **The section numbering has collided.** Two headings are `### P2-4` (`:438`
+      the fixed block, `:493` screen reader and focus), the P2 items run 1, 2, 4,
+      3, 4, and *Already good* points at "the `brand/` fix in P3-3" when it is
+      P3-4. Cheap, and this document is the thing everything else is tracked
+      against.
 
 ## Needs a human, two devices and a dim room
 
