@@ -39,7 +39,7 @@
  *   somebody else is already showing as "Unnamed", and otherwise stores the
  *   emptiness the person asked for rather than a word they did not type.
  */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { freeName, nameHolder } from '../../store/merge.ts';
 import { useActive, useApp } from '../../store/state.ts';
 
@@ -95,6 +95,7 @@ export function RenameField({
   const characters = useApp((s) => s.characters);
   const update = useApp((s) => s.update);
   const [draft, setDraft] = useState(character?.name ?? '');
+  const refusalId = useId();
 
   if (!character) return null;
 
@@ -103,9 +104,31 @@ export function RenameField({
   const blank = draft.trim() === '';
   // The refusal is a sentence, not a dimmed button. `Play.tsx:1082-1085` writes
   // the rule down for the vault's blocked recall and `playSheet.test.tsx:452`
-  // pins it: a control that will not act says why in text a thumb can read, and
-  // says it in its own accessible name as well, because 45% opacity announces
-  // nothing at all.
+  // pins it: a control that will not act says why in text a thumb can read,
+  // because 45% opacity announces nothing at all.
+  //
+  // Opacity announces nothing to a screen reader either, and putting the reason
+  // into the refused control's own accessible name does not answer that on its
+  // own: SAVE is `disabled`, so Tab from the field steps straight over the
+  // label carrying the reason and lands on the offer - a different name being
+  // suggested, with nothing anywhere having said the typed one was refused. So
+  // the sentence is carried by the two things that are reachable from where the
+  // person actually is, which is the field:
+  //
+  //   `role="status"`, on a region mounted empty and filled when the name
+  //   collides - the pattern `Wizard.tsx:274` uses for the creation wizard's
+  //   blocking reason. Mounted empty rather than mounted with the sentence in
+  //   it, because a live region has to exist before its contents change for the
+  //   change to be spoken.
+  //
+  //   `aria-describedby` from the field to that region, plus `aria-invalid`,
+  //   wired the way `settings/parts.tsx:191` wires its hints. The state and the
+  //   reason then belong to the control being refused, for a reader who arrives
+  //   at the field after the announcement rather than during it.
+  //
+  // SAVE keeps the reason in its accessible name because touch exploration and
+  // a screen reader's browse mode do reach a disabled control. That is a second
+  // copy for the readers who get there, not the mitigation.
   const refusal =
     holder === undefined
       ? null
@@ -128,7 +151,13 @@ export function RenameField({
   };
 
   return (
-    <div className="stack" style={{ gap: 6 }}>
+    // No `gap` on the stack. The refusal region below is mounted whether or not
+    // anything is being refused - that is what makes it a live region rather
+    // than a sentence that appears - so a gap here would cost 6px of the sheet
+    // permanently, on a row whose whole ergonomic argument is that arming the
+    // rename moves nothing. The region carries the 6px itself, when it has
+    // something in it.
+    <div className="stack">
       <div className="row" style={{ gap: 6 }}>
         <label className="stack" style={{ flex: 1, minWidth: 0, gap: 4 }}>
           {label !== undefined && <span className="t-label">{label}</span>}
@@ -138,6 +167,8 @@ export function RenameField({
             value={draft}
             maxLength={MAX_NAME}
             placeholder="Unnamed"
+            aria-invalid={refusal !== null}
+            aria-describedby={refusal === null ? undefined : refusalId}
             autoFocus={autoFocus}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitOnBlur ? commit : undefined}
@@ -177,11 +208,24 @@ export function RenameField({
           </button>
         )}
       </div>
-      {refusal !== null && offer !== null && (
-        <div className="row" style={{ gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <p className="t-dense" style={{ flex: 1, minWidth: 0, margin: 0 }}>
-            {refusal}
-          </p>
+      <div
+        className="row"
+        style={{
+          gap: 8,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          marginTop: refusal === null ? 0 : 6,
+        }}
+      >
+        <p
+          id={refusalId}
+          role="status"
+          className="t-dense"
+          style={{ flex: 1, minWidth: 0, margin: 0 }}
+        >
+          {refusal}
+        </p>
+        {refusal !== null && offer !== null && (
           <button
             type="button"
             className="btn"
@@ -198,8 +242,8 @@ export function RenameField({
           >
             {offer}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

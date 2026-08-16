@@ -265,16 +265,62 @@ describe('a name somebody else already has', () => {
     expect(save().disabled).toBe(true);
   });
 
-  it('says why in visible text, and in the refused control’s own name', () => {
+  it('says why somewhere a keyboard and a screen reader arrive, not only on the glass', () => {
     // `.btn:disabled` is `opacity: 0.45` and nothing else, which announces
-    // nothing at all. A control that will not act has to say why to a screen
-    // reader as well as to an eye.
+    // nothing at all. This test used to ask for the sentence on the glass and
+    // the same sentence in SAVE's `aria-label`, and both were true while the
+    // refusal was still unreachable: SAVE is `disabled`, so Tab from the field
+    // steps over it and lands on the offer - a different name suggested, with
+    // nothing having said the typed one was refused. What has to hold is that
+    // the refusal reaches the field the person is standing on, and that it
+    // lands in a region that existed before it did.
+    seed('Fixture', 'Ilya');
+    openRename();
+
+    const region = (): HTMLElement =>
+      container.querySelector<HTMLElement>('[role="status"]')!;
+    expect(
+      container.querySelector('[role="status"]'),
+      'nothing is listening when a refusal arrives under a typing thumb',
+    ).not.toBeNull();
+    expect(region().textContent, 'the region was mounted already refusing').toBe('');
+    expect(
+      field().getAttribute('aria-describedby'),
+      'the field points at a refusal nobody has made',
+    ).toBeNull();
+    expect(field().getAttribute('aria-invalid')).toBe('false');
+
+    type('Ilya');
+    expect(text()).toContain('already called "Ilya"');
+    expect(region().textContent, 'the refusal landed outside the live region').toContain(
+      'already called "Ilya"',
+    );
+    expect(field().getAttribute('aria-invalid'), 'the field does not say it is refusing').toBe(
+      'true',
+    );
+    const describedBy = field().getAttribute('aria-describedby');
+    expect(describedBy, 'the field does not point at the reason it is refusing').not.toBeNull();
+    expect(
+      document.getElementById(describedBy!)?.textContent,
+      'the description points at something that does not carry the reason',
+    ).toContain('already called "Ilya"');
+
+    expect(save().disabled).toBe(true);
+    expect(save().getAttribute('aria-label')).toContain('already called "Ilya"');
+  });
+
+  it('takes the refusal back off the field when the name stops colliding', () => {
+    // The same defect pointing the other way: a field left saying it is
+    // invalid after the collision is gone is the app claiming something is
+    // wrong when nothing is.
     seed('Fixture', 'Ilya');
     openRename();
     type('Ilya');
-    expect(text()).toContain('already called "Ilya"');
-    expect(save().disabled).toBe(true);
-    expect(save().getAttribute('aria-label')).toContain('already called "Ilya"');
+    expect(field().getAttribute('aria-invalid')).toBe('true');
+    type('Marek');
+    expect(field().getAttribute('aria-invalid')).toBe('false');
+    expect(field().getAttribute('aria-describedby')).toBeNull();
+    expect(container.querySelector('[role="status"]')!.textContent).toBe('');
   });
 
   it('offers the first free name and puts it in the field rather than on the record', () => {
