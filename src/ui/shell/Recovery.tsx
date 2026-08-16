@@ -15,28 +15,44 @@ import { useState } from 'react';
 import { pasteLibrary } from '../../transfer/pasteboard.ts';
 import { useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
+import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 
 export function Recovery(): React.JSX.Element {
-  const importCharacter = useApp((s) => s.importCharacter);
   const setScreen = useApp((s) => s.setScreen);
+  const { conflicts, run, choose } = useImportFlow();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /*
+   * This screen was exempted from the no-clobber rule on the grounds that it
+   * "only renders on an empty library". That is not the same as "only renders
+   * when the library is empty": `App.tsx` renders it whenever
+   * `needsCharacter` is true, and `state.ts` sets `characters` to `[]`
+   * whenever `db.readLibrary()` rejects or blows its eight-second deadline -
+   * an upgrade blocked by another tab, a private window that denies the
+   * database, an iOS eviction caught mid-flight. So the storage banner saying
+   * "your characters are almost certainly still there" could sit directly
+   * above a Paste button that wrote over them by id.
+   */
   const paste = async (): Promise<void> => {
     setBusy(true);
     setStatus(null);
-    const result = await pasteLibrary();
-    if (!result.ok) {
-      setStatus(result.reason);
+    try {
+      const result = await pasteLibrary();
+      if (!result.ok) {
+        setStatus(result.reason);
+        return;
+      }
+      const message = await run(result.characters);
+      setStatus(message);
+      if (useApp.getState().characters.length > 0) setScreen('play');
+    } catch (cause) {
+      // Without this the button stayed on "Reading…" forever and the user was
+      // left holding a clipboard they had no way to try again with.
+      setStatus(cause instanceof Error ? cause.message : String(cause));
+    } finally {
       setBusy(false);
-      return;
     }
-    for (const c of result.characters) await importCharacter(c);
-    setStatus(
-      `Brought over ${result.characters.length} character${result.characters.length === 1 ? '' : 's'}.`,
-    );
-    setBusy(false);
-    setScreen('play');
   };
 
   return (
@@ -75,6 +91,14 @@ export function Recovery(): React.JSX.Element {
           {status}
         </p>
       )}
+
+      <div style={{ width: '100%', maxWidth: 460 }}>
+        <ImportConflicts
+          conflicts={conflicts}
+          busy={busy}
+          onChoose={(conflict, choice) => void choose(conflict, choice)}
+        />
+      </div>
     </div>
   );
 }

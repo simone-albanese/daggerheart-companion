@@ -106,6 +106,7 @@ import {
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
+import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
@@ -512,6 +513,17 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shared/DomainCardView.tsx::CardReader': () => <CardReader card={card()} onClose={noop} />,
   'shared/DomainMark.tsx::DomainMark': () => <DomainMark domain="blade" />,
   'shared/DomainMark.tsx::AppMark': () => <AppMark />,
+  'shared/ImportConflicts.tsx::ImportConflicts': () => (
+    <ImportConflicts
+      conflicts={[
+        {
+          incoming: { ...playedCharacter(), name: 'Ilya', updatedAt: '2026-01-02T10:00:00.000Z' },
+          local: { ...playedCharacter(), name: 'Ilya', updatedAt: '2026-06-02T10:00:00.000Z' },
+        },
+      ]}
+      onChoose={noop}
+    />
+  ),
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),

@@ -1,0 +1,92 @@
+/**
+ * What to do when a character arrives and one with that id is already here.
+ *
+ * There was no answer to this question. `importCharacter` was an unconditional
+ * `db.putCharacter`, and IndexedDB's `put` is keyed on `id` - so restoring an
+ * August backup **overwrote the September character in place**, with no prompt,
+ * no undo and no history. The hint beside the button encouraged it and never
+ * mentioned that a newer local copy was destroyed. For contrast, deleting
+ * *one* character requires arm-then-confirm with a full inventory of what is
+ * lost; overwriting the whole library took one tap.
+ *
+ * The rule itself already existed and was already tested, inside
+ * `restoreFromText`, with zero callers. It lives here now so there is one
+ * implementation and both paths use it - the store's import and the backup
+ * restore - rather than two that can drift.
+ *
+ * The comparison is `updatedAt`, which is a wall clock on whichever device
+ * wrote it. Two devices with skewed clocks can disagree about which copy is
+ * newer, which is why the answer to "the local one is newer" is a question put
+ * to the user rather than a decision taken for them.
+ */
+import type { Character } from '../../shared/types.ts';
+
+export type MergeMode = 'merge' | 'replace';
+
+export type MergeDecision =
+  /** Nothing here by that id: write it. */
+  | 'import'
+  /** Here, and older than what arrived: write it. */
+  | 'replace'
+  /**
+   * Here, and the same age or newer. Nothing is written.
+   *
+   * The two callers label this differently and mean the same thing: a library
+   * restore reports it as "skipped", and a single-character import turns it
+   * into a question. Neither one overwrites.
+   */
+  | 'keep-local';
+
+export function decideImport(
+  incoming: Character,
+  local: Character | undefined,
+  mode: MergeMode = 'merge',
+): MergeDecision {
+  if (local === undefined) return 'import';
+  if (mode === 'replace') return 'replace';
+  // `>=` and not `>`: equal timestamps mean the same edit, and writing over a
+  // record with a copy of itself is churn that the debounce would then
+  // replicate into the next backup.
+  return local.updatedAt >= incoming.updatedAt ? 'keep-local' : 'replace';
+}
+
+/** What the user may do about a `keep-local`. */
+export type ImportChoice =
+  /** Leave this device alone. The default, and what has already happened. */
+  | 'keep-mine'
+  /** Overwrite with the copy that arrived. */
+  | 'take-theirs'
+  /** Keep both, the arriving one under a new id. */
+  | 'keep-both';
+
+/**
+ * A copy of an arriving character that cannot collide with the local one.
+ *
+ * The name changes as well as the id, and that is deliberate rather than
+ * tidy-mindedness: the character picker in the header is a `<select>` of names,
+ * so two characters called "Ilya" would be indistinguishable at exactly the
+ * moment the user most needs to tell them apart. The suffix counts up, so
+ * doing this twice does not produce two identical names either.
+ *
+ * `createdAt` moves to now because this copy is new on this device, while
+ * `updatedAt` is left alone: it is a fact about when the *sheet* was last
+ * edited, and rewriting it would make the arriving copy look newer than the
+ * one it was just judged against.
+ */
+export function duplicateFor(
+  incoming: Character,
+  taken: readonly Character[],
+  now: Date = new Date(),
+): Character {
+  const base = incoming.name || 'Unnamed';
+  const names = new Set(taken.map((c) => c.name));
+  let name = `${base} (imported)`;
+  for (let n = 2; names.has(name); n += 1) name = `${base} (imported ${String(n)})`;
+
+  return {
+    ...incoming,
+    id: crypto.randomUUID(),
+    name,
+    createdAt: now.toISOString(),
+  };
+}

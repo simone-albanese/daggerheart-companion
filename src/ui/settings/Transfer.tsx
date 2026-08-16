@@ -27,7 +27,8 @@ import {
   type TransferAdvice,
   type TransferProgress,
 } from '../../transfer/qr.ts';
-import { useApp } from '../../store/state.ts';
+import { useApp, type ImportConflict } from '../../store/state.ts';
+import { describeImport, ImportConflicts } from '../shared/ImportConflicts.tsx';
 import { Field, Note, Rows, Section } from './parts.tsx';
 
 type Mode = 'idle' | 'send' | 'receive';
@@ -286,6 +287,8 @@ function Receiver(): React.JSX.Element {
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  /** Arrivals the store refused to write over. Not the frame conflict above. */
+  const [alreadyHere, setAlreadyHere] = useState<ImportConflict[]>([]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -295,17 +298,14 @@ function Receiver(): React.JSX.Element {
     setConflict(false);
     setError(null);
     setDone(null);
+    setAlreadyHere([]);
 
     const receive = async (transfer: CompletedTransfer): Promise<void> => {
       try {
         const { character, warnings } = await characterFromPayload(transfer.payload);
-        await useApp.getState().importCharacter(character);
-        setDone(
-          [
-            `${character.name || 'Unnamed'} arrived and is now the active character.`,
-            ...warnings,
-          ].join(' '),
-        );
+        const report = await useApp.getState().importCharacters([character], { warnings });
+        setAlreadyHere(report.conflicts);
+        setDone(describeImport(report));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
@@ -378,6 +378,18 @@ function Receiver(): React.JSX.Element {
       )}
       {error !== null && <Note tone="danger" role="alert">{error}</Note>}
       {done !== null && <Note role="status">{done}</Note>}
+
+      <ImportConflicts
+        conflicts={alreadyHere}
+        onChoose={(conflict_, choice) => {
+          void useApp
+            .getState()
+            .resolveImport(conflict_, choice)
+            .then(() => {
+              setAlreadyHere((open) => open.filter((c) => c.incoming.id !== conflict_.incoming.id));
+            });
+        }}
+      />
 
       <div className="row" style={{ gap: 8 }}>
         <button type="button" className="btn" onClick={() => setSession((n) => n + 1)}>

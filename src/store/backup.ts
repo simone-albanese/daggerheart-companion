@@ -38,6 +38,7 @@ import {
   type SaveRoute,
 } from '../transfer/fileIo.ts';
 import * as db from './db.ts';
+import { decideImport, type MergeMode } from './merge.ts';
 import { loadPrefs, savePrefs, type Prefs } from './prefs.ts';
 
 /** The indicator stops being discreet here. */
@@ -553,7 +554,8 @@ export interface RestoreResult {
   warnings: string[];
 }
 
-export type RestoreMode = 'merge' | 'replace';
+/** The same two modes the store's import knows; one vocabulary, one rule. */
+export type RestoreMode = MergeMode;
 
 /**
  * Put a backup back.
@@ -578,18 +580,17 @@ export async function restoreFromText(
   let replaced = 0;
 
   for (const character of file.characters) {
-    const here = existing.get(character.id);
-    if (here === undefined) {
-      await put(character);
-      imported += 1;
-      continue;
-    }
-    if (mode === 'merge' && here.updatedAt >= character.updatedAt) {
+    // One rule, in `merge.ts`, shared with the store's import. It used to live
+    // here alone, correct and tested, with no caller - while three screens ran
+    // an unconditional `put` instead.
+    const decision = decideImport(character, existing.get(character.id), mode);
+    if (decision === 'keep-local') {
       skipped += 1;
       continue;
     }
     await put(character);
-    replaced += 1;
+    if (decision === 'import') imported += 1;
+    else replaced += 1;
   }
 
   const warnings = [...file.warnings];

@@ -19,9 +19,25 @@ import {
 import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
 import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
+import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from './merge.ts';
 import { loadPrefs, savePrefs, type Prefs } from './prefs.ts';
 
 export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'settings';
+
+/** An arriving character the app refused to write over, and what is here now. */
+export interface ImportConflict {
+  incoming: Character;
+  local: Character;
+}
+
+export interface ImportReport {
+  imported: Character[];
+  replaced: Character[];
+  /** Nothing was written for these. Each one is a question for the user. */
+  conflicts: ImportConflict[];
+  /** Whatever the file or codec layer wanted to say, carried through. */
+  warnings: string[];
+}
 
 export interface LogEntry {
   id: string;
@@ -68,7 +84,8 @@ interface AppState {
   create: (partial?: Partial<Character>) => Promise<Character>;
   update: (mutate: (c: Character) => Character) => void;
   remove: (id: string) => Promise<void>;
-  importCharacter: (c: Character) => Promise<void>;
+  importCharacters: (incoming: Character[], options?: { mode?: MergeMode; warnings?: string[] }) => Promise<ImportReport>;
+  resolveImport: (conflict: ImportConflict, choice: ImportChoice) => Promise<Character | null>;
 
   pushLog: (entry: Omit<LogEntry, 'id' | 'at'>) => void;
   clearLog: () => void;
@@ -267,12 +284,64 @@ export const useApp = create<AppState>((set, get) => ({
     });
   },
 
-  async importCharacter(c) {
-    await db.putCharacter(c);
+  /**
+   * Take in characters from a file, a QR, or the clipboard.
+   *
+   * Two things happen here that used to happen nowhere. The counters are
+   * synced against this build's derived maxima, which every other write path
+   * has always done through `normalizeActive` and this one skipped - so a
+   * sheet arriving from a newer device could carry an `hp.max` the engine
+   * disagrees with, and `validatePlan` would read the stored one. And a
+   * character already on this device with a *newer* edit is not written over:
+   * it comes back as a conflict, with nothing written, for the user to decide.
+   */
+  async importCharacters(incoming, options = {}) {
+    const { dataset, index } = get();
+    const mode = options.mode ?? 'merge';
+
+    const report: ImportReport = {
+      imported: [],
+      replaced: [],
+      conflicts: [],
+      warnings: [...(options.warnings ?? [])],
+    };
+
+    for (const raw of incoming) {
+      const character = normalizeIncoming(raw, dataset, index);
+      const local = get().characters.find((x) => x.id === character.id);
+      const decision = decideImport(character, local, mode);
+
+      if (decision === 'keep-local') {
+        report.conflicts.push({ incoming: character, local: local! });
+        continue;
+      }
+
+      await db.putCharacter(character);
+      set((s) => ({
+        characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
+        activeId: character.id,
+      }));
+      (decision === 'import' ? report.imported : report.replaced).push(character);
+    }
+
+    return report;
+  },
+
+  async resolveImport(conflict, choice) {
+    if (choice === 'keep-mine') return null;
+
+    const { dataset, index, characters } = get();
+    const character =
+      choice === 'keep-both'
+        ? normalizeIncoming(duplicateFor(conflict.incoming, characters), dataset, index)
+        : conflict.incoming;
+
+    await db.putCharacter(character);
     set((s) => ({
-      characters: [c, ...s.characters.filter((x) => x.id !== c.id)],
-      activeId: c.id,
+      characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
+      activeId: character.id,
     }));
+    return character;
   },
 
   pushLog(entry) {
@@ -317,6 +386,25 @@ export const useStats = (): DerivedStats | null => {
   const index = useApp((s) => s.index);
   return character ? deriveStats(character, dataset, index) : null;
 };
+
+/**
+ * Bring an arriving character into agreement with this build's arithmetic.
+ *
+ * Every other write path goes through `normalizeActive`; the import path never
+ * did, which is P0-7. What it does *not* do is the interesting half: when this
+ * build cannot resolve the character's class or their armour, the maxima
+ * `deriveStats` would produce are fallbacks - `startingHitPoints ?? 6` for a
+ * missing class, and no armour slots at all for a missing armour - and
+ * clamping against a fallback would throw away the numbers the sheet arrived
+ * with. A ref this build cannot name today may well resolve after the next
+ * update, so the record is left exactly as it came instead.
+ */
+function normalizeIncoming(c: Character, dataset: Dataset, index: DatasetIndex): Character {
+  const classKnown = index.classes.has(c.classRef);
+  const armorKnown = c.activeArmor === null || index.armors.has(c.activeArmor);
+  if (!classKnown || !armorKnown) return c;
+  return syncCounters(c, deriveStats(c, dataset, index));
+}
 
 /** Re-clamp the counters after a change to a maximum, then persist. */
 export function normalizeActive(): void {

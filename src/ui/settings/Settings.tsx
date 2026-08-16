@@ -33,6 +33,7 @@ import { watchInstallPrompt, type InstallPromptHandle } from '../../pwa/register
 import { copyLibrary, isStandalone, pasteLibrary } from '../../transfer/pasteboard.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { usePrintSheet } from '../print/usePrintSheet.tsx';
+import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { About } from './About.tsx';
 import { Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
@@ -379,7 +380,7 @@ function Backup({
 }): React.JSX.Element {
   const characters = useApp((s) => s.characters);
   const index = useApp((s) => s.index);
-  const importCharacter = useApp((s) => s.importCharacter);
+  const { conflicts, run: runImport, choose: chooseImport } = useImportFlow();
   // Paper is the one backup that survives a dead phone, so it belongs here
   // rather than on a screen you use mid-scene.
   const printer = usePrintSheet();
@@ -501,15 +502,7 @@ function Backup({
       try {
         const file = await importFromPicker();
         if (file === null) return;
-        for (const character of file.characters) await importCharacter(character);
-        setStatus(
-          [
-            `Imported ${file.characters.length} character${file.characters.length === 1 ? '' : 's'}: ${file.characters
-              .map((c) => c.name || 'Unnamed')
-              .join(', ')}.`,
-            ...file.warnings,
-          ].join(' '),
-        );
+        setStatus(await runImport(file.characters, file.warnings));
       } catch (cause) {
         setStatus(
           cause instanceof ImportError || cause instanceof Error
@@ -520,7 +513,7 @@ function Backup({
         setBusy(false);
       }
     })();
-  }, [importCharacter]);
+  }, [runImport]);
 
   const askForPersistence = useCallback(() => {
     setBusy(true);
@@ -621,7 +614,19 @@ function Backup({
 
         <Field
           label="Import a file"
-          hint="A .dhchar or a .dhbackup, from this app on any device. Characters with the same id are updated rather than duplicated, so restoring your own backup gives you your library back and not two of everyone."
+          hint={
+            'A .dhchar or a .dhbackup, from this app on any device. A character already here is ' +
+            'updated in place rather than duplicated, so restoring your own backup gives you your ' +
+            'library back and not two of everyone — unless this device has the newer edit, in ' +
+            'which case nothing is written over and you are asked.'
+          }
+          footer={
+            <ImportConflicts
+              conflicts={conflicts}
+              busy={busy}
+              onChoose={(conflict, choice) => void chooseImport(conflict, choice)}
+            />
+          }
         >
           <button type="button" className="btn" onClick={importFile} disabled={busy}>
             Choose a file
@@ -704,17 +709,16 @@ function Backup({
             disabled={busy}
             onClick={() => {
               setBusy(true);
-              void pasteLibrary().then(async (r) => {
-                if (!r.ok) {
-                  setStatus(r.reason);
-                } else {
-                  for (const c of r.characters) await importCharacter(c);
-                  setStatus(
-                    `Brought over ${r.characters.length} character${r.characters.length === 1 ? '' : 's'}.`,
-                  );
-                }
-                setBusy(false);
-              });
+              void pasteLibrary()
+                .then(async (r) => {
+                  setStatus(r.ok ? await runImport(r.characters) : r.reason);
+                })
+                .catch((cause: unknown) => {
+                  // Without this the whole backup section stayed greyed out
+                  // until a tab switch, with no word about why.
+                  setStatus(cause instanceof Error ? cause.message : String(cause));
+                })
+                .finally(() => setBusy(false));
             }}
           >
             Paste from clipboard
