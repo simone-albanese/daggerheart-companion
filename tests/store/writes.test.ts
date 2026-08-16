@@ -280,6 +280,37 @@ describe('a full device', () => {
   });
 });
 
+describe('what a delete has to take with it', () => {
+  /**
+   * The Play screen remembers which of its collapsible sections a character
+   * had open, keyed `<characterId>:<sectionId>` in `prefs`. That is the right
+   * place for it - it is a fact about a screen on this device rather than
+   * about the person, and putting it on the record would ride out in every
+   * export and stamp `updatedAt` every time somebody opened a fold - but it
+   * leaves nobody to collect the entries when the character goes. A library
+   * churned through import and delete would grow one entry per section per
+   * character that ever existed, in a blob read synchronously at every launch.
+   */
+  it('drops the deleted character’s remembered sections, and only theirs', async () => {
+    const gone = makeCharacter({ name: 'Rook' });
+    const kept = makeCharacter({ name: 'Vex' });
+    seed([gone, kept]);
+    store.useApp.getState().setPrefs({
+      playSections: {
+        [`${gone.id}:cards`]: true,
+        [`${gone.id}:carried`]: false,
+        [`${kept.id}:cards`]: true,
+      },
+    });
+
+    await store.useApp.getState().remove(gone.id);
+
+    expect(Object.keys(store.useApp.getState().prefs.playSections)).toEqual([
+      `${kept.id}:cards`,
+    ]);
+  });
+});
+
 describe('one batch at a time', () => {
   /**
    * `await flush()` has to mean the disk has it. It did not: `flush` cleared

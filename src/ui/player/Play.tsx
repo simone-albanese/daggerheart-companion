@@ -12,6 +12,7 @@ import { TRAITS, TRAIT_LABELS, type DomainCard, type Trait, type Weapon } from '
 import { weaponDamage, type DerivedStats } from '../../engine/character.ts';
 import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
@@ -369,11 +370,14 @@ function Equipped({
   stats,
   armed,
   onArm,
+  bare = false,
 }: {
   stats: DerivedStats;
   /** Weapon ref currently armed, if any. */
   armed: string | null;
   onArm: (weapon: Weapon | null) => void;
+  /** Drop the section's own heading: a disclosure is already carrying it. */
+  bare?: boolean;
 }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
@@ -392,7 +396,7 @@ function Equipped({
     // child shrinks by default - which squashed the whole section to nothing
     // and left its label sitting on top of the next one.
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
-      <div className="t-label">Equipped</div>
+      {!bare && <div className="t-label">Equipped</div>}
       {primary === undefined && secondary === undefined && armor === undefined && (
         <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing equipped — choose gear in Build.
@@ -472,7 +476,7 @@ function Equipped({
  * Nothing here is offered for an item with no quantity left; a row that stays
  * pressable after the last one is gone is a row that lies about what you have.
  */
-function Items(): React.JSX.Element | null {
+function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
@@ -483,12 +487,14 @@ function Items(): React.JSX.Element | null {
 
   return (
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
-      <div className="spread" style={{ flex: 'none' }}>
-        <span className="t-label">Carried</span>
-        <span className="t-meta" style={{ color: 'var(--muted)' }}>
-          {carried.length} {carried.length === 1 ? 'ITEM' : 'ITEMS'}
-        </span>
-      </div>
+      {!bare && (
+        <div className="spread" style={{ flex: 'none' }}>
+          <span className="t-label">Carried</span>
+          <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            {carried.length} {carried.length === 1 ? 'ITEM' : 'ITEMS'}
+          </span>
+        </div>
+      )}
       {carried.length === 0 && (
         <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
           Nothing carried — add items in Build.
@@ -900,9 +906,14 @@ function PlayPhone({
 }: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout } = useLoadout();
-  const shapes = useApp((s) => s.prefs.shapeCoding);
-  const setOpenCard = useApp((s) => s.setOpenCard);
+  const index = useApp((s) => s.index);
   if (!character) return <div />;
+
+  const equippedCount = [
+    character.activePrimaryWeapon,
+    character.activeSecondaryWeapon,
+    character.activeArmor,
+  ].filter((r) => r !== null && index.byRef.has(r)).length;
 
   const modLabel =
     trait === 'spellcast' && stats.spellcastTrait !== null
@@ -958,17 +969,28 @@ function PlayPhone({
          * leads the scroll is what is on screen without a gesture, and nothing
          * here earns that more.
          */}
-        <div className="stack" style={{ flex: 'none', gap: 4 }}>
-          <div className="spread" style={{ flex: 'none' }}>
-            <span className="t-label">Loadout</span>
-            <span className="t-meta">{loadout.length} / 5</span>
+        <Disclosure
+          id="loadout"
+          characterId={character.id}
+          label="Loadout"
+          summary={`${loadout.length} / 5`}
+          defaultOpen
+        >
+          <div className="stack" style={{ flex: 'none', gap: 4 }}>
+            <LoadoutRows />
           </div>
-          <LoadoutRows />
-        </div>
+        </Disclosure>
 
         {/* Then what you attack with. Together these two are the whole of
             "what can I do this turn", so they lead together. */}
-        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+        <Disclosure
+          id="equipped"
+          characterId={character.id}
+          label="Equipped"
+          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
+          defaultOpen
+        >
+          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
 
         {/* The damage calculator. It is the one part of the vitals panel that
             is a question rather than a state - "someone hit you for 14, how
@@ -977,11 +999,19 @@ function PlayPhone({
             lands on the Armor and HP tracks, which are. */}
         <Vitals stats={stats} layout="phone" showState={false} part="damage" />
 
+        </Disclosure>
+
         {/* Conditions are set once a scene rather than once a turn. */}
         <ActiveConditions />
 
-        <Items />
-
+        <Disclosure
+          id="carried"
+          characterId={character.id}
+          label="Carried"
+          summary={`${character.inventory.length} ${character.inventory.length === 1 ? 'ITEM' : 'ITEMS'}`}
+        >
+          <Items bare />
+        </Disclosure>
       </div>
 
       {/*

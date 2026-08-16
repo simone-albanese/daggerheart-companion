@@ -95,6 +95,90 @@ const play = (c: Character): void => {
 
 const text = (): string => container.textContent ?? '';
 
+const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
+
+/** The disclosure header for a section, by the label it prints. */
+function fold(label: string): HTMLButtonElement {
+  const found = buttons().find(
+    (b) => b.getAttribute('aria-expanded') !== null && (b.textContent ?? '').startsWith(label),
+  );
+  if (found === undefined) {
+    throw new Error(
+      `no disclosure called "${label}". Folds here: ${buttons()
+        .filter((b) => b.getAttribute('aria-expanded') !== null)
+        .map((b) => b.textContent)
+        .join(' | ')}`,
+    );
+  }
+  return found;
+}
+
+const click = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
+describe('the tendina', () => {
+  it('says what is inside a section it has folded away', () => {
+    const c = seed();
+    play(c);
+    // Carried is closed by default, and its header still carries the count -
+    // a fold that hides how many potions you have costs a tap rather than
+    // saving a scroll.
+    expect(fold('Carried').getAttribute('aria-expanded')).toBe('false');
+    expect(fold('Carried').textContent).toContain('2 ITEMS');
+    expect(text(), 'a closed section drew its contents').not.toContain('Minor Health Potion');
+
+    click(fold('Carried'));
+    expect(text()).toContain('Minor Health Potion');
+  });
+
+  it('remembers what was open, per character, across a remount', () => {
+    const c = seed();
+    play(c);
+    click(fold('Loadout'));
+    expect(fold('Loadout').getAttribute('aria-expanded')).toBe('false');
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    play(c);
+    expect(
+      fold('Loadout').getAttribute('aria-expanded'),
+      'the fold reopened itself on the next launch',
+    ).toBe('false');
+  });
+
+  it('does not carry one character’s arrangement onto another', () => {
+    const first = seed();
+    play(first);
+    click(fold('Loadout'));
+    expect(useApp.getState().prefs.playSections[`${first.id}:loadout`]).toBe(false);
+
+    const second = seed({ id: 'other-sheet' });
+    // A fresh sheet, keeping whatever the first one recorded.
+    useApp.setState({
+      prefs: { ...useApp.getState().prefs },
+      characters: [second],
+      activeId: second.id,
+    });
+    act(() => root.unmount());
+    root = createRoot(container);
+    play(second);
+    expect(fold('Loadout').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('gives the header the whole width and the touch floor', () => {
+    play(seed());
+    for (const b of buttons().filter((x) => x.getAttribute('aria-expanded') !== null)) {
+      expect(b.style.minHeight, `${b.textContent ?? '?'} is not at the touch floor`).toBe(
+        'var(--tap)',
+      );
+      expect(b.style.width).toBe('100%');
+    }
+  });
+});
+
 describe('the verbs under the traits', () => {
   it('prints all six sets, in the words the SRD uses', () => {
     setViewport(1280);

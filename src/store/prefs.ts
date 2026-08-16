@@ -51,6 +51,26 @@ export interface Prefs {
   /** Suppresses the "cards have no art" offer once it has been seen. */
   seenArtOffer: boolean;
   gmPartySize: number;
+  /**
+   * Which collapsible sections of the Play screen are open, per character.
+   *
+   * Keyed `<characterId>:<sectionId>`, and here rather than on the character
+   * for three reasons. A disclosure is a fact about a screen on this device,
+   * not about the person: it must not ride out in a `.dhchar`, where it would
+   * arrive as a difference between two copies of the same character and cost
+   * an import conflict. It must not bump `SCHEMA_VERSION`, which is what
+   * Architecture.md 6.1 would require of a new field on the record. And a
+   * character write is debounced to IndexedDB and stamps `updatedAt`, so
+   * opening a section would make the sheet look edited to every merge decision
+   * downstream - which is a lie about the character in service of a chevron.
+   *
+   * Per character all the same, because which sections are worth their height
+   * is a property of the sheet: a Druid wants Beastform open, a level 1 with
+   * two cards does not want a vault, and the whole point of the disclosures is
+   * that the sheet fits once you have said which parts of it you use. Entries
+   * are dropped when their character is deleted.
+   */
+  playSections: Record<string, boolean>;
 }
 
 const KEY = 'dhc.prefs.v1';
@@ -67,6 +87,7 @@ export const DEFAULT_PREFS: Prefs = {
   lastScreen: 'play',
   seenArtOffer: false,
   gmPartySize: 4,
+  playSections: {},
 };
 
 export function loadPrefs(): Prefs {
