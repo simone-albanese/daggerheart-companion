@@ -203,11 +203,12 @@ is personal, for their own devices, not for sharing.
 
 The one piece of official artwork here is Darrington Press's "Daggerheart
 Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
-use. It appears where a reader is asking what this app's relationship to the
-game is — the About panel and the first-run screen — and deliberately never as
-the app's own icon, because a home-screen icon that is the official logo reads
-as an official app, which this is not. No rulebook PDF and no rulebook artwork
-is in this repository.
+use. The full lockup sits under the attribution on the first-run screen, and
+the dagger-and-flame icon alone sits in the header on every screen. It is
+deliberately never the app's own icon, because a home-screen icon that is the
+official logo reads as an official app, which this is not. The licence text in
+Settings › About carries the attribution as words, without the mark. No
+rulebook PDF and no rulebook artwork is in this repository.
 
 Fonts: Archivo and IBM Plex Mono, both SIL Open Font License 1.1, self-hosted
 so the app works with the radio off (`public/fonts/`).
