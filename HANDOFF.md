@@ -1,20 +1,36 @@
 # Handoff — resuming this work with an empty context
 
-Everything below is true at `HEAD` on `main`. The tree is clean, `tsc --noEmit`
-is clean, and the suite is **1947 passing in 89 files** — the number this lane
-measured with P5-2 finished and its verification pass applied; it was 1932 in 89
-when P5-2 was first called done, 1782 in 84 when P5-2 started and 1333 in 62
-at the start of the session, and any other lane merged after this one moves it
-again. **Nothing is pushed.** `origin/main` is still at `87b9238`, ~80 commits
-behind.
+Everything below is true at `HEAD` on `main`, with every lane of this pass
+merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
+**2237 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
+called done, 2230 in 96 when the five lanes were merged, and 2237 after the
+seven tests the honesty pass below added.
+
+**Nothing is pushed.** `origin/main` is still at `87b9238` — **172 commits
+behind, 146 of them non-merge.** A push triggers a live GitHub Pages deploy, so
+the next person to press it is publishing all of it at once.
+
+**Where the numbers that matter stand.** `SCHEMA_VERSION` is **4**, with exactly
+one converter in `MIGRATIONS` (`from: 3`) and `OLDEST_READABLE` still 3, because
+3 is the version of the files already on people's disks. `DB_VERSION` is 2,
+`CODEC_VERSION` is 2, `CAMPAIGN_SCHEMA_VERSION` is 1. `package.json` is
+**`0.2.0`** and that is deliberate: nothing here is a 1.0 and no document in this
+repository says it is.
 
 ## Read these first, in this order
 
 1. `BACKLOG.md` — the work list. Struck through with a commit hash beside it
    means done; open `- [ ]` bullets mean not. **Start at the `P5` section**: it
-   is new, it holds the two redesigns, and it records eight decisions the owner
-   took by hand. Those are settled — build them, do not re-open them.
-2. `CHANGELOG.md` — new this session, derived from the commit log.
+   holds the two redesigns, and it records eight decisions the owner took by
+   hand. Those are settled — build them, do not re-open them. Then read the
+   section at the very foot of that file, *Done since `87b9238`*: the P1 to P4
+   entries were closed by the nineteen-lane pass and never struck one by one, so
+   that table is what tells you whether the item you are about to build already
+   exists.
+2. `CHANGELOG.md` — one `0.2.0` entry, grouped by what a user would notice.
+   Nothing above it: there is no `Unreleased` section, because `0.2.0` itself is
+   not released.
 3. This file.
 
 ## Working rules that are in force
@@ -30,11 +46,13 @@ behind.
 
 ### If you fan work out across agents, read this first
 
-This session ran 19 lanes in parallel git worktrees. Two things cost real time
-and will cost it again:
+One session ran 19 lanes in parallel git worktrees and a later one ran five. Two
+things cost real time and will cost it again:
 
 - **A worktree is cut from `origin/main`, not from local `main`,** and nothing
-  is pushed, so it starts ~75 commits stale. Six lanes in the first wave wrote
+  is pushed, so it starts **172 commits stale** as of `HEAD` — it was ~75 when
+  this warning was written, and the gap only grows until somebody
+  pushes. Six lanes in the first wave wrote
   against a tree that had no `tests/harness/`, no `tests/ui/screens.test.tsx`
   and no `tests/store/migrations.test.ts`, and truthfully reported that the
   traps they were warned about "do not exist". Make the first two commands in
@@ -55,10 +73,12 @@ no excuse for skipping it. It caught one real cross-lane failure this session
 (`tests/pwa/bootFallback.test.ts` had the object-store list written out a third
 time; the campaigns store added a fifth and it went red).
 
-## What was finished this session
+## What was finished, across everything that is not pushed
 
-56 non-merge commits across 19 lanes. **P0 was already closed; P1, P2, P3 and P4
-are now nearly closed too.**
+**146 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
+five lanes merged after it. **P0 is closed; P1, P2, P3 and P4 are nearly
+closed.** The table below is that whole span, not one session of it — which is
+also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
@@ -73,6 +93,9 @@ are now nearly closed too.**
 | **P2-4, P2-6, P3-8, P4-10** | Six overlays that claimed `role="dialog"` now trap and restore focus. Settings says honestly whether this device can open offline, in four states. Every settings hint reaches its control — `aria-describedby` appeared **zero** times in the tree before. |
 | **P3-10, P4-1..5, P4-12, P4-13** | Attribution survives having a character; the DPCGL and MIT texts ship and are readable offline; a build id; a CHANGELOG; one Node version. |
 | **Rename** (P5-1(b)) | Rename is on the sheet, in the Identity block the rebuild created: a 72×44 chip on the class/subclass row with 51 px of clearance below the header's SETTINGS button, **costing 25 px** of the 457 px scroll window measured at 393×852. The name line itself is still not a target — no role, no `tabIndex`, no handler — because that is what the bullet about a keyboard opening under a thumb actually forbids. The unique-name rule left `duplicateFor`'s body and became one comparison in `merge.ts` with two callers: the *keep-both* copy, and one `RenameField` that both Play and Build's Name field go through. Nothing is written while you type; the sheet writes on SAVE or Return, and Build — which has no ✕ and sits among fields that all write on the keystroke — writes on blur as well, which `rename.test.tsx` pins in both directions. A refusal is a `role="status"` sentence with the field pointing at it through `aria-describedby`, not a greyed SAVE, because `disabled` takes the only control carrying the reason out of the tab order. **Enforced at two doors, not everywhere** — creation and a plain import both still write a colliding name, and `characterFileName` still slugifies two distinguishable names to one file. Those three are `BACKLOG.md` P5-1(c), and `Architecture.md` §7 states the limit rather than claiming an invariant. |
+| **Damage rolls** (P1-1) | An attack roll leads into the damage roll it earned, which no screen in this app had ever done — `rollDamage` was correct from the first commit and had no caller outside its tests. Unarmed attacks have a row of their own, drawn even with nothing equipped; Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's own sentence; damage dice can be typed the way the Duality faces already could; and a hidden Difficulty gets the offer labelled IF IT HIT rather than no offer at all. |
+| **Rests** (P1-7) | The rest engine has the screen it had no caller for, as a fold in the part of Play that scrolls: pick short or long, pick two moves, and every row says what tapping it clears before you tap it. Nothing is rolled or applied until COMMIT. This is also the first `SCHEMA_VERSION` bump this project has ever taken — 3 → 4, one converter, two new fixtures, and the two v3 fixtures left untouched because they are the proof. |
+| **The GM reference** (P5-3) | MENU → OPEN THE REFERENCE, seven topics, every word read out of `data/srd-1.0.json` at render time with the page stamped beside the table it came from rather than at the top of the topic. The Fear guidance and the advancement chart are folded into the two controls they belong to — one drawing, two doors. `engine/encounter.ts::TIER_BENCHMARKS` was deleted rather than wired: the same table ships in the dataset and the typed copy had already deformed two cells. |
 | **Print sheet** (P5-4) | Reordered to the official sheet, HP and Stress drawn solid to the earned maximum and dashed to twelve. Every string sourced from `data/srd-1.0.json`; no artwork, wording or trade dress copied from the PDF. |
 
 ## What is open
@@ -159,6 +182,46 @@ copying licensed text out of `Manuali/`. Left open on purpose, in the backlog
 with its reason: the ladder is not attached to `DualityRoll.tsx`'s DIFF box,
 which is the only place a human sets a Difficulty and is on the player's side.
 
+**Then a verifier read P5-3's diff back and found five sentences the code could
+not honour, and they are fixed in `fd799f3`, `4701e9f`, `dbfda63`, `caebbc8` and
+`2d19292`.** Worth knowing, because four of the five are one shape and it is a
+shape this repo will keep producing: **a component drawn behind two doors
+describing the door it did not come through.** `ReferenceTables.tsx` renders
+three tables in both the reference screen and a fold beside the control they
+belong to, and three of its own sentences — the ones it writes rather than the
+ones it quotes — were written for one door only.
+
+- `CountdownChart`'s empty state sent the GM to "the − and + above". On the
+  reference screen it is mounted `countdown={null}` and there is no −/+ on the
+  page. The sentence is now conditional on the same prop that already decides
+  whether a cell is a button or print.
+- `FearGuide`'s empty state said "the pool above still works" on a screen with no
+  pool. It takes `besidePool` now, the same shape, for nothing else.
+- `TierBenchmarks` explained the marked column unconditionally. `benchmarkTable`
+  reads the tier off the column header and refuses to guess, so a rules layer
+  whose headers carry no number marks nothing — and the paragraph explained a
+  mark that was not on the screen.
+- the metric legend promised metres "where they give one in feet" over a
+  `rangeEntry` that only matched a **span** inside a labelled bullet. The first
+  paragraph under that legend is the SRD's own "about 5 feet of fictional space",
+  printed bare. **Decided: narrow the legend and then make the narrower promise
+  true.** The legend is scoped to the range lines and says outright that prose is
+  quoted untouched; `rangeEntry` now reads a lone figure as well as a span, span
+  first, because the single-figure pattern run over `20 - 40 feet` matches the
+  40. Prose is deliberately not annotated — doing it means either rewriting a
+  quoted sentence, which `srdReference.ts` exists never to do, or hanging an
+  app-authored ≈ line off a paragraph where nothing says which figure it
+  converted.
+- and three comments the code had disproved: "three principles out of eight" over
+  a seven-subhead section, "the strip is not drawn while there is only one topic"
+  over a guard that cannot fire on a seven-element const, and a chip row computed
+  at 284px that is 302 because a three-character `.t-label` chip is ~47px and the
+  44 of `var(--tap)` is a floor it clears.
+
+The four behavioural fixes carry seven tests between them, each proved by
+mutation and named in its commit message; the comment corrections carry none,
+because nothing they touch renders and a test of a comment is a test of nothing.
+
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
 rewriting; both landed in this pass, in parallel worktrees, and were merged here.
@@ -205,13 +268,30 @@ surface or anything near the schema.
   nothing, and **no screen may present that number as the history of the
   table**. It is why the fold's summary reads NONE COUNTED rather than READY.
 
-**Smaller:** P2-3(d) typography in `rem`, P4-7(a) `noUnusedLocals`, P4-8 the
-browser floor. All three were blocked on the Play rebuild and are unblocked now.
+**Smaller, and still open at `HEAD` — none of them was built in this pass.**
+Re-measured rather than remembered, because all three are the kind of item a
+reader assumes has quietly happened:
 
-**Deferred to 1.1, deliberately:** photos shown to the table, link rows that open
-external URLs, full-text rule search. Written into `BACKLOG.md` P5-2, each with
-its reason. SEARCH is the visible one — the wireframe draws four verbs in the GM
-bar and 1.0 ships three — so it is worth knowing that the absence is a decision:
+- **P2-3(d), typography in `rem`.** Not one type role in `src/ui/tokens.css` is
+  in `rem`, so the OS font-size setting still does nothing to this app. Note the
+  order it has to happen in: every fixed height containing type becomes a
+  `min-height` first, or a user at a 125 % root gets a clipped verdict bar.
+- **P4-7(a), `noUnusedLocals` / `noUnusedParameters`.** Still absent from
+  `tsconfig.json`. Turning them on today costs **five** errors, not the nine the
+  backlog measured — `GearPicker.tsx:85`, `Settings.tsx:39`,
+  `tools/simulate.ts:22` and two in tests. The Play rebuild swept its own
+  leftovers on the way past; nothing stops the next five arriving unremarked.
+- **P4-8, the browser floor.** No `browserslist`, no `@supports` anywhere, eight
+  `color-mix()` uses in `src/`, and `base.css:172` is still `height: 100svh`.
+
+All three were blocked on the Play rebuild and are unblocked now.
+
+**Deferred past the 1.0 this backlog is aimed at, deliberately:** photos shown to
+the table, link rows that open external URLs, full-text rule search. Written into
+`BACKLOG.md` P5-2, each with its reason. (The build in hand is `0.2.0`; 1.0 is
+the target `BACKLOG.md` is titled after, not something that has shipped.) SEARCH
+is the visible one — the wireframe draws four verbs in the GM bar and the plan
+ships three — so it is worth knowing that the absence is a decision:
 the search a GM does at the table is the Bestiary's filter behind SHOW, and when
 there is an index behind SEARCH it goes in as a fourth entry in `GmBar`'s `VERBS`
 and the grid redistributes on its own.
@@ -219,22 +299,26 @@ and the grid redistributes on its own.
 ## The fastest way to see what is still unwired
 
 `tests/harness/orphans.test.ts` holds `DELIBERATE`, and every entry names the
-backlog item that deletes it. It is the honest inventory: **24 exported symbols
-nothing in the shipped app reaches** — counted off the list rather than
+backlog item that deletes it. It is the honest inventory: **23 exported symbols
+nothing in the shipped app reaches** — counted off the list at `HEAD` rather than
 remembered, because the figure here once said 43 when the list held 35, and it
 is the one number in this file nobody can check by reading it.
 
-Eleven came off in this pass, each in the same commit that gave the symbol a
-caller: P1-1's seven (`rollDamage`, `damageOffer`, `isRollableDamage`,
+Twelve came off in this pass. Eleven in the same commit that gave the symbol a
+caller — P1-1's seven (`rollDamage`, `damageOffer`, `isRollableDamage`,
 `sourceFromWeapon`, `sourceName`, `unarmedSource`, `DAMAGE_SIDES`) and P1-7's
-four (`takeRest`, `movesFor`, `mustTakeLongRest`, `DOWNTIME_MOVES`). That is the
-mechanism working as designed for the first time on this scale.
+four (`takeRest`, `movesFor`, `mustTakeLongRest`, `DOWNTIME_MOVES`) — which is
+the mechanism working as designed for the first time on this scale. The
+twelfth, `TIER_BENCHMARKS`, came off the other way: P5-3 **deleted** it
+(`1f9afcc`) rather than wiring it, because the same table ships in
+`data/srd-1.0.json` and the typed copy had already lost the `+` from `+1` and
+split `Major 7/Severe 12`. Two copies under one SRD stamp is one copy too many.
 
-What is left that is a feature rather than a seam: `TIER_BENCHMARKS` is P5-3's,
-`reorderLoadout` still has no control, and `resolvePlaceholders`,
-`characterRefs` and `missingSlugs` are P1-6's *healing* half, which is still
-open even though its *display* half shipped. **Wiring one of them fails the
-suite until its line is removed. That is the intended behaviour.**
+What is left that is a feature rather than a seam: `reorderLoadout` still has no
+control, and `resolvePlaceholders`, `characterRefs` and `missingSlugs` are
+P1-6's *healing* half, which is still open even though its *display* half
+shipped. **Wiring one of them fails the suite until its line is removed. That is
+the intended behaviour.**
 
 ## Loose ends left deliberately
 
@@ -249,3 +333,26 @@ suite until its line is removed. That is the intended behaviour.**
 - `Giorgio modifiche DM/` is now gitignored, same rule as `Manuali/`: source
   material stays on the machine that owns it. Everything extracted from it is
   written into `BACKLOG.md` P5, including the transcripts' load-bearing lines.
+- **`BACKLOG.md`'s P1 to P4 entries have not been re-adjudicated**, and several
+  of them shipped in the nineteen-lane pass without being struck. The table at
+  the foot of that file names each one with the commit that closed it, and
+  three that are only half closed. Read it before you build anything from that
+  band; do not trust an unticked `- [ ]` there on its own.
+
+## What the four documents are for, now that five lanes have edited them
+
+They were written by lanes that could not see one another and then merged, so
+this pass read all four end to end against the tree. Where they now overlap they
+are meant to, and the division is:
+
+- **`HANDOFF.md`** — this file. State at `HEAD`, the working rules, and what a
+  cold start needs before touching anything. Numbers here are measured at the
+  moment of writing and are the first thing to distrust.
+- **`BACKLOG.md`** — what is still to do, ordered by what it costs a person when
+  it goes wrong, plus the record of what closed and why. It is the only one of
+  the four that is authoritative about whether something is built.
+- **`CHANGELOG.md`** — one `0.2.0` entry, grouped by what a user would notice.
+  Not a commit log and not a plan.
+- **`Architecture.md`** — the decisions and the shapes, in Italian. §10 is the GM
+  section; §6.1 is the schema rule and the one deliberate exception to it; §3.1
+  and §3.2 are the boundary between what the engine computes and what it prints.
