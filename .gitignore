@@ -6,7 +6,16 @@
 # public/brand/ and the rest is a 5 MB asset pack this repo has no use for.
 Manuali/
 .tools/
+# Both spellings, and the one without the slash is the load-bearing one. A
+# pattern ending in `/` matches a directory and nothing else, so when work is
+# done in a git worktree - where `node_modules` is a *symlink* back to the main
+# checkout, because npm installs once - `node_modules/` does not match it and a
+# `git add -A` commits the link. That happened: the symlink rode a merge into
+# the main checkout, git wrote it over the real directory, and every command
+# that needed a dependency answered "too many levels of symbolic links".
+node_modules
 node_modules/
+dist
 dist/
 coverage/
 .DS_Store
