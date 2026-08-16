@@ -128,13 +128,21 @@ be wrong* at the foot of this entry.
   Identity block, 51px clear of the only other target in that band; the name
   line itself is still not a target, because a name at the top of a scrolling
   screen that opens a keyboard when a thumb brushes it is worse than a name you
-  cannot edit. Nothing is written until you press SAVE — the old field wrote on
-  every keystroke, which stamped the sheet's "last edited" clock once per
-  letter typed. If another character already answers to the name the app says
+  cannot edit. Nothing is written while you type — the old field wrote on every
+  keystroke, which stamped the sheet's "last edited" clock once per letter
+  typed. On the sheet the name is written when you press SAVE or Return, and
+  the ✕ leaves it as it was; on the Build form, where there is no ✕ and every
+  neighbouring field writes as you type, it is written when you leave the field
+  as well, so a half-typed name is not the one thing on that screen a tab tap
+  throws away. If another character already answers to the name the app says
   whose it is and offers the next free one, instead of quietly changing what
   you typed; "ilya", " Ilya" and a second character with no name at all all
-  count, because the picker draws all three the same. Clearing the name stores
-  nothing rather than writing the word "Unnamed" onto your sheet. This holds on
+  count, because the picker draws all three the same. A refusal is a sentence
+  on the screen and is announced to a screen reader; it is never a greyed
+  button and nothing else. Clearing the name stores nothing rather than writing
+  the word "Unnamed" onto your sheet. Your keyboard's autocorrect is turned off
+  over this field, because a name is not a word it gets to have an opinion
+  about. This holds on
   the rename path and on the *keep both* copy of an import. Creating a
   character, and importing a file that is a genuinely different character with
   the same name, are still unguarded — `BACKLOG.md` P5-1(c).
