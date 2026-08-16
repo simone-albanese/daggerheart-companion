@@ -86,6 +86,37 @@ const tally = <T>(xs: readonly T[], key: (x: T) => string | number): Record<stri
   return out;
 };
 
+const escaped = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The search rule written a second way: a regex, where the module walks string
+ * indexes. Two formulations that agree are evidence; one formulation asserted
+ * against itself is only a copy of the bug.
+ *
+ * Prose - the name and the feature - matches anywhere inside. An axis label
+ * matches from the start of one of its words, where a space is a word start
+ * and a hyphen is not, and a space the player typed matches either.
+ */
+const hitsSearch = (
+  needle: string,
+  prose: readonly string[],
+  labels: readonly string[],
+): boolean => {
+  if (needle === '') return true;
+  if (prose.some((t) => t.toLowerCase().includes(needle))) return true;
+  const atWordStart = new RegExp(`(^| )${escaped(needle).replace(/[- ]/g, '[- ]')}`, 'i');
+  return labels.some((l) => atWordStart.test(l));
+};
+
+const weaponHits = (w: Weapon, needle: string): boolean =>
+  hitsSearch(needle, [w.name, w.feature], [
+    w.range,
+    w.trait,
+    w.category,
+    w.burden === 2 ? 'Two-Handed' : 'One-Handed',
+    w.damage,
+  ]);
+
 /** Plain array code, deliberately not calling the module under test. */
 const expectedWeapons = (q: WeaponQuery, level: number): Weapon[] => {
   const needle = q.search.trim().toLowerCase();
@@ -98,7 +129,7 @@ const expectedWeapons = (q: WeaponQuery, level: number): Weapon[] => {
       (q.burdens.size === 0 || q.burdens.has(w.burden)) &&
       (q.traits.size === 0 || q.traits.has(w.trait)) &&
       (q.ranges.size === 0 || q.ranges.has(w.range)) &&
-      `${w.name} ${w.feature}`.toLowerCase().includes(needle),
+      weaponHits(w, needle),
   );
 };
 
@@ -228,32 +259,212 @@ describe('typing a name into the search box', () => {
   });
 });
 
-describe('what the search box deliberately does not read', () => {
-  it('ignores the range, so "melee" finds 26 features and not the 100 melee weapons', () => {
+/*
+ * These five counts were 26, 2, 1, 0 and 5 until the box learned to read the
+ * axes, and they were pinned here deliberately so that a search box ignoring
+ * the range was a choice somebody had made rather than an accident. It was the
+ * wrong choice. A list is the only vocabulary this screen has: answering
+ * "melee" with 26 rows when 100 weapons are Melee tells the player the other 74
+ * are not in the book. Every number below is measured against
+ * data/srd-1.0.json, and the axis totals are counted here rather than asked of
+ * the module.
+ */
+describe('what the search box reads besides the name and the feature', () => {
+  it('reads the range, so "melee" finds the 100 melee weapons and not 26', () => {
     const melee = filterWeapons(weapons, search('melee'), 1);
     expect(weapons.filter((w) => w.range === 'Melee')).toHaveLength(100);
-    expect(melee).toHaveLength(26);
+    expect(melee).toHaveLength(114);
+    expect(melee.filter((r) => r.item.range === 'Melee')).toHaveLength(100);
+
+    // The other 14 are the ones the box already found: weapons that reach
+    // further than Melee whose printed feature says "melee" anyway - the Whips
+    // that shove adversaries out of it, the Grapplers that drag them into it,
+    // and the four Scepters, whose Versatile line offers a Melee d8+3 profile.
+    const elsewhere = melee.filter((r) => r.item.range !== 'Melee');
+    expect(elsewhere).toHaveLength(14);
+    for (const r of elsewhere) expect(r.item.feature.toLowerCase()).toContain('melee');
+    // Nothing in the armoury is *named* "melee", which is why the old answer
+    // was 26 feature matches and looked like a short shelf.
     expect(melee.filter((r) => r.item.name.toLowerCase().includes('melee'))).toEqual([]);
-    for (const r of melee) expect(r.item.feature.toLowerCase()).toContain('melee');
-    // 43 weapons have range Far; two of them say so in their printed text.
+
+    // A space is a word start, so "far" reaches Far and Very Far both, and
+    // "very far" narrows to the fifteen.
     expect(weapons.filter((w) => w.range === 'Far')).toHaveLength(43);
-    expect(filterWeapons(weapons, search('far'), 1)).toHaveLength(2);
+    expect(weapons.filter((w) => w.range === 'Very Far')).toHaveLength(15);
+    expect(filterWeapons(weapons, search('far'), 1)).toHaveLength(60);
+    expect(filterWeapons(weapons, search('very far'), 1)).toHaveLength(15);
+    // The two over 58 are Melee weapons whose feature says "far".
+    expect(
+      names(filterWeapons(weapons, search('far'), 1)).filter(
+        (n) => !weapons.some((w) => w.name === n && (w.range === 'Far' || w.range === 'Very Far')),
+      ),
+    ).toEqual(['Casting Sword', 'Impact Gauntlet']);
+
+    expect(filterWeapons(weapons, search('close'), 1)).toHaveLength(50);
+    expect(weapons.filter((w) => w.range === 'Close' || w.range === 'Very Close')).toHaveLength(46);
+    expect(filterWeapons(weapons, search('very close'), 1)).toHaveLength(29);
   });
 
-  it('ignores the trait, the category, the damage and the id', () => {
+  it('reads the trait, the category and the damage die', () => {
     expect(weapons.filter((w) => w.trait === 'instinct')).toHaveLength(24);
-    expect(filterWeapons(weapons, search('instinct'), 1)).toHaveLength(0);
+    expect(filterWeapons(weapons, search('instinct'), 1)).toHaveLength(24);
+    expect(filterWeapons(weapons, search('spellcast'), 1)).toHaveLength(4);
+    // 23 by trait plus the Ego Blade, whose feature is about Presence.
+    expect(weapons.filter((w) => w.trait === 'presence')).toHaveLength(23);
+    expect(filterWeapons(weapons, search('presence'), 1)).toHaveLength(24);
 
     expect(weapons.filter((w) => w.category === 'Magic')).toHaveLength(71);
-    expect(filterWeapons(weapons, search('magic'), 1)).toHaveLength(1);
+    expect(filterWeapons(weapons, search('magic'), 1)).toHaveLength(71);
+    // Every one of the 71 comes from the category; before, "magic" found one.
+    expect(
+      filterWeapons(weapons, search('magic'), 1).every((r) => r.item.category === 'Magic'),
+    ).toBe(true);
+    // 133 Physical, and the Ghostblade, which is a Magic weapon whose feature
+    // offers "physical or magic damage". The damage *type* is not an axis - it
+    // has no chip - so the Ghostblade arrives through its printed feature.
+    expect(weapons.filter((w) => w.category === 'Physical')).toHaveLength(133);
+    expect(names(filterWeapons(weapons, search('physical'), 1))).toContain('Ghostblade');
+    expect(filterWeapons(weapons, search('physical'), 1)).toHaveLength(134);
 
+    // The die is the book's `d8+3`, not the `3d8+3` a Proficiency 3 sheet
+    // prints, so the same search answers the same way on every character.
     expect(weapons.filter((w) => w.damage.includes('d8'))).toHaveLength(66);
-    expect(filterWeapons(weapons, search('d8'), 1)).toHaveLength(5);
+    expect(filterWeapons(weapons, search('d8'), 1)).toHaveLength(71);
+    expect(
+      names(filterWeapons(weapons, search('d8'), 1)).filter(
+        (n) => !weapons.some((w) => w.name === n && w.damage.includes('d8')),
+      ),
+    ).toEqual(['Scepter', 'Improved Scepter', 'Advanced Scepter', 'Hand Sling', 'Legendary Scepter']);
+    expect(weapons.filter((w) => w.damage.includes('d12'))).toHaveLength(11);
+    expect(filterWeapons(weapons, search('d12'), 1)).toHaveLength(11);
+    expect(filterWeapons(weapons, search('d8+3'), 1)).toHaveLength(9);
+    // A die is matched from the start of the string it is printed in, so the
+    // "8" inside "d8+3" is not a search term of its own: 66 weapons roll a d8
+    // and a bare "8" finds six, every one of them through a feature that
+    // prints the digit.
+    const eight = filterWeapons(weapons, search('8'), 1);
+    expect(eight).toHaveLength(6);
+    for (const r of eight) expect(r.item.feature).toContain('8');
+  });
 
+  it('reads the burden as the words the row prints, however the player spaces it', () => {
+    expect(weapons.filter((w) => w.burden === 1)).toHaveLength(112);
+    expect(weapons.filter((w) => w.burden === 2)).toHaveLength(92);
+    expect(filterWeapons(weapons, search('one-handed'), 1)).toHaveLength(112);
+    expect(filterWeapons(weapons, search('two-handed'), 1)).toHaveLength(92);
+    // The row prints TWO-HANDED; nobody should have to find the hyphen.
+    expect(filterWeapons(weapons, search('two handed'), 1)).toHaveLength(92);
+    expect(filterWeapons(weapons, search('one handed'), 1)).toHaveLength(112);
+    expect(filterWeapons(weapons, search('two'), 1)).toHaveLength(92);
+
+    // And the reason the labels are matched from word starts rather than
+    // folded into one string: every weapon in the book prints ONE-HANDED or
+    // TWO-HANDED, so a plain substring search would answer "hand" with all 204
+    // and bury the sixteen weapons that actually say it.
+    const hand = filterWeapons(weapons, search('hand'), 1);
+    expect(hand).toHaveLength(16);
+    for (const r of hand) expect(`${r.item.name} ${r.item.feature}`.toLowerCase()).toContain('hand');
+    expect(names(hand)).toContain('Hand Crossbow');
+    expect(names(hand)).toContain('Midas Scythe');
+  });
+
+  it('still does not read the id, the slot or the tier', () => {
     // The id is a slug the player never sees; the name it belongs to is found.
     expect(weapons.some((w) => w.id === 'aantari-bow')).toBe(true);
     expect(filterWeapons(weapons, search('aantari-bow'), 1)).toHaveLength(0);
     expect(names(filterWeapons(weapons, search('aantari bow'), 1))).toEqual(['Aantari Bow']);
+
+    // The slot is a segmented control the picker already opens pre-set, and no
+    // row prints the word, so a search for it would return rows that never say
+    // why they are there. The twelve are features that mention a primary hand.
+    expect(weapons.filter((w) => w.slot === 'secondary')).toHaveLength(37);
+    expect(filterWeapons(weapons, search('secondary'), 1)).toHaveLength(0);
+    expect(filterWeapons(weapons, search('primary'), 1)).toHaveLength(12);
+    expect(
+      filterWeapons(weapons, search('primary'), 1).every((r) =>
+        `${r.item.name} ${r.item.feature}`.toLowerCase().includes('primary'),
+      ),
+    ).toBe(true);
+
+    // The tier is a badge and a chip row, but it is a bare digit: folding
+    // "Tier 3" in would let a stray 3 pick out a quarter of the armoury. The
+    // seven a "3" does find are features that print one - "+3 to Armor Score",
+    // "d8+3" - and only two of the seven are tier 3.
+    expect(weapons.filter((w) => w.tier === 3)).toHaveLength(57);
+    expect(filterWeapons(weapons, search('tier'), 1)).toHaveLength(0);
+    expect(filterWeapons(weapons, search('tier 3'), 1)).toHaveLength(0);
+    const three = filterWeapons(weapons, search('3'), 1);
+    expect(three).toHaveLength(7);
+    expect(three.filter((r) => r.item.tier === 3)).toHaveLength(2);
+    for (const r of three) expect(r.item.feature).toContain('3');
+  });
+
+  it('crosses a typed axis with the chips, which are now a shortcut and not the only route', () => {
+    // The chips still narrow what the text found: 114 weapons answer "melee",
+    // 21 of them at tier 1.
+    expect(
+      filterWeapons(weapons, { ...search('melee'), tiers: new Set<Tier>([1]) }, 1),
+    ).toHaveLength(21);
+    // Typing an axis and chipping a different value of the same axis is not a
+    // contradiction the filter has to resolve: the four Scepters are Far
+    // weapons whose feature is about melee attackers, and they are the answer.
+    expect(
+      names(filterWeapons(weapons, { ...search('melee'), ranges: new Set<Range>(['Far']) }, 1)),
+    ).toEqual(['Scepter', 'Improved Scepter', 'Advanced Scepter', 'Legendary Scepter']);
+    expect(
+      filterWeapons(weapons, { ...search('two-handed'), category: 'Magic' }, 1),
+    ).toHaveLength(34);
+    expect(weapons.filter((w) => w.burden === 2 && w.category === 'Magic')).toHaveLength(34);
+  });
+
+  it('matches inside a name or a feature, but not across the seam between them', () => {
+    // The old code searched `${name} ${feature}` as one string, so a query
+    // spanning the two matched. Nothing prints them adjacently - the picker
+    // draws the name and the feature on separate lines - so that match was an
+    // artefact of the join rather than something a player could have meant.
+    const broadsword = weapons.find((w) => w.name === 'Broadsword');
+    expect(broadsword?.feature).toBe('Reliable: +1 to attack rolls');
+    expect(filterWeapons(weapons, search('broadsword reliable'), 1)).toEqual([]);
+    expect(names(filterWeapons(weapons, search('broadsword'), 1))).toEqual([
+      'Broadsword',
+      'Improved Broadsword',
+      'Urok Broadsword',
+      'Advanced Broadsword',
+      'Legendary Broadsword',
+    ]);
+    expect(filterWeapons(weapons, search('reliable'), 1)).toHaveLength(13);
+  });
+
+  it('folds nothing into the armor search, because armor has no axis to fold', () => {
+    // Armor's only chip is tier. Two sets mention melee in their feature and
+    // that is all "melee" may return: an armor list that grew because weapons
+    // did would be inventing a filter the picker does not have.
+    expect(filterArmors(armors, { ...armorQuery(), search: 'melee' }, 1)).toHaveLength(2);
+    expect(filterArmors(armors, { ...armorQuery(), search: 'magic' }, 1)).toHaveLength(3);
+    expect(filterArmors(armors, { ...armorQuery(), search: 'tier' }, 1)).toHaveLength(0);
+    expect(filterArmors(armors, { ...armorQuery(), search: 'one-handed' }, 1)).toHaveLength(0);
+    for (const q of ['melee', 'magic']) {
+      for (const r of filterArmors(armors, { ...armorQuery(), search: q }, 1)) {
+        expect(`${r.item.name} ${r.item.feature}`.toLowerCase()).toContain(q);
+      }
+    }
+  });
+
+  it('reads the one axis an item has, in both the words the picker uses for it', () => {
+    // "Loot" and "Consumables" are the two buttons over this list, and typing
+    // either used to return nothing - 0 for "loot", 1 for "consumable".
+    expect(filterItems(items, { ...itemQuery(), search: 'loot' })).toHaveLength(60);
+    expect(
+      filterItems(items, { ...itemQuery(), search: 'loot' }).every((i) => i.kind === 'loot'),
+    ).toBe(true);
+    // 60 consumables, plus the Box of Many Goods, which is loot whose text
+    // says it contains random common consumables. The plural is what the
+    // button says, so both forms answer.
+    expect(filterItems(items, { ...itemQuery(), search: 'consumable' })).toHaveLength(61);
+    expect(filterItems(items, { ...itemQuery(), search: 'consumables' })).toHaveLength(61);
+    expect(
+      filterItems(items, { ...itemQuery(), search: 'consumable', kind: 'loot' }).map((i) => i.name),
+    ).toEqual(['Box of Many Goods']);
   });
 });
 
@@ -440,7 +651,7 @@ describe('filters crossing each other', () => {
       sortedNames(
         weapons.filter(
           (w) =>
-            `${w.name} ${w.feature}`.toLowerCase().includes('bow') &&
+            weaponHits(w, 'bow') &&
             (w.tier === 2 || w.tier === 3) &&
             (w.range === 'Far' || w.range === 'Very Far'),
         ),
