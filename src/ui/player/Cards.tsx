@@ -37,6 +37,12 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const [recalls, setRecalls] = useState<ReadonlySet<number>>(new Set());
   const [query, setQuery] = useState('');
   const search = useDeferredValue(query).trim().toLowerCase();
+  /*
+   * The card whose recall is waiting for a second tap, because it would be
+   * paid in Hit Points rather than in Stress. One at a time: two primed
+   * controls in a grid of 189 is worse than none.
+   */
+  const [armed, setArmed] = useState<string | null>(null);
 
   const toggle = (set: ReadonlySet<number>, n: number): ReadonlySet<number> => {
     const next = new Set(set);
@@ -107,6 +113,21 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     if (character.vault.includes(cardId)) {
       const check = canAddToLoadout(character, card);
       if (!check.allowed) return;
+      /*
+       * P1-2. `canAddToLoadout` has always answered `affordable`, and until now
+       * nothing read it: with the Stress track full, `markStress` marks Hit
+       * Points instead, so a tap on RECALL at 6/6 Stress and 5/6 HP took the
+       * sixth Hit Point and offered a death move. It is still allowed - whether
+       * a recall is a "move" under the Stress rule is a table ruling, and the
+       * Recall Cost text is not in the shipped rules layer, so the app cannot
+       * cite the rule it would be enforcing - but it costs a second, informed
+       * tap, and the button says the number of Hit Points before the first one.
+       */
+      if (!check.affordable && armed !== cardId) {
+        setArmed(cardId);
+        return;
+      }
+      setArmed(null);
       const out = recallCard(character, card);
       update(() => out.character);
       pushLog({
@@ -211,40 +232,76 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           paddingBottom: 12,
         }}
       >
-        {rows.map((row) => (
-          <DomainCardView
-            key={row.card.id}
-            card={row.card}
-            shapes={shapes}
-            onOpen={() => setOpenCard(row.card)}
-            height={phone ? 268 : 310}
-            headHeight={phone ? 78 : 96}
-            dimmed={!row.eligible && !row.owned}
-            footer={
-              <>
-                <button
-                  type="button"
-                  className="t-meta"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    acquire(row.card.id);
-                  }}
-                  disabled={!row.eligible && !row.owned}
-                  style={{
-                    letterSpacing: '0.08em',
-                    color: row.inLoadout ? 'var(--hope)' : 'var(--muted)',
-                    minHeight: 'var(--control)',
-                  }}
-                >
-                  {row.inLoadout ? 'IN LOADOUT' : row.owned ? 'RECALL' : row.eligible ? 'TAKE' : '—'}
-                </button>
-                <span className="t-meta" style={{ color: 'var(--dim)', textAlign: 'right' }}>
-                  {row.reason ?? `RECALL ${row.card.recallCost}`}
-                </span>
-              </>
-            }
-          />
-        ))}
+        {rows.map((row) => {
+          // The Hit Points a recall would cost, if it would cost any. Only a
+          // card in the vault can be recalled, so only that one is costed.
+          const swap =
+            row.owned && !row.inLoadout ? canAddToLoadout(character, row.card) : null;
+          const needsHp = swap !== null && swap.allowed && !swap.affordable;
+          const primed = armed === row.card.id;
+          return (
+            <DomainCardView
+              key={row.card.id}
+              card={row.card}
+              shapes={shapes}
+              onOpen={() => setOpenCard(row.card)}
+              height={phone ? 268 : 310}
+              headHeight={phone ? 78 : 96}
+              dimmed={!row.eligible && !row.owned}
+              footer={
+                <>
+                  <button
+                    type="button"
+                    className="t-meta"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      acquire(row.card.id);
+                    }}
+                    disabled={!row.eligible && !row.owned}
+                    aria-label={
+                      primed
+                        ? `Confirm: recall ${row.card.name} and mark ${String(swap?.hpCost ?? 0)} HP`
+                        : needsHp
+                          ? `Recall ${row.card.name} - no Stress left, so it would mark ${String(swap?.hpCost ?? 0)} HP`
+                          : undefined
+                    }
+                    style={{
+                      letterSpacing: '0.08em',
+                      color: primed
+                        ? 'var(--damage)'
+                        : row.inLoadout
+                          ? 'var(--hope)'
+                          : 'var(--muted)',
+                      minHeight: 'var(--control)',
+                    }}
+                  >
+                    {primed
+                      ? `MARK ${String(swap?.hpCost ?? 0)} HP?`
+                      : row.inLoadout
+                        ? 'IN LOADOUT'
+                        : row.owned
+                          ? 'RECALL'
+                          : row.eligible
+                            ? 'TAKE'
+                            : '—'}
+                  </button>
+                  <span
+                    className="t-meta"
+                    style={{
+                      color: needsHp ? 'var(--damage)' : 'var(--dim)',
+                      textAlign: 'right',
+                    }}
+                  >
+                    {row.reason ??
+                      (needsHp
+                        ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS LEFT`
+                        : `RECALL ${row.card.recallCost}`)}
+                  </span>
+                </>
+              }
+            />
+          );
+        })}
         {rows.length === 0 && (
           <p className="t-body" style={{ gridColumn: '1 / -1', color: 'var(--dim)' }}>
             {dataset.domainCards.length === 0

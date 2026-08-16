@@ -381,6 +381,102 @@ describe('the vault', () => {
   });
 });
 
+/**
+ * P1-2, at the surface.
+ *
+ * `canAddToLoadout` has answered `affordable` since it was written and no UI
+ * read it, so a recall with the Stress track full marked Hit Points instead
+ * and said nothing until the log line afterwards. Reproduced against the real
+ * engine: 6/6 Stress, 5/6 HP, a recall cost of 1, and the sixth Hit Point goes
+ * with `hasFallen` behind it.
+ */
+describe('a recall that would be paid in Hit Points', () => {
+  /** Stress full, one Hit Point from falling, and a card in the vault. */
+  function onTheEdge(): Character {
+    const base = playedCharacter();
+    return seed({
+      stress: { marked: base.stress.max, max: base.stress.max },
+      hp: { marked: base.hp.max - 1, max: base.hp.max },
+    });
+  }
+
+  it('says the number of Hit Points before the first tap', () => {
+    const c = onTheEdge();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    const recall = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Recall ${card.name} - no Stress left`),
+    );
+    expect(recall, 'the recall does not warn that it would cost HP').toBeDefined();
+    expect(recall!.textContent).toContain('1 HP');
+  });
+
+  it('does not take it on one tap', () => {
+    const c = onTheEdge();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    const before = useApp.getState().characters[0]!;
+
+    const warned = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Recall ${card.name} - no Stress left`),
+    );
+    expect(warned, 'the recall does not warn that it would cost HP').toBeDefined();
+    click(warned!);
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.hp.marked, 'one tap spent a Hit Point').toBe(before.hp.marked);
+    expect(after.loadout, 'one tap moved the card').toEqual(before.loadout);
+    // and the control now says what the second tap will do.
+    const armedBtn = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Confirm: recall ${card.name}`),
+    );
+    expect(armedBtn, 'nothing on screen is asking for a confirmation').toBeDefined();
+    expect(armedBtn!.textContent).toContain('MARK 1 HP');
+  });
+
+  it('takes it on the second, and marks exactly what it said', () => {
+    const c = onTheEdge();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    const find = (prefix: string): HTMLButtonElement => {
+      const found = buttons().find((b) =>
+        (b.getAttribute('aria-label') ?? '').startsWith(prefix),
+      );
+      expect(found, `no control whose name starts "${prefix}"`).toBeDefined();
+      return found!;
+    };
+
+    const before = useApp.getState().characters[0]!;
+    click(find(`Recall ${card.name} - no Stress left`));
+    click(find(`Confirm: recall ${card.name}`));
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).toContain(card.id);
+    // The button said MARK 1 HP because one Hit Point is all that is left to
+    // mark; `markStress` stops at the end of the track and so does the price.
+    expect(after.hp.marked).toBe(Math.min(before.hp.max, before.hp.marked + card.recallCost));
+    expect(after.hp.marked).toBe(before.hp.marked + 1);
+  });
+
+  it('leaves an affordable recall a single tap', () => {
+    const c = seed();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    click(
+      buttons().find(
+        (b) =>
+          (b.getAttribute('aria-label') ?? '') ===
+          `Recall ${card.name} for ${card.recallCost} Stress`,
+      )!,
+    );
+    expect(useApp.getState().characters[0]!.loadout).toContain(card.id);
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();

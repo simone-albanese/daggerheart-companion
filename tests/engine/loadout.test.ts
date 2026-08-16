@@ -36,6 +36,7 @@ describe('canAddToLoadout', () => {
       allowed: true,
       stressCost: 2,
       affordable: true,
+      hpCost: 0,
       reason: null,
     });
   });
@@ -77,6 +78,81 @@ describe('canAddToLoadout', () => {
   it('counts a Recall Cost of zero as always affordable', () => {
     const c = makeCharacter({ vault: ['x'], stress: { marked: 6, max: 6 } });
     expect(canAddToLoadout(c, card('x', 0)).affordable).toBe(true);
+  });
+
+  /*
+   * P1-2. "Not affordable" was as far as this went, and no screen read it, so
+   * the app spent Hit Points without saying: `markStress` fills the Stress
+   * track and then marks HP, which at 5/6 HP is the sixth Hit Point,
+   * `hasFallen`, and a death move offered for tapping a card. Saying *how
+   * many* Hit Points is what lets a surface put the number in front of the
+   * player before the tap rather than in the log afterwards.
+   */
+  it('says how many Hit Points the shortfall would cost', () => {
+    const c = makeCharacter({
+      vault: ['x'],
+      stress: { marked: 5, max: 6 },
+      hp: { marked: 0, max: 6 },
+    });
+    const check = canAddToLoadout(c, card('x', 3));
+    expect(check.stressCost).toBe(3);
+    expect(check.affordable).toBe(false);
+    expect(check.hpCost).toBe(2);
+  });
+
+  it('costs no Hit Points when the Stress is there', () => {
+    const c = makeCharacter({ vault: ['x'], stress: { marked: 3, max: 6 } });
+    expect(canAddToLoadout(c, card('x', 3)).hpCost).toBe(0);
+  });
+
+  it('does not promise Hit Points the character has not got', () => {
+    // `markStress` stops at the end of the track rather than going negative,
+    // so a costing that said 3 here would be describing a mark that will not
+    // happen.
+    const c = makeCharacter({
+      vault: ['x'],
+      stress: { marked: 6, max: 6 },
+      hp: { marked: 5, max: 6 },
+    });
+    expect(canAddToLoadout(c, card('x', 3)).hpCost).toBe(1);
+  });
+
+  it('costs nothing at all for a refusal', () => {
+    const c = makeCharacter({
+      loadout: five,
+      vault: ['x'],
+      stress: { marked: 6, max: 6 },
+      hp: { marked: 0, max: 6 },
+    });
+    const check = canAddToLoadout(c, card('x', 3));
+    expect(check.allowed).toBe(false);
+    expect(check.hpCost).toBe(0);
+    expect(check.affordable).toBe(true);
+  });
+
+  /*
+   * The costing has to be what `markStress` will actually do, not a second
+   * rule that agrees with it today. This walks every shortfall against the
+   * real mover.
+   */
+  it('agrees with the mark it is predicting, at every Stress and HP', () => {
+    for (let stress = 0; stress <= 6; stress += 1) {
+      for (let hp = 0; hp <= 6; hp += 1) {
+        for (let cost = 0; cost <= 4; cost += 1) {
+          const c = makeCharacter({
+            vault: ['x'],
+            stress: { marked: stress, max: 6 },
+            hp: { marked: hp, max: 6 },
+          });
+          const check = canAddToLoadout(c, card('x', cost));
+          const out = recallCard(c, card('x', cost));
+          expect(
+            check.hpCost,
+            `stress ${stress}/6, hp ${hp}/6, recall ${cost}: predicted ${check.hpCost} HP, marked ${out.hpMarked}`,
+          ).toBe(out.hpMarked);
+        }
+      }
+    }
   });
 });
 

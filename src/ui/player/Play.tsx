@@ -760,6 +760,12 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const recall = useRecall();
+  /*
+   * The one card waiting for its second tap, if any. One at a time: arming a
+   * second card must put the first one down, or the vault ends up with two
+   * primed controls and no way to tell which one a thumb is over.
+   */
+  const [armed, setArmed] = useState<string | null>(null);
   if (!character) return null;
 
   if (layout === 'rows') {
@@ -805,7 +811,16 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
                   </span>
                 </span>
               </button>
-              <RecallButton card={card} check={check} onRecall={() => recall(card)} />
+              <RecallButton
+                card={card}
+                check={check}
+                armed={armed === card.id}
+                onArm={() => setArmed(card.id)}
+                onRecall={() => {
+                  setArmed(null);
+                  recall(card);
+                }}
+              />
             </div>
           );
         })}
@@ -832,24 +847,41 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
       >
         {vault.map((card) => {
           const check = canAddToLoadout(character, card);
+          const needsHp = check.allowed && !check.affordable;
+          const primed = armed === card.id;
           return (
             <button
               key={card.id}
               type="button"
-              onClick={() => (check.allowed ? recall(card) : setOpenCard(card))}
+              onClick={() => {
+                if (!check.allowed) {
+                  setOpenCard(card);
+                  return;
+                }
+                if (needsHp && !primed) {
+                  setArmed(card.id);
+                  return;
+                }
+                setArmed(null);
+                recall(card);
+              }}
               className="row"
               aria-label={
-                check.allowed
-                  ? `Recall ${card.name} for ${String(check.stressCost)} Stress`
-                  : `${card.name} - ${check.reason ?? 'cannot be recalled'}`
+                !check.allowed
+                  ? `${card.name} - ${check.reason ?? 'cannot be recalled'}`
+                  : primed
+                    ? `Confirm: recall ${card.name} and mark ${String(check.hpCost)} HP`
+                    : needsHp
+                      ? `Recall ${card.name} - no Stress left, so it would mark ${String(check.hpCost)} HP`
+                      : `Recall ${card.name} for ${String(check.stressCost)} Stress`
               }
               style={{
                 flex: 'none',
                 minHeight: 44,
                 maxWidth: 190,
                 borderRadius: 'var(--r3)',
-                background: 'var(--app)',
-                border: '1px solid var(--line-soft)',
+                background: primed ? 'var(--fear-wash)' : 'var(--app)',
+                border: `1px solid ${primed ? 'var(--damage)' : 'var(--line-soft)'}`,
                 gap: 8,
                 padding: '0 10px',
               }}
@@ -871,12 +903,22 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
               </span>
               {/* The reason, in place of the level. Not a title attribute and
                   not 55% opacity: both of those are the app knowing something
-                  the player cannot read. */}
+                  the player cannot read. The same slot carries the Hit Points
+                  a recall with no Stress left would cost. */}
               <span
                 className="t-meta"
-                style={{ flex: 'none', color: check.allowed ? undefined : 'var(--damage)' }}
+                style={{
+                  flex: 'none',
+                  color: check.allowed && !needsHp ? undefined : 'var(--damage)',
+                }}
               >
-                {check.allowed ? `LV${card.level}` : shortReason(check.reason)}
+                {!check.allowed
+                  ? shortReason(check.reason)
+                  : primed
+                    ? `MARK ${check.hpCost} HP?`
+                    : needsHp
+                      ? `${check.hpCost} HP`
+                      : `LV${card.level}`}
               </span>
             </button>
           );
@@ -912,53 +954,87 @@ function shortReason(reason: string | null): string {
  * instead of the cost - the same substitution `ExperienceChip` makes for NO
  * HOPE. A disabled button with the word RECALL still on it says the app could
  * do this and will not, rather than that something is in the way.
+ *
+ * P1-2 is the second face. When the Stress track is full the recall is still
+ * offered - whether a recall is a "move" under the Stress rule is a table
+ * ruling, and the Recall Cost text is not in the shipped rules layer, so the
+ * app cannot cite a rule it would be enforcing - but it is not taken on one
+ * tap. The first tap arms it and the button says what it is about to spend,
+ * in Hit Points, in `--damage`; the second takes it.
  */
 function RecallButton({
   card,
   check,
+  armed,
+  onArm,
   onRecall,
 }: {
   card: DomainCard;
   check: SwapCheck;
+  /** This card is the one waiting for its second tap. */
+  armed: boolean;
+  onArm: () => void;
   onRecall: () => void;
 }): React.JSX.Element {
+  const needsHp = check.allowed && !check.affordable;
+  const hp = `${String(check.hpCost)} HP`;
+
+  const label = !check.allowed
+    ? `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
+    : armed
+      ? `Confirm: recall ${card.name} and mark ${hp}`
+      : needsHp
+        ? `Recall ${card.name} - no Stress left, so it would mark ${hp}`
+        : `Recall ${card.name} for ${String(check.stressCost)} Stress`;
+
   return (
     <button
       type="button"
-      onClick={onRecall}
+      onClick={() => (needsHp && !armed ? onArm() : onRecall())}
       disabled={!check.allowed}
-      aria-label={
-        check.allowed
-          ? `Recall ${card.name} for ${String(check.stressCost)} Stress`
-          : `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
-      }
+      aria-label={label}
       className="stack"
       style={{
         flex: 'none',
-        minWidth: 72,
+        // Wider once it is armed: "MARK 2 HP" and "TAP AGAIN" both have to be
+        // readable in one line each, and a target that grows under the thumb
+        // grows away from its neighbour rather than over it.
+        minWidth: armed ? 104 : 72,
         minHeight: 52,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 3,
         borderRadius: 'var(--r3)',
-        background: check.allowed ? 'var(--raised)' : 'transparent',
-        border: `1px solid ${check.allowed ? 'var(--line)' : 'var(--line-soft)'}`,
+        background: armed ? 'var(--fear-wash)' : check.allowed ? 'var(--raised)' : 'transparent',
+        border: `1px solid ${armed ? 'var(--damage)' : check.allowed ? 'var(--line)' : 'var(--line-soft)'}`,
         padding: '0 8px',
       }}
     >
-      {check.allowed ? (
+      {!check.allowed ? (
+        <span className="t-meta" style={{ color: 'var(--damage)', textAlign: 'center' }}>
+          {shortReason(check.reason)}
+        </span>
+      ) : armed ? (
+        <>
+          <span className="t-meta" style={{ color: 'var(--damage)', fontWeight: 700 }}>
+            MARK {hp}
+          </span>
+          <span className="t-meta" style={{ color: 'var(--muted)' }}>
+            TAP AGAIN
+          </span>
+        </>
+      ) : (
         <>
           <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
             RECALL
           </span>
-          <span className="t-meta" style={{ color: 'var(--stress)' }}>
-            COST {check.stressCost}
+          <span
+            className="t-meta"
+            style={{ color: needsHp ? 'var(--damage)' : 'var(--stress)' }}
+          >
+            {needsHp ? hp : `COST ${check.stressCost}`}
           </span>
         </>
-      ) : (
-        <span className="t-meta" style={{ color: 'var(--damage)', textAlign: 'center' }}>
-          {shortReason(check.reason)}
-        </span>
       )}
     </button>
   );
