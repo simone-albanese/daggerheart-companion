@@ -159,7 +159,7 @@ export function Reference(): React.JSX.Element {
 
       {topic === 'improvise' && <TierBenchmarks />}
       {topic === 'difficulty' && <DifficultyLadder />}
-      {topic === 'fear' && <FearGuide />}
+      {topic === 'fear' && <FearGuide besidePool={false} />}
       {/*
         Read-only here, and pressable on a dynamic countdown's own row. There is
         no countdown on this screen for a button to act on, and a control that

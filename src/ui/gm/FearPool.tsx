@@ -218,7 +218,7 @@ export function FearBoard({ phone }: { phone: boolean }): React.JSX.Element {
       </div>
 
       <Fold label="WHAT TO SPEND IT ON" summary="SRD 1.0">
-        <FearGuide />
+        <FearGuide besidePool />
       </Fold>
     </section>
   );

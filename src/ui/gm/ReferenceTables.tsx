@@ -200,16 +200,23 @@ function BenchmarkGrid({
  * Nothing here is a target. The Fear pool is set on the twelve buttons above
  * it; a table that offered to spend for you would be the app deciding what a
  * scene was worth.
+ *
+ * `besidePool` is which of the two doors this came through, and the only thing
+ * it changes is the empty state. The consolation for a dataset with no Fear
+ * section - *the pool above still works* - is true under the Fear board's
+ * twelve targets and false on the reference screen, which carries no pool at
+ * all. Same rule as `CountdownChart`'s `countdown`: a component drawn in two
+ * places may not describe the one it is not in.
  */
-export function FearGuide(): React.JSX.Element {
+export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const fear = useMemo(() => fearGuidance(dataset.rules), [dataset]);
 
   if (fear.parts.length === 0) {
     return (
       <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
-        This dataset carries no Fear section, so there is nothing to quote. The pool above still
-        works; it is the guidance that is missing.
+        This dataset carries no Fear section, so there is nothing to quote.
+        {besidePool && ' The pool above still works; it is the guidance that is missing.'}
       </p>
     );
   }

@@ -507,7 +507,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
-  'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
+  'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide besidePool={false} />,
   'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,

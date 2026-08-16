@@ -369,6 +369,28 @@ describe('the Fear guidance, beside the Fear counter', () => {
     expect(pips[11]!.compareDocumentPosition(fold()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('says the pool still works where the pool really is above it', () => {
+    without('using-fear');
+    openFearBoard();
+    click(fold());
+    expect(text()).toContain('carries no Fear section');
+    // The twelve targets are on this screen, immediately above the fold.
+    expect(named('Fear 1')).toBeDefined();
+    expect(text()).toContain('The pool above still works; it is the guidance that is missing.');
+  });
+
+  it('claims no pool on the reference screen, which has none above it', () => {
+    without('using-fear');
+    openReference();
+    click(named('Fear'));
+    expect(text()).toContain('carries no Fear section');
+    const inside = container.querySelector('[role="dialog"]')!;
+    // There is no Fear pool in this sheet at all - it lives in the countdowns
+    // tool - so a sentence about "the pool above" describes another screen.
+    expect(inside.querySelector('[aria-label^="Fear:"]')).toBeNull();
+    expect(text()).not.toContain('The pool above');
+  });
+
   it('draws the same guidance on the reference screen, from the same component', () => {
     openReference();
     click(named('Fear'));
