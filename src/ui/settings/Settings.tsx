@@ -10,7 +10,7 @@
  * no feedback form, which is why the backup section has to be this insistent:
  * if this device loses the data, there is no copy of it in the world.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { DOMAINS, type Character } from '../../../shared/types.ts';
 import { SEVERITY_HP } from '../../engine/damage.ts';
 import {
@@ -38,7 +38,7 @@ import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { usePrefersReducedMotion } from '../shared/useMedia.ts';
 import { About } from './About.tsx';
-import { Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
+import { Action, Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
 import { Rulebook } from './Rulebook.tsx';
 import { Transfer } from './Transfer.tsx';
 
@@ -404,6 +404,8 @@ function Backup({
   // Paper is the one backup that survives a dead phone, so it belongs here
   // rather than on a screen you use mid-scene.
   const printer = usePrintSheet();
+  /** Ids for the two things that explain the "Back up everything" button. */
+  const panel = useId();
 
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -567,22 +569,27 @@ function Backup({
       >
         <div className="spread" style={{ alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 260px' }}>
-            <div className="t-label">Last backup</div>
-            <div
-              style={{
-                marginTop: 7,
-                font: '800 24px/1 var(--sans)',
-                letterSpacing: '-0.02em',
-                color: urgent ? 'var(--text)' : 'var(--text-2)',
-              }}
-            >
-              {health.daysSince === null
-                ? 'Never'
-                : health.daysSince === 0
-                  ? 'Today'
-                  : `${health.daysSince} day${health.daysSince === 1 ? '' : 's'} ago`}
+            {/* A plain wrapper, purely so the reading has one id to point at.
+                Block inside block, no flex or grid between them, so nothing
+                moves. */}
+            <div id={`${panel}-age`}>
+              <div className="t-label">Last backup</div>
+              <div
+                style={{
+                  marginTop: 7,
+                  font: '800 24px/1 var(--sans)',
+                  letterSpacing: '-0.02em',
+                  color: urgent ? 'var(--text)' : 'var(--text-2)',
+                }}
+              >
+                {health.daysSince === null
+                  ? 'Never'
+                  : health.daysSince === 0
+                    ? 'Today'
+                    : `${health.daysSince} day${health.daysSince === 1 ? '' : 's'} ago`}
+              </div>
             </div>
-            <p className="t-dense" style={{ margin: '9px 0 0', maxWidth: '58ch' }}>
+            <p id={`${panel}-why`} className="t-dense" style={{ margin: '9px 0 0', maxWidth: '58ch' }}>
               {/* backupStatus's own line first: it is the only one that knows a
                   write failed or a folder permission lapsed. */}
               {health.detail ??
@@ -591,9 +598,18 @@ function Backup({
                   : 'One file with every character in it. Readable JSON, no rules text, safe to keep anywhere.')}
             </p>
           </div>
+          {/*
+            Not an `Action`: this button is above the rows, in the health panel,
+            so there is no `Field` to take a description from. It gets the two
+            ids by hand instead - the age and the sentence beside it - because
+            "Back up everything, button" on its own tells a screen reader
+            neither that the last copy is forty days old nor that the last write
+            failed, which is the entire content of this panel.
+          */}
           <button
             type="button"
             className="btn btn-primary"
+            aria-describedby={`${panel}-age ${panel}-why`}
             onClick={backupAll}
             disabled={busy || characters.length === 0}
           >
@@ -627,19 +643,14 @@ function Backup({
               <span className="chip" style={{ color: 'var(--ok)' }}>
                 {(health.targetName ?? 'FOLDER').toUpperCase()}
               </span>
-              <button type="button" className="btn" onClick={dropFolder} disabled={busy}>
+              <Action onClick={dropFolder} disabled={busy}>
                 Forget it
-              </button>
+              </Action>
             </>
           ) : (
-            <button
-              type="button"
-              className="btn"
-              onClick={pickFolder}
-              disabled={busy || !canChooseDirectory()}
-            >
+            <Action onClick={pickFolder} disabled={busy || !canChooseDirectory()}>
               {canChooseDirectory() ? 'Choose a folder' : 'Not available here'}
-            </button>
+            </Action>
           )}
         </Field>
 
@@ -659,9 +670,9 @@ function Backup({
             />
           }
         >
-          <button type="button" className="btn" onClick={importFile} disabled={busy}>
+          <Action onClick={importFile} disabled={busy}>
             Choose a file
-          </button>
+          </Action>
         </Field>
 
         {characters.map((character) => (
@@ -670,23 +681,20 @@ function Backup({
             label={character.name || 'Unnamed'}
             hint={`${index.classes.get(character.classRef)?.name ?? 'No class'} · level ${character.level} · edited ${new Date(character.updatedAt).toLocaleDateString()}`}
           >
-            <button
-              type="button"
-              className="btn"
+            <Action
+              label={`Export ${character.name || 'Unnamed'}`}
               onClick={() => exportOne(character)}
               disabled={busy}
             >
               Export
-            </button>
-            <button
-              type="button"
-              className="btn"
-              aria-label={`Print character sheet for ${character.name || 'Unnamed'}`}
+            </Action>
+            <Action
+              label={`Print character sheet for ${character.name || 'Unnamed'}`}
               onClick={() => printer.print(character)}
               disabled={busy || printer.printing}
             >
               Print sheet
-            </button>
+            </Action>
           </Field>
         ))}
 
@@ -710,9 +718,9 @@ function Backup({
             {persisted === true ? 'GRANTED' : persisted === false ? 'NOT GRANTED' : 'UNKNOWN'}
           </span>
           {persisted !== true && (
-            <button type="button" className="btn" onClick={askForPersistence} disabled={busy}>
+            <Action onClick={askForPersistence} disabled={busy}>
               Ask the browser
-            </button>
+            </Action>
           )}
         </Field>
 
@@ -734,9 +742,7 @@ function Backup({
               : 'Available in the installed app. Copying from here is the first half of that trip.'
           }
         >
-          <button
-            type="button"
-            className="btn"
+          <Action
             disabled={busy}
             onClick={() => {
               setBusy(true);
@@ -753,7 +759,7 @@ function Backup({
             }}
           >
             Paste from clipboard
-          </button>
+          </Action>
         </Field>
 
         <Field
@@ -765,9 +771,7 @@ function Backup({
             'tap Paste in the installed app.'
           }
         >
-          <button
-            type="button"
-            className="btn"
+          <Action
             disabled={busy || characters.length === 0}
             onClick={() => {
               setBusy(true);
@@ -782,7 +786,7 @@ function Backup({
             }}
           >
             Copy to clipboard
-          </button>
+          </Action>
         </Field>
 
         <Field
@@ -798,13 +802,9 @@ function Backup({
           }
         >
           {installable && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => void install.current?.show()}
-            >
+            <Action primary onClick={() => void install.current?.show()}>
               Install
-            </button>
+            </Action>
           )}
         </Field>
       </Rows>

@@ -9,8 +9,39 @@
  *
  * Hairlines come from a 1px grid gap over a line-coloured panel, so the first
  * and last rows meet the panel's rounded corners cleanly without a stylesheet.
+ *
+ * The sentence is also the reason for the context below. A hint that is only
+ * *next to* a control is a hint that a screen reader never reads out with it:
+ * the row announces "Ask the browser, button" and the paragraph explaining what
+ * persistent storage is for - the whole reason to press it - is a separate
+ * paragraph somewhere above, reachable only by browsing the page rather than by
+ * tabbing the controls. So `Field` mints an id for its hint and every control
+ * inside it points at that id with `aria-describedby`.
  */
-import type { CSSProperties, ReactNode } from 'react';
+import { createContext, useContext, useId, type CSSProperties, type ReactNode } from 'react';
+
+/**
+ * The id of the sentence explaining the row you are in, or `undefined`.
+ *
+ * A context and not a prop, and the choice is forced rather than stylistic.
+ * `Field`'s `children` is `ReactNode`: the call sites pass fragments, `.map`
+ * results, `{cond && <button/>}` and bare elements, all four in this directory.
+ * A prop cannot be threaded into that without every call site restating an id
+ * it does not have - `useId` runs inside `Field` - and `cloneElement` cannot
+ * reach it either, because `Children.map` treats a fragment as one child and
+ * would put `aria-describedby` on `React.Fragment`, which React warns about and
+ * the DOM never sees. A context asks nothing of the call site and makes the
+ * association a property of *being inside a Field*, so a control added next
+ * year is described whether or not anyone remembers this rule.
+ *
+ * The default is `undefined` on purpose: mounted on their own, with no `Field`
+ * above them, these controls render no `aria-describedby` attribute at all
+ * rather than one pointing at an element that does not exist.
+ */
+const FieldHint = createContext<string | undefined>(undefined);
+
+/** What describes the control being rendered, if anything does. */
+const useFieldHint = (): string | undefined => useContext(FieldHint);
 
 export function Section({
   id,
@@ -76,37 +107,93 @@ export function Field({
   /** Anything that needs the full width under the row: a demo strip, a list. */
   footer?: ReactNode;
 }): React.JSX.Element {
+  // Unconditional, because hooks are; the id is only handed down when there is
+  // actually a sentence carrying it, so a hintless row describes its control
+  // with nothing rather than with an id that matches no element.
+  const generated = useId();
+  const hintId = hint === undefined ? undefined : `${generated}-hint`;
+
   return (
-    <div style={{ background: 'var(--panel)', padding: '13px 14px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 14,
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* A 180px basis is what decides the phone layout: a switch stays on
-            the label's line, a three-way choice drops below it and aligns
-            left, where a right-aligned orphan control would look like a
-            mistake. */}
-        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-          <div style={{ font: '600 14px/1.3 var(--sans)', color: 'var(--text)' }}>{label}</div>
-          {hint !== undefined && (
-            <div className="t-dense" style={{ marginTop: 5, maxWidth: '62ch' }}>
-              {hint}
+    // The provider wraps the whole row, footer included: Rulebook puts a
+    // checkbox and a button down there, and they are as much this row's
+    // controls as the ones on its right-hand side.
+    <FieldHint value={hintId}>
+      <div style={{ background: 'var(--panel)', padding: '13px 14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* A 180px basis is what decides the phone layout: a switch stays on
+              the label's line, a three-way choice drops below it and aligns
+              left, where a right-aligned orphan control would look like a
+              mistake. */}
+          <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+            <div style={{ font: '600 14px/1.3 var(--sans)', color: 'var(--text)' }}>{label}</div>
+            {hint !== undefined && (
+              <div id={hintId} className="t-dense" style={{ marginTop: 5, maxWidth: '62ch' }}>
+                {hint}
+              </div>
+            )}
+          </div>
+          {children !== undefined && (
+            <div className="row" style={{ flex: 'none', gap: 8, flexWrap: 'wrap' }}>
+              {children}
             </div>
           )}
         </div>
-        {children !== undefined && (
-          <div className="row" style={{ flex: 'none', gap: 8, flexWrap: 'wrap' }}>
-            {children}
-          </div>
-        )}
+        {footer !== undefined && <div style={{ marginTop: 12 }}>{footer}</div>}
       </div>
-      {footer !== undefined && <div style={{ marginTop: 12 }}>{footer}</div>}
-    </div>
+    </FieldHint>
+  );
+}
+
+/**
+ * A button in a settings row.
+ *
+ * This exists so that a plain `<button className="btn">` is not the thing
+ * sitting inside a `Field`. A DOM element consumes no context, so the hint
+ * association above would have reached the seven rows whose control is a
+ * `Switch` or a `Choice` and skipped the seventeen whose control is a button -
+ * which is most of them, and includes every row where the sentence is the
+ * warning: what persistent storage is for, that an import can overwrite an
+ * edit, that the installed app opens empty.
+ *
+ * It renders exactly the markup it replaces, so nothing on screen moves: the
+ * same `.btn`, whose `min-height` is `--tap` (44px), and the same
+ * `.btn-primary` when asked. `label` is for the handful of buttons whose
+ * visible word is not enough on its own - "Export" beside a character's name
+ * reads as "Export" to a screen reader and could be exporting anything.
+ */
+export function Action({
+  children,
+  onClick,
+  disabled = false,
+  primary = false,
+  label,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+  label?: string;
+}): React.JSX.Element {
+  const describedBy = useFieldHint();
+  return (
+    <button
+      type="button"
+      className={primary ? 'btn btn-primary' : 'btn'}
+      aria-label={label}
+      aria-describedby={describedBy}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -125,12 +212,14 @@ export function Switch({
   label: string;
   disabled?: boolean;
 }): React.JSX.Element {
+  const describedBy = useFieldHint();
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className="row"
@@ -191,10 +280,16 @@ export function Choice<T extends string>({
   // A group of toggle buttons, not a radiogroup: `role="radio"` promises arrow-key
   // navigation between the options, and a browser gives a plain button none. Same
   // idiom as the segmented control in build/parts.tsx.
+  //
+  // The description goes on the group and not on each option, for the same
+  // reason the name does: the group is the control, and three options each
+  // carrying the same sentence would read it out three times.
+  const describedBy = useFieldHint();
   return (
     <div
       role="group"
       aria-label={label}
+      aria-describedby={describedBy}
       className="row"
       style={{ gap: 2, padding: 2, borderRadius: 'var(--r3)', background: 'var(--app)' }}
     >
