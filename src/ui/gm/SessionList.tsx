@@ -1,0 +1,88 @@
+/**
+ * The night, in the order the GM put it in. This is the GM screen now.
+ *
+ * ## Why it is one column at every width
+ *
+ * The list is an *order*. Two columns would let the eye read row 4 before row 3
+ * on a tablet and after it on a phone, which is the one property this screen
+ * exists to carry. So it stays a single column and is capped at 820px - this
+ * repo's own reading maximum, about 64 characters at `.t-body` - and centres in
+ * anything wider. That is the load-bearing layout decision here, and it is why
+ * a desktop window does not get "more of the plan", it gets more of each row.
+ *
+ * ## Three states, and the third one is the point
+ *
+ * `useGm` starts as `EMPTY_LIVE` with `hydrated: false` and fills in
+ * asynchronously. A list that drew its empty state from that first paint would
+ * be telling the GM that tonight is empty *before the database has answered* -
+ * a sentence the app cannot yet know is true, about the one screen whose whole
+ * content is a campaign that is still being read. So there is a third state
+ * between "nothing planned" and the rows, and it says which one it is.
+ *
+ * ## Scroll
+ *
+ * This is the scrolling part of the GM screen; the top bar above it does not
+ * move. On a 393x852 phone, with the shell header (52 + 47 of safe area), the
+ * top bar (two 44px rows inside 20 of padding and gap = 108), the licence
+ * notice (~111) and the tab bar (60 + 34) all pinned, what is left for the list
+ * is 852 − 99 − 108 − 111 − 94 = 440px. A shut row is 44px of header inside 8px
+ * of panel padding, and the list gap is 8, so the step is 60px: seven rows on
+ * screen, six with a primary countdown pinned above. That is a night's plan,
+ * and it is the arithmetic to redo when the licence notice moves into this
+ * scroll and the bottom bar arrives - the notice is 111 of the 653px that is
+ * not shell header here, and it is the first thing that should pay for the bar.
+ */
+import type { SessionItem } from '../../../shared/campaigns.ts';
+import { SessionRow } from './SessionRow.tsx';
+import { useGm, type GmRegion } from './gmStore.ts';
+
+export function SessionList({
+  phone,
+  onOpenTool,
+}: {
+  phone: boolean;
+  onOpenTool: (tool: GmRegion) => void;
+}): React.JSX.Element {
+  const session = useGm((s) => s.session);
+  const hydrated = useGm((s) => s.hydrated);
+
+  return (
+    <div
+      className="scroll stack"
+      style={{ flex: 1, minHeight: 0, padding: phone ? '10px 12px 16px' : '14px 20px 18px' }}
+    >
+      <div className="stack" style={{ flex: 'none', gap: 8, width: '100%', maxWidth: 820, alignSelf: 'center' }}>
+        {!hydrated ? (
+          <Empty
+            title="Reading this device"
+            body="The campaign is still coming off the disk. Nothing on this screen has been written yet, and nothing you do before it arrives will be lost — it is the saved campaign that wins, and you will be told."
+          />
+        ) : session.length === 0 ? (
+          <Empty
+            title="Nothing planned yet"
+            body="This is the night, in the order you want to run it: scenes, encounters, countdowns and links to what you will need open. Countdowns start in Fear and countdowns, from the number in the bar above. Scenes, encounters and links are read from the campaign and kept; nothing in this build writes a new one yet."
+          />
+        ) : (
+          <ol className="stack" style={{ gap: 8, margin: 0, padding: 0 }}>
+            {session.map((item: SessionItem) => (
+              <SessionRow key={item.id} item={item} phone={phone} onOpenTool={onOpenTool} />
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Empty({ title, body }: { title: string; body: string }): React.JSX.Element {
+  return (
+    <div className="panel stack" style={{ flex: 'none', padding: 16, gap: 9 }}>
+      <span className="t-vital" style={{ color: 'var(--muted)' }}>
+        {title}
+      </span>
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        {body}
+      </p>
+    </div>
+  );
+}

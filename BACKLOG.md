@@ -1486,11 +1486,18 @@ place. Bottom bar, replacing the player tab bar: **ADD**, **SHOW**, **SEARCH**,
 
 Decisions taken:
 
-- [ ] **The session list becomes the GM home; the five regions become its
-      content.** Encounter builder, Scene runner, Bestiary and PartyBoard stop
-      being top-level regions and become what opens from a row or from ADD —
-      but stay reachable from the top MENU, because browsing the bestiary
-      without adding anything to a session is a real thing a GM does.
+- [x] ~~**The session list becomes the GM home; the five regions become its
+      content.**~~ — **done.** The five-tab strip is gone: the list is the
+      screen, a row opens its tool over it inside `GmSheet`, and a closed tool
+      is **unmounted** rather than hidden, because PartyBoard's scanner holds
+      the camera in an effect. `board.region` is kept and reinterpreted as *the
+      tool last opened*, and is followed only when it **changes** — an effect
+      that acted on the value it finds at mount would reopen the encounter
+      builder every time the GM arrives, which is the menu behaviour this item
+      exists to remove. The top MENU is not built yet: until the bottom bar
+      lands, the two tools no row can open — Bestiary and PartyBoard — are
+      chips in the top bar, with the note in `GmTopBar.tsx` saying they leave
+      when SHOW arrives.
 - [ ] **ADD** → countdown, encounter, scene (environment), link. A countdown can
       be marked **primary**, which pins it to the top bar; otherwise it joins the
       list. An encounter opens the encounter builder that already exists.
@@ -1535,6 +1542,34 @@ is that it has exactly one; and **full-text rule search** behind SEARCH.
 The LINK row still ships, resolving to something already inside the app — an
 adversary, an environment, a card, a rule — so it works offline and changes no
 promise.
+
+**Left open by the two commits that built the list, so none of it is a
+silence:**
+
+- [ ] **Nothing in this build writes a new scene, encounter or link row.** The
+      list reads them, draws them, reorders them and deletes them; the three
+      factories that mint them land with the ADD sheet, and are deliberately not
+      in `session.ts` yet because an exported factory with no caller is a
+      feature shipped switched off. A countdown is the exception — it is
+      started from Fear and countdowns, and the empty state says so.
+- [ ] **`Countdown.notes` is persisted, read by `readCountdown`, and rendered
+      nowhere.** The open countdown row is now the obvious place for it, which
+      makes the absence louder than it was. It needs a keyboard inside a
+      scrolling list and a history, and a row that starts showing the field must
+      not imply it was ever editable before.
+- [ ] **A session encounter row can put its plan back on the board, but not its
+      fight.** `combatants` on the row are stated as a fact with no control,
+      because no action in `gmStore` sets the combatant list wholesale. Adding
+      one is a store change, not a screen change.
+- [ ] **BESTIARY and PARTY are chips in the top bar** because the bottom bar
+      does not exist yet and dropping two working tools while rebuilding the
+      screen around them would be a regression. They move into SHOW when
+      `GmBar` lands, and `GmTopBar.tsx` carries the note.
+- [ ] **`hydrateGm` still swallows a failed first `putCampaign`** (`gmStore.ts`,
+      the `catch` around the first-campaign write). Nothing on screen reads it
+      today, but SAVE will, and a sheet that stamps "already on this device's
+      disk" over a write that threw is the founding rule failing on the one
+      screen whose job is reporting the write. Fix the store, not the sentence.
 
 ## P5-3 · What the GM screen could have at hand, and does not
 

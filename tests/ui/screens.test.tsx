@@ -39,6 +39,7 @@ import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adversary, Environment } from '@shared/types.ts';
+import type { SessionItem } from '@shared/campaigns.ts';
 import * as db from '../../src/store/db.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
@@ -71,8 +72,13 @@ import { Countdowns } from '../../src/ui/gm/Countdowns.tsx';
 import { Encounter, Stepper as EncounterStepper } from '../../src/ui/gm/Encounter.tsx';
 import { FearBar, FearBoard } from '../../src/ui/gm/FearPool.tsx';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
+import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
+import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
+import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
+import { SessionList } from '../../src/ui/gm/SessionList.tsx';
+import { SessionRow } from '../../src/ui/gm/SessionRow.tsx';
 import {
   AdversaryBlock,
   EnvironmentBand,
@@ -372,6 +378,21 @@ describe('the shell, on every screen', () => {
 // ---------------------------------------------------------------------------
 
 const noop = (): void => {};
+/**
+ * A session row, open, of the arm with the fewest moving parts.
+ *
+ * Open rather than collapsed because a fixture that mounts a shut disclosure
+ * proves only that the header renders - and `SessionBody` is the half of a row
+ * that resolves refs against the dataset, which is the half that can throw.
+ */
+const sceneItem = (): SessionItem => ({
+  id: 's1',
+  kind: 'scene',
+  name: 'The Sablewood gate',
+  order: 0,
+  collapsed: false,
+  environmentRef: null,
+});
 const adversary = (): Adversary => dataset.adversaries[0]!;
 const environment = (): Environment => dataset.environments[0]!;
 const card = () => dataset.domainCards[0]!;
@@ -448,8 +469,21 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/FearPool.tsx::FearBar': () => <FearBar />,
   'gm/FearPool.tsx::FearBoard': () => <FearBoard phone={false} />,
   'gm/Gm.tsx::Gm': () => <Gm />,
+  'gm/GmSheet.tsx::GmSheet': () => (
+    <GmSheet label="A tool" onClose={noop}>
+      inside the sheet
+    </GmSheet>
+  ),
+  'gm/GmTopBar.tsx::GmTopBar': () => <GmTopBar layout="tablet" onOpenTool={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
+  'gm/SessionBody.tsx::SessionBody': () => (
+    <SessionBody item={sceneItem()} phone={false} onOpenTool={noop} />
+  ),
+  'gm/SessionList.tsx::SessionList': () => <SessionList phone={false} onOpenTool={noop} />,
+  'gm/SessionRow.tsx::SessionRow': () => (
+    <SessionRow item={sceneItem()} phone={false} onOpenTool={noop} />
+  ),
   'gm/StatBlock.tsx::Stat': () => <Stat label="HP" value="6" />,
   'gm/StatBlock.tsx::FeatureList': () => (
     <FeatureList features={[{ name: 'A Feature', text: 'It does a thing.' }]} />

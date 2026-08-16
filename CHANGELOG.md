@@ -12,6 +12,38 @@ before the one below.
 
 ---
 
+## Unreleased
+
+### The GM screen is the night, not five menus
+
+- **The session list is the GM screen.** It used to be a strip of five tabs —
+  encounter, scene, party, bestiary, countdowns — and every one of them worked.
+  What none of them was is the *evening*: a GM runs scene one, then an
+  encounter, then scene two, in an order they decided beforehand and change on
+  the fly, and the app made them navigate a menu to reach each one. The campaign
+  record has carried that list since campaigns were built, and nothing had ever
+  drawn it. Now the list is the screen, each row opens where it sits, and the
+  five tools open *over* it and close again.
+- **A row this version cannot read is still a row.** The store already refused
+  to drop an item written by a newer build, and a link pointing at something
+  this dataset does not carry; until now nothing could draw either, which made
+  that refusal worth nothing. Both are drawn: the unreadable row shows why and
+  the bytes exactly as they were stored, and an unresolved link says which kind
+  of thing is missing and prints the ref.
+- **A tool that is closed is gone, not hidden.** The party board opens the
+  camera to scan a player's character; a panel kept alive behind the screen
+  would leave it running.
+- **Arriving at the GM screen opens nothing.** The record remembers which tool
+  was last open, which is worth keeping and is not an instruction — reading it
+  as one would have put the encounter builder over the plan every single time.
+
+**Not there yet, and named here rather than left to be discovered:** nothing in
+this build adds a new scene, encounter or link row — the list reads, draws,
+reorders and deletes them, and the ADD button that mints one comes with the
+bottom bar. Countdowns are the exception; they start where they always did.
+
+---
+
 ## 0.2.0 — 2026-08-16
 
 The first version this project chose. `0.1.0` was the scaffold default and

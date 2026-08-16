@@ -654,11 +654,11 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Nessuno** | Il contenuto è limitato e noto: 6 tratti, 4 contatori, 5 carte |
+| **Play** (giocatore) | **Sì, nel corpo** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Restano fissi l'identità e il blocco del tiro |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
-| **Encounter** (GM) | Nel corpo | Fear pool e barra di scena restano fissi |
-| **Bestiary** (GM) | Nell'elenco | 129 avversari |
+| **GM** | **Nella lista della serata** | Fissa solo la barra in alto — nome della campagna, Fear, countdown primario. Scorre la lista; una riga si apre in posto |
+| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
@@ -728,13 +728,42 @@ Il canale di trasferimento (§ 5) serve quindi soprattutto a **spostare il tuo
 personaggio fra i tuoi dispositivi**: costruito su desktop, giocato su telefono,
 consultato su tablet. In secondo piano, passare un pregenerato a un giocatore nuovo.
 
+**La casa del GM è la lista della serata** (P5-2). Fino a `f7a59fc` questa
+schermata era una striscia di cinque tab — encounter, scene, party, bestiary,
+countdown — e ognuna funzionava; quello che nessuna era è *la serata*. Il record
+della campagna porta una `session: SessionItem[]` da quando esistono le
+campagne e nessuno l'aveva mai disegnata. Ora la lista **è** la schermata: le
+righe si aprono in posto, e i cinque strumenti qui sotto sono ciò che una riga
+apre, sopra la lista, dentro `GmSheet`. Uno strumento chiuso è **smontato**, mai
+nascosto: lo scanner della PartyBoard apre la fotocamera in un effetto e la
+chiude allo smontaggio.
+
+`board.region` resta nel record e cambia significato: non più «quale tab era
+selezionata» ma «quale strumento è stato aperto per ultimo». Quattro punti fuori
+da `Gm.tsx` ci navigano scrivendoci dentro (Encounter manda il roster alla
+scena, Bestiary butta dentro un avversario, la scena vuota offre gli altri due)
+e nessuno di loro è stato toccato: `Gm.tsx` segue i *cambiamenti* di quel campo,
+mai il valore che ci trova al mount — altrimenti arrivare sulla schermata GM
+riaprirebbe l'encounter builder ogni volta, che è esattamente il comportamento a
+menù che P5-2 elimina.
+
 - **Encounter builder**: `(3 × PG) + 2` battle points. Costi: gruppo di Minion 1,
   Social/Support 1, Horde/Ranged/Skulk/Standard 2, Leader 3, Bruiser 4, Solo 5.
   Aggiustamenti: −1 più facile, −2 con 2+ Solo, +1 da tier inferiore, +2 più duro.
 - **Tracker di scena**: HP e Stress tappabili, soglie sempre visibili, spotlight.
-- **Fear pool**: contatore grande, massimo 12, sempre visibile.
+- **Fear pool**: contatore grande, massimo 12, fisso in cima; il numero apre la
+  board dove lo si imposta di netto.
 - **Countdown**: standard, dinamici, loop, long-term. Si fanno scorrere a mano.
+  Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
+
+Una riga della sessione porta il **suo** piano — roster, aggiustamenti,
+ambiente — e la campagna porta **un** tavolo solo (`GmBoard`). Sono due cose
+diverse con la stessa forma, e le righe lo dicono: METTI SUL TAVOLO e TIENI QUI
+QUELLO CHE C'È SUL TAVOLO, costruiti solo con azioni che lo store ha già. Ciò
+che non ha un verbo è scritto come fatto senza controllo — i `combatants`
+salvati su una riga non si rimettono, perché nessuna azione dello store imposta
+la lista dei combattenti in blocco.
 
 ---
 

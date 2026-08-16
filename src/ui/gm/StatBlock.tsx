@@ -286,6 +286,14 @@ export function EnvironmentBlock({
             aria-pressed={active}
             style={{
               flex: 'none',
+              // Declared rather than inherited from `.btn`. It has always been
+              // 44px through the class, but this button is now drawn inside an
+              // open session row, and the whole-screen sweep in
+              // tests/gm/sessionList.test.tsx reads declared inline heights -
+              // which is the only thing that can be checked without a layout
+              // engine. A control whose floor is only in a stylesheet is a
+              // control the sweep has to be told to ignore.
+              minHeight: 'var(--tap)',
               background: active ? 'var(--hope)' : 'var(--raised)',
               color: active ? 'var(--app)' : 'var(--text)',
               borderColor: active ? 'transparent' : 'var(--line)',

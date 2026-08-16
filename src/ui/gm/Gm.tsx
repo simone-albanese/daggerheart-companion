@@ -6,151 +6,123 @@
  * the only thing it owes them is that the notebook is still open where they
  * left it after the browser dies mid-fight.
  *
- * Five regions and one thing that never leaves: the Fear pool. Fear is spent
- * from every region, so it lives in the bar rather than in a region of its own,
- * and the region body below it is the only part that changes.
+ * ## What changed, and why
+ *
+ * It used to be five regions behind a strip of tabs: encounter, scene, party,
+ * bestiary, countdowns. Every one of them worked. What none of them was is *the
+ * night* - a GM runs scene one, then an encounter, then scene two, in an order
+ * they decided beforehand and change on the fly, and the app made them navigate
+ * a menu to reach each one.
+ *
+ * So the session list is the screen, and the five regions are what a row opens.
+ * The record has held that list since campaigns were built; nothing had ever
+ * drawn it.
+ *
+ * ## This file is the integrator, and holds two pieces of state
+ *
+ * `tool` is which of the five is open over the list, or none. Each one is
+ * rendered inside a `GmSheet` and **unmounted** when it closes - never hidden.
+ * That is not tidiness: `PartyBoard`'s scanner opens the camera in an effect
+ * and stops it on unmount, so a sheet kept alive behind `display: none` leaves
+ * the camera running on a phone in a dark room. It costs the bestiary its
+ * filter and the encounter builder its search on every close, which is exactly
+ * what switching region cost before, so it is not a regression.
+ *
+ * `board.region` is the second, and it is the subtle one. Four call sites
+ * outside this file already navigate by writing it - `Encounter` sends a roster
+ * to the scene, `Bestiary` drops an adversary into it, `Scene`'s empty state
+ * offers the other two - and all four keep working unedited because the effect
+ * below follows *changes* to it. What that effect must never do is act on the
+ * value it finds at mount: `emptyBoard()` sets `region: 'encounter'` and every
+ * campaign record carries one, so an effect that opened whatever it read would
+ * put the encounter builder over the session list every single time the GM
+ * arrives - the exact five-menus behaviour this change exists to remove. Hence
+ * the seeding ref, and hence the wait for `hydrated`: the region that arrives
+ * from the disk a beat after mount is just as much a stored value as the one
+ * that was there at mount.
+ *
+ * ## What is not here yet
+ *
+ * The bottom bar (ADD / SHOW / SAVE) and the four sheets it opens. Until they
+ * land the tab bar stays where it is, the licence notice stays where it is, and
+ * `GmTopBar` carries the two consultation tools that would otherwise have no
+ * route at all. The shape below is the one they slot into: a bar goes after
+ * `SessionList`, a sheet goes beside the tool sheet.
  */
-import { useIsPhone } from '../shared/useLayout.ts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLayout } from '../shared/useLayout.ts';
 import { Bestiary } from './Bestiary.tsx';
 import { Countdowns } from './Countdowns.tsx';
 import { Encounter } from './Encounter.tsx';
-import { FearBar } from './FearPool.tsx';
+import { GmSheet } from './GmSheet.tsx';
+import { GmTopBar } from './GmTopBar.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
 import { PartyBoard } from './PartyBoard.tsx';
 import { Scene } from './Scene.tsx';
+import { SessionList } from './SessionList.tsx';
 
-// The phone labels are shortened, never renamed: "Build" already means the
-// character builder in this app, so the encounter builder stays "Encounter".
-//
-// Party sits next to Scene because they are read in the same breath: what is
-// attacking, and what it is attacking.
-const REGIONS: Array<{ id: GmRegion; label: string; short: string }> = [
-  { id: 'encounter', label: 'Encounter', short: 'ENCOUNTER' },
-  { id: 'scene', label: 'Scene', short: 'SCENE' },
-  { id: 'party', label: 'Party', short: 'PARTY' },
-  { id: 'bestiary', label: 'Bestiary', short: 'BESTIARY' },
-  { id: 'countdowns', label: 'Fear & countdowns', short: 'COUNTDOWNS' },
-];
+/** The dialog's accessible name, one per tool. */
+const TOOL_LABEL: Record<GmRegion, string> = {
+  encounter: 'Encounter builder',
+  scene: 'The live scene',
+  party: 'The party board',
+  bestiary: 'Bestiary',
+  countdowns: 'Fear and countdowns',
+};
 
 export function Gm(): React.JSX.Element {
-  const phone = useIsPhone();
+  const layout = useLayout();
+  const phone = layout === 'phone';
   const region = useGm((s) => s.region);
   const setRegion = useGm((s) => s.setRegion);
-  const combatants = useGm((s) => s.combatants);
-  const countdowns = useGm((s) => s.countdowns);
-
-  const badge: Partial<Record<GmRegion, number>> = {
-    scene: combatants.length,
-    countdowns: countdowns.length,
-  };
+  const hydrated = useGm((s) => s.hydrated);
+  const [tool, setTool] = useState<GmRegion | null>(null);
 
   /*
-   * On a phone the strip scrolls sideways instead of dividing the width evenly.
-   * Five equal shares of 369px is 70px each, and COUNTDOWNS alone is 78px with
-   * its padding - so equal shares clip the longest label, and a badge on top of
-   * it clips two. Content-sized tabs in a scroller is the same idiom Play uses
-   * for its trait chips, and it costs no height.
+   * The last value of `board.region` this screen has acted on.
+   *
+   * Null until the store has answered, and then seeded rather than opened: the
+   * stored region says which tool was last open, which is worth keeping and is
+   * not an instruction to open it. Only a change *after* that seeding is a
+   * navigation, and the only things that make one are the four cross-links
+   * inside the tools themselves.
    */
-  const tabs = (
-    <nav
-      className="row"
-      aria-label="GM tools"
-      style={{
-        gap: 4,
-        flex: phone ? 'none' : 1,
-        minWidth: 0,
-        overflowX: phone ? 'auto' : undefined,
-        scrollbarWidth: phone ? 'none' : undefined,
-      }}
-    >
-      {REGIONS.map((r) => {
-        const on = region === r.id;
-        const count = badge[r.id] ?? 0;
-        return (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => setRegion(r.id)}
-            aria-current={on ? 'page' : undefined}
-            className="row"
-            style={{
-              flex: 'none',
-              minWidth: 0,
-              justifyContent: 'center',
-              gap: 6,
-              minHeight: 44,
-              padding: phone ? '0 9px' : '0 14px',
-              borderRadius: 'var(--r2)',
-              background: on ? 'var(--raised)' : 'transparent',
-              border: `1px solid ${on ? 'var(--line)' : 'transparent'}`,
-            }}
-          >
-            <span
-              className="t-meta"
-              style={{
-                letterSpacing: '0.1em',
-                fontWeight: on ? 700 : 600,
-                color: on ? 'var(--text)' : 'var(--dim)',
-              }}
-            >
-              {phone ? r.short : r.label.toUpperCase()}
-            </span>
-            {count > 0 && (
-              <span
-                className="t-meta"
-                style={{
-                  flex: 'none',
-                  minWidth: 'var(--control)',
-                  height: 17,
-                  borderRadius: 9,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: on ? 'var(--hope)' : 'var(--line)',
-                  color: on ? 'var(--app)' : 'var(--muted)',
-                  fontSize: 9.5,
-                }}
-              >
-                {count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </nav>
+  const followed = useRef<GmRegion | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (followed.current === null || followed.current === region) {
+      followed.current = region;
+      return;
+    }
+    followed.current = region;
+    setTool(region);
+  }, [hydrated, region]);
+
+  const openTool = useCallback(
+    (next: GmRegion) => {
+      // Seeded before the write, so opening a tool from this screen is not
+      // read back by the effect above as a navigation someone else asked for.
+      followed.current = next;
+      setTool(next);
+      setRegion(next);
+    },
+    [setRegion],
   );
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
-      <div
-        className="stack"
-        style={{
-          flex: 'none',
-          gap: 6,
-          padding: phone ? '6px 12px 8px' : '8px 20px',
-          borderBottom: '1px solid var(--line-soft)',
-          background: 'var(--panel)',
-        }}
-      >
-        {phone ? (
-          <>
-            <div className="row">
-              <FearBar />
-            </div>
-            {tabs}
-          </>
-        ) : (
-          <div className="row" style={{ gap: 18 }}>
-            {tabs}
-            <FearBar />
-          </div>
-        )}
-      </div>
+      <GmTopBar layout={layout} onOpenTool={openTool} />
+      <SessionList phone={phone} onOpenTool={openTool} />
 
-      {region === 'encounter' && <Encounter phone={phone} />}
-      {region === 'scene' && <Scene phone={phone} />}
-      {region === 'party' && <PartyBoard phone={phone} />}
-      {region === 'bestiary' && <Bestiary phone={phone} />}
-      {region === 'countdowns' && <Countdowns phone={phone} />}
+      {tool !== null && (
+        <GmSheet label={TOOL_LABEL[tool]} size="full" onClose={() => setTool(null)}>
+          {tool === 'encounter' && <Encounter phone={phone} />}
+          {tool === 'scene' && <Scene phone={phone} />}
+          {tool === 'party' && <PartyBoard phone={phone} />}
+          {tool === 'bestiary' && <Bestiary phone={phone} />}
+          {tool === 'countdowns' && <Countdowns phone={phone} />}
+        </GmSheet>
+      )}
     </div>
   );
 }
