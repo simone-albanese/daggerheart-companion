@@ -193,10 +193,22 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const chooseTrait = (t: RollTrait): void => {
     setTrait(t);
-    // An unarmed declaration stands, for the reason `arm` does not set a trait
-    // for it: the SRD leaves Strength-or-Finesse to the GM, so picking either
-    // one is how you complete that declaration rather than how you replace it.
-    setDeclared((d) => (d?.kind === 'unarmed' ? d : null));
+    /*
+     * An unarmed declaration stands under the two traits the rule names, for
+     * the reason `arm` does not set a trait for it: *"Unarmed attack rolls use
+     * either Strength or Finesse (GM's choice)"*, so picking one of those two
+     * is how you complete that declaration rather than how you replace it.
+     *
+     * Two, and not any. The carve-out used to be `kind === 'unarmed'` flat,
+     * which kept the fists declared under Knowledge, under Instinct and - the
+     * one that shows - under Spellcast: arm a d8 spell, tap Unarmed, and the
+     * roll bar read SPELLCAST over a damage offer of 2d4 PHY. That is the same
+     * wrong declaration this whole route exists to stop, quoting a sentence
+     * that does not cover it.
+     */
+    setDeclared((d) =>
+      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse') ? d : null,
+    );
   };
 
   const arming: Arming = { declared, source, arm, spellModifier, setSpellModifier };

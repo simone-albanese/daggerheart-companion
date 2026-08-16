@@ -1053,7 +1053,7 @@ describe('what the attack is made with', () => {
     expect(traitChip('FIN').getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('leaves it standing when the trait is picked, because that is the GM’s half', () => {
+  it('leaves it standing under either of the two the rule names', () => {
     // A weapon steps back when you pick a trait by hand, because it had already
     // specified one. An unarmed declaration never did: choosing Strength here
     // is completing the declaration, not replacing it.
@@ -1065,6 +1065,47 @@ describe('what the attack is made with', () => {
       weaponRow('Unarmed').getAttribute('aria-pressed'),
       'picking the trait the GM asked for withdrew the attack it belongs to',
     ).toBe('true');
+
+    // And the other half of "either Strength or Finesse".
+    click(traitTile('Finesse'));
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('withdraws it under a trait the rule does not name', () => {
+    /*
+     * *"Unarmed attack rolls use either Strength or Finesse (GM's choice)"* is
+     * the whole warrant for the fists surviving a trait tap, and it offers two
+     * traits. Under Knowledge the exemption is quoting a sentence that does not
+     * cover it - the fists stay declared for a Recall check and the damage
+     * offer says 2d4 PHY.
+     */
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(traitTile('Knowledge'));
+    expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'the fists are declared for a Knowledge check, which is not a punch',
+    ).toBe('false');
+  });
+
+  it('withdraws it under SPELLCAST, which is not one of the six at all', () => {
+    /*
+     * The one that shows on screen. The SPELLCAST chip in the modifier row is
+     * the third surface that picks a trait by hand, and it went through the
+     * same flat `kind === 'unarmed'` exemption - so the roll bar read SPELLCAST
+     * while the damage offer under it read 2d4 physical, which is a punch.
+     */
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(fold('Modifiers'));
+    const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
+    expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
+    click(spellcast!);
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'the fists are declared for a Spellcast roll',
+    ).toBe('false');
   });
 
   it('puts a weapon down when the fists come up', () => {
