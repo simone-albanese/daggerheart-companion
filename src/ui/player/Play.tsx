@@ -1270,9 +1270,13 @@ function LoadoutRows(): React.JSX.Element {
               {card.domain.toUpperCase()} · LV{card.level} · {card.type.toUpperCase()}
             </span>
           </span>
+          {/* COST, not RECALL: this row has no recall on it - the card is
+              already in the loadout - and the number is what putting it back
+              would cost. The word RECALL belongs to the control in the vault
+              that does the thing. */}
           <span style={{ flex: 'none', textAlign: 'right' }}>
             <span className="t-meta" style={{ display: 'block' }}>
-              RECALL
+              COST
             </span>
             <span style={{ font: '800 15px/1 var(--sans)', marginTop: 3, display: 'block' }}>
               {card.recallCost}
@@ -1385,7 +1389,7 @@ function PlayDesktop({
                     TO VAULT
                   </button>
                   <span className="row" style={{ gap: 5 }}>
-                    <span className="t-meta">RECALL</span>
+                    <span className="t-meta">COST</span>
                     <span style={{ font: '800 13px/1 var(--sans)' }}>{card.recallCost}</span>
                   </span>
                 </>

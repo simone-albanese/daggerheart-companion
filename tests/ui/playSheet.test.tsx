@@ -291,6 +291,29 @@ describe('the whole sheet, at 393x852', () => {
   });
 
   /*
+   * P3-11's other half, on this screen. RECALL is the name of an action and
+   * the app has exactly one control that performs it, in the vault. Everywhere
+   * else the number is a price and the word is COST.
+   */
+  it('never prints RECALL as the name of a number', () => {
+    play(seed());
+    openEverything();
+    // A "RECALL" whose whole enclosing group is the word and a number is a
+    // price wearing a verb's name. RECALL over COST 2 on the vault's own
+    // control is the verb, and is fine.
+    const priced = [...container.querySelectorAll<HTMLElement>('.t-meta')].filter(
+      (el) =>
+        (el.textContent ?? '').trim() === 'RECALL' &&
+        /^RECALL\s*\d+$/.test((el.parentElement?.textContent ?? '').trim()),
+    );
+    expect(
+      priced.map((el) => el.parentElement?.textContent ?? ''),
+      'RECALL is being used as a label for a cost',
+    ).toEqual([]);
+    expect(text()).toContain('COST');
+  });
+
+  /*
    * Not tested here: that nothing clips. It cannot be, and it should not be -
    * `overflow: hidden` is load-bearing on this screen. It is what gives a long
    * card name an ellipsis instead of a sideways scrollbar, and what keeps the
