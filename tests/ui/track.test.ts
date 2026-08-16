@@ -179,6 +179,38 @@ describe('press and hold', () => {
     expect(onChange.mock.calls).toEqual([[3]]);
   });
 
+  it('does not fire from the label in the gutter layout either', () => {
+    /*
+     * The gutter moves the label from above the pips to beside them, which is
+     * a new chance to make the original mistake: put the label inside the
+     * element carrying the handlers and a press on the word "STRESS" wipes the
+     * track. Same assertion as the header, different arrangement.
+     */
+    const onChange = vi.fn();
+    render(
+      createElement(Track, {
+        kind: 'stress',
+        label: 'STRESS',
+        value: 4,
+        max: 6,
+        onChange,
+        readout: '4/6',
+        headerLayout: 'gutter',
+      }),
+    );
+
+    const label = [...container.querySelectorAll('span')].find(
+      (s) => s.textContent === 'STRESS',
+    );
+    if (label === undefined) throw new Error('no gutter label rendered');
+    pressAndHold(label);
+
+    expect(onChange).not.toHaveBeenCalled();
+    // And the pips still work, so this is not passing because nothing renders.
+    pressAndHold(pip(1));
+    expect(onChange).toHaveBeenCalledWith(0);
+  });
+
   it('does not fire from the readout or the label either', () => {
     const onChange = vi.fn();
     render(
@@ -197,5 +229,70 @@ describe('press and hold', () => {
     pressAndHold(header);
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('proposed pips', () => {
+  /**
+   * Hope armed for a roll that has not happened.
+   *
+   * The SRD makes a player declare Experiences before rolling, so the two Hope
+   * an armed pair will cost has to be visible at the moment of committing -
+   * and drawing it as already spent would be the sheet reporting a payment it
+   * has not made. Hollow says "claimed, not gone".
+   */
+  it('are a readout and not a control', () => {
+    const onChange = vi.fn();
+    render(
+      createElement(Track, {
+        kind: 'hope',
+        label: 'HOPE',
+        value: 4,
+        max: 6,
+        clearTo: 6,
+        pending: 2,
+        onChange,
+      }),
+    );
+
+    // Pips 3 and 4 (0-indexed 2 and 3) are the proposed ones.
+    pip(2).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    pip(3).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    // A committed pip below them still answers, so the track is not inert.
+    pip(0).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('say so to a screen reader', () => {
+    render(
+      createElement(Track, {
+        kind: 'hope',
+        label: 'HOPE',
+        value: 4,
+        max: 6,
+        pending: 2,
+        onChange: vi.fn(),
+      }),
+    );
+
+    expect(pip(3).getAttribute('aria-label')).toMatch(/armed for this roll/i);
+    expect(pip(0).getAttribute('aria-label')).not.toMatch(/armed/i);
+  });
+
+  it('do not exist unless somebody asks for them', () => {
+    render(
+      createElement(Track, {
+        kind: 'hope',
+        label: 'HOPE',
+        value: 4,
+        max: 6,
+        onChange: vi.fn(),
+      }),
+    );
+    for (const i of [0, 1, 2, 3]) {
+      expect(pip(i).getAttribute('aria-label')).not.toMatch(/armed/i);
+    }
   });
 });
