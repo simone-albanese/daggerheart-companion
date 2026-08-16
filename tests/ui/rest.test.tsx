@@ -22,7 +22,7 @@ import 'fake-indexeddb/auto';
 import { act } from 'react';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '@shared/types.ts';
 import type { Rng } from '../../src/engine/dice.ts';
 import { Play } from '../../src/ui/player/Play.tsx';
@@ -39,6 +39,19 @@ declare global {
 
 let container: HTMLDivElement;
 let root: Root;
+/**
+ * Everything React complained about while a test was running.
+ *
+ * `screens.test.tsx` already treats a console warning as a failure, and says
+ * why: React reports a duplicate key, a nested `<button>` and a state update
+ * outside `act()` by writing to the console and rendering anyway, which is the
+ * shape of every defect this app has shipped. That sweep mounts each component
+ * once and never touches it, and everything this surface draws below the kind
+ * switch is built out of what has been *picked* - so the keys that can collide
+ * do not exist until something has been clicked twice. Hence the same rule
+ * again here, around every interaction in the file rather than around a mount.
+ */
+let complaints: string[];
 
 /** Answer media queries as a 393px phone would. */
 function setViewport(width: number): void {
@@ -65,6 +78,12 @@ function setViewport(width: number): void {
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   setViewport(393);
+  complaints = [];
+  const record = (...args: unknown[]): void => {
+    complaints.push(args.map((a) => (a instanceof Error ? a.message : String(a))).join(' '));
+  };
+  vi.spyOn(console, 'error').mockImplementation(record);
+  vi.spyOn(console, 'warn').mockImplementation(record);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -73,6 +92,9 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  const seen = [...complaints];
+  vi.restoreAllMocks();
+  expect(seen, 'React complained while this test ran').toEqual([]);
 });
 
 const render = (element: ReactElement): void => {
@@ -293,6 +315,25 @@ describe('the preview', () => {
     // The engine's own line, so the panel cannot describe it differently from
     // the log entry the commit will write.
     expect(text()).toContain('WORK ON A PROJECT: ADVANCE THE PROJECT COUNTDOWN WITH THE GM');
+  });
+
+  it('draws the same note twice when the same move is picked twice', () => {
+    // The SRD lets a character take one move twice, and "Work on a Project" is
+    // the only move the engine does not apply, so it is the only pair that
+    // produces two identical lines. `takeRest` will write both of them into the
+    // log, so the panel that says what the commit will do has to show both.
+    mount(hurt());
+    open('long');
+    click(named('Choose Work on a Project as your first move'));
+    click(named('Choose Work on a Project as your second move'));
+
+    const note = 'WORK ON A PROJECT: ADVANCE THE PROJECT COUNTDOWN WITH THE GM';
+    const drawn = [...container.querySelectorAll('span')].filter(
+      (el) => (el.textContent ?? '') === note,
+    );
+    expect(drawn, 'two moves, two lines').toHaveLength(2);
+    // And the file-wide console sweep in `afterEach` is the other half of this:
+    // keyed by the sentence, these two are one key and React says so.
   });
 
   it('drops the picks when the rest kind changes', () => {

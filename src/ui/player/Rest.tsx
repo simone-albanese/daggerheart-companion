@@ -629,8 +629,18 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                   NOTHING LEFT FOR THESE MOVES TO CLEAR
                 </span>
               )}
-              {view.notes.map((note) => (
-                <span key={note} className="t-meta" style={{ color: 'var(--dim)' }}>
+              {/* Keyed by slot, not by the sentence. `pick` allows the same
+                  move twice - the SRD says so - and "Work on a Project" is the
+                  only move the engine does not apply, so two of them produce
+                  two identical strings. Keyed by the string, React is handed
+                  two children with one key: it says so on the console and is
+                  free to drop one of the two lines the commit will write. */}
+              {view.notes.map((note, slot) => (
+                <span
+                  key={`${String(slot)}:${note}`}
+                  className="t-meta"
+                  style={{ color: 'var(--dim)' }}
+                >
                   {note.toUpperCase()}
                 </span>
               ))}
