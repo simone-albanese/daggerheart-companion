@@ -15,7 +15,12 @@
  * rules text moves up to `.t-read` and takes everything that is left, and the
  * card grows to fit its text instead of ellipsising it after three lines.
  *
- * The third state is the reader: full text, no clamping, no scrolling.
+ * The third state is the reader: the full text, never clamped, scrolling when
+ * the card is longer than the screen. (That last clause read "no scrolling"
+ * until the footer was corrected, and it was never true - the body has carried
+ * `.scroll` for as long as it has existed. It matters here rather than being a
+ * stale comment: the panel scrolling is the reason a tap on it cannot be a
+ * dismissal, which is the whole argument beside the footer below.)
  */
 import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
@@ -488,7 +493,16 @@ export function DomainCardView({
   );
 }
 
-/** The reader overlay: the whole card, always, without a scrollbar. */
+/**
+ * The reader overlay: the whole card, always, scrolled if it does not fit.
+ *
+ * Three ways out, and they are not equal. Escape is the keyboard's, declared
+ * to a screen reader with `aria-keyshortcuts` and drawn as a key cap wherever
+ * there is a pointer precise enough to imply a keyboard. A tap outside is the
+ * convention, unadvertised, and on a phone it is a 12px band. The footer's
+ * CLOSE is the one that is named, and it is the one sized for a thumb - see
+ * the note above it for why the card itself is not a fourth.
+ */
 export function CardReader({
   card,
   shapes = true,
@@ -605,12 +619,64 @@ export function CardReader({
           )}
         </div>
 
+        {/*
+          The footer used to read TAP ANYWHERE TO CLOSE, and a tap on the card
+          does not close it - the panel above stops the click on purpose, so
+          that dragging the rules text does not throw the card away. Two ways
+          out of that, and the one not taken is the interesting one: the card
+          could have closed on any tap that was not a drag. It must not. This
+          panel scrolls, every gesture that lands on it is presumptively a
+          reading gesture, and telling a scroll from a tap is a threshold
+          somebody's tremor or Touch Accommodations will sit exactly on top of
+          - the same window `Track` already had to move a long press out of.
+          The two failures are not the same size either: a hint that overstates
+          costs a second tap, and a reader that dismisses under a slightly
+          dragged thumb loses the card mid-scene and the player's place in it.
+
+          So the copy gives way, and it names the control rather than the
+          gesture: this button is what closes the reader, and it says so, in
+          the same word and the same corner as the five other overlays in the
+          app. Tapping outside still closes - it is the convention and it is
+          how every one of those overlays behaves - but it is not advertised,
+          because on a 390px phone "outside" is the two 12px gutters beside a
+          366px panel and the 12px band above and below a card tall enough to
+          need reading. That is under WCAG 2.5.8's 24px floor, let alone this
+          project's 44px one, and pointing a thumb at it would be a true
+          sentence and a worse screen.
+
+          Which leaves the target. The old control was `.t-meta` - 10px mono -
+          in a button whose padding base.css zeroes: a hit box about 118 x 10px,
+          the smallest target in the reader and the only thing in it that
+          closes. It is now 44px tall and at least 44 wide, with the 12px of
+          padding pulled straight back out again so the word still begins on
+          the panel's own 18px gutter. The footer grows 42px -> 64px; that comes
+          off a column that scrolls, so nothing is lost, only moved down, and it
+          buys the one control a thumb has to hit. It stays bottom-left, where
+          the bottom edge is the widest part of either thumb's arc and where
+          this app has put CLOSE five times already.
+        */}
         <div
           className="spread"
-          style={{ padding: '14px 18px 18px', alignItems: 'center', flex: 'none' }}
+          style={{ padding: '8px 18px 12px', alignItems: 'center', flex: 'none' }}
         >
-          <button type="button" className="t-meta" onClick={onClose} style={{ letterSpacing: '0.1em' }}>
-            TAP ANYWHERE TO CLOSE
+          <button
+            type="button"
+            className="t-meta row"
+            onClick={onClose}
+            aria-keyshortcuts="Escape"
+            style={{
+              gap: 8,
+              minHeight: 'var(--tap)',
+              minWidth: 'var(--tap)',
+              padding: '0 12px',
+              marginLeft: -12,
+              letterSpacing: '0.1em',
+            }}
+          >
+            CLOSE
+            <span className="keycap" aria-hidden="true">
+              ESC
+            </span>
           </button>
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
             RECALL COST {card.recallCost}

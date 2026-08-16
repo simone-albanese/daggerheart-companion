@@ -276,3 +276,36 @@ select,
   color: var(--muted);
   white-space: nowrap;
 }
+
+/*
+ * A keyboard shortcut, printed on the control it belongs to.
+ *
+ * Every overlay in this app closes on Escape and none of them has ever said
+ * so, which is a whole class of user - the one who never touches the glass -
+ * told nothing. The reason it was never said is that the room to say it does
+ * not exist on a phone, and a phone has no Escape key to press anyway.
+ *
+ * So the hint is off by default and is switched on only where the machine
+ * reports a hover-capable, fine pointer: a mouse or a trackpad, which is as
+ * close as CSS gets to asking "is there a keyboard attached". A phone renders
+ * the markup and draws nothing, so this costs zero pixels on the surface that
+ * cannot spare them, and the answer changes with the hardware rather than at
+ * first paint. The visible cap is decoration - `aria-keyshortcuts` on the
+ * control is what a screen reader is told, and that is announced everywhere.
+ */
+.keycap {
+  display: none;
+  font: 500 9px/1 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: var(--r1);
+  padding: 3px 4px;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .keycap {
+    display: inline-block;
+  }
+}
