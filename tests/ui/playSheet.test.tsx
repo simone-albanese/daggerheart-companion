@@ -559,6 +559,42 @@ describe('a card this build cannot read', () => {
   });
 });
 
+/**
+ * P3-9(b). Every USE button announced as "USE", and the sibling row button
+ * carrying the item's name was `disabled` whenever the item had no note - so
+ * for a rope with no printed text the name was on no reachable element at all,
+ * and five carried items were five buttons called "USE".
+ */
+describe('the carried items, out loud', () => {
+  it('gives every USE the name of what it uses', () => {
+    const c = seed();
+    play(c);
+    click(fold('Carried'));
+    const uses = buttons().filter((b) => (b.textContent ?? '').trim() === 'USE');
+    expect(uses.length, 'the fixture carries two items').toBe(2);
+    const names = uses.map((b) => b.getAttribute('aria-label') ?? '');
+    expect(new Set(names).size, `two buttons announce the same: ${names.join(' | ')}`).toBe(2);
+    for (const entry of c.inventory) {
+      expect(names.some((n) => n.includes(entry.name)), `no USE names ${entry.name}`).toBe(true);
+    }
+  });
+
+  it('does not hide an item’s name behind a disabled control', () => {
+    // The rope has no note, so there is nothing to expand and nothing that
+    // should look expandable - but its name still has to be on the page.
+    const c = seed();
+    play(c);
+    click(fold('Carried'));
+    const rope = c.inventory.find((e) => e.note === undefined)!;
+    expect(text()).toContain(rope.name);
+    const dead = buttons().filter((b) => b.disabled);
+    expect(
+      dead.map((b) => b.outerHTML.slice(0, 90)),
+      'a disabled control is still standing where a name should be',
+    ).toEqual([]);
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();

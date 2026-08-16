@@ -744,30 +744,59 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
             style={{ padding: '8px 11px', opacity: spent ? 0.55 : 1 }}
           >
             <div className="spread" style={{ gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setOpen(showing ? null : i)}
-                aria-expanded={showing}
-                disabled={entry.note === undefined}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  minHeight: 'var(--tap)',
-                  textAlign: 'left',
-                  font: '600 14px/1.2 var(--sans)',
-                }}
-              >
-                {entry.name}
-                {entry.quantity > 1 && (
-                  <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
-                    ×{entry.quantity}
-                  </span>
-                )}
-              </button>
+              {/*
+               * P3-9(b). This used to be a button always, `disabled` when the
+               * item had no note - so for a rope with no printed text the only
+               * thing on the row carrying its name was a control a screen
+               * reader skips, and the row announced as one button called
+               * "USE". A name is not a control. When there is something to
+               * expand it is a button; when there is not it is text.
+               */}
+              {entry.note === undefined ? (
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    font: '600 14px/1.2 var(--sans)',
+                  }}
+                >
+                  {entry.name}
+                  {entry.quantity > 1 && (
+                    <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
+                      ×{entry.quantity}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setOpen(showing ? null : i)}
+                  aria-expanded={showing}
+                  aria-label={`${entry.name} — ${showing ? 'hide' : 'show'} what it does`}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 'var(--tap)',
+                    textAlign: 'left',
+                    font: '600 14px/1.2 var(--sans)',
+                  }}
+                >
+                  {entry.name}
+                  {entry.quantity > 1 && (
+                    <span className="t-meta" style={{ marginLeft: 7, color: 'var(--muted)' }}>
+                      ×{entry.quantity}
+                    </span>
+                  )}
+                </button>
+              )}
               {!spent && (
                 <button
                   type="button"
                   className="chip"
+                  // Five carried items used to announce as five buttons called
+                  // "USE". The name is what tells them apart, and it is the
+                  // only thing a person listening has.
+                  aria-label={`Use one ${entry.name}${entry.quantity > 1 ? `, ${String(entry.quantity)} left` : ', the last one'}`}
                   onClick={() => {
                     update((c) => ({
                       ...c,

@@ -249,55 +249,65 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
               headHeight={phone ? 78 : 96}
               dimmed={!row.eligible && !row.owned}
               footer={
-                <>
-                  <button
-                    type="button"
-                    className="t-meta"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      acquire(row.card.id);
-                    }}
-                    disabled={!row.eligible && !row.owned}
-                    aria-label={
-                      primed
-                        ? `Confirm: recall ${row.card.name} and mark ${String(swap?.hpCost ?? 0)} HP`
-                        : needsHp
-                          ? `Recall ${row.card.name} - no Stress left, so it would mark ${String(swap?.hpCost ?? 0)} HP`
-                          : undefined
-                    }
-                    style={{
-                      letterSpacing: '0.08em',
-                      color: primed
-                        ? 'var(--damage)'
-                        : row.inLoadout
-                          ? 'var(--hope)'
-                          : 'var(--muted)',
-                      minHeight: 'var(--control)',
-                    }}
-                  >
-                    {primed
-                      ? `MARK ${String(swap?.hpCost ?? 0)} HP?`
-                      : row.inLoadout
-                        ? 'IN LOADOUT'
-                        : row.owned
-                          ? 'RECALL'
-                          : row.eligible
-                            ? 'TAKE'
-                            : '—'}
-                  </button>
+                /*
+                 * P3-11. There is no action here, so there is no control: the
+                 * footer is the reason, full width. It used to be a disabled
+                 * button reading '—' with the reason in the other corner - a
+                 * control that looks live, does nothing, and says nothing,
+                 * beside the sentence that was the answer all along.
+                 */
+                !row.eligible && !row.owned ? (
                   <span
                     className="t-meta"
                     style={{
-                      color: needsHp ? 'var(--damage)' : 'var(--dim)',
-                      textAlign: 'right',
+                      flex: 1,
+                      minWidth: 0,
+                      color: 'var(--dim)',
+                      lineHeight: 1.25,
+                      overflow: 'hidden',
                     }}
                   >
-                    {row.reason ??
-                      (needsHp
-                        ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS LEFT`
-                        : `RECALL ${row.card.recallCost}`)}
+                    {row.reason}
                   </span>
-                </>
+                ) : (
+                  <>
+                    <CardAction
+                      tone={primed ? 'warn' : row.inLoadout ? 'held' : 'go'}
+                      onClick={() => acquire(row.card.id)}
+                      label={
+                        primed
+                          ? `Confirm: recall ${row.card.name} and mark ${String(swap?.hpCost ?? 0)} HP`
+                          : needsHp
+                            ? `Recall ${row.card.name} - no Stress left, so it would mark ${String(swap?.hpCost ?? 0)} HP`
+                            : row.inLoadout
+                              ? `Move ${row.card.name} to the vault`
+                              : row.owned
+                                ? `Recall ${row.card.name} for ${row.card.recallCost} Stress`
+                                : `Take ${row.card.name} into the vault`
+                      }
+                    >
+                      {primed
+                        ? `MARK ${String(swap?.hpCost ?? 0)} HP?`
+                        : row.inLoadout
+                          ? 'IN LOADOUT'
+                          : row.owned
+                            ? 'RECALL'
+                            : 'TAKE'}
+                    </CardAction>
+                    <span
+                      className="t-meta"
+                      style={{
+                        flex: 'none',
+                        color: needsHp ? 'var(--damage)' : 'var(--dim)',
+                        textAlign: 'right',
+                      }}
+                    >
+                      {needsHp
+                        ? `${String(swap?.hpCost ?? 0)} HP — NO STRESS`
+                        : `COST ${row.card.recallCost}`}
+                    </span>
+                  </>
+                )
               }
             />
           );
@@ -314,6 +324,60 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   );
 }
 
+
+/**
+ * The card's one action, shaped like a control.
+ *
+ * P3-11. It used to be `className="t-meta"` with no background, no border and
+ * `var(--muted)` - beside a readout at the other end of the same row that was
+ * also `t-meta`, in `var(--dim)`. Two small grey capitals eleven characters
+ * apart read as a matched pair of labels, not as a button and a number, and
+ * the pair was RECALL and RECALL 2: the same word for the action and for its
+ * price. The number now says COST; this says what it does and looks like
+ * something that does it.
+ *
+ * `stopPropagation`, because the card behind it opens the reader on a tap and
+ * a footer press must not do both.
+ */
+function CardAction({
+  tone,
+  label,
+  onClick,
+  children,
+}: {
+  /** `go` takes or recalls, `held` is already in the loadout, `warn` costs HP. */
+  tone: 'go' | 'held' | 'warn';
+  /** The accessible name, which says which card as well as which verb. */
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const ink =
+    tone === 'warn' ? 'var(--damage)' : tone === 'held' ? 'var(--hope)' : 'var(--text)';
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="chip"
+      style={{
+        flex: 'none',
+        minHeight: 'var(--control)',
+        padding: '0 10px',
+        background: tone === 'warn' ? 'var(--fear-wash)' : 'var(--raised)',
+        border: `1px solid ${tone === 'go' ? 'var(--line)' : ink}`,
+        color: ink,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 /**
  * A row of numbers that filter by OR, and by AND against every other filter.

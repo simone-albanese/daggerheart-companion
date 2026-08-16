@@ -101,8 +101,18 @@ export function CardText({ text }: { text: string }): React.JSX.Element {
   );
 }
 
-/** The footer's height, shared so the overlay button can stop short of it. */
-const FOOTER_HEIGHT = 34;
+/**
+ * The footer's height, shared so the overlay button can stop short of it.
+ *
+ * 34px on a mouse, and the touch floor wherever there is a finger. The footer
+ * is where the card's one action lives - TAKE, RECALL, TO VAULT - and a 44px
+ * button inside a 34px band is not a 44px target, it is a button overflowing
+ * its own strip. `--control` is already the token that answers "how tall is an
+ * ordinary control here", and it resolves to 34 on a fine pointer and to
+ * `--tap` at 1179px and below or under `pointer: coarse`, so the mouse layout
+ * is unchanged to the pixel and every touchscreen gains ten.
+ */
+const FOOTER_HEIGHT = 'max(34px, var(--control))';
 
 /**
  * Which of the two jobs this card is doing. See the file header.
@@ -343,7 +353,7 @@ export function DomainCardView({
           aria-label={`${card.name} — ${card.domain} level ${card.level} ${card.type}`}
           style={{
             position: 'absolute',
-            inset: `0 0 ${FOOTER_HEIGHT}px 0`,
+            inset: `0 0 ${FOOTER_HEIGHT} 0`,
             zIndex: 1,
             width: '100%',
             cursor: 'pointer',
@@ -480,8 +490,12 @@ export function DomainCardView({
             <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
               {!reading && card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}
             </span>
+            {/* COST, not RECALL. RECALL is the name of an action, and this
+                number is its price; printing the same word for both is how
+                "RECALL" and "RECALL 2" ended up eleven characters apart on
+                the card browser, reading as a matched pair of labels. */}
             <span className="row" style={{ gap: 5 }}>
-              <span className="t-meta">RECALL</span>
+              <span className="t-meta">COST</span>
               <span style={{ font: '800 13px/1 var(--sans)', color: 'var(--text)' }}>
                 {card.recallCost}
               </span>

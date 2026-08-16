@@ -80,6 +80,59 @@ const browse = (c: Character): void => {
   render(createElement(Cards, { stats: playedStats(c) }));
 };
 
+/**
+ * P3-11. The card's only action was `className="t-meta"` with no background,
+ * no border and `var(--muted)`, beside a readout at the other end of the same
+ * row that was also `t-meta`, in `var(--dim)`. Two small grey capitals read as
+ * a matched pair of labels rather than as a control and a number - and the
+ * pair was RECALL and RECALL 2, the same word for an action and for its price.
+ */
+describe('the action on a card', () => {
+  it('is drawn as a control, not as a second label', () => {
+    const c = seed();
+    browse(c);
+    const card = index.cards.get(c.vault[0]!)!;
+    const action = buttons().find(
+      (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${card.name} for ${card.recallCost} Stress`,
+    );
+    expect(action, 'no recall control on the card').toBeDefined();
+    expect(action!.style.background, 'the action has no fill').not.toBe('');
+    expect(action!.style.border, 'the action has no border').not.toBe('');
+    expect(action!.style.minHeight).toBe('var(--control)');
+  });
+
+  it('does not print RECALL twice in one row, once as a verb and once as a price', () => {
+    const c = seed();
+    browse(c);
+    const footers = [...container.querySelectorAll('.spread')]
+      .map((el) => (el.textContent ?? '').trim())
+      .filter((t) => t.includes('RECALL'));
+    for (const footer of footers) {
+      expect(
+        footer.match(/RECALL/g)?.length ?? 0,
+        `"${footer}" says RECALL twice, and only one of them is the action`,
+      ).toBeLessThan(2);
+    }
+    expect(container.textContent ?? '').toContain('COST');
+  });
+
+  it('says why instead of offering a dash, when there is nothing to offer', () => {
+    // The browser opens on "my domains", so the cards a level 3 character
+    // cannot take are the ones above their cap - reason already in hand.
+    const c = seed();
+    browse(c);
+    expect(container.textContent ?? '', 'no card explains why it is out of reach').toMatch(
+      /your cap in \w+ is \d/,
+    );
+    // and there is no disabled control pretending to be an action.
+    const dead = buttons().filter((b) => b.disabled || (b.textContent ?? '').trim() === '—');
+    expect(
+      dead.map((b) => b.outerHTML.slice(0, 80)),
+      'a control that looks live and does nothing is still on the card',
+    ).toEqual([]);
+  });
+});
+
 describe('a recall from the card browser that would cost Hit Points', () => {
   function onTheEdge(): Character {
     const base = playedCharacter();
@@ -97,7 +150,7 @@ describe('a recall from the card browser that would cost Hit Points', () => {
       (b.getAttribute('aria-label') ?? '').startsWith(`Recall ${card.name} - no Stress left`),
     );
     expect(action, `nothing warns about the HP cost of recalling ${card.name}`).toBeDefined();
-    expect(container.textContent ?? '').toContain('NO STRESS LEFT');
+    expect(container.textContent ?? '').toContain('NO STRESS');
   });
 
   it('needs a second, informed tap', () => {
