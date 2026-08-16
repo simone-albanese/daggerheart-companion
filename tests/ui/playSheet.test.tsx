@@ -935,6 +935,62 @@ describe('what the attack is made with', () => {
       'the fold can be shut with a weapon armed and nothing would say which',
     ).toContain('ARMED · BATTLEAXE');
   });
+
+  /*
+   * Unarmed attacks, which existed nowhere in `src/` at all - the word did not
+   * appear in a single rendered file, so a character who had lost their weapon
+   * had no attack on this screen and `[Proficiency]d4` was a rule the app had
+   * no way to reach.
+   */
+  it('carries a row for being empty-handed, at [Proficiency]d4', () => {
+    play(seed());
+    const row = weaponRow('Unarmed');
+    // Proficiency 2 at level 3, so 2d4 - the count is the Proficiency itself.
+    expect(row.textContent).toContain('2d4');
+    expect(row.textContent).toContain('STRENGTH OR FINESSE');
+  });
+
+  it('keeps that row when there is no gear at all', () => {
+    // Having nothing equipped is the state the rule is written for, so this is
+    // the one row that must not disappear with the loadout.
+    play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null }));
+    expect(text()).toContain('Nothing equipped');
+    expect(weaponRow('Unarmed').textContent).toContain('d4');
+  });
+
+  it('does not pick the trait for the GM when it is armed', () => {
+    play(seed());
+    click(weaponRow('Unarmed'));
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · UNARMED');
+    // "Unarmed attack rolls use either Strength or Finesse (GM's choice)", so
+    // the chips are exactly where they were.
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('false');
+    expect(traitChip('FIN').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('leaves it standing when the trait is picked, because that is the GM’s half', () => {
+    // A weapon steps back when you pick a trait by hand, because it had already
+    // specified one. An unarmed declaration never did: choosing Strength here
+    // is completing the declaration, not replacing it.
+    play(seed());
+    click(weaponRow('Unarmed'));
+    click(traitTile('Strength'));
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Unarmed').getAttribute('aria-pressed'),
+      'picking the trait the GM asked for withdrew the attack it belongs to',
+    ).toBe('true');
+  });
+
+  it('puts a weapon down when the fists come up', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    click(weaponRow('Unarmed'));
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('false');
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
+  });
 });
 
 /**
@@ -1032,6 +1088,17 @@ describe('rolling the damage the attack earned', () => {
     const damage = damageControl();
     expect(damage, 'the declaration never reached the roll that resolved').toBeDefined();
     expect(damage!.textContent).toContain('2d8');
+  });
+
+  it('offers [Proficiency]d4 for a roll made with the fists', () => {
+    withTypedDice();
+    click(weaponRow('Unarmed'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'an unarmed attack offered no damage roll').toBeDefined();
+    expect(damage!.textContent).toContain('2d4');
   });
 
   it('offers nothing for a roll made with nothing declared', () => {

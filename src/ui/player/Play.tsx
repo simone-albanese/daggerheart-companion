@@ -35,6 +35,7 @@ import {
   type Trait,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
+import { formatDamage } from '../../engine/dice.ts';
 import { formatGold } from '../../engine/gold.ts';
 import {
   canAddToLoadout,
@@ -52,6 +53,7 @@ import { useLayout } from '../shared/useLayout.ts';
 import {
   sourceFromWeapon,
   sourceName,
+  unarmedSource,
   type Arming,
   type AttackSource,
   type Declaration,
@@ -83,6 +85,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const source = useMemo<AttackSource | null>(() => {
     if (declared === null) return null;
+    if (declared.kind === 'unarmed') return unarmedSource(stats);
     const weapon = index.weapons.get(declared.ref);
     return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
   }, [declared, index, stats]);
@@ -94,13 +97,19 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * making them then find the matching trait chip would be the app asking for
    * the same decision twice.
    *
-   * Withdrawing does not touch the trait. Putting a sword down says nothing
-   * about what you mean to roll instead, and moving the chip back to whatever
-   * was there before would be the app answering a question nobody asked.
+   * An unarmed declaration deliberately does not, and it is the same rule that
+   * says so: *"Unarmed attack rolls use either Strength or Finesse (GM's
+   * choice)."* Picking one of the two here would be the app making the GM's
+   * ruling for them, quietly, in the chip row.
+   *
+   * Withdrawing does not touch the trait either. Putting a sword down says
+   * nothing about what you mean to roll instead, and moving the chip back to
+   * whatever was there before would be the app answering a question nobody
+   * asked.
    */
   const arm = (declaration: Declaration | null): void => {
     setDeclared(declaration);
-    if (declaration === null) return;
+    if (declaration === null || declaration.kind !== 'weapon') return;
     const weapon = index.weapons.get(declaration.ref);
     if (weapon !== undefined) setTrait(weapon.trait);
   };
@@ -121,7 +130,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const chooseTrait = (t: RollTrait): void => {
     setTrait(t);
-    setDeclared(null);
+    // An unarmed declaration stands, for the reason `arm` does not set a trait
+    // for it: the SRD leaves Strength-or-Finesse to the GM, so picking either
+    // one is how you complete that declaration rather than how you replace it.
+    setDeclared((d) => (d?.kind === 'unarmed' ? d : null));
   };
 
   const arming: Arming = { declared, source, arm };
@@ -677,6 +689,7 @@ function Equipped({
     ? index.weapons.get(character.activeSecondaryWeapon)
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
+  const unarmed = arming.declared?.kind === 'unarmed';
 
   return (
     // flex: none, because this lives inside a scrolling flex column and a flex
@@ -697,7 +710,7 @@ function Equipped({
         // this one had no clamp.
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
-        const isArmed = arming.declared?.ref === w.id;
+        const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
         return (
           <button
             key={w.id}
@@ -730,6 +743,43 @@ function Equipped({
           </button>
         );
       })}
+      {/*
+       * Empty-handed, as a row you can declare.
+       *
+       * *"Successful unarmed attacks inflict [Proficiency]d4 damage."* The word
+       * "unarmed" appeared nowhere in `src/` at all, so a character who had
+       * thrown their sword down a well had no attack on this screen. It is
+       * drawn even when nothing is equipped, because having no gear is not the
+       * same as having no attack - it is the state the rule is written for.
+       *
+       * The meta line says who chooses the trait, and it is not this app:
+       * *"Unarmed attack rolls use either Strength or Finesse (GM's choice)."*
+       * So arming this row moves no chip, and the line says why rather than
+       * leaving the player to notice that nothing happened.
+       */}
+      <button
+        type="button"
+        aria-pressed={unarmed}
+        onClick={() => arming.arm(unarmed ? null : { kind: 'unarmed' })}
+        className="panel"
+        style={{
+          borderLeft: `3px solid ${unarmed ? 'var(--hope)' : 'var(--edge)'}`,
+          background: unarmed ? 'var(--hope-wash)' : undefined,
+          padding: '10px 11px',
+          textAlign: 'left',
+          minHeight: 'var(--tap)',
+        }}
+      >
+        <span className="spread">
+          <span style={{ font: '700 14px/1.15 var(--sans)' }}>Unarmed</span>
+          <span className="t-num" style={{ color: 'var(--hope)' }}>
+            {formatDamage(unarmedSource(stats).damage)}
+          </span>
+        </span>
+        <span className="t-meta" style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}>
+          {unarmed ? 'ARMED · ' : ''}STRENGTH OR FINESSE · GM’S CHOICE · PHYSICAL
+        </span>
+      </button>
       {armor && (
         <div
           className="panel"

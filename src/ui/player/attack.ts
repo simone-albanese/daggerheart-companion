@@ -65,8 +65,11 @@ export type AttackSource =
  * Beastform, or a weapon taken off in Build moves the dice or removes the offer
  * outright, where a `{ count, sides, modifier }` stored at the moment of the tap
  * would sit there being quietly wrong until somebody rolled it.
+ *
+ * `unarmed` carries nothing at all, because there is nothing to carry: the pool
+ * is the character's own Proficiency and the trait is the GM's to pick.
  */
-export type Declaration = { kind: 'weapon'; ref: string };
+export type Declaration = { kind: 'weapon'; ref: string } | { kind: 'unarmed' };
 
 /**
  * The declaration, what it resolves to, and the one way to change it.
@@ -87,8 +90,11 @@ export interface Arming {
    *
    * A weapon also arms its own trait, because the weapon is what decides it:
    * *"The trait that applies to an attack roll is specified by the weapon or
-   * spell being used."* Withdrawing leaves the trait alone - putting a sword
-   * down is not a statement about what you are rolling instead.
+   * spell being used."* An unarmed declaration does not, because the same rule
+   * hands that one over: *"Unarmed attack rolls use either Strength or Finesse
+   * (GM's choice)"*, and the app does not choose on the GM's behalf.
+   * Withdrawing leaves the trait alone too - putting a sword down is not a
+   * statement about what you are rolling instead.
    */
   arm: (declaration: Declaration | null) => void;
 }

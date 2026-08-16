@@ -478,11 +478,23 @@ is gone in favour of `weaponDamage`. **What is still missing is the last link:
 nothing calls `rollDamage` yet.** A successful roll does not offer the damage
 step, so `rollDamage` still has zero callers outside tests.
 
-- [ ] Carry the resolved attack — including `critical` — into a damage roll
-      offered on success. Offer, never auto-apply: README promises the app
-      *"proposes"* and never applies a declared effect silently.
-      *(`attack.ts` is ready and tested; this is the wiring inside
-      `DualityRoll` plus the damage row itself.)*
+**[corrected again, `9b4053a`..] The last link is built.** `rollDamage` has a
+caller: `src/ui/player/DamageRoll.tsx`, mounted last in the phone's roll block
+and between ROLL and the log on desktop. `DualityRoll` snapshots the attack out
+of the `DualityResult` that produced it and hands it over; the row asks
+`damageOffer` and never reads `succeeded` for itself. Unarmed attacks have a row
+in `Equipped`. **What remains open is the two boxes below that are still
+unticked:** typed damage dice, and Spellcast damage with its refusal at +0.
+
+- [x] ~~Carry the resolved attack — including `critical` — into a damage roll
+      offered on success. Offer, never auto-apply~~ — **done, `9b4053a`**. The
+      row is `src/ui/player/DamageRoll.tsx`, in its own file so that it cannot
+      reach for `succeeded` instead of asking `damageOffer`, and so that
+      `rollAffordance.test.ts`'s counts over `DualityRoll.tsx` still mean what
+      they say. It imports neither `update` nor `engine/damage.ts`, and a miss,
+      a reaction roll, an unrollable pool and a build with the roller switched
+      off all draw text with no target rather than a disabled button naming the
+      thing it will not do.
 - [ ] Damage must be typeable as well as rollable, the way the Duality dice
       already are, for tables that roll physical dice.
 - [ ] **Spellcast damage is a different rule and is not implemented.** *"Any time
@@ -490,8 +502,12 @@ step, so `rollDamage` still has zero callers outside tests.
       of dice equal to your Spellcast trait"*, and at +0 or lower you roll
       nothing. 77 of the 189 domain cards mention Spellcast and 43 carry a dice
       formula; none is rollable today.
-- [ ] **Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
-      hits for "unarmed" in `src/`.
+- [x] ~~**Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
+      hits for "unarmed" in `src/`.~~ — **done, the commit after `9b4053a`**;
+      the house form names a sha and a commit cannot name its own. A row after
+      the weapons in `Equipped`, drawn even when nothing is equipped, and
+      arming it moves no trait chip: *"Unarmed attack rolls use either Strength
+      or Finesse (GM's choice)"* is the GM's call and not the app's.
 - [x] ~~`Play.tsx:281` rescales Proficiency with an inline regex instead of
       calling `weaponDamage()`~~ — **done, `91097eb`**.
 
