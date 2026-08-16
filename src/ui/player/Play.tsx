@@ -25,7 +25,7 @@
  * keyboard focus. On every iPad, and every phone in landscape, you could not
  * roll.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   TRAITS,
   TRAIT_LABELS,
@@ -83,6 +83,31 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * forgetting a thing it was told two seconds ago.
    */
   const [spellModifier, setSpellModifier] = useState(0);
+
+  /*
+   * A declaration belongs to the sheet that made it.
+   *
+   * `App` renders `<Play />` unkeyed, so the header's character picker swaps
+   * the character underneath a component that keeps every piece of its own
+   * state - and the armed attack was one of them. Switch sheets mid-turn and
+   * the arriving character was already holding somebody else's axe, with a
+   * trait chip somebody else had picked, ready to roll damage nobody had
+   * declared. `DualityRoll` already clears the resolved *result* on this same
+   * key (DualityRoll.tsx:291); it could not help, because the declaration
+   * behind it was still live and the very next roll re-armed from it.
+   *
+   * Resolving against the character's own kit is not enough on its own: hand
+   * the axe to a second character who also carries one and the ref matches, so
+   * the declaration survives and is simply wrong about who made it. The
+   * modifier goes with it - it is the `+3` off a card in the previous player's
+   * hand, and leaving it typed into the arriving sheet is the app showing a
+   * number nobody entered.
+   */
+  const characterId = character?.id ?? null;
+  useEffect(() => {
+    setDeclared(null);
+    setSpellModifier(0);
+  }, [characterId]);
 
   /*
    * The pool the declaration resolves to, re-derived on every render.

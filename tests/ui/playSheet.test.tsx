@@ -110,6 +110,17 @@ function rebuild(patch: Partial<Character>): Character {
   return next;
 }
 
+/**
+ * The header's character picker, as the store sees it: another sheet arrives
+ * beside this one and becomes the active one, with `Play` never unmounting.
+ */
+function switchTo(c: Character): void {
+  act(() => {
+    useApp.setState((s) => ({ characters: [...s.characters, c], activeId: c.id }));
+  });
+  play(c);
+}
+
 const text = (): string => container.textContent ?? '';
 
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
@@ -976,6 +987,37 @@ describe('what the attack is made with', () => {
     expect(fold('Weapons & armour').textContent).toContain('NOTHING');
   });
 
+  it('does not hand the next sheet the last one’s declaration', () => {
+    /*
+     * `Play` is rendered unkeyed and holds the declaration in its own state, so
+     * the header's picker swaps the character under a component that keeps
+     * whatever was armed. This other sheet carries the same kit on purpose:
+     * resolving against what the character is holding cannot catch this one,
+     * because the arriving character genuinely is holding a Battleaxe. It is
+     * still an attack nobody declared on this sheet, and the trait chip beside
+     * it is the one the previous player picked.
+     */
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+
+    switchTo({ ...playedCharacter(), name: 'The other one', activePrimaryWeapon: 'battleaxe' });
+    expect(
+      fold('Weapons & armour').textContent,
+      'the arriving sheet was handed an attack it never declared',
+    ).not.toContain('ARMED');
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not hand the next sheet the fists either', () => {
+    // Unarmed resolves off the arriving character's own Proficiency, so it
+    // never renders a wrong number - which is exactly why it would have gone
+    // unnoticed. It is still an attack this player did not declare.
+    play(seed());
+    click(weaponRow('Unarmed'));
+    switchTo({ ...playedCharacter(), name: 'The other one' });
+    expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('false');
+  });
+
 
   /*
    * Unarmed attacks, which existed nowhere in `src/` at all - the word did not
@@ -1096,8 +1138,15 @@ describe('the spell, and the +0 that rolls nothing', () => {
     });
   }
 
+  /*
+   * The same caster at a different Presence, and the id is pinned because it
+   * has to be the same caster: `playedCharacter()` mints a fresh
+   * `crypto.randomUUID()` on every call, so re-seeding without pinning it is a
+   * character switch - and a declaration does not follow the player onto
+   * another sheet.
+   */
   const casting = (presence: number): Character =>
-    seed({ traits: { ...playedCharacter().traits, presence } });
+    seed({ id: 'the-caster', traits: { ...playedCharacter().traits, presence } });
 
   it('refuses at +0 in the book’s own words, with nothing to press', () => {
     // Not a disabled chip row, and not a greyed control still saying ROLL
