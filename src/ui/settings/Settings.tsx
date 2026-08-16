@@ -50,6 +50,14 @@ import { Transfer } from './Transfer.tsx';
 const SECTIONS = [
   ['display', 'Display'],
   ['dice', 'Dice'],
+  // Third, not last. The order is how often a decision is made, and this one is
+  // made once - on the first evening, by a player deciding whether a quarter of
+  // their tab bar is a screen they will ever open. Appending it after 'about'
+  // would have put it below the section that is terminal by design, in both the
+  // desktop nav and the phone chip strip; putting it before 'backup' keeps the
+  // three sections that decide whether a character still exists next month
+  // together and last.
+  ['gm', 'GM tools'],
   ['backup', 'Characters'],
   ['transfer', 'Transfer'],
   ['rulebook', 'Rulebook'],
@@ -209,6 +217,7 @@ export function Settings(): React.JSX.Element {
           >
             <Display innerRef={bind('display')} />
             <Dice innerRef={bind('dice')} />
+            <GmTools innerRef={bind('gm')} />
             <Backup innerRef={bind('backup')} phone={phone} />
             <Transfer innerRef={bind('transfer')} />
             <Rulebook innerRef={bind('rulebook')} phone={phone} />
@@ -402,6 +411,118 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
             onChange={(massiveDamageRule) => setPrefs({ massiveDamageRule })}
           />
         </Field>
+      </Rows>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GM tools
+// ---------------------------------------------------------------------------
+
+/**
+ * Three switches, and the reason there are three rather than six.
+ *
+ * The master switch is the one most people will touch: this app is used by
+ * players far more often than by the one person running the table, and the GM
+ * section is a whole tab of the four a phone navigates by. Off, the tab goes,
+ * the desktop header's entry goes, and the app will not open on the screen
+ * behind them - `allowedScreen` and `openingScreen` in `prefs.ts` are those two
+ * rules, so nothing here can leave a door to a room the shell refuses to draw.
+ *
+ * The other two are the two halves SHOW forks into, and they are switchable
+ * precisely because nothing else reaches them: the encounter builder and the
+ * scene runner are the *content of a session row*, so a switch that hid either
+ * would make rows the GM has already written unopenable, and Fear and the
+ * countdowns sit behind the Fear readout, which is not optional at a
+ * Daggerheart table - a GM cannot be given a pool they can spend and no board
+ * to set it on. `BACKLOG.md` carries that reduction as a decision rather than
+ * as a silence.
+ *
+ * Off, the two sub-switches are disabled rather than hidden. A live control
+ * that decides nothing is the same defect as a sentence the code cannot honour;
+ * a disabled one with the sentence beside it says what it is waiting for.
+ *
+ * Ergonomics. Every `Switch` is `minHeight: var(--tap)` = 44 and its pill is
+ * 46x26 inside that box, so the target is the row's full-height button rather
+ * than the graphic. On a 393px phone the settings column is 393 − 24 = 369, the
+ * control block spends 78 (22 of ON/OFF + 10 + 46) and the label and its
+ * sentence take the remaining 277 at `.t-dense` - about 44 characters a line,
+ * inside the 62ch maximum this screen reads at. All three rows are read before
+ * they are touched, which is why the sentence gets the width and the switch
+ * keeps a fixed 78.
+ */
+function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): React.JSX.Element {
+  const prefs = useApp((s) => s.prefs);
+  const setPrefs = useApp((s) => s.setPrefs);
+  const off = !prefs.gmSection;
+
+  return (
+    <Section
+      id="gm"
+      title="GM tools"
+      lead="The screen for the person running the table. If that is not you, none of it has to be here."
+      innerRef={innerRef}
+    >
+      <Rows>
+        <Field
+          label="The GM section"
+          hint="The night's plan, the encounter builder, the live scene, Fear and the countdowns. Off, the GM tab leaves the bottom bar and the app never opens on it. Nothing is deleted — every campaign stays on this device and comes back the moment this goes back on."
+        >
+          <Switch
+            label="The GM section"
+            checked={prefs.gmSection}
+            onChange={(gmSection) => setPrefs({ gmSection })}
+          />
+        </Field>
+
+        <Field
+          label="Bestiary"
+          hint="Behind SHOW on the GM screen: every adversary and environment this dataset carries, to read without adding any of them to tonight. Off, SHOW stops offering it and so does an empty scene, so nothing on screen points at a tool that is not there."
+        >
+          <Switch
+            label="Bestiary"
+            checked={prefs.gmBestiary}
+            disabled={off}
+            onChange={(gmBestiary) => setPrefs({ gmBestiary })}
+          />
+        </Field>
+
+        <Field
+          label="The party board"
+          hint="Also behind SHOW: the player sheets sent to this device, as they arrived, beside whatever you have marked on them since. Off, SHOW stops offering it. The sheets themselves are untouched — this decides what the screen shows, never what it keeps."
+        >
+          <Switch
+            label="The party board"
+            checked={prefs.gmPartyBoard}
+            disabled={off}
+            onChange={(gmPartyBoard) => setPrefs({ gmPartyBoard })}
+          />
+        </Field>
+
+        {/*
+          The same idiom as the two dice switches: the honest case where both of
+          a pair are off is stated rather than quietly prevented. Here it is
+          worth stating because the consequence is visible - the bar the GM
+          presses all evening loses a third of itself and the other two verbs
+          grow into the space.
+        */}
+        {(off || (!prefs.gmBestiary && !prefs.gmPartyBoard)) && (
+          <div
+            className="t-dense"
+            style={{
+              padding: '10px 12px',
+              borderRadius: 'var(--r3)',
+              background: 'var(--raised)',
+              borderLeft: '3px solid var(--hope)',
+              color: 'var(--text-2)',
+            }}
+          >
+            {off
+              ? 'The GM section is off, so these two decide nothing until it is back on. They are remembered in the meantime.'
+              : 'With both off SHOW has nothing left to open, so it leaves the GM screen’s bottom bar and ADD and SAVE take the width. Everything else on that screen is unchanged.'}
+          </div>
+        )}
       </Rows>
     </Section>
   );

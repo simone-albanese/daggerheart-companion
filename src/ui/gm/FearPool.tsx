@@ -12,33 +12,78 @@ import { useGm } from './gmStore.ts';
 
 const DIAMOND = 'polygon(50% 0,100% 50%,50% 100%,0 50%)';
 
-export function FearBar(): React.JSX.Element {
+/**
+ * Fear as `− N +`.
+ *
+ * Both props default to what this bar has always done, so a call site that
+ * passes neither is the component that existed before them.
+ *
+ * `pips` is off on a phone. Twelve diamonds are 210px of the 369px column, and
+ * the GM who described this screen was explicit that the tokens are not what
+ * they read - *"alla fine non serve vedere i token"* - so on the one width
+ * where the room is contested they lose it and the number keeps it.
+ *
+ * `onOpenBoard` turns the readout into a control. It is the one place on this
+ * bar where something read constantly is also touched, and it is deliberate:
+ * setting the pool outright ("you had seven") is the board's job, and the
+ * number the eye is already on is the honest door to it. 58 x 44 clears the
+ * floor. `aria-live` comes **off** when it does, because a focusable readout
+ * that re-announces on every `+1` talks over the thumb that is pressing it -
+ * the two `−`/`+` buttons already name what they did.
+ */
+export function FearBar({
+  pips = true,
+  onOpenBoard,
+}: {
+  pips?: boolean;
+  onOpenBoard?: () => void;
+} = {}): React.JSX.Element {
   const fear = useGm((s) => s.fear);
   const nudge = useGm((s) => s.nudgeFear);
+
+  const readout = (
+    <>
+      {fear}
+      <span className="t-meta" style={{ color: 'var(--dim)' }}>
+        /{MAX_FEAR}
+      </span>
+    </>
+  );
+  const readoutStyle: React.CSSProperties = {
+    flex: 'none',
+    minWidth: 58,
+    textAlign: 'center',
+    font: '800 24px/1 var(--sans)',
+    letterSpacing: '-0.02em',
+    fontVariantNumeric: 'tabular-nums',
+    color: fear === 0 ? 'var(--dim)' : 'var(--fear)',
+  };
 
   return (
     <div className="row" style={{ gap: 8, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
       <span className="t-label" style={{ color: 'var(--fear)', flex: 'none' }}>
         Fear
       </span>
-      <div
-        className="row"
-        aria-hidden="true"
-        style={{ gap: 3, flex: 1, minWidth: 'var(--control)', maxWidth: 210 }}
-      >
-        {Array.from({ length: MAX_FEAR }, (_, i) => (
-          <span
-            key={i}
-            style={{
-              flex: 1,
-              maxWidth: 15,
-              height: 15,
-              clipPath: DIAMOND,
-              background: i < fear ? 'var(--fear)' : 'var(--empty)',
-            }}
-          />
-        ))}
-      </div>
+      {pips && (
+        <div
+          className="row"
+          aria-hidden="true"
+          style={{ gap: 3, flex: 1, minWidth: 'var(--control)', maxWidth: 210 }}
+        >
+          {Array.from({ length: MAX_FEAR }, (_, i) => (
+            <span
+              key={i}
+              style={{
+                flex: 1,
+                maxWidth: 15,
+                height: 15,
+                clipPath: DIAMOND,
+                background: i < fear ? 'var(--fear)' : 'var(--empty)',
+              }}
+            />
+          ))}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => nudge(-1)}
@@ -48,24 +93,20 @@ export function FearBar(): React.JSX.Element {
       >
         −
       </button>
-      <span
-        aria-live="polite"
-        aria-label={`${fear} of ${MAX_FEAR} Fear`}
-        style={{
-          flex: 'none',
-          minWidth: 58,
-          textAlign: 'center',
-          font: '800 24px/1 var(--sans)',
-          letterSpacing: '-0.02em',
-          fontVariantNumeric: 'tabular-nums',
-          color: fear === 0 ? 'var(--dim)' : 'var(--fear)',
-        }}
-      >
-        {fear}
-        <span className="t-meta" style={{ color: 'var(--dim)' }}>
-          /{MAX_FEAR}
+      {onOpenBoard === undefined ? (
+        <span aria-live="polite" aria-label={`${fear} of ${MAX_FEAR} Fear`} style={readoutStyle}>
+          {readout}
         </span>
-      </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpenBoard}
+          aria-label={`${fear} of ${MAX_FEAR} Fear — open Fear and countdowns`}
+          style={{ ...readoutStyle, minHeight: 44 }}
+        >
+          {readout}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => nudge(1)}

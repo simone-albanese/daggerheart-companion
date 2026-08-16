@@ -1,9 +1,11 @@
 # Handoff — resuming this work with an empty context
 
 Everything below is true at `HEAD` on `main`. The tree is clean, `tsc --noEmit`
-is clean, and the suite is **1782 passing in 84 files**, up from 1333 in 62 at
-the start of this session. **Nothing is pushed.** `origin/main` is still at
-`87b9238`, ~75 commits behind.
+is clean, and the suite is **1932 passing in 89 files** — the number this lane
+measured with P5-2 finished; it was 1782 in 84 when P5-2 started and 1333 in 62
+at the start of the session, and any other lane merged after this one moves it
+again. **Nothing is pushed.** `origin/main` is still at `87b9238`, ~80 commits
+behind.
 
 ## Read these first, in this order
 
@@ -47,8 +49,8 @@ and will cost it again:
   instead of stashing.
 
 Merge the branches back one at a time from the main tree and run the whole
-suite once at the end — it is about ten seconds for 1782 tests, so there is no
-excuse for skipping it. It caught one real cross-lane failure this session
+suite once at the end — it is about ten seconds for the whole of it, so there is
+no excuse for skipping it. It caught one real cross-lane failure this session
 (`tests/pwa/bootFallback.test.ts` had the object-store list written out a third
 time; the campaigns store added a fifth and it went red).
 
@@ -62,6 +64,7 @@ are now nearly closed too.**
 | **Play is the sheet** (P5-1) | Rebuilt in the official sheet's order on phone **and** tablet. Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference; trait verbs are on the tiles, parsed out of the SRD; four sections fold, and each character remembers its folds; the roll modifier row folds away and names whatever is armed on its closed edge. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
+| **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out and the campaigns; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and a campaign that did not reach the disk is said on the screen it happened on. |
 | **P1-2, P1-6, P3-9, P3-11** | Recall no longer silently marks HP when Stress is full. Cards this build cannot name are drawn instead of counted and hidden. A vault card says why it will not recall instead of hiding it in a `title`. Five buttons are no longer all called USE. |
 | **P1-4, P1-5** | School of Knowledge's extra card arrives at level-up. One incoming attack marks **one** Armor Slot, not three — the rule was found on the official GM screen, and the cap is a parameter because "unless an ability says otherwise" is part of the sentence. |
 | **P3-5** | The flaky test is fixed at its cause. It was the test's statistics, not the engine: a flat 6 % band is 2.24 σ at the ends of a 2d12 triangle, which predicts the measured 5 % failure rate exactly. Now five standard errors per bucket and a seeded sample. 200 runs, 200 green. |
@@ -72,12 +75,39 @@ are now nearly closed too.**
 
 ## What is open
 
-**The DM screen itself (P5-2).** The store, the migration, multi-campaign and
-the export are built. **The screen is not.** Still to build: the session list
-with drag-to-reorder, ADD (countdown / encounter / scene / link), the bottom bar
-that replaces the tab bar inside the GM section, MENU as the way back out,
-SHOW → Consulta and Gruppo, and the per-tool switches in Settings. `BACKLOG.md`
-P5-2 has the decided shape.
+**P5-2, the DM screen, is finished.** Six commits, in this order: `eab26d8` made
+the session list the GM screen and the five tools what a row opens; `f6e264d`
+gave the rows a drag, a keyboard path and two buttons; `7b27e57` added `GmBar` —
+ADD, SHOW, SAVE — with the three sheets behind it; `68c8cc7` gave MENU the way
+out and the campaigns, and took the tab bar off the GM screen; `63a2558` made
+the section and its two browse tools switchable from Settings, with the bar
+redistributing; `8e0d02f` put the store's `writeError` on the screen it happens
+on. Nothing on this item is left to build. `BACKLOG.md` P5-2 is struck through
+with those hashes, and its *Left open* list is what these commits decided **not**
+to do, with the reason beside each — read it before adding anything to this
+screen.
+
+Four things that were carried across on the way, so nobody looks for them again.
+`hydrateGm`'s silent `catch` around the first `putCampaign` is **fixed**: it sets
+`writeError` and leaves the write dirty, which is what makes TRY AGAIN do
+something. BESTIARY and PARTY have left the top bar for SHOW. The licence notice
+moved **into** the GM scroll rather than off the screen — 111px of the 653 that
+is not shell header, and `tests/ui/attribution.test.tsx` is the gate that says it
+may not simply go while `tests/gm/gmShell.test.tsx` says *where* it went. And
+`prefs.ts` now owns one rule that three callers share: `allowedScreen(prefs,
+screen)` substitutes `'play'` for a GM screen whose section is off, and
+`openingScreen(prefs, characterCount)` wraps it with the older empty-library
+rule. `init()`, `App.tsx`, `TabBar` and `Header` all ask *it* rather than testing
+the preference themselves — if a fifth caller ever needs the answer, it goes
+through the same function.
+
+**Where the GM screen's own switches are, for whoever touches Settings next:**
+Settings → GM tools, third section, three switches — `gmSection`, `gmBestiary`,
+`gmPartyBoard` on `Prefs` (so `localStorage`, no schema move). Their names on
+screen are deliberately not "GM tools": `tests/ui/settingsHints.test.tsx`
+resolves a control by its accessible name and the desktop section nav carries
+each section's *title* as a button, so a switch sharing its section's name
+resolves to the nav button and the row fails for the wrong reason.
 
 **P5-3 — what the GM screen could have at hand.** The improvised-adversary table
 by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown
@@ -98,7 +128,12 @@ path. Decided: it goes in the Identity block the rebuild just created.
 browser floor. All three were blocked on the Play rebuild and are unblocked now.
 
 **Deferred to 1.1, deliberately:** photos shown to the table, link rows that open
-external URLs, full-text rule search. Written into `BACKLOG.md` P5-2.
+external URLs, full-text rule search. Written into `BACKLOG.md` P5-2, each with
+its reason. SEARCH is the visible one — the wireframe draws four verbs in the GM
+bar and 1.0 ships three — so it is worth knowing that the absence is a decision:
+the search a GM does at the table is the Bestiary's filter behind SHOW, and when
+there is an index behind SEARCH it goes in as a fourth entry in `GmBar`'s `VERBS`
+and the grid redistributes on its own.
 
 ## The fastest way to see what is still unwired
 

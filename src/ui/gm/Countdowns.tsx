@@ -12,6 +12,10 @@ import { type Countdown, type CountdownKind } from '../../engine/encounter.ts';
 import { Stepper } from './Encounter.tsx';
 import { FearBoard } from './FearPool.tsx';
 import { useGm } from './gmStore.ts';
+// One map, two screens. A session row draws a countdown now as well as this
+// board does, and two copies of "dynamic is orange" is how one of them goes
+// green.
+import { COUNTDOWN_KIND_COLOR } from './session.ts';
 
 const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
@@ -19,13 +23,6 @@ const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'loop', label: 'Loop', hint: 'Returns to its starting value the moment it runs out.' },
   { id: 'long-term', label: 'Long-term', hint: 'Advances across downtime and between sessions.' },
 ];
-
-const KIND_COLOR: Record<CountdownKind, string> = {
-  standard: 'var(--muted)',
-  dynamic: 'var(--stress)',
-  loop: 'var(--codex)',
-  'long-term': 'var(--sage)',
-};
 
 export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
   const countdowns = useGm((s) => s.countdowns);
@@ -153,7 +150,7 @@ function CountdownRow({ countdown }: { countdown: Countdown }): React.JSX.Elemen
   const remove = useGm((s) => s.removeCountdown);
   const c = countdown;
   const spent = c.value === 0;
-  const color = KIND_COLOR[c.kind];
+  const color = COUNTDOWN_KIND_COLOR[c.kind];
 
   return (
     <article

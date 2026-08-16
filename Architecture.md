@@ -654,11 +654,11 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Nessuno** | Il contenuto è limitato e noto: 6 tratti, 4 contatori, 5 carte |
+| **Play** (giocatore) | **Sì, nel corpo** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Restano fissi l'identità e il blocco del tiro |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
-| **Encounter** (GM) | Nel corpo | Fear pool e barra di scena restano fissi |
-| **Bestiary** (GM) | Nell'elenco | 129 avversari |
+| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
+| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
@@ -728,13 +728,133 @@ Il canale di trasferimento (§ 5) serve quindi soprattutto a **spostare il tuo
 personaggio fra i tuoi dispositivi**: costruito su desktop, giocato su telefono,
 consultato su tablet. In secondo piano, passare un pregenerato a un giocatore nuovo.
 
+**La casa del GM è la lista della serata** (P5-2). Fino a `f7a59fc` questa
+schermata era una striscia di cinque tab — encounter, scene, party, bestiary,
+countdown — e ognuna funzionava; quello che nessuna era è *la serata*. Il record
+della campagna porta una `session: SessionItem[]` da quando esistono le
+campagne e nessuno l'aveva mai disegnata. Ora la lista **è** la schermata: le
+righe si aprono in posto, e i cinque strumenti qui sotto sono ciò che una riga
+apre, sopra la lista, dentro `GmSheet`. Uno strumento chiuso è **smontato**, mai
+nascosto: lo scanner della PartyBoard apre la fotocamera in un effetto e la
+chiude allo smontaggio.
+
+`board.region` resta nel record e cambia significato: non più «quale tab era
+selezionata» ma «quale strumento è stato aperto per ultimo». Quattro punti fuori
+da `Gm.tsx` ci navigano scrivendoci dentro (Encounter manda il roster alla
+scena, Bestiary butta dentro un avversario, la scena vuota offre gli altri due)
+e nessuno di loro è stato toccato: `Gm.tsx` segue i *cambiamenti* di quel campo,
+mai il valore che ci trova al mount — altrimenti arrivare sulla schermata GM
+riaprirebbe l'encounter builder ogni volta, che è esattamente il comportamento a
+menù che P5-2 elimina.
+
 - **Encounter builder**: `(3 × PG) + 2` battle points. Costi: gruppo di Minion 1,
   Social/Support 1, Horde/Ranged/Skulk/Standard 2, Leader 3, Bruiser 4, Solo 5.
   Aggiustamenti: −1 più facile, −2 con 2+ Solo, +1 da tier inferiore, +2 più duro.
 - **Tracker di scena**: HP e Stress tappabili, soglie sempre visibili, spotlight.
-- **Fear pool**: contatore grande, massimo 12, sempre visibile.
+- **Fear pool**: contatore grande, massimo 12, fisso in cima; il numero apre la
+  board dove lo si imposta di netto.
 - **Countdown**: standard, dinamici, loop, long-term. Si fanno scorrere a mano.
+  Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
+
+**La barra in basso, dentro la sezione GM, prende il posto della tab bar**:
+`App.tsx` non disegna `TabBar` su `screen === 'gm'`, e la via d'uscita verso
+Play, Cards e Build sta in **MENU**, che è tutta la prima riga della barra in
+alto — il nome della campagna è dentro il bottone, non accanto. Le due metà
+arrivano insieme di proposito: togliere la tab bar prima che MENU esista
+lascerebbe un telefono dentro la sezione GM con il solo bottone SETTINGS
+dell'header. MENU **non** porta Settings, che è già nell'header su ogni
+schermata.
+
+Anche l'avviso di licenza si sposta con loro, e **non se ne va**: entra nello
+scroll della lista invece di restare una striscia fissa sopra la barra. Sono
+111px su un telefono, il 17% di quello che non è header, ma un avviso che la
+DPCGL chiede di *mostrare* non è ciò che paga un layout — e le altre tre
+schermate che lo tengono lo tengono già dentro uno scroll, per la stessa frase.
+`LicenceFooter` è un modulo suo (il chunk GM è importato *da* `App.tsx`, quindi
+importarlo al contrario sarebbe un ciclo) e prende `bottomMost`: l'inset
+`env(safe-area-inset-bottom)` lo paga **una** cosa sola, l'ultima nel `<main>`,
+che nella sezione GM è `GmBar`.
+
+I verbi della barra sono **ADD**, **SHOW**, **SAVE**. Non sono destinazioni,
+sono verbi — `aria-haspopup="dialog"`
+e mai `aria-current` — e le colonne sono `repeat(n, 1fr)` sul numero di verbi,
+così togliendone uno la barra si ridistribuisce invece di lasciare un buco.
+**SEARCH non c'è**: la ricerca full-text delle regole è rinviata a 1.1, e la
+ricerca che un GM fa davvero a tavolo è già il filtro del Bestiary dietro SHOW.
+Un bottone che non apre niente è peggio di un bottone che non c'è.
+
+- **ADD** scrive le quattro righe — scena con ambiente, encounter (che può
+  prendere il roster che è sul tavolo adesso, mai i combattenti), link a
+  qualcosa già dentro l'app, countdown (pinnabile subito). Ogni riga nasce
+  chiusa e in fondo alla lista, e la sheet lo dice.
+- **SHOW** biforca nei due strumenti che nessuna riga apre: Bestiary in sola
+  consultazione e la party board. Erano due chip in cima finché la barra non
+  esisteva; se ne sono andati con questa.
+- **SAVE** non è il bottone che salva. La campagna è già scritta 400 ms dopo
+  l'ultima modifica e di nuovo su `pagehide`; la sheet fa un flush, poi dice
+  *quando* l'ultima scrittura è arrivata davvero sul disco — `updatedAt`, che
+  `writeActive` sposta dentro `campaigns` solo nel ramo di successo di
+  `putCampaign` — mostra `writeError` al posto del timbro quando c'è, e offre la
+  copia `.dhcampaign` dicendo che **nessuna parte di questa build sa rileggerla**.
+- **MENU** porta la via d'uscita, le campagne — cambia, nuova, rinomina,
+  rimuovi dietro due tap — e il blocco «questo dispositivo»: `notices`,
+  `quarantined` e lo stato prima che il database abbia risposto, tre campi che
+  lo store portava da sempre e che nessuno aveva mai disegnato. Rinominare è
+  offerto **solo** sulla campagna aperta, con la ragione scritta accanto:
+  `patchCampaign` programma una scrittura solo per l'id attivo e `writeActive`
+  raccoglie solo quel record, quindi un rename su un'altra riga sembrerebbe
+  giusto fino al reload. Un nome vuoto è **rifiutato a parole**, non riscritto
+  in silenzio. La lista non si riordina mentre è aperta: la campagna attiva
+  viene scritta ogni 400 ms, e riordinare per `updatedAt` in render sposterebbe
+  in cima proprio quella riga, sotto il pollice.
+
+**La sezione intera si spegne da Settings, e con lei i due strumenti che nessuna
+riga apre.** `gmSection`, `gmBestiary` e `gmPartyBoard` stanno su `Prefs`,
+quindi in `localStorage`: sono fatti su *questo dispositivo*, non sul record,
+nessuno schema si muove e §6.1 non viene toccata. La parte che conta non è
+l'interruttore ma cosa resta dietro, e la regola è una funzione sola —
+`allowedScreen(prefs, screen)`, che sostituisce `'gm'` con `'play'` quando la
+sezione è spenta. La usano in tre punti, per tre ragioni diverse:
+`openingScreen` all'avvio (un `lastScreen: 'gm'` salvato prima che la sezione
+venisse spenta non riapre una schermata senza tab, e la regola più vecchia —
+libreria vuota → Build — resta la prima), `App.tsx` a ogni render (`setScreen`
+accetta tutti e cinque i valori, e la sezione può spegnersi a metà sessione:
+senza questo resterebbero header, barra e 700px di niente in mezzo), e le due
+navigazioni — `TabBar` e `Header` — che chiedono «lo shell la disegnerebbe?»
+invece di controllare la preferenza per conto loro. Filtrare solo la tab bar
+avrebbe lasciato un bottone GM vivo su ogni portatile.
+
+Gli strumenti disattivabili sono **due su cinque**, ed è una riduzione scritta,
+non un'omissione. Encounter builder e scene runner sono il *contenuto di una
+riga*: un interruttore che li nascondesse renderebbe inapribile una riga già
+scritta. Fear e countdown si aprono dal numero in cima e non da una riga, ma il
+Fear non è opzionale a un tavolo Daggerheart — la board dietro quel numero è
+l'unico posto dove lo si imposta di netto invece che un punto per volta.
+`BACKLOG.md` porta entrambe le ragioni. Con i due strumenti spenti **SHOW esce
+dalla barra** e i 131px per verbo diventano 196 su un telefono da 393; con uno
+solo, la sheet si riduce a quella metà e il dialog prende il *suo* nome invece
+di annunciarsi come entrambi; e la scena vuota smette di offrire il bestiary —
+bottone e frase, perché una frase che nomina uno strumento che non c'è è lo
+stesso difetto un gradino più piano.
+
+**Una scrittura che non è arrivata si legge sulla schermata dov'è successa.**
+`writeError` dello store è una striscia `role="alert"` fra la barra in alto e la
+lista, con le parole dello store e un TRY AGAIN che chiama `flushGm` — ogni
+percorso che imposta quel campo lascia la campagna `dirty` apposta, quindi il
+bottone ha sempre qualcosa da scrivere. Non si chiude: un avviso archiviato su
+lavoro non salvato è esattamente la falsa rassicurazione che questa app non può
+dare. SAVE continua a mostrarlo, e non è un doppione: le due frasi vengono dallo
+stesso campo, e una sheet che dicesse «già su questo dispositivo» mentre la
+striscia sotto dice il contrario sarebbe peggio di tutte e due.
+
+Una riga della sessione porta il **suo** piano — roster, aggiustamenti,
+ambiente — e la campagna porta **un** tavolo solo (`GmBoard`). Sono due cose
+diverse con la stessa forma, e le righe lo dicono: METTI SUL TAVOLO e TIENI QUI
+QUELLO CHE C'È SUL TAVOLO, costruiti solo con azioni che lo store ha già. Ciò
+che non ha un verbo è scritto come fatto senza controllo — i `combatants`
+salvati su una riga non si rimettono, perché nessuna azione dello store imposta
+la lista dei combattenti in blocco.
 
 ---
 

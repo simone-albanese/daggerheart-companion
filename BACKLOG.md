@@ -1466,10 +1466,15 @@ invariant defended at one of its two doors.
       `Unnamed`, which is the same collision by another route. The fallback is
       already everywhere; the collision it can create is not considered anywhere.
 
-## P5-2 · The GM screen is five menus, and a session is not a menu
+## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `eab26d8`, `f6e264d`, `7b27e57`, `68c8cc7`, `63a2558`, `8e0d02f`**
 
 **decided: it becomes one composable session, with multiple campaigns** ·
 `src/ui/gm/` · **large, 16–20 h**
+
+Every decision below is taken and shipped. What is still unticked under *Left
+open* is not the item: it is the list of things these six commits decided **not**
+to do, each with the reason, so that none of them is a silence somebody has to
+rediscover from the source.
 
 `Gm.tsx` switches between five regions — encounter, scene, party, bestiary,
 countdowns — each of which works. What no region does is *be the night*: a GM
@@ -1486,55 +1491,220 @@ place. Bottom bar, replacing the player tab bar: **ADD**, **SHOW**, **SEARCH**,
 
 Decisions taken:
 
-- [ ] **The session list becomes the GM home; the five regions become its
-      content.** Encounter builder, Scene runner, Bestiary and PartyBoard stop
-      being top-level regions and become what opens from a row or from ADD —
-      but stay reachable from the top MENU, because browsing the bestiary
-      without adding anything to a session is a real thing a GM does.
-- [ ] **ADD** → countdown, encounter, scene (environment), link. A countdown can
-      be marked **primary**, which pins it to the top bar; otherwise it joins the
-      list. An encounter opens the encounter builder that already exists.
-- [ ] **Rows reorder by drag.** *"Sarebbe fighissimo se tu potessi fare oui, oui,
-      e te li metti dove vuoi."* This is the feature that makes the list a plan
-      rather than a log.
-- [ ] **SHOW** forks in two: **Consulta** — browse adversaries and environments
-      read-only, without adding them, for when the GM is improvising — and
-      **Gruppo**, which is the PartyBoard that already exists, reached from here.
-- [ ] **SAVE** writes the campaign: the list, Fear, the countdowns, and the
-      party. `PartyMember` already stores each sheet whole, so a saved campaign
-      already contains what *"tutti i PG con quello che hanno"* asks for.
-- [ ] **Multiple campaigns.** A campaign owns its name, its session list, its
-      Fear, its countdowns and its imported party. It does **not** own the
-      characters you play: those stay in `characters` and in the header,
-      untouched, so a sheet can appear in two campaigns and switching campaign
-      cannot cost anyone a character.
-- [ ] **Campaigns move to their own IndexedDB store**, with their own schema
+- [x] ~~**The session list becomes the GM home; the five regions become its
+      content.**~~ — **done.** The five-tab strip is gone: the list is the
+      screen, a row opens its tool over it inside `GmSheet`, and a closed tool
+      is **unmounted** rather than hidden, because PartyBoard's scanner holds
+      the camera in an effect. `board.region` is kept and reinterpreted as *the
+      tool last opened*, and is followed only when it **changes** — an effect
+      that acted on the value it finds at mount would reopen the encounter
+      builder every time the GM arrives, which is the menu behaviour this item
+      exists to remove. The top MENU is not built yet: until the bottom bar
+      lands, the two tools no row can open — Bestiary and PartyBoard — are
+      chips in the top bar, with the note in `GmTopBar.tsx` saying they leave
+      when SHOW arrives.
+- [x] ~~**ADD** → countdown, encounter, scene (environment), link.~~ — **done.**
+      The four choices are generated from `SESSION_ITEM_KINDS`, so a fifth kind
+      added to the record cannot be silently missing from the menu. A countdown
+      is pinned from the form itself, through the id `addCountdown` now hands
+      back — the row and the countdown share one id and the store mints it, so
+      reading `session.at(-1)` would have been the caller holding an opinion
+      about how the store appends. An encounter can take the roster that is on
+      the board right now and never the combatants, because no store action
+      sets a combatant list wholesale. Every row arrives closed and at the end,
+      and the sheet says so rather than letting the sheet close over a row the
+      GM cannot see.
+- [x] ~~**Rows reorder by drag.**~~ *"Sarebbe fighissimo se tu potessi fare oui,
+      oui, e te li metti dove vuoi."* — **done**, and with a keyboard path
+      beside it rather than behind it. Hold the handle 250 ms with under 8 px of
+      travel to lift, then a step per 60 px; `touch-action: none` is on the
+      44 px handle alone so the other 88% of the row still scrolls the list.
+      `pointercancel` is handled, because iOS fires it with no `pointerup` to
+      follow and the alternative is a row lifted for the life of the screen.
+      ArrowUp/ArrowDown/Home/End on the focused handle do the same thing, and
+      an open row carries MOVE UP and MOVE DOWN as plain buttons — a 250 ms
+      hold plus 60 px of accurate travel is not a gesture everybody has. One
+      polite live region for the whole list: assertive interrupts itself five
+      times across a four-row drag.
+- [x] ~~**SHOW** forks in two: **Consulta** and **Gruppo**.~~ — **done.** The
+      two tools no row can open, and the only two, which is why they are the
+      fork. Each choice says what it is *not*: the bestiary adds nothing to
+      tonight, the party board never writes to anyone's character. The chips
+      that carried them in the top bar are gone with it.
+- [x] ~~**SAVE** writes the campaign: the list, Fear, the countdowns, and the
+      party.~~ — **done, and it is not a verb.** The campaign is written 400 ms
+      after the last change and again on `pagehide`, so a sheet that implied the
+      GM had to press anything would teach them to distrust the thing that is
+      actually keeping their table. It flushes, then says *when* the last write
+      reached the disk; it shows `writeError` instead of that stamp when there
+      is one, with a retry that now does something because `hydrateGm` leaves a
+      failed first write dirty; and it offers the `.dhcampaign` copy while
+      saying out loud that nothing in this build can read one back in.
+- [x] ~~**Multiple campaigns.**~~ — **the record and the store were built
+      earlier in this session; MENU is the door.** Switch, make and remove, with
+      the removal behind two taps. Switching still never touches the characters
+      you play, because a campaign has never owned them — the sheet on two
+      boards is two sightings, not one shared record, and the sheet says so.
+      The list is drawn in the order the database handed it over and is **not**
+      re-sorted live by `updatedAt`: the open campaign is written every 400 ms,
+      so that would move exactly one row — always the open one — to the top,
+      under a thumb reaching for REMOVE on the row below it.
+- [x] ~~**Campaigns move to their own IndexedDB store**, with their own schema
       version and their own converter chain, so `Character` is untouched and
       `SCHEMA_VERSION` is not bumped. The existing GM state migrates out of
-      `localStorage` once and the old key is dropped. This is the load-bearing
-      change: `gmStore.ts` writes the whole of the GM's state to `localStorage`
-      synchronously on every mutation — including every `+1` of Fear — and
-      `localStorage` is the first thing iOS clears. It currently holds whole
-      character sheets belonging to other people, in the least durable store the
-      platform has.
-- [ ] **The bottom bar swaps to the GM tools inside the GM section**, and the
-      way back to Play, Cards and Build moves into the top MENU, which the
-      wireframe already draws. Leaving the GM section is a rare gesture; ADD and
-      SHOW are continuous ones, and the thumb arc should go to the continuous.
-- [ ] **Each tool is switchable in Settings**, plus one master switch that hides
-      the GM section entirely — most people using this app are players. A tool
-      that is off leaves the bar, and the bar redistributes across what is left
-      rather than leaving a hole.
+      `localStorage` once and the old key is dropped.~~ — **done before the
+      screen was built, which is why the screen could be built at all.**
+      `DB_VERSION` went to 2 for the new store; `SCHEMA_VERSION` and
+      `CAMPAIGN_SCHEMA_VERSION` did not move, because the record's shape did
+      not. The migration reads the old key once, writes what it finds, and
+      proves the campaign before dropping it. It was the load-bearing change:
+      `gmStore.ts` used to write the whole of the GM's state to `localStorage`
+      synchronously on every mutation — every `+1` of Fear, whole character
+      sheets belonging to other people — in the least durable store the platform
+      has, and the first thing iOS clears. This entry was left unticked while it
+      was true; it is ticked here with the rest of the item's bookkeeping.
+- [x] ~~**The bottom bar swaps to the GM tools inside the GM section**, and the
+      way back to Play, Cards and Build moves into the top MENU.~~ — **done,
+      both halves in one commit**, because a tab bar removed before MENU existed
+      would strand a phone in the GM section with the header's SETTINGS button
+      as its only way anywhere. MENU is the whole top row rather than a word
+      beside the campaign name — the `Disclosure` lesson — and it does not carry
+      Settings, because the header does on every screen. The licence notice
+      moved *into* the session list's scroll rather than off the screen: it is
+      a licence obligation and a layout budget is not a reason to drop one.
+- [x] ~~**Each tool is switchable in Settings**, plus one master switch that
+      hides the GM section entirely — most people using this app are players. A
+      tool that is off leaves the bar, and the bar redistributes across what is
+      left rather than leaving a hole.~~ — **done as three switches rather than
+      six, and the reduction is written down below.** The master switch takes
+      the GM tab off the phone's bar, the entry off the desktop header, and the
+      screen out of the app: `openingScreen` refuses to *open* on a stored
+      `'gm'` with the section off, and `allowedScreen` refuses to *draw* one, so
+      neither a boot nor a stray `setScreen` can leave a header over an empty
+      `<main>`. The two tool switches are the bestiary and the party board; with
+      both off SHOW leaves the bar and ADD and SAVE go from 131 px each to 196
+      on a 393 px phone. Nothing anywhere still offers a tool that is off — the
+      SHOW sheet narrows to one choice and is renamed for it, and the scene
+      runner's empty state drops both its bestiary button and the clause naming
+      it.
 
-**Deferred to 1.1, written down so they are not lost:** photos attached to a
-scene and shown to the table (*"se posso aggiungere delle foto e mostrarle a
-loro"*) — it needs a quota story before it needs a screen, and P0-3 exists
-because quota failures were being swallowed; **link rows that open external
-URLs**, which would put a second outbound link in an app whose strongest claim
-is that it has exactly one; and **full-text rule search** behind SEARCH.
-The LINK row still ships, resolving to something already inside the app — an
-adversary, an environment, a card, a rule — so it works offline and changes no
-promise.
+**Deferred to 1.1, written down so they are not lost:**
+
+- **Photos attached to a scene and shown to the table** (*"se posso aggiungere
+  delle foto e mostrarle a loro"*). It needs a quota story before it needs a
+  screen: P0-3 exists because quota failures were being swallowed, and a photo
+  is the first thing in this app that could fill a device on its own.
+- **Link rows that open external URLs.** It would put a second outbound link in
+  an app whose strongest claim is that it has exactly one. The LINK row ships
+  now resolving only to something already inside the app — an adversary, an
+  environment, a card, a rule — so it works with the radio off and changes no
+  promise.
+- **Full-text rule search, behind SEARCH.** This is the one the wireframe draws
+  and 1.0 does not have: the bar ships three verbs where the drawing has four.
+  It is a 1.1 entry rather than a gap because what a GM actually searches for at
+  the table is already the Bestiary's filter behind SHOW — name, description,
+  motives, feature names — and a second, weaker SEARCH beside it would make the
+  bar claim a capability the app has in one place and not the other. When there
+  is an index behind it, it goes in as a fourth entry in `GmBar`'s `VERBS`
+  array and the grid redistributes to four on its own; nothing else has to
+  move.
+
+**Left open by the commits that built this screen, so none of it is a
+silence:**
+
+- [x] ~~**Nothing in this build writes a new scene, encounter or link row.**~~ —
+      **closed by the ADD sheet.** The three factories are in `session.ts` now
+      because there is a caller.
+- [ ] **`Countdown.notes` is persisted, read by `readCountdown`, and rendered
+      nowhere.** The open countdown row is now the obvious place for it, which
+      makes the absence louder than it was. It needs a keyboard inside a
+      scrolling list and a history, and a row that starts showing the field must
+      not imply it was ever editable before.
+- [ ] **A session encounter row can put its plan back on the board, but not its
+      fight.** `combatants` on the row are stated as a fact with no control,
+      because no action in `gmStore` sets the combatant list wholesale. Adding
+      one is a store change, not a screen change.
+- [x] ~~**BESTIARY and PARTY are chips in the top bar.**~~ — **gone with SHOW,**
+      which is where the wireframe put them.
+- [x] ~~**`hydrateGm` still swallows a failed first `putCampaign`.**~~ —
+      **fixed in the store, not in the sentence.** It sets `writeError` and
+      leaves the write dirty, so SAVE's retry, the next change and `pagehide`
+      all try it again. Nothing is dirty at that moment otherwise, so
+      `writeActive` returned at `if (!dirty)` and no later write would ever have
+      reported it.
+- [ ] **SEARCH is not in the bar, and that is a decision.** The wireframe draws
+      four verbs; this build ships three. Full-text rule search is deferred to
+      1.1, and the searching a GM does at the table is already the Bestiary's
+      filter behind SHOW — name, description, motives, feature names. A second,
+      weaker SEARCH beside it would make the bar claim a capability the app has
+      in one place and not in the other. It goes in as a fourth entry in
+      `GmBar`'s array when there is an index behind it.
+- [x] ~~**The bar cannot yet be made to redistribute.**~~ — **it can now, and
+      the test proves the property rather than the instance.** Switching the
+      bestiary and the party board both off drops SHOW and leaves
+      `repeat(2, 1fr)`; a grid hard-coded at three fails that case.
+- [ ] **Three tools of five are not switchable, where the item asked for
+      "each".** The encounter builder and the scene runner are the *content of a
+      session row*, and a switch that hid either would make a row the GM has
+      already written unopenable — a preference that breaks the list is not the
+      preference that was asked for. Fear and the countdowns is the one that
+      does not fit that defence: it is reached from the Fear readout rather than
+      from a row. It is left on because Fear is not optional at a Daggerheart
+      table — the pool is spent from every corner of the app, and the board
+      behind that readout is the only place it can be set outright rather than
+      one point at a time. A switch there would leave the GM a number they can
+      spend and nowhere to set it. If it is ever wanted, it hides the board and
+      not the pool, and the readout goes back to being the span it was.
+- [ ] **The shell substitutes the GM screen rather than correcting the store.**
+      `allowedScreen` makes `App` *draw* Play while `useApp.getState().screen` is
+      still `'gm'`, which is the state a `setScreen('gm')` with the section off
+      leaves behind. Nothing user-facing can produce it — no tab, no header
+      entry, and `init` folds the stored value on the way in — and the two
+      alternatives are both worse than the divergence: correcting the store from
+      a render is a write during render, and correcting it in an effect makes
+      the first paint the very blank screen the substitution exists to prevent.
+      If a third caller of `setScreen` ever appears, it should go through
+      `allowedScreen` rather than have this widened.
+- [ ] **A campaign that failed to write is only said on the GM screen.** The
+      strip under the top bar is `Gm.tsx`'s, so a GM who leaves for Play or
+      Cards with a failed write behind them is told nothing — `App.tsx`'s own
+      unsaved-work banner is about the *character* store and has never known
+      about campaigns. The two stores would have to agree on what a failure is
+      before one banner could carry both, and inventing a second, quieter
+      shell-level alert for the GM store is how two banners end up disagreeing
+      about the same disk. Until then the honest reading is: the sentence is on
+      the screen the work is on.
+- [x] ~~**`GmBar` does not pay `env(safe-area-inset-bottom)`.**~~ — **it does
+      now,** and it is the only thing on the screen that does, because the tab
+      bar has gone and the notice is inside the scroll. No test reads it from
+      the DOM: jsdom drops `env(...)`, so an assertion on `style.paddingBottom`
+      could never fail. `gmShell.test` reads the source and says why there.
+- [ ] **A scene added from ADD records an environment and does not put it on the
+      board.** That is the same split the open scene row already draws — the row
+      is the plan, `GmBoard` is the table — and the row carries the two verbs
+      that cross it. Worth revisiting only if a GM reports expecting otherwise.
+- [ ] **`renameCampaign` on a campaign that is not the open one never reaches
+      the disk.** `patchCampaign` schedules a write only when the id is the
+      active one and `writeActive` gathers only the active record, so the rename
+      would sit in the window looking right and be gone on the next reload. MENU
+      therefore offers the control on the open campaign alone, with the reason
+      beside it. Fixing it is a store change — gather and write the one record
+      that was patched — and nothing covers it today.
+- [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
+      rejected,** and `removeCampaign` has no stale-build guard where
+      `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
+      on top of that. The first is at least *said*, and said where it happens:
+      `createCampaign` sets `writeError` and the GM screen draws it under the
+      top bar with no sheet open. The second is a store asymmetry this work does
+      not touch.
+- [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
+      so a repaired campaign is repaired again on every launch. The notices it
+      produces are in MENU rather than in a banner precisely because they recur.
+- [ ] **The campaign list is not re-sorted while it is open.** `readCampaigns`
+      sorts newest-played first once, on the way in; MENU keeps that order for
+      the life of the sheet. Live sorting would move the open campaign to the
+      top every 400 ms, under the thumb. If a GM ever wants the order refreshed
+      it should be a control, not a side effect of the debounce.
 
 ## P5-3 · What the GM screen could have at hand, and does not
 

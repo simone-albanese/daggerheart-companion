@@ -2,7 +2,17 @@
  * Phone navigation. Four destinations, each with a distinct silhouette rather
  * than a generic icon set, so the tab you want is findable by shape at the
  * bottom of a dim room.
+ *
+ * Three of them when the GM section is switched off, and the grid is written
+ * from the surviving tabs rather than fixed at four so the row redistributes
+ * instead of leaving a gap where the hexagon was. On a 393px phone that is
+ * 98px per tab at four and 131px at three - both far above the 44px floor, and
+ * every button keeps its 60px height, so the change is a wider target and
+ * never a smaller one. What must not survive is the tab itself: a destination
+ * the shell will not draw is a door to an empty room, and `allowedScreen` in
+ * `prefs.ts` is the other half of the same rule.
  */
+import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, type Screen } from '../../store/state.ts';
 
 const TABS: Array<{ id: Screen; label: string; mark: React.CSSProperties }> = [
@@ -31,19 +41,25 @@ const TABS: Array<{ id: Screen; label: string; mark: React.CSSProperties }> = [
 export function TabBar(): React.JSX.Element {
   const screen = useApp((s) => s.screen);
   const setScreen = useApp((s) => s.setScreen);
+  const prefs = useApp((s) => s.prefs);
+
+  // Asked as "would the shell draw this?" rather than as "is the GM section
+  // on?", so the bar cannot offer a destination the shell substitutes away -
+  // this one today, and whatever becomes conditional next.
+  const tabs = TABS.filter((tab) => allowedScreen(prefs, tab.id) === tab.id);
 
   return (
     <nav
       style={{
         flex: 'none',
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: `repeat(${String(tabs.length)}, 1fr)`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = screen === tab.id;
         return (
           <button
