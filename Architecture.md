@@ -205,6 +205,12 @@ a eseguire le regole. Qui il confine è dichiarato.
   di un gradino se si segna uno slot armatura
 - Proficiency per livello (1 · +1 a liv. 2 · +1 a liv. 5 · +1 a liv. 8)
 - Tiro di danno = Proficiency × dado dell'arma + modificatore fisso
+- Danno da incantesimo = un dado per ogni punto del tratto Spellcast (**non** la
+  Proficiency: è una regola diversa); il dado e il modificatore vengono dalla
+  carta e li indica il giocatore. A +0 o meno non si tira nulla, e l'app lo dice
+  con la frase dell'SRD invece di tirare zero dadi
+- Attacco senza armi = `[Proficiency]d4`. Il tratto no: *"Strength or Finesse
+  (GM's choice)"*, quindi lo dichiara il tavolo e non l'app
 - Esito del Duality Roll: successo/fallimento, con Hope o Fear, critico sui pari
 - Loadout massimo 5, Recall Cost da pagare in Stress
 - Conversione dell'oro (10 manciate = 1 sacca, 10 sacche = 1 forziere)
@@ -224,9 +230,14 @@ Il motivo non è pigrizia: è che modellare 189 carte con le loro eccezioni è u
 progetto più grande di tutto il resto insieme, e ogni tavolo con una variante
 finirebbe a combattere contro l'app invece di usarla.
 
-**Via di mezzo utile:** le feature con un effetto numerico dichiarato ottengono un
-pulsante che *propone* l'azione — "Tusks: +1d6 al danno" applica il bonus al tiro
-corrente se lo tocchi. Proposta, mai automatismo.
+**Via di mezzo utile — progettata, non ancora costruita:** le feature con un
+effetto numerico dichiarato dovranno ottenere un pulsante che *propone* l'azione
+— "Tusks: +1d6 al danno" applica il bonus al tiro corrente se lo tocchi.
+Proposta, mai automatismo. Oggi non esiste, e questa riga lo diceva al presente
+come se esistesse: `rollDamage` accetta solo un `extraModifier` piatto e non ha
+alcuna nozione di dadi aggiuntivi, e il vassoio dei dadi tenuti alimenta il tiro
+d'attacco, non quello di danno. Sta in `BACKLOG.md` P1-1, sotto ciò che resta
+fuori.
 
 ---
 
@@ -654,7 +665,7 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Nessuno** | Il contenuto è limitato e noto: 6 tratti, 4 contatori, 5 carte |
+| **Play** (giocatore) | **Nel corpo, con il blocco del tiro fisso** | La scheda intera non ci sta: è quella ufficiale, non 6 tratti e 4 contatori |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **Encounter** (GM) | Nel corpo | Fear pool e barra di scena restano fissi |
@@ -664,6 +675,16 @@ Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette f
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
 ambiente e due countdown non entrano in 390×844 a corpo leggibile. Fingere di sì
 produce testo a 9px, che a tavolo non si legge.
+
+**Ed è caduto anche su Play** (`91097eb`), che è la riga su cui questa tabella è
+stata sbagliata più a lungo. "Nessuno" descriveva una schermata con sei tratti e
+quattro contatori; da quando Play *è* la scheda — identità, difese, verbi dei
+tratti, equipaggiamento, loadout, vault, oro, condizioni — il contenuto non ci
+sta e non ci sta a nessuna larghezza. Resta fisso solo ciò che un pollice tocca
+a ogni azione: la riga dei tratti e il blocco del tiro, con un pavimento di 88px
+sotto la parte che scorre. Quando nemmeno quello basta — cinque Experience, dadi
+digitati, un'offerta di danno viva, su 375×667 — scorre la colonna esterna, che
+è il motivo per cui il pavimento esiste.
 
 ### 9.2 Desktop / Mac — 3 colonne
 
