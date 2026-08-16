@@ -843,8 +843,8 @@ an explicit choice rather than an accident.
 
 ---
 
-### P3-7 · The harness cannot see the class of defect this project keeps shipping
-`tests/pwa/wiring.test.ts:29` · `vitest.config.ts:9` · **small, 2–3 h**
+### ~~P3-7 · The harness cannot see the class of defect this project keeps shipping~~ — **done, `c226a09`..`03de58b`**
+`tests/harness/` · `tests/ui/screens.test.tsx` · `vitest.config.ts` · **small, 2–3 h**
 
 Four defects have now reached users with the same shape — code that exists,
 typechecks, is tested, and is never reached: the service worker was never
@@ -882,25 +882,45 @@ files today, so nothing is skipped right now — but `tests/ui/play.test.tsx`, t
 obvious filename for the first real component test, is collected by nothing,
 reported by nothing, and exits green.
 
-- [ ] Lift `REGISTER` out and walk all of `src/`; extend the pattern to arrow
-      exports. Keep both hard-won decisions verbatim — it strips comments first,
-      because a mention is not a call, and it matches `\bname\s*\(` rather than a
-      bare substring. Deliberate seams get an allowlist with a one-line reason
-      each, which then *is* the honest inventory of "shipped switched off" that
-      P1-5 asks for by hand about `rest.ts`.
-- [ ] Add `.tsx` to `include` **first**, or the next bullet ships as a file
-      nothing runs.
-- [ ] One parameterised smoke mount: every exported screen, in jsdom, under
-      `act()`, with a fixture character — asserting it renders without throwing,
-      that `document.body.textContent` is non-empty, and that every element whose
-      job is to be visible resolves to a non-transparent colour.
-      `tabBar.test.ts` already contains the whole technique, against one
-      component instead of 43.
-- [ ] Coverage is not the tool for this, and buying it would give false comfort:
-      `rest.ts` has 28 passing tests over a module the app never reaches, and a
-      coverage report would call those 226 lines fully covered. The question is
-      not whether a test executed the line; it is whether the shipped app has a
-      path to it.
+- [x] ~~Lift `REGISTER` out and walk all of `src/`~~ — **done, `7416ab4`**, and
+      further than proposed. It reaches through the *call graph* rather than
+      stopping at the module boundary, which is the clause that catches
+      `restoreFromText`: called by `restoreFromPicker`, called by nothing, in a
+      file whose other exports run every session. A per-file check would have
+      called it alive. Both hard-won decisions are kept verbatim, and imports
+      are stripped too — the original only looked for calls, and `import { f }`
+      is not one, but a bare-reference rule needs it or every symbol looks
+      alive. The analysis is its own module with ten tests of its own.
+      **42 symbols**, each allowlisted with the reason and the item that
+      deletes the line; a second test fails when an entry outlives its reason.
+- [x] ~~Add `.tsx` to `include` **first**~~ — **done, `c226a09`**, with a guard
+      that walks the disk rather than restating the config: every `*.test.ts`
+      and `*.test.tsx` present must be matched by some include pattern.
+- [x] ~~One parameterised smoke mount~~ — **done, `4047a39` + `03de58b`**. All
+      **76** exported components, in jsdom, under `act()`, against a level-3
+      Bard built from the shipped SRD rather than a synthetic dataset. Three
+      questions each: it mounts, it draws something (or is written down as
+      drawing nothing, with the reason), and every control it draws has a name.
+      Plus one the proposal did not ask for and that has already earned its
+      place: **any React console warning fails the run.**
+      The colour clause was dropped deliberately — jsdom computes no layout, so
+      "resolves to a non-transparent colour" is unanswerable there, and
+      `tabBar.test.ts` already fails on the `background` +
+      `backgroundColor: undefined` pattern anywhere in the tree, which is the
+      mechanism rather than the instance.
+- [x] ~~Coverage is not the tool for this~~ — agreed and not bought. The
+      allowlist answers the actual question: not whether a test executed the
+      line, but whether the shipped app has a path to it.
+
+Two things this found that the audit had not, both recorded in the allowlist:
+`FrameCollector` and `toFrameBytes` are exercised by tests as though they were
+the QR receive path, and the app reassembles through `createAccumulator`
+instead; the same holds for `parseCharacterFile`/`parseBackupFile` against
+`parseTransferFile`. Four modules' tests are testing a road the app never takes.
+
+`fake-indexeddb` arrives here, which P0-8 also needs: the mount runs the real
+`init()` against a real database, so the boot path is exercised rather than
+stubbed. Until this commit **no test in this repo had ever opened a database.**
 
 ### P3-8 · Nothing tells the user whether the app is actually offline-ready
 `src/ui/shell/App.tsx:72` · `src/pwa/register.ts:45-46, 87-94` · **trivial, 1 h**
