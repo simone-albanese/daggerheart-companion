@@ -17,7 +17,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../shared/types.ts';
-import { decideImport, duplicateFor } from '../../src/store/merge.ts';
+import { decideImport, duplicateFor, freeName } from '../../src/store/merge.ts';
 import { indexDataset } from '../../src/engine/character.ts';
 import {
   makeArmor,
@@ -91,6 +91,87 @@ describe('keeping both copies', () => {
     const copy = duplicateFor(incoming, [incoming], now);
     expect(copy.level).toBe(7);
     expect(copy.notes).toBe('a ledger of names');
+  });
+
+  it('counts past a copy whose name differs only in case', () => {
+    // The blind spot in the old comparison, on the door that already had a
+    // guard. `new Set(taken.map((c) => c.name))` holds "ilya (imported)" and
+    // is asked about "Ilya (imported)", so it said the name was free - and the
+    // picker got two rows that read the same at 13px.
+    const incoming = makeCharacter({ name: 'Ilya' });
+    const taken = [incoming, { ...incoming, id: 'a-lower-case-copy', name: 'ilya (imported)' }];
+    expect(duplicateFor(incoming, taken, now).name).toBe('Ilya (imported 2)');
+  });
+
+  it('builds the copy out of the name the app speaks, not the string it stored', () => {
+    // A sheet arriving as "  Ilya  " used to become "  Ilya   (imported)":
+    // identical on screen to "Ilya (imported)", different to every comparison
+    // and every sort. Minting the name is this function's job, so it mints the
+    // one the app can actually show.
+    expect(duplicateFor(makeCharacter({ name: '  Ilya  ' }), [], now).name).toBe('Ilya (imported)');
+  });
+});
+
+/**
+ * The one rule about two characters with the same name.
+ *
+ * `merge.ts:63-75` stated this rule and argued for it - *"the character picker
+ * in the header is a `<select>` of names, so two characters called 'Ilya' would
+ * be indistinguishable at exactly the moment the user most needs to tell them
+ * apart"* - and then enforced it on one of its two doors. The other door, a
+ * person typing a name on the sheet, had no guard at all.
+ *
+ * And the comparison it did make was `new Set(taken.map((c) => c.name))`, which
+ * cannot see "ilya", cannot see " Ilya", and cannot see two characters both
+ * stored as `''` - all three of which the `<select>` draws identically. So the
+ * rule is now one function with one definition of "the same name", and these
+ * are tests of that definition rather than of either door.
+ */
+describe('the one rule about two characters with the same name', () => {
+  it('offers the bare base when the base is free', () => {
+    // The difference between the two sequences, and the reason the rename path
+    // could not simply call `duplicateFor`: a person renaming a character wants
+    // the nearest free name, and the bare one when it is free.
+    expect(freeName('Ilya', [])).toBe('Ilya');
+  });
+
+  it('counts up past every name that is taken', () => {
+    const taken = [makeCharacter({ name: 'Ilya' }), makeCharacter({ name: 'Ilya (2)' })];
+    expect(freeName('Ilya', taken)).toBe('Ilya (3)');
+  });
+
+  it('counts up case-blind, so the offer is not itself a collision', () => {
+    const taken = [makeCharacter({ name: 'ilya' }), makeCharacter({ name: 'ILYA (2)' })];
+    expect(freeName('Ilya', taken)).toBe('Ilya (3)');
+  });
+
+  it('reads leading and trailing space as no difference', () => {
+    expect(freeName(' Ilya ', [makeCharacter({ name: 'Ilya' })])).toBe('Ilya (2)');
+  });
+
+  it('reads a doubled space as no difference, because HTML collapses it', () => {
+    expect(freeName('Il  ya', [makeCharacter({ name: 'Il ya' })])).toBe('Il ya (2)');
+  });
+
+  it('reads an empty name as the word every screen prints for it', () => {
+    // P5-1(b)'s third bullet. Two characters stored as '' both draw "Unnamed",
+    // and the old comparison saw two empty strings colliding with nothing.
+    expect(freeName('', [])).toBe('Unnamed');
+    expect(freeName('', [makeCharacter({ name: '' })])).toBe('Unnamed (2)');
+    expect(freeName('   ', [makeCharacter({ name: 'Unnamed' })])).toBe('Unnamed (2)');
+  });
+
+  it('never offers the bare base to the import path', () => {
+    // The copy's job is to be tellably different from the original, even when
+    // the original is not in `taken` at all.
+    expect(freeName('Ilya', [], { suffix: 'imported' })).toBe('Ilya (imported)');
+  });
+
+  it('leaves the character being renamed out of the count', () => {
+    // Without this, opening rename and pressing SAVE unchanged would offer to
+    // rename Ilya to "Ilya (2)".
+    const c = makeCharacter({ name: 'Ilya' });
+    expect(freeName('Ilya', [c], { except: c.id })).toBe('Ilya');
   });
 });
 
