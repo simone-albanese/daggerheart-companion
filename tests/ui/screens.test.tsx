@@ -96,6 +96,7 @@ import { ReconciliationReport, Rulebook } from '../../src/ui/settings/Rulebook.t
 import { Settings } from '../../src/ui/settings/Settings.tsx';
 import { Transfer } from '../../src/ui/settings/Transfer.tsx';
 import {
+  Action,
   Choice as SettingsChoice,
   Field,
   Note,
@@ -499,6 +500,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'settings/parts.tsx::Rows': () => <Rows>body</Rows>,
   'settings/parts.tsx::Field': () => <Field label="A field">body</Field>,
+  // Deliberately outside a Field: with no provider above it, the context
+  // default has to leave `aria-describedby` off rather than point at an
+  // element that is not on the page.
+  'settings/parts.tsx::Action': () => <Action onClick={noop}>Do the thing</Action>,
   'settings/parts.tsx::Switch': () => <Switch checked onChange={noop} label="A switch" />,
   'settings/parts.tsx::Choice': () => (
     <SettingsChoice value="a" onChange={noop} options={[['a', 'A'], ['b', 'B']]} label="Pick" />
