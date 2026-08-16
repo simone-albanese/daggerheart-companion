@@ -22,9 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The same `.nvmrc` CI reads. A deploy that ran a different Node from the
+      # one the gate ran would make the gate mean less than it looks like it
+      # means, and that is the drift this file used to carry a literal for.
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: npm
 
       - run: npm ci

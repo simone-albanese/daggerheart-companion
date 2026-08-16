@@ -45,6 +45,11 @@ Where a feature has a *declared* numeric effect, the app offers a button that
 
 ## Getting started
 
+**Node 24**, which is what `.nvmrc` says and what CI and the deploy both read
+out of it. `nvm use` picks it up. Newer majors will very likely work — nothing
+here is close to the edge of the runtime — but 24 is the only one anything
+verifies, so it is the one number in this repo worth matching.
+
 ```sh
 npm install
 npm run dev
@@ -64,14 +69,25 @@ npm run build:srd
 
 The build refuses to emit a dataset that fails validation: wrong counts, a
 surviving Private Use Area glyph, a broken ligature, a dangling reference, a
-duplicate id. `npm run build:srd -- --check` is the CI form, and fails if the
-committed JSON no longer matches the source.
+duplicate id. `npm run build:srd -- --check` validates and writes nothing, and
+fails if `data/srd-1.0.json` no longer matches the source.
+
+CI reaches the same verdict by a different route: it rebuilds and then runs
+`git diff --exit-code -- data/`, which also catches a dataset that was edited
+by hand. Either way it only runs on a runner that has been given the PDF, and a
+stock one has not — the rest of CI builds against the committed JSON.
 
 ### Toolchain note
 
-The repo carries no Node of its own. If your system Node is broken, drop a
-release tarball into `.tools/node` and `. ./env.sh` will pick it up — the
-project never asks you to repair anything outside it.
+The repo carries no Node of its own. If you already manage Node per project —
+nvm, fnm, asdf, mise, Volta — they all read `.nvmrc` and there is nothing here
+for you to do.
+
+If you do not, and you would rather not move a system Node that other projects
+on the machine are relying on, unpack a release of that major into
+`.tools/node`; `. ./env.sh` puts it first on PATH for that shell. Either way,
+`env.sh` warns when the Node you end up with is a different major from the one
+CI runs, so the mismatch surfaces on the machine that has it.
 
 ---
 
@@ -123,10 +139,11 @@ tools/          runs in Node, never shipped to the browser
 data/           the only committed content: srd-1.0.json, registry.json
 shared/         used by both tools/ and src/: textLayout, slugify, parsers
 src/engine/     pure rules arithmetic. No UI, no I/O, fully tested
-src/store/      IndexedDB, the layered dataset, preferences
+src/store/      IndexedDB, the layered dataset, preferences, backup
 src/transfer/   the .dhchar file, the binary codec, animated QR
 src/import/     the optional Core Rulebook importer (desktop only)
-src/ui/         shell, player, gm, settings
+src/pwa/        service worker registration, the update prompt, the wake lock
+src/ui/         shell, player, build, gm, settings, print, and what they share
 ```
 
 `.gitignore`, first line: `*.pdf`.
@@ -139,11 +156,23 @@ Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
 `navigator.storage.persist()` is granted inconsistently. A group that plays
 every three weeks would lose a character between sessions.
 
-So: persistence is requested at the right moment and with an explanation,
-there is an automatic export, the indicator says how long it has been, and
-after seven days of silence the app checks its own integrity and offers a
-restore. A character is months of someone's work; losing it is the one
-unforgivable bug in an app like this.
+So: persistence is requested at the right moment and with an explanation; the
+indicator says how long it has been since the last export, and gets loud at
+five days; and every launch checks that what the last session left behind is
+still there. When it is not, the app names the missing characters rather than
+counting them, and points at the screen that can restore them. Past seven idle
+days it also names the browser as the likely cause — and only then, because
+that is when there is evidence for it rather than a guess.
+
+**The automatic export has a precondition, and the app does not pretend
+otherwise.** Choose a folder once in Settings and a copy is written into it
+when you put the app down and when the page goes away. Until you do, nothing is
+exported automatically, and Settings says exactly that instead of implying a
+copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
+does not have it, the app says so and the export stays a button you press.
+
+A character is months of someone's work; losing it is the one unforgivable bug
+in an app like this.
 
 ---
 
@@ -170,8 +199,16 @@ working document.
 The SRD 1.0 is Public Game Content under the DPCGL and is redistributable with
 attribution — which is why `data/srd-1.0.json` is committed. The full Core
 Rulebook is not: it stays on the owner's device, and an art pack made from it
-is personal, for their own devices, not for sharing. No official logos are
-used. No PDF and no artwork is in this repository.
+is personal, for their own devices, not for sharing.
+
+The one piece of official artwork here is Darrington Press's "Daggerheart
+Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
+use. The full lockup sits under the attribution on the first-run screen, and
+the dagger-and-flame icon alone sits in the header on every screen. It is
+deliberately never the app's own icon, because a home-screen icon that is the
+official logo reads as an official app, which this is not. The licence text in
+Settings › About carries the attribution as words, without the mark. No
+rulebook PDF and no rulebook artwork is in this repository.
 
 Fonts: Archivo and IBM Plex Mono, both SIL Open Font License 1.1, self-hosted
 so the app works with the radio off (`public/fonts/`).

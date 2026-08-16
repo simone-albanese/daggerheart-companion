@@ -46,7 +46,7 @@ export const FILE_MIME = 'application/json';
  * constant rather than read from package.json: the app version is a fact about
  * the build, and the build is what ships this file.
  */
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 
 export interface CharacterFile {
   format: typeof CHARACTER_FORMAT;
