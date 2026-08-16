@@ -13,39 +13,21 @@
  * survives a dataset update: the rules it depends on are resolved at read time,
  * here, against whatever dataset this GM has.
  */
-import type { Character } from '../../../shared/types.ts';
+import type {
+  Character,
+  PartyMember,
+  PartySource,
+  PartyTracks,
+} from '../../../shared/types.ts';
 import type { DatasetIndex } from '../../engine/character.ts';
 
-/** How the sheet arrived. Both are one-time handovers; neither is a channel. */
-export type PartySource = 'file' | 'code';
-
-/**
- * The GM's own tally, in the same terms the tracks use everywhere else: HP,
- * Stress and Armor count what is *marked*, Hope counts what is *available*.
+/*
+ * `PartySource`, `PartyTracks` and `PartyMember` are declared in
+ * `shared/types.ts` now: a campaign record stores the whole board, so they are
+ * persisted shapes and belong beside `Character`. Re-exported here because
+ * every screen that draws a row imports them from this module.
  */
-export interface PartyTracks {
-  hp: number;
-  stress: number;
-  hope: number;
-  armor: number;
-}
-
-export interface PartyMember {
-  /**
-   * The board's handle, and the character's own id - so a second import of the
-   * same sheet lands on the row it already had instead of beside it.
-   */
-  id: string;
-  sheet: Character;
-  importedAt: string;
-  source: PartySource;
-  tracks: PartyTracks;
-  /**
-   * When the GM last moved a track by hand. Null while the tracks are still
-   * exactly the ones that arrived, which is the only time the board may say so.
-   */
-  markedAt: string | null;
-}
+export type { PartyMember, PartySource, PartyTracks } from '../../../shared/types.ts';
 
 export interface PartyImport {
   party: PartyMember[];

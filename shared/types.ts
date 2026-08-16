@@ -424,3 +424,93 @@ export interface Character {
   /** Registry ids that this device could not resolve. Never discarded. */
   unresolvedRefs?: number[];
 }
+
+// ---------------------------------------------------------------------------
+// The GM's own records
+// ---------------------------------------------------------------------------
+
+/*
+ * Four of these were declared in `src/engine/encounter.ts` and three more in
+ * `src/ui/gm/party.ts`. That was right while the GM's state lived in
+ * localStorage and belonged to whichever screen drew it. It stops being right
+ * the moment a campaign record in IndexedDB stores every one of them verbatim:
+ * they are persisted shapes now, and persisted shapes belong here beside
+ * `Character`, where Architecture 6.1's schema policy can see them. Both
+ * modules re-export what they used to declare, so every existing import reads
+ * exactly the same.
+ */
+
+/** The Fear pool's ceiling. A rule number, and the bound the reader clamps to. */
+export const MAX_FEAR = 12;
+
+export type CountdownKind = 'standard' | 'dynamic' | 'loop' | 'long-term';
+
+export interface Countdown {
+  id: string;
+  name: string;
+  kind: CountdownKind;
+  start: number;
+  value: number;
+  notes: string;
+}
+
+export interface SceneCombatant {
+  id: string;
+  adversaryRef: string;
+  name: string;
+  hp: Counter;
+  stress: Counter;
+  thresholds: [number, number] | null;
+  difficulty: number;
+  spotlighted: boolean;
+  /** Minions in this group still standing. */
+  minionsRemaining?: number;
+  notes: string;
+}
+
+export interface EncounterAdjustments {
+  /** -1 for an easier or shorter fight. */
+  easier: boolean;
+  /** +2 for a harder or longer fight. */
+  harder: boolean;
+  /** -2 if you add +1d4 (or a static +2) to all adversaries' damage rolls. */
+  damageBump: boolean;
+}
+
+/** One line of the encounter builder: an adversary, and how many of it. */
+export interface RosterEntry {
+  ref: Ref;
+  /** For Minions this counts *groups*, each the size of the party. */
+  count: number;
+}
+
+/** How a sheet reached the party board. Both are one-time handovers. */
+export type PartySource = 'file' | 'code';
+
+/**
+ * The GM's own tally, in the same terms the tracks use everywhere else: HP,
+ * Stress and Armor count what is *marked*, Hope counts what is *available*.
+ */
+export interface PartyTracks {
+  hp: number;
+  stress: number;
+  hope: number;
+  armor: number;
+}
+
+export interface PartyMember {
+  /**
+   * The board's handle, and the character's own id - so a second import of the
+   * same sheet lands on the row it already had instead of beside it.
+   */
+  id: string;
+  sheet: Character;
+  importedAt: string;
+  source: PartySource;
+  tracks: PartyTracks;
+  /**
+   * When the GM last moved a track by hand. Null while the tracks are still
+   * exactly the ones that arrived, which is the only time the board may say so.
+   */
+  markedAt: string | null;
+}

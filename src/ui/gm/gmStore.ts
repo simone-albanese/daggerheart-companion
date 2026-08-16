@@ -16,7 +16,13 @@
  * touches the character store, and this file never imports it.
  */
 import { create } from 'zustand';
-import type { Adversary, Character, Ref, Tier } from '../../../shared/types.ts';
+import type {
+  Adversary,
+  Character,
+  Ref,
+  RosterEntry,
+  Tier,
+} from '../../../shared/types.ts';
 import {
   MAX_FEAR,
   makeCombatant,
@@ -37,11 +43,8 @@ import {
 
 export type GmRegion = 'encounter' | 'scene' | 'party' | 'bestiary' | 'countdowns';
 
-export interface RosterEntry {
-  ref: Ref;
-  /** For Minions this counts *groups*, each the size of the party. */
-  count: number;
-}
+/** Declared in `shared/types.ts` now; a campaign record stores the roster. */
+export type { RosterEntry } from '../../../shared/types.ts';
 
 /** Which sheets landed on the board, and which ones were already on it. */
 export interface PartyImportSummary {
