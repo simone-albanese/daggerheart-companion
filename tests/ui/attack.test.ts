@@ -25,7 +25,10 @@
 import { describe, expect, it } from 'vitest';
 import { rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
+  damageArithmetic,
+  damageLogEntry,
   damageOffer,
+  damageTypeOf,
   isRollableDamage,
   sourceFromWeapon,
   sourceName,
@@ -168,5 +171,82 @@ describe('rollable damage', () => {
     expect(isRollableDamage({ count: 0, sides: 10, modifier: 0 })).toBe(false);
     expect(isRollableDamage({ count: 2, sides: 1, modifier: 0 })).toBe(false);
     expect(isRollableDamage({ count: 2, sides: 8, modifier: Number.NaN })).toBe(false);
+  });
+});
+
+describe('which of the two damage types', () => {
+  it('reads a weapon rather than assuming weapons are physical', () => {
+    // "Unless stated otherwise, mundane weapons and unarmed attacks deal
+    // physical damage, and spells deal magic damage." 70 of the 204 shipped
+    // weapons state otherwise, so the weapon is asked.
+    expect(damageTypeOf(weaponSource('d10+3', 3))).toBe('phy');
+    const magic = sourceFromWeapon(
+      makeWeapon({ damage: 'd8', damageType: 'mag', name: 'Hand Runes' }),
+      makeStats({ proficiency: 2 }),
+    );
+    expect(damageTypeOf(magic!)).toBe('mag');
+  });
+
+  it('gives an unarmed attack and a companion the default', () => {
+    expect(damageTypeOf(unarmedSource(makeStats({ proficiency: 2 })))).toBe('phy');
+    // The companion variant carries no damageType of its own. A total function
+    // over the union has to answer for it, and the answer is the SRD's default
+    // rather than a crash on a shape the type system already allows.
+    expect(
+      damageTypeOf({ kind: 'companion', name: 'Wolf', damage: { count: 1, sides: 6, modifier: 0 } }),
+    ).toBe('phy');
+  });
+});
+
+/**
+ * The damage roll as it reaches the log, where the honesty rule is at its
+ * narrowest: a line reading "Longsword · 21 PHY" says damage was dealt, and
+ * `succeeded === null` means nobody has said the attack hit.
+ */
+describe('the line the damage roll writes', () => {
+  const rolled = (dice: DamageDice, critical: boolean, faces: number[]): ReturnType<typeof rollDamage> =>
+    rollDamage(dice, { critical, fixed: faces }, seededRng(7));
+
+  it('prints every number that went into the total, and reaches it', () => {
+    const result = rolled({ count: 3, sides: 10, modifier: 3 }, false, [7, 2, 9]);
+    expect(damageArithmetic(result)).toBe('7 + 2 + 9 +3 = 21');
+
+    const entry = damageLogEntry(attack(), result);
+    expect(entry.kind).toBe('damage');
+    expect(entry.total).toBe(21);
+    expect(entry.label).toBe('21 PHY');
+    expect(entry.detail).toBe('Longsword 3d10+3 · 7 + 2 + 9 +3 = 21');
+  });
+
+  it('says IF IT HIT when the GM has not given the verdict', () => {
+    const result = rolled({ count: 3, sides: 10, modifier: 3 }, false, [7, 2, 9]);
+    const entry = damageLogEntry(attack({ succeeded: null, outcome: 'undecided-hope' }), result);
+    expect(entry.label).toBe('IF IT HIT · 21 PHY');
+    // The bare form is the one that claims a hit, so it must not be the one
+    // that gets written when no hit has been declared.
+    expect(entry.label).not.toBe('21 PHY');
+  });
+
+  it('says CRITICAL, and counts the bonus in the sum it prints', () => {
+    const result = rolled({ count: 3, sides: 10, modifier: 3 }, true, [7, 2, 9]);
+    const entry = damageLogEntry(attack({ critical: true, outcome: 'critical' }), result);
+    expect(entry.total).toBe(51);
+    expect(entry.label).toBe('CRITICAL · 51 PHY');
+    // Without the crit term the detail reads "7 + 2 + 9 +3 = 51", which is
+    // arithmetic that does not reach its own answer.
+    expect(entry.detail).toContain('+30 crit');
+    expect(entry.detail).toContain('= 51');
+  });
+
+  it('carries the attack’s outcome, so the log colours the two lines alike', () => {
+    const result = rolled({ count: 3, sides: 10, modifier: 3 }, true, [7, 2, 9]);
+    expect(damageLogEntry(attack({ critical: true, outcome: 'critical' }), result).outcome).toBe(
+      'critical',
+    );
+  });
+
+  it('drops a modifier of zero rather than printing +0', () => {
+    const result = rolled({ count: 2, sides: 4, modifier: 0 }, false, [3, 1]);
+    expect(damageArithmetic(result)).toBe('3 + 1 = 4');
   });
 });

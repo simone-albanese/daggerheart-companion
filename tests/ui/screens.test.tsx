@@ -84,8 +84,9 @@ import { Beastform } from '../../src/ui/player/Beastform.tsx';
 import { Cards } from '../../src/ui/player/Cards.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
+import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
-import { DualityRoll } from '../../src/ui/player/DualityRoll.tsx';
+import { DualityRoll, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
 import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
@@ -467,9 +468,32 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <CompanionPanel stats={stats()} layout="desktop" />
   ),
   'player/Conditions.tsx::ActiveConditions': () => <ActiveConditions />,
+  // A real attack rather than null, so the row draws and stays out of
+  // DRAWS_NOTHING: null is its "no roll has happened yet" state, which is the
+  // one state this file cannot tell apart from a broken render.
+  'player/DamageRoll.tsx::DamageRow': () => (
+    <DamageRow
+      attack={{
+        source: { kind: 'unarmed', damage: { count: 2, sides: 4, modifier: 0 } },
+        critical: false,
+        succeeded: true,
+        outcome: 'success-hope',
+        reaction: false,
+        proficiency: 2,
+      }}
+      affordance={rollAffordance(true, true)}
+      layout="desktop"
+    />
+  ),
   'player/DeathMove.tsx::DeathMoveOffer': () => <DeathMoveOffer />,
   'player/DualityRoll.tsx::DualityRoll': () => (
-    <DualityRoll stats={stats()} trait="agility" onTraitChange={noop} layout="desktop" />
+    <DualityRoll
+      stats={stats()}
+      trait="agility"
+      onTraitChange={noop}
+      source={null}
+      layout="desktop"
+    />
   ),
   'player/Play.tsx::Play': () => <Play stats={stats()} />,
   'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,

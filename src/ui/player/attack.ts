@@ -35,7 +35,13 @@
 import type { Weapon } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
-import { formatDamage, type DamageDice, type RollOutcome } from '../../engine/dice.ts';
+import {
+  formatDamage,
+  type DamageDice,
+  type DamageResult,
+  type RollOutcome,
+} from '../../engine/dice.ts';
+import type { LogEntry } from '../../store/state.ts';
 
 /** What the attack was made with. */
 export type AttackSource =
@@ -50,6 +56,42 @@ export type AttackSource =
     }
   | { kind: 'unarmed'; damage: DamageDice }
   | { kind: 'companion'; name: string; damage: DamageDice };
+
+/**
+ * What the next attack is declared with, before the dice.
+ *
+ * A kind and a ref, never a resolved pool. The pool is re-derived from this on
+ * every render, which is the whole reason it is this small: a level-up, a
+ * Beastform, or a weapon taken off in Build moves the dice or removes the offer
+ * outright, where a `{ count, sides, modifier }` stored at the moment of the tap
+ * would sit there being quietly wrong until somebody rolled it.
+ */
+export type Declaration = { kind: 'weapon'; ref: string };
+
+/**
+ * The declaration, what it resolves to, and the one way to change it.
+ *
+ * One object rather than three props because the three must not be able to
+ * drift: `source` is derived from `declared`, and a component handed them
+ * separately could render one against a stale other.
+ */
+export interface Arming {
+  declared: Declaration | null;
+  /**
+   * The pool the declaration resolves to right now, or null when it cannot -
+   * a weapon removed in Build, or one whose damage string will not parse.
+   */
+  source: AttackSource | null;
+  /**
+   * Declare an attack, or withdraw one with null.
+   *
+   * A weapon also arms its own trait, because the weapon is what decides it:
+   * *"The trait that applies to an attack roll is specified by the weapon or
+   * spell being used."* Withdrawing leaves the trait alone - putting a sword
+   * down is not a statement about what you are rolling instead.
+   */
+  arm: (declaration: Declaration | null) => void;
+}
 
 export interface ArmedAttack {
   /**
@@ -196,3 +238,69 @@ export function damageOffer(attack: ArmedAttack): DamageOffer {
 /** The name to put on a log line or an arming chip. */
 export const sourceName = (source: AttackSource): string =>
   source.kind === 'unarmed' ? 'Unarmed' : source.name;
+
+/**
+ * Which of the two damage types this source deals.
+ *
+ * *"There are two damage types: physical damage (phy) and magic damage (mag).
+ * Unless stated otherwise, mundane weapons and unarmed attacks deal physical
+ * damage, and spells deal magic damage."*
+ *
+ * A weapon carries its own answer and it is read rather than guessed: 70 of the
+ * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
+ * than a third of the time. Nothing else on this union states otherwise - an
+ * unarmed attack is physical by the sentence above, and a companion's attack is
+ * the Ranger's beast biting something - so both take the default. The magic
+ * branch arrives with the spellcast source, which is the rest of P1-1.
+ */
+export const damageTypeOf = (source: AttackSource): 'phy' | 'mag' =>
+  source.kind === 'weapon' ? source.damageType : 'phy';
+
+/**
+ * Every number that went into the total, in the order it was added.
+ *
+ * It exists so the row and the log line cannot print two different sums for one
+ * roll. The critical bonus is in here for the same reason it is in the offer's
+ * label: it is part of the total, so a line that left it out would show
+ * arithmetic that does not reach its own answer.
+ */
+export function damageArithmetic(result: DamageResult): string {
+  const parts = [result.dice.join(' + ')];
+  if (result.modifier !== 0) {
+    parts.push(`${result.modifier > 0 ? '+' : '−'}${Math.abs(result.modifier)}`);
+  }
+  if (result.criticalBonus > 0) parts.push(`+${result.criticalBonus} crit`);
+  return `${parts.join(' ')} = ${result.total}`;
+}
+
+/**
+ * The damage roll, as a line in the log.
+ *
+ * The prefix is the honesty rule at its narrowest. A line reading *"Battleaxe ·
+ * 21 PHY"* says damage was dealt; when `succeeded` is null nobody has said the
+ * attack hit, and the app is not entitled to record a hit the GM has not given.
+ * So the null case is announced as conditional rather than rendered flat, and
+ * a critical says so too, because the total is 20 higher than the pool beside
+ * it explains.
+ *
+ * `outcome` rides along so the damage line colours the way the attack line
+ * above it did. `RecentLog` tints by outcome; without this a critical's damage
+ * would render grey next to the gold roll that earned it.
+ */
+export function damageLogEntry(
+  attack: ArmedAttack,
+  result: DamageResult,
+): Omit<LogEntry, 'id' | 'at'> {
+  const prefix = attack.critical
+    ? 'CRITICAL · '
+    : attack.succeeded === null
+      ? 'IF IT HIT · '
+      : '';
+  return {
+    kind: 'damage',
+    label: `${prefix}${result.total} ${damageTypeOf(attack.source).toUpperCase()}`,
+    detail: `${sourceName(attack.source)} ${result.spec} · ${damageArithmetic(result)}`,
+    outcome: attack.outcome,
+    total: result.total,
+  };
+}

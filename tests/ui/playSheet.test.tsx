@@ -925,6 +925,187 @@ describe('what the attack is made with', () => {
       'the axe is still armed for a Spellcast roll',
     ).toBe('false');
   });
+
+  it('says what is armed on the closed fold, so a declaration is never off screen', () => {
+    play(withBattleaxe());
+    expect(fold('Weapons & armour').textContent).toContain('3 WORN');
+    click(weaponRow('Battleaxe'));
+    expect(
+      fold('Weapons & armour').textContent,
+      'the fold can be shut with a weapon armed and nothing would say which',
+    ).toContain('ARMED · BATTLEAXE');
+  });
+});
+
+/**
+ * The link the app has never had: an attack roll leading into its damage roll.
+ *
+ * `rollDamage` has been correct since the first commit and has never had a
+ * caller, so this is the first test in the repo that can watch a damage roll
+ * happen on a screen. Typing is switched on for these, because it is the only
+ * way to decide what the Duality dice show - a critical needs matching faces,
+ * and an undecided roll needs two that do not match.
+ */
+describe('rolling the damage the attack earned', () => {
+  /** A sheet at 393px with typed dice on, so the faces can be dictated. */
+  function withTypedDice(patch: Partial<Character> = {}): Character {
+    const c = seed(patch);
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, manualDice: true } });
+    play(c);
+    return c;
+  }
+
+  function weaponRow(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  /** Tap a die face open and pick a value out of its 4-column grid. */
+  function typeFace(label: 'HOPE' | 'FEAR', value: number): void {
+    const face = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${label} die`),
+    );
+    if (face === undefined) throw new Error(`no ${label} die face to type into`);
+    click(face);
+    // Inside the pinned block: the defence band up in the scroll is a
+    // `repeat(4, 1fr)` grid too, and it comes first in document order.
+    const pinned = container.firstElementChild!.children[1]!;
+    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+      (d) => d.style.gridTemplateColumns === 'repeat(4, 1fr)',
+    );
+    if (grid === undefined) throw new Error('the die did not open its face grid');
+    const cell = [...grid.querySelectorAll('button')].find((b) => b.textContent === String(value));
+    if (cell === undefined) throw new Error(`the face grid has no ${String(value)}`);
+    click(cell);
+  }
+
+  /** The damage control, which is the only thing here that announces a roll. */
+  const damageControl = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Roll '));
+
+  it('offers the scaled pool, and the critical bonus that pool earns', () => {
+    // Battleaxe is d10+3, and the fixture is Proficiency 2 - so the pool is
+    // 2d10+3 and the critical adds 20, not 10. Matching faces are a critical.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+
+    const damage = damageControl();
+    expect(damage, 'a successful attack offered no damage roll').toBeDefined();
+    const label = damage!.textContent ?? '';
+    expect(label).toContain('CRITICAL');
+    expect(label).toContain('2d10+3');
+    expect(label, 'the bonus was read off the unscaled weapon').toContain('+20');
+    expect(label).not.toContain('+10');
+  });
+
+  it('offers it with no Difficulty typed, which is the default and the common case', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'no Difficulty meant no offer at all').toBeDefined();
+    expect((damage!.textContent ?? '').trim()).toMatch(/^IF IT HIT/);
+  });
+
+  it('offers it even when arming the weapon moves nothing else', () => {
+    /*
+     * The Broadsword rolls with Agility, and Agility is already the armed
+     * trait - so arming it changes the declaration and not one other thing on
+     * this screen. That is exactly where a stale `resolve` closure hides: every
+     * other value that callback depends on stays put, so if `source` is not
+     * among them the snapshot is taken from the first render, where nothing was
+     * declared, and the offer never appears with nothing on screen saying why.
+     * There is no eslint in this repo to notice a missing dependency.
+     */
+    withTypedDice();
+    click(weaponRow('Broadsword'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    const damage = damageControl();
+    expect(damage, 'the declaration never reached the roll that resolved').toBeDefined();
+    expect(damage!.textContent).toContain('2d8');
+  });
+
+  it('offers nothing for a roll made with nothing declared', () => {
+    // A persuasion check is a Duality Roll too. It carries no source, and a
+    // damage offer standing under it would be the sheet inventing an attack.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+    expect(damageControl()).toBeUndefined();
+  });
+
+  it('rolls it, and puts the total where a phone can read it', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+    click(damageControl()!);
+
+    const entry = useApp.getState().log.find((e) => e.kind === 'damage');
+    expect(entry, 'no damage was written to the log').toBeDefined();
+    expect(entry!.label, 'the log claims a hit the GM never gave').toMatch(/^IF IT HIT/);
+    // There is no log surface on a phone, so the number has to be on the
+    // control itself.
+    const shown = buttons().find((b) => (b.getAttribute('aria-label') ?? '').includes('damage'));
+    expect(shown!.textContent).toContain(String(entry!.total));
+  });
+
+  /*
+   * The pinned block, measured again after a roll.
+   *
+   * Every sweep in this file runs before any roll has happened, so none of them
+   * has ever seen the damage row. The Duality bar cannot be found by text here:
+   * once a roll resolves its label becomes OUTCOME_LABEL - "Critical Success",
+   * "Rolled with Hope" - and not one of those contains the substring ROLL. It
+   * is found structurally instead, as the one control in the block that fixes
+   * its own height rather than declaring a floor.
+   */
+  it('still costs the pinned block exactly two regions, with typing on', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+    expect(damageControl(), 'this test is not measuring a block with a damage row in it').toBeDefined();
+
+    const rootEl = container.firstElementChild!;
+    expect(rootEl.children, 'the damage row was mounted as a sibling of the scroll').toHaveLength(2);
+    const pinned = rootEl.children[1]!;
+    expect(pinned.children, 'the damage row was mounted beside the roll block').toHaveLength(2);
+  });
+
+  it('leaves every target in the pinned block at the floor after a roll', () => {
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 5);
+    typeFace('FEAR', 5);
+
+    const pinned = container.firstElementChild!.children[1]!;
+    const targets = [...pinned.querySelectorAll('button')];
+    for (const t of targets) {
+      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
+      const value =
+        declared === 'var(--tap)' || declared === 'var(--control)' ? 44 : Number.parseFloat(declared);
+      expect(
+        value,
+        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+
+    const fixed = targets.filter((b) => b.style.height !== '');
+    expect(
+      fixed.map((b) => b.style.height),
+      'the roll bar is no longer the one control that fixes its own height',
+    ).toEqual(['66px']);
+  });
 });
 
 describe('the verbs under the traits', () => {

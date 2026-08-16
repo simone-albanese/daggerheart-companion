@@ -33,7 +33,6 @@ import {
   type DomainCard,
   type Ref,
   type Trait,
-  type Weapon,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatGold } from '../../engine/gold.ts';
@@ -50,6 +49,13 @@ import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
+import {
+  sourceFromWeapon,
+  sourceName,
+  type Arming,
+  type AttackSource,
+  type Declaration,
+} from './attack.ts';
 import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
@@ -60,8 +66,26 @@ import { Vitals } from './Vitals.tsx';
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
   const layout = useLayout();
+  const index = useApp((s) => s.index);
   const [trait, setTrait] = useState<RollTrait>('agility');
-  const [armedWeapon, setArmedWeapon] = useState<string | null>(null);
+  const [declared, setDeclared] = useState<Declaration | null>(null);
+
+  /*
+   * The pool the declaration resolves to, re-derived on every render.
+   *
+   * What is remembered is a ref; what is rolled is worked out from it here and
+   * nowhere else. That is what makes a level-up, a Beastform or a weapon
+   * unequipped in Build move the dice - or take the offer away altogether -
+   * instead of leaving a `2d10+3` armed that nothing will ever refresh. And it
+   * goes through `sourceFromWeapon` rather than a regex, because `weaponDamage`
+   * keeps the modifier on a weapon spelled `d10 + 2` and two routes to one
+   * number is two numbers eventually.
+   */
+  const source = useMemo<AttackSource | null>(() => {
+    if (declared === null) return null;
+    const weapon = index.weapons.get(declared.ref);
+    return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
+  }, [declared, index, stats]);
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:
@@ -69,10 +93,16 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * spell being used." A player who taps a sword has declared that roll, and
    * making them then find the matching trait chip would be the app asking for
    * the same decision twice.
+   *
+   * Withdrawing does not touch the trait. Putting a sword down says nothing
+   * about what you mean to roll instead, and moving the chip back to whatever
+   * was there before would be the app answering a question nobody asked.
    */
-  const armWeapon = (weapon: Weapon | null): void => {
-    setArmedWeapon(weapon?.id ?? null);
-    if (weapon) setTrait(weapon.trait);
+  const arm = (declaration: Declaration | null): void => {
+    setDeclared(declaration);
+    if (declaration === null) return;
+    const weapon = index.weapons.get(declaration.ref);
+    if (weapon !== undefined) setTrait(weapon.trait);
   };
 
   /*
@@ -91,30 +121,16 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    */
   const chooseTrait = (t: RollTrait): void => {
     setTrait(t);
-    setArmedWeapon(null);
+    setDeclared(null);
   };
+
+  const arming: Arming = { declared, source, arm };
 
   if (!character) return null;
   if (layout !== 'desktop') {
-    return (
-      <PlayPhone
-        stats={stats}
-        trait={trait}
-        chooseTrait={chooseTrait}
-        armedWeapon={armedWeapon}
-        armWeapon={armWeapon}
-      />
-    );
+    return <PlayPhone stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
   }
-  return (
-    <PlayDesktop
-      stats={stats}
-      trait={trait}
-      chooseTrait={chooseTrait}
-      armedWeapon={armedWeapon}
-      armWeapon={armWeapon}
-    />
-  );
+  return <PlayDesktop stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
 }
 
 interface ViewProps {
@@ -126,9 +142,7 @@ interface ViewProps {
    * own opinion about whether the weapon stays armed.
    */
   chooseTrait: (t: RollTrait) => void;
-  /** Ref of the weapon the next attack is declared with, if any. */
-  armedWeapon: string | null;
-  armWeapon: (weapon: Weapon | null) => void;
+  arming: Arming;
 }
 
 interface Held {
@@ -644,14 +658,11 @@ function Defence({
  */
 function Equipped({
   stats,
-  armed,
-  onArm,
+  arming,
   bare = false,
 }: {
   stats: DerivedStats;
-  /** Weapon ref currently armed, if any. */
-  armed: string | null;
-  onArm: (weapon: Weapon | null) => void;
+  arming: Arming;
   /** Drop the section's own heading: a disclosure is already carrying it. */
   bare?: boolean;
 }): React.JSX.Element | null {
@@ -686,13 +697,13 @@ function Equipped({
         // this one had no clamp.
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
-        const isArmed = armed === w.id;
+        const isArmed = arming.declared?.ref === w.id;
         return (
           <button
             key={w.id}
             type="button"
             aria-pressed={isArmed}
-            onClick={() => onArm(isArmed ? null : w)}
+            onClick={() => arming.arm(isArmed ? null : { kind: 'weapon', ref: w.id })}
             className="panel"
             style={{
               borderLeft: `3px solid ${isArmed ? 'var(--hope)' : 'var(--edge)'}`,
@@ -1333,13 +1344,7 @@ function LoadoutRows(): React.JSX.Element {
  * 1180px now runs the one-column sheet, which is both what the tablet
  * measurements asked for and the end of a layout nobody could roll in.
  */
-function PlayDesktop({
-  stats,
-  trait,
-  chooseTrait,
-  armedWeapon,
-  armWeapon,
-}: ViewProps): React.JSX.Element {
+function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
@@ -1364,12 +1369,18 @@ function PlayDesktop({
         <Identity />
         <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
-        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+        <Equipped stats={stats} arming={arming} />
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
         <Vitals stats={stats} layout="desktop" />
-        <DualityRoll stats={stats} trait={trait} onTraitChange={chooseTrait} layout="desktop" />
+        <DualityRoll
+          stats={stats}
+          trait={trait}
+          onTraitChange={chooseTrait}
+          source={arming.source}
+          layout="desktop"
+        />
       </div>
 
       <div className="stack" style={{ gap: 10, minHeight: 'var(--control)', minWidth: 0 }}>
@@ -1525,13 +1536,7 @@ function PlayDesktop({
  * window of 457, and about 900 with the vault, the carried items and the
  * lineage folded away.
  */
-function PlayPhone({
-  stats,
-  trait,
-  chooseTrait,
-  armedWeapon,
-  armWeapon,
-}: ViewProps): React.JSX.Element {
+function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
   const index = useApp((s) => s.index);
@@ -1586,10 +1591,23 @@ function PlayPhone({
           id="equipped"
           characterId={character.id}
           label="Weapons & armour"
-          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
+          /*
+           * What is armed rides on the closed header, the way the modifier
+           * row's does. A declaration you cannot see is not a declaration, and
+           * this fold can be shut with a sword armed - after which the only
+           * thing on screen saying which weapon the damage offer belongs to
+           * would be behind a tap.
+           */
+          summary={
+            arming.source !== null
+              ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
+              : equippedCount === 0
+                ? 'NOTHING'
+                : `${equippedCount} WORN`
+          }
           defaultOpen
         >
-          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
+          <Equipped stats={stats} arming={arming} bare />
         </Disclosure>
 
         {/*
@@ -1690,7 +1708,13 @@ function PlayPhone({
             </button>
           ))}
         </div>
-        <DualityRoll stats={stats} trait={trait} onTraitChange={chooseTrait} layout="phone" />
+        <DualityRoll
+          stats={stats}
+          trait={trait}
+          onTraitChange={chooseTrait}
+          source={arming.source}
+          layout="phone"
+        />
       </div>
     </div>
   );
