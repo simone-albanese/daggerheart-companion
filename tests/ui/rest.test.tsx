@@ -158,6 +158,33 @@ function named(name: string): HTMLButtonElement {
 const maybe = (name: string): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.getAttribute('aria-label') ?? '') === name);
 
+/**
+ * A move row, by the sentence its name opens with.
+ *
+ * The name ends with the row's own bracket - ": 3–5 HP", ": NOTHING" - because
+ * `aria-label` replaces the contents and a name that stopped at the slot would
+ * leave the number unannounced. That tail is a different string on every pick,
+ * so the lookup keys on the head; the tail is asserted wherever it is the
+ * subject, and swept over the whole surface in "announces every number it
+ * shows on a control".
+ */
+const moveRow = (move: string, slot = 'first'): HTMLButtonElement | undefined =>
+  buttons().find((b) =>
+    (b.getAttribute('aria-label') ?? '').startsWith(`Choose ${move} as your ${slot} move`),
+  );
+
+function pickable(move: string, slot = 'first'): HTMLButtonElement {
+  const found = moveRow(move, slot);
+  if (found === undefined) {
+    throw new Error(
+      `no row for "${move}" in the ${slot} slot. Here: ${buttons()
+        .map((b) => b.getAttribute('aria-label') ?? (b.textContent ?? '').trim())
+        .join(' | ')}`,
+    );
+  }
+  return found;
+}
+
 const byText = (label: string): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.textContent ?? '').trim() === label);
 
@@ -231,7 +258,7 @@ describe('where it sits on the Play screen', () => {
     // here would fail a test that names a rule about a different file.
     mount(hurt());
     open('long');
-    click(named('Choose Prepare as your first move'));
+    click(pickable('Prepare'));
     expect(container.querySelectorAll('[aria-expanded]')).toHaveLength(1);
   });
 });
@@ -241,8 +268,8 @@ describe('the preview', () => {
     const c = hurt();
     mount(c);
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
-    click(named('Choose Clear Stress as your second move'));
+    click(pickable('Tend to Wounds'));
+    click(pickable('Clear Stress', 'second'));
 
     // Not one mark moved, and nothing was written down. `refusingRng` throws if
     // anything reached for a die, so this also fails loudly rather than quietly
@@ -256,12 +283,17 @@ describe('the preview', () => {
     open('short');
     // 1d4 + tier 2 against five marked Hit Points and four marked Stress, and
     // the clamp is the engine's rather than one this screen applies afterwards.
-    expect(named('Choose Tend to Wounds as your first move').textContent).toContain('3–5 HP');
-    expect(named('Choose Clear Stress as your first move').textContent).toContain('3–4 STRESS');
-    expect(named('Choose Repair Armor as your first move').textContent).toContain('2 ARMOR');
+    expect(pickable('Tend to Wounds').textContent).toContain('3–5 HP');
+    expect(pickable('Clear Stress').textContent).toContain('3–4 STRESS');
+    expect(pickable('Repair Armor').textContent).toContain('2 ARMOR');
+    // Drawn and announced. `aria-label` replaces the contents of the button,
+    // so the bracket has to be in the name as well as in the row.
+    expect(pickable('Tend to Wounds').getAttribute('aria-label')).toBe(
+      'Choose Tend to Wounds as your first move: 3–5 HP',
+    );
 
-    click(named('Choose Tend to Wounds as your first move'));
-    click(named('Choose Clear Stress as your second move'));
+    click(pickable('Tend to Wounds'));
+    click(pickable('Clear Stress', 'second'));
     expect(text()).toContain('Will clear');
     expect(text()).toContain('HP 3–5 of 5');
     expect(text()).toContain('STRESS 3–4 of 4');
@@ -273,11 +305,11 @@ describe('the preview', () => {
     // read 3-5, over a panel promising five in total.
     mount(hurt());
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
+    click(pickable('Tend to Wounds'));
     expect(text(), 'the first copy takes the whole bracket').toContain('HP 3–5 of 5');
-    expect(named('Choose Tend to Wounds as your second move').textContent).toContain('0–2 HP');
+    expect(pickable('Tend to Wounds', 'second').textContent).toContain('0–2 HP');
 
-    click(named('Choose Tend to Wounds as your second move'));
+    click(pickable('Tend to Wounds', 'second'));
     // Five marked, cleared twice: 3 then 2 at the bottom of the die and 5 then
     // 0 at the top, so the rest clears five either way and the panel says so.
     expect(text()).toContain('HP 5 of 5');
@@ -286,8 +318,8 @@ describe('the preview', () => {
   it('says NOTHING rather than a number a move cannot deliver', () => {
     mount(seed({ hp: { marked: 0, max: 6 }, stress: { marked: 4, max: 6 } }));
     open('short');
-    expect(named('Choose Tend to Wounds as your first move').textContent).toContain('NOTHING');
-    expect(named('Choose Clear Stress as your first move').textContent).toContain('3–4 STRESS');
+    expect(pickable('Tend to Wounds').textContent).toContain('NOTHING');
+    expect(pickable('Clear Stress').textContent).toContain('3–4 STRESS');
   });
 
   it('does not pretend to know the Fear', () => {
@@ -309,7 +341,7 @@ describe('the preview', () => {
   it('names the move the engine will not apply instead of costing it', () => {
     mount(hurt());
     open('long');
-    const project = named('Choose Work on a Project as your first move');
+    const project = pickable('Work on a Project');
     expect(project.textContent).toContain('WITH THE GM');
     click(project);
     // The engine's own line, so the panel cannot describe it differently from
@@ -324,8 +356,8 @@ describe('the preview', () => {
     // log, so the panel that says what the commit will do has to show both.
     mount(hurt());
     open('long');
-    click(named('Choose Work on a Project as your first move'));
-    click(named('Choose Work on a Project as your second move'));
+    click(pickable('Work on a Project'));
+    click(pickable('Work on a Project', 'second'));
 
     const note = 'WORK ON A PROJECT: ADVANCE THE PROJECT COUNTDOWN WITH THE GM';
     const drawn = [...container.querySelectorAll('span')].filter(
@@ -343,8 +375,8 @@ describe('the preview', () => {
     // entry labelled Long rest.
     mount(hurt());
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
-    click(named('Choose Clear Stress as your second move'));
+    click(pickable('Tend to Wounds'));
+    click(pickable('Clear Stress', 'second'));
     expect(text()).toContain('Will clear');
 
     click(named('Take a long rest'));
@@ -360,8 +392,8 @@ describe('committing', () => {
     const rng = scriptedRng(3, 4, 2);
     mount(c, rng);
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
-    click(named('Choose Clear Stress as your second move'));
+    click(pickable('Tend to Wounds'));
+    click(pickable('Clear Stress', 'second'));
     click(byText('TAKE THE SHORT REST')!);
 
     const after = useApp.getState().characters[0]!;
@@ -376,8 +408,8 @@ describe('committing', () => {
     const c = hurt();
     mount(c, scriptedRng(3, 4, 2));
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
-    click(named('Choose Clear Stress as your second move'));
+    click(pickable('Tend to Wounds'));
+    click(pickable('Clear Stress', 'second'));
     click(byText('TAKE THE SHORT REST')!);
 
     const entry = useApp.getState().log[0]!;
@@ -430,12 +462,12 @@ describe('committing', () => {
   it('puts the surface away once the rest has happened', () => {
     mount(hurt(), scriptedRng(3, 2));
     open('short');
-    click(named('Choose Tend to Wounds as your first move'));
+    click(pickable('Tend to Wounds'));
     click(byText('TAKE THE SHORT REST')!);
     // A fold still showing a rest that has already been taken is a fold
     // offering to take it again.
     expect(byText('TAKE THE SHORT REST')).toBeUndefined();
-    expect(maybe('Choose Tend to Wounds as your first move')).toBeUndefined();
+    expect(moveRow('Tend to Wounds')).toBeUndefined();
   });
 });
 
@@ -533,7 +565,7 @@ describe('the free swap', () => {
     const card = index.cards.get(c.loadout[0]!)!;
     mount(c);
     open('short');
-    click(named(`Move ${card.name} to the vault, free during this rest`));
+    click(named(`Move ${card.name} to vault, free during this rest`));
     const after = useApp.getState().characters[0]!;
     expect(after.loadout).not.toContain(card.id);
     expect(after.vault).toContain(card.id);
@@ -581,7 +613,7 @@ describe('the whole open surface', () => {
     // exists because `playSheet.test.tsx`'s global sweep cannot see any of it -
     // its `openEverything()` opens folds and never chooses a rest kind.
     open('long');
-    click(named('Choose Prepare as your first move'));
+    click(pickable('Prepare'));
 
     const targets = buttons().map((b) => ({
       name: b.getAttribute('aria-label') ?? (b.textContent ?? '').trim().slice(0, 30),
@@ -605,5 +637,65 @@ describe('the whole open surface', () => {
       .filter((el) => px(el.style.width) > 369 || px(el.style.minWidth) > 369)
       .map((el) => `${el.tagName} ${el.style.width}/${el.style.minWidth}`);
     expect(wide, 'these are wider than the 369px column at 393px').toEqual([]);
+  });
+
+  /**
+   * Everything a control shows, and the name that control is announced by.
+   *
+   * `aria-label` replaces the contents rather than adding to them, so a label
+   * written as a sentence about the action hides whatever else is inside the
+   * button. Both sweeps below are about that one fact, from the two directions
+   * it bites from: what the control shows and does not say, and what the
+   * control says and does not show.
+   */
+  const faces = (b: HTMLButtonElement): { name: string; shown: string[] } => ({
+    name: b.getAttribute('aria-label') ?? (b.textContent ?? ''),
+    // Direct children only: the row's own faces, not a concatenation of them.
+    shown:
+      b.childElementCount === 0
+        ? [(b.textContent ?? '').trim()]
+        : [...b.children].map((el) => (el.textContent ?? '').trim()),
+  });
+
+  /** A long rest with a Prepare picked draws every kind of control here. */
+  const wholeSurface = (): void => {
+    mount(hurt());
+    open('long');
+    click(pickable('Prepare'));
+    expect(buttons().length, 'the open surface drew almost nothing').toBeGreaterThan(10);
+  };
+
+  it('announces every number it shows on a control', () => {
+    wholeSurface();
+    const silent: string[] = [];
+    for (const b of buttons()) {
+      const { name, shown } = faces(b);
+      for (const face of shown) {
+        if (!/\d/.test(face)) continue;
+        if (!name.toLowerCase().includes(face.toLowerCase())) silent.push(`"${face}" not in "${name}"`);
+      }
+    }
+    // A sighted player reads "3–5 HP" off the row before choosing it. With the
+    // bracket outside the name, a screen reader hears the same sentence on a
+    // hurt sheet as on an untouched one, and the only other place the numbers
+    // appear is the panel that is filled in after a move has been picked.
+    expect(silent, 'a number on the screen that nobody is told about').toEqual([]);
+  });
+
+  it('says on a control the words written on it, so a voice can ask for it', () => {
+    wholeSurface();
+    const unaskable: string[] = [];
+    for (const b of buttons()) {
+      const { name, shown } = faces(b);
+      // The label is the first face carrying letters; "×" is a target, not a
+      // word, and its name is the sentence.
+      const label = shown.find((face) => /[a-z]/i.test(face));
+      if (label === undefined) continue;
+      if (!name.toLowerCase().includes(label.toLowerCase())) unaskable.push(`"${label}" not in "${name}"`);
+    }
+    // WCAG 2.5.3. Speech-to-control resolves against the accessible name, so a
+    // control whose name does not contain its own visible words cannot be
+    // asked for by the words on it.
+    expect(unaskable, 'these cannot be reached by saying what is on them').toEqual([]);
   });
 });

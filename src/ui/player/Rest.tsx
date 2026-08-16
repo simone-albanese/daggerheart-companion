@@ -82,6 +82,15 @@
  * tabular figures so "3-5" does not reflow as the picks change. The preview is
  * the reason this surface exists and it is read rather than pressed: the app
  * must not make somebody tap to find out what a move will do.
+ *
+ * Which is a rule about hearing as much as about seeing, and `aria-label`
+ * replaces an element's contents rather than adding to them. So every number
+ * this surface draws inside a control is repeated at the end of that control's
+ * name - "Choose Repair All Armor as your first move: 2 ARMOR" - and every
+ * control's visible label is contained in its name, which is WCAG 2.5.3 and is
+ * what lets somebody say "tap Prepare with the party" to a device. Both are
+ * swept in `rest.test.tsx`, over the whole open surface, rather than asserted
+ * control by control.
  */
 import { useMemo, useState } from 'react';
 import type { Character, DomainCard } from '../../../shared/types.ts';
@@ -441,7 +450,17 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                     <button
                       type="button"
                       onClick={() => pick(move.id)}
-                      aria-label={`Choose ${move.name} ${slotSaid}`}
+                      /*
+                       * The bracket is in the name, because `aria-label`
+                       * replaces the contents: without it "3–5 HP" is drawn
+                       * inside this button and announced nowhere, and the row
+                       * a screen reader hears on a hurt sheet is identical to
+                       * the row it hears on an untouched one. The number is
+                       * the thing the choice is made out of - it is why this
+                       * surface exists - so it belongs in the sentence, not in
+                       * a `describedby` a reader can switch off.
+                       */
+                      aria-label={`Choose ${move.name} ${slotSaid}: ${answer}`}
                       className="row"
                       style={{
                         flex: 'none',
@@ -563,7 +582,15 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
               <button
                 type="button"
                 aria-pressed={withParty}
-                aria-label="Prepare with one or more members of your party, for 2 Hope each"
+                /*
+                 * The name opens with the words on the face of the control.
+                 * "Prepare with one or more members of your party" is the SRD's
+                 * phrasing and it does not contain "PREPARE WITH THE PARTY", so
+                 * a voice-control user asking for what they can see got no
+                 * match: WCAG 2.5.3, and the only control on this surface that
+                 * failed it.
+                 */
+                aria-label="Prepare with the party, for 2 Hope each"
                 onClick={() => setWithParty((on) => !on)}
                 className="row"
                 style={{
@@ -688,7 +715,10 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                   card={card}
                   action="TO VAULT"
                   price={null}
-                  label={`Move ${card.name} to the vault, free during this rest`}
+                  /* "to vault", not "to the vault": the chip says TO VAULT, and
+                     a name that does not contain the words on the control
+                     cannot be reached by saying them. */
+                  label={`Move ${card.name} to vault, free during this rest`}
                   onAct={() => update((c) => vaultCard(c, card.id))}
                 />
               ))}
