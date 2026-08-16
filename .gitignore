@@ -21,3 +21,7 @@ audit-*.html
 .print-verify/
 .design-verify/
 .blueprints/
+
+# WhatsApp source material from playtesters. Same rule as Manuali/: it stays on
+# the machine that owns it. What was extracted from it is written into BACKLOG.md.
+Giorgio*/
