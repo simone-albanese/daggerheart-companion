@@ -45,9 +45,9 @@
  * ## The topic strip
  *
  * Chips at `var(--tap)` with `padding: 0 12px`. `.t-label` is 10px mono at
- * `0.16em`, so about 7.6px a character: IMPROVISE is 92px, FEAR 54,
- * COUNTDOWNS 100 and DISTANCE 85, which with three 6px gaps is 349 of the
- * 369px column - one row still, and the topics still to come take it to two.
+ * `0.16em`, so about 7.6px a character: IMPROVISE 92, DIFFICULTY 100, FEAR 54,
+ * COUNTDOWNS 100 and DISTANCE 85, which with four 6px gaps is 455 against a
+ * 369px column - so it wraps to two rows, 44 + 6 + 44 = 94px.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a
@@ -72,12 +72,13 @@ import { useState } from 'react';
 import { useIsPhone } from '../shared/useLayout.ts';
 import {
   CountdownChart,
+  DifficultyLadder,
   FearGuide,
   RangeReference,
   TierBenchmarks,
 } from './ReferenceTables.tsx';
 
-export type ReferenceTopic = 'improvise' | 'fear' | 'countdowns' | 'distance';
+export type ReferenceTopic = 'improvise' | 'difficulty' | 'fear' | 'countdowns' | 'distance';
 
 /**
  * What a menu maps over to build its items.
@@ -91,6 +92,7 @@ export const REFERENCE_TOPICS: ReadonlyArray<{
   short: string;
 }> = [
   { id: 'improvise', label: 'Improvise an adversary', short: 'IMPROVISE' },
+  { id: 'difficulty', label: 'Set a Difficulty', short: 'DIFFICULTY' },
   { id: 'fear', label: 'Fear', short: 'FEAR' },
   { id: 'countdowns', label: 'Advancing a countdown', short: 'COUNTDOWNS' },
   { id: 'distance', label: 'Range and distance', short: 'DISTANCE' },
@@ -144,6 +146,7 @@ export function Reference(): React.JSX.Element {
       )}
 
       {topic === 'improvise' && <TierBenchmarks />}
+      {topic === 'difficulty' && <DifficultyLadder />}
       {topic === 'fear' && <FearGuide />}
       {/*
         Read-only here, and pressable on a dynamic countdown's own row. There is

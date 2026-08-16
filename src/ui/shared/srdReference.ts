@@ -31,7 +31,7 @@
  * section draws a blank panel instead of throwing. No row count is asserted
  * anywhere in `src`; the counts belong in the tests, against the shipped file.
  */
-import type { RulesSection, Tier } from '../../../shared/types.ts';
+import { TRAITS, type RulesSection, type Tier, type Trait } from '../../../shared/types.ts';
 import { paragraphs, ruleBlocks, ruleBullets, ruleList, ruleTables } from './ruleText.ts';
 
 // ---------------------------------------------------------------------------
@@ -441,4 +441,96 @@ export function rangeReference(rules: RulesSection[]): RangeGuidance {
     ),
     page: section.sourcePage ?? null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Difficulty
+// ---------------------------------------------------------------------------
+
+export interface LadderRow {
+  /** The row's first cell - the roll value the rest of the row is an example of. */
+  roll: string;
+  /**
+   * One cell per verb, in the table's order, **not counting `roll`**.
+   *
+   * So `cells[i]` is the example under `verbs[i]` and the two arrays are always
+   * the same length. Putting the roll value in here instead would make them
+   * differ by one and the screen would print every sentence under the heading
+   * beside the one it belongs to - which is the failure worth naming, because
+   * it looks perfectly plausible on screen.
+   */
+  cells: string[];
+}
+
+export interface TraitLadder {
+  /** The table's own header cells after `Roll`. Never a constant in this repo. */
+  verbs: string[];
+  rows: LadderRow[];
+}
+
+export interface DifficultyGuidance {
+  title: string;
+  /** The paragraphs before the first trait, which say who sets a Difficulty. */
+  lead: string[];
+  ladder: Partial<Record<Trait, TraitLadder>>;
+  page: number | null;
+}
+
+const NO_DIFFICULTY: DifficultyGuidance = { title: '', lead: [], ladder: {}, page: null };
+
+/**
+ * `rules['difficulty-benchmarks']`, p.66 - six tables of worked examples, one
+ * per trait, at 5, 10, 15, 20, 25 and 30.
+ *
+ * ## No adjectives
+ *
+ * The printed GM screen labels its Difficulty ladder with five adjectives
+ * running from easiest to hardest. Not one of them occurs in
+ * `data/srd-1.0.json`, so they are not this app's to print - and they are not
+ * even written here in a comment, because `tests/ui/srdReference.test.ts`
+ * sweeps `src/` for them and a comment is how a string gets copied into code.
+ *
+ * The SRD gives something better anyway: for each of the eighteen verbs it
+ * prints a concrete sentence at every one of the six numbers, so a GM setting a
+ * Difficulty reads "walk slowly across a narrow beam" rather than an adjective
+ * somebody has to interpret.
+ *
+ * ## Keyed on the subhead, not on the first header cell
+ *
+ * All six tables begin `| Roll |`, so a lookup by header cell would return
+ * Agility six times over. The key is the `## ` subhead above each table,
+ * matched case-insensitively against the app's own six trait ids - `TRAITS` is
+ * this app's vocabulary and predates the dataset, so matching on it is not the
+ * same act as typing a rules sentence. A subhead that names nothing the app
+ * knows is skipped rather than guessed at.
+ *
+ * The verbs come off the table's own header row for the same reason
+ * `traitVerbs` reads them out of `character-creation`: `TRAIT_VERBS` in
+ * `shared/types.ts` is a second copy of the same eighteen words, and a layer
+ * that renames a verb has to rename the column it heads.
+ */
+export function difficultyBenchmarks(rules: RulesSection[]): DifficultyGuidance {
+  const section = rules.find((r) => r.id === 'difficulty-benchmarks');
+  if (section === undefined) return NO_DIFFICULTY;
+
+  const ladder: Partial<Record<Trait, TraitLadder>> = {};
+  let lead: string[] = [];
+  for (const block of ruleBlocks(section.body)) {
+    if (block.heading === null) {
+      lead = paragraphs(block.text);
+      continue;
+    }
+    const heading = block.heading.trim().toLowerCase();
+    const trait = TRAITS.find((t) => t === heading);
+    const table = ruleTables(block.text)[0];
+    if (trait === undefined || table === undefined) continue;
+    ladder[trait] = {
+      verbs: table.header.slice(1),
+      rows: table.rows.flatMap((row) => {
+        const roll = row[0];
+        return roll === undefined ? [] : [{ roll, cells: row.slice(1) }];
+      }),
+    };
+  }
+  return { title: section.title, lead, ladder, page: section.sourcePage ?? null };
 }

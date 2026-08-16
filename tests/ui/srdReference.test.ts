@@ -14,6 +14,8 @@
  * numbers - two silent deformations of licensed text under an SRD stamp,
  * discovered only by reading the shipped file beside it.
  */
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import srd from '../../data/srd-1.0.json' with { type: 'json' };
 import type { Dataset, RulesSection } from '@shared/types.ts';
@@ -21,6 +23,7 @@ import {
   adversaryBenchmarks,
   countdownAdvancement,
   environmentBenchmarks,
+  difficultyBenchmarks,
   fearGuidance,
   metreRange,
   metresFromFeet,
@@ -382,5 +385,111 @@ describe('rangeReference', () => {
 
   it('answers with nothing when the section is gone', () => {
     expect(rangeReference([])).toEqual({ title: '', opening: [], sections: [], page: null });
+  });
+});
+
+describe('difficultyBenchmarks', () => {
+  const guide = (): ReturnType<typeof difficultyBenchmarks> => difficultyBenchmarks(rules);
+
+  it('gives all six traits their own table, keyed on the SRD’s subhead', () => {
+    // All six tables begin `| Roll |`, so a lookup by first header cell would
+    // return Agility six times over. The key has to be the `## ` above it.
+    expect(Object.keys(guide().ladder).sort()).toEqual([
+      'agility',
+      'finesse',
+      'instinct',
+      'knowledge',
+      'presence',
+      'strength',
+    ]);
+    expect(guide().title).toBe('Difficulty Benchmarks');
+    expect(guide().page).toBe(66);
+  });
+
+  it('reads the verbs off the table’s own header, and one cell per verb', () => {
+    const agility = guide().ladder.agility!;
+    expect(agility.verbs).toEqual(['Sprint', 'Leap', 'Maneuver']);
+    expect(agility.rows.map((r) => r.roll)).toEqual(['5', '10', '15', '20', '25', '30']);
+    // `cells` excludes the roll value, so `cells[i]` is always the example
+    // under `verbs[i]`. Push the roll in here and the two arrays differ by
+    // one, and every sentence on screen sits under the heading beside the one
+    // it belongs to.
+    expect(agility.rows[0]!.cells).toHaveLength(agility.verbs.length);
+    expect(agility.rows[0]!.cells[1]).toBe(
+      'Make a running jump of half your height (about 3 feet for a human).',
+    );
+    expect(agility.rows[0]!.cells[2]).toBe('Walk slowly across a narrow beam.');
+  });
+
+  it('follows a layer that renames a verb, because the column heads it', () => {
+    // `TRAIT_VERBS` in shared/types.ts is a second copy of these same eighteen
+    // words. Read them from there and this case fails while the shipped one
+    // above still passes - which is exactly the drift it exists to catch.
+    const renamed = difficultyBenchmarks([
+      {
+        id: 'difficulty-benchmarks',
+        title: 'Benchmarks',
+        body: '## Agility\n\n| Roll | Dash | Vault | Weave |\n| --- | --- | --- | --- |\n| 5 | a | b | c |',
+      } as RulesSection,
+    ]);
+    expect(renamed.ladder.agility?.verbs).toEqual(['Dash', 'Vault', 'Weave']);
+    expect(renamed.ladder.agility?.rows[0]!.cells).toEqual(['a', 'b', 'c']);
+  });
+
+  it('carries the two sentences that say who sets a Difficulty at all', () => {
+    // The first is what the six read-only DIF displays in this app are already
+    // showing; the second is the only case this ladder covers.
+    expect(guide().lead).toHaveLength(2);
+    expect(guide().lead[0]).toContain('equal to the adversary');
+    expect(guide().lead[1]).toContain('without a specified Difficulty');
+  });
+
+  it('skips a subhead that names no trait this app knows', () => {
+    const odd = difficultyBenchmarks([
+      {
+        id: 'difficulty-benchmarks',
+        title: 'Benchmarks',
+        body: '## Vibes\n\n| Roll | Emote |\n| --- | --- |\n| 5 | a |',
+      } as RulesSection,
+    ]);
+    expect(odd.ladder).toEqual({});
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(difficultyBenchmarks([])).toEqual({ title: '', lead: [], ladder: {}, page: null });
+  });
+});
+
+describe('the adjectives that are not in the SRD', () => {
+  const SRC = join(process.cwd(), 'src');
+  const sourceFiles = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) return sourceFiles(path);
+      return /\.tsx?$/.test(entry) ? [path] : [];
+    });
+
+  it('has neither Very Easy nor Very Hard anywhere in the shipped dataset', () => {
+    // This is why the sweep below exists. BACKLOG.md asks for a ladder labelled
+    // Very Easy to Very Hard; those labels are on the printed GM screen and
+    // occur zero times in the file this app ships, so shipping them would mean
+    // typing licensed wording into the repository.
+    const body = JSON.stringify(srd);
+    expect(body).not.toContain('Very Easy');
+    expect(body).not.toContain('Very Hard');
+  });
+
+  it('and neither of them is typed into src either', () => {
+    // A guard, not a proof: it is green on the pre-change tree by construction.
+    // It is here so the next builder who reaches for the adjectives finds it,
+    // and the sentence above it, instead of shipping them.
+    const guilty = sourceFiles(SRC)
+      .filter((path) => /Very Easy|Very Hard/.test(readFileSync(path, 'utf8')))
+      .map((path) => relative(SRC, path).split(sep).join('/'));
+    expect(
+      guilty,
+      'these type a Difficulty label the shipped SRD does not contain:\n' +
+        guilty.map((f) => `  ${f}`).join('\n'),
+    ).toEqual([]);
   });
 });

@@ -373,6 +373,7 @@ describe('the topic strip', () => {
     const chips = [...strip.querySelectorAll('button')];
     expect(chips.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Improvise an adversary',
+      'Set a Difficulty',
       'Fear',
       'Advancing a countdown',
       'Range and distance',
@@ -382,9 +383,11 @@ describe('the topic strip', () => {
       'false',
       'false',
       'false',
+      'false',
     ]);
-    click(chips[1]!);
+    click(chips[2]!);
     expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+      'false',
       'false',
       'true',
       'false',
@@ -560,5 +563,106 @@ describe('the distances, and the metres the SRD does not print', () => {
     expect(text()).not.toContain('3 squares');
     click(folds()[0]!);
     expect(text()).toContain('3 squares');
+  });
+});
+
+describe('setting a Difficulty, with the SRD’s worked examples', () => {
+  const difficulty = (): void => {
+    openReference();
+    click(named('Set a Difficulty'));
+  };
+
+  it('opens on a trait, every verb, and the six numbers', () => {
+    difficulty();
+    expect(text()).toContain('SRD 1.0 · P.66');
+    // Every verb by default: the question a GM arrives with is a scan, not a
+    // lookup, and the filter is for the one who already knows the verb.
+    expect(text()).toContain('Sprint within Close range across an open field with an enemy present.');
+    expect(text()).toContain('Make a running jump of half your height (about 3 feet for a human).');
+    expect(text()).toContain('Walk slowly across a narrow beam.');
+    const rolls = [...container.querySelectorAll<HTMLElement>('article .t-num')].map(
+      (el) => (el.textContent ?? '').trim(),
+    );
+    expect(rolls).toEqual(['5', '10', '15', '20', '25', '30']);
+  });
+
+  it('says whose ladder this is and who does not set it, in the SRD’s own words', () => {
+    difficulty();
+    // The first sentence is what the app's six read-only DIF displays already
+    // show; the second is the only case the ladder covers.
+    expect(text()).toContain('equal to the adversary');
+    expect(text()).toContain('without a specified Difficulty');
+  });
+
+  it('names the trait chips for ears as well as eyes', () => {
+    difficulty();
+    const traits = container.querySelector('[aria-label="Which trait"]')!;
+    const chips = [...traits.querySelectorAll('button')];
+    // AGI is a name for eyes only, so the accessible name is the whole word.
+    expect(chips.map((b) => (b.textContent ?? '').trim())).toEqual([
+      'Agi',
+      'Str',
+      'Fin',
+      'Ins',
+      'Pre',
+      'Kno',
+    ]);
+    expect(chips.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Agility',
+      'Strength',
+      'Finesse',
+      'Instinct',
+      'Presence',
+      'Knowledge',
+    ]);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+      'true',
+      'false',
+      'false',
+      'false',
+      'false',
+      'false',
+    ]);
+  });
+
+  it('switches the whole table, verbs and all, when a trait is pressed', () => {
+    difficulty();
+    click(named('Knowledge'));
+    expect(text()).toContain('Recall uncommon facts about your community.');
+    expect(text()).not.toContain('Walk slowly across a narrow beam.');
+    const verbs = container.querySelector('[aria-label="Which kind of roll"]')!;
+    // Read off the table's own header, so a layer that renames a verb renames
+    // the chip - which is why they are not `TRAIT_VERBS` from shared/types.ts.
+    expect([...verbs.querySelectorAll('button')].map((b) => (b.textContent ?? '').trim())).toEqual([
+      'ALL',
+      'Recall',
+      'Analyze',
+      'Comprehend',
+    ]);
+  });
+
+  it('narrows to one verb, and drops the choice when the trait changes under it', () => {
+    difficulty();
+    click(named('Maneuver'));
+    expect(text()).toContain('Walk slowly across a narrow beam.');
+    expect(text()).not.toContain('Make a running jump of half your height (about 3 feet for a human).');
+    // A verb belongs to one trait's table. Carry it across and the new table is
+    // filtered by a column it does not have, which draws six empty panels.
+    click(named('Strength'));
+    expect(text()).toContain('Lift a chair.');
+    expect(text()).toContain('Destroy a glass cup.');
+    expect(text()).toContain('Subdue a child.');
+  });
+
+  it('puts each sentence under the verb it belongs to, not the one beside it', () => {
+    difficulty();
+    click(named('Leap'));
+    // `cells` excludes the roll value, so cells[i] lines up with verbs[i]. Push
+    // the roll into the row and everything shifts one column left: this panel
+    // would show the Sprint sentence under the heading Leap.
+    const first = container.querySelector<HTMLElement>('article')!;
+    expect(first.textContent).toContain('Leap');
+    expect(first.textContent).toContain('Make a running jump of half your height');
+    expect(first.textContent).not.toContain('Sprint within Close range');
   });
 });

@@ -81,6 +81,7 @@ import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import {
   CountdownChart,
+  DifficultyLadder,
   FearGuide,
   RangeReference,
   TierBenchmarks,
@@ -497,6 +498,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/Reference.tsx::Reference': () => <Reference />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
+  'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,

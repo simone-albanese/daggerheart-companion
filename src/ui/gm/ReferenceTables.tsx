@@ -19,14 +19,15 @@
  * not on it. That is the licence version of the rule this app keeps everywhere
  * else: the screen does not get to claim something that is not so.
  */
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useApp } from '../../store/state.ts';
 import type { Countdown } from '../../engine/encounter.ts';
-import type { Tier } from '../../../shared/types.ts';
+import { TRAITS, TRAIT_LABELS, type Tier, type Trait } from '../../../shared/types.ts';
 import { Fold } from '../shared/Fold.tsx';
 import {
   adversaryBenchmarks,
   countdownAdvancement,
+  difficultyBenchmarks,
   environmentBenchmarks,
   fearGuidance,
   rangeReference,
@@ -540,5 +541,183 @@ function RangeParts({ parts }: { parts: RangePart[] }): React.JSX.Element {
         );
       })}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * How hard is it? - the SRD's own worked example at each of the six numbers.
+ *
+ * ## Why there are no adjectives on this screen
+ *
+ * The printed GM screen labels its ladder with five adjectives running from
+ * easiest to hardest. None of them is in `data/srd-1.0.json`, so this app does
+ * not have them to print. What the SRD does have is better: eighteen verbs, six
+ * numbers, and a concrete sentence in all hundred and eight cells. A GM setting
+ * a Difficulty gets "walk slowly across a narrow beam" instead of a word they
+ * have to interpret, and the app quotes rather than invents.
+ *
+ * ## Not a `<table>`
+ *
+ * Six tables of three columns, each cell a whole sentence, is 6,465 characters
+ * of prose. Any grid of it scrolls a 393px phone sideways whatever the column
+ * widths are. So the table is turned on its side: pick a trait, pick a verb or
+ * take all three, and read six stacked panels down the column.
+ *
+ * The default is every verb, because the question a GM arrives with is usually
+ * "how hard is walking a beam" - a scan, not a lookup. The verb filter is for
+ * the GM who already knows which of the three they want. There is deliberately
+ * no picker for the roll value: that is the number you came here to find, and a
+ * control that made you guess it first would be the screen asking the question.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * The column is 369px, 349 inside a panel. Six trait chips at
+ * `minWidth: var(--tap)` and 4px gaps are 6x44 + 5x4 = 284: one row, no wrap.
+ * The verb row is ALL plus three chips read off the table's own header; the
+ * widest set in the shipped dataset is Knowledge - RECALL 70, ANALYZE 77,
+ * COMPREHEND 100 at `.t-label` (10px mono at 0.16em, about 7.6px a character,
+ * plus 24 of padding) - so 44 + 70 + 77 + 100 + 3x4 = 303, one row again. Both
+ * rows wrap rather than scroll if a layer writes longer verbs.
+ *
+ * A cell is about 69 characters at `.t-read` (13px/1.45, about 6.3px each), so
+ * 55 to a line, two lines, 38px; with its verb label a block is 51px and a roll
+ * panel with all three is about 190. Six of them is 1,150px, two flicks in a
+ * region that already scrolls - and 470px, one screen, with a single verb
+ * selected.
+ *
+ * Every chip declares `minHeight: var(--tap)` and carries `aria-pressed` and a
+ * full-word `aria-label`, because AGI is a name for eyes and not for ears.
+ */
+export function DifficultyLadder(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const guide = useMemo(() => difficultyBenchmarks(dataset.rules), [dataset]);
+  const traits = TRAITS.filter((t) => guide.ladder[t] !== undefined);
+  const [wanted, setWanted] = useState<Trait | null>(null);
+  const [verb, setVerb] = useState<string | null>(null);
+
+  if (traits.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no Difficulty benchmarks. The number is still yours to set — the
+        worked examples are what is missing.
+      </p>
+    );
+  }
+
+  // A layer can drop a trait, and a selection made before it did must not leave
+  // the screen blank with three chips still on it.
+  const trait = wanted !== null && traits.includes(wanted) ? wanted : traits[0]!;
+  const ladder = guide.ladder[trait]!;
+  const shown = verb !== null && ladder.verbs.includes(verb) ? verb : null;
+  const columns = ladder.verbs.map((name, i) => ({ name, i })).filter((c) => shown === null || c.name === shown);
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {guide.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{guide.page === null ? '' : ` · P.${String(guide.page)}`}
+        </span>
+      </div>
+
+      {guide.lead.map((para) => (
+        <p key={para} className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+          {para}
+        </p>
+      ))}
+
+      <div role="group" aria-label="Which trait" className="row" style={{ flex: 'none', gap: 4, flexWrap: 'wrap' }}>
+        {traits.map((t) => (
+          <Chip
+            key={t}
+            label={TRAIT_LABELS[t]}
+            on={t === trait}
+            onPress={() => {
+              setWanted(t);
+              // A verb belongs to one trait's table. Carrying the choice across
+              // would filter the new table by a column it does not have.
+              setVerb(null);
+            }}
+          >
+            {TRAIT_LABELS[t].slice(0, 3)}
+          </Chip>
+        ))}
+      </div>
+
+      <div role="group" aria-label="Which kind of roll" className="row" style={{ flex: 'none', gap: 4, flexWrap: 'wrap' }}>
+        <Chip label={`Every kind of ${TRAIT_LABELS[trait]} roll`} on={shown === null} onPress={() => setVerb(null)}>
+          ALL
+        </Chip>
+        {ladder.verbs.map((name) => (
+          <Chip key={name} label={name} on={shown === name} onPress={() => setVerb(name)}>
+            {name}
+          </Chip>
+        ))}
+      </div>
+
+      {ladder.rows.map((row) => (
+        <article
+          key={row.roll}
+          className="panel stack"
+          style={{ flex: 'none', gap: 8, padding: 10, minWidth: 0 }}
+        >
+          <span className="t-num" style={{ fontSize: 18, color: 'var(--hope)' }}>
+            {row.roll}
+          </span>
+          {columns.map((column) => (
+            <span key={column.name} className="stack" style={{ gap: 3, minWidth: 0 }}>
+              <span className="t-meta">{column.name}</span>
+              <span className="t-read" style={{ maxWidth: '62ch' }}>
+                {row.cells[column.i] ?? ''}
+              </span>
+            </span>
+          ))}
+        </article>
+      ))}
+    </>
+  );
+}
+
+/**
+ * One chip of a filter row.
+ *
+ * `label` is the accessible name and the visible text is whatever the caller
+ * draws - AGI on screen and "Agility" to a screen reader, because the three
+ * letters are a name for eyes only.
+ */
+function Chip({
+  label,
+  on,
+  onPress,
+  children,
+}: {
+  label: string;
+  on: boolean;
+  onPress: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      aria-label={label}
+      aria-pressed={on}
+      className="t-label"
+      style={{
+        flex: 'none',
+        minHeight: 'var(--tap)',
+        minWidth: 'var(--tap)',
+        padding: '0 12px',
+        borderRadius: 'var(--r3)',
+        border: `1px solid ${on ? 'var(--text-3)' : 'var(--line)'}`,
+        color: on ? 'var(--text)' : 'var(--muted)',
+      }}
+    >
+      {children}
+    </button>
   );
 }
