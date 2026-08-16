@@ -502,13 +502,19 @@ const openingScreen = (): string => renderToStaticMarkup(createElement(Wizard, {
  *
  * The opening tag is found from the end, because these attributes contain
  * arrow functions and an arrow contains the character a tag ends with.
+ *
+ * The children are searched rather than compared. The Create button's label is
+ * a ternary now - it says "Creating…" while the write is in the air - and an
+ * equality test against the resting word would simply stop finding the button
+ * and report `null`, which is the same answer it gives for a button with no
+ * gate at all.
  */
 const gateOn = (source: string, label: string): string | null => {
   const body = source
     .split('<button')
     .slice(1)
     .map((chunk) => chunk.slice(0, chunk.indexOf('</button>')))
-    .find((chunk) => chunk.slice(chunk.lastIndexOf('>') + 1).trim() === label);
+    .find((chunk) => chunk.slice(chunk.lastIndexOf('>') + 1).includes(label));
   return /disabled=\{([^}]*)\}/.exec(body ?? '')?.[1] ?? null;
 };
 
@@ -595,7 +601,11 @@ describe('the gate, on the screen it is wired to', () => {
     // does answer for everything, because it is the one that ends the wizard.
     const source = readFileSync(WIZARD_SOURCE, 'utf8');
     expect(gateOn(source, 'Next')).toBe('held !== null');
-    expect(gateOn(source, 'Create character')).toBe('blockers.length > 0');
+    // `toContain` rather than `toBe`, because Create now carries a second gate
+    // that has nothing to do with the review: it is also held while its own
+    // write is in the air, so a double-tap cannot persist two characters. What
+    // this test is about is that every blocker is still in the expression.
+    expect(gateOn(source, 'Create character')).toContain('blockers.length > 0');
     expect(source).toMatch(/const held = [^\n]*heldAt\(blockers, current\.id\)/);
   });
 });
