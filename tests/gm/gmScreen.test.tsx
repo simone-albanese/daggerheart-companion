@@ -686,7 +686,11 @@ describe('SAVE', () => {
     gm();
     click(named('SAVE'));
     await settle();
-    const alert = container.querySelector('[role="alert"]');
+    // Inside the dialog, deliberately: the screen behind it now carries an
+    // alert of its own with the same sentence in it, and a bare
+    // `querySelector('[role="alert"]')` would find that one and pass whatever
+    // this sheet did.
+    const alert = container.querySelector('[role="dialog"] [role="alert"]');
     expect(alert?.textContent ?? '').toContain('only in this tab');
     expect(text()).not.toContain('ALREADY ON THIS DEVICE');
     expect(named('TRY AGAIN')).toBeDefined();
@@ -732,6 +736,70 @@ describe('SAVE', () => {
     click(named('SAVE'));
     await settle();
     expect(text()).toContain('read a campaign file back in');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('a write that did not happen', () => {
+  const FAILED =
+    'This device is out of space, so the campaign could not be written. What is on this screen is only in this tab, so closing it now loses it.';
+
+  it('is on the screen it happened on, with nothing opened to find it', () => {
+    /*
+     * The store has carried `writeError` since it was written; for most of that
+     * time nothing read it, and since SAVE existed one sheet read it. The GM
+     * this sentence is for is the one who has *not* opened anything: three
+     * hours in, adding rows, watching them appear, with a tab that is about to
+     * close on all of it. A warning behind a button is a warning for the person
+     * who already suspected.
+     */
+    useGm.setState({ writeError: FAILED });
+    gm();
+
+    const alerts = [...container.querySelectorAll('[role="alert"]')];
+    expect(alerts, 'the failed write is not visible without opening something').toHaveLength(1);
+    expect(container.querySelector('[role="dialog"]'), 'a sheet was open').toBeNull();
+    expect(alerts[0]!.closest('[role="dialog"]')).toBeNull();
+    expect(alerts[0]!.textContent ?? '').toContain('closing it now loses it');
+    expect(text()).toContain('NOT ON THIS DEVICE');
+  });
+
+  it('is not something a sheet can cover', () => {
+    // MENU is over the list and the strip is under the top bar; opening one
+    // must not be the thing that takes the other away.
+    useGm.setState({ writeError: FAILED });
+    gm();
+    click(leading('MENU'));
+
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    const strip = [...container.querySelectorAll('[role="alert"]')].filter(
+      (el) => el.closest('[role="dialog"]') === null,
+    );
+    expect(strip).toHaveLength(1);
+  });
+
+  it('retries the write from there, and goes when it lands', async () => {
+    /*
+     * The whole point of the button. `flushGm` returns early when nothing is
+     * dirty, and every path that sets this field leaves the campaign dirty on
+     * purpose - so the retry is only worth drawing because there is something
+     * for it to write. `setFear` is the change that makes this campaign dirty;
+     * the seeded error stands in for the write that failed.
+     */
+    act(() => {
+      useGm.getState().setFear(3);
+    });
+    useGm.setState({ writeError: FAILED });
+    gm();
+    click(named('TRY AGAIN'));
+    await settle(10);
+
+    expect(useGm.getState().writeError, 'the retry never wrote anything').toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    // And the write that landed is the one that was on screen.
+    expect(activeCampaign()).toBeDefined();
+    expect(useGm.getState().fear).toBe(3);
   });
 });
 

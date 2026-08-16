@@ -62,6 +62,13 @@
  * `App.tsx` carries the two lines that do it, and the licence notice moves with
  * them - into the session list's scroll, not off the screen. See
  * `LicenceFooter.tsx`.
+ *
+ * ## The one thing here that is not navigation
+ *
+ * `NotSaved`, at the foot of this file, is mounted between the top bar and the
+ * list whenever the store's `writeError` is set. It is here rather than in a
+ * sheet for the reason its own docblock gives: the GM who needs that sentence
+ * is the one who has not opened anything.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/state.ts';
@@ -73,7 +80,7 @@ import { Encounter } from './Encounter.tsx';
 import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
-import { useGm, type GmRegion } from './gmStore.ts';
+import { flushGm, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
 import { SaveSheet } from './SaveSheet.tsx';
@@ -116,6 +123,7 @@ export function Gm(): React.JSX.Element {
   const phone = layout === 'phone';
   const bestiary = useApp((s) => s.prefs.gmBestiary);
   const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
+  const writeError = useGm((s) => s.writeError);
   const region = useGm((s) => s.region);
   const setRegion = useGm((s) => s.setRegion);
   const hydrated = useGm((s) => s.hydrated);
@@ -165,6 +173,7 @@ export function Gm(): React.JSX.Element {
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <GmTopBar layout={layout} onOpenMenu={() => openSheet('menu')} onOpenTool={openTool} />
+      {writeError !== null && <NotSaved message={writeError} phone={phone} />}
       <SessionList phone={phone} onOpenTool={openTool} />
       <GmBar open={sheet} onOpenSheet={openSheet} />
 
@@ -189,6 +198,105 @@ export function Gm(): React.JSX.Element {
           {sheet === 'save' && <SaveSheet />}
         </GmSheet>
       )}
+    </div>
+  );
+}
+
+/**
+ * The campaign is not on the disk, said on the screen it happened on.
+ *
+ * `gmStore` has carried `writeError` since it was written, and until SAVE
+ * existed nothing read it at all; since SAVE, one sheet reads it. That is one
+ * tap too many for this particular sentence. Every other failure in this app
+ * that costs the user work is a strip at the top of `<main>` -
+ * `App.tsx::UnsavedWork` for the character store, the storage banner, the
+ * quarantine banner - precisely because the GM who needs to know is the one who
+ * has *not* opened anything: they are three hours into a session, adding rows,
+ * watching them appear, and the tab is going to close on all of it. A warning
+ * that waits behind a button is a warning for the person who already suspected.
+ *
+ * It stays in SAVE as well, and that is not duplication: SAVE's whole job is to
+ * report where the campaign is, and a sheet that answered "already on this
+ * device" while this strip contradicted it a layer below would be worse than
+ * either alone. They read the same field and say the same sentence - the
+ * store's own, not a second one invented here, because a failure that already
+ * has words does not need paraphrasing.
+ *
+ * Not dismissible. A dismissed warning about work that is not saved is exactly
+ * the false reassurance this app is not allowed to give, and unlike the backup
+ * nag this is an event with a remedy: TRY AGAIN calls `flushGm`, which does
+ * something on every path that sets this field - a failed write is left dirty
+ * on purpose, including the very first campaign of a device.
+ *
+ * ## Ergonomics, 393x852
+ *
+ * It sits under the pinned top bar and above the list: y 215 to about 360,
+ * which is the top third of the screen and nowhere near the 560-820 band a
+ * right thumb covers. That is deliberate twice over - it has to be *read*, and
+ * its one control is a decision rather than a reflex. The strip's inner column
+ * is 393 − 24 of page margin − 24 of padding = 345px, so the store's longest
+ * sentence is four lines at `.t-dense`; with the label and the button the block
+ * is about 143px, which takes the session list from 551px (nine rows) to about
+ * 400 (six). It is on screen only while writes are actually failing, and six
+ * rows of a night the app is losing is the right trade.
+ *
+ * TRY AGAIN is a chip at `minHeight: var(--control)` - 34px against a precise
+ * pointer, 44 on every phone and tablet - and deliberately not the full 345px
+ * width: a full-width primary button at the top of a screen is a thing thumbs
+ * hit on the way past, and pressing this twice while a write is in flight is
+ * the one thing it should be hard to do by accident. The disabled state during
+ * the retry says TRYING… rather than going grey silently.
+ */
+function NotSaved({ message, phone }: { message: string; phone: boolean }): React.JSX.Element {
+  const [retrying, setRetrying] = useState(false);
+
+  const retry = useCallback(() => {
+    setRetrying(true);
+    // `alive` because a successful retry clears `writeError`, which unmounts
+    // this component before the promise resolves.
+    let alive = true;
+    void flushGm().finally(() => {
+      if (alive) setRetrying(false);
+      alive = false;
+    });
+  }, []);
+
+  return (
+    <div
+      role="alert"
+      className="stack"
+      style={{
+        flex: 'none',
+        gap: 8,
+        margin: phone ? '8px 12px 0' : '8px 20px 0',
+        padding: '10px 12px',
+        borderRadius: 'var(--r2)',
+        background: 'var(--fear-wash)',
+        border: '1px solid var(--fear)',
+      }}
+    >
+      <span className="t-label" style={{ color: 'var(--text)' }}>
+        NOT ON THIS DEVICE
+      </span>
+      <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
+        {message}
+      </span>
+      <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          className="chip"
+          onClick={retry}
+          disabled={retrying}
+          style={{
+            flex: 'none',
+            minHeight: 'var(--control)',
+            color: 'var(--text)',
+            background: 'var(--raised)',
+          }}
+        >
+          {retrying ? 'TRYING…' : 'TRY AGAIN'}
+        </button>
+      </span>
     </div>
   );
 }

@@ -99,6 +99,14 @@ before the one below.
   layout, so it is the last thing in the session list instead of a strip above
   the bar.
 
+- **A campaign that is not reaching this device says so on the screen, not in a
+  sheet.** The GM tools have known when a write failed since campaigns moved
+  into the database, and the only place that said so was behind the SAVE
+  button — which is one tap too many for that particular sentence. The person
+  who needs it is three hours into a session, adding rows and watching them
+  appear, with a tab that is about to close on all of it. It is a strip under
+  the top bar now, in the store's own words, with a retry beside it, and
+  nothing you open covers it.
 - **The whole GM section can be switched off, in Settings.** Most people holding
   this app are players, and the GM tab is a quarter of the bar they navigate by.
   Off, the tab goes, the desktop header's entry goes, and the app will not open

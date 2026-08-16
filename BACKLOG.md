@@ -1653,9 +1653,10 @@ silence:**
 - [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
       rejected,** and `removeCampaign` has no stale-build guard where
       `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
-      on top of that. The first is at least *said*, because `createCampaign`
-      sets `writeError` and SAVE draws it; the second is a store asymmetry this
-      work does not touch.
+      on top of that. The first is at least *said*, and said where it happens:
+      `createCampaign` sets `writeError` and the GM screen draws it under the
+      top bar with no sheet open. The second is a store asymmetry this work does
+      not touch.
 - [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
       so a repaired campaign is repaired again on every launch. The notices it
       produces are in MENU rather than in a banner precisely because they recur.
