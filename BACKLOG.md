@@ -242,8 +242,8 @@ no-clobber guard in P0-1, so fix them together.
 
 ---
 
-### P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all
-`shared/types.ts:16` · `src/transfer/fileIo.ts:127-132` · `src/store/db.ts:47-68` · **medium, 3–5 h**
+### ~~P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all~~ — **done, `b514cbc`..`d442ebb`**
+`shared/migrations.ts` · `src/store/db.ts` · `tests/store/{migrations,db}.test.ts` · **medium, 3–5 h**
 
 `SCHEMA_VERSION = 3`, and `checkSchema` throws in **both** directions. The
 downward branch reads: *"There is no converter for that version yet, so it has
@@ -291,17 +291,51 @@ would currently make a maintainer notice is a `tsc` error, because
 `character.ts:270` hardcodes the literal `3` against a `typeof SCHEMA_VERSION`
 field. That error points at the wrong file.
 
-- [ ] A converter chain keyed by version, applied on read rather than rejected,
-      with a committed fixture per historic schema and a test that every one
-      still loads.
-- [ ] Read `schemaVersion` in `listCharacters`: quarantine anything newer than
-      the build, never render it and never write over it. Make `flush()` refuse
-      to overwrite a stored record whose version exceeds the build's.
-- [ ] Give `db()` an `oldVersion` branch, and a `VersionError` message that says
-      the app is out of date rather than that another tab has the database.
-- [ ] A stated policy: no schema ships without its converter, and no
-      `SCHEMA_VERSION` bump without both of the above. Add `fake-indexeddb` so a
-      test can prove it — today nothing can.
+- [x] ~~A converter chain keyed by version~~ — **done, `b514cbc`**. A chain and
+      not a jump table: each converter reads one version and produces exactly
+      that version plus one, so the cost of a bump stays one function forever.
+      Converters take a plain record rather than a `Character`, because a v2
+      record is not one — that is why it needs converting — and typing it as one
+      would let a converter read a field the old build never wrote and get
+      `undefined` with the compiler's blessing.
+
+      **`MIGRATIONS` is empty, and that is the correct content.** `SCHEMA_VERSION`
+      has read 3 since `8c83f78`, so nothing numbered 1 or 2 has ever left a
+      machine and `OLDEST_READABLE` is 3. Writing converters for them would be
+      inventing a history to be compatible with. What had to exist *before* the
+      first bump is the machinery, the policy and the test.
+- [x] ~~Applied on read rather than rejected~~ — **done, `0f6db68`**.
+      `readCharacter` converts before it reads, which is the whole change:
+      everything below that line reads fields by name. When a converter runs the
+      user is told which schema the file came from and what each converter did —
+      a sheet quietly rewritten is the same failure as a sheet quietly refused.
+      Two refusals survive and they are the only two that can: a file from the
+      future, and a version below `OLDEST_READABLE`.
+- [x] ~~Read `schemaVersion` in `listCharacters`, quarantine anything newer~~ —
+      **done, `23a626e`**, as `readLibrary()`. Quarantined records are named to
+      the user one by one rather than counted: *"some characters could not be
+      read"* is the sentence that makes a person open every sheet looking for
+      the missing one. `putCharacter` reads before it writes and refuses to
+      overwrite a stored version ahead of the build — one extra round trip on a
+      debounced write, in exchange for an old bundle being unable to flatten a
+      newer one's work.
+- [x] ~~Give `db()` an `oldVersion` branch and a `VersionError` message~~ —
+      **done, `23a626e`**, plus `blocked`/`blocking`. Without the branch the
+      first `DB_VERSION` bump throws `ConstraintError` on every device that
+      already has a database, which is every device with a character on it.
+- [x] ~~A stated policy, and `fake-indexeddb` so a test can prove it~~ —
+      **done**. The policy is in `Architecture.md` §6.1 and enforced by
+      `tests/store/migrations.test.ts`: bump the constant and change nothing else
+      and **nine tests fail**. `tests/store/db.test.ts` is the first test in this
+      repository ever to open a database.
+
+Two things worth recording. The `terminated` callback and the reset-on-rejection
+that P0-5 asks for are **not** in this change and are still open; only the
+version-related half of `db()` was touched. And the new tests found a defect in
+this very change: `tx.abort()` makes `tx.done` reject with an `AbortError`
+nothing awaits, so a deliberate refusal also emitted an unhandled rejection —
+P0-3's failure arriving as a side effect of P0-8's fix, caught because
+`fake-indexeddb` finally made the path runnable.
 
 ## P1 — Tells a player a wrong number
 
