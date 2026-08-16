@@ -118,6 +118,19 @@
   color: var(--ink-3);
 }
 
+/*
+ * A field name set into the line it names, for the one field - Heritage - that
+ * is a pair of proper nouns and reads as part of the name above it otherwise.
+ * "alpha · Testborne" under "Kaelith" is indistinguishable from a subtitle.
+ */
+.dhc-inline-label {
+  margin-right: 1.4mm;
+  font: 600 5.8pt/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
 .dhc-stamp {
   flex: none;
   text-align: right;
@@ -194,8 +207,17 @@
   grid-template-columns: repeat(6, 1fr);
 }
 
-.dhc-defense {
-  grid-template-columns: repeat(4, 1fr);
+.dhc-pair {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/*
+ * The damage ladder is three cells, or four when the table plays with Massive
+ * Damage, so the column count is the row's rather than a number typed here.
+ */
+.dhc-bands {
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
 }
 
 .dhc-cell-label {
@@ -217,16 +239,69 @@
 .dhc-cell-note {
   display: block;
   margin-top: 0.6mm;
-  font: 500 6pt/1 var(--mono);
+  font: 500 6pt/1.25 var(--mono);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 
-.dhc-ladder {
-  margin: 1.2mm 0 0;
-  font: 500 6.6pt/1.3 var(--mono);
-  letter-spacing: 0.04em;
+/*
+ * The SRD's three verbs under each trait, at 5.6pt.
+ *
+ * Smaller than every other label on the page on purpose: a trait cell is about
+ * 28mm wide once the hairline padding is off, "Perceive · Sense · Navigate" is
+ * 27 characters, and at 6pt mono that is a guaranteed two lines in all six
+ * cells. At 5.6pt four of the six fit on one, and the two that wrap wrap at a
+ * separator. These are a reminder of what the trait is *for*, read once when
+ * the sheet is new and never again mid-scene, so they are the right thing on
+ * the page to make small.
+ */
+.dhc-verbs {
+  display: block;
+  margin-top: 0.7mm;
+  font: 500 5.6pt/1.25 var(--mono);
+  letter-spacing: 0.02em;
   color: var(--ink-3);
+  text-wrap: balance;
+}
+
+/* The number a hit has to reach. Set like a value, not like a caption: it is
+   the thing being looked up when somebody is reading this row at all. */
+.dhc-band-from {
+  display: block;
+  margin-top: 0.9mm;
+  font: 700 10pt/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Armor Score's slot pips, under the Score they are the count of. */
+.dhc-slot-pips {
+  display: block;
+  margin-top: 1.2mm;
+  color: var(--ink);
+}
+
+.dhc-slot-pips svg {
+  display: block;
+}
+
+/* Proficiency sits with the weapons whose dice it multiplies, which is where
+   the official sheet puts it and where it is actually used. */
+.dhc-prof {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  padding-bottom: 1.2mm;
+  margin-bottom: 1.4mm;
+  border-bottom: var(--hair-soft);
+}
+
+.dhc-prof-value {
+  font: 800 12pt/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.dhc-note {
+  margin: 1.2mm 0 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -239,6 +314,16 @@
   gap: 1.6mm var(--gutter);
 }
 
+/*
+ * Hope is one row on its own. Twelve HP boxes and twelve Stress boxes at the
+ * 4.5mm pitch come to 54mm and fit two to a line on 186mm of A4; six Hope
+ * diamonds are 27mm, and stretching them across half the page would only put
+ * 60mm of white between the track and the feature that explains it.
+ */
+.dhc-one {
+  grid-template-columns: 1fr;
+}
+
 .dhc-track {
   display: flex;
   align-items: center;
@@ -248,9 +333,16 @@
   padding-bottom: 1mm;
 }
 
+/*
+ * 24mm, not 20mm: "HIT POINTS 12" is thirteen characters of 6.4pt mono with
+ * 0.14em tracking, which is 23mm and wrapped onto two lines at the old width.
+ * The row it shares is half of 186mm; label plus gap plus twelve boxes at the
+ * 4.5mm pitch is 80mm, so there is room and no reason to make a two-word label
+ * fold.
+ */
 .dhc-track-label {
   flex: none;
-  width: 20mm;
+  width: 24mm;
   font: 600 6.4pt/1 var(--mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -319,11 +411,45 @@
   border-bottom: var(--hair-soft);
 }
 
-.dhc-thirds {
+.dhc-halves {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--gutter);
   align-items: start;
+}
+
+/*
+ * A line to write on, rather than a line that has been written on.
+ *
+ * 5.4mm is the floor: an adult writing "Court Gossip" in pencil needs about
+ * 4mm of x-height plus descenders, and a row any shorter is one people write
+ * *over* rather than *in*. The row's own bottom hairline is the rule - there is
+ * no second border to draw - and `align-items: flex-end` drops the bonus box
+ * and the two slot boxes onto it so they sit on the line with the writing.
+ */
+.dhc-write {
+  min-height: 5.4mm;
+  align-items: flex-end;
+}
+
+.dhc-rule {
+  flex: 1;
+}
+
+/* The Experience bonus box: 6 x 4mm takes a pencilled "+2" without crowding. */
+.dhc-box {
+  flex: none;
+  width: 6mm;
+  height: 4mm;
+  margin-bottom: 0.5mm;
+  border: var(--hair);
+}
+
+.dhc-slots {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 2.4mm;
 }
 
 .dhc-purse {

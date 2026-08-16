@@ -117,6 +117,106 @@ describe('the print model', () => {
     ]);
   });
 
+  it('carries the SRD’s three verbs beside every trait', () => {
+    const { character, dataset, index } = scene();
+    const verbs = Object.fromEntries(
+      buildSheet(character, dataset, index).traits.map((t) => [t.trait, t.verbs]),
+    );
+    // The shipped SRD's spellings, not the printed book's British ones.
+    expect(verbs).toEqual({
+      agility: 'Sprint · Leap · Maneuver',
+      strength: 'Lift · Smash · Grapple',
+      finesse: 'Control · Hide · Tinker',
+      instinct: 'Perceive · Sense · Navigate',
+      presence: 'Charm · Perform · Deceive',
+      knowledge: 'Recall · Analyze · Comprehend',
+    });
+  });
+
+  it('counts the room HP and Stress can still grow into, and only those two', () => {
+    // The idea worth stealing off the paper sheet: both tracks run to twelve
+    // whatever your maximum is. Hope's ceiling is six and can only fall; Armor
+    // Score belongs to the armor, not to the level, so neither has growth.
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(character, dataset, index);
+    expect(sheet.tracks.map((t) => [t.kind, t.growth])).toEqual([
+      ['hp', 6],
+      ['stress', 6],
+      ['hope', 0],
+      ['armor', 0],
+    ]);
+  });
+
+  it('stops dashing once a track has reached the maximum the rules allow', () => {
+    const { character, dataset, index } = scene();
+    const maxed = {
+      ...character,
+      levelUpHistory: Array.from({ length: 6 }, () => advancement('hitPoint', 'hitPoint', 3, 5)),
+    };
+    const hp = buildSheet(maxed, dataset, index).tracks.find((t) => t.kind === 'hp');
+    expect(hp).toMatchObject({ boxes: 12, growth: 0 });
+  });
+
+  it('crosses out a Hope slot per scar and still prints all six', () => {
+    // "Permanently cross out a Hope slot" is what the SRD's death moves say, so
+    // four diamonds would lose the fact that this character used to have six.
+    const { character, dataset, index } = scene();
+    const scarred = { ...character, scars: ['A burned hand', 'A missing eye'] };
+    const hope = buildSheet(scarred, dataset, index).tracks.find((t) => t.kind === 'hope');
+    expect(hope).toMatchObject({ boxes: 4, crossed: 2, growth: 0 });
+    expect(hope!.boxes + hope!.crossed).toBe(6);
+  });
+
+  it('says where Evasion and the thresholds came from', () => {
+    const { character, dataset, index } = scene();
+    const sheet = buildSheet(character, dataset, index);
+    expect(sheet.evasionNote).toBe('Test Class starts at 10');
+    expect(sheet.thresholdNote).toBe('Level 5 is already added to both');
+  });
+
+  it('never claims a derivation for a number somebody typed in by hand', () => {
+    // The founding rule, in its smallest form. "Level 5 is already added to
+    // both" over a pair of overridden numbers is a sentence about this sheet
+    // that is not true of the character behind it.
+    const { character, dataset, index } = scene();
+    const overridden = {
+      ...character,
+      evasionOverride: 14,
+      thresholdOverride: [9, 20] as [number, number],
+    };
+    const sheet = buildSheet(overridden, dataset, index);
+    expect(sheet.evasionNote).toBe('Set by hand on this sheet');
+    expect(sheet.thresholdNote).toBe('Set by hand on this sheet');
+    expect(sheet.thresholds).toEqual([9, 20]);
+  });
+
+  it('hands the Hope feature out on its own, and does not file it twice', () => {
+    const dataset = makeDataset({
+      classes: [makeClass({ classFeatures: [{ name: 'Class Feature', text: 'c' }] })],
+    });
+    const index = indexDataset(dataset);
+    const sheet = buildSheet(makeCharacter({ level: 1 }), dataset, index);
+    expect(sheet.hopeFeature).toEqual({
+      source: 'Test Class',
+      name: 'Hope Feature',
+      text: 'Hope Feature does a thing.',
+    });
+    expect(sheet.features.map((f) => f.name)).toEqual(['Class Feature']);
+  });
+
+  it('rules one Experience line for every one a whole campaign can grant', () => {
+    // Two at creation plus the tier achievements at 2, 5 and 8: five, derived
+    // from levelUp.ts rather than counted off the printed sheet.
+    const { character, dataset, index } = scene();
+    expect(buildSheet(character, dataset, index).experienceLines).toBe(5);
+
+    const many = {
+      ...character,
+      experiences: Array.from({ length: 7 }, (_, i) => ({ id: `e${i}`, name: `E${i}`, bonus: 1 })),
+    };
+    expect(buildSheet(many, dataset, index).experienceLines).toBe(7);
+  });
+
   it('names the damage bands and what each one costs', () => {
     const { character, dataset, index } = scene();
     expect(buildSheet(character, dataset, index).ladder).toEqual([
@@ -214,12 +314,68 @@ describe('the printed page', () => {
     expect(html).toContain('alpha · Testborne');
   });
 
+  it('names the heritage field rather than leaving it a subtitle', () => {
+    expect(html).toContain('Heritage');
+  });
+
   it('draws one empty box per slot, and no filled ones', () => {
-    // 6 HP + 6 Stress + 6 Hope + 4 Armor. Every box is a stroked outline: a
+    // 12 HP + 12 Stress + 6 Hope + 4 Armor. HP and Stress run to twelve however
+    // many the character has earned; every box is a stroked outline, because a
     // printed track is somewhere to make a mark, not a picture of one.
-    expect(html.match(/<g transform=/g)).toHaveLength(22);
+    expect(html.match(/<g transform=/g)).toHaveLength(34);
     expect(html).toContain('stroke="currentColor"');
     expect(html).not.toContain('fill="black"');
+  });
+
+  it('breaks the outline of every slot the character has not earned yet', () => {
+    // Six on HP and six on Stress, and nothing dashed anywhere else: a broken
+    // box says "you could have this", which is false of a Hope slot and false
+    // of an Armor slot.
+    expect(html.match(/stroke-dasharray/g)).toHaveLength(12);
+  });
+
+  it('says in words what the broken boxes mean', () => {
+    expect(html).toContain('12 Hit Points and 12 Stress at most');
+  });
+
+  it('reads the damage ladder as a ladder, with what each band costs', () => {
+    for (const band of ['Minor', 'Major', 'Severe']) expect(html).toContain(band);
+    expect(html).toContain('Mark 1 HP');
+    expect(html).toContain('Mark 2 HP');
+    expect(html).toContain('Mark 3 HP');
+  });
+
+  it('prints the trait verbs the SRD gives, in the SRD’s spelling', () => {
+    expect(html).toContain('Sprint · Leap · Maneuver');
+    expect(html).toContain('Recall · Analyze · Comprehend');
+    expect(html).not.toContain('Manoeuvre');
+  });
+
+  it('puts the Hope feature under the Hope track it is about', () => {
+    const hope = html.indexOf('>Hope</h2>');
+    const feature = html.indexOf('Hope Feature does a thing.');
+    const nextSection = html.indexOf('Active weapons');
+    expect(hope).toBeGreaterThan(-1);
+    expect(feature).toBeGreaterThan(hope);
+    expect(feature).toBeLessThan(nextSection);
+  });
+
+  it('says where Evasion came from and how the thresholds were reached', () => {
+    expect(html).toContain('Test Class starts at 10');
+    expect(html).toContain('Level 5 is already added to both');
+  });
+
+  it('rules a blank Experience line, with its bonus box, for each one untaken', () => {
+    // Kaelith has one of the five a campaign can grant.
+    expect(html.match(/class="dhc-box"/g)).toHaveLength(4);
+  });
+
+  it('offers somewhere to write a stowed weapon without claiming to know of any', () => {
+    // The model has two weapon slots and no pack, so these rows are pencil
+    // room. Three of them, each with a Primary and a Secondary box.
+    expect(html).toContain('Inventory weapons');
+    expect(html.match(/Primary/g)).toHaveLength(4); // three rows, one active weapon
+    expect(html.match(/Secondary/g)).toHaveLength(3);
   });
 
   it('draws the purse as ten, ten and one', () => {
@@ -235,6 +391,32 @@ describe('the printed page', () => {
 
   it('carries the attribution the licence requires', () => {
     expect(html).toContain('Daggerheart System Reference Document 1.0');
+  });
+});
+
+describe('a scarred sheet', () => {
+  const { character, dataset, index } = scene();
+  const html = renderToStaticMarkup(
+    createElement(CharacterSheet, {
+      sheet: buildSheet({ ...character, scars: ['A burned hand'] }, dataset, index),
+    }),
+  );
+
+  it('strikes the lost Hope slot through instead of dropping it', () => {
+    // Six diamonds still, one of them crossed. The count is the whole point:
+    // "you have five" and "you had six and lost one" are different facts.
+    // Inset to 3.2 so the strike stays inside the diamond's edges rather than
+    // reading as a second diamond laid over the first.
+    expect(html.match(/M3\.2 3\.2 L6\.8 6\.8 M6\.8 3\.2 L3\.2 6\.8/g)).toHaveLength(1);
+    expect(html).toContain('1 scar: a crossed-out slot is gone for good.');
+  });
+
+  it('leaves an unscarred sheet with no crosses on it at all', () => {
+    const clean = renderToStaticMarkup(
+      createElement(CharacterSheet, { sheet: buildSheet(character, dataset, index) }),
+    );
+    expect(clean).not.toContain('M3.2 3.2');
+    expect(clean).toContain('Spend a Hope to Help an Ally or Utilize an Experience.');
   });
 });
 
