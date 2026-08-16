@@ -110,6 +110,7 @@ import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
+import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
 import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
 import { Header } from '../../src/ui/shell/Header.tsx';
 import { Recovery } from '../../src/ui/shell/Recovery.tsx';
@@ -534,6 +535,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
 
   'shell/App.tsx::App': () => <App />,
+  'shell/AppBoundary.tsx::AppBoundary': () => (
+    <AppBoundary>inside the app boundary</AppBoundary>
+  ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
   'shell/Header.tsx::Header': () => <Header />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,

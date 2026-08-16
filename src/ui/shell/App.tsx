@@ -21,6 +21,7 @@ import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
 import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
+import { AppBoundary } from './AppBoundary.tsx';
 import { BackupBanner } from './BackupBanner.tsx';
 import { Header } from './Header.tsx';
 import { Recovery } from './Recovery.tsx';
@@ -45,7 +46,28 @@ function Loading(): React.JSX.Element {
   );
 }
 
+/**
+ * The whole app, inside one boundary.
+ *
+ * This is two components rather than one for a reason that is easy to undo by
+ * accident: a boundary only catches what is *below* it, so `<AppBoundary>` had
+ * to move above the component that does the work. `Shell` calls `useStats()`,
+ * which derives a full sheet in App's own render, and mounts `Header`,
+ * `TabBar`, `CardReader`, the licence footer and four alert banners - every one
+ * of which was outside every boundary in this app until now, because
+ * `ScreenBoundary` is mounted *by* the thing that would have thrown. Putting
+ * the boundary inside `Shell` would type-check, render identically, and catch
+ * nothing.
+ */
 export function App(): React.JSX.Element {
+  return (
+    <AppBoundary>
+      <Shell />
+    </AppBoundary>
+  );
+}
+
+function Shell(): React.JSX.Element {
   const ready = useApp((s) => s.ready);
   const init = useApp((s) => s.init);
   const screen = useApp((s) => s.screen);
