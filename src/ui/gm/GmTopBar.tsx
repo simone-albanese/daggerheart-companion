@@ -9,11 +9,27 @@
  * live scene, but only while there is one - a chip that appears when adversaries
  * are on the board and is not there when they are not.
  *
+ * ## MENU, and why the whole row is the button
+ *
+ * The campaign name used to be a label. It is the visible half of the MENU
+ * button now - the way out of the GM section, and the campaign list - and the
+ * *whole row* is the target rather than the word MENU beside it. That is the
+ * lesson `Disclosure` already learned on the character sheet: a 44px word next
+ * to 300px of dead text teaches the hand to aim, and the hand is holding a
+ * phone in the other one. 369 x 44 is the largest target on this screen and it
+ * is at the top of it deliberately, because leaving the section and switching
+ * table are the rare gestures; ADD and SHOW are the continuous ones and they
+ * have the bottom.
+ *
+ * Its accessible name is its visible text - the word MENU and the campaign's
+ * name, no `aria-label` - so WCAG 2.5.3 holds by construction rather than by a
+ * string somebody has to remember to keep in step.
+ *
  * ## What is read and what is touched
  *
- * Read: the campaign name (text, not a target - the MENU button that will make
- * it one arrives with that sheet) and the countdown's value. Touched: Fear `−`
- * and `+` at 44 x 44, the Fear readout at 58 x 44 - the one deliberate
+ * Read: the countdown's value, and the campaign's name *as text inside* the
+ * MENU button rather than as a target of its own. Touched: MENU at 369 x 44,
+ * Fear `−` and `+` at 44 x 44, the Fear readout at 58 x 44 - the one deliberate
  * crossing, because setting the pool outright belongs to the board and the
  * number the eye is already on is the honest door to it - and the countdown's
  * `−` and `+` at 44 x 44.
@@ -22,8 +38,9 @@
  *
  * Column 393 − 24 of page padding = 369. Two rows plus a conditional third:
  *
- *   row A  44px  the campaign name, read, ellipsised, with the whole 369 to
- *                itself now that SHOW carries the two consultation tools
+ *   row A  44px  MENU, the whole width: the word at ~44 with its letterspacing
+ *                and 8 of gap, and the campaign name ellipsised in the
+ *                remaining 317 with the whole of it on `title`
  *   row B  44px  the live-scene chip when there is one, then Fear:
  *                label 30 + `−` 44 + readout 58 + `+` 44 + three 8px gaps = 200,
  *                which leaves 161 for the chip and its gap. It needs ~90.
@@ -60,9 +77,12 @@ import { useGm, type GmRegion } from './gmStore.ts';
 
 export function GmTopBar({
   layout,
+  onOpenMenu,
   onOpenTool,
 }: {
   layout: Layout;
+  /** MENU is the only sheet reached from up here. The bar opens the rest. */
+  onOpenMenu: () => void;
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const phone = layout === 'phone';
@@ -85,20 +105,34 @@ export function GmTopBar({
   const fear = <FearBar pips={!phone} onOpenBoard={() => onOpenTool('countdowns')} />;
 
   const title = (
-    <span
-      className="t-label"
-      title={name === '' ? undefined : name}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        color: name === '' ? 'var(--dim)' : 'var(--text-2)',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
+    <button
+      type="button"
+      onClick={onOpenMenu}
+      aria-haspopup="dialog"
+      className="row"
+      style={{ flex: 1, minWidth: 0, minHeight: 44, gap: 8, padding: '0 4px', textAlign: 'left' }}
     >
-      {name === '' ? 'Unnamed campaign' : name}
-    </span>
+      <span
+        className="t-meta"
+        style={{ flex: 'none', letterSpacing: '0.12em', color: 'var(--muted)' }}
+      >
+        MENU
+      </span>
+      <span
+        className="t-label"
+        title={name === '' ? undefined : name}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          color: name === '' ? 'var(--dim)' : 'var(--text-2)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {name === '' ? 'Unnamed campaign' : name}
+      </span>
+    </button>
   );
 
   return (

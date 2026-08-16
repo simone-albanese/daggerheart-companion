@@ -15,7 +15,7 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { SessionItem } from '../../shared/campaigns.ts';
+import type { Campaign, SessionItem } from '../../shared/campaigns.ts';
 import { SESSION_ITEM_KINDS, countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
@@ -37,6 +37,10 @@ declare global {
  * module singleton, so the stub would otherwise outlive the test that made it.
  */
 const REAL_EXPORT = useGm.getState().exportActiveCampaign;
+
+/** The campaign list as hydration left it, restored before every test. */
+let baseCampaigns: Campaign[] = [];
+let baseActiveId: string | null = null;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -66,6 +70,8 @@ beforeAll(async () => {
   Element.prototype.scrollTo = (): void => {};
   Element.prototype.scrollIntoView = (): void => {};
   await hydrateGm();
+  baseCampaigns = useGm.getState().campaigns;
+  baseActiveId = useGm.getState().activeCampaignId;
 });
 
 beforeEach(() => {
@@ -93,6 +99,11 @@ beforeEach(() => {
     region: 'encounter',
     writeError: null,
     exportActiveCampaign: REAL_EXPORT,
+    // MENU makes and removes campaigns, and the store is a module singleton.
+    campaigns: baseCampaigns,
+    activeCampaignId: baseActiveId,
+    notices: [],
+    quarantined: [],
   });
 });
 
@@ -626,6 +637,142 @@ describe('SAVE', () => {
 
 // ---------------------------------------------------------------------------
 
+describe('MENU', () => {
+  const openMenu = (): void => {
+    gm();
+    click(leading('MENU'));
+  };
+
+  /** Two campaigns, the first one open, both named. */
+  const twoCampaigns = (): void => {
+    const [first] = baseCampaigns;
+    useGm.setState({
+      campaigns: [
+        { ...first!, id: 'c-open', name: 'The Sablewood Winter' },
+        { ...first!, id: 'c-other', name: 'A one-shot' },
+      ],
+      activeCampaignId: 'c-open',
+    });
+  };
+
+  it('is the whole top row, not a word beside a name', () => {
+    // The Disclosure lesson: a 44px word next to 300px of dead text teaches the
+    // hand to aim, and the other hand is holding the phone.
+    gm();
+    const menu = leading('MENU');
+    expect(menu.textContent).toContain(activeCampaign().name);
+    expect(menu.getAttribute('aria-haspopup')).toBe('dialog');
+    // The accessible name is the visible text, so WCAG 2.5.3 holds by
+    // construction rather than by a string somebody keeps in step.
+    expect(menu.getAttribute('aria-label')).toBeNull();
+  });
+
+  it('carries the way out the tab bar used to be', () => {
+    openMenu();
+    click(named('CARDS'));
+    expect(useApp.getState().screen).toBe('cards');
+    // And it closes behind itself: a dialog left open over a screen the GM has
+    // just left is a dialog they have to dismiss to see where they went.
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('does not offer Settings, because the header already does on every screen', () => {
+    openMenu();
+    expect(buttons().map((b) => (b.textContent ?? '').trim())).not.toContain('SETTINGS');
+  });
+
+  it('marks the open campaign and switches to another', async () => {
+    twoCampaigns();
+    openMenu();
+    expect(named('The Sablewood Winter — open').getAttribute('aria-current')).toBe('true');
+    click(named('Open A one-shot'));
+    await settle();
+    expect(useGm.getState().activeCampaignId).toBe('c-other');
+  });
+
+  it('makes a new campaign', async () => {
+    twoCampaigns();
+    openMenu();
+    click(named('NEW CAMPAIGN'));
+    await settle();
+    expect(useGm.getState().campaigns).toHaveLength(3);
+  });
+
+  it('removes nothing on one tap', async () => {
+    twoCampaigns();
+    openMenu();
+    click(named('REMOVE — A one-shot'));
+    await settle();
+    expect(useGm.getState().campaigns).toHaveLength(2);
+    expect(text()).toContain('TAP AGAIN TO REMOVE');
+    click(named('TAP AGAIN TO REMOVE — A one-shot'));
+    await settle();
+    expect(useGm.getState().campaigns.map((c) => c.id)).toEqual(['c-open']);
+  });
+
+  it('offers the rename on the open campaign alone, and says why', () => {
+    /*
+     * `patchCampaign` schedules a write only when the id is the active one and
+     * `writeActive` gathers only the active record, so a rename typed against
+     * any other row would look right until the next reload and then be gone.
+     * The fix is in the store; until it is made, the control is not offered.
+     */
+    twoCampaigns();
+    openMenu();
+    expect(buttons().filter((b) => (b.textContent ?? '').trim() === 'RENAME')).toHaveLength(1);
+    expect(container.querySelector<HTMLInputElement>('[role="dialog"] input')!.value).toBe(
+      'The Sablewood Winter',
+    );
+    expect(text()).toContain('Only the open campaign can be renamed here');
+  });
+
+  it('renames the open campaign', () => {
+    twoCampaigns();
+    openMenu();
+    type(container.querySelector('[role="dialog"] input')!, 'The Long Winter');
+    click(named('RENAME'));
+    expect(activeCampaign().name).toBe('The Long Winter');
+  });
+
+  it('refuses a name that is nothing at all, in words', () => {
+    // Two campaigns both reading "Unnamed campaign" are two rows in the list
+    // above that nobody can tell apart - and quietly restoring the old name is
+    // the other half of the same defect.
+    twoCampaigns();
+    openMenu();
+    type(container.querySelector('[role="dialog"] input')!, '   ');
+    expect(named('RENAME').disabled).toBe(true);
+    click(named('RENAME'));
+    expect(activeCampaign().name).toBe('The Sablewood Winter');
+    expect(text()).toContain('A campaign needs a name');
+  });
+
+  it('names a campaign a newer build wrote, rather than counting it', () => {
+    // `quarantined` and `notices` have been computed and tested since campaigns
+    // were built, and drawn nowhere. "One campaign could not be read" is a
+    // sentence nobody can act on.
+    useGm.setState({
+      notices: ['"A one-shot": the Fear pool held 40, which is outside 0-12, so it was brought back inside.'],
+      quarantined: [
+        { id: 'q1', name: 'Next Winter', schemaVersion: 9, reason: 'That campaign was written by a newer version of this app.' },
+      ],
+    });
+    openMenu();
+    expect(text()).toContain('Next Winter');
+    expect(text()).toContain('written by a newer version');
+    expect(text()).toContain('Nothing has been deleted');
+    expect(text()).toContain('brought back inside');
+  });
+
+  it('says the campaigns are still being read, before they are', () => {
+    useGm.setState({ hydrated: false });
+    openMenu();
+    expect(text()).toContain('still being read');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 describe('the sheets, at 393x852', () => {
   /** A declared length in px. Tokens resolve as they do below 1180px. */
   const px = (value: string): number => {
@@ -640,7 +787,7 @@ describe('the sheets, at 393x852', () => {
       .filter((el) => Math.max(px(el.style.height), px(el.style.minHeight)) < 44)
       .map((el) => `${el.tagName} ${el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().slice(0, 30)}`);
 
-  it('puts no target under the touch floor in any of the three', async () => {
+  it('puts no target under the touch floor in any of the four', async () => {
     gm();
     for (const verb of ['ADD', 'SHOW', 'SAVE']) {
       click(named(verb));
@@ -649,6 +796,9 @@ describe('the sheets, at 393x852', () => {
       await settle(2);
       expect(undersized(), `${verb} has a target under 44px`).toEqual([]);
     }
+    // MENU opens from the top of the screen rather than from the bar.
+    click(leading('MENU'));
+    expect(undersized(), 'MENU has a target under 44px').toEqual([]);
   });
 
   it('puts no target under the touch floor in any of ADD’s four forms', () => {

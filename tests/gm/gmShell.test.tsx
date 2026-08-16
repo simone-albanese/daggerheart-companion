@@ -1,0 +1,247 @@
+// @vitest-environment jsdom
+/**
+ * What the GM screen does to the shell around it.
+ *
+ * Two changes land in `App.tsx` with `MenuSheet`, and both are the kind that
+ * are easy to make and easy to make wrongly. The tab bar does not render inside
+ * the GM section, because `GmBar` is the bottom bar there and two stacked bars
+ * would cost the plan 94px it does not have; that is only honest because MENU
+ * carries the way back to Play, Cards and Build, which is why the two arrive in
+ * one commit rather than two. And the licence notice does not leave: it moves
+ * *into* the session list's scroll, where it costs a scroll position rather
+ * than content, which is the argument `App.tsx` already makes for Cards, Build
+ * and Settings.
+ *
+ * `tests/ui/attribution.test.tsx` is the gate on the second one and it is not
+ * edited: its `gm` case asks only that the notice is in the DOM with a
+ * character in the library, which is exactly the property that must survive.
+ * This file asks the questions that one cannot - *where* it is, and what is
+ * underneath it.
+ */
+import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import * as db from '../../src/store/db.ts';
+import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { useApp, type Screen } from '../../src/store/state.ts';
+import { ATTRIBUTION } from '../../src/ui/shared/CompatibleMark.tsx';
+import { App } from '../../src/ui/shell/App.tsx';
+import { playedCharacter } from '../ui/fixture.ts';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
+const NOTICE = ATTRIBUTION.join(' ');
+
+let container: HTMLDivElement;
+let root: Root;
+
+class MemoryStorage {
+  private readonly map = new Map<string, string>();
+  getItem = (k: string): string | null => this.map.get(k) ?? null;
+  setItem = (k: string, v: string): void => void this.map.set(k, v);
+  removeItem = (k: string): void => void this.map.delete(k);
+  clear = (): void => this.map.clear();
+}
+
+/** A 393x852 phone, which is the width the tab bar exists at. */
+function setPhone(): void {
+  window.matchMedia = ((query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    const coarse = /any-pointer:\s*coarse|pointer:\s*coarse/.test(query);
+    return {
+      matches:
+        (max !== null && 393 <= Number(max[1])) ||
+        (min !== null && 393 >= Number(min[1])) ||
+        coarse,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
+
+beforeAll(async () => {
+  Element.prototype.scrollTo = (): void => {};
+  Element.prototype.scrollIntoView = (): void => {};
+  /*
+   * Pull the GM chunk in before anything is mounted.
+   *
+   * `App.tsx` reaches it through `lazy()`, and `settle` below turns a hundred
+   * empty macrotasks - which is *fast*, a few milliseconds, and can easily
+   * finish before Vite has transformed twenty modules for a cold dynamic
+   * import. The result is a test that fails on how quickly the loop spins
+   * rather than on anything the app did. Importing it here puts it in the
+   * module cache, so `lazy()` resolves from memory and the wait is real.
+   */
+  await import('../../src/ui/gm/Gm.tsx');
+});
+
+beforeEach(async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  setPhone();
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+
+  await db.clearAll();
+  globalThis.localStorage = new MemoryStorage() as unknown as Storage;
+  useApp.setState({
+    ready: false,
+    storageError: null,
+    writeError: null,
+    quarantined: [],
+    characters: [],
+    activeId: null,
+    screen: 'play',
+    prefs: { ...DEFAULT_PREFS },
+    log: [],
+    openCard: null,
+  });
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+async function settle(until: () => boolean = () => true, turns = 120): Promise<void> {
+  for (let i = 0; i < turns; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (until()) return;
+  }
+}
+
+const text = (): string => container.textContent ?? '';
+const main = (): HTMLElement => container.querySelector('main')!;
+
+/** Boot the real shell with one character in the library, on `screen`. */
+async function mountOn(screen: Screen, ready: () => boolean): Promise<void> {
+  await db.putCharacter(playedCharacter());
+  await act(async () => {
+    root.render(createElement(App));
+  });
+  await settle(() => useApp.getState().ready);
+  await act(async () => {
+    useApp.getState().setScreen(screen);
+  });
+  // GM is `lazy()`; the dynamic import and the store's hydration need turns.
+  await settle(ready);
+}
+
+/**
+ * Is this element the last thing inside `<main>`, at every level above it?
+ *
+ * Not a direct-child check. `ScreenBoundary` returns its children untouched in
+ * the happy path, so the chain is `main > div > nav` and `main > nav` would be
+ * false for a reason that has nothing to do with the question being asked.
+ */
+function lastInMain(el: Element): boolean {
+  let node: Element | null = el;
+  while (node !== null && node !== main()) {
+    if (node.parentElement?.lastElementChild !== node) return false;
+    node = node.parentElement;
+  }
+  return node === main();
+}
+
+const onGm = (): Promise<void> => mountOn('gm', () => text().includes('Nothing planned yet'));
+
+// ---------------------------------------------------------------------------
+
+describe('the bottom of the GM screen', () => {
+  it('carries the session tools and no tab bar', async () => {
+    await onGm();
+    const navs = [...main().querySelectorAll('nav')];
+    expect(navs.map((n) => n.getAttribute('aria-label'))).toEqual(['Session tools']);
+  });
+
+  it('still has a way back to Play, Cards and Build, in MENU', async () => {
+    // The tab bar leaving is only defensible because this exists. A commit that
+    // did one without the other would strand a phone in the GM section.
+    await onGm();
+    const menu = [...container.querySelectorAll('button')].find((b) =>
+      (b.textContent ?? '').startsWith('MENU'),
+    )!;
+    expect(menu, 'no MENU button at the top of the GM screen').toBeDefined();
+    act(() => {
+      menu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const ways = [...container.querySelectorAll('[role="dialog"] button')]
+      .map((b) => (b.textContent ?? '').trim())
+      .filter((t) => ['PLAY', 'CARDS', 'BUILD'].includes(t));
+    expect(ways).toEqual(['PLAY', 'CARDS', 'BUILD']);
+
+    act(() => {
+      [...container.querySelectorAll('[role="dialog"] button')]
+        .find((b) => (b.textContent ?? '').trim() === 'CARDS')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(useApp.getState().screen).toBe('cards');
+  });
+
+  it('puts the tab bar back the moment the GM section is left', async () => {
+    await onGm();
+    await act(async () => {
+      useApp.getState().setScreen('cards');
+    });
+    await settle(() => main().querySelectorAll('nav').length > 0);
+    const navs = [...main().querySelectorAll('nav')];
+    expect(navs).toHaveLength(1);
+    expect(navs[0]!.getAttribute('aria-label')).not.toBe('Session tools');
+  });
+
+  it('leaves the session tools as the last thing in main, so one element pays the inset', async () => {
+    await onGm();
+    const bar = main().querySelector('nav[aria-label="Session tools"]')!;
+    expect(lastInMain(bar), 'something is drawn under the GM bar').toBe(true);
+  });
+
+  it('declares the home-indicator inset on that bar, and nowhere else on the screen', () => {
+    /*
+     * Read from the source rather than from the DOM, and this is the one place
+     * in the suite that has to be. jsdom's CSS parser drops `env(...)`: an
+     * inline style that declares it reads back as `''`, so an assertion against
+     * `style.paddingBottom` would pass whether the line is there or not, which
+     * is worse than no assertion. What can be checked is that exactly one of
+     * the two files draws it - the bar - because paying it twice leaves 34px of
+     * empty panel between the notice and the bar, and paying it nowhere leaves
+     * the last 34px of the window under the home indicator.
+     */
+    const src = (path: string): string => readFileSync(join(process.cwd(), 'src', path), 'utf8');
+    expect(src('ui/gm/GmBar.tsx')).toContain("paddingBottom: 'env(safe-area-inset-bottom)'");
+    expect(src('ui/gm/SessionList.tsx')).toContain('bottomMost={false}');
+  });
+});
+
+describe('where the licence notice went', () => {
+  it('is on the GM screen, inside the scroll rather than pinned under it', async () => {
+    await onGm();
+    expect(text(), 'the GM screen lost the licence notice').toContain(NOTICE);
+    // Pinned, it is a direct child of `<main>`, which is where it still is on
+    // Cards. Here it is the last block of the session list's scroll region.
+    expect(
+      container.querySelector('main > footer'),
+      'the notice is pinned on the GM screen, in the arc the bar was placed in',
+    ).toBeNull();
+    const footer = container.querySelector('footer')!;
+    expect(footer.closest('.scroll'), 'the notice is not inside a scrolling region').not.toBeNull();
+  });
+
+  it('is still pinned on Cards, which has no bottom bar of its own', async () => {
+    await mountOn('cards', () => text().includes(NOTICE));
+    expect(container.querySelector('main > footer')).not.toBeNull();
+  });
+});

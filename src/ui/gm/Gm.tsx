@@ -49,11 +49,19 @@
  * either closes the other, and SHOW's two choices go through `openTool`, which
  * is what makes the sheet hand the screen over rather than stack on it.
  *
- * ## What is not here yet
+ * ## The tab bar is not on this screen, and MENU is why
  *
- * MENU: the way back out to Play, Cards and Build, and the campaign list. The
- * tab bar and the licence notice therefore stay exactly where they are until
- * it lands, because the bar is not a replacement for a door until it has one.
+ * Inside the GM section the bottom of the phone belongs to `GmBar`. That is the
+ * owner's decision - leaving the section is a rare gesture, ADD and SHOW are
+ * continuous ones, and the thumb arc should go to the continuous - and it is
+ * only honest once the door is somewhere else, which is `MenuSheet` behind the
+ * campaign name at the top. Both halves land together on purpose: a commit that
+ * removed the tab bar before MENU existed would strand a phone in the GM
+ * section with the header's SETTINGS button as its only way anywhere.
+ *
+ * `App.tsx` carries the two lines that do it, and the licence notice moves with
+ * them - into the session list's scroll, not off the screen. See
+ * `LicenceFooter.tsx`.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLayout } from '../shared/useLayout.ts';
@@ -65,6 +73,7 @@ import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
+import { MenuSheet } from './MenuSheet.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
 import { SaveSheet } from './SaveSheet.tsx';
 import { Scene } from './Scene.tsx';
@@ -82,6 +91,7 @@ const TOOL_LABEL: Record<GmRegion, string> = {
 
 /** The same, one per sheet. A dialog with no name is a dialog nobody can find. */
 const SHEET_LABEL: Record<GmSheetId, string> = {
+  menu: 'Menu and campaigns',
   add: 'Add to the night',
   show: 'Bestiary and party board',
   save: 'Where this campaign is kept',
@@ -138,7 +148,7 @@ export function Gm(): React.JSX.Element {
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
-      <GmTopBar layout={layout} onOpenTool={openTool} />
+      <GmTopBar layout={layout} onOpenMenu={() => openSheet('menu')} onOpenTool={openTool} />
       <SessionList phone={phone} onOpenTool={openTool} />
       <GmBar open={sheet} onOpenSheet={openSheet} />
 
@@ -154,6 +164,7 @@ export function Gm(): React.JSX.Element {
 
       {sheet !== null && (
         <GmSheet label={SHEET_LABEL[sheet]} onClose={closeSheet}>
+          {sheet === 'menu' && <MenuSheet onClose={closeSheet} />}
           {sheet === 'add' && <AddSheet onClose={closeSheet} />}
           {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
           {sheet === 'save' && <SaveSheet />}

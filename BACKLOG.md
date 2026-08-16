@@ -1535,11 +1535,15 @@ Decisions taken:
       is one, with a retry that now does something because `hydrateGm` leaves a
       failed first write dirty; and it offers the `.dhcampaign` copy while
       saying out loud that nothing in this build can read one back in.
-- [ ] **Multiple campaigns.** A campaign owns its name, its session list, its
-      Fear, its countdowns and its imported party. It does **not** own the
-      characters you play: those stay in `characters` and in the header,
-      untouched, so a sheet can appear in two campaigns and switching campaign
-      cannot cost anyone a character.
+- [x] ~~**Multiple campaigns.**~~ — **the record and the store were built
+      earlier in this session; MENU is the door.** Switch, make and remove, with
+      the removal behind two taps. Switching still never touches the characters
+      you play, because a campaign has never owned them — the sheet on two
+      boards is two sightings, not one shared record, and the sheet says so.
+      The list is drawn in the order the database handed it over and is **not**
+      re-sorted live by `updatedAt`: the open campaign is written every 400 ms,
+      so that would move exactly one row — always the open one — to the top,
+      under a thumb reaching for REMOVE on the row below it.
 - [ ] **Campaigns move to their own IndexedDB store**, with their own schema
       version and their own converter chain, so `Character` is untouched and
       `SCHEMA_VERSION` is not bumped. The existing GM state migrates out of
@@ -1549,10 +1553,15 @@ Decisions taken:
       `localStorage` is the first thing iOS clears. It currently holds whole
       character sheets belonging to other people, in the least durable store the
       platform has.
-- [ ] **The bottom bar swaps to the GM tools inside the GM section**, and the
-      way back to Play, Cards and Build moves into the top MENU, which the
-      wireframe already draws. Leaving the GM section is a rare gesture; ADD and
-      SHOW are continuous ones, and the thumb arc should go to the continuous.
+- [x] ~~**The bottom bar swaps to the GM tools inside the GM section**, and the
+      way back to Play, Cards and Build moves into the top MENU.~~ — **done,
+      both halves in one commit**, because a tab bar removed before MENU existed
+      would strand a phone in the GM section with the header's SETTINGS button
+      as its only way anywhere. MENU is the whole top row rather than a word
+      beside the campaign name — the `Disclosure` lesson — and it does not carry
+      Settings, because the header does on every screen. The licence notice
+      moved *into* the session list's scroll rather than off the screen: it is
+      a licence obligation and a layout budget is not a reason to drop one.
 - [ ] **Each tool is switchable in Settings**, plus one master switch that hides
       the GM section entirely — most people using this app are players. A tool
       that is off leaves the bar, and the bar redistributes across what is left
@@ -1603,14 +1612,36 @@ silence:**
       the gap, and nothing in this build can drop one, so the property is pinned
       only as "three buttons, three columns". The per-tool preferences are what
       make it provable.
-- [ ] **`GmBar` does not pay `env(safe-area-inset-bottom)`,** because the tab
-      bar below it on a phone and the licence footer below it elsewhere already
-      do, and two payments is 34px of empty panel between two bars. It moves
-      here in the commit that takes the tab bar off this screen.
+- [x] ~~**`GmBar` does not pay `env(safe-area-inset-bottom)`.**~~ — **it does
+      now,** and it is the only thing on the screen that does, because the tab
+      bar has gone and the notice is inside the scroll. No test reads it from
+      the DOM: jsdom drops `env(...)`, so an assertion on `style.paddingBottom`
+      could never fail. `gmShell.test` reads the source and says why there.
 - [ ] **A scene added from ADD records an environment and does not put it on the
       board.** That is the same split the open scene row already draws — the row
       is the plan, `GmBoard` is the table — and the row carries the two verbs
       that cross it. Worth revisiting only if a GM reports expecting otherwise.
+- [ ] **`renameCampaign` on a campaign that is not the open one never reaches
+      the disk.** `patchCampaign` schedules a write only when the id is the
+      active one and `writeActive` gathers only the active record, so the rename
+      would sit in the window looking right and be gone on the next reload. MENU
+      therefore offers the control on the open campaign alone, with the reason
+      beside it. Fixing it is a store change — gather and write the one record
+      that was patched — and nothing covers it today.
+- [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
+      rejected,** and `removeCampaign` has no stale-build guard where
+      `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
+      on top of that. The first is at least *said*, because `createCampaign`
+      sets `writeError` and SAVE draws it; the second is a store asymmetry this
+      work does not touch.
+- [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
+      so a repaired campaign is repaired again on every launch. The notices it
+      produces are in MENU rather than in a banner precisely because they recur.
+- [ ] **The campaign list is not re-sorted while it is open.** `readCampaigns`
+      sorts newest-played first once, on the way in; MENU keeps that order for
+      the life of the sheet. Live sorting would move the open campaign to the
+      top every 400 ms, under the thumb. If a GM ever wants the order refreshed
+      it should be a control, not a side effect of the debounce.
 
 ## P5-3 · What the GM screen could have at hand, and does not
 

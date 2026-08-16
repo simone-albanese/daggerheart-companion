@@ -72,28 +72,33 @@ are now nearly closed too.**
 
 ## What is open
 
-**The DM screen itself (P5-2), half of it.** The store, the migration,
-multi-campaign and the export were already built. **The session list is now
-built too**, in `eab26d8` and `f6e264d`: it is the GM screen, the five tools open
-over it in `GmSheet` and unmount when they close, and rows reorder by handle, by
-arrow key and by two buttons in an open row. `session.ts` holds the row's
-vocabulary, `useSessionDrag.ts` the gesture; `Gm.tsx` is the integrator and is
-shaped to receive what is missing without another rewrite.
+**The DM screen itself (P5-2), all but the switches.** The store, the migration,
+multi-campaign and the export were already built. The screen is built too, in
+four commits: `eab26d8` made the session list the GM screen and the five tools
+what a row opens; `f6e264d` gave the rows a drag, a keyboard path and two
+buttons; `7b27e57` added `GmBar` — ADD, SHOW, SAVE — with the three sheets
+behind it; and the commit after it gave MENU the way out and the campaigns, and
+took the tab bar off the GM screen.
 
-**Still to build**, in the blueprint's own order: the bottom bar (ADD / SHOW /
-SAVE) that replaces the tab bar inside the GM section, and its four sheets —
-ADD (countdown / encounter / scene / link, with the three factories that mint
-them, deliberately not yet in `session.ts` because an exported factory with no
-caller is what the orphan harness reports), SHOW → Consulta and Gruppo, SAVE,
-and MENU as the way back out and the campaign list. Then the per-tool switches
-in Settings, and the `writeError` alert under the top bar. Three things to carry
-across while doing it: the licence notice must move **into** the GM scroll
-rather than leave the screen (it is 111px of the 653 that is not shell header,
-and `tests/ui/attribution.test.tsx` is the gate); `hydrateGm`'s silent `catch`
-around the first `putCampaign` has to be fixed before SAVE can honestly stamp
-"already on this device's disk"; and BESTIARY and PARTY are chips in the top bar
-only until SHOW exists, and leave with it. `BACKLOG.md` P5-2 lists all five open
-items.
+Three things that were carried across on the way, so nobody looks for them
+again. `hydrateGm`'s silent `catch` around the first `putCampaign` is **fixed**:
+it sets `writeError` and leaves the write dirty, which is what makes SAVE's TRY
+AGAIN do something. BESTIARY and PARTY have left the top bar for SHOW. And the
+licence notice moved **into** the GM scroll rather than off the screen — 111px
+of the 653 that is not shell header, and `tests/ui/attribution.test.tsx` is the
+gate that says it may not simply go; `tests/gm/gmShell.test.tsx` is the one that
+says *where* it went.
+
+**Still to build on this item:** the per-tool switches in Settings and the
+master switch that hides the GM section (`gmSection`, `gmBestiary`,
+`gmPartyBoard` on `Prefs`, plus `openingScreen(prefs, characterCount)` so a
+stored `lastScreen: 'gm'` with the section off opens on Play; `TabBar` and
+`Header` drop the GM entry, and `GmBar`'s grid — already
+`repeat(n, 1fr)` — finally has something that can remove a verb). And the
+`writeError` alert under the top bar: SAVE draws it, so a failed write is one
+tap away rather than nowhere, but the blueprint puts it on the screen itself.
+`BACKLOG.md` P5-2 lists everything left open, including the four store
+asymmetries MENU sits on top of.
 
 **P5-3 — what the GM screen could have at hand.** The improvised-adversary table
 by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown

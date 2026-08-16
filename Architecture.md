@@ -657,7 +657,7 @@ daggerheart-companion/
 | **Play** (giocatore) | **Sì, nel corpo** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Restano fissi l'identità e il blocco del tiro |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
-| **GM** | **Nella lista della serata** | Fissa solo la barra in alto — nome della campagna, Fear, countdown primario. Scorre la lista; una riga si apre in posto |
+| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa |
 | **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
@@ -757,8 +757,27 @@ menù che P5-2 elimina.
   Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
 
-**La barra in basso, dentro la sezione GM**, porta i verbi del GM: **ADD**,
-**SHOW**, **SAVE**. Non sono destinazioni, sono verbi — `aria-haspopup="dialog"`
+**La barra in basso, dentro la sezione GM, prende il posto della tab bar**:
+`App.tsx` non disegna `TabBar` su `screen === 'gm'`, e la via d'uscita verso
+Play, Cards e Build sta in **MENU**, che è tutta la prima riga della barra in
+alto — il nome della campagna è dentro il bottone, non accanto. Le due metà
+arrivano insieme di proposito: togliere la tab bar prima che MENU esista
+lascerebbe un telefono dentro la sezione GM con il solo bottone SETTINGS
+dell'header. MENU **non** porta Settings, che è già nell'header su ogni
+schermata.
+
+Anche l'avviso di licenza si sposta con loro, e **non se ne va**: entra nello
+scroll della lista invece di restare una striscia fissa sopra la barra. Sono
+111px su un telefono, il 17% di quello che non è header, ma un avviso che la
+DPCGL chiede di *mostrare* non è ciò che paga un layout — e le altre tre
+schermate che lo tengono lo tengono già dentro uno scroll, per la stessa frase.
+`LicenceFooter` è un modulo suo (il chunk GM è importato *da* `App.tsx`, quindi
+importarlo al contrario sarebbe un ciclo) e prende `bottomMost`: l'inset
+`env(safe-area-inset-bottom)` lo paga **una** cosa sola, l'ultima nel `<main>`,
+che nella sezione GM è `GmBar`.
+
+I verbi della barra sono **ADD**, **SHOW**, **SAVE**. Non sono destinazioni,
+sono verbi — `aria-haspopup="dialog"`
 e mai `aria-current` — e le colonne sono `repeat(n, 1fr)` sul numero di verbi,
 così togliendone uno la barra si ridistribuisce invece di lasciare un buco.
 **SEARCH non c'è**: la ricerca full-text delle regole è rinviata a 1.1, e la
@@ -778,6 +797,17 @@ Un bottone che non apre niente è peggio di un bottone che non c'è.
   `writeActive` sposta dentro `campaigns` solo nel ramo di successo di
   `putCampaign` — mostra `writeError` al posto del timbro quando c'è, e offre la
   copia `.dhcampaign` dicendo che **nessuna parte di questa build sa rileggerla**.
+- **MENU** porta la via d'uscita, le campagne — cambia, nuova, rinomina,
+  rimuovi dietro due tap — e il blocco «questo dispositivo»: `notices`,
+  `quarantined` e lo stato prima che il database abbia risposto, tre campi che
+  lo store portava da sempre e che nessuno aveva mai disegnato. Rinominare è
+  offerto **solo** sulla campagna aperta, con la ragione scritta accanto:
+  `patchCampaign` programma una scrittura solo per l'id attivo e `writeActive`
+  raccoglie solo quel record, quindi un rename su un'altra riga sembrerebbe
+  giusto fino al reload. Un nome vuoto è **rifiutato a parole**, non riscritto
+  in silenzio. La lista non si riordina mentre è aperta: la campagna attiva
+  viene scritta ogni 400 ms, e riordinare per `updatedAt` in render sposterebbe
+  in cima proprio quella riga, sotto il pollice.
 
 Una riga della sessione porta il **suo** piano — roster, aggiustamenti,
 ambiente — e la campagna porta **un** tavolo solo (`GmBoard`). Sono due cose

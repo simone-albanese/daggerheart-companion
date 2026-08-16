@@ -76,6 +76,7 @@ import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { GmBar } from '../../src/ui/gm/GmBar.tsx';
 import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
+import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
@@ -125,6 +126,7 @@ import { App } from '../../src/ui/shell/App.tsx';
 import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
 import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
 import { Header } from '../../src/ui/shell/Header.tsx';
+import { LicenceFooter } from '../../src/ui/shell/LicenceFooter.tsx';
 import { Recovery } from '../../src/ui/shell/Recovery.tsx';
 import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
@@ -480,7 +482,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       inside the sheet
     </GmSheet>
   ),
-  'gm/GmTopBar.tsx::GmTopBar': () => <GmTopBar layout="tablet" onOpenTool={noop} />,
+  'gm/GmTopBar.tsx::GmTopBar': () => (
+    <GmTopBar layout="tablet" onOpenMenu={noop} onOpenTool={noop} />
+  ),
+  'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
@@ -608,6 +613,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
   'shell/Header.tsx::Header': () => <Header />,
+  'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter bottomMost />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,
   'shell/ScreenBoundary.tsx::ScreenBoundary': () => (
     <ScreenBoundary name="Test">inside the boundary</ScreenBoundary>

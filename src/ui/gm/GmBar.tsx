@@ -38,7 +38,8 @@
  * the glass, so the muscle memory of the app's bottom bar survives entering
  * the GM section.
  *
- * On a 393x852 phone that puts the labels at y 698-758, inside the 560-820
+ * On a 393x852 phone that puts the labels at y 758-818 - the window less the
+ * 34px home-indicator inset less the bar's own 60 - inside the 560-820
  * band a right thumb covers comfortably while the other hand holds a dice
  * tray. The order is the wireframe's, left to right, and it is worth saying
  * why it is not sorted by frequency: ADD and SHOW are the continuous gestures
@@ -46,18 +47,18 @@
  * three are inside the arc, so re-ordering them would buy nothing and cost the
  * GM the layout they were shown.
  *
- * **It does not pay `env(safe-area-inset-bottom)`, and that is deliberate for
- * exactly as long as it is true.** The home-indicator inset is paid once, by
- * whatever is last in `<main>`. Today that is `TabBar` on a phone and the
- * licence footer on anything wider, both of which are still below this bar
- * because the way out of the GM section is still the tab bar. When MENU
- * carries that door and the tab bar leaves this screen, this bar becomes the
- * last element at every width and the inset moves here - one line, in the
- * commit that makes it true. Adding it now would leave 34px of empty panel
- * between the two bars on every iPhone. No test pins its absence, and that is
- * not an omission: jsdom's CSS parser drops `env(...)` on the floor, so the
- * DOM answers `''` whether the line is there or not, and an assertion that
- * cannot fail is worse than none. The commit that adds it reads the source.
+ * **It pays `env(safe-area-inset-bottom)` now, and it is the only thing that
+ * does on this screen.** The home-indicator inset belongs to whatever is last
+ * in `<main>`, and inside the GM section that is this bar: `App.tsx` draws no
+ * tab bar on `gm`, and the licence notice is inside the session list's scroll
+ * rather than pinned under it. It did not pay the inset in the commit that
+ * introduced it, because both of those were still below it and two payments
+ * are 34px of empty panel between two bars.
+ *
+ * No test asserts the line from the DOM, and that is not an omission: jsdom's
+ * CSS parser drops `env(...)` on the floor, so an inline style declaring it
+ * reads back as `''` and an assertion on it could never fail. `gmShell.test`
+ * reads this file's source instead, and says why where it does it.
  *
  * Nothing here is read-only: the whole bar is target.
  */
@@ -66,12 +67,15 @@
  * Which sheet is over the list.
  *
  * Declared here rather than in `Gm.tsx` so that a sheet never has to import
- * the screen that mounts it, and there is no `'fear'` in it on purpose: the
- * Fear board is `Countdowns`, which is one of the five tools and opens through
- * `GmRegion` like the other four.
+ * the screen that mounts it. There is no `'fear'` in it on purpose: the Fear
+ * board is `Countdowns`, which is one of the five tools and opens through
+ * `GmRegion` like the other four. `'menu'` is in it and is not in the bar -
+ * it opens from the top of the screen, because leaving the GM section is the
+ * rare gesture and the arc belongs to the continuous ones.
  */
-export type GmSheetId = 'add' | 'show' | 'save';
+export type GmSheetId = 'menu' | 'add' | 'show' | 'save';
 
+/** The bar's own three, in the wireframe's order. MENU is not one of them. */
 const VERBS: Array<{ id: GmSheetId; label: string }> = [
   { id: 'add', label: 'ADD' },
   { id: 'show', label: 'SHOW' },
@@ -95,6 +99,7 @@ export function GmBar({
         gridTemplateColumns: `repeat(${String(VERBS.length)}, 1fr)`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
       {VERBS.map((verb) => {

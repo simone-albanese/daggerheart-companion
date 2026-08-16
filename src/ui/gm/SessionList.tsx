@@ -24,21 +24,29 @@
  * This is the scrolling part of the GM screen; the top bar above it and the
  * bottom bar below it do not move. On a 393x852 phone the pinned chrome is the
  * shell header (52 + 47 of safe area = 99), the top bar (two 44px rows inside
- * 20 of padding and gap = 108), `GmBar` (60), the licence notice (~111) and the
- * tab bar (60 + 34 = 94): 852 − 472 = 380px of list. A shut row is 44px of
- * header inside 8px of panel padding and the list gap is 8, so the step is
- * 60px: six rows on screen, five with a primary countdown pinned above.
+ * 20 of padding and gap = 108) and `GmBar` (60 + 34 of home-indicator inset =
+ * 94): 852 − 301 = 551px of list. A shut row is 44px of header inside 8px of
+ * panel padding and the list gap is 8, so the step is 60px: nine rows on
+ * screen, eight with a primary countdown pinned above. That is a night's plan.
  *
- * Six is a row down on what was here before `GmBar`, and it is temporary. The
- * bottom of this screen currently carries **three** bars, because the tab bar
- * is still the only way out of the GM section and the licence notice is still
- * a pinned strip. When MENU takes over the door, both of those leave: 852 − 99
- * − 108 − 94 = 551px, nine rows, with the notice moving *into* this scroll
- * where it costs a scroll position rather than content. That is the arithmetic
- * to redo then, and it is the reason the notice is the thing that pays rather
- * than the plan.
+ * ## The licence notice is the last thing in this scroll, and that is the point
+ *
+ * It used to be a pinned strip above the tab bar on every screen but Play.
+ * Verbatim it is 342 characters - six lines and ~111px on a 393px column - and
+ * pinned here it would be 17% of the 653px that is not shell header, sitting
+ * between the plan and the two verbs a GM presses all evening. What it must not
+ * be is the thing that *leaves*: the DPCGL asks for the notice to be displayed,
+ * `Architecture.md` says twice that it is always visible in the footer, and a
+ * layout budget is not a reason to drop a licence obligation.
+ *
+ * So it goes into the scroll, which is the argument `App.tsx` already makes for
+ * Cards, Build and Settings in the same breath - those screens scroll, so there
+ * the strip costs a scroll position rather than content. This screen scrolls
+ * too. It is drawn here rather than by `Gm.tsx` because "inside the scroll" is
+ * the whole of the decision, and this component is the scroll.
  */
 import { useState } from 'react';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import { SessionRow } from './SessionRow.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
 import { useSessionDrag } from './useSessionDrag.ts';
@@ -114,6 +122,27 @@ export function SessionList({
       <span className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
       </span>
+      {/*
+        `marginTop: auto` puts the notice at the foot of a short list and after
+        the last row of a long one, which is what "the last thing in the scroll"
+        has to mean in both cases. The negative inline margin cancels this
+        region's own side padding so the strip spans the full width and reads as
+        a footer rather than as a card that lost its panel.
+
+        `bottomMost` is false, always: `GmBar` is below this at every width and
+        pays the home-indicator inset there. Paid twice it would leave 34px of
+        empty panel between the notice and the bar.
+      */}
+      <div
+        style={{
+          flex: 'none',
+          marginTop: 'auto',
+          paddingTop: 14,
+          marginInline: phone ? -12 : -20,
+        }}
+      >
+        <LicenceFooter bottomMost={false} />
+      </div>
     </div>
   );
 }

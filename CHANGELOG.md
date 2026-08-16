@@ -47,7 +47,6 @@ before the one below.
   UP and MOVE DOWN as ordinary buttons. A quarter-second hold followed by
   accurate travel is not a gesture everybody can perform, and this is the same
   feature rather than a lesser one.
-
 - **The GM section has a bottom bar of its own: ADD, SHOW, SAVE.** They are
   verbs rather than places — each opens something over the plan and hands the
   screen back when it closes — which is why none of them lights up as "where
@@ -77,12 +76,32 @@ before the one below.
   `.dhcampaign` holds the whole table, party sheets included, and there is no
   import for it yet. That is written where the button is now, rather than being
   discovered on the day it matters.
+- **The tab bar is not on the GM screen, and MENU is where the way out went.**
+  The bottom of the phone belongs to ADD, SHOW and SAVE while you are running a
+  session; Play, Cards and Build are behind the campaign name at the top, which
+  is now a button the width of the screen rather than a label. Leaving the GM
+  tools is a rare gesture and the easiest reach should go to the ones you make
+  all evening. Settings is where it always was, in the header.
+- **The campaigns you already had have a door.** Switch between them, make
+  another, rename the open one, remove one behind two taps. Renaming is offered
+  on the open campaign only, and the sheet says why: for any other row the app
+  would show you the new name and never write it down.
+- **A campaign cannot be renamed to nothing,** and it says so instead of quietly
+  putting the old name back. Two campaigns both called nothing at all are two
+  rows in a list you cannot tell apart.
+- **What this device did with your campaigns is finally on a screen.** Repairs
+  the app made while reading them, and campaigns written by a newer version of
+  the app that this one will not open — named, not counted, with the sentence
+  that nothing has been deleted.
+- **The licence notice did not leave the GM screen; it moved into the scroll.**
+  It is 111px on a phone, and that screen now has bars at the top and the
+  bottom — but a notice the licence asks to be displayed is not what pays for a
+  layout, so it is the last thing in the session list instead of a strip above
+  the bar.
 
 **Not there yet, and named here rather than left to be discovered:** the bar has
 no SEARCH — full-text rule search is deferred, and the search a GM does at the
-table is the bestiary's own filter behind SHOW. The way back out to Play, Cards
-and Build is still the tab bar rather than the top menu, so for one commit the
-GM screen carries both bars.
+table is the bestiary's own filter behind SHOW.
 
 ---
 
