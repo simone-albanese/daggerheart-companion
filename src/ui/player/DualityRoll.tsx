@@ -41,6 +41,7 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { Disclosure } from '../shared/Disclosure.tsx';
 import { useIsNarrow } from '../shared/useLayout.ts';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
@@ -394,6 +395,24 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
   // When there is nothing to roll with, the arithmetic is beside the point.
   const idleDetail = affordance.blocked ? affordance.prompt : `2d12 ${modSign} · ${traitLabel}`;
 
+  /*
+   * Everything the modifier row is holding, in words.
+   *
+   * This is the price of folding the row away, and it is not optional. The
+   * advantage and the reaction switch are *not* cleared when a roll resolves -
+   * only the Experiences and the held dice are - so a DIS armed three rolls
+   * ago is still armed, and a modifier the player cannot see is exactly the
+   * failure this project's rules are written against. It rides on the closed
+   * header, so nothing that is armed is ever off the screen.
+   */
+  const armedMods = [
+    reaction ? 'REACTION' : null,
+    advantage === 1 ? 'ADV' : advantage === -1 ? 'DIS' : null,
+    difficulty === null ? null : `DIFF ${String(difficulty)}`,
+    ...bonusDice.map((sides) => `+D${String(sides)}`),
+    trait === 'spellcast' ? 'SPELLCAST' : null,
+  ].filter((x): x is string => x !== null);
+
   const control = (
     <ControlRow
       difficulty={difficulty}
@@ -422,13 +441,47 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
       }
       addDie={(sides) => characterId !== null && addDie(characterId, sides)}
       discardDie={(id) => characterId !== null && discardDie(characterId, id)}
+      wrap={layout === 'phone'}
     />
   );
 
   if (layout === 'phone') {
     return (
       <div className="stack" style={{ gap: 6 }}>
-        {control}
+        {/*
+         * The modifier row, folded.
+         *
+         * The request was to delete it. It is kept, because advantage and
+         * disadvantage are core roll modifiers - 38 adversaries and 9
+         * environments call for a reaction roll, and the SRD makes you declare
+         * every modifier before the dice - and an app that cannot roll with
+         * them is wrong at the table.
+         *
+         * What folding buys is not height: a 44px header replaces a 44px row
+         * and the band is the same. It is that the row no longer has to fit on
+         * one line. Ten controls in about 480px of content had to live in a
+         * horizontal scroller at 393px, showing four of them, with the file's
+         * own comment admitting a chip you had armed could be off screen by
+         * the time you reached ROLL. Behind a fold it can afford to wrap: open,
+         * it is two 44px rows with everything reachable without a sideways
+         * swipe; closed, it is one row that names whatever is armed.
+         */}
+        <Disclosure
+          id="rollmods"
+          characterId={characterId}
+          label="Modifiers"
+          summary={
+            armedMods.length === 0 ? (
+              <span style={{ color: 'var(--dim)' }}>NONE</span>
+            ) : (
+              <span style={{ color: 'var(--text)', fontWeight: 700 }}>
+                {armedMods.join(' · ')}
+              </span>
+            )
+          }
+        >
+          {control}
+        </Disclosure>
         <ExperienceRow
           experiences={experiences}
           armedExperiences={armedExperiences}
@@ -811,6 +864,15 @@ interface ControlProps {
   toggleDie: (id: string) => void;
   addDie: (sides: (typeof DIE_SIZES)[number]) => void;
   discardDie: (id: string) => void;
+  /**
+   * Wrap onto as many lines as the controls need, instead of scrolling
+   * sideways.
+   *
+   * Only affordable because the row is behind a fold: as a permanent band it
+   * would have cost 88-132px of the thumb zone on every phone. See the note
+   * at the disclosure.
+   */
+  wrap?: boolean;
 }
 
 const HOLD_MS = 480;
@@ -923,6 +985,7 @@ function ControlRow({
   toggleDie,
   addDie,
   discardDie,
+  wrap = false,
 }: ControlProps): React.JSX.Element {
   const [picking, setPicking] = useState(false);
   const narrow = useIsNarrow();
@@ -992,15 +1055,18 @@ function ControlRow({
           flex: 1,
           minWidth: 0,
           gap: 6,
-          overflowX: 'auto',
+          flexWrap: wrap ? 'wrap' : 'nowrap',
+          overflowX: wrap ? 'visible' : 'auto',
           overflowY: 'hidden',
           scrollbarWidth: 'none',
         }}
       >
         {/* A spacer, not `justify-content: flex-end`: end-alignment pushes the
             overflow off the start edge, where several engines will not scroll
-            to it. This collapses to nothing the moment the row is full. */}
-        <span style={{ flex: '1 1 0', minWidth: 0 }} />
+            to it. This collapses to nothing the moment the row is full - and
+            it is not drawn at all when the row wraps, where a growing child
+            would push everything after it onto a line of its own. */}
+        {!wrap && <span style={{ flex: '1 1 0', minWidth: 0 }} />}
 
         {/* A reaction roll resolves the same way and pays nothing: no Hope, no
             Fear, and no cleared Stress on a critical. 38 adversaries and 9

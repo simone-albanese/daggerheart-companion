@@ -595,6 +595,59 @@ describe('the carried items, out loud', () => {
   });
 });
 
+/**
+ * The roll modifiers, folded.
+ *
+ * The request was to delete this row. It is kept - advantage, disadvantage and
+ * the reaction switch are core roll modifiers, and the SRD makes you declare
+ * every modifier before the dice - and folded instead. The whole risk of
+ * folding it is that `advantage` and `reaction` are *not* cleared when a roll
+ * resolves, so an armed modifier could sit off-screen for the rest of the
+ * session. That is the failure this project's rules exist to prevent, so it is
+ * what these tests are about.
+ */
+describe('the roll modifier row', () => {
+  const byText = (label: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').trim() === label);
+
+  it('is out of the way until it is wanted', () => {
+    play(seed());
+    expect(fold('Modifiers').getAttribute('aria-expanded')).toBe('false');
+    expect(byText('REACTION'), 'the row is drawn while it is folded').toBeUndefined();
+    expect(byText('ADV')).toBeUndefined();
+  });
+
+  it('shows everything the closed row is holding, on the closed row', () => {
+    play(seed());
+    expect(fold('Modifiers').textContent).toContain('NONE');
+
+    click(fold('Modifiers'));
+    click(byText('DIS')!);
+    click(byText('REACTION')!);
+    click(fold('Modifiers'));
+
+    expect(fold('Modifiers').getAttribute('aria-expanded')).toBe('false');
+    const header = fold('Modifiers').textContent ?? '';
+    expect(header, 'a modifier is armed and the closed row does not say so').toContain('DIS');
+    expect(header).toContain('REACTION');
+    expect(byText('DIS'), 'the controls are still drawn while folded').toBeUndefined();
+  });
+
+  it('wraps when it is open, instead of hiding half of itself off the side', () => {
+    play(seed());
+    click(fold('Modifiers'));
+    const row = byText('REACTION')!.parentElement!;
+    expect(row.style.flexWrap, 'the open row still scrolls sideways').toBe('wrap');
+    expect(row.style.overflowX).not.toBe('auto');
+    // Every control in it is still a real target.
+    for (const b of [...row.querySelectorAll('button')]) {
+      expect(b.style.minHeight, `${b.textContent ?? '?'} is under the floor`).toBe(
+        'var(--control)',
+      );
+    }
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();
