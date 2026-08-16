@@ -933,9 +933,17 @@ function SpellcastPanel({
   const spec = !spell.rollable
     ? 'NO DICE'
     : armed === null
-      ? // The count is settled and the die is not, and it says exactly that
-        // rather than picking a d6 on the player's behalf.
-        `${spell.count}d—${modText}`
+      ? /*
+         * The count is settled and the die is not, and it says exactly that
+         * rather than picking a d6 on the player's behalf.
+         *
+         * The modifier is held off the placeholder by a space. Run together,
+         * a card printing d?-3 came out as `3d—-3`: an em-dash standing in for
+         * the die immediately against the sign of the modifier, which is two
+         * dashes in a row and a formula the player has to decode before they
+         * can read their own damage off it.
+         */
+        `${spell.count}d—${modText === '' ? '' : ` ${modText}`}`
       : formatDamage({ count: spell.count, sides: armed, modifier });
 
   return (

@@ -1166,6 +1166,15 @@ describe('the spell, and the +0 that rolls nothing', () => {
     return found;
   }
 
+  /** The MOD field, which is the `+3` a player reads off the card in their hand. */
+  function modInput(): HTMLInputElement {
+    const found = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(
+      (el) => (el.parentElement?.textContent ?? '').startsWith('MOD'),
+    );
+    if (found === undefined) throw new Error('the panel has no MOD input');
+    return found;
+  }
+
   /**
    * Type into a controlled input the way a keyboard does: React tracks the
    * last value it wrote on the node, so assigning `.value` looks like no
@@ -1238,17 +1247,27 @@ describe('the spell, and the +0 that rolls nothing', () => {
      * and only one of them pairs it with a formula.
      */
     play(casting(3));
-    const mod = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(
-      (el) => (el.parentElement?.textContent ?? '').startsWith('MOD'),
-    );
-    expect(mod, 'the panel has no MOD input').toBeDefined();
-    type(mod!, '3');
+    type(modInput(), '3');
     click(dieChips()[2]!);
     expect(panel().textContent).toContain('3d8+3');
     click(dieChips()[3]!);
     expect(panel().textContent, 'changing the die threw the card’s modifier away').toContain(
       '3d10+3',
     );
+  });
+
+  it('keeps the unknown die’s dash off the modifier’s sign', () => {
+    /*
+     * Two dashes in a row. The em-dash stands in for the die nobody has picked
+     * yet and the hyphen is the sign of the modifier off the card, so a spell
+     * written d?-3 printed `3d—-3` and a player reading their own damage had to
+     * work out which dash was which first.
+     */
+    play(casting(3));
+    type(modInput(), '-3');
+    expect(dieChips().every((c) => c.getAttribute('aria-pressed') === 'false')).toBe(true);
+    expect(panel().textContent, 'the placeholder ran into the sign').not.toContain('—-');
+    expect(panel().textContent).toContain('3d— -3');
   });
 
   it('puts the sword down when a spell is declared, and the spell down when a trait is picked', () => {
