@@ -30,7 +30,6 @@ import {
   directoryAccess,
   chooseDirectory,
   parseTransferFile,
-  pickFile,
   saveTextFile,
   serializeBackup,
   writeIntoDirectory,
@@ -38,7 +37,6 @@ import {
   type SaveRoute,
 } from '../transfer/fileIo.ts';
 import * as db from './db.ts';
-import { decideImport, type MergeMode } from './merge.ts';
 import { loadPrefs, savePrefs, type Prefs } from './prefs.ts';
 
 /** The indicator stops being discreet here. */
@@ -590,76 +588,6 @@ export async function noteSession(deps?: Partial<BackupDeps>): Promise<void> {
     lastSeenAt: d.now().toISOString(),
     knownCharacterIds: characters.map((c) => c.id),
   });
-}
-
-// ---------------------------------------------------------------------------
-// Restoring
-// ---------------------------------------------------------------------------
-
-export interface RestoreResult {
-  imported: number;
-  /** Characters already on the device with a newer edit; left alone. */
-  skipped: number;
-  replaced: number;
-  warnings: string[];
-}
-
-/** The same two modes the store's import knows; one vocabulary, one rule. */
-export type RestoreMode = MergeMode;
-
-/**
- * Put a backup back.
- *
- * `merge` is the default and never loses work: a character already on this
- * device is only overwritten when the backup's copy was edited later. `replace`
- * is for the case the user knows this device's copy is the damaged one.
- */
-export async function restoreFromText(
-  text: string,
-  options: { mode?: RestoreMode; put?: (c: Character) => Promise<void> } = {},
-  deps?: Partial<BackupDeps>,
-): Promise<RestoreResult> {
-  const d = withDeps(deps);
-  const file = parseTransferFile(text);
-  const put = options.put ?? ((c: Character) => db.putCharacter(c));
-  const mode = options.mode ?? 'merge';
-
-  const existing = new Map((await d.listCharacters()).map((c) => [c.id, c]));
-  let imported = 0;
-  let skipped = 0;
-  let replaced = 0;
-
-  for (const character of file.characters) {
-    // One rule, in `merge.ts`, shared with the store's import. It used to live
-    // here alone, correct and tested, with no caller - while three screens ran
-    // an unconditional `put` instead.
-    const decision = decideImport(character, existing.get(character.id), mode);
-    if (decision === 'keep-local') {
-      skipped += 1;
-      continue;
-    }
-    await put(character);
-    if (decision === 'import') imported += 1;
-    else replaced += 1;
-  }
-
-  const warnings = [...file.warnings];
-  if (skipped > 0) {
-    warnings.push(
-      `${skipped} character${skipped === 1 ? '' : 's'} on this device ${skipped === 1 ? 'was' : 'were'} newer than the backup and ${skipped === 1 ? 'was' : 'were'} left alone.`,
-    );
-  }
-  return { imported, skipped, replaced, warnings };
-}
-
-/** Pick a backup file and restore from it. Null when the picker was closed. */
-export async function restoreFromPicker(
-  options?: { mode?: RestoreMode },
-  deps?: Partial<BackupDeps>,
-): Promise<RestoreResult | null> {
-  const picked = await pickFile();
-  if (picked === null) return null;
-  return restoreFromText(picked.text, options, deps);
 }
 
 /** Ask for persistent storage. Best asked while explaining why (Architecture 6). */

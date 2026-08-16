@@ -9,10 +9,11 @@
  * *one* character requires arm-then-confirm with a full inventory of what is
  * lost; overwriting the whole library took one tap.
  *
- * The rule itself already existed and was already tested, inside
- * `restoreFromText`, with zero callers. It lives here now so there is one
- * implementation and both paths use it - the store's import and the backup
- * restore - rather than two that can drift.
+ * The rule itself already existed and was already tested, inside a
+ * `restoreFromText` that nothing called, in a module whose other exports were
+ * used every day. It lives here now, with one implementation and one caller -
+ * the store's import, which every screen goes through - rather than a rule in
+ * one place and an unconditional `put` in three others.
  *
  * The comparison is `updatedAt`, which is a wall clock on whichever device
  * wrote it. Two devices with skewed clocks can disagree about which copy is

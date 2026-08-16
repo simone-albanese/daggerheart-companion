@@ -107,8 +107,9 @@ export const references = (text: string, name: string): boolean =>
  * A symbol is reached when another module names it, or when module-level code
  * in its own file names it, or - transitively - when something already reached
  * names it. That last clause is what stops a live module from hiding a dead
- * cluster inside itself: `restoreFromText` is called by `restoreFromPicker`,
- * which is called by nothing, in a file whose other exports are used every day.
+ * cluster inside itself. The case it was written for: `backup.ts` had a
+ * `restoreFromText` called only by a `restoreFromPicker` that nothing called,
+ * in a module whose other exports are used every day.
  */
 export function orphanExports(modules: Map<string, string>): Symbol_[] {
   const parsed = new Map<string, { decls: Declaration[]; loose: string }>();

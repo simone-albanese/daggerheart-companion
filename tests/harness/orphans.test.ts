@@ -74,8 +74,6 @@ const DELIBERATE: Record<string, string> = {
   'transfer/codec.ts::resolvePlaceholders': 'P1-6: the repair Transfer.tsx already promises on screen.',
   'transfer/codec.ts::characterRefs': 'P1-6: reached only by missingSlugs, which is itself unwired.',
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',
-  'store/backup.ts::restoreFromText': 'P0-1: the merge-safe restore; every UI path uses the blind put.',
-  'store/backup.ts::restoreFromPicker': 'P0-1: same, one layer up.',
   'engine/encounter.ts::TIER_BENCHMARKS': 'P1-5: a GM feature with no screen. Wire it or say so.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',
 
@@ -193,9 +191,10 @@ describe('the reachability analysis itself', () => {
   });
 
   it('finds a dead cluster hiding inside a module that is otherwise alive', () => {
-    // The shape a per-module check would miss, and the shape `restoreFromText`
-    // actually has: a helper with a caller, whose caller has none, in a file
-    // whose other exports are used every day.
+    // The shape a per-module check would miss, and the shape the backup
+    // module's own restore path had until it was deleted: a helper with a
+    // caller, whose caller has none, in a file whose other exports are used
+    // every day.
     const orphans = orphanExports(
       new Map([
         [

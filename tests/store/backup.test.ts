@@ -13,11 +13,9 @@ import {
   forgetBackupFolder,
   installBackupHooks,
   integrityCheck,
-  restoreFromText,
   runBackup,
   type BackupDeps,
 } from '../../src/store/backup.ts';
-import { serializeBackup } from '../../src/transfer/fileIo.ts';
 import { wizard } from '../transfer/fixtures.ts';
 
 class MemoryStorage {
@@ -383,49 +381,5 @@ describe('the seven-day check', () => {
     expect(report.triggered).toBe(true);
     expect(report.healthy).toBe(true);
     expect(report.message).toMatch(/still here after 8 days away/);
-  });
-});
-
-describe('restoring', () => {
-  const backup = (characters: Character[]): string => serializeBackup(characters, NOW);
-
-  it('brings back what is missing', async () => {
-    library = [];
-    const result = await restoreFromText(
-      backup([wizard(), wizard({ id: 'second-character', name: 'Bram' })]),
-      { put: () => Promise.resolve() },
-      deps(),
-    );
-    expect(result).toMatchObject({ imported: 2, replaced: 0, skipped: 0 });
-  });
-
-  it('never overwrites work that is newer than the backup', async () => {
-    library = [wizard({ updatedAt: '2026-08-15T23:00:00.000Z' })];
-    const stale = backup([wizard({ updatedAt: '2026-08-01T10:00:00.000Z' })]);
-
-    const merged = await restoreFromText(stale, { put: () => Promise.resolve() }, deps());
-    expect(merged).toMatchObject({ imported: 0, skipped: 1, replaced: 0 });
-    expect(merged.warnings.join(' ')).toMatch(/newer than the backup/);
-
-    // Unless the user says the local copy is the damaged one.
-    const forced = await restoreFromText(
-      stale,
-      { mode: 'replace', put: () => Promise.resolve() },
-      deps(),
-    );
-    expect(forced).toMatchObject({ imported: 0, skipped: 0, replaced: 1 });
-  });
-
-  it('takes a single character file as readily as a backup', async () => {
-    library = [];
-    const put = vi.fn().mockResolvedValue(undefined);
-    const result = await restoreFromText(
-      JSON.stringify(wizard()),
-      { put },
-      deps(),
-    );
-    expect(result.imported).toBe(1);
-    expect(result.warnings.join(' ')).toMatch(/no export header/);
-    expect(put).toHaveBeenCalledTimes(1);
   });
 });
