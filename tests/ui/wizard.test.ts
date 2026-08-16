@@ -28,6 +28,7 @@ import type { Ancestry, CharClass, Community, Dataset, Trait } from '@shared/typ
 import { useApp } from '../../src/store/state.ts';
 import { Wizard } from '../../src/ui/build/Wizard.tsx';
 import {
+  assemble,
   emptyDraft,
   furthestReachable,
   heldAt,
@@ -612,6 +613,54 @@ describe('gear above tier 1', () => {
     expect(holdOn(draft, 'equipment', heirloom)).toBeNull();
     expect(noticesFor(draft, heirloom).warnings.map((w) => w.text)).toContain(
       'Heirloom Blade is tier 3 — the SRD starts you at tier 1.',
+    );
+  });
+});
+
+describe('the two Experiences survive creation', () => {
+  /**
+   * They did not, and the screen said they would.
+   *
+   * The review step warns "Both Experiences are worth +2 whether or not you
+   * have named them", and `assemble` then filtered out every Experience with
+   * an empty name. So a player who left the naming for play - which the SRD
+   * explicitly invites - created a character with no Experiences at all,
+   * reached the Play screen with nothing to arm, and got no hint that anything
+   * was missing. The app promised and then quietly did the opposite.
+   *
+   * The draft always holds exactly two; the editor's own `minRows` says so.
+   * They are the character's whether or not they have been given words yet.
+   */
+  const klass = dataset.classes[0]!;
+
+  it('keeps both when neither has been named', () => {
+    const built = assemble(emptyDraft(), klass, dataset.consumables);
+    expect(built.experiences).toHaveLength(2);
+    expect(built.experiences?.every((e) => e.bonus === 2)).toBe(true);
+  });
+
+  it('keeps the named one and the unnamed one together', () => {
+    const draft = emptyDraft();
+    const [first, second] = draft.experiences;
+    const named = {
+      ...draft,
+      experiences: [{ ...first!, name: 'Tavern Brawler' }, second!],
+    };
+    const built = assemble(named, klass, dataset.consumables);
+    expect(built.experiences).toHaveLength(2);
+    expect(built.experiences?.map((e) => e.name)).toEqual(['Tavern Brawler', '']);
+  });
+
+  it('gives them distinct ids, so arming one cannot arm the other', () => {
+    const built = assemble(emptyDraft(), klass, dataset.consumables);
+    const ids = built.experiences?.map((e) => e.id) ?? [];
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('still warns that they are unnamed, because the warning is now true', () => {
+    const notices = noticesFor(emptyDraft());
+    expect(notices.warnings.map((w) => w.text)).toContain(
+      'Both Experiences are worth +2 whether or not you have named them.',
     );
   });
 });

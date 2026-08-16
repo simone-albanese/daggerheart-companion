@@ -470,7 +470,24 @@ export function assemble(
     activeSecondaryWeapon: draft.secondary,
     activeArmor: draft.armor,
     inventory,
-    experiences: draft.experiences.filter((e) => e.name.trim() !== ''),
+    /*
+     * Every Experience the draft holds, named or not.
+     *
+     * This used to filter the unnamed ones out, two lines after the review
+     * screen promised the opposite: "Both Experiences are worth +2 whether or
+     * not you have named them." The screen said you still had them and the
+     * character was created without them - so a player who left the naming for
+     * later reached the Play screen with no Experiences at all, no chips to
+     * arm, and nothing saying where they went.
+     *
+     * The rules are not ambiguous about this. A character has two Experiences
+     * at +2 from creation; the name is a label the player attaches to
+     * something they already own, and the SRD's own advice is that some of a
+     * character is discovered in play. So the two are created, an unnamed one
+     * reads as UNNAMED until it is given a name, and Build's editor is where
+     * that happens.
+     */
+    experiences: draft.experiences,
     gold: draft.gold,
     connections,
     notes,

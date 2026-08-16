@@ -845,19 +845,24 @@ function ControlRow({
           const armed = armedExperiences.includes(experience.id);
           const affordable = armed || hopeCost < hopeAvailable;
           const sign = experience.bonus >= 0 ? '+' : '−';
+          // A character always has two Experiences from creation; naming them
+          // is a thing the SRD expects some players to leave for play. An
+          // unnamed one is still armable and still costs a Hope, so it needs a
+          // word on it rather than an empty chip.
+          const name = experience.name.trim() === '' ? 'Unnamed' : experience.name;
           return (
             <button
               key={experience.id}
               type="button"
               className="chip"
               aria-pressed={armed}
-              aria-label={`Utilize ${experience.name}, ${sign}${Math.abs(experience.bonus)}, for one Hope${affordable ? '' : ' - not enough Hope'}`}
+              aria-label={`Utilize ${name}, ${sign}${Math.abs(experience.bonus)}, for one Hope${affordable ? '' : ' - not enough Hope'}`}
               disabled={!affordable}
               onClick={() => toggleExperience(experience.id)}
               title={
                 affordable
-                  ? `${experience.name} · spends 1 Hope`
-                  : `${experience.name} · not enough Hope`
+                  ? `${name} · spends 1 Hope`
+                  : `${name} · not enough Hope`
               }
               style={{
                 flex: 'none',
@@ -882,7 +887,7 @@ function ControlRow({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {experience.name.toUpperCase()}
+                {name.toUpperCase()}
               </span>
               <span style={{ flex: 'none', fontWeight: 700 }}>
                 {sign}
