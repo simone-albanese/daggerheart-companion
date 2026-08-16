@@ -239,6 +239,68 @@ describe('what a phone shows of the character sheet', () => {
 });
 
 /**
+ * The two rules that hold for the whole screen, not for one control at a time.
+ *
+ * Everything a finger lands on is at least 44px, and nothing forces the column
+ * wider than the phone. Both were checked control by control while this screen
+ * was rebuilt, which is exactly how the eleventh one gets missed - so they are
+ * checked here over every element the sheet draws with all its folds open.
+ */
+describe('the whole sheet, at 393x852', () => {
+  /** Open every fold, so nothing is exempt by being hidden. */
+  function openEverything(): void {
+    for (let i = 0; i < 8; i += 1) {
+      const shut = buttons().find((b) => b.getAttribute('aria-expanded') === 'false');
+      if (shut === undefined) return;
+      click(shut);
+    }
+  }
+
+  /** A declared length in px. Tokens resolve as they do below 1180px. */
+  function px(value: string): number {
+    if (value === 'var(--tap)' || value === 'var(--control)' || value === 'var(--pip-h)') return 44;
+    if (value === '') return 0;
+    const n = Number.parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  it('has no target under the touch floor', () => {
+    play(seed());
+    openEverything();
+    const small = buttons()
+      .map((b) => ({
+        name: b.getAttribute('aria-label') ?? (b.textContent ?? '').trim().slice(0, 30),
+        h: Math.max(px(b.style.height), px(b.style.minHeight)),
+      }))
+      .filter((t) => t.h < 44);
+    expect(
+      small.map((t) => `${t.name} (${String(t.h)}px)`),
+      'these declare less than the 44px floor',
+    ).toEqual([]);
+  });
+
+  it('never forces the column wider than the phone', () => {
+    play(seed());
+    openEverything();
+    // 393 less the 12px page padding either side.
+    const COLUMN = 369;
+    const wide = [...container.querySelectorAll<HTMLElement>('*')]
+      .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
+      .map((el) => `${el.tagName}.${el.className} ${el.style.width}/${el.style.minWidth}`);
+    expect(wide, 'these are wider than the column, so the page scrolls sideways').toEqual([]);
+  });
+
+  /*
+   * Not tested here: that nothing clips. It cannot be, and it should not be -
+   * `overflow: hidden` is load-bearing on this screen. It is what gives a long
+   * card name an ellipsis instead of a sideways scrollbar, and what keeps the
+   * trait tile's accent bar inside its own corners. The clip that mattered was
+   * the one *around ROLL*, and that has its own assertion at three widths in
+   * the band where it happened.
+   */
+});
+
+/**
  * What the pinned block costs.
  *
  * jsdom has no layout engine, so this does not measure pixels - it pins every
