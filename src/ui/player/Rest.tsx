@@ -44,6 +44,15 @@
  * takes the section off the screen, so the free swap existed exactly while no
  * rest did.
  *
+ * Every ref the sheet holds gets a row there, including the ones this build
+ * cannot read. A loadout ghost gets the same TO VAULT the readable rows get,
+ * because it fills a slot the gate is counting and moving it out is the only
+ * way a full loadout recalls anything; a vault ghost gets a row with no
+ * control, because nothing here knows what it is. A section that drew three of
+ * five cards and pointed at another fold would be the P1-6 defect on a new
+ * surface - and that pointer was false anyway at 1180px and up, where the
+ * loadout is a bare column in the cockpit and there is no fold to open.
+ *
  * Two things this file deliberately does not do. It never sets
  * `aria-expanded`: `playSheet.test.tsx` sweeps every button carrying that
  * attribute anywhere on Play and demands `var(--tap)` and `width: 100%`,
@@ -106,10 +115,16 @@
  * control by control.
  */
 import { useMemo, useState } from 'react';
-import type { Character, DomainCard, Ref } from '../../../shared/types.ts';
+import type { Character, Ref } from '../../../shared/types.ts';
 import type { DatasetIndex, DerivedStats } from '../../engine/character.ts';
 import type { Rng } from '../../engine/dice.ts';
-import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
+import {
+  canAddToLoadout,
+  missingCardRefs,
+  recallCard,
+  resolveCards,
+  vaultCard,
+} from '../../engine/loadout.ts';
 import {
   movesFor,
   mustTakeLongRest,
@@ -472,7 +487,20 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
 
   const loadout = resolveCards(staged.loadout, index);
   const vault = resolveCards(staged.vault, index);
-  const unreadable = staged.loadout.length - loadout.length;
+  /*
+   * The refs this build cannot name, on both sides.
+   *
+   * `resolveCards` is a `.filter()`, so a card from a newer bundle or from a
+   * homebrew layer that is not on this device disappears from every list drawn
+   * out of it - while `canAddToLoadout` goes on counting it. P1-6 gave the
+   * loadout half of Play its ghosts for exactly that reason and `Play.tsx`
+   * tracks `ghostVault` beside `ghostLoadout`; this surface draws both lists,
+   * so it needs both. A vault of five that draws three rows and says nothing is
+   * the same defect on the quieter side.
+   */
+  const missing = new Set(missingCardRefs(staged, index));
+  const ghostLoadout = staged.loadout.filter((r) => missing.has(r));
+  const ghostVault = staged.vault.filter((r) => missing.has(r));
 
   return (
     <Disclosure id="rest" characterId={character.id} label="Rest & downtime" summary={summary}>
@@ -788,21 +816,39 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
               {loadout.map((card) => (
                 <SwapRow
                   key={card.id}
-                  card={card}
-                  action="TO VAULT"
-                  price={null}
-                  /* "to vault", not "to the vault": the chip says TO VAULT, and
-                     a name that does not contain the words on the control
-                     cannot be reached by saying them. */
-                  label={`Move ${card.name} to vault, free during this rest`}
-                  onAct={() => stage(card.id, 'vault')}
+                  name={card.name}
+                  accent={`var(--${card.domain})`}
+                  act={{
+                    action: 'TO VAULT',
+                    price: null,
+                    /* "to vault", not "to the vault": the chip says TO VAULT,
+                       and a name that does not contain the words on the control
+                       cannot be reached by saying them. */
+                    label: `Move ${card.name} to vault, free during this rest`,
+                    onAct: () => stage(card.id, 'vault'),
+                  }}
                 />
               ))}
-              {unreadable > 0 && (
-                <span className="t-meta" style={{ color: 'var(--damage)' }}>
-                  {unreadable} MORE THIS BUILD CANNOT READ · MOVE THEM IN THE LOADOUT FOLD
-                </span>
-              )}
+              {/* A slot filled by a card this build cannot read. It gets a row
+                  rather than a sentence pointing at another fold: the gate is
+                  already counting it, moving it out is the only way a full
+                  loadout can recall anything, and "MOVE THEM IN THE LOADOUT
+                  FOLD" was false at 1180px and up, where `PlayDesktop` draws the
+                  loadout as a bare column with no fold to open. The move itself
+                  is the same `vaultCard` call, on a raw ref. */}
+              {ghostLoadout.map((refId) => (
+                <SwapRow
+                  key={refId}
+                  name={refId}
+                  accent={null}
+                  act={{
+                    action: 'TO VAULT',
+                    price: null,
+                    label: `Move the unreadable card ${refId} to vault, freeing its slot`,
+                    onAct: () => stage(refId, 'vault'),
+                  }}
+                />
+              ))}
               {vault.map((card) => {
                 // Against the staged sheet: a card sent to the vault a tap ago
                 // has freed its slot in the rest being proposed, and a gate
@@ -812,22 +858,30 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
                 return (
                   <SwapRow
                     key={card.id}
-                    card={card}
-                    action={check.allowed ? 'RECALL' : shortReason(check.reason)}
-                    price={check.allowed ? 'FREE' : null}
-                    disabled={!check.allowed}
-                    label={
-                      check.allowed
+                    name={card.name}
+                    accent={`var(--${card.domain})`}
+                    act={{
+                      action: check.allowed ? 'RECALL' : shortReason(check.reason),
+                      price: check.allowed ? 'FREE' : null,
+                      disabled: !check.allowed,
+                      label: check.allowed
                         ? `Recall ${card.name} free during this rest`
-                        : `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
-                    }
-                    onAct={() => stage(card.id, 'loadout')}
+                        : `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`,
+                      onAct: () => stage(card.id, 'loadout'),
+                    }}
                   />
                 );
               })}
-              {loadout.length === 0 && vault.length === 0 && (
+              {/* A vault ghost has nowhere to go - nothing here knows what it
+                  is, so nothing here can recall it - so it is a readout and not
+                  a dead control. It is drawn because the alternative is a vault
+                  of five that quietly shows three. */}
+              {ghostVault.map((refId) => (
+                <SwapRow key={refId} name={refId} accent={null} act={null} />
+              ))}
+              {staged.loadout.length === 0 && staged.vault.length === 0 && (
                 <p className="t-read" style={{ margin: 0 }}>
-                  This sheet is holding no cards this build can read, so there is nothing to move.
+                  This sheet is holding no cards, so there is nothing to move.
                 </p>
               )}
             </div>
@@ -865,23 +919,35 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
  * The refusal takes the shape `RecallButton` already uses - the reason printed
  * where the price would be, `disabled`, never a `title` attribute and never
  * 55% opacity - because a touchscreen has no hover and that is P3-9(a).
+ *
+ * A name and an accent rather than a `DomainCard`, because a ref this build
+ * cannot read is still something the sheet is holding and still has to be
+ * drawn. It gets the raw ref as its name - the only thing anybody has to go on
+ * - a dashed edge instead of a domain stripe, and NOT IN BUILD where the colour
+ * would have said which domain it is. `act` is null when there is nothing to be
+ * done to it: a vault ghost cannot be recalled, because nothing here knows what
+ * it is, and a row with no control is a readout rather than a dead button -
+ * which is the same rule the refusal follows, for the opposite reason.
  */
 function SwapRow({
-  card,
-  action,
-  price,
-  label,
-  disabled = false,
-  onAct,
+  name,
+  accent,
+  act,
 }: {
-  card: DomainCard;
-  action: string;
-  /** The second line of the chip. Null when the first line is a refusal. */
-  price: string | null;
-  label: string;
-  disabled?: boolean;
-  onAct: () => void;
+  /** The card's name, or the raw ref when this build cannot resolve it. */
+  name: string;
+  /** The domain stripe, or null for a ref that resolves to nothing. */
+  accent: string | null;
+  act: {
+    action: string;
+    /** The second line of the chip. Null when the first line is a refusal. */
+    price: string | null;
+    label: string;
+    disabled?: boolean;
+    onAct: () => void;
+  } | null;
 }): React.JSX.Element {
+  const ghost = accent === null;
   return (
     <div className="row" style={{ flex: 'none', gap: 6 }}>
       <span
@@ -893,56 +959,66 @@ function SwapRow({
           gap: 8,
           borderRadius: 'var(--r3)',
           background: 'var(--app)',
-          border: '1px solid var(--line-soft)',
-          borderLeft: `4px solid var(--${card.domain})`,
+          border: ghost ? '1px dashed var(--edge)' : '1px solid var(--line-soft)',
+          borderLeft: ghost ? '1px dashed var(--edge)' : `4px solid ${accent}`,
           padding: '0 11px',
         }}
       >
+        {ghost && (
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--damage)' }}>
+            NOT IN BUILD
+          </span>
+        )}
         <span
           style={{
             flex: 1,
             minWidth: 0,
             font: '600 13px/1.15 var(--sans)',
-            color: 'var(--text-2)',
+            color: ghost ? 'var(--dim)' : 'var(--text-2)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
         >
-          {card.name}
+          {name}
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onAct}
-        disabled={disabled}
-        aria-label={label}
-        className="stack"
-        style={{
-          flex: 'none',
-          minWidth: 84,
-          minHeight: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 3,
-          borderRadius: 'var(--r3)',
-          background: disabled ? 'transparent' : 'var(--raised)',
-          border: `1px solid ${disabled ? 'var(--line-soft)' : 'var(--line)'}`,
-          padding: '0 8px',
-        }}
-      >
-        <span
-          className="t-meta"
-          style={{ color: disabled ? 'var(--damage)' : 'var(--text)', fontWeight: 700 }}
+      {act !== null && (
+        <button
+          type="button"
+          onClick={act.onAct}
+          disabled={act.disabled === true}
+          aria-label={act.label}
+          className="stack"
+          style={{
+            flex: 'none',
+            minWidth: 84,
+            minHeight: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3,
+            borderRadius: 'var(--r3)',
+            background: act.disabled === true ? 'transparent' : 'var(--raised)',
+            border: `1px solid ${act.disabled === true ? 'var(--line-soft)' : 'var(--line)'}`,
+            padding: '0 8px',
+          }}
         >
-          {action}
-        </span>
-        {price !== null && (
-          <span className="t-meta" style={{ color: 'var(--hope)' }}>
-            {price}
+          <span
+            className="t-meta"
+            style={{
+              color: act.disabled === true ? 'var(--damage)' : 'var(--text)',
+              fontWeight: 700,
+            }}
+          >
+            {act.action}
           </span>
-        )}
-      </button>
+          {act.price !== null && (
+            <span className="t-meta" style={{ color: 'var(--hope)' }}>
+              {act.price}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

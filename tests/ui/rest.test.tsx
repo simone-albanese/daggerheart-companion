@@ -675,13 +675,71 @@ describe('the free swap', () => {
     expect(chip.style.opacity).toBe('');
   });
 
-  it('says how many cards it is not drawing rather than disagreeing with the gate', () => {
+  it('draws the loadout card it cannot read, and can move it out of the way', () => {
     const base = playedCharacter();
     seed({ loadout: [...base.loadout, 'card-from-a-newer-bundle'] });
+    mount(useApp.getState().characters[0]!, scriptedRng(2));
+    open('short');
+    expect(text(), 'the count the gate uses').toContain('4 / 5 HELD');
+    // The ref itself, because it is the only thing anybody has to go on, and a
+    // row rather than a count: it fills a slot, and moving it out is the only
+    // way a full loadout recalls anything.
+    expect(text()).toContain('card-from-a-newer-bundle');
+    expect(text()).toContain('NOT IN BUILD');
+    // And no cross-reference. At 1180px and up the loadout is a bare column in
+    // the cockpit, not a Disclosure, so "MOVE THEM IN THE LOADOUT FOLD" named a
+    // control that does not exist on that screen.
+    expect(text(), 'a fold that is not on every layout').not.toContain('LOADOUT FOLD');
+
+    click(named('Move the unreadable card card-from-a-newer-bundle to vault, freeing its slot'));
+    expect(text()).toContain('3 / 5 HELD');
+    click(byText('TAKE THE SHORT REST')!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).not.toContain('card-from-a-newer-bundle');
+    expect(after.vault).toContain('card-from-a-newer-bundle');
+    expect(useApp.getState().log[0]!.detail).toContain(
+      'Moved card-from-a-newer-bundle to the vault',
+    );
+  });
+
+  it('draws the vault card it cannot read rather than quietly holding fewer', () => {
+    // The sheet arrived from a newer bundle, which P0-7 already treats as real.
+    // `resolveCards` is a filter, so these vanished from this list while the
+    // Vault fold went on showing five - the same defect as the loadout half,
+    // on the side that had no rows to notice it.
+    const base = playedCharacter();
+    seed({ vault: [...base.vault, 'ghost-vault-ref-a', 'ghost-vault-ref-b'] });
     mount(useApp.getState().characters[0]!);
     open('short');
-    expect(text()).toContain('4 / 5 HELD');
-    expect(text()).toContain('1 MORE THIS BUILD CANNOT READ');
+    expect(text()).toContain('ghost-vault-ref-a');
+    expect(text()).toContain('ghost-vault-ref-b');
+    // A readout, not a dead control: nothing here knows what the card is, so
+    // there is nothing to press and no refusal to explain.
+    expect(
+      buttons().filter((b) => (b.getAttribute('aria-label') ?? '').includes('ghost-vault-ref')),
+      'a control offering to do something with a card this build cannot read',
+    ).toEqual([]);
+  });
+
+  it('never says there is nothing to move over cards it is holding', () => {
+    // Every held card unreadable: the old empty line was gated on the resolved
+    // lists, so it printed "This sheet is holding no cards this build can read,
+    // so there is nothing to move" directly under a line telling the reader to
+    // go and move them.
+    seed({ loadout: ['card-from-a-newer-bundle'], vault: [] });
+    mount(useApp.getState().characters[0]!);
+    open('short');
+    expect(text()).toContain('card-from-a-newer-bundle');
+    expect(text(), 'two sentences on one screen denying each other').not.toContain(
+      'nothing to move',
+    );
+  });
+
+  it('says there is nothing to move only when the sheet is holding nothing', () => {
+    seed({ loadout: [], vault: [] });
+    mount(useApp.getState().characters[0]!);
+    open('short');
+    expect(text()).toContain('This sheet is holding no cards, so there is nothing to move.');
   });
 });
 
