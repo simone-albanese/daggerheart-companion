@@ -648,6 +648,70 @@ describe('the roll modifier row', () => {
   });
 });
 
+/**
+ * P2-1's open half: the tablet band.
+ *
+ * Below 1180px the app used to run the cockpit at two columns, with `Vitals`
+ * and `DualityRoll` inside a scrolling column and `DualityRoll`'s own root at
+ * `flex: 1, minHeight: 0, overflow: hidden`. Its children lay out to their
+ * natural height, so the panel was crushed - 45px at 744x1133, 26px at
+ * 1024x768 - and ROLL rendered about 228px past the clip: present in the DOM,
+ * invisible on the glass, and still reachable by keyboard focus. On every
+ * iPad, and every phone in landscape, you could not roll.
+ */
+describe('every width below the cockpit', () => {
+  const sizes: Array<[string, number]> = [
+    ['an iPad mini in portrait', 744],
+    ['an iPad in landscape', 1024],
+    ['a phone in landscape', 852],
+  ];
+
+  for (const [what, width] of sizes) {
+    it(`can roll on ${what}`, () => {
+      setViewport(width);
+      play(seed());
+
+      const roll = buttons().find((b) => (b.textContent ?? '').includes('ROLL'));
+      expect(roll, 'there is no ROLL control at all').toBeDefined();
+
+      // Nothing between it and the screen clips. The failure was never a
+      // missing button: it was a button drawn outside its parent's box, still
+      // in the DOM and still reachable by keyboard focus.
+      const clipped: string[] = [];
+      for (let el = roll!.parentElement; el !== null && el !== container; el = el.parentElement) {
+        const s = el.style;
+        if (s.overflow === 'hidden' || s.overflowY === 'hidden') {
+          clipped.push(el.className || el.tagName);
+        }
+      }
+      expect(clipped, `ROLL is inside a clipped box: ${clipped.join(', ')}`).toEqual([]);
+
+      // And it states its own height, in a block that is `flex: none`, so
+      // nothing above it can take the pixels back.
+      expect(roll!.style.height).toBe('66px');
+    });
+  }
+
+  it('draws the one-column sheet, not the two-column cockpit', () => {
+    setViewport(744);
+    play(seed());
+    // The sheet's own sections, which the two-column cockpit never had room
+    // for on the left and never rendered on the right.
+    expect(text()).toContain('Gold');
+    expect(fold('Vault')).toBeDefined();
+    const rootEl = container.firstElementChild!;
+    expect(rootEl.children, 'this is the grid cockpit, not the one-column sheet').toHaveLength(2);
+  });
+
+  it('still gives the cockpit to a real desktop', () => {
+    setViewport(1280);
+    play(seed());
+    const rootEl = container.firstElementChild as HTMLElement;
+    expect(rootEl.style.display).toBe('grid');
+    expect(rootEl.style.gridTemplateColumns).toContain('minmax(300px, 336px)');
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();

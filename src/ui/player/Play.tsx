@@ -1,11 +1,29 @@
 /**
  * Play: the screen that is open ninety percent of the time.
  *
- * No scrolling on this screen. The content is bounded and known - six traits,
- * four tracks, five cards - so it is laid out to fit rather than to flow. On a
- * phone the order inverts what you would expect from a document: cards on top
- * because they are *read*, vitals and the roll bar at the bottom because they
- * are *touched*, inside the one-handed thumb arc.
+ * The screen scrolls. It used to say here that it did not - "No scrolling on
+ * this screen. The content is bounded and known" - and that stopped being true
+ * at 91097eb, when refusing to scroll turned out to cost more than it saved:
+ * with every band fixed, one region had to absorb every shortfall, and that
+ * region was the loadout, measured at 130px of the 230 it needs on a 393px
+ * phone and at *zero* on a 375px one.
+ *
+ * Two layouts, at one breakpoint rather than two.
+ *
+ *   Below 1180px - every phone and every tablet - the sheet is one column in
+ *   the printed sheet's order, scrolling, with the trait chips and ROLL pinned
+ *   to the bottom. `PlayPhone`.
+ *
+ *   At 1180px and above, the three-column cockpit, which fits without
+ *   scrolling and is laid out for a mouse. `PlayDesktop`.
+ *
+ * The middle band used to run the cockpit at two columns, and that is P2-1:
+ * `DualityRoll`'s root is `flex: 1, minHeight: 0, overflow: hidden` inside a
+ * scrolling column, so on an iPad it was crushed - 45px at 744x1133, 26px at
+ * 1024x768 - while its children laid out to their natural height, putting ROLL
+ * about 228px past the clip. In the DOM, invisible, and still reachable by
+ * keyboard focus. On every iPad, and every phone in landscape, you could not
+ * roll.
  */
 import { useMemo, useState } from 'react';
 import {
@@ -58,7 +76,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   };
 
   if (!character) return null;
-  if (layout === 'phone') {
+  if (layout !== 'desktop') {
     return (
       <PlayPhone
         stats={stats}
@@ -76,7 +94,6 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
       setTrait={setTrait}
       armedWeapon={armedWeapon}
       armWeapon={armWeapon}
-      columns={layout === 'tablet' ? 2 : 3}
     />
   );
 }
@@ -1210,14 +1227,7 @@ function RecallButton({
  * stopped doing a card's job. A row that says name, domain and Recall, with the
  * full text one tap away, is the honest shape for the space.
  */
-function LoadoutRows({
-  minHeight = 46,
-  fill = false,
-}: {
-  minHeight?: number;
-  /** Divide the container between the rows, for the fixed-height desktop box. */
-  fill?: boolean;
-}): React.JSX.Element {
+function LoadoutRows(): React.JSX.Element {
   const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
@@ -1232,8 +1242,8 @@ function LoadoutRows({
           onClick={() => setOpenCard(card)}
           className="row"
           style={{
-            flex: fill ? '1 1 0' : 'none',
-            minHeight,
+            flex: 'none',
+            minHeight: 46,
             overflow: 'hidden',
             borderRadius: 'var(--r3)',
             background: 'var(--panel)',
@@ -1286,14 +1296,21 @@ function LoadoutRows({
   );
 }
 
+/**
+ * The three-column cockpit, at 1180px and up.
+ *
+ * It used to take a `columns` prop and draw a two-column variant for the
+ * 720-1179px band. That variant is gone with the band: everything under
+ * 1180px now runs the one-column sheet, which is both what the tablet
+ * measurements asked for and the end of a layout nobody could roll in.
+ */
 function PlayDesktop({
   stats,
   trait,
   setTrait,
   armedWeapon,
   armWeapon,
-  columns,
-}: ViewProps & { columns: 2 | 3 }): React.JSX.Element {
+}: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
@@ -1308,8 +1325,7 @@ function PlayDesktop({
         flex: 1,
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns:
-          columns === 3 ? 'minmax(300px, 336px) minmax(360px, 428px) 1fr' : 'minmax(340px, 5fr) 6fr',
+        gridTemplateColumns: 'minmax(300px, 336px) minmax(360px, 428px) 1fr',
         gap: 18,
         padding: '18px 20px 20px',
       }}
@@ -1319,21 +1335,13 @@ function PlayDesktop({
         <Identity />
         <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
         <Defenses stats={stats} />
-        {columns === 2 && (
-          <>
-            <Vitals stats={stats} layout="desktop" />
-            <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
-          </>
-        )}
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
       </div>
 
-      {columns === 3 && (
-        <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
-          <Vitals stats={stats} layout="desktop" />
-          <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
-        </div>
-      )}
+      <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
+        <Vitals stats={stats} layout="desktop" />
+        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
+      </div>
 
       <div className="stack" style={{ gap: 10, minHeight: 'var(--control)', minWidth: 0 }}>
         <div className="spread" style={{ flex: 'none' }}>
@@ -1345,11 +1353,6 @@ function PlayDesktop({
         {/* The grid owns the height, and the cards fill their cell. Fixing a
             card height instead pushes the vault off the bottom of the screen
             on a 900px display, which is the one thing Play must never do. */}
-        {columns === 2 ? (
-          <div className="stack" style={{ flex: 1, minHeight: 0, gap: 6, overflow: 'hidden' }}>
-            <LoadoutRows minHeight={52} fill />
-          </div>
-        ) : (
         <div
           style={{
             flex: 1,
@@ -1453,7 +1456,6 @@ function PlayDesktop({
             </div>
           )}
         </div>
-        )}
         <Vault />
       </div>
     </div>
