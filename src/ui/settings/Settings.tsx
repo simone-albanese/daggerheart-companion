@@ -30,7 +30,12 @@ import {
   importFromPicker,
   ImportError,
 } from '../../transfer/fileIo.ts';
-import { watchInstallPrompt, type InstallPromptHandle } from '../../pwa/register.ts';
+import {
+  readOfflineStatus,
+  watchInstallPrompt,
+  type InstallPromptHandle,
+  type OfflineStatus,
+} from '../../pwa/register.ts';
 import { copyLibrary, isStandalone, pasteLibrary } from '../../transfer/pasteboard.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { usePrintSheet } from '../print/usePrintSheet.tsx';
@@ -391,6 +396,78 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
 // Characters and backup
 // ---------------------------------------------------------------------------
 
+/**
+ * What the offline row says, in words, for each answer the probe can give.
+ *
+ * The README's headline claim is *offline*, and until this row nothing in
+ * `src/ui` mentioned a service worker at all: a failed registration became one
+ * `console.warn` and the app went on looking installed. Someone walks into a
+ * basement believing the sheet will open and it does not.
+ *
+ * So each state names what is true and what to do about it, and the two
+ * failures are kept apart because their remedies are different - one needs a
+ * worker, the other needs one load with a connection. The word carries the
+ * meaning; the colour only agrees with it.
+ */
+function offlineWords(status: OfflineStatus | null): {
+  chip: string;
+  color: string;
+  hint: string;
+} {
+  if (status === null) {
+    return {
+      chip: 'CHECKING',
+      color: 'var(--muted)',
+      hint: 'Asking the browser what it has stored.',
+    };
+  }
+  const files = status.files ?? 0;
+  const count = `${files} file${files === 1 ? '' : 's'}`;
+  switch (status.state) {
+    case 'ready':
+      return {
+        chip: 'READY',
+        color: 'var(--ok)',
+        hint:
+          `The app is cached on this device — ${count} — so it opens with no connection at all, ` +
+          'on the bundle stored here rather than on whatever is newest.' +
+          (status.controlled
+            ? ''
+            : ' This page itself was loaded past the worker, which a hard reload does; the next' +
+              ' ordinary load goes through it.'),
+      };
+    case 'empty':
+      return {
+        chip: 'NOT CACHED',
+        color: 'var(--hope)',
+        hint:
+          'A worker is installed and the app’s files are not in its cache. Browsers reclaim ' +
+          'storage from a site nobody has opened in a while, and clearing site data takes the ' +
+          'caches and leaves the worker behind. Opened offline right now, this would be a blank ' +
+          'screen. Open it once with a connection and the cache fills as it goes.',
+      };
+    case 'none':
+      return {
+        chip: 'NO WORKER',
+        color: 'var(--damage)',
+        hint:
+          'Nothing is serving this page offline, so every load needs the network. Reload once ' +
+          'with a connection and the browser installs the worker; a private window, or a page ' +
+          'served without HTTPS, never will.' +
+          (files > 0 ? ` ${count} are still cached here, with nothing left to serve them.` : ''),
+      };
+    case 'unknown':
+      return {
+        chip: 'UNKNOWN',
+        color: 'var(--muted)',
+        hint:
+          'The browser did not answer, which is not the same as a no — it may well be ready. ' +
+          'Cache storage can take a while to reply while the worker is writing to it, and some ' +
+          'private windows refuse the question outright. Check again.',
+      };
+  }
+}
+
 function Backup({
   innerRef,
   phone,
@@ -413,6 +490,9 @@ function Backup({
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [installable, setInstallable] = useState(false);
   const install = useRef<InstallPromptHandle | null>(null);
+  /** null while the probe is in flight; every settled answer is a state. */
+  const [offline, setOffline] = useState<OfflineStatus | null>(null);
+  const [recheck, setRecheck] = useState(0);
 
   const standalone =
     typeof window !== 'undefined' &&
@@ -432,6 +512,37 @@ function Backup({
     return () => handle.dispose();
   }, []);
 
+  /*
+   * Offline readiness, read once on arrival and again whenever it can have
+   * changed underneath the screen.
+   *
+   * `controllerchange` is not a nicety: on a first visit the worker activates
+   * and claims the page a moment after it loads, so a single read at mount
+   * would leave "NO WORKER" on screen - a false one - for the rest of the
+   * session. `recheck` is the same read on demand, for the person who has just
+   * gone and found a connection because this row told them to.
+   */
+  useEffect(() => {
+    let live = true;
+    setOffline(null);
+    void readOfflineStatus()
+      .then((status) => {
+        if (live) setOffline(status);
+      })
+      .catch(() => {
+        // readOfflineStatus does not reject, and a row stuck on "checking"
+        // because it one day did would be exactly the silence this replaces.
+        if (live) setOffline({ state: 'unknown', controlled: false, files: null });
+      });
+    const worker = typeof navigator === 'undefined' ? undefined : navigator.serviceWorker;
+    const again = (): void => setRecheck((n) => n + 1);
+    worker?.addEventListener('controllerchange', again);
+    return () => {
+      live = false;
+      worker?.removeEventListener('controllerchange', again);
+    };
+  }, [recheck]);
+
   // backupStatus is synchronous and reports the permission it last saw, so the
   // screen that has to be certain asks the folder first.
   useEffect(() => {
@@ -441,6 +552,7 @@ function Backup({
   }, []);
 
   const urgent = health.level !== 'fresh';
+  const offlineSays = offlineWords(offline);
 
   // Every action in this section is a browser saying yes or no to a picker, a
   // permission or a quota, and any of them can reject. An unhandled rejection
@@ -722,6 +834,23 @@ function Backup({
               Ask the browser
             </Action>
           )}
+        </Field>
+
+        {/*
+          Beside persistence on purpose: the two rows answer the same question
+          from opposite ends - whether the characters will still be here, and
+          whether there is an app left to open them with.
+        */}
+        <Field label="Offline" hint={offlineSays.hint}>
+          <span className="chip" style={{ color: offlineSays.color }}>
+            {offlineSays.chip}
+          </span>
+          {/* No `label`: the row's hint is what describes this button, the way
+              it describes "Ask the browser" above. An aria-label that did not
+              contain the visible words would break voice control instead. */}
+          <Action onClick={() => setRecheck((n) => n + 1)} disabled={busy || offline === null}>
+            Check again
+          </Action>
         </Field>
 
         {phone && !standalone && characters.length > 0 && (

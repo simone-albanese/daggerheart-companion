@@ -131,6 +131,154 @@ export function registerServiceWorker(options: RegisterOptions = {}): ServiceWor
 }
 
 // ---------------------------------------------------------------------------
+// Is this device actually offline-ready?
+
+/**
+ * The four honest answers to "will this app open with the radio off".
+ *
+ *   ready    A worker is in charge and the app's files are in the cache.
+ *   empty    A worker is in charge and the files are not. A browser reclaims
+ *            Cache Storage under pressure and clearing site data takes the
+ *            caches while leaving the registration, so this is a real state and
+ *            not a transient one - `sw.js` calls it out at length above
+ *            `ensurePrecached`. Offline, right now, this opens to nothing.
+ *   none     No worker. Every load needs the network, whatever the README says.
+ *   unknown  The browser did not answer. Not a no - see `readOfflineStatus`.
+ *
+ * `empty` is why this is not a boolean. The two failures have different causes
+ * and different remedies - one needs a worker installed, the other needs one
+ * load with a connection so the cache refills - and a screen that collapsed
+ * them into "not ready" would be telling a user to do the wrong thing half the
+ * time.
+ */
+export type OfflineState = 'ready' | 'empty' | 'none' | 'unknown';
+
+export interface OfflineStatus {
+  state: OfflineState;
+  /**
+   * A worker is controlling this very page, rather than merely being installed.
+   * False with `state: 'ready'` is the hard-reload case: Shift-reload bypasses
+   * the worker for that one load, and the app is still offline-capable.
+   */
+  controlled: boolean;
+  /** Entries across the app's caches; null when nothing could be read. */
+  files: number | null;
+}
+
+/**
+ * The prefix `sw.js` gives both of its caches, copied here rather than shared,
+ * because `public/sw.js` is not a module and nothing can import from it.
+ *
+ * The prefix and not the two full names on purpose: the names carry a VERSION
+ * that gets bumped by hand when the shape of the caches changes, and a settings
+ * screen that went on reading `dhc-shell-v1` after that bump would report an
+ * empty precache with total confidence. `sw.js` sweeps on the same prefix, for
+ * the same reason - it is the stable half of the name.
+ */
+const CACHE_PREFIX = 'dhc-';
+
+/** Long enough that a busy Cache Storage is not called a failure, short enough
+ *  that a settings row does not sit on "checking" while someone waits. */
+const PROBE_TIMEOUT_MS = 3000;
+
+/**
+ * What the worker has, read from the page.
+ *
+ * Cache Storage is per-origin, not per-client: the caches the worker filled are
+ * the same objects this page can open, so the counts need no protocol and no
+ * round trip through the worker. Which is just as well - `sw.js` has exactly
+ * one message handler, it takes `skip-waiting` and `warm-importer`, and it
+ * never replies to anything.
+ *
+ * Two things are read, and both are needed: the entry document, which is what a
+ * navigation offline resolves to, and a count of the hashed files behind it. A
+ * document with no bundle in the assets cache is not an app - it is a blank
+ * page and a script tag pointing at a 404 - so the document alone is not the
+ * test.
+ *
+ * `entry` and not `document`, because a local named `document` would shadow the
+ * DOM's for the length of the function.
+ */
+async function readPrecache(): Promise<{ entry: boolean; shell: number; assets: number }> {
+  const storage: CacheStorage | undefined = globalThis.caches;
+  if (storage === undefined) throw new Error('this browser exposes no cache storage');
+
+  // The same href `sw.js` stores the document under: its `ROOT` is the
+  // directory it was registered from, which is BASE.
+  const entryHref = new URL('index.html', new URL(BASE, location.href)).href;
+  let entry = false;
+  let shell = 0;
+  let assets = 0;
+
+  for (const name of await storage.keys()) {
+    if (!name.startsWith(CACHE_PREFIX)) continue; // A sibling app on the same origin.
+    const cache = await storage.open(name);
+    const count = (await cache.keys()).length;
+    if (name.startsWith(`${CACHE_PREFIX}assets-`)) assets += count;
+    else shell += count;
+    if (!entry && (await cache.match(entryHref)) !== undefined) entry = true;
+  }
+  return { entry, shell, assets };
+}
+
+/** Resolve to `undefined` when the work rejects, or does not finish in time. */
+function within<T>(work: Promise<T>, ms: number): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), ms);
+    const settle = (value: T | undefined): void => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    void work.then(settle, () => settle(undefined));
+  });
+}
+
+/**
+ * Whether this device can open the app offline, in the terms above.
+ *
+ * `unknown` is a state and not an error swallowed into a no. Every step here is
+ * a promise the browser may simply never settle - `getRegistration` on a worker
+ * that is mid-install, `caches.keys()` behind a precache fill that is writing a
+ * megabyte at the time - and Firefox in a private window rejects the whole of
+ * Cache Storage outright. Reporting any of those as "not offline-ready" would
+ * be the app claiming to know something it does not, which is the same defect
+ * as claiming to be ready when it is not, pointed the other way.
+ *
+ * Never rejects. A settings row that throws is a row that says nothing at all.
+ */
+export async function readOfflineStatus(
+  timeoutMs: number = PROBE_TIMEOUT_MS,
+): Promise<OfflineStatus> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    // No worker is possible here, now or later: an insecure context, or a
+    // browser without the API. That is a definite no rather than an unknown.
+    return { state: 'none', controlled: false, files: null };
+  }
+  let controlled = false;
+  try {
+    controlled = navigator.serviceWorker.controller !== null;
+  } catch {
+    // The one read here that is synchronous, and so the one `within` below
+    // cannot turn into an answer. A browser that throws looking at its own
+    // controller has told us nothing, which is what `unknown` is for.
+    return { state: 'unknown', controlled: false, files: null };
+  }
+
+  const probe = (async (): Promise<OfflineStatus> => {
+    // Only ask when the cheap answer was no. A controlled page has a worker by
+    // definition, and `getRegistration` is the call most likely to hang.
+    const installed =
+      controlled || (await navigator.serviceWorker.getRegistration())?.active != null;
+    const { entry, shell, assets } = await readPrecache();
+    const files = shell + assets;
+    if (!installed) return { state: 'none', controlled, files };
+    return { state: entry && assets > 0 ? 'ready' : 'empty', controlled, files };
+  })();
+
+  return (await within(probe, timeoutMs)) ?? { state: 'unknown', controlled, files: null };
+}
+
+// ---------------------------------------------------------------------------
 // Add to Home Screen
 
 interface BeforeInstallPromptEvent extends Event {
