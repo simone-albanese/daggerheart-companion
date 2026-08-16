@@ -303,6 +303,84 @@ describe('the pinned block', () => {
   });
 });
 
+/**
+ * The vault, which had never been on a phone.
+ *
+ * It was defined in `Play.tsx` and called from `PlayDesktop` only, so on a
+ * phone a card you owned and were not carrying did not exist. And on the
+ * desktop shelf, a card that could not be recalled said why in a `title`
+ * attribute and faded to 55% - which on a touchscreen is a dimmed card, a tap,
+ * and no explanation of either. That is P3-9(a).
+ */
+describe('the vault', () => {
+  /** A sheet whose loadout is full, so recall has a real reason to refuse. */
+  function fullLoadout(): Character {
+    const base = playedCharacter();
+    return seed({
+      loadout: [...base.loadout, ...base.vault.slice(0, 2)],
+      vault: base.vault.slice(2),
+    });
+  }
+
+  it('is on the phone at all, one fold away', () => {
+    const c = seed();
+    play(c);
+    expect(fold('Vault').textContent).toContain('3 INACTIVE');
+    click(fold('Vault'));
+    const names = c.vault.map((ref) => index.cards.get(ref)!.name);
+    for (const name of names) {
+      expect(text(), `${name} is not in the phone's vault`).toContain(name);
+    }
+  });
+
+  it('offers a recall that names its price, and pays it', () => {
+    const c = seed();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    const recall = buttons().find(
+      (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${card.name} for ${card.recallCost} Stress`,
+    );
+    expect(recall, 'no recall control on the vault row').toBeDefined();
+    expect(recall!.textContent).toContain(`COST ${card.recallCost}`);
+
+    const before = useApp.getState().characters[0]!.stress.marked;
+    click(recall!);
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).toContain(card.id);
+    expect(after.vault).not.toContain(card.id);
+    expect(after.stress.marked).toBe(before + card.recallCost);
+  });
+
+  it('says why on the screen when it will not recall, not in a title', () => {
+    const c = fullLoadout();
+    play(c);
+    click(fold('Vault'));
+    const card = index.cards.get(c.vault[0]!)!;
+    const recall = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${card.name} cannot be recalled`),
+    );
+    expect(recall, 'the blocked vault row has no control at all').toBeDefined();
+    expect(recall!.disabled).toBe(true);
+    // The reason is text a thumb can read, not a hover.
+    expect(recall!.textContent).toContain('FULL');
+    expect(recall!.getAttribute('aria-label')).toContain('Loadout is full');
+  });
+
+  it('does not fade the shelf on a desktop either — it says FULL', () => {
+    setViewport(1280);
+    const c = fullLoadout();
+    play(c);
+    const card = index.cards.get(c.vault[0]!)!;
+    const chip = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${card.name} - Loadout is full`),
+    );
+    expect(chip, 'the shelf card does not name its own refusal').toBeDefined();
+    expect(chip!.textContent).toContain('FULL');
+    expect(chip!.style.opacity, 'the shelf still dims instead of saying').toBe('');
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();

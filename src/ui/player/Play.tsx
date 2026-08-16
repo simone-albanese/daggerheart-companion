@@ -18,7 +18,13 @@ import {
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatGold } from '../../engine/gold.ts';
-import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
+import {
+  canAddToLoadout,
+  recallCard,
+  resolveCards,
+  vaultCard,
+  type SwapCheck,
+} from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
@@ -701,18 +707,118 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
   );
 }
 
-function Vault(): React.JSX.Element | null {
+/**
+ * Recalling a card, wherever the control for it is drawn.
+ *
+ * One place, because the shelf and the rows must not disagree about what a tap
+ * costs, and because the log line is the only record the table has of the
+ * Stress that was spent.
+ */
+function useRecall(): (card: DomainCard) => void {
+  const character = useActive();
+  const update = useApp((s) => s.update);
+  const pushLog = useApp((s) => s.pushLog);
+  return (card: DomainCard) => {
+    if (!character) return;
+    const check = canAddToLoadout(character, card);
+    if (!check.allowed) return;
+    const out = recallCard(character, card);
+    update(() => out.character);
+    pushLog({
+      kind: 'note',
+      label: `Recalled ${card.name}`,
+      detail:
+        check.stressCost === 0
+          ? 'Free during downtime'
+          : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
+    });
+  };
+}
+
+/**
+ * The vault.
+ *
+ * Two shapes. On a desktop it is a shelf - one scrollable row, because the
+ * vault is something you reach along and the loadout beside it needs the
+ * vertical space its cards want. On a phone a shelf is the wrong object
+ * entirely: a level 8 character owns a dozen cards, a horizontal scroller
+ * inside a vertical one is a gesture nobody wins, and the vault had never been
+ * on a phone at all - it was defined here and called only from `PlayDesktop`.
+ * So the phone gets rows, in a fold, with the recall as its own control.
+ *
+ * P3-9(a) is fixed in both. A card that cannot be recalled used to say why in
+ * a `title` attribute and fade to 55% opacity, and a touchscreen has no hover:
+ * the player saw a dimmed card, tapped it, and got the card reader instead of
+ * a recall with no explanation of either. Now the reason is printed where the
+ * cost would be, which is the same trade `ExperienceChip` already makes one
+ * file over - NO HOPE in place of the bonus rather than a chip greyed to
+ * 1.72:1 and left to be guessed at.
+ */
+function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.Element | null {
   const character = useActive();
   const { vault } = useLoadout();
-  const update = useApp((s) => s.update);
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
-  const pushLog = useApp((s) => s.pushLog);
+  const recall = useRecall();
   if (!character) return null;
 
+  if (layout === 'rows') {
+    return (
+      <div className="stack" style={{ flex: 'none', gap: 4 }}>
+        {vault.map((card) => {
+          const check = canAddToLoadout(character, card);
+          return (
+            <div key={card.id} className="row" style={{ flex: 'none', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setOpenCard(card)}
+                className="row"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  minHeight: 52,
+                  overflow: 'hidden',
+                  borderRadius: 'var(--r3)',
+                  background: 'var(--app)',
+                  border: '1px solid var(--line-soft)',
+                  borderLeft: `4px solid var(--${card.domain})`,
+                  gap: 10,
+                  padding: '0 11px',
+                  textAlign: 'left',
+                }}
+              >
+                <DomainMark domain={card.domain} size={15} shapes={shapes} />
+                <span className="stack" style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      font: '600 14px/1.1 var(--sans)',
+                      color: 'var(--text-2)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {card.name}
+                  </span>
+                  <span className="t-meta" style={{ marginTop: 3, letterSpacing: '0.09em' }}>
+                    {card.domain.toUpperCase()} · LV{card.level}
+                  </span>
+                </span>
+              </button>
+              <RecallButton card={card} check={check} onRecall={() => recall(card)} />
+            </div>
+          );
+        })}
+        {vault.length === 0 && (
+          <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
+            The vault is empty. Cards you own but are not carrying live here.
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    // A shelf, not a grid: the vault is something you reach along, and one
-    // scrollable row leaves the loadout the vertical space its cards need.
     <div className="stack" style={{ flex: 'none', gap: 6 }}>
       <div className="spread" style={{ flex: 'none' }}>
         <span className="t-label">Vault</span>
@@ -730,24 +836,13 @@ function Vault(): React.JSX.Element | null {
             <button
               key={card.id}
               type="button"
-              onClick={() => {
-                if (!check.allowed) {
-                  setOpenCard(card);
-                  return;
-                }
-                const out = recallCard(character, card);
-                update(() => out.character);
-                pushLog({
-                  kind: 'note',
-                  label: `Recalled ${card.name}`,
-                  detail:
-                    check.stressCost === 0
-                      ? 'Free during downtime'
-                      : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
-                });
-              }}
+              onClick={() => (check.allowed ? recall(card) : setOpenCard(card))}
               className="row"
-              title={check.reason ?? `Recall for ${check.stressCost} Stress`}
+              aria-label={
+                check.allowed
+                  ? `Recall ${card.name} for ${String(check.stressCost)} Stress`
+                  : `${card.name} - ${check.reason ?? 'cannot be recalled'}`
+              }
               style={{
                 flex: 'none',
                 minHeight: 44,
@@ -757,7 +852,6 @@ function Vault(): React.JSX.Element | null {
                 border: '1px solid var(--line-soft)',
                 gap: 8,
                 padding: '0 10px',
-                opacity: check.allowed ? 1 : 0.55,
               }}
             >
               <DomainMark domain={card.domain} size={12} shapes={shapes} />
@@ -775,7 +869,15 @@ function Vault(): React.JSX.Element | null {
               >
                 {card.name}
               </span>
-              <span className="t-meta">LV{card.level}</span>
+              {/* The reason, in place of the level. Not a title attribute and
+                  not 55% opacity: both of those are the app knowing something
+                  the player cannot read. */}
+              <span
+                className="t-meta"
+                style={{ flex: 'none', color: check.allowed ? undefined : 'var(--damage)' }}
+              >
+                {check.allowed ? `LV${card.level}` : shortReason(check.reason)}
+              </span>
             </button>
           );
         })}
@@ -786,6 +888,79 @@ function Vault(): React.JSX.Element | null {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Why a card will not come back, in the space a chip has.
+ *
+ * `SwapCheck.reason` is a sentence written for a place with room. The shelf
+ * chip has about 40px left after the name, so it gets the noun; every surface
+ * with a row to spare prints the sentence itself.
+ */
+function shortReason(reason: string | null): string {
+  if (reason === null) return '';
+  if (reason.startsWith('Loadout is full')) return 'FULL';
+  if (reason.startsWith('Already')) return 'ACTIVE';
+  return reason.toUpperCase();
+}
+
+/**
+ * RECALL, as a control shaped like one.
+ *
+ * It carries the cost, and when the cost cannot be paid it carries the reason
+ * instead of the cost - the same substitution `ExperienceChip` makes for NO
+ * HOPE. A disabled button with the word RECALL still on it says the app could
+ * do this and will not, rather than that something is in the way.
+ */
+function RecallButton({
+  card,
+  check,
+  onRecall,
+}: {
+  card: DomainCard;
+  check: SwapCheck;
+  onRecall: () => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onRecall}
+      disabled={!check.allowed}
+      aria-label={
+        check.allowed
+          ? `Recall ${card.name} for ${String(check.stressCost)} Stress`
+          : `${card.name} cannot be recalled: ${check.reason ?? 'unavailable'}`
+      }
+      className="stack"
+      style={{
+        flex: 'none',
+        minWidth: 72,
+        minHeight: 52,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        borderRadius: 'var(--r3)',
+        background: check.allowed ? 'var(--raised)' : 'transparent',
+        border: `1px solid ${check.allowed ? 'var(--line)' : 'var(--line-soft)'}`,
+        padding: '0 8px',
+      }}
+    >
+      {check.allowed ? (
+        <>
+          <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+            RECALL
+          </span>
+          <span className="t-meta" style={{ color: 'var(--stress)' }}>
+            COST {check.stressCost}
+          </span>
+        </>
+      ) : (
+        <span className="t-meta" style={{ color: 'var(--damage)', textAlign: 'center' }}>
+          {shortReason(check.reason)}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -1043,7 +1218,7 @@ function PlayPhone({
   armWeapon,
 }: ViewProps): React.JSX.Element {
   const character = useActive();
-  const { loadout } = useLoadout();
+  const { loadout, vault } = useLoadout();
   const index = useApp((s) => s.index);
   if (!character) return <div />;
 
@@ -1119,6 +1294,24 @@ function PlayPhone({
           <div className="stack" style={{ flex: 'none', gap: 4 }}>
             <LoadoutRows />
           </div>
+        </Disclosure>
+
+        {/*
+         * The vault is a second fold rather than part of the first.
+         *
+         * A level 8 character owns about a dozen cards and carries five, so
+         * folding the two together would mean opening twelve rows to look at
+         * the five you are holding - which is the opposite of what the fold is
+         * for. Closed by default for the same reason: recalling is a downtime
+         * decision most of the time, and the loadout is a turn-by-turn one.
+         */}
+        <Disclosure
+          id="vault"
+          characterId={character.id}
+          label="Vault"
+          summary={`${vault.length} INACTIVE`}
+        >
+          <Vault layout="rows" />
         </Disclosure>
 
         <Disclosure
