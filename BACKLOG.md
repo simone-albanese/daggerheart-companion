@@ -1406,6 +1406,50 @@ stops being a fixed-block problem once the page is a document).
 screen. The content is bounded and known"*. It has not been true since
 `91097eb`. It is the founding rule failing inside a comment.
 
+### P5-1(b) · Renaming a character exists, is unreachable, and is unguarded
+
+**requested directly** · `src/ui/build/Edit.tsx:113` · `src/store/merge.ts:77` ·
+**small, 2–3 h** · *lands after the rebuild, in the block the rebuild creates*
+
+Asked for as a missing feature; it is not missing. `Edit.tsx:113-118` is a
+`LabelledInput` bound to `character.name` calling `patch({ name })`, and it
+works. What is true is that nobody can find it: it sits in the Identity section
+of the Build tab's edit screen, below a header, a level-up button and six
+derived stats, on a screen a player opens to change their gear. The name is the
+first field on the paper sheet and the most-shown string in the app — it is in
+the top bar on every screen — and the way to change it is four gestures deep in
+the tab visited least.
+
+**And the entrance that exists has no guard, while the entrance that needs one
+least has.** `merge.ts:63-75` states the rule and argues for it: *"the character
+picker in the header is a `<select>` of names, so two characters called 'Ilya'
+would be indistinguishable at exactly the moment the user most needs to tell
+them apart."* `duplicateFor` enforces it, counting a suffix up so that doing it
+twice does not collide either. That is the **import** path. The **rename** path
+— the one where a person types a name deliberately — enforces nothing. Rename
+Marek to Ilya and the app produces by hand precisely the state it spends a
+paragraph preventing when a file arrives.
+
+One defect wearing two hats: a real capability nobody can reach, and a written
+invariant defended at one of its two doors.
+
+- [ ] Put rename where the name is. The Identity block at the top of the rebuilt
+      Play screen is the sheet's NAME field and is the honest home; the header
+      carries the name on every screen and is the other candidate. Whichever is
+      chosen, the gesture must be deliberate — a name at the top of a scrolling
+      screen that opens a keyboard when a thumb brushes it is worse than a name
+      you cannot edit. State the target size and why it cannot fire by accident.
+- [ ] Enforce uniqueness on the rename path *through* `duplicateFor`'s logic
+      rather than beside it — one rule, two callers, the shape P0-1 settled on
+      for `decideImport` after finding that the correct implementation had no
+      callers at all. Do **not** silently rewrite what the user typed: say the
+      name is taken and offer the suffix. Renaming someone and quietly calling
+      them something else is the honesty rule failing on the one string the user
+      chose personally.
+- [ ] Renaming *to* empty must not produce two characters both displaying
+      `Unnamed`, which is the same collision by another route. The fallback is
+      already everywhere; the collision it can create is not considered anywhere.
+
 ## P5-2 · The GM screen is five menus, and a session is not a menu
 
 **decided: it becomes one composable session, with multiple campaigns** ·
