@@ -211,8 +211,30 @@ export function takeRest(
   const fearRoll = options.fixedFear ?? rng(4);
   const gmFear = rest === 'short' ? fearRoll : fearRoll + (options.partySize ?? 1);
 
+  /*
+   * The rest counts itself, here, rather than on whatever screen called it.
+   *
+   * `mustTakeLongRest` reads this number eight lines below, in this same file.
+   * Writing it anywhere else would put the read and the write on opposite sides
+   * of a module boundary - two routes to one number, which this repository has
+   * already been bitten by twice (`sheetModel.ts:249`, `loadout.ts`'s hpCost) -
+   * and a screen that forgot to increment would leave the refusal permanently
+   * unreachable, which is the exact bug this field was added to fix.
+   *
+   * Once per rest, not once per move: it is keyed off `rest`, outside the
+   * choices loop, so a rest with no moves and a rest with two both count one,
+   * and a rest whose moves were all refused counts one too - the moves were
+   * refused, the rest still happened.
+   *
+   * And it counts rather than polices. A short rest asked for at 3 is applied
+   * and comes back at 4. Refusing is a sentence somebody reads, and this file
+   * has no screen to put a sentence on; silently declining to clear a track
+   * here would be the app doing nothing and saying nothing.
+   */
+  const consecutiveShortRests = rest === 'short' ? c.consecutiveShortRests + 1 : 0;
+
   return {
-    character: { ...next, updatedAt: new Date().toISOString() },
+    character: { ...next, consecutiveShortRests, updatedAt: new Date().toISOString() },
     log,
     gmFear,
   };
@@ -221,6 +243,17 @@ export function takeRest(
 /**
  * Three short rests in a row force a long rest. Tracked as a count because the
  * app has no idea what happened at the table between sessions.
+ *
+ * The number is the one `takeRest` writes onto the character it returns, and it
+ * is persisted on the record (`Character.consecutiveShortRests`, schema 4). It
+ * used to be neither: the count existed only as this parameter, so every caller
+ * would have had to invent it, and inventing it is how a refusal ends up
+ * answering about rests that never happened.
+ *
+ * A count that arrived by QR is zero, because the wire does not carry it. So
+ * `false` from this function means "this sheet has not counted three", never
+ * "this table has not taken three", and whatever draws the refusal owes the
+ * reader that difference.
  */
 export const mustTakeLongRest = (consecutiveShortRests: number): boolean =>
   consecutiveShortRests >= 3;

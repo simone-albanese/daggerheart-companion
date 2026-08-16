@@ -298,6 +298,17 @@ function checkShapes(value: Record<string, unknown>, where: string): void {
   if (evasion !== undefined && evasion !== null && typeof evasion !== 'number') {
     wrong('evasionOverride', 'a number or null');
   }
+  // Stricter than `evasionOverride`'s bare typeof, on purpose. This number is
+  // read for one thing only - deciding whether to refuse a short rest - so a
+  // 2.5 or a -1 would have `mustTakeLongRest` answering about a count no rest
+  // could ever have produced, and the answer would look like a rule.
+  const rests = value['consecutiveShortRests'];
+  if (
+    rests !== undefined &&
+    (typeof rests !== 'number' || !Number.isInteger(rests) || rests < 0)
+  ) {
+    wrong('consecutiveShortRests', 'a whole number of rests, zero or more');
+  }
   const thresholds = value['thresholdOverride'];
   if (thresholds !== undefined && thresholds !== null) {
     if (

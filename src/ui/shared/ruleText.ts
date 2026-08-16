@@ -144,6 +144,93 @@ export function ruleBullets(body: string): RuleBullet[] {
 }
 
 /**
+ * The book's own sentence about a Spellcast trait of +0 or lower.
+ *
+ * The Play screen has to refuse a spell damage roll for a character whose
+ * Spellcast trait is +0, and a refusal is exactly where an app is most tempted
+ * to invent a rule. This lifts the SRD's own words - *"Note: If your Spellcast
+ * trait is +0 or lower, you don't roll anything"* - so the screen quotes rather
+ * than paraphrases, and so a homebrew rules layer that changes the rule changes
+ * what the screen says.
+ *
+ * Found by the sentence and not by a section id: the phrase is specific enough
+ * to be unambiguous - it occurs exactly once in the shipped dataset - and
+ * pinning `attacking` would go quiet the moment a layer reorganised its
+ * sections, which is the failure this whole module is written against.
+ *
+ * The leading `Note:` goes because the row prints a sentence, not an
+ * annotation to a paragraph that is not on the screen. Null when no rules layer
+ * carries the sentence at all, and then the caller says it in the app's own
+ * words - unquoted, so that what is between quotation marks on that row is
+ * always the book's.
+ */
+export function spellcastZeroNote(rules: RulesSection[]): string | null {
+  for (const rule of rules) {
+    for (const line of rule.body.split('\n')) {
+      const text = line.trim();
+      if (!/spellcast trait is \+0 or lower/i.test(text)) continue;
+      return text.replace(/^note:\s*/i, '');
+    }
+  }
+  return null;
+}
+
+/**
+ * One sentence out of the `downtime` rule, found by what it says.
+ *
+ * The two sentences the rest surface has to quote are both buried mid-paragraph
+ * in a 2KB body, so there is no subhead and no bullet to key on - `ruleBlocks`
+ * and `ruleBullets` are the wrong tools for this shape. Splitting on a full
+ * stop followed by whitespace is enough here because the SRD's downtime prose
+ * carries no abbreviations and no decimals; it is checked against the shipped
+ * text rather than assumed.
+ *
+ * Null rather than a guess when the search finds nothing. A rules layer that
+ * dropped or reworded the section leaves the screen with no sentence, and the
+ * screen then says only what it can count - see `Rest.tsx`, which prints the
+ * number on its own rather than a paraphrase this file invented.
+ */
+const downtimeSentence = (rules: RulesSection[], needle: string): string | null => {
+  const downtime = rules.find((r) => r.id === 'downtime');
+  if (downtime === undefined) return null;
+  const wanted = needle.toLowerCase();
+  for (const paragraph of paragraphs(downtime.body)) {
+    for (const sentence of paragraph.split(/(?<=\.)\s+/)) {
+      if (sentence.toLowerCase().includes(wanted)) return sentence.trim();
+    }
+  }
+  return null;
+};
+
+/**
+ * The SRD's own sentence about three short rests in a row.
+ *
+ * Quoted, never restated. The rule is what the app is refusing on, and a
+ * refusal that paraphrases its own reason is a house rule wearing the book's
+ * authority. Typing it into this file instead would also put licensed text in
+ * the repository - the reason `Manuali/` is gitignored - and would stop a
+ * homebrew rules layer from redefining the thing it is enforcing.
+ */
+export const longRestRule = (rules: RulesSection[]): string | null =>
+  downtimeSentence(rules, 'three short rests in a row');
+
+/**
+ * The SRD's own sentence about a long rest that was interrupted.
+ *
+ * The app cannot know that a rest was interrupted - nothing at this table is
+ * on the wire - so it does not offer a control that claims to model it. It
+ * prints the rule beside the long rest and leaves the choice where it already
+ * is: the short rest on the same surface *is* a short rest's benefits, so the
+ * route out of an interrupted long rest is the button that is already there
+ * rather than a second one that would resolve to the same call - except at
+ * three short rests in a row, where that button is deliberately not drawn, and
+ * `Rest.tsx` then says the short rest is off the screen instead of pointing at
+ * a control it has just taken away.
+ */
+export const interruptedRestRule = (rules: RulesSection[]): string | null =>
+  downtimeSentence(rules, 'long rest is interrupted');
+
+/**
  * The three verbs printed under each trait on the character sheet.
  *
  * "Use it to Sprint, Leap, Maneuver" is what tells a player who has never read

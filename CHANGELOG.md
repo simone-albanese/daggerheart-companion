@@ -33,9 +33,12 @@ before the one below.
 - **A tool that is closed is gone, not hidden.** The party board opens the
   camera to scan a player's character; a panel kept alive behind the screen
   would leave it running.
-- **Arriving at the GM screen opens nothing.** The record remembers which tool
-  was last open, which is worth keeping and is not an instruction — reading it
-  as one would have put the encounter builder over the plan every single time.
+- **Arriving at the GM screen opens nothing, and neither does changing table.**
+  The record remembers which tool was last open, which is worth keeping and is
+  not an instruction — reading it as one would have put the encounter builder
+  over the plan every single time you arrived, and switching campaign or making
+  a new one would have dropped you into whatever that table had open last,
+  including a tool you had switched off in Settings.
 - **Rows move.** A handle at the right edge of every row: hold it for a quarter
   of a second and drag, and the row goes where you put it. The list under the
   same thumb still scrolls, because only the handle itself is taken away from
@@ -66,7 +69,17 @@ before the one below.
   the database, so the sheet flushes whatever is still in flight and then says
   when the last change actually reached the disk — not when the record changed,
   when the *write landed*. If a write failed, that sentence is replaced by the
-  failure and a retry that now does something.
+  failure and by a retry that does something.
+- **TRY AGAIN only appears where trying again would do something, and says when
+  it did not work.** It used to be drawn over every failure and to call the same
+  flush every time — which writes the open campaign, and so could do nothing at
+  all about a campaign that failed to be *deleted*, a device that could not be
+  *read*, or a new campaign whose write threw and left nothing marked as
+  unwritten. You pressed a red button, watched it say TRYING…, and got the same
+  red strip back. Now: the new campaign is written by the retry, a failed read
+  is retried by reading again, and a failed delete draws no button because
+  nothing was lost and the REMOVE you already have is the retry. A retry that
+  fails says so instead of settling back into the same sentence.
 - **A first campaign that could not be written says so.** On a device with no
   campaign at all the app makes one, and if that very first write failed the
   error was swallowed with a comment. Nothing read it, so nothing was visibly
@@ -82,6 +95,13 @@ before the one below.
   is now a button the width of the screen rather than a label. Leaving the GM
   tools is a rare gesture and the easiest reach should go to the ones you make
   all evening. Settings is where it always was, in the header.
+- **MENU opens the two tools that a row would otherwise be needed for.** The
+  encounter builder and the live scene are the content of a session row, which
+  is the point of the rebuild — but improvising a fight should not mean writing
+  a plan row for it first. The other three are not repeated there: Fear and the
+  countdowns is behind the Fear number at the top, the bestiary and the party
+  board are behind SHOW, and the sheet says so rather than leaving you to
+  wonder.
 - **The campaigns you already had have a door.** Switch between them, make
   another, rename the open one, remove one behind two taps. Renaming is offered
   on the open campaign only, and the sheet says why: for any other row the app
@@ -93,6 +113,19 @@ before the one below.
   the app made while reading them, and campaigns written by a newer version of
   the app that this one will not open — named, not counted, with the sentence
   that nothing has been deleted.
+- **If the saved table wins a race against your hand, the screen says so.** The
+  campaign is read off the disk as the GM screen arrives, and anything you
+  change in that window is replaced by what was saved — the alternative is
+  writing an empty board over a real campaign. The loading panel used to promise
+  the opposite in the same breath ("nothing you do before it arrives will be
+  lost — it is the saved campaign that wins"), and the notice that it had
+  happened lived behind the MENU button. It says what actually happens now, and
+  if it happens it is a line under the top bar with a ✕, on the screen where you
+  made the change.
+- **Every control inside an open row says which row it belongs to.** A night
+  with three scenes drew three buttons called OPEN THE SCENE and three called
+  PUT THIS ON THE BOARD; on a screen read out loud they were indistinguishable.
+  The row already named its own DELETE that way; now the contents do too.
 - **The licence notice did not leave the GM screen; it moved into the scroll.**
   It is 111px on a phone, and that screen now has bars at the top and the
   bottom — but a notice the licence asks to be displayed is not what pays for a
@@ -247,10 +280,37 @@ be wrong* at the foot of this entry.
 
 ### Numbers on the sheet
 
-- **An attack roll leads into a damage roll.** The engine could roll damage
-  correctly from the first commit and no screen had ever called it. Damage is
-  offered when the roll succeeds, never on a reaction roll, and never guessed
-  when the GM has kept the Difficulty to themselves.
+- **An attack roll leads into a damage roll, on the screen.** The engine could
+  roll damage correctly from the first commit — Proficiency multiplies the dice
+  and not the modifier, and a critical adds the maximum the dice could have
+  rolled — and `rollDamage` had never had a caller outside its own tests. So no
+  screen in this app had ever rolled damage, and the critical the Duality Roll
+  had just worked out was thrown away one line after it was computed. Now a
+  successful roll offers the damage roll it earned, as a control and not as a
+  note: it carries the pool the attack actually rolls, it writes what it rolled
+  to the log, and it never touches the sheet — there is no adversary on this
+  screen, so damage is read aloud rather than applied. A reaction roll is
+  offered nothing, because a reaction roll is not an attack roll. A miss says so
+  in words instead of leaving a gap where a button was. And when the GM has kept
+  the Difficulty to themselves the offer still appears, labelled IF IT HIT: the
+  engine returns "undecided" rather than guessing a verdict, so a table that
+  hides its Difficulties can roll damage like everyone else.
+- **Unarmed attacks exist.** `[Proficiency]d4`, as a row you can declare, drawn
+  even when nothing is equipped — having no gear is not the same fact as having
+  no attack. Arming it moves no trait chip: the rule hands Strength-or-Finesse
+  to the GM, and the app does not make that call on their behalf.
+- **Spellcast damage rolls a number of dice equal to your Spellcast trait**,
+  which is a different rule from every other pool on the sheet, and at +0 or
+  lower it rolls nothing and says so in the book's own sentence rather than in
+  ours. The app supplies the count, which is on your sheet; you tap the die and
+  type the modifier, which are on the card in your hand. Nothing is parsed out
+  of card text, so a card that prints its own `2d8+4` cannot be quietly
+  overwritten.
+- **Damage dice can be typed**, for tables that roll physical dice, behind the
+  same switch the Duality dice already used: one slot per die, and the engine
+  still does all of the arithmetic. Extra damage *dice* are still not supported
+  — the SRD's "Tusks: +1d6" has nowhere to go yet, and `Architecture.md` §3.2
+  now says so rather than promising the button in the present tense.
 - **Proficiency and Multiclass cost both of their tier's slots.** They are
   printed in a joined black box and the rule says to mark both; the app let you
   take Proficiency twice in one tier, reaching 8 at level 10 where the sheet
@@ -265,6 +325,30 @@ be wrong* at the foot of this entry.
   discarding whenever they were left unnamed — two lines after the review
   screen promised they were worth +2 named or not. Adding one later starts at
   +2, the value the rules grant, rather than +1.
+- **Resting does its own arithmetic, and shows you the numbers first.** The app
+  could apply a rest correctly from the first commit and there was no screen
+  that did it, so somebody at the table was adding 1d4+Tier to three tracks by
+  hand while the scene waited. Rest & downtime is now a fold on the Play
+  screen: pick short or long, pick two moves — the same one twice if you like —
+  and every row says what tapping it will clear before you tap it, down to the
+  second copy of a move only getting what the first one left. Nothing is rolled
+  or applied until you commit, because a roll that happens because you opened a
+  screen is a roll you cannot refuse. The one number the app has not got is the
+  GM's Fear, and until you commit it says `1d4` rather than a number.
+- **The app will tell you the next rest has to be a long one**, in the SRD's own
+  words rather than by greying out a button — three short rests in a row is a
+  rule, and a dead control says the app could do this and will not. It counts
+  what this device watched: a sheet that arrived by QR arrives having counted
+  nothing, and the fold says so instead of claiming you are ready.
+- **Cards move between loadout and vault for free during a rest**, through the
+  same five-card cap as everywhere else, so the price changes and nothing else
+  does. The move is part of the rest rather than something done beside it: it is
+  proposed with the moves, applied by the same press, and written into the
+  rest's own log entry. A card that moved the moment you tapped it would have
+  been charged the rest's price before the rest — and the rest might never come.
+- A recall that cost nothing used to be logged as "Free during downtime" even
+  in the middle of a fight — 31 of the 189 cards have a Recall Cost of 0. The
+  log now says which of the two it was.
 
 ### On a phone
 
@@ -284,6 +368,30 @@ be wrong* at the foot of this entry.
 - **Experiences show their whole name.** They are what the player wrote, so a
   truncated chip has thrown away the entire content of the thing.
 - The character's name, class and level are in the top bar.
+- **You can rename a character from the sheet, and the app will no longer let
+  you make two you cannot tell apart.** Renaming already worked and was four
+  gestures deep in the tab visited least. It is now a 72×44 RENAME chip on the
+  Identity block, 51px clear of the only other target in that band; the name
+  line itself is still not a target, because a name at the top of a scrolling
+  screen that opens a keyboard when a thumb brushes it is worse than a name you
+  cannot edit. Nothing is written while you type — the old field wrote on every
+  keystroke, which stamped the sheet's "last edited" clock once per letter
+  typed. On the sheet the name is written when you press SAVE or Return, and
+  the ✕ leaves it as it was; on the Build form, where there is no ✕ and every
+  neighbouring field writes as you type, it is written when you leave the field
+  as well, so a half-typed name is not the one thing on that screen a tab tap
+  throws away. If another character already answers to the name the app says
+  whose it is and offers the next free one, instead of quietly changing what
+  you typed; "ilya", " Ilya" and a second character with no name at all all
+  count, because the picker draws all three the same. A refusal is a sentence
+  on the screen and is announced to a screen reader; it is never a greyed
+  button and nothing else. Clearing the name stores nothing rather than writing
+  the word "Unnamed" onto your sheet. Your keyboard's autocorrect is turned off
+  over this field, because a name is not a word it gets to have an opinion
+  about. This holds on
+  the rename path and on the *keep both* copy of an import. Creating a
+  character, and importing a file that is a genuinely different character with
+  the same name, are still unguarded — `BACKLOG.md` P5-1(c).
 - **iOS stopped zooming the page** when you focus the damage box — done with a
   16px floor on the controls rather than by taking pinch-zoom away from
   everyone.
@@ -317,7 +425,13 @@ be wrong* at the foot of this entry.
   navigation icons, the discarded Experiences — and each one passed every unit
   test, because every unit worked.
 - A schema bump now requires a converter and a committed fixture, enforced
-  rather than described, built before the first bump instead of after it.
+  rather than described, built before the first bump instead of after it — and
+  then taken for the first time, to store how many short rests you have had in
+  a row. Every file written by an older build still opens, says it was
+  converted and says what changed; the fixtures those older builds wrote are
+  committed untouched, because they are the only proof the conversion works.
+  The first launch after the update rewrites your library once and produces one
+  fresh backup, which is expected rather than a fault.
 - Documentation: the README's factual claims are checked against the code, the
   Node version is written down once in `.nvmrc`, and `env.sh` explains why it
   exists today rather than why it existed once.

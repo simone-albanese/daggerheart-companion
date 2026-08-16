@@ -261,6 +261,7 @@ const CHARACTER_FIELDS = [
   'companion',
   'beastform',
   'scars',
+  'consecutiveShortRests',
   'createdAt',
   'updatedAt',
 ] as const;

@@ -478,20 +478,71 @@ is gone in favour of `weaponDamage`. **What is still missing is the last link:
 nothing calls `rollDamage` yet.** A successful roll does not offer the damage
 step, so `rollDamage` still has zero callers outside tests.
 
-- [ ] Carry the resolved attack — including `critical` — into a damage roll
-      offered on success. Offer, never auto-apply: README promises the app
-      *"proposes"* and never applies a declared effect silently.
-      *(`attack.ts` is ready and tested; this is the wiring inside
-      `DualityRoll` plus the damage row itself.)*
-- [ ] Damage must be typeable as well as rollable, the way the Duality dice
-      already are, for tables that roll physical dice.
-- [ ] **Spellcast damage is a different rule and is not implemented.** *"Any time
-      an effect says to deal damage using your Spellcast trait, you roll a number
-      of dice equal to your Spellcast trait"*, and at +0 or lower you roll
+**[corrected again, `9b4053a`..] The last link is built.** `rollDamage` has a
+caller: `src/ui/player/DamageRoll.tsx`, mounted last in the phone's roll block
+and between ROLL and the log on desktop. `DualityRoll` snapshots the attack out
+of the `DualityResult` that produced it and hands it over; the row asks
+`damageOffer` and never reads `succeeded` for itself. Unarmed attacks have a row
+in `Equipped`, and so does Spellcast damage with its refusal at +0. Damage dice
+can be typed as well as rolled. **Every box below is ticked; what is left is
+named in the two paragraphs after them, and neither is this item.**
+
+**Not built, and out of scope for P1-1.** Extra damage *dice* are still
+unsupported: `rollDamage` takes a flat `extraModifier` and has no notion of an
+added die, and the held-dice tray feeds `DualityInput.bonusDice`, which is the
+attack roll and not the damage roll. So the SRD's own *"Tusks: +1d6"* example
+and `Architecture.md` §3.2's promise of a proposal button for it both remain
+unbuilt. The `companion` variant of `AttackSource` also stays unreachable:
+`companionDamage` exists and `CompanionPanel` prints it, but arming a companion
+needs a second armed slot on Play and a decision about whose Proficiency and
+whose roll it is.
+
+- [x] ~~Carry the resolved attack — including `critical` — into a damage roll
+      offered on success. Offer, never auto-apply~~ — **done, `9b4053a`**. The
+      row is `src/ui/player/DamageRoll.tsx`, in its own file so that it cannot
+      reach for `succeeded` instead of asking `damageOffer`, and so that
+      `rollAffordance.test.ts`'s counts over `DualityRoll.tsx` still mean what
+      they say. It imports neither `update` nor `engine/damage.ts`, and a miss,
+      a reaction roll, an unrollable pool and a build with the roller switched
+      off all draw text with no target rather than a disabled button naming the
+      thing it will not do.
+- [x] ~~Damage must be typeable as well as rollable, the way the Duality dice
+      already are, for tables that roll physical dice.~~ — **done, the commit
+      after the one that closed Spellcast damage**. It gates on the same
+      `affordance.canType` the Hope and Fear faces gate on, so one switch means
+      one thing and the two halves of a roll cannot disagree about whether this
+      table types its dice. One slot per die, `Die`'s grid at five faces across
+      instead of four, and the roll resolves the moment the last face lands —
+      through `rollDamage(pool, { fixed })`, so the engine still does all of the
+      arithmetic and the critical bonus cannot be got wrong by a second route. A
+      digital roll mirrors its faces back into the slots, the way the Duality bar
+      mirrors Hope and Fear, so the dice on screen never sit beside a total they
+      do not add up to. With the roller off the control is disabled and wears
+      `affordance.label` — ENTER YOUR DICE — rather than a greyed ROLL DAMAGE.
+      The face grid's one-way-in-one-way-out problem is P3-12, which is `Die`'s
+      as much as it is this row's.
+- [x] ~~**Spellcast damage is a different rule and is not implemented.** *"Any
+      time an effect says to deal damage using your Spellcast trait, you roll a
+      number of dice equal to your Spellcast trait"*, and at +0 or lower you roll
       nothing. 77 of the 189 domain cards mention Spellcast and 43 carry a dice
-      formula; none is rollable today.
-- [ ] **Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
-      hits for "unarmed" in `src/`.
+      formula; none is rollable today.~~ — **done, the commit after `d708b38`**;
+      the house form names a sha and a commit cannot name its own. A panel in
+      `Equipped`, drawn only for a character who has a Spellcast trait at all.
+      The app supplies the one number that is on the sheet — the die count, which
+      is the trait and not Proficiency — and the player taps the die and types
+      the modifier, which are on the card in their hand: a `DomainCard` carries
+      free prose, only three of the 189 say *"using your Spellcast trait"* and
+      only preservation-blast pairs the phrase with a formula, so parsing a pool
+      out of card text would mean overwriting the `2` a card printed itself. At
+      +0 or lower there are no chips, no input and no greyed control — the SRD's
+      own sentence stands where the dice would be, in quotation marks because it
+      is the book's and not ours.
+- [x] ~~**Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
+      hits for "unarmed" in `src/`.~~ — **done, the commit after `9b4053a`**;
+      the house form names a sha and a commit cannot name its own. A row after
+      the weapons in `Equipped`, drawn even when nothing is equipped, and
+      arming it moves no trait chip: *"Unarmed attack rolls use either Strength
+      or Finesse (GM's choice)"* is the GM's call and not the app's.
 - [x] ~~`Play.tsx:281` rescales Proficiency with an inline regex instead of
       calling `weaponDamage()`~~ — **done, `91097eb`**.
 
@@ -659,8 +710,8 @@ import time, which assumes the ref stays parked forever and fixes the counter
 disagreement instead. The backlog cannot accept the scenario as real there and
 treat it as hypothetical here.
 
-### P1-7 · Rests and downtime, wired to a screen — *decided: it ships*
-`src/engine/rest.ts` · `src/ui/player/Play.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
+### ~~P1-7 · Rests and downtime, wired to a screen~~ — **done, `d88289c` · `adeaae4` · `851d04c`**
+`src/engine/rest.ts` · `src/ui/player/Rest.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
 
 P1-5 left this as a question — wire the rest engine or say out loud that rest
 is not in 1.0. It is answered: rest ships, with the arithmetic done for the
@@ -701,22 +752,56 @@ block. A rest happens between conflicts and never mid-roll, so it must not take
 a pixel from the tokens or the roll path, which is what P2-4 measures the cost
 of. It is also the one place a player looks after a fight ends.
 
-- [ ] Persist the consecutive-short-rest count on `Character`. **After P0-8**,
-      or behind it in the same change.
-- [ ] A rest surface in the Play scroll: choose short or long, pick two moves
-      with repeats allowed, see what each will clear *before* committing, then
-      commit. Propose and then apply, the way the incoming-damage calculator
-      does — never apply on open, because `takeRest` rolls dice and a roll that
-      happens because you looked at a screen is a roll you cannot refuse.
-- [ ] Offer the free loadout/vault swap in the same flow, through the existing
-      loadout operations rather than a second implementation of the cap.
-- [ ] Refuse a short rest, in words, when `mustTakeLongRest` says the next one
-      must be long — and say why, citing the rule rather than just disabling.
-- [ ] Produce the `'rest'` log entry. `state.ts:29` has declared that kind since
-      the first commit and nothing has ever written one.
-- [ ] The engine takes an injected `rng`; the screen must pass the real one and
-      the test must pass a scripted one, so the numbers in a test are the
-      numbers on screen.
+- [x] ~~Persist the consecutive-short-rest count on `Character`.~~ — **done**,
+      `d88289c`, and it is the first real `SCHEMA_VERSION` bump this repository
+      has taken: 3 → 4, one converter writing `0` (a schema-3 build never
+      counted, so the app does not know and will not guess), two new committed
+      fixtures, and `tests/fixtures/schema/v3.*` left byte-identical, because
+      those are the evidence and regenerating them would only prove the new
+      code can read its own output. `DB_VERSION` and `CODEC_VERSION` did not
+      move; Architecture 6.1 records what that cost. The write itself is
+      `adeaae4`, and it lives in `takeRest` rather than on the screen because
+      `mustTakeLongRest` reads the number eight lines below it — a screen that
+      forgot to increment would leave the refusal permanently unreachable,
+      which is the state this field was added out of.
+- [x] ~~A rest surface in the Play scroll.~~ — **done**, `851d04c`,
+      `src/ui/player/Rest.tsx`, between the vault and the carried items. It
+      proposes by calling `takeRest` itself with every `fixedRoll` pinned to 1
+      and then to 4 and an `Rng` that **throws**, so the bracket on screen and
+      the numbers at the commit come out of one implementation and the preview
+      cannot spend a die. Each row is bracketed against the moves that would
+      already have run, so a second Tend to Wounds reads what is actually left
+      rather than repeating the first one's promise.
+- [x] ~~Offer the free loadout/vault swap in the same flow.~~ — **done**,
+      through `canAddToLoadout` / `recallCard` with `{ downtime: true }` — the
+      flag `loadout.ts` has carried since it was written and this is its first
+      caller. *In the same flow* means in the same press: a tap stages the swap
+      against the sheet the rest is being proposed against, and COMMIT applies
+      the moves and the card moves together and records both in one `'rest'`
+      entry. Applied on the tap it was the rest's price for a rest that had not
+      happened — and it vanished the moment one did, because COMMIT clears
+      `kind`. `useRecall` in `src/ui/player/recall.ts` keeps the *scene* recall
+      for the vault and the card browser; MAX_LOADOUT is enforced in one place
+      whichever surface is asking.
+- [x] ~~Refuse a short rest, in words.~~ — **done**, and the shape matters: the
+      SHORT control is *removed* and replaced by the SRD's own sentence, read
+      out of `dataset.rules`, plus the count this sheet holds and the fact that
+      a sheet arriving by QR arrives at zero. A disabled button with the word
+      SHORT still on it says the app could do this and will not.
+- [x] ~~Produce the `'rest'` log entry.~~ — **done**. The detail is the
+      engine's own lines verbatim, refusals included, plus the Fear that was
+      really rolled, plus the rule at the one moment it becomes true.
+- [x] ~~The engine takes an injected `rng`.~~ — **done**: `Play.tsx` passes
+      `cryptoRng` at both mounts, `tests/ui/rest.test.tsx` passes
+      `scriptedRng(3, 4, 2)` and asserts the marks, the log strings and
+      `rng.calls`, and every test that does not commit passes `refusingRng`.
+
+**One thing the item asked for and did not get a control:** *"an interrupted
+long rest gives only a short rest's benefits."* It is answered with the SRD's
+sentence quoted beside the long rest and nothing else, because nothing on the
+device can observe an interruption, and the honest route out — a short rest —
+is already a button on the same surface. A second control would have resolved
+to the same call while implying the app had seen something it cannot see.
 
 ## P2 — Unusable on a device we support
 
@@ -1174,6 +1259,25 @@ on screen distinguishes them.
       be taken. `row.reason` already exists and is rendered in the cost slot —
       check whether it can carry that instead.
 
+### P3-12 · A die face grid, once opened, can only be closed by answering it
+`src/ui/player/DualityRoll.tsx:148-187` · `src/ui/player/DamageRoll.tsx` ·
+**trivial, 30 min** · *noticed while building P1-1's typed damage*
+
+`Die` turns into a twelve-face grid when it is tapped, and the grid has exactly
+one way out: pick a number. There is no cancel, no backdrop, and no second tap
+on the die that puts it back. A thumb that brushes the HOPE die on a scrolling
+screen has to enter a value it did not roll, and then re-open the die and enter
+the right one — which in the damage row means two log lines for one attack, the
+second one silently replacing a number the first one already announced.
+
+The typed damage slots copy the same idiom deliberately: inventing a cancel for
+one of the two and not the other would be two gestures for one gesture's job.
+So this is one fix in two places, not a divergence.
+
+- [ ] Give the open grid a way back that is not an answer — a tap on the die's
+      own label, or a CLEAR cell in the grid itself. Whatever it is, both the
+      Duality faces and the damage slots take it in the same commit.
+
 ### P3-10 · The licence notice is on screen only for a user who has no characters
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
 
@@ -1424,7 +1528,7 @@ stops being a fixed-block problem once the page is a document).
 screen. The content is bounded and known"*. It has not been true since
 `91097eb`. It is the founding rule failing inside a comment.
 
-### P5-1(b) · Renaming a character exists, is unreachable, and is unguarded
+### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~ — **done, `14c4118`, `077c5e5`, `aa21391`**
 
 **requested directly** · `src/ui/build/Edit.tsx:113` · `src/store/merge.ts:77` ·
 **small, 2–3 h** · *lands after the rebuild, in the block the rebuild creates*
@@ -1451,22 +1555,56 @@ paragraph preventing when a file arrives.
 One defect wearing two hats: a real capability nobody can reach, and a written
 invariant defended at one of its two doors.
 
-- [ ] Put rename where the name is. The Identity block at the top of the rebuilt
-      Play screen is the sheet's NAME field and is the honest home; the header
-      carries the name on every screen and is the other candidate. Whichever is
-      chosen, the gesture must be deliberate — a name at the top of a scrolling
-      screen that opens a keyboard when a thumb brushes it is worse than a name
-      you cannot edit. State the target size and why it cannot fire by accident.
-- [ ] Enforce uniqueness on the rename path *through* `duplicateFor`'s logic
-      rather than beside it — one rule, two callers, the shape P0-1 settled on
-      for `decideImport` after finding that the correct implementation had no
-      callers at all. Do **not** silently rewrite what the user typed: say the
-      name is taken and offer the suffix. Renaming someone and quietly calling
-      them something else is the honesty rule failing on the one string the user
-      chose personally.
-- [ ] Renaming *to* empty must not produce two characters both displaying
-      `Unnamed`, which is the same collision by another route. The fallback is
-      already everywhere; the collision it can create is not considered anywhere.
+- [x] ~~Put rename where the name is.~~ — **done, `077c5e5`.** The Identity
+      block, on a 72×44 RENAME chip on the class/subclass row, 51 px clear of
+      the header's SETTINGS button (95 px centre to centre, against a ~38–40 px
+      fingertip). The name line itself is still a `<div>` with no role, no
+      `tabIndex` and no handler, because the failure this bullet describes
+      requires the name to be the target. Arming swaps one 44 px row for
+      another inside the same wrapper, so nothing above it moves; the block
+      grows 25 px against a 457 px scroll window, once, permanently.
+- [x] ~~Enforce uniqueness on the rename path *through* `duplicateFor`'s
+      logic.~~ — **done, `14c4118`.** The rule left `duplicateFor`'s body and
+      became `freeName`/`nameHolder`, over one private `nameKey`. The
+      comparison also changed: it was `new Set(taken.map((c) => c.name))`,
+      which could not see "ilya", " Ilya", or two characters both stored as
+      `''`. Nothing is silently rewritten — the refusal names who holds the
+      name and offers the next free one in a control you have to press.
+- [x] ~~Renaming *to* empty must not produce two characters both displaying
+      `Unnamed`.~~ — **done, `14c4118`, `077c5e5`.** `spokenName` reads `''` as
+      `Unnamed`, so the empty case is the same collision as any other and is
+      refused with "both would read \"Unnamed\"". Clearing the field on a lone
+      character still stores `''` and never the word.
+
+### P5-1(c) · The unique-name rule is now enforced at two doors, and there are five
+
+**found while closing P5-1(b)** · `src/store/state.ts:413`, `:508-541` ·
+`src/transfer/fileIo.ts:101-102` · **small, 2–3 h**
+
+P5-1(b) put one comparison behind two callers — the rename control, which Play
+and Build both reach, and `duplicateFor`'s *keep-both* copy. That is not the
+same thing as an invariant, and `Architecture.md` §7 now says so rather than
+claiming one. Three doors are still open, listed separately so that none of
+them becomes silence:
+
+- [ ] **Creation has no guard at all.** `Wizard.tsx:583` sets the draft name,
+      `creation.ts:362` only warns when it is empty, and `state.ts:413`'s
+      `create()` compares nothing. Make a second Ilya from the wizard and both
+      rows of the header's `<select>` read "Ilya". The control already exists —
+      the wizard's name step could go through `RenameField`, or through
+      `nameHolder` for the warning line it already draws.
+- [ ] **A plain import compares `id` and nothing else.** `importCharacters`
+      (`state.ts:508-541`) runs `decideImport` on the id; for an arriving
+      character whose id is new it does `db.putCharacter` with no name
+      comparison. So a `.dhchar` for a genuinely *different* character called
+      Ilya still lands beside the local Ilya. Only the *conflict* path — same
+      id, keep both — is guarded. This is the door `merge.ts`'s own paragraph
+      reads as if it covered, and it does not.
+- [ ] **`characterFileName` slugifies two distinguishable names to one file.**
+      `fileIo.ts:101-102` is `slugify(c.name) || 'character'`, so "Ilya!" and
+      "Ilya?" both export as `ilya.dhchar` and the second silently replaces the
+      first in a folder. The picker can now tell those two apart; the file
+      system still cannot.
 
 ## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `eab26d8`, `f6e264d`, `7b27e57`, `68c8cc7`, `63a2558`, `8e0d02f`**
 
@@ -1498,13 +1636,18 @@ Decisions taken:
       screen, a row opens its tool over it inside `GmSheet`, and a closed tool
       is **unmounted** rather than hidden, because PartyBoard's scanner holds
       the camera in an effect. `board.region` is kept and reinterpreted as *the
-      tool last opened*, and is followed only when it **changes** — an effect
-      that acted on the value it finds at mount would reopen the encounter
-      builder every time the GM arrives, which is the menu behaviour this item
-      exists to remove. The top MENU is not built yet: until the bottom bar
-      lands, the two tools no row can open — Bestiary and PartyBoard — are
-      chips in the top bar, with the note in `GmTopBar.tsx` saying they leave
-      when SHOW arrives.
+      tool last opened*, and is followed only when it **changes**, only when the
+      campaign under it did not, and only into a tool that is switched on — an
+      effect that acted on the value it finds at mount would reopen the
+      encounter builder every time the GM arrives, and one that ignored the
+      campaign id would do it on every switch of table, which is the menu
+      behaviour this item exists to remove. The top MENU carries the way out,
+      the campaigns, and the two tools that are the content of a row and nothing
+      else: the encounter builder and the live scene. Bestiary and PartyBoard
+      are behind SHOW, where the wireframe puts them, and Fear and the
+      countdowns is behind the readout that is always in the top bar — so all
+      five are reachable without writing a row, but not all five from MENU, and
+      that deviation is recorded under *Left open*.
 - [x] ~~**ADD** → countdown, encounter, scene (environment), link.~~ — **done.**
       The four choices are generated from `SESSION_ITEM_KINDS`, so a fifth kind
       added to the record cannot be silently missing from the menu. A countdown
@@ -1634,6 +1777,20 @@ silence:**
       all try it again. Nothing is dirty at that moment otherwise, so
       `writeActive` returned at `if (!dirty)` and no later write would ever have
       reported it.
+- [ ] **Not all five regions are reachable from the top MENU, where the first
+      decision above said they stay.** Two of them are: the encounter builder
+      and the live scene, which are the content of a session row and had no
+      other door — improvising a fight meant writing a plan row first, which is
+      the menu behaviour this item exists to remove wearing different clothes.
+      The other three are not repeated there, and the rule keeping them out is
+      the one that keeps Settings out of the same sheet: a second route to a
+      destination that already has one is a door nobody chose to build. Fear and
+      the countdowns is behind the Fear readout, drawn at every width; the
+      bestiary and the party board are behind SHOW, which is where *"SHOW forks
+      in two"* put them. What that decision was protecting — a tool you cannot
+      reach without writing a row — is closed; its literal reading is not, and
+      the sentence in MENU says where the other three are, so the absence is an
+      answer rather than a gap.
 - [ ] **SEARCH is not in the bar, and that is a decision.** The wireframe draws
       four verbs; this build ships three. Full-text rule search is deferred to
       1.1, and the searching a GM does at the table is already the Bestiary's
@@ -1695,13 +1852,20 @@ silence:**
 - [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
       rejected,** and `removeCampaign` has no stale-build guard where
       `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
-      on top of that. The first is at least *said*, and said where it happens:
-      `createCampaign` sets `writeError` and the GM screen draws it under the
-      top bar with no sheet open. The second is a store asymmetry this work does
-      not touch.
+      on top of that. The first is *said*, said where it happens, and now
+      **retried**: `createCampaign` sets `writeError`, leaves the store dirty so
+      the next flush writes the campaign that did not land, and the GM screen
+      draws the sentence under the top bar with no sheet open. What is still
+      open is that the campaign is made active either way. The second is a store
+      asymmetry this work does not touch.
 - [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
       so a repaired campaign is repaired again on every launch. The notices it
       produces are in MENU rather than in a banner precisely because they recur.
+      One is the exception and is on the screen as well: the one saying the disk
+      replaced something the GM had already changed. That one is about a tap
+      rather than about a record, it happens once, and it carries its own flag
+      (`replacedOnLoad`) so the recurring ones are not dragged onto the screen
+      beside it.
 - [ ] **The campaign list is not re-sorted while it is open.** `readCampaigns`
       sorts newest-played first once, on the way in; MENU keeps that order for
       the life of the sheet. Live sorting would move the open campaign to the

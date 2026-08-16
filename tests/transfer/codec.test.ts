@@ -87,9 +87,9 @@ describe('round trip', () => {
 
   /**
    * An empty note and no note at all are different states of an inventory
-   * entry, and the codec has no business choosing between them: the two
-   * documented losses are Experience ids and a trait pair's order, and a third
-   * one nobody wrote down is how a format stops being trustworthy.
+   * entry, and the codec has no business choosing between them: the documented
+   * losses are Experience ids, a trait pair's order and the rest count, and one
+   * more that nobody wrote down is how a format stops being trustworthy.
    */
   it('tells an empty note apart from no note', async () => {
     const original = wizard({
@@ -103,6 +103,34 @@ describe('round trip', () => {
     expect(back.inventory).toEqual(original.inventory);
     expect(Object.hasOwn(back.inventory[0]!, 'note')).toBe(true);
     expect(Object.hasOwn(back.inventory[1]!, 'note')).toBe(false);
+  });
+
+  /**
+   * The third deliberate loss, held still in both directions.
+   *
+   * `consecutiveShortRests` stays off the wire, and the reason is not the byte
+   * - it is one varint in 0..3. Carrying it needs a new format number, and the
+   * next one is 3, which `tests/adversarial.test.ts` shows is the one number
+   * this header cannot take: from 3 a single-bit flip of the version nibble
+   * gives 2 and 1, both readable, one of them the format with no checksum. The
+   * file header of `src/transfer/codec.ts` carries the whole argument.
+   *
+   * So the pair of assertions is the point. The first says the count does not
+   * survive; the second says the payload is byte-identical either way, which is
+   * what proves nothing was quietly appended to carry it. Add a write and the
+   * second fails; add the matching read as well and the first fails.
+   */
+  it('does not carry the rest count, and costs not one byte for not carrying it', async () => {
+    const rested = wizard({ consecutiveShortRests: 3 });
+    const { character } = await decodeCharacter(
+      await encodeCharacter(rested, testRegistry),
+      testRegistry,
+    );
+    expect(character.consecutiveShortRests).toBe(0);
+
+    expect(await encodeCharacter(rested, testRegistry)).toEqual(
+      await encodeCharacter(wizard({ consecutiveShortRests: 0 }), testRegistry),
+    );
   });
 
   it('preserves an empty sheet', async () => {

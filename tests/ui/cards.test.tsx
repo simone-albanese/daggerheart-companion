@@ -116,6 +116,31 @@ describe('the action on a card', () => {
     expect(container.textContent ?? '').toContain('COST');
   });
 
+  it('does not call a free recall a downtime, in the middle of a scene', () => {
+    /*
+     * The log line used to read "Free during downtime" for any recall that
+     * cost nothing, and this screen has no downtime in it: 31 of the 189 SRD
+     * cards have a Recall Cost of 0, so a third of a vault wrote a sentence
+     * about a rest that had not happened. Both surfaces now go through
+     * `useRecall`, which says which of the two zeroes this was.
+     */
+    // In the character's own domains, because the browser opens on "mine".
+    const domains = playedStats().domains;
+    const free = dataset.domainCards.find(
+      (k) => k.recallCost === 0 && domains.includes(k.domain),
+    );
+    expect(free, 'the fixture has no card in its domains with a Recall Cost of 0').toBeDefined();
+    const c = seed({ vault: [free!.id] });
+    browse(c);
+    click(
+      buttons().find(
+        (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${free!.name} for 0 Stress`,
+      )!,
+    );
+    expect(useApp.getState().characters[0]!.loadout).toContain(free!.id);
+    expect(useApp.getState().log[0]!.detail).toBe('This card costs nothing to recall');
+  });
+
   it('says why instead of offering a dash, when there is nothing to offer', () => {
     // The browser opens on "my domains", so the cards a level 3 character
     // cannot take are the ones above their cap - reason already in hand.

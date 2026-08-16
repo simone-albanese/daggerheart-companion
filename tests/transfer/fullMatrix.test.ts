@@ -358,10 +358,13 @@ describe.skipIf(!hasDataset())('the transfer layer over every character the game
   describe('the binary codec', () => {
     /**
      * The whole object graph, not a list of fields somebody remembered to
-     * check. Experience ids are the one documented loss - they are local
-     * handles the wire deliberately does not carry - so both sides are
-     * normalised to positions first, which is also the check that the level-up
-     * records still point at the right Experience.
+     * check. Two documented losses are normalised out on both sides first, and
+     * nothing else may go missing: Experience ids, which are local handles the
+     * wire deliberately does not carry - normalising them to positions is also
+     * the check that the level-up records still point at the right Experience -
+     * and `consecutiveShortRests`, which stays off the wire because carrying it
+     * would cost a new format number (see the header of `src/transfer/codec.ts`)
+     * and is zeroed on both sides rather than compared.
      */
     it('returns every one of the 3240 characters unchanged, and names the field if not', () => {
       const lost: string[] = [];

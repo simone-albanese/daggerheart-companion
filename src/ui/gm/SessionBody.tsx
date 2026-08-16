@@ -66,15 +66,31 @@ const ADJUSTMENT_KEYS: Array<keyof EncounterAdjustments> = ['easier', 'damageBum
 
 const NOT_HERE = 'NOT IN THIS DATASET';
 
-/** One verb, at the size a thumb finds without looking. */
+/**
+ * One verb, at the size a thumb finds without looking, named after its row.
+ *
+ * `row` is not decoration. `SessionRow` already argues this for DELETE, MOVE UP
+ * and the drag handle - "a list of identical DELETE buttons is a list a screen
+ * reader cannot tell apart" - and the arms make the same list one level down: a
+ * planned night with three scenes in it draws OPEN THE SCENE three times, and a
+ * VoiceOver user pulling up the rotor's button list hears the same three words
+ * with nothing to choose between them, on the one screen whose whole point is
+ * an ordered list of similar rows.
+ *
+ * The label comes first and the row's name after it, so the accessible name
+ * still begins with the visible words (WCAG 2.5.3) - and `label` is a string
+ * rather than children precisely so the two cannot drift apart.
+ */
 function Verb({
   onClick,
-  children,
+  label,
+  row,
   primary = false,
   disabled = false,
 }: {
   onClick: () => void;
-  children: React.ReactNode;
+  label: string;
+  row: string;
   primary?: boolean;
   disabled?: boolean;
 }): React.JSX.Element {
@@ -84,9 +100,10 @@ function Verb({
       className={primary ? 'btn btn-primary' : 'btn'}
       onClick={onClick}
       disabled={disabled}
+      aria-label={`${label} — ${row}`}
       style={{ flex: 'none', minHeight: 'var(--tap)' }}
     >
-      {children}
+      {label}
     </button>
   );
 }
@@ -136,6 +153,7 @@ function SceneArm({
 
   const known = environments.some((e) => e.id === item.environmentRef);
   const onBoard = item.environmentRef !== null && item.environmentRef === live;
+  const row = sessionName(item);
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -144,6 +162,9 @@ function SceneArm({
         <select
           value={item.environmentRef ?? ''}
           onChange={(e) => patch(item.id, { environmentRef: e.target.value || null })}
+          // The visible label is one word for every scene row on the screen,
+          // and a `<select>` has no text of its own to tell them apart either.
+          aria-label={`ENVIRONMENT — ${row}`}
           style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
         >
           <option value="">No environment</option>
@@ -172,15 +193,16 @@ function SceneArm({
         <Verb
           onClick={() => setEnvironment(item.environmentRef)}
           disabled={onBoard || item.environmentRef === null}
-        >
-          PUT THIS ON THE BOARD
-        </Verb>
-        <Verb onClick={() => patch(item.id, { environmentRef: live })} disabled={item.environmentRef === live}>
-          KEEP WHAT IS ON THE BOARD
-        </Verb>
-        <Verb onClick={() => onOpenTool('scene')} primary>
-          OPEN THE SCENE
-        </Verb>
+          label="PUT THIS ON THE BOARD"
+          row={row}
+        />
+        <Verb
+          onClick={() => patch(item.id, { environmentRef: live })}
+          disabled={item.environmentRef === live}
+          label="KEEP WHAT IS ON THE BOARD"
+          row={row}
+        />
+        <Verb onClick={() => onOpenTool('scene')} primary label="OPEN THE SCENE" row={row} />
       </div>
     </div>
   );
@@ -206,6 +228,7 @@ function EncounterArm({
 
   const byId = new Map(adversaries.map((a) => [a.id, a]));
   const chosen = ADJUSTMENT_KEYS.filter((key) => item.adjustments[key]);
+  const row = sessionName(item);
 
   /*
    * Built out of the four actions that already exist, in the order they have
@@ -281,18 +304,19 @@ function EncounterArm({
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <Verb onClick={putOnBoard} disabled={item.roster.length === 0}>
-          PUT THIS ROSTER ON THE BOARD
-        </Verb>
+        <Verb
+          onClick={putOnBoard}
+          disabled={item.roster.length === 0}
+          label="PUT THIS ROSTER ON THE BOARD"
+          row={row}
+        />
         <Verb
           onClick={() => patch(item.id, { roster: boardRoster, adjustments: boardAdjustments })}
           disabled={boardRoster.length === 0}
-        >
-          KEEP THE BOARD’S ROSTER HERE
-        </Verb>
-        <Verb onClick={() => onOpenTool('encounter')} primary>
-          OPEN THE BUILDER
-        </Verb>
+          label="KEEP THE BOARD’S ROSTER HERE"
+          row={row}
+        />
+        <Verb onClick={() => onOpenTool('encounter')} primary label="OPEN THE BUILDER" row={row} />
       </div>
     </div>
   );
@@ -429,6 +453,7 @@ function CountdownArm({
   const setPrimary = useGm((s) => s.setPrimaryCountdown);
   const c = item.countdown;
   const spent = c.value === 0;
+  const row = sessionName(item);
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -484,6 +509,7 @@ function CountdownArm({
         <button
           type="button"
           onClick={() => reset(c.id)}
+          aria-label={`RESET — ${row}`}
           className="t-meta"
           style={{ flex: 'none', minHeight: 44, padding: '0 10px', letterSpacing: '0.1em' }}
         >
@@ -496,6 +522,7 @@ function CountdownArm({
           type="button"
           aria-pressed={item.primary}
           onClick={() => setPrimary(item.primary ? null : item.id)}
+          aria-label={`${item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'} — ${row}`}
           className="btn"
           style={{
             flex: 'none',
@@ -507,7 +534,11 @@ function CountdownArm({
         >
           {item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'}
         </button>
-        <Verb onClick={() => onOpenTool('countdowns')}>OPEN FEAR AND COUNTDOWNS</Verb>
+        <Verb
+          onClick={() => onOpenTool('countdowns')}
+          label="OPEN FEAR AND COUNTDOWNS"
+          row={row}
+        />
       </div>
     </div>
   );

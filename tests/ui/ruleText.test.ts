@@ -11,11 +11,14 @@ import type { Dataset } from '@shared/types.ts';
 import { TRAITS } from '@shared/types.ts';
 import {
   blockNamed,
+  interruptedRestRule,
+  longRestRule,
   paragraphs,
   ruleBlocks,
   ruleBullets,
   ruleList,
   ruleTables,
+  spellcastZeroNote,
   traitVerbs,
 } from '../../src/ui/shared/ruleText.ts';
 
@@ -184,6 +187,45 @@ describe('traitVerbs', () => {
   });
 });
 
+describe('the two downtime sentences the rest surface quotes', () => {
+  const rules = (body: string) => [{ id: 'downtime', title: 'Downtime', body }];
+
+  it('takes the sentence and not the paragraph around it', () => {
+    const out = longRestRule(
+      rules(
+        'Between conflicts, the party can take a rest.\n\n' +
+          'When the party rests, they must choose. If a party takes three short rests in a row, their next rest must be a long rest.\n\n' +
+          'A short rest lasts about an hour.',
+      ),
+    );
+    expect(out).toBe(
+      'If a party takes three short rests in a row, their next rest must be a long rest.',
+    );
+  });
+
+  it('answers nothing rather than guessing when the section is gone or reworded', () => {
+    // A rules layer that dropped the section leaves the refusal with the count
+    // alone, which is the only thing the app can honestly say by itself.
+    expect(longRestRule([])).toBeNull();
+    expect(interruptedRestRule([])).toBeNull();
+    expect(longRestRule(rules('Rest as you like, as often as you like.'))).toBeNull();
+  });
+
+  it('finds both of them in the shipped dataset, verbatim', () => {
+    const long = longRestRule(dataset.rules);
+    expect(long, 'the SRD no longer carries the three-short-rests rule').not.toBeNull();
+    expect(section('downtime')).toContain(long!);
+    expect(long).toMatch(/three short rests in a row/);
+
+    const interrupted = interruptedRestRule(dataset.rules);
+    expect(interrupted, 'the SRD no longer carries the interrupted-rest rule').not.toBeNull();
+    expect(section('downtime')).toContain(interrupted!);
+    // The long one, not the short one: they are adjacent sentences in the same
+    // paragraph and the short one comes first.
+    expect(interrupted).toContain('only gain the benefits of a short rest');
+  });
+});
+
 describe('the SRD sections the player screens quote', () => {
   it('has all three standard conditions, each with its rule', () => {
     const blocks = ruleBlocks(section('conditions'));
@@ -244,5 +286,58 @@ describe('the SRD sections the player screens quote', () => {
     // modifier, and the thresholds as one string rather than two numbers.
     expect(table.rows[0]).toEqual(['Attack Modifier', '+1', '+2', '+3', '+4']);
     expect(table.rows[3]![4]).toBe('Major 25/Severe 45');
+  });
+});
+
+/**
+ * The sentence the Spellcast panel refuses with.
+ *
+ * A refusal is where an app is most tempted to invent a rule, so this one is
+ * lifted rather than written. What these really pin is that it is *lifted*: a
+ * hardcoded string in `ruleText.ts` would satisfy every assertion about the
+ * shipped dataset and would still be the app presenting its own words as the
+ * book's, which is the one thing this module exists to prevent.
+ */
+describe('spellcastZeroNote', () => {
+  it('finds the SRD’s own sentence about a Spellcast trait of +0', () => {
+    const note = spellcastZeroNote(dataset.rules);
+    expect(note).not.toBeNull();
+    expect(note).toMatch(/\+0 or lower/);
+    expect(note).toMatch(/roll/i);
+  });
+
+  it('drops the leading Note:, because the row prints a sentence', () => {
+    // The shipped line is "Note: If your Spellcast trait is +0 or lower, you
+    // don't roll anything." An annotation annotates a paragraph, and that
+    // paragraph is not on the Play screen - so what is left is the sentence.
+    expect(spellcastZeroNote(dataset.rules)).toMatch(/^If your Spellcast trait/);
+    expect(spellcastZeroNote(dataset.rules)).not.toMatch(/^Note:/i);
+  });
+
+  it('is null when no rules layer carries the sentence at all', () => {
+    // And then the screen says it in the app's own words, unquoted. Returning
+    // a hardcoded sentence here instead would put quotation marks around
+    // something no book ever printed.
+    expect(spellcastZeroNote([])).toBeNull();
+    expect(
+      spellcastZeroNote([
+        { id: 'attacking', title: 'Attacking', body: 'On a successful attack, roll damage.' },
+      ]),
+    ).toBeNull();
+  });
+
+  it('follows the sentence rather than the section it is filed under', () => {
+    // Pinned to the `attacking` id this would go quiet the moment a homebrew
+    // layer reorganised its sections, and going quiet is exactly how a
+    // rules-quoting surface fails without anybody noticing.
+    expect(
+      spellcastZeroNote([
+        {
+          id: 'house-rules',
+          title: 'House rules',
+          body: 'Some preamble.\n\nNote: If your Spellcast trait is +0 or lower, you roll one die anyway.',
+        },
+      ]),
+    ).toBe('If your Spellcast trait is +0 or lower, you roll one die anyway.');
   });
 });

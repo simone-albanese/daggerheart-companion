@@ -40,6 +40,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adversary, Environment } from '@shared/types.ts';
 import type { SessionItem } from '@shared/campaigns.ts';
+import { cryptoRng } from '../../src/engine/dice.ts';
 import * as db from '../../src/store/db.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
@@ -105,9 +106,11 @@ import { Beastform } from '../../src/ui/player/Beastform.tsx';
 import { Cards } from '../../src/ui/player/Cards.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
+import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
-import { DualityRoll } from '../../src/ui/player/DualityRoll.tsx';
+import { DualityRoll, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
+import { Rest } from '../../src/ui/player/Rest.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
 import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
 import { buildSheet } from '../../src/ui/print/sheetModel.ts';
@@ -129,6 +132,7 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
@@ -553,11 +557,37 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <CompanionPanel stats={stats()} layout="desktop" />
   ),
   'player/Conditions.tsx::ActiveConditions': () => <ActiveConditions />,
+  // A real attack rather than null, so the row draws and stays out of
+  // DRAWS_NOTHING: null is its "no roll has happened yet" state, which is the
+  // one state this file cannot tell apart from a broken render.
+  'player/DamageRoll.tsx::DamageRow': () => (
+    <DamageRow
+      attack={{
+        source: { kind: 'unarmed', damage: { count: 2, sides: 4, modifier: 0 } },
+        critical: false,
+        succeeded: true,
+        outcome: 'success-hope',
+        reaction: false,
+        proficiency: 2,
+      }}
+      affordance={rollAffordance(true, true)}
+      layout="desktop"
+    />
+  ),
   'player/DeathMove.tsx::DeathMoveOffer': () => <DeathMoveOffer />,
   'player/DualityRoll.tsx::DualityRoll': () => (
-    <DualityRoll stats={stats()} trait="agility" onTraitChange={noop} layout="desktop" />
+    <DualityRoll
+      stats={stats()}
+      trait="agility"
+      onTraitChange={noop}
+      source={null}
+      layout="desktop"
+    />
   ),
   'player/Play.tsx::Play': () => <Play stats={stats()} />,
+  // The real dice, as `Play.tsx` passes them: this fixture only draws the
+  // closed fold, and a rest that has not been committed never asks for one.
+  'player/Rest.tsx::Rest': () => <Rest stats={stats()} rng={cryptoRng} />,
   'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,
 
   'print/CharacterSheet.tsx::CharacterSheet': () => (
@@ -618,6 +648,8 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       onChoose={noop}
     />
   ),
+  // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
+  'shared/RenameField.tsx::RenameField': () => <RenameField />,
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),

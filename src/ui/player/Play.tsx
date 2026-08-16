@@ -25,7 +25,7 @@
  * keyboard focus. On every iPad, and every phone in landscape, you could not
  * roll.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   TRAITS,
   TRAIT_LABELS,
@@ -33,14 +33,14 @@ import {
   type DomainCard,
   type Ref,
   type Trait,
-  type Weapon,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
+import { formatDamage } from '../../engine/dice.ts';
 import { formatGold } from '../../engine/gold.ts';
+import { cryptoRng } from '../../engine/dice.ts';
 import {
   canAddToLoadout,
   missingCardRefs,
-  recallCard,
   resolveCards,
   vaultCard,
   type SwapCheck,
@@ -49,19 +49,105 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { RenameField } from '../shared/RenameField.tsx';
 import { useLayout } from '../shared/useLayout.ts';
+import {
+  DAMAGE_SIDES,
+  sourceFromWeapon,
+  sourceName,
+  spellcastDamage,
+  spellcastSource,
+  unarmedSource,
+  type Arming,
+  type AttackSource,
+  type Declaration,
+} from './attack.ts';
 import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
-import { traitVerbs } from '../shared/ruleText.ts';
+import { shortReason, useRecall } from './recall.ts';
+import { Rest } from './Rest.tsx';
+import { spellcastZeroNote, traitVerbs } from '../shared/ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
   const layout = useLayout();
+  const index = useApp((s) => s.index);
   const [trait, setTrait] = useState<RollTrait>('agility');
-  const [armedWeapon, setArmedWeapon] = useState<string | null>(null);
+  const [declared, setDeclared] = useState<Declaration | null>(null);
+  /*
+   * The `+3` in "d8+3 using your Spellcast trait", kept beside the declaration
+   * rather than inside it.
+   *
+   * A card prints one formula, so changing the die must not clear the modifier
+   * that came with it - and re-typing it after every chip tap would be the app
+   * forgetting a thing it was told two seconds ago.
+   */
+  const [spellModifier, setSpellModifier] = useState(0);
+
+  /*
+   * A declaration belongs to the sheet that made it.
+   *
+   * `App` renders `<Play />` unkeyed, so the header's character picker swaps
+   * the character underneath a component that keeps every piece of its own
+   * state - and the armed attack was one of them. Switch sheets mid-turn and
+   * the arriving character was already holding somebody else's axe, with a
+   * trait chip somebody else had picked, ready to roll damage nobody had
+   * declared. `DualityRoll` already clears the resolved *result* on this same
+   * key (DualityRoll.tsx:291); it could not help, because the declaration
+   * behind it was still live and the very next roll re-armed from it.
+   *
+   * Resolving against the character's own kit is not enough on its own: hand
+   * the axe to a second character who also carries one and the ref matches, so
+   * the declaration survives and is simply wrong about who made it. The
+   * modifier goes with it - it is the `+3` off a card in the previous player's
+   * hand, and leaving it typed into the arriving sheet is the app showing a
+   * number nobody entered.
+   */
+  const characterId = character?.id ?? null;
+  useEffect(() => {
+    setDeclared(null);
+    setSpellModifier(0);
+  }, [characterId]);
+
+  /*
+   * The pool the declaration resolves to, re-derived on every render.
+   *
+   * What is remembered is a ref; what is rolled is worked out from it here and
+   * nowhere else. That is what makes a level-up, a Beastform or a weapon
+   * unequipped in Build move the dice - or take the offer away altogether -
+   * instead of leaving a `2d10+3` armed that nothing will ever refresh. And it
+   * goes through `sourceFromWeapon` rather than a regex, because `weaponDamage`
+   * keeps the modifier on a weapon spelled `d10 + 2` and two routes to one
+   * number is two numbers eventually.
+   *
+   * The weapon is looked for in the character's own two hands and not in
+   * `index.weapons`, and that is the difference between the sentence above
+   * being true and it being a wish. `index.weapons` is the whole shipped
+   * catalogue - 204 weapons - so asking it about a ref answers "does this
+   * weapon exist", when the question here is "is this character holding it".
+   * It answered yes for a Battleaxe taken off in Build and yes for a Battleaxe
+   * belonging to a different sheet, and the offer stood at 2d10+3 either way.
+   */
+  const source = useMemo<AttackSource | null>(() => {
+    if (declared === null) return null;
+    if (declared.kind === 'unarmed') return unarmedSource(stats);
+    // A spell's count comes off the trait every render for the same reason: a
+    // Beastform or a level-up that moves the Spellcast trait moves the number
+    // of dice, and at +0 `spellcastSource` returns null and the offer goes.
+    if (declared.kind === 'spellcast') {
+      return spellcastSource(stats, declared.sides, spellModifier);
+    }
+    if (character === null) return null;
+    const held =
+      declared.ref === character.activePrimaryWeapon ||
+      declared.ref === character.activeSecondaryWeapon;
+    if (!held) return null;
+    const weapon = index.weapons.get(declared.ref);
+    return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
+  }, [character, declared, index, spellModifier, stats]);
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:
@@ -69,42 +155,84 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * spell being used." A player who taps a sword has declared that roll, and
    * making them then find the matching trait chip would be the app asking for
    * the same decision twice.
+   *
+   * An unarmed declaration deliberately does not, and it is the same rule that
+   * says so: *"Unarmed attack rolls use either Strength or Finesse (GM's
+   * choice)."* Picking one of the two here would be the app making the GM's
+   * ruling for them, quietly, in the chip row.
+   *
+   * Withdrawing does not touch the trait either. Putting a sword down says
+   * nothing about what you mean to roll instead, and moving the chip back to
+   * whatever was there before would be the app answering a question nobody
+   * asked.
    */
-  const armWeapon = (weapon: Weapon | null): void => {
-    setArmedWeapon(weapon?.id ?? null);
-    if (weapon) setTrait(weapon.trait);
+  const arm = (declaration: Declaration | null): void => {
+    setDeclared(declaration);
+    if (declaration === null || declaration.kind === 'unarmed') return;
+    // Not through `chooseTrait`: that one is the route for picking a trait *by
+    // hand*, and it withdraws the declaration that specified one. A spell sent
+    // through it would be put down by the same tap that armed it.
+    if (declaration.kind === 'spellcast') {
+      setTrait('spellcast');
+      return;
+    }
+    const weapon = index.weapons.get(declaration.ref);
+    if (weapon !== undefined) setTrait(weapon.trait);
   };
+
+  /*
+   * Picking a trait by hand, wherever the tap came from.
+   *
+   * Three surfaces set the trait - the pinned chips, the trait grid inside the
+   * scroll, and the SPELLCAST chip in the modifier row - and only the pinned
+   * chips put the armed weapon down. The other two left it standing, so tapping
+   * KNOWLEDGE on a tile kept a sword declared for a Knowledge check with
+   * nothing on screen disagreeing with anything else.
+   *
+   * It is one rule, so it lives in one place: *"The trait that applies to an
+   * attack roll is specified by the weapon or spell being used."* Choosing the
+   * trait yourself is therefore declaring a roll the weapon did not, and the
+   * weapon steps back rather than silently offering its damage for it.
+   */
+  const chooseTrait = (t: RollTrait): void => {
+    setTrait(t);
+    /*
+     * An unarmed declaration stands under the two traits the rule names, for
+     * the reason `arm` does not set a trait for it: *"Unarmed attack rolls use
+     * either Strength or Finesse (GM's choice)"*, so picking one of those two
+     * is how you complete that declaration rather than how you replace it.
+     *
+     * Two, and not any. The carve-out used to be `kind === 'unarmed'` flat,
+     * which kept the fists declared under Knowledge, under Instinct and - the
+     * one that shows - under Spellcast: arm a d8 spell, tap Unarmed, and the
+     * roll bar read SPELLCAST over a damage offer of 2d4 PHY. That is the same
+     * wrong declaration this whole route exists to stop, quoting a sentence
+     * that does not cover it.
+     */
+    setDeclared((d) =>
+      d?.kind === 'unarmed' && (t === 'strength' || t === 'finesse') ? d : null,
+    );
+  };
+
+  const arming: Arming = { declared, source, arm, spellModifier, setSpellModifier };
 
   if (!character) return null;
   if (layout !== 'desktop') {
-    return (
-      <PlayPhone
-        stats={stats}
-        trait={trait}
-        setTrait={setTrait}
-        armedWeapon={armedWeapon}
-        armWeapon={armWeapon}
-      />
-    );
+    return <PlayPhone stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
   }
-  return (
-    <PlayDesktop
-      stats={stats}
-      trait={trait}
-      setTrait={setTrait}
-      armedWeapon={armedWeapon}
-      armWeapon={armWeapon}
-    />
-  );
+  return <PlayDesktop stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
 }
 
 interface ViewProps {
   stats: DerivedStats;
   trait: RollTrait;
-  setTrait: (t: RollTrait) => void;
-  /** Ref of the weapon the next attack is declared with, if any. */
-  armedWeapon: string | null;
-  armWeapon: (weapon: Weapon | null) => void;
+  /**
+   * The one route to picking a trait. There is no raw setter on these props on
+   * purpose: a call site that could reach it would be a fourth surface with its
+   * own opinion about whether the weapon stays armed.
+   */
+  chooseTrait: (t: RollTrait) => void;
+  arming: Arming;
 }
 
 interface Held {
@@ -225,15 +353,51 @@ function lineageOf(character: Character, index: DatasetIndex): string {
 }
 
 /**
- * Who this is.
+ * Who this is, and the one place the name can be changed.
  *
  * The `stats` prop this used to take was never read - `--noUnusedLocals` does
  * not see an unused destructured prop, so it sat there through every edit
  * looking load-bearing.
+ *
+ * The name line stays a `<div>`. That is the whole design of P5-1(b)'s first
+ * bullet, which forbids "a name at the top of a scrolling screen that opens a
+ * keyboard when a thumb brushes it": the failure it describes requires the
+ * name itself to be the target, so the name is not the target. It carries no
+ * `role`, no `tabIndex`, no handler and no wrapping `<button>`. The rename
+ * lives on a 72x44 chip on the row below, pinned to the right edge with the
+ * whole flexible middle of the row between the text that is read and the
+ * control that is touched - `Counter.tsx:13-19`'s rule, applied to a name
+ * instead of a number.
+ *
+ * Vertically, at 393x852: the header is 52px, the phone root has no top
+ * padding and `Beastform` draws nothing for a class without one, so the name
+ * runs y 52-73, the metadata row y 80-90, and the chip's row y 99-143. The
+ * header's SETTINGS button is 44px in a 52px bar, so y 4-48. That is 51px of
+ * dead space between the only two 44px targets in the top band, and 95px
+ * centre to centre, against an adult fingertip contact patch of about 38-40
+ * CSS px. On the name line the clearance would be 4px; on the metadata row,
+ * 32px - less than one fingertip. On a fourth row of its own it would be 104px
+ * and cost 53px of the 457px scroll window instead of 25px.
+ *
+ * Arming cannot outlive the character it was armed for. `Header.tsx:138-154`
+ * draws the character `<select>` on every screen, Play included, as soon as
+ * there are two characters - so an armed flag that survived a switch would
+ * remount `RenameField` with `autoFocus` on a sheet nobody asked to rename: a
+ * software keyboard opening on arrival, which is the failure the backlog
+ * bullet forbids. The reset happens *during* the render that changes character
+ * rather than in an effect, because an effect runs after a commit and that
+ * commit is the one frame in which the field is on the wrong sheet.
  */
 function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
+  const [renaming, setRenaming] = useState(false);
+  const [armedFor, setArmedFor] = useState<string | null>(character?.id ?? null);
+  const activeId = character?.id ?? null;
+  if (activeId !== armedFor) {
+    setArmedFor(activeId);
+    setRenaming(false);
+  }
   if (!character) return null;
   // A multiclassed character is two classes and two subclasses, and both belong
   // on the line that says who they are.
@@ -257,9 +421,81 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
           LEVEL {character.level}
         </span>
       </div>
-      <div style={{ marginTop: 9, font: '600 14px/1.35 var(--sans)', color: 'var(--text-2)' }}>
-        {klass === '' ? 'No class' : klass}
-        {subclass !== '' && ` — ${subclass}`}
+      {/*
+       * One wrapper, two contents, so arming costs nothing.
+       *
+       * The `marginTop: 9` lives here rather than on either child: the class
+       * line and the editor swap inside it, the row is 44px tall both ways,
+       * and the sheet below Identity does not move by a pixel when the chip is
+       * tapped. Putting the margin on the class line and none on the editor
+       * would jump the whole sheet up 9px on arming, which is the opposite of
+       * the point.
+       *
+       * While the editor is open this row stops saying what class the
+       * character is. That is the deliberate half of the trade: the
+       * alternative is a fourth row and 53px of permanent scroll window
+       * instead of 25px, and the class is one tap and no scroll away.
+       */}
+      <div style={{ marginTop: 9 }}>
+        {renaming ? (
+          <RenameField key={character.id} autoFocus onDone={() => setRenaming(false)} />
+        ) : (
+          <div className="row" style={{ gap: 8 }}>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                font: '600 14px/1.35 var(--sans)',
+                color: 'var(--text-2)',
+              }}
+            >
+              {klass === '' ? 'No class' : klass}
+              {subclass !== '' && ` — ${subclass}`}
+            </div>
+            {/*
+             * The chip. `TO VAULT` at :207-209 is the in-file precedent for a
+             * chip label on this screen and this matches it: `.t-meta` is 10px
+             * mono at 0.06em, and legibility in a dim room is bought by the
+             * weight and the ink colour rather than by the word.
+             *
+             * `--control` resolves to `--tap`, 44px, at every width below 1180
+             * and whenever the *primary* pointer is coarse - `tokens.css:174`,
+             * pinned by `header.test.ts:189`. Primary, not `any-pointer`:
+             * `tokens.css:180-186` makes that distinction on purpose for
+             * `--pip-h` and `stylesheets.test.ts:287` keeps `--control` out of
+             * it, because widening it would crush the desktop cockpit's roll
+             * panel from the inside. So a touchscreen laptop at 1280px answers
+             * `pointer: fine` and gets a 34px chip with a finger available.
+             * That is the token's behaviour for every chip in the app rather
+             * than a choice made here, and this chip follows it instead of
+             * pinning `--tap`: a rename that was the one 44px chip on a
+             * cockpit of 34px ones would be answering the token's question
+             * again, in one place, where the answer would then disagree with
+             * `TO VAULT` eleven rows down. Every width the sheet is actually
+             * played at is coarse-primary and gets 44.
+             */}
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              aria-label={`Rename ${character.name || 'Unnamed'}`}
+              className="row"
+              style={{
+                flex: 'none',
+                minWidth: 72,
+                minHeight: 'var(--control)',
+                justifyContent: 'center',
+                borderRadius: 'var(--r3)',
+                background: 'var(--raised)',
+                border: '1px solid var(--line)',
+                padding: '0 8px',
+              }}
+            >
+              <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+                RENAME
+              </span>
+            </button>
+          </div>
+        )}
       </div>
       {showLineage && lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
@@ -351,11 +587,12 @@ function GoldRow(): React.JSX.Element | null {
 function TraitGrid({
   stats,
   trait,
-  setTrait,
+  onPick,
 }: {
   stats: DerivedStats;
   trait: RollTrait;
-  setTrait: (t: RollTrait) => void;
+  /** Named for what it is, not for what it sets: the route, not the setter. */
+  onPick: (t: RollTrait) => void;
 }): React.JSX.Element | null {
   const character = useActive();
   const rules = useApp((s) => s.dataset.rules);
@@ -380,7 +617,7 @@ function TraitGrid({
             <button
               key={t}
               type="button"
-              onClick={() => setTrait(t)}
+              onClick={() => onPick(t)}
               aria-pressed={active}
               style={{
                 position: 'relative',
@@ -619,14 +856,11 @@ function Defence({
  */
 function Equipped({
   stats,
-  armed,
-  onArm,
+  arming,
   bare = false,
 }: {
   stats: DerivedStats;
-  /** Weapon ref currently armed, if any. */
-  armed: string | null;
-  onArm: (weapon: Weapon | null) => void;
+  arming: Arming;
   /** Drop the section's own heading: a disclosure is already carrying it. */
   bare?: boolean;
 }): React.JSX.Element | null {
@@ -641,6 +875,7 @@ function Equipped({
     ? index.weapons.get(character.activeSecondaryWeapon)
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
+  const unarmed = arming.declared?.kind === 'unarmed';
 
   return (
     // flex: none, because this lives inside a scrolling flex column and a flex
@@ -661,13 +896,13 @@ function Equipped({
         // this one had no clamp.
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
-        const isArmed = armed === w.id;
+        const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
         return (
           <button
             key={w.id}
             type="button"
             aria-pressed={isArmed}
-            onClick={() => onArm(isArmed ? null : w)}
+            onClick={() => arming.arm(isArmed ? null : { kind: 'weapon', ref: w.id })}
             className="panel"
             style={{
               borderLeft: `3px solid ${isArmed ? 'var(--hope)' : 'var(--edge)'}`,
@@ -694,6 +929,44 @@ function Equipped({
           </button>
         );
       })}
+      {/*
+       * Empty-handed, as a row you can declare.
+       *
+       * *"Successful unarmed attacks inflict [Proficiency]d4 damage."* The word
+       * "unarmed" appeared nowhere in `src/` at all, so a character who had
+       * thrown their sword down a well had no attack on this screen. It is
+       * drawn even when nothing is equipped, because having no gear is not the
+       * same as having no attack - it is the state the rule is written for.
+       *
+       * The meta line says who chooses the trait, and it is not this app:
+       * *"Unarmed attack rolls use either Strength or Finesse (GM's choice)."*
+       * So arming this row moves no chip, and the line says why rather than
+       * leaving the player to notice that nothing happened.
+       */}
+      <button
+        type="button"
+        aria-pressed={unarmed}
+        onClick={() => arming.arm(unarmed ? null : { kind: 'unarmed' })}
+        className="panel"
+        style={{
+          borderLeft: `3px solid ${unarmed ? 'var(--hope)' : 'var(--edge)'}`,
+          background: unarmed ? 'var(--hope-wash)' : undefined,
+          padding: '10px 11px',
+          textAlign: 'left',
+          minHeight: 'var(--tap)',
+        }}
+      >
+        <span className="spread">
+          <span style={{ font: '700 14px/1.15 var(--sans)' }}>Unarmed</span>
+          <span className="t-num" style={{ color: 'var(--hope)' }}>
+            {formatDamage(unarmedSource(stats).damage)}
+          </span>
+        </span>
+        <span className="t-meta" style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}>
+          {unarmed ? 'ARMED · ' : ''}STRENGTH OR FINESSE · GM’S CHOICE · PHYSICAL
+        </span>
+      </button>
+      <SpellcastPanel stats={stats} arming={arming} />
       {armor && (
         <div
           className="panel"
@@ -709,6 +982,161 @@ function Equipped({
             BASE THRESHOLDS {armor.baseThresholds[0]} / {armor.baseThresholds[1]}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Spellcast damage, which is the one attack the sheet cannot work out alone.
+ *
+ * *"Any time an effect says to deal damage using your Spellcast trait, you roll
+ * a number of dice equal to your Spellcast trait."* 77 of the 189 shipped
+ * domain cards mention Spellcast and 43 carry a dice formula, and not one of
+ * them was rollable in this app.
+ *
+ * WHO SUPPLIES WHAT, which is the whole design of this panel. A `DomainCard`
+ * carries free prose and nothing else - only three cards in the SRD say the
+ * exact phrase "using your Spellcast trait", and only one of those pairs it
+ * with a formula - so parsing a pool out of card text would mean the app
+ * silently rewriting a card that prints its own `2d8+4`. Nothing is parsed. The
+ * app supplies the one number that is genuinely on the sheet, the die count,
+ * and the player taps the die and types the modifier that are in their hand.
+ * There is deliberately no COUNT field: a count you could type is a count the
+ * app would let you contradict.
+ *
+ * AND WHEN IT REFUSES IT QUOTES. At +0 or lower there are no chips, no input
+ * and no disabled control - a greyed button still saying ROLL DAMAGE is the app
+ * announcing something it will not do. What stands in their place is the SRD's
+ * own sentence, in quotation marks, because on this row what is quoted is the
+ * book's and what is not is the app's own words for a rules layer that does not
+ * carry the sentence.
+ */
+function SpellcastPanel({
+  stats,
+  arming,
+}: {
+  stats: DerivedStats;
+  arming: Arming;
+}): React.JSX.Element | null {
+  const rules = useApp((s) => s.dataset.rules);
+  const zeroNote = useMemo(() => spellcastZeroNote(rules), [rules]);
+  const spell = spellcastDamage(stats);
+  // No Spellcast trait at all - most Warriors, Rogues and Guardians. A panel
+  // saying "you cannot cast" would be four lines about something the character
+  // sheet never claimed in the first place.
+  if (spell === null) return null;
+
+  /*
+   * What is armed is what the declaration *resolves to*, not the declaration.
+   *
+   * The two differ in exactly one place, and it is the place this panel is
+   * about: a spell declared while the Spellcast trait was +3 is still declared
+   * when something takes that trait to +0, and `spellcastSource` then resolves
+   * it to nothing. Read off the declaration, this row would draw ARMED and a
+   * hope-washed border around the words NO DICE - the sheet saying a spell is
+   * ready to cast in the same breath as the rule that says it is not.
+   */
+  const armed = arming.source?.kind === 'spellcast' ? arming.source.damage.sides : null;
+  const modifier = arming.spellModifier;
+  const modText = modifier === 0 ? '' : modifier > 0 ? `+${modifier}` : `${modifier}`;
+  const value = spell.rollable ? spell.count : spell.value;
+  const spec = !spell.rollable
+    ? 'NO DICE'
+    : armed === null
+      ? /*
+         * The count is settled and the die is not, and it says exactly that
+         * rather than picking a d6 on the player's behalf.
+         *
+         * The modifier is held off the placeholder by a space. Run together,
+         * a card printing d?-3 came out as `3d—-3`: an em-dash standing in for
+         * the die immediately against the sign of the modifier, which is two
+         * dashes in a row and a formula the player has to decode before they
+         * can read their own damage off it.
+         */
+        `${spell.count}d—${modText === '' ? '' : ` ${modText}`}`
+      : formatDamage({ count: spell.count, sides: armed, modifier });
+
+  return (
+    <div
+      className="stack panel"
+      style={{
+        flex: 'none',
+        gap: 8,
+        borderLeft: `3px solid ${armed === null ? 'var(--edge)' : 'var(--hope)'}`,
+        background: armed === null ? undefined : 'var(--hope-wash)',
+        padding: '10px 11px',
+      }}
+    >
+      <span className="spread">
+        <span style={{ font: '700 14px/1.15 var(--sans)' }}>Spellcast</span>
+        <span className="t-num" style={{ color: spell.rollable ? 'var(--hope)' : 'var(--damage)' }}>
+          {spec}
+        </span>
+      </span>
+      {/* The trait by name and by number, not just the count. A Beastform can
+          move this and the player has no other way to connect "3 dice" to the
+          reason it is three. */}
+      <span className="t-meta" style={{ display: 'block', letterSpacing: '0.05em' }}>
+        {armed === null ? '' : 'ARMED · '}
+        {TRAIT_LABELS[spell.trait].toUpperCase()} {value >= 0 ? '+' : '−'}
+        {Math.abs(value)} · {spell.rollable ? `${spell.count} ${spell.count === 1 ? 'DIE' : 'DICE'} · ` : ''}
+        MAGIC
+      </span>
+      {spell.rollable ? (
+        <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+          {DAMAGE_SIDES.map((sides) => {
+            const on = armed === sides;
+            return (
+              <button
+                key={sides}
+                type="button"
+                aria-pressed={on}
+                aria-label={`Cast with a d${sides}: ${formatDamage({ count: spell.count, sides, modifier })} magic damage`}
+                onClick={() => arming.arm(on ? null : { kind: 'spellcast', sides })}
+                className="chip"
+                style={{
+                  flex: 'none',
+                  minHeight: 'var(--control)',
+                  minWidth: 'var(--control)',
+                  background: on ? 'var(--hope)' : 'var(--raised)',
+                  color: on ? 'var(--app)' : 'var(--muted)',
+                }}
+              >
+                d{sides}
+              </button>
+            );
+          })}
+          {/* The DIFF input's shape exactly: 58px and the control height. It is
+              a modifier a player reads off a card, so it wants the same target
+              and the same numeric keyboard as the other number on this screen
+              that is copied from somewhere else. */}
+          <label className="row" style={{ flex: 'none', gap: 4, alignItems: 'center' }}>
+            <span className="t-meta">MOD</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={modifier === 0 ? '' : modifier}
+              placeholder="—"
+              onChange={(e) =>
+                arming.setSpellModifier(e.target.value === '' ? 0 : Number(e.target.value))
+              }
+              style={{
+                width: 58,
+                minHeight: 'var(--control)',
+                padding: '4px 6px',
+                textAlign: 'center',
+                font: '600 13px/1 var(--mono)',
+              }}
+            />
+          </label>
+        </div>
+      ) : (
+        <span className="t-dense">
+          {zeroNote === null
+            ? 'A Spellcast trait of +0 or lower rolls no damage dice.'
+            : `“${zeroNote}”`}
+        </span>
       )}
     </div>
   );
@@ -848,34 +1276,6 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
       })}
     </div>
   );
-}
-
-/**
- * Recalling a card, wherever the control for it is drawn.
- *
- * One place, because the shelf and the rows must not disagree about what a tap
- * costs, and because the log line is the only record the table has of the
- * Stress that was spent.
- */
-function useRecall(): (card: DomainCard) => void {
-  const character = useActive();
-  const update = useApp((s) => s.update);
-  const pushLog = useApp((s) => s.pushLog);
-  return (card: DomainCard) => {
-    if (!character) return;
-    const check = canAddToLoadout(character, card);
-    if (!check.allowed) return;
-    const out = recallCard(character, card);
-    update(() => out.character);
-    pushLog({
-      kind: 'note',
-      label: `Recalled ${card.name}`,
-      detail:
-        check.stressCost === 0
-          ? 'Free during downtime'
-          : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
-    });
-  };
 }
 
 /**
@@ -1112,20 +1512,6 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
 }
 
 /**
- * Why a card will not come back, in the space a chip has.
- *
- * `SwapCheck.reason` is a sentence written for a place with room. The shelf
- * chip has about 40px left after the name, so it gets the noun; every surface
- * with a row to spare prints the sentence itself.
- */
-function shortReason(reason: string | null): string {
-  if (reason === null) return '';
-  if (reason.startsWith('Loadout is full')) return 'FULL';
-  if (reason.startsWith('Already')) return 'ACTIVE';
-  return reason.toUpperCase();
-}
-
-/**
  * RECALL, as a control shaped like one.
  *
  * It carries the cost, and when the cost cannot be paid it carries the reason
@@ -1308,13 +1694,7 @@ function LoadoutRows(): React.JSX.Element {
  * 1180px now runs the one-column sheet, which is both what the tablet
  * measurements asked for and the end of a layout nobody could roll in.
  */
-function PlayDesktop({
-  stats,
-  trait,
-  setTrait,
-  armedWeapon,
-  armWeapon,
-}: ViewProps): React.JSX.Element {
+function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
@@ -1337,14 +1717,26 @@ function PlayDesktop({
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
         <Identity />
-        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+        <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
-        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+        <Equipped stats={stats} arming={arming} />
+        {/* Last, and in this column rather than one of the other two, because
+            this column is the one that scrolls: a fold measuring about 990px
+            open costs the cockpit nothing here and would cost it everything
+            anywhere else. `cryptoRng` is passed rather than defaulted so that
+            the one place a rest can roll is visible from this file. */}
+        <Rest stats={stats} rng={cryptoRng} />
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
         <Vitals stats={stats} layout="desktop" />
-        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
+        <DualityRoll
+          stats={stats}
+          trait={trait}
+          onTraitChange={chooseTrait}
+          source={arming.source}
+          layout="desktop"
+        />
       </div>
 
       <div className="stack" style={{ gap: 10, minHeight: 'var(--control)', minWidth: 0 }}>
@@ -1494,19 +1886,22 @@ function PlayDesktop({
  *     touched on every single action, and a control you have to go looking for
  *     is a control that stops being used.
  *
- * Everything else scrolls, and four sections fold. A closed section costs one
+ * Everything else scrolls, and five sections fold. A closed section costs one
  * 44px row, which is what makes "the whole sheet at once" fit at all: the
  * stack measures about 1290px fully open on a 393px phone against a scroll
  * window of 457, and about 900 with the vault, the carried items and the
  * lineage folded away.
+ *
+ * The fifth fold is the rest surface, added after those numbers were taken. It
+ * costs 54px closed - a 44px header plus this column's 10px gap - and nothing
+ * at all from the pinned block, which is still 266px with two Experiences and
+ * 316 with five, so the folded stack goes to about 954 and the scroll window
+ * stays 457. Opened onto a long rest it adds about 1,240 more, taking the
+ * fully open stack to roughly 2,530. The scroll got longer; nothing else
+ * moved, which is the whole reason it is here and not in the block under the
+ * thumb.
  */
-function PlayPhone({
-  stats,
-  trait,
-  setTrait,
-  armedWeapon,
-  armWeapon,
-}: ViewProps): React.JSX.Element {
+function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
   const index = useApp((s) => s.index);
@@ -1549,7 +1944,7 @@ function PlayPhone({
         {/* Read under pressure, so it is four numbers and not a footnote. */}
         <Defenses stats={stats} />
 
-        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+        <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
 
         {/* The four counters, and under them the incoming-damage calculator -
             which is a question rather than a state ("someone hit you for 14,
@@ -1561,10 +1956,23 @@ function PlayPhone({
           id="equipped"
           characterId={character.id}
           label="Weapons & armour"
-          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
+          /*
+           * What is armed rides on the closed header, the way the modifier
+           * row's does. A declaration you cannot see is not a declaration, and
+           * this fold can be shut with a sword armed - after which the only
+           * thing on screen saying which weapon the damage offer belongs to
+           * would be behind a tap.
+           */
+          summary={
+            arming.source !== null
+              ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
+              : equippedCount === 0
+                ? 'NOTHING'
+                : `${equippedCount} WORN`
+          }
           defaultOpen
         >
-          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
+          <Equipped stats={stats} arming={arming} bare />
         </Disclosure>
 
         {/*
@@ -1607,6 +2015,15 @@ function PlayPhone({
           <Vault layout="rows" />
         </Disclosure>
 
+        {/*
+         * A rest is between-scenes work, so it sits below everything the game
+         * makes you touch during a scene - the counters, the weapons, the
+         * cards - and above the two sections read once a session. Directly
+         * under the vault, because the free swap it offers is the vault's own
+         * operation at the other price.
+         */}
+        <Rest stats={stats} rng={cryptoRng} />
+
         <Disclosure
           id="carried"
           characterId={character.id}
@@ -1646,13 +2063,7 @@ function PlayPhone({
             <button
               key={t}
               type="button"
-              onClick={() => {
-                setTrait(t);
-                // Picking a trait by hand is declaring a different roll from
-                // the one the weapon declared, so the weapon steps back rather
-                // than silently offering its damage for a persuasion check.
-                if (armedWeapon !== null) armWeapon(null);
-              }}
+              onClick={() => chooseTrait(t)}
               className="chip"
               aria-pressed={trait === t}
               style={{
@@ -1671,7 +2082,13 @@ function PlayPhone({
             </button>
           ))}
         </div>
-        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="phone" />
+        <DualityRoll
+          stats={stats}
+          trait={trait}
+          onTraitChange={chooseTrait}
+          source={arming.source}
+          layout="phone"
+        />
       </div>
     </div>
   );

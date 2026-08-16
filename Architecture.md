@@ -205,8 +205,19 @@ a eseguire le regole. Qui il confine è dichiarato.
   di un gradino se si segna uno slot armatura
 - Proficiency per livello (1 · +1 a liv. 2 · +1 a liv. 5 · +1 a liv. 8)
 - Tiro di danno = Proficiency × dado dell'arma + modificatore fisso
+- Danno da incantesimo = un dado per ogni punto del tratto Spellcast (**non** la
+  Proficiency: è una regola diversa); il dado e il modificatore vengono dalla
+  carta e li indica il giocatore. A +0 o meno non si tira nulla, e l'app lo dice
+  con la frase dell'SRD invece di tirare zero dadi
+- Attacco senza armi = `[Proficiency]d4`. Il tratto no: *"Strength or Finesse
+  (GM's choice)"*, quindi lo dichiara il tavolo e non l'app
 - Esito del Duality Roll: successo/fallimento, con Hope o Fear, critico sui pari
-- Loadout massimo 5, Recall Cost da pagare in Stress
+- Loadout massimo 5, Recall Cost da pagare in Stress — zero durante un riposo,
+  che è lo stesso `canAddToLoadout` con un flag e non un secondo tetto
+- Riposi: 1d4+Tier su Ferite, Stress e slot armatura, tagliato a quanto è
+  davvero segnato; Hope da Prepare (1 da solo, 2 con il gruppo); Fear del GM
+  (1d4 sul breve, 1d4 + PG sul lungo); e il conteggio dei riposi brevi
+  consecutivi, che è ciò che fa scattare la regola dei tre
 - Conversione dell'oro (10 manciate = 1 sacca, 10 sacche = 1 forziere)
 - Battle points del GM: `(3 × PG) + 2`, con i costi per ruolo
 - Vincoli di livellamento: quali avanzamenti sono disponibili in quale tier
@@ -231,9 +242,25 @@ Il motivo non è pigrizia: è che modellare 189 carte con le loro eccezioni è u
 progetto più grande di tutto il resto insieme, e ogni tavolo con una variante
 finirebbe a combattere contro l'app invece di usarla.
 
-**Via di mezzo utile:** le feature con un effetto numerico dichiarato ottengono un
-pulsante che *propone* l'azione — "Tusks: +1d6 al danno" applica il bonus al tiro
-corrente se lo tocchi. Proposta, mai automatismo.
+**Via di mezzo utile — progettata, non ancora costruita:** le feature con un
+effetto numerico dichiarato dovranno ottenere un pulsante che *propone* l'azione
+— "Tusks: +1d6 al danno" applica il bonus al tiro corrente se lo tocchi.
+Proposta, mai automatismo. Oggi non esiste, e questa riga lo diceva al presente
+come se esistesse: `rollDamage` accetta solo un `extraModifier` piatto e non ha
+alcuna nozione di dadi aggiuntivi, e il vassoio dei dadi tenuti alimenta il tiro
+d'attacco, non quello di danno. Sta in `BACKLOG.md` P1-1, sotto ciò che resta
+fuori.
+
+Il riposo (P1-7) è la stessa forma portata all'estremo, ed è il caso che la
+rende una regola invece che un'abitudine: `takeRest` tira i dadi, quindi
+l'anteprima chiama *la stessa funzione* con ogni 1d4 fissato a 1 e poi a 4 e le
+passa un `Rng` che solleva un'eccezione. Il giocatore vede la forbice — "3–5
+Ferite di 5" — prima di toccare qualsiasi cosa, e i dadi veri vengono tirati
+solo al commit. Un'anteprima che tirasse davvero spenderebbe i dadi del tavolo
+per disegnare uno schermo, e un tiro che avviene perché hai aperto una
+schermata è un tiro che non puoi rifiutare. Corollario: dell'unica riga che
+l'app non sa calcolare — la Fear del GM, che non è ancora stata tirata —
+l'anteprima stampa il dado e non un numero.
 
 ---
 
@@ -372,6 +399,21 @@ Contro i limiti fisici della scansione schermo-fotocamera (riflessi, moiré fra 
 griglie di pixel, autofocus ravvicinato): massima luminosità automatica sul mittente,
 quiet zone generosa, correzione M anziché L.
 
+**Cosa il QR non porta, per scelta.** Tre perdite, tutte documentate nell'header
+di `src/transfer/codec.ts` — un elenco che deve restare di tre voci esatte,
+perché una quarta non scritta da nessuna parte è il modo in cui un formato
+smette di essere affidabile. Le prime due sono handle locali e nessuno le può
+osservare: `Experience.id`, che è una chiave React e costerebbe 16 byte l'una su
+un payload di 147, e l'ordine della coppia di tratti di un avanzamento, che le
+regole trattano come insieme. La terza si vede: `consecutiveShortRests` arriva a
+zero. Non è il byte — è un varint in 0..3 — è il numero di formato: portarlo
+richiederebbe il formato 3, e da 3 un singolo bit ribaltato nel nibble di
+versione dà 2 e 1, entrambi leggibili e uno dei due privo di checksum, mentre da
+2 dà 3, 0, 6 e 10. Quella proprietà vale più di un conteggio di riposi. Il
+file `.dhchar` lo porta esatto: la conseguenza è che una scheda passata via QR
+arriva senza aver contato nulla, e nessuna schermata può presentare quel numero
+come la storia del tavolo.
+
 **Import degradato, sempre.** Se il ricevente non riconosce alcuni ID, importa lo stesso
 e segnala. I riferimenti ignoti restano nella scheda come `unresolvedRefs` e si
 risolvono da soli quando arriva la fonte mancante. Non scartare mai nulla.
@@ -478,8 +520,44 @@ recente della build invece di renderizzarlo, e `putCharacter()` si rifiuta di
 scriverci sopra.
 
 `OLDEST_READABLE` è 3 e non 1 perché gli schemi 1 e 2 non sono mai esistiti fuori
-dallo sviluppo: `SCHEMA_VERSION` vale 3 dal primo commit. Scrivere convertitori
-per loro significherebbe inventarsi una storia con cui essere compatibili.
+dallo sviluppo: `SCHEMA_VERSION` è valso 3 dal primo commit fino a P1-7.
+Scrivere convertitori per loro significherebbe inventarsi una storia con cui
+essere compatibili. Resta 3 anche dopo il passaggio a 4, perché 3 è esattamente
+la versione dei file che sono già sui dischi delle persone.
+
+#### Il primo scalino vero, e quanto è costato
+
+P1-7 ha portato `SCHEMA_VERSION` da 3 a 4 aggiungendo `consecutiveShortRests`
+al `Character`. È la prima volta che questa sezione viene esercitata su file
+reali invece che su migrazioni sintetiche, e il conto è questo:
+
+- **un convertitore**, `from: 3`, che scrive `consecutiveShortRests: 0`. Zero e
+  non una stima: una build a schema 3 non contava, quindi l'app non sa cosa sia
+  successo al tavolo, e zero è il valore che lascia la scelta ai giocatori
+  invece di negare un riposo che nessuno ha registrato. Sovrascrive invece di
+  conservare una chiave già presente, perché un record che si dichiara 3 e
+  porta un campo di schema 4 è un record la cui intestazione è sbagliata;
+- **due fixture nuove**, `v4.dhchar` e `v4.dhbackup`, prodotte facendo passare
+  la `v3.dhchar` committata attraverso questa build. `v3.dhchar` e
+  `v3.dhbackup` **non sono state toccate**: sono la prova che il convertitore
+  funziona, e riscriverle dimostrerebbe soltanto che il codice attuale sa
+  leggere il proprio output. Che non portino il campo *è* il test;
+- **`DB_VERSION` fermo a 2**: il terzo requisito è condizionale — «se cambia
+  anche la forma del database» — e aggiungere un campo a un record non cambia
+  né gli object store né gli indici;
+- **`CODEC_VERSION` fermo a 2**: il campo resta fuori dal QR (§5.3);
+- **lo stamp del dataset**, `data/srd-1.0.json`, portato a 4. `Dataset` arriva
+  all'app con un cast `as unknown as Dataset`, quindi uno stamp vecchio non
+  produce alcun errore di compilazione: produce solo un tipo che afferma un
+  numero e una schermata About che ne stampa un altro. Il test che lo tiene
+  fermo sta in `tests/store/migrations.test.ts`.
+
+Conseguenza operativa, perché non venga scoperta sul campo: al primo avvio dopo
+l'aggiornamento `readLibrary()` converte ogni personaggio e `init()` lo
+riprogramma attraverso il debounce di 400 ms, quindi l'intera libreria viene
+riscritta una volta. Questo sposta anche l'impronta `count:maxUpdatedAt` di
+`runBackup`, che produce un `.dhbackup` fresco. Innocuo, ma vuol dire che
+l'avvio che non deve fallire è proprio il primo dopo il passaggio.
 
 #### Una regola sola, due numerazioni
 
@@ -567,7 +645,7 @@ guarda quando si è nel panico.
 type Ref = string;  // slug: "arcana-rune-ward"
 
 interface Dataset {
-  schemaVersion: 3;
+  schemaVersion: 4;
   layers: Layer[];
   domains: Domain[]; domainCards: DomainCard[];
   classes: CharClass[]; subclasses: Subclass[]; beastforms: Beastform[];
@@ -596,7 +674,7 @@ interface Adversary {
 }
 
 interface Character {
-  id: string; schemaVersion: 3;
+  id: string; schemaVersion: 4;
   name: string; pronouns: string;
   classRef: Ref; subclassRefs: Ref[]; ancestryRefs: Ref[]; communityRef: Ref;
   level: number; proficiency: number;
@@ -609,12 +687,40 @@ interface Character {
   gold: { handfuls: number; bags: number; chests: number };
   connections: string[]; notes: string;
   levelUpHistory: LevelUpChoice[];
+  consecutiveShortRests: number;   // riposi brevi di fila, azzerati da uno lungo
   unresolvedRefs?: number[];
 }
 ```
 
+Il blocco `Character` qui sopra è uno **schizzo della forma**, non l'interfaccia
+verbatim: `shared/types.ts` è la fonte. Alcuni campi sono stati normalizzati da
+allora — `evasion` e `thresholds` esistono come `evasionOverride` e
+`thresholdOverride`, `activeWeapons` come due riferimenti separati, `proficiency`
+è derivata e non salvata — e non vanno riconciliati leggendo di qui.
+
 **Regola d'oro**: il personaggio salva solo `Ref` e valori, mai copie dei contenuti.
 Aggiornare il dataset non tocca i personaggi.
+
+**Nomi uguali** (P5-1(b)). Due personaggi collidono quando coincide il nome
+*come lo pronuncia l'app*, non la stringa salvata: `nameKey` in
+`src/store/merge.ts` toglie gli spazi ai bordi, riduce a uno le sequenze di
+spazi, ignora maiuscole e minuscole, e legge la stringa vuota come `Unnamed` —
+la parola che tredici punti di visualizzazione già stampano al posto di un nome
+mancante. La definizione è una sola ed è privata; `freeName` e `nameHolder` sono
+i due modi di interrogarla.
+
+La regola è applicata in **due punti, non ovunque**: il controllo di rinomina
+(`src/ui/shared/RenameField.tsx`, raggiunto dalla scheda in Play e dal form in
+Build) e la copia *keep-both* di `duplicateFor`. **Non è un invariante del
+device.** Restano scoperte la creazione (`create()` in `state.ts`, che non
+confronta nulla) e l'import di un personaggio con `id` nuovo (`importCharacters`
+decide su `id` e scrive senza guardare i nomi): due `Ilya` possono ancora
+esistere sullo stesso telefono passando da quelle porte — vedi `BACKLOG.md`
+P5-1(c).
+
+Il record può contenere `''`. Nessuna scrittura mette mai la parola `Unnamed`
+sulla scheda: `Unnamed` è ciò che lo schermo stampa, non ciò che il file
+contiene.
 
 ---
 
@@ -661,7 +767,7 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Sì, nel corpo** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Restano fissi l'identità e il blocco del tiro |
+| **Play** (giocatore) | **Nel corpo, con l'identità e il blocco del tiro fissi** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda ufficiale intera, che non ci sta |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
@@ -671,6 +777,16 @@ Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette f
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
 ambiente e due countdown non entrano in 390×844 a corpo leggibile. Fingere di sì
 produce testo a 9px, che a tavolo non si legge.
+
+**Ed è caduto anche su Play** (`91097eb`), che è la riga su cui questa tabella è
+stata sbagliata più a lungo. "Nessuno" descriveva una schermata con sei tratti e
+quattro contatori; da quando Play *è* la scheda — identità, difese, verbi dei
+tratti, equipaggiamento, loadout, vault, oro, condizioni — il contenuto non ci
+sta e non ci sta a nessuna larghezza. Resta fisso solo ciò che un pollice tocca
+a ogni azione: la riga dei tratti e il blocco del tiro, con un pavimento di 88px
+sotto la parte che scorre. Quando nemmeno quello basta — cinque Experience, dadi
+digitati, un'offerta di danno viva, su 375×667 — scorre la colonna esterna, che
+è il motivo per cui il pavimento esiste.
 
 ### 9.2 Desktop / Mac — 3 colonne
 

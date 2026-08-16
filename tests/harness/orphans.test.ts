@@ -59,17 +59,6 @@ const tree = (): Map<string, string> => {
 const DELIBERATE: Record<string, string> = {
   // --- Features built before they were wired. Each is a backlog item, and
   //     wiring it deletes the line.
-  'engine/dice.ts::rollDamage': 'P1-1: no screen rolls damage yet.',
-  'ui/player/attack.ts::damageOffer': 'P1-1: the carrier between the two rolls, awaiting the damage row.',
-  'ui/player/attack.ts::isRollableDamage': 'P1-1.',
-  'ui/player/attack.ts::sourceFromWeapon': 'P1-1.',
-  'ui/player/attack.ts::sourceName': 'P1-1.',
-  'ui/player/attack.ts::unarmedSource': 'P1-1: unarmed attacks have no control anywhere.',
-  'ui/player/attack.ts::DAMAGE_SIDES': 'P1-1: the dice a typed damage result could be entered for.',
-  'engine/rest.ts::takeRest': 'P1-7: rest ships, and has no screen yet.',
-  'engine/rest.ts::movesFor': 'P1-7.',
-  'engine/rest.ts::mustTakeLongRest': 'P1-7.',
-  'engine/rest.ts::DOWNTIME_MOVES': 'P1-7.',
   'transfer/codec.ts::resolvePlaceholders': 'P1-6: the repair Transfer.tsx already promises on screen.',
   'transfer/codec.ts::characterRefs': 'P1-6: reached only by missingSlugs, which is itself unwired.',
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',

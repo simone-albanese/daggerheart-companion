@@ -284,6 +284,11 @@ export function EnvironmentBlock({
             className="btn"
             onClick={onToggle}
             aria-pressed={active}
+            // Two link rows in a session list draw two of these, and what tells
+            // them apart is the heading beside the button rather than anything
+            // in it - which is a distinction a rotor's list of buttons does not
+            // carry. The same rule the session row's DELETE follows.
+            aria-label={`${active ? 'ACTIVE — CLEAR' : 'SET ACTIVE'} — ${e.name}`}
             style={{
               flex: 'none',
               // Declared rather than inherited from `.btn`. It has always been
