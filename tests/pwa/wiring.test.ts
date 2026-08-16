@@ -16,29 +16,25 @@
  * behaviour: the defect is not in what a function does, it is in whether the
  * app reaches it at all.
  *
- * The last test is the general one and the point of the file. It does not name
- * the seams; it derives them, so a seam added next year and forgotten is caught
- * by a test written today.
+ * This file used to end with a general test that derived the seams from
+ * `pwa/register.ts` rather than naming them - the right idea, pointed at one
+ * file out of ninety. It now lives in `tests/harness/orphans.test.ts`, walking
+ * the whole tree, and it covers `register.ts` along with everything else. What
+ * stays here are the four assertions that are about *this* wiring specifically:
+ * that the registration passes `onUpdateReady`, and that the wake lock follows
+ * the preference rather than being held unconditionally. Neither is an orphan
+ * question, and neither would survive being derived.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const SRC = fileURLToPath(new URL('../../src', import.meta.url));
-const REGISTER = join(SRC, 'pwa/register.ts');
 
 /** Comments mention these names too, and a mention is not a call. */
 const stripComments = (source: string): string =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.tsx?$/.test(entry) ? [path] : [];
-  });
-}
 
 const read = (path: string): string => stripComments(readFileSync(path, 'utf8'));
 
@@ -67,27 +63,5 @@ describe('the PWA seams are wired into the app', () => {
 
   it('drives the wake lock from the preference rather than holding it unconditionally', () => {
     expect(app).toMatch(/prefs\.wakeLock/);
-  });
-
-  it('every exported seam in pwa/register.ts is called by some screen', () => {
-    // Exported *functions* only: the interfaces and type aliases beside them
-    // are shapes, and a shape has no call site to look for.
-    const exported = [...read(REGISTER).matchAll(/^export function (\w+)/gm)].map((m) => m[1]!);
-    expect(exported.length).toBeGreaterThan(0);
-
-    const callers = sourceFiles(SRC)
-      .filter((path) => path !== REGISTER)
-      .map(read);
-
-    const orphans = exported.filter(
-      (name) => !callers.some((source) => new RegExp(`\\b${name}\\s*\\(`).test(source)),
-    );
-
-    expect(
-      orphans,
-      `pwa/register.ts exports these, and no screen ever calls them: ${orphans.join(', ')}. ` +
-        'An exported seam with no caller is a feature that ships switched off, and every unit ' +
-        'test it has will keep passing while it does.',
-    ).toEqual([]);
   });
 });
