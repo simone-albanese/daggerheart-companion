@@ -5,7 +5,7 @@
  * unambiguous arithmetic from the rules, it is not computed - it is left to
  * the player, with an override field where one is needed.
  */
-import { TRAITS } from '../../shared/types.ts';
+import { SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
 import type {
   Armor,
   Beastform,
@@ -267,7 +267,7 @@ export function newCharacter(partial: Partial<Character> = {}): Character {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    schemaVersion: 3,
+    schemaVersion: SCHEMA_VERSION,
     name: '',
     pronouns: '',
     classRef: '',
