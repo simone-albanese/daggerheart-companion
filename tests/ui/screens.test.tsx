@@ -318,6 +318,29 @@ describe('the shell, on every screen', () => {
     }
   });
 
+  it('names a character it will not open, rather than quietly showing one fewer', async () => {
+    // A record a newer build wrote. `readLibrary` keeps it out of the store so
+    // nothing can edit it; without a banner the user would simply find a
+    // character missing, which is indistinguishable from having lost it.
+    await db.putCharacter(playedCharacter());
+    const ahead = { ...playedCharacter(), name: 'Ilya of the Ninth', schemaVersion: 99 };
+    const database = await db.db();
+    await database.put('characters', ahead as unknown as Parameters<typeof db.putCharacter>[0]);
+
+    await act(async () => {
+      root.render(createElement(App));
+    });
+    await settle(() => useApp.getState().ready);
+
+    expect(useApp.getState().quarantined).toHaveLength(1);
+    const alerts = [...container.querySelectorAll('[role="alert"]')]
+      .map((el) => el.textContent ?? '')
+      .join(' ');
+    expect(alerts).toContain('Ilya of the Ninth');
+    expect(alerts).toMatch(/newer version of the app/);
+    expect(alerts).toMatch(/Nothing has been deleted/);
+  });
+
   it('opens on Build when there is nothing to play, rather than on an empty Play', async () => {
     await render(createElement(App));
     await settle(() => useApp.getState().ready);

@@ -37,6 +37,15 @@ interface AppState {
   ready: boolean;
   /** Set when storage would not answer. The app still runs, read-only. */
   storageError: string | null;
+  /**
+   * Records on this device that this build must not touch, and why.
+   *
+   * Almost always empty. It fills when a newer build has written a character
+   * and the user is back on an older bundle - which this app makes possible on
+   * purpose, because `UpdateBanner` offers the waiting worker rather than
+   * swapping the bundle out from under a session.
+   */
+  quarantined: db.QuarantinedRecord[];
   dataset: Dataset;
   index: DatasetIndex;
   layers: Layer[];
@@ -106,6 +115,7 @@ if (typeof window !== 'undefined') {
 export const useApp = create<AppState>((set, get) => ({
   ready: false,
   storageError: null,
+  quarantined: [],
   dataset: baseDataset,
   index: indexDataset(baseDataset),
   layers: [SRD_LAYER],
@@ -140,10 +150,37 @@ export const useApp = create<AppState>((set, get) => ({
       ]);
 
     let characters: Character[] = [];
+    let quarantined: db.QuarantinedRecord[] = [];
     let storageError: string | null = null;
     try {
-      characters = await withDeadline(db.listCharacters(), 'This browser’s storage');
+      const library = await withDeadline(db.readLibrary(), 'This browser’s storage');
+      characters = library.characters;
+      quarantined = library.quarantined;
+
+      /*
+       * Persist what a converter changed, once, here.
+       *
+       * Leaving it in memory would mean converting the same record on every
+       * launch and, worse, exporting a file that still carries the old shape -
+       * so the backup a user keeps would stay unreadable-in-the-old-way
+       * forever. Writing it back is the point at which the conversion becomes
+       * real. It is deliberately not awaited into the boot: a slow write must
+       * not delay the first paint, and the debounce would have written it
+       * anyway on the next edit.
+       */
+      for (const c of library.migrated) {
+        void db.putCharacter(c).catch(() => {
+          // The in-memory copy is already converted, so this is a retry at
+          // worst. A failure here is the same failure P0-3 is about.
+        });
+      }
     } catch (error) {
+      /*
+       * A stale build meeting a newer database is not the same failure as a
+       * database that will not answer, and the generic banner's advice -
+       * close the other tabs and reload - cannot work for it, because the
+       * stale bundle reloads into the same wall.
+       */
       storageError =
         error instanceof Error ? error.message : 'This browser’s storage could not be read';
     }
@@ -159,6 +196,7 @@ export const useApp = create<AppState>((set, get) => ({
     set({
       ready: true,
       storageError,
+      quarantined,
       dataset: resolved.dataset,
       index: resolved.index,
       layers: resolved.layers,

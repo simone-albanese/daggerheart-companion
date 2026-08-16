@@ -47,6 +47,7 @@ export function App(): React.JSX.Element {
   const prefs = useApp((s) => s.prefs);
   const characters = useApp((s) => s.characters);
   const storageError = useApp((s) => s.storageError);
+  const quarantined = useApp((s) => s.quarantined);
   const stats = useStats();
   const phone = useIsPhone();
   const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null);
@@ -161,6 +162,44 @@ export function App(): React.JSX.Element {
             >
               RELOAD
             </button>
+          </div>
+        )}
+        {quarantined.length > 0 && (
+          <div
+            role="alert"
+            className="stack"
+            style={{
+              flex: 'none',
+              gap: 6,
+              margin: '8px 20px 0',
+              padding: '10px 12px',
+              borderRadius: 'var(--r2)',
+              background: 'var(--raised)',
+              border: '1px solid var(--stress)',
+            }}
+          >
+            <span className="t-label" style={{ color: 'var(--text)' }}>
+              {quarantined.length === 1
+                ? 'ONE CHARACTER IS NOT SHOWN'
+                : `${quarantined.length} CHARACTERS ARE NOT SHOWN`}
+            </span>
+            {/*
+              Named one by one rather than counted. "Some characters could not
+              be read" is the sentence that makes a person open every sheet
+              looking for the missing one; the name is the only thing that
+              lets them know whether it is the one they care about.
+            */}
+            {quarantined.map((record) => (
+              <span key={record.id} className="t-dense" style={{ color: 'var(--text-2)' }}>
+                <strong>{record.name === null || record.name === '' ? 'Unnamed' : record.name}</strong>
+                {' — '}
+                {record.reason}
+              </span>
+            ))}
+            <span className="t-meta" style={{ color: 'var(--muted)' }}>
+              Nothing has been deleted. These are still on this device exactly as they were saved,
+              and this version of the app has not written over them.
+            </span>
           </div>
         )}
         <UpdateBanner apply={applyUpdate} />
