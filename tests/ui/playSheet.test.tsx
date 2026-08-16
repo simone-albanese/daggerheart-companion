@@ -119,6 +119,190 @@ const click = (el: Element): void => {
   });
 };
 
+describe('what a phone shows of the character sheet', () => {
+  /*
+   * The list is the printed sheet's, section by section. Every one of these
+   * was on the desktop layout and absent from the phone, which is the shape
+   * of a defect no unit test can see: nothing throws when a section is simply
+   * not called.
+   */
+  it('shows the four defence numbers, not a footnote beside a damage box', () => {
+    const c = seed();
+    play(c);
+    const body = text();
+    const s = playedStats(c);
+    for (const label of ['EVASION', 'MAJOR', 'SEVERE', 'PROF']) {
+      expect(body, `the defence band has no ${label}`).toContain(label);
+    }
+    // The numbers themselves, and at a size a person can read across a table:
+    // the band was 10px --dim text before this, which is what the item is
+    // about, so the size is asserted rather than only the presence.
+    const cells = [...container.querySelectorAll('.panel')].filter((el) =>
+      /^(EVASION|MAJOR|SEVERE|PROF)/.test((el.textContent ?? '').trim()),
+    );
+    expect(cells, 'the defence band is not four cells').toHaveLength(4);
+    for (const cell of cells) {
+      const big = [...cell.querySelectorAll('span')].find((el) =>
+        el.getAttribute('style')?.includes('26px'),
+      );
+      expect(big, `${cell.textContent ?? '?'} has no full-size number`).toBeDefined();
+    }
+    expect(body).toContain(String(s.thresholds[0]));
+    expect(body).toContain(String(s.thresholds[1]));
+  });
+
+  it('names the class, the subclass and the level', () => {
+    play(seed());
+    const body = text();
+    expect(body).toContain('Fixture');
+    expect(body).toContain('LEVEL 3');
+    expect(body).toContain(dataset.classes[0]!.name);
+    expect(body).toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
+  });
+
+  it('carries the ancestry, the community and the domains, one fold away', () => {
+    play(seed());
+    click(fold('Lineage'));
+    const body = text();
+    expect(body).toContain(dataset.ancestries[0]!.name);
+    expect(body).toContain(dataset.communities[0]!.name);
+    for (const domain of playedStats().domains) {
+      expect(body, `no ${domain} domain on the lineage fold`).toContain(domain.toUpperCase());
+    }
+  });
+
+  it('shows the gold, which was on the printout and on no screen', () => {
+    play(seed());
+    expect(text()).toContain('1 BAG · 4 HANDFULS');
+  });
+
+  it('puts the four counters and the damage calculator on the phone', () => {
+    play(seed());
+    const steppers = buttons().filter((b) =>
+      (b.getAttribute('aria-label') ?? '').endsWith('plus one'),
+    );
+    expect(steppers.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'HP plus one',
+      'STRESS plus one',
+      'HOPE plus one',
+      'ARMOR plus one',
+    ]);
+    expect(
+      container.querySelector('input[aria-label="Incoming damage"]'),
+      'the damage calculator is not on the phone',
+    ).not.toBeNull();
+  });
+
+  it('runs top to bottom in the order of the printed sheet', () => {
+    const c = seed();
+    play(c);
+    const body = text();
+    const at = (needle: string): number => {
+      const i = body.indexOf(needle);
+      expect(i, `"${needle}" is not on the screen at all`).toBeGreaterThanOrEqual(0);
+      return i;
+    };
+    const order = [
+      'Fixture', // identity
+      'EVASION', // the defence band
+      'SPRINT', // the traits, with their verbs
+      'HP', // the counters
+      'Weapons & armour',
+      'Loadout',
+      'Carried',
+      'Gold',
+      'Lineage & domains',
+    ].map(at);
+    expect(
+      order,
+      `sections are out of order: ${JSON.stringify(order)}`,
+    ).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('keeps only the roll block out of the scroll', () => {
+    play(seed());
+    // The scrolling region and the pinned block are the phone root's two
+    // children. What is pinned is what a thumb must never have to hunt for.
+    const rootEl = container.firstElementChild!;
+    expect(rootEl.children).toHaveLength(2);
+    const pinned = rootEl.children[1]!;
+    expect(pinned.textContent ?? '').toContain('ROLL');
+    expect(pinned.textContent ?? '').toContain('AGI');
+    // and what is not: everything that is a section of the sheet.
+    for (const section of ['EVASION', 'Loadout', 'Gold', 'HP']) {
+      expect(
+        pinned.textContent ?? '',
+        `${section} is pinned, and only the roll block should be`,
+      ).not.toContain(section);
+    }
+  });
+});
+
+/**
+ * What the pinned block costs.
+ *
+ * jsdom has no layout engine, so this does not measure pixels - it pins every
+ * number the arithmetic in the commit message is built out of, which is the
+ * part that rots. The sum is: the trait chip row at the touch floor, a 6px
+ * gap, and the roll block, which is the control row at the floor, the
+ * Experience rows at the floor, and a 66px ROLL bar with 6px between each.
+ *
+ * 44 + 6 + (44 + 6 + rows*44 + (rows-1)*6 + 6 + 66)
+ *
+ * which is 266px with two Experiences on one row each, and 316px with five at
+ * two across. Against 731px of usable column at 393x852 and 546px at 375x667,
+ * that leaves scroll windows of 457/407 and 272/222 - where the previous pass
+ * measured 288 and 188 at 393x852 and 88 at 375x667 with the page itself
+ * scrolling by 85.
+ */
+describe('the pinned block', () => {
+  const floor = (el: Element): string => (el as HTMLElement).style.minHeight;
+
+  it('is the trait chips and the roll, and nothing else', () => {
+    play(seed());
+    const pinned = container.firstElementChild!.children[1]!;
+    // Two regions: the chip row and the roll block. The death move adds a
+    // third only when the character has fallen, which is the one time it is
+    // the most important thing on the screen.
+    expect(pinned.children).toHaveLength(2);
+    expect((pinned as HTMLElement).style.gap).toBe('6px');
+  });
+
+  it('holds every one of its targets at the touch floor', () => {
+    play(seed());
+    const pinned = container.firstElementChild!.children[1]!;
+    const targets = [...pinned.querySelectorAll('button')];
+    expect(targets.length).toBeGreaterThan(6);
+    for (const t of targets) {
+      const declared = t.style.height !== '' ? t.style.height : floor(t);
+      const value = declared === 'var(--tap)' || declared === 'var(--control)'
+        ? 44
+        : Number.parseFloat(declared);
+      expect(
+        value,
+        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  it('gives ROLL the 66px it had, at the bottom of the block', () => {
+    play(seed());
+    const pinned = container.firstElementChild!.children[1]!;
+    const rollBar = [...pinned.querySelectorAll('button')].find((b) =>
+      (b.textContent ?? '').includes('ROLL'),
+    );
+    expect(rollBar, 'no ROLL bar in the pinned block').toBeDefined();
+    expect(rollBar!.style.height).toBe('66px');
+  });
+
+  it('never lets the scrolling region be crushed below two rows', () => {
+    play(seed());
+    const scroll = container.firstElementChild!.children[0] as HTMLElement;
+    expect(scroll.style.minHeight).toBe('88px');
+    expect((container.firstElementChild as HTMLElement).style.overflowY).toBe('auto');
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();
@@ -181,7 +365,6 @@ describe('the tendina', () => {
 
 describe('the verbs under the traits', () => {
   it('prints all six sets, in the words the SRD uses', () => {
-    setViewport(1280);
     play(seed());
     const body = text();
     for (const verbs of [
@@ -197,7 +380,6 @@ describe('the verbs under the traits', () => {
   });
 
   it('puts them in the tile’s accessible name too', () => {
-    setViewport(1280);
     play(seed());
     const tile = [...container.querySelectorAll('button')].find((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith('Agility'),

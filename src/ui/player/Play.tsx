@@ -8,8 +8,16 @@
  * are *touched*, inside the one-handed thumb arc.
  */
 import { useMemo, useState } from 'react';
-import { TRAITS, TRAIT_LABELS, type DomainCard, type Trait, type Weapon } from '../../../shared/types.ts';
-import { weaponDamage, type DerivedStats } from '../../engine/character.ts';
+import {
+  TRAITS,
+  TRAIT_LABELS,
+  type Character,
+  type DomainCard,
+  type Trait,
+  type Weapon,
+} from '../../../shared/types.ts';
+import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
+import { formatGold } from '../../engine/gold.ts';
 import { canAddToLoadout, recallCard, resolveCards, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
@@ -86,7 +94,24 @@ function useLoadout(): { loadout: DomainCard[]; vault: DomainCard[] } {
   );
 }
 
-function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+/** Ancestry and community, as the dataset names them. */
+function lineageOf(character: Character, index: DatasetIndex): string {
+  return [
+    ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
+    (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Who this is.
+ *
+ * The `stats` prop this used to take was never read - `--noUnusedLocals` does
+ * not see an unused destructured prop, so it sat there through every edit
+ * looking load-bearing.
+ */
+function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   if (!character) return null;
@@ -100,15 +125,10 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
     .map((r) => index.subclasses.get(r)?.name)
     .filter(Boolean)
     .join(' · ');
-  const lineage = [
-    ...character.ancestryRefs.map((r) => (index.byRef.get(r) as { name?: string } | undefined)?.name),
-    (index.byRef.get(character.communityRef ?? '') as { name?: string } | undefined)?.name,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const lineage = lineageOf(character, index);
 
   return (
-    <div>
+    <div style={{ flex: 'none' }}>
       <div className="t-vital">{character.name || 'Unnamed'}</div>
       <div className="row" style={{ marginTop: 7, gap: 8 }}>
         {character.pronouns !== '' && <span className="t-meta">{character.pronouns.toUpperCase()}</span>}
@@ -121,9 +141,89 @@ function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null 
         {klass === '' ? 'No class' : klass}
         {subclass !== '' && ` — ${subclass}`}
       </div>
-      {lineage !== '' && (
+      {showLineage && lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Where you are from, and what you can draw cards from.
+ *
+ * Both are read once a session at most - the ancestry decides nothing at the
+ * table that the features have not already been written onto the sheet, and
+ * the domains only matter when you are choosing a card - so on a phone this is
+ * the section behind a fold rather than the four lines of prose under the
+ * name. The card level cap is the one number here that answers a question
+ * asked mid-scene: "can I take that".
+ */
+function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+  const character = useActive();
+  const index = useApp((s) => s.index);
+  const shapes = useApp((s) => s.prefs.shapeCoding);
+  if (!character) return null;
+  const lineage = lineageOf(character, index);
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+        {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {stats.domains.map((domain) => (
+          <span
+            key={domain}
+            className="row"
+            style={{
+              gap: 6,
+              minHeight: 28,
+              padding: '0 9px',
+              borderRadius: 'var(--r3)',
+              background: 'var(--panel)',
+              border: '1px solid var(--line-soft)',
+            }}
+          >
+            <DomainMark domain={domain} size={12} shapes={shapes} />
+            <span className="t-meta" style={{ color: 'var(--text-2)' }}>
+              {domain.toUpperCase()}
+            </span>
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              TO LV{stats.cardLevelCap(domain)}
+            </span>
+          </span>
+        ))}
+        {stats.domains.length === 0 && (
+          <span className="t-dense" style={{ color: 'var(--dim)' }}>
+            No domains — this sheet has no class the app can read.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What the sheet is carrying in gold.
+ *
+ * A readout and not an editor: the coins are changed in Build, where the
+ * denominations can be stepped without spending a band of the Play screen on
+ * three steppers that are touched once a session. It is here because it was
+ * nowhere on a phone at all - the printout had it and the screen the game is
+ * played on did not.
+ */
+function GoldRow(): React.JSX.Element | null {
+  const character = useActive();
+  if (!character) return null;
+  return (
+    <div className="row" style={{ flex: 'none', gap: 8, minHeight: 30, padding: '0 2px' }}>
+      <span className="t-label" style={{ flex: 'none', color: 'var(--text-2)' }}>
+        Gold
+      </span>
+      <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
+      <span className="t-meta" style={{ flex: 'none', color: 'var(--splendor)' }}>
+        {formatGold(character.gold).toUpperCase()}
+      </span>
     </div>
   );
 }
@@ -273,6 +373,19 @@ function TraitGrid({
   );
 }
 
+/**
+ * The four numbers you are told under pressure.
+ *
+ * Evasion, the two thresholds and Proficiency. Somebody says "eighteen" and
+ * the answer is read off this band in the second before the table moves on -
+ * so it is four cells of one big number each, and not, as the thresholds were
+ * on a phone until now, 10px of `--dim` text beside a damage input.
+ *
+ * The order is the sheet's, and it is also the order the numbers are needed
+ * in: Evasion decides whether you were hit at all, the thresholds decide how
+ * badly, Proficiency is the one you reach for when it is your turn instead of
+ * theirs.
+ */
 function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
   // A Beastform replaces Evasion, so the panel says so twice: sage, and the
   // number it replaced printed struck through underneath it.
@@ -292,63 +405,81 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
    */
   const unknownThresholds =
     stats.unresolvedArmor !== null && character !== null && character.thresholdOverride === null;
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '96px 1fr', gap: 8 }}>
-      <div
-        className="panel"
-        style={{ padding: 10, borderColor: worn ? 'var(--sage)' : undefined }}
-      >
-        <div
-          className="t-meta"
-          style={{ letterSpacing: '0.1em', color: worn ? 'var(--sage)' : undefined }}
-        >
-          EVASION
+    <div
+      style={{
+        flex: 'none',
+        display: 'grid',
+        // Four across while the thresholds are numbers; when they are not, the
+        // sentence that replaces them takes both of their cells rather than
+        // being squeezed into 80px.
+        gridTemplateColumns: unknownThresholds ? '1fr 2fr 1fr' : 'repeat(4, 1fr)',
+        gap: 6,
+      }}
+    >
+      <Defence
+        label="EVASION"
+        value={stats.evasion}
+        tone={worn ? 'var(--sage)' : undefined}
+        under={worn ? String(worn.baseEvasion) : undefined}
+      />
+      {unknownThresholds ? (
+        <div className="panel stack" style={{ padding: '8px 9px', gap: 3, minWidth: 0 }}>
+          <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
+            ARMOR NOT IN THIS BUILD
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            {stats.unresolvedArmor}
+          </span>
         </div>
-        <div style={{ marginTop: 6, font: '800 30px/1 var(--sans)', letterSpacing: '-0.02em' }}>
-          {stats.evasion}
-        </div>
-        {worn && (
-          <s className="t-meta" style={{ display: 'block', marginTop: 4, color: 'var(--dim)' }}>
-            {worn.baseEvasion}
-          </s>
-        )}
-      </div>
-      <div
-        className="panel stack"
+      ) : (
+        <>
+          <Defence label="MAJOR" value={stats.thresholds[0]} tone="var(--stress)" />
+          <Defence label="SEVERE" value={stats.thresholds[1]} tone="var(--damage)" />
+        </>
+      )}
+      <Defence label="PROF" value={stats.proficiency} />
+    </div>
+  );
+}
+
+/** One cell of the defence band: a label, a number, and sometimes a was-. */
+function Defence({
+  label,
+  value,
+  tone,
+  under,
+}: {
+  label: string;
+  value: number;
+  /** Colour for the label, when the number means something in particular. */
+  tone?: string;
+  /** The number this one replaced, struck through. */
+  under?: string;
+}): React.JSX.Element {
+  return (
+    <div
+      className="panel stack"
+      style={{ padding: '8px 9px', gap: 4, minWidth: 0, borderColor: tone }}
+    >
+      <span className="t-meta" style={{ letterSpacing: '0.08em', color: tone }}>
+        {label}
+      </span>
+      <span
         style={{
-          padding: 10,
-          justifyContent: 'space-between',
-          borderColor: worn ? 'var(--sage)' : undefined,
+          font: '800 26px/1 var(--sans)',
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
-        <div>
-          <div className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            DAMAGE THRESHOLDS
-          </div>
-          {unknownThresholds ? (
-            <div className="stack" style={{ marginTop: 6, gap: 4 }}>
-              <span className="t-meta" style={{ color: 'var(--damage)' }}>
-                ARMOR NOT IN THIS BUILD
-              </span>
-              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
-                {stats.unresolvedArmor}
-              </span>
-            </div>
-          ) : (
-            <div className="row" style={{ marginTop: 6, alignItems: 'baseline', gap: 8 }}>
-              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[0]}</span>
-              <span className="t-meta">MAJOR</span>
-              <span style={{ width: 1, height: 14, background: 'var(--line)' }} />
-              <span style={{ font: '800 22px/1 var(--sans)' }}>{stats.thresholds[1]}</span>
-              <span className="t-meta">SEVERE</span>
-            </div>
-          )}
-        </div>
-        <div className="t-meta" style={{ marginTop: 8, letterSpacing: '0.06em' }}>
-          PROFICIENCY{' '}
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stats.proficiency}</span>
-        </div>
-      </div>
+        {value}
+      </span>
+      {under !== undefined && (
+        <s className="t-meta" style={{ color: 'var(--dim)' }}>
+          {under}
+        </s>
+      )}
     </div>
   );
 }
@@ -763,7 +894,7 @@ function PlayDesktop({
     >
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
-        <Identity stats={stats} />
+        <Identity />
         <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
         <Defenses stats={stats} />
         {columns === 2 && (
@@ -871,31 +1002,38 @@ function PlayDesktop({
 }
 
 /**
- * The phone screen.
+ * The phone screen: the whole character sheet, in the sheet's own order.
  *
- * The page scrolls. It used to refuse to, and the refusal cost more than it
- * saved: with every band fixed, one region had to absorb every shortfall, and
- * that region was the loadout - measured at 130px of the 230 it needs on a
- * 393px phone, and at *zero* on a 375px one, where five cards rendered into a
- * box with no height and the ROLL button came out 33px tall and partly under
- * the tab bar. A screen that hides your cards to avoid a scrollbar has its
- * priorities backwards.
+ * It used to render nine things and leave four out. Identity, the trait grid,
+ * the defences and the vault were defined in this file and called only from
+ * `PlayDesktop`, so on the width the README says is used ninety per cent of the
+ * time the app did not show Evasion, the damage thresholds - except as 10px
+ * `--dim` text beside a damage input - Proficiency, the class, the subclass,
+ * the ancestry, the community, the vault, or the gold. Nothing was broken.
+ * Four sections of the character sheet were simply absent.
  *
- * So everything scrolls except the roll block, and the ergonomics are in the
- * order rather than in the fitting:
+ * The order below is the printed sheet's, reflowed to one column: identity,
+ * the defence band, the traits with their verbs, the counters, weapons and
+ * armour, the cards, what you are carrying, gold, conditions, lineage. Read
+ * top to bottom it is the same document the player has in front of them on
+ * paper, which is the only ordering nobody has to learn.
  *
- *   - The roll block stays out of the scroll because it is the one thing
- *     touched on every single action. It holds the trait chips, the modifier
- *     row, the Experiences and ROLL - which is also the order the rules ask
- *     for, since all of those are declared *before* the dice. Nothing in it
- *     can scroll out from under a thumb that is already moving.
- *   - Inside the scroll, the order runs from read at the top to touched at the
- *     bottom: identity, then cards, then the weapons and items you reach for
- *     during a turn, then the tracks. So the things touched most are already
- *     in the thumb arc when the screen opens, and everything else is one flick
- *     away rather than absent.
- *   - The tracks sit last, immediately above the roll block, because after a
- *     roll resolves the next thing a hand does is mark something.
+ * Two things are not in that order, and both are ergonomic rather than
+ * editorial.
+ *
+ *   - A worn Beastform leads. It changes what every number under it means, and
+ *     a state banner nobody scrolls to is a state banner nobody reads. It
+ *     draws nothing the rest of the time.
+ *   - The roll block is pinned to the bottom, outside the scroll: the trait
+ *     chips and ROLL, plus the death move when it is offered. Those are
+ *     touched on every single action, and a control you have to go looking for
+ *     is a control that stops being used.
+ *
+ * Everything else scrolls, and four sections fold. A closed section costs one
+ * 44px row, which is what makes "the whole sheet at once" fit at all: the
+ * stack measures about 1290px fully open on a 393px phone against a scroll
+ * window of 457, and about 900 with the vault, the carried items and the
+ * lineage folded away.
  */
 function PlayPhone({
   stats,
@@ -914,45 +1052,26 @@ function PlayPhone({
     character.activeSecondaryWeapon,
     character.activeArmor,
   ].filter((r) => r !== null && index.byRef.has(r)).length;
-
-  const modLabel =
-    trait === 'spellcast' && stats.spellcastTrait !== null
-      ? 'SPELLCAST'
-      : TRAIT_LABELS[(trait === 'spellcast' ? 'knowledge' : trait) as Trait].toUpperCase();
-  const modValue =
-    trait === 'spellcast'
-      ? stats.spellcastTrait
-        ? stats.traits[stats.spellcastTrait]
-        : 0
-      : stats.traits[trait as Trait];
+  const carried = character.inventory.length;
 
   return (
     /*
      * The outer column scrolls only as a last resort.
      *
-     * Pinning the tokens and the roll is right until the two of them do not
-     * fit, and on a 375x667 phone carrying five Experiences they do not: the
-     * fixed block wants 480 of the 553 this screen gets, which left the
-     * reference region *three pixels* for 943px of cards, weapons and items.
-     * That is P2-1's failure wearing the other hat - one region absorbing
-     * every shortfall - and a floor is the fix in both directions.
-     *
-     * So the scrolling region can never go below two rows, and when the sum
-     * overflows, the page itself takes up the slack instead of crushing
-     * anything. On any phone with room the outer scroller never engages at all.
+     * Pinning the roll block is right until it does not fit, and a floor stops
+     * the scrolling region absorbing every shortfall the way the loadout used
+     * to. Two rows of something is the least that can be called a region
+     * rather than a slot; below that the page itself takes up the slack. On
+     * both reference phones the outer scroller never engages: the roll block
+     * is 266px with two Experiences and 316px with five, against 731px at
+     * 393x852 and 546px at 375x667.
      */
     <div
       className="stack"
       style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8, overflowY: 'auto' }}
     >
-      {/*
-       * Everything that is read, or reached for during a turn. It scrolls, and
-       * it is ordered so the least-touched thing is furthest from the thumb.
-       */}
       <div
         className="stack scroll scroll-fade"
-        // The floor. Two rows of something is the least that can be called a
-        // region rather than a slot.
         style={{ flex: '1 1 auto', minHeight: 88, gap: 10, overflowX: 'hidden' }}
       >
         {/* A worn Beastform changes what every number under it means, so it
@@ -960,14 +1079,35 @@ function PlayPhone({
             reads. It renders nothing when no form is worn. */}
         <Beastform stats={stats} layout="phone" />
 
+        <Identity showLineage={false} />
+
+        {/* Read under pressure, so it is four numbers and not a footnote. */}
+        <Defenses stats={stats} />
+
+        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+
+        {/* The four counters, and under them the incoming-damage calculator -
+            which is a question rather than a state ("someone hit you for 14,
+            how many HP is that") and whose answer lands on the two tracks
+            directly above it. */}
+        <Vitals stats={stats} layout="phone" showState={false} />
+
+        <Disclosure
+          id="equipped"
+          characterId={character.id}
+          label="Weapons & armour"
+          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
+          defaultOpen
+        >
+          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
+        </Disclosure>
+
         {/*
-         * Cards first.
+         * The cards.
          *
          * They are the answer to "what can I do", which is the question a
-         * player asks on every turn of their own, and they were sitting about
-         * 350px down a 288px window - present, and in practice missing. What
-         * leads the scroll is what is on screen without a gesture, and nothing
-         * here earns that more.
+         * player asks on every turn of their own, so the loadout opens by
+         * default.
          */}
         <Disclosure
           id="loadout"
@@ -981,36 +1121,22 @@ function PlayPhone({
           </div>
         </Disclosure>
 
-        {/* Then what you attack with. Together these two are the whole of
-            "what can I do this turn", so they lead together. */}
-        <Disclosure
-          id="equipped"
-          characterId={character.id}
-          label="Equipped"
-          summary={equippedCount === 0 ? 'NOTHING' : `${equippedCount} WORN`}
-          defaultOpen
-        >
-          <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} bare />
-
-        {/* The damage calculator. It is the one part of the vitals panel that
-            is a question rather than a state - "someone hit you for 14, how
-            many HP is that" - and it is asked when something hits you rather
-            than continuously, so it does not need to be pinned. Its answer
-            lands on the Armor and HP tracks, which are. */}
-        <Vitals stats={stats} layout="phone" showState={false} part="damage" />
-
-        </Disclosure>
-
-        {/* Conditions are set once a scene rather than once a turn. */}
-        <ActiveConditions />
-
         <Disclosure
           id="carried"
           characterId={character.id}
           label="Carried"
-          summary={`${character.inventory.length} ${character.inventory.length === 1 ? 'ITEM' : 'ITEMS'}`}
+          summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'}`}
         >
           <Items bare />
+        </Disclosure>
+
+        <GoldRow />
+
+        {/* Conditions are set once a scene rather than once a turn. */}
+        <ActiveConditions />
+
+        <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
+          <Lineage stats={stats} />
         </Disclosure>
       </div>
 
@@ -1025,14 +1151,6 @@ function PlayPhone({
             goes above everything else and outside the scroll. It renders
             nothing the rest of the time. */}
         <DeathMoveOffer />
-
-        {/* The tokens, in the foreground - all four of them.
-            They are not reference material: they are the state of the
-            character, changed several times a turn, and a counter you have to
-            go and find is a counter that stops being marked. They sit directly
-            above the declaration row, which puts the Hope track against the
-            Experience chips that spend it. */}
-        <Vitals stats={stats} layout="phone" showState={false} part="tracks" />
 
         <div
           className="row"
