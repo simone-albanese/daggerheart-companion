@@ -482,7 +482,23 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'gm/SessionList.tsx::SessionList': () => <SessionList phone={false} onOpenTool={noop} />,
   'gm/SessionRow.tsx::SessionRow': () => (
-    <SessionRow item={sceneItem()} phone={false} onOpenTool={noop} />
+    <SessionRow
+      item={sceneItem()}
+      position={1}
+      total={1}
+      phone={false}
+      // Built inline rather than imported from a no-op constant in `src`: an
+      // export nothing in the app reaches is exactly what the orphan harness
+      // reports, and a fixture is not a caller.
+      handle={{
+        onPointerDown: noop,
+        onKeyDown: noop,
+        'aria-keyshortcuts': 'ArrowUp ArrowDown Home End',
+        style: { touchAction: 'none' },
+      }}
+      lifted={false}
+      onOpenTool={noop}
+    />
   ),
   'gm/StatBlock.tsx::Stat': () => <Stat label="HP" value="6" />,
   'gm/StatBlock.tsx::FeatureList': () => (

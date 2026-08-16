@@ -1501,9 +1501,18 @@ Decisions taken:
 - [ ] **ADD** → countdown, encounter, scene (environment), link. A countdown can
       be marked **primary**, which pins it to the top bar; otherwise it joins the
       list. An encounter opens the encounter builder that already exists.
-- [ ] **Rows reorder by drag.** *"Sarebbe fighissimo se tu potessi fare oui, oui,
-      e te li metti dove vuoi."* This is the feature that makes the list a plan
-      rather than a log.
+- [x] ~~**Rows reorder by drag.**~~ *"Sarebbe fighissimo se tu potessi fare oui,
+      oui, e te li metti dove vuoi."* — **done**, and with a keyboard path
+      beside it rather than behind it. Hold the handle 250 ms with under 8 px of
+      travel to lift, then a step per 60 px; `touch-action: none` is on the
+      44 px handle alone so the other 88% of the row still scrolls the list.
+      `pointercancel` is handled, because iOS fires it with no `pointerup` to
+      follow and the alternative is a row lifted for the life of the screen.
+      ArrowUp/ArrowDown/Home/End on the focused handle do the same thing, and
+      an open row carries MOVE UP and MOVE DOWN as plain buttons — a 250 ms
+      hold plus 60 px of accurate travel is not a gesture everybody has. One
+      polite live region for the whole list: assertive interrupts itself five
+      times across a four-row drag.
 - [ ] **SHOW** forks in two: **Consulta** — browse adversaries and environments
       read-only, without adding them, for when the GM is improvising — and
       **Gruppo**, which is the PartyBoard that already exists, reached from here.

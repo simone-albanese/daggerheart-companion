@@ -36,6 +36,17 @@ before the one below.
 - **Arriving at the GM screen opens nothing.** The record remembers which tool
   was last open, which is worth keeping and is not an instruction — reading it
   as one would have put the encounter builder over the plan every single time.
+- **Rows move.** A handle at the right edge of every row: hold it for a quarter
+  of a second and drag, and the row goes where you put it. The list under the
+  same thumb still scrolls, because only the handle itself is taken away from
+  scrolling. If the phone interrupts the gesture — a call, the notification
+  shade — the row is put down where it got to and says so, rather than staying
+  stuck to your finger.
+- **And they move without dragging.** The arrow keys move the row whose handle
+  is focused, Home and End send it to either end, and an open row carries MOVE
+  UP and MOVE DOWN as ordinary buttons. A quarter-second hold followed by
+  accurate travel is not a gesture everybody can perform, and this is the same
+  feature rather than a lesser one.
 
 **Not there yet, and named here rather than left to be discovered:** nothing in
 this build adds a new scene, encounter or link row — the list reads, draws,

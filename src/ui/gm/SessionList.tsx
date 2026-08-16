@@ -32,9 +32,10 @@
  * scroll and the bottom bar arrives - the notice is 111 of the 653px that is
  * not shell header here, and it is the first thing that should pay for the bar.
  */
-import type { SessionItem } from '../../../shared/campaigns.ts';
+import { useState } from 'react';
 import { SessionRow } from './SessionRow.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
+import { useSessionDrag } from './useSessionDrag.ts';
 
 export function SessionList({
   phone,
@@ -45,6 +46,13 @@ export function SessionList({
 }): React.JSX.Element {
   const session = useGm((s) => s.session);
   const hydrated = useGm((s) => s.hydrated);
+  const moveSessionItem = useGm((s) => s.moveSessionItem);
+  const [announcement, setAnnouncement] = useState('');
+  const drag = useSessionDrag({
+    items: session,
+    move: moveSessionItem,
+    announce: setAnnouncement,
+  });
 
   return (
     <div
@@ -63,13 +71,39 @@ export function SessionList({
             body="This is the night, in the order you want to run it: scenes, encounters, countdowns and links to what you will need open. Countdowns start in Fear and countdowns, from the number in the bar above. Scenes, encounters and links are read from the campaign and kept; nothing in this build writes a new one yet."
           />
         ) : (
+          // Keyed on the item's id, not on its index. That is what makes the
+          // focused drag handle survive its own row being moved: React moves
+          // the DOM node rather than rewriting four of them, so focus - and a
+          // held pointer - stay with the row they were on.
           <ol className="stack" style={{ gap: 8, margin: 0, padding: 0 }}>
-            {session.map((item: SessionItem) => (
-              <SessionRow key={item.id} item={item} phone={phone} onOpenTool={onOpenTool} />
+            {session.map((item, i) => (
+              <SessionRow
+                key={item.id}
+                item={item}
+                position={i + 1}
+                total={session.length}
+                phone={phone}
+                handle={drag.handleProps(item, i)}
+                lifted={drag.lifted === item.id}
+                onOpenTool={onOpenTool}
+              />
             ))}
           </ol>
         )}
       </div>
+      {/*
+        One live region for the whole list, and `polite` rather than `assertive`.
+        A drag across four rows produces a lift, three steps and a drop; on
+        `assertive` each of the five interrupts the one before it and the GM
+        hears the beginning of five sentences. `aria-atomic` makes each message
+        replace the last, which is the behaviour that was wanted from
+        `assertive` in the first place. It sits outside the `<ol>` so a moving
+        row cannot carry it, and there is exactly one of it: four regions
+        announcing in turn is the same interruption by another route.
+      */}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </span>
     </div>
   );
 }

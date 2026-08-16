@@ -100,6 +100,21 @@ const text = (): string => container.textContent ?? '';
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const rows = (): HTMLLIElement[] => [...container.querySelectorAll('li')];
 
+/**
+ * The controls the *arm* draws, without the chrome every row has.
+ *
+ * The disclosure, the drag handle, MOVE UP, MOVE DOWN and DELETE belong to the
+ * row rather than to its contents, and counting them would make "this arm
+ * offers nothing to do" untestable.
+ */
+const ROW_CHROME = /^(Reorder |MOVE UP|MOVE DOWN|DELETE|TAP AGAIN)/;
+const armControls = (): HTMLButtonElement[] =>
+  buttons().filter(
+    (b) =>
+      b.getAttribute('aria-expanded') === null &&
+      !ROW_CHROME.test(b.getAttribute('aria-label') ?? (b.textContent ?? '').trim()),
+  );
+
 const click = (el: Element): void => {
   act(() => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -212,9 +227,10 @@ describe('the unreadable row, opened', () => {
   it('offers nothing to do with it except delete it, and says what that costs', () => {
     seed(unreadable());
     list();
-    const controls = buttons().filter((b) => b.getAttribute('aria-expanded') === null);
-    expect(controls).toHaveLength(1);
-    click(controls[0]!);
+    // Nothing to edit: the row exists to be looked at and, if the GM decides
+    // so, thrown away.
+    expect(armControls()).toHaveLength(0);
+    click(buttons().find((b) => (b.textContent ?? '') === 'DELETE')!);
     expect(text()).toContain('TAP AGAIN TO DELETE THE ONLY COPY');
   });
 });
@@ -356,7 +372,7 @@ describe('the link arm', () => {
     list();
     expect(text()).toContain('the-gnawing');
     expect(text()).toContain('not in the dataset this device has loaded');
-    expect(buttons().filter((b) => b.getAttribute('aria-expanded') === null)).toHaveLength(1); // DELETE only
+    expect(armControls(), 'an unresolved link offered a control').toHaveLength(0);
   });
 
   it('draws a link kind this build has never heard of, named', () => {

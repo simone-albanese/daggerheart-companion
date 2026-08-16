@@ -4,10 +4,10 @@
  * A *tendina*, the same idea `Disclosure` already carries for the character
  * sheet, with the three rules that made that one honest applied here:
  *
- *   - **the whole header is the target**, not a chevron. 44px tall, the full
- *     width of the column - about 357px inside the panel on a 393px phone -
- *     which is the largest target on this screen and the only one that can be
- *     hit without looking down;
+ *   - **the whole header is the target**, not a chevron. 44px tall and 307 of
+ *     the 357px the panel has on a 393px phone - the remaining 44 + 6 are the
+ *     drag handle beside it - which is still the largest target on this screen
+ *     and the only one that can be hit without looking down;
  *   - **the header says what is inside it while it is shut.** `describeItem`
  *     answers for every arm, including the two that exist because this app
  *     refuses to drop what it cannot read, so a shut row never costs a tap to
@@ -24,6 +24,15 @@
  * `false`, so a record written without the field arrives with every row open;
  * that is the store's decision and this file does not second-guess it.
  *
+ * ## Moving
+ *
+ * Two ways, and the second one is not a fallback. The handle at the right edge
+ * carries the pointer gesture (`useSessionDrag`), and the open row's footer
+ * carries MOVE UP and MOVE DOWN as plain 44px buttons. A hold of 250 ms
+ * followed by 60px of accurate travel is a gesture a shaking hand, a trackpad
+ * user and anybody driving this from a keyboard cannot perform; two buttons in
+ * the row they already have open cost 88px of a footer that had room.
+ *
  * ## Deleting
  *
  * Two taps, never one, and the second one names what is being lost. The
@@ -37,7 +46,41 @@ import type { SessionItem } from '../../../shared/campaigns.ts';
 import { useApp } from '../../store/state.ts';
 import { SessionBody } from './SessionBody.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
+import type { DragHandleProps } from './useSessionDrag.ts';
 import { describeItem, SESSION_KIND_COLOR, SESSION_KIND_LABEL, sessionName, sessionTitle } from './session.ts';
+
+/** MOVE UP / MOVE DOWN: the keyboard's two moves, as targets. */
+function Move({
+  onClick,
+  disabled,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="t-meta"
+      style={{
+        flex: 'none',
+        minHeight: 44,
+        padding: '0 10px',
+        letterSpacing: '0.1em',
+        color: 'var(--dim)',
+        opacity: disabled ? 0.35 : 1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 /**
  * What the delete control says, in both states.
@@ -57,17 +100,27 @@ const armedLabel = (item: SessionItem, armed: boolean): string =>
 
 export function SessionRow({
   item,
+  position,
+  total,
   phone,
+  handle,
+  lifted,
   onOpenTool,
 }: {
   item: SessionItem;
+  /** 1-based, because it is spoken: "Reorder Scene one, 1 of 4". */
+  position: number;
+  total: number;
   phone: boolean;
+  handle: DragHandleProps;
+  lifted: boolean;
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
   const patch = useGm((s) => s.patchSessionItem);
   const remove = useGm((s) => s.removeSessionItem);
+  const move = useGm((s) => s.moveSessionItem);
   const [armed, setArmed] = useState(false);
 
   // The same four seconds `Scene.tsx` gives its END SCENE: long enough to be a
@@ -92,14 +145,19 @@ export function SessionRow({
         borderLeft: `3px solid ${SESSION_KIND_COLOR[item.kind]}`,
         padding: '4px 6px',
         gap: open ? 8 : 0,
+        // A lifted row has to be visibly the one moving, and it is the only
+        // thing on this screen that ever leaves the flat surface.
+        borderColor: lifted ? 'var(--hope)' : undefined,
+        boxShadow: lifted ? '0 6px 18px rgb(0 0 0 / 0.35)' : undefined,
       }}
     >
+      <div className="row" style={{ flex: 'none', gap: 6 }}>
       <button
         type="button"
         aria-expanded={open}
         onClick={() => patch(item.id, { collapsed: open })}
         className="row"
-        style={{ flex: 'none', width: '100%', minHeight: 44, gap: 8, padding: '0 2px', textAlign: 'left' }}
+        style={{ flex: 1, minWidth: 0, minHeight: 44, gap: 8, padding: '0 2px', textAlign: 'left' }}
       >
         {/*
          * A rotated triangle rather than a glyph from the font, for the reason
@@ -164,10 +222,66 @@ export function SessionRow({
         </span>
       </button>
 
+      {/*
+        The handle is at the right edge of every row - x 313-357 on a 393px
+        phone - which is the easiest horizontal reach for a right thumb across
+        the whole column, and where iOS has put this control since it invented
+        it. It is a sibling of the disclosure and not inside it, because a
+        button may not contain a button; the header keeps 307 of the 357.
+
+        `touch-action: none` is on this square alone, 12% of the row's width,
+        so the other 88% still scrolls the list under the same thumb.
+      */}
+      <button
+        type="button"
+        {...handle}
+        aria-label={`Reorder ${sessionName(item)}, ${position} of ${total}`}
+        style={{
+          ...handle.style,
+          flex: 'none',
+          width: 44,
+          height: 44,
+          display: 'grid',
+          placeItems: 'center',
+          gap: 3,
+          borderRadius: 'var(--r2)',
+          background: lifted ? 'var(--raised)' : 'transparent',
+        }}
+      >
+        {/* Three bars, drawn rather than typed: the glyphs that mean "grab" sit
+            on different baselines in the two families this app ships. */}
+        <span aria-hidden="true" style={{ display: 'grid', gap: 3 }}>
+          {[0, 1, 2].map((i) => (
+            <span key={i} style={{ width: 15, height: 2, background: 'var(--dim)' }} />
+          ))}
+        </span>
+      </button>
+      </div>
+
       {open && (
         <div className="stack" style={{ gap: 10, padding: '2px 2px 8px' }}>
           <SessionBody item={item} phone={phone} onOpenTool={onOpenTool} />
           <div className="row" style={{ gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {/*
+              The same two moves as the handle, without a pointer and without a
+              hold. An open row is where a GM is already looking when they
+              decide it belongs earlier, and a 44px button is a target a shaking
+              hand can hit where a 250ms hold plus 60px of travel is not.
+            */}
+            <Move
+              onClick={() => move(item.id, position - 2)}
+              disabled={position === 1}
+              label={`MOVE UP — ${sessionName(item)}`}
+            >
+              MOVE UP
+            </Move>
+            <Move
+              onClick={() => move(item.id, position)}
+              disabled={position === total}
+              label={`MOVE DOWN — ${sessionName(item)}`}
+            >
+              MOVE DOWN
+            </Move>
             <button
               type="button"
               onClick={() => {
