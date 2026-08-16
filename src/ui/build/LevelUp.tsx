@@ -6,6 +6,12 @@
  * here decides a rule; it only shows what the engine already knows and refuses
  * to apply a plan the engine calls invalid.
  *
+ * With one exception, and it is the same exception character creation makes.
+ * A handful of subclass features hand out an extra domain card, and which ones
+ * is a fact about the dataset rather than about arithmetic - the engine has no
+ * dataset to read. So `cardAllowance.ts` owns that table for both screens, and
+ * this one asks it what an advancement just earned. See `levelUpCardGrants`.
+ *
  * The one piece of pure typography that matters: Proficiency and Multiclass are
  * printed inside a black box in the book, because each eats both of the level's
  * advancements. That box is reproduced, not paraphrased - a player who has seen
@@ -36,6 +42,12 @@ import {
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import {
+  grantFeature,
+  levelUpCardGrants,
+  type CardGrant,
+  type SubclassCardTaken,
+} from './cardAllowance.ts';
 import { Callout, Choice, Columns, LabelledInput, Mark, Section, SlotBoxes } from './parts.tsx';
 
 type Pick = LevelUpPlan['picks'][number];
@@ -76,17 +88,54 @@ export function LevelUp({
     );
   }
 
-  // The engine reads the tier achievement's Experience off the first pick.
+  const options = availableOptions(tier);
+
+  /**
+   * What each pick just handed the character, as the grant table keys it.
+   *
+   * The upgraded-subclass advancement hands over a specialization or a mastery
+   * card - the detail records which - and multiclassing hands over a foundation
+   * card from the new class's subclass. Everything else hands over nothing.
+   */
+  const subclassCardTaken = (pick: Pick): SubclassCardTaken | null => {
+    const option = options.find((o) => o.id === pick.optionId && o.tier === pick.optionTier);
+    const ref = pick.detail['subclassRef'];
+    if (option === undefined || typeof ref !== 'string') return null;
+    if (option.kind === 'multiclass') return { subclass: ref, tier: 'foundation' };
+    if (option.kind !== 'subclass') return null;
+    const card = pick.detail['card'];
+    return card === 'specialization' || card === 'mastery' ? { subclass: ref, tier: card } : null;
+  };
+
+  // Index for index with `picks`, so each picker appears under the advancement
+  // that earned it rather than in one anonymous pile at the bottom.
+  const grants = levelUpCardGrants(picks.map(subclassCardTaken), dataset);
+  const grantFor = (pick: Pick): CardGrant | null => grants[picks.indexOf(pick)] ?? null;
+
+  /**
+   * The plan as the engine will read it. Two things are rewritten on the way.
+   *
+   * The engine reads the tier achievement's Experience off the first pick.
+   *
+   * And a `grantCardRef` whose grant is no longer live is dropped. The picker
+   * is unmounted the moment the choice behind it changes, but the ref it wrote
+   * stays in the pick's detail, and `applyLevelUp` banks any it is handed. A
+   * player who takes Accomplished's card and then moves the same advancement to
+   * their other subclass would have walked away holding a card no feature on
+   * the sheet pays for - a plain instance of the app doing something its screen
+   * had stopped saying.
+   */
   const plan: LevelUpPlan = {
     fromLevel: character.level,
     toLevel,
     tier,
     achievement,
-    picks: picks.map((p, i) =>
-      i === 0 && achievement !== null
-        ? { ...p, detail: { ...p.detail, achievementExperience: experienceName.trim() } }
-        : p,
-    ),
+    picks: picks.map((p, i) => {
+      const detail = { ...p.detail };
+      if (!grants[i]) delete detail['grantCardRef'];
+      if (i === 0 && achievement !== null) detail['achievementExperience'] = experienceName.trim();
+      return { ...p, detail };
+    }),
     newCardRef,
   };
 
@@ -99,7 +148,6 @@ export function LevelUp({
   // stacks with the tier achievement that also lands there.
   const after = deriveStats(applyLevelUp(character, plan), dataset, index);
 
-  const options = availableOptions(tier);
   const usage = new Map(slotUsage(character).map((u) => [`${u.optionId}@${u.tier}`, u]));
 
   // Boxes, not takings, and through the engine's own helper - this used to be
@@ -118,21 +166,40 @@ export function LevelUp({
     picks.find((p) => p.optionId === id && p.optionTier === t);
 
   /**
-   * Cards already spoken for elsewhere in this plan. Step four and the
-   * "additional domain card" advancement are two separate pickers writing into
-   * one vault, and without this each is happy to take the card the other took -
-   * `applyLevelUp` then pushes the same ref twice and the character owns two
-   * copies of it.
+   * Cards already spoken for elsewhere in this plan.
+   *
+   * Step four, the "additional domain card" advancement and a subclass
+   * feature's granted card are separate pickers writing into one vault, and
+   * without this each is happy to take the card another took - `applyLevelUp`
+   * then pushes the same ref twice and the character owns two copies of it.
+   *
+   * A picker is passed everything claimed *except its own current value*, which
+   * has to stay in its list or the row the player just chose would vanish out
+   * from under the tick. Read off `plan`, not off `picks`, so a ref whose grant
+   * has gone stops holding a card out of the other pickers as well.
    */
-  const cardRefsInPlan = (): string[] =>
-    picks.map((p) => p.detail['cardRef']).filter((r): r is string => typeof r === 'string');
-  const otherCardRefs = (self: Pick): string[] => [
-    ...(newCardRef === null ? [] : [newCardRef]),
-    ...picks
-      .filter((p) => p !== self)
-      .map((p) => p.detail['cardRef'])
-      .filter((r): r is string => typeof r === 'string'),
-  ];
+  const claimedRefs = (): string[] =>
+    [
+      newCardRef,
+      ...plan.picks.flatMap((p) => [p.detail['cardRef'], p.detail['grantCardRef']]),
+    ].filter((r): r is string => typeof r === 'string');
+  const claimedApartFrom = (mine: unknown): string[] => claimedRefs().filter((r) => r !== mine);
+
+  /*
+   * A card the player is owed and has not taken.
+   *
+   * A warning rather than an error, and deliberately the same weight the engine
+   * gives step four's untaken card: both are cards that come with the level
+   * rather than choices the level is invalid without, and a player who wants to
+   * pick one at the table later must still be able to apply.
+   */
+  const grantWarnings = grants.flatMap((grant, i) =>
+    grant === null || typeof picks[i]?.detail['grantCardRef'] === 'string'
+      ? []
+      : [
+          `${grant.feature} gives you an additional domain card on top of the advancement. Take it before you apply, or it is gone.`,
+        ],
+  );
 
   const toggle = (option: AdvancementOption & { tier: Tier }): void => {
     const already = chosen(option.id, option.tier);
@@ -312,7 +379,8 @@ export function LevelUp({
                               pick={pick}
                               stats={after}
                               toLevel={toLevel}
-                              alreadyTaken={otherCardRefs(pick)}
+                              grant={grantFor(pick)}
+                              claimed={claimedApartFrom}
                               onChange={(d) => setDetail(pick, d)}
                             />
                           )}
@@ -345,7 +413,8 @@ export function LevelUp({
                           pick={pick}
                           stats={after}
                           toLevel={toLevel}
-                          alreadyTaken={otherCardRefs(pick)}
+                          grant={grantFor(pick)}
+                          claimed={claimedApartFrom}
                           onChange={(d) => setDetail(pick, d)}
                         />
                       )}
@@ -362,12 +431,12 @@ export function LevelUp({
               stats={after}
               value={newCardRef}
               onChange={setNewCardRef}
-              exclude={cardRefsInPlan()}
+              exclude={claimedApartFrom(newCardRef)}
             />
           </Section>
 
           <Callout tone="error" items={validation.errors} />
-          <Callout tone="warn" items={validation.warnings} />
+          <Callout tone="warn" items={[...grantWarnings, ...validation.warnings]} />
         </div>
       </div>
 
@@ -570,7 +639,8 @@ function PickDetail({
   pick,
   stats,
   toLevel,
-  alreadyTaken,
+  grant,
+  claimed,
   onChange,
 }: {
   option: AdvancementOption & { tier: Tier };
@@ -578,14 +648,26 @@ function PickDetail({
   /** Stats for the sheet this plan produces, so caps read at the new level. */
   stats: DerivedStats;
   toLevel: number;
-  /** Cards another part of this same plan has already claimed. */
-  alreadyTaken: string[];
+  /** The subclass feature this pick just triggered, if it hands out a card. */
+  grant: CardGrant | null;
+  /** Cards this plan has claimed, minus whichever ref is passed in. */
+  claimed: (mine: unknown) => string[];
   onChange: (detail: Record<string, unknown>) => void;
 }): React.JSX.Element | null {
   const character = useActive();
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
   if (!character) return null;
+
+  const granted = grant === null ? null : (
+    <GrantedCard
+      grant={grant}
+      stats={stats}
+      value={(pick.detail['grantCardRef'] as string | undefined) ?? null}
+      exclude={claimed(pick.detail['grantCardRef'])}
+      onChange={(ref) => onChange({ grantCardRef: ref })}
+    />
+  );
 
   if (option.kind === 'trait') {
     const picked = (pick.detail['traits'] as Trait[] | undefined) ?? [];
@@ -691,7 +773,7 @@ function PickDetail({
           stats={stats}
           value={(pick.detail['cardRef'] as string | undefined) ?? null}
           onChange={(ref) => onChange({ cardRef: ref })}
-          exclude={alreadyTaken}
+          exclude={claimed(pick.detail['cardRef'])}
         />
       </DetailShell>
     );
@@ -730,6 +812,7 @@ function PickDetail({
             </span>
           </div>
         )}
+        {granted}
       </DetailShell>
     );
   }
@@ -818,12 +901,79 @@ function PickDetail({
               &ldquo;upgraded subclass&rdquo; option and the other multiclass option.
             </span>
           )}
+
+          {/* Multiclassing takes a *foundation* card, so a multiclass into the
+              School of Knowledge triggers Prepared here exactly as creation
+              does - the same grant, arriving down a road creation never sees. */}
+          {granted}
         </div>
       </DetailShell>
     );
   }
 
   return null;
+}
+
+/**
+ * The domain card a subclass feature hands over on top of the advancement.
+ *
+ * It is rendered inside the advancement's own detail block rather than beside
+ * step four, and that is the whole ergonomic decision. Step four is one
+ * question - "which card comes with the level" - and a second identical list
+ * next to it reads as a duplicate of that question, not as a consequence of a
+ * choice made two hundred pixels higher up. Here the cause is directly above
+ * the effect: pick School of Knowledge's mastery card, and Brilliant's picker
+ * unfolds under it, behind the same 12px indent and 2px hope rail every other
+ * "this advancement still wants something from you" prompt uses.
+ *
+ * The feature's own sentence is printed verbatim above the list, because it is
+ * the sentence that says the card must be at or below your level - the picker
+ * already enforces that, and a rule the app enforces silently is a rule the
+ * player cannot check.
+ *
+ * Sizes are the picker's, unchanged: every row is `--tap` (44px) tall with a
+ * 44px TEXT button beside it, and the list drops its own scroll container on a
+ * phone so the level-up panel keeps the only scroll and the thumb is not
+ * trapped in a 420px window inside a page that also scrolls. Nothing here lands
+ * in the bottom thumb arc - that band belongs to the 48px Cancel/Apply bar,
+ * which is pinned outside the scrolling region.
+ */
+function GrantedCard({
+  grant,
+  stats,
+  value,
+  exclude,
+  onChange,
+}: {
+  grant: CardGrant;
+  stats: DerivedStats;
+  value: Ref | null;
+  exclude: string[];
+  onChange: (ref: Ref | null) => void;
+}): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const feature = grantFeature(grant, dataset);
+  return (
+    <div
+      className="stack"
+      style={{ gap: 9, marginTop: 2, paddingTop: 11, borderTop: '1px solid var(--line-soft)' }}
+    >
+      <div className="row" style={{ gap: 9, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <span className="t-label" style={{ color: 'var(--hope)' }}>
+          {grant.feature}
+        </span>
+        <span className="t-meta" style={{ color: 'var(--dim)' }}>
+          ONE MORE DOMAIN CARD, NOT AN ADVANCEMENT
+        </span>
+      </div>
+      {feature !== null && (
+        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+          {feature.text}
+        </span>
+      )}
+      <CardPicker stats={stats} value={value} onChange={onChange} exclude={exclude} />
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -392,6 +392,28 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
       detail: { ...pick.detail, optionId: option.id, optionTier: option.tier },
     });
 
+    /*
+     * A subclass card can arrive holding a domain card.
+     *
+     * School of Knowledge's Accomplished and Brilliant each read "Take an
+     * additional domain card of your level or lower from a domain you have
+     * access to", and the advancement that hands over the specialization or
+     * mastery card is what triggers them; multiclassing into that subclass
+     * triggers Prepared the same way. Which subclasses do that is a dataset
+     * question and this module has no dataset, so `src/ui/build/cardAllowance.ts`
+     * decides whether a card is owed and the plan carries the ref.
+     *
+     * It is banked here, in the same pass that writes the history entry
+     * carrying it, so the record and the vault cannot disagree. Doing it in the
+     * screen instead would have written a history saying the card was taken and
+     * left `applyLevelUp`'s other two callers - the simulator and the sample
+     * builder - producing sheets that say so and do not hold it.
+     */
+    const granted = pick.detail['grantCardRef'];
+    if (typeof granted === 'string' && granted !== '') {
+      next = { ...next, vault: [...next.vault, granted] };
+    }
+
     switch (option.kind) {
       case 'trait': {
         const traits = (pick.detail['traits'] as Trait[] | undefined) ?? [];

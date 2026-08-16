@@ -36,6 +36,16 @@
  * The last block is the one that would convince a player: the card step,
  * rendered against the real SRD, asked what it says on it and what it will
  * still let you take.
+ *
+ * A fourth thing, added later and the reason the scan grew: creation is not the
+ * only place this table is owed a reading. School of Knowledge grants the same
+ * card again at specialization and again at mastery, and both of those are
+ * bought at level up. The table listed all three from the day it was written,
+ * so every assertion above was green for as long as the level-up screen never
+ * asked it anything - a guard that watches one reader is half a guard, and this
+ * is what the other half looks like. `tests/ui/levelUp.test.tsx` mounts the
+ * screen and proves it hands the card over; here it is the coverage property:
+ * no grant this dataset contains is unreachable by every reader in the app.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -48,6 +58,8 @@ import type { Dataset, Feature, Ref, Subclass } from '@shared/types.ts';
 import {
   BASE_STARTING_CARDS,
   DOMAIN_CARD_GRANTS,
+  grantFeature,
+  levelUpCardGrants,
   startingCardAllowance,
   startingCardGrants,
   type CardGrant,
@@ -156,6 +168,63 @@ describe('the grant table in cardAllowance.ts', () => {
     ).toEqual([]);
   });
 
+  /**
+   * The half the guard used to be missing.
+   *
+   * Two of School of Knowledge's three grants have never arrived at creation:
+   * Accomplished comes with the specialization card and Brilliant with the
+   * mastery card, and both of those are bought at level up. The table listed
+   * them from the day it was written, and for as long as only `startingCardGrants`
+   * read it that changed nothing - the entries sat there, correct, and the
+   * level-up screen never asked. A scan that only watches the creation reader
+   * cannot see that: it is green either way.
+   *
+   * So the property is coverage, not correctness of one function. Every grant
+   * the dataset actually contains must be reachable by some reader in the app,
+   * and the test says which one reached it. Add a subclass whose mastery hands
+   * out a card and this passes only once the level-up path can produce it.
+   */
+  it('leaves no grant in the dataset that neither creation nor level up can reach', () => {
+    const unreachable = inDataset.filter(
+      (g) =>
+        startingCardGrants([g.subclass], dataset).some((x) => key(x) === key(g)) === false &&
+        levelUpCardGrants([{ subclass: g.subclass, tier: g.tier }], dataset).some(
+          (x) => x !== null && key(x) === key(g),
+        ) === false,
+    );
+    expect(
+      unreachable.map(key),
+      'this dataset grants domain cards no screen in the app can hand over. ' +
+        'A foundation grant has to come out of startingCardGrants and a specialization ' +
+        'or mastery grant out of levelUpCardGrants, or the player is quietly short a card ' +
+        'on whichever path leads to it.',
+    ).toEqual([]);
+  });
+
+  it('routes each of the three tiers to the reader that actually meets it', () => {
+    // The control on the test above: it would also pass if one reader answered
+    // for everything. Creation only ever sees a foundation feature, and the two
+    // that arrive with an upgraded subclass card are level up's alone.
+    const byTier = (tier: FeatureTier): string[] =>
+      inDataset.filter((g) => g.tier === tier).map((g) => g.feature);
+    expect(byTier('foundation')).toEqual(['Prepared']);
+    expect(byTier('specialization')).toEqual(['Accomplished']);
+    expect(byTier('mastery')).toEqual(['Brilliant']);
+
+    expect(startingCardGrants(['school-of-knowledge'], dataset).map((g) => g.feature)).toEqual([
+      'Prepared',
+    ]);
+    expect(
+      levelUpCardGrants(
+        [
+          { subclass: 'school-of-knowledge', tier: 'specialization' },
+          { subclass: 'school-of-knowledge', tier: 'mastery' },
+        ],
+        dataset,
+      ).map((g) => g?.feature ?? null),
+    ).toEqual(['Accomplished', 'Brilliant']);
+  });
+
   it('is not needed for any class feature, which it could not express anyway', () => {
     // The table is keyed by subclass. A grant printed on a class instead would
     // slip past it entirely, so the scan says out loud that none exists.
@@ -167,6 +236,109 @@ describe('the grant table in cardAllowance.ts', () => {
     expect(onClasses, 'a class feature grants domain cards; the table cannot key on that').toEqual(
       [],
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The same table, read from the other end of the character's life
+// ---------------------------------------------------------------------------
+
+describe('the extra card an advancement earns', () => {
+  const at = (subclass: Ref, tier: FeatureTier): { subclass: Ref; tier: FeatureTier } => ({
+    subclass,
+    tier,
+  });
+
+  it('is Accomplished when the specialization card is taken', () => {
+    expect(levelUpCardGrants([at('school-of-knowledge', 'specialization')], dataset)).toEqual([
+      { subclass: 'school-of-knowledge', tier: 'specialization', feature: 'Accomplished' },
+    ]);
+  });
+
+  it('is Brilliant when the mastery card is taken', () => {
+    expect(levelUpCardGrants([at('school-of-knowledge', 'mastery')], dataset)).toEqual([
+      { subclass: 'school-of-knowledge', tier: 'mastery', feature: 'Brilliant' },
+    ]);
+  });
+
+  it('is Prepared when a multiclass brings the foundation card in at level up', () => {
+    // Multiclassing takes "a foundation card from one of its subclasses", so a
+    // Ranger who multiclasses into Wizard and picks School of Knowledge gains
+    // Prepared - the creation grant, on a road creation never sees.
+    expect(levelUpCardGrants([at('school-of-knowledge', 'foundation')], dataset)).toEqual([
+      { subclass: 'school-of-knowledge', tier: 'foundation', feature: 'Prepared' },
+    ]);
+  });
+
+  it('is nothing for the seventeen subclasses that grant no card', () => {
+    const granting = dataset.subclasses.filter((s) =>
+      (['foundation', 'specialization', 'mastery'] as FeatureTier[]).some(
+        (t) => levelUpCardGrants([at(s.id, t)], dataset)[0] !== null,
+      ),
+    );
+    expect(granting.map((s) => s.id)).toEqual(['school-of-knowledge']);
+  });
+
+  it('answers index for index, so the screen knows which pick earned which card', () => {
+    // The reason this returns nulls rather than a filtered list: the picker has
+    // to be rendered under the advancement that paid for it, and a compacted
+    // list would leave the screen matching them up by guesswork.
+    expect(
+      levelUpCardGrants(
+        [null, at('school-of-war', 'mastery'), at('school-of-knowledge', 'mastery')],
+        dataset,
+      ),
+    ).toEqual([null, null, { subclass: 'school-of-knowledge', tier: 'mastery', feature: 'Brilliant' }]);
+  });
+
+  it('fires a grant once even when one level takes the same subclass card twice', () => {
+    // Reachable: at level 8 the upgraded-subclass advancement is on offer in
+    // tier 3 and again in tier 4, each with its own slot, and both read the
+    // same subclass. Accomplished grants one card, not one per box.
+    expect(
+      levelUpCardGrants(
+        [at('school-of-knowledge', 'specialization'), at('school-of-knowledge', 'specialization')],
+        dataset,
+      ).map((g) => g?.feature ?? null),
+    ).toEqual(['Accomplished', null]);
+  });
+
+  it('still grants both when one level takes the specialization and the mastery', () => {
+    // The control on the line above: two different features, two cards.
+    expect(
+      levelUpCardGrants(
+        [at('school-of-knowledge', 'specialization'), at('school-of-knowledge', 'mastery')],
+        dataset,
+      ).map((g) => g?.feature ?? null),
+    ).toEqual(['Accomplished', 'Brilliant']);
+  });
+
+  it('ignores a subclass ref this dataset does not offer', () => {
+    const trimmed = { subclasses: dataset.subclasses.filter((s) => s.id !== 'school-of-knowledge') };
+    expect(levelUpCardGrants([at('school-of-knowledge', 'mastery')], trimmed)).toEqual([null]);
+  });
+
+  it('carries the feature text in whatever words this dataset uses, for the screen', () => {
+    const grant = levelUpCardGrants([at('school-of-knowledge', 'specialization')], dataset)[0]!;
+    expect(grantFeature(grant, dataset)?.text).toBe(
+      'Take an additional domain card of your level or lower from a domain you have access to.',
+    );
+  });
+
+  it('still grants the card when a layer has reworded the feature', () => {
+    // The runtime keys on the subclass and the tier, never on the wording -
+    // that is the whole reason the table exists. A renamed feature loses the
+    // sentence the screen quotes and keeps the card.
+    const reworded = {
+      subclasses: dataset.subclasses.map((s) =>
+        s.id === 'school-of-knowledge'
+          ? { ...s, specializationFeatures: s.specializationFeatures.map((f) => ({ ...f, name: 'Studied' })) }
+          : s,
+      ),
+    };
+    const grant = levelUpCardGrants([at('school-of-knowledge', 'specialization')], reworded)[0];
+    expect(grant?.feature).toBe('Accomplished');
+    expect(grantFeature(grant!, reworded)).toBeNull();
   });
 });
 
@@ -227,6 +399,21 @@ describe('the wizard', () => {
   it.each(OLD_SITES)('no longer hardcodes two at %s', (_where, fragment) => {
     const offenders = buildSources.filter((s) => s.source.includes(fragment)).map((s) => s.file);
     expect(offenders).toEqual([]);
+  });
+
+  it('reads the grant table from the level-up path as well as the creation path', () => {
+    // The half a guard that only watched creation could not see. The table has
+    // held Accomplished and Brilliant since the day it was written and the
+    // level-up screen never asked it anything, so every test above was green
+    // while a School of Knowledge wizard was handed nothing at level 5.
+    const askers = buildSources
+      .filter((s) => s.source.includes('levelUpCardGrants('))
+      .map((s) => s.file);
+    expect(
+      askers.length,
+      'nothing under src/ui/build asks what extra card an advancement just earned, ' +
+        'so the specialization and mastery entries in DOMAIN_CARD_GRANTS are decoration.',
+    ).toBeGreaterThan(0);
   });
 
   it('keeps the number in one module instead of declaring a second one', () => {
