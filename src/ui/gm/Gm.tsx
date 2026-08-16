@@ -249,15 +249,30 @@ export function Gm(): React.JSX.Element {
  */
 function NotSaved({ message, phone }: { message: string; phone: boolean }): React.JSX.Element {
   const [retrying, setRetrying] = useState(false);
+  /*
+   * Whether this strip is still on the page when the retry settles.
+   *
+   * A retry that works clears `writeError`, which unmounts this component -
+   * before `flushGm()` resolves, because the store's `setState` runs inside the
+   * write's own success path. So the flag has to outlive the callback that
+   * reads it and has to be *cleared by the unmount*, which is what makes it a
+   * ref with an effect rather than a local: the first draft declared
+   * `let alive = true` inside `retry`, where nothing could ever set it false,
+   * and the comment beside it described a guard the code did not have.
+   * `SaveSheet` does the same thing correctly for the same reason.
+   */
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const retry = useCallback(() => {
     setRetrying(true);
-    // `alive` because a successful retry clears `writeError`, which unmounts
-    // this component before the promise resolves.
-    let alive = true;
     void flushGm().finally(() => {
-      if (alive) setRetrying(false);
-      alive = false;
+      if (alive.current) setRetrying(false);
     });
   }, []);
 
