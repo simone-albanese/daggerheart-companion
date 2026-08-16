@@ -13,6 +13,7 @@ import {
   TRAIT_LABELS,
   type Character,
   type DomainCard,
+  type Ref,
   type Trait,
   type Weapon,
 } from '../../../shared/types.ts';
@@ -20,6 +21,7 @@ import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine
 import { formatGold } from '../../engine/gold.ts';
 import {
   canAddToLoadout,
+  missingCardRefs,
   recallCard,
   resolveCards,
   vaultCard,
@@ -88,15 +90,110 @@ interface ViewProps {
   armWeapon: (weapon: Weapon | null) => void;
 }
 
-function useLoadout(): { loadout: DomainCard[]; vault: DomainCard[] } {
+interface Held {
+  loadout: DomainCard[];
+  vault: DomainCard[];
+  /** Loadout refs this build cannot name. They still fill a slot. */
+  ghostLoadout: Ref[];
+  ghostVault: Ref[];
+}
+
+/**
+ * What the character is holding, including what this build cannot read.
+ *
+ * P1-6. `resolveCards` is a `.filter()`, so an unresolvable ref - a card from a
+ * newer bundle, a homebrew layer that is not on this device - simply
+ * disappeared from every display path, while `canAddToLoadout` went on gating
+ * against the raw array. A character holding five cards of which two were
+ * unreadable rendered "3 / 5 ACTIVE", offered "2 SLOTS FREE", and then refused
+ * every recall with "Loadout is full (5)". The screen contradicted itself, and
+ * the player could not move the two ghosts out of the way because nothing drew
+ * them.
+ *
+ * `missingCardRefs` has existed the whole time, documented "Shown, never
+ * dropped", with five tests and no caller. This is the caller.
+ */
+function useLoadout(): Held {
   const character = useActive();
   const index = useApp((s) => s.index);
-  return useMemo(
-    () => ({
-      loadout: character ? resolveCards(character.loadout, index) : [],
-      vault: character ? resolveCards(character.vault, index) : [],
-    }),
-    [character, index],
+  return useMemo(() => {
+    if (!character) return { loadout: [], vault: [], ghostLoadout: [], ghostVault: [] };
+    const missing = new Set(missingCardRefs(character, index));
+    return {
+      loadout: resolveCards(character.loadout, index),
+      vault: resolveCards(character.vault, index),
+      ghostLoadout: character.loadout.filter((r) => missing.has(r)),
+      ghostVault: character.vault.filter((r) => missing.has(r)),
+    };
+  }, [character, index]);
+}
+
+/**
+ * A card this build cannot read, drawn rather than dropped.
+ *
+ * It names the ref, because that is the only thing anybody has to go on: it is
+ * what a newer build, or the device the sheet came from, would resolve. It
+ * counts against the five, because the gate counts it and a readout that
+ * disagrees with the gate is worse than either number on its own. And it can
+ * be moved to the vault by hand, because otherwise a sheet carrying two of
+ * these can never recall anything again.
+ *
+ * It is never dropped automatically. A ref this build does not know today is
+ * very often a ref it will know after the next update, and deleting somebody's
+ * card because this bundle is behind is the worst version of the failure this
+ * whole item is about.
+ */
+function GhostRow({ refId, onVault }: { refId: Ref; onVault?: () => void }): React.JSX.Element {
+  return (
+    <div className="row" style={{ flex: 'none', gap: 6 }}>
+      <div
+        className="stack"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 52,
+          justifyContent: 'center',
+          gap: 3,
+          borderRadius: 'var(--r3)',
+          background: 'var(--app)',
+          border: '1px dashed var(--edge)',
+          padding: '6px 11px',
+        }}
+      >
+        <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.08em' }}>
+          CARD NOT IN THIS BUILD
+        </span>
+        <span
+          className="t-meta"
+          style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}
+        >
+          {refId}
+        </span>
+      </div>
+      {onVault !== undefined && (
+        <button
+          type="button"
+          onClick={onVault}
+          aria-label={`Move the unreadable card ${refId} to the vault, freeing its slot`}
+          className="stack"
+          style={{
+            flex: 'none',
+            minWidth: 72,
+            minHeight: 52,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--r3)',
+            background: 'var(--raised)',
+            border: '1px solid var(--line)',
+            padding: '0 8px',
+          }}
+        >
+          <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
+            TO VAULT
+          </span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -756,7 +853,7 @@ function useRecall(): (card: DomainCard) => void {
  */
 function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.Element | null {
   const character = useActive();
-  const { vault } = useLoadout();
+  const { vault, ghostVault } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const recall = useRecall();
@@ -824,7 +921,12 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
             </div>
           );
         })}
-        {vault.length === 0 && (
+        {/* A vault ghost has nowhere to be moved to, so it is a readout: it is
+            here so the count above the fold and the rows under it agree. */}
+        {ghostVault.map((refId) => (
+          <GhostRow key={refId} refId={refId} />
+        ))}
+        {vault.length === 0 && ghostVault.length === 0 && (
           <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
             The vault is empty. Cards you own but are not carrying live here.
           </div>
@@ -838,13 +940,43 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
       <div className="spread" style={{ flex: 'none' }}>
         <span className="t-label">Vault</span>
         <span className="t-meta" style={{ color: 'var(--muted)' }}>
-          {vault.length} INACTIVE · SWAP COSTS RECALL IN STRESS
+          {vault.length + ghostVault.length} INACTIVE · SWAP COSTS RECALL IN STRESS
         </span>
       </div>
       <div
         className="row"
         style={{ gap: 8, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 2 }}
       >
+        {ghostVault.map((refId) => (
+          <span
+            key={refId}
+            className="row"
+            style={{
+              flex: 'none',
+              minHeight: 44,
+              maxWidth: 190,
+              borderRadius: 'var(--r3)',
+              border: '1px dashed var(--edge)',
+              gap: 8,
+              padding: '0 10px',
+            }}
+          >
+            <span className="t-meta" style={{ color: 'var(--damage)' }}>
+              NOT IN BUILD
+            </span>
+            <span
+              className="t-meta"
+              style={{
+                color: 'var(--dim)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {refId}
+            </span>
+          </span>
+        ))}
         {vault.map((card) => {
           const check = canAddToLoadout(character, card);
           const needsHp = check.allowed && !check.affordable;
@@ -923,7 +1055,7 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
             </button>
           );
         })}
-        {vault.length === 0 && (
+        {vault.length === 0 && ghostVault.length === 0 && (
           <span className="t-dense" style={{ color: 'var(--dim)' }}>
             The vault is empty.
           </span>
@@ -1057,9 +1189,10 @@ function LoadoutRows({
   /** Divide the container between the rows, for the fixed-height desktop box. */
   fill?: boolean;
 }): React.JSX.Element {
-  const { loadout } = useLoadout();
+  const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
+  const update = useApp((s) => s.update);
 
   return (
     <>
@@ -1108,7 +1241,14 @@ function LoadoutRows({
           </span>
         </button>
       ))}
-      {loadout.length === 0 && (
+      {ghostLoadout.map((refId) => (
+        <GhostRow
+          key={refId}
+          refId={refId}
+          onVault={() => update((c) => vaultCard(c, refId))}
+        />
+      ))}
+      {loadout.length === 0 && ghostLoadout.length === 0 && (
         <div className="panel t-dense" style={{ padding: 14, color: 'var(--dim)' }}>
           No cards in the loadout yet. Add some in Cards.
         </div>
@@ -1126,10 +1266,12 @@ function PlayDesktop({
   columns,
 }: ViewProps & { columns: 2 | 3 }): React.JSX.Element {
   const character = useActive();
-  const { loadout } = useLoadout();
+  const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const update = useApp((s) => s.update);
+  // The number the gate uses, not the number that happened to resolve.
+  const held = loadout.length + ghostLoadout.length;
 
   return (
     <div
@@ -1168,7 +1310,7 @@ function PlayDesktop({
         <div className="spread" style={{ flex: 'none' }}>
           <span className="t-label">Loadout</span>
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {loadout.length} / 5 ACTIVE
+            {held} / 5 ACTIVE
           </span>
         </div>
         {/* The grid owns the height, and the cards fill their cell. Fixing a
@@ -1218,7 +1360,44 @@ function PlayDesktop({
               }
             />
           ))}
-          {loadout.length < 5 && (
+          {/* A slot filled by a card this build cannot read. It gets a cell
+              rather than nothing, because the gate is already counting it. */}
+          {ghostLoadout.map((refId) => (
+            <div
+              key={refId}
+              className="stack"
+              style={{
+                minHeight: 0,
+                justifyContent: 'center',
+                gap: 8,
+                borderRadius: 'var(--r4)',
+                border: '1px dashed var(--edge)',
+                padding: 12,
+              }}
+            >
+              <span className="t-meta" style={{ color: 'var(--damage)' }}>
+                CARD NOT IN THIS BUILD
+              </span>
+              <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+                {refId}
+              </span>
+              <button
+                type="button"
+                className="t-meta"
+                onClick={() => update((c) => vaultCard(c, refId))}
+                aria-label={`Move the unreadable card ${refId} to the vault, freeing its slot`}
+                style={{
+                  minHeight: 'var(--control)',
+                  letterSpacing: '0.1em',
+                  color: 'var(--text)',
+                  textAlign: 'left',
+                }}
+              >
+                TO VAULT
+              </button>
+            </div>
+          ))}
+          {held < 5 && (
             <div
               className="stack"
               style={{
@@ -1238,7 +1417,7 @@ function PlayDesktop({
                 className="t-meta"
                 style={{ color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}
               >
-                {5 - loadout.length} SLOT{5 - loadout.length === 1 ? '' : 'S'} FREE
+                {5 - held} SLOT{5 - held === 1 ? '' : 'S'} FREE
                 <br />
                 RECALL FROM THE VAULT
               </span>
@@ -1294,7 +1473,7 @@ function PlayPhone({
   armWeapon,
 }: ViewProps): React.JSX.Element {
   const character = useActive();
-  const { loadout, vault } = useLoadout();
+  const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
   const index = useApp((s) => s.index);
   if (!character) return <div />;
 
@@ -1364,7 +1543,10 @@ function PlayPhone({
           id="loadout"
           characterId={character.id}
           label="Loadout"
-          summary={`${loadout.length} / 5`}
+          // The gate counts every ref, readable or not, so this does too: a
+          // header saying 3 / 5 over a recall that refuses with "Loadout is
+          // full (5)" is the screen contradicting itself.
+          summary={`${loadout.length + ghostLoadout.length} / 5`}
           defaultOpen
         >
           <div className="stack" style={{ flex: 'none', gap: 4 }}>
@@ -1385,7 +1567,7 @@ function PlayPhone({
           id="vault"
           characterId={character.id}
           label="Vault"
-          summary={`${vault.length} INACTIVE`}
+          summary={`${vault.length + ghostVault.length} INACTIVE`}
         >
           <Vault layout="rows" />
         </Disclosure>

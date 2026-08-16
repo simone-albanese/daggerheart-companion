@@ -477,6 +477,88 @@ describe('a recall that would be paid in Hit Points', () => {
   });
 });
 
+/**
+ * P1-6, at the surface.
+ *
+ * `resolveCards` is a `.filter()`, so a ref this build cannot name vanished
+ * from every display path while `canAddToLoadout` went on gating against the
+ * raw array. Five held, two unreadable: the screen said "3 / 5", offered "2
+ * SLOTS FREE", and refused every recall with "Loadout is full (5)". Three
+ * numbers, one sheet, no two of them agreeing - and no way to move the ghosts,
+ * because nothing drew them.
+ */
+describe('a card this build cannot read', () => {
+  /** Five held, two of them refs from a bundle this device has not got. */
+  function withGhosts(): Character {
+    const base = playedCharacter();
+    return seed({
+      loadout: [...base.loadout, 'card-from-a-newer-bundle', 'card-from-a-homebrew-layer'],
+    });
+  }
+
+  it('is counted the way the gate counts it', () => {
+    play(withGhosts());
+    expect(fold('Loadout').textContent, 'the header disagrees with the recall gate').toContain(
+      '5 / 5',
+    );
+  });
+
+  it('is drawn, and names the ref so somebody can act on it', () => {
+    play(withGhosts());
+    const body = text();
+    expect(body).toContain('CARD NOT IN THIS BUILD');
+    expect(body).toContain('card-from-a-newer-bundle');
+    expect(body).toContain('card-from-a-homebrew-layer');
+  });
+
+  it('can be moved to the vault by hand, which frees the slot', () => {
+    const c = withGhosts();
+    play(c);
+    const move = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(
+        'Move the unreadable card card-from-a-newer-bundle',
+      ),
+    );
+    expect(move, 'there is no way to move the ghost out of the loadout').toBeDefined();
+    click(move!);
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout).not.toContain('card-from-a-newer-bundle');
+    expect(after.vault, 'the ref was deleted rather than vaulted').toContain(
+      'card-from-a-newer-bundle',
+    );
+    expect(fold('Loadout').textContent).toContain('4 / 5');
+  });
+
+  it('is never dropped on its own', () => {
+    const c = withGhosts();
+    play(c);
+    // Rendering the screen must not tidy anything away: a ref this bundle does
+    // not know today is very often one it will know after the next update.
+    expect(useApp.getState().characters[0]!.loadout).toEqual(c.loadout);
+  });
+
+  it('stops the desktop gallery offering slots the gate will refuse', () => {
+    setViewport(1280);
+    play(withGhosts());
+    const body = text();
+    expect(body).toContain('5 / 5 ACTIVE');
+    expect(body, 'the gallery still offers a slot the recall gate will refuse').not.toContain(
+      'SLOTS FREE',
+    );
+    expect(body).toContain('CARD NOT IN THIS BUILD');
+  });
+
+  it('shows in the vault too, so that count agrees as well', () => {
+    const base = playedCharacter();
+    seed({ vault: [...base.vault, 'card-from-a-newer-bundle'] });
+    play(useApp.getState().characters[0]!);
+    expect(fold('Vault').textContent).toContain('4 INACTIVE');
+    click(fold('Vault'));
+    expect(text()).toContain('card-from-a-newer-bundle');
+  });
+});
+
 describe('the tendina', () => {
   it('says what is inside a section it has folded away', () => {
     const c = seed();
