@@ -232,6 +232,100 @@ describe('press and hold', () => {
   });
 });
 
+/**
+ * A track whose maximum is not a maximum.
+ *
+ * One point of `max` is one `<button>`. The codec refuses a payload declaring
+ * `hp.max = 2^20` and the store clamps one on the way in, and neither of them
+ * can reach a record that was already in IndexedDB before they existed -
+ * nothing re-imports what is already on the disk. So the component has to be
+ * the thing that cannot be made to hang, and it has to say what it did:
+ * drawing forty of a million in silence is the sheet reporting a number that
+ * is not the one it holds.
+ *
+ * The interaction half is the part worth testing hardest. Forty live pips over
+ * a value of 1048576 is *worse* than the hang, because a tap on the last one
+ * calls `onChange(40)` and the sheet then reports 40 as the player's own
+ * reading - an ordinary gesture on a control that looks like every other track
+ * in the app, silently throwing the number away.
+ */
+describe('a track too big to draw', () => {
+  const ENORMOUS = 1_048_576;
+  /** The cap in `Track.tsx`: ten columns on the narrowest phone, four rows. */
+  const CAP = 40;
+
+  const huge = (onChange = vi.fn()): ReturnType<typeof vi.fn> => {
+    render(
+      createElement(Track, {
+        kind: 'hp',
+        label: 'HP',
+        value: 3,
+        max: ENORMOUS,
+        onChange,
+      }),
+    );
+    return onChange;
+  };
+
+  it('draws forty pips rather than one per point', () => {
+    huge();
+    expect(pipRow().querySelectorAll('button')).toHaveLength(CAP);
+  });
+
+  it('says on screen that it drew fewer, and names the number it was given', () => {
+    huge();
+    const text = container.textContent ?? '';
+    expect(text).toContain(String(ENORMOUS));
+    expect(text).toContain(String(CAP));
+    expect(text).toMatch(/nothing has been changed/i);
+  });
+
+  it('does not answer a tap, so no gesture can write 40 over a million', () => {
+    const onChange = huge();
+    pip(CAP - 1).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    pip(0).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not answer a press and hold either, which would clear it to nothing', () => {
+    const onChange = huge();
+    pressAndHold(pip(2));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('tells a screen reader the same thing it tells everyone else', () => {
+    huge();
+    const label = pipRow().getAttribute('aria-label') ?? '';
+    expect(label).toContain(String(ENORMOUS));
+    expect(label).toMatch(/too many to draw/i);
+    expect(pip(0).getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('is an ordinary track at the cap itself, sentence and all left off', () => {
+    // The bound has to bite above the cap and not at it, or every assertion
+    // above would pass on a component that had simply stopped working.
+    const onChange = vi.fn();
+    render(
+      createElement(Track, { kind: 'hp', label: 'HP', value: 3, max: CAP, onChange }),
+    );
+
+    expect(pipRow().querySelectorAll('button')).toHaveLength(CAP);
+    expect(container.textContent ?? '').not.toMatch(/more than can be drawn/i);
+    pip(9).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onChange).toHaveBeenCalledWith(10);
+  });
+
+  it('leaves a real character’s twelve-box track completely alone', () => {
+    const onChange = vi.fn();
+    render(createElement(Track, { kind: 'hp', label: 'HP', value: 5, max: 12, onChange }));
+
+    expect(pipRow().querySelectorAll('button')).toHaveLength(12);
+    expect(pipRow().getAttribute('aria-label')).toBe('HP: 5 of 12');
+    pressAndHold(pip(3));
+    expect(onChange).toHaveBeenCalledWith(0);
+  });
+});
+
 describe('proposed pips', () => {
   /**
    * Hope armed for a roll that has not happened.

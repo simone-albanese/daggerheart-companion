@@ -241,6 +241,101 @@ describe('the store, against a real database', () => {
     expect(report.imported[0]!.armorSlots).toEqual({ marked: 2, max: 6 });
   });
 
+  /**
+   * The clamp that runs on both branches, and why it is not the one above.
+   *
+   * `syncCounters` is skipped when a ref will not resolve, because the maximum
+   * it would clamp against is a fallback - six Hit Points for a class this
+   * build cannot name - and clamping a real seven against a guess destroys it.
+   * The rules' own ceilings are not a guess and cannot become one: twelve is
+   * the top of the advancement table, so no update and no layer can ever make
+   * the number thrown away here turn out to have been right.
+   *
+   * It matters most on exactly the branch P0-7 leaves alone. A `.dhchar` naming
+   * a class from a book this build has never seen is the *normal* way to get an
+   * unclamped sheet into the store, so before this the shortest path to a
+   * million-pip track was also the most ordinary one.
+   */
+  it('holds a maximum inside the rules ceiling even when it cannot resolve the class', async () => {
+    const arriving = {
+      ...makeCharacter({ name: 'From the future', classRef: '?60007' }),
+      hp: { marked: 3, max: 1_048_576 },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.hp).toEqual({ marked: 3, max: 12 });
+  });
+
+  it('still keeps a number between the fallback and the ceiling, which is the P0-7 rule', async () => {
+    // 11 is above the six `deriveStats` would fall back to and below the twelve
+    // the rules allow. Surviving is the whole point: the class may well resolve
+    // after the next update, and then this really is an eleven-box track.
+    const arriving = {
+      ...makeCharacter({ name: 'From the future', classRef: '?60007' }),
+      hp: { marked: 9, max: 11 },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.hp).toEqual({ marked: 9, max: 11 });
+  });
+
+  it('bounds Hope at six, which is a different ceiling from HP’s twelve', async () => {
+    const arriving = {
+      ...makeCharacter({ name: 'Hopeful', classRef: '?60007' }),
+      hope: { marked: 900, max: 900 },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.hope).toEqual({ marked: 6, max: 6 });
+  });
+
+  it('bounds the companion’s Stress, which syncCounters has never touched', async () => {
+    // The one track that reached the screen unclamped even on the happy path:
+    // the class resolves, the armour resolves, `syncCounters` runs - and it
+    // writes four keys, none of them the companion's.
+    const arriving = {
+      ...makeCharacter({ name: 'Beastbound' }),
+      companion: {
+        name: 'Ash',
+        description: 'A one-eyed raven',
+        evasion: 12,
+        stress: { marked: 0, max: 1_048_576 },
+        damage: 'd6',
+        range: 'Melee' as const,
+        experiences: [],
+        upgrades: [],
+      },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.companion?.stress).toEqual({ marked: 0, max: 12 });
+    // And nothing else about the companion was rewritten on the way past.
+    expect(report.imported[0]!.companion?.name).toBe('Ash');
+  });
+
+  it('leaves no more marked than there are boxes to mark', async () => {
+    const arriving = {
+      ...makeCharacter({ name: 'Overmarked', classRef: '?60007' }),
+      stress: { marked: 40, max: 6 },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.stress).toEqual({ marked: 6, max: 6 });
+  });
+
+  it('reads a maximum that is not a number as none rather than as the ceiling', async () => {
+    // JSON.parse produces no NaN, but a hand-edited file and a half-written
+    // backup both can, and `Math.min(12, NaN)` is NaN - which renders as an
+    // empty track that silently refuses every tap.
+    const arriving = {
+      ...makeCharacter({ name: 'Damaged', classRef: '?60007' }),
+      armorSlots: { marked: Number.NaN, max: Number.POSITIVE_INFINITY },
+    };
+
+    const report = await store.useApp.getState().importCharacters([arriving]);
+    expect(report.imported[0]!.armorSlots).toEqual({ marked: 0, max: 0 });
+  });
+
   it('carries the file layer’s warnings through to the caller', async () => {
     const report = await store
       .useApp.getState()

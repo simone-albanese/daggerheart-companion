@@ -30,6 +30,40 @@ export const BASE_HOPE = 6;
 export const MAX_LEVEL = 10;
 
 /**
+ * The most a counter's maximum may ever be, one entry per track.
+ *
+ * A different question from `deriveStats`, and the difference is the whole
+ * reason this exists separately. A derived maximum is what *this* build, with
+ * *this* dataset, works out for one sheet: it can be a fallback when a ref will
+ * not resolve, and a later update can raise it - which is exactly why
+ * `normalizeIncoming` refuses to clamp against one. These are the rules'
+ * ceilings instead. Hit Points and Stress are capped at twelve by the
+ * advancement tables above, Armor Score by the same cap in `deriveStats`, and
+ * Hope at six before scars start crossing slots out. No layer, no homebrew and
+ * no class from a future book makes a thirteenth Hit Point box legal, so a
+ * maximum above one of these did not come from a device with content this build
+ * has not met - it is not a number at all. That is what lets the codec refuse
+ * one and the store clamp one without either of them destroying a real reading.
+ *
+ * The companion's Stress track takes the character's ceiling because it is a
+ * Stress track and the engine has exactly one; the arithmetic agrees anyway -
+ * three slots on the folio 18 sheet plus one Resilient per level-up from 2 to
+ * 10 is twelve.
+ *
+ * These are ceilings and never answers. Nothing here should be shown to a
+ * player as their maximum; `deriveStats` is the only thing that knows that.
+ */
+export const COUNTER_CEILINGS = {
+  hp: MAX_HP,
+  stress: MAX_STRESS,
+  hope: BASE_HOPE,
+  armorSlots: MAX_ARMOR_SCORE,
+  companionStress: MAX_STRESS,
+} as const;
+
+export type CounterName = keyof typeof COUNTER_CEILINGS;
+
+/**
  * The Hit Points to start a track with when no class can be read.
  *
  * Measured against `data/srd-1.0.json` rather than taken on trust: bard 5,

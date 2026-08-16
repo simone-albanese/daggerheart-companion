@@ -7,8 +7,9 @@
  * instant, and a lost 400ms of typing is not worth a synchronous write.
  */
 import { create } from 'zustand';
-import type { Character, Dataset, DomainCard, Layer } from '../../shared/types.ts';
+import type { Character, Counter, Dataset, DomainCard, Layer } from '../../shared/types.ts';
 import {
+  COUNTER_CEILINGS,
   deriveStats,
   indexDataset,
   newCharacter,
@@ -593,13 +594,71 @@ export const useStats = (): DerivedStats | null => {
  * missing class, and no armour slots at all for a missing armour - and
  * clamping against a fallback would throw away the numbers the sheet arrived
  * with. A ref this build cannot name today may well resolve after the next
- * update, so the record is left exactly as it came instead.
+ * update, so the record keeps the maxima it came with instead.
+ *
+ * Keeps them, and not whatever they say: `boundCounters` runs first and runs on
+ * both branches. Its ceilings are the rules', which no dataset can move, so it
+ * is not the clamp the paragraph above refuses to do - see its own note.
  */
 function normalizeIncoming(c: Character, dataset: Dataset, index: DatasetIndex): Character {
-  const classKnown = index.classes.has(c.classRef);
-  const armorKnown = c.activeArmor === null || index.armors.has(c.activeArmor);
-  if (!classKnown || !armorKnown) return c;
-  return syncCounters(c, deriveStats(c, dataset, index));
+  const bounded = boundCounters(c);
+  const classKnown = index.classes.has(bounded.classRef);
+  const armorKnown = bounded.activeArmor === null || index.armors.has(bounded.activeArmor);
+  if (!classKnown || !armorKnown) return bounded;
+  return syncCounters(bounded, deriveStats(bounded, dataset, index));
+}
+
+/** A whole number in `[0, ceiling]`. A NaN or an Infinity is zero, not the top. */
+const inRange = (n: number, ceiling: number): number =>
+  Number.isFinite(n) ? Math.min(ceiling, Math.max(0, Math.trunc(n))) : 0;
+
+const bound = (counter: Counter, ceiling: number): Counter => {
+  const max = inRange(counter.max, ceiling);
+  return { marked: Math.min(inRange(counter.marked, ceiling), max), max };
+};
+
+/**
+ * Hold an arriving character's counters inside the ceilings the rules set.
+ *
+ * This runs on *every* import, including the one `normalizeIncoming` above
+ * deliberately hands back untouched, and the two are doing different jobs
+ * rather than the same job twice. `syncCounters` reconciles a sheet against the
+ * maxima *this build derives for it*, which is why it is skipped when a ref
+ * will not resolve: a fallback of six Hit Points is a guess, and clamping a
+ * real seven against a guess destroys it. `COUNTER_CEILINGS` is not a guess and
+ * cannot become one - twelve Hit Points is the top of the advancement table,
+ * not the top of what this device happens to know about, so no update and no
+ * layer can ever make the number this throws away turn out to have been right.
+ * The P0-7 rule is "do not clamp against a fallback", and this clamps against
+ * nothing of the kind.
+ *
+ * Worth being concrete about what it is for, because "a hostile payload" is
+ * easy to wave away in an app with no server. `hp.max` is not a display detail:
+ * `Track.tsx` draws one DOM node per point of it. A sheet declaring 2^20 is a
+ * tab that stops responding on the Play screen, on a device whose only copy of
+ * those characters is in that tab's IndexedDB - and the sheet reaches the store
+ * from a file as well as from a QR, so bounding the codec alone would leave the
+ * `.dhchar` and `.dhbackup` paths, which never touch it, wide open.
+ *
+ * The companion's Stress is here for a reason of its own: `syncCounters` has
+ * never touched it, so on the happy path - class resolved, armour resolved -
+ * it was the one track that reached the screen with whatever number arrived.
+ */
+function boundCounters(c: Character): Character {
+  const next: Character = {
+    ...c,
+    hp: bound(c.hp, COUNTER_CEILINGS.hp),
+    stress: bound(c.stress, COUNTER_CEILINGS.stress),
+    hope: bound(c.hope, COUNTER_CEILINGS.hope),
+    armorSlots: bound(c.armorSlots, COUNTER_CEILINGS.armorSlots),
+  };
+  if (c.companion !== null) {
+    next.companion = {
+      ...c.companion,
+      stress: bound(c.companion.stress, COUNTER_CEILINGS.companionStress),
+    };
+  }
+  return next;
 }
 
 /** Re-clamp the counters after a change to a maximum, then persist. */

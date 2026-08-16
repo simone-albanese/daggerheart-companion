@@ -18,6 +18,10 @@
  * worse than the field: the click still fired afterwards, so a slow press on
  * "SEVERE - 3 HP" left 3 marked instead of 8, which reads as a real number
  * rather than as an obvious wipe.
+ *
+ * One pip is one `<button>`, so `max` is a DOM budget as well as a number.
+ * `MAX_PIPS` below is where that budget stops, and a track over it is drawn
+ * short, said out loud and made inert rather than quietly truncated.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -49,6 +53,33 @@ const SHAPES: Record<TrackKind, Shape> = {
 };
 
 const HOLD_MS = 480;
+
+/**
+ * The most pips this component will draw, whatever it is asked for.
+ *
+ * A number, not a guard against a specific attack: `max` arrives from a stored
+ * character, and one point of it is one `<button>`, so `hp.max = 2^20` is a
+ * million DOM nodes and a tab that never comes back - on a device whose only
+ * copy of those characters is inside it. The codec and the store both refuse
+ * such a sheet now, and this is still worth having, because neither of them can
+ * reach a record that was already in IndexedDB before they existed: nothing
+ * re-imports what is already on the disk. A component that cannot be made to
+ * hang is the only guarantee that survives its own callers.
+ *
+ * Forty, from the geometry rather than from taste. `--pip-min` is 24px and
+ * `--pip-gap` is 5px, so a column costs 29px; the narrowest phone this has to
+ * draw on is 320 CSS px and the frame spends 12 each side, so a full-bleed row
+ * is 296px and fits ten columns - twelve on a 393px phone, which is why a full
+ * HP track is one line there and two on the small one. A wrapped row then costs
+ * `--pip-h` plus the gap, 44 + 5, wherever a finger can reach the glass. Four
+ * rows is 4x44 + 3x5 = 191px: a third of a 568px viewport, spent on one track,
+ * on a screen that already scrolls. Past four rows a track has stopped being a
+ * shape the eye takes in and become a grid you count. Ten columns by four rows
+ * is forty, which is 3.3x the largest track the rules can produce and 3.3x the
+ * largest in the shipped dataset - a 12 HP adversary - so nothing legitimate
+ * comes near it.
+ */
+const MAX_PIPS = 40;
 
 interface Props {
   kind: TrackKind;
@@ -147,7 +178,23 @@ export function Track({
     }, HOLD_MS);
   }, [clearTo, onChange]);
 
-  const pips = Array.from({ length: max }, (_, i) => i);
+  /*
+   * Over the ceiling the row is drawn and inert, and it says so.
+   *
+   * Drawing forty of a million and leaving them live would be worse than the
+   * hang it replaces. `onChange(i + 1)` on the fortieth pip writes 40 over a
+   * value of 1048576, and the press-and-hold on the row writes `clearTo` over
+   * it - so an ordinary tap, on a control that looks like every other track in
+   * the app, would silently throw the number away and the sheet would then
+   * report the result as the player's own. The pips stay visible because the
+   * state is still worth reading; they stop answering because there is no
+   * gesture here whose effect could be described honestly.
+   *
+   * This is the same distinction the component already draws for `pending`: a
+   * shape that is a readout and never a control.
+   */
+  const overflowing = max > MAX_PIPS;
+  const pips = Array.from({ length: Math.min(max, MAX_PIPS) }, (_, i) => i);
   const markHeight = compact ? Math.round(shape.markHeight * 0.72) : shape.markHeight;
 
   const gutter = headerLayout === 'gutter';
@@ -155,11 +202,15 @@ export function Track({
   const pipRow = (
     <div
       role="group"
-      aria-label={`${label}: ${value} of ${max}`}
-      onPointerDown={startHold}
-      onPointerUp={cancelHold}
-      onPointerLeave={cancelHold}
-      onPointerCancel={cancelHold}
+      aria-label={
+        overflowing
+          ? `${label}: ${value} of ${max}, too many to draw - showing the first ${MAX_PIPS}, and this track cannot be marked here`
+          : `${label}: ${value} of ${max}`
+      }
+      onPointerDown={overflowing ? undefined : startHold}
+      onPointerUp={overflowing ? undefined : cancelHold}
+      onPointerLeave={overflowing ? undefined : cancelHold}
+      onPointerCancel={overflowing ? undefined : cancelHold}
       style={{
         flex: 1,
         minWidth: 0,
@@ -227,7 +278,7 @@ export function Track({
                 type="button"
                 aria-label={`${label} ${i + 1}${proposed ? ', armed for this roll' : ''}`}
                 aria-pressed={on}
-                aria-disabled={proposed || undefined}
+                aria-disabled={proposed || overflowing || undefined}
                 onClick={() => {
                   // Tapping the last filled pip clears it; tapping any other
                   // fills up to it. One gesture covers both directions.
@@ -235,6 +286,10 @@ export function Track({
                   // A proposed pip is a readout. Giving that Hope back means
                   // disarming the Experience that claimed it.
                   if (proposed) return;
+                  // So is every pip on a track too big to draw: forty of them
+                  // cannot say what a value of a million is, and writing 40
+                  // over it would be this component inventing the answer.
+                  if (overflowing) return;
                   onChange(i + 1 === value ? i : i + 1);
                 }}
                 style={{
@@ -263,6 +318,24 @@ export function Track({
               </button>
             );
           })
+        )}
+        {overflowing && (
+          /*
+           * The sentence, not a shorter track.
+           *
+           * It sits inside the pip row, so it lands where the pips would have
+           * been - the eye and the thumb are already there, and nothing below
+           * it moves by more than this line. It is read rather than touched,
+           * so the 44px floor does not apply to it and it takes `.t-dense`,
+           * 11.5px on 1.38, which is the size every other explanatory line in
+           * the app is. The forty pips above keep their full `--pip-h` height
+           * and `--pip-min` width: nothing on this row is a target below the
+           * floor, because nothing on it is a target at all.
+           */
+          <p className="t-dense" style={{ flexBasis: '100%', margin: 0, color: 'var(--dim)' }}>
+            {`This track says it has ${max} boxes, which is more than can be drawn. ` +
+              `The first ${MAX_PIPS} are shown and cannot be marked here. Nothing has been changed.`}
+          </p>
         )}
     </div>
   );
