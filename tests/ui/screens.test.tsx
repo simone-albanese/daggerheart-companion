@@ -39,6 +39,7 @@ import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Adversary, Environment } from '@shared/types.ts';
+import { cryptoRng } from '../../src/engine/dice.ts';
 import * as db from '../../src/store/db.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
@@ -87,6 +88,7 @@ import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
 import { DualityRoll } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
+import { Rest } from '../../src/ui/player/Rest.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
 import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
 import { buildSheet } from '../../src/ui/print/sheetModel.ts';
@@ -472,6 +474,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <DualityRoll stats={stats()} trait="agility" onTraitChange={noop} layout="desktop" />
   ),
   'player/Play.tsx::Play': () => <Play stats={stats()} />,
+  // The real dice, as `Play.tsx` passes them: this fixture only draws the
+  // closed fold, and a rest that has not been committed never asks for one.
+  'player/Rest.tsx::Rest': () => <Rest stats={stats()} rng={cryptoRng} />,
   'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,
 
   'print/CharacterSheet.tsx::CharacterSheet': () => (

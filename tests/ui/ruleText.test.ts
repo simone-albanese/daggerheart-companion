@@ -11,6 +11,8 @@ import type { Dataset } from '@shared/types.ts';
 import { TRAITS } from '@shared/types.ts';
 import {
   blockNamed,
+  interruptedRestRule,
+  longRestRule,
   paragraphs,
   ruleBlocks,
   ruleBullets,
@@ -104,6 +106,45 @@ describe('traitVerbs', () => {
     // than ours: the app quotes the SRD instead of re-wording it.
     expect(out.agility).toEqual(['Sprint', 'Leap', 'Maneuver']);
     expect(out.knowledge).toEqual(['Recall', 'Analyze', 'Comprehend']);
+  });
+});
+
+describe('the two downtime sentences the rest surface quotes', () => {
+  const rules = (body: string) => [{ id: 'downtime', title: 'Downtime', body }];
+
+  it('takes the sentence and not the paragraph around it', () => {
+    const out = longRestRule(
+      rules(
+        'Between conflicts, the party can take a rest.\n\n' +
+          'When the party rests, they must choose. If a party takes three short rests in a row, their next rest must be a long rest.\n\n' +
+          'A short rest lasts about an hour.',
+      ),
+    );
+    expect(out).toBe(
+      'If a party takes three short rests in a row, their next rest must be a long rest.',
+    );
+  });
+
+  it('answers nothing rather than guessing when the section is gone or reworded', () => {
+    // A rules layer that dropped the section leaves the refusal with the count
+    // alone, which is the only thing the app can honestly say by itself.
+    expect(longRestRule([])).toBeNull();
+    expect(interruptedRestRule([])).toBeNull();
+    expect(longRestRule(rules('Rest as you like, as often as you like.'))).toBeNull();
+  });
+
+  it('finds both of them in the shipped dataset, verbatim', () => {
+    const long = longRestRule(dataset.rules);
+    expect(long, 'the SRD no longer carries the three-short-rests rule').not.toBeNull();
+    expect(section('downtime')).toContain(long!);
+    expect(long).toMatch(/three short rests in a row/);
+
+    const interrupted = interruptedRestRule(dataset.rules);
+    expect(interrupted, 'the SRD no longer carries the interrupted-rest rule').not.toBeNull();
+    expect(section('downtime')).toContain(interrupted!);
+    // The long one, not the short one: they are adjacent sentences in the same
+    // paragraph and the short one comes first.
+    expect(interrupted).toContain('only gain the benefits of a short rest');
   });
 });
 

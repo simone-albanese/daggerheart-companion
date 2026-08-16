@@ -37,10 +37,10 @@ import {
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatGold } from '../../engine/gold.ts';
+import { cryptoRng } from '../../engine/dice.ts';
 import {
   canAddToLoadout,
   missingCardRefs,
-  recallCard,
   resolveCards,
   vaultCard,
   type SwapCheck,
@@ -54,6 +54,8 @@ import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
+import { shortReason, useRecall } from './recall.ts';
+import { Rest } from './Rest.tsx';
 import { traitVerbs } from './ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
@@ -851,34 +853,6 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
 }
 
 /**
- * Recalling a card, wherever the control for it is drawn.
- *
- * One place, because the shelf and the rows must not disagree about what a tap
- * costs, and because the log line is the only record the table has of the
- * Stress that was spent.
- */
-function useRecall(): (card: DomainCard) => void {
-  const character = useActive();
-  const update = useApp((s) => s.update);
-  const pushLog = useApp((s) => s.pushLog);
-  return (card: DomainCard) => {
-    if (!character) return;
-    const check = canAddToLoadout(character, card);
-    if (!check.allowed) return;
-    const out = recallCard(character, card);
-    update(() => out.character);
-    pushLog({
-      kind: 'note',
-      label: `Recalled ${card.name}`,
-      detail:
-        check.stressCost === 0
-          ? 'Free during downtime'
-          : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
-    });
-  };
-}
-
-/**
  * The vault.
  *
  * Two shapes. On a desktop it is a shelf - one scrollable row, because the
@@ -1112,20 +1086,6 @@ function Vault({ layout = 'shelf' }: { layout?: 'shelf' | 'rows' }): React.JSX.E
 }
 
 /**
- * Why a card will not come back, in the space a chip has.
- *
- * `SwapCheck.reason` is a sentence written for a place with room. The shelf
- * chip has about 40px left after the name, so it gets the noun; every surface
- * with a row to spare prints the sentence itself.
- */
-function shortReason(reason: string | null): string {
-  if (reason === null) return '';
-  if (reason.startsWith('Loadout is full')) return 'FULL';
-  if (reason.startsWith('Already')) return 'ACTIVE';
-  return reason.toUpperCase();
-}
-
-/**
  * RECALL, as a control shaped like one.
  *
  * It carries the cost, and when the cost cannot be paid it carries the reason
@@ -1340,6 +1300,12 @@ function PlayDesktop({
         <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
         <Defenses stats={stats} />
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+        {/* Last, and in this column rather than one of the other two, because
+            this column is the one that scrolls: a fold measuring about 990px
+            open costs the cockpit nothing here and would cost it everything
+            anywhere else. `cryptoRng` is passed rather than defaulted so that
+            the one place a rest can roll is visible from this file. */}
+        <Rest stats={stats} rng={cryptoRng} />
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
@@ -1494,11 +1460,20 @@ function PlayDesktop({
  *     touched on every single action, and a control you have to go looking for
  *     is a control that stops being used.
  *
- * Everything else scrolls, and four sections fold. A closed section costs one
+ * Everything else scrolls, and five sections fold. A closed section costs one
  * 44px row, which is what makes "the whole sheet at once" fit at all: the
  * stack measures about 1290px fully open on a 393px phone against a scroll
  * window of 457, and about 900 with the vault, the carried items and the
  * lineage folded away.
+ *
+ * The fifth fold is the rest surface, added after those numbers were taken. It
+ * costs 54px closed - a 44px header plus this column's 10px gap - and nothing
+ * at all from the pinned block, which is still 266px with two Experiences and
+ * 316 with five, so the folded stack goes to about 954 and the scroll window
+ * stays 457. Opened onto a long rest it adds about 1,240 more, taking the
+ * fully open stack to roughly 2,530. The scroll got longer; nothing else
+ * moved, which is the whole reason it is here and not in the block under the
+ * thumb.
  */
 function PlayPhone({
   stats,
@@ -1606,6 +1581,15 @@ function PlayPhone({
         >
           <Vault layout="rows" />
         </Disclosure>
+
+        {/*
+         * A rest is between-scenes work, so it sits below everything the game
+         * makes you touch during a scene - the counters, the weapons, the
+         * cards - and above the two sections read once a session. Directly
+         * under the vault, because the free swap it offers is the vault's own
+         * operation at the other price.
+         */}
+        <Rest stats={stats} rng={cryptoRng} />
 
         <Disclosure
           id="carried"

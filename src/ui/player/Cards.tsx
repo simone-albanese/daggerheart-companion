@@ -11,11 +11,12 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { DOMAINS, type DomainCardType, type DomainId } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
-import { canAddToLoadout, cardAvailability, recallCard, vaultCard } from '../../engine/loadout.ts';
+import { canAddToLoadout, cardAvailability, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import { useRecall } from './recall.ts';
 
 type Owned = 'all' | 'owned' | 'available';
 
@@ -25,7 +26,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const shapes = useApp((s) => s.prefs.shapeCoding);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const update = useApp((s) => s.update);
-  const pushLog = useApp((s) => s.pushLog);
+  const recall = useRecall();
   const phone = useIsPhone();
 
   const [domain, setDomain] = useState<DomainId | 'mine' | 'all'>('mine');
@@ -128,16 +129,17 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
         return;
       }
       setArmed(null);
-      const out = recallCard(character, card);
-      update(() => out.character);
-      pushLog({
-        kind: 'note',
-        label: `Recalled ${card.name}`,
-        detail:
-          check.stressCost === 0
-            ? 'Free during downtime'
-            : `Marked ${out.stressMarked} Stress${out.hpMarked > 0 ? ` and ${out.hpMarked} HP` : ''}`,
-      });
+      /*
+       * Through the same function the vault's own control goes through.
+       *
+       * These lines used to be written out here as well, and the copy had
+       * drifted: it said "Free during downtime" for any recall that cost
+       * nothing, which for the 31 SRD cards whose Recall Cost is 0 meant the
+       * log claiming a downtime in the middle of a scene. Two surfaces
+       * disagreeing about what a tap costs is the thing this file's own header
+       * is about, and the log line is part of the cost.
+       */
+      recall(card);
       return;
     }
     // Acquiring a card the character does not own yet goes to the vault:
