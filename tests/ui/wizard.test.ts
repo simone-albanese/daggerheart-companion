@@ -664,3 +664,30 @@ describe('the two Experiences survive creation', () => {
     );
   });
 });
+
+describe('adding an Experience after creation', () => {
+  /**
+   * The screen a player reaches for when they are putting one back.
+   *
+   * Every Experience the SRD grants arrives at +2 - at creation, and again at
+   * levels 2, 5 and 8. The +1 is a different thing entirely: the advancement
+   * that raises two Experiences you already have. The editor used to default a
+   * newly added one to +1 whenever the bonus was unlocked, which is the Edit
+   * screen, so the two screens disagreed about one rule.
+   */
+  const source = readFileSync('src/ui/build/parts.tsx', 'utf8');
+
+  it('starts a new one at +2, the value the rules grant', () => {
+    const add = /onChange\(\[\.\.\.value, \{ id: crypto\.randomUUID\(\), name: '', bonus: ([^ }]+) \}\]\)/.exec(
+      source,
+    );
+    expect(add, 'the add-an-Experience handler has moved').not.toBeNull();
+    expect(add?.[1]).toBe('2');
+  });
+
+  it('still lets the bonus be changed, for the ones that have been raised', () => {
+    // A character who took the advancement twice has an Experience at +4, and
+    // a table may house-rule anything; the stepper stays.
+    expect(source).toMatch(/min=\{0\}[\s\S]{0,120}max=\{9\}/);
+  });
+});

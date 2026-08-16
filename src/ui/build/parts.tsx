@@ -548,7 +548,18 @@ export function ExperienceEditor({
         className="btn btn-ghost"
         style={{ alignSelf: 'flex-start' }}
         onClick={() =>
-          onChange([...value, { id: crypto.randomUUID(), name: '', bonus: lockBonus ? 2 : 1 }])
+          /*
+           * A new Experience is worth +2, whoever is adding it.
+           *
+           * The SRD grants one at creation and again at levels 2, 5 and 8, and
+           * every one of them arrives at +2; the +1 is the separate advancement
+           * that raises two Experiences you already have. Defaulting to +1 here
+           * made the editor disagree with the wizard about the same rule, and
+           * it is the screen a player reaches for when they are putting an
+           * Experience back - the stepper still moves for house rules and for
+           * the ones that have been raised.
+           */
+          onChange([...value, { id: crypto.randomUUID(), name: '', bonus: 2 }])
         }
       >
         Add an Experience
