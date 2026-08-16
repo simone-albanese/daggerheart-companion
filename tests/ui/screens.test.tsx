@@ -186,6 +186,28 @@ afterEach(() => {
 });
 
 /**
+ * Everything React complained about while a mount was running.
+ *
+ * React reports a duplicate key, a nested `<button>`, an unknown DOM property
+ * and a state update outside `act()` by writing to the console and rendering
+ * anyway. That is exactly the shape of every defect this app has shipped -
+ * nothing throws, the screen just quietly does the wrong thing - so a warning
+ * is treated here as a failure rather than as scrollback.
+ *
+ * It has already earned its place: the first draft of this file built its
+ * Experiences without an `id`, and this is what said so.
+ */
+function captureWarnings(): () => string[] {
+  const seen: string[] = [];
+  const record = (...args: unknown[]): void => {
+    seen.push(args.map((a) => (a instanceof Error ? a.message : String(a))).join(' '));
+  };
+  vi.spyOn(console, 'error').mockImplementation(record);
+  vi.spyOn(console, 'warn').mockImplementation(record);
+  return () => seen;
+}
+
+/**
  * Let everything the effects started finish.
  *
  * `act` flushes React. It does not flush a database read or a dynamic import,
@@ -248,6 +270,7 @@ describe('the shell, on every screen', () => {
   for (const screen of screens) {
     it(`renders ${screen} with a character on it`, async () => {
       await db.putCharacter(playedCharacter());
+      const warnings = captureWarnings();
 
       await act(async () => {
         root.render(createElement(App));
@@ -270,6 +293,7 @@ describe('the shell, on every screen', () => {
       // the container. Measured against the real screens, the smallest of the
       // five is an order of magnitude above this.
       expect(screenText().length, `the ${screen} screen drew almost nothing`).toBeGreaterThan(200);
+      expect(warnings(), `the ${screen} screen made React complain`).toEqual([]);
     });
   }
 
@@ -548,7 +572,10 @@ describe('every component in src/ui', () => {
   for (const [name, element] of Object.entries(COMPONENTS)) {
     it(`mounts ${name}`, async () => {
       seed();
+      const warnings = captureWarnings();
       await render(element());
+
+      expect(warnings(), `${name} made React complain while it rendered`).toEqual([]);
 
       const drew = (container.textContent ?? '').trim().length > 0 || container.children.length > 0;
       if (name in DRAWS_NOTHING) {
