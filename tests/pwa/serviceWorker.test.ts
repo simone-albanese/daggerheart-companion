@@ -248,6 +248,33 @@ describe('service worker, against what the build actually emitted', () => {
     expect(shell.some((url) => url.endsWith('.txt'))).toBe(false);
   });
 
+  /**
+   * The licensed mark is the one asset whose absence the app papers over.
+   *
+   * A broken `<img>` paints its alt text, so offline the header kept saying
+   * "Daggerheart Compatible" in words while the mark Darrington Press licensed
+   * for that sentence was a 404 - the statement surviving without the thing it
+   * is a statement about, which is the worse half to lose. And it is on every
+   * screen at every width: `Header.tsx` renders `<CompatibleIcon />` outside
+   * both of its `{!phone && ...}` guards.
+   */
+  it('keeps the licensed compatibility mark offline, not just the words beside it', async () => {
+    const app = world(dist);
+    await app.dispatch('install');
+    await app.dispatch('activate');
+
+    // Every file, not one: the mark comes in a light and a dark cut, and the
+    // theme is a switch the user can throw in flight mode.
+    const marks = app.emitted(/\/brand\//);
+    expect(marks.length, 'this build ships no compatibility mark; the loop below is empty').toBeGreaterThan(0);
+
+    app.net.online = false;
+    for (const url of marks) {
+      const hit = await app.get(new URL(url).pathname);
+      expect(hit.response?.status, url).toBe(200);
+    }
+  });
+
   it('serves the app offline: cold start, deep link, and a screen never opened before', async () => {
     const app = world(dist);
     await app.dispatch('install');

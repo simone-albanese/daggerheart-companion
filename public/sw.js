@@ -6,9 +6,10 @@
  *
  * Two caches:
  *
- *   shell   the entry document, the manifest, the icons and the fonts. Their
- *           names never change, so the copy on disk can go stale:
- *           stale-while-revalidate.
+ *   shell   the entry document, the manifest, the icons, the fonts and the
+ *           licensed Daggerheart Compatible marks - everything Vite copies out
+ *           of `public/` verbatim. Their names never change, so the copy on
+ *           disk can go stale: stale-while-revalidate.
  *   assets  everything Vite emits under `assets/` with a content hash in the
  *           filename, the SRD dataset chunk included. The name *is* the
  *           version, so a hit can never be wrong: cache-first, no revalidation.
@@ -56,12 +57,22 @@ const isImmutable = (url) => url.pathname.startsWith(`${ROOT.pathname}assets/`);
  */
 const isDeferred = (url) => /\/import-worker-[^/]*\.js$/.test(url.pathname);
 
+/**
+ * The directories Vite copies out of `public/` untouched.
+ *
+ * `brand/` is the licensed Daggerheart Compatible mark, and it belongs here and
+ * emphatically not in the assets cache: Vite copies these four files verbatim,
+ * so their names carry no content hash, and the assets cache is cache-first on
+ * the strength of the name *being* the version. A hit there could be wrong
+ * forever. Here it is stale at worst, and revalidated on the next request.
+ */
+const STATIC_DIRS = ['icons/', 'fonts/', 'brand/'];
+
 const isShell = (url) =>
   url.href === SHELL_URL ||
   url.href === MANIFEST_URL ||
   url.pathname === ROOT.pathname ||
-  url.pathname.startsWith(`${ROOT.pathname}icons/`) ||
-  url.pathname.startsWith(`${ROOT.pathname}fonts/`);
+  STATIC_DIRS.some((dir) => url.pathname.startsWith(`${ROOT.pathname}${dir}`));
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -301,6 +312,26 @@ const CSS_URLS = /url\(\s*["']?([^"')]+?)["']?\s*\)/g;
  */
 const JS_IMPORTS = /["']((?:\.{1,2}\/|\/)[^"'\s]*\.(?:js|css))["']/g;
 
+/**
+ * Files a chunk hands to the DOM rather than to the module loader. Today that
+ * is the Daggerheart Compatible mark and nothing else: four unhashed files
+ * under `brand/`, named by an `<img src>` in a component and named nowhere
+ * else - not in the document, not in a stylesheet, not in the manifest.
+ *
+ * A separate pass, rather than three more extensions on `JS_IMPORTS`, because
+ * the base differs. A module specifier is relative to the module that writes
+ * it; an attribute is relative to the page that renders it. `"./brand/x.png"`
+ * sitting in `assets/index-1a2b.js` is `brand/x.png` to the browser and
+ * `assets/brand/x.png` to anything that resolves it the way an import is
+ * resolved - which is not a file, and would be a 404 and a console line on
+ * every install for as long as the app was installed.
+ *
+ * Being generous costs nothing: a match that is neither hashed nor already
+ * shell is dropped without a fetch, so a vendored bundle's stray "./icon.png"
+ * is never asked about.
+ */
+const DOM_ASSETS = /["']((?:\.{1,2}\/|\/)[^"'\s]*\.(?:svg|png|jpe?g|webp|avif|gif))["']/g;
+
 /** In-scope, same-origin URLs named by a document or a stylesheet, resolved
  *  against the file that names them - a stylesheet's `url()` is relative to the
  *  stylesheet, which is not where the document lives. */
@@ -338,14 +369,15 @@ function urlsIn(text, pattern, base = ROOT) {
  *                     among them, which is why the build keeps it a separate
  *                     chunk - and a <link rel="stylesheet"> for the CSS.
  *   the stylesheet    the fonts, which nothing else names.
- *   the chunks        the lazily loaded screens, and the Core Rulebook
- *                     importer's worker. Neither is named in the document, and
- *                     precaching only what the document names leaves the app
- *                     booting offline and then dead-ending on the first tap
- *                     into one of them. The worker is 1.6 MB, half a megabyte
- *                     gzipped, and every client pays it: worth knowing, since
- *                     the architecture calls that importer optional and
- *                     desktop-only.
+ *   the chunks        the lazily loaded screens, the Core Rulebook importer's
+ *                     worker, and the Daggerheart Compatible mark, which is an
+ *                     `<img src>` inside a component. None of the three is
+ *                     named in the document, and precaching only what the
+ *                     document names leaves the app booting offline and then
+ *                     dead-ending on the first tap into one of them. The worker
+ *                     is 1.6 MB, half a megabyte gzipped, and every client pays
+ *                     it: worth knowing, since the architecture calls that
+ *                     importer optional and desktop-only.
  *
  * Breadth-first, so each chunk is read once however many others point at it.
  * `fetchMissing` is what separates the two callers: the precache passes one and
@@ -367,12 +399,19 @@ async function reachableFrom(html, assets, fetchMissing) {
     if (fetchMissing) await fetchMissing(url);
     const cached = await assets.match(url.href);
     if (!cached) continue;
-    for (const ref of urlsIn(await cached.text(), isCss ? CSS_URLS : JS_IMPORTS, url)) {
-      if (isCss && !isImmutable(ref)) {
-        if (isShell(ref)) shell.set(ref.href, ref);
-      } else if (isImmutable(ref) && !hashed.has(ref.href)) {
+    const text = await cached.text();
+    // Two passes over a chunk, because a chunk names files in two coordinate
+    // systems: see DOM_ASSETS. A stylesheet names files in one.
+    const refs = isCss
+      ? urlsIn(text, CSS_URLS, url)
+      : [...urlsIn(text, JS_IMPORTS, url), ...urlsIn(text, DOM_ASSETS, ROOT)];
+    for (const ref of refs) {
+      if (isImmutable(ref)) {
+        if (hashed.has(ref.href)) continue;
         hashed.set(ref.href, ref);
         queue.push(ref);
+      } else if (isShell(ref)) {
+        shell.set(ref.href, ref);
       }
     }
   }
