@@ -174,3 +174,236 @@ describe('the level-up screen and its slot counts', () => {
     expect(slotNames()).toContain('1 of 2 slots marked');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The extra domain card a subclass feature hands over
+// ---------------------------------------------------------------------------
+
+/*
+ * School of Knowledge grants an additional domain card three times: Prepared at
+ * the foundation, Accomplished at the specialization, Brilliant at the mastery.
+ * Creation has handed over the first since `cardAllowance.ts` was written, and
+ * `DOMAIN_CARD_GRANTS` has listed all three the whole time - the other two
+ * arrive at level up, and the level-up screen had never read the table. Every
+ * test in `tests/ui/cardAllowance.test.ts` was green while a wizard who bought
+ * the specialization card at level 5 was handed one card fewer than the sheet
+ * says, and found out from a GM.
+ *
+ * So this mounts the screen against the real SRD and buys the card, because
+ * that is the only place the failure was visible.
+ */
+const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
+
+const press = (label: string, button: HTMLButtonElement | undefined): void => {
+  expect(button, `no ${label} on the level-up screen`).toBeDefined();
+  act(() => {
+    button!.click();
+  });
+};
+
+/** The live "take an upgraded subclass card" row. Full tiers show a dead one. */
+const upgradeRow = (): HTMLButtonElement | undefined =>
+  buttons()
+    .filter((b) => (b.textContent ?? '').includes('Take an upgraded subclass card') && !b.disabled)
+    .at(-1);
+
+const namedChoice = (name: string): HTMLButtonElement | undefined =>
+  buttons().find((b) => (b.textContent ?? '').startsWith(name));
+
+/** The block the granted card is offered in, or null when none is on screen. */
+const grantBlock = (): HTMLElement | null => {
+  const label = [...container.querySelectorAll('span')].find(
+    (s) => s.textContent === 'ONE MORE DOMAIN CARD, NOT AN ADVANCEMENT',
+  );
+  return label?.closest('div')?.parentElement ?? null;
+};
+
+/** The card rows inside a picker, which are the ones printing a card's level. */
+const cardRows = (within: HTMLElement): HTMLButtonElement[] =>
+  [...within.querySelectorAll('button')].filter((b) => /LV\d+ · /.test(b.textContent ?? ''));
+
+/** A Wizard with a subclass card still to buy. */
+const wizard = (subclass: string, over: Partial<Character> = {}): Character => ({
+  ...playedCharacter(),
+  classRef: 'wizard',
+  subclassRefs: [subclass],
+  multiclassRef: null,
+  multiclassDomain: null,
+  loadout: [],
+  vault: [],
+  traitMarks: {},
+  level: 5,
+  levelUpHistory: [],
+  ...over,
+});
+
+const stored = (): Character => useApp.getState().characters[0]!;
+
+describe('the card School of Knowledge hands over at level up', () => {
+  it('offers nothing until an advancement actually hands a subclass card over', () => {
+    // The option being selected is not the grant. Prepared, Accomplished and
+    // Brilliant are printed on cards, and until the player says which subclass
+    // card they are taking there is no feature to pay for anything.
+    mount(wizard('school-of-knowledge'));
+    expect(grantBlock()).toBeNull();
+    press('upgraded-subclass row', upgradeRow());
+    expect(grantBlock(), 'a card was offered before any subclass card was chosen').toBeNull();
+  });
+
+  it('offers Accomplished a second card the moment the specialization is taken', () => {
+    mount(wizard('school-of-knowledge'));
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+
+    const block = grantBlock();
+    expect(block, 'the specialization was taken and no additional card was offered').not.toBeNull();
+    // Printed verbatim, because the sentence is what states the level cap the
+    // picker below it silently enforces.
+    expect(block!.textContent).toContain('Accomplished');
+    expect(block!.textContent).toContain(
+      'Take an additional domain card of your level or lower from a domain you have access to.',
+    );
+    expect(cardRows(block!).length).toBeGreaterThan(0);
+    expect(text()).toContain(
+      'Accomplished gives you an additional domain card on top of the advancement.',
+    );
+  });
+
+  it('offers Brilliant a second card when the mastery is taken instead', () => {
+    // Tier 4, because tier 3's upgraded-subclass slot went on the
+    // specialization; `PickDetail` reads the next card off that history.
+    mount(
+      wizard('school-of-knowledge', {
+        level: 8,
+        levelUpHistory: [
+          {
+            level: 5,
+            slot: 0,
+            kind: 'subclass',
+            detail: {
+              optionId: 'subclass',
+              optionTier: 3,
+              subclassRef: 'school-of-knowledge',
+              card: 'specialization',
+            },
+          },
+        ],
+      }),
+    );
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+
+    const block = grantBlock();
+    expect(block, 'the mastery was taken and no additional card was offered').not.toBeNull();
+    expect(block!.textContent).toContain('Brilliant');
+    expect(text()).toContain('Brilliant gives you an additional domain card');
+  });
+
+  it('puts the card in the vault, and stops warning once it has been taken', () => {
+    mount(wizard('school-of-knowledge'));
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+
+    const row = cardRows(grantBlock()!)[0]!;
+    const name = row.textContent ?? '';
+    press('a card in the granted picker', row);
+
+    expect(
+      text(),
+      'the card was chosen and the screen still says it has not been',
+    ).not.toContain('Accomplished gives you an additional domain card');
+
+    // A second advancement, because a level buys two and the engine refuses a
+    // plan that spends one.
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+
+    const after = stored();
+    expect(after.level).toBe(6);
+    expect(after.vault, 'the level applied and the granted card never reached the vault').toHaveLength(1);
+
+    // The record says why it is there, so a sheet cannot carry a history of a
+    // card it does not hold or a card it cannot explain.
+    const taking = after.levelUpHistory.find((h) => h.kind === 'subclass')!;
+    expect(taking.detail['grantCardRef']).toBe(after.vault[0]);
+    expect(name).toContain(dataset.domainCards.find((c) => c.id === after.vault[0])!.name);
+  });
+
+  it('drops the card again when the advancement moves to a subclass that owes none', () => {
+    /*
+     * Not in the item, found on the way. The picker unmounts the moment the
+     * choice behind it changes, but the ref it wrote is still sitting in the
+     * pick's detail and `applyLevelUp` banks whatever it is handed. A
+     * multiclassed wizard who takes Accomplished's card and then points the
+     * same advancement at their other subclass would have walked away holding
+     * a card no feature on their sheet pays for - and the screen, by then, was
+     * not saying anything about it.
+     */
+    mount(wizard('school-of-knowledge', { subclassRefs: ['school-of-knowledge', 'school-of-war'] }));
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+    press('a card in the granted picker', cardRows(grantBlock()!)[0]);
+    expect(grantBlock(), 'the card should be on offer while Accomplished is live').not.toBeNull();
+
+    press('School of War', namedChoice('School of War'));
+    expect(grantBlock(), 'School of War grants nothing and the picker is still open').toBeNull();
+
+    press('the Evasion row', buttons().find((b) => (b.textContent ?? '').includes('Evasion')));
+    press('Apply', buttons().find((b) => (b.textContent ?? '').startsWith('Apply level')));
+
+    expect(
+      stored().vault,
+      'a card was banked for a feature this character does not have',
+    ).toEqual([]);
+  });
+
+  it('takes the granted card off step four, so no card is taken twice', () => {
+    // Three pickers now write into one vault, and `applyLevelUp` appends
+    // whatever each hands it. Left to itself step four would happily offer the
+    // card Accomplished just bought, and the character would own two copies.
+    mount(wizard('school-of-knowledge'));
+    press('upgraded-subclass row', upgradeRow());
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+
+    const row = cardRows(grantBlock()!)[0]!;
+    const label = row.textContent ?? '';
+    const onOffer = (): number => buttons().filter((b) => (b.textContent ?? '') === label).length;
+
+    expect(onOffer(), 'both pickers should start out offering the whole list').toBe(2);
+    press('a card in the granted picker', row);
+    expect(onOffer(), 'step four is still offering the card the grant just took').toBe(1);
+  });
+});
+
+describe('every other subclass at level up', () => {
+  it('offers no extra card to a Wizard of the School of War', () => {
+    // The control. A screen that offered a card to everyone would pass every
+    // assertion above.
+    mount(wizard('school-of-war'));
+    press('upgraded-subclass row', upgradeRow());
+    press('School of War', namedChoice('School of War'));
+
+    expect(grantBlock()).toBeNull();
+    expect(text()).not.toContain('additional domain card on top of the advancement');
+  });
+});
+
+describe('multiclassing into the School of Knowledge', () => {
+  it('hands over Prepared, which creation is the only other way to reach', () => {
+    // Multiclass takes "a foundation card from one of its subclasses", so the
+    // creation grant arrives here too - down a road the creation wizard never
+    // sees, and the one the level-up screen would have had to duplicate the
+    // rule to cover if the table were not shared.
+    mount({ ...playedCharacter(), level: 5, levelUpHistory: [], vault: [], loadout: [] });
+
+    press('the Multiclass row', buttons().find((b) => (b.textContent ?? '').startsWith('Multiclass')));
+    press('Wizard', namedChoice('Wizard'));
+    expect(grantBlock(), 'a card was offered before a subclass was chosen').toBeNull();
+    press('School of Knowledge', namedChoice('School of Knowledge'));
+
+    const block = grantBlock();
+    expect(block, 'the foundation card arrived by multiclass and paid for nothing').not.toBeNull();
+    expect(block!.textContent).toContain('Prepared');
+    expect(text()).toContain('Prepared gives you an additional domain card');
+  });
+});

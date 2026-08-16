@@ -21,13 +21,25 @@
  *
  * Only foundation features apply at creation. School of Knowledge grants the
  * same card again at specialization and again at mastery, and both of those
- * arrive at level up. They are listed here anyway so the dataset scan can tell
- * "known, but not yet" apart from "nobody has ever looked at this".
+ * arrive at level up, through `levelUpCardGrants` at the bottom of this file.
+ * One table, three tiers, two screens: the level-up path does not get its own
+ * copy of the rule, because two copies of a rule is how they drift.
  */
-import type { Dataset, Ref } from '../../../shared/types.ts';
+import type { Dataset, Feature, Ref, Subclass } from '../../../shared/types.ts';
 
 /** Which of a subclass's three feature lists a grant sits in. */
 export type FeatureTier = 'foundation' | 'specialization' | 'mastery';
+
+/**
+ * The field each tier names on a `Subclass`. One mapping rather than a ternary
+ * at each reader, which is how two of them end up disagreeing about which list
+ * "mastery" means.
+ */
+const FEATURE_LIST = {
+  foundation: 'foundationFeatures',
+  specialization: 'specializationFeatures',
+  mastery: 'masteryFeatures',
+} as const satisfies Record<FeatureTier, keyof Subclass>;
 
 /** One subclass feature that hands out one extra domain card. */
 export interface CardGrant {
@@ -52,13 +64,38 @@ export const DOMAIN_CARD_GRANTS: readonly CardGrant[] = [
 ];
 
 /**
- * The grants that are live at creation, for the subclasses actually chosen.
+ * Whether the dataset actually loaded still offers the subclass a grant is
+ * keyed to.
  *
- * The dataset is consulted for the same reason the wizard's `review` consults
- * it before raising a blocker: a subclass the dataset does not offer cannot
- * have been chosen from it, so a ref left over from an earlier draft or an
- * older dataset must not buy a card the player was never shown.
+ * Consulted for the same reason the wizard's `review` consults the dataset
+ * before raising a blocker: a subclass the dataset does not offer cannot have
+ * been chosen from it, so a ref left over from an earlier draft or an older
+ * dataset must not buy a card the player was never shown.
+ *
+ * The *feature* is deliberately not required to still be there. Keying on a
+ * feature name at runtime is the same mistake as keying on its prose, one field
+ * along: a layer that renames Accomplished has not removed the card, and the
+ * grant would vanish with nothing failing anywhere. Checking that the table and
+ * the dataset still agree about the names is the scan's job, in
+ * `tests/ui/cardAllowance.test.ts`, where a mismatch is loud.
  */
+const grantIsOffered = (grant: CardGrant, dataset: Pick<Dataset, 'subclasses'>): boolean =>
+  dataset.subclasses.some((s) => s.id === grant.subclass);
+
+/**
+ * The feature a grant names, as this dataset words it, or null if this dataset
+ * words it differently. Only the screen uses it, and only to print the sentence
+ * verbatim beside the card picker - nothing decides anything on it.
+ */
+export function grantFeature(
+  grant: CardGrant,
+  dataset: Pick<Dataset, 'subclasses'>,
+): Feature | null {
+  const subclass = dataset.subclasses.find((s) => s.id === grant.subclass);
+  return subclass?.[FEATURE_LIST[grant.tier]].find((f) => f.name === grant.feature) ?? null;
+}
+
+/** The grants that are live at creation, for the subclasses actually chosen. */
 export function startingCardGrants(
   subclassRefs: readonly (Ref | null | undefined)[],
   dataset: Pick<Dataset, 'subclasses'>,
@@ -67,7 +104,7 @@ export function startingCardGrants(
     (grant) =>
       grant.tier === 'foundation' &&
       subclassRefs.includes(grant.subclass) &&
-      dataset.subclasses.some((s) => s.id === grant.subclass),
+      grantIsOffered(grant, dataset),
   );
 }
 
@@ -81,6 +118,54 @@ export function startingCardAllowance(
   dataset: Pick<Dataset, 'subclasses'>,
 ): number {
   return BASE_STARTING_CARDS + startingCardGrants(subclassRefs, dataset).length;
+}
+
+// ---------------------------------------------------------------------------
+// Level up
+// ---------------------------------------------------------------------------
+
+/**
+ * A subclass card a level-up plan hands over.
+ *
+ * Three advancements produce one: "take an upgraded subclass card" produces a
+ * specialization or a mastery, and multiclassing produces the foundation card
+ * of a subclass belonging to the new class.
+ */
+export interface SubclassCardTaken {
+  subclass: Ref;
+  tier: FeatureTier;
+}
+
+/**
+ * The extra domain card each of these subclass cards earns, index for index,
+ * with null where it earns none.
+ *
+ * Index for index rather than a filtered list, because the screen has to put
+ * the card picker underneath the advancement that paid for it - a bare list of
+ * grants would leave it guessing which pick each one belonged to, and it would
+ * guess wrong the first time a player takes two subclass advancements at once.
+ *
+ * A grant fires at most once per plan. Tier 4 offers the upgraded-subclass
+ * advancement again beside tier 3's, and both read the same subclass, so a
+ * player who takes both in one level would otherwise be handed Accomplished's
+ * card twice for a feature that grants it once.
+ */
+export function levelUpCardGrants(
+  taken: readonly (SubclassCardTaken | null | undefined)[],
+  dataset: Pick<Dataset, 'subclasses'>,
+): Array<CardGrant | null> {
+  const spent = new Set<string>();
+  return taken.map((card) => {
+    if (!card) return null;
+    const grant = DOMAIN_CARD_GRANTS.find(
+      (g) => g.subclass === card.subclass && g.tier === card.tier,
+    );
+    if (!grant || !grantIsOffered(grant, dataset)) return null;
+    const key = `${grant.subclass} · ${grant.tier}`;
+    if (spent.has(key)) return null;
+    spent.add(key);
+    return grant;
+  });
 }
 
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five'] as const;
