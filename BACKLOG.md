@@ -75,7 +75,7 @@ one tap.
       hide: updated in place *unless this device has the newer edit, in which
       case nothing is written over and you are asked.*
 
-### P0-2 · The automatic backup never runs, and Settings says it does
+### ~~P0-2 · The automatic backup never runs, and Settings says it does~~ — **done, `79632b3`, `fb84a36`**
 `src/store/backup.ts:324` · `src/ui/settings/Settings.tsx:561` · **medium, 4–6 h**
 
 `installBackupHooks`, `backupAtSessionEnd`, `integrityCheck` and `noteSession`
@@ -90,28 +90,53 @@ this: *"never claim a backup happened."*
 
 Three defects compound, which is why they are one work item:
 
-- [ ] **The false claim.** Make the hint conditional on the hooks actually being
-      installed, and honest that iOS Safari has no `showDirectoryPicker` and can
-      therefore never have a folder at all.
-- [ ] **`lastBackupAt` is destroyed by the next tab tap.** `runBackup`'s default
-      `writePrefs` (`backup.ts:96`) writes straight to localStorage;
-      `state.setPrefs` (`state.ts:177`) merges into `get().prefs` — the copy
-      loaded at launch, which never received the stamp — and overwrites the whole
-      key. Every `setScreen` calls it. Fix: make `setPrefs` merge onto
-      `loadPrefs()` instead of `get().prefs`. That one change fixes the clobber
-      *and* the stale copy the banner reads.
-- [ ] **On a phone the nag can never fire.** `BackupBanner.tsx:36` suppresses the
-      banner under 720 px unless `days >= 5`, but `daysSinceBackup` returns
-      `null` when `lastBackupAt` is unset — which, because of the bug above, is
-      always. Day 1 or day 90, the phone shows nothing.
-- [ ] Call `installBackupHooks()` from an `App` mount effect and dispose on
-      unmount; run `integrityCheck()` in `init()` and render `report.message`
-      plus a restore offer when `!report.healthy`; call `noteSession()` on
-      `pagehide`.
-- [ ] Add a test asserting the app registers the `pagehide` hook, so this cannot
-      regress into decoration again.
+- [x] ~~**The false claim.**~~ — **done.** The hint now describes what the two
+      hooks actually do, including what they cannot: a page in the background is
+      not running, so the newest copy is from the last time the user left. The
+      no-folder branch splits in two and names iPhone and iPad, where
+      `canChooseDirectory()` is permanently false.
+- [x] ~~**`lastBackupAt` is destroyed by the next tab tap.**~~ — **done**, but
+      **not** the way this line proposed. Merging `setPrefs` onto `loadPrefs()`
+      would have made every preference silently revert in a Safari private
+      window, where `savePrefs` throws and swallows (`prefs.ts:66`) so
+      `loadPrefs()` answers with the defaults. Instead every screen passes
+      `appBackupDeps`, whose `writePrefs` goes through the store — leaving one
+      writer of `dhc.prefs.v1`, so the two copies cannot drift at all. The same
+      clobber existed for `backupTarget` through `chooseBackupFolder` and
+      `forgetBackupFolder`, which this line did not mention; those are routed
+      too, and `backupSeam.test.ts` fails if any call site takes the defaults
+      again.
+- [x] ~~**On a phone the nag can never fire.**~~ — **done.** The gate now reads
+      the same `urgent` the banner already computes, which includes *never*, and
+      takes `NAG_AFTER_DAYS` from `backup.ts` rather than repeating 5 twice.
+- [x] ~~Call `installBackupHooks()` … `integrityCheck()` … `noteSession()`~~ —
+      **done**, with two corrections. `integrityCheck` runs from an `App` effect
+      once `ready` rather than inside `init()`, and deliberately keeps the
+      *default* deps: it compares the disk against a list in localStorage, and a
+      store-sourced list can never throw, so the one launch where the database
+      would not open would be reported as every character having vanished — and
+      would then overwrite the record of what used to be here with nothing.
+      `noteSession()` runs from inside `installBackupHooks`, on both hidden
+      events, for the same reason: reading the disk can fail to notice a loss
+      but can never invent one. The restore offer goes to the Settings screen
+      that already has one, not to a second restore in the shell — see the
+      commit that deletes `restoreFromText`.
 
-### P0-3 · A failed character write is swallowed with no signal
+      **[found while wiring]** `integrityCheck` appended *"This browser clears
+      stored data after about a week of not being used"* to **any** absence,
+      with no gate on `triggered` — which had existed there since the module was
+      written. Delete a character, have the tab closed before the session note
+      ran, come back five minutes later, and the app blamed the browser for
+      something the user did. The cause is now claimed only where there is
+      evidence for it, and says how many days.
+- [x] ~~Add a test asserting the app registers the `pagehide` hook~~ — **done**,
+      and stronger than asserted: `appWiring.test.tsx` mounts the real `App`,
+      dispatches a real `pagehide`, and asserts a file was written into a folder
+      handle — plus that the disposer takes the listeners with it, that the
+      session note was recorded, and that the seven-day check reaches the screen.
+      `backupSeam.test.ts` keeps the cheap structural guard beside it.
+
+### ~~P0-3 · A failed character write is swallowed with no signal~~ — **done, `fc11442`**
 `src/store/state.ts:79-103` · **small, 2–3 h**
 
 `flush()` clears `pending` at line 85 **before** awaiting the writes at line 86,
@@ -133,13 +158,34 @@ Every other store in the repo handles this deliberately (`prefs.ts:57`,
 justification for swallowing). The one store `db.ts:4` calls *"the user's work of
 months"* is the one with no handler.
 
-- [ ] try/catch in `flush()`; on failure put the batch back into `pending` and
-      set a `writeError` the shell renders as a persistent alert with a **Save a
-      copy now** button. Special-case `QuotaExceededError`.
-- [ ] Do **not** reuse the `storageError` banner — its copy says *"nothing has
-      been written in the meantime"*, which would be the opposite of the truth.
-- [ ] Make `runBackup` flush first, or source from the in-memory store, so the
-      recovery path stops lying.
+- [x] ~~try/catch in `flush()`; put the batch back; a `writeError` the shell
+      renders~~ — **done.** Each write is caught on its own so one refusal cannot
+      take the batch with it, and a failure is re-queued — never over a newer
+      edit made while the write was in flight, and never over a character the
+      user deleted in that window. `writeError` clears only when *nothing* is
+      outstanding, not when the last batch happened to succeed. Quota is
+      recognised through the error's `cause` chain as well as its own name,
+      because a transaction that aborts carries the request's error underneath;
+      what it cannot classify, it names rather than guesses at.
+
+      **[not in the item]** `flush` also had to be serialised. It cleared
+      `pending` synchronously and awaited below, so a second flush found an empty
+      map and resolved *before* the first one's writes had landed — `await
+      flushPending()` never meant what every caller read it as. `remove()` now
+      leans on that to put the delete strictly behind the write it was racing,
+      which is the half of P0-5(c) that `pending.delete(id)` never closed.
+- [x] ~~Do **not** reuse the `storageError` banner~~ — **done**, and the
+      banner's own sentence had to go too: *"nothing has been written in the
+      meantime"* is an invitation to reload, and it is only true while every
+      write has succeeded. That clause is now conditional on there being no
+      write failure.
+- [x] ~~Make `runBackup` flush first, or source from the in-memory store~~ —
+      **done**, by sourcing from the store (`backupDeps.ts`). Not by flushing:
+      the flush would have to happen on `pagehide`, which does not wait for
+      promises, and if the store is the freshest copy — which is the reason for
+      reading it — the flush buys nothing. This is also what makes the alert's
+      **Save a copy now** export the work that did not reach the disk, instead of
+      reporting that nothing has changed since the last backup.
 
 ### ~~P0-4 · Press-and-hold inside a track header clears the track~~ — **done, `7aa8965`**
 `src/ui/shared/Track.tsx:105` · **trivial, 30 min**
