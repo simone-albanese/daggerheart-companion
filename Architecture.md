@@ -15,7 +15,7 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 | Dati manuale | Parsing in-app, opzionale, **desktop** | Il parser fragile non blocca più nessuno |
 | Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla |
 | Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
-| Niente scroll | Vale per Play lato giocatore | Encounter e Bestiary scorrono nel corpo |
+| Scroll | **Ovunque**, con fisso solo ciò che si tocca a ogni azione | La regola «niente scroll su Play» è caduta con `91097eb`; § 9.1 dice cosa resta fisso su ognuna delle quattro schermate |
 | Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
 | Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
 | Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
@@ -227,7 +227,13 @@ a eseguire le regole. Qui il confine è dichiarato.
   dell'app, e lo schermo lo dichiara sulla riga stessa della cifra — una misura
   senza etichetta accanto a un timbro `SRD 1.0 · P.40` sarebbe l'app che cita sé
   stessa spacciandosi per il manuale. Dove l'SRD non dà un numero, l'app non ne
-  inventa uno.
+  inventa uno. La conversione sta sulle **righe dei range** — una forbice
+  (`5-10 feet`) o una cifra sola (`30 feet`), la forbice per prima perché il
+  pattern a una cifra su `20 - 40 feet` prenderebbe il 40 — e **non** sulla
+  prosa attorno, che resta esattamente com'è scritta: annotare una frase citata
+  vorrebbe dire riscriverla, oppure appendere una riga dell'app a un paragrafo
+  dove niente dice quale delle sue cifre sia stata convertita. La legenda sullo
+  schermo dichiara questo confine invece di prometterne uno più largo.
 
 ### 3.2 Non calcola (mostra il testo, applica l'utente)
 
@@ -587,6 +593,19 @@ con il suo ramo `oldVersion < 2`. È il primo secondo ramo che questo database
 abbia mai avuto, e il test che lo copre parte da un database di versione 1 con
 un personaggio dentro e verifica che il personaggio ci sia ancora dopo l'upgrade.
 
+**L'unica eccezione, e perché è una sola.** P5-3 ha allargato `GmRegion` con
+`'reference'` senza alzare `CAMPAIGN_SCHEMA_VERSION`. Sulla carta è proprio ciò
+che questa sezione vieta: una build vecchia legge un record che dice
+`region: 'reference'`, `readBoard` non riconosce il valore e ripiega su
+`'encounter'`, e il debounce di 400 ms riscrive il record con la sostituzione —
+senza quarantena e senza una parola. La differenza è *cosa* viene sovrascritto:
+«quale strumento era aperto quando hai chiuso l'app», un valore che la build
+vecchia avrebbe comunque rimpiazzato al primo strumento aperto, che non porta
+sessione, campagna né tiri. Ogni altro campo del record sopravvive intatto, e il
+fallback che lo rende sopravvivibile è esattamente il convertitore che altrimenti
+sarebbe stato obbligatorio. Vale per questo campo e per nessun altro: un campo
+che porta *dati* non può essere allargato così.
+
 ### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
 
 Il guasto residuo che nessun error boundary può vedere, perché un boundary vive
@@ -652,6 +671,7 @@ interface Dataset {
   ancestries: Ancestry[]; communities: Community[];
   weapons: Weapon[]; armors: Armor[]; loot: Item[]; consumables: Item[];
   adversaries: Adversary[]; environments: Environment[];
+  rules: RulesSection[];                // testo e tabelle, con `sourcePage`
 }
 
 interface DomainCard {
@@ -771,7 +791,7 @@ daggerheart-companion/
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
-| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva |
+| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU e non da una riga |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
@@ -851,15 +871,16 @@ Il canale di trasferimento (§ 5) serve quindi soprattutto a **spostare il tuo
 personaggio fra i tuoi dispositivi**: costruito su desktop, giocato su telefono,
 consultato su tablet. In secondo piano, passare un pregenerato a un giocatore nuovo.
 
-**La casa del GM è la lista della serata** (P5-2). Fino a `f7a59fc` questa
+**La casa del GM è la lista della serata** (P5-2). Fino a `eab26d8` questa
 schermata era una striscia di cinque tab — encounter, scene, party, bestiary,
 countdown — e ognuna funzionava; quello che nessuna era è *la serata*. Il record
 della campagna porta una `session: SessionItem[]` da quando esistono le
 campagne e nessuno l'aveva mai disegnata. Ora la lista **è** la schermata: le
-righe si aprono in posto, e i cinque strumenti qui sotto sono ciò che una riga
-apre, sopra la lista, dentro `GmSheet`. Uno strumento chiuso è **smontato**, mai
-nascosto: lo scanner della PartyBoard apre la fotocamera in un effetto e la
-chiude allo smontaggio.
+righe si aprono in posto, e i primi cinque strumenti qui sotto sono ciò che apre
+una riga (o, per Fear e countdown, il numero in cima), sopra la lista, dentro
+`GmSheet`. Il sesto, il Riferimento, è l'unico che nessuna riga può contenere e
+arriva da MENU. Uno strumento chiuso è **smontato**, mai nascosto: lo scanner
+della PartyBoard apre la fotocamera in un effetto e la chiude allo smontaggio.
 
 `board.region` resta nel record e cambia significato: non più «quale tab era
 selezionata» ma «quale strumento è stato aperto per ultimo». Quattro punti fuori
@@ -893,7 +914,15 @@ menù che P5-2 elimina.
   appartengono — la guida sul Fear sotto i dodici bersagli della board, la
   tabella di avanzamento sotto la riga di un countdown dinamico — chiuse finché
   non le si chiede, e disegnate dagli stessi componenti: una piega è una seconda
-  porta, mai una seconda copia.
+  porta, mai una seconda copia. Da cui una regola che vale per ogni componente
+  con due porte: **non descrive lo schermo in cui non si trova**. Lo stato vuoto
+  della guida sul Fear dice «il contatore qui sopra funziona ancora» solo sulla
+  board, dove il contatore c'è; quello della tabella di avanzamento manda al
+  `−`/`+` solo sulla riga che li ha; e la nota che spiega la colonna marcata nei
+  benchmark si disegna solo se una colonna è stata marcata davvero — il tier si
+  legge dall'intestazione e uno strato che non ci mette un numero non ne marca
+  nessuna. Sono `countdown`, `besidePool` e `marked`: tre condizioni per tre
+  frasi, invece di tre frasi sempre vere a metà.
 
 **La barra in basso, dentro la sezione GM, prende il posto della tab bar**:
 `App.tsx` non disegna `TabBar` su `screen === 'gm'`, e la via d'uscita verso
@@ -963,12 +992,15 @@ navigazioni — `TabBar` e `Header` — che chiedono «lo shell la disegnerebbe?
 invece di controllare la preferenza per conto loro. Filtrare solo la tab bar
 avrebbe lasciato un bottone GM vivo su ogni portatile.
 
-Gli strumenti disattivabili sono **due su cinque**, ed è una riduzione scritta,
+Gli strumenti disattivabili sono **due su sei**, ed è una riduzione scritta,
 non un'omissione. Encounter builder e scene runner sono il *contenuto di una
 riga*: un interruttore che li nascondesse renderebbe inapribile una riga già
 scritta. Fear e countdown si aprono dal numero in cima e non da una riga, ma il
 Fear non è opzionale a un tavolo Daggerheart — la board dietro quel numero è
-l'unico posto dove lo si imposta di netto invece che un punto per volta.
+l'unico posto dove lo si imposta di netto invece che un punto per volta. Il
+Riferimento è l'SRD che l'app già spedisce e già cita sulle schermate del
+giocatore, dietro un menù che non ha interruttori: `gmSection` porta via tutto
+insieme a lui.
 `BACKLOG.md` porta entrambe le ragioni. Con i due strumenti spenti **SHOW esce
 dalla barra** e i 131px per verbo diventano 196 su un telefono da 393; con uno
 solo, la sheet si riduce a quella metà e il dialog prende il *suo* nome invece
