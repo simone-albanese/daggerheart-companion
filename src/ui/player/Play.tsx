@@ -54,7 +54,7 @@ import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
-import { traitVerbs } from './ruleText.ts';
+import { traitVerbs } from '../shared/ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {

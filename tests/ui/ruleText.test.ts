@@ -15,7 +15,7 @@ import {
   ruleBlocks,
   ruleBullets,
   traitVerbs,
-} from '../../src/ui/player/ruleText.ts';
+} from '../../src/ui/shared/ruleText.ts';
 
 const dataset = srd as unknown as Dataset;
 const section = (id: string): string => {

@@ -33,7 +33,7 @@ import { hasFallen } from '../../engine/damage.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { useDialog } from '../shared/useDialog.ts';
 import { MAX_NAMED, useConditions, useConditionsFor } from './conditionsStore.ts';
-import { paragraphs, ruleBullets } from './ruleText.ts';
+import { paragraphs, ruleBullets } from '../shared/ruleText.ts';
 
 const ORDER: DeathMoveId[] = ['blaze', 'avoid', 'risk'];
 

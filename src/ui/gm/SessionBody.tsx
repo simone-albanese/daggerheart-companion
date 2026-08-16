@@ -50,7 +50,7 @@ import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
-import { paragraphs, ruleBlocks } from '../player/ruleText.ts';
+import { paragraphs, ruleBlocks } from '../shared/ruleText.ts';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
