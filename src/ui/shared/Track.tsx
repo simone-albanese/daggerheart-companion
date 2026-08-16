@@ -8,6 +8,16 @@
  *
  * Tap marks or unmarks the pip you touched. Press and hold clears the track,
  * because "I took a long rest" should not be six taps.
+ *
+ * The hold gesture lives on the pip row and nowhere else. It used to sit on
+ * the root, which also wraps the header - and the header is where the phone
+ * keeps the damage input and the severity chips. A 480ms press to put a caret
+ * in that field zeroed the track underneath it, and iOS's own long-press
+ * threshold is ~500ms, so an ordinary tap by anyone with a tremor or with
+ * Touch Accommodations turned on landed inside the window. The chips were
+ * worse than the field: the click still fired afterwards, so a slow press on
+ * "SEVERE - 3 HP" left 3 marked instead of 8, which reads as a real number
+ * rather than as an obvious wipe.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -102,13 +112,7 @@ export function Track({
   const markHeight = compact ? Math.round(shape.markHeight * 0.72) : shape.markHeight;
 
   return (
-    <div
-      onPointerDown={startHold}
-      onPointerUp={cancelHold}
-      onPointerLeave={cancelHold}
-      onPointerCancel={cancelHold}
-      style={{ opacity: holding ? 0.75 : 1 }}
-    >
+    <div>
       <div className="spread" style={{ marginBottom: 6, padding: '0 2px' }}>
         <span
           className="t-label"
@@ -128,7 +132,11 @@ export function Track({
       <div
         role="group"
         aria-label={`${label}: ${value} of ${max}`}
-        style={{ display: 'flex', gap }}
+        onPointerDown={startHold}
+        onPointerUp={cancelHold}
+        onPointerLeave={cancelHold}
+        onPointerCancel={cancelHold}
+        style={{ display: 'flex', gap, opacity: holding ? 0.75 : 1 }}
       >
         {max === 0 ? (
           <div
