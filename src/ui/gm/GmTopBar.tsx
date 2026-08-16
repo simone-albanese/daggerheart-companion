@@ -12,19 +12,18 @@
  * ## What is read and what is touched
  *
  * Read: the campaign name (text, not a target - the MENU button that will make
- * it one arrives with the bottom bar) and the countdown's value. Touched: Fear
- * `−` and `+` at 44 x 44, the Fear readout at 58 x 44 - the one deliberate
+ * it one arrives with that sheet) and the countdown's value. Touched: Fear `−`
+ * and `+` at 44 x 44, the Fear readout at 58 x 44 - the one deliberate
  * crossing, because setting the pool outright belongs to the board and the
- * number the eye is already on is the honest door to it - the countdown's `−`
- * and `+` at 44 x 44, and the two consultation chips.
+ * number the eye is already on is the honest door to it - and the countdown's
+ * `−` and `+` at 44 x 44.
  *
  * ## The phone, in numbers (393 x 852)
  *
  * Column 393 − 24 of page padding = 369. Two rows plus a conditional third:
  *
- *   row A  44px  the campaign name, read, ellipsised, with the two consultation
- *                chips beside it: BESTIARY ~68 and PARTY ~50 with their padding,
- *                plus two 8px gaps = 134, leaving 235 for the name
+ *   row A  44px  the campaign name, read, ellipsised, with the whole 369 to
+ *                itself now that SHOW carries the two consultation tools
  *   row B  44px  the live-scene chip when there is one, then Fear:
  *                label 30 + `−` 44 + readout 58 + `+` 44 + three 8px gaps = 200,
  *                which leaves 161 for the chip and its gap. It needs ~90.
@@ -41,16 +40,17 @@
  *
  * At 720-1179 the pips come back (the block is ~370px of a 704px column) and
  * the countdown keeps its own row. At 1180+ everything is one 44px row: name,
- * chips, scene, countdown and Fear, in a 1140px column.
+ * scene, countdown and Fear, in a 1140px column.
  *
- * ## The two consultation chips are temporary, and this is the note that says so
+ * ## The two consultation chips have left, on schedule
  *
- * BESTIARY and PARTY belong behind SHOW in the bottom bar, which is where the
- * wireframe puts them and where the backlog's "SHOW forks in two" decides they
- * go. They are here because until that bar exists there is no other route to
- * them, and quietly dropping two working tools while rebuilding the screen
- * around them would be a regression dressed as a refactor. When `GmBar` lands,
- * they leave this file.
+ * BESTIARY and PARTY were chips here while `GmBar` did not exist, because
+ * without the bar there was no route to either and quietly dropping two working
+ * tools while rebuilding the screen around them would have been a regression
+ * dressed as a refactor. SHOW is that route now, which is where the wireframe
+ * put them and where "SHOW forks in two" decided they go. Keeping them here as
+ * well would be a second door nobody chose to build - and 134px of row A that
+ * the campaign name wants.
  */
 import type { Layout } from '../shared/useLayout.ts';
 import type { Countdown } from '../../engine/encounter.ts';
@@ -75,13 +75,6 @@ export function GmTopBar({
   const active = campaigns.find((c) => c.id === activeId);
   const name = (active?.name ?? '').trim();
   const countdown = primaryCountdownOf(session);
-
-  const consult = (
-    <>
-      <Chip onClick={() => onOpenTool('bestiary')}>BESTIARY</Chip>
-      <Chip onClick={() => onOpenTool('party')}>PARTY</Chip>
-    </>
-  );
 
   const scene = combatants.length > 0 && (
     <Chip onClick={() => onOpenTool('scene')} tone="var(--hope)">
@@ -122,7 +115,6 @@ export function GmTopBar({
       {oneRow ? (
         <div className="row" style={{ gap: 14 }}>
           {title}
-          {consult}
           {scene}
           {countdown !== null && <PrimaryCountdown countdown={countdown} />}
           {fear}
@@ -131,7 +123,6 @@ export function GmTopBar({
         <>
           <div className="row" style={{ gap: 8 }}>
             {title}
-            {consult}
             {!phone && scene}
           </div>
           <div className="row" style={{ gap: 8 }}>

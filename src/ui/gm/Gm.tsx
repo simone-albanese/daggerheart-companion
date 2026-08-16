@@ -41,25 +41,35 @@
  * from the disk a beat after mount is just as much a stored value as the one
  * that was there at mount.
  *
+ * `sheet` is the third, and it is the shallow one: which of the bar's three
+ * verbs is answering. A sheet and a tool are never both open. That is not
+ * tidiness either - `useDialog` registers one unconditional window keydown
+ * listener per dialog with no topmost check, so two live at once means one
+ * Escape closing both and two Tab handlers fighting over the focus. Opening
+ * either closes the other, and SHOW's two choices go through `openTool`, which
+ * is what makes the sheet hand the screen over rather than stack on it.
+ *
  * ## What is not here yet
  *
- * The bottom bar (ADD / SHOW / SAVE) and the four sheets it opens. Until they
- * land the tab bar stays where it is, the licence notice stays where it is, and
- * `GmTopBar` carries the two consultation tools that would otherwise have no
- * route at all. The shape below is the one they slot into: a bar goes after
- * `SessionList`, a sheet goes beside the tool sheet.
+ * MENU: the way back out to Play, Cards and Build, and the campaign list. The
+ * tab bar and the licence notice therefore stay exactly where they are until
+ * it lands, because the bar is not a replacement for a door until it has one.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLayout } from '../shared/useLayout.ts';
+import { AddSheet } from './AddSheet.tsx';
 import { Bestiary } from './Bestiary.tsx';
 import { Countdowns } from './Countdowns.tsx';
 import { Encounter } from './Encounter.tsx';
+import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
 import { PartyBoard } from './PartyBoard.tsx';
+import { SaveSheet } from './SaveSheet.tsx';
 import { Scene } from './Scene.tsx';
 import { SessionList } from './SessionList.tsx';
+import { ShowSheet } from './ShowSheet.tsx';
 
 /** The dialog's accessible name, one per tool. */
 const TOOL_LABEL: Record<GmRegion, string> = {
@@ -70,6 +80,13 @@ const TOOL_LABEL: Record<GmRegion, string> = {
   countdowns: 'Fear and countdowns',
 };
 
+/** The same, one per sheet. A dialog with no name is a dialog nobody can find. */
+const SHEET_LABEL: Record<GmSheetId, string> = {
+  add: 'Add to the night',
+  show: 'Bestiary and party board',
+  save: 'Where this campaign is kept',
+};
+
 export function Gm(): React.JSX.Element {
   const layout = useLayout();
   const phone = layout === 'phone';
@@ -77,6 +94,7 @@ export function Gm(): React.JSX.Element {
   const setRegion = useGm((s) => s.setRegion);
   const hydrated = useGm((s) => s.hydrated);
   const [tool, setTool] = useState<GmRegion | null>(null);
+  const [sheet, setSheet] = useState<GmSheetId | null>(null);
 
   /*
    * The last value of `board.region` this screen has acted on.
@@ -95,6 +113,7 @@ export function Gm(): React.JSX.Element {
       return;
     }
     followed.current = region;
+    setSheet(null);
     setTool(region);
   }, [hydrated, region]);
 
@@ -103,16 +122,25 @@ export function Gm(): React.JSX.Element {
       // Seeded before the write, so opening a tool from this screen is not
       // read back by the effect above as a navigation someone else asked for.
       followed.current = next;
+      setSheet(null);
       setTool(next);
       setRegion(next);
     },
     [setRegion],
   );
 
+  const openSheet = useCallback((next: GmSheetId) => {
+    setTool(null);
+    setSheet(next);
+  }, []);
+
+  const closeSheet = useCallback(() => setSheet(null), []);
+
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <GmTopBar layout={layout} onOpenTool={openTool} />
       <SessionList phone={phone} onOpenTool={openTool} />
+      <GmBar open={sheet} onOpenSheet={openSheet} />
 
       {tool !== null && (
         <GmSheet label={TOOL_LABEL[tool]} size="full" onClose={() => setTool(null)}>
@@ -121,6 +149,14 @@ export function Gm(): React.JSX.Element {
           {tool === 'party' && <PartyBoard phone={phone} />}
           {tool === 'bestiary' && <Bestiary phone={phone} />}
           {tool === 'countdowns' && <Countdowns phone={phone} />}
+        </GmSheet>
+      )}
+
+      {sheet !== null && (
+        <GmSheet label={SHEET_LABEL[sheet]} onClose={closeSheet}>
+          {sheet === 'add' && <AddSheet onClose={closeSheet} />}
+          {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
+          {sheet === 'save' && <SaveSheet />}
         </GmSheet>
       )}
     </div>

@@ -135,7 +135,17 @@ export interface GmState extends GmLive {
   setFear: (value: number) => void;
   nudgeFear: (delta: number) => void;
 
-  addCountdown: (name: string, kind: CountdownKind, start: number) => void;
+  /**
+   * Start a countdown, and hand back the id it was given.
+   *
+   * The id is minted in here - the row and the countdown deliberately share one
+   * - so a caller that has to do something to the row it just made has no way
+   * to name it. ADD is that caller: "pin it to the top bar" is
+   * `setPrimaryCountdown(id)`, and the alternative is reading
+   * `session.at(-1)`, which is the caller holding an opinion about how this
+   * function appends.
+   */
+  addCountdown: (name: string, kind: CountdownKind, start: number) => string;
   advanceCountdown: (id: string, delta: number) => void;
   resetCountdown: (id: string) => void;
   removeCountdown: (id: string) => void;
@@ -335,14 +345,35 @@ export function hydrateGm(): Promise<void> {
      * constant, because two paths arriving at different names would be a
      * difference with nothing behind it.
      */
+    let firstWriteFailed = false;
     if (campaigns.length === 0) {
       const at = new Date().toISOString();
       const first = newCampaign(FIRST_CAMPAIGN_NAME, at, crypto.randomUUID());
       try {
         await putCampaign(first);
-      } catch {
-        // Reported by the first write that follows a change. An empty campaign
-        // that failed to save has lost nothing.
+      } catch (error) {
+        /*
+         * Said out loud, where it used to be swallowed.
+         *
+         * The line here was an empty `catch` carrying "an empty campaign that
+         * failed to save has lost nothing". That is true about the data and
+         * beside the point about the person holding the phone. Nothing is
+         * dirty at this moment, so the next `flushGm` returns early at
+         * `if (!dirty)` and no later write reports it either - and the screen
+         * that reads this field is SAVE, whose whole job is to say where the
+         * campaign is. Without this the sheet stamps "already on this device,
+         * just now" over a write that threw.
+         *
+         * The campaign still works in memory. What is not true is that it is
+         * anywhere else, and that is the sentence.
+         */
+        firstWriteFailed = true;
+        useGm.setState({
+          writeError:
+            error instanceof Error
+              ? `This device’s first campaign could not be written (${error.message}). Nothing you plan here is reaching the disk, so closing this tab loses it.`
+              : 'This device’s first campaign could not be written. Nothing you plan here is reaching the disk, so closing this tab loses it.',
+        });
       }
       campaigns = [first];
     }
@@ -375,6 +406,18 @@ export function hydrateGm(): Promise<void> {
       notices,
       ...spread(active),
     });
+
+    /*
+     * Left dirty, and after the block above rather than inside the `catch`.
+     *
+     * `dirty` is the answer to "is what is in memory somewhere else yet", and
+     * for a first campaign whose write threw the answer is no - so the next
+     * change, the next `pagehide`, and SAVE's own TRY AGAIN all retry it. It
+     * cannot be set in the `catch` because the check above reads `dirty` as
+     * "the GM touched something while the disk was being read" and would push
+     * a notice about a tap nobody made.
+     */
+    if (firstWriteFailed) dirty = true;
   })();
   return hydration;
 }
@@ -482,7 +525,10 @@ export const useGm = create<GmState>((set, get) => {
             kind: 'countdown',
             name,
             order: session.length,
-            collapsed: false,
+            // Closed, like every other row ADD mints. A new row that arrived
+            // open pushes the rest of the night off a phone at the moment it
+            // is added, and the countdown that matters gets pinned instead.
+            collapsed: true,
             primary: false,
             // The item's id and the countdown's are the same on purpose: every
             // screen that has ever drawn a countdown holds the countdown's id,
@@ -491,6 +537,7 @@ export const useGm = create<GmState>((set, get) => {
           },
         ],
       });
+      return id;
     },
 
     advanceCountdown(id, delta) {

@@ -16,17 +16,27 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { SessionItem } from '../../shared/campaigns.ts';
-import { countdownsOf } from '../../shared/campaigns.ts';
+import { SESSION_ITEM_KINDS, countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
+import type { SaveResult } from '../../src/transfer/fileIo.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
-import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
+import { flushGm, hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
   // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
+
+/**
+ * The real export, taken before any test replaces it.
+ *
+ * `useGm.setState` can put a stub in the store's action slot, which is how the
+ * SAVE tests drive `SaveResult` without a file picker - and the store is a
+ * module singleton, so the stub would otherwise outlive the test that made it.
+ */
+const REAL_EXPORT = useGm.getState().exportActiveCampaign;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -81,6 +91,8 @@ beforeEach(() => {
     environmentRef: null,
     fear: 0,
     region: 'encounter',
+    writeError: null,
+    exportActiveCampaign: REAL_EXPORT,
   });
 });
 
@@ -106,6 +118,52 @@ const named = (label: string): HTMLButtonElement => {
     throw new Error(`no control called "${label}". Here: ${buttons().map((b) => b.getAttribute('aria-label') ?? b.textContent).join(' | ')}`);
   }
   return found;
+};
+
+/** The sheet choices carry a label and a sentence, so exact text will not do. */
+const leading = (prefix: string): HTMLButtonElement => {
+  const found = buttons().find((b) => (b.textContent ?? '').trim().startsWith(prefix));
+  if (found === undefined) {
+    throw new Error(`no control starting "${prefix}". Here: ${buttons().map((b) => (b.textContent ?? '').slice(0, 30)).join(' | ')}`);
+  }
+  return found;
+};
+
+/** Let promises and microtasks land. The GM store writes asynchronously. */
+async function settle(turns = 6): Promise<void> {
+  for (let i = 0; i < turns; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+}
+
+/** Type into a controlled input the way a keyboard does, through the setter. */
+function type(field: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  act(() => {
+    setter?.call(field, value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+const choose = (select: HTMLSelectElement, value: string): void => {
+  act(() => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+};
+
+const submit = (): void => {
+  const form = container.querySelector('form')!;
+  act(() => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+};
+
+const activeCampaign = (): { id: string; name: string; updatedAt: string } => {
+  const state = useGm.getState();
+  return state.campaigns.find((c) => c.id === state.activeCampaignId)!;
 };
 
 /** Which tool is open, by the dialog's own accessible name. */
@@ -193,12 +251,14 @@ describe('the pinned top bar', () => {
     expect(openTool()).toBe('The live scene');
   });
 
-  it('reaches the two tools no row can open', () => {
-    // Until the bottom bar's SHOW exists, these are the only route to them,
-    // and dropping them while rebuilding the screen would be a regression.
+  it('has handed the two consultation chips over to SHOW', () => {
+    // They were on loan here while no bottom bar existed. Keeping them once
+    // SHOW carries them would be a second door nobody chose to build - and
+    // 134px of the 369px row the campaign name wants.
     gm();
-    click(named('BESTIARY'));
-    expect(openTool()).toBe('Bestiary');
+    const labels = buttons().map((b) => (b.textContent ?? '').trim());
+    expect(labels).not.toContain('BESTIARY');
+    expect(labels).not.toContain('PARTY');
   });
 });
 
@@ -217,7 +277,8 @@ describe('the tools, over the list', () => {
     // scene" and Scene's two empty-state buttons all navigate this way, and
     // none of them was edited for this screen.
     gm();
-    click(named('PARTY'));
+    click(named('SHOW'));
+    click(leading('THE PARTY BOARD'));
     expect(openTool()).toBe('The party board');
     act(() => {
       useGm.getState().setRegion('scene');
@@ -229,7 +290,8 @@ describe('the tools, over the list', () => {
     // PartyBoard's scanner opens the camera in an effect and stops it on
     // unmount; a sheet kept alive behind `display: none` leaves it running.
     gm();
-    click(named('PARTY'));
+    click(named('SHOW'));
+    click(leading('THE PARTY BOARD'));
     expect(openTool()).toBe('The party board');
     click(named('Close The party board'));
     expect(openTool()).toBeNull();
@@ -238,19 +300,364 @@ describe('the tools, over the list', () => {
 
   it('closes on Escape, and says so where a keyboard exists', () => {
     gm();
-    click(named('BESTIARY'));
+    click(named('SHOW'));
+    click(leading('BESTIARY'));
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
     expect(openTool()).toBeNull();
   });
 
-  it('never has two dialogs alive at once', () => {
-    // The reason a link row draws a domain card in the row instead of opening
-    // `CardReader`: `useDialog` registers one unconditional window keydown
-    // listener per dialog, with no topmost check.
+  it('never has two dialogs alive at once, sheet or tool', () => {
+    // `useDialog` registers one unconditional window keydown listener per
+    // dialog, with no topmost check: two alive at once means one Escape
+    // closing both and two Tab handlers fighting. It is why a link row draws a
+    // domain card in the row instead of opening `CardReader`, and it is why
+    // SHOW hands the screen to the tool rather than stacking it on the sheet.
     gm();
-    click(named('BESTIARY'));
+    click(named('SHOW'));
     expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    click(leading('BESTIARY'));
+    expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(openTool()).toBe('Bestiary');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the bottom bar', () => {
+  const bar = (): HTMLElement =>
+    [...container.querySelectorAll<HTMLElement>('nav')].find(
+      (nav) => nav.getAttribute('aria-label') === 'Session tools',
+    )!;
+
+  it('is three verbs, and says they open something rather than go somewhere', () => {
+    gm();
+    const verbs = [...bar().querySelectorAll('button')];
+    expect(verbs.map((b) => (b.textContent ?? '').trim())).toEqual(['ADD', 'SHOW', 'SAVE']);
+    for (const verb of verbs) {
+      expect(verb.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(verb.getAttribute('aria-expanded')).toBe('false');
+      // Not a destination. `aria-current="page"` here would describe a dialog
+      // as a place, which is the five-menus reading of this screen.
+      expect(verb.getAttribute('aria-current')).toBeNull();
+    }
+  });
+
+  it('reports which sheet is open on the button that opened it', () => {
+    gm();
+    click(named('ADD'));
+    expect(named('ADD').getAttribute('aria-expanded')).toBe('true');
+    expect(named('SAVE').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('declares one column per verb it draws', () => {
+    // The grid is written from the verb array's length rather than fixed at
+    // three, so a build that drops one redistributes the width instead of
+    // leaving a hole. Three buttons and `repeat(3, 1fr)` is all this can pin
+    // today; the property proper is provable when a preference can remove one.
+    gm();
+    expect(bar().querySelectorAll('button')).toHaveLength(3);
+    expect(bar().style.gridTemplateColumns).toBe('repeat(3, 1fr)');
+  });
+
+  it('has no SEARCH, because there is nothing behind one', () => {
+    // The wireframe draws four. Full-text rule search is deferred, and the
+    // searching a GM does at the table is Bestiary's filter, behind SHOW. A
+    // button that opens nothing is worse than a button that is not there.
+    gm();
+    expect([...bar().querySelectorAll('button')].map((b) => b.textContent)).not.toContain('SEARCH');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('ADD', () => {
+  it('offers exactly the kinds the record has, in the record’s order', () => {
+    // Generated from SESSION_ITEM_KINDS rather than typed out, so a fifth kind
+    // cannot be added to the record and silently missing from this menu.
+    gm();
+    click(named('ADD'));
+    const choices = [...container.querySelectorAll('[role="dialog"] button')]
+      // The label is the choice's first span; the second is the sentence
+      // saying what the kind is for, and `textContent` runs the two together.
+      .map((b) => (b.querySelector('span')?.textContent ?? '').trim().toLowerCase())
+      .filter((t) => (SESSION_ITEM_KINDS as readonly string[]).includes(t));
+    expect(choices).toEqual([...SESSION_ITEM_KINDS]);
+  });
+
+  it('writes a scene row, closed, at the end of the night', () => {
+    seed([countdownRow('c1', 'The tide', false)]);
+    gm();
+    click(named('ADD'));
+    click(leading('SCENE'));
+    type(container.querySelector('[role="dialog"] input')!, 'The Sablewood gate');
+    choose(container.querySelector('[role="dialog"] select')!, dataset.environments[1]!.id);
+    submit();
+
+    const session = useGm.getState().session;
+    expect(session).toHaveLength(2);
+    const row = session[1]!;
+    expect(row.kind).toBe('scene');
+    expect(row.name).toBe('The Sablewood gate');
+    expect(row.order).toBe(1);
+    // Closed: a row that arrived open would push the rest of the night off a
+    // phone at the moment it was added.
+    expect(row.collapsed).toBe(true);
+    expect(row.kind === 'scene' && row.environmentRef).toBe(dataset.environments[1]!.id);
+    // And the sheet is gone, rather than sitting over the row it just made.
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('takes the roster that is on the board, and never the fight', () => {
+    useGm.setState({
+      roster: [{ ref: 'acid-burrower', count: 3 }],
+      adjustments: { easier: false, harder: true, damageBump: false },
+    });
+    gm();
+    click(named('ADD'));
+    click(leading('ENCOUNTER'));
+    click(leading('TAKE THE 3 ON THE BOARD NOW'));
+    submit();
+
+    const row = useGm.getState().session[0]!;
+    expect(row.kind === 'encounter' && row.roster).toEqual([{ ref: 'acid-burrower', count: 3 }]);
+    expect(row.kind === 'encounter' && row.adjustments.harder).toBe(true);
+    // No store action sets a combatant list wholesale, so a row that arrived
+    // carrying one would show a number nothing could ever change again.
+    expect(row.kind === 'encounter' && row.combatants).toEqual([]);
+  });
+
+  it('leaves the roster behind when it is not asked for', () => {
+    useGm.setState({ roster: [{ ref: 'acid-burrower', count: 3 }] });
+    gm();
+    click(named('ADD'));
+    click(leading('ENCOUNTER'));
+    submit();
+    const row = useGm.getState().session[0]!;
+    expect(row.kind === 'encounter' && row.roster).toEqual([]);
+  });
+
+  it('links to a rule, which is the one kind the dataset index cannot answer', () => {
+    gm();
+    click(named('ADD'));
+    click(leading('LINK'));
+    const selects = [...container.querySelectorAll<HTMLSelectElement>('[role="dialog"] select')];
+    choose(selects[0]!, 'rule');
+    choose([...container.querySelectorAll<HTMLSelectElement>('[role="dialog"] select')][1]!, dataset.rules[0]!.id);
+    submit();
+
+    const row = useGm.getState().session[0]!;
+    expect(row.kind === 'link' && row.target).toEqual({ kind: 'rule', ref: dataset.rules[0]!.id });
+  });
+
+  it('refuses to build a link that points at nothing', () => {
+    gm();
+    click(named('ADD'));
+    click(leading('LINK'));
+    expect(named('ADD TO THE END OF THE NIGHT').disabled).toBe(true);
+    submit();
+    expect(useGm.getState().session).toHaveLength(0);
+  });
+
+  it('pins the countdown it just made, by the id the store hands back', () => {
+    // `addCountdown` mints the id the row and the countdown share, so the
+    // caller has no other way to name the row it just appended - and reading
+    // `session.at(-1)` would be this form holding an opinion about the store.
+    seed([countdownRow('c1', 'The tide', true)]);
+    gm();
+    click(named('ADD'));
+    click(leading('COUNTDOWN'));
+    type(container.querySelector('[role="dialog"] input')!, 'The ritual completes');
+    click(leading('PIN IT TO THE TOP BAR'));
+    submit();
+
+    const countdowns = useGm.getState().session.filter((i) => i.kind === 'countdown');
+    expect(countdowns).toHaveLength(2);
+    const primary = countdowns.filter((i) => i.kind === 'countdown' && i.primary);
+    expect(primary).toHaveLength(1);
+    expect(primary[0]!.name).toBe('The ritual completes');
+    // And the top bar is drawing it, which is what "pinned" means on screen.
+    expect(buttons().some((b) => b.getAttribute('aria-label') === 'Advance The ritual completes by one')).toBe(true);
+  });
+
+  it('will not start a nameless countdown, and says why beside the field', () => {
+    // The primary countdown's name is what the top bar prints and what its −
+    // button is called: an empty one produces "Advance  by one".
+    gm();
+    click(named('ADD'));
+    click(leading('COUNTDOWN'));
+    expect(named('ADD TO THE END OF THE NIGHT').disabled).toBe(true);
+    expect(text()).toContain('what its − button is called');
+    submit();
+    expect(useGm.getState().session).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('SHOW', () => {
+  it('forks in two, and each side says what it is not', () => {
+    gm();
+    click(named('SHOW'));
+    expect(text()).toContain('without adding any of them');
+    expect(text()).toContain('Nothing here ever writes to their characters');
+  });
+
+  it('opens the bestiary, which no row can', () => {
+    gm();
+    click(named('SHOW'));
+    click(leading('BESTIARY'));
+    expect(openTool()).toBe('Bestiary');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('SAVE', () => {
+  const OLD = '2020-01-01T00:00:00.000Z';
+
+  const stampCampaign = (updatedAt: string): void => {
+    act(() => {
+      const state = useGm.getState();
+      useGm.setState({
+        campaigns: state.campaigns.map((c) =>
+          c.id === state.activeCampaignId ? { ...c, updatedAt } : c,
+        ),
+      });
+    });
+  };
+
+  const stubExport = (result: SaveResult): void => {
+    useGm.setState({ exportActiveCampaign: () => Promise.resolve(result) });
+  };
+
+  it('lands the change the GM just made before it says anything about it', async () => {
+    // Without the flush the sheet reads the `updatedAt` of the write *before*
+    // this change - up to 400ms of debounce behind the thumb - and stamps it
+    // as though it were current.
+    await act(async () => {
+      await flushGm();
+    });
+    stampCampaign(OLD);
+    act(() => {
+      useGm.getState().setFear(3);
+    });
+
+    gm();
+    click(named('SAVE'));
+    await settle();
+
+    expect(activeCampaign().updatedAt).not.toBe(OLD);
+    expect(text()).toContain('just now');
+  });
+
+  it('names the moment the last write actually landed', async () => {
+    await act(async () => {
+      await flushGm();
+    });
+    stampCampaign(new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
+    gm();
+    click(named('SAVE'));
+    await settle();
+    expect(text()).toContain('2 hr ago');
+  });
+
+  it('never implies the GM has to press it', async () => {
+    gm();
+    click(named('SAVE'));
+    await settle();
+    expect(text()).toContain('You never have to press anything');
+  });
+
+  it('says a write has not landed instead of stamping one that did not', async () => {
+    useGm.setState({ writeError: 'The quota has been exceeded. What is on this screen is only in this tab.' });
+    gm();
+    click(named('SAVE'));
+    await settle();
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent ?? '').toContain('only in this tab');
+    expect(text()).not.toContain('ALREADY ON THIS DEVICE');
+    expect(named('TRY AGAIN')).toBeDefined();
+  });
+
+  it('does not say a cancelled export was saved', async () => {
+    stubExport({ ok: false, route: null, fileName: 'x.dhcampaign', cancelled: true, reason: null });
+    gm();
+    click(named('SAVE'));
+    await settle();
+    click(named('SAVE A COPY'));
+    await settle();
+    expect(text()).toContain('no copy was made');
+    expect(text()).not.toContain('Saved');
+  });
+
+  it('names the file when there is one, and where it went', async () => {
+    stubExport({ ok: true, route: 'download', fileName: 'the-hollow.dhcampaign', cancelled: false, reason: null });
+    gm();
+    click(named('SAVE'));
+    await settle();
+    click(named('SAVE A COPY'));
+    await settle();
+    expect(text()).toContain('Saved as the-hollow.dhcampaign');
+    expect(text()).toContain('with your downloads');
+  });
+
+  it('gives the failure’s own words when the write failed for a reason', async () => {
+    stubExport({ ok: false, route: null, fileName: 'x.dhcampaign', cancelled: false, reason: 'The disk is full.' });
+    gm();
+    click(named('SAVE'));
+    await settle();
+    click(named('SAVE A COPY'));
+    await settle();
+    expect(text()).toContain('The disk is full.');
+    expect(text()).not.toContain('Saved');
+  });
+
+  it('says out loud that nothing here can read a campaign file back in', async () => {
+    // `campaignFile.ts` has a parser and no import path, deliberately. A GM
+    // handed a file and not told will find out on the day they need it.
+    gm();
+    click(named('SAVE'));
+    await settle();
+    expect(text()).toContain('read a campaign file back in');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the sheets, at 393x852', () => {
+  /** A declared length in px. Tokens resolve as they do below 1180px. */
+  const px = (value: string): number => {
+    if (value === 'var(--tap)' || value === 'var(--control)') return 44;
+    if (value === '') return 0;
+    const n = Number.parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const undersized = (): string[] =>
+    [...container.querySelectorAll<HTMLElement>('[role="dialog"] button, [role="dialog"] input, [role="dialog"] select')]
+      .filter((el) => Math.max(px(el.style.height), px(el.style.minHeight)) < 44)
+      .map((el) => `${el.tagName} ${el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().slice(0, 30)}`);
+
+  it('puts no target under the touch floor in any of the three', async () => {
+    gm();
+    for (const verb of ['ADD', 'SHOW', 'SAVE']) {
+      click(named(verb));
+      // SAVE flushes on mount and speaks when that resolves, so the sweep has
+      // to look at the sheet it settles into rather than the one it opens as.
+      await settle(2);
+      expect(undersized(), `${verb} has a target under 44px`).toEqual([]);
+    }
+  });
+
+  it('puts no target under the touch floor in any of ADD’s four forms', () => {
+    gm();
+    click(named('ADD'));
+    for (const kind of ['SCENE', 'ENCOUNTER', 'LINK', 'COUNTDOWN']) {
+      click(leading(kind));
+      expect(undersized(), `ADD → ${kind} has a target under 44px`).toEqual([]);
+      click(named('← THE FOUR KINDS'));
+    }
   });
 });

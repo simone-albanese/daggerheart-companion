@@ -16,18 +16,23 @@ import { describe, expect, it } from 'vitest';
 import { indexDataset } from '../../src/engine/character.ts';
 import { baseDataset } from '../../src/store/dataset.ts';
 import type { LinkTarget, SessionItem, SessionItemBase } from '../../shared/campaigns.ts';
+import type { EncounterAdjustments } from '../../shared/types.ts';
 import {
   COUNTDOWN_KIND_COLOR,
   LINK_KIND_LABEL,
   SESSION_KIND_LABEL,
   describeItem,
   linkName,
+  newEncounter,
+  newLink,
+  newScene,
   sessionName,
   sessionTitle,
 } from '../../src/ui/gm/session.ts';
 
 const dataset = baseDataset;
 const index = indexDataset(baseDataset);
+const ADJUSTMENTS: EncounterAdjustments = { easier: false, harder: false, damageBump: false };
 
 const base = (patch: Partial<SessionItemBase> = {}): SessionItemBase => ({
   id: 'i1',
@@ -184,5 +189,51 @@ describe('resolving a link against the dataset', () => {
     }
     expect(Object.keys(SESSION_KIND_LABEL)).toHaveLength(5);
     expect(Object.keys(LINK_KIND_LABEL)).toHaveLength(5);
+  });
+});
+
+describe('the three rows ADD mints', () => {
+  it('leaves the order to the store, which is the only thing that knows it', () => {
+    // `addSessionItem` stamps `session.length`. A factory that also guessed
+    // would be a second opinion about a number, and two rows at position 4.
+    expect(newScene('The gate', null, 's1').order).toBe(0);
+    expect(newLink('A card', { kind: 'domainCard', ref: card.id }, 'l1').order).toBe(0);
+    expect(newEncounter('The ambush', [], ADJUSTMENTS, 'e1').order).toBe(0);
+  });
+
+  it('mints every one of them closed', () => {
+    // Open, the new row pushes the rest of the night off a 393px phone at the
+    // moment it is added - and the GM has just typed everything it would show.
+    expect(newScene('The gate', null, 's1').collapsed).toBe(true);
+    expect(newLink('A card', { kind: 'domainCard', ref: card.id }, 'l1').collapsed).toBe(true);
+    expect(newEncounter('The ambush', [], ADJUSTMENTS, 'e1').collapsed).toBe(true);
+  });
+
+  it('takes the id it is given, so a test never has to guess one', () => {
+    expect(newScene('The gate', environment.id, 's1').id).toBe('s1');
+    expect(newScene('The gate', environment.id).id).not.toBe('');
+  });
+
+  it('keeps a name that is only spaces out of the record', () => {
+    // `SessionItemBase.name` promises a name is never generated and an empty
+    // one stays empty; `sessionTitle` is the other half, drawing the kind word
+    // dimmed. Trimming is not generating, and '   ' left in would be a title
+    // that renders as blank rather than as the word "Scene".
+    const item = newScene('   ', null, 's1');
+    expect(item.name).toBe('');
+    expect(sessionTitle(item)).toEqual({ text: 'Scene', invented: true });
+  });
+
+  it('gives a new encounter no fight, because nothing could ever change one', () => {
+    const item = newEncounter('The ambush', [{ ref: adversary.id, count: 3 }], ADJUSTMENTS, 'e1');
+    expect(item.kind === 'encounter' && item.combatants).toEqual([]);
+    expect(describe_(item)).toBe('3 PLANNED');
+  });
+
+  it('copies the roster it is handed rather than pointing at the board’s', () => {
+    const roster = [{ ref: adversary.id, count: 2 }];
+    const item = newEncounter('The ambush', roster, ADJUSTMENTS, 'e1');
+    roster[0]!.count = 9;
+    expect(item.kind === 'encounter' && item.roster).toEqual([{ ref: adversary.id, count: 2 }]);
   });
 });

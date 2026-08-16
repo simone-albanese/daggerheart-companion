@@ -15,13 +15,18 @@
  * screens now draw a countdown - the countdowns board and a session row - and
  * two copies of "dynamic is orange" is how one of them ends up green.
  *
- * What is deliberately **not** here yet: the `newScene` / `newEncounter` /
- * `newLink` factories the ADD sheet will need. Nothing in this build can add a
- * row of those three kinds, so a factory for them would be an exported symbol
- * with no caller - which `tests/harness/orphans.test.ts` reports, correctly, as
- * a feature shipped switched off. They land with the sheet that calls them.
+ * The three factories at the foot are the other half of the same argument.
+ * They were deliberately absent while nothing could add a row, because an
+ * exported factory with no caller is what `tests/harness/orphans.test.ts`
+ * reports as a feature shipped switched off; `AddSheet.tsx` is the caller, and
+ * they arrive with it.
  */
-import type { Dataset } from '../../../shared/types.ts';
+import type {
+  Dataset,
+  EncounterAdjustments,
+  Ref,
+  RosterEntry,
+} from '../../../shared/types.ts';
 import type { CountdownKind } from '../../engine/encounter.ts';
 import type { DatasetIndex } from '../../engine/character.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
@@ -165,4 +170,70 @@ export function describeItem(item: SessionItem, dataset: Dataset, index: Dataset
       // one line on this screen made of somebody else's JSON.
       return 'KEPT, NOT READ';
   }
+}
+
+// ---------------------------------------------------------------------------
+// The three rows ADD mints
+// ---------------------------------------------------------------------------
+
+/*
+ * Three things are the same in all three, and each is a decision rather than a
+ * default.
+ *
+ * `order` stays 0. `addSessionItem` stamps `session.length` as the row goes in,
+ * and a factory that also guessed would be a second opinion about a number only
+ * the store can hold - the kind of duplicate authority that ends with two rows
+ * claiming position 4.
+ *
+ * `collapsed` is true. A row that arrived open would push the rest of the night
+ * off a 393px phone at the moment it is added, and the GM has just typed
+ * everything the open row would show them. `addCountdown` mints its row the
+ * same way for the same reason, so the four kinds ADD offers cannot disagree
+ * about it.
+ *
+ * `id` is last with a `crypto.randomUUID()` default - `upsertMember`'s shape -
+ * so a test can pin an id and the app never has to.
+ */
+
+export function newScene(
+  name: string,
+  environmentRef: Ref | null,
+  id: string = crypto.randomUUID(),
+): SessionItem {
+  return { id, kind: 'scene', name: name.trim(), order: 0, collapsed: true, environmentRef };
+}
+
+/**
+ * A planned fight.
+ *
+ * `combatants` is empty and has to be: the row's combatant list is the *fight*,
+ * and nothing in `gmStore` sets one wholesale, so a factory that invented one
+ * would write a field no control can ever change again. The roster and the
+ * adjustments are copied rather than aliased - they come from the live board,
+ * and a plan that changed when the board changed would not be a plan.
+ */
+export function newEncounter(
+  name: string,
+  roster: readonly RosterEntry[],
+  adjustments: EncounterAdjustments,
+  id: string = crypto.randomUUID(),
+): SessionItem {
+  return {
+    id,
+    kind: 'encounter',
+    name: name.trim(),
+    order: 0,
+    collapsed: true,
+    roster: roster.map((entry) => ({ ...entry })),
+    adjustments: { ...adjustments },
+    combatants: [],
+  };
+}
+
+export function newLink(
+  name: string,
+  target: LinkTarget,
+  id: string = crypto.randomUUID(),
+): SessionItem {
+  return { id, kind: 'link', name: name.trim(), order: 0, collapsed: true, target };
 }

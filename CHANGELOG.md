@@ -48,10 +48,41 @@ before the one below.
   accurate travel is not a gesture everybody can perform, and this is the same
   feature rather than a lesser one.
 
-**Not there yet, and named here rather than left to be discovered:** nothing in
-this build adds a new scene, encounter or link row — the list reads, draws,
-reorders and deletes them, and the ADD button that mints one comes with the
-bottom bar. Countdowns are the exception; they start where they always did.
+- **The GM section has a bottom bar of its own: ADD, SHOW, SAVE.** They are
+  verbs rather than places — each opens something over the plan and hands the
+  screen back when it closes — which is why none of them lights up as "where
+  you are".
+- **ADD writes the night.** Scene, encounter, link, countdown. A scene
+  remembers an environment; an encounter can take the roster that is on the
+  board right now; a link points at an adversary, an environment, a card or a
+  rule already inside the app, never at a web page; a countdown can be pinned
+  to the top bar from the form that makes it. Every new row arrives closed and
+  at the end of the list, and the button says so, so a sheet closing over a
+  twelve-row night does not look like nothing happened.
+- **SHOW is the two tools no row opens** — the bestiary, read-only, and the
+  party board. They were chips borrowed at the top of the screen while there
+  was no bar to put them in; they have gone back where they belong.
+- **SAVE says where your campaign is, and never pretends you had to press it.**
+  The campaign has been written 400 ms after every change since it moved into
+  the database, so the sheet flushes whatever is still in flight and then says
+  when the last change actually reached the disk — not when the record changed,
+  when the *write landed*. If a write failed, that sentence is replaced by the
+  failure and a retry that now does something.
+- **A first campaign that could not be written says so.** On a device with no
+  campaign at all the app makes one, and if that very first write failed the
+  error was swallowed with a comment. Nothing read it, so nothing was visibly
+  wrong until SAVE existed — at which point the sheet would have stamped
+  "already on this device, just now" over a write that threw.
+- **A campaign file is a copy, and the app says it cannot read one back.**
+  `.dhcampaign` holds the whole table, party sheets included, and there is no
+  import for it yet. That is written where the button is now, rather than being
+  discovered on the day it matters.
+
+**Not there yet, and named here rather than left to be discovered:** the bar has
+no SEARCH — full-text rule search is deferred, and the search a GM does at the
+table is the bestiary's own filter behind SHOW. The way back out to Play, Cards
+and Build is still the tab bar rather than the top menu, so for one commit the
+GM screen carries both bars.
 
 ---
 

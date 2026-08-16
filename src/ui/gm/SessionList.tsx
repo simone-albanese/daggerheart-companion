@@ -21,16 +21,22 @@
  *
  * ## Scroll
  *
- * This is the scrolling part of the GM screen; the top bar above it does not
- * move. On a 393x852 phone, with the shell header (52 + 47 of safe area), the
- * top bar (two 44px rows inside 20 of padding and gap = 108), the licence
- * notice (~111) and the tab bar (60 + 34) all pinned, what is left for the list
- * is 852 − 99 − 108 − 111 − 94 = 440px. A shut row is 44px of header inside 8px
- * of panel padding, and the list gap is 8, so the step is 60px: seven rows on
- * screen, six with a primary countdown pinned above. That is a night's plan,
- * and it is the arithmetic to redo when the licence notice moves into this
- * scroll and the bottom bar arrives - the notice is 111 of the 653px that is
- * not shell header here, and it is the first thing that should pay for the bar.
+ * This is the scrolling part of the GM screen; the top bar above it and the
+ * bottom bar below it do not move. On a 393x852 phone the pinned chrome is the
+ * shell header (52 + 47 of safe area = 99), the top bar (two 44px rows inside
+ * 20 of padding and gap = 108), `GmBar` (60), the licence notice (~111) and the
+ * tab bar (60 + 34 = 94): 852 − 472 = 380px of list. A shut row is 44px of
+ * header inside 8px of panel padding and the list gap is 8, so the step is
+ * 60px: six rows on screen, five with a primary countdown pinned above.
+ *
+ * Six is a row down on what was here before `GmBar`, and it is temporary. The
+ * bottom of this screen currently carries **three** bars, because the tab bar
+ * is still the only way out of the GM section and the licence notice is still
+ * a pinned strip. When MENU takes over the door, both of those leave: 852 − 99
+ * − 108 − 94 = 551px, nine rows, with the notice moving *into* this scroll
+ * where it costs a scroll position rather than content. That is the arithmetic
+ * to redo then, and it is the reason the notice is the thing that pays rather
+ * than the plan.
  */
 import { useState } from 'react';
 import { SessionRow } from './SessionRow.tsx';
@@ -68,7 +74,11 @@ export function SessionList({
         ) : session.length === 0 ? (
           <Empty
             title="Nothing planned yet"
-            body="This is the night, in the order you want to run it: scenes, encounters, countdowns and links to what you will need open. Countdowns start in Fear and countdowns, from the number in the bar above. Scenes, encounters and links are read from the campaign and kept; nothing in this build writes a new one yet."
+            // The sentence that used to be here said no scene, encounter or
+            // link could be written by this build. ADD writes all four now, so
+            // the copy points at ADD instead: an empty state that describes a
+            // limitation the app has since lifted is a lie with a long life.
+            body="This is the night, in the order you want to run it: scenes, encounters, countdowns and links to whatever you will want open. ADD, at the bottom of the screen, starts one — and every row can be dragged into the order you mean to run it in."
           />
         ) : (
           // Keyed on the item's id, not on its index. That is what makes the

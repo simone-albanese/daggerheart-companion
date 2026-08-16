@@ -66,19 +66,23 @@ import {
 } from '../../src/ui/build/parts.tsx';
 import { StepCards, Wizard } from '../../src/ui/build/Wizard.tsx';
 import { emptyDraft } from '../../src/ui/build/creation.ts';
+import { AddSheet } from '../../src/ui/gm/AddSheet.tsx';
 import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
 import { Bestiary } from '../../src/ui/gm/Bestiary.tsx';
 import { Countdowns } from '../../src/ui/gm/Countdowns.tsx';
 import { Encounter, Stepper as EncounterStepper } from '../../src/ui/gm/Encounter.tsx';
 import { FearBar, FearBoard } from '../../src/ui/gm/FearPool.tsx';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
+import { GmBar } from '../../src/ui/gm/GmBar.tsx';
 import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
+import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { SessionRow } from '../../src/ui/gm/SessionRow.tsx';
+import { ShowSheet } from '../../src/ui/gm/ShowSheet.tsx';
 import {
   AdversaryBlock,
   EnvironmentBand,
@@ -456,6 +460,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <InventoryEditor value={[{ ref: null, name: 'A rope', quantity: 1 }]} onChange={noop} />
   ),
 
+  'gm/AddSheet.tsx::AddSheet': () => <AddSheet onClose={noop} />,
   'gm/AdversaryList.tsx::FilterBar': () => (
     <FilterBar value={NO_FILTER} onChange={noop} shown={3} total={9} />
   ),
@@ -469,6 +474,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/FearPool.tsx::FearBar': () => <FearBar />,
   'gm/FearPool.tsx::FearBoard': () => <FearBoard phone={false} />,
   'gm/Gm.tsx::Gm': () => <Gm />,
+  'gm/GmBar.tsx::GmBar': () => <GmBar open={null} onOpenSheet={noop} />,
   'gm/GmSheet.tsx::GmSheet': () => (
     <GmSheet label="A tool" onClose={noop}>
       inside the sheet
@@ -476,6 +482,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'gm/GmTopBar.tsx::GmTopBar': () => <GmTopBar layout="tablet" onOpenTool={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
+  'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (
     <SessionBody item={sceneItem()} phone={false} onOpenTool={noop} />
@@ -500,6 +507,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       onOpenTool={noop}
     />
   ),
+  'gm/ShowSheet.tsx::ShowSheet': () => <ShowSheet onOpenTool={noop} />,
   'gm/StatBlock.tsx::Stat': () => <Stat label="HP" value="6" />,
   'gm/StatBlock.tsx::FeatureList': () => (
     <FeatureList features={[{ name: 'A Feature', text: 'It does a thing.' }]} />

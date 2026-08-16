@@ -1498,9 +1498,17 @@ Decisions taken:
       lands, the two tools no row can open — Bestiary and PartyBoard — are
       chips in the top bar, with the note in `GmTopBar.tsx` saying they leave
       when SHOW arrives.
-- [ ] **ADD** → countdown, encounter, scene (environment), link. A countdown can
-      be marked **primary**, which pins it to the top bar; otherwise it joins the
-      list. An encounter opens the encounter builder that already exists.
+- [x] ~~**ADD** → countdown, encounter, scene (environment), link.~~ — **done.**
+      The four choices are generated from `SESSION_ITEM_KINDS`, so a fifth kind
+      added to the record cannot be silently missing from the menu. A countdown
+      is pinned from the form itself, through the id `addCountdown` now hands
+      back — the row and the countdown share one id and the store mints it, so
+      reading `session.at(-1)` would have been the caller holding an opinion
+      about how the store appends. An encounter can take the roster that is on
+      the board right now and never the combatants, because no store action
+      sets a combatant list wholesale. Every row arrives closed and at the end,
+      and the sheet says so rather than letting the sheet close over a row the
+      GM cannot see.
 - [x] ~~**Rows reorder by drag.**~~ *"Sarebbe fighissimo se tu potessi fare oui,
       oui, e te li metti dove vuoi."* — **done**, and with a keyboard path
       beside it rather than behind it. Hold the handle 250 ms with under 8 px of
@@ -1513,12 +1521,20 @@ Decisions taken:
       hold plus 60 px of accurate travel is not a gesture everybody has. One
       polite live region for the whole list: assertive interrupts itself five
       times across a four-row drag.
-- [ ] **SHOW** forks in two: **Consulta** — browse adversaries and environments
-      read-only, without adding them, for when the GM is improvising — and
-      **Gruppo**, which is the PartyBoard that already exists, reached from here.
-- [ ] **SAVE** writes the campaign: the list, Fear, the countdowns, and the
-      party. `PartyMember` already stores each sheet whole, so a saved campaign
-      already contains what *"tutti i PG con quello che hanno"* asks for.
+- [x] ~~**SHOW** forks in two: **Consulta** and **Gruppo**.~~ — **done.** The
+      two tools no row can open, and the only two, which is why they are the
+      fork. Each choice says what it is *not*: the bestiary adds nothing to
+      tonight, the party board never writes to anyone's character. The chips
+      that carried them in the top bar are gone with it.
+- [x] ~~**SAVE** writes the campaign: the list, Fear, the countdowns, and the
+      party.~~ — **done, and it is not a verb.** The campaign is written 400 ms
+      after the last change and again on `pagehide`, so a sheet that implied the
+      GM had to press anything would teach them to distrust the thing that is
+      actually keeping their table. It flushes, then says *when* the last write
+      reached the disk; it shows `writeError` instead of that stamp when there
+      is one, with a retry that now does something because `hydrateGm` leaves a
+      failed first write dirty; and it offers the `.dhcampaign` copy while
+      saying out loud that nothing in this build can read one back in.
 - [ ] **Multiple campaigns.** A campaign owns its name, its session list, its
       Fear, its countdowns and its imported party. It does **not** own the
       characters you play: those stay in `characters` and in the header,
@@ -1552,15 +1568,12 @@ The LINK row still ships, resolving to something already inside the app — an
 adversary, an environment, a card, a rule — so it works offline and changes no
 promise.
 
-**Left open by the two commits that built the list, so none of it is a
+**Left open by the commits that built this screen, so none of it is a
 silence:**
 
-- [ ] **Nothing in this build writes a new scene, encounter or link row.** The
-      list reads them, draws them, reorders them and deletes them; the three
-      factories that mint them land with the ADD sheet, and are deliberately not
-      in `session.ts` yet because an exported factory with no caller is a
-      feature shipped switched off. A countdown is the exception — it is
-      started from Fear and countdowns, and the empty state says so.
+- [x] ~~**Nothing in this build writes a new scene, encounter or link row.**~~ —
+      **closed by the ADD sheet.** The three factories are in `session.ts` now
+      because there is a caller.
 - [ ] **`Countdown.notes` is persisted, read by `readCountdown`, and rendered
       nowhere.** The open countdown row is now the obvious place for it, which
       makes the absence louder than it was. It needs a keyboard inside a
@@ -1570,15 +1583,34 @@ silence:**
       fight.** `combatants` on the row are stated as a fact with no control,
       because no action in `gmStore` sets the combatant list wholesale. Adding
       one is a store change, not a screen change.
-- [ ] **BESTIARY and PARTY are chips in the top bar** because the bottom bar
-      does not exist yet and dropping two working tools while rebuilding the
-      screen around them would be a regression. They move into SHOW when
-      `GmBar` lands, and `GmTopBar.tsx` carries the note.
-- [ ] **`hydrateGm` still swallows a failed first `putCampaign`** (`gmStore.ts`,
-      the `catch` around the first-campaign write). Nothing on screen reads it
-      today, but SAVE will, and a sheet that stamps "already on this device's
-      disk" over a write that threw is the founding rule failing on the one
-      screen whose job is reporting the write. Fix the store, not the sentence.
+- [x] ~~**BESTIARY and PARTY are chips in the top bar.**~~ — **gone with SHOW,**
+      which is where the wireframe put them.
+- [x] ~~**`hydrateGm` still swallows a failed first `putCampaign`.**~~ —
+      **fixed in the store, not in the sentence.** It sets `writeError` and
+      leaves the write dirty, so SAVE's retry, the next change and `pagehide`
+      all try it again. Nothing is dirty at that moment otherwise, so
+      `writeActive` returned at `if (!dirty)` and no later write would ever have
+      reported it.
+- [ ] **SEARCH is not in the bar, and that is a decision.** The wireframe draws
+      four verbs; this build ships three. Full-text rule search is deferred to
+      1.1, and the searching a GM does at the table is already the Bestiary's
+      filter behind SHOW — name, description, motives, feature names. A second,
+      weaker SEARCH beside it would make the bar claim a capability the app has
+      in one place and not in the other. It goes in as a fourth entry in
+      `GmBar`'s array when there is an index behind it.
+- [ ] **The bar cannot yet be made to redistribute.** `gridTemplateColumns` is
+      written from the verb array's length precisely so that dropping one closes
+      the gap, and nothing in this build can drop one, so the property is pinned
+      only as "three buttons, three columns". The per-tool preferences are what
+      make it provable.
+- [ ] **`GmBar` does not pay `env(safe-area-inset-bottom)`,** because the tab
+      bar below it on a phone and the licence footer below it elsewhere already
+      do, and two payments is 34px of empty panel between two bars. It moves
+      here in the commit that takes the tab bar off this screen.
+- [ ] **A scene added from ADD records an environment and does not put it on the
+      board.** That is the same split the open scene row already draws — the row
+      is the plan, `GmBoard` is the table — and the row carries the two verbs
+      that cross it. Worth revisiting only if a GM reports expecting otherwise.
 
 ## P5-3 · What the GM screen could have at hand, and does not
 

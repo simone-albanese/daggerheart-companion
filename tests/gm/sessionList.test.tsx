@@ -160,11 +160,16 @@ describe('what the list says when there is nothing in it', () => {
     expect(text()).not.toContain('Nothing planned yet');
   });
 
-  it('says the list is empty once it knows, and offers no control it does not have', () => {
+  it('says the list is empty once it knows, and points at the control that fills it', () => {
     list();
     expect(text()).toContain('Nothing planned yet');
-    // The bottom bar has not landed. An empty state that told the GM to press
-    // ADD would be pointing at a button that is not on the screen.
+    // It used to end "nothing in this build writes a new one yet", which was
+    // true right up until ADD landed - and a limitation the app has lifted is
+    // the kind of sentence that outlives its reason in an empty state nobody
+    // rereads. It names ADD now, and ADD is on the screen.
+    expect(text()).toContain('ADD');
+    // Still no control of its own: ADD is in the bar below this list, and a
+    // second button here would be two doors onto one sheet.
     expect(buttons(), 'the empty state drew a control').toHaveLength(0);
   });
 });

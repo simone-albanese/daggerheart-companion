@@ -474,4 +474,43 @@ describe('a write that did not happen', () => {
     expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(4);
     spy.mockRestore();
   });
+
+  it('says so for the very first campaign of all, which used to fail in silence', async () => {
+    /*
+     * The one write in this file nothing was ever told about.
+     *
+     * `hydrateGm` makes a campaign for a device that has none, and the `catch`
+     * around that `putCampaign` was empty, carrying "an empty campaign that
+     * failed to save has lost nothing". Nothing is dirty at that moment, so
+     * `writeActive` returns at `if (!dirty)` and no later flush reports it
+     * either - and SAVE, whose whole job is to say where the campaign is,
+     * would stamp "already on this device, just now" over it.
+     *
+     * The spy has to be installed before the module is imported, because
+     * importing `gmStore` *is* hydration starting.
+     */
+    globalThis.indexedDB = new IDBFactory();
+    installStorage();
+    vi.resetModules();
+    const freshStore = await import('../../src/store/campaigns.ts');
+    const spy = vi
+      .spyOn(freshStore, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    const freshGm = await import('../../src/ui/gm/gmStore.ts');
+    await freshGm.hydrateGm();
+
+    expect(freshGm.useGm.getState().writeError).toMatch(/quota has been exceeded/);
+    expect(freshGm.useGm.getState().hydrated).toBe(true);
+    // Still usable in memory: the sentence is about where the campaign is, not
+    // about whether the GM can work.
+    expect(freshGm.useGm.getState().campaigns).toHaveLength(1);
+
+    // And left dirty, so the next change, `pagehide` and SAVE's TRY AGAIN all
+    // retry the write that never landed. Without that, the retry is a button
+    // that does nothing - `writeActive` would return at `if (!dirty)`.
+    spy.mockRestore();
+    await freshGm.flushGm();
+    expect(freshGm.useGm.getState().writeError).toBeNull();
+    expect((await freshStore.readCampaigns()).campaigns).toHaveLength(1);
+  });
 });

@@ -757,6 +757,28 @@ menù che P5-2 elimina.
   Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
 
+**La barra in basso, dentro la sezione GM**, porta i verbi del GM: **ADD**,
+**SHOW**, **SAVE**. Non sono destinazioni, sono verbi — `aria-haspopup="dialog"`
+e mai `aria-current` — e le colonne sono `repeat(n, 1fr)` sul numero di verbi,
+così togliendone uno la barra si ridistribuisce invece di lasciare un buco.
+**SEARCH non c'è**: la ricerca full-text delle regole è rinviata a 1.1, e la
+ricerca che un GM fa davvero a tavolo è già il filtro del Bestiary dietro SHOW.
+Un bottone che non apre niente è peggio di un bottone che non c'è.
+
+- **ADD** scrive le quattro righe — scena con ambiente, encounter (che può
+  prendere il roster che è sul tavolo adesso, mai i combattenti), link a
+  qualcosa già dentro l'app, countdown (pinnabile subito). Ogni riga nasce
+  chiusa e in fondo alla lista, e la sheet lo dice.
+- **SHOW** biforca nei due strumenti che nessuna riga apre: Bestiary in sola
+  consultazione e la party board. Erano due chip in cima finché la barra non
+  esisteva; se ne sono andati con questa.
+- **SAVE** non è il bottone che salva. La campagna è già scritta 400 ms dopo
+  l'ultima modifica e di nuovo su `pagehide`; la sheet fa un flush, poi dice
+  *quando* l'ultima scrittura è arrivata davvero sul disco — `updatedAt`, che
+  `writeActive` sposta dentro `campaigns` solo nel ramo di successo di
+  `putCampaign` — mostra `writeError` al posto del timbro quando c'è, e offre la
+  copia `.dhcampaign` dicendo che **nessuna parte di questa build sa rileggerla**.
+
 Una riga della sessione porta il **suo** piano — roster, aggiustamenti,
 ambiente — e la campagna porta **un** tavolo solo (`GmBoard`). Sono due cose
 diverse con la stessa forma, e le righe lo dicono: METTI SUL TAVOLO e TIENI QUI
