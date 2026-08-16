@@ -8,6 +8,7 @@
  * said which one it was.
  */
 import { useEffect, useState } from 'react';
+import { APP_VERSION, BUILD_ID, shortBuildId } from '../../buildInfo.ts';
 import { forgetBackupFolder } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
@@ -115,6 +116,43 @@ export function About({
       </div>
 
       <Rows>
+        {/*
+          The line a bug report is copied out of.
+
+          A user on a stale cached build could not say which one and we could
+          not ask - and this app installs a service worker, holds a bundle in
+          Cache Storage until an update is accepted, and can sit on a home
+          screen for months without touching the network, so "which build" is
+          not a rhetorical question here. Version, commit and SRD revision on
+          one line, because someone reading it out over a table will read one
+          line and not three.
+
+          Selectable rather than a copy button: this is `<code>` in a settings
+          screen, a long-press selects it on a phone, and a control whose whole
+          job is `navigator.clipboard` is a control that fails silently on the
+          browsers that do not have it.
+        */}
+        <Field
+          label="This build"
+          hint="Quote this if something is wrong. The commit is the one thing that says exactly which bytes you are looking at — the app can keep serving an old bundle from its cache long after a new one has been published."
+          footer={
+            <code
+              className="t-dense"
+              title={`build ${BUILD_ID}`}
+              style={{
+                display: 'block',
+                fontFamily: 'var(--mono)',
+                color: 'var(--text-2)',
+                overflowWrap: 'anywhere',
+                userSelect: 'text',
+              }}
+            >
+              v{APP_VERSION} · build {shortBuildId()} · SRD {dataset.revision} · schema{' '}
+              {dataset.schemaVersion}
+            </code>
+          }
+        />
+
         <Field
           label="What this app does"
           hint={`Unambiguous arithmetic, and the text of everything else. That is the whole boundary, and it is deliberate: modelling ${dataset.domainCards.length} cards with their exceptions is a bigger project than the rest of the app combined, and every table with a variant would end up fighting it.`}
