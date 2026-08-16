@@ -24,6 +24,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as backup from '../../src/store/backup.ts';
 import { appBackupDeps } from '../../src/store/backupDeps.ts';
+import { APP_VERSION } from '../../src/transfer/fileIo.ts';
 import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
 
 declare global {
@@ -68,7 +69,16 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+/**
+ * jsdom has no `navigator.clipboard` at all, and the user agent is part of the
+ * report, so both are stubbed together and named so an assertion can find them.
+ */
+function stubClipboard(writeText: (text: string) => Promise<void>): void {
+  vi.stubGlobal('navigator', { userAgent: 'TestBrowser/1.0', clipboard: { writeText } });
+}
 
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const button = (text: string): HTMLButtonElement | undefined =>
@@ -193,5 +203,77 @@ describe('the way out of a screen that will not render', () => {
     // And it earns the offer the same way as the first time.
     press('Try again');
     expect(button('Save a copy of everything')).toBeDefined();
+  });
+});
+
+/**
+ * The report a person on a phone can actually send back.
+ *
+ * `componentDidCatch` is handed `info.componentStack` and used to throw it at
+ * `console.error` and nowhere else, so the fallback could not have shown where
+ * the failure was even if it had wanted to. The two console calls in this
+ * app's entire `src` are the only reporters it has, and reaching a console on
+ * iOS needs a Mac and a cable.
+ */
+describe('what the person holding the phone can send back', () => {
+  it('shows where it happened, not only what it said', () => {
+    act(() => {
+      root.render(screen());
+    });
+
+    expect(shown(), 'the message never reached the screen').toContain(
+      'the record could not be read',
+    );
+    expect(
+      container.querySelector('pre')?.textContent ?? '',
+      'the component stack went to the console and nowhere a user can see',
+    ).toContain('Boom');
+  });
+
+  it('puts the whole report on the pasteboard, version and browser included', async () => {
+    let written = '';
+    stubClipboard(async (text) => {
+      written = text;
+    });
+
+    act(() => {
+      root.render(screen());
+    });
+    press('Copy the error report');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Which screen, which build, which browser, what broke and where. Those
+    // are the questions a report always raises and none of them can be
+    // answered from a retyped sentence.
+    expect(written).toContain('Play could not open');
+    expect(written, 'no version, so nobody can tell which build this was').toContain(APP_VERSION);
+    expect(written).toContain('the record could not be read');
+    expect(written, 'the component stack was left out of the report').toContain('Boom');
+    expect(written, 'no browser, so nobody can reproduce it').toContain('TestBrowser/1.0');
+    // Not a backup: this is going to somebody else.
+    expect(written).not.toContain('schemaVersion');
+
+    expect(shown(), 'the copy happened silently').toMatch(/Copied/);
+  });
+
+  it('does not claim a copy the browser refused', async () => {
+    stubClipboard(async () => {
+      throw new Error('Write permission denied.');
+    });
+
+    act(() => {
+      root.render(screen());
+    });
+    press('Copy the error report');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(shown(), 'a refused clipboard was reported as a copy').not.toMatch(/^Copied/m);
+    expect(shown()).toMatch(/would not give this page the clipboard/);
+    // And it says what to do instead, because the details are on the screen.
+    expect(shown()).toMatch(/photograph/i);
   });
 });

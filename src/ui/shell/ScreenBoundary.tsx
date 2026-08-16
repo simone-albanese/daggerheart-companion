@@ -6,10 +6,20 @@
  * lacks an API - the sheet has to keep working, and the failure has to be
  * legible rather than a white page. So each screen mounts behind its own
  * boundary and reports what actually broke.
+ *
+ * "Reports" has to mean to the person holding the phone. Both defects this app
+ * has shipped were found by someone opening it on their own device, and that is
+ * the only bug-finding mechanism this project has: there is no telemetry, and
+ * on iOS reaching a console needs a Mac and a cable. So the fallback carries
+ * everything the boundary knows - the message, the component stack, the version
+ * and the browser - and a button that puts all of it on the pasteboard, because
+ * a person who can only retype a sentence sends back a sentence.
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { runBackup } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { APP_VERSION } from '../../transfer/fileIo.ts';
+import { copyText } from '../../transfer/pasteboard.ts';
 
 interface Props {
   name: string;
@@ -18,6 +28,15 @@ interface Props {
 
 interface State {
   error: Error | null;
+  /**
+   * Which components were mounted when it threw.
+   *
+   * Only `componentDidCatch` is ever given this, and it used to hand it
+   * straight to `console.error` and drop it - so the fallback structurally
+   * could not show the one piece of information that says *where* the failure
+   * was, no matter what it wanted to render.
+   */
+  stack: string | null;
   /**
    * How many times Try again has been pressed since this screen last rendered.
    *
@@ -30,19 +49,65 @@ interface State {
   saving: boolean;
   /** What the export said, in its own words. Null until one has been run. */
   saved: string | null;
+  /** What the pasteboard said. Null until the report has been copied. */
+  copied: string | null;
 }
 
 export class ScreenBoundary extends Component<Props, State> {
-  override state: State = { error: null, attempts: 0, saving: false, saved: null };
+  override state: State = {
+    error: null,
+    stack: null,
+    attempts: 0,
+    saving: false,
+    saved: null,
+    copied: null,
+  };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    // No telemetry anywhere in this app; the console is the only reporter.
+    // Into state as well as the console. The console is still the only
+    // reporter for anyone with a cable; the state is the only one for
+    // everybody else.
+    this.setState({ stack: info.componentStack ?? null, copied: null });
     console.error(`[${this.props.name}]`, error, info.componentStack);
   }
+
+  /**
+   * Everything this boundary knows, as one block of text to paste into a
+   * message.
+   *
+   * The version and the user agent are in it because the two questions a
+   * report always raises are "which build" and "which browser", and a person
+   * reading a crash on their own phone can answer neither. No character data:
+   * this is sent to someone else, and it is a bug report, not a backup.
+   */
+  private report(): string {
+    const { error, stack } = this.state;
+    const agent = typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent;
+    return [
+      `Daggerheart Companion ${APP_VERSION} — ${this.props.name} could not open`,
+      new Date().toISOString(),
+      '',
+      error?.stack ?? `${error?.name ?? 'Error'}: ${error?.message ?? ''}`,
+      '',
+      stack === null ? 'No component stack was reported.' : `Component stack:${stack}`,
+      '',
+      agent,
+    ].join('\n');
+  }
+
+  private readonly copyTheReport = (): void => {
+    void copyText(this.report()).then((result) => {
+      this.setState({
+        copied: result.ok
+          ? 'Copied. Paste it into a message to whoever maintains this.'
+          : `${result.reason} The details are above — a photograph of this screen works too.`,
+      });
+    });
+  };
 
   override componentDidUpdate(): void {
     // The retry worked. Whatever fails here next is entitled to its own first
@@ -79,7 +144,7 @@ export class ScreenBoundary extends Component<Props, State> {
   };
 
   override render(): ReactNode {
-    const { error, attempts, saving, saved } = this.state;
+    const { error, stack, attempts, saving, saved, copied } = this.state;
     if (error === null) return this.props.children;
 
     /*
@@ -117,6 +182,41 @@ export class ScreenBoundary extends Component<Props, State> {
         >
           {error.message}
         </code>
+        {/* Folded away, because the message above is the part a player needs
+            and this is the part whoever fixes it needs. Open it and it scrolls
+            inside its own box rather than stretching the page sideways. */}
+        {stack !== null && (
+          <details style={{ width: '100%', maxWidth: 520 }}>
+            <summary
+              className="t-meta"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                minHeight: 'var(--tap)',
+                cursor: 'pointer',
+                color: 'var(--muted)',
+              }}
+            >
+              WHERE IT HAPPENED
+            </summary>
+            <pre
+              className="t-dense"
+              style={{
+                margin: 0,
+                padding: 12,
+                maxHeight: 220,
+                overflow: 'auto',
+                borderRadius: 'var(--r2)',
+                background: 'var(--panel)',
+                border: '1px solid var(--line-soft)',
+                color: 'var(--muted)',
+                fontFamily: 'var(--mono)',
+              }}
+            >
+              {stack.trim()}
+            </pre>
+          </details>
+        )}
         {retried && (
           <p className="t-dense" style={{ maxWidth: 420, margin: 0, textAlign: 'center' }}>
             Trying again gave the same failure, so this one is not passing. Write your characters
@@ -140,7 +240,15 @@ export class ScreenBoundary extends Component<Props, State> {
           >
             Try again
           </button>
+          <button type="button" className="btn" onClick={this.copyTheReport}>
+            Copy the error report
+          </button>
         </div>
+        {copied !== null && (
+          <span className="t-meta" role="status" style={{ color: 'var(--muted)', maxWidth: 420, textAlign: 'center' }}>
+            {copied}
+          </span>
+        )}
         {saved !== null && (
           <span className="t-meta" role="status" style={{ color: 'var(--muted)' }}>
             {saved}

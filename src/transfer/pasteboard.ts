@@ -46,22 +46,42 @@ export type CopyOutcome =
   | { ok: true; characters: number; bytes: number }
   | { ok: false; reason: string };
 
-/** Put every character on the pasteboard, in the same JSON a backup file uses. */
-export async function copyLibrary(characters: readonly Character[]): Promise<CopyOutcome> {
-  if (characters.length === 0) return { ok: false, reason: 'There is nothing to copy yet.' };
-  const text = serializeBackup([...characters]);
+export type CopyResult = { ok: true; bytes: number } | { ok: false; reason: string };
+
+/**
+ * Put text on the system pasteboard, or say why it is not there.
+ *
+ * The one place in the app that touches `navigator.clipboard.writeText`. There
+ * are two callers now and they have nothing else in common - a library of
+ * characters crossing iOS's storage boundary, and the crash report a broken
+ * screen offers - but the refusals are identical, and a second call site would
+ * mean a second set of words for a browser saying no. What is *not* here is
+ * what to do instead: "export a file" is good advice for a library and no
+ * advice at all for a stack trace, so each caller adds its own.
+ */
+export async function copyText(text: string): Promise<CopyResult> {
   try {
     await navigator.clipboard.writeText(text);
-    return { ok: true, characters: characters.length, bytes: text.length };
+    return { ok: true, bytes: text.length };
   } catch (error) {
     return {
       ok: false,
       reason:
         error instanceof Error && /denied|permission/i.test(error.message)
-          ? 'The browser would not give this page the clipboard. Export a file instead.'
-          : 'The clipboard is not available here. Export a file instead.',
+          ? 'The browser would not give this page the clipboard.'
+          : 'The clipboard is not available here.',
     };
   }
+}
+
+/** Put every character on the pasteboard, in the same JSON a backup file uses. */
+export async function copyLibrary(characters: readonly Character[]): Promise<CopyOutcome> {
+  if (characters.length === 0) return { ok: false, reason: 'There is nothing to copy yet.' };
+  const text = serializeBackup([...characters]);
+  const result = await copyText(text);
+  return result.ok
+    ? { ok: true, characters: characters.length, bytes: result.bytes }
+    : { ok: false, reason: `${result.reason} Export a file instead.` };
 }
 
 export type PasteOutcome =
