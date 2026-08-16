@@ -174,6 +174,21 @@ const eachTopic = (check: (topic: string) => void): void => {
   }
 };
 
+/**
+ * The shipped dataset with one rules section taken out of it.
+ *
+ * `rules` is mergeable, so a homebrew layer really can replace a section with
+ * nothing - and the empty state that then draws is a sentence the component
+ * writes itself rather than one it quotes. Those sentences describe the screen
+ * around them, and the two doors each of these components has are not the same
+ * screen, which is exactly what these tests are for.
+ */
+const without = (id: string): void => {
+  act(() => {
+    useApp.setState({ dataset: { ...dataset, rules: dataset.rules.filter((r) => r.id !== id) } });
+  });
+};
+
 /** The folds of whatever the reference is currently drawing. */
 const folds = (): HTMLButtonElement[] =>
   [
@@ -468,6 +483,31 @@ describe('the advancement chart, on a dynamic countdown', () => {
   it('is not offered on a standard countdown, whose rule this is not', () => {
     openBoard(row('standard'));
     expect(chartFold()).toBeUndefined();
+  });
+
+  it('sends the GM to the − and + when there is a − and a + under their thumb', () => {
+    without('countdowns');
+    openBoard(row('dynamic'));
+    click(chartFold()!);
+    expect(text()).toContain('carries no advancement chart');
+    // Both controls are on this row, above the fold the sentence is inside.
+    expect(named('Advance The ritual by one')).toBeDefined();
+    expect(text()).toContain('Move the countdown by hand with the − and + above.');
+  });
+
+  it('does not send the reference screen to a − and a + that are not on it', () => {
+    without('countdowns');
+    openReference();
+    click(named('Advancing a countdown'));
+    expect(text()).toContain('carries no advancement chart');
+    // `countdown={null}` here. There is no countdown on this screen and no
+    // −/+ anywhere on the page, so naming one is the app describing a control
+    // it is not drawing.
+    expect(text()).not.toContain('Move the countdown by hand');
+    const inside = container.querySelector('[role="dialog"]')!;
+    expect(
+      [...inside.querySelectorAll('button')].filter((b) => (b.textContent ?? '').trim() === '−'),
+    ).toEqual([]);
   });
 
   it('draws every cell and no button on the reference screen, which has no countdown', () => {

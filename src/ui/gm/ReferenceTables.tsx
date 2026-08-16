@@ -309,7 +309,10 @@ export function FearGuide(): React.JSX.Element {
  * so is cheaper and more honest than a migration.
  *
  * `countdown === null` is the reference screen's read-only copy: no cell is a
- * button there, because there is no countdown for one to act on.
+ * button there, because there is no countdown for one to act on - and the
+ * empty state below drops its second sentence there for the same reason, since
+ * the −/+ it names belongs to the row this is folded into and is not on the
+ * reference screen at all.
  *
  * ## Ergonomics
  *
@@ -331,10 +334,14 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
   const chart = useMemo(() => countdownAdvancement(dataset.rules), [dataset]);
 
   if (chart.rows.length === 0) {
+    // The second sentence is about the row this is folded into, so it is only
+    // true where there is a row. On the reference screen `countdown` is null,
+    // there is no −/+ anywhere on the page, and sending the GM to one would be
+    // the app describing a control it is not drawing.
     return (
       <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
-        This dataset carries no advancement chart, so there is nothing to offer. Move the countdown
-        by hand with the − and + above.
+        This dataset carries no advancement chart, so there is nothing to offer.
+        {countdown !== null && ' Move the countdown by hand with the − and + above.'}
       </p>
     );
   }
