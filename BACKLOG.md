@@ -830,7 +830,9 @@ clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
       type must become a `min-height` first, or a user at a 125 % root gets a
       clipped verdict bar.
 
-### P2-4 · Screen reader and focus
+### P2-6 · Screen reader and focus
+*(was a second `P2-4`; renumbered — the id collided with the scroll-budget item
+above, and this document is what everything else is tracked against.)*
 **~3 h total**
 
 - [ ] **The roll result is never announced on desktop.** No `aria-live` anywhere
@@ -1302,11 +1304,25 @@ where being wrong stops the project rather than costing a character.
       nothing, so a user of an offline-first app has no way to read the terms
       under which the content they are looking at was published. Vendor the text
       with a retrieval date and link it beside the About attribution panel.
-- [ ] **The section numbering has collided.** Two headings are `### P2-4` (`:438`
-      the fixed block, `:493` screen reader and focus), the P2 items run 1, 2, 4,
-      3, 4, and *Already good* points at "the `brand/` fix in P3-3" when it is
-      P3-4. Cheap, and this document is the thing everything else is tracked
-      against.
+- [x] ~~**The section numbering has collided.**~~ — **done.** Two headings were
+      `### P2-4`; the second, *Screen reader and focus*, is now **P2-6**. The
+      stale *Already good* pointer at "the `brand/` fix in P3-3" is corrected to
+      P3-4 and struck through, because that gap is now closed.
+
+      **Deliberately not done: the headings are not reordered.** P2 runs 1, 4, 3,
+      6, 5 and P3 runs 1, 6, 5, 2, 3, 4, 7, 8, 9, 11, 10, and that is not rot —
+      **this file is ordered by priority within a band, not by id.** Sorting it
+      by number would put the cheapest item above the one that costs a character
+      and would silently rewrite the judgement the order encodes. Ids identify;
+      position ranks. Recorded here so the next reader does not "fix" it.
+
+      One thing that made this safe to do at all, measured rather than assumed:
+      `grep -rnoE "P[0-9]-[0-9]+"` across `tests/`, `src/`, `shared/` and
+      `Architecture.md` shows backlog ids are cited in 25 places — most of them
+      in `tests/harness/orphans.test.ts`, where each allowlist entry names the
+      item that deletes it — but **`P2-3` and `P2-4` appear in none of them**,
+      only in `HANDOFF.md`. Renumbering any *other* id would have broken a test's
+      stated reason. Check that grep before touching one.
 
 ---
 
@@ -1636,7 +1652,11 @@ Verified, and listed so effort goes where it is needed.
   the chunk graph from what Vite actually emitted rather than trusting a
   manifest, and **refuses to adopt an `index.html` whose bundle it could not
   fetch** — the classic half-update PWA breakage, explicitly and testably
-  prevented. Fix the `brand/` gap in P3-3 and this file is finished.
+  prevented. ~~Fix the `brand/` gap in P3-3~~ — **done, `d413e35`..`c313d60`**
+  (the reference was to P3-4, not P3-3). `brand/` is precached and routed, the
+  precache test now derives its expectation from what Vite emitted rather than
+  from three guesses, and the importer chunk is refetched before it is pruned.
+  This file is finished.
 - **The transfer format has room to spare.** Over all 3240 buildable characters:
   median 540 bytes, p95 687, max 842. Not one needs more than 5 QR frames of the
   15 the architecture allows — the worst case would have to grow 221 % to reach
