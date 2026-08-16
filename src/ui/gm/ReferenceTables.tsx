@@ -19,11 +19,13 @@
  * not on it. That is the licence version of the rule this app keeps everywhere
  * else: the screen does not get to claim something that is not so.
  */
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { useApp } from '../../store/state.ts';
+import type { Countdown } from '../../engine/encounter.ts';
 import type { Tier } from '../../../shared/types.ts';
 import {
   adversaryBenchmarks,
+  countdownAdvancement,
   environmentBenchmarks,
   fearGuidance,
   type BenchmarkTable,
@@ -263,6 +265,143 @@ export function FearGuide(): React.JSX.Element {
           </div>
         );
       })}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The dynamic-countdown chart, as five rows the GM can press.
+ *
+ * ## The app never decides that a trigger fired
+ *
+ * `Countdowns.tsx` opens with the rule: nothing here advances by itself,
+ * because the app has no idea whether the roll that just happened was the one
+ * that mattered. That rule is not weakened by this chart - it is the reason the
+ * chart is shaped this way. The SRD says a dynamic countdown moves by up to
+ * three depending on the outcome of an action roll; the app cannot know the
+ * outcome, so it prints the five outcomes and the GM presses the one that
+ * happened. Architecture 3.2's *proposta, mai automatismo*: the proposal is on
+ * the screen, the decision is a thumb.
+ *
+ * ## Six buttons, not ten
+ *
+ * Six of the ten advancement cells the SRD prints carry a number. The four that
+ * read `No advancement` are drawn as the SRD's words in `--dim` and are **not
+ * buttons** - a control that performs no change is the app claiming something
+ * it will not do. Which cells are pressable is read off the cell text by
+ * `countdownAdvancement`, so a layer that rewrites the chart changes the
+ * buttons with it.
+ *
+ * Both columns are offered and neither is chosen for the GM. The persisted
+ * `CountdownKind` has only `'dynamic'` in it - there is no progress/consequence
+ * distinction on the record - and adding one is a campaign-schema change under
+ * Architecture 6.1 for a distinction the SRD's own sentence above the chart
+ * already makes in words. The app does not know which kind a row is, and saying
+ * so is cheaper and more honest than a migration.
+ *
+ * `countdown === null` is the reference screen's read-only copy: no cell is a
+ * button there, because there is no countdown for one to act on.
+ *
+ * ## Ergonomics
+ *
+ * Inside a `CountdownRow` article at 393px the column is 393 - 24 of region
+ * padding - 22 of article padding = 347px. The grid is
+ * `minmax(0, 1.15fr)` then one `minmax(0, 1fr)` a column, at 4px gaps, so with
+ * the shipped two-column chart that is 124 / 108 / 108. `Failure with Fear` is
+ * 17 characters at `.t-meta` - 10px mono at 0.06em, about 6.6px a character -
+ * so 112px inside 124, and it wraps rather than clips if a layer writes longer.
+ * `Tick down 3` at `.t-num` is 86px inside 108 less 12 of padding.
+ *
+ * Every button declares `minHeight: var(--tap)`. Five rows plus a header is
+ * 20 + 5x44 + 4x4 = 256px, which is why it lives behind a fold that starts
+ * shut on a row that is already inside a scroller.
+ */
+export function CountdownChart({ countdown }: { countdown: Countdown | null }): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const advance = useGm((s) => s.advanceCountdown);
+  const chart = useMemo(() => countdownAdvancement(dataset.rules), [dataset]);
+
+  if (chart.rows.length === 0) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no advancement chart, so there is nothing to offer. Move the countdown
+        by hand with the − and + above.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {chart.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{chart.page === null ? '' : ` · P.${String(chart.page)}`}
+        </span>
+      </div>
+      {chart.lead !== '' && (
+        <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+          {chart.lead}
+        </p>
+      )}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `minmax(0, 1.15fr) repeat(${String(chart.columns.length)}, minmax(0, 1fr))`,
+          gap: 4,
+          alignItems: 'stretch',
+        }}
+      >
+        <span className="t-meta" style={{ color: 'var(--dim)' }} />
+        {chart.columns.map((column) => (
+          <span key={column} className="t-meta" style={{ color: 'var(--dim)' }}>
+            {column}
+          </span>
+        ))}
+
+        {chart.rows.map((row) => (
+          <Fragment key={row.roll}>
+            <span className="t-meta" style={{ alignSelf: 'center', color: 'var(--text-2)' }}>
+              {row.roll}
+            </span>
+            {row.cells.map((cell, i) => {
+              const column = chart.columns[i] ?? '';
+              // A cell with no number in it is the SRD saying nothing happens.
+              // Printed, never pressed.
+              if (cell.ticks === null || countdown === null) {
+                return (
+                  <span
+                    key={column}
+                    className={cell.ticks === null ? 't-meta' : 't-num'}
+                    style={{
+                      alignSelf: 'center',
+                      color: cell.ticks === null ? 'var(--dim)' : 'var(--text-2)',
+                    }}
+                  >
+                    {cell.text}
+                  </span>
+                );
+              }
+              const ticks = cell.ticks;
+              return (
+                <button
+                  key={column}
+                  type="button"
+                  onClick={() => advance(countdown.id, -ticks)}
+                  aria-label={`${countdown.name}: ${row.roll}, ${column} — advance by ${String(ticks)}`}
+                  className="btn t-num"
+                  style={{ minHeight: 'var(--tap)', padding: '0 6px' }}
+                >
+                  {cell.text}
+                </button>
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
     </>
   );
 }

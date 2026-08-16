@@ -198,3 +198,98 @@ export function fearGuidance(rules: RulesSection[]): FearGuidance {
   }
   return { title: section.title, parts, page: section.sourcePage ?? null };
 }
+
+// ---------------------------------------------------------------------------
+// Dynamic countdowns
+// ---------------------------------------------------------------------------
+
+export interface AdvanceCell {
+  /** The cell's own words, whatever they are. */
+  text: string;
+  /**
+   * How far the countdown moves, or **null** when there is no number in the
+   * cell at all.
+   *
+   * Null is what stops the app inventing a tap. Six of the ten advancement
+   * cells the SRD prints say `Tick down N`; the other four say `No
+   * advancement`, and a button under those words would be offering to do
+   * something the rule says does not happen. Only a cell whose number was
+   * actually read is offered.
+   */
+  ticks: number | null;
+}
+
+export interface AdvanceRow {
+  /** The row's first cell - the roll result. */
+  roll: string;
+  /** One per column after the first, in the table's order. */
+  cells: AdvanceCell[];
+}
+
+export interface CountdownGuidance {
+  /** The chart's own `## ` subhead. */
+  title: string;
+  /**
+   * The paragraph immediately above that subhead.
+   *
+   * It is the sentence that tells a progress countdown from a consequence one,
+   * and it has to be on screen: the persisted `CountdownKind` has only
+   * `'dynamic'` in it, so the app does not know which of the two columns a
+   * given row is, and it does not guess. The GM reads the SRD's own
+   * distinction and presses the column they mean.
+   */
+  lead: string;
+  /** The header cells after the first: what each `cells` position is. */
+  columns: string[];
+  rows: AdvanceRow[];
+  page: number | null;
+}
+
+const NO_COUNTDOWNS: CountdownGuidance = {
+  title: '',
+  lead: '',
+  columns: [],
+  rows: [],
+  page: null,
+};
+
+/**
+ * `rules['countdowns']`, p.69, the five-row roll-result chart.
+ *
+ * Found as *the first block in the section that carries a table*, not by its
+ * heading: `## DYNAMIC COUNTDOWN ADVANCEMENT` is the SRD's wording and typing
+ * it here to search for it would put it in the repository. The lead is the last
+ * paragraph of the block before that one, which is where the book puts the
+ * sentence introducing the chart.
+ */
+export function countdownAdvancement(rules: RulesSection[]): CountdownGuidance {
+  const section = rules.find((r) => r.id === 'countdowns');
+  if (section === undefined) return NO_COUNTDOWNS;
+
+  const blocks = ruleBlocks(section.body);
+  for (const [i, block] of blocks.entries()) {
+    const table = ruleTables(block.text)[0];
+    if (table === undefined) continue;
+    const before = paragraphs(blocks[i - 1]?.text ?? '');
+    return {
+      title: block.heading ?? section.title,
+      lead: before[before.length - 1] ?? '',
+      columns: table.header.slice(1),
+      rows: table.rows.flatMap((row) => {
+        const roll = row[0];
+        if (roll === undefined) return [];
+        return [
+          {
+            roll,
+            cells: row.slice(1).map((text) => {
+              const digits = /\d+/.exec(text);
+              return { text, ticks: digits === null ? null : Number(digits[0]) };
+            }),
+          },
+        ];
+      }),
+      page: section.sourcePage ?? null,
+    };
+  }
+  return NO_COUNTDOWNS;
+}

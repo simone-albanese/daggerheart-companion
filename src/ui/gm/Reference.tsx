@@ -17,9 +17,12 @@
  *
  * The parts of this reference a GM *does* want mid-gesture do not wait here for
  * them. They are folded into the controls they belong to - the Fear guidance
- * under the Fear board's twelve targets - one tap from a thumb that is already
- * there, and shut until asked. The same table, drawn by the same component; the
- * fold is a second door, never a second copy.
+ * under the Fear board's twelve targets, the advancement chart under a dynamic
+ * countdown's own row - one tap from a thumb that is already there, and shut
+ * until asked. The same tables, drawn by the same components; a fold is a
+ * second door, never a second copy. What changes is what they can do: on a
+ * countdown's row the chart's cells are buttons that move *that* countdown,
+ * and here there is no countdown for them to act on, so here they are print.
  *
  * It is not one of the switchable GM tools. The bestiary and the party board
  * are switchable because they are the two forks of SHOW and a GM may genuinely
@@ -42,9 +45,9 @@
  * ## The topic strip
  *
  * Chips at `var(--tap)` with `padding: 0 12px`. `.t-label` is 10px mono at
- * `0.16em`, so about 7.6px a character: IMPROVISE is 92px and FEAR is 54, which
- * is 152 of the 369px column - one row with room to spare, and room for the
- * five topics still to come.
+ * `0.16em`, so about 7.6px a character: IMPROVISE is 92px, FEAR 54 and
+ * COUNTDOWNS 100, which with two 6px gaps is 258 of the 369px column - one row
+ * with room to spare, and room for the four topics still to come.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a
@@ -67,9 +70,9 @@
  */
 import { useState } from 'react';
 import { useIsPhone } from '../shared/useLayout.ts';
-import { FearGuide, TierBenchmarks } from './ReferenceTables.tsx';
+import { CountdownChart, FearGuide, TierBenchmarks } from './ReferenceTables.tsx';
 
-export type ReferenceTopic = 'improvise' | 'fear';
+export type ReferenceTopic = 'improvise' | 'fear' | 'countdowns';
 
 /**
  * What a menu maps over to build its items.
@@ -84,6 +87,7 @@ export const REFERENCE_TOPICS: ReadonlyArray<{
 }> = [
   { id: 'improvise', label: 'Improvise an adversary', short: 'IMPROVISE' },
   { id: 'fear', label: 'Fear', short: 'FEAR' },
+  { id: 'countdowns', label: 'Advancing a countdown', short: 'COUNTDOWNS' },
 ];
 
 export function Reference(): React.JSX.Element {
@@ -135,6 +139,12 @@ export function Reference(): React.JSX.Element {
 
       {topic === 'improvise' && <TierBenchmarks />}
       {topic === 'fear' && <FearGuide />}
+      {/*
+        Read-only here, and pressable on a dynamic countdown's own row. There is
+        no countdown on this screen for a button to act on, and a control that
+        cannot act is a control that lies about what it does.
+      */}
+      {topic === 'countdowns' && <CountdownChart countdown={null} />}
     </div>
   );
 }

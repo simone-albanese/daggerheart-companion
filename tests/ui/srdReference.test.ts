@@ -19,6 +19,7 @@ import srd from '../../data/srd-1.0.json' with { type: 'json' };
 import type { Dataset, RulesSection } from '@shared/types.ts';
 import {
   adversaryBenchmarks,
+  countdownAdvancement,
   environmentBenchmarks,
   fearGuidance,
   type FearScene,
@@ -194,5 +195,53 @@ describe('fearGuidance', () => {
         text: 'Spend a Fear to:\n- Interrupt the players\n- Make an additional GM move',
       },
     ]);
+  });
+});
+
+describe('countdownAdvancement', () => {
+  const chart = (): ReturnType<typeof countdownAdvancement> => countdownAdvancement(rules);
+
+  it('gives the five roll results in the SRD’s order, under the SRD’s columns', () => {
+    expect(chart().rows.map((r) => r.roll)).toEqual([
+      'Failure with Fear',
+      'Failure with Hope',
+      'Success with Fear',
+      'Success with Hope',
+      'Critical Success',
+    ]);
+    expect(chart().columns).toEqual(['Progress Advancement', 'Consequence Advancement']);
+    expect(chart().title).toBe('DYNAMIC COUNTDOWN ADVANCEMENT');
+    expect(chart().page).toBe(69);
+  });
+
+  it('reads a number only where the SRD prints one, and the columns are not swapped', () => {
+    const rows = chart().rows;
+    // Failure with Fear: nothing on a progress countdown, three on a
+    // consequence one. Swap the two columns and this pair inverts.
+    expect(rows[0]!.cells.map((c) => c.ticks)).toEqual([null, 3]);
+    expect(rows[0]!.cells[0]!.text).toBe('No advancement');
+    expect(rows[4]!.cells.map((c) => c.ticks)).toEqual([3, null]);
+    // Six of the ten advancement cells carry a number; four say nothing.
+    const cells = rows.flatMap((r) => r.cells);
+    expect(cells).toHaveLength(10);
+    expect(cells.filter((c) => c.ticks !== null)).toHaveLength(6);
+  });
+
+  it('carries the sentence that tells a progress countdown from a consequence one', () => {
+    // The app has no such distinction on the record, so the GM has to be able
+    // to read it. Take the section's first paragraph instead of the last one
+    // before the chart and neither name is on the screen.
+    expect(chart().lead).toContain('Progress countdowns');
+    expect(chart().lead).toContain('Consequence countdowns');
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(countdownAdvancement([])).toEqual({
+      title: '',
+      lead: '',
+      columns: [],
+      rows: [],
+      page: null,
+    });
   });
 });

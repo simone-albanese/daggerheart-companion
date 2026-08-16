@@ -79,7 +79,7 @@ import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
-import { FearGuide, TierBenchmarks } from '../../src/ui/gm/ReferenceTables.tsx';
+import { CountdownChart, FearGuide, TierBenchmarks } from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
@@ -493,6 +493,8 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/Reference.tsx::Reference': () => <Reference />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
+  // Read-only: with no countdown to act on, not one cell is a button.
+  'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (

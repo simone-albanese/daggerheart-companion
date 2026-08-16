@@ -20,7 +20,8 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Campaign } from '../../shared/campaigns.ts';
+import type { Campaign, SessionItem } from '../../shared/campaigns.ts';
+import { countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
@@ -337,10 +338,11 @@ describe('the topic strip', () => {
     expect(chips.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Improvise an adversary',
       'Fear',
+      'Advancing a countdown',
     ]);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false']);
     click(chips[1]!);
-    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+    expect(chips.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
   });
 
   it('shows one subject at a time, so the other is gone rather than below', () => {
@@ -348,5 +350,97 @@ describe('the topic strip', () => {
     expect(text()).toContain('Attack Modifier');
     click(named('Fear'));
     expect(text()).not.toContain('Attack Modifier');
+  });
+});
+
+describe('the advancement chart, on a dynamic countdown', () => {
+  const row = (kind: 'standard' | 'dynamic', value = 4): SessionItem => ({
+    id: 'c1',
+    kind: 'countdown',
+    name: 'The ritual',
+    order: 0,
+    collapsed: true,
+    primary: false,
+    countdown: { id: 'c1', name: 'The ritual', kind, start: 6, value, notes: '' },
+  });
+
+  const openBoard = (item: SessionItem): void => {
+    act(() => {
+      useGm.setState({ session: [item], countdowns: countdownsOf([item]) });
+    });
+    gm();
+    click(named('0 of 12 Fear — open Fear and countdowns'));
+  };
+
+  const chartFold = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').trim().startsWith('ADVANCE BY A ROLL'));
+
+  it('is shut on mount, below a −/+ row that has not moved or shrunk', () => {
+    openBoard(row('dynamic'));
+    const fold = chartFold();
+    expect(fold?.getAttribute('aria-expanded')).toBe('false');
+    // The one-tap gesture keeps its 48px and its place above the fold.
+    const minus = named('Advance The ritual by one');
+    const plus = named('Move The ritual back by one');
+    expect([minus.style.minHeight, plus.style.minHeight]).toEqual(['48px', '48px']);
+    expect(minus.compareDocumentPosition(fold!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('offers exactly the six cells the SRD gives a number for', () => {
+    openBoard(row('dynamic'));
+    click(chartFold()!);
+    const cells = buttons()
+      .map((b) => b.getAttribute('aria-label') ?? '')
+      .filter((label) => label.startsWith('The ritual: '));
+    expect(cells).toEqual([
+      'The ritual: Failure with Fear, Consequence Advancement — advance by 3',
+      'The ritual: Failure with Hope, Consequence Advancement — advance by 2',
+      'The ritual: Success with Fear, Progress Advancement — advance by 1',
+      'The ritual: Success with Fear, Consequence Advancement — advance by 1',
+      'The ritual: Success with Hope, Progress Advancement — advance by 2',
+      'The ritual: Critical Success, Progress Advancement — advance by 3',
+    ]);
+    // The four the SRD gives no number for are printed and are not pressable.
+    expect(text()).toContain('No advancement');
+  });
+
+  it('moves the countdown by what the cell says, and only when pressed', () => {
+    openBoard(row('dynamic'));
+    click(chartFold()!);
+    expect(useGm.getState().countdowns[0]!.value).toBe(4);
+    click(named('The ritual: Failure with Fear, Consequence Advancement — advance by 3'));
+    // Pass `+3` instead of `-3` and it goes the wrong way to 6, clamped at
+    // `start`; take the Progress column's delta for this row and there is
+    // nothing to take, because that cell is `No advancement` and is not a
+    // button at all. Only `-3` gives 1.
+    expect(useGm.getState().countdowns[0]!.value).toBe(1);
+  });
+
+  it('names the sentence that tells the two columns apart, because the app cannot', () => {
+    openBoard(row('dynamic'));
+    click(chartFold()!);
+    expect(text()).toContain('Progress countdowns');
+    expect(text()).toContain('Consequence countdowns');
+    expect(text()).toContain('SRD 1.0 · P.69');
+  });
+
+  it('is not offered on a standard countdown, whose rule this is not', () => {
+    openBoard(row('standard'));
+    expect(chartFold()).toBeUndefined();
+  });
+
+  it('draws every cell and no button on the reference screen, which has no countdown', () => {
+    openReference();
+    click(named('Advancing a countdown'));
+    expect(text()).toContain('Failure with Fear');
+    expect(text()).toContain('Critical Success');
+    expect(text()).toContain('Tick down 3');
+    expect(text()).toContain('No advancement');
+    const inside = container.querySelector('[role="dialog"]')!;
+    const strip = inside.querySelector('[aria-label="What to look up"]')!;
+    const pressable = [...inside.querySelectorAll('button')].filter(
+      (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
+    );
+    expect(pressable.map((b) => b.textContent)).toEqual([]);
   });
 });
