@@ -46,6 +46,14 @@ import { useGm } from './gmStore.ts';
  * paper; there is nothing here for the app to do with it, and a button that
  * only looked actionable would be worse than no button.
  *
+ * The one thing the app adds is the marking on the campaign's own tier, and the
+ * closing note that says the marking is the app's and not the book's. Both are
+ * conditional on a column having actually been marked: `benchmarkTable` reads
+ * the tier off the column header and will not guess, so a rules layer whose
+ * headers carry no number leaves nothing outlined - and a note explaining a
+ * mark that is not on the screen is the same defect as any other sentence the
+ * code cannot honour.
+ *
  * ## Ergonomics, 393 x 852
  *
  * Inside `GmSheet size="full"` the panel is the window's width, so the column
@@ -69,6 +77,14 @@ export function TierBenchmarks(): React.JSX.Element {
     [dataset],
   );
   const drawn = tables.filter((table) => table.columns.length > 0);
+  // The closing note is about a column that is outlined and chipped PARTY
+  // TIER. A layer can rewrite either section, and `benchmarkTable` refuses to
+  // read a tier out of a header with no number in it - so there may be no
+  // marked column anywhere on the screen, and then the note is a sentence
+  // about a marking the GM cannot see.
+  const marked = drawn.some((table) =>
+    table.columns.some((column) => column.tier !== null && column.tier === partyTier),
+  );
 
   if (drawn.length === 0) {
     return (
@@ -84,10 +100,12 @@ export function TierBenchmarks(): React.JSX.Element {
       {drawn.map((table) => (
         <BenchmarkGrid key={table.title} table={table} partyTier={partyTier} />
       ))}
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-        The marked column is the tier this campaign is set to. That is this app noting where you
-        already are — the tables are the SRD&rsquo;s, unchanged, all four tiers of them.
-      </p>
+      {marked && (
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          The marked column is the tier this campaign is set to. That is this app noting where you
+          already are — the tables are the SRD&rsquo;s, unchanged, all four tiers of them.
+        </p>
+      )}
     </>
   );
 }

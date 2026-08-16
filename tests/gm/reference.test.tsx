@@ -189,6 +189,21 @@ const without = (id: string): void => {
   });
 };
 
+/** The shipped dataset with whole section bodies replaced, all in one write. */
+const rewrite = (bodies: Record<string, string>): void => {
+  act(() => {
+    useApp.setState({
+      dataset: {
+        ...dataset,
+        rules: dataset.rules.map((r) => {
+          const body = bodies[r.id];
+          return body === undefined ? r : { ...r, body };
+        }),
+      },
+    });
+  });
+};
+
 /** The folds of whatever the reference is currently drawing. */
 const folds = (): HTMLButtonElement[] =>
   [
@@ -261,6 +276,20 @@ describe('what the reference draws', () => {
     expect(text()).toContain('PARTY TIER');
     // The marking is the app noting where the campaign is. It says so.
     expect(text()).toContain('the tier this campaign is set to');
+  });
+
+  it('says nothing about a marked column when no column was marked', () => {
+    // A layer can rewrite these sections outright, and `benchmarkTable` will
+    // not guess a tier out of a header with no number in it. Then no column is
+    // outlined, nothing carries PARTY TIER, and the closing note is a sentence
+    // about a marking that is not on the screen.
+    const table = '| Statistic | Weak | Strong |\n| --- | --- | --- |\n| Reach | 11 | 20 |';
+    rewrite({ 'adversary-stat-block-benchmarks': table, 'adapting-environments': table });
+    openReference();
+    const inside = container.querySelector('[role="dialog"]')!;
+    expect(inside.textContent).toContain('Weak');
+    expect(inside.textContent).not.toContain('PARTY TIER');
+    expect(inside.textContent).not.toContain('the tier this campaign is set to');
   });
 
   it('offers nothing to press in the body, because a benchmark is a number you copy down', () => {
