@@ -857,6 +857,76 @@ describe('the tendina', () => {
   });
 });
 
+/**
+ * What the next attack is declared with.
+ *
+ * Three surfaces set the trait on this screen - the pinned chips, the trait
+ * grid inside the scroll, and the SPELLCAST chip in the modifier row - and only
+ * the pinned chips ever put an armed weapon down. So tapping a trait anywhere
+ * else left the sword armed, and the damage step P1-1 is about would have
+ * offered a sword's dice for a Knowledge check while the screen showed
+ * KNOWLEDGE on the roll bar. Nothing threw, and nothing on screen disagreed
+ * with anything else; the declaration was simply wrong.
+ */
+describe('what the attack is made with', () => {
+  /** A row you can arm: the weapon buttons carry the weapon's own name. */
+  function weaponRow(name: string): HTMLButtonElement {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
+    );
+    if (found === undefined) throw new Error(`no armable row called "${name}"`);
+    return found;
+  }
+
+  /** A pinned trait chip, by the three letters it prints. */
+  function traitChip(abbreviation: string): HTMLButtonElement {
+    const found = buttons().find((b) =>
+      new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
+    );
+    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
+    return found;
+  }
+
+  /** A tile in the scrolling trait grid, by the trait it announces. */
+  function traitTile(label: string): HTMLButtonElement {
+    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
+    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    return found;
+  }
+
+  /** A sheet whose primary weapon rolls with something other than the default. */
+  const withBattleaxe = (): Character => seed({ activePrimaryWeapon: 'battleaxe' });
+
+  it('takes the trait from the weapon, and takes the weapon back when a tile is tapped', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('true');
+    // "The trait that applies to an attack roll is specified by the weapon or
+    // spell being used." A player who taps a sword has declared that roll.
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
+
+    click(traitTile('Agility'));
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      weaponRow('Battleaxe').getAttribute('aria-pressed'),
+      'the axe is still armed for an Agility roll it was not declared for',
+    ).toBe('false');
+  });
+
+  it('takes the weapon back when SPELLCAST is armed from the modifier row', () => {
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    click(fold('Modifiers'));
+    const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
+    expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
+    click(spellcast!);
+    expect(
+      weaponRow('Battleaxe').getAttribute('aria-pressed'),
+      'the axe is still armed for a Spellcast roll',
+    ).toBe('false');
+  });
+});
+
 describe('the verbs under the traits', () => {
   it('prints all six sets, in the words the SRD uses', () => {
     play(seed());

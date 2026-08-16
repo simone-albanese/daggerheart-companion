@@ -75,13 +75,32 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     if (weapon) setTrait(weapon.trait);
   };
 
+  /*
+   * Picking a trait by hand, wherever the tap came from.
+   *
+   * Three surfaces set the trait - the pinned chips, the trait grid inside the
+   * scroll, and the SPELLCAST chip in the modifier row - and only the pinned
+   * chips put the armed weapon down. The other two left it standing, so tapping
+   * KNOWLEDGE on a tile kept a sword declared for a Knowledge check with
+   * nothing on screen disagreeing with anything else.
+   *
+   * It is one rule, so it lives in one place: *"The trait that applies to an
+   * attack roll is specified by the weapon or spell being used."* Choosing the
+   * trait yourself is therefore declaring a roll the weapon did not, and the
+   * weapon steps back rather than silently offering its damage for it.
+   */
+  const chooseTrait = (t: RollTrait): void => {
+    setTrait(t);
+    setArmedWeapon(null);
+  };
+
   if (!character) return null;
   if (layout !== 'desktop') {
     return (
       <PlayPhone
         stats={stats}
         trait={trait}
-        setTrait={setTrait}
+        chooseTrait={chooseTrait}
         armedWeapon={armedWeapon}
         armWeapon={armWeapon}
       />
@@ -91,7 +110,7 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     <PlayDesktop
       stats={stats}
       trait={trait}
-      setTrait={setTrait}
+      chooseTrait={chooseTrait}
       armedWeapon={armedWeapon}
       armWeapon={armWeapon}
     />
@@ -101,7 +120,12 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
 interface ViewProps {
   stats: DerivedStats;
   trait: RollTrait;
-  setTrait: (t: RollTrait) => void;
+  /**
+   * The one route to picking a trait. There is no raw setter on these props on
+   * purpose: a call site that could reach it would be a fourth surface with its
+   * own opinion about whether the weapon stays armed.
+   */
+  chooseTrait: (t: RollTrait) => void;
   /** Ref of the weapon the next attack is declared with, if any. */
   armedWeapon: string | null;
   armWeapon: (weapon: Weapon | null) => void;
@@ -351,11 +375,12 @@ function GoldRow(): React.JSX.Element | null {
 function TraitGrid({
   stats,
   trait,
-  setTrait,
+  onPick,
 }: {
   stats: DerivedStats;
   trait: RollTrait;
-  setTrait: (t: RollTrait) => void;
+  /** Named for what it is, not for what it sets: the route, not the setter. */
+  onPick: (t: RollTrait) => void;
 }): React.JSX.Element | null {
   const character = useActive();
   const rules = useApp((s) => s.dataset.rules);
@@ -380,7 +405,7 @@ function TraitGrid({
             <button
               key={t}
               type="button"
-              onClick={() => setTrait(t)}
+              onClick={() => onPick(t)}
               aria-pressed={active}
               style={{
                 position: 'relative',
@@ -1311,7 +1336,7 @@ function LoadoutRows(): React.JSX.Element {
 function PlayDesktop({
   stats,
   trait,
-  setTrait,
+  chooseTrait,
   armedWeapon,
   armWeapon,
 }: ViewProps): React.JSX.Element {
@@ -1337,14 +1362,14 @@ function PlayDesktop({
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
         <Identity />
-        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+        <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
         <Vitals stats={stats} layout="desktop" />
-        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="desktop" />
+        <DualityRoll stats={stats} trait={trait} onTraitChange={chooseTrait} layout="desktop" />
       </div>
 
       <div className="stack" style={{ gap: 10, minHeight: 'var(--control)', minWidth: 0 }}>
@@ -1503,7 +1528,7 @@ function PlayDesktop({
 function PlayPhone({
   stats,
   trait,
-  setTrait,
+  chooseTrait,
   armedWeapon,
   armWeapon,
 }: ViewProps): React.JSX.Element {
@@ -1549,7 +1574,7 @@ function PlayPhone({
         {/* Read under pressure, so it is four numbers and not a footnote. */}
         <Defenses stats={stats} />
 
-        <TraitGrid stats={stats} trait={trait} setTrait={setTrait} />
+        <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
 
         {/* The four counters, and under them the incoming-damage calculator -
             which is a question rather than a state ("someone hit you for 14,
@@ -1646,13 +1671,7 @@ function PlayPhone({
             <button
               key={t}
               type="button"
-              onClick={() => {
-                setTrait(t);
-                // Picking a trait by hand is declaring a different roll from
-                // the one the weapon declared, so the weapon steps back rather
-                // than silently offering its damage for a persuasion check.
-                if (armedWeapon !== null) armWeapon(null);
-              }}
+              onClick={() => chooseTrait(t)}
               className="chip"
               aria-pressed={trait === t}
               style={{
@@ -1671,7 +1690,7 @@ function PlayPhone({
             </button>
           ))}
         </div>
-        <DualityRoll stats={stats} trait={trait} onTraitChange={setTrait} layout="phone" />
+        <DualityRoll stats={stats} trait={trait} onTraitChange={chooseTrait} layout="phone" />
       </div>
     </div>
   );
