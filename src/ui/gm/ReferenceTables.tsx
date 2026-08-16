@@ -447,6 +447,19 @@ export function CountdownChart({ countdown }: { countdown: Countdown | null }): 
  * ranges are like that, and a default would be the app inventing a distance the
  * book deliberately left to the fiction.
  *
+ * ## And the legend says only what the code does
+ *
+ * The conversion is performed on the **range lines**, which are labelled
+ * bullets drawn as cards with a line of their own for the ≈ figure.
+ * `rangeEntry` reads a span or a single figure out of one; prose is quoted and
+ * left alone. That is not an oversight and the legend states it: the section
+ * opens with the SRD's map-scale premise, *"1 inch of map represents about 5
+ * feet of fictional space"*, and converting the 5 inside it would mean either
+ * rewriting a sentence this whole module exists never to rewrite, or hanging an
+ * app-authored line off a paragraph where nothing says which of its figures the
+ * line converted. A legend that promised every figure in feet and delivered the
+ * bullets is the same defect as a save that reports a write it did not make.
+ *
  * ## Six cards, then four folds
  *
  * The GM who opens this wants the six ranges; the rest of the section - the
@@ -502,10 +515,12 @@ export function RangeReference(): React.JSX.Element {
           THE METRES ARE THIS APP&rsquo;S ARITHMETIC
         </span>
         <span className="t-dense" style={{ color: 'var(--text-3)' }}>
-          The rules are written in feet and carry no metric figure at all. Where they give one in
-          feet, this app multiplies it by 0.3048 — the international foot — and rounds to the
-          nearest half metre below ten and the nearest whole metre above. Where they give none,
-          neither does this.
+          The rules are written in feet and carry no metric figure at all. Where one of the range
+          lines below gives a distance in feet, this app multiplies it by 0.3048 — the
+          international foot — and rounds to the nearest half metre below ten and the nearest whole
+          metre above. Where a line gives none, neither does this. Figures inside the prose around
+          them are left exactly as the book wrote them: this app quotes a rules sentence, it does
+          not annotate one.
         </span>
       </div>
 

@@ -581,6 +581,25 @@ describe('the distances, and the metres the SRD does not print', () => {
     expect(text()).toContain('nearest half metre below ten');
   });
 
+  it('promises the conversion only where it actually performs one', () => {
+    distance();
+    const legend = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
+      (el.textContent ?? '').includes('THE METRES ARE THIS APP’S ARITHMETIC'),
+    )!;
+    // The paragraph directly under the legend is the SRD's map-scale premise,
+    // and its "about 5 feet" is prose rather than a range line: the ≈ figure
+    // is drawn on a range card, one line of its own each, and prose has no
+    // such line. So it carries no metres, and the legend has to say so rather
+    // than claim every figure in feet on the topic.
+    const premise = [...container.querySelectorAll<HTMLElement>('p')].find((el) =>
+      (el.textContent ?? '').includes('about 5 feet of fictional space'),
+    )!;
+    expect(premise.textContent).not.toContain('≈');
+    expect(legend.textContent).not.toContain('Where they give one in feet');
+    expect(legend.textContent).toContain('range lines below');
+    expect(legend.textContent).toContain('left exactly as the book wrote them');
+  });
+
   it('converts what the SRD gives, at the figures the arithmetic actually yields', () => {
     distance();
     expect(text()).toContain('≈ 1.5-3 m');

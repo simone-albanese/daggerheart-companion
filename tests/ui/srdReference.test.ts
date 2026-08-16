@@ -386,6 +386,28 @@ describe('rangeReference', () => {
     });
   });
 
+  it('reads a lone figure as well as a span, because a line may print either', () => {
+    // The screen's legend says every range line that gives a distance in feet
+    // gets metres. A layer that writes one figure instead of two is still a
+    // line that gave a distance, and the promise has to hold for it.
+    const guide2 = rangeReference([
+      {
+        id: 'maps-range-and-movement',
+        title: 'Ranges',
+        body: '- Nearby: about 30 feet from you.',
+      } as RulesSection,
+    ]);
+    const part = guide2.opening[0];
+    expect(part?.kind === 'entries' ? part.entries[0] : null).toEqual({
+      label: 'Nearby',
+      text: 'about 30 feet from you.',
+      feet: [30, 30],
+      // `metreRange` collapses two equal ends: "9-9 m" is a rounding artefact
+      // wearing a dash, not a range.
+      metres: '9 m',
+    });
+  });
+
   it('answers with nothing when the section is gone', () => {
     expect(rangeReference([])).toEqual({ title: '', opening: [], sections: [], page: null });
   });

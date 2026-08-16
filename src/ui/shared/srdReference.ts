@@ -381,19 +381,31 @@ const NO_RANGES: RangeGuidance = { title: '', opening: [], sections: [], page: n
 /**
  * A distance in feet, read out of a bullet that happens to carry one.
  *
- * Matched on the shape of the figure - two numbers, a dash, the unit - and not
- * on the sentence around it. The SRD writes "about 5-10 feet away"; keying on
- * the word "about" would put the book's phrasing in this file, and a layer that
- * dropped it would silently lose every metric figure on the screen.
+ * Matched on the shape of the figure - numbers and the unit - and not on the
+ * sentence around it. The SRD writes "about 5-10 feet away"; keying on the word
+ * "about" would put the book's phrasing in this file, and a layer that dropped
+ * it would silently lose every metric figure on the screen.
+ *
+ * **A span or a single figure.** All five shipped distances are spans, but the
+ * screen's legend promises metres wherever a range line gives a distance in
+ * feet, and a layer that writes "about 30 feet" has given one. A span is tried
+ * first and wins outright: run the single-figure pattern over "20 - 40 feet"
+ * and it matches the 40, which would print the top of the range as though it
+ * were the whole of it.
  *
  * The first figure in the bullet wins. No bullet in the shipped section carries
  * two, and one that did would be a sentence about two different distances -
  * which is a thing to print whole, not to summarise into one conversion.
  */
 function rangeEntry(bullet: { label: string; text: string }): RangeEntry {
-  const match = /(\d+)\s*-\s*(\d+)\s+feet/i.exec(bullet.text);
+  const span = /(\d+)\s*-\s*(\d+)\s+feet/i.exec(bullet.text);
+  const single = span === null ? /(\d+)\s+feet/i.exec(bullet.text) : null;
   const feet: [number, number] | null =
-    match === null ? null : [Number(match[1]), Number(match[2])];
+    span !== null
+      ? [Number(span[1]), Number(span[2])]
+      : single === null
+        ? null
+        : [Number(single[1]), Number(single[1])];
   return {
     label: bullet.label,
     text: bullet.text,
