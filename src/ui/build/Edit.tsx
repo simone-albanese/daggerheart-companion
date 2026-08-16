@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
+import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { tierNote } from './gear.ts';
 import {
@@ -109,12 +110,25 @@ export function Edit({
           <div className="stack" style={{ gap: 22 }}>
             <Section label="Identity">
               <Columns min={200}>
-                <LabelledInput
-                  label="Name"
-                  value={character.name}
-                  onChange={(name) => patch({ name })}
-                  placeholder="Unnamed"
-                />
+                {/*
+                 * Two doors to one capability, not two implementations.
+                 *
+                 * The rename that matters is on the Play sheet now, where the
+                 * name is. This one stays because a form that lists everything
+                 * about a character and omits its name is a worse form - but
+                 * it is the same control, so there is no guard restated here
+                 * and nothing here to keep in step with the other one.
+                 *
+                 * `commitOnBlur` because this door has no cancel target and no
+                 * other way to not lose the typing: every neighbouring field
+                 * on this screen writes on the keystroke, so a Name that
+                 * needed SAVE and nothing else would lose a half-typed name to
+                 * a tab tap without saying so. `key` because the header's
+                 * character picker is on this screen too, and a field seeded
+                 * from a character that is no longer active is one SAVE away
+                 * from renaming the wrong sheet.
+                 */}
+                <RenameField key={character.id} label="Name" commitOnBlur />
                 <LabelledInput
                   label="Pronouns"
                   value={character.pronouns}

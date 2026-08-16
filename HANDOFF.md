@@ -72,6 +72,7 @@ are now nearly closed too.**
 | **P2-5** | A build that will not evaluate now has a voice, and an ES5 inline hatch that opens IndexedDB and hands the library back without the bundle. |
 | **P2-4, P2-6, P3-8, P4-10** | Six overlays that claimed `role="dialog"` now trap and restore focus. Settings says honestly whether this device can open offline, in four states. Every settings hint reaches its control — `aria-describedby` appeared **zero** times in the tree before. |
 | **P3-10, P4-1..5, P4-12, P4-13** | Attribution survives having a character; the DPCGL and MIT texts ship and are readable offline; a build id; a CHANGELOG; one Node version. |
+| **Rename** (P5-1(b)) | Rename is on the sheet, in the Identity block the rebuild created: a 72×44 chip on the class/subclass row with 51 px of clearance below the header's SETTINGS button, **costing 25 px** of the 457 px scroll window measured at 393×852. The name line itself is still not a target — no role, no `tabIndex`, no handler — because that is what the bullet about a keyboard opening under a thumb actually forbids. The unique-name rule left `duplicateFor`'s body and became one comparison in `merge.ts` with two callers: the *keep-both* copy, and one `RenameField` that both Play and Build's Name field go through. Nothing is written while you type; the sheet writes on SAVE or Return, and Build — which has no ✕ and sits among fields that all write on the keystroke — writes on blur as well, which `rename.test.tsx` pins in both directions. A refusal is a `role="status"` sentence with the field pointing at it through `aria-describedby`, not a greyed SAVE, because `disabled` takes the only control carrying the reason out of the tab order. **Enforced at two doors, not everywhere** — creation and a plain import both still write a colliding name, and `characterFileName` still slugifies two distinguishable names to one file. Those three are `BACKLOG.md` P5-1(c), and `Architecture.md` §7 states the limit rather than claiming an invariant. |
 | **Print sheet** (P5-4) | Reordered to the official sheet, HP and Stress drawn solid to the earned maximum and dashed to twelve. Every string sourced from `data/srd-1.0.json`; no artwork, wording or trade dress copied from the PDF. |
 
 ## What is open
@@ -190,11 +191,6 @@ surface or anything near the schema.
   being true from 3. So a sheet handed over by QR arrives having counted
   nothing, and **no screen may present that number as the history of the
   table**. It is why the fold's summary reads NONE COUNTED rather than READY.
-
-**P5-1(b) rename.** Renaming a character already works and is four gestures deep
-in the tab visited least, and the rename path does not enforce the unique-name
-rule that `merge.ts:63-75` argues for and `duplicateFor` enforces on the import
-path. Decided: it goes in the Identity block the rebuild just created.
 
 **Smaller:** P2-3(d) typography in `rem`, P4-7(a) `noUnusedLocals`, P4-8 the
 browser floor. All three were blocked on the Play rebuild and are unblocked now.

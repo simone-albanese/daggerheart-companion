@@ -122,6 +122,7 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
@@ -624,6 +625,8 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       onChoose={noop}
     />
   ),
+  // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
+  'shared/RenameField.tsx::RenameField': () => <RenameField />,
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),
