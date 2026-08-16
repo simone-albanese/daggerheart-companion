@@ -260,12 +260,17 @@ export function SlotBoxes({
   slots: number;
   size?: number;
 }): React.JSX.Element {
+  // The name is clamped: a sheet from a build that over-granted a black-boxed
+  // advancement reports more marked than the tier prints, and "4 of 2 slots
+  // marked" is not a sentence. The pips below are drawn from `slots`, so they
+  // were already bounded; only the words a screen reader gets were not.
+  const inked = Math.min(used, slots);
   return (
     <span
       className="row"
       style={{ gap: 4, flex: 'none' }}
       role="img"
-      aria-label={`${used} of ${slots} slots marked`}
+      aria-label={`${inked} of ${slots} slots marked`}
     >
       {Array.from({ length: slots }, (_, i) => (
         <span

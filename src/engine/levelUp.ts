@@ -228,6 +228,10 @@ export function slotUsage(c: Character): SlotUsage[] {
      * deciding a player's record was wrong. What changes is that the tier is
      * full from here on.
      */
+    // `used` is what the history says and is deliberately not clamped - it is
+    // the record. `remaining` is what is still on offer, which cannot be
+    // negative. On a sheet from the older build the two disagree, and that
+    // disagreement is the honest description of it.
     return {
       optionId: o.id,
       tier: o.tier,

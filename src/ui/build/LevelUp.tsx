@@ -484,7 +484,20 @@ function BoxedOption({
         <span className="stack" style={{ flex: 1, minWidth: 0, gap: 5 }}>
           <span style={{ font: '700 14px/1.2 var(--sans)' }}>{option.label}</span>
           <span className="row" style={{ gap: 8 }}>
-            <span className="row" style={{ gap: 4 }} aria-label={`${used} of ${option.slots} marked`}>
+            {/*
+              Clamped for the reader, not for the record. A sheet levelled by a
+              build that let a black-boxed option be taken twice in one tier
+              carries two of them, so `used` is 4 where the tier prints 2 - and
+              a screen reader was told "4 of 2 marked". `slotUsage` keeps the
+              true count, because that is what the history says; only the
+              sentence about the boxes on screen is bounded by how many there
+              are.
+            */}
+            <span
+              className="row"
+              style={{ gap: 4 }}
+              aria-label={`${Math.min(used, option.slots)} of ${option.slots} marked`}
+            >
               {Array.from({ length: option.slots }, (_, i) => (
                 <span
                   key={i}
