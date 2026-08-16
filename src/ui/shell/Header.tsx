@@ -24,7 +24,6 @@ export function Header(): React.JSX.Element {
   const activeId = useApp((s) => s.activeId);
   const select = useApp((s) => s.select);
   const layers = useApp((s) => s.layers);
-  const theme = useApp((s) => s.prefs.theme);
   const active = useActive();
   const index = useApp((s) => s.index);
   const phone = useIsPhone();
@@ -95,7 +94,7 @@ export function Header(): React.JSX.Element {
           </>
         )}
         {/*
-         * Who you are, beside the menu.
+         * Who you are, beside the door to Settings.
          *
          * It belongs in the top bar precisely because it is read and never
          * touched: the top corner of a phone is the hardest place to reach
@@ -111,14 +110,25 @@ export function Header(): React.JSX.Element {
          *
          * It moved here from the left row, which also helps: that row wanted
          * 480px and was allotted 338 at 768px, so this control was being
-         * painted over from the tablet band up. The cap and the ellipsis are
-         * what stop a long name doing the same thing to MENU.
+         * painted over from the tablet band up.
+         *
+         * The cap and the ellipsis are what stop a long name doing the same
+         * thing to the Settings button, and the phone cap is viewport-relative
+         * because that button is now about 11px wider than MENU was. The row
+         * costs cap + 14 + 16 (the compatibility mark) + 14 + the button, out
+         * of viewport - 40 of padding, less 27 for the app mark and 8 for the
+         * gap between the two groups. At 393 that leaves 274 for the cap and
+         * the button together: 42vw is 165 there and the button is 55, so the
+         * pair spends 220 and 54 is left over. A fixed 168 fitted at 393 too -
+         * but at 320 the budget is 201 and 168 + 44 was already 11px past it
+         * before this change, with the door as the thing being pushed out.
+         * 42vw is 134 at that width, so the pair now spends 189 and fits.
          */}
         {active !== null && (
           /*
            * Two lines rather than two columns. The header is 52px tall and the
            * phone is 393 wide: the name, the class, the level, the
-           * compatibility mark and MENU do not fit on one line beside each
+           * compatibility mark and SETTINGS do not fit on one line beside each
            * other, and stacking costs no width at all. Right-aligned because
            * this sits against the right edge, so the eye finds the same margin
            * every time.
@@ -130,7 +140,7 @@ export function Header(): React.JSX.Element {
                 value={activeId ?? ''}
                 onChange={(e) => select(e.target.value)}
                 style={{
-                  maxWidth: phone ? 150 : 200,
+                  maxWidth: phone ? 'min(150px, 38vw)' : 200,
                   minHeight: 0,
                   padding: '2px 6px',
                   font: '700 13px/1 var(--sans)',
@@ -145,7 +155,7 @@ export function Header(): React.JSX.Element {
             ) : (
               <span
                 style={{
-                  maxWidth: phone ? 168 : 220,
+                  maxWidth: phone ? 'min(168px, 42vw)' : 220,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -160,7 +170,7 @@ export function Header(): React.JSX.Element {
             <span
               className="t-meta"
               style={{
-                maxWidth: phone ? 168 : 220,
+                maxWidth: phone ? 'min(168px, 42vw)' : 220,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -171,10 +181,46 @@ export function Header(): React.JSX.Element {
           </div>
         )}
         <CompatibleIcon size={18} />
+        {/*
+         * The word on this button is where it goes, and nothing else.
+         *
+         * It read `theme === 'light' ? 'LIGHT' : 'MENU'`, which is a sentence
+         * the code behind it could not back up: this control has never
+         * toggled the theme, it has only ever called setScreen('settings').
+         * So on a light theme the door to export, import, backup, persistent
+         * storage, print and About was labelled with the name of a setting it
+         * does not change - and `system` on a light OS said MENU, so the word
+         * was not even a reliable readout of the thing it appeared to report.
+         * The aria-label already said "Settings", which is exactly why this
+         * survived: every automated check and every screen reader got the
+         * right word and only the eye got the wrong one.
+         *
+         * There is no aria-label now. The accessible name is the visible text,
+         * so the two have nothing to drift apart from.
+         *
+         * Ergonomics. Below 720px the nav above is not rendered and TabBar
+         * carries only play/cards/build/gm, so this is the only permanent
+         * route to Settings on a phone - BackupBanner's BACK UP chip is the
+         * other one, and it needs a character and five days without a backup
+         * before it exists at all. The top-right corner is the worst place on
+         * a phone for a thumb, and that is the right trade for this control:
+         * it is tapped rarely, never mid-roll, and wanting it to be awkward to
+         * hit by accident is the same instinct as wanting it to be findable
+         * when someone is worried about losing a character. Findable means
+         * legible, which is what the word buys. `--control` resolves to --tap,
+         * 44px, at every width below 1180 and on any coarse pointer, so the
+         * box is 44x44 against a 10px label; SETTINGS only widens it, to about
+         * 55px (eight characters of 10px IBM Plex Mono at 0.6em advance, plus
+         * 0.08em of tracking).
+         *
+         * The theme control stays in Settings > Display, and that is not a
+         * regression because it was never here. It is a three-way choice -
+         * Dark, Light, System - and a header toggle cannot express the third,
+         * which is the one that follows the device's own schedule.
+         */}
         <button
           type="button"
           onClick={() => setScreen('settings')}
-          aria-label="Settings"
           className="t-meta"
           style={{
             minHeight: 'var(--control)',
@@ -183,7 +229,7 @@ export function Header(): React.JSX.Element {
             letterSpacing: '0.08em',
           }}
         >
-          {theme === 'light' ? 'LIGHT' : 'MENU'}
+          SETTINGS
         </button>
       </div>
     </header>
