@@ -6,7 +6,7 @@
   "description": "Offline-first digital character sheet and GM tools for Daggerheart. Local-first, no accounts, no network.",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "vite",

@@ -21,9 +21,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Matches the toolchain env.sh pins. package.json allows >= 22; add a
-          # matrix here if that floor is ever worth defending.
-          node-version: '24'
+          # `.nvmrc` is the one place the Node version is written down. It is
+          # read here rather than repeated, because the literal that used to sit
+          # on this line disagreed with package.json, with env.sh and with the
+          # machine the project is developed on, and nothing could notice.
+          node-version-file: '.nvmrc'
           cache: npm
 
       # pdftotext and pdftohtml, for tools/loadSrd.ts. Installed unconditionally

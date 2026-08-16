@@ -45,6 +45,11 @@ Where a feature has a *declared* numeric effect, the app offers a button that
 
 ## Getting started
 
+**Node 24**, which is what `.nvmrc` says and what CI and the deploy both read
+out of it. `nvm use` picks it up. Newer majors will very likely work — nothing
+here is close to the edge of the runtime — but 24 is the only one anything
+verifies, so it is the one number in this repo worth matching.
+
 ```sh
 npm install
 npm run dev
