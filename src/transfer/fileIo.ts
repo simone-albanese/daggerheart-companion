@@ -18,6 +18,12 @@
  * When none of them works, say so. A backup that quietly did not happen is
  * worse than no backup at all, because the user stops worrying.
  */
+import {
+  checkReadable,
+  migrateCharacterRecord,
+  SchemaError,
+  versionOf,
+} from '../../shared/migrations.ts';
 import { slugify } from '../../shared/slugify.ts';
 import {
   SCHEMA_VERSION,
@@ -115,20 +121,22 @@ export interface ImportedFile {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-function checkSchema(value: unknown, where: string): void {
+/**
+ * The envelope's own version.
+ *
+ * Only the two ends are refusals: a file from the future cannot be guessed at,
+ * and a version below `OLDEST_READABLE` is one no released build ever wrote.
+ * Everything in between is converted rather than rejected, per character,
+ * inside `readCharacter` - the envelope and the characters carry the stamp
+ * separately, and it is the characters that hold the work of months.
+ */
+function checkEnvelopeSchema(value: unknown, where: string): void {
   if (value === undefined) return;
-  if (typeof value !== 'number') {
-    throw new ImportError(`${where} has a schema version that is not a number.`);
-  }
-  if (value > SCHEMA_VERSION) {
-    throw new ImportError(
-      `${where} was written by a newer version of the app (schema ${value}; this app reads ${SCHEMA_VERSION}). Update the app, then import it again.`,
-    );
-  }
-  if (value < SCHEMA_VERSION) {
-    throw new ImportError(
-      `${where} uses schema ${value}, and this app reads ${SCHEMA_VERSION}. There is no converter for that version yet, so it has not been imported - nothing has been changed or lost.`,
-    );
+  try {
+    checkReadable(versionOf({ schemaVersion: value }));
+  } catch (error) {
+    if (error instanceof SchemaError) throw new ImportError(`${where} ${error.message}`);
+    throw error;
   }
 }
 
@@ -154,7 +162,7 @@ export function parseTransferFile(text: string): ImportedFile {
   const exportedAt = typeof parsed['exportedAt'] === 'string' ? parsed['exportedAt'] : null;
 
   if (format === BACKUP_FORMAT) {
-    checkSchema(parsed['schemaVersion'], 'That backup');
+    checkEnvelopeSchema(parsed['schemaVersion'], 'That backup');
     const list = parsed['characters'];
     if (!Array.isArray(list)) throw new ImportError('That backup has no characters in it.');
     const characters = list.map((value, i) => readCharacter(value, `Character ${i + 1}`, warnings));
@@ -162,7 +170,7 @@ export function parseTransferFile(text: string): ImportedFile {
   }
 
   if (format === CHARACTER_FORMAT) {
-    checkSchema(parsed['schemaVersion'], 'That character file');
+    checkEnvelopeSchema(parsed['schemaVersion'], 'That character file');
     return {
       kind: 'character',
       characters: [readCharacter(parsed['character'], 'That character file', warnings)],
@@ -307,9 +315,26 @@ function checkShapes(value: Record<string, unknown>, where: string): void {
  * rest from the blank sheet. A file missing its traits is not a character and
  * says so; a file missing an empty `scars` array is just terse.
  */
-function readCharacter(value: unknown, where: string, warnings: string[]): Character {
-  if (!isRecord(value)) throw new ImportError(`${where} does not contain a character.`);
-  checkSchema(value['schemaVersion'], where);
+function readCharacter(raw: unknown, where: string, warnings: string[]): Character {
+  if (!isRecord(raw)) throw new ImportError(`${where} does not contain a character.`);
+
+  // Convert first, read second. Everything below this line reads fields by
+  // name, so a record from an older schema has to arrive at this build's shape
+  // before any of it is believed - and a converter that ran is something the
+  // user is told about rather than a silent rewrite of their sheet.
+  let value: Record<string, unknown>;
+  try {
+    const migrated = migrateCharacterRecord(raw);
+    value = migrated.record;
+    if (migrated.from !== SCHEMA_VERSION) {
+      warnings.push(
+        `${where} was written by an older version of the app (schema ${migrated.from}) and was converted: ${migrated.applied.join('; ')}.`,
+      );
+    }
+  } catch (error) {
+    if (error instanceof SchemaError) throw new ImportError(`${where} ${error.message}`);
+    throw error;
+  }
 
   if (typeof value['name'] !== 'string') throw new ImportError(`${where} has no name.`);
   if (typeof value['level'] !== 'number') throw new ImportError(`${where} has no level.`);

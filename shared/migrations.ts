@@ -93,6 +93,30 @@ export function versionOf(record: Record<string, unknown>): number {
   return raw;
 }
 
+/**
+ * The two ends this build cannot reach, and the sentences that say which.
+ *
+ * Separate from the walk because the envelope of a `.dhbackup` carries its own
+ * version and has no record to convert: it needs the refusal without the
+ * conversion. The remedies are opposite, which is why there are two sentences
+ * and not one - a version from the future means update the app, and a version
+ * below the oldest means the file predates anything this app has ever written.
+ */
+export function checkReadable(version: number): void {
+  if (version > SCHEMA_VERSION) {
+    throw new SchemaError(
+      `was written by a newer version of the app (schema ${version}; this app reads ${SCHEMA_VERSION}). Update the app, then open it again - it has not been changed.`,
+      version,
+    );
+  }
+  if (version < OLDEST_READABLE) {
+    throw new SchemaError(
+      `uses schema ${version}, which no released version of this app has ever written (the oldest is ${OLDEST_READABLE}). It has not been imported and nothing has been changed.`,
+      version,
+    );
+  }
+}
+
 export interface MigrationResult {
   record: Record<string, unknown>;
   /** The version it arrived as. Equal to `SCHEMA_VERSION` when nothing ran. */
@@ -158,20 +182,7 @@ export function applyChain(
  */
 export function migrateCharacterRecord(record: Record<string, unknown>): MigrationResult {
   const from = versionOf(record);
-
-  if (from > SCHEMA_VERSION) {
-    throw new SchemaError(
-      `was written by a newer version of the app (schema ${from}; this app reads ${SCHEMA_VERSION}). Update the app, then open it again - it has not been changed.`,
-      from,
-    );
-  }
-  if (from < OLDEST_READABLE) {
-    throw new SchemaError(
-      `uses schema ${from}, which no released version of this app has ever written (the oldest is ${OLDEST_READABLE}). It has not been imported and nothing has been changed.`,
-      from,
-    );
-  }
-
+  checkReadable(from);
   const { record: converted, applied } = applyChain(record, from, SCHEMA_VERSION);
   return { record: { ...converted, schemaVersion: SCHEMA_VERSION }, from, applied };
 }

@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OLDEST_READABLE } from '../../shared/migrations.ts';
 import { SCHEMA_VERSION, type Character } from '../../shared/types.ts';
 import {
   APP_VERSION,
@@ -137,11 +138,31 @@ describe('refusing a file it does not understand', () => {
       new RegExp(`newer version.*schema ${SCHEMA_VERSION + 1}.*reads ${SCHEMA_VERSION}`),
     );
 
+    // Downward is no longer a blanket refusal - `shared/migrations.ts` converts
+    // anything back to `OLDEST_READABLE`. What is left below that line is a
+    // version no released build ever wrote, and the message now says that
+    // instead of "there is no converter yet", which was true of the file and
+    // false of the user's situation.
     const older = JSON.parse(serializeCharacter(wizard())) as Record<string, unknown>;
-    older['schemaVersion'] = SCHEMA_VERSION - 1;
+    older['schemaVersion'] = OLDEST_READABLE - 1;
     expect(() => parseTransferFile(JSON.stringify(older))).toThrow(
-      /no converter for that version yet.*nothing has been changed or lost/i,
+      /no released version of this app has ever written/i,
     );
+    expect(() => parseTransferFile(JSON.stringify(older))).toThrow(/nothing has been changed/i);
+  });
+
+  it('refuses a schema version that is not a whole number', () => {
+    const odd = JSON.parse(serializeCharacter(wizard())) as Record<string, unknown>;
+    odd['schemaVersion'] = '3';
+    expect(() => parseTransferFile(JSON.stringify(odd))).toThrow(/not a whole number/);
+  });
+
+  it('reads a file with no schema stamp at all, which is what a text editor leaves', () => {
+    const bare = JSON.parse(serializeCharacter(wizard())) as Record<string, unknown>;
+    delete bare['schemaVersion'];
+    delete (bare['character'] as Record<string, unknown>)['schemaVersion'];
+    const file = parseTransferFile(JSON.stringify(bare));
+    expect(file.characters[0]!.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it('says what kind of file it actually got', () => {
