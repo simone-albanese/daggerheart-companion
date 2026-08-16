@@ -449,9 +449,16 @@ P0-3's failure arriving as a side effect of P0-8's fix, caught because
 Nothing here loses data, but each one makes the app confidently wrong about a
 rule at the table, which is how a tool like this loses trust permanently.
 
-### P1-1 · Attack rolls do not lead into damage rolls
-`src/engine/dice.ts:264` · `src/ui/player/DualityRoll.tsx` · `src/ui/player/Play.tsx:285`
-· **medium, 4–6 h** · *requested directly; validated, not yet applied*
+### ~~P1-1 · Attack rolls do not lead into damage rolls~~ — **done, `9b4053a`, `d708b38`, `5c18104`, `42c4bfa`**
+`src/engine/dice.ts:264` · `src/ui/player/DamageRoll.tsx` · `src/ui/player/Play.tsx`
+· **medium, 4–6 h** · *requested directly*
+
+Struck at the heading because every box below is ticked and the two paragraphs
+after them name what was deliberately left out: extra damage **dice**, and the
+`companion` attack source. Neither is this item, and both are written down where
+a reader will meet them — the dice in `Architecture.md` §3.2, the companion in
+the paragraph below. The verification pass that read the diff back afterwards is
+`886fc00`, `c30e51c`, `106445b`, `35d64f9`, `c2962fa`, `5d7737e` and `3041d6f`.
 
 The SRD is explicit (`data/srd-1.0.json`, rule `attacking`, p. 39): *"On a
 successful attack, roll damage."* Attack first, then — only on a hit — damage.
@@ -914,6 +921,10 @@ clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
       Note the order this has to happen in: every fixed height that contains
       type must become a `min-height` first, or a user at a 125 % root gets a
       clipped verdict bar.
+      **Still open at HEAD**: not one type role in `src/ui/tokens.css` is in
+      `rem`. It was blocked on the Play rebuild, which has landed, so it is
+      unblocked — but it was not built in this pass and nothing about it has
+      moved.
 
 ### P2-6 · Screen reader and focus
 *(was a second `P2-4`; renumbered — the id collided with the scroll-budget item
@@ -1324,7 +1335,13 @@ where being wrong stops the project rather than costing a character.
       Pick one and say so.
 - [ ] **`env.sh` explains that the toolchain exists because Homebrew Node is
       broken.** That was repaired this session; the rationale is now stale.
-- [ ] Changelog and a release process. Version is still `0.1.0`.
+- [x] ~~Changelog and a release process. Version is still `0.1.0`.~~ — **done,
+      `8afc144`**. `CHANGELOG.md` exists and `package.json` is `0.2.0`. The
+      release process itself is not written down anywhere and is not claimed to
+      be; what this bullet asked for was the file and a version the project
+      chose rather than the scaffold's default. **`0.2.0` is deliberate and
+      stays.** Nothing this project has shipped is a 1.0, and no document may
+      say it is.
 - [ ] Sweep the remaining `TODO`/`FIXME`/`HACK` comments and decide which are
       real gaps.
 
@@ -1336,11 +1353,18 @@ where being wrong stops the project rather than costing a character.
       `noFallthroughCasesInSwitch` — and neither `noUnusedLocals` nor
       `noUnusedParameters`. There is no eslint/biome/knip config and no `lint`
       script. Measured at `7815030`, not assumed:
-      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` reports **9
+      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` reported **9
       errors** — `GearPicker.tsx:84`, `Play.tsx:87` (`stats`, accepted by
       `Identity` and never read), `:835 shapes`, `:836 setOpenCard`,
       `:840 klass`, `:844 modLabel`, `:848 modValue` (all leftovers of the phone
-      Play rebuild), `Settings.tsx:33`, `tools/simulate.ts:22`. Two tsconfig
+      Play rebuild), `Settings.tsx:33`, `tools/simulate.ts:22`.
+      **Re-measured at HEAD: five, and none of them is a `Play.tsx` leftover** —
+      `GearPicker.tsx:85 a`, `Settings.tsx:39 isStandalone`,
+      `tools/simulate.ts:22 CharClass`, plus two in tests
+      (`tests/gm/gmStore.test.ts:23 Campaign`,
+      `tests/ui/dialogs.test.tsx:40 createElement`). The Play rebuild swept its
+      own leftovers on the way past; the flags are still not on, so the next five
+      arrive unremarked. **Still open.** Two tsconfig
       lines, and `tsc --noEmit` already runs in CI. Add an unused-*exports* pass
       as well (`knip` or `ts-prune`): it catches `exportBackup`
       (`fileIo.ts:574`), `readFile` (`:763`), `getCharacter` (`db.ts:70`) and
@@ -1364,6 +1388,10 @@ where being wrong stops the project rather than costing a character.
       text colour, and domains carry shape-coding independently. The cost is that
       a contributor has nothing to check a change against, and no CI check can
       exist for a floor nobody wrote down.
+      **Re-measured at HEAD and still open, at the same numbers**: eight
+      `color-mix()` uses in `src/`, `base.css:172` still `height: 100svh`, and
+      `browserslist` plus `@supports` together return zero across `src/`,
+      `public/`, `package.json` and `index.html`.
 - [ ] **A screen crash gives the user one line of text and no way to convey it.**
       `ScreenBoundary.tsx:29-31` — *"No telemetry anywhere in this app; the
       console is the only reporter"* — then `console.error`. The fallback renders
@@ -1447,10 +1475,26 @@ the choices below are settled and are recorded here as decisions rather than as
 options. Where a decision overrules something written above, the older text is
 marked.
 
-## P5-1 · The Play screen is not the sheet, and on a phone it is not close
+## ~~P5-1 · The Play screen is not the sheet, and on a phone it is not close~~ — **done, `e2670ba`, `a0a389e`, `5be7384`, `52da38c`, `d80bb51`, `9035b2b`**
 
 **decided: it becomes the sheet** · `src/ui/player/Play.tsx` · `src/ui/player/Vitals.tsx` ·
 `src/ui/player/DualityRoll.tsx` · **large, 12–16 h**
+
+The boxes below were never ticked one by one; they were all answered, and the
+tree says so. `e2670ba` put the whole sheet on a phone in the paper's order —
+Evasion, thresholds, Proficiency, class/subclass/ancestry/community and gold are
+on a phone for the first time; `d80bb51` added the vault and made a card that
+will not recall say why; `a0a389e` gave it five `Disclosure` folds that each
+character remembers; `5be7384` made the counters numbers with a keypad behind
+`prefs.counterStyle`, defaulting to numbers, on phone and tablet only; `52da38c`
+put the trait verbs on the tiles, read out of the SRD rather than typed in; and
+`9035b2b` carried the same stack to every iPad, which is P2-1's tablet half.
+
+**Superseded, and left below as the record of what was measured.** The
+`[corrected]` note at the foot of this item says `Play.tsx`'s docblock still
+opens *"No scrolling on this screen"*. It does not: it now opens *"The screen
+scrolls. It used to say here that it did not"*, and `Architecture.md` §0 and
+§9.1 have both been brought into line.
 
 Measured against the phone layout at HEAD, not asserted. `PlayPhone` renders
 Beastform, the loadout rows, Equipped, the damage calculator, conditions, items,
@@ -1975,9 +2019,55 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       has no switches in it at all. `prefs.gmSection` still takes the whole
       section away.
 
-## P5-4 · The printed sheet against the official one
+**Then a verifier read the diff back and found five sentences the code could not
+honour**, all of them in the half of P5-3 that is drawn twice. They are fixed in
+`fd799f3`, `4701e9f`, `dbfda63`, `caebbc8` and `2d19292`, and they are worth
+keeping because four of the five are one shape — *a component behind two doors
+describing the door it did not come through*:
+
+- the empty advancement chart said *"Move the countdown by hand with the − and +
+  above"* on the reference screen, which is mounted `countdown={null}` and has no
+  −/+ on it anywhere;
+- the empty Fear guidance said *"The pool above still works"* on the reference
+  screen, which has no pool. The component now takes `besidePool`, the same shape
+  as `countdown`;
+- `TierBenchmarks` closed with *"The marked column is the tier this campaign is
+  set to"* unconditionally, with nothing checking that a column had been marked —
+  and a rules layer whose headers carry no number marks none;
+- the metric legend promised *"Where they give one in feet, this app multiplies
+  it by 0.3048"* over a `rangeEntry` that only ever matched a **span** inside a
+  labelled bullet, so the very first paragraph under the legend — the SRD's own
+  *"about 5 feet of fictional space"* — printed with no metres. The legend is now
+  scoped to the range lines and says outright that prose is left as written, and
+  `rangeEntry` reads a lone figure as well as a span so the narrower promise
+  holds for every line. Prose is **not** annotated, deliberately: doing it means
+  either rewriting a quoted sentence or hanging an app-authored line off a
+  paragraph where nothing says which figure it converted;
+- and three comments the code had already disproved — "three principles out of
+  eight" over a seven-subhead section, "the strip is not drawn while there is
+  only one topic" over a guard that cannot fire on a seven-element const, and a
+  chip row computed at 284px that is 302.
+
+## ~~P5-4 · The printed sheet against the official one~~ — **done, `8680f1b`**
 
 **source: the official character sheet** · `src/ui/print/` · **medium, 4–6 h**
+
+The three boxes below were done in one commit, and its message is the report the
+first of them asked for: eight fields missing, two misfiled, the sections
+reordered to the paper's own order, and every string on the page sourced from
+`data/srd-1.0.json` — no artwork, frame, banner, colour or lettering reproduced,
+which is the second box. HP and Stress now draw twelve boxes always, solid to the
+maximum the character has earned and broken beyond it; Hope draws six with the
+scarred ones struck through and **no** dashes, because its ceiling can only fall
+and a broken diamond would offer room the rules never give back.
+
+Four things the item asked for and the commit deliberately did not do, each with
+its reason in the commit message: no Proficiency pip row (the app derives it and
+has already multiplied it into the printed damage), no two-column page (grouping
+is the information architecture, the column count is layout), Inventory Weapons
+as three blank ruled lines rather than data (`Character` has two weapon slots and
+`inventory` holds loot and consumables, so there is nothing to print and the
+sheet must not imply there is), and `MAX_CHESTS` left at 1.
 
 The comparison the owner asked for, and it is favourable: `Gold` is already
 `{ handfuls, bags, chests }`, exactly the paper model, and the level-up tier
@@ -2071,7 +2161,60 @@ Verified, and listed so effort goes where it is needed.
 
 ---
 
-## Done in this pass (`a241d32`..`91097eb`)
+## Done since `87b9238`, which is everything not yet pushed
+
+`origin/main` is at `87b9238` and nothing above it has left this machine. The
+suite is **2237 passing in 96 files** and `tsc --noEmit` is clean.
+
+**Closed and struck above, with their commits on the heading:** P0-1 through
+P0-8 (the whole band), P1-7 (rests, and the first `SCHEMA_VERSION` bump this
+project has ever made), P1-1 (attack rolls into damage rolls), P3-7 (the
+orphan harness), P5-1 (Play is the sheet), P5-1(b) (rename), P5-2 (the GM
+session screen), P5-3 (the GM reference) and P5-4 (the printed sheet).
+
+**The P1 to P4 entries below `P1-1` have not been re-adjudicated in this pass,
+and several of them have shipped.** That is a known gap in this file, written
+down rather than left to be discovered: the nineteen-lane pass that closed them
+updated `HANDOFF.md` and `CHANGELOG.md` and did not come back here. Verified
+against the tree while writing this, so a cold start does not rebuild them:
+
+| item | shipped in | check |
+|---|---|---|
+| P1-2 recall pays in HP | `1a7ba19` | `Play.tsx` and `Cards.tsx` both read `check.affordable` |
+| P1-3 Proficiency twice in a tier | `33a7d92`, `0fb3365` | `levelUp.ts:206` charges `option.slots` |
+| P1-4 School of Knowledge, Beastbound | `1ae3ca1`, `7af6392` | `cardAllowance.ts` carries `Accomplished` and `Brilliant` |
+| P1-5 armour ref, downtime label, one armour slot, seeded HP | `29d9c7f`, `851d04c`, `37c46e3`, `8f187d4` | `character.ts` carries `unresolvedArmor`; `newCharacter` seeds from the class; `Cards.tsx` branches on the rest, not on the cost |
+| P2-1 the tablet band | `9035b2b` | every iPad gets the one-column sheet |
+| P2-5 a bundle that will not evaluate | `8f9751a` | `index.html` carries an inline IndexedDB hatch |
+| P3-2 the gear search | `9722e26` | |
+| P3-3 unbounded counter maxima | `8908b46` | |
+| P3-5 the one-in-five flaky test | `57023b1`, `ac7177e` | |
+| P3-6 the card reader's footer | `9857e03` | |
+| P3-8 offline readiness in Settings | `aa37467` | |
+| P3-9 three controls that said the wrong thing | `d80bb51`, `ac8a92c`, `962fbee` | |
+| P3-10 the licence notice | `905a23c`, `17b4f1c`, `d413e35` | |
+| P3-11 the card's action, and RECALL the price | `ac8a92c`, `e434605` | |
+| P4-1 to P4-5, P4-9 to P4-13 | `51cc7ea`, `894e1a2`, `21d9e64`, `2ccbc08`, `8afc144`, `4626a0c`, `da5e4dd`, `8914da6`, `15456c9` | |
+
+**Part-done, so the entry stays open and this is which half.** P1-6's *display*
+half shipped (`e9f150b`, `4a99811`) and its *healing* half did not:
+`resolvePlaceholders` still has no caller in `src/`, and `Transfer.tsx` still
+prints a promise no code performs — it is in `tests/harness/orphans.test.ts`'s
+`DELIBERATE` list naming this item. P2-6's dialogs and reduced-motion halves
+shipped (`8428ddc`, `79a4e54`); the desktop roll result is still announced by
+nothing, since `aria-live` appears nowhere in `src/ui/player/`. P3-4's brand
+assets are precached and routed (`d413e35`, and `sw.js`'s `STATIC_DIRS` now
+holds `brand/`); the SRD's weight on the boot path and the QR stack's are not
+touched.
+
+**Not built in this pass, and not to be marked done by anybody reading this
+table:** P2-3(d) typography in `rem`, P4-6 the TODO sweep, P4-7 the unused-code
+flags and P4-8 the browser floor. All four were re-measured at HEAD and are
+recorded as open in their own entries, with the current numbers.
+
+---
+
+## Done in the pass before that (`a241d32`..`91097eb`)
 
 Ten commits, each green on its own. Three of these came from someone opening
 the app on their own phone and saying what was wrong, which found two defects
@@ -2125,7 +2268,7 @@ before anything in P0 is built from them.
 
 ---
 
-## Done in the pass before that
+## Done two passes before that
 
 Kept for context on what the numbers above are measured against.
 
