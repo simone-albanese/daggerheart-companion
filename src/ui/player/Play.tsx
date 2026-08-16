@@ -94,6 +94,14 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * goes through `sourceFromWeapon` rather than a regex, because `weaponDamage`
    * keeps the modifier on a weapon spelled `d10 + 2` and two routes to one
    * number is two numbers eventually.
+   *
+   * The weapon is looked for in the character's own two hands and not in
+   * `index.weapons`, and that is the difference between the sentence above
+   * being true and it being a wish. `index.weapons` is the whole shipped
+   * catalogue - 204 weapons - so asking it about a ref answers "does this
+   * weapon exist", when the question here is "is this character holding it".
+   * It answered yes for a Battleaxe taken off in Build and yes for a Battleaxe
+   * belonging to a different sheet, and the offer stood at 2d10+3 either way.
    */
   const source = useMemo<AttackSource | null>(() => {
     if (declared === null) return null;
@@ -104,9 +112,14 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     if (declared.kind === 'spellcast') {
       return spellcastSource(stats, declared.sides, spellModifier);
     }
+    if (character === null) return null;
+    const held =
+      declared.ref === character.activePrimaryWeapon ||
+      declared.ref === character.activeSecondaryWeapon;
+    if (!held) return null;
     const weapon = index.weapons.get(declared.ref);
     return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
-  }, [declared, index, spellModifier, stats]);
+  }, [character, declared, index, spellModifier, stats]);
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:

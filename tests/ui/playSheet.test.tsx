@@ -93,6 +93,23 @@ const play = (c: Character): void => {
   render(createElement(Play, { stats: playedStats(c) }));
 };
 
+/**
+ * The same sheet, edited under the screen - what Build does to a character the
+ * player then comes back to.
+ *
+ * It keeps the id and it keeps the mounted tree, because that is the whole
+ * point: `Play` holds the armed declaration in its own state, so a fixture that
+ * unmounted and remounted would answer a question nobody is asking.
+ */
+function rebuild(patch: Partial<Character>): Character {
+  const next = { ...useApp.getState().characters[0]!, ...patch };
+  act(() => {
+    useApp.setState({ characters: [next] });
+  });
+  play(next);
+  return next;
+}
+
 const text = (): string => container.textContent ?? '';
 
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
@@ -936,6 +953,30 @@ describe('what the attack is made with', () => {
     ).toContain('ARMED · BATTLEAXE');
   });
 
+  it('lets go of a weapon that comes off in Build', () => {
+    /*
+     * The declaration is a ref, and a ref has to be resolved against something.
+     * Resolved against `index.weapons` - the 204 shipped weapons, which is
+     * where a weapon's dice live and therefore the obvious place to look - the
+     * lookup answers "yes, a Battleaxe exists" to the question "is this
+     * character holding a Battleaxe". So the fold went on saying ARMED ·
+     * BATTLEAXE directly above its own section saying nothing is equipped, and
+     * the offer under the next roll stood at 2d10+3.
+     */
+    play(withBattleaxe());
+    click(weaponRow('Battleaxe'));
+    expect(fold('Weapons & armour').textContent).toContain('ARMED · BATTLEAXE');
+
+    rebuild({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null });
+    expect(text()).toContain('Nothing equipped');
+    expect(
+      fold('Weapons & armour').textContent,
+      'the fold names a weapon the section beneath it says is not there',
+    ).not.toContain('BATTLEAXE');
+    expect(fold('Weapons & armour').textContent).toContain('NOTHING');
+  });
+
+
   /*
    * Unarmed attacks, which existed nowhere in `src/` at all - the word did not
    * appear in a single rendered file, so a character who had lost their weapon
@@ -1297,6 +1338,22 @@ describe('rolling the damage the attack earned', () => {
     typeFace('HOPE', 5);
     typeFace('FEAR', 5);
     expect(damageControl()).toBeUndefined();
+  });
+
+  it('offers nothing for a weapon the character is no longer holding', () => {
+    // The founding rule at its narrowest: the log line this used to write was
+    // `Battleaxe 2d10+3 · 9 + 4 +3 = 16` for a character with empty hands.
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    rebuild({ activePrimaryWeapon: null, activeSecondaryWeapon: null });
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+
+    expect(
+      damageControl(),
+      'the sheet offered damage for a weapon it had already said was not equipped',
+    ).toBeUndefined();
+    expect(useApp.getState().log.some((e) => e.kind === 'damage')).toBe(false);
   });
 
   it('rolls it, and puts the total where a phone can read it', () => {

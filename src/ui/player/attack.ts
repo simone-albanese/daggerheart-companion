@@ -72,6 +72,12 @@ export type AttackSource =
  * outright, where a `{ count, sides, modifier }` stored at the moment of the tap
  * would sit there being quietly wrong until somebody rolled it.
  *
+ * That last one only holds because `Play` resolves the ref against the
+ * character's two equipped slots. Resolved against the shipped catalogue - the
+ * obvious thing to reach for, since that is where the weapon's stats live - a
+ * ref is answered whether or not anyone is carrying it, and the sentence above
+ * becomes a comment describing something the code does not do.
+ *
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
  *
@@ -97,7 +103,9 @@ export interface Arming {
   declared: Declaration | null;
   /**
    * The pool the declaration resolves to right now, or null when it cannot -
-   * a weapon removed in Build, or one whose damage string will not parse.
+   * a weapon this character is not holding, whether because it was taken off
+   * in Build or because it was declared on somebody else's sheet, or one whose
+   * damage string will not parse.
    */
   source: AttackSource | null;
   /**
