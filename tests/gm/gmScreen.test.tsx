@@ -98,6 +98,7 @@ beforeEach(() => {
     fear: 0,
     region: 'encounter',
     writeError: null,
+    writeRetry: null,
     replacedOnLoad: false,
     exportActiveCampaign: REAL_EXPORT,
     // MENU makes and removes campaigns, and the store is a module singleton.
@@ -739,7 +740,13 @@ describe('SAVE', () => {
   });
 
   it('says a write has not landed instead of stamping one that did not', async () => {
-    useGm.setState({ writeError: 'The quota has been exceeded. What is on this screen is only in this tab.' });
+    // Both fields, because the store never sets one without the other: a
+    // `writeError` seeded on its own is a state this app cannot be in, and a
+    // test that asserts a TRY AGAIN over it is asserting against fiction.
+    useGm.setState({
+      writeError: 'The quota has been exceeded. What is on this screen is only in this tab.',
+      writeRetry: 'write',
+    });
     gm();
     click(named('SAVE'));
     await settle();
@@ -839,15 +846,15 @@ describe('a write that did not happen', () => {
   it('retries the write from there, and goes when it lands', async () => {
     /*
      * The whole point of the button. `flushGm` returns early when nothing is
-     * dirty, and every path that sets this field leaves the campaign dirty on
-     * purpose - so the retry is only worth drawing because there is something
-     * for it to write. `setFear` is the change that makes this campaign dirty;
-     * the seeded error stands in for the write that failed.
+     * dirty, so the retry is only worth drawing where the store says there is
+     * something for it to write - which is what `writeRetry` carries. `setFear`
+     * is the change that makes this campaign dirty; the seeded pair stands in
+     * for the write that failed with it.
      */
     act(() => {
       useGm.getState().setFear(3);
     });
-    useGm.setState({ writeError: FAILED });
+    useGm.setState({ writeError: FAILED, writeRetry: 'write' });
     gm();
     click(named('TRY AGAIN'));
     await settle(10);
@@ -857,6 +864,52 @@ describe('a write that did not happen', () => {
     // And the write that landed is the one that was on screen.
     expect(activeCampaign()).toBeDefined();
     expect(useGm.getState().fear).toBe(3);
+  });
+
+  it('draws no retry where a retry can do nothing, and says what does', () => {
+    /*
+     * A delete that threw. `flushGm` writes the open campaign, which is not
+     * what failed and - when the doomed campaign is the open one - is the
+     * opposite of what was asked for. The old strip drew TRY AGAIN over it
+     * anyway: the GM pressed a red button, watched it say TRYING…, and got the
+     * same strip back with nothing done. The store's sentence names the control
+     * that does help instead.
+     */
+    useGm.setState({
+      writeError:
+        'That campaign could not be deleted (The database is closed). It is still on this device and still in the list, and nothing else has changed — REMOVE tries again.',
+      writeRetry: null,
+    });
+    gm();
+
+    expect(text()).toContain('NOT ON THIS DEVICE');
+    expect(text()).toContain('REMOVE tries again');
+    expect(
+      buttons().map((b) => (b.textContent ?? '').trim()),
+      'a retry was offered for a failure it cannot fix',
+    ).not.toContain('TRY AGAIN');
+  });
+
+  it('says a retry did not land, instead of flashing and leaving the same strip', async () => {
+    /*
+     * The other half of the same button. On success the strip goes, which is
+     * visible; on failure it stayed exactly as it was, so a retry that failed
+     * and a button that was never wired looked identical.
+     *
+     * The retry is made to fail by pointing the store at a campaign that is not
+     * in the list: `writeActive` returns at `base === undefined` with the store
+     * still dirty, which is one of the shapes the real failure has.
+     */
+    act(() => {
+      useGm.getState().setFear(3);
+    });
+    useGm.setState({ writeError: FAILED, writeRetry: 'write', activeCampaignId: 'nobody' });
+    gm();
+    click(named('TRY AGAIN'));
+    await settle(10);
+
+    expect(useGm.getState().writeError).not.toBeNull();
+    expect(text()).toContain('THAT TRY DID NOT LAND EITHER');
   });
 });
 

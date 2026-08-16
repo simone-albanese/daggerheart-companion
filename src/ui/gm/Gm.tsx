@@ -101,7 +101,7 @@ import { Encounter } from './Encounter.tsx';
 import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
-import { flushGm, REPLACED_ON_LOAD, useGm, type GmRegion } from './gmStore.ts';
+import { REPLACED_ON_LOAD, retryGm, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
 import { SaveSheet } from './SaveSheet.tsx';
@@ -145,6 +145,7 @@ export function Gm(): React.JSX.Element {
   const bestiary = useApp((s) => s.prefs.gmBestiary);
   const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
   const writeError = useGm((s) => s.writeError);
+  const writeRetry = useGm((s) => s.writeRetry);
   const replacedOnLoad = useGm((s) => s.replacedOnLoad);
   const dismissReplaced = useGm((s) => s.dismissReplacedOnLoad);
   const region = useGm((s) => s.region);
@@ -213,7 +214,9 @@ export function Gm(): React.JSX.Element {
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <GmTopBar layout={layout} onOpenMenu={() => openSheet('menu')} onOpenTool={openTool} />
-      {writeError !== null && <NotSaved message={writeError} phone={phone} />}
+      {writeError !== null && (
+        <NotSaved message={writeError} retryable={writeRetry !== null} phone={phone} />
+      )}
       {replacedOnLoad && <ReplacedOnLoad phone={phone} onDismiss={dismissReplaced} />}
       <SessionList phone={phone} onOpenTool={openTool} />
       <GmBar open={sheet} onOpenSheet={openSheet} />
@@ -265,9 +268,25 @@ export function Gm(): React.JSX.Element {
  *
  * Not dismissible. A dismissed warning about work that is not saved is exactly
  * the false reassurance this app is not allowed to give, and unlike the backup
- * nag this is an event with a remedy: TRY AGAIN calls `flushGm`, which does
- * something on every path that sets this field - a failed write is left dirty
- * on purpose, including the very first campaign of a device.
+ * nag this is usually an event with a remedy.
+ *
+ * ## The retry is drawn only where there is one, which is new
+ *
+ * This docblock used to claim that TRY AGAIN "calls `flushGm`, which does
+ * something on every path that sets this field". It did not. `flushGm` writes
+ * the open campaign when the store is dirty, and two of the four failures left
+ * it clean: `createCampaign`'s rejected write, which is fixed in the store
+ * because it *should* have been dirty, and a delete that threw, which no flush
+ * can undo at all. A third, the read that failed, has no campaign to write and
+ * `writeActive` returns at `base === undefined` - inert forever. So the GM
+ * pressed a red button, watched it say TRYING…, and got the same strip back
+ * with nothing written.
+ *
+ * The store answers that now with `writeRetry`: `retryGm` does the right thing
+ * per failure, and where the answer is "nothing this button can do" there is no
+ * button - the store's sentence says what does help instead. And a retry that
+ * fails says so, rather than flashing and leaving the reader to guess whether
+ * anything happened.
  *
  * ## Ergonomics, 393x852
  *
@@ -288,8 +307,25 @@ export function Gm(): React.JSX.Element {
  * the one thing it should be hard to do by accident. The disabled state during
  * the retry says TRYING… rather than going grey silently.
  */
-function NotSaved({ message, phone }: { message: string; phone: boolean }): React.JSX.Element {
+function NotSaved({
+  message,
+  retryable,
+  phone,
+}: {
+  message: string;
+  retryable: boolean;
+  phone: boolean;
+}): React.JSX.Element {
   const [retrying, setRetrying] = useState(false);
+  /*
+   * Whether the last retry came back with the failure still on the store.
+   *
+   * A retry that works unmounts this strip, so this only ever paints on the
+   * one that did not - and painting nothing there was the whole of the old
+   * behaviour: TRYING…, then the same red strip, with no way to tell a retry
+   * that failed from a button that was never wired.
+   */
+  const [failedAgain, setFailedAgain] = useState(false);
   /*
    * Whether this strip is still on the page when the retry settles.
    *
@@ -311,9 +347,12 @@ function NotSaved({ message, phone }: { message: string; phone: boolean }): Reac
   );
 
   const retry = useCallback(() => {
+    setFailedAgain(false);
     setRetrying(true);
-    void flushGm().finally(() => {
-      if (alive.current) setRetrying(false);
+    void retryGm().finally(() => {
+      if (!alive.current) return;
+      setRetrying(false);
+      setFailedAgain(useGm.getState().writeError !== null);
     });
   }, []);
 
@@ -337,22 +376,29 @@ function NotSaved({ message, phone }: { message: string; phone: boolean }): Reac
       <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
         {message}
       </span>
-      <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button
-          type="button"
-          className="chip"
-          onClick={retry}
-          disabled={retrying}
-          style={{
-            flex: 'none',
-            minHeight: 'var(--control)',
-            color: 'var(--text)',
-            background: 'var(--raised)',
-          }}
-        >
-          {retrying ? 'TRYING…' : 'TRY AGAIN'}
-        </button>
-      </span>
+      {retryable && (
+        <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="chip"
+            onClick={retry}
+            disabled={retrying}
+            style={{
+              flex: 'none',
+              minHeight: 'var(--control)',
+              color: 'var(--text)',
+              background: 'var(--raised)',
+            }}
+          >
+            {retrying ? 'TRYING…' : 'TRY AGAIN'}
+          </button>
+          {failedAgain && (
+            <span className="t-meta" style={{ color: 'var(--damage)' }}>
+              THAT TRY DID NOT LAND EITHER
+            </span>
+          )}
+        </span>
+      )}
     </div>
   );
 }

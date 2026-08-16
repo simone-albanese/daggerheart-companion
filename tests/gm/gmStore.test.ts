@@ -521,6 +521,81 @@ describe('a write that did not happen', () => {
     spy.mockRestore();
   });
 
+  it('leaves a campaign whose own write threw for the retry to write', async () => {
+    /*
+     * `createCampaign` set `writeError` and left the store clean, so the very
+     * next `flushGm` - which is exactly what TRY AGAIN calls - returned at
+     * `if (!dirty)` and wrote nothing. On screen: the red strip, TRYING…, and
+     * the same strip back, with the campaign still in this tab alone. It only
+     * ever reached the disk if some later unrelated change happened to carry
+     * it, which is why no test caught it.
+     */
+    const spy = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    const made = await gm.useGm.getState().createCampaign('A second table');
+
+    expect(gm.useGm.getState().writeError).toMatch(/only exists in this tab/);
+    expect(gm.useGm.getState().writeRetry).toBe('write');
+    expect((await store.readCampaigns()).campaigns.map((c) => c.id)).not.toContain(made.id);
+
+    spy.mockRestore();
+    await gm.retryGm();
+
+    expect(gm.useGm.getState().writeError, 'the retry wrote nothing').toBeNull();
+    expect((await store.readCampaigns()).campaigns.map((c) => c.id)).toContain(made.id);
+  });
+
+  it('offers no retry for a delete that threw, because no flush can delete', async () => {
+    // `flushGm` writes the open campaign, which is not what failed - and when
+    // the doomed campaign is the open one it is the opposite of what was asked
+    // for. Nothing happened, so the retry is the REMOVE the GM already has,
+    // and the sentence says so instead of a button pretending otherwise.
+    const doomed = await gm.useGm.getState().createCampaign('Doomed');
+    const spy = vi
+      .spyOn(store, 'deleteCampaign')
+      .mockRejectedValue(new Error('The database is closed'));
+
+    await gm.useGm.getState().removeCampaign(doomed.id);
+
+    expect(gm.useGm.getState().writeError).toMatch(/could not be deleted/);
+    expect(gm.useGm.getState().writeError).toMatch(/REMOVE tries again/);
+    expect(gm.useGm.getState().writeRetry).toBeNull();
+    expect(gm.useGm.getState().campaigns.map((c) => c.id)).toContain(doomed.id);
+    spy.mockRestore();
+  });
+
+  it('retries the read when reading is what failed, where a flush is inert forever', async () => {
+    /*
+     * The worst of the four. `readCampaigns` threw, so `activeCampaignId` is
+     * null and there are no campaigns: `writeActive` returns at
+     * `base === undefined` on every flush, for the life of the tab. TRY AGAIN
+     * called `flushGm`, so it could never do anything at all on this path.
+     */
+    globalThis.indexedDB = new IDBFactory();
+    installStorage();
+    vi.resetModules();
+    const freshStore = await import('../../src/store/campaigns.ts');
+    const spy = vi
+      .spyOn(freshStore, 'readCampaigns')
+      .mockRejectedValueOnce(new Error('The database is closed'));
+    const freshGm = (await import('../../src/ui/gm/gmStore.ts')) as Gm;
+    // Joins the hydration the import started, which is the one that failed.
+    await freshGm.hydrateGm();
+
+    expect(freshGm.useGm.getState().writeError).toMatch(/could not be read/);
+    expect(freshGm.useGm.getState().writeRetry).toBe('read');
+    await freshGm.flushGm();
+    expect(freshGm.useGm.getState().writeError, 'a flush was not inert here').not.toBeNull();
+
+    await freshGm.retryGm();
+
+    expect(freshGm.useGm.getState().writeError, 'the alarm outlived the failure').toBeNull();
+    expect(freshGm.useGm.getState().writeRetry).toBeNull();
+    expect(freshGm.useGm.getState().campaigns).toHaveLength(1);
+    spy.mockRestore();
+  });
+
   it('says so for the very first campaign of all, which used to fail in silence', async () => {
     /*
      * The one write in this file nothing was ever told about.

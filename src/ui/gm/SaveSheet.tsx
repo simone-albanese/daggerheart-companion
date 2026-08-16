@@ -28,8 +28,17 @@
  * sets it when the very first campaign of a device could not be written - the
  * one path that used to fail in silence, and the one where this sheet would
  * otherwise have printed "already on this device, just now" over a write that
- * threw. TRY AGAIN calls `flushGm`, and it does something on that path
- * because the store now leaves the failed first write `dirty`.
+ * threw.
+ *
+ * **And the retry says what it did.** TRY AGAIN here was a bare
+ * `void flushGm()` with no busy state and no result: on a failure that a flush
+ * cannot fix - a delete that threw, a disk that could not be read - pressing it
+ * produced no visible response of any kind, which is the same button as one
+ * that is not wired at all. It goes through `retryGm` now, which does the right
+ * thing per failure; it is drawn only when `writeRetry` says there is something
+ * a retry can do, because otherwise the store's sentence already names what
+ * does help; and it reports a retry that failed rather than settling back into
+ * the same panel.
  *
  * ## The copy, and what it is not
  *
@@ -52,11 +61,11 @@
  * with one verb in it should not make the thumb aim. Everything else here -
  * the stamp, the file name, the two paragraphs - is read and not touched.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SaveResult, SaveRoute } from '../../transfer/fileIo.ts';
 import { campaignFileName } from '../../transfer/campaignFile.ts';
 import { describeAge } from './party.ts';
-import { flushGm, useGm } from './gmStore.ts';
+import { flushGm, retryGm, useGm } from './gmStore.ts';
 
 /** Where the file went, in the words of the route that took it. */
 const WHERE: Record<SaveRoute, string> = {
@@ -95,9 +104,13 @@ export function SaveSheet(): React.JSX.Element {
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
   const writeError = useGm((s) => s.writeError);
+  const writeRetry = useGm((s) => s.writeRetry);
   const exportActive = useGm((s) => s.exportActiveCampaign);
   const [settled, setSettled] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  /** Whether the last retry came back with the failure still on the store. */
+  const [failedAgain, setFailedAgain] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
 
   /*
@@ -113,6 +126,29 @@ export function SaveSheet(): React.JSX.Element {
     return () => {
       alive = false;
     };
+  }, []);
+
+  /*
+   * The retry outlives its own callback, so its guard is a ref with an effect
+   * rather than a local: this sheet is unmounted the moment it is closed, and
+   * a thumb that presses TRY AGAIN and then ✕ is not doing anything strange.
+   */
+  const open = useRef(true);
+  useEffect(
+    () => () => {
+      open.current = false;
+    },
+    [],
+  );
+
+  const again = useCallback(() => {
+    setFailedAgain(false);
+    setRetrying(true);
+    void retryGm().finally(() => {
+      if (!open.current) return;
+      setRetrying(false);
+      setFailedAgain(useGm.getState().writeError !== null);
+    });
   }, []);
 
   const active = campaigns.find((c) => c.id === activeId) ?? null;
@@ -155,14 +191,22 @@ export function SaveSheet(): React.JSX.Element {
           <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
             {writeError}
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => void flushGm()}
-            style={{ minHeight: 'var(--tap)' }}
-          >
-            TRY AGAIN
-          </button>
+          {writeRetry !== null && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={again}
+              disabled={retrying}
+              style={{ minHeight: 'var(--tap)' }}
+            >
+              {retrying ? 'TRYING…' : 'TRY AGAIN'}
+            </button>
+          )}
+          {failedAgain && (
+            <p className="t-dense" style={{ margin: 0, color: 'var(--damage)', maxWidth: '62ch' }}>
+              That try did not land either. Nothing above has changed.
+            </p>
+          )}
         </div>
       ) : active === null ? (
         <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
