@@ -422,10 +422,10 @@ level-up path does not know that yet.
 - [ ] **Unarmored thresholds are the app's own invention presented as rules**
       (`character.ts:149`), and the damage calculator lets one attack spend up to
       3 armor slots (`Vitals.tsx:99`). Label them as house rules or gate them.
-- [ ] **`src/engine/rest.ts` has zero callers** — 226 lines, 28 passing tests, and
+- [x] ~~**`src/engine/rest.ts` has zero callers** — 226 lines, 28 passing tests, and
       no rest or downtime anywhere in the UI; `state.ts:29` declares a `'rest'`
       log kind nothing produces. It is fully tree-shaken, so it costs users
-      nothing today. Decide: wire it, or say out loud that rest is not in 1.0.
+      nothing today. Decide: wire it, or say out loud that rest is not in 1.0.~~ — **decided: it ships.** See P1-7.
 - [ ] **`newCharacter` seeds the wrong HP and Stress track for six of nine
       classes.** `character.ts:282` hardcodes `max: 6` for both, but
       `startingHitPoints` is 5 for bard and wizard and 7 for guardian and seraph.
@@ -499,6 +499,65 @@ with its class ref parked as `?60007`"* — but only asks for `syncCounters` at
 import time, which assumes the ref stays parked forever and fixes the counter
 disagreement instead. The backlog cannot accept the scenario as real there and
 treat it as hypothetical here.
+
+### P1-7 · Rests and downtime, wired to a screen — *decided: it ships*
+`src/engine/rest.ts` · `src/ui/player/Play.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
+
+P1-5 left this as a question — wire the rest engine or say out loud that rest
+is not in 1.0. It is answered: rest ships, with the arithmetic done for the
+player, reachable from the Play screen.
+
+**The engine is already there and is already right.** `src/engine/rest.ts` is
+226 lines with 28 passing tests and, still, zero callers: `RestKind`,
+`DOWNTIME_MOVES`, `movesFor(rest)`, `takeRest(c, stats, rest, choices, options,
+rng)` and `mustTakeLongRest(count)`. Its own header states the rule this feature
+turns on — *"The moves that clear a track are pure arithmetic, so the app rolls
+and applies them; Work on a Project is narrative, so it only nudges a countdown
+the GM already made."* That is the automatic part: nobody at the table should be
+adding 1d4+Tier to an Armor track by hand while the scene waits.
+
+What does not exist is the screen, and one piece of state.
+
+**The state is the interesting half.** `mustTakeLongRest` takes
+`consecutiveShortRests` as a parameter and **nothing anywhere persists it** —
+`grep -rn "consecutiveShort|shortRest|restCount" shared/types.ts src/` returns
+only the engine's own two lines. The SRD needs it: *"If a party takes three
+short rests in a row, their next rest must be a long rest."* So this feature
+adds a field to `Character`, which is a schema change, which is the thing P0-8
+says this app currently cannot survive. **P0-8 is a precondition of this item,
+not a neighbour of it** — ship a counter into the record before there is a
+converter and the first person to bump the schema loses every export.
+
+**What the screen owes the rules**, all of it already in the shipped `downtime`
+rule text: two moves per rest and the same move may be taken twice; a different
+list for short and long, which `movesFor` already returns; Prepare grants one
+Hope alone and two with the party, which is why `takeRest` accepts `partySize`
+and why `prefs.gmPartySize` already exists; an interrupted long rest gives only
+a short rest's benefits; and moving cards between loadout and vault is free
+during a rest, which is a loadout operation the screen has to offer rather than
+reimplement.
+
+**Where it goes.** In the scrolling part of the Play screen, not the pinned
+block. A rest happens between conflicts and never mid-roll, so it must not take
+a pixel from the tokens or the roll path, which is what P2-4 measures the cost
+of. It is also the one place a player looks after a fight ends.
+
+- [ ] Persist the consecutive-short-rest count on `Character`. **After P0-8**,
+      or behind it in the same change.
+- [ ] A rest surface in the Play scroll: choose short or long, pick two moves
+      with repeats allowed, see what each will clear *before* committing, then
+      commit. Propose and then apply, the way the incoming-damage calculator
+      does — never apply on open, because `takeRest` rolls dice and a roll that
+      happens because you looked at a screen is a roll you cannot refuse.
+- [ ] Offer the free loadout/vault swap in the same flow, through the existing
+      loadout operations rather than a second implementation of the cap.
+- [ ] Refuse a short rest, in words, when `mustTakeLongRest` says the next one
+      must be long — and say why, citing the rule rather than just disabling.
+- [ ] Produce the `'rest'` log entry. `state.ts:29` has declared that kind since
+      the first commit and nothing has ever written one.
+- [ ] The engine takes an injected `rng`; the screen must pass the real one and
+      the test must pass a scripted one, so the numbers in a test are the
+      numbers on screen.
 
 ## P2 — Unusable on a device we support
 
