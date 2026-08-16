@@ -8,19 +8,34 @@
  * said which one it was.
  */
 import { useEffect, useState } from 'react';
+import { APP_VERSION, BUILD_ID, shortBuildId } from '../../buildInfo.ts';
 import { forgetBackupFolder } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
+import { ATTRIBUTION } from '../shared/CompatibleMark.tsx';
 import { formatBytes } from './binaryFiles.ts';
 import { Field, Note, Rows, Section } from './parts.tsx';
-
-export const ATTRIBUTION =
-  'This product includes materials from the Daggerheart System Reference Document 1.0, ' +
-  '© Critical Role, LLC, under the terms of the Darrington Press Community Gaming License. ' +
-  'More information at www.daggerheart.com. Daggerheart Compatible. Independent community ' +
-  'content, not affiliated with or endorsed by Critical Role, LLC or Darrington Press.';
+/*
+ * The two licence texts, compiled into this chunk rather than fetched.
+ *
+ * `rg darringtonpress src/ public/ index.html` used to return nothing: a user
+ * of an offline-first app could not read the terms the content they were
+ * looking at was published under, and the deployed bundle carried no MIT notice
+ * either. Both are here now, and `?raw` is what makes them survive a basement:
+ * About lives behind the lazy Settings chunk, and the service worker precaches
+ * every chunk the document reaches, so these bytes are in Cache Storage with
+ * the rest of the app. A file dropped in `public/` would land in `dist/` and be
+ * cached by nothing - the worker infers its precache from what the build emits,
+ * and nothing emitted would name it.
+ *
+ * The MIT text is imported from the repository root rather than copied, so the
+ * licence this project ships and the licence this project has are the same
+ * bytes by construction.
+ */
+import MIT_LICENCE from '../../../LICENSE?raw';
+import DPCGL from '../../legal/dpcgl-2025-07-30.txt?raw';
 
 const DOES = [
   'Damage thresholds, and how many HP an incoming hit marks',
@@ -109,11 +124,54 @@ export function About({
         style={{ padding: 14, borderLeft: '3px solid var(--hope)' }}
       >
         <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)', lineHeight: 1.6 }}>
-          {ATTRIBUTION}
+          {/*
+            One paragraph, from the one array. This used to be a second literal
+            declared in this file, and About.tsx is on the P4 work list - so the
+            next refactor of this screen could have dropped the notice with CI
+            green and nothing but a diff to notice it.
+          */}
+          {ATTRIBUTION.join(' ')}
         </p>
       </div>
 
       <Rows>
+        {/*
+          The line a bug report is copied out of.
+
+          A user on a stale cached build could not say which one and we could
+          not ask - and this app installs a service worker, holds a bundle in
+          Cache Storage until an update is accepted, and can sit on a home
+          screen for months without touching the network, so "which build" is
+          not a rhetorical question here. Version, commit and SRD revision on
+          one line, because someone reading it out over a table will read one
+          line and not three.
+
+          Selectable rather than a copy button: this is `<code>` in a settings
+          screen, a long-press selects it on a phone, and a control whose whole
+          job is `navigator.clipboard` is a control that fails silently on the
+          browsers that do not have it.
+        */}
+        <Field
+          label="This build"
+          hint="Quote this if something is wrong. The commit is the one thing that says exactly which bytes you are looking at — the app can keep serving an old bundle from its cache long after a new one has been published."
+          footer={
+            <code
+              className="t-dense"
+              title={`build ${BUILD_ID}`}
+              style={{
+                display: 'block',
+                fontFamily: 'var(--mono)',
+                color: 'var(--text-2)',
+                overflowWrap: 'anywhere',
+                userSelect: 'text',
+              }}
+            >
+              v{APP_VERSION} · build {shortBuildId()} · SRD {dataset.revision} · schema{' '}
+              {dataset.schemaVersion}
+            </code>
+          }
+        />
+
         <Field
           label="What this app does"
           hint={`Unambiguous arithmetic, and the text of everything else. That is the whole boundary, and it is deliberate: modelling ${dataset.domainCards.length} cards with their exceptions is a bigger project than the rest of the app combined, and every table with a variant would end up fighting it.`}
@@ -175,6 +233,32 @@ export function About({
               ))}
             </div>
           }
+        />
+
+        {/*
+          The terms, in full, on the device.
+
+          Both texts were reachable only as a URL before this - and this is an
+          app whose entire premise is working with the radio off, so "the
+          licence is a link away" meant "not while you are using it". The MIT
+          notice was not in the deployed bundle at all.
+
+          Ergonomics. Behind a toggle rather than open: this is 27 KB of legal
+          text in the middle of a settings screen, and a panel that pushes
+          everything below it three thousand pixels down is a panel that hides
+          the reset control the same screen carries. The *notice* is not behind
+          a disclosure - it is at the top of this screen and in the shell's
+          footer, unconditionally - and only the licence text is. The buttons
+          are `.btn`, 44px by `--tap` and 12px apart. The text itself is
+          `white-space: pre` in its own scroller because the extraction
+          preserves the PDF's indentation, and re-wrapping a licence to fit a
+          phone would silently change what the columns in Section 4 mean; a
+          horizontal scrollbar is the honest cost of that.
+        */}
+        <Field
+          label="The licences, in full"
+          hint={LICENCE_PROVENANCE}
+          footer={<LicenceTexts />}
         />
 
         <Field
@@ -262,6 +346,72 @@ export function About({
         )}
       </Rows>
     </Section>
+  );
+}
+
+/**
+ * Where the DPCGL text in this bundle came from, said precisely enough to be
+ * checkable.
+ *
+ * `LICENSE` used to cite the licence by bare URL with no version and no
+ * retrieval date, which is not a citation of a document that its own Section 11
+ * says DRP may amend at any time without notice. The licence is published as a
+ * PDF; what is bundled here is its text, extracted mechanically, and saying so
+ * is the difference between shipping a copy and claiming to be the authority.
+ * The hash is of the PDF, so anyone can check that this text came from that
+ * file. The same three facts are in `LICENSE`.
+ */
+const LICENCE_PROVENANCE =
+  'The MIT licence covers this app’s code. The Darrington Press Community Gaming License ' +
+  'covers the SRD content it ships. The DPCGL text below is extracted from the official PDF ' +
+  '(dated 30 July 2025, retrieved 16 August 2026 from ' +
+  'darringtonpress.com/wp-content/uploads/2025/07/DPCGL-July-30th-2025.pdf, SHA-256 ' +
+  '9d435c4e…3d4aa04); that PDF is the authority, and DRP may amend it. Both texts are on ' +
+  'this device — no network needed to read them.';
+
+function LicenceTexts(): React.JSX.Element {
+  const [open, setOpen] = useState<'mit' | 'dpcgl' | null>(null);
+
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn"
+          aria-expanded={open === 'mit'}
+          onClick={() => setOpen(open === 'mit' ? null : 'mit')}
+        >
+          {open === 'mit' ? 'Hide the MIT licence' : 'Read the MIT licence'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          aria-expanded={open === 'dpcgl'}
+          onClick={() => setOpen(open === 'dpcgl' ? null : 'dpcgl')}
+        >
+          {open === 'dpcgl' ? 'Hide the DPCGL' : 'Read the DPCGL'}
+        </button>
+      </div>
+      {open !== null && (
+        <pre
+          style={{
+            margin: 0,
+            maxHeight: 360,
+            overflow: 'auto',
+            padding: 12,
+            borderRadius: 'var(--r2)',
+            background: 'var(--panel)',
+            border: '1px solid var(--line-soft)',
+            color: 'var(--text-2)',
+            font: '400 11px/1.5 var(--mono)',
+            whiteSpace: 'pre',
+            tabSize: 4,
+          }}
+        >
+          {open === 'mit' ? MIT_LICENCE : DPCGL}
+        </pre>
+      )}
+    </div>
   );
 }
 

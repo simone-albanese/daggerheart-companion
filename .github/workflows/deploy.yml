@@ -79,6 +79,23 @@ jobs:
           sed -i "s|__BUILD__|${GITHUB_SHA}|" dist/sw.js
           grep -q "${GITHUB_SHA}" dist/sw.js
 
+      # The About screen prints a version and a build id, and a build id that
+      # can disagree with the bundle it is printed in is worse than none: it
+      # turns a report nobody can act on into one acted on wrongly. Vite bakes
+      # it in from GITHUB_SHA, which is the same variable the step above stamps
+      # into the worker, so the two are readings of one value - but only if the
+      # build actually saw it. `define` is a textual substitution, and a
+      # `src/buildInfo.ts` that stopped being imported, or an env that failed to
+      # reach `vite build`, would leave the screen quietly saying `dev` in
+      # production. So the deploy asks the artifact rather than trusting the
+      # config.
+      - name: The bundle and the worker agree about which build this is
+        run: |
+          if ! grep -rqF "${GITHUB_SHA}" dist/assets; then
+            echo "::error title=Build id not in the bundle::dist/sw.js is stamped ${GITHUB_SHA} but no file under dist/assets contains it, so the About screen would report a different build from the one it is running in."
+            exit 1
+          fi
+
       # Pages has no rewrite rules. Until the service worker is installed and
       # answering navigations itself, a reload on a deep link is served by
       # 404.html - which is the same document, so the app simply boots.

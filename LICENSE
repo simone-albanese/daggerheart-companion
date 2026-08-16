@@ -26,8 +26,40 @@ The MIT licence covers the CODE ONLY.
 
 data/srd-1.0.json is derived from the Daggerheart System Reference Document
 1.0, (c) Critical Role, LLC, and is redistributed under the Darrington Press
-Community Gaming License. See https://darringtonpress.com/license/ and the
-attribution in README.md.
+Community Gaming License. See the attribution in README.md.
+
+The DPCGL was cited here by bare URL, with no version and no retrieval date.
+That is not a citation of a document whose own Section 11 reserves DRP's right
+to amend it at any time and without notice: it names whatever is at that
+address today, which is not necessarily the licence this release was published
+under. The version this release is published under is:
+
+    Darrington Press Community Gaming License
+    dated 30 July 2025 (the document carries "Last Updated 7/29/2025" and
+    "7/30/2025" on its first page)
+    https://darringtonpress.com/wp-content/uploads/2025/07/DPCGL-July-30th-2025.pdf
+    retrieved 2026-08-16
+    SHA-256 of that PDF:
+      9d435c4ee64ab1485fe7cc6a164daff7f4e2bad0a12bc9e1660e0e9393d4aa04
+
+    Index of versions, and the current one:
+    https://darringtonpress.com/license/
+
+The same file said of the fonts that "each licence text sits beside the files
+it covers", and it did - while the two licences that cover this project itself
+sat nowhere the build could reach. Both now ship:
+
+    src/legal/dpcgl-2025-07-30.txt   the text of the PDF above, extracted
+                                     mechanically with `pdftotext -layout`.
+                                     A transcription, not the authority: the
+                                     PDF is. Compiled into the bundle, so it is
+                                     readable in Settings > About with no
+                                     network.
+    dist/LICENSE.txt                 this file, emitted into every build.
+    dist/legal/DPCGL-2025-07-30.txt  the text above, emitted into every build.
+
+The two files under dist/ are for whoever holds a copy of the software; the
+copies compiled into the bundle are for whoever is using it offline.
 
 The bundled fonts in public/fonts/ are licensed under the SIL Open Font
 License 1.1; each licence text sits beside the files it covers.

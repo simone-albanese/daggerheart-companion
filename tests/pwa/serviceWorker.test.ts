@@ -638,4 +638,84 @@ describe('service worker, against what the build actually emitted', () => {
     expect(lenient.warnings.join(' ')).toContain(name);
     expect(lenient.cached(SHELL).some((url) => url.endsWith('index.html'))).toBe(true);
   });
+
+  /**
+   * The two licence texts the build emits.
+   *
+   * `dist/` was 28 files and neither `LICENSE` nor any copy of the DPCGL was
+   * among them, while `LICENSE` requires its own notice in all copies and a
+   * deployed bundle is a copy. They are emitted from the canonical files now,
+   * which puts them somewhere this worker has an opinion about - and its
+   * default opinion was the wrong one, because every in-scope *navigation*
+   * resolves to the app document. Under that rule a browser pointed at
+   * `legal/DPCGL-2025-07-30.txt` would be handed a character sheet, which is
+   * the app substituting itself for a legal document at the one address that
+   * promises otherwise.
+   */
+  describe('the licence texts in the build output', () => {
+    const paths = ['LICENSE.txt', 'legal/DPCGL-2025-07-30.txt'];
+
+    it('are in dist, byte for byte from the files they are copies of', () => {
+      const app = world(dist);
+      for (const path of paths) {
+        const emitted = app.files.get(BASE + path);
+        expect(emitted, `${path} is not in the build output`).toBeDefined();
+      }
+      expect(app.files.get(`${BASE}LICENSE.txt`)!.toString('utf8')).toBe(
+        readFileSync(join(REPO, 'LICENSE'), 'utf8'),
+      );
+      expect(app.files.get(`${BASE}legal/DPCGL-2025-07-30.txt`)!.toString('utf8')).toBe(
+        readFileSync(join(REPO, 'src/legal/dpcgl-2025-07-30.txt'), 'utf8'),
+      );
+    });
+
+    it('are served as themselves, not as the app, when a browser navigates to one', async () => {
+      const app = world(dist);
+      await app.dispatch('install');
+      await app.dispatch('activate');
+
+      for (const path of paths) {
+        const hit = await app.navigate(BASE + path);
+        expect(
+          hit.responded,
+          `the worker answered a navigation to ${path} — with the shell, since that is what ` +
+            'every in-scope navigation resolves to, so the licence URL serves the app instead',
+        ).toBe(false);
+      }
+
+      // And the app's own deep links still do resolve to the document, which is
+      // the rule this exemption has to leave standing.
+      expect((await app.navigate(`${BASE}play/some-character`)).responded).toBe(true);
+    });
+
+    it('are not precached, and the app does not pretend otherwise', async () => {
+      // Deliberate: nothing in the built document names these files, so the
+      // precache - inferred by reading what the build emitted - cannot find
+      // them, and a hand-written list of URLs to cache would be the second
+      // source of truth this whole worker avoids. The offline copy of both
+      // texts is compiled into the Settings chunk, which *is* precached.
+      const app = world(dist);
+      await app.dispatch('install');
+      await app.dispatch('activate');
+
+      const cached = [...app.cached(SHELL), ...app.cached(ASSETS)];
+      expect(cached.some((url) => url.includes('/LICENSE.txt'))).toBe(false);
+      expect(cached.some((url) => url.includes('/legal/'))).toBe(false);
+
+      const settings = app
+        .emitted(/\/assets\/Settings-.+\.js$/)
+        .filter((url) => app.cached(ASSETS).includes(url));
+      expect(
+        settings.length,
+        'the Settings chunk is not precached, so the in-app licence texts are not readable offline',
+      ).toBe(1);
+      const chunk = app.files.get(new URL(settings[0]!).pathname)!.toString('utf8');
+      expect(chunk, 'the DPCGL text is not in the chunk that is precached').toContain(
+        'Darrington Press Community Gaming License',
+      );
+      expect(chunk, 'the MIT text is not in the chunk that is precached').toContain(
+        'Permission is hereby granted, free of charge',
+      );
+    });
+  });
 });

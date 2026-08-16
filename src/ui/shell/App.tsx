@@ -15,12 +15,13 @@ import { appBackupDeps } from '../../store/backupDeps.ts';
 import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
 import { AppMark } from '../shared/DomainMark.tsx';
-import { Attribution } from '../shared/CompatibleMark.tsx';
+import { ATTRIBUTION, Attribution, CompatibleIcon } from '../shared/CompatibleMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
 import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
+import { AppBoundary } from './AppBoundary.tsx';
 import { BackupBanner } from './BackupBanner.tsx';
 import { Header } from './Header.tsx';
 import { Recovery } from './Recovery.tsx';
@@ -45,7 +46,28 @@ function Loading(): React.JSX.Element {
   );
 }
 
+/**
+ * The whole app, inside one boundary.
+ *
+ * This is two components rather than one for a reason that is easy to undo by
+ * accident: a boundary only catches what is *below* it, so `<AppBoundary>` had
+ * to move above the component that does the work. `Shell` calls `useStats()`,
+ * which derives a full sheet in App's own render, and mounts `Header`,
+ * `TabBar`, `CardReader`, the licence footer and four alert banners - every one
+ * of which was outside every boundary in this app until now, because
+ * `ScreenBoundary` is mounted *by* the thing that would have thrown. Putting
+ * the boundary inside `Shell` would type-check, render identically, and catch
+ * nothing.
+ */
 export function App(): React.JSX.Element {
+  return (
+    <AppBoundary>
+      <Shell />
+    </AppBoundary>
+  );
+}
+
+function Shell(): React.JSX.Element {
   const ready = useApp((s) => s.ready);
   const init = useApp((s) => s.init);
   const screen = useApp((s) => s.screen);
@@ -175,6 +197,10 @@ export function App(): React.JSX.Element {
   }
 
   const needsCharacter = characters.length === 0 || stats === null;
+  // `EmptyState` carries its own copy of the notice, so the footer stands down
+  // wherever it renders rather than printing the same 342 characters twice.
+  const emptyState = needsCharacter && (screen === 'play' || screen === 'cards');
+  const showLicence = screen !== 'play' && !emptyState;
 
   return (
     <div className="app">
@@ -353,6 +379,7 @@ export function App(): React.JSX.Element {
             </Suspense>
           </ScreenBoundary>
         )}
+        {showLicence && <LicenceFooter />}
         {phone && <TabBar />}
       </main>
       {openCard !== null && (
@@ -363,6 +390,77 @@ export function App(): React.JSX.Element {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The licence notice, on screens a real user actually reaches.
+ *
+ * It used to live in `EmptyState` and nowhere else in the shell, which meant it
+ * was on screen for exactly as long as somebody had no characters - so every
+ * real user at every real table lost it permanently the moment they made one,
+ * and the only remaining copy was at the bottom of Settings. Meanwhile
+ * `Architecture.md` says twice that the attribution is *"sempre visibile nel
+ * footer"* and there was no `<footer>` in the app at all. Nothing breaks at a
+ * table over this; what it risks is the project, because the remedy for a
+ * community-content licence that requires a notice to be *displayed* is a
+ * takedown.
+ *
+ * **Where, and the arithmetic behind it.** This is a read-only strip: no
+ * control, no target, nothing to hit, so the 44px floor does not apply to it
+ * and the thumb arc is not the question. The question is only how much vertical
+ * room it costs the screen above it, and the answer is set by the notice being
+ * verbatim - 342 characters that cannot be trimmed.
+ *
+ *   On a 393px phone the text column is 393 - 40 of padding - 22 for the icon
+ *   and its gap = 331px. Archivo at `.t-dense`, 11.5px/1.38, averages about
+ *   5.4px per character, so 342 characters is ~1847px of text: six lines, 95px,
+ *   plus 16px of padding = ~111px. On a 1024px tablet the column is 964px and
+ *   the same text is two lines, ~48px. There is no typographic trick that beats
+ *   this; 9px would fit it in 70px and this project's own type ramp says Archivo
+ *   never runs at 400 below 11.5px.
+ *
+ * So it sits inside `<main>`, as the last thing before the tab bar rather than
+ * after it - a strip below `TabBar` would push the four navigation targets up
+ * out of the arc they were placed in, which is the one thing this must not do -
+ * and it is **not rendered on Play**. Play is laid out to fit rather than to
+ * flow on a desktop and has been fought over for two passes on a phone; 48px
+ * there is 6% of the sheet and 111px is a loadout row. Cards, Build, GM and
+ * Settings all scroll, so there the strip costs a scroll position rather than
+ * content.
+ *
+ * What that leaves on Play is not nothing: `CompatibleIcon` is in the header on
+ * every screen including this one, so the mark never leaves, and the words are
+ * one tap away on any other tab. That is a deliberate trade and it is the one
+ * thing in this file worth arguing with.
+ */
+function LicenceFooter(): React.JSX.Element {
+  // On a phone `TabBar` is below this and already pays the home-indicator
+  // inset; on a tablet or a desktop there is no tab bar and this strip is the
+  // last thing in the window, so it pays it itself. Adding it in both places
+  // would leave a phone with 34px of empty panel between the notice and the
+  // tabs.
+  const phone = useIsPhone();
+  return (
+    <footer
+      className="row"
+      style={{
+        flex: 'none',
+        gap: 10,
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        padding: phone ? '8px 20px' : '8px 20px calc(8px + env(safe-area-inset-bottom))',
+        borderTop: '1px solid var(--line-soft)',
+        background: 'var(--panel)',
+      }}
+    >
+      <span style={{ flex: 'none', paddingTop: 1 }}>
+        <CompatibleIcon size={14} />
+      </span>
+      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: 760 }}>
+        {ATTRIBUTION.join(' ')}
+      </p>
+    </footer>
   );
 }
 
