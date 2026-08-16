@@ -435,6 +435,31 @@ Recomputed from the real hex values:
 - [ ] Raise `--empty` to ~`#495062` dark / `#b9b3a4` light — at 1.47:1 you cannot
       see how big a track is.
 
+### P2-4 · The fixed block leaves a 375px phone almost no scroll
+**a constraint, not yet a defect** · *measured in this pass*
+
+The phone Play screen keeps two things out of the scroll: the tokens and the
+roll. Measured with a level 8 character:
+
+| viewport | Experiences | fixed block | scroll window | content |
+|---|---|---|---|---|
+| 393 × 852 | 2 | ~450 | **288** | 993 |
+| 393 × 852 | 5 | ~500 | 238 | 993 |
+| 375 × 667 | 2 | ~450 | ~105 | 993 |
+| 375 × 667 | 5 | ~500 | **53** | 993 |
+
+Nothing is clipped and nothing is unreachable — every Experience shows its full
+name, every pip clears 31 px, ROLL keeps its 66 px clear of the tab bar. But 53
+px is a slot, not a region, and reading five cards through it is unpleasant.
+
+The tokens are pinned on an explicit instruction, so this is not a bug to go
+and fix quietly; it is a trade that has to be re-decided if it bites.
+
+- [ ] If it bites: on a short viewport only, let the Experience rows join the
+      top of the scroll, or drop Stress out of the pinned set. Both cost
+      something the owner has already said they want, so neither happens
+      without asking.
+
 ### P2-3 · Touch targets and the tablet header
 **~3 h total**
 

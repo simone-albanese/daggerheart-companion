@@ -867,21 +867,15 @@ function PlayPhone({
             reads. It renders nothing when no form is worn. */}
         <Beastform stats={stats} layout="phone" />
 
-        {/* Armour and the damage calculator, at the top of the scroll where
-            they are on screen without a flick but not paying for permanence.
-            They are one control in two parts: armour slots exist to be spent
-            reducing the damage the calculator is working out, and both are
-            reached for when something hits you rather than continuously. Of
-            189 domain cards, 15 mention Armor - it is the least-touched of the
-            four tracks by a wide margin. */}
-        <Vitals stats={stats} layout="phone" showState={false} part="damage" />
-
-        {/* Conditions are set once a scene rather than once a turn, so they
-            live here rather than in the fixed block. */}
-        <ActiveConditions />
-
-        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
-
+        {/*
+         * Cards first.
+         *
+         * They are the answer to "what can I do", which is the question a
+         * player asks on every turn of their own, and they were sitting about
+         * 350px down a 288px window - present, and in practice missing. What
+         * leads the scroll is what is on screen without a gesture, and nothing
+         * here earns that more.
+         */}
         <div className="stack" style={{ flex: 'none', gap: 4 }}>
           <div className="spread" style={{ flex: 'none' }}>
             <span className="t-label">Loadout</span>
@@ -889,6 +883,20 @@ function PlayPhone({
           </div>
           <LoadoutRows />
         </div>
+
+        {/* Then what you attack with. Together these two are the whole of
+            "what can I do this turn", so they lead together. */}
+        <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
+
+        {/* Armour and the damage calculator: one control in two parts, since
+            armour slots exist to be spent reducing exactly the damage the
+            calculator is working out. Both are reached for when something hits
+            you rather than continuously, and the HP track stays pinned below,
+            so the state they change is never out of sight. */}
+        <Vitals stats={stats} layout="phone" showState={false} part="damage" />
+
+        {/* Conditions are set once a scene rather than once a turn. */}
+        <ActiveConditions />
 
         <Items />
 

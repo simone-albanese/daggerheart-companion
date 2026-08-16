@@ -371,8 +371,19 @@ export function DualityRoll({ stats, trait, onTraitChange, layout }: Props): Rea
    * at that moment, and it costs no height: it replaces the readout that would
    * otherwise be there.
    */
+  /*
+   * What is armed, in words, next to ROLL - and the Experiences by name.
+   *
+   * The chips are compact by necessity and a long phrase runs to two lines on
+   * them; this is the one place the full name is spelled out, at the moment it
+   * matters, which is when you are about to spend a Hope on it.
+   */
   const armSummary = [
-    ...(hopeCost > 0 ? [`EXP +${experienceBonus} · ${hopeCost} HOPE`] : []),
+    ...armedList.map(
+      (e) =>
+        `${(e.name.trim() === '' ? 'Unnamed' : e.name).toUpperCase()} ${e.bonus >= 0 ? '+' : '−'}${String(Math.abs(e.bonus))}`,
+    ),
+    ...(hopeCost > 0 ? [`${hopeCost} HOPE`] : []),
     ...bonusDice.map((sides) => `+D${sides}`),
   ].join(' · ');
 
@@ -653,6 +664,8 @@ function ExperienceChip({
         maxWidth: basis === undefined ? 124 : undefined,
         minWidth: 0,
         minHeight: 'var(--tap)',
+        paddingTop: 4,
+        paddingBottom: 4,
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
         border: `1px solid ${armed ? 'var(--hope)' : 'transparent'}`,
         // The border and the filled pip carry the Hope; the name stays at full
@@ -661,7 +674,29 @@ function ExperienceChip({
       }}
     >
       <HopePip on={armed} />
-      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>
+      {/*
+       * Wrapping, not an ellipsis.
+       *
+       * "SILVER-TONGUED DIPLOMAT" truncated to "SILVER-TONG…" on a phone, and
+       * the full name lived only in the title attribute and the accessible
+       * name - neither of which a thumb can reach. An Experience is a phrase
+       * the player wrote themselves; being unable to read it back on the one
+       * screen that spends it is a poor trade for a tidier chip. Two lines fit
+       * inside the 44px the touch floor already requires, so this costs no
+       * height at all in the common case.
+       */}
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textAlign: 'left',
+          lineHeight: 1.15,
+          display: '-webkit-box',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: 2,
+        }}
+      >
         {name.toUpperCase()}
       </span>
       <span style={{ flex: 'none', fontWeight: 700 }}>
@@ -703,19 +738,27 @@ function ExperienceRow({
   /*
    * How many to a row, and why it changes.
    *
-   * The SRD hands out a new Experience at levels 2, 5 and 8, so a character
-   * starts with two and tops out at five - that is the whole range this has to
-   * hold, and it is worth designing for the top of it rather than the bottom.
+   * An Experience is a phrase the player wrote themselves - "Silver-Tongued
+   * Diplomat", "Ledgers and Ledger Lines" - and there is no other text to it:
+   * the name *is* the Experience. So a chip that renders it as
+   * "SILVER-TONG..." has thrown away the whole content of the thing, and the
+   * full name lived only in a title attribute and an accessible name, neither
+   * of which a thumb can reach.
    *
-   * Two across is right up to four: it fills two rows at most and leaves each
-   * chip wide enough for a real phrase instead of an ellipsis. Five at two
-   * across would take three rows, 144px of a block that is already the tallest
-   * thing on a small phone, so from five it goes three across and back to two
-   * rows. The names get tighter; the count of rows is what the screen can
-   * actually afford, and the full name is still on the chip's accessible name
-   * and in the armed summary beside ROLL.
+   * One to a row is therefore the default. Full width is about 350px, which
+   * holds any phrase anyone actually writes, and up to three rows costs 144px
+   * of a block that can afford it. Three is also not an arbitrary cutoff: the
+   * SRD grants a new Experience at levels 2, 5 and 8 on top of the two from
+   * creation, so a character carries two or three of them for the first four
+   * levels and most tables never leave that range.
+   *
+   * From four it goes two across, because five full-width rows would be 244px
+   * and would not fit a 375px phone at all. At two across a chip is about
+   * 175px, which is roughly 25 characters - short of the longest names, which
+   * is why the label wraps to a second line rather than truncating, and why
+   * the ROLL bar spells out in full whatever is armed.
    */
-  const perRow = experiences.length > 4 ? 3 : 2;
+  const perRow = experiences.length > 3 ? 2 : 1;
   const basis = `calc(${(100 / perRow).toFixed(3)}% - ${String((6 * (perRow - 1)) / perRow)}px)`;
 
   return (
