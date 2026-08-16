@@ -210,6 +210,13 @@ a eseguire le regole. Qui il confine è dichiarato.
 - Conversione dell'oro (10 manciate = 1 sacca, 10 sacche = 1 forziere)
 - Battle points del GM: `(3 × PG) + 2`, con i costi per ruolo
 - Vincoli di livellamento: quali avanzamenti sono disponibili in quale tier
+- Conversione da piedi a metri per le distanze (piede internazionale, 0,3048 m;
+  arrotondata al mezzo metro sotto i dieci e al metro sopra). **L'SRD non stampa
+  nessuna colonna metrica**: quel numero non è una citazione ma un conto
+  dell'app, e lo schermo lo dichiara sulla riga stessa della cifra — una misura
+  senza etichetta accanto a un timbro `SRD 1.0 · P.40` sarebbe l'app che cita sé
+  stessa spacciandosi per il manuale. Dove l'SRD non dà un numero, l'app non ne
+  inventa uno.
 
 ### 3.2 Non calcola (mostra il testo, applica l'utente)
 
@@ -756,6 +763,21 @@ menù che P5-2 elimina.
 - **Countdown**: standard, dinamici, loop, long-term. Si fanno scorrere a mano.
   Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
+- **Riferimento** (P5-3): le tabelle che il GM cerca a mano, in sette temi —
+  benchmark per tier (avversari e ambienti), benchmark di Difficoltà, Fear per
+  tipo di scena, avanzamento dei countdown dinamici, distanze, mosse e principi
+  del GM, Experience per gli avversari. **Ogni parola è letta da
+  `data/srd-1.0.json` al momento del disegno** e il timbro `SRD 1.0 · P.NN` sta
+  accanto alla singola tabella, mai in cima al tema: il tema *improvvisa* mette
+  insieme p.73 e p.102, e un timbro solo stamperebbe un numero di pagina sopra
+  un testo che non ci sta. Non è uno strumento disattivabile e non apre da una
+  riga della sessione: si apre da **MENU**, perché cercare una regola ferma il
+  gioco, capita una o due volte a sera e si legge invece di premerlo. Le due
+  parti che servono *durante* un gesto sono ripiegate accanto al controllo a cui
+  appartengono — la guida sul Fear sotto i dodici bersagli della board, la
+  tabella di avanzamento sotto la riga di un countdown dinamico — chiuse finché
+  non le si chiede, e disegnate dagli stessi componenti: una piega è una seconda
+  porta, mai una seconda copia.
 
 **La barra in basso, dentro la sezione GM, prende il posto della tab bar**:
 `App.tsx` non disegna `TabBar` su `screen === 'gm'`, e la via d'uscita verso

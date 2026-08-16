@@ -109,10 +109,23 @@ resolves a control by its accessible name and the desktop section nav carries
 each section's *title* as a button, so a switch sharing its section's name
 resolves to the nav button and the row fails for the wrong reason.
 
-**P5-3 — what the GM screen could have at hand.** The improvised-adversary table
-by tier, difficulty as a labelled ladder, Fear per scene type, dynamic countdown
-advancement, distances in metres, the name generators. Source every word from
-`data/srd-1.0.json`; anything the shipped SRD does not carry does not ship.
+**~~P5-3 — what the GM screen could have at hand.~~ Done** — `65de51a`,
+`119816f`, `1f9afcc`, `7f19d78`, `81c1df2`, `246f84b`, `32af6b2`, `ce14170`,
+`33cffaa`. MENU → OPEN THE REFERENCE, seven topics, every word read out of
+`data/srd-1.0.json` at render time with the page stamped beside the table it
+came from. The Fear guidance and the countdown chart are also folded into the
+two controls they belong to. Three things the item asked for were not in the
+shipped SRD and are corrected in `BACKLOG.md` rather than left to be copied
+again: the Difficulty ladder ships as the SRD's own worked example at each
+number and **not** as the printed screen's five adjectives, which occur zero
+times in the dataset; an incidental scene is **0–1 Fear** and not 1–2, which the
+backlog had misquoted; and metres are **the app's arithmetic**, computed from
+the feet and labelled on screen as computed, because the SRD prints no metric
+column. **The name and place generators do not ship, and no commit will make
+them**: the SRD carries no generator of any kind, so building one would mean
+copying licensed text out of `Manuali/`. Left open on purpose, in the backlog
+with its reason: the ladder is not attached to `DualityRoll.tsx`'s DIFF box,
+which is the only place a human sets a Difficulty and is on the player's side.
 
 **P1-1 damage rolls** and **P1-7 rests**. Both were deliberately held back
 because they touch `Play.tsx` and `DualityRoll.tsx`, which the rebuild was
