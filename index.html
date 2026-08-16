@@ -26,9 +26,238 @@
       type="font/woff2"
       crossorigin
     />
+    <style>
+      /*
+       * The boot fallback's own styling, and it has to be its own.
+       *
+       * `tokens.css` and `base.css` are imported by `main.tsx`, so on the one
+       * failure this screen exists for they may be as absent as the bundle -
+       * and where the CSS *does* load while the JavaScript does not, this has
+       * to win against it: `body { user-select: none }` would stop a stranded
+       * user selecting the one paragraph they might want to send someone, and
+       * `button { background: none; border: 0; padding: 0 }` would leave the
+       * rescue control as bare text. Hence the id and class selectors below,
+       * which outrank every element selector in `base.css`.
+       *
+       * The two backgrounds are `--app` in each theme, so a boot that fails
+       * after the theme script has run looks like the app rather than like a
+       * different site. The system font stack is deliberate: Archivo arrives
+       * through `tokens.css` and would not be there.
+       */
+      .boot[hidden],
+      .boot [hidden] {
+        /*
+         * The UA rule for `[hidden]` is `display: none` at specificity (0,1,0),
+         * and every layout rule below outranks it - `.boot` is (0,1,0) too and
+         * wins on order, `.boot textarea` is (0,1,1) and wins outright. Without
+         * this the whole screen would be on show from the first paint of every
+         * launch, with the rescued JSON underneath it, which is the exact thing
+         * the delays below exist to prevent. `!important` rather than more
+         * specificity, because the next rule anyone adds here would have to
+         * think about it again.
+         */
+        display: none !important;
+      }
+      .boot {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        overflow-y: auto;
+        background: #14161c;
+        color: #e8e6e1;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        /* 17px, and 16px on every control below: iOS Safari zooms the page
+           when a focused control's text is under 16px and does not zoom back
+           out. Same floor `base.css` keeps for the app proper. */
+        font-size: 17px;
+        line-height: 1.55;
+        -webkit-text-size-adjust: 100%;
+        user-select: text;
+        -webkit-user-select: text;
+        /* Top padding scales with the viewport so the first line clears a
+           notch on a phone and does not sit against the ceiling on a laptop;
+           the block below it lands in the thumb arc either way. */
+        padding: calc(env(safe-area-inset-top, 0px) + clamp(24px, 12vh, 88px))
+          calc(env(safe-area-inset-right, 0px) + 22px)
+          calc(env(safe-area-inset-bottom, 0px) + 40px)
+          calc(env(safe-area-inset-left, 0px) + 22px);
+      }
+      :root[data-theme='light'] .boot {
+        background: #f4f2ed;
+        color: #1a1c22;
+      }
+      .boot-column {
+        /* ~66 characters at 17px: the line length a paragraph is read at, not
+           the width of the screen. */
+        max-width: 34rem;
+        margin: 0 auto;
+      }
+      .boot h1 {
+        font-size: 21px;
+        line-height: 1.25;
+        margin: 0 0 16px;
+      }
+      .boot p {
+        margin: 0 0 14px;
+      }
+      .boot ol {
+        margin: 0 0 14px;
+        padding-left: 22px;
+      }
+      .boot li {
+        margin: 0 0 10px;
+      }
+      .boot-quiet {
+        color: #a6acb7;
+      }
+      :root[data-theme='light'] .boot-quiet {
+        color: #575b68;
+      }
+      .boot-panel {
+        margin-top: 26px;
+        padding-top: 20px;
+        border-top: 1px solid #2f3441;
+      }
+      :root[data-theme='light'] .boot-panel {
+        border-top-color: #ddd9d0;
+      }
+      .boot-actions {
+        display: flex;
+        flex-wrap: wrap;
+        /* 10px, so a 44px fingertip aimed at one control cannot also be
+           touching the other. */
+        gap: 10px;
+        margin: 4px 0 14px;
+      }
+      .boot button {
+        font: inherit;
+        font-size: 16px;
+        /* Above the 44px floor with room to spare: this is the one control on
+           the screen and it is pressed by someone who is already worried. */
+        min-height: 48px;
+        padding: 12px 18px;
+        border-radius: 10px;
+        border: 1px solid #2f3441;
+        background: #232733;
+        color: #e8e6e1;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      :root[data-theme='light'] .boot button {
+        border-color: #ddd9d0;
+        background: #ebe8e1;
+        color: #1a1c22;
+      }
+      .boot button:focus-visible {
+        outline: 2px solid #ffd98e;
+        outline-offset: 2px;
+      }
+      :root[data-theme='light'] .boot button:focus-visible {
+        outline-color: #815a0d;
+      }
+      .boot textarea {
+        display: block;
+        width: 100%;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 16px;
+        line-height: 1.4;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #2f3441;
+        background: #1b1e26;
+        color: #c8c5be;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      :root[data-theme='light'] .boot textarea {
+        border-color: #ddd9d0;
+        background: #ffffff;
+        color: #2f3441;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <noscript>
+        <div class="boot">
+          <div class="boot-column">
+            <h1>Daggerheart Companion</h1>
+            <p>This app is JavaScript, so with JavaScript switched off there is nothing here.</p>
+            <p>
+              Any characters you have made are untouched, in this browser&rsquo;s own storage on
+              this device. Turn JavaScript back on for this site and they will be waiting.
+            </p>
+            <p>
+              <strong>Do not clear this site&rsquo;s data</strong> and do not delete the app to
+              &ldquo;start clean&rdquo;. That is the one action here that destroys them.
+            </p>
+          </div>
+        </div>
+      </noscript>
+      <!--
+        The app has not started.
+
+        Everything from here to the end of `#root` is plain HTML that React
+        wipes out the moment it mounts, and the small script at the end of the
+        body is the only thing that ever reveals it. There is no React error
+        boundary for this failure and there cannot be: a boundary lives inside
+        the module graph, and the case this covers is the module graph never
+        evaluating - a hashed chunk that 404s after `pruneAssets()` swept the
+        previous build, a syntax the engine will not parse, a throw at module
+        scope. `init()`'s eight-second deadline covers the adjacent case where
+        the app mounts and then hangs; this one never mounts, and until now it
+        had no observer at all.
+      -->
+      <div class="boot" id="boot-fallback" hidden>
+        <div class="boot-column">
+          <h1>Daggerheart Companion</h1>
+          <p>
+            The app has not started. This is the plain page underneath it &mdash; if the app
+            appears in a moment, nothing is wrong and this text disappears on its own.
+          </p>
+          <p>
+            <strong>Your characters have not been touched.</strong> They are in this
+            browser&rsquo;s own storage, on this device, and nothing that goes wrong with the
+            app&rsquo;s code can reach them.
+          </p>
+          <p>
+            <strong>Do not clear this site&rsquo;s data, and do not delete or reinstall the
+            app.</strong> That is the advice every support page gives, and here it is the one
+            action that destroys the only copy of your characters that exists.
+          </p>
+          <p class="boot-quiet">What to do, in order:</p>
+          <ol class="boot-quiet">
+            <li>
+              Wait a few seconds. If there are characters in this browser, a button to save them
+              to a file appears below without the app running at all.
+            </li>
+            <li>
+              Close every tab and window of the app, then open it again with a working
+              connection. A published fix is picked up on its own, and that can take two
+              launches.
+            </li>
+            <li>
+              If it still will not start, it is the build that is broken and not your device.
+              Nothing you clear or reinstall here can fix it, and it would cost you the
+              characters.
+            </li>
+          </ol>
+
+          <div class="boot-panel" id="boot-rescue" hidden>
+            <p id="boot-found"></p>
+            <div class="boot-actions">
+              <button type="button" id="boot-save">Save them to a file</button>
+              <button type="button" id="boot-show">Show it as text instead</button>
+            </div>
+            <p class="boot-quiet" id="boot-status" role="status">
+              An ordinary backup file. A working copy of the app reads it back through Settings
+              &rarr; Import a file.
+            </p>
+            <textarea id="boot-text" rows="10" readonly spellcheck="false" hidden></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
     <script>
       // Resolve the theme before the first paint. React only learns the
       // preference after it mounts, and a light-theme user would otherwise get
@@ -48,5 +277,257 @@
       }
     </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      /*
+       * The escape hatch that does not need the bundle.
+       *
+       * Inline, on purpose: a separate file is one more thing that can 404,
+       * and the failure this covers is precisely a file that did not load. No
+       * imports, no modules, and ES5 throughout - `var`, `function`, no arrows,
+       * no template literals - because one of the ways a bundle fails to
+       * evaluate is an engine too old to parse it, and a hatch written in the
+       * syntax that broke the app rescues nobody.
+       *
+       * Nothing here runs on a healthy launch. React clears `#root` on mount,
+       * so the marker element below stops existing and both timers return
+       * without touching anything - no database is opened, no bytes are read.
+       *
+       * Two delays, because the two disclosures carry different risk:
+       *
+       *   SAY_AFTER = 3s.  The text above. It is safe this early because it is
+       *     only ever on screen when React has not mounted, which is exactly
+       *     what its first sentence says. Three seconds is past every launch
+       *     that comes out of Cache Storage - a returning client reads the
+       *     document and every hashed chunk off the disk, so React mounts in
+       *     tens of milliseconds - and short enough that someone staring at a
+       *     dark rectangle gets a sentence rather than a guess. On a first
+       *     visit over a bad connection it can appear while the bundle is
+       *     still downloading; the wording holds there too, and the app wipes
+       *     it as it mounts.
+       *
+       *   HATCH_AFTER = 10s.  Reading the characters out of IndexedDB and
+       *     offering them. This one waits, because it is the disclosure that
+       *     looks like a verdict, and because it costs a database connection.
+       *     Ten seconds is past `init()`'s own eight-second storage deadline -
+       *     the adjacent failure, where the app *did* mount and then hung, and
+       *     which is therefore never on this screen - and past a first
+       *     download of a few hundred kilobytes on a poor connection. It also
+       *     reveals nothing unless there is something to reveal: a first-time
+       *     visitor on a slow train has an empty database and never sees it.
+       *
+       * The names below must match `src/store/db.ts` exactly. A hardcoded name
+       * that has drifted is a rescue hatch that rescues nothing, and it would
+       * fail silently at the worst possible moment, so
+       * `tests/pwa/bootFallback.test.ts` drives this script against a database
+       * that the real `db.ts` wrote and refuses to pass if either name moves.
+       */
+      (function () {
+        var DB_NAME = 'daggerheart-companion';
+        var STORE = 'characters';
+        var SAY_AFTER = 3000;
+        var HATCH_AFTER = 10000;
+
+        /** The static block above, or null once React has replaced `#root`. */
+        function fallback() {
+          return document.getElementById('boot-fallback');
+        }
+
+        function reveal() {
+          var node = fallback();
+          if (node !== null) node.hidden = false;
+        }
+
+        /**
+         * Every character record, or null if there is nothing to read.
+         *
+         * Opened without a version, so this keeps working when `DB_VERSION`
+         * moves. The `upgradeneeded` branch is the one that matters: a bare
+         * `open` on a device that has never run the app would *create* the
+         * database, empty, at version 1 - and then the real `openDB(name, 1)`
+         * would find the version it wanted, skip its `upgrade` callback, and
+         * never create its stores. A rescue hatch that bricks a first launch
+         * is worse than no hatch. Aborting the version change leaves nothing
+         * behind and fails the open, which is the honest answer anyway.
+         */
+        function readCharacters(done) {
+          var idb = window.indexedDB;
+          if (!idb) return done(null);
+          var request;
+          try {
+            request = idb.open(DB_NAME);
+          } catch (e) {
+            return done(null);
+          }
+          request.onupgradeneeded = function () {
+            try {
+              request.transaction.abort();
+            } catch (e) {
+              /* Nothing else to try; `onerror` below answers for it. */
+            }
+          };
+          request.onerror = function () {
+            done(null);
+          };
+          request.onblocked = function () {
+            done(null);
+          };
+          request.onsuccess = function () {
+            var database = request.result;
+            var finish = function (value) {
+              try {
+                database.close();
+              } catch (e) {
+                /* Already gone. */
+              }
+              done(value);
+            };
+            var store;
+            try {
+              if (!database.objectStoreNames.contains(STORE)) return finish(null);
+              store = database.transaction(STORE, 'readonly').objectStore(STORE);
+            } catch (e) {
+              return finish(null);
+            }
+            // `getAll` is IndexedDB 2.0. The cursor is the fallback, and it is
+            // here rather than assumed away because an engine old enough to
+            // lack it is an engine this bundle may well have failed on.
+            if (store.getAll) {
+              var all = store.getAll();
+              all.onsuccess = function () {
+                finish(all.result || []);
+              };
+              all.onerror = function () {
+                finish(null);
+              };
+              return;
+            }
+            var rows = [];
+            var cursor = store.openCursor();
+            cursor.onsuccess = function () {
+              var at = cursor.result;
+              if (!at) return finish(rows);
+              rows.push(at.value);
+              at['continue']();
+            };
+            cursor.onerror = function () {
+              finish(null);
+            };
+          };
+        }
+
+        /**
+         * The `.dhbackup` envelope from `src/transfer/fileIo.ts`, minus its
+         * `schemaVersion`.
+         *
+         * Deliberately minus. This script cannot see `SCHEMA_VERSION`, and
+         * stamping a guess onto the envelope would be the app asserting
+         * something it does not know - the exact failure this whole screen is
+         * about. `parseTransferFile` skips the envelope check when the field is
+         * absent and reads each record's own stamp instead, which is the one
+         * that is actually true of these bytes.
+         */
+        function serialize(characters) {
+          return (
+            JSON.stringify(
+              {
+                format: 'dhbackup',
+                app: 'rescue',
+                exportedAt: new Date().toISOString(),
+                characters: characters,
+              },
+              null,
+              2,
+            ) + '\n'
+          );
+        }
+
+        function describe(characters) {
+          var names = [];
+          for (var i = 0; i < characters.length; i++) {
+            var c = characters[i];
+            var name = c && typeof c.name === 'string' ? c.name.trim() : '';
+            names.push(name === '' ? 'Unnamed' : name);
+          }
+          // Named rather than counted: "3 characters" is a number, and the
+          // person reading this wants to know that Bramble is one of them.
+          return (
+            names.length +
+            (names.length === 1 ? ' character is' : ' characters are') +
+            ' in this browser’s storage: ' +
+            names.join(', ') +
+            '.'
+          );
+        }
+
+        function offer(characters) {
+          var panel = document.getElementById('boot-rescue');
+          var found = document.getElementById('boot-found');
+          var save = document.getElementById('boot-save');
+          var show = document.getElementById('boot-show');
+          var status = document.getElementById('boot-status');
+          var text = document.getElementById('boot-text');
+          if (!panel || !found || !save || !show || !status || !text) return;
+
+          var json = serialize(characters);
+          var name = 'daggerheart-rescue-' + new Date().toISOString().slice(0, 10) + '.dhbackup';
+          found.textContent = describe(characters);
+          text.value = json;
+
+          save.onclick = function () {
+            try {
+              var url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+              var link = document.createElement('a');
+              link.href = url;
+              link.download = name;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              setTimeout(function () {
+                URL.revokeObjectURL(url);
+              }, 60000);
+              // Not "saved". A download that an installed iOS app swallowed
+              // looks exactly like this from here, and telling someone their
+              // characters are safe on disk when they may not be is the same
+              // lie in a smaller font.
+              status.textContent =
+                'Your browser has been handed ' +
+                name +
+                '. If no file appeared, use “Show it as text instead” and copy what is there into a note — that text is the whole of it.';
+            } catch (e) {
+              status.textContent =
+                'This browser would not save a file. Use “Show it as text instead” and copy what is there into a note.';
+            }
+          };
+
+          show.onclick = function () {
+            text.hidden = false;
+            try {
+              text.focus();
+              text.setSelectionRange(0, text.value.length);
+            } catch (e) {
+              /* Selecting it is a convenience; the text is on screen either way. */
+            }
+            status.textContent =
+              'Copy all of it into a note or an email to yourself. Saved as a file ending in .dhbackup, a working copy of the app reads it back through Settings → Import a file.';
+          };
+
+          panel.hidden = false;
+        }
+
+        function hatch() {
+          if (fallback() === null) return;
+          readCharacters(function (characters) {
+            // Asked again: the read is asynchronous, and an app that mounted
+            // while it was in flight has already thrown this markup away.
+            if (fallback() === null) return;
+            if (characters === null || characters.length === 0) return;
+            offer(characters);
+          });
+        }
+
+        setTimeout(reveal, SAY_AFTER);
+        setTimeout(hatch, HATCH_AFTER);
+      })();
+    </script>
   </body>
 </html>

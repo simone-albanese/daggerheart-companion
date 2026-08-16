@@ -458,6 +458,56 @@ scriverci sopra.
 dallo sviluppo: `SCHEMA_VERSION` vale 3 dal primo commit. Scrivere convertitori
 per loro significherebbe inventarsi una storia con cui essere compatibili.
 
+### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
+
+Il guasto residuo che nessun error boundary può vedere, perché un boundary vive
+dentro il grafo dei moduli e qui il grafo non è mai esistito: un chunk con hash
+che risponde 404 dopo che `pruneAssets()` ha spazzato la build precedente, una
+sintassi che il motore non sa leggere, un throw a module scope. Il deadline di
+otto secondi di `init()` copre il caso adiacente — l'app monta e poi si pianta —
+non questo. Arriva su tutti i dispositivi installati nello stesso momento, e il
+rimedio che dà qualunque pagina di supporto (cancella i dati del sito,
+disinstalla e reinstalla la PWA) distrugge l'unica copia del personaggio che
+esiste.
+
+Perciò `index.html` non è più `<div id="root"></div>` e basta:
+
+- **Testo statico dentro `#root`**, che React sovrascrive al mount. Rivelato a
+  3 s da uno script inline e non prima: prima di quel momento la frase «l'app non
+  è partita» sarebbe sullo schermo anche durante un primo caricamento lento e
+  perfettamente sano. Dice cos'è l'app, che i personaggi sono intatti nello
+  storage del browser, cosa fare, e — esplicitamente — di **non** cancellare i
+  dati del sito.
+- **Una via d'uscita che non passa dal bundle.** A 10 s un secondo script inline,
+  in ES5 (niente moduli, niente import: uno dei modi in cui un bundle non si
+  valuta è un motore troppo vecchio per leggerlo, e una scialuppa scritta nella
+  sintassi che ha affondato la nave non salva nessuno) apre IndexedDB, legge lo
+  store `characters` e offre la libreria come `.dhbackup` e come testo
+  selezionabile — una PWA iOS installata inghiotte il download in silenzio. Si
+  mostra solo se trova qualcosa, così un primo accesso su rete lenta non lo vede
+  mai. Apre **senza versione**, per sopravvivere a un `DB_VERSION` che si muove,
+  e aborta l'`upgradeneeded`: un `open` nudo su un dispositivo che non ha mai
+  aperto l'app creerebbe il database vuoto a versione 1, e il vero
+  `openDB(nome, 1)` troverebbe la versione che voleva, salterebbe il proprio
+  `upgrade` e non creerebbe mai i quattro store.
+- I due nomi, `daggerheart-companion` e `characters`, sono scritti a mano lì
+  dentro perché non possono essere importati. `tests/pwa/bootFallback.test.ts`
+  esegue davvero quello script contro un database scritto da `db.ts` e rilegge
+  ciò che produce con `parseBackupFile`: se un nome deriva la CI fallisce, invece
+  di scoprirlo alle due di notte con la produzione morta.
+
+**La leva.** Alzare `VERSION` in `public/sw.js` rinomina entrambe le cache —
+`dhc-shell-<VERSION>` e `dhc-assets-<VERSION>` — quindi `takeOver()` le vede
+vecchie, le cancella, e `ensurePrecached()` ricostruisce dalla rete. Costa un
+download completo a ogni client installato (documento, bundle, chunk SRD, font,
+icone) più 1.6 MB di worker pdf.js a chi aveva usato l'importer, e non è
+immediato: il worker non chiama `skipWaiting()`, quindi il rimpiazzo resta in
+`waiting` finché l'utente non accetta il prompt o non chiude ogni scheda. Nella
+maggior parte dei casi non serve — una build corretta viene adottata da sola,
+perché il documento è servito stale-while-revalidate e la seconda apertura online
+è già quella giusta. Il runbook completo è nel README, in inglese, che è dove si
+guarda quando si è nel panico.
+
 ---
 
 ## 7. Modello dati
