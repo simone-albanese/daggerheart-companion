@@ -1,0 +1,579 @@
+// @vitest-environment jsdom
+/**
+ * Does every component in the app render at all?
+ *
+ * Until this file, no test in this repo had ever mounted a screen. Two files
+ * used jsdom - `tabBar.test.ts` and `track.test.ts` - and both were written
+ * *after* a person found the bug on their own phone. Four more render through
+ * `renderToStaticMarkup`, which does not run `useEffect`, and every act of
+ * wiring in this app lives in an effect. `App.tsx` appeared in the suite only
+ * as a `readFileSync` path, and `Play.tsx` - the screen the README says is used
+ * ninety per cent of the time - only inside a comment.
+ *
+ * That is how four defects reached users. All four were *absence* rather than
+ * error: a glyph that computed to `rgba(0,0,0,0)`, two Experiences filtered out
+ * one line below the promise to keep them. Nothing throws when a shape ends up
+ * the same colour as the panel behind it, and a read-only audit sees an
+ * assignment and a filter and both look deliberate.
+ *
+ * So this asks the smallest questions that would have caught them, of every
+ * component at once, with a character built out of the shipped SRD:
+ *
+ *   - it mounts without throwing, with effects run under `act()`;
+ *   - it puts something on the page, or is written down as drawing nothing;
+ *   - every control it draws has a name somewhere.
+ *
+ * The colour half of that story lives in `tabBar.test.ts`, which fails on the
+ * `background` + `backgroundColor: undefined` pattern anywhere in the tree
+ * rather than on the four glyphs it happened to hit.
+ *
+ * The list is derived from the tree rather than typed out. A component added
+ * next year and forgotten is not silently uncovered: it fails the first test
+ * here, which is the whole point - the four defects above were all in code
+ * nobody had thought to point a test at.
+ */
+import 'fake-indexeddb/auto';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
+import { act, createElement, type ReactElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Adversary, Environment } from '@shared/types.ts';
+import * as db from '../../src/store/db.ts';
+import { useApp, type Screen } from '../../src/store/state.ts';
+import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
+
+import { Build } from '../../src/ui/build/Build.tsx';
+import { Edit } from '../../src/ui/build/Edit.tsx';
+import { ArmorPicker, GearSlot, ItemPicker, WeaponPicker } from '../../src/ui/build/GearPicker.tsx';
+import { LevelUp } from '../../src/ui/build/LevelUp.tsx';
+import {
+  Callout,
+  Choice as BuildChoice,
+  Columns,
+  DatasetEmpty,
+  ExperienceEditor,
+  FeatureBlock,
+  GoldEditor,
+  InventoryEditor,
+  LabelledInput,
+  Mark,
+  Section as BuildSection,
+  Segmented,
+  SlotBoxes,
+  Stepper as BuildStepper,
+} from '../../src/ui/build/parts.tsx';
+import { StepCards, Wizard } from '../../src/ui/build/Wizard.tsx';
+import { emptyDraft } from '../../src/ui/build/creation.ts';
+import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
+import { Bestiary } from '../../src/ui/gm/Bestiary.tsx';
+import { Countdowns } from '../../src/ui/gm/Countdowns.tsx';
+import { Encounter, Stepper as EncounterStepper } from '../../src/ui/gm/Encounter.tsx';
+import { FearBar, FearBoard } from '../../src/ui/gm/FearPool.tsx';
+import { Gm } from '../../src/ui/gm/Gm.tsx';
+import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
+import { Scene } from '../../src/ui/gm/Scene.tsx';
+import {
+  AdversaryBlock,
+  EnvironmentBand,
+  EnvironmentBlock,
+  FeatureList,
+  Stat,
+} from '../../src/ui/gm/StatBlock.tsx';
+import { Beastform } from '../../src/ui/player/Beastform.tsx';
+import { Cards } from '../../src/ui/player/Cards.tsx';
+import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
+import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
+import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
+import { DualityRoll } from '../../src/ui/player/DualityRoll.tsx';
+import { Play } from '../../src/ui/player/Play.tsx';
+import { Vitals } from '../../src/ui/player/Vitals.tsx';
+import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
+import { buildSheet } from '../../src/ui/print/sheetModel.ts';
+import { CoinRow, PrintDomainMark, TickRow } from '../../src/ui/print/marks.tsx';
+import { About } from '../../src/ui/settings/About.tsx';
+import { ReconciliationReport, Rulebook } from '../../src/ui/settings/Rulebook.tsx';
+import { Settings } from '../../src/ui/settings/Settings.tsx';
+import { Transfer } from '../../src/ui/settings/Transfer.tsx';
+import {
+  Choice as SettingsChoice,
+  Field,
+  Note,
+  Rows,
+  Section as SettingsSection,
+  Switch,
+} from '../../src/ui/settings/parts.tsx';
+import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
+import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
+import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
+import { Track } from '../../src/ui/shared/Track.tsx';
+import { App } from '../../src/ui/shell/App.tsx';
+import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
+import { Header } from '../../src/ui/shell/Header.tsx';
+import { Recovery } from '../../src/ui/shell/Recovery.tsx';
+import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
+import { TabBar } from '../../src/ui/shell/TabBar.tsx';
+import { UpdateBanner } from '../../src/ui/shell/UpdateBanner.tsx';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
+let container: HTMLDivElement;
+let root: Root;
+
+/** Answer media queries as a viewport of this width would. */
+function setViewport(width: number): void {
+  window.matchMedia = ((query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    const coarse = /any-pointer:\s*coarse/.test(query);
+    const matches =
+      (max !== null && width <= Number(max[1])) ||
+      (min !== null && width >= Number(min[1])) ||
+      (coarse && width < 720);
+    return {
+      matches,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
+
+beforeAll(() => {
+  // jsdom has no matchMedia at all, and every layout decision in this app goes
+  // through it. The default is the tablet band; the tests that care set their
+  // own width.
+  setViewport(1024);
+  // jsdom implements no scrolling either, and the wizard scrolls its panel back
+  // to the top on every step. Both of these are gaps in the environment rather
+  // than in the app, and both would otherwise read as a crash.
+  Element.prototype.scrollTo = (): void => {};
+  Element.prototype.scrollIntoView = (): void => {};
+});
+
+beforeEach(async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+
+  // The store and the database are module state, shared by every test in this
+  // file. Without this the fourth test runs against six characters left behind
+  // by the first three, and "the library is empty" can never be true.
+  await db.clearAll();
+  useApp.setState({
+    ready: false,
+    storageError: null,
+    characters: [],
+    activeId: null,
+    screen: 'play',
+    log: [],
+    openCard: null,
+  });
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+  vi.restoreAllMocks();
+});
+
+/**
+ * Let everything the effects started finish.
+ *
+ * `act` flushes React. It does not flush a database read or a dynamic import,
+ * and this app does both before it has a screen to draw: `init()` awaits
+ * IndexedDB, and Build, GM and Settings are `lazy()`. A single microtask is not
+ * enough, so this turns the loop until the condition holds rather than guessing
+ * a number of ticks.
+ */
+async function settle(until: () => boolean = () => true, turns = 50): Promise<void> {
+  for (let i = 0; i < turns; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (until()) return;
+  }
+  // Deliberately not a throw. Whatever the caller was waiting for, the
+  // assertion after this call says what it was in words; "the app never
+  // settled" would replace a specific failure with a vague one.
+}
+
+async function render(element: ReactElement): Promise<void> {
+  await act(async () => {
+    root.render(element);
+  });
+  await settle();
+}
+
+/** Seed the store the way a booted app holds it, without booting. */
+function seed(): void {
+  const character = playedCharacter();
+  useApp.setState({
+    ready: true,
+    storageError: null,
+    dataset,
+    index,
+    characters: [character],
+    activeId: character.id,
+    log: [],
+    openCard: null,
+  });
+}
+
+const stats = (): ReturnType<typeof playedStats> => playedStats(playedCharacter());
+
+/** What the screen itself says, without the header and the tab bar. */
+function screenText(): string {
+  const main = container.querySelector('main');
+  if (main === null) return '';
+  const nav = main.querySelector('nav')?.textContent ?? '';
+  return (main.textContent ?? '').replace(nav, '').trim();
+}
+
+// ---------------------------------------------------------------------------
+// The shell
+// ---------------------------------------------------------------------------
+
+describe('the shell, on every screen', () => {
+  const screens: Screen[] = ['play', 'cards', 'build', 'gm', 'settings'];
+
+  for (const screen of screens) {
+    it(`renders ${screen} with a character on it`, async () => {
+      await db.putCharacter(playedCharacter());
+
+      await act(async () => {
+        root.render(createElement(App));
+      });
+      await settle(() => useApp.getState().ready);
+      expect(useApp.getState().ready, 'init() never answered').toBe(true);
+
+      // Switch the way a person does, through the store, after the app has
+      // booted: `init()` sets the screen itself from the saved preference, so
+      // setting it beforehand would be overwritten and every case would be
+      // testing whichever screen was last used.
+      await act(async () => {
+        useApp.getState().setScreen(screen);
+      });
+      await settle(() => screenText().length > 200);
+
+      // `<main>` rather than the whole container: the header and the tab bar
+      // put about forty characters on the page on their own, so a screen that
+      // rendered nothing at all would still clear a threshold measured against
+      // the container. Measured against the real screens, the smallest of the
+      // five is an order of magnitude above this.
+      expect(screenText().length, `the ${screen} screen drew almost nothing`).toBeGreaterThan(200);
+    });
+  }
+
+  it('renders on a 375px phone, with the tab bar in the thumb arc', async () => {
+    setViewport(375);
+    try {
+      await db.putCharacter(playedCharacter());
+      await act(async () => {
+        root.render(createElement(App));
+      });
+      await settle(() => useApp.getState().ready);
+      expect(useApp.getState().ready, 'init() never answered').toBe(true);
+      await act(async () => {
+        useApp.getState().setScreen('play');
+      });
+      await settle(() => container.querySelector('nav') !== null);
+
+      expect(container.querySelector('nav')).not.toBeNull();
+      expect((container.textContent ?? '').trim().length).toBeGreaterThan(20);
+    } finally {
+      setViewport(1024);
+    }
+  });
+
+  it('opens on Build when there is nothing to play, rather than on an empty Play', async () => {
+    await render(createElement(App));
+    await settle(() => useApp.getState().ready);
+      expect(useApp.getState().ready, 'init() never answered').toBe(true);
+    expect(useApp.getState().screen).toBe('build');
+  });
+
+  it('says something rather than nothing when the library is empty', async () => {
+    await render(createElement(App));
+    await settle(() => useApp.getState().ready);
+      expect(useApp.getState().ready, 'init() never answered').toBe(true);
+    await act(async () => {
+      useApp.getState().setScreen('play');
+    });
+    await settle();
+    // The empty state is the first thing a new user sees, and the only screen
+    // that carries the licence notice today (P3-10).
+    expect(container.textContent ?? '').toContain('No character yet');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Every component
+// ---------------------------------------------------------------------------
+
+const noop = (): void => {};
+const adversary = (): Adversary => dataset.adversaries[0]!;
+const environment = (): Environment => dataset.environments[0]!;
+const card = () => dataset.domainCards[0]!;
+
+/**
+ * Every exported component, with props good enough to draw it.
+ *
+ * Keyed by `path::Name` because three names appear twice - `Section`, `Choice`
+ * and `Stepper` all exist in two files - and a registry keyed on the bare name
+ * would silently cover one and skip the other.
+ */
+const COMPONENTS: Record<string, () => ReactElement> = {
+  'build/Build.tsx::Build': () => <Build />,
+  'build/Edit.tsx::Edit': () => <Edit stats={stats()} onLevelUp={noop} />,
+  'build/GearPicker.tsx::WeaponPicker': () => (
+    <WeaponPicker
+      slot="primary"
+      value={null}
+      sheet={playedCharacter()}
+      stats={stats()}
+      onPick={noop}
+      onClose={noop}
+    />
+  ),
+  'build/GearPicker.tsx::ArmorPicker': () => (
+    <ArmorPicker value={null} sheet={playedCharacter()} onPick={noop} onClose={noop} />
+  ),
+  'build/GearPicker.tsx::ItemPicker': () => (
+    <ItemPicker carried={new Map()} onAdd={noop} onClose={noop} />
+  ),
+  'build/GearPicker.tsx::GearSlot': () => (
+    <GearSlot label="PRIMARY" title="A Sword" empty="none" onOpen={noop} />
+  ),
+  'build/LevelUp.tsx::LevelUp': () => <LevelUp stats={stats()} onDone={noop} />,
+  'build/Wizard.tsx::Wizard': () => <Wizard />,
+  'build/Wizard.tsx::StepCards': () => (
+    <StepCards draft={emptyDraft()} set={noop} klass={dataset.classes[0]} />
+  ),
+  'build/parts.tsx::Section': () => <BuildSection label="LABEL">body</BuildSection>,
+  'build/parts.tsx::Columns': () => <Columns>body</Columns>,
+  'build/parts.tsx::Choice': () => <BuildChoice selected onClick={noop} title="A choice" />,
+  'build/parts.tsx::Mark': () => <Mark on />,
+  'build/parts.tsx::Segmented': () => (
+    <Segmented value="a" onChange={noop} options={[['a', 'A'], ['b', 'B']]} label="Pick" />
+  ),
+  'build/parts.tsx::SlotBoxes': () => <SlotBoxes used={1} slots={2} />,
+  'build/parts.tsx::Stepper': () => <BuildStepper value={2} onChange={noop} label="Count" />,
+  'build/parts.tsx::Callout': () => <Callout tone="warn" items={['Something to check']} />,
+  'build/parts.tsx::FeatureBlock': () => <FeatureBlock name="A Feature" text="It does a thing." />,
+  'build/parts.tsx::DatasetEmpty': () => <DatasetEmpty what="weapons" />,
+  'build/parts.tsx::LabelledInput': () => (
+    <LabelledInput label="Name" value="Fixture" onChange={noop} />
+  ),
+  'build/parts.tsx::ExperienceEditor': () => (
+    <ExperienceEditor value={[{ id: 'e1', name: 'Ran with wolves', bonus: 2 }]} onChange={noop} />
+  ),
+  'build/parts.tsx::GoldEditor': () => (
+    <GoldEditor gold={{ handfuls: 3, bags: 1, chests: 0 }} onChange={noop} />
+  ),
+  'build/parts.tsx::InventoryEditor': () => (
+    <InventoryEditor value={[{ ref: null, name: 'A rope', quantity: 1 }]} onChange={noop} />
+  ),
+
+  'gm/AdversaryList.tsx::FilterBar': () => (
+    <FilterBar value={NO_FILTER} onChange={noop} shown={3} total={9} />
+  ),
+  'gm/AdversaryList.tsx::AdversaryRow': () => (
+    <AdversaryRow adversary={adversary()} onSelect={noop} />
+  ),
+  'gm/Bestiary.tsx::Bestiary': () => <Bestiary phone={false} />,
+  'gm/Countdowns.tsx::Countdowns': () => <Countdowns phone={false} />,
+  'gm/Encounter.tsx::Encounter': () => <Encounter phone={false} />,
+  'gm/Encounter.tsx::Stepper': () => <EncounterStepper label="Fear" value={2} onChange={noop} />,
+  'gm/FearPool.tsx::FearBar': () => <FearBar />,
+  'gm/FearPool.tsx::FearBoard': () => <FearBoard phone={false} />,
+  'gm/Gm.tsx::Gm': () => <Gm />,
+  'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
+  'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
+  'gm/StatBlock.tsx::Stat': () => <Stat label="HP" value="6" />,
+  'gm/StatBlock.tsx::FeatureList': () => (
+    <FeatureList features={[{ name: 'A Feature', text: 'It does a thing.' }]} />
+  ),
+  'gm/StatBlock.tsx::AdversaryBlock': () => <AdversaryBlock adversary={adversary()} />,
+  'gm/StatBlock.tsx::EnvironmentBand': () => <EnvironmentBand environment={environment()} />,
+  'gm/StatBlock.tsx::EnvironmentBlock': () => (
+    <EnvironmentBlock environment={environment()} active onToggle={noop} />
+  ),
+
+  'player/Beastform.tsx::Beastform': () => <Beastform stats={stats()} layout="desktop" />,
+  'player/Cards.tsx::Cards': () => <Cards stats={stats()} />,
+  'player/Companion.tsx::WhoSwitch': () => <WhoSwitch who="you" setWho={noop} compact={false} />,
+  'player/Companion.tsx::CompanionPanel': () => (
+    <CompanionPanel stats={stats()} layout="desktop" />
+  ),
+  'player/Conditions.tsx::ActiveConditions': () => <ActiveConditions />,
+  'player/DeathMove.tsx::DeathMoveOffer': () => <DeathMoveOffer />,
+  'player/DualityRoll.tsx::DualityRoll': () => (
+    <DualityRoll stats={stats()} trait="agility" onTraitChange={noop} layout="desktop" />
+  ),
+  'player/Play.tsx::Play': () => <Play stats={stats()} />,
+  'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,
+
+  'print/CharacterSheet.tsx::CharacterSheet': () => (
+    <CharacterSheet sheet={buildSheet(playedCharacter(), dataset, index)} />
+  ),
+  'print/marks.tsx::PrintDomainMark': () => <PrintDomainMark domain="blade" />,
+  'print/marks.tsx::TickRow': () => <TickRow kind="hp" count={6} />,
+  'print/marks.tsx::CoinRow': () => <CoinRow count={3} />,
+
+  'settings/About.tsx::About': () => <About />,
+  'settings/Rulebook.tsx::Rulebook': () => <Rulebook phone={false} />,
+  'settings/Rulebook.tsx::ReconciliationReport': () => (
+    <ReconciliationReport
+      report={{
+        kinds: [],
+        totals: { matched: 0, manualOnly: 0, srdOnly: 0, suggested: 0 },
+        unread: [],
+        empty: true,
+      }}
+      onDismiss={noop}
+    />
+  ),
+  'settings/Settings.tsx::Settings': () => <Settings />,
+  'settings/Transfer.tsx::Transfer': () => <Transfer />,
+  'settings/parts.tsx::Section': () => (
+    <SettingsSection id="s" title="A Section">
+      body
+    </SettingsSection>
+  ),
+  'settings/parts.tsx::Rows': () => <Rows>body</Rows>,
+  'settings/parts.tsx::Field': () => <Field label="A field">body</Field>,
+  'settings/parts.tsx::Switch': () => <Switch checked onChange={noop} label="A switch" />,
+  'settings/parts.tsx::Choice': () => (
+    <SettingsChoice value="a" onChange={noop} options={[['a', 'A'], ['b', 'B']]} label="Pick" />
+  ),
+  'settings/parts.tsx::Note': () => <Note>A note.</Note>,
+
+  'shared/CompatibleMark.tsx::CompatibleLockup': () => <CompatibleLockup />,
+  'shared/CompatibleMark.tsx::CompatibleIcon': () => <CompatibleIcon />,
+  'shared/CompatibleMark.tsx::Attribution': () => <Attribution />,
+  'shared/DomainCardView.tsx::CardText': () => <CardText text="Mark a Stress to do a thing." />,
+  'shared/DomainCardView.tsx::DomainCardView': () => <DomainCardView card={card()} />,
+  'shared/DomainCardView.tsx::CardReader': () => <CardReader card={card()} onClose={noop} />,
+  'shared/DomainMark.tsx::DomainMark': () => <DomainMark domain="blade" />,
+  'shared/DomainMark.tsx::AppMark': () => <AppMark />,
+  'shared/Track.tsx::Track': () => (
+    <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
+  ),
+
+  'shell/App.tsx::App': () => <App />,
+  'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
+  'shell/Header.tsx::Header': () => <Header />,
+  'shell/Recovery.tsx::Recovery': () => <Recovery />,
+  'shell/ScreenBoundary.tsx::ScreenBoundary': () => (
+    <ScreenBoundary name="Test">inside the boundary</ScreenBoundary>
+  ),
+  'shell/TabBar.tsx::TabBar': () => <TabBar />,
+  'shell/UpdateBanner.tsx::UpdateBanner': () => <UpdateBanner apply={noop} />,
+};
+
+/**
+ * Components that draw nothing with this fixture, and why.
+ *
+ * Rendering `null` is a legitimate answer for a panel that only exists in a
+ * state the fixture is not in. It is written down rather than tolerated,
+ * because "this drew nothing" and "this is broken" look identical from here,
+ * and the four defects that reached users all looked like the first.
+ */
+const DRAWS_NOTHING: Record<string, string> = {
+  'player/Beastform.tsx::Beastform': 'Only a class with a Beastform draws it; the fixture is a Bard.',
+  'player/DeathMove.tsx::DeathMoveOffer': 'The fixture has HP left, so no death move is offered.',
+};
+
+/** Every PascalCase value export under `src/ui`, derived rather than listed. */
+function exportedComponents(): string[] {
+  const UI = join(process.cwd(), 'src/ui');
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) return walk(path);
+      return entry.endsWith('.tsx') ? [path] : [];
+    });
+
+  const found: string[] = [];
+  for (const path of walk(UI)) {
+    const rel = relative(UI, path).split(sep).join('/');
+    const source = readFileSync(path, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    for (const match of source.matchAll(/^export (?:function|class) ([A-Z]\w*)/gm)) {
+      found.push(`${rel}::${match[1]!}`);
+    }
+    // Arrow components too: `export const Thing = (…) => …`. SCREAMING_CASE
+    // constants are excluded by requiring a lowercase letter in the name.
+    for (const match of source.matchAll(/^export const ([A-Z]\w*[a-z]\w*)\s*(?::[^=]+)?=\s*\(/gm)) {
+      found.push(`${rel}::${match[1]!}`);
+    }
+  }
+  return [...new Set(found)].sort();
+}
+
+describe('every component in src/ui', () => {
+  const components = exportedComponents();
+
+  it('finds components to mount', () => {
+    expect(components.length).toBeGreaterThan(50);
+  });
+
+  it('has a fixture for every one of them', () => {
+    const uncovered = components.filter((name) => !(name in COMPONENTS));
+    expect(
+      uncovered,
+      'these components are exported and nothing here ever mounts them:\n' +
+        uncovered.map((n) => `  ${n}`).join('\n') +
+        '\n\nEvery defect this app has shipped to a user was in a render path no test ' +
+        'had ever executed. Add a fixture, even a trivial one.',
+    ).toEqual([]);
+  });
+
+  it('mounts nothing that no longer exists', () => {
+    const known = new Set(components);
+    const stale = Object.keys(COMPONENTS).filter((name) => !known.has(name));
+    expect(stale, `fixtures for components that are gone: ${stale.join(', ')}`).toEqual([]);
+  });
+
+  for (const [name, element] of Object.entries(COMPONENTS)) {
+    it(`mounts ${name}`, async () => {
+      seed();
+      await render(element());
+
+      const drew = (container.textContent ?? '').trim().length > 0 || container.children.length > 0;
+      if (name in DRAWS_NOTHING) {
+        expect(drew, `${name} is listed as drawing nothing and drew something`).toBe(false);
+      } else {
+        expect(drew, `${name} mounted and put nothing on the page`).toBe(true);
+      }
+
+      // A control with no name is a control a screen reader announces as
+      // "button", and one a person with a touchscreen cannot ask about. Six
+      // dialogs in this app already carry `role` and `aria-modal`, so the
+      // standard is the project's own rather than an imported one.
+      expect(nameless(), `${name} draws a control with no name anywhere`).toEqual([]);
+    });
+  }
+});
+
+/** Buttons and inputs whose name is nowhere: no text, no label, no title. */
+function nameless(): string[] {
+  const named = (el: Element): boolean =>
+    (el.textContent ?? '').trim() !== '' ||
+    el.getAttribute('aria-label') !== null ||
+    el.getAttribute('aria-labelledby') !== null ||
+    el.getAttribute('title') !== null;
+  return [...container.querySelectorAll('button, [role="button"]')]
+    .filter((el) => !named(el))
+    .map((el) => el.outerHTML.slice(0, 140));
+}
