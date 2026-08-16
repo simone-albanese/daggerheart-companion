@@ -228,11 +228,11 @@ export function newCampaign(name: string, at: string, id: string): Campaign {
  * one" would be a second thing to keep in step too, so primacy is a flag on
  * the row - and `readCampaignRecord` is what stops two rows carrying it.
  */
-export const countdownsOf = (c: Campaign): Countdown[] =>
-  c.session.flatMap((item) => (item.kind === 'countdown' ? [item.countdown] : []));
+export const countdownsOf = (session: readonly SessionItem[]): Countdown[] =>
+  session.flatMap((item) => (item.kind === 'countdown' ? [item.countdown] : []));
 
-export const primaryCountdownOf = (c: Campaign): Countdown | null => {
-  const item = c.session.find((i) => i.kind === 'countdown' && i.primary);
+export const primaryCountdownOf = (session: readonly SessionItem[]): Countdown | null => {
+  const item = session.find((i) => i.kind === 'countdown' && i.primary);
   return item !== undefined && item.kind === 'countdown' ? item.countdown : null;
 };
 

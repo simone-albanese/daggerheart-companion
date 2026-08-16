@@ -150,7 +150,7 @@ describe('the committed fixtures', () => {
       expect(fight?.kind === 'encounter' && fight.roster).toHaveLength(2);
       expect(fight?.kind === 'encounter' && fight.combatants[0]?.hp.marked).toBe(3);
 
-      expect(primaryCountdownOf(campaign)?.value).toBe(4);
+      expect(primaryCountdownOf(campaign.session)?.value).toBe(4);
     });
   }
 });
@@ -283,7 +283,7 @@ describe('countdowns, which live in the session list', () => {
     const { campaign } = readCampaignRecord(
       bare({ session: [countdownItem('a', false), countdownItem('b', true)] }),
     );
-    expect(countdownsOf(campaign).map((c) => c.id)).toEqual(['a', 'b']);
+    expect(countdownsOf(campaign.session).map((c) => c.id)).toEqual(['a', 'b']);
   });
 
   it('lets at most one be the primary one', () => {
@@ -293,7 +293,7 @@ describe('countdowns, which live in the session list', () => {
       bare({ session: [countdownItem('a', true), countdownItem('b', true)] }),
     );
     expect(campaign.session.filter((i) => i.kind === 'countdown' && i.primary)).toHaveLength(1);
-    expect(primaryCountdownOf(campaign)?.id).toBe('a');
+    expect(primaryCountdownOf(campaign.session)?.id).toBe('a');
     expect(warnings.join(' ')).toMatch(/more than one countdown/);
   });
 
@@ -326,7 +326,7 @@ describe('countdowns, which live in the session list', () => {
         ],
       }),
     );
-    expect(countdownsOf(campaign)[0]!.value).toBe(4);
+    expect(countdownsOf(campaign.session)[0]!.value).toBe(4);
   });
 });
 

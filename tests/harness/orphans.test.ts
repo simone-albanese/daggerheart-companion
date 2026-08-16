@@ -77,17 +77,6 @@ const DELIBERATE: Record<string, string> = {
   'engine/encounter.ts::TIER_BENCHMARKS': 'P1-5: a GM feature with no screen. Wire it or say so.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',
 
-  // --- The campaigns store, built one commit ahead of the code that adopts
-  //     it. These four go the moment `gmStore` stops writing to localStorage,
-  //     which is the commit after the localStorage migration. Until then the
-  //     GM's state genuinely is still in localStorage, so this is the honest
-  //     description of the tree rather than a placeholder.
-  'store/campaigns.ts::readCampaigns': 'GM campaigns: adopted by gmStore in the next commit.',
-  'store/campaigns.ts::deleteCampaign': 'GM campaigns: same.',
-  'store/campaignMigration.ts::migrateLegacyGmState':
-    'GM campaigns: run by gmStore hydration in the next commit. Until then the GM state really is still in localStorage.',
-  'store/campaignMigration.ts::FIRST_CAMPAIGN_NAME': 'GM campaigns: same, shared with the fresh-install path.',
-
   // --- Consumed outside the shipped bundle. Not dead, just not the app's.
   'store/state.ts::flushPending':
     'Awaited by the store tests. Inside the app `flush` is reached by the debounce, by pagehide and by remove(); runBackup reads the store rather than the disk, so it needs no flush of its own.',
