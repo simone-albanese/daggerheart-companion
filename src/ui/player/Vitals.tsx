@@ -29,9 +29,28 @@ interface Props {
    * screen.
    */
   showState?: boolean;
+  /**
+   * Which half of this panel to draw. Only the phone splits it.
+   *
+   * 'tracks' is HP, Stress and Hope - the three the game makes you touch on
+   * something like every roll. 'damage' is the incoming-damage calculator and
+   * the Armor track, which belong together because armour slots exist to be
+   * spent reducing exactly that damage, and which are both event-driven: they
+   * are reached for when something hits you rather than continuously.
+   *
+   * The split buys the scroll region back. With all four tracks and the
+   * calculator pinned, the fixed block took about 500px of an 852px phone and
+   * left 188px to read weapons and cards through.
+   */
+  part?: 'all' | 'tracks' | 'damage';
 }
 
-export function Vitals({ stats, layout, showState = true }: Props): React.JSX.Element | null {
+export function Vitals({
+  stats,
+  layout,
+  showState = true,
+  part = 'all',
+}: Props): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
@@ -173,94 +192,87 @@ export function Vitals({ stats, layout, showState = true }: Props): React.JSX.El
       {hasCompanion && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
       {phone ? (
         /*
-         * Four full-width rows, each with its label in a gutter beside the
-         * pips, ordered by how often the game makes you touch them - least
-         * first, so the most-touched sits nearest the thumb.
+         * One track to a row, full width, ordered by how often the game makes
+         * you touch them - least first, so the most-touched sits nearest the
+         * thumb.
          *
          * The order is measured against the shipped SRD rather than taken from
          * the printed sheet. Of 189 domain cards, 84 mention Hope and 80
          * mention Stress, and 158 of them cost Stress to recall; a PC gains
-         * Hope on every roll that comes up with Hope, and spends one on every
+         * Hope on any roll that comes up with Hope and spends one on every
          * Experience. Hit Points are touched when something hits you - all 129
-         * adversaries deal damage, but that is an event rather than a
-         * heartbeat - and Armor Slots are a subset of those events, named by
-         * 15 cards. The printed sheet's order is HP, Stress, Hope, Armor,
-         * which leads with the least frequent of the top three.
+         * adversaries deal damage, but that is an event rather than a heartbeat
+         * - and Armor Slots are a subset of those events, named by 15 cards.
+         * The printed sheet leads with HP, which is the least frequent of the
+         * top three.
          *
          * Hope sits last on purpose: it is immediately above the Experience
-         * row, and arming an Experience spends a Hope, so the pending pips
-         * showing that debit are directly beside the control that caused it.
+         * chips that spend it, so the pending pips showing that debit are
+         * beside the control that caused it.
          *
-         * Full width also fixes the pips. Hope and Armor used to share a row
-         * with Armor pinned into a fixed 132px column, which measured 18px per
-         * pip at armour score 6 on a real 393px phone - and thirteen of the
-         * thirty-four SRD armours score 6 or more, so a third of the gear in
-         * the game had targets below WCAG's 24px floor. They are about 45px
-         * now. The gutter pays for the extra row: a label beside the pips
-         * rather than above them saves 16px a track.
+         * Full width is also what fixes the pips. Hope and Armor used to share
+         * a row with Armor pinned into a fixed 132px column, which measured
+         * 18px a pip at armour score 6 on a real 393px phone - and thirteen of
+         * the thirty-four SRD armours score 6 or more, so a third of the gear
+         * in the game had targets under WCAG's 24px floor. About 43px now.
          */
         <>
-          <Track
-            kind="armor"
-            label="ARMOR"
-            value={character.armorSlots.marked}
-            max={character.armorSlots.max}
-            onChange={(v) => update((c) => ({ ...c, armorSlots: { ...c.armorSlots, marked: v } }))}
-            readout={`${character.armorSlots.marked}/${character.armorSlots.max}`}
-            headerLayout="gutter"
-            rowHeight={rowHeight}
-          />
-          <Track
-            kind="hp"
-            label="HP"
-            value={character.hp.marked}
-            max={character.hp.max}
-            onChange={(v) => update((c) => ({ ...c, hp: { ...c.hp, marked: v } }))}
-            readout={`${character.hp.marked}/${character.hp.max}`}
-            headerLayout="gutter"
-            rowHeight={rowHeight}
-          />
-          <Track
-            kind="stress"
-            label="STRESS"
-            value={character.stress.marked}
-            max={character.stress.max}
-            onChange={(v) => update((c) => ({ ...c, stress: { ...c.stress, marked: v } }))}
-            readout={`${character.stress.marked}/${character.stress.max}`}
-            headerLayout="gutter"
-            rowHeight={rowHeight}
-          />
-          <Track
-            kind="hope"
-            label="HOPE"
-            labelColor="var(--hope)"
-            value={character.hope.marked}
-            max={character.hope.max}
-            clearTo={character.hope.max}
-            onChange={(v) => update((c) => ({ ...c, hope: { ...c.hope, marked: v } }))}
-            readout={`${character.hope.marked}/${character.hope.max}`}
-            headerLayout="gutter"
-            rowHeight={rowHeight}
-          />
-          {/*
-           * The damage calculator gets a row of its own rather than riding in
-           * the HP header.
-           *
-           * Inline it looked like it was free and was not: it took about 110px
-           * off the pip row, which pushed HP at max 8 below the target floor,
-           * so the track wrapped to a second line - costing the same 44px the
-           * row costs here and leaving the pips split across two rows into the
-           * bargain. All 129 adversaries in the SRD deal damage, so "someone
-           * hit you for 14, how many HP is that" is asked constantly, and it
-           * belongs in the fixed block where it can be answered without
-           * hunting.
-           */}
-          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-            <span className="t-label" style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}>
-              TOOK
-            </span>
-            {inlineDamage}
-          </div>
+          {part !== 'tracks' && (
+            <Track
+              kind="armor"
+              label="ARMOR"
+              value={character.armorSlots.marked}
+              max={character.armorSlots.max}
+              onChange={(v) => update((c) => ({ ...c, armorSlots: { ...c.armorSlots, marked: v } }))}
+              readout={`${character.armorSlots.marked}/${character.armorSlots.max}`}
+              headerLayout="gutter"
+              rowHeight={rowHeight}
+            />
+          )}
+          {part !== 'damage' && (
+            <>
+              <Track
+                kind="hp"
+                label="HP"
+                value={character.hp.marked}
+                max={character.hp.max}
+                onChange={(v) => update((c) => ({ ...c, hp: { ...c.hp, marked: v } }))}
+                readout={`${character.hp.marked}/${character.hp.max}`}
+                headerLayout="gutter"
+                rowHeight={rowHeight}
+              />
+              <Track
+                kind="stress"
+                label="STRESS"
+                value={character.stress.marked}
+                max={character.stress.max}
+                onChange={(v) => update((c) => ({ ...c, stress: { ...c.stress, marked: v } }))}
+                readout={`${character.stress.marked}/${character.stress.max}`}
+                headerLayout="gutter"
+                rowHeight={rowHeight}
+              />
+              <Track
+                kind="hope"
+                label="HOPE"
+                labelColor="var(--hope)"
+                value={character.hope.marked}
+                max={character.hope.max}
+                clearTo={character.hope.max}
+                onChange={(v) => update((c) => ({ ...c, hope: { ...c.hope, marked: v } }))}
+                readout={`${character.hope.marked}/${character.hope.max}`}
+                headerLayout="gutter"
+                rowHeight={rowHeight}
+              />
+            </>
+          )}
+          {part !== 'tracks' && (
+            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+              <span className="t-label" style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}>
+                TOOK
+              </span>
+              {inlineDamage}
+            </div>
+          )}
         </>
       ) : (
         <>

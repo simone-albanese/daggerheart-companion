@@ -867,9 +867,17 @@ function PlayPhone({
             reads. It renders nothing when no form is worn. */}
         <Beastform stats={stats} layout="phone" />
 
+        {/* Armour and the damage calculator, at the top of the scroll where
+            they are on screen without a flick but not paying for permanence.
+            They are one control in two parts: armour slots exist to be spent
+            reducing the damage the calculator is working out, and both are
+            reached for when something hits you rather than continuously. Of
+            189 domain cards, 15 mention Armor - it is the least-touched of the
+            four tracks by a wide margin. */}
+        <Vitals stats={stats} layout="phone" showState={false} part="damage" />
+
         {/* Conditions are set once a scene rather than once a turn, so they
-            live here rather than in the fixed block - visible, one flick, and
-            not paying for permanence they do not need. */}
+            live here rather than in the fixed block. */}
         <ActiveConditions />
 
         <Equipped stats={stats} armed={armedWeapon} onArm={armWeapon} />
@@ -915,7 +923,7 @@ function PlayPhone({
             and a counter you have to go and find is a counter that stops being
             marked. They sit directly above the declaration row, which puts the
             Hope track against the Experience chips that spend it. */}
-        <Vitals stats={stats} layout="phone" showState={false} />
+        <Vitals stats={stats} layout="phone" showState={false} part="tracks" />
 
         <div
           className="row"

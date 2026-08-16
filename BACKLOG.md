@@ -18,6 +18,14 @@ A trivial P0 outranks a large P3 every time.
 **Line numbers** are against `ffd87ce` unless noted. They drift; the file and the
 symbol are the durable part.
 
+**Second pass, `91097eb`.** A round of work driven by three reports from a real
+phone — no Experiences on the Play screen, missing icons, no weapons or items —
+plus a mobile-first redesign of Play. What that pass closed is struck through
+below and listed under *Done in this pass*; what it changed about the diagnosis
+is corrected in place and marked **[corrected]**. Two of the three reports were
+defects nobody had found: neither appears anywhere in the first audit, and one
+of them had been shipping since the first commit.
+
 ---
 
 ## P0 — Can lose a character
@@ -117,7 +125,7 @@ months"* is the one with no handler.
 - [ ] Make `runBackup` flush first, or source from the in-memory store, so the
       recovery path stops lying.
 
-### P0-4 · Press-and-hold inside a track header clears the track
+### ~~P0-4 · Press-and-hold inside a track header clears the track~~ — **done, `7aa8965`**
 `src/ui/shared/Track.tsx:105` · **trivial, 30 min**
 
 The four pointer handlers sit on the Track root, which wraps the pip row **and**
@@ -153,12 +161,23 @@ zeroes a *player's* HP.
       `blocked`/`blocking` before ever bumping `DB_VERSION`. *(trivial)*
 - [ ] **A pending debounced write can resurrect a just-deleted character.**
       `remove()` (`state.ts:221`) does not `pending.delete(id)`. *(trivial)*
-- [ ] **One malformed record makes the whole library unreadable.** `db.ts:67`
-      sorts with `b.updatedAt.localeCompare(...)`; a record missing that field
-      throws and `listCharacters` fails entirely — surfacing as the storage
-      banner claiming everything is probably fine. Filter-and-quarantine on read:
-      return what parses, collect what does not, offer to export the raw JSON.
-      *(small)*
+- [ ] **One malformed record makes the whole library unreadable — usually.**
+      `db.ts:67` sorts with `b.updatedAt.localeCompare(...)`; a record missing
+      that field throws and `listCharacters` fails entirely — surfacing as the
+      storage banner claiming everything is probably fine. Filter-and-quarantine
+      on read: return what parses, collect what does not, offer to export the
+      raw JSON. *(small)*
+
+      **[corrected]** Measured rather than assumed, over sizes 2–5 with the bad
+      record at every index: it throws in **every position except the last**,
+      where V8's sort happens never to pass the missing field as the left
+      operand — there it silently sorts to the front and is returned. So this is
+      worse than "the library will not load": it is *intermittent*, and which
+      way it falls depends on where `getAll` puts that record, which is key
+      order, which is a UUID. A user would see it come and go for no visible
+      reason. (An adversarial verifier claimed the opposite — that it never
+      throws — on the strength of one fixture that happened to put the bad
+      record last. Both halves were wrong; the sweep is in the session log.)
 - [ ] **A backup is recorded as successful without ever being read back**
       (`fileIo.ts:549`), and the download route reports success from a click. An
       unverified backup is not a backup: re-open the handle with `getFile()`,
@@ -246,9 +265,22 @@ in `Play.tsx:285` only `pushLog`s a note with the formula. So the critical the
 Duality Roll just determined never reaches the damage roll, which is the exact
 link the rule is about.
 
+**[corrected] Half of this is now built.** `src/ui/player/attack.ts` (`3f3637c`)
+carries the attack between the two rolls and holds the four rules `damageOffer`
+has to get right, including the three-valued `succeeded` that a plain
+`if (result.succeeded)` would silently drop — which would mean every table that
+keeps its Difficulties hidden could never roll damage. Both traps are pinned by
+mutation: each break fails exactly one test. Tapping a weapon on Play now arms
+the roll with the weapon's trait (`91097eb`), and `Play.tsx:281`'s inline regex
+is gone in favour of `weaponDamage`. **What is still missing is the last link:
+nothing calls `rollDamage` yet.** A successful roll does not offer the damage
+step, so `rollDamage` still has zero callers outside tests.
+
 - [ ] Carry the resolved attack — including `critical` — into a damage roll
       offered on success. Offer, never auto-apply: README promises the app
       *"proposes"* and never applies a declared effect silently.
+      *(`attack.ts` is ready and tested; this is the wiring inside
+      `DualityRoll` plus the damage row itself.)*
 - [ ] Damage must be typeable as well as rollable, the way the Duality dice
       already are, for tables that roll physical dice.
 - [ ] **Spellcast damage is a different rule and is not implemented.** *"Any time
@@ -258,9 +290,8 @@ link the rule is about.
       formula; none is rollable today.
 - [ ] **Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
       hits for "unarmed" in `src/`.
-- [ ] `Play.tsx:281` rescales Proficiency with an inline regex instead of calling
-      `weaponDamage()` — precisely what the comment at `sheetModel.ts:249` warns
-      against. Two routes to one number, and this one lacks the engine's clamp.
+- [x] ~~`Play.tsx:281` rescales Proficiency with an inline regex instead of
+      calling `weaponDamage()`~~ — **done, `91097eb`**.
 
 ### P1-2 · Recall is allowed with every Stress marked, and pays in HP
 `src/engine/loadout.ts:47` · `src/ui/player/Play.tsx:354` · `src/ui/player/Cards.tsx:107`
@@ -349,7 +380,7 @@ level-up path does not know that yet.
 
 ## P2 — Unusable on a device we support
 
-### P2-1 · The Play screen collapses below 1180 px wide or 700 px tall
+### P2-1 · The Play screen collapses below 1180 px wide or 700 px tall — **phone done, tablet open**
 `src/ui/player/DualityRoll.tsx:395` · `src/ui/player/Play.tsx:645, 705` · **medium, 4–6 h**
 
 Measured live in Chrome with a deliberately lean character. In the tablet band
@@ -361,13 +392,25 @@ cannot roll.**
 At 375×667 the loadout region collapses to 0 px and the ROLL button renders at
 half height.
 
-- [ ] Pass `layout="phone"` to Vitals and DualityRoll in the two-column branch,
-      or give DualityRoll's root `flex: 'none'` there so the column scrolls it
-      into view instead of crushing it.
-- [ ] Give the loadout region a one-row floor (46 px) and the ROLL button
-      `flex: 'none'` so it can never be shrunk below its declared 66 px.
+**[corrected] The tablet number was optimistic.** Re-measured live: the panel
+is 45 px at 744×1133 and 26 px at 1024×768, but the button is not merely small —
+its children lay out to their natural height and `overflow: hidden` cuts
+everything below the crushed box, so ROLL sits 228 px past the clip and is
+**in the DOM and invisible**. That is worse than absent, because keyboard focus
+still reaches it. At 1024×768 the panel starts at y=862 on a 768 px screen, so
+it is off the bottom before it is even clipped.
 
-### P2-2 · Contrast below WCAG AA on text people read in a dim room
+- [x] ~~The phone half~~ — **done, `91097eb`**, by a different route than
+      proposed: the page scrolls now (the owner's call), so the loadout is no
+      longer the region that absorbs every shortfall. Measured after: no band
+      at 0 px, ROLL at its full 66 px with its bottom edge clear of the tab bar,
+      every pip at or above 31 px.
+- [ ] **The tablet band, 720–1179 px, is untouched and still cannot roll.** The
+      phone rebuild did not reach it. Either give it the phone's stack or the
+      two-column split; what it must not keep is `DualityRoll` as a shrinkable
+      child of a scrolling column.
+
+### ~~P2-2 · Contrast below WCAG AA on text people read in a dim room~~ — **done, `83c85ae`**
 `src/ui/tokens.css:63, 143, 146` · **small, 2 h**
 
 Recomputed from the real hex values:
@@ -399,15 +442,23 @@ Recomputed from the real hex values:
       720 px up.** `Header.tsx:46`: the left row needs 480 px and is allotted 338
       at 768 px, and nothing inside shrinks. `elementsFromPoint` at the select's
       centre returns the status caption, not the select. *(trivial)*
-- [ ] **Track density keys off viewport width, not pointer type.**
-      `Vitals.tsx:47` uses 44 px only below 720 px, so every iPad gets 32 px pips
-      — while `tokens.css:123` *already* resolves `--control` to 44 px for
-      `(pointer: coarse)`. Use the token. *(trivial)*
-- [ ] **Armor pips are 12–18 px wide on a phone** because `Vitals.tsx:183` pins
-      the armor track to a fixed 132 px column: 17.8 px at armor score 6, 12.1 px
-      at 8. 13 of 34 SRD armors are score ≥ 6. *(small)*
+- [x] ~~**Track density keys off viewport width, not pointer type.**~~ —
+      **done, `83c85ae` + `c7ad022`**. Not by widening `--control`, which would
+      have been a bug: that token gates 96 call sites including the chips inside
+      the desktop cockpit's roll panel, and the panel clips its own overflow, so
+      catching touchscreens there would crush it from the inside — P2-1's
+      failure arriving on the desktop as a side effect of P2-1's fix. A separate
+      `--pip-h` answers `any-pointer: coarse` instead, and a test asserts
+      `--control` never follows it.
+- [x] ~~**Armor pips are 12–18 px wide on a phone**~~ — **done, `91097eb`**.
+      Measured before: 18 px at score 6 on a 393 px phone. Measured after: 43 px.
+      Fixed by giving every track its own full-width row rather than by resizing
+      anything.
 - [ ] **All typography is in px**, so the OS font-size setting has no effect.
       Convert the type roles to `rem` and leave layout constants in px. *(small)*
+      Note the order this has to happen in: every fixed height that contains
+      type must become a `min-height` first, or a user at a 125 % root gets a
+      clipped verdict bar.
 
 ### P2-4 · Screen reader and focus
 **~3 h total**
@@ -450,6 +501,23 @@ Recomputed from the real hex values:
       render; Header, TabBar, the storage banner and CardReader sit outside every
       boundary. No reachable throw found today, so this is hardening: wrap `.app`
       in a boundary whose fallback is an unconditional "Export everything".
+
+### P3-5 · One test fails about one run in five, and nothing knows which
+**small, 1–2 h** · *found in this pass, not in the first audit*
+
+Verifying each commit in isolation, `3f3637c` came back `1 failed | 1068
+passed`. Re-run immediately at the same commit: 1069 passed. Three further
+full runs: green. So a test in this suite is not deterministic, and the suite
+is the thing this project leans on hardest — a repo that has already caught two
+decorative tests by mutation cannot also afford one that lies at random.
+
+- [ ] Run the suite in a loop until it reproduces, with `--reporter=verbose`,
+      and name the test. The engine tests inject their RNG and the transfer
+      tests are hermetic, so the likely candidates are the ones that touch a
+      clock or a shared module-level cache: `backup.test.ts` (dates),
+      `heldDice`/`conditionsStore` (localStorage across files), or a `sw.js`
+      test racing its own fixture.
+- [ ] Fix the source of the nondeterminism rather than the assertion.
 
 ### P3-2 · The gear search does not read the axes players type
 `src/ui/build/gear.ts:112` · **small, 1–2 h** · *a decision, not a defect*
@@ -590,7 +658,61 @@ Verified, and listed so effort goes where it is needed.
 
 ---
 
-## Done in this session
+## Done in this pass (`a241d32`..`91097eb`)
+
+Ten commits, each green on its own. Three of these came from someone opening
+the app on their own phone and saying what was wrong, which found two defects
+that seven lenses of read-only audit had not.
+
+- **Four navigation icons had never been painted.** Reported as "some icons do
+  not load"; they were not loading because they were never drawn. The glyph's
+  style object set `background` — a shorthand — and then
+  `backgroundColor: undefined` for every tab but Cards, and React applies style
+  properties in key order, where an `undefined` longhand is a *removal*. It
+  deleted the colour the shorthand had just set. Measured in the browser: all
+  four computed `rgba(0, 0, 0, 0)`, the active one included. Cards was visible
+  only because it also draws a border, which is why this read as "some". A
+  sweep of every `.tsx` for the same shorthand/longhand collision found exactly
+  one occurrence, and a test now fails on the pattern rather than on the
+  instance.
+- **Creation threw both Experiences away.** `assemble` filtered out every
+  Experience with an empty name, two lines below a review-step warning that
+  says *"Both Experiences are worth +2 whether or not you have named them."*
+  The screen promised and the next line of code did the opposite, so anyone who
+  left the naming for play — which the SRD invites — reached Play with no
+  Experiences and no hint that the mechanic existed. Both are created now; an
+  unnamed one reads UNNAMED and is still armable.
+- **Typed dice moved behind their own switch**, off by default, freeing the
+  62 px band the two faces held above ROLL to show two em dashes. The old
+  "Digital dice" hint described a behaviour that switch never had. The four
+  states now come out of one pure function both layouts read — the desktop
+  verdict strip was quietly keeping its own copy and saying READY and "tap
+  ROLL" beside a control that could not roll.
+- **The Play screen scrolls**, on the owner's call, and the two blocks that do
+  not scroll are the tokens and the roll. Weapons, armour and carried items are
+  on a phone for the first time; tapping a weapon arms the roll with its trait.
+  Tracks are ordered by measured use rather than by the printed sheet, one to a
+  row, which took the armour pip from 18 px to 43 px.
+- **`attack.ts`**, the carrier between an attack roll and a damage roll, with
+  the three-valued `succeeded` that a truthiness check would have dropped.
+  Wired to the weapon-arming half; the damage step itself is still open (P1-1).
+- **Contrast** — the six failing pairs, recomputed rather than trusted. One
+  proposed value did not survive checking: the new boundary colour cleared 3:1
+  on `--panel` and sat at 2.88 on `--raised`, which the tracks also render on.
+  The test computes ratios from the tokens themselves, and the two duplicated
+  light palettes are now pinned to each other.
+- **1039 → 1094 tests**, `tsc` clean throughout.
+
+**Also worth recording: the P0 blueprints were rejected.** Four were produced
+for P0-1/2/3/5/6/7 and all four came back `NEEDS_REVISION` from adversarial
+verifiers — among other things, one proposed committing a comment into the
+source that was factually false, and another proposed a test that passes
+against unmodified HEAD. They are parked in `.blueprints/` and must be reworked
+before anything in P0 is built from them.
+
+---
+
+## Done in the pass before that
 
 Kept for context on what the numbers above are measured against.
 
