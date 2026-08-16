@@ -64,7 +64,7 @@ import {
   SlotBoxes,
   Stepper as BuildStepper,
 } from '../../src/ui/build/parts.tsx';
-import { StepCards, Wizard } from '../../src/ui/build/Wizard.tsx';
+import { StepCards, StepExperiences, Wizard } from '../../src/ui/build/Wizard.tsx';
 import { emptyDraft } from '../../src/ui/build/creation.ts';
 import { AddSheet } from '../../src/ui/gm/AddSheet.tsx';
 import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
@@ -448,6 +448,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'build/Wizard.tsx::StepCards': () => (
     <StepCards draft={emptyDraft()} set={noop} klass={dataset.classes[0]} />
   ),
+  'build/Wizard.tsx::StepExperiences': () => <StepExperiences draft={emptyDraft()} set={noop} />,
   'build/parts.tsx::Section': () => <BuildSection label="LABEL">body</BuildSection>,
   'build/parts.tsx::Columns': () => <Columns>body</Columns>,
   'build/parts.tsx::Choice': () => <BuildChoice selected onClick={noop} title="A choice" />,

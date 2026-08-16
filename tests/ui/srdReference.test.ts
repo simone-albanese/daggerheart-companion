@@ -29,6 +29,7 @@ import {
   gmMoves,
   metreRange,
   metresFromFeet,
+  playerExperiences,
   rangeReference,
   type FearScene,
   type RangeEntry,
@@ -585,5 +586,50 @@ describe('adversaryExperiences', () => {
 
   it('answers with nothing when the section is gone', () => {
     expect(adversaryExperiences([])).toEqual({ title: '', lead: null, items: [], page: null });
+  });
+});
+
+describe('playerExperiences', () => {
+  const guide = (): ReturnType<typeof playerExperiences> => playerExperiences(rules);
+
+  it('finds the five groups without knowing what the heading above them says', () => {
+    // Bullet-only is not enough on its own here: step 4 is a bare bullet list
+    // too. Every bullet carrying a `Label:` picks this block out of eleven.
+    expect(guide().groups.map((g) => g.label)).toEqual([
+      'Backgrounds',
+      'Characteristics',
+      'Specialties',
+      'Skills',
+      'Phrases',
+    ]);
+    expect(guide().title).toBe('EXAMPLE EXPERIENCES');
+    expect(guide().page).toBe(4);
+  });
+
+  it('carries seventy-nine names, where the wizard had five typed by hand', () => {
+    const names = guide()
+      .groups.flatMap((g) => g.text.split(',').map((n) => n.trim()))
+      .filter((n) => n !== '');
+    expect(names).toHaveLength(79);
+    expect(names).toContain('Fallen Monarch');
+    expect(names).toContain('Stubborn to a Fault');
+    expect(names).toContain('Photographic Memory');
+  });
+
+  it('carries step 7’s rule, including the caution the wizard was paraphrasing', () => {
+    const lead = guide().lead!;
+    expect(lead.heading).toBe('STEP 7 Create Your Experiences.');
+    const flat = lead.parts
+      .flatMap((p) => (p.kind === 'text' ? [p.text] : p.items))
+      .join('\n');
+    expect(flat).toContain('a word or phrase used to encapsulate');
+    expect(flat).toContain('two Experiences at character creation, each with a +2 modifier');
+    // The rule with its own worked examples in it. The wizard used to restate
+    // this in the app's words, which is how a house rule gets written.
+    expect(flat).toContain('"Lucky" and "Highly Skilled" are too broad');
+  });
+
+  it('answers with nothing when the section is gone', () => {
+    expect(playerExperiences([])).toEqual({ lead: null, title: '', groups: [], page: null });
   });
 });

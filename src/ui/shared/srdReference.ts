@@ -32,7 +32,14 @@
  * anywhere in `src`; the counts belong in the tests, against the shipped file.
  */
 import { TRAITS, type RulesSection, type Tier, type Trait } from '../../../shared/types.ts';
-import { paragraphs, ruleBlocks, ruleBullets, ruleList, ruleTables } from './ruleText.ts';
+import {
+  paragraphs,
+  ruleBlocks,
+  ruleBullets,
+  ruleList,
+  ruleTables,
+  type RuleBullet,
+} from './ruleText.ts';
 
 // ---------------------------------------------------------------------------
 // Benchmarks by tier
@@ -672,4 +679,62 @@ export function adversaryExperiences(rules: RulesSection[]): ExperienceExamples 
     };
   }
   return NO_EXAMPLES;
+}
+
+export interface PlayerExperiences {
+  /**
+   * The block above the list: what an Experience is, how many you get, and the
+   * two things one may not be.
+   *
+   * The caution is the half that matters. It is a rule with worked examples in
+   * it, and the wizard had been paraphrasing it - which is how a house rule
+   * gets written by accident.
+   */
+  lead: MovesBlock | null;
+  /** The list's own `## ` subhead. */
+  title: string;
+  /** `Backgrounds`, `Characteristics`, `Specialties`, `Skills`, `Phrases`. */
+  groups: RuleBullet[];
+  page: number | null;
+}
+
+const NO_PLAYER_EXAMPLES: PlayerExperiences = { lead: null, title: '', groups: [], page: null };
+
+/**
+ * `rules['character-creation']`, p.4 - step 7's rule, and the ninety-odd
+ * examples under it.
+ *
+ * Found as **the first block that is nothing but labelled bullets**. The
+ * bullet-only test alone is not enough here: step 4 is a bare bullet list too,
+ * and this section has eleven blocks. Requiring every bullet to carry a
+ * `Label:` picks this one out on its own, because the five groups are the only
+ * labelled list in the section - and it does so without this file knowing that
+ * the heading above it says EXAMPLE EXPERIENCES, which is the point.
+ *
+ * The wizard shows these. It used to show five of them, retyped out of the book
+ * into a `.tsx` file, under a paraphrase of the caution beside them.
+ */
+export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
+  const section = rules.find((r) => r.id === 'character-creation');
+  if (section === undefined) return NO_PLAYER_EXAMPLES;
+
+  const blocks = ruleBlocks(section.body);
+  for (const [i, block] of blocks.entries()) {
+    const parts = proseParts(block.text);
+    const only = parts.length === 1 ? parts[0] : undefined;
+    if (only?.kind !== 'list') continue;
+    const groups = ruleBullets(block.text);
+    if (groups.length !== only.items.length) continue;
+    const before = blocks[i - 1];
+    return {
+      lead:
+        before === undefined
+          ? null
+          : { heading: before.heading, parts: proseParts(before.text) },
+      title: block.heading ?? section.title,
+      groups,
+      page: section.sourcePage ?? null,
+    };
+  }
+  return NO_PLAYER_EXAMPLES;
 }
