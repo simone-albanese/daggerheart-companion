@@ -91,15 +91,19 @@ describe('armor slots', () => {
   });
 
   it('never spends more slots than the ladder has rungs', () => {
-    const out = applyDamage(3, stats, 5, { armorSlots: 4 });
+    // The cap is lifted out of the way on purpose: with it in force this row
+    // would come out at 1 either way, and would stop proving the rung limit
+    // it was written for.
+    const out = applyDamage(3, stats, 5, { armorSlots: 4, armorSlotCap: 4 });
     expect(out.armorSlotsUsed).toBe(1);
     expect(out.severity).toBe('none');
   });
 
   it('never spends more slots than the character has', () => {
-    const out = applyDamage(12, stats, 1, { armorSlots: 3 });
-    expect(out.armorSlotsUsed).toBe(1);
-    expect(out.severity).toBe('major');
+    const out = applyDamage(12, stats, 3, { armorSlots: 3, armorSlotCap: 3 });
+    expect(out.armorSlotsUsed).toBe(3);
+    expect(applyDamage(12, stats, 1, { armorSlots: 3, armorSlotCap: 3 }).armorSlotsUsed).toBe(1);
+    expect(applyDamage(12, stats, 1, { armorSlots: 3, armorSlotCap: 3 }).severity).toBe('major');
   });
 
   it('spends nothing on a hit that already did nothing', () => {
@@ -117,7 +121,10 @@ describe('armor slots', () => {
   });
 
   it('says when no further reduction is possible', () => {
-    expect(applyDamage(12, stats, 3, { armorSlots: 3 }).furtherReductionPossible).toBe(false);
+    // Once because the ladder ran out, once because the track did.
+    const ladderSpent = applyDamage(12, stats, 3, { armorSlots: 3, armorSlotCap: 3 });
+    expect(ladderSpent.severity).toBe('none');
+    expect(ladderSpent.furtherReductionPossible).toBe(false);
     expect(applyDamage(12, stats, 1, { armorSlots: 1 }).furtherReductionPossible).toBe(false);
   });
 
@@ -127,6 +134,161 @@ describe('armor slots', () => {
     expect(out.explanation).toContain('-1 reduced');
     expect(out.explanation).toContain('7/12');
     expect(out.explanation).toContain('Major');
+  });
+});
+
+/**
+ * One incoming damage spends one Armor Slot.
+ *
+ * The calculator used to allow three, which walked a Severe hit all the way to
+ * nothing for the price of a track a long rest refills - three times what the
+ * game allows, on the control a player reaches for at the worst moment of a
+ * fight. The cap is enforced here rather than in the screen so the next
+ * surface that spends armor cannot re-invent it.
+ *
+ * The cap is a parameter with a default of one, not a hard-coded one, because
+ * the shipped dataset really does raise it: `brace` (Bone 3) and
+ * `forest-sprites` (Sage 8) each grant an additional slot, the Stalwart's Iron
+ * Will grants one against physical damage, and `i-am-your-shield` (Valor 1)
+ * lets a character taking a hit for an ally mark any number at all.
+ */
+describe('one Armor Slot per incoming damage', () => {
+  it('spends one however many the caller asks for and the character has', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: 3 });
+    expect(out.rawSeverity).toBe('severe');
+    expect(out.armorSlotsUsed).toBe(1);
+    expect(out.severity).toBe('major');
+    expect(out.hp).toBe(2);
+  });
+
+  it('holds at the top of the ladder too, where three slots used to erase a Massive hit', () => {
+    const out = applyDamage(24, stats, 4, { armorSlots: 4, massiveDamageRule: true });
+    expect(out.rawSeverity).toBe('massive');
+    expect(out.armorSlotsUsed).toBe(1);
+    expect(out.severity).toBe('severe');
+    expect(out.hp).toBe(3);
+  });
+
+  it('reports the ask beside the spend, so a refusal is legible', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: 3 });
+    expect(out.armorSlotsRequested).toBe(3);
+    expect(out.armorSlotsUsed).toBe(1);
+    expect(out.armorSlotCap).toBe(1);
+    expect(out.armorSlotsSpendable).toBe(1);
+  });
+
+  it('never says in the log that it spent what it refused to spend', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: 3 });
+    expect(out.explanation).toContain('-1 armor');
+    expect(out.explanation).not.toContain('-3 armor');
+    expect(out.explanation).toContain('Major');
+  });
+
+  it('says the spend is finished as soon as the one slot is gone', () => {
+    const out = applyDamage(12, stats, 5, { armorSlots: 1 });
+    expect(out.furtherReductionPossible).toBe(false);
+    expect(applyDamage(12, stats, 5).furtherReductionPossible).toBe(true);
+  });
+});
+
+/**
+ * "unless an ability or domain card says otherwise" - the parenthesis in the
+ * rule, wired rather than paraphrased.
+ */
+describe('features that raise the cap', () => {
+  it('spends two for Brace, Iron Will and a Forest Sprite', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: 2, armorSlotCap: 2 });
+    expect(out.armorSlotCap).toBe(2);
+    expect(out.armorSlotsUsed).toBe(2);
+    expect(out.severity).toBe('minor');
+    expect(out.hp).toBe(1);
+  });
+
+  it('spends any number for I Am Your Shield', () => {
+    const out = applyDamage(24, stats, 4, {
+      armorSlots: 4,
+      armorSlotCap: Number.POSITIVE_INFINITY,
+      massiveDamageRule: true,
+    });
+    expect(out.armorSlotCap).toBe(Number.POSITIVE_INFINITY);
+    expect(out.armorSlotsUsed).toBe(4);
+    expect(out.severity).toBe('none');
+    expect(out.hp).toBe(0);
+  });
+
+  it('still stops at the track and at the ladder, however high the cap goes', () => {
+    const short = applyDamage(12, stats, 1, {
+      armorSlots: 9,
+      armorSlotCap: Number.POSITIVE_INFINITY,
+    });
+    expect(short.armorSlotsSpendable).toBe(1);
+    expect(short.armorSlotsUsed).toBe(1);
+
+    const minor = applyDamage(3, stats, 9, { armorSlots: 9, armorSlotCap: 9 });
+    expect(minor.armorSlotsSpendable).toBe(1);
+    expect(minor.severity).toBe('none');
+  });
+
+  it('takes a cap of zero from a feature that forbids armor outright', () => {
+    // Frenzy: "While Frenzied, you can't use Armor Slots."
+    const out = applyDamage(12, stats, 3, { armorSlots: 1, armorSlotCap: 0 });
+    expect(out.armorSlotsSpendable).toBe(0);
+    expect(out.armorSlotsUsed).toBe(0);
+    expect(out.severity).toBe('severe');
+    expect(out.furtherReductionPossible).toBe(false);
+  });
+});
+
+/**
+ * `armorSlotsSpendable` is the number an armor control is built from, and the
+ * reason a screen cannot ask for more than the engine allows: a control that
+ * cycles up to it can only ever ask for something the engine will honour.
+ */
+describe('the ceiling a screen builds its control from', () => {
+  it('is the cap, the track and the ladder, whichever runs out first', () => {
+    expect(applyDamage(12, stats, 3).armorSlotsSpendable).toBe(1); // the cap
+    expect(applyDamage(12, stats, 0, { armorSlotCap: 3 }).armorSlotsSpendable).toBe(0); // the track
+    expect(applyDamage(3, stats, 9, { armorSlotCap: 9 }).armorSlotsSpendable).toBe(1); // the ladder
+  });
+
+  it('is zero for a hit no armor can touch', () => {
+    expect(applyDamage(0, stats, 3).armorSlotsSpendable).toBe(0);
+    expect(applyDamage(12, stats, 3, { direct: true }).armorSlotsSpendable).toBe(0);
+  });
+});
+
+/**
+ * Slot counts arrive from text inputs, stored sheets and features' arithmetic,
+ * and the type system stops caring at the door. A NaN that reached the clamp
+ * used to walk off the end of the ladder.
+ */
+describe('a slot count that is not a count of slots', () => {
+  it('does not hand back an undefined severity for a NaN request', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: Number.NaN });
+    expect(out.armorSlotsUsed).toBe(0);
+    expect(out.severity).toBe('severe');
+    expect(out.hp).toBe(3);
+  });
+
+  it('rounds a fraction down and floors a negative at nothing', () => {
+    expect(applyDamage(12, stats, 3, { armorSlots: 1.9 }).armorSlotsUsed).toBe(1);
+    expect(applyDamage(12, stats, 3, { armorSlots: -2 }).armorSlotsUsed).toBe(0);
+  });
+
+  it('falls back to a cap of one when the cap itself is junk', () => {
+    const out = applyDamage(12, stats, 3, { armorSlots: 3, armorSlotCap: Number.NaN });
+    expect(out.armorSlotCap).toBe(1);
+    expect(out.armorSlotsUsed).toBe(1);
+  });
+
+  it('treats a track it cannot read as no slots at all, and says so', () => {
+    const out = applyDamage(12, stats, Number.NaN, { armorSlots: 1 });
+    expect(out.armorSlotsUsed).toBe(0);
+    expect(out.severity).toBe('severe');
+    // The ceiling has to say zero as well, or a control built from it would
+    // offer a slot the engine has already decided does not exist.
+    expect(out.armorSlotsSpendable).toBe(0);
+    expect(out.furtherReductionPossible).toBe(false);
   });
 });
 
@@ -169,6 +331,33 @@ describe('markDamage', () => {
     const c = makeCharacter({ hp: { marked: 0, max: 6 } });
     markDamage(c, applyDamage(7, stats, 0));
     expect(c.hp.marked).toBe(0);
+  });
+
+  it('marks one slot for a hit that asked for three', () => {
+    const c = makeCharacter({
+      hp: { marked: 0, max: 6 },
+      armorSlots: { marked: 0, max: 3 },
+    });
+    const next = markDamage(c, applyDamage(12, stats, 3, { armorSlots: 3 }));
+    expect(next.armorSlots.marked).toBe(1);
+    expect(next.hp.marked).toBe(2);
+  });
+
+  it('refuses an outcome that spends more than the cap it declares', () => {
+    // Nothing in the type system says `applyDamage` is the only thing allowed
+    // to build one of these, so the cap rides on the outcome and is checked
+    // again here. An object literal is exactly how a screen would get around
+    // an engine answer it found inconvenient.
+    const c = makeCharacter({
+      hp: { marked: 0, max: 6 },
+      armorSlots: { marked: 0, max: 3 },
+    });
+    const forged = { ...applyDamage(12, stats, 3, { armorSlots: 1 }), armorSlotsUsed: 3 };
+    expect(markDamage(c, forged).armorSlots.marked).toBe(1);
+
+    // And a cap that really was raised is still honoured.
+    const braced = { ...applyDamage(12, stats, 3, { armorSlots: 2, armorSlotCap: 2 }) };
+    expect(markDamage(c, braced).armorSlots.marked).toBe(2);
   });
 });
 

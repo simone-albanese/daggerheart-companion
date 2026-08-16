@@ -9,8 +9,57 @@
  *   at or above twice Severe    -> 4 HP  (Massive, optional rule)
  *   reduced to 0 or less        -> nothing
  *
- * Marking one Armor Slot moves the result down one step, and can take a Minor
- * hit all the way to nothing.
+ * Marking an Armor Slot moves the result down one rung, and can take a Minor
+ * hit all the way to nothing. ONE slot, for one incoming damage - and
+ * "incoming damage" is the SRD's own unit: "the total damage from a single
+ * attack or source, before Armor Slots are marked" (Additional Rules, p42).
+ *
+ * ## The cap is a parameter, and its default is one
+ *
+ * Until this file was fixed the calculator let a single hit spend three slots,
+ * walking Severe all the way to nothing, which is three times what the game
+ * allows on the one control a player reaches for at the worst moment of a
+ * fight. The cap now lives here rather than in a screen, so the next surface
+ * that spends armor cannot re-invent it.
+ *
+ * It is a parameter and not a hard-coded 1 because the rule's own escape
+ * clause - "unless an ability or domain card says otherwise" - is not
+ * hypothetical. Four things in the shipped dataset raise it:
+ *
+ *   - `brace` (Bone 3): mark a Stress to mark an additional Armor Slot.
+ *   - `forest-sprites` (Sage 8): an ally near a sprite may mark an additional
+ *     Armor Slot.
+ *   - `stalwart`'s Iron Will foundation feature: an additional Armor Slot
+ *     against physical damage.
+ *   - `i-am-your-shield` (Valor 1): taking a hit meant for an ally, "you can
+ *     mark any number of Armor Slots" - the one case where the cap is
+ *     `Number.POSITIVE_INFINITY`.
+ *
+ * Two other things in the dataset look like this and are not: `full-fortified-
+ * armor` and `shield-aura` change how far *one* slot moves the severity, not
+ * how many slots may be spent, and belong to a different parameter that this
+ * engine does not model yet.
+ *
+ * ## Why nothing on screen may cite a rulebook for the cap
+ *
+ * `data/srd-1.0.json` is the only rules text this app may quote, because it is
+ * the only one the user can open inside the app - and it does not carry this
+ * sentence. Its rules chapters never explain that marking an Armor Slot
+ * reduces damage at all; they only presuppose it ("Direct damage is damage
+ * that can't be reduced by marking Armor Slots"). The nearest thing to the cap
+ * is Additional Rules' SPENDING RESOURCES, and it enumerates Hope and Stress,
+ * not Armor Slots. The four cards above are strong internal evidence - a card
+ * that grants "an additional Armor Slot" is meaningless unless the default is
+ * one - but evidence is not a quotation. So: enforce the cap, and say what the
+ * app does. Do not print a citation the reader cannot go and check.
+ *
+ * ## What a surface must do with this
+ *
+ * Build the armor control from `armorSlotsSpendable` on the outcome, never
+ * from a literal and never from `armorSlots.max`. It already accounts for the
+ * cap, the slots the character actually has left, and how far the ladder can
+ * still fall - so a control that cycles up to it can never ask for a slot the
+ * engine would refuse, and one that cycles past it is asking for a refusal.
  */
 import type { Character } from '../../shared/types.ts';
 import type { DerivedStats } from './character.ts';
@@ -35,9 +84,45 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
 
 const LADDER: Severity[] = ['none', 'minor', 'major', 'severe', 'massive'];
 
+/**
+ * The most Armor Slots one incoming damage may spend when nothing says
+ * otherwise. Not exported: a surface that needs the number needs the one on
+ * the outcome, which has already been cut down by the character's own track
+ * and by how far the ladder can fall.
+ */
+const DEFAULT_ARMOR_SLOT_CAP = 1;
+
+/**
+ * Read a count of Armor Slots off a caller.
+ *
+ * Every one of these numbers arrives from somewhere the type system stops
+ * caring about - a text input, a stored sheet, a feature's arithmetic - and a
+ * NaN that reached the clamp below used to walk straight off the end of the
+ * ladder and hand back `severity: undefined` and `hp: undefined`, with the
+ * non-null assertion holding the door open. Slots are whole and never
+ * negative; "any number" is a real answer and stays one.
+ */
+function slotCount(value: number | undefined, fallback: number): number {
+  if (value === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.floor(value));
+}
+
 export interface DamageOptions {
-  /** Armor Slots the player chose to mark. Each steps the severity down one. */
+  /**
+   * Armor Slots the player chose to mark. Each steps the severity down one.
+   * Asking for more than `armorSlotCap` allows is not an error and is not
+   * honoured: the engine spends what the rules permit and reports both.
+   */
   armorSlots?: number;
+  /**
+   * The most Armor Slots this one incoming damage may spend. One unless an
+   * ability or a domain card says otherwise; `Number.POSITIVE_INFINITY` for
+   * the cards that say "any number". Anything that is not a whole count of
+   * slots falls back to one, because one is what the rules say when nothing
+   * has spoken.
+   */
+  armorSlotCap?: number;
   /** Flat reduction from a feature, applied before thresholds. */
   reduction?: number;
   /** Damage that ignores armor entirely. */
@@ -55,7 +140,22 @@ export interface DamageOutcome {
   severity: Severity;
   hp: number;
   armorSlotsUsed: number;
-  /** How many Armor Slots could still be usefully spent. */
+  /**
+   * What the caller asked to spend, before any limit was applied. Kept beside
+   * `armorSlotsUsed` so a refusal is legible rather than silent: the two
+   * differing is the engine declining to break the rule a screen just asked it
+   * to break.
+   */
+  armorSlotsRequested: number;
+  /** The per-incoming-damage cap that was in force. One unless raised. */
+  armorSlotCap: number;
+  /**
+   * The most this hit can spend: the cap, the slots the character has left,
+   * and the rungs the ladder still has, whichever runs out first. This is the
+   * number an armor control is built from.
+   */
+  armorSlotsSpendable: number;
+  /** Whether any Armor Slot beyond the ones already spent would still help. */
   furtherReductionPossible: boolean;
   explanation: string;
 }
@@ -83,10 +183,20 @@ export function applyDamage(
   const effective = Math.max(0, incoming - reduction);
   const rawSeverity = severityFor(effective, stats.thresholds, options.massiveDamageRule);
 
-  const canUseArmor = options.direct !== true && availableArmorSlots > 0;
-  const requested = Math.max(0, options.armorSlots ?? 0);
+  const cap = slotCount(options.armorSlotCap, DEFAULT_ARMOR_SLOT_CAP);
+  const available = slotCount(availableArmorSlots, 0);
+  const requested = slotCount(options.armorSlots, 0);
   const rawIndex = LADDER.indexOf(rawSeverity);
-  const used = canUseArmor ? Math.min(requested, availableArmorSlots, rawIndex) : 0;
+
+  /*
+   * Three separate limits, and the cap is the new one. Direct damage takes the
+   * whole thing to zero; otherwise a hit can spend at most the cap in force,
+   * at most the slots still open on the track, and at most the rungs there are
+   * left to fall - a Minor hit has one rung under it no matter how much armor
+   * is going spare. The spend is what was asked for, cut to that.
+   */
+  const spendable = options.direct === true ? 0 : Math.min(cap, available, rawIndex);
+  const used = Math.min(requested, spendable);
   const severity = LADDER[rawIndex - used]!;
 
   const parts = [`${incoming} incoming`];
@@ -94,6 +204,9 @@ export function applyDamage(
   parts.push(
     `vs ${stats.thresholds[0]}/${stats.thresholds[1]} -> ${SEVERITY_LABEL[rawSeverity]}`,
   );
+  // The log line says what was spent, never what was asked for. A screen that
+  // asked for three and got one has a refusal to report; the sheet's own
+  // history has only the one slot that was really marked.
   if (used > 0) parts.push(`-${used} armor -> ${SEVERITY_LABEL[severity]}`);
 
   return {
@@ -103,20 +216,37 @@ export function applyDamage(
     severity,
     hp: SEVERITY_HP[severity],
     armorSlotsUsed: used,
-    furtherReductionPossible:
-      options.direct !== true && availableArmorSlots - used > 0 && LADDER.indexOf(severity) > 0,
+    armorSlotsRequested: requested,
+    armorSlotCap: cap,
+    armorSlotsSpendable: spendable,
+    furtherReductionPossible: spendable - used > 0,
     explanation: parts.join(' · '),
   };
 }
 
-/** Apply an outcome to a character's tracks. Never exceeds the maxima. */
+/**
+ * Apply an outcome to a character's tracks. Never exceeds the maxima, and
+ * never exceeds the cap the outcome itself declares.
+ *
+ * The second clamp is the half that makes the cap unforgeable. `applyDamage`
+ * is the only thing that should ever build a `DamageOutcome`, but nothing in
+ * the type system says so, and an object literal with `armorSlotsUsed: 3` is
+ * three keystrokes away from any screen that finds the engine's answer
+ * inconvenient. The cap rides on the outcome so this end can check it: the
+ * only way to mark three slots for one hit is to have declared a cap that
+ * allows three.
+ */
 export function markDamage(c: Character, outcome: DamageOutcome): Character {
+  const slots = Math.min(
+    slotCount(outcome.armorSlotsUsed, 0),
+    slotCount(outcome.armorSlotCap, DEFAULT_ARMOR_SLOT_CAP),
+  );
   return {
     ...c,
     hp: { ...c.hp, marked: Math.min(c.hp.max, c.hp.marked + outcome.hp) },
     armorSlots: {
       ...c.armorSlots,
-      marked: Math.min(c.armorSlots.max, c.armorSlots.marked + outcome.armorSlotsUsed),
+      marked: Math.min(c.armorSlots.max, c.armorSlots.marked + slots),
     },
     updatedAt: new Date().toISOString(),
   };
