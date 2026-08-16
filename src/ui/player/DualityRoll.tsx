@@ -281,14 +281,40 @@ export function DualityRoll({
   const addDie = useHeldDice((s) => s.add);
   const discardDie = useHeldDice((s) => s.discard);
 
-  // Swapping character mid-session must not carry someone else's declaration
-  // into the next roll.
+  /*
+   * Swapping character mid-session must not carry someone else's declaration
+   * into the next roll - nor someone else's roll onto this sheet.
+   *
+   * `App` renders `<Play />` unkeyed and `Play` renders this component unkeyed
+   * inside it, so the header's character picker swaps `useActive()` underneath
+   * a component that keeps all of the above in its own state. Nothing here is
+   * remounted, so nothing is cleared unless it is cleared here.
+   */
   useEffect(() => {
     setArmedExperiences([]);
     setArmedDice([]);
     // And nobody else's attack either: a damage offer left standing across a
     // character switch would be this sheet being offered that sheet's sword.
     setAttack(null);
+    /*
+     * The verdict is the other half of the same rule, and it is the visible
+     * half. `result` is the whole readout - the outcome word, the two faces,
+     * and the total in 30px at the right of the roll control, which is the
+     * largest number on the phone's pinned block. Left standing, the arriving
+     * player looks at their own sheet and reads SUCCESS WITH FEAR and a 20 that
+     * belongs to the person who handed them the phone, with nothing on the
+     * screen saying whose it was. `manual` goes with it: with typed dice on the
+     * two faces are the readout as well as the input, so leaving them would
+     * both show the previous roll and let one edited face re-resolve against
+     * the other one's stale number.
+     *
+     * The advantage, the reaction switch and the Difficulty deliberately stay.
+     * They are not a claim about who rolled: they are what the *table* has
+     * declared, they are printed on the closed modifier row whether they are
+     * armed or not, and the docblock on `armedMods` is where that is argued.
+     */
+    setResult(null);
+    setManual({ hope: null, fear: null });
   }, [characterId]);
 
   const experiences = character?.experiences ?? NO_EXPERIENCES;

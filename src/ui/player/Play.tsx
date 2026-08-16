@@ -95,9 +95,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * state - and the armed attack was one of them. Switch sheets mid-turn and
    * the arriving character was already holding somebody else's axe, with a
    * trait chip somebody else had picked, ready to roll damage nobody had
-   * declared. `DualityRoll` already clears the resolved *result* on this same
-   * key (DualityRoll.tsx:291); it could not help, because the declaration
-   * behind it was still live and the very next roll re-armed from it.
+   * declared. `DualityRoll`'s own `[characterId]` effect clears the resolved
+   * result and the armed attack on this same key; neither could help on its
+   * own, because the declaration behind them was still live here and the very
+   * next roll re-armed from it.
    *
    * Resolving against the character's own kit is not enough on its own: hand
    * the axe to a second character who also carries one and the ref matches, so

@@ -798,6 +798,75 @@ describe('the roll modifier row', () => {
 });
 
 /**
+ * A verdict belongs to the sheet that rolled it.
+ *
+ * `App` renders `<Play />` unkeyed and `Play` renders `<DualityRoll />` unkeyed
+ * inside it, so the header's character picker swaps the character underneath a
+ * component that keeps every piece of its own state. The armed declaration was
+ * cleared on that switch and the resolved *result* was not, so the roll
+ * control - the largest object on the phone's pinned block, and the one thing
+ * on it that reports an outcome - went on showing the previous player's total
+ * and "Success with Fear" over the arriving player's sheet. Nothing on the
+ * screen said whose roll it was, because until the switch there had only ever
+ * been one candidate.
+ */
+describe('the roll surface, when the header swaps the sheet', () => {
+  /** The one control on the phone that both rolls and reports. */
+  const rollControl = (): HTMLButtonElement => {
+    const found = buttons().find((b) => b.style.height === '66px');
+    if (found === undefined) throw new Error('the phone has no roll control');
+    return found;
+  };
+
+  it('does not read the last character’s total as this one’s', () => {
+    play(seed());
+    // Digital dice are on by default, so ROLL resolves; which faces come up
+    // does not matter here, only that a verdict exists to be carried over.
+    click(rollControl());
+    expect(rollControl().textContent, 'nothing resolved, so there is nothing to test').not.toContain(
+      'ROLL',
+    );
+    expect(rollControl().textContent).not.toContain('—');
+
+    switchTo({ ...playedCharacter(), name: 'The other one' });
+    expect(
+      rollControl().textContent,
+      'the arriving sheet was handed a verdict it never rolled',
+    ).toContain('ROLL');
+    expect(
+      rollControl().textContent,
+      'the arriving sheet was handed a total it never rolled',
+    ).toContain('—');
+  });
+
+  it('does not leave the last character’s dice in the faces a table types into', () => {
+    // With typing on, the two faces are the readout as well as the input, and
+    // `manual` is written from every resolve. Left standing, the arriving
+    // player sees somebody else's 9 and 4, and typing over one of the two
+    // re-resolves against the other one.
+    const c = seed();
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, manualDice: true } });
+    play(c);
+    click(rollControl());
+    // `Die` puts the value into its own accessible name - "HOPE die: 9" - and
+    // leaves it out entirely when there is none, so the label answers this
+    // without reading a number off the glass.
+    const faces = (): string[] =>
+      buttons()
+        .map((b) => b.getAttribute('aria-label') ?? '')
+        .filter((label) => /^(HOPE|FEAR) die/.test(label));
+    expect(faces(), 'the roll did not fill the faces').toHaveLength(2);
+    expect(faces().every((f) => f.includes(': ')), 'the roll left the faces empty').toBe(true);
+
+    switchTo({ ...playedCharacter(), name: 'The other one' });
+    expect(
+      faces().filter((f) => f.includes(': ')),
+      'the arriving sheet inherited somebody else’s dice',
+    ).toEqual([]);
+  });
+});
+
+/**
  * P2-1's open half: the tablet band.
  *
  * Below 1180px the app used to run the cockpit at two columns, with `Vitals`
