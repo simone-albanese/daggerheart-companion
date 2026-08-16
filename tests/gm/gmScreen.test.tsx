@@ -989,6 +989,35 @@ describe('MENU', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  it('opens the two tools nothing else on this screen can', () => {
+    /*
+     * The five regions are the content of a row now, which is the point of the
+     * rebuild - but three of them kept a fixed control and two did not. A GM
+     * improvising a fight had to ADD an encounter, name it, submit it, open the
+     * row and press OPEN THE BUILDER, creating a plan row they may not want,
+     * where the old screen had a tab.
+     */
+    openMenu();
+    click(named('THE ENCOUNTER BUILDER'));
+    expect(openTool()).toBe('Encounter builder');
+
+    // And the sheet handed the screen over rather than stacking under it.
+    expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+  });
+
+  it('leaves the three that already have a door where they are', () => {
+    // The rule that keeps Settings out of this sheet: a second route to a
+    // destination that already has one is a door nobody chose to build. The
+    // sentence says where they are, so the absence is an answer, not a gap.
+    openMenu();
+    const labels = buttons().map((b) => (b.textContent ?? '').trim());
+    expect(labels).not.toContain('BESTIARY');
+    expect(labels).not.toContain('THE PARTY BOARD');
+    expect(labels).not.toContain('FEAR AND COUNTDOWNS');
+    expect(text()).toContain('behind the Fear number at the top');
+    expect(text()).toContain('behind SHOW');
+  });
+
   it('does not offer Settings, because the header already does on every screen', () => {
     openMenu();
     expect(buttons().map((b) => (b.textContent ?? '').trim())).not.toContain('SETTINGS');

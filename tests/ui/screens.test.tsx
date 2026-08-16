@@ -485,7 +485,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/GmTopBar.tsx::GmTopBar': () => (
     <GmTopBar layout="tablet" onOpenMenu={noop} onOpenTool={noop} />
   ),
-  'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} />,
+  'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,

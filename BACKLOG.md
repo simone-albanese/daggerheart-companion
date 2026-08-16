@@ -1496,13 +1496,18 @@ Decisions taken:
       screen, a row opens its tool over it inside `GmSheet`, and a closed tool
       is **unmounted** rather than hidden, because PartyBoard's scanner holds
       the camera in an effect. `board.region` is kept and reinterpreted as *the
-      tool last opened*, and is followed only when it **changes** — an effect
-      that acted on the value it finds at mount would reopen the encounter
-      builder every time the GM arrives, which is the menu behaviour this item
-      exists to remove. The top MENU is not built yet: until the bottom bar
-      lands, the two tools no row can open — Bestiary and PartyBoard — are
-      chips in the top bar, with the note in `GmTopBar.tsx` saying they leave
-      when SHOW arrives.
+      tool last opened*, and is followed only when it **changes**, only when the
+      campaign under it did not, and only into a tool that is switched on — an
+      effect that acted on the value it finds at mount would reopen the
+      encounter builder every time the GM arrives, and one that ignored the
+      campaign id would do it on every switch of table, which is the menu
+      behaviour this item exists to remove. The top MENU carries the way out,
+      the campaigns, and the two tools that are the content of a row and nothing
+      else: the encounter builder and the live scene. Bestiary and PartyBoard
+      are behind SHOW, where the wireframe puts them, and Fear and the
+      countdowns is behind the readout that is always in the top bar — so all
+      five are reachable without writing a row, but not all five from MENU, and
+      that deviation is recorded under *Left open*.
 - [x] ~~**ADD** → countdown, encounter, scene (environment), link.~~ — **done.**
       The four choices are generated from `SESSION_ITEM_KINDS`, so a fifth kind
       added to the record cannot be silently missing from the menu. A countdown
@@ -1632,6 +1637,20 @@ silence:**
       all try it again. Nothing is dirty at that moment otherwise, so
       `writeActive` returned at `if (!dirty)` and no later write would ever have
       reported it.
+- [ ] **Not all five regions are reachable from the top MENU, where the first
+      decision above said they stay.** Two of them are: the encounter builder
+      and the live scene, which are the content of a session row and had no
+      other door — improvising a fight meant writing a plan row first, which is
+      the menu behaviour this item exists to remove wearing different clothes.
+      The other three are not repeated there, and the rule keeping them out is
+      the one that keeps Settings out of the same sheet: a second route to a
+      destination that already has one is a door nobody chose to build. Fear and
+      the countdowns is behind the Fear readout, drawn at every width; the
+      bestiary and the party board are behind SHOW, which is where *"SHOW forks
+      in two"* put them. What that decision was protecting — a tool you cannot
+      reach without writing a row — is closed; its literal reading is not, and
+      the sentence in MENU says where the other three are, so the absence is an
+      answer rather than a gap.
 - [ ] **SEARCH is not in the bar, and that is a decision.** The wireframe draws
       four verbs; this build ships three. Full-text rule search is deferred to
       1.1, and the searching a GM does at the table is already the Bestiary's
@@ -1693,13 +1712,20 @@ silence:**
 - [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
       rejected,** and `removeCampaign` has no stale-build guard where
       `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
-      on top of that. The first is at least *said*, and said where it happens:
-      `createCampaign` sets `writeError` and the GM screen draws it under the
-      top bar with no sheet open. The second is a store asymmetry this work does
-      not touch.
+      on top of that. The first is *said*, said where it happens, and now
+      **retried**: `createCampaign` sets `writeError`, leaves the store dirty so
+      the next flush writes the campaign that did not land, and the GM screen
+      draws the sentence under the top bar with no sheet open. What is still
+      open is that the campaign is made active either way. The second is a store
+      asymmetry this work does not touch.
 - [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
       so a repaired campaign is repaired again on every launch. The notices it
       produces are in MENU rather than in a banner precisely because they recur.
+      One is the exception and is on the screen as well: the one saying the disk
+      replaced something the GM had already changed. That one is about a tap
+      rather than about a record, it happens once, and it carries its own flag
+      (`replacedOnLoad`) so the recurring ones are not dragged onto the screen
+      beside it.
 - [ ] **The campaign list is not re-sorted while it is open.** `readCampaigns`
       sorts newest-played first once, on the way in; MENU keeps that order for
       the life of the sheet. Live sorting would move the open campaign to the

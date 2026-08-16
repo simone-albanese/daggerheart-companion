@@ -236,7 +236,7 @@ export function Gm(): React.JSX.Element {
           label={sheet === 'show' ? showLabel(bestiary, partyBoard) : SHEET_LABEL[sheet]}
           onClose={closeSheet}
         >
-          {sheet === 'menu' && <MenuSheet onClose={closeSheet} />}
+          {sheet === 'menu' && <MenuSheet onClose={closeSheet} onOpenTool={openTool} />}
           {sheet === 'add' && <AddSheet onClose={closeSheet} />}
           {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
           {sheet === 'save' && <SaveSheet />}
