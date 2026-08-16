@@ -4,8 +4,13 @@
  * The app quotes the SRD rather than restating it. A paraphrase of "after an
  * adversary moves to where they would see you... you are no longer Hidden" is
  * a house rule waiting to happen, and the text is already sitting in
- * `dataset.rules`. These are the only two shapes those bodies come in: `## `
- * subheads and `- Label: text` bullets.
+ * `dataset.rules`.
+ *
+ * Three shapes, not the two this file claimed for its first year: `## `
+ * subheads, `- Label: text` bullets, and pipe tables. Twelve tables ship across
+ * seven sections and every one of them fell through `paragraphs()` as a single
+ * undifferentiated string - which is why the tables a GM looks up by hand were
+ * invisible to every screen in the app.
  */
 import { TRAITS, type RulesSection, type Trait } from '../../../shared/types.ts';
 
@@ -49,6 +54,75 @@ export const paragraphs = (text: string): string[] =>
 export function blockNamed(blocks: RuleBlock[], heading: string): RuleBlock | null {
   const wanted = heading.toLowerCase();
   return blocks.find((b) => b.heading?.toLowerCase() === wanted) ?? null;
+}
+
+export interface RuleTable {
+  /** The first row that is not a separator. Cells trimmed, in order. */
+  header: string[];
+  rows: string[][];
+}
+
+/**
+ * Every pipe table in a body or a block, in order.
+ *
+ * A run of consecutive lines that both begin and end with `|` is one table; a
+ * blank line or any prose ends the run. **Every all-dashes row is dropped,
+ * wherever it appears** - not only a leading one. `shared/parsers/rules.ts`
+ * (813-822) always writes header, separator, then the body, and it pads every
+ * cell, so trimming is exact rather than hopeful; no cell in the shipped
+ * dataset is bare dashes, so dropping them all costs nothing and survives an
+ * emitter that ever writes a second rule.
+ *
+ * The first surviving row is the header. Nothing here looks a row or a column
+ * up by name: the app does not get to know what the SRD's tables are called,
+ * because typing `Attack Modifier` into a `.ts` file is the same act as typing
+ * the rule it labels. The callers pivot on position within the table they
+ * found, and print whatever wording the dataset gave them.
+ */
+export function ruleTables(text: string): RuleTable[] {
+  const out: RuleTable[] = [];
+  let run: string[][] = [];
+
+  const flush = (): void => {
+    const [header, ...rows] = run;
+    if (header !== undefined) out.push({ header, rows });
+    run = [];
+  };
+
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (line.length < 2 || !line.startsWith('|') || !line.endsWith('|')) {
+      flush();
+      continue;
+    }
+    const cells = line
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim());
+    if (cells.every((cell) => /^-+$/.test(cell))) continue;
+    run.push(cells);
+  }
+  flush();
+  return out;
+}
+
+/**
+ * Bare `- ` bullets, without the dash.
+ *
+ * `ruleBullets` below cannot see these: it needs a bounded `Label:` at the
+ * front, and most of the SRD's lists carry none - "Interrupt the players to
+ * steal the spotlight and make a move" is one whole bullet, not a label and a
+ * gloss. A line that is not a bullet is skipped rather than kept as an empty
+ * item, so a lead paragraph handed to this comes back as nothing at all, which
+ * is what lets a caller tell a list apart from prose.
+ */
+export function ruleList(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    const match = /^-\s+(.+)$/.exec(line.trim());
+    if (match) out.push(match[1]!.trim());
+  }
+  return out;
 }
 
 export interface RuleBullet {

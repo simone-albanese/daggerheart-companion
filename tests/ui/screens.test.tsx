@@ -65,7 +65,7 @@ import {
   SlotBoxes,
   Stepper as BuildStepper,
 } from '../../src/ui/build/parts.tsx';
-import { StepCards, Wizard } from '../../src/ui/build/Wizard.tsx';
+import { StepCards, StepExperiences, Wizard } from '../../src/ui/build/Wizard.tsx';
 import { emptyDraft } from '../../src/ui/build/creation.ts';
 import { AddSheet } from '../../src/ui/gm/AddSheet.tsx';
 import { AdversaryRow, FilterBar, NO_FILTER } from '../../src/ui/gm/AdversaryList.tsx';
@@ -79,6 +79,16 @@ import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
+import { Reference } from '../../src/ui/gm/Reference.tsx';
+import {
+  AdversaryExperiences,
+  CountdownChart,
+  DifficultyLadder,
+  FearGuide,
+  GmMoves,
+  RangeReference,
+  TierBenchmarks,
+} from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
@@ -125,6 +135,7 @@ import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
+import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
@@ -441,6 +452,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'build/Wizard.tsx::StepCards': () => (
     <StepCards draft={emptyDraft()} set={noop} klass={dataset.classes[0]} />
   ),
+  'build/Wizard.tsx::StepExperiences': () => <StepExperiences draft={emptyDraft()} set={noop} />,
   'build/parts.tsx::Section': () => <BuildSection label="LABEL">body</BuildSection>,
   'build/parts.tsx::Columns': () => <Columns>body</Columns>,
   'build/parts.tsx::Choice': () => <BuildChoice selected onClick={noop} title="A choice" />,
@@ -491,6 +503,17 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
+  'gm/Reference.tsx::Reference': () => <Reference />,
+  'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
+  'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,
+  'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
+  'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide />,
+  'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
+  // Read-only: with no countdown to act on, not one cell is a button.
+  'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
+  // The metric figures are the app's arithmetic and say so; everything else on
+  // it is the SRD's own sentence.
+  'gm/ReferenceTables.tsx::RangeReference': () => <RangeReference />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (
@@ -637,6 +660,12 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <Disclosure id="fixture" characterId="c1" label="Carried" summary="2 ITEMS" defaultOpen>
       <p>Inside the fold.</p>
     </Disclosure>
+  ),
+
+  'shared/Fold.tsx::Fold': () => (
+    <Fold label="Examples" summary="SRD 1.0" defaultOpen>
+      <p>Inside the fold.</p>
+    </Fold>
   ),
 
   'shell/App.tsx::App': () => <App />,

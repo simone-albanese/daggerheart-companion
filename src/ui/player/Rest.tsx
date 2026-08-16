@@ -137,7 +137,7 @@ import {
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
 import { shortReason } from './recall.ts';
-import { interruptedRestRule, longRestRule } from './ruleText.ts';
+import { interruptedRestRule, longRestRule } from '../shared/ruleText.ts';
 
 interface Props {
   stats: DerivedStats;

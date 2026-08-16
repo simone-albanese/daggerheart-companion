@@ -32,6 +32,13 @@
  * rule Settings is kept out by: a second route to a destination that already
  * has one is a door nobody chose to build. The sentence under these two says
  * where those three are, so their absence is an answer rather than a gap.
+ * **The rules** are second, and they are here rather than in the bottom bar for
+ * the reason `Reference.tsx` gives at length: ADD and SHOW are the continuous
+ * gestures of an evening and hold the thumb arc, while looking a rule up stops
+ * play, happens once or twice a session, and is read rather than pressed. That
+ * is the same kind of act as leaving the section or changing table, which is
+ * what this sheet already is. It is the second block and not the last because
+ * it is the one of the four a GM reaches for *during* a session.
  *
  * **The campaigns** are third. Switching, making a new one, renaming the open
  * one, and removing one behind two taps.
@@ -78,6 +85,7 @@
  *   the two tools            two across at (365 - 8) / 2 = 178 x 56 each, the
  *                            same height as the row above them because they are
  *                            the same gesture: one tap, and the sheet is gone
+ *   THE RULES AT HAND        full width, 365 x 44
  *   a campaign row           the name is the target, 365 - 44 - 8 = 313 x 44,
  *                            with REMOVE beside it as a 44px word
  *   RENAME / NEW CAMPAIGN    full-width, minHeight var(--tap) = 44
@@ -118,7 +126,11 @@ export function MenuSheet({
   onOpenTool,
 }: {
   onClose: () => void;
-  /** Opens over the list and closes this sheet, through `Gm.tsx::openTool`. */
+  /**
+   * Opening a tool closes this sheet on its own - `Gm.tsx`'s `openTool` clears
+   * the sheet before it sets the tool - so this is not paired with `onClose`
+   * the way the destinations above it are.
+   */
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const setScreen = useApp((s) => s.setScreen);
@@ -180,6 +192,23 @@ export function MenuSheet({
           writing a row for it first. The other three already have a way in and are not repeated
           here: Fear and the countdowns are behind the Fear number at the top, the bestiary and
           the party board are behind SHOW.
+        </p>
+      </div>
+
+      <div className="stack" style={{ flex: 'none', gap: 8 }}>
+        <span className="t-label">THE RULES AT HAND</span>
+        <button
+          type="button"
+          onClick={() => onOpenTool('reference')}
+          aria-haspopup="dialog"
+          className="btn"
+          style={{ flex: 'none', minHeight: 'var(--tap)' }}
+        >
+          OPEN THE REFERENCE
+        </button>
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          The tables you would otherwise be turning pages for, read out of the SRD this app ships
+          rather than retyped from it — so a rules layer that changes one changes what you see.
         </p>
       </div>
 

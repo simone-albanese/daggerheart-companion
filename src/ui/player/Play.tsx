@@ -68,7 +68,7 @@ import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
 import { shortReason, useRecall } from './recall.ts';
 import { Rest } from './Rest.tsx';
-import { spellcastZeroNote, traitVerbs } from './ruleText.ts';
+import { spellcastZeroNote, traitVerbs } from '../shared/ruleText.ts';
 import { Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {

@@ -158,9 +158,40 @@ export type SessionItem =
 // The campaign
 // ---------------------------------------------------------------------------
 
-export type GmRegion = 'encounter' | 'scene' | 'party' | 'bestiary' | 'countdowns';
+export type GmRegion =
+  | 'encounter'
+  | 'scene'
+  | 'party'
+  | 'bestiary'
+  | 'countdowns'
+  | 'reference';
 
-const REGIONS: readonly GmRegion[] = ['encounter', 'scene', 'party', 'bestiary', 'countdowns'];
+/**
+ * The same list as a value, because `board.region` arrives off a disk.
+ *
+ * Adding `'reference'` here widens the set of values one ephemeral navigation
+ * field accepts, and `CAMPAIGN_SCHEMA_VERSION` deliberately does not move with
+ * it. Architecture 6.1 exists to stop a build reading a record it does not
+ * understand and writing its own misreading back in place - and that is
+ * precisely what an older build does here: `readBoard` below falls back to
+ * `'encounter'`, and the 400ms debounce then rewrites the record with the
+ * substituted value, uninvited and unquarantined.
+ *
+ * That is acceptable for this one field and for no other. What the older build
+ * overwrites is "which tool was open when you closed the app" - a value it was
+ * going to replace the moment the GM opened anything, carrying no session, no
+ * campaign and no roll. Every other field of the record survives the round trip
+ * untouched, and the fallback that makes it survivable is the converter this
+ * change would otherwise have had to write.
+ */
+const REGIONS: readonly GmRegion[] = [
+  'encounter',
+  'scene',
+  'party',
+  'bestiary',
+  'countdowns',
+  'reference',
+];
 
 /**
  * The live table: what is in front of the GM right now, in this campaign.

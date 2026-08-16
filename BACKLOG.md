@@ -1104,7 +1104,9 @@ asserting the app registers the `pagehide` hook."* One hook, one instance.
 the last test already walks all of `src/` for callers. The docblock claims the
 general property: *"It does not name the seams; it derives them, so a seam added
 next year and forgotten is caught by a test written today."* Pointed at `src/`
-as a whole it fails **today** on `TIER_BENCHMARKS`, `resolvePlaceholders`,
+as a whole it fails **today** on ~~`TIER_BENCHMARKS`~~ (**gone, P5-3**: deleted
+rather than wired — the same table ships inside `data/srd-1.0.json` and the GM
+reference reads it from there), `resolvePlaceholders`,
 `missingCardRefs`, `reorderLoadout`, `takeRest`/`movesFor`/`mustTakeLongRest`,
 `rollDamage`, and `installBackupHooks`/`backupAtSessionEnd`/`noteSession`/
 `integrityCheck` — every instance this backlog lists, plus P1-6. One caveat
@@ -1870,9 +1872,11 @@ silence:**
       top every 400 ms, under the thumb. If a GM ever wants the order refreshed
       it should be a control, not a side effect of the debounce.
 
-## P5-3 · What the GM screen could have at hand, and does not
+## ~~P5-3 · What the GM screen could have at hand, and does not~~ — **done, `65de51a`, `119816f`, `1f9afcc`, `7f19d78`, `81c1df2`, `246f84b`, `32af6b2`, `ce14170`, `33cffaa`**
 
-**source: the official GM screen** · **medium, 4–6 h**
+**source: the official GM screen** · `src/ui/gm/Reference.tsx`,
+`src/ui/gm/ReferenceTables.tsx`, `src/ui/shared/srdReference.ts` ·
+**medium, 4–6 h**
 
 Read off the portrait GM screen and checked against what the app already does.
 **None of this text may be copied into the repo** — `Manuali/` is gitignored
@@ -1881,26 +1885,95 @@ licensed wording belongs to Darrington Press. What ships is the *structure*,
 with the words sourced from `data/srd-1.0.json`, which is already carried under
 the DPCGL. Anything the shipped SRD does not contain does not ship.
 
-- [ ] **The improvised-adversary table by tier** — attack modifier, damage dice,
-      difficulty, damage thresholds. The single most useful thing on that screen
-      for a GM who has just been surprised, and the app has no answer for it
-      today.
-- [ ] **Difficulty as a labelled ladder** (5 · 10 · 15 · 20 · 25 · 30, Very Easy
-      to Very Hard) wherever a difficulty is set, instead of a bare number.
-- [ ] **Fear per scene type** — incidental 1–2, minor 1–3, standard 2–4, major
-      4–8, climactic 6–12. It belongs beside the Fear counter, which is the one
-      control that has no guidance attached to it at all.
-- [ ] **Dynamic countdown advancement** — the roll-result table that says how
-      far a progress or consequence countdown ticks. `Countdowns.tsx` advances
-      by hand only, so the GM is doing this lookup in their head.
-- [ ] **Range and distance in squares, feet *and metres*.** The metric column is
-      why the owner keeps the `con_metri` variant, and this app has no distance
-      reference anywhere.
-- [ ] **The name and place generators**, and the Experience examples — the
-      improvising GM's other half.
-- [ ] **GM moves, principles and best practices** as reference the MENU can
-      reach. Check the shipped SRD first: much of this is in it, and what is not
-      does not ship.
+That last sentence did the deciding. Every string on the reference is read out
+of the dataset at render time and stamped with the section's own page; the only
+number the app adds is the foot-to-metre conversion, which says on the same line
+that it is the app's. **Three of the bullets below asked for something the
+shipped SRD does not carry, and they are corrected before they are struck** — a
+record that preserves the error is a record the next builder copies.
+
+The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
+
+- [x] ~~**The improvised-adversary table by tier**~~ — **done, `119816f`.**
+      Attack modifier, damage dice, difficulty, damage thresholds, read out of
+      `rules['adversary-stat-block-benchmarks']` (p.73) with the environment
+      table from p.102 beside it, and the campaign's own tier drawn first and
+      marked. `engine/encounter.ts::TIER_BENCHMARKS` was the same table typed
+      by hand and was **deleted** rather than wired (`1f9afcc`): it had already
+      dropped the `+` from `+1` and split `Major 7/Severe 12`, so a screen built
+      on it would have carried an `SRD 1.0 · P.73` stamp over text that is not
+      the dataset's.
+- [x] ~~**Difficulty as a labelled ladder** (5 · 10 · 15 · 20 · 25 · 30, Very
+      Easy to Very Hard) wherever a difficulty is set~~ — **corrected, then
+      done, `32af6b2`.** The five adjectives are on the printed GM screen and
+      occur **zero times** in `data/srd-1.0.json`, so shipping them would mean
+      typing Darrington Press's wording into this repository. The SRD gives
+      something better and the app now prints it: for each of the eighteen trait
+      verbs, a concrete worked example at every one of the six numbers — "walk
+      slowly across a narrow beam" rather than "Medium".
+      `tests/ui/srdReference.test.ts` pins that neither adjective is in the
+      dataset and sweeps `src/` for both.
+- [x] ~~**Fear per scene type** — incidental 1–2~~ — **corrected, then done,
+      `7f19d78`.** The dataset says **0–1 Fear** for an incidental scene, not
+      1–2; the rest (1–3, 2–4, 4–8, 6–12) was right. A builder copying this
+      bullet would have shipped the wrong number under an SRD stamp. The whole
+      of `rules['using-fear']` (p.65) is drawn, and a shut fold under the Fear
+      board's twelve targets carries it beside the control it is about.
+- [x] ~~**Dynamic countdown advancement**~~ — **done, `81c1df2`.** The five-row
+      chart from `rules['countdowns']` (p.69), read-only on the reference and
+      pressable on a dynamic countdown's own row: six of the ten advancement
+      cells carry a number and become buttons, and the four reading *No
+      advancement* are printed and are not. The app never decides that a trigger
+      fired — the GM presses the outcome that happened.
+- [x] ~~**Range and distance in squares, feet *and metres*.**~~ — **corrected,
+      then done, `246f84b`.** The SRD carries feet and the optional 1-inch-grid
+      squares and **no metric column at all**, so the metres are not text to
+      quote — they are arithmetic the app does. Feet × 0.3048, rounded to the
+      nearest half metre below ten and the nearest whole metre above, drawn in
+      `--dim` with COMPUTED BY THIS APP in the same element as the figure, under
+      a legend stating the multiplication and the rounding. The two ranges the
+      SRD gives no number for get no figure here.
+- [x] ~~**the Experience examples** — the improvising GM's other half~~ —
+      **done, `ce14170`, `33cffaa`.** Both halves. The GM's eighteen from
+      `rules['using-adversaries']` (p.71) are a reference topic; the player's
+      seventy-nine from `rules['character-creation']` (p.4) replace the five
+      that were **typed by hand into `Wizard.tsx`** beside a paraphrase of the
+      SRD's caution. That paraphrase was the defect: it kept one of the rule's
+      four worked examples.
+- [ ] ~~**The name and place generators**~~ — **does not ship, and no commit
+      will make it.** The shipped SRD contains no generator of any kind — no
+      name list, no place list, no table to roll on. Building one would mean
+      transcribing it out of `Manuali/`, which is the one thing this item's own
+      preamble forbids. Recorded here rather than left as an absence: an
+      omission written down is a decision, an omission unrecorded is a silence
+      somebody has to rediscover. If the owner wants generators, they are a new
+      item with their own source, and that source cannot be the licensed books.
+- [x] ~~**GM moves, principles and best practices** as reference the MENU can
+      reach~~ — **done, `ce14170`.** Five sections, five shut folds, each with
+      its own page stamp: `gm-principles` and `gm-practices` (63),
+      `making-gm-moves` (64), `gm-moves-and-adversary-actions` (37) and
+      `pitfalls-to-avoid` (64). All of it is in the shipped SRD; nothing was
+      added to it.
+
+**Left open, deliberately, with the reason.**
+
+- [ ] **The difficulty ladder is not attached to `DualityRoll.tsx`'s DIFF box.**
+      That input is the only control in the app where a human sets a Difficulty,
+      and it is on the *player's* screen. The SRD's own lead paragraph — printed
+      above the ladder — says the GM sets it, and a table of numbers to pick
+      from under the player's input invites the player to choose their own,
+      which is the app implying an authority it does not have. The six places
+      that *display* a Difficulty without setting one (`StatBlock.tsx`,
+      `Bestiary.tsx`, `AdversaryList.tsx`, `Scene.tsx`) are already showing the
+      SRD's answer for the case it covers. This narrows the bullet's original
+      "wherever a difficulty is set", so it is left ticked open for the owner
+      rather than struck.
+- [ ] **The reference is not one of the switchable GM tools.** The bestiary and
+      the party board are switchable because they are the two forks of SHOW and
+      a GM may genuinely have no use for either. This is the SRD the app already
+      ships and already quotes on the player's screens, reached from a menu that
+      has no switches in it at all. `prefs.gmSection` still takes the whole
+      section away.
 
 ## P5-4 · The printed sheet against the official one
 

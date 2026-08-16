@@ -202,6 +202,24 @@ describe('the two refusals, and nothing else', () => {
     expect(schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
     expect(readCampaignRecord(rest).campaign.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
   });
+
+  /*
+   * `board.region` is a union in the type and a list in the reader, and only
+   * the list is load-bearing on the way in from a disk. Widening one and
+   * forgetting the other typechecks perfectly and loses the new tool on every
+   * single reload - silently, because the fallback is a real region.
+   */
+  it('keeps a region this build knows, including the one added last', () => {
+    const { campaign } = readCampaignRecord(bare({ board: { region: 'reference' } }));
+    expect(campaign.board.region).toBe('reference');
+  });
+
+  it('falls back for a region no build knows, which is what makes widening safe', () => {
+    // The guarantee the reference tab was added on: an older build meeting a
+    // newer record forgets which tool was open and loses nothing else.
+    const { campaign } = readCampaignRecord(bare({ board: { region: 'holodeck' } }));
+    expect(campaign.board.region).toBe('encounter');
+  });
 });
 
 describe('a session item this build cannot read', () => {

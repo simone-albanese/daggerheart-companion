@@ -162,6 +162,49 @@ the countdowns has none either, because the pool is spent from every corner of
 the app and the board behind that readout is the only place it can be set
 outright rather than one point at a time.
 
+### The rules the GM was looking up on paper
+
+- **MENU opens a reference, in seven subjects.** What to give an adversary you
+  are inventing, how hard to make a roll, what a scene is worth in Fear, how far
+  a dynamic countdown ticks, what Close and Far actually mean, the GM moves and
+  principles, and the Experiences to hang on a creature. Every word of it is
+  read out of the SRD this app already ships, at the moment it is drawn, with
+  the page number beside the table it came from — so a homebrew rules layer that
+  rewrites a section rewrites what you see.
+- **The two a GM wants mid-gesture are folded in beside the control.** The Fear
+  guidance sits under the Fear board's twelve targets; the advancement chart
+  sits under a dynamic countdown's own row. Both start shut, and neither moved
+  anything that was already there. The counter has had a maximum on it since the
+  GM screen was built and had never once said what a scene should cost.
+- **The advancement chart is six buttons, not ten.** Six of the SRD's cells
+  carry a number and those move the countdown you opened it from; the four that
+  say no advancement are printed and are not pressable, because a button that
+  performs no change is the app claiming something it will not do. Nothing
+  advances by itself — the app cannot know which roll was the one that mattered.
+- **Distances come with metres, and the screen says the metres are its own.**
+  The rules are written in feet and carry no metric figure anywhere, so every
+  one here is arithmetic this app did: feet times 0.3048, rounded to the nearest
+  half metre below ten and the nearest whole metre above, printed with the words
+  COMPUTED BY THIS APP on the same line. Where the rules give no figure, neither
+  does this.
+- **Setting a Difficulty is answered with an example, not an adjective.** For
+  each of the eighteen trait verbs there is a concrete sentence at 5, 10, 15,
+  20, 25 and 30 — "walk slowly across a narrow beam" rather than "medium". The
+  adjectives on the printed GM screen are not in the SRD and are not this app's
+  to print.
+- **Character creation shows all seventy-nine Experience examples.** It used to
+  show five, typed into the app by hand, under a restatement of the rule that
+  kept one of its four worked examples. Both are the SRD's own now, with the
+  examples behind a fold that starts shut so the two fields you type in did not
+  move.
+
+**Not there, and named rather than left to be found:** there are no name or
+place generators. The SRD this app ships contains none — no name list, no place
+list, nothing to roll on — and building them would mean copying text out of a
+licensed book, which is the one thing this project will not do. The Difficulty
+examples are also not attached to the roll screen's own difficulty box: that box
+is on the player's side, and the rules say the GM sets the number.
+
 ---
 
 ## 0.2.0 — 2026-08-16

@@ -29,6 +29,8 @@ import { deriveStats, newCharacter, syncCounters } from '../../engine/character.
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { Fold } from '../shared/Fold.tsx';
+import { playerExperiences } from '../shared/srdReference.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
 import {
   BASE_STARTING_CARDS,
@@ -1291,28 +1293,86 @@ function StepConnections({
 // Experiences
 // ---------------------------------------------------------------------------
 
-function StepExperiences({
+/**
+ * Exported, following `StepCards` below and for the same stated reason: a test
+ * has to be able to render this screen's own markup, and getting here by
+ * tapping means driving seven screens in a runner with no DOM.
+ *
+ * ## What was wrong with it
+ *
+ * It printed a paragraph somebody had typed out of the book. Two defects in
+ * one: the caution against a too-broad Experience was a paraphrase of a rule -
+ * which is how a house rule gets written by accident, and is the thing
+ * `shared/ruleText.ts` exists to stop - and the five examples beside it were
+ * five names out of about ninety, transcribed into a `.tsx` file. The SRD
+ * carries the rule and all ninety, and the app ships the SRD.
+ *
+ * So the rule is read out of `character-creation` at render time and the
+ * examples are behind a fold. Note what does *not* change: this is not a second
+ * home for the examples, it is the only home, and it now shows all of them.
+ *
+ * The two `placeholder` strings in `ExperienceEditor` (`parts.tsx`) are also
+ * SRD names and they stay. A placeholder is not content - it is the shape of an
+ * answer, drawn in the field it belongs to - and removing them would leave two
+ * unlabelled boxes with nothing to say what goes in them.
+ *
+ * ## Ergonomics, 393x852
+ *
+ * The fold sits **below** the two fields, not between them and the rule. It is
+ * a 44px full-width header either way, but opening it from above would push the
+ * two inputs about 420px down the screen while a thumb was resting on them; a
+ * screen may grow underneath a hand, never beneath it. Shut, the step is the
+ * same height it was, because the paragraph it replaces was four lines and the
+ * SRD's rule is four lines and a fold header.
+ */
+export function StepExperiences({
   draft,
   set,
 }: {
   draft: Draft;
   set: (p: Partial<Draft>) => void;
 }): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const srd = useMemo(() => playerExperiences(dataset.rules), [dataset]);
+  const stamp = `SRD 1.0${srd.page === null ? '' : ` · P.${String(srd.page)}`}`;
+
   return (
     <Section label="Two Experiences, each at +2" hint="Spend a Hope to add one to a roll">
-      <p className="t-dense" style={{ margin: 0 }}>
-        An Experience is a word or phrase for a set of skills, traits or aptitudes your character
-        picked up. It cannot be so broad that it applies to every roll — "Lucky" — and it cannot
-        grant a mechanical ability of its own. Backgrounds, characteristics, specialties, skills and
-        phrases all work: Fallen Monarch, Stubborn to a Fault, Master of Disguise, Deadly Aim, I've
-        Got Your Back.
-      </p>
+      {srd.lead?.parts.map((part, i) =>
+        part.kind === 'text' ? (
+          <p key={`t${String(i)}`} className="t-dense" style={{ margin: 0 }}>
+            {part.text}
+          </p>
+        ) : (
+          <ul
+            key={`l${String(i)}`}
+            className="stack"
+            style={{ gap: 5, margin: 0, paddingLeft: 18 }}
+          >
+            {part.items.map((item) => (
+              <li key={item} className="t-dense">
+                {item}
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
       <ExperienceEditor
         value={draft.experiences}
         onChange={(experiences) => set({ experiences })}
         minRows={2}
         lockBonus
       />
+      {srd.groups.length > 0 && (
+        <Fold label={srd.title} summary={stamp}>
+          {srd.groups.map((group) => (
+            <span key={group.label} className="stack" style={{ gap: 3 }}>
+              <span className="t-meta">{group.label}</span>
+              <span className="t-dense">{group.text}</span>
+            </span>
+          ))}
+        </Fold>
+      )}
     </Section>
   );
 }

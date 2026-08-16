@@ -26,7 +26,7 @@ import {
   useConditionsFor,
   type Standard,
 } from './conditionsStore.ts';
-import { blockNamed, paragraphs, ruleBlocks } from './ruleText.ts';
+import { blockNamed, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
 
 const LABEL: Record<Standard, string> = {
   hidden: 'HIDDEN',

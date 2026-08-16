@@ -62,7 +62,6 @@ const DELIBERATE: Record<string, string> = {
   'transfer/codec.ts::resolvePlaceholders': 'P1-6: the repair Transfer.tsx already promises on screen.',
   'transfer/codec.ts::characterRefs': 'P1-6: reached only by missingSlugs, which is itself unwired.',
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',
-  'engine/encounter.ts::TIER_BENCHMARKS': 'P1-5: a GM feature with no screen. Wire it or say so.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',
 
   // --- Consumed outside the shipped bundle. Not dead, just not the app's.

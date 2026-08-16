@@ -6,12 +6,40 @@
  * scene changed, or whether the party spent the night at an inn - and guessing
  * wrong is worse than not guessing, because a countdown that ticks on its own
  * is one you stop trusting. So: plus and minus, and nothing else.
+ *
+ * ## Plus and minus is still the whole story
+ *
+ * A dynamic countdown now carries a shut fold with the SRD's advancement chart
+ * in it, and six of its ten advancement cells are buttons. That does not weaken
+ * the paragraph above; it is that paragraph applied. The rule says a dynamic
+ * countdown moves by up to three *depending on the outcome of an action roll*,
+ * and the app still does not know the outcome - so it prints the five outcomes
+ * and the GM presses the one that happened. Architecture 3.2's *proposta, mai
+ * automatismo*: the proposal is drawn, the decision is a thumb, and nothing
+ * moves that a hand did not move. The four cells the SRD gives no number for
+ * are printed and are not buttons.
+ *
+ * ## The four hints below are the app's own words, and stay that way
+ *
+ * `KINDS` describes what each kind of countdown *is for*, in a sentence short
+ * enough to sit under a `<select>`. Three of the four paraphrase something the
+ * `countdowns` section says at length, and the temptation is to quote the SRD
+ * instead. Two reasons not to. The sentences do not fit - "Standard countdowns
+ * advance every time a player makes an action roll" is 61 characters and, worse,
+ * it is a rule this app deliberately does not execute, so printing it as the
+ * description of a control that will not execute it would be the screen
+ * promising an automation on the very screen whose first paragraph refuses one.
+ * And correcting one of the four while leaving three is arbitrary. The SRD's own
+ * wording is where the SRD's own wording belongs: in the reference, quoted with
+ * its page number, one tap away in both directions.
  */
 import { useState } from 'react';
 import { type Countdown, type CountdownKind } from '../../engine/encounter.ts';
+import { Fold } from '../shared/Fold.tsx';
 import { Stepper } from './Encounter.tsx';
 import { FearBoard } from './FearPool.tsx';
 import { useGm } from './gmStore.ts';
+import { CountdownChart } from './ReferenceTables.tsx';
 // One map, two screens. A session row draws a countdown now as well as this
 // board does, and two copies of "dynamic is orange" is how one of them goes
 // green.
@@ -246,6 +274,18 @@ function CountdownRow({ countdown }: { countdown: Countdown }): React.JSX.Elemen
           ))}
         </div>
       </div>
+
+      {/*
+        Only on a dynamic countdown, and only below the −/value/+ row, which
+        keeps its exact position and its exact 48px. A standard countdown gets
+        no fold at all: the chart is the rule for dynamic ones, and offering it
+        anywhere else would be the row claiming a rule that is not about it.
+      */}
+      {c.kind === 'dynamic' && (
+        <Fold label="ADVANCE BY A ROLL" summary="SRD 1.0">
+          <CountdownChart countdown={c} />
+        </Fold>
+      )}
     </article>
   );
 }
