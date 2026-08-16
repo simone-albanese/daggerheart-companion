@@ -78,11 +78,23 @@ export function RenameField({
    */
   autoFocus?: boolean;
   /**
-   * Commit when the field loses focus. Build passes this because it has no
-   * cancel target and no other way to not lose the typing: tap a tab with a
-   * name half-entered and the component unmounts. Play must not, because Play
-   * *has* a cancel target - blurring by tapping the `×` would commit the thing
-   * the `×` exists to abandon.
+   * Commit when the field loses focus.
+   *
+   * The two doors differ on whether a blur can be read, not on whether typing
+   * can be lost. Typing can be lost on both: tap the Cards tab with a name
+   * half-entered on the sheet and `Identity` unmounts with the draft in it,
+   * exactly as the Build form would if this were false there. What Build has
+   * that Play does not is an unambiguous blur - it draws no cancel target, so
+   * every way out of the field is a way out of the screen and there is nothing
+   * a commit could contradict. On Play the `×` is a blur before it is a click,
+   * so committing on blur would write the name the `×` exists to abandon.
+   *
+   * The other half of Build's case is the company it keeps: every neighbouring
+   * field on that form writes on the keystroke, so a Name that took SAVE and
+   * nothing else would be the one field there that drops a half-typed value on
+   * a tab tap. The sheet's field keeps no such company - it is a thing you
+   * opened, with a `×` on it - which is what makes the same loss legible there
+   * and not here.
    */
   commitOnBlur?: boolean;
   /**

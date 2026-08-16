@@ -232,6 +232,22 @@ describe('what the rename control writes, and when', () => {
     expect(done).toBe(1);
   });
 
+  it('writes nothing when the sheet’s field loses focus, because that blur may be the ✕', () => {
+    // The asymmetry with the Build door, from the side nothing was asking
+    // about. On the sheet the `×` is a blur before it is a click, so a commit
+    // on blur would write the name the `×` exists to abandon. The draft is
+    // therefore discarded when focus leaves - the cost of that is real and is
+    // written down where `commitOnBlur` is declared, rather than argued away.
+    seed('Fixture');
+    openRename();
+    type('Marek');
+    act(() => {
+      field().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    });
+    expect(stored(), 'the sheet committed a name nobody pressed SAVE on').toBe('Fixture');
+    expect(done, 'blurring closed the editor as though it had been finished').toBe(0);
+  });
+
   it('leaves the name alone on Escape, and puts back what is stored', () => {
     seed('Fixture');
     openRename();
