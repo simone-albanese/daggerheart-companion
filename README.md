@@ -176,6 +176,80 @@ in an app like this.
 
 ---
 
+## Runbook: the app opens to a blank rectangle
+
+The failure this section exists for is a deploy whose bundle does not evaluate:
+a hashed chunk that 404s, a syntax the engine will not parse, a throw at module
+scope. It lands on every installed device at once, and no error boundary can
+report it, because a boundary is itself part of the module graph that never
+ran.
+
+**The two things not to do, and they are the two every support page suggests:
+do not clear site data, and do not delete and reinstall the app.** Both erase
+IndexedDB, which is where the only copy of every character lives. A broken
+build is a bad evening; either of those is a lost character.
+
+### What is already on screen
+
+`index.html` carries a static block inside `<div id="root">` that React wipes
+out the moment it mounts. Three seconds after the document parses, if React has
+not mounted, an inline script reveals it: what the app is, that the characters
+are untouched in this browser's storage, what to do, and — in as many words —
+not to clear site data.
+
+Ten seconds in, a second inline script opens IndexedDB with no help from the
+bundle, reads the `characters` store, and offers the whole library both as a
+`.dhbackup` file and as selectable text, because an installed iOS app can
+swallow a download silently. It is ES5 on purpose: one of the ways a bundle
+fails to evaluate is an engine too old to parse it, and a hatch written in the
+syntax that broke the app rescues nobody. It reveals itself only when it finds
+characters, so a first visit over a bad connection never sees it, and it opens
+the database without a version so that it keeps working when `DB_VERSION`
+moves. Neither timer does anything on a healthy launch: React clears `#root`,
+the marker element stops existing, and no database is ever opened.
+
+`tests/pwa/bootFallback.test.ts` runs that script for real against a database
+the app's own `db.ts` wrote, and fails if the hardcoded names drift.
+
+### Getting the fleet back
+
+1. **Publish a fixed build.** Usually this is the whole runbook, and it needs
+   nothing from the user. The worker serves the document
+   stale-while-revalidate: the next launch with a connection serves the cached,
+   broken document, fetches the new one in the background, precaches its assets
+   and only then adopts it — so the launch *after* that is the fixed app. Two
+   launches, online.
+
+2. **If clients are still stuck, bump `VERSION` in `public/sw.js`.** This is
+   the un-ship lever, and until now it existed only as a sentence in a comment
+   inside that file. `const VERSION = 'v1'` names both caches —
+   `dhc-shell-<VERSION>` and `dhc-assets-<VERSION>` — so renaming it makes
+   every `dhc-` cache on the device stale to `takeOver()`, which deletes them
+   on activation; `ensurePrecached()` then rebuilds from the network.
+
+   The price, in full, because it is not small. Every installed client
+   re-downloads the entire app: document, bundle, the SRD chunk, the fonts, the
+   icons. Every client that ever ran the Core Rulebook importer re-downloads
+   its pdf.js worker as well, 1.6 MB of it. And it is not immediate: the worker
+   deliberately does not call `skipWaiting()`, so the replacement sits in
+   `waiting` until the user accepts the update prompt or closes every tab of
+   the app. That is the right trade for a table mid-session and the wrong one
+   for a panic, so bump `VERSION` for caches holding a state a redeploy cannot
+   correct — not as a faster version of step 1.
+
+   `BUILD`, next to it, is a different thing and is not yours to edit: the
+   Pages workflow stamps it with the commit at deploy time, which is the only
+   reason an ordinary deploy installs a new worker at all. Both `ci.yml` and
+   `deploy.yml` fail if the `__BUILD__` placeholder is missing from the
+   committed file.
+
+3. **Tell people to open the app again with a connection, and nothing else.**
+   The character is in IndexedDB, intact and unreachable; every launch is
+   another chance for the worker to pick up the fix, and every "start clean" is
+   final.
+
+---
+
 ## Language
 
 English throughout — interface, data, errors, filenames, code, commits. The
