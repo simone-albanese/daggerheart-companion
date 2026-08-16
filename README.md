@@ -64,8 +64,13 @@ npm run build:srd
 
 The build refuses to emit a dataset that fails validation: wrong counts, a
 surviving Private Use Area glyph, a broken ligature, a dangling reference, a
-duplicate id. `npm run build:srd -- --check` is the CI form, and fails if the
-committed JSON no longer matches the source.
+duplicate id. `npm run build:srd -- --check` validates and writes nothing, and
+fails if `data/srd-1.0.json` no longer matches the source.
+
+CI reaches the same verdict by a different route: it rebuilds and then runs
+`git diff --exit-code -- data/`, which also catches a dataset that was edited
+by hand. Either way it only runs on a runner that has been given the PDF, and a
+stock one has not — the rest of CI builds against the committed JSON.
 
 ### Toolchain note
 
@@ -123,10 +128,11 @@ tools/          runs in Node, never shipped to the browser
 data/           the only committed content: srd-1.0.json, registry.json
 shared/         used by both tools/ and src/: textLayout, slugify, parsers
 src/engine/     pure rules arithmetic. No UI, no I/O, fully tested
-src/store/      IndexedDB, the layered dataset, preferences
+src/store/      IndexedDB, the layered dataset, preferences, backup
 src/transfer/   the .dhchar file, the binary codec, animated QR
 src/import/     the optional Core Rulebook importer (desktop only)
-src/ui/         shell, player, gm, settings
+src/pwa/        service worker registration, the update prompt, the wake lock
+src/ui/         shell, player, build, gm, settings, print, and what they share
 ```
 
 `.gitignore`, first line: `*.pdf`.
@@ -139,11 +145,23 @@ Safari's ITP can evict IndexedDB after roughly seven days of inactivity, and
 `navigator.storage.persist()` is granted inconsistently. A group that plays
 every three weeks would lose a character between sessions.
 
-So: persistence is requested at the right moment and with an explanation,
-there is an automatic export, the indicator says how long it has been, and
-after seven days of silence the app checks its own integrity and offers a
-restore. A character is months of someone's work; losing it is the one
-unforgivable bug in an app like this.
+So: persistence is requested at the right moment and with an explanation; the
+indicator says how long it has been since the last export, and gets loud at
+five days; and every launch checks that what the last session left behind is
+still there. When it is not, the app names the missing characters rather than
+counting them, and points at the screen that can restore them. Past seven idle
+days it also names the browser as the likely cause — and only then, because
+that is when there is evidence for it rather than a guess.
+
+**The automatic export has a precondition, and the app does not pretend
+otherwise.** Choose a folder once in Settings and a copy is written into it
+when you put the app down and when the page goes away. Until you do, nothing is
+exported automatically, and Settings says exactly that instead of implying a
+copy exists. Choosing a folder needs `showDirectoryPicker`; where the browser
+does not have it, the app says so and the export stays a button you press.
+
+A character is months of someone's work; losing it is the one unforgivable bug
+in an app like this.
 
 ---
 
@@ -170,8 +188,15 @@ working document.
 The SRD 1.0 is Public Game Content under the DPCGL and is redistributable with
 attribution — which is why `data/srd-1.0.json` is committed. The full Core
 Rulebook is not: it stays on the owner's device, and an art pack made from it
-is personal, for their own devices, not for sharing. No official logos are
-used. No PDF and no artwork is in this repository.
+is personal, for their own devices, not for sharing.
+
+The one piece of official artwork here is Darrington Press's "Daggerheart
+Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
+use. It appears where a reader is asking what this app's relationship to the
+game is — the About panel and the first-run screen — and deliberately never as
+the app's own icon, because a home-screen icon that is the official logo reads
+as an official app, which this is not. No rulebook PDF and no rulebook artwork
+is in this repository.
 
 Fonts: Archivo and IBM Plex Mono, both SIL Open Font License 1.1, self-hosted
 so the app works with the radio off (`public/fonts/`).
