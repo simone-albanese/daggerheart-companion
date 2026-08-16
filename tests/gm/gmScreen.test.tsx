@@ -297,6 +297,62 @@ describe('the tools, over the list', () => {
     expect(openTool()).toBe('The live scene');
   });
 
+  it('reads a change of table as a change of table, and not as a navigation', async () => {
+    /*
+     * Every campaign record carries a region, and `switchCampaign` replaces the
+     * board wholesale out of the one it is opening. A screen that seeded only
+     * the *first* region it ever saw therefore read every change of table as a
+     * navigation: this is "Open A one-shot" landing the GM in the bestiary of
+     * the campaign they just left the encounter builder for.
+     */
+    const [first] = baseCampaigns;
+    useGm.setState({
+      campaigns: [
+        { ...first!, id: 'c-open', name: 'The Sablewood Winter', board: { ...first!.board, region: 'encounter' } },
+        { ...first!, id: 'c-other', name: 'A one-shot', board: { ...first!.board, region: 'bestiary' } },
+      ],
+      activeCampaignId: 'c-open',
+      region: 'encounter',
+    });
+    gm();
+    click(leading('MENU'));
+    click(named('Open A one-shot'));
+    await settle();
+
+    expect(useGm.getState().activeCampaignId).toBe('c-other');
+    // The stored region still arrives - it is the record's field, and the next
+    // visit to that table should still know which tool was last open.
+    expect(useGm.getState().region).toBe('bestiary');
+    expect(openTool(), 'a tool opened over the table the GM had just switched to').toBeNull();
+  });
+
+  it('does not open a tool because the GM made a new table', async () => {
+    // `emptyBoard()` says `region: 'encounter'`, so a new campaign is the
+    // five-menus behaviour arriving through the campaign list instead.
+    useGm.setState({ region: 'bestiary' });
+    gm();
+    click(leading('MENU'));
+    click(named('NEW CAMPAIGN'));
+    await settle();
+
+    expect(useGm.getState().region).toBe('encounter');
+    expect(openTool(), 'NEW CAMPAIGN opened a tool').toBeNull();
+  });
+
+  it('will not follow a region into a tool that is switched off', () => {
+    // The Settings hint promises that with a tool off "nothing on screen points
+    // at a tool that is not there". This effect is the one route into a tool
+    // that is not a control, so it is the one that could contradict it.
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
+    gm();
+    act(() => {
+      useGm.getState().setRegion('bestiary');
+    });
+    expect(openTool(), 'a switched-off tool was opened by a region change').toBeNull();
+    // Remembered, though: the field belongs to the record, not to this screen.
+    expect(useGm.getState().region).toBe('bestiary');
+  });
+
   it('unmounts a tool when it closes rather than hiding it', () => {
     // PartyBoard's scanner opens the camera in an effect and stops it on
     // unmount; a sheet kept alive behind `display: none` leaves it running.

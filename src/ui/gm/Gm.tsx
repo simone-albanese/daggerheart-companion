@@ -41,6 +41,22 @@
  * from the disk a beat after mount is just as much a stored value as the one
  * that was there at mount.
  *
+ * **A campaign change is that same arrival, later.** `switchCampaign`,
+ * `createCampaign` and `removeCampaign` all replace `region` wholesale out of
+ * the record they are opening (`spread`) or out of `emptyBoard()`, so a ref
+ * that only ever seeded the *first* region read every change of table as a
+ * navigation: tapping "Open A one-shot" in MENU landed the GM in whatever tool
+ * that campaign had last open, and NEW CAMPAIGN landed them in the encounter
+ * builder, because `emptyBoard()` says `encounter`. So the id of the table is
+ * seeded beside the region, and a region that arrived with a new one is stored
+ * state again rather than an instruction.
+ *
+ * The other guard is `offered`. A region can name a tool the GM has switched
+ * off in Settings, and following it would make this the one control in the app
+ * that opens something that is not there - which is exactly what the Settings
+ * hint promises does not happen. A switched-off region is remembered and not
+ * opened.
+ *
  * `sheet` is the third, and it is the shallow one: which of the bar's three
  * verbs is answering. A sheet and a tool are never both open. That is not
  * tidiness either - `useDialog` registers one unconditional window keydown
@@ -127,29 +143,46 @@ export function Gm(): React.JSX.Element {
   const region = useGm((s) => s.region);
   const setRegion = useGm((s) => s.setRegion);
   const hydrated = useGm((s) => s.hydrated);
+  const campaignId = useGm((s) => s.activeCampaignId);
   const [tool, setTool] = useState<GmRegion | null>(null);
   const [sheet, setSheet] = useState<GmSheetId | null>(null);
 
+  /** Whether this build is prepared to open that tool at all. */
+  const offered = useCallback(
+    (next: GmRegion): boolean =>
+      next === 'bestiary' ? bestiary : next === 'party' ? partyBoard : true,
+    [bestiary, partyBoard],
+  );
+
   /*
-   * The last value of `board.region` this screen has acted on.
+   * The last value of `board.region` this screen has acted on, and the table it
+   * arrived with.
    *
    * Null until the store has answered, and then seeded rather than opened: the
    * stored region says which tool was last open, which is worth keeping and is
    * not an instruction to open it. Only a change *after* that seeding is a
    * navigation, and the only things that make one are the four cross-links
    * inside the tools themselves.
+   *
+   * `table` is the other half of that. Every campaign record carries a region,
+   * so a change of campaign changes this value without anybody navigating; the
+   * id says which of the two happened.
    */
   const followed = useRef<GmRegion | null>(null);
+  const table = useRef<string | null>(null);
   useEffect(() => {
     if (!hydrated) return;
-    if (followed.current === null || followed.current === region) {
-      followed.current = region;
-      return;
-    }
+    const seeding = followed.current === null || table.current !== campaignId;
+    const unchanged = followed.current === region;
     followed.current = region;
+    table.current = campaignId;
+    if (seeding || unchanged) return;
+    // Remembered, not opened: a tool that is switched off has no dialog for
+    // this screen to put over the list.
+    if (!offered(region)) return;
     setSheet(null);
     setTool(region);
-  }, [hydrated, region]);
+  }, [hydrated, region, campaignId, offered]);
 
   const openTool = useCallback(
     (next: GmRegion) => {
