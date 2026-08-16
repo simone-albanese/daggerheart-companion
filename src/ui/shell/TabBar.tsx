@@ -63,13 +63,35 @@ export function TabBar(): React.JSX.Element {
             <span
               style={{
                 ...tab.mark,
-                // The inactive glyph is a shape, not a label: --edge is the
-                // token for a boundary that has to be seen, and it clears the
-                // 3:1 a meaningful graphic needs where --dim was tuned for
-                // 10px text on a panel.
-                background: active ? 'var(--hope)' : 'var(--edge)',
-                border: tab.id === 'cards' ? `1.5px solid ${active ? 'var(--hope)' : 'var(--edge)'}` : undefined,
-                backgroundColor: tab.id === 'cards' ? 'transparent' : undefined,
+                /*
+                 * `backgroundColor`, never `background`, and that is the whole
+                 * bug this line used to have.
+                 *
+                 * The style object set `background` (a shorthand) and then
+                 * `backgroundColor: undefined` for every tab except Cards.
+                 * React applies the properties in key order and an `undefined`
+                 * longhand is a *removal* - so it deleted the background-color
+                 * that the shorthand had just set, and all four glyphs painted
+                 * transparent. Cards was the only one anybody could see, and
+                 * only because it draws a border as well. Four navigation
+                 * icons were invisible from the first commit and nothing
+                 * failed, because nothing throws when a shape is the same
+                 * colour as the panel behind it.
+                 *
+                 * The inactive colour is --edge: a glyph is a shape rather
+                 * than a label, so it needs the 3:1 a meaningful graphic
+                 * needs, where --dim is tuned for 10px text.
+                 */
+                backgroundColor:
+                  tab.id === 'cards'
+                    ? 'transparent'
+                    : active
+                      ? 'var(--hope)'
+                      : 'var(--edge)',
+                border:
+                  tab.id === 'cards'
+                    ? `1.5px solid ${active ? 'var(--hope)' : 'var(--edge)'}`
+                    : undefined,
               }}
             />
             <span
