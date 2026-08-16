@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { forgetBackupFolder } from '../../store/backup.ts';
+import { appBackupDeps } from '../../store/backupDeps.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
@@ -84,7 +85,7 @@ export function About({
   const reset = (): void => {
     setStatus(null);
     void clearAll()
-      .then(() => forgetBackupFolder())
+      .then(() => forgetBackupFolder(appBackupDeps))
       .then(() => {
         for (const key of Object.keys(localStorage)) {
           if (key.startsWith('dhc.')) localStorage.removeItem(key);

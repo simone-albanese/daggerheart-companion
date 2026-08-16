@@ -11,6 +11,7 @@
  * premium against it.
  */
 import { useEffect, useState } from 'react';
+import { NAG_AFTER_DAYS } from '../../store/backup.ts';
 import { daysSinceBackup } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -31,11 +32,18 @@ export function BackupBanner(): React.JSX.Element | null {
 
   const days = daysSinceBackup(prefs);
   const never = days === null;
-  const urgent = never || days >= 5;
+  const urgent = never || days >= NAG_AFTER_DAYS;
   if (!never && days < 3) return null;
-  // A phone has no vertical room to spare on Play. The nag waits there until
-  // it is genuinely urgent; Settings carries the same state permanently.
-  if (phone && !(days !== null && days >= 5)) return null;
+  /*
+   * A phone has no vertical room to spare on Play, so the nag waits there
+   * until it is genuinely urgent; Settings carries the same state permanently.
+   *
+   * "Urgent" has to include *never*. This read `days >= 5` with no `never`
+   * clause, and `daysSinceBackup` returns null when there is no stamp - so the
+   * one user who most needs telling, the one who has never exported anything,
+   * was the one user a phone never told. Day 1 or day 90, it showed nothing.
+   */
+  if (phone && !urgent) return null;
 
   return (
     <div

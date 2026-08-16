@@ -243,6 +243,34 @@ describe('running a backup', () => {
     dispose();
     expect(removed.sort()).toEqual(['pagehide', 'visibilitychange']);
   });
+
+  /**
+   * The settings screen promises two things - a copy when you leave the app,
+   * and a copy when it closes. The test above fires `pagehide` first, so the
+   * shared guard swallows the second event and the *leaving* half was never
+   * exercised on its own. It is the half a phone actually uses: swiping an app
+   * away sends `visibilitychange`, and `pagehide` may never follow.
+   */
+  it('backs up when the user only leaves the app, without the page going away', async () => {
+    const listeners = new Map<string, () => void>();
+    vi.stubGlobal('window', {
+      addEventListener: (type: string, fn: () => void) => void listeners.set(type, fn),
+      removeEventListener: () => {},
+    });
+    vi.stubGlobal('document', {
+      visibilityState: 'hidden',
+      addEventListener: (type: string, fn: () => void) => void listeners.set(type, fn),
+      removeEventListener: () => {},
+    });
+
+    const files = fakeFolder();
+    await chooseBackupFolder(deps());
+    installBackupHooks(deps());
+
+    listeners.get('visibilitychange')!();
+    await vi.waitFor(() => expect(files.get('latest')).toBeDefined());
+    expect(prefs.lastBackupAt).toBe(NOW.toISOString());
+  });
 });
 
 describe('the seven-day check', () => {
@@ -270,7 +298,7 @@ describe('the seven-day check', () => {
     expect(report.found).toBe(0);
     expect(report.missingIds.sort()).toEqual([wizard().id, 'second-character'].sort());
     expect(report.canRestore).toBe(true);
-    expect(report.message).toMatch(/2 characters that were here last time are gone/);
+    expect(report.message).toMatch(/2 characters that were here at the end of the last session/);
     expect(report.message).toMatch(/about a week/);
   });
 
@@ -312,7 +340,41 @@ describe('the seven-day check', () => {
     expect(report.expected).toBe(2);
     expect(report.missingIds).toHaveLength(2);
     expect(report.healthy).toBe(false);
-    expect(report.message).toMatch(/2 characters that were here last time are gone/);
+    expect(report.message).toMatch(/2 characters that were here at the end of the last session/);
+  });
+
+  /**
+   * The cause is a separate claim from the fact.
+   *
+   * This branch used to append "This browser clears stored data after about a
+   * week of not being used" to *any* absence, with no gate on `triggered` -
+   * which has existed here since the beginning. Delete a character, have the
+   * tab closed before the session note ran, come back five minutes later, and
+   * the module whose first rule is never to claim something happened blamed the
+   * browser for something the user did.
+   */
+  it('does not blame the browser for an absence it has no evidence about', async () => {
+    library = [wizard(), wizard({ id: 'second-character', name: 'Bram' })];
+    // Ten minutes ago, not eight days: nothing has been evicted by anything.
+    await integrityCheck(deps({ now: () => new Date(NOW.getTime() - 600_000) }));
+
+    library = [wizard()];
+    const report = await integrityCheck(deps());
+
+    expect(report.triggered).toBe(false);
+    expect(report.healthy).toBe(false);
+    expect(report.message).toMatch(/1 character that was here at the end of the last session/);
+    expect(
+      report.message,
+      'the app blamed the browser for a character the user deleted themselves',
+    ).not.toMatch(/clears stored data/);
+  });
+
+  it('says how long it has been when it does have the evidence', async () => {
+    library = [wizard(), wizard({ id: 'second-character', name: 'Bram' })];
+    await integrityCheck(deps({ now: () => new Date(NOW.getTime() - 9 * DAY) }));
+    library = [];
+    expect((await integrityCheck(deps())).message).toMatch(/about a week .*and it has been 9 days/);
   });
 
   it('is quiet when a week has passed and everything is still there', async () => {

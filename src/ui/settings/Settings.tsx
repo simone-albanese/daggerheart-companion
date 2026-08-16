@@ -21,6 +21,7 @@ import {
   runBackup,
   type BackupStatus,
 } from '../../store/backup.ts';
+import { appBackupDeps } from '../../store/backupDeps.ts';
 import { requestPersistence } from '../../store/db.ts';
 import { useApp } from '../../store/state.ts';
 import {
@@ -387,7 +388,7 @@ function Backup({
 
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [health, setHealth] = useState<BackupStatus>(() => backupStatus());
+  const [health, setHealth] = useState<BackupStatus>(() => backupStatus(appBackupDeps));
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [installable, setInstallable] = useState(false);
   const install = useRef<InstallPromptHandle | null>(null);
@@ -414,8 +415,8 @@ function Backup({
   // screen that has to be certain asks the folder first.
   useEffect(() => {
     void checkBackupFolder()
-      .then(() => setHealth(backupStatus()))
-      .catch(() => setHealth(backupStatus()));
+      .then(() => setHealth(backupStatus(appBackupDeps)))
+      .catch(() => setHealth(backupStatus(appBackupDeps)));
   }, []);
 
   const urgent = health.level !== 'fresh';
@@ -438,14 +439,14 @@ function Backup({
    */
   const backupAll = useCallback(() => {
     setBusy(true);
-    void runBackup('manual')
+    void runBackup('manual', {}, appBackupDeps)
       .then((outcome) => {
         setStatus(
           outcome.wrote
             ? `Saved ${outcome.fileName ?? 'the backup'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}. Keep it somewhere that is not this device.`
             : outcome.reason,
         );
-        setHealth(backupStatus());
+        setHealth(backupStatus(appBackupDeps));
       })
       .catch(failed)
       .finally(() => setBusy(false));
@@ -453,7 +454,7 @@ function Backup({
 
   const pickFolder = useCallback(() => {
     setBusy(true);
-    void chooseBackupFolder()
+    void chooseBackupFolder(appBackupDeps)
       .then((choice) => {
         setStatus(
           choice.ok
@@ -462,7 +463,7 @@ function Backup({
               ? null
               : choice.reason,
         );
-        setHealth(backupStatus());
+        setHealth(backupStatus(appBackupDeps));
       })
       .catch(failed)
       .finally(() => setBusy(false));
@@ -470,10 +471,10 @@ function Backup({
 
   const dropFolder = useCallback(() => {
     setBusy(true);
-    void forgetBackupFolder()
+    void forgetBackupFolder(appBackupDeps)
       .then(() => {
         setStatus('Forgotten. Nothing is exported automatically until you choose one again.');
-        setHealth(backupStatus());
+        setHealth(backupStatus(appBackupDeps));
       })
       .catch(failed)
       .finally(() => setBusy(false));
@@ -586,9 +587,20 @@ function Backup({
         <Field
           label="Automatic backup"
           hint={
+            /*
+             * Both halves of this sentence used to be a claim nothing in the
+             * app made true: `installBackupHooks` had no caller anywhere in
+             * `src`, so a user who picked a folder, read this and stopped
+             * pressing the button ended up with an empty folder and no idea.
+             * It now describes what the two hooks actually do, including the
+             * thing they cannot do - a page in the background is not running,
+             * so the newest copy is from the last time the app was left.
+             */
             health.automatic
-              ? `A copy is written into "${health.targetName ?? 'the chosen folder'}" at the end of a session and when the app closes. One file per day, so a bad write can only ever spoil today's.`
-              : 'Choose a folder and the app writes a copy into it at the end of every session, without asking. Only browsers with the File System Access API can do this; everywhere else, the button above is the backup.'
+              ? `A copy is written into "${health.targetName ?? 'the chosen folder'}" when you leave the app and when it closes. The app cannot write while it is in the background, so the newest copy is from the last time you left. One file per day, so a bad write can only ever spoil today's.`
+              : canChooseDirectory()
+                ? 'Choose a folder and the app writes a copy into it every time you leave, without asking.'
+                : 'Only browsers with the File System Access API can write into a folder you choose, and iPhone and iPad have no folder picker at all — so here, the button above is the backup.'
           }
         >
           {health.automatic ? (

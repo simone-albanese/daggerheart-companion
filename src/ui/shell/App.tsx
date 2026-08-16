@@ -5,7 +5,12 @@
  * the back button to lose someone's place mid-session.
  */
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { runBackup } from '../../store/backup.ts';
+import {
+  installBackupHooks,
+  integrityCheck,
+  runBackup,
+  type IntegrityReport,
+} from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
@@ -44,6 +49,7 @@ export function App(): React.JSX.Element {
   const ready = useApp((s) => s.ready);
   const init = useApp((s) => s.init);
   const screen = useApp((s) => s.screen);
+  const setScreen = useApp((s) => s.setScreen);
   const openCard = useApp((s) => s.openCard);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const prefs = useApp((s) => s.prefs);
@@ -54,10 +60,47 @@ export function App(): React.JSX.Element {
   const stats = useStats();
   const phone = useIsPhone();
   const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null);
+  const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  // The automatic backup. `installBackupHooks`, `backupAtSessionEnd`,
+  // `noteSession` and `integrityCheck` had no caller anywhere in `src`, and
+  // Rollup tree-shook the entire regime out of the bundle - the strings
+  // `page-hide` and `knownCharacterIds` appeared in no file under
+  // `dist/assets`. Meanwhile the settings screen told the user a copy was
+  // being written into their folder at the end of every session. They picked
+  // the folder, believed the sentence, stopped pressing the button, and the
+  // folder stayed empty.
+  //
+  // The disposer is returned rather than dropped: a leaked `pagehide` listener
+  // would run one backup per mount on the next event.
+  useEffect(() => installBackupHooks(appBackupDeps), []);
+
+  // After a week of silence, check that what the last session left behind is
+  // still there. Deliberately on the *default* deps: this compares what is on
+  // the disk against a list in localStorage, and that difference is its only
+  // evidence. Sourcing it from the store would make "the character store could
+  // not be opened" unreachable - `init` sets `ready` with an empty library when
+  // the read failed - so the one launch where storage broke would be reported
+  // as characters having vanished, and the record of what used to be here would
+  // then be overwritten with nothing.
+  useEffect(() => {
+    if (!ready) return;
+    let live = true;
+    void integrityCheck()
+      .then((report) => {
+        if (live && !report.healthy) setIntegrity(report);
+      })
+      .catch(() => {
+        // The check itself failing is not news anyone can act on.
+      });
+    return () => {
+      live = false;
+    };
+  }, [ready]);
 
   // Register the worker. Everything offline depends on this one call: without
   // it `public/sw.js` is a file the browser never reads, the precache never
@@ -121,7 +164,8 @@ export function App(): React.JSX.Element {
   }, [prefs.theme, prefs.reduceMotion]);
 
   if (!ready) {
-    return (      <div
+    return (
+      <div
         className="app"
         style={{ placeContent: 'center', justifyItems: 'center', gridTemplateRows: '1fr' }}
       >
@@ -171,6 +215,71 @@ export function App(): React.JSX.Element {
             >
               RELOAD
             </button>
+          </div>
+        )}
+        {integrity !== null && (
+          <div
+            role="alert"
+            className="stack"
+            style={{
+              flex: 'none',
+              gap: 8,
+              margin: '8px 20px 0',
+              padding: '10px 12px',
+              borderRadius: 'var(--r2)',
+              background: 'var(--fear-wash)',
+              border: '1px solid var(--fear)',
+            }}
+          >
+            <span className="t-label" style={{ color: 'var(--text)' }}>
+              {integrity.missingIds.length > 0 ? 'SOMETHING IS MISSING' : 'THE LIBRARY DID NOT OPEN'}
+            </span>
+            <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+              {integrity.message}
+            </span>
+            <span className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/*
+                To the screen that already has the restore rather than a second
+                copy of it here. Every import in this app goes through the
+                store, so a newer local copy is never written over and the
+                screen fills as the characters arrive; a restore wired straight
+                into IndexedDB from the shell would be the one path that does
+                neither. The offer is only made when there is something to
+                restore from - `integrity.message` has already said so when
+                there is not.
+              */}
+              {integrity.canRestore && (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => setScreen('settings')}
+                  style={{
+                    flex: 'none',
+                    minHeight: 'var(--control)',
+                    color: 'var(--text)',
+                    background: 'var(--raised)',
+                  }}
+                >
+                  RESTORE FROM A BACKUP
+                </button>
+              )}
+              {/*
+                Dismissable, unlike the unsaved-work alert above: this reports
+                something that has already happened and cannot be undone from
+                here, and the check rewrites its record at the end of every run,
+                so it is said once. A permanent strip at the top of Play trains
+                the eye to skip the top of the screen.
+              */}
+              <button
+                type="button"
+                className="t-meta"
+                onClick={() => setIntegrity(null)}
+                style={{ minHeight: 'var(--control)', minWidth: 'var(--control)' }}
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </span>
           </div>
         )}
         {quarantined.length > 0 && (

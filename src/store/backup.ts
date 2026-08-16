@@ -328,31 +328,52 @@ export const backupAtSessionEnd = (deps?: Partial<BackupDeps>): Promise<BackupOu
   runBackup('session-end', {}, deps);
 
 /**
- * Back up when the page goes away.
+ * Back up when the user leaves the app, and when the page goes away.
+ *
+ * Two events, because the sentence on the settings screen makes two promises
+ * and both of them have to be true: `visibilitychange` to `hidden` is a person
+ * putting the app down, and `pagehide` is the page being taken away.
  *
  * `pagehide` is the only lifecycle event iOS Safari reliably delivers, and it
  * does not wait for a promise: the write is started, and may be cut short if
  * the phone freezes the page immediately. That is why the file carries a date
  * in its name - a truncated write can only ever spoil today's copy, and
  * yesterday's is still sitting next to it.
+ *
+ * One `running` flag across both. Closing a tab fires `visibilitychange` and
+ * then `pagehide`, and two `createWritable()` calls on the same file collide on
+ * the lock - the loser records a failure, and the settings screen would go red
+ * every single time the app was closed.
  */
 export function installBackupHooks(deps?: Partial<BackupDeps>): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
   let running = false;
-  const fire = (): void => {
+  const fire = (leaving: boolean): void => {
     if (running) return;
     running = true;
-    void runBackup('page-hide', {}, deps).finally(() => {
+    /*
+     * What is on the disk right now, so the next launch has something to
+     * compare against. Deliberately on the default deps, and deliberately
+     * reading IndexedDB rather than the store: a list taken from memory would
+     * record a character whose write had not landed, and the next launch would
+     * then report it as one the browser had evicted. Reading the disk can only
+     * fail to notice a loss, never invent one.
+     */
+    void noteSession().catch(() => {
+      // A bookkeeping note is not worth a sentence on screen.
+    });
+    void (leaving ? backupAtSessionEnd(deps) : runBackup('page-hide', {}, deps)).finally(() => {
       running = false;
     });
   };
+  const onPageHide = (): void => fire(false);
   const onHidden = (): void => {
-    if (document.visibilityState === 'hidden') fire();
+    if (document.visibilityState === 'hidden') fire(true);
   };
-  window.addEventListener('pagehide', fire);
+  window.addEventListener('pagehide', onPageHide);
   document.addEventListener('visibilitychange', onHidden);
   return () => {
-    window.removeEventListener('pagehide', fire);
+    window.removeEventListener('pagehide', onPageHide);
     document.removeEventListener('visibilitychange', onHidden);
   };
 }
@@ -504,9 +525,24 @@ export async function integrityCheck(deps?: Partial<BackupDeps>): Promise<Integr
   if (!readable) {
     message = 'The character store could not be opened on this device.';
   } else if (missingIds.length > 0) {
+    /*
+     * The cause is a separate claim from the fact, and it is only ever made
+     * when there is evidence for it.
+     *
+     * This used to append "This browser clears stored data after about a week
+     * of not being used" whenever anything was missing, with no gate. Delete a
+     * character, have the tab closed before `noteSession` ran, open the app
+     * five minutes later, and the app blamed the browser for something the
+     * user did - inside the one module whose first rule is never to claim
+     * something happened that did not. `triggered` is the evidence, and it has
+     * existed here since the beginning without being consulted.
+     */
+    const one = missingIds.length === 1;
     message =
-      `${missingIds.length} character${missingIds.length === 1 ? '' : 's'} that ${missingIds.length === 1 ? 'was' : 'were'} here last time ${missingIds.length === 1 ? 'is' : 'are'} gone. ` +
-      `This browser clears stored data after about a week of not being used.`;
+      `${missingIds.length} character${one ? '' : 's'} that ${one ? 'was' : 'were'} here at the end of the last session ${one ? 'is' : 'are'} not on this device now.` +
+      (triggered
+        ? ` This browser clears stored data after about a week of not being used, and it has been ${String(inactiveDays)} days.`
+        : '');
   } else if (known.length === 0 && characters.length === 0) {
     message = 'Nothing to check yet.';
   } else if (triggered) {
