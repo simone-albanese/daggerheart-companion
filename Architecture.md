@@ -365,6 +365,21 @@ Contro i limiti fisici della scansione schermo-fotocamera (riflessi, moiré fra 
 griglie di pixel, autofocus ravvicinato): massima luminosità automatica sul mittente,
 quiet zone generosa, correzione M anziché L.
 
+**Cosa il QR non porta, per scelta.** Tre perdite, tutte documentate nell'header
+di `src/transfer/codec.ts` — un elenco che deve restare di tre voci esatte,
+perché una quarta non scritta da nessuna parte è il modo in cui un formato
+smette di essere affidabile. Le prime due sono handle locali e nessuno le può
+osservare: `Experience.id`, che è una chiave React e costerebbe 16 byte l'una su
+un payload di 147, e l'ordine della coppia di tratti di un avanzamento, che le
+regole trattano come insieme. La terza si vede: `consecutiveShortRests` arriva a
+zero. Non è il byte — è un varint in 0..3 — è il numero di formato: portarlo
+richiederebbe il formato 3, e da 3 un singolo bit ribaltato nel nibble di
+versione dà 2 e 1, entrambi leggibili e uno dei due privo di checksum, mentre da
+2 dà 3, 0, 6 e 10. Quella proprietà vale più di un conteggio di riposi. Il
+file `.dhchar` lo porta esatto: la conseguenza è che una scheda passata via QR
+arriva senza aver contato nulla, e nessuna schermata può presentare quel numero
+come la storia del tavolo.
+
 **Import degradato, sempre.** Se il ricevente non riconosce alcuni ID, importa lo stesso
 e segnala. I riferimenti ignoti restano nella scheda come `unresolvedRefs` e si
 risolvono da soli quando arriva la fonte mancante. Non scartare mai nulla.
@@ -471,8 +486,44 @@ recente della build invece di renderizzarlo, e `putCharacter()` si rifiuta di
 scriverci sopra.
 
 `OLDEST_READABLE` è 3 e non 1 perché gli schemi 1 e 2 non sono mai esistiti fuori
-dallo sviluppo: `SCHEMA_VERSION` vale 3 dal primo commit. Scrivere convertitori
-per loro significherebbe inventarsi una storia con cui essere compatibili.
+dallo sviluppo: `SCHEMA_VERSION` è valso 3 dal primo commit fino a P1-7.
+Scrivere convertitori per loro significherebbe inventarsi una storia con cui
+essere compatibili. Resta 3 anche dopo il passaggio a 4, perché 3 è esattamente
+la versione dei file che sono già sui dischi delle persone.
+
+#### Il primo scalino vero, e quanto è costato
+
+P1-7 ha portato `SCHEMA_VERSION` da 3 a 4 aggiungendo `consecutiveShortRests`
+al `Character`. È la prima volta che questa sezione viene esercitata su file
+reali invece che su migrazioni sintetiche, e il conto è questo:
+
+- **un convertitore**, `from: 3`, che scrive `consecutiveShortRests: 0`. Zero e
+  non una stima: una build a schema 3 non contava, quindi l'app non sa cosa sia
+  successo al tavolo, e zero è il valore che lascia la scelta ai giocatori
+  invece di negare un riposo che nessuno ha registrato. Sovrascrive invece di
+  conservare una chiave già presente, perché un record che si dichiara 3 e
+  porta un campo di schema 4 è un record la cui intestazione è sbagliata;
+- **due fixture nuove**, `v4.dhchar` e `v4.dhbackup`, prodotte facendo passare
+  la `v3.dhchar` committata attraverso questa build. `v3.dhchar` e
+  `v3.dhbackup` **non sono state toccate**: sono la prova che il convertitore
+  funziona, e riscriverle dimostrerebbe soltanto che il codice attuale sa
+  leggere il proprio output. Che non portino il campo *è* il test;
+- **`DB_VERSION` fermo a 2**: il terzo requisito è condizionale — «se cambia
+  anche la forma del database» — e aggiungere un campo a un record non cambia
+  né gli object store né gli indici;
+- **`CODEC_VERSION` fermo a 2**: il campo resta fuori dal QR (§5.3);
+- **lo stamp del dataset**, `data/srd-1.0.json`, portato a 4. `Dataset` arriva
+  all'app con un cast `as unknown as Dataset`, quindi uno stamp vecchio non
+  produce alcun errore di compilazione: produce solo un tipo che afferma un
+  numero e una schermata About che ne stampa un altro. Il test che lo tiene
+  fermo sta in `tests/store/migrations.test.ts`.
+
+Conseguenza operativa, perché non venga scoperta sul campo: al primo avvio dopo
+l'aggiornamento `readLibrary()` converte ogni personaggio e `init()` lo
+riprogramma attraverso il debounce di 400 ms, quindi l'intera libreria viene
+riscritta una volta. Questo sposta anche l'impronta `count:maxUpdatedAt` di
+`runBackup`, che produce un `.dhbackup` fresco. Innocuo, ma vuol dire che
+l'avvio che non deve fallire è proprio il primo dopo il passaggio.
 
 #### Una regola sola, due numerazioni
 
@@ -560,7 +611,7 @@ guarda quando si è nel panico.
 type Ref = string;  // slug: "arcana-rune-ward"
 
 interface Dataset {
-  schemaVersion: 3;
+  schemaVersion: 4;
   layers: Layer[];
   domains: Domain[]; domainCards: DomainCard[];
   classes: CharClass[]; subclasses: Subclass[]; beastforms: Beastform[];
@@ -589,7 +640,7 @@ interface Adversary {
 }
 
 interface Character {
-  id: string; schemaVersion: 3;
+  id: string; schemaVersion: 4;
   name: string; pronouns: string;
   classRef: Ref; subclassRefs: Ref[]; ancestryRefs: Ref[]; communityRef: Ref;
   level: number; proficiency: number;
@@ -602,9 +653,16 @@ interface Character {
   gold: { handfuls: number; bags: number; chests: number };
   connections: string[]; notes: string;
   levelUpHistory: LevelUpChoice[];
+  consecutiveShortRests: number;   // riposi brevi di fila, azzerati da uno lungo
   unresolvedRefs?: number[];
 }
 ```
+
+Il blocco `Character` qui sopra è uno **schizzo della forma**, non l'interfaccia
+verbatim: `shared/types.ts` è la fonte. Alcuni campi sono stati normalizzati da
+allora — `evasion` e `thresholds` esistono come `evasionOverride` e
+`thresholdOverride`, `activeWeapons` come due riferimenti separati, `proficiency`
+è derivata e non salvata — e non vanno riconciliati leggendo di qui.
 
 **Regola d'oro**: il personaggio salva solo `Ref` e valori, mai copie dei contenuti.
 Aggiornare il dataset non tocca i personaggi.

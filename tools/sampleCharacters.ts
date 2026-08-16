@@ -650,7 +650,13 @@ function decorate(
   const scars = Array.from({ length: scarCount }, (_u, i) => pick(SCARS, n + i * 2));
   if (scarCount > 0) exercises.push(`${scarCount} scars`);
 
-  next = { ...next, notes, connections, scars };
+  // 0..3, so three quarters of the rows carry a non-default rest count. The
+  // .dhchar path compares raw and must carry it exactly; the QR path is
+  // normalised past it, because the wire deliberately does not carry it.
+  const consecutiveShortRests = n % 4;
+  if (consecutiveShortRests > 0) exercises.push(`${consecutiveShortRests} short rests`);
+
+  next = { ...next, notes, connections, scars, consecutiveShortRests };
 
   if (n % 5 === 0) {
     next = { ...next, evasionOverride: 10 + (n % 6), thresholdOverride: [8 + n % 7, 17 + (n % 9)] };

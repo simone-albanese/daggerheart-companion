@@ -417,6 +417,9 @@ export function newCharacter(
     companion: null,
     beastform: null,
     scars: [],
+    // Also the fallback for every file older than schema 4, because
+    // `readCharacterRecord` spreads the file over a blank sheet.
+    consecutiveShortRests: 0,
     createdAt: now,
     updatedAt: now,
     ...partial,

@@ -59,7 +59,9 @@ export interface Prefs {
    * not about the person: it must not ride out in a `.dhchar`, where it would
    * arrive as a difference between two copies of the same character and cost
    * an import conflict. It must not bump `SCHEMA_VERSION`, which is what
-   * Architecture.md 6.1 would require of a new field on the record. And a
+   * Architecture.md 6.1 requires of a new field on the record - a price that is
+   * no longer hypothetical: P1-7 paid it for `consecutiveShortRests`, and it
+   * cost a converter, two committed fixtures and a re-stamped dataset. And a
    * character write is debounced to IndexedDB and stamps `updatedAt`, so
    * opening a section would make the sheet look edited to every merge decision
    * downstream - which is a lie about the character in service of a chevron.

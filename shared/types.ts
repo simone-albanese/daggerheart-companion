@@ -13,7 +13,7 @@
 /** A stable slug, e.g. `arcana-rune-ward`. Produced by `slugify`. */
 export type Ref = string;
 
-export const SCHEMA_VERSION = 3 as const;
+export const SCHEMA_VERSION = 4 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -440,6 +440,21 @@ export interface Character {
 
   /** Scars from Death Moves - each permanently costs a Hope slot. */
   scars: string[];
+
+  /**
+   * Short rests taken in a row, cleared by a long rest.
+   *
+   * The SRD's rule is about the party - three short rests in a row and the next
+   * rest must be a long one - and this app holds one sheet per device, so what
+   * it can honestly count is what this sheet did. `mustTakeLongRest` has read
+   * this number since `engine/rest.ts` was written and nothing has ever
+   * persisted it, which meant the refusal could never fire: the count was
+   * recomputed as zero on every render.
+   *
+   * Not carried by the QR codec. A sheet that arrives by QR arrives at zero,
+   * so nothing on screen may present this number as a history of the table.
+   */
+  consecutiveShortRests: number;
 
   createdAt: string;
   updatedAt: string;

@@ -197,10 +197,20 @@ describe('refusing a file it does not understand', () => {
   });
 
   it('fills in what a terse file left out, but never invents a character', () => {
-    const bare = { ...wizard(), scars: undefined, connections: undefined };
+    const bare = {
+      ...wizard(),
+      scars: undefined,
+      connections: undefined,
+      consecutiveShortRests: undefined,
+    };
     const result = parseTransferFile(JSON.stringify(bare));
     expect(result.characters[0]!.scars).toEqual([]);
     expect(result.characters[0]!.connections).toEqual([]);
+    // Absent is terse, not damaged, and the blank sheet answers for it. A
+    // hand-edited file that never heard of the count opens at zero rather than
+    // at `undefined`, which is what `mustTakeLongRest` would otherwise compare.
+    expect(result.characters[0]!.consecutiveShortRests).toBe(0);
+    expect(result.warnings.join(' ')).not.toMatch(/consecutiveShortRests/);
   });
 
   /**
@@ -229,6 +239,50 @@ describe('refusing a file it does not understand', () => {
 
     // Nullable on the character, so null is a value and not damage.
     expect(damaged({ companion: null, beastform: null, activeArmor: null })).not.toThrow();
+  });
+
+  /**
+   * Checked harder than the other numbers on the sheet, because it is the only
+   * one read to decide a refusal. A count of 2.5 or -1 would have
+   * `mustTakeLongRest` answering about a number of rests that cannot have
+   * happened, and the answer would arrive on screen looking like a rule. This
+   * is also the path `db.ts` reads every record through on launch, so a damaged
+   * value is caught once rather than surviving every boot.
+   */
+  it('refuses a rest count that is not a whole number of rests', () => {
+    const damaged = (rests: unknown): (() => Character) =>
+      () => parseCharacterFile(JSON.stringify({ ...wizard(), consecutiveShortRests: rests }));
+
+    for (const bad of ['lots', 2.5, -1, null]) {
+      expect(damaged(bad), String(bad)).toThrow(/damaged "consecutiveShortRests" field/);
+      expect(damaged(bad), String(bad)).toThrow(/a whole number of rests, zero or more/);
+    }
+    expect(damaged(0)).not.toThrow();
+    expect(damaged(3)).not.toThrow();
+  });
+
+  /**
+   * The whole chain, on the real bytes of the build being superseded, from the
+   * outside: file text in, a schema-4 character and a sentence out.
+   *
+   * `tests/store/migrations.test.ts` checks the converter on the raw record
+   * because that is the only way to prove the converter and not the blank sheet
+   * supplied the field. This one checks the opposite half - that the user is
+   * told - because a silent rewrite of somebody's sheet is the thing
+   * `readCharacterRecord` pushes a warning for.
+   */
+  it('says out loud that a schema 3 file was converted, and what the converter did', () => {
+    const text = readFileSync(
+      fileURLToPath(new URL('../fixtures/schema/v3.dhchar', import.meta.url)),
+      'utf8',
+    );
+    const file = parseTransferFile(text);
+
+    expect(file.characters[0]!.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(file.characters[0]!.consecutiveShortRests).toBe(0);
+    expect(file.warnings).toHaveLength(1);
+    expect(file.warnings[0]).toMatch(/older version of the app \(schema 3\).*was converted/);
+    expect(file.warnings[0]).toMatch(/consecutive short rests/);
   });
 
   it('gives a hand-written Experience the id it is missing', () => {

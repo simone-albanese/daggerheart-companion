@@ -340,7 +340,10 @@ describe('newCharacter', () => {
     expect(c.hope).toEqual({ marked: 2, max: BASE_HOPE });
     expect(c.loadout).toEqual([]);
     expect(c.scars).toEqual([]);
-    expect(c.schemaVersion).toBe(3);
+    expect(c.consecutiveShortRests).toBe(0);
+    // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
+    // whatever the constant said, and this assertion exists to notice a bump.
+    expect(c.schemaVersion).toBe(4);
   });
 
   it('lets a caller override any field', () => {
