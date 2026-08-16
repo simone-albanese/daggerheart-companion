@@ -63,6 +63,7 @@ import {
   type Ref,
   type Trait,
 } from '../../shared/types.ts';
+import { COUNTER_CEILINGS, type CounterName } from '../engine/character.ts';
 import { crc32 } from './crc32.ts';
 import {
   isReserved,
@@ -330,7 +331,40 @@ const writeCounter = (w: Writer, c: Counter): void => {
   w.varint(Math.max(0, Math.trunc(c.max)));
 };
 
-const readCounter = (r: Reader): Counter => ({ marked: r.varint(), max: r.varint() });
+/**
+ * A counter, refused rather than believed when it is past the rules' ceiling.
+ *
+ * Every other count-driven loop in this decoder is self-limiting: a declared
+ * count of 2^50 experiences has to be followed by 2^50 strings, and the reader
+ * runs off the end of the buffer and throws long before it allocates anything.
+ * That is deliberate, and it is what makes this the one hole worth naming - a
+ * counter maximum drives no loop *here*, so a payload could declare `hp.max` of
+ * 2^20 and cost the decoder nothing at all, and then cost `Track.tsx` a million
+ * DOM nodes when the sheet is drawn.
+ *
+ * Bounded rather than clamped, and that is not the same choice the store makes
+ * three lines further along the same journey. This file's stated rule is that
+ * anything the compact form cannot express exactly escapes rather than being
+ * approximated, and reading a plausible character out of a damaged payload is
+ * the one outcome it exists to avoid. A silently clamped `hp.max` is a
+ * plausible character read out of a damaged payload. The ceilings come from the
+ * engine rather than from a number invented here, so the codec and the sheet
+ * cannot come to disagree about what a legal track is.
+ */
+function readCounter(r: Reader, track: CounterName, label: string): Counter {
+  const ceiling = COUNTER_CEILINGS[track];
+  const marked = r.varint();
+  const max = r.varint();
+  const refuse = (what: string, value: number): never => {
+    throw new CodecError(
+      `This transfer says the ${label} track has ${what} of ${value}, and ${ceiling} is the most the rules allow. ` +
+        'It is damaged or was not written by this app, so nothing has been imported.',
+    );
+  };
+  if (max > ceiling) refuse('a maximum', max);
+  if (marked > ceiling) refuse('a marked count', marked);
+  return { marked, max };
+}
 
 /** Optional list length: 0 means the key was absent, n+1 means a list of n. */
 const writeMaybeCount = (w: Writer, list: readonly unknown[] | undefined): void =>
@@ -565,7 +599,7 @@ function readCompanion(r: Reader): CompanionState {
   const name = r.str();
   const description = r.str();
   const evasion = r.zigzag();
-  const stress = readCounter(r);
+  const stress = readCounter(r, 'companionStress', 'companion Stress');
   const damage = r.str();
   const rangeIndex = r.u8();
   const range: Range = RANGES[rangeIndex - 1] ?? 'Melee';
@@ -782,10 +816,10 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
     const count = r.varint();
     if (trait !== undefined) traitMarks[trait] = count;
   }
-  const hp = readCounter(r);
-  const stress = readCounter(r);
-  const hope = readCounter(r);
-  const armorSlots = readCounter(r);
+  const hp = readCounter(r, 'hp', 'HP');
+  const stress = readCounter(r, 'stress', 'Stress');
+  const hope = readCounter(r, 'hope', 'Hope');
+  const armorSlots = readCounter(r, 'armorSlots', 'Armor Slot');
   const evasionOverride = r.u8() === 0 ? null : r.zigzag();
   const thresholdOverride: [number, number] | null =
     r.u8() === 0 ? null : [r.zigzag(), r.zigzag()];

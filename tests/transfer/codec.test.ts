@@ -345,6 +345,92 @@ describe('refusing to guess', () => {
   });
 });
 
+/**
+ * The one count in the payload that drives no loop.
+ *
+ * Every other count here is self-limiting and that is deliberate: a declared
+ * 2^50 experiences has to be followed by 2^50 strings, so the reader walks off
+ * the end of the buffer and throws a CodecError long before it allocates
+ * anything. A counter maximum is two varints and nothing follows them, so it
+ * costs the decoder nothing to declare 2^20 - and then costs `Track.tsx` a
+ * million `<button>` elements when the sheet is drawn, on the device whose only
+ * copy of those characters is the tab that just stopped responding.
+ *
+ * The payloads below are sealed by the encoder, so the format-2 checksum passes
+ * and it really is the ceiling that refuses them. A test that got its refusal
+ * from the checksum would prove nothing about this at all.
+ */
+describe('counter maxima', () => {
+  const enormous = 1_048_576;
+
+  const overflowing: Array<[string, Partial<Character>, number]> = [
+    ['HP', { hp: { marked: 2, max: enormous } }, 12],
+    ['Stress', { stress: { marked: 3, max: enormous } }, 12],
+    ['Hope', { hope: { marked: 4, max: enormous } }, 6],
+    ['Armor Slot', { armorSlots: { marked: 1, max: enormous } }, 12],
+  ];
+
+  for (const [track, patch, ceiling] of overflowing) {
+    it(`refuses a ${track} maximum of ${enormous} and says which track and what the top is`, async () => {
+      const payload = await encodeCharacter(wizard(patch), testRegistry);
+      // Not the checksum: the encoder sealed these bytes, so they arrived
+      // exactly as they were sent and the structure is intact.
+      await expect(decodeCharacter(payload, testRegistry)).rejects.toBeInstanceOf(CodecError);
+      await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(
+        new RegExp(`${track} track has a maximum of ${enormous}, and ${ceiling} is the most`),
+      );
+      await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(/nothing has been imported/i);
+    });
+  }
+
+  it('refuses a marked count past the ceiling too, not only the maximum', async () => {
+    // `marked` drives no loop either, and a sheet reading "1048576 / 6 MARKED"
+    // is no more a character than one with a million boxes.
+    const payload = await encodeCharacter(wizard({ stress: { marked: enormous, max: 6 } }), testRegistry);
+    await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(
+      /Stress track has a marked count of 1048576/,
+    );
+  });
+
+  it('refuses the companion’s Stress track, which the character’s own sync never reaches', async () => {
+    const beastbound = loadedWizard();
+    const payload = await encodeCharacter(
+      { ...beastbound, companion: { ...beastbound.companion!, stress: { marked: 0, max: enormous } } },
+      testRegistry,
+    );
+    await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(
+      /companion Stress track has a maximum of 1048576/,
+    );
+  });
+
+  it('takes the ceiling itself, because a level 10 veteran really has twelve of each', async () => {
+    // The bound has to be the engine's number and not one below it: a character
+    // who bought every Hit Point and every Stress advancement is a legal sheet,
+    // and refusing them would be this file inventing a stricter game.
+    const veteran = wizard({
+      hp: { marked: 12, max: 12 },
+      stress: { marked: 12, max: 12 },
+      hope: { marked: 6, max: 6 },
+      armorSlots: { marked: 12, max: 12 },
+    });
+    const back = await roundTrip(veteran);
+    expect(back.hp).toEqual({ marked: 12, max: 12 });
+    expect(back.stress).toEqual({ marked: 12, max: 12 });
+    expect(back.hope).toEqual({ marked: 6, max: 6 });
+    expect(back.armorSlots).toEqual({ marked: 12, max: 12 });
+  });
+
+  it('refuses one past the ceiling, so the bound is exactly where the rules put it', async () => {
+    for (const [patch, sentence] of [
+      [{ hp: { marked: 0, max: 13 } }, /HP track has a maximum of 13, and 12 is the most/],
+      [{ hope: { marked: 0, max: 7 } }, /Hope track has a maximum of 7, and 6 is the most/],
+    ] as const) {
+      const payload = await encodeCharacter(wizard(patch), testRegistry);
+      await expect(decodeCharacter(payload, testRegistry)).rejects.toThrow(sentence);
+    }
+  });
+});
+
 describe('the format number', () => {
   /*
    * A nibble holds sixteen formats and two are spent. The point of writing that
