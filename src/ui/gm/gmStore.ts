@@ -108,6 +108,19 @@ export interface GmState extends GmLive {
   /** Repairs and one-off notices, each a sentence. Never a count. */
   notices: string[];
   /**
+   * The disk replaced something the GM had already changed.
+   *
+   * It is in `notices` too, and this flag is not a duplicate of it: every other
+   * notice is about a *record* - a Fear pool clamped back inside its range, a
+   * campaign a newer build wrote - and those recur on every launch, which is
+   * why they live in MENU rather than in a banner. This one is about the GM's
+   * own tap being undone, it happens once, and a sentence reporting that
+   * something you did has been reversed cannot wait behind a button. `Gm.tsx`
+   * draws it on the screen it happened on and `dismissReplacedOnLoad` clears
+   * it; the copy in `notices` stays, so dismissing it is not erasing it.
+   */
+  replacedOnLoad: boolean;
+  /**
    * Set while what is on screen has failed to reach the disk.
    *
    * The GM screen must never imply a change is saved when it is not - the same
@@ -115,6 +128,9 @@ export interface GmState extends GmLive {
    * around `localStorage.setItem` was not good enough here.
    */
   writeError: string | null;
+
+  /** Take the sentence off the screen. It stays in `notices`. */
+  dismissReplacedOnLoad: () => void;
 
   setRegion: (region: GmRegion) => void;
   setPartyTier: (tier: Tier) => void;
@@ -303,6 +319,17 @@ if (typeof window !== 'undefined') {
 let hydration: Promise<void> | null = null;
 
 /**
+ * What the GM is told when the disk won a race against their own hand.
+ *
+ * One string, two renderings: `notices`, which MENU lists and keeps, and
+ * `replacedOnLoad`, which puts it under the top bar where the tap happened. A
+ * second sentence saying the same thing in different words is how two screens
+ * come to describe one event differently.
+ */
+export const REPLACED_ON_LOAD =
+  'Your table was still loading when you changed something, so what was saved on this device has been used instead.';
+
+/**
  * Open the campaigns, running the one-time move out of localStorage first.
  *
  * Started at the bottom of this module rather than by a screen, because the GM
@@ -389,12 +416,14 @@ export function hydrateGm(): Promise<void> {
      * a guarantee, and the alternative is worse in both directions: adopting
      * the live state would write an empty board over a real campaign, and
      * merging them would invent a state that was never true. Losing one tap
-     * and saying so is the only honest option of the three.
+     * and saying so is the only honest option of the three - and "saying so"
+     * means on the screen, not only in `notices`, which is what
+     * `replacedOnLoad` is for.
      */
+    let replacedOnLoad = false;
     if (dirty) {
-      notices.push(
-        'Your table was still loading when you changed something, so what was saved on this device has been used instead.',
-      );
+      notices.push(REPLACED_ON_LOAD);
+      replacedOnLoad = true;
       dirty = false;
     }
 
@@ -404,6 +433,7 @@ export function hydrateGm(): Promise<void> {
       hydrated: true,
       quarantined,
       notices,
+      replacedOnLoad,
       ...spread(active),
     });
 
@@ -457,6 +487,9 @@ export const useGm = create<GmState>((set, get) => {
     quarantined: [],
     notices: [],
     writeError: null,
+    replacedOnLoad: false,
+
+    dismissReplacedOnLoad: () => set({ replacedOnLoad: false }),
 
     setRegion: (region) => commit({ region }),
     setPartyTier: (partyTier) => commit({ partyTier }),

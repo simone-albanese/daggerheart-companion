@@ -77,7 +77,17 @@ export function SessionList({
         {!hydrated ? (
           <Empty
             title="Reading this device"
-            body="The campaign is still coming off the disk. Nothing on this screen has been written yet, and nothing you do before it arrives will be lost — it is the saved campaign that wins, and you will be told."
+            /*
+             * What this said until now was "nothing you do before it arrives
+             * will be lost — it is the saved campaign that wins", which is two
+             * halves of a contradiction and the first half is the false one.
+             * `hydrateGm` adopts the record and drops whatever was changed in
+             * the meantime: a Fear tap made in this window is reverted, on
+             * purpose, because the alternative is writing an empty board over
+             * a real campaign. So the sentence says that, and the screen says
+             * it again if it actually happens - see `Gm.tsx::ReplacedOnLoad`.
+             */
+            body="The campaign is still coming off the disk. Nothing on this screen has been written yet, and what is saved on this device is what wins: anything you change before it arrives is replaced by the saved campaign. If that happens, this screen says so — it is never done quietly."
           />
         ) : session.length === 0 ? (
           <Empty

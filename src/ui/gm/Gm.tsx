@@ -79,12 +79,17 @@
  * them - into the session list's scroll, not off the screen. See
  * `LicenceFooter.tsx`.
  *
- * ## The one thing here that is not navigation
+ * ## The two things here that are not navigation
  *
  * `NotSaved`, at the foot of this file, is mounted between the top bar and the
  * list whenever the store's `writeError` is set. It is here rather than in a
  * sheet for the reason its own docblock gives: the GM who needs that sentence
  * is the one who has not opened anything.
+ *
+ * `ReplacedOnLoad` is the same argument about the other direction of the same
+ * disk. It says that a change the GM made while the campaign was still being
+ * read has been replaced by the saved one - which is a thing that happened *to
+ * their hand*, and the only notice in this store that is.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/state.ts';
@@ -96,7 +101,7 @@ import { Encounter } from './Encounter.tsx';
 import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
-import { flushGm, useGm, type GmRegion } from './gmStore.ts';
+import { flushGm, REPLACED_ON_LOAD, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
 import { SaveSheet } from './SaveSheet.tsx';
@@ -140,6 +145,8 @@ export function Gm(): React.JSX.Element {
   const bestiary = useApp((s) => s.prefs.gmBestiary);
   const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
   const writeError = useGm((s) => s.writeError);
+  const replacedOnLoad = useGm((s) => s.replacedOnLoad);
+  const dismissReplaced = useGm((s) => s.dismissReplacedOnLoad);
   const region = useGm((s) => s.region);
   const setRegion = useGm((s) => s.setRegion);
   const hydrated = useGm((s) => s.hydrated);
@@ -207,6 +214,7 @@ export function Gm(): React.JSX.Element {
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <GmTopBar layout={layout} onOpenMenu={() => openSheet('menu')} onOpenTool={openTool} />
       {writeError !== null && <NotSaved message={writeError} phone={phone} />}
+      {replacedOnLoad && <ReplacedOnLoad phone={phone} onDismiss={dismissReplaced} />}
       <SessionList phone={phone} onOpenTool={openTool} />
       <GmBar open={sheet} onOpenSheet={openSheet} />
 
@@ -345,6 +353,79 @@ function NotSaved({ message, phone }: { message: string; phone: boolean }): Reac
           {retrying ? 'TRYING…' : 'TRY AGAIN'}
         </button>
       </span>
+    </div>
+  );
+}
+
+/**
+ * The tap the disk undid, said where the tap was made.
+ *
+ * `hydrateGm` adopts the saved campaign and drops whatever the GM changed in
+ * the window before the database answered - the right decision, argued in the
+ * store: adopting the live state would write an empty board over a real
+ * campaign and merging the two would invent a state that was never true. What
+ * was missing is the other half of it. The store pushes a sentence into
+ * `notices`, `notices` is drawn inside MENU's THIS DEVICE block, and a GM who
+ * pressed Fear `+` during the read watched it go back down with nothing on the
+ * screen to say why. A reversal the app performs on purpose and reports only
+ * to whoever opens a sheet is a reversal it has performed quietly.
+ *
+ * Dismissible, where `NotSaved` above is not, and the difference is the tense.
+ * That one is about work that is *still* at risk, so a dismissal would be
+ * false reassurance. This is a completed event with nothing left to lose by it,
+ * and a strip that stayed for the rest of the evening would cost the list two
+ * rows to say something that stopped being true the moment it was read. The
+ * sentence stays in `notices` either way, so the ✕ is not an erasure.
+ *
+ * ## Ergonomics, 393x852
+ *
+ * The same slot as `NotSaved`, under the pinned top bar at y 215 and far above
+ * the 560-820 band a right thumb covers, because it is read rather than
+ * answered. The column is 393 − 24 of page margin − 24 of padding = 345px, so
+ * the store's sentence is three lines at `.t-dense` and the block is about
+ * 100px: the list goes from nine rows to seven while it is up. Its only control
+ * is the ✕ every dismissal in this app uses, `var(--control)` square - 44 on a
+ * phone - in the top corner, away from the text it removes.
+ */
+function ReplacedOnLoad({
+  phone,
+  onDismiss,
+}: {
+  phone: boolean;
+  onDismiss: () => void;
+}): React.JSX.Element {
+  return (
+    <div
+      role="status"
+      className="row"
+      style={{
+        flex: 'none',
+        alignItems: 'flex-start',
+        gap: 10,
+        margin: phone ? '8px 12px 0' : '8px 20px 0',
+        padding: '10px 12px',
+        borderRadius: 'var(--r2)',
+        background: 'var(--raised)',
+        borderLeft: '3px solid var(--hope)',
+      }}
+    >
+      <span className="stack" style={{ flex: 1, minWidth: 0, gap: 8 }}>
+        <span className="t-label" style={{ color: 'var(--text)' }}>
+          THE SAVED TABLE WON
+        </span>
+        <span className="t-dense" style={{ color: 'var(--text-2)', maxWidth: '62ch' }}>
+          {REPLACED_ON_LOAD}
+        </span>
+      </span>
+      <button
+        type="button"
+        className="t-meta"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        style={{ flex: 'none', minHeight: 'var(--control)', minWidth: 'var(--control)' }}
+      >
+        ✕
+      </button>
     </div>
   );
 }

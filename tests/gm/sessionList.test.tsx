@@ -160,6 +160,22 @@ describe('what the list says when there is nothing in it', () => {
     expect(text()).not.toContain('Nothing planned yet');
   });
 
+  it('does not promise that a change made while it reads will survive', () => {
+    /*
+     * This panel used to say "nothing you do before it arrives will be lost —
+     * it is the saved campaign that wins", which is a contradiction with the
+     * false half first. `hydrateGm` adopts the record and drops whatever was
+     * changed in the window before it: a Fear tap made here goes back. The
+     * store is right to do that and the panel has to say it.
+     */
+    useGm.setState({ hydrated: false, session: [] });
+    list();
+    expect(text(), 'the panel promises the tap survives, and it does not').not.toMatch(
+      /will be lost/,
+    );
+    expect(text()).toContain('replaced by the saved campaign');
+  });
+
   it('says the list is empty once it knows, and points at the control that fills it', () => {
     list();
     expect(text()).toContain('Nothing planned yet');

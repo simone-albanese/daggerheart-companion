@@ -115,6 +115,52 @@ describe('hydration', () => {
     await Promise.all([gm.hydrateGm(), gm.hydrateGm(), gm.hydrateGm()]);
     expect(gm.useGm.getState().campaigns).toHaveLength(1);
   });
+
+  it('lets the disk win a race against the GM’s hand, and says so out loud', async () => {
+    /*
+     * The window is small - this module is imported as the GM chunk loads, so
+     * hydration is running before the screen has painted - but small is not a
+     * guarantee, and the store's answer to it is the right one: adopting the
+     * live state would write an empty board over a real campaign, and merging
+     * the two would invent a state that was never true.
+     *
+     * What was missing is the other half. The sentence went into `notices`,
+     * which only MENU draws, so a Fear tap made during the read was reverted
+     * with nothing on the screen to say why. `replacedOnLoad` is the flag
+     * `Gm.tsx` puts under the top bar.
+     */
+    gm.useGm.getState().setFear(5);
+    await gm.flushGm();
+
+    vi.resetModules();
+    const freshStore = await import('../../src/store/campaigns.ts');
+    // The read is held open, so "the GM was faster than the disk" is a fact of
+    // this test rather than a race it hopes to win.
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const realRead = freshStore.readCampaigns;
+    const spy = vi.spyOn(freshStore, 'readCampaigns').mockImplementation(async () => {
+      await held;
+      return realRead();
+    });
+
+    const freshGm = (await import('../../src/ui/gm/gmStore.ts')) as Gm;
+    freshGm.useGm.getState().nudgeFear(1);
+    expect(freshGm.useGm.getState().fear, 'the tap never landed on screen').toBe(1);
+
+    release();
+    await freshGm.hydrateGm();
+
+    expect(freshGm.useGm.getState().fear).toBe(5);
+    expect(freshGm.useGm.getState().notices).toContain(freshGm.REPLACED_ON_LOAD);
+    expect(
+      freshGm.useGm.getState().replacedOnLoad,
+      'the tap was reverted with nothing on the screen to say so',
+    ).toBe(true);
+    spy.mockRestore();
+  });
 });
 
 describe('the fight survives a reload, which is the promise this file has always made', () => {

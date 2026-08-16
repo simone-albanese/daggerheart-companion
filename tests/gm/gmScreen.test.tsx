@@ -21,7 +21,7 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import type { SaveResult } from '../../src/transfer/fileIo.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
-import { flushGm, hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
+import { flushGm, hydrateGm, REPLACED_ON_LOAD, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
@@ -98,6 +98,7 @@ beforeEach(() => {
     fear: 0,
     region: 'encounter',
     writeError: null,
+    replacedOnLoad: false,
     exportActiveCampaign: REAL_EXPORT,
     // MENU makes and removes campaigns, and the store is a module singleton.
     campaigns: baseCampaigns,
@@ -856,6 +857,41 @@ describe('a write that did not happen', () => {
     // And the write that landed is the one that was on screen.
     expect(activeCampaign()).toBeDefined();
     expect(useGm.getState().fear).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('a change the disk replaced', () => {
+  it('is said on the screen, and not only behind MENU', () => {
+    /*
+     * `hydrateGm` drops whatever the GM changed while the campaign was being
+     * read and adopts the record - the right call, argued in the store - and
+     * pushed its one sentence into `notices`, which only MENU draws. So the GM
+     * who pressed Fear `+` during the read watched it go back down with nothing
+     * on screen to say why: a reversal performed on purpose and reported to
+     * whoever opens a sheet is a reversal performed quietly.
+     */
+    useGm.setState({ replacedOnLoad: true });
+    gm();
+
+    expect(container.querySelector('[role="dialog"]'), 'a sheet was open').toBeNull();
+    expect(text()).toContain('what was saved on this device has been used instead');
+  });
+
+  it('can be put away, and MENU still has it', () => {
+    // Dismissible where the failed write is not, and the difference is the
+    // tense: this one is over, and nothing is still at risk behind it. The
+    // sentence stays in `notices`, so the ✕ is not an erasure.
+    useGm.setState({ replacedOnLoad: true, notices: [REPLACED_ON_LOAD] });
+    gm();
+    click(named('Dismiss'));
+
+    expect(useGm.getState().replacedOnLoad).toBe(false);
+    expect(text()).not.toContain('has been used instead');
+
+    click(leading('MENU'));
+    expect(text()).toContain('has been used instead');
   });
 });
 
