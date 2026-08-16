@@ -11,7 +11,8 @@
  * has to touch one.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { migrateCharacterRecord, SchemaError, versionOf } from '../../shared/migrations.ts';
+import { checkReadable, versionOf } from '../../shared/migrations.ts';
+import { readCharacterRecord } from '../transfer/fileIo.ts';
 import { SCHEMA_VERSION, type Character, type Layer } from '../../shared/types.ts';
 
 export const DB_NAME = 'daggerheart-companion';
@@ -94,6 +95,16 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
       // Nothing to do but let the deadline in `init()` speak. Closing the
       // other tab is the user's call, and this callback cannot reach it.
     },
+    /*
+     * The browser can close a connection on its own - a storage pressure
+     * eviction, a profile switch, a devtools "clear site data". `dbPromise`
+     * held the dead connection for the life of the tab, so one force-close
+     * meant every write from then on rejected into nothing. Dropping the
+     * reference lets the next call open a new one.
+     */
+    terminated() {
+      dbPromise = null;
+    },
     blocking() {
       // Let the other tab upgrade. Everything is written through a debounce
       // that flushes on `pagehide`, so a connection closed here has already
@@ -130,8 +141,8 @@ export interface QuarantinedRecord {
 export interface LibraryRead {
   characters: Character[];
   quarantined: QuarantinedRecord[];
-  /** Records a converter changed, which the caller should write back. */
-  migrated: Character[];
+  /** Records that came back different - converted, or repaired. Write these. */
+  repaired: Character[];
 }
 
 /**
@@ -157,34 +168,64 @@ export async function readLibrary(): Promise<LibraryRead> {
 
   const characters: Character[] = [];
   const quarantined: QuarantinedRecord[] = [];
-  const migrated: Character[] = [];
+  const repaired: Character[] = [];
 
   for (const record of all) {
     const raw = record as unknown as Record<string, unknown>;
     const id = typeof raw['id'] === 'string' ? raw['id'] : '(no id)';
     const name = typeof raw['name'] === 'string' ? raw['name'] : null;
+    const stamped = typeof raw['schemaVersion'] === 'number' ? raw['schemaVersion'] : null;
     try {
-      const result = migrateCharacterRecord(raw);
-      const character = result.record as unknown as Character;
+      const version = versionOf(raw);
+      checkReadable(version);
+
+      /*
+       * The same reader the file path uses, on the database path.
+       *
+       * A record here is not more trustworthy than one in a file: it may have
+       * been written by a build with a bug, half-written when a phone froze,
+       * or restored from a file that was. `listCharacters` used to be a
+       * `getAll` and a sort, and the sort was where it fell over - a record
+       * with no `updatedAt` made `localeCompare` throw and took the whole
+       * library with it, which surfaced as the storage banner saying
+       * everything was probably fine.
+       */
+      const repairs: string[] = [];
+      const character = readCharacterRecord(raw, 'A character saved on this device', repairs);
       characters.push(character);
-      if (result.from !== SCHEMA_VERSION) migrated.push(character);
+      /*
+       * Write back only what actually changed shape.
+       *
+       * A conversion is real work that must not be repeated every launch, and
+       * a record already at this schema and already whole is left alone rather
+       * than churned. The third clause is the subtle one: the reader fills a
+       * missing `updatedAt` or `createdAt` from a blank sheet, which means a
+       * record without one would be stamped with a *different* fresh time on
+       * every launch - and would therefore win every merge comparison against
+       * a backup, forever, because it always looks like the most recent edit.
+       */
+      const identityInvented =
+        typeof raw['id'] !== 'string' ||
+        typeof raw['updatedAt'] !== 'string' ||
+        typeof raw['createdAt'] !== 'string';
+      if (version !== SCHEMA_VERSION || repairs.length > 0 || identityInvented) {
+        repaired.push(character);
+      }
     } catch (error) {
       quarantined.push({
         id,
         name,
-        schemaVersion: error instanceof SchemaError && Number.isInteger(error.version)
-          ? error.version
-          : null,
+        schemaVersion: stamped,
         reason:
-          error instanceof SchemaError
-            ? `This character ${error.message}`
+          error instanceof Error && error.message !== ''
+            ? error.message
             : 'This character could not be read by this version of the app, and has been left untouched.',
       });
     }
   }
 
   characters.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return { characters, quarantined, migrated };
+  return { characters, quarantined, repaired };
 }
 
 /** The readable half of the library. Everything else goes through `readLibrary`. */

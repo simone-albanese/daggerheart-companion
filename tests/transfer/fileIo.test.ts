@@ -55,6 +55,10 @@ function fakeDirectory(options: { failOn?: string } = {}): {
             },
             close: () => Promise.resolve(),
           }),
+        // The real handle can be opened again, and `writeIntoDirectory` does:
+        // a write is not a backup until the file has been read back.
+        getFile: () =>
+          Promise.resolve({ text: () => Promise.resolve(files.get(fileName) ?? '') }),
       });
     },
   };

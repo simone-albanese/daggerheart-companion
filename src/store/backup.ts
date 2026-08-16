@@ -269,7 +269,21 @@ export async function runBackup(
     const access = await directoryAccess(handle, { request: interactive });
     sessionAccess = access;
     if (access === 'granted' || access === 'unsupported') {
-      const result = await writeIntoDirectory(handle, fileName, text);
+      // Read it back and count it before believing it. `backup.ts` opens with
+      // "never claim a backup happened"; a stream that resolved is not a file
+      // on disk that a future build can open.
+      const result = await writeIntoDirectory(handle, fileName, text, {
+        verify: (written) => {
+          try {
+            const found = parseTransferFile(written).characters.length;
+            return found === characters.length
+              ? null
+              : `${fileName} came back holding ${String(found)} character${found === 1 ? '' : 's'} instead of ${String(characters.length)}`;
+          } catch (error) {
+            return `${fileName} was written but could not be read back (${error instanceof Error ? error.message : String(error)})`;
+          }
+        },
+      });
       if (result.ok) return stamp(d, at, fileName, 'file-system', characters.length, fingerprint);
       writeRecord({ lastError: result.reason ?? 'The backup folder refused the write.' });
       if (!interactive) return { ...none(result.reason ?? 'The backup folder refused the write.'), ok: false };

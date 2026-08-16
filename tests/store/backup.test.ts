@@ -63,6 +63,10 @@ function fakeFolder(options: { fail?: boolean } = {}): Map<string, string> {
             },
             close: () => Promise.resolve(),
           }),
+        // `writeIntoDirectory` opens the file again and compares: an
+        // unverified backup is not counted as one. A fake that could not be
+        // read back would report every backup as a failure.
+        getFile: () => Promise.resolve({ text: () => Promise.resolve(files.get('latest') ?? '') }),
       });
     },
   };

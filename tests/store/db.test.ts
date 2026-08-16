@@ -90,10 +90,10 @@ describe('reading the library', () => {
     await db.putCharacter(makeCharacter({ name: 'Older', updatedAt: '2026-01-01T00:00:00.000Z' }));
     await db.putCharacter(makeCharacter({ name: 'Newer', updatedAt: '2026-06-01T00:00:00.000Z' }));
 
-    const { characters, quarantined, migrated } = await db.readLibrary();
+    const { characters, quarantined, repaired } = await db.readLibrary();
     expect(characters.map((c) => c.name)).toEqual(['Newer', 'Older']);
     expect(quarantined).toEqual([]);
-    expect(migrated).toEqual([]);
+    expect(repaired).toEqual([]);
   });
 
   it('quarantines a record a newer build wrote, and names it', async () => {

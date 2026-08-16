@@ -96,6 +96,26 @@ interface AppState {
 const LOG_LIMIT = 60;
 
 /**
+ * Ask the browser to keep this origin's storage.
+ *
+ * Timing is the whole trick. Chrome decides silently from engagement signals,
+ * so asking before the user has done anything is a guaranteed no; asking once
+ * there is something to lose is when it says yes. Safari refuses until the app
+ * is installed, which is why Settings keeps an explanation and a second ask
+ * rather than treating one answer as final.
+ *
+ * `create()` used to be the only caller, gated on the library having been
+ * empty - so a library that arrived by import was never asked about, and
+ * because it was no longer empty, a later `create()` never asked either. The
+ * import path is the one where the user has the most at stake.
+ */
+function askForPersistence(): void {
+  void db.requestPersistence().catch(() => {
+    // A browser that will not even answer is one the export protects.
+  });
+}
+
+/**
  * Persist on a debounce, and always flush before the page can go away.
  * `pagehide` is the only lifecycle event iOS Safari reliably delivers.
  */
@@ -185,7 +205,7 @@ export const useApp = create<AppState>((set, get) => ({
        * not delay the first paint, and the debounce would have written it
        * anyway on the next edit.
        */
-      for (const c of library.migrated) {
+      for (const c of library.repaired) {
         void db.putCharacter(c).catch(() => {
           // The in-memory copy is already converted, so this is a retry at
           // worst. A failure here is the same failure P0-3 is about.
@@ -255,11 +275,7 @@ export const useApp = create<AppState>((set, get) => ({
     // Safari refuses until the app is installed, which is why the settings
     // screen keeps an explanation and a second ask rather than treating this
     // one answer as final.
-    if (first) {
-      void db.requestPersistence().catch(() => {
-        // A browser that will not even answer is one the export protects.
-      });
-    }
+    if (first) askForPersistence();
     return c;
   },
 
@@ -274,6 +290,10 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   async remove(id) {
+    // Before the delete, not after: a debounced write still holding this
+    // character would put it straight back a few hundred milliseconds later,
+    // and the user would watch a character they deleted return.
+    pending.delete(id);
     await db.deleteCharacter(id);
     set((s) => {
       const characters = s.characters.filter((c) => c.id !== id);
@@ -316,11 +336,15 @@ export const useApp = create<AppState>((set, get) => ({
         continue;
       }
 
+      const wasEmpty = get().characters.length === 0;
       await db.putCharacter(character);
       set((s) => ({
         characters: [character, ...s.characters.filter((x) => x.id !== character.id)],
         activeId: character.id,
       }));
+      // The person who has just restored a library onto a fresh origin has the
+      // most at stake and was the one path that never asked.
+      if (wasEmpty) askForPersistence();
       (decision === 'import' ? report.imported : report.replaced).push(character);
     }
 

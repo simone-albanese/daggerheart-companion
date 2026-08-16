@@ -165,7 +165,7 @@ export function parseTransferFile(text: string): ImportedFile {
     checkEnvelopeSchema(parsed['schemaVersion'], 'That backup');
     const list = parsed['characters'];
     if (!Array.isArray(list)) throw new ImportError('That backup has no characters in it.');
-    const characters = list.map((value, i) => readCharacter(value, `Character ${i + 1}`, warnings));
+    const characters = list.map((value, i) => readCharacterRecord(value, `Character ${i + 1}`, warnings));
     return { kind: 'backup', characters, app, exportedAt, warnings };
   }
 
@@ -173,7 +173,7 @@ export function parseTransferFile(text: string): ImportedFile {
     checkEnvelopeSchema(parsed['schemaVersion'], 'That character file');
     return {
       kind: 'character',
-      characters: [readCharacter(parsed['character'], 'That character file', warnings)],
+      characters: [readCharacterRecord(parsed['character'], 'That character file', warnings)],
       app,
       exportedAt,
       warnings,
@@ -190,7 +190,7 @@ export function parseTransferFile(text: string): ImportedFile {
     warnings.push('That file had no export header, so it was read as a bare character.');
     return {
       kind: 'character',
-      characters: [readCharacter(parsed, 'That file', warnings)],
+      characters: [readCharacterRecord(parsed, 'That file', warnings)],
       app,
       exportedAt,
       warnings,
@@ -315,7 +315,11 @@ function checkShapes(value: Record<string, unknown>, where: string): void {
  * rest from the blank sheet. A file missing its traits is not a character and
  * says so; a file missing an empty `scars` array is just terse.
  */
-function readCharacter(raw: unknown, where: string, warnings: string[]): Character {
+export function readCharacterRecord(
+  raw: unknown,
+  where: string,
+  warnings: string[] = [],
+): Character {
   if (!isRecord(raw)) throw new ImportError(`${where} does not contain a character.`);
 
   // Convert first, read second. Everything below this line reads fields by
@@ -661,14 +665,50 @@ export async function directoryAccess(
   }
 }
 
+/**
+ * Write a file into the chosen folder, then open it again and check.
+ *
+ * The write used to be reported as successful the moment `close()` resolved.
+ * That is not the same thing as a file on disk being readable: a `pagehide`
+ * write can be cut short when the phone freezes the page, a full disk can
+ * accept a stream and truncate it, and a sync client can be halfway through
+ * the file when the app reads back what it thinks it wrote. An unverified
+ * backup is not a backup, and this app's first rule about backups is never to
+ * claim one happened.
+ *
+ * The check here is the whole text, not a character count: byte equality
+ * catches a truncation at any offset. What the bytes *mean* is the caller's
+ * business - this function knows about text and folders, not about character
+ * sheets - so a caller that wants the file parsed passes `verify`, and
+ * `runBackup` does, because a backup is only a backup once it has been read
+ * back and counted.
+ */
 export async function writeIntoDirectory(
   handle: FileSystemDirectoryHandle,
   fileName: string,
   text: string,
+  options: { verify?: (written: string) => string | null } = {},
 ): Promise<SaveResult> {
   try {
     const file = await handle.getFileHandle(fileName, { create: true });
     await writeAndClose(await file.createWritable(), text);
+
+    const written = await (await file.getFile()).text();
+    const disagreement =
+      written !== text
+        ? `${fileName} was written but came back different when it was read again (${String(written.length)} characters instead of ${String(text.length)})`
+        : (options.verify?.(written) ?? null);
+
+    if (disagreement !== null) {
+      return {
+        ok: false,
+        route: 'file-system',
+        fileName,
+        cancelled: false,
+        reason: `${disagreement}, so it has not been counted as a backup.`,
+      };
+    }
+
     return { ok: true, route: 'file-system', fileName, cancelled: false, reason: null };
   } catch (err) {
     return {
