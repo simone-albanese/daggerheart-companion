@@ -12,205 +12,17 @@ before the one below.
 
 ---
 
-## Unreleased
-
-### The GM screen is the night, not five menus
-
-- **The session list is the GM screen.** It used to be a strip of five tabs —
-  encounter, scene, party, bestiary, countdowns — and every one of them worked.
-  What none of them was is the *evening*: a GM runs scene one, then an
-  encounter, then scene two, in an order they decided beforehand and change on
-  the fly, and the app made them navigate a menu to reach each one. The campaign
-  record has carried that list since campaigns were built, and nothing had ever
-  drawn it. Now the list is the screen, each row opens where it sits, and the
-  five tools open *over* it and close again.
-- **A row this version cannot read is still a row.** The store already refused
-  to drop an item written by a newer build, and a link pointing at something
-  this dataset does not carry; until now nothing could draw either, which made
-  that refusal worth nothing. Both are drawn: the unreadable row shows why and
-  the bytes exactly as they were stored, and an unresolved link says which kind
-  of thing is missing and prints the ref.
-- **A tool that is closed is gone, not hidden.** The party board opens the
-  camera to scan a player's character; a panel kept alive behind the screen
-  would leave it running.
-- **Arriving at the GM screen opens nothing, and neither does changing table.**
-  The record remembers which tool was last open, which is worth keeping and is
-  not an instruction — reading it as one would have put the encounter builder
-  over the plan every single time you arrived, and switching campaign or making
-  a new one would have dropped you into whatever that table had open last,
-  including a tool you had switched off in Settings.
-- **Rows move.** A handle at the right edge of every row: hold it for a quarter
-  of a second and drag, and the row goes where you put it. The list under the
-  same thumb still scrolls, because only the handle itself is taken away from
-  scrolling. If the phone interrupts the gesture — a call, the notification
-  shade — the row is put down where it got to and says so, rather than staying
-  stuck to your finger.
-- **And they move without dragging.** The arrow keys move the row whose handle
-  is focused, Home and End send it to either end, and an open row carries MOVE
-  UP and MOVE DOWN as ordinary buttons. A quarter-second hold followed by
-  accurate travel is not a gesture everybody can perform, and this is the same
-  feature rather than a lesser one.
-- **The GM section has a bottom bar of its own: ADD, SHOW, SAVE.** They are
-  verbs rather than places — each opens something over the plan and hands the
-  screen back when it closes — which is why none of them lights up as "where
-  you are".
-- **ADD writes the night.** Scene, encounter, link, countdown. A scene
-  remembers an environment; an encounter can take the roster that is on the
-  board right now; a link points at an adversary, an environment, a card or a
-  rule already inside the app, never at a web page; a countdown can be pinned
-  to the top bar from the form that makes it. Every new row arrives closed and
-  at the end of the list, and the button says so, so a sheet closing over a
-  twelve-row night does not look like nothing happened.
-- **SHOW is the two tools no row opens** — the bestiary, read-only, and the
-  party board. They were chips borrowed at the top of the screen while there
-  was no bar to put them in; they have gone back where they belong.
-- **SAVE says where your campaign is, and never pretends you had to press it.**
-  The campaign has been written 400 ms after every change since it moved into
-  the database, so the sheet flushes whatever is still in flight and then says
-  when the last change actually reached the disk — not when the record changed,
-  when the *write landed*. If a write failed, that sentence is replaced by the
-  failure and by a retry that does something.
-- **TRY AGAIN only appears where trying again would do something, and says when
-  it did not work.** It used to be drawn over every failure and to call the same
-  flush every time — which writes the open campaign, and so could do nothing at
-  all about a campaign that failed to be *deleted*, a device that could not be
-  *read*, or a new campaign whose write threw and left nothing marked as
-  unwritten. You pressed a red button, watched it say TRYING…, and got the same
-  red strip back. Now: the new campaign is written by the retry, a failed read
-  is retried by reading again, and a failed delete draws no button because
-  nothing was lost and the REMOVE you already have is the retry. A retry that
-  fails says so instead of settling back into the same sentence.
-- **A first campaign that could not be written says so.** On a device with no
-  campaign at all the app makes one, and if that very first write failed the
-  error was swallowed with a comment. Nothing read it, so nothing was visibly
-  wrong until SAVE existed — at which point the sheet would have stamped
-  "already on this device, just now" over a write that threw.
-- **A campaign file is a copy, and the app says it cannot read one back.**
-  `.dhcampaign` holds the whole table, party sheets included, and there is no
-  import for it yet. That is written where the button is now, rather than being
-  discovered on the day it matters.
-- **The tab bar is not on the GM screen, and MENU is where the way out went.**
-  The bottom of the phone belongs to ADD, SHOW and SAVE while you are running a
-  session; Play, Cards and Build are behind the campaign name at the top, which
-  is now a button the width of the screen rather than a label. Leaving the GM
-  tools is a rare gesture and the easiest reach should go to the ones you make
-  all evening. Settings is where it always was, in the header.
-- **MENU opens the two tools that a row would otherwise be needed for.** The
-  encounter builder and the live scene are the content of a session row, which
-  is the point of the rebuild — but improvising a fight should not mean writing
-  a plan row for it first. The other three are not repeated there: Fear and the
-  countdowns is behind the Fear number at the top, the bestiary and the party
-  board are behind SHOW, and the sheet says so rather than leaving you to
-  wonder.
-- **The campaigns you already had have a door.** Switch between them, make
-  another, rename the open one, remove one behind two taps. Renaming is offered
-  on the open campaign only, and the sheet says why: for any other row the app
-  would show you the new name and never write it down.
-- **A campaign cannot be renamed to nothing,** and it says so instead of quietly
-  putting the old name back. Two campaigns both called nothing at all are two
-  rows in a list you cannot tell apart.
-- **What this device did with your campaigns is finally on a screen.** Repairs
-  the app made while reading them, and campaigns written by a newer version of
-  the app that this one will not open — named, not counted, with the sentence
-  that nothing has been deleted.
-- **If the saved table wins a race against your hand, the screen says so.** The
-  campaign is read off the disk as the GM screen arrives, and anything you
-  change in that window is replaced by what was saved — the alternative is
-  writing an empty board over a real campaign. The loading panel used to promise
-  the opposite in the same breath ("nothing you do before it arrives will be
-  lost — it is the saved campaign that wins"), and the notice that it had
-  happened lived behind the MENU button. It says what actually happens now, and
-  if it happens it is a line under the top bar with a ✕, on the screen where you
-  made the change.
-- **Every control inside an open row says which row it belongs to.** A night
-  with three scenes drew three buttons called OPEN THE SCENE and three called
-  PUT THIS ON THE BOARD; on a screen read out loud they were indistinguishable.
-  The row already named its own DELETE that way; now the contents do too.
-- **The licence notice did not leave the GM screen; it moved into the scroll.**
-  It is 111px on a phone, and that screen now has bars at the top and the
-  bottom — but a notice the licence asks to be displayed is not what pays for a
-  layout, so it is the last thing in the session list instead of a strip above
-  the bar.
-
-- **A campaign that is not reaching this device says so on the screen, not in a
-  sheet.** The GM tools have known when a write failed since campaigns moved
-  into the database, and the only place that said so was behind the SAVE
-  button — which is one tap too many for that particular sentence. The person
-  who needs it is three hours into a session, adding rows and watching them
-  appear, with a tab that is about to close on all of it. It is a strip under
-  the top bar now, in the store's own words, with a retry beside it, and
-  nothing you open covers it.
-- **The whole GM section can be switched off, in Settings.** Most people holding
-  this app are players, and the GM tab is a quarter of the bar they navigate by.
-  Off, the tab goes, the desktop header's entry goes, and the app will not open
-  on the screen behind them — including on the next launch, when the last screen
-  you were on was that one. Nothing is deleted: every campaign is still on the
-  device and comes back with the switch.
-- **The bestiary and the party board can be switched off on their own,** and
-  when both are, SHOW leaves the bar rather than opening a sheet with nothing in
-  it — the two verbs that remain take the width it had. With one of the two off
-  SHOW still opens, offers the one that is left, and is announced as that one
-  rather than as both. The scene runner's empty state stops offering the
-  bestiary as well, so nowhere in the app points at a tool you have put away.
-
-**Not there yet, and named here rather than left to be discovered:** the bar has
-no SEARCH — full-text rule search is deferred, and the search a GM does at the
-table is the bestiary's own filter behind SHOW. The encounter builder and the
-scene runner have no switches of their own, because they are what a session row
-opens and a switch would make a row you had already written unopenable; Fear and
-the countdowns has none either, because the pool is spent from every corner of
-the app and the board behind that readout is the only place it can be set
-outright rather than one point at a time.
-
-### The rules the GM was looking up on paper
-
-- **MENU opens a reference, in seven subjects.** What to give an adversary you
-  are inventing, how hard to make a roll, what a scene is worth in Fear, how far
-  a dynamic countdown ticks, what Close and Far actually mean, the GM moves and
-  principles, and the Experiences to hang on a creature. Every word of it is
-  read out of the SRD this app already ships, at the moment it is drawn, with
-  the page number beside the table it came from — so a homebrew rules layer that
-  rewrites a section rewrites what you see.
-- **The two a GM wants mid-gesture are folded in beside the control.** The Fear
-  guidance sits under the Fear board's twelve targets; the advancement chart
-  sits under a dynamic countdown's own row. Both start shut, and neither moved
-  anything that was already there. The counter has had a maximum on it since the
-  GM screen was built and had never once said what a scene should cost.
-- **The advancement chart is six buttons, not ten.** Six of the SRD's cells
-  carry a number and those move the countdown you opened it from; the four that
-  say no advancement are printed and are not pressable, because a button that
-  performs no change is the app claiming something it will not do. Nothing
-  advances by itself — the app cannot know which roll was the one that mattered.
-- **Distances come with metres, and the screen says the metres are its own.**
-  The rules are written in feet and carry no metric figure anywhere, so every
-  one here is arithmetic this app did: feet times 0.3048, rounded to the nearest
-  half metre below ten and the nearest whole metre above, printed with the words
-  COMPUTED BY THIS APP on the same line. Where the rules give no figure, neither
-  does this.
-- **Setting a Difficulty is answered with an example, not an adjective.** For
-  each of the eighteen trait verbs there is a concrete sentence at 5, 10, 15,
-  20, 25 and 30 — "walk slowly across a narrow beam" rather than "medium". The
-  adjectives on the printed GM screen are not in the SRD and are not this app's
-  to print.
-- **Character creation shows all seventy-nine Experience examples.** It used to
-  show five, typed into the app by hand, under a restatement of the rule that
-  kept one of its four worked examples. Both are the SRD's own now, with the
-  examples behind a fold that starts shut so the two fields you type in did not
-  move.
-
-**Not there, and named rather than left to be found:** there are no name or
-place generators. The SRD this app ships contains none — no name list, no place
-list, nothing to roll on — and building them would mean copying text out of a
-licensed book, which is the one thing this project will not do. The Difficulty
-examples are also not attached to the roll screen's own difficulty box: that box
-is on the player's side, and the rules say the GM sets the number.
-
----
-
 ## 0.2.0 — 2026-08-16
 
 The first version this project chose. `0.1.0` was the scaffold default and
 described nothing; everything listed here happened under it, unreleased.
+
+**And this one has not been deployed either.** `origin/main` is behind the work
+below and the Pages deploy fires on a push, so no browser has run any of it yet.
+The date is the date the entry was written. **Nothing here is a 1.0** — the
+version is `0.2.0` on purpose, `BACKLOG.md` still carries the band of items that
+tell a player a wrong number, and no document in this repository may say
+otherwise.
 
 The one thing that categorically changed in this stretch: the app no longer has
 a known way to lose a character. That is the whole of the version bump. It is
@@ -401,6 +213,209 @@ be wrong* at the foot of this entry.
 - Six text-on-surface pairs that were below WCAG AA are lifted, including the
   10px label that carries 44 of the 61 small-caps captions in the app.
 
+### The GM screen is the night, not five menus
+
+- **The session list is the GM screen.** It used to be a strip of five tabs —
+  encounter, scene, party, bestiary, countdowns — and every one of them worked.
+  What none of them was is the *evening*: a GM runs scene one, then an
+  encounter, then scene two, in an order they decided beforehand and change on
+  the fly, and the app made them navigate a menu to reach each one. The campaign
+  record has carried that list since campaigns were built, and nothing had ever
+  drawn it. Now the list is the screen, each row opens where it sits, and the
+  five tools open *over* it and close again.
+- **A row this version cannot read is still a row.** The store already refused
+  to drop an item written by a newer build, and a link pointing at something
+  this dataset does not carry; until now nothing could draw either, which made
+  that refusal worth nothing. Both are drawn: the unreadable row shows why and
+  the bytes exactly as they were stored, and an unresolved link says which kind
+  of thing is missing and prints the ref.
+- **A tool that is closed is gone, not hidden.** The party board opens the
+  camera to scan a player's character; a panel kept alive behind the screen
+  would leave it running.
+- **Arriving at the GM screen opens nothing, and neither does changing table.**
+  The record remembers which tool was last open, which is worth keeping and is
+  not an instruction — reading it as one would have put the encounter builder
+  over the plan every single time you arrived, and switching campaign or making
+  a new one would have dropped you into whatever that table had open last,
+  including a tool you had switched off in Settings.
+- **Rows move.** A handle at the right edge of every row: hold it for a quarter
+  of a second and drag, and the row goes where you put it. The list under the
+  same thumb still scrolls, because only the handle itself is taken away from
+  scrolling. If the phone interrupts the gesture — a call, the notification
+  shade — the row is put down where it got to and says so, rather than staying
+  stuck to your finger.
+- **And they move without dragging.** The arrow keys move the row whose handle
+  is focused, Home and End send it to either end, and an open row carries MOVE
+  UP and MOVE DOWN as ordinary buttons. A quarter-second hold followed by
+  accurate travel is not a gesture everybody can perform, and this is the same
+  feature rather than a lesser one.
+- **The GM section has a bottom bar of its own: ADD, SHOW, SAVE.** They are
+  verbs rather than places — each opens something over the plan and hands the
+  screen back when it closes — which is why none of them lights up as "where
+  you are".
+- **ADD writes the night.** Scene, encounter, link, countdown. A scene
+  remembers an environment; an encounter can take the roster that is on the
+  board right now; a link points at an adversary, an environment, a card or a
+  rule already inside the app, never at a web page; a countdown can be pinned
+  to the top bar from the form that makes it. Every new row arrives closed and
+  at the end of the list, and the button says so, so a sheet closing over a
+  twelve-row night does not look like nothing happened.
+- **SHOW is the two tools no row opens** — the bestiary, read-only, and the
+  party board. They were chips borrowed at the top of the screen while there
+  was no bar to put them in; they have gone back where they belong.
+- **SAVE says where your campaign is, and never pretends you had to press it.**
+  The campaign has been written 400 ms after every change since it moved into
+  the database, so the sheet flushes whatever is still in flight and then says
+  when the last change actually reached the disk — not when the record changed,
+  when the *write landed*. If a write failed, that sentence is replaced by the
+  failure and by a retry that does something.
+- **TRY AGAIN only appears where trying again would do something, and says when
+  it did not work.** It used to be drawn over every failure and to call the same
+  flush every time — which writes the open campaign, and so could do nothing at
+  all about a campaign that failed to be *deleted*, a device that could not be
+  *read*, or a new campaign whose write threw and left nothing marked as
+  unwritten. You pressed a red button, watched it say TRYING…, and got the same
+  red strip back. Now: the new campaign is written by the retry, a failed read
+  is retried by reading again, and a failed delete draws no button because
+  nothing was lost and the REMOVE you already have is the retry. A retry that
+  fails says so instead of settling back into the same sentence.
+- **A first campaign that could not be written says so.** On a device with no
+  campaign at all the app makes one, and if that very first write failed the
+  error was swallowed with a comment. Nothing read it, so nothing was visibly
+  wrong until SAVE existed — at which point the sheet would have stamped
+  "already on this device, just now" over a write that threw.
+- **A campaign file is a copy, and the app says it cannot read one back.**
+  `.dhcampaign` holds the whole table, party sheets included, and there is no
+  import for it yet. That is written where the button is now, rather than being
+  discovered on the day it matters.
+- **The tab bar is not on the GM screen, and MENU is where the way out went.**
+  The bottom of the phone belongs to ADD, SHOW and SAVE while you are running a
+  session; Play, Cards and Build are behind the campaign name at the top, which
+  is now a button the width of the screen rather than a label. Leaving the GM
+  tools is a rare gesture and the easiest reach should go to the ones you make
+  all evening. Settings is where it always was, in the header.
+- **MENU opens the two tools that a row would otherwise be needed for.** The
+  encounter builder and the live scene are the content of a session row, which
+  is the point of the rebuild — but improvising a fight should not mean writing
+  a plan row for it first. The other three are not repeated there: Fear and the
+  countdowns is behind the Fear number at the top, the bestiary and the party
+  board are behind SHOW, and the sheet says so rather than leaving you to
+  wonder.
+- **The campaigns you already had have a door.** Switch between them, make
+  another, rename the open one, remove one behind two taps. Renaming is offered
+  on the open campaign only, and the sheet says why: for any other row the app
+  would show you the new name and never write it down.
+- **A campaign cannot be renamed to nothing,** and it says so instead of quietly
+  putting the old name back. Two campaigns both called nothing at all are two
+  rows in a list you cannot tell apart.
+- **What this device did with your campaigns is finally on a screen.** Repairs
+  the app made while reading them, and campaigns written by a newer version of
+  the app that this one will not open — named, not counted, with the sentence
+  that nothing has been deleted.
+- **If the saved table wins a race against your hand, the screen says so.** The
+  campaign is read off the disk as the GM screen arrives, and anything you
+  change in that window is replaced by what was saved — the alternative is
+  writing an empty board over a real campaign. The loading panel used to promise
+  the opposite in the same breath ("nothing you do before it arrives will be
+  lost — it is the saved campaign that wins"), and the notice that it had
+  happened lived behind the MENU button. It says what actually happens now, and
+  if it happens it is a line under the top bar with a ✕, on the screen where you
+  made the change.
+- **Every control inside an open row says which row it belongs to.** A night
+  with three scenes drew three buttons called OPEN THE SCENE and three called
+  PUT THIS ON THE BOARD; on a screen read out loud they were indistinguishable.
+  The row already named its own DELETE that way; now the contents do too.
+- **The licence notice did not leave the GM screen; it moved into the scroll.**
+  It is 111px on a phone, and that screen now has bars at the top and the
+  bottom — but a notice the licence asks to be displayed is not what pays for a
+  layout, so it is the last thing in the session list instead of a strip above
+  the bar.
+
+- **A campaign that is not reaching this device says so on the screen, not in a
+  sheet.** The GM tools have known when a write failed since campaigns moved
+  into the database, and the only place that said so was behind the SAVE
+  button — which is one tap too many for that particular sentence. The person
+  who needs it is three hours into a session, adding rows and watching them
+  appear, with a tab that is about to close on all of it. It is a strip under
+  the top bar now, in the store's own words, with a retry beside it, and
+  nothing you open covers it.
+- **The whole GM section can be switched off, in Settings.** Most people holding
+  this app are players, and the GM tab is a quarter of the bar they navigate by.
+  Off, the tab goes, the desktop header's entry goes, and the app will not open
+  on the screen behind them — including on the next launch, when the last screen
+  you were on was that one. Nothing is deleted: every campaign is still on the
+  device and comes back with the switch.
+- **The bestiary and the party board can be switched off on their own,** and
+  when both are, SHOW leaves the bar rather than opening a sheet with nothing in
+  it — the two verbs that remain take the width it had. With one of the two off
+  SHOW still opens, offers the one that is left, and is announced as that one
+  rather than as both. The scene runner's empty state stops offering the
+  bestiary as well, so nowhere in the app points at a tool you have put away.
+
+**Not there yet, and named here rather than left to be discovered:** the bar has
+no SEARCH — full-text rule search is deferred, and the search a GM does at the
+table is the bestiary's own filter behind SHOW. The encounter builder and the
+scene runner have no switches of their own, because they are what a session row
+opens and a switch would make a row you had already written unopenable; Fear and
+the countdowns has none either, because the pool is spent from every corner of
+the app and the board behind that readout is the only place it can be set
+outright rather than one point at a time.
+
+### The rules the GM was looking up on paper
+
+- **MENU opens a reference, in seven subjects.** What to give an adversary you
+  are inventing, how hard to make a roll, what a scene is worth in Fear, how far
+  a dynamic countdown ticks, what Close and Far actually mean, the GM moves and
+  principles, and the Experiences to hang on a creature. Every word of it is
+  read out of the SRD this app already ships, at the moment it is drawn, with
+  the page number beside the table it came from — so a homebrew rules layer that
+  rewrites a section rewrites what you see.
+- **The two a GM wants mid-gesture are folded in beside the control.** The Fear
+  guidance sits under the Fear board's twelve targets; the advancement chart
+  sits under a dynamic countdown's own row. Both start shut, and neither moved
+  anything that was already there. The counter has had a maximum on it since the
+  GM screen was built and had never once said what a scene should cost.
+- **The advancement chart is six buttons, not ten.** Six of the SRD's cells
+  carry a number and those move the countdown you opened it from; the four that
+  say no advancement are printed and are not pressable, because a button that
+  performs no change is the app claiming something it will not do. Nothing
+  advances by itself — the app cannot know which roll was the one that mattered.
+- **Distances come with metres, and the screen says the metres are its own.**
+  The rules are written in feet and carry no metric figure anywhere, so every
+  one here is arithmetic this app did: feet times 0.3048, rounded to the nearest
+  half metre below ten and the nearest whole metre above, printed with the words
+  COMPUTED BY THIS APP on the same line. The conversion is made on the range
+  lines themselves — a span like "5-10 feet" or a single figure — and the note
+  above them says so, and says that figures inside the surrounding prose are
+  left exactly as the book wrote them. Where a line gives no figure, neither
+  does this.
+- **Setting a Difficulty is answered with an example, not an adjective.** For
+  each of the eighteen trait verbs there is a concrete sentence at 5, 10, 15,
+  20, 25 and 30 — "walk slowly across a narrow beam" rather than "medium". The
+  adjectives on the printed GM screen are not in the SRD and are not this app's
+  to print.
+- **Character creation shows all seventy-nine Experience examples.** It used to
+  show five, typed into the app by hand, under a restatement of the rule that
+  kept one of its four worked examples. Both are the SRD's own now, with the
+  examples behind a fold that starts shut so the two fields you type in did not
+  move.
+- **What a panel says when it has nothing to show is about the screen it is on.**
+  Three of these tables are drawn in two places — once in the reference, once
+  folded under the control they belong to — and where a homebrew rules layer
+  leaves one of them empty, the sentence that replaces it used to describe the
+  other place. The advancement chart told you to use "the − and + above" on a
+  screen that has neither; the Fear guidance said "the pool above still works"
+  where there is no pool; and the note explaining which tier column is marked was
+  printed even when a rules layer's own column headings had left nothing marked.
+  Each now checks before it speaks.
+
+**Not there, and named rather than left to be found:** there are no name or
+place generators. The SRD this app ships contains none — no name list, no place
+list, nothing to roll on — and building them would mean copying text out of a
+licensed book, which is the one thing this project will not do. The Difficulty
+examples are also not attached to the roll screen's own difficulty box: that box
+is on the player's side, and the rules say the GM sets the number.
+
 ### Offline
 
 - **The service worker is registered.** It existed, was tested, and no browser
@@ -439,6 +454,23 @@ be wrong* at the foot of this entry.
 ### Known to be wrong
 
 Kept here because a changelog that lists only the fixes describes a different
-app. `BACKLOG.md` is the full account; the headline items still open are that
-the app can still show a player a wrong number in places, the tablet layout
-still cannot roll, and some failures are still silent.
+app. `BACKLOG.md` is the full account. The tablet layout **can** roll now, so
+that line has gone from this list. What is still open, in order of what it costs
+someone:
+
+- **A card this build cannot name is drawn on the sheet, but never healed.** The
+  ghost rows are there and the loadout cap counts them, which is the half a
+  player sees. The other half — the sentence on the transfer screen promising
+  that a missing card *"will resolve when the missing source is added"* — is a
+  repair no code in the app performs. `BACKLOG.md` P1-6.
+- **Two characters with the same name can still be created**, and a plain import
+  of a genuinely different character with a colliding name still writes it. The
+  rule holds on the rename control and on the *keep both* copy, and nowhere else.
+  `BACKLOG.md` P5-1(c).
+- **A roll result is still announced to nobody on a desktop.** On a phone the
+  verdict is inside the button you pressed; on a desktop it renders into an inert
+  panel with no live region anywhere near it. `BACKLOG.md` P2-6.
+- **Typography is in pixels**, so the operating system's font-size setting does
+  nothing to this app. `BACKLOG.md` P2-3.
+- **The browser floor is written down nowhere**, and eight `color-mix()` values
+  sit where no build target can reach them. `BACKLOG.md` P4-8.
