@@ -100,42 +100,88 @@ const TRACK_PATH: Record<TrackKind, React.JSX.Element> = {
 };
 
 /**
- * A row of empty boxes.
+ * How far in from the cell edge a strike has to start to stay inside the shape.
+ *
+ * One number per silhouette rather than one for all four, because the shapes do
+ * not fill their cells equally. A cross drawn at 2 sits inside the HP square
+ * and outside the Hope diamond, whose top-left edge is the line x+y=5.7 - it
+ * came out looking like a second diamond laid over the first rather than a slot
+ * crossed out, which is the one thing this mark has to say.
+ */
+const CROSS_INSET: Record<TrackKind, number> = { hp: 2, stress: 2.2, hope: 3.2, armor: 2.6 };
+
+/** The two lines that strike a slot out, inscribed in this kind's silhouette. */
+function cross(kind: TrackKind): React.JSX.Element {
+  const a = CROSS_INSET[kind];
+  const b = 10 - a;
+  return <path d={`M${a} ${a} L${b} ${b} M${b} ${a} L${a} ${b}`} />;
+}
+
+/**
+ * A row of empty boxes: the slots you have, the slots you could still earn, and
+ * the slots you have lost.
  *
  * Empty is the point: a printed sheet is played with a pencil, so what it owes
  * the player is somewhere to make a mark, not a picture of the marks they had
  * when they pressed print. One `<svg>` holds the whole row rather than one per
  * box - a level 10 character prints 40 of these.
+ *
+ * `growth` draws boxes past the current maximum as broken outlines, which is
+ * the one idea worth taking off the official sheet: it is the only way a
+ * printed track can say "six now, twelve at most" without printing a sentence.
+ * The dash is 1.2 units on, 1.1 off in a 10-unit cell - roughly 0.4mm of ink to
+ * 0.37mm of gap at the default 3.4mm box - which reads as broken at arm's
+ * length and still survives a 300dpi laser, where anything finer fills in.
+ *
+ * `crossed` strikes slots out, for the Hope diamonds a scar has taken.
  */
 export function TickRow({
   kind,
   count,
+  growth = 0,
+  crossed = 0,
   size = 3.4,
   gap = 1.1,
 }: {
   kind: TrackKind;
   count: number;
+  /** Boxes past the maximum, drawn dashed. */
+  growth?: number;
+  /** Boxes struck through, drawn after the solid ones. */
+  crossed?: number;
   /** Box side, in millimetres. Sized for a pencil, not a finger. */
   size?: number;
   gap?: number;
 }): React.JSX.Element | null {
-  if (count <= 0) return null;
+  const solid = Math.max(0, count);
+  const total = solid + Math.max(0, crossed) + Math.max(0, growth);
+  if (total <= 0) return null;
   const pitch = size + gap;
+  const step = 10 + (gap / size) * 10;
   return (
     <svg
-      width={`${count * pitch - gap}mm`}
+      width={`${total * pitch - gap}mm`}
       height={`${size}mm`}
-      viewBox={`0 0 ${count * 10 + (count - 1) * ((gap / size) * 10)} 10`}
+      viewBox={`0 0 ${total * 10 + (total - 1) * ((gap / size) * 10)} 10`}
       fill="none"
       stroke="currentColor"
       strokeWidth="0.9"
       aria-hidden="true"
     >
-      {Array.from({ length: count }, (_, i) => (
-        <g key={i} transform={`translate(${i * (10 + (gap / size) * 10)} 0)`}>
-          {TRACK_PATH[kind]}
-        </g>
-      ))}
+      {Array.from({ length: total }, (_, i) => {
+        const struck = i >= solid && i < solid + crossed;
+        const dashed = i >= solid + crossed;
+        return (
+          <g
+            key={i}
+            transform={`translate(${i * step} 0)`}
+            {...(dashed ? { strokeDasharray: '1.2 1.1' } : {})}
+          >
+            {TRACK_PATH[kind]}
+            {struck && cross(kind)}
+          </g>
+        );
+      })}
     </svg>
   );
 }

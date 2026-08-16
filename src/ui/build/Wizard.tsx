@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   TRAITS,
   TRAIT_LABELS,
+  TRAIT_VERBS,
   type Ancestry,
   type CharClass,
   type Ref,
@@ -81,16 +82,6 @@ const TRAIT_VALUES = [2, 1, 0, -1] as const;
 
 /** Which equipment slot the picker is open for. */
 type Slot = 'primary' | 'secondary' | 'armor';
-
-/** The parenthetical verbs the SRD prints beside each trait. */
-const TRAIT_VERBS: Record<Trait, string> = {
-  agility: 'Sprint · Leap · Maneuver',
-  strength: 'Lift · Smash · Grapple',
-  finesse: 'Control · Hide · Tinker',
-  instinct: 'Perceive · Sense · Navigate',
-  presence: 'Charm · Perform · Deceive',
-  knowledge: 'Recall · Analyze · Comprehend',
-};
 
 function poolRemaining(traits: Draft['traits']): Map<number, number> {
   const pool = new Map<number, number>();
@@ -869,7 +860,7 @@ function StepTraits({
                 <span className="stack" style={{ gap: 4 }}>
                   <span style={{ font: '700 15px/1 var(--sans)' }}>{TRAIT_LABELS[t]}</span>
                   <span className="t-meta" style={{ color: 'var(--dim)' }}>
-                    {TRAIT_VERBS[t].toUpperCase()}
+                    {TRAIT_VERBS[t].join(' · ').toUpperCase()}
                   </span>
                 </span>
                 <span
