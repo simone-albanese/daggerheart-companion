@@ -115,7 +115,7 @@ describe('keeping both copies', () => {
 /**
  * The one rule about two characters with the same name.
  *
- * `merge.ts:63-75` stated this rule and argued for it - *"the character picker
+ * `merge.ts::duplicateFor` argues for it - *"the character picker
  * in the header is a `<select>` of names, so two characters called 'Ilya' would
  * be indistinguishable at exactly the moment the user most needs to tell them
  * apart"* - and then enforced it on one of its two doors. The other door, a

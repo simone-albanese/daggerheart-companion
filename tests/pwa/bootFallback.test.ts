@@ -391,8 +391,9 @@ describe('the hatch that does not need the bundle', () => {
      * And the real thing still gets its stores - derived from `STORES` rather
      * than written out a third time. This assertion was a literal four-name
      * array and it broke the day a fifth store landed, which is the drift
-     * `db.ts:445` already warns about in so many words: "the list written twice
-     * is the list that drifts." The claim here is not "there are four stores",
+     * `db.ts::clearAll` already warns about in its own words: "the list written
+     * out again is how a new store gets added and quietly survives the button
+     * that promises to remove everything." The claim here is not "there are four",
      * it is "the naked rescue `open` did not leave a version-1 database behind
      * that makes `openDB` skip its own upgrade" - and that claim is strongest
      * when it asks for whatever `db.ts` currently declares.

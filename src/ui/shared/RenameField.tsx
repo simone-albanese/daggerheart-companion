@@ -132,7 +132,7 @@ export function RenameField({
   // person actually is, which is the field:
   //
   //   `role="status"`, on a region mounted empty and filled when the name
-  //   collides - the pattern `Wizard.tsx:274` uses for the creation wizard's
+  //   collides - the pattern the creation wizard's `StepIdentity` uses for its
   //   blocking reason. Mounted empty rather than mounted with the sentence in
   //   it, because a live region has to exist before its contents change for the
   //   change to be spoken.

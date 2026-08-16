@@ -2,7 +2,7 @@
 /**
  * The unique-name rule, seen through the control that enforces it.
  *
- * `merge.ts:63-75` states the rule and argues for it: the character picker in
+ * `merge.ts::duplicateFor` argues for it: the character picker in
  * the header is a `<select>` of names, so two characters called "Ilya" are
  * indistinguishable at exactly the moment you most need to tell them apart.
  * `duplicateFor` enforced it on the import path. The rename path - the one

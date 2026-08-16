@@ -1687,7 +1687,8 @@ describe('rolling the damage the attack earned', () => {
  * Every input query here is scoped to `input[aria-label="Character name"]`. A
  * bare `container.querySelector('input')` would be non-null before anything is
  * tapped and after: `Vitals.tsx:128-133` draws the incoming-damage field on the
- * phone, which :190-193 of this file pins green on purpose.
+ * phone, which this file's 'the damage calculator is not on the phone' pins
+ * green on purpose.
  */
 describe('renaming from the sheet', () => {
   const nameField = (): HTMLInputElement | null =>
