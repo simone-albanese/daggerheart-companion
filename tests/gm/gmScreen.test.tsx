@@ -1018,6 +1018,51 @@ describe('MENU', () => {
     expect(text()).toContain('behind SHOW');
   });
 
+  /*
+   * The same sentence, in the two preference states it used to be false in.
+   *
+   * `GmBar` opens SHOW only while one half of its fork is switched on and drops
+   * the verb entirely when both are off, and Settings already says so in words:
+   * "With both off SHOW has nothing left to open, so it leaves the GM screen's
+   * bottom bar". This sheet named SHOW unconditionally, so with the bestiary
+   * and the party board switched off it sent the GM to a control that was not
+   * on the screen - the app contradicting itself about its own bar, two
+   * settings apart.
+   */
+  const sheetText = (): string =>
+    container.querySelector('[role="dialog"]')?.textContent ?? '';
+
+  it('names all three doors while both halves of SHOW are switched on', () => {
+    openMenu();
+    expect(sheetText()).toContain('The other three already have a way in');
+    expect(sheetText()).toContain('the bestiary and the party board are behind SHOW');
+  });
+
+  it('names only the half of SHOW that is still on the screen', () => {
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartyBoard: false } });
+    openMenu();
+    expect(sheetText()).toContain('The other two already have a way in');
+    expect(sheetText()).toContain('the bestiary is behind SHOW');
+    expect(
+      sheetText(),
+      'the sheet sent the GM to SHOW for a tool this build does not offer',
+    ).not.toContain('the party board are behind SHOW');
+    // And the tool that is gone is accounted for, so its absence is an answer
+    // rather than a gap - the same rule the sentence exists to keep.
+    expect(sheetText()).toContain('The party board is switched off in Settings');
+  });
+
+  it('does not point at SHOW when SHOW is not on the bar', () => {
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false } });
+    openMenu();
+    expect(
+      sheetText(),
+      'MENU named a verb the GM can look down at the bar and not find',
+    ).not.toContain('behind SHOW');
+    expect(sheetText()).toContain('behind the Fear number at the top');
+    expect(sheetText()).toContain('SHOW is not on the bottom bar at all');
+  });
+
   it('does not offer Settings, because the header already does on every screen', () => {
     openMenu();
     expect(buttons().map((b) => (b.textContent ?? '').trim())).not.toContain('SETTINGS');

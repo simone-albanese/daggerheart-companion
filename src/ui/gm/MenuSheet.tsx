@@ -22,7 +22,8 @@
  * the content of a session row now, which is the whole point of the rebuild -
  * but three of them have a fixed control as well and two did not. Fear and the
  * countdowns are behind the Fear readout, which is always drawn; the bestiary
- * and the party board are behind SHOW. The encounter builder had nothing, and
+ * and the party board are behind SHOW, for as long as Settings leaves either of
+ * them switched on - see `whereTheOthersAre`. The encounter builder had nothing, and
  * the live scene had only a chip that exists while adversaries are on the
  * board - so a GM improvising a fight had to ADD an encounter row, name it,
  * submit it, open it and press OPEN THE BUILDER, creating a plan row they may
@@ -109,17 +110,53 @@ const WAYS_OUT: Array<{ id: Screen; label: string }> = [
 /**
  * The tools nothing else on this screen can open.
  *
- * Not all five, and the two that are missing from the list are missing on
- * purpose: the bestiary and the party board are behind SHOW, Fear and the
- * countdowns is behind the readout that is always in the top bar, and none of
- * the three is switchable in the way that would make this list a hedge. These
- * two are the content of a row and nothing else, which was fine until a GM
- * wanted one without a row.
+ * Not all five, and the three that are missing from the list are missing on
+ * purpose: Fear and the countdowns is behind the readout that is always in the
+ * top bar, and the bestiary and the party board are behind SHOW. These two are
+ * the content of a row and nothing else, which was fine until a GM wanted one
+ * without a row.
+ *
+ * The list itself is fixed; the *sentence* under it is not, because two of the
+ * three doors it names are switchable. See `whereTheOthersAre`.
  */
 const TOOLS: Array<{ id: GmRegion; label: string }> = [
   { id: 'encounter', label: 'THE ENCOUNTER BUILDER' },
   { id: 'scene', label: 'THE LIVE SCENE' },
 ];
+
+/**
+ * Where the three tools this sheet does not repeat are, in whichever build the
+ * GM is actually holding.
+ *
+ * This sentence named SHOW unconditionally, and SHOW is not unconditional.
+ * `GmBar` filters the verb out when `gmBestiary` and `gmPartyBoard` are both
+ * off, and `ShowSheet` opens only the surviving half when one is - so with both
+ * switched off the sheet was pointing at a control the GM can look down at the
+ * bar and not find, and with one off it was promising two things behind a verb
+ * that offers one. Settings has said the first half of this out loud since it
+ * was written - "With both off SHOW has nothing left to open, so it leaves the
+ * GM screen's bottom bar" - which made this the app contradicting itself about
+ * its own bar, two settings apart, with each half tested and neither read
+ * against the other.
+ *
+ * A switched-off tool is named as switched off rather than as somewhere to go:
+ * it drops out of the count as well as out of the route, and the reader is sent
+ * to Settings, which is where it went, instead of to a verb that is not there.
+ * Read here rather than taken as a prop for the same reason `GmBar` reads it -
+ * what this sheet says is this sheet's business.
+ */
+function whereTheOthersAre(bestiary: boolean, partyBoard: boolean): string {
+  const fear = 'Fear and the countdowns are behind the Fear number at the top';
+  if (bestiary && partyBoard) {
+    return `The other three already have a way in and are not repeated here: ${fear}, the bestiary and the party board are behind SHOW.`;
+  }
+  if (bestiary || partyBoard) {
+    const there = bestiary ? 'the bestiary is' : 'the party board is';
+    const gone = bestiary ? 'The party board is' : 'The bestiary is';
+    return `The other two already have a way in and are not repeated here: ${fear}, and ${there} behind SHOW. ${gone} switched off in Settings.`;
+  }
+  return `The one that is left already has a way in and is not repeated here: ${fear}. The bestiary and the party board are both switched off in Settings, so SHOW is not on the bottom bar at all.`;
+}
 
 export function MenuSheet({
   onClose,
@@ -134,6 +171,8 @@ export function MenuSheet({
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const setScreen = useApp((s) => s.setScreen);
+  const bestiary = useApp((s) => s.prefs.gmBestiary);
+  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
   const hydrated = useGm((s) => s.hydrated);
@@ -189,9 +228,7 @@ export function MenuSheet({
         </div>
         <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           These two are otherwise the content of a session row, so improvising a fight meant
-          writing a row for it first. The other three already have a way in and are not repeated
-          here: Fear and the countdowns are behind the Fear number at the top, the bestiary and
-          the party board are behind SHOW.
+          writing a row for it first. {whereTheOthersAre(bestiary, partyBoard)}
         </p>
       </div>
 
