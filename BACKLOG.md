@@ -34,8 +34,8 @@ There is no server and no second copy. Everything in this section ends with
 someone's months of play gone and nothing to restore from. This is the only
 section where being wrong cannot be fixed afterwards.
 
-### P0-1 · Importing a file silently overwrites a newer character
-`src/store/state.ts:233` · `src/ui/settings/Settings.tsx:468` · **medium, 2–4 h**
+### ~~P0-1 · Importing a file silently overwrites a newer character~~ — **done, `2c176c5`**
+`src/store/merge.ts` · `src/ui/shared/ImportConflicts.tsx` · **medium, 2–4 h**
 
 `importCharacter` is an unconditional `db.putCharacter(c)`. IndexedDB `put` is
 keyed on `id`, so restoring an August backup **overwrites the September
@@ -50,14 +50,30 @@ For contrast: deleting *one* character requires arm-then-confirm with a full
 inventory of what is lost (`Edit.tsx:392`). Overwriting the whole library takes
 one tap.
 
-- [ ] Route `Settings.tsx:468` through `restoreFromText(text, { mode: 'merge' })`
-      and surface its `imported / skipped / replaced` counts.
-- [ ] Make `importCharacter` itself refuse to clobber: compare `updatedAt` and
-      offer keep-mine / take-theirs / keep-both-under-a-new-id.
-- [ ] Same guard on the two other blind paths: QR receive (`Transfer.tsx:302`)
-      and clipboard paste (`Settings.tsx:675`). `Recovery.tsx:34` is already safe
-      — it only renders on an empty library.
-- [ ] Rewrite the hint so it describes what actually happens.
+- [x] ~~Route Settings through `restoreFromText`~~ — **done differently, and the
+      difference matters.** `restoreFromText` writes straight to IndexedDB, so
+      routing the screen through it would update the database behind the store's
+      back and leave the library on screen stale. What was shared instead is the
+      *rule*: `src/store/merge.ts` holds `decideImport`, and both
+      `restoreFromText` and the store's import call it. One implementation, two
+      callers, rather than the one correct implementation with no callers that
+      this bullet found.
+- [x] ~~Make `importCharacter` itself refuse to clobber~~ — **done**. It returns
+      the conflict with nothing written; the screen offers KEEP MINE /
+      TAKE THEIRS / KEEP BOTH. KEEP BOTH mints a new id *and* a new name,
+      because the header picker is a list of names and two characters called
+      Ilya are indistinguishable at exactly the moment you need to tell them
+      apart. `updatedAt` is left alone so the copy does not look newer than it
+      is.
+- [x] ~~Same guard on the other blind paths~~ — **done, all four**, including
+      `Recovery.tsx`, which was **not** exempt: "only renders on an empty
+      library" is not "only renders when the library is empty", and `state.ts`
+      empties `characters` whenever the read fails. The storage banner
+      promising the characters are still there sat directly above a Paste
+      button that wrote over them by id.
+- [x] ~~Rewrite the hint~~ — **done**, and it now names the case it used to
+      hide: updated in place *unless this device has the newer edit, in which
+      case nothing is written over and you are asked.*
 
 ### P0-2 · The automatic backup never runs, and Settings says it does
 `src/store/backup.ts:324` · `src/ui/settings/Settings.tsx:561` · **medium, 4–6 h**
@@ -144,24 +160,24 @@ zeroes a *player's* HP.
       and move `opacity: holding ? 0.75 : 1` with them. `DualityRoll.tsx:557`
       already does this correctly — copy that shape.
 
-### P0-5 · Second-tier durability
+### ~~P0-5 · Second-tier durability~~ — **done, `d8e222a`**
 **~4 h total**
 
-- [ ] **Persistent storage is never requested on an import path.** `create()`
+- [x] ~~**Persistent storage is never requested on an import path.**~~ — **done.** `create()`
       asks when the library is empty (`state.ts:203`); `importCharacter` never
       asks — and the user who just restored a library onto a fresh origin has the
       most at stake. Once populated by import, `first` is false forever, so a
       later `create()` never asks either. *(trivial)*
-- [ ] **The IndexedDB connection is never reopened after the browser kills it.**
+- [x] ~~**The IndexedDB connection is never reopened after the browser kills it.**~~ — **done**, `terminated` plus a reset on rejection.
       `db.ts:47` is `dbPromise ??= openDB(...)` with no `terminated` callback and
       no reset on rejection: one force-closed connection and every write for the
       life of the tab rejects into P0-3's void. Pass
       `terminated: () => { dbPromise = null; }` and clear on rejection —
       `handleStore` in `backup.ts:132` already uses that pattern. Add
       `blocked`/`blocking` before ever bumping `DB_VERSION`. *(trivial)*
-- [ ] **A pending debounced write can resurrect a just-deleted character.**
+- [x] ~~**A pending debounced write can resurrect a just-deleted character.**~~ — **done**, and before the database delete rather than after.
       `remove()` (`state.ts:221`) does not `pending.delete(id)`. *(trivial)*
-- [ ] **One malformed record makes the whole library unreadable — usually.**
+- [x] ~~**One malformed record makes the whole library unreadable — usually.**~~ — **done**, by reading database records through the same hardened reader the file path uses. What cannot be read is quarantined by name; what can be repaired is repaired, so a missing `updatedAt` costs a timestamp rather than a character. One clause the item did not anticipate: a record whose `updatedAt` is invented fresh on every launch wins every merge comparison against every backup, forever, so repairs are persisted once.
       `db.ts:67` sorts with `b.updatedAt.localeCompare(...)`; a record missing
       that field throws and `listCharacters` fails entirely — surfacing as the
       storage banner claiming everything is probably fine. Filter-and-quarantine
@@ -178,7 +194,7 @@ zeroes a *player's* HP.
       reason. (An adversarial verifier claimed the opposite — that it never
       throws — on the strength of one fixture that happened to put the bad
       record last. Both halves were wrong; the sweep is in the session log.)
-- [ ] **A backup is recorded as successful without ever being read back**
+- [x] ~~**A backup is recorded as successful without ever being read back**~~ — **done.** `writeIntoDirectory` reopens the file and compares the whole text; `runBackup` passes a `verify` callback that parses it and counts the characters. The split is deliberate — the writer knows about text and folders, the caller knows what the bytes mean. Both folder fakes in the suite had to learn to be read back, which is itself the point: a fake that cannot be reopened reports every backup as a failure.
       (`fileIo.ts:549`), and the download route reports success from a click. An
       unverified backup is not a backup: re-open the handle with `getFile()`,
       parse it, assert the character count, and only then `stamp`. *(small)*
