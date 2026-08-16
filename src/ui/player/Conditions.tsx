@@ -14,9 +14,10 @@
  * and 43 of the 189 domain cards create a lasting one. A label the player types
  * is not the app executing card text. It is a sticky note.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { isVulnerableFromStress } from '../../engine/damage.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { useDialog } from '../shared/useDialog.ts';
 import {
   MAX_LABEL,
   MAX_NAMED,
@@ -262,24 +263,14 @@ function ConditionsDialog({
   const removeNamed = useConditions((s) => s.removeNamed);
   const clear = useConditions((s) => s.clear);
   const [draft, setDraft] = useState('');
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog('Conditions', onClose);
 
   if (!character) return <div />;
   const derived = isVulnerableFromStress(character);
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Conditions"
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,

@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
 import { getArt } from '../../store/db.ts';
 import { DOMAIN_MARKS, DomainMark, domainColor } from './DomainMark.tsx';
+import { useDialog } from './useDialog.ts';
 
 function useArt(key: string | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null);
@@ -515,21 +516,11 @@ export function CardReader({
   const art = useArt(card.artKey);
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog(card.name, onClose);
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={card.name}
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,

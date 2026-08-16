@@ -18,7 +18,7 @@
  * book does not exist, and a player deciding what to save for needs to see the
  * tier 3 weapon they are saving for.
  */
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import {
   RANGES,
   TRAITS,
@@ -34,6 +34,7 @@ import {
 } from '../../../shared/types.ts';
 import { deriveStats, weaponDamage, type DerivedStats } from '../../engine/character.ts';
 import { useApp } from '../../store/state.ts';
+import { useDialog } from '../shared/useDialog.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
 import {
   armorQuery,
@@ -107,20 +108,11 @@ function PickerDialog({
   onClear?: () => void;
   clearLabel?: string;
 }): React.JSX.Element {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog(label, onClose);
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={label}
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,

@@ -12,7 +12,7 @@
  * the eight level-up options, the numbers you set once - opens in a sheet over
  * the top, because a fight never needs them.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RANGES, type Range } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import {
@@ -25,6 +25,7 @@ import {
 } from '../../engine/companion.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Track } from '../shared/Track.tsx';
+import { useDialog } from '../shared/useDialog.ts';
 
 export type Who = 'you' | 'companion';
 
@@ -328,15 +329,11 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
   const character = useActive();
   const update = useApp((s) => s.update);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const companion = character?.companion ?? null;
+  const dialog = useDialog(
+    companion === null ? 'Companion sheet' : `${companion.name} — companion sheet`,
+    onClose,
+  );
   if (companion === null) return <div />;
 
   const set = (patch: Parameters<typeof withCompanion>[1]): void => {
@@ -359,10 +356,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${companion.name} — companion sheet`}
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,

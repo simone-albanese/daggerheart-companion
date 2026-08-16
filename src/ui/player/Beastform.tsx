@@ -11,7 +11,7 @@
  * Nothing here is written into the character's traits. The override is computed
  * by `deriveStats`, so leaving the form restores the sheet exactly.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Beastform as Form } from '../../../shared/types.ts';
 import { TRAIT_LABELS } from '../../../shared/types.ts';
 import type { BeastformInPlay, DerivedStats } from '../../engine/character.ts';
@@ -25,6 +25,7 @@ import {
   leaveBeastform,
 } from '../../engine/beastform.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { useDialog } from '../shared/useDialog.ts';
 
 /** Sage carries "transformed" everywhere, but never on its own. */
 const SAGE = 'var(--sage)';
@@ -355,13 +356,7 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
     [character, dataset],
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog('Choose a Beastform', onClose);
 
   if (!character) return <div />;
 
@@ -389,10 +384,7 @@ function Picker({ stats, onClose }: { stats: DerivedStats; onClose: () => void }
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Choose a Beastform"
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,

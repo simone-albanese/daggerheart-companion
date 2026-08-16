@@ -16,7 +16,7 @@
  * The three options and their exact wording come from the dataset, not from
  * memory.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addScar,
   avoidDeath,
@@ -31,6 +31,7 @@ import {
 } from '../../engine/death.ts';
 import { hasFallen } from '../../engine/damage.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
+import { useDialog } from '../shared/useDialog.ts';
 import { MAX_NAMED, useConditions, useConditionsFor } from './conditionsStore.ts';
 import { paragraphs, ruleBullets } from './ruleText.ts';
 
@@ -139,14 +140,7 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
   const [scarNote, setScarNote] = useState('');
   /** Set once something has actually been written to the character. */
   const [applied, setApplied] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog('Death move', onClose);
 
   if (!character) return <div />;
 
@@ -162,10 +156,7 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Death move"
-      onClick={onClose}
+      {...dialog}
       style={{
         position: 'fixed',
         inset: 0,
