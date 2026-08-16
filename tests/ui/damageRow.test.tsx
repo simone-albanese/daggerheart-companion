@@ -143,12 +143,15 @@ describe('what the row puts in front of the player', () => {
     expect(text()).toContain('NO DAMAGE');
   });
 
-  it('says the dice are yours when the roller is off', () => {
-    // `canRoll` false means this build cannot make the roll. A control labelled
-    // ROLL DAMAGE would be promising one anyway.
-    mount(attack(), rollAffordance(false, true));
+  it('says the dice are yours when neither switch is on', () => {
+    // Both off is a real state, reachable from Settings in two taps: this build
+    // can neither roll the dice nor take a number for them. A control labelled
+    // ROLL DAMAGE would be promising one anyway, so there is no control - and
+    // the row still says what the pool is, and where the switch is.
+    mount(attack(), rollAffordance(false, false));
     expect(buttons()).toHaveLength(0);
     expect(text()).toMatch(/yours to roll/i);
+    expect(text()).toMatch(/settings/i);
     expect(text()).toContain('3d10+3');
   });
 
@@ -219,5 +222,131 @@ describe('what rolling it does, and what it must not do', () => {
     // And the first roll is still on the record: a re-roll does not claim the
     // roll before it never happened.
     expect(useApp.getState().log[1]!.total).toBe(first);
+  });
+});
+
+/**
+ * The dice a table rolls on the table.
+ *
+ * The Duality dice have taken typed values since the roller was built, and the
+ * damage dice could not - so a table that rolls physical dice could resolve
+ * half of an attack in the app and had to do the other half in their head. It
+ * gates on the same `affordance.canType` the Hope and Fear faces gate on, so
+ * one switch means one thing and the two halves of a roll cannot disagree about
+ * whether this table types its dice.
+ *
+ * The engine still does all of the arithmetic: the faces go in as `fixed` and
+ * the total comes back out of `rollDamage`. A row that summed them itself would
+ * be a second route to a damage total, and the first thing a second route does
+ * is get the critical bonus wrong.
+ */
+describe('typing the dice in, for a table that rolls its own', () => {
+  const typing = rollAffordance(true, true);
+
+  /** Open slot `index` and pick a face off its grid, the way a thumb does. */
+  function typeFace(index: number, value: number): void {
+    const slot = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Damage die ${index + 1} of `),
+    );
+    if (slot === undefined) throw new Error(`no slot ${index + 1} to type into`);
+    click(slot);
+    const face = buttons().find((b) => b.textContent === String(value));
+    if (face === undefined) throw new Error(`the face grid has no ${String(value)}`);
+    click(face);
+  }
+
+  const slots = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Damage die '));
+
+  it('draws one slot per die, each one saying which die it is', () => {
+    mount(attack({ source: weapon({ count: 3, sides: 20, modifier: 2 }) }), typing);
+    expect(slots()).toHaveLength(3);
+    expect(slots().map((s) => s.getAttribute('aria-label'))).toEqual([
+      'Damage die 1 of 3, not entered',
+      'Damage die 2 of 3, not entered',
+      'Damage die 3 of 3, not entered',
+    ]);
+    // 44 square. The face grid it opens is `Die`'s idiom at five across.
+    expect(slots()[0]!.style.minHeight).toBe('var(--tap)');
+    expect(slots()[0]!.style.minWidth).toBe('var(--tap)');
+  });
+
+  it('sends every face to the engine, and resolves on the last one', () => {
+    /*
+     * A d20 pool on purpose: the mutation this is written against is a `fixed`
+     * that loses entries, and with twenty faces a lost die cannot land on the
+     * same total by luck.
+     */
+    mount(attack({ source: weapon({ count: 3, sides: 20, modifier: 2 }) }), typing);
+    typeFace(0, 3);
+    typeFace(1, 4);
+    expect(useApp.getState().log, 'it resolved before every die had a value').toHaveLength(0);
+
+    typeFace(2, 5);
+    const log = useApp.getState().log;
+    expect(log).toHaveLength(1);
+    expect(log[0]!.total).toBe(14);
+    expect(log[0]!.detail).toContain('3 + 4 + 5 +2 = 14');
+    expect(slots().map((s) => s.textContent)).toEqual(['3', '4', '5']);
+  });
+
+  it('adds the critical bonus to typed dice, the way the book’s example does', () => {
+    // "if an attack would normally deal 2d8+1 damage, a critical success would
+    // deal 2d8+1+16." The SRD's own worked example, arriving through the
+    // screen rather than through the engine's own test.
+    mount(
+      attack({
+        source: weapon({ count: 2, sides: 8, modifier: 1 }),
+        critical: true,
+        outcome: 'critical',
+      }),
+      typing,
+    );
+    typeFace(0, 3);
+    typeFace(1, 5);
+    expect(useApp.getState().log[0]!.total).toBe(3 + 5 + 1 + 16);
+  });
+
+  it('shows what a digital roll rolled, so the dice never contradict the total', () => {
+    // The Duality bar mirrors its result onto the Hope and Fear faces for the
+    // same reason: a row of dice sitting beside a total they do not add up to
+    // is the screen disagreeing with itself.
+    mount(attack({ source: weapon({ count: 3, sides: 20, modifier: 2 }) }), typing);
+    click(buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Roll '))!);
+    const entry = useApp.getState().log[0]!;
+    const shown = slots().map((s) => Number(s.textContent));
+    expect(shown.filter((n) => Number.isFinite(n))).toHaveLength(3);
+    expect(shown.reduce((a, b) => a + b, 0) + 2).toBe(entry.total);
+  });
+
+  it('names the switch that is off instead of greying out ROLL DAMAGE', () => {
+    /*
+     * Typed dice on, digital dice off: the slots are the only way in, and the
+     * button knows it. It takes its word from the affordance - ENTER YOUR DICE,
+     * the same word the Duality bar wears in this state - because a disabled
+     * control still saying ROLL DAMAGE is the app naming the thing it will not
+     * do.
+     */
+    mount(attack({ source: weapon({ count: 2, sides: 8, modifier: 2 }) }), rollAffordance(false, true));
+    expect(slots()).toHaveLength(2);
+    const control = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Enter'));
+    expect(control, 'no control at all where the disabled one should be').toBeDefined();
+    expect(control!.disabled).toBe(true);
+    expect(control!.textContent).toContain('ENTER YOUR DICE');
+    expect(control!.textContent).not.toContain('ROLL DAMAGE ·');
+
+    // And it still works: the roll this build cannot make is made by hand.
+    typeFace(0, 6);
+    typeFace(1, 7);
+    expect(useApp.getState().log[0]!.total).toBe(15);
+  });
+
+  it('leaves the character record alone on the typed path too', () => {
+    const before = structuredClone(useApp.getState().characters[0]);
+    mount(attack({ source: weapon({ count: 2, sides: 8, modifier: 2 }) }), typing);
+    typeFace(0, 6);
+    typeFace(1, 7);
+    expect(useApp.getState().log[0]!.total).toBe(15);
+    expect(useApp.getState().characters[0], 'typing damage wrote to the character').toEqual(before);
   });
 });

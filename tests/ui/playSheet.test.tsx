@@ -1190,6 +1190,25 @@ describe('rolling the damage the attack earned', () => {
   const damageControl = (): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Roll '));
 
+  /** The damage dice, which only exist when this table types its own. */
+  const damageSlots = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Damage die '));
+
+  /** The same gesture as `typeFace`, on a grid that is five across, not four. */
+  function typeDamageFace(index: number, value: number): void {
+    const slot = damageSlots()[index];
+    if (slot === undefined) throw new Error(`no damage slot ${String(index + 1)}`);
+    click(slot);
+    const pinned = container.firstElementChild!.children[1]!;
+    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+      (d) => d.style.gridTemplateColumns === 'repeat(5, 1fr)',
+    );
+    if (grid === undefined) throw new Error('the damage die did not open its face grid');
+    const cell = [...grid.querySelectorAll('button')].find((b) => b.textContent === String(value));
+    if (cell === undefined) throw new Error(`the face grid has no ${String(value)}`);
+    click(cell);
+  }
+
   it('offers the scaled pool, and the critical bonus that pool earns', () => {
     // Battleaxe is d10+3, and the fixture is Proficiency 2 - so the pool is
     // 2d10+3 and the critical adds 20, not 10. Matching faces are a critical.
@@ -1275,6 +1294,35 @@ describe('rolling the damage the attack earned', () => {
     // There is no log surface on a phone, so the number has to be on the
     // control itself.
     expect(control.textContent).toContain(String(entry!.total));
+  });
+
+  it('takes the damage dice by hand, for a table that rolls them on the table', () => {
+    /*
+     * The whole path, through the real screen: arm the axe, type the two
+     * Duality faces, then type the two damage faces the same way. Typing was
+     * half-built before this - the Duality dice took a typed value and the
+     * damage dice had nowhere to put one - so a table with real dice resolved
+     * the attack in the app and did the damage in their heads.
+     */
+    withTypedDice({ activePrimaryWeapon: 'battleaxe' });
+    click(weaponRow('Battleaxe'));
+    typeFace('HOPE', 6);
+    typeFace('FEAR', 3);
+    expect(damageSlots(), 'the axe rolls 2d10+3 and drew no slots for it').toHaveLength(2);
+    // Held before the dice land, because the control renames itself the moment
+    // it has a total to announce.
+    const control = damageControl()!;
+
+    typeDamageFace(0, 7);
+    expect(useApp.getState().log.some((e) => e.kind === 'damage')).toBe(false);
+    typeDamageFace(1, 9);
+
+    const entry = useApp.getState().log.find((e) => e.kind === 'damage');
+    expect(entry, 'the typed dice never reached a damage roll').toBeDefined();
+    // 7 + 9 + 3 on a 2d10+3 pool, and the engine did the addition.
+    expect(entry!.total).toBe(19);
+    expect(entry!.detail).toContain('7 + 9 +3 = 19');
+    expect(control.textContent).toContain('19');
   });
 
   /*
