@@ -21,9 +21,16 @@
  * source, with the item that will delete each line written beside it, and the
  * second test here fails if an entry outlives its reason.
  *
- * That is the property worth having. Wire `takeRest` to a screen and this file
- * fails until somebody deletes the line that said it was not wired - so the
- * inventory cannot rot into a list of names nobody has read since 2026.
+ * That is the property worth having. Give the loadout a control that can
+ * reorder it and this file fails until somebody deletes the line saying
+ * `reorderLoadout` has no caller - so the inventory cannot rot into a list of
+ * names nobody has read since 2026.
+ *
+ * The example here used to be `takeRest`, and `851d04c` wired it to the Play
+ * screen: the line that said it was not wired is gone, exactly as promised.
+ * Which left the header arguing its case from a symbol the list below no
+ * longer holds - the argument came true and stopped being checkable in the
+ * same commit. Pick a live one, and this paragraph stays testable.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
