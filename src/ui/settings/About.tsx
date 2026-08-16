@@ -13,14 +13,9 @@ import { appBackupDeps } from '../../store/backupDeps.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
+import { ATTRIBUTION } from '../shared/CompatibleMark.tsx';
 import { formatBytes } from './binaryFiles.ts';
 import { Field, Note, Rows, Section } from './parts.tsx';
-
-export const ATTRIBUTION =
-  'This product includes materials from the Daggerheart System Reference Document 1.0, ' +
-  '© Critical Role, LLC, under the terms of the Darrington Press Community Gaming License. ' +
-  'More information at www.daggerheart.com. Daggerheart Compatible. Independent community ' +
-  'content, not affiliated with or endorsed by Critical Role, LLC or Darrington Press.';
 
 const DOES = [
   'Damage thresholds, and how many HP an incoming hit marks',
@@ -109,7 +104,13 @@ export function About({
         style={{ padding: 14, borderLeft: '3px solid var(--hope)' }}
       >
         <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)', lineHeight: 1.6 }}>
-          {ATTRIBUTION}
+          {/*
+            One paragraph, from the one array. This used to be a second literal
+            declared in this file, and About.tsx is on the P4 work list - so the
+            next refactor of this screen could have dropped the notice with CI
+            green and nothing but a diff to notice it.
+          */}
+          {ATTRIBUTION.join(' ')}
         </p>
       </div>
 
