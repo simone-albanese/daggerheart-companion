@@ -195,6 +195,23 @@ describe('what the rename control writes, and when', () => {
     expect(stored()).toBe('Il  ya');
   });
 
+  it('tells the keyboard not to rewrite the name after it has been typed', () => {
+    // The guard refuses and offers; it never substitutes. None of that reaches
+    // iOS, which puts a dictionary word in place of a fantasy name on the space
+    // or on blur - "Thren" typed, "Then" stored - after the characters are
+    // already on the glass, which is what makes it silent. It is the one route
+    // by which this field can break its own rule, and the rule is the reason
+    // the field exists.
+    seed('Fixture');
+    openRename();
+    expect(field().getAttribute('autocorrect')).toBe('off');
+    expect(field().getAttribute('autocomplete')).toBe('off');
+    expect(field().getAttribute('spellcheck')).toBe('false');
+    // Set, not removed, and not `off`: a virtual keyboard's shift state is the
+    // one hint here that never replaces a character already typed.
+    expect(field().getAttribute('autocapitalize')).toBe('words');
+  });
+
   it('lets a character keep its own name', () => {
     // Without `except`, the character collides with itself and SAVE can never
     // be pressed at all.

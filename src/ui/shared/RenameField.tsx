@@ -161,6 +161,30 @@ export function RenameField({
       <div className="row" style={{ gap: 6 }}>
         <label className="stack" style={{ flex: 1, minWidth: 0, gap: 4 }}>
           {label !== undefined && <span className="t-label">{label}</span>}
+          {/*
+           * The keyboard is told to keep its hands off, because it is the one
+           * route by which this field could break its own rule.
+           *
+           * "It never silently rewrites what was typed" is enforced above
+           * against the app: the guard refuses and offers, it does not
+           * substitute. None of that reaches iOS, which substitutes a
+           * dictionary word for a fantasy name on the space or on blur - the
+           * player types "Thren" and the record says "Then" - and does it after
+           * the character is on the glass, which is what makes it silent. So
+           * `autoCorrect` and `spellCheck` are off, and `autoComplete` with
+           * them: a field whose accessible name is "Character name" is exactly
+           * what a browser offers to fill with the person's own. This is the
+           * same pair `settings/About.tsx:307-308` puts on the ERASE
+           * confirmation, the other input in this app where the string typed is
+           * the whole point of the control.
+           *
+           * `autoCapitalize` is set rather than removed, and set to `words`
+           * rather than `off`, because it is the one of the four that never
+           * replaces a character already typed: it is the shift state a virtual
+           * keyboard opens in, watched by the person pressing the next key. A
+           * name field wants it, and the default on iOS - `sentences` - only
+           * offers it for the first word of two.
+           */}
           <input
             type="text"
             aria-label="Character name"
@@ -169,6 +193,10 @@ export function RenameField({
             placeholder="Unnamed"
             aria-invalid={refusal !== null}
             aria-describedby={refusal === null ? undefined : refusalId}
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="words"
             autoFocus={autoFocus}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitOnBlur ? commit : undefined}
