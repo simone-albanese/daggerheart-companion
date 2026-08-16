@@ -42,10 +42,14 @@ const writeRaw = async (record: Record<string, unknown>): Promise<void> => {
 };
 
 describe('opening the database', () => {
-  it('creates all four stores on a device that has never run the app', async () => {
+  it('creates all five stores on a device that has never run the app', async () => {
+    // Five since `campaigns` joined them at DB_VERSION 2. The upgrade path
+    // that adds it to a device already holding the four is exercised in
+    // `tests/store/campaignDb.test.ts`, next to the store it belongs to.
     const database = await db.db();
     expect([...database.objectStoreNames].sort()).toEqual([
       'art',
+      'campaigns',
       'characters',
       'content',
       'layers',
