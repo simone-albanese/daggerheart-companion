@@ -149,8 +149,23 @@ perché e come portare l'arte dal computer (§ 5.4).
 ## 2. Primo avvio
 
 L'app non è più vuota. All'apertura hai già 189 carte dominio, 129 avversari,
-tutte le classi e tutte le tabelle. **Il primo schermo è "crea un personaggio",
-non "carica un PDF".**
+tutte le classi e tutte le tabelle. **Il primo schermo non è "carica un PDF".**
+
+E non è nemmeno più "crea un personaggio", che è la frase che questa riga ha
+portato fin qui. Un dispositivo nuovo apriva su Build, e Build con la libreria
+vuota **è** il wizard di creazione, il cui primo passo è `{ id: 'class' }`: la
+prima cosa che questa app abbia mai mostrato a chiunque erano nove carte classe
+che chiedevano quale volessi essere — mostrate a un GM, e mostrate a chi il
+personaggio ce l'aveva finito da un'ora su un altro telefono. **Adesso chiede
+prima chi c'è al tavolo** (decisione 9): due domande per un giocatore, tre per un
+GM, e per chi ha già la scheda altrove nessuna domanda ma una porta, perché la
+scheda dice già tutto quello che l'app dovrebbe chiedere. `needsOnboarding` in
+`prefs.ts` la disegna solo con la libreria vuota e con `onboarded` falso; una
+scheda letta da disco senza quella chiave è letta **come già onboardata**, o ogni
+aggiornamento chiederebbe «chi tiene in mano questo telefono?» a chi gioca da
+mesi. Si può saltare a ogni passo, e il salto finisce sulla stessa scheda
+riassuntiva di ogni altro percorso, coi default: uscire per sbaglio è il modo in
+cui una funzione diventa una che nessuno ha mai visto.
 
 L'invito all'acquisto resta, ma smette di essere un pedaggio e diventa un'offerta:
 una riga discreta e persistente nelle impostazioni, più una comparsa contestuale
@@ -801,10 +816,11 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Tutto, in una colonna sola: non è fisso niente** | La regola «nessuno scroll» è caduta con `91097eb`; il blocco fisso che l'aveva sostituita è caduto con P5-5. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda intera, che non ci sta — e con i contatori e le soglie in cima e le Experience in una tendina, ROLL sta sopra la piega senza essere fissato a **entrambe** le larghezze di riferimento: 385 su 730 a 393×852, 385 su 545 a 375×667 |
+| **Play** (giocatore) | **Tutto, in una colonna sola: non è fisso niente** | La regola «nessuno scroll» è caduta con `91097eb`; il blocco fisso che l'aveva sostituita è caduto con P5-5. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda intera, che non ci sta — e con i contatori e le soglie in cima e le Experience in una tendina, ROLL sta sopra la piega senza essere fissato a **entrambe** le larghezze di riferimento: 306 su 730 a 393×852, 306 su 545 a 375×667 |
 | **Cards** | **Nella griglia, filtri compresi: la barra dei filtri è la prima riga della griglia** | 189 carte, ovvio — ma «nella griglia» era falso finché i filtri stavano fuori dallo scroll. Il blocco filtri è 278px su qualunque telefono in verticale, 226 a 640×360, 170 dove la prima riga sta su una riga sola, contro una colonna di H−130 sul telefono e H−87 sul tablet: a 320×568 restavano 148px alla griglia contro una carta di 268, e a 640×360 la griglia finiva con un content box di **0px** disegnato dentro la tab bar, cioè uno scroll che non esisteva. Ora lo scrollport è tutta la colonna — 438 a 320×568, 722 a 393×852, 230 a 640×360 — e i filtri scorrono via con le carte che filtrano. E dove non c'è spazio (telefono per larghezza **o** finestra bassa, `useIsShort()`, ≤520px) il blocco è due righe invece di quattro: ricerca, la porta FILTERS e il conteggio, **62px**, col resto dietro la porta e mandato a capo. Misurato in Chrome: le carte visibili senza scorrere passano da 148 a 364 a 320×568, da 432 a 648 a 393×852, da 124 a 232 a 852×393, da 0 a 156 a 640×360. Nessuna riga di filtri scorre più in orizzontale a nessuna larghezza: le due rail nascondevano 484px e 447px a 393 senza dirlo, e mandarle a capo costa 100px alla banda larga a 744×1133 (170→270 di 1046) e zero da 890 in su |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
+| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU e non da una riga |
 
 **In fondo a ognuno di quei cinque scroll c'è l'avviso di licenza, e non c'è
 niente dopo** (P5-6). Non è chrome: è l'ultimo blocco del contenuto, un filetto
@@ -824,7 +840,46 @@ mai lascia l'ultima riga sotto l'home indicator. Le tre barre lo dichiarano come
 `calc(0px + env(...))`: il parser CSS di jsdom butta via un `env()` nudo, quindi
 finché era nudo nessun test poteva leggerlo — dentro `calc()` sopravvive, e
 `attribution.test.tsx` conta i pagatori su ogni schermata a due larghezze.
-| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU e non da una riga |
+
+**La precondizione di tutti gli inset, che nessun documento aveva mai scritto.**
+`index.html` dichiara `width=device-width, initial-scale=1, viewport-fit=cover`.
+Il terzo termine non è un dettaglio: senza `viewport-fit=cover` iOS impagina
+dentro la safe area e riporta **ogni** `env()` come 0, quindi il padding
+dell'home indicator, quello del notch e quello del ritaglio laterale
+diventerebbero no-op tutti insieme e in silenzio. `maximum-scale` e
+`user-scalable=no` restano assenti per scelta (WCAG 1.4.4).
+`tests/ui/safeArea.test.ts` adesso lo asserisce.
+
+**Da questo passaggio la shell paga anche la coppia orizzontale**, che nessuno
+aveva mai pagata — `grep -rn 'safe-area-inset-left\|safe-area-inset-right' src/`
+dava zero occorrenze in tutto l'albero. `Header.tsx` dichiara
+`paddingLeft: 'calc(20px + env(safe-area-inset-left))'` e il simmetrico a destra,
+`TabBar.tsx` gli stessi due su base `0px`. **La regola è diversa da quella
+dell'inset inferiore**: l'orizzontale non si paga «una volta per schermata», lo
+paga *ogni* riga che dipinge il proprio sfondo fino al bordo fisico del vetro —
+perché il padding sta dentro il background box, quindi `--panel` continua a
+coprire tutta la larghezza mentre il contenuto rientra. Pagarlo su `.app` o su
+`<main>` sposterebbe anche lo sfondo e lascerebbe una striscia di `--app` lungo
+il ritaglio.
+
+**L'inset orizzontale è simmetrico, e tutto il primo giro di misure di questo
+repo lo trattava come a un lato solo.** In orizzontale iOS riporta `-left` e
+`-right` **allo stesso valore non nullo**, perché UIKit rientra entrambi i bordi
+lunghi in modo che una rotazione di 180 gradi non ricomponga la pagina, e WebKit
+rispecchia gli inset della view dentro `env()`. Solo in verticale la coppia
+orizzontale è 0. Quindi il content box perde **due volte** l'inset, non una, e le
+due strisce sono vive nello stesso fotogramma: a 852×393 con 59 per lato, il
+marchio da 20,8px sepolto a sinistra e SETTINGS coperto al 71,7% a destra erano
+lo stesso istante, non due rotazioni alternative. *(~~«in verticale iOS riporta 0
+su entrambi i lati, quindi le due dichiarazioni sono una garanzia e non una
+riparazione»~~: **superata**. Sono una riparazione, e su un iPhone da 6,1" con
+Display Zoom acceso — viewport 320×693, cioè 693×320 di taglio, sotto i 720 —
+anche `TabBar` è disegnata su un dispositivo che il ritaglio ce l'ha ancora.)*
+Il codice era ed è corretto: `Header.tsx` e `TabBar.tsx` pagano `paddingLeft` e
+`paddingRight` in modo indipendente, il che è giusto a 0, a 44 o a 59 per lato.
+**Cosa non è pagato**: le sei fasce di chrome dentro `<main>`, la colonna di
+Play, i rail dei filtri di Cards, `GmBar` e i sei overlay con `env()` dentro uno
+shorthand. Sta in `BACKLOG.md` e in `AUDIT-HANDOFF.md` §7 punto 6.
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un
@@ -844,17 +899,22 @@ adesso la fornisce l'ordine: con i quattro contatori e le soglie in cima, dove i
 messaggio di Giorgio li mette, con le Experience dietro una tendina sotto ROLL e
 senza più la riga MODIFIERS permanente, e da P5-6 con i quattro contatori a
 griglia 2×2 (94px invece di 194) e la casella del danno dentro la banda delle
-difese (che non cresce di un pixel), il bordo inferiore di ROLL cade a **385
+difese (che non cresce di un pixel), il bordo inferiore di ROLL cade a **306
 di 730** px di colonna utile a 393×852 (852 meno 53 di header, 61 di tab bar, 8
-di padding) e a **385 di 545** a 375×667. Fissato, ROLL stava 8px sopra un
-bersaglio di 98×60 che porta via dalla schermata; libero, ne sta 353 sopra.
+di padding) e a **306 di 545** a 375×667 — lo stesso numero alle due larghezze,
+perché tutto ciò che gli sta sopra è alto uguale. Fissato, ROLL stava 8px sopra
+un bersaglio di 98×60 che porta via dalla schermata; libero, ne sta 432 sopra.
 Non è solo aritmetica dichiarata: misurato in Chrome via `preview.html` col
 fixture `playedCharacter`, ogni sezione viene disegnata esattamente all'altezza
-che dichiara e ROLL finisce a 385.
+che dichiara.
+*(~~385 di 730 e 385 di 545~~, e 353 sopra la tab bar: **superati** dalle
+decisioni 1-7 dell'audit. La decisione 3 ha tolto il blocco identità dal
+telefono e tutto ciò che stava sotto è salito di quei pixel. Il numero vecchio
+resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)*
 Niente su Play è fisso, non c'è più uno scroller interno e non c'è più il
 pavimento, che esisteva solo perché un blocco fisso poteva affamare lo scroll.
 
-L'ordine è quello del messaggio: identità, le quattro difese **con la casella
+L'ordine è quello del messaggio: le quattro difese **con la casella
 del danno come quinta cella** — sta accanto alle due soglie contro cui la si
 legge, e prima stampava `8/16` in 10px accanto a sé perché le soglie le serviva
 e non le vedeva — i quattro contatori **due per riga**, i tratti, ROLL, e poi le
@@ -862,12 +922,18 @@ tendine: armi e armature, Experience, inventario (con l'oro sull'intestazione),
 carte (col vault dentro), riposo e per ultima la lineage, che apre coi domini.
 Ogni tendina parte chiusa, perché il conto qui sopra è fatto a tendine chiuse e
 un default che lo contraddicesse renderebbe il numero una finzione.
+**Il blocco identità non apre più l'elenco sul telefono**: la decisione 3
+dell'audit l'ha tolto — il nome, la classe e il livello sono già nell'header, e
+RENAME ha già la sua unica porta in Build — e la porta delle condizioni che
+viveva in quella riga è passata nella quinta cella della banda.
 
 **Le condizioni non sono più una riga di quell'elenco** (P5-8). Non si disegna
 niente per dire che non c'è niente: la striscia compare solo quando qualcosa è
 attivo, nel posto che aveva sempre avuto, e la porta permanente è
-`ConditionsControl` — 44×44 in fondo alla riga della classe dell'identità,
-accanto a RENAME, in una banda che RENAME tiene già aperta a 44, quindi costa
+`ConditionsControl` — 44×44 in testa alla **quinta cella della banda delle
+difese** (a P5-8 stava in fondo alla riga della classe dell'identità, accanto a
+RENAME; la decisione 3 ha tolto quella riga dal telefono), dentro una riga che
+le celle dei numeri tengono già aperta a 64, quindi costa
 alla colonna esattamente zero. Con la scheda pulita il controllo è vuoto e legge
 `— COND`; con qualcosa attivo si riempie, conta quante sono e il suo nome
 accessibile le elenca tutte, Vulnerable derivato dallo Stress pieno incluso. La
@@ -876,23 +942,38 @@ inflitto, quindi l'unica cosa che questa forma non può fare è tacerne una.
 Sul desktop non cambia niente — `Vitals` monta `ActiveConditions` senza prop,
 la striscia è permanente e la sua chip `+ NAME` resta l'unica porta.
 
-Nella banda le quattro celle non sono più larghe uguali: `EVASION` a `.t-meta`
-misura 47.75px, quindi quattro celle uguali più la casella non ci stanno neanche
-a 393 (386.29 contro 369). Dimensionate al contenuto i quattro numeri fanno
-230.08 e la casella prende il resto — 114.92 a 393, 96.92 a 375, contro i 91.29
-che le servono. Mentre c'è un numero nella casella il verdetto occupa una seconda
-riga larga tutta la banda e la banda passa a 108: è l'unico stato di questa
-schermata che sposta ciò che ha sotto, ed è lo stato in cui ciò che ha sotto non
-è ciò che stai guardando.
+Nella banda le quattro celle non sono più larghe uguali: `EVASION` a `.t-meta`,
+con lo `0.08em` di tracking della cella, misura **47.61px**, quindi quattro celle
+uguali più la quinta non ci stanno neanche a 393. Dimensionate al contenuto le
+quattro fanno **210.47** — 61.61 EVASION, 52.84 MAJOR (la dimensiona il suo
+numero a due cifre a 32px, non la sua etichetta), 54.81 SEVERE, 41.20 PROF, ognuna
+con `8px 6px` di padding e il filetto da 1px di `.panel` — e con quattro gap da
+6px la parte fissa della banda è **234.47**. La quinta traccia è
+`colonna − 234.47` e regge una porta delle condizioni da 44px, una grondaia da 6
+e un campo da 44: 134.53 di traccia per 94 di contenuto a 393, 116.53 a 375,
+101.53 a 360, 61.53 a 320, dove va a capo su due righe e la banda passa a 94
+invece di 64. Mentre c'è un numero **non confermato** nella casella il verdetto
+occupa una seconda riga larga tutta la banda e la banda passa a **120**: è
+l'unico stato di questa schermata che sposta ciò che ha sotto, ed è lo stato in
+cui ciò che ha sotto non è ciò che stai guardando.
+*(~~47.75, 230.08, 114.92 e la didascalia `TOOK`~~: **superati**. Precedevano il
+reflow ed erano scritti al presente; `TOOK` non esiste più, l'ha sostituito la
+porta delle condizioni. `playSheet.test.tsx` legge adesso l'inchiostro delle
+quattro celle dal DOM e asserisce il 210.47, così la costante non può più
+invecchiare da sola.)*
 
 L'aritmetica non è prosa: sta in `playSheet.test.tsx`, nel describe «the budget
 the pin came off for», che somma le altezze *dichiarate* — jsdom non ha motore di
 layout e il test dice da sé cosa può e cosa non può dimostrare. Dice anche le
-cifre che non fanno bella figura. Il margine sotto ROLL a 375×667 era di 10px ed
-è di **160**, e **nessuno** degli stati che il conto non vede se lo mangia: dadi
-digitati, che sono il più caro dei cinque a **+68** e ne lasciano 92, un compagno
-(+50), un Beastform (+52), un modificatore armato (+50) e i 34px dell'inset
-dell'home indicator.
+cifre che non fanno bella figura. Il margine sotto ROLL a 375×667 era di 10px,
+è stato 160 dopo P5-6 ed è di **239** dopo il reflow dell'audit, e **nessuno**
+degli stati che il conto non vede se lo mangia: dadi digitati, che sono il più
+caro dei cinque a **+68** e ne lasciano 171, un compagno (**+58**), un Beastform
+(+52), un modificatore armato (+50) e i 34px dell'inset dell'home indicator.
+*(~~un compagno (+50)~~: era la scatola contata senza lo spazio in cui viene
+messa, lo stesso errore del banner della shell. `WhoSwitch` sul telefono è un
+bottone da 44px dentro `padding: 3` e 1px di bordo per lato — scatola da **52** —
+più i 6px di gap del pannello di `Vitals`: **58**. `Play.tsx` porta ancora +50.)*
 
 Gli stati erano sei e il più caro erano i pip, a **+100**: restavano a tutta
 larghezza — una traccia da 12 caselle in una cella da 172px andrebbe a capo sotto
@@ -910,12 +991,19 @@ di 44 che questo progetto si è dato, e dove la preferenza non arrivava comunque
 Restano dove si legge lo stato di qualcun altro invece di segnare il proprio: la
 plancia del party, la scena dal vivo e il compagno.
 
-**E la scheda piegata intera ci sta: 697 contro 730 a 393×852, con 33px di
-avanzo.** È la prima volta, ed è la condizione che la decisione 1 di P5-5 aveva
-messo sulla rimozione del pin: 899 con P5-5 (169 di troppo), 749 con P5-6 (19 di
-troppo), 697 con P5-8. A 744×1133 ci sta con 375px di avanzo. A 375×667 è ancora
-**152px di troppo**, dove erano 204, e nessuna disposizione di questa scheda lo
-chiude: 152 sono tre intestazioni di tendina e le tendine sono sei.
+**E la scheda piegata intera ci sta: 618 contro 730 a 393×852, con 112px di
+avanzo.** È la condizione che la decisione 1 di P5-5 aveva messo sulla rimozione
+del pin: 899 con P5-5 (169 di troppo), 749 con P5-6 (19 di troppo), 697 con P5-8
+(33 di avanzo, la prima volta), **618 dopo le decisioni 1-7 dell'audit**. A
+744×1133 ci sta con 454px di avanzo. A 375×667 è ancora **73px di troppo**, dove
+erano 152: sono un'intestazione di tendina e un gap, dove erano tre.
+**E per la prima volta entra in un Android da 360×800**: 618 contro 678, 60 di
+avanzo — cosa che il report dava per impossibile perché aveva costato la
+decisione 5 senza la correzione di larghezza accanto (un chip più alto non è un
+chip più stretto). Quella correzione è la `flex-basis` dei tratti portata da 46 a
+44: a `1 1 46px` la riga dichiarava 6 × 46 + 44 + 24 = 344, cioè esattamente la
+colonna a viewport 368; a `1 1 44px` dichiara 332 ed è una riga sola **da 356 in
+su**. Con due condizioni accese la scheda è 670 contro 678 e ci sta ancora.
 
 Gli ultimi 52 sono venuti dalle condizioni e da nient'altro. I tre risparmi di
 P5-6 erano stimati 198 e valevano 150: la griglia 2×2 vale i 100 previsti, la
@@ -926,23 +1014,29 @@ L'unica forma che toglie quei 52 è quella della decisione 6, e P5-8 l'ha presa.
 Il test lo dice con dei numeri invece che con un silenzio, e nessuno di quei
 numeri è comprato stringendo un gap.
 
-**Una cosa che non ci sta ancora, detta e non arrotondata.** Un iPhone con home
+**La cosa che non ci stava per un capello, e adesso ci sta.** Un iPhone con home
 indicator installato come PWA paga `env(safe-area-inset-bottom)`, 34px, che
-questo repo ha sempre trattato come 0: la colonna a 393×852 passa da 730 a 696 e
-i 697 diventano **un pixel di troppo**. «Tutta la scheda in una volta sola» è
-vera nel browser su quel telefono e falsa per un capello nell'app installata, e
-l'inset sul telefono del proprietario non l'ha ancora misurato nessuno.
+questo repo ha sempre trattato come 0: la colonna a 393×852 passa da 730 a 696.
+Contro i 697 di P5-8 era **un pixel di troppo**; contro i 618 di adesso sono 78px
+di stanza. Resta vero che **l'inset sul telefono del proprietario non l'ha ancora
+misurato nessuno**, ed è la prima voce di `AUDIT-HANDOFF.md` §7.
 
 **Dov'è ROLL sul vetro, e quanto costa.** Misurato in Chrome col fixture, tendine
-chiuse, in cima allo scroll: la riga di ROLL va da y372 a y438 a entrambe le
+chiuse, in cima allo scroll: la riga di ROLL va da **y293 a y359** a entrambe le
 larghezze di riferimento, perché tutto ciò che le sta sopra è alto uguale. A
-393×852 sono **414–480px sopra il bordo inferiore** e 353 sopra la tab bar; a
-375×667 sono 229–295 sopra il bordo. Il commento in `Play.tsx` ha portato per due
-passate le coordinate di prima della griglia (y522-588, «264–330px dal bordo,
-*dentro* una spazzata del pollice di ~330px») e con i numeri si è ribaltata la
-conclusione: a 414–480 ROLL è **fuori** da quell'arco sul telefono grande, e
-dentro su quello piccolo. È un costo vero della rimozione del pin ed è scritto
-come tale; quello che compra è la scheda intera leggibile in un colpo e 353px di
+393×852 sono **493–559px sopra il bordo inferiore** e **432 sopra la tab bar**; a
+375×667 sono **308–374** sopra il bordo e 247 sopra la barra. Il commento in
+`Play.tsx` ha portato per due passate le coordinate di prima della griglia
+(y522-588, «264–330px dal bordo, *dentro* una spazzata del pollice di ~330px») e
+con i numeri si è ribaltata la conclusione: ROLL è **fuori** da quell'arco.
+*(P5-8 aveva corretto quelle coordinate a y372-438, cioè 414–480 dal bordo, e a
+quella misura il telefono piccolo era ancora **dentro** l'arco. Il reflow ha
+peggiorato la cosa invece di migliorarla, ed è giusto che si veda: ogni pixel che
+la scheda accorcia sopra ROLL è un pixel più lontano dal pollice a riposo.
+A 393×852 ROLL sta ora ~163px oltre il bordo esterno dell'arco dove ne stava 84;
+a 375×667 l'arco l'ha lasciato del tutto, di 44px.)*
+È un costo vero della rimozione del pin ed è scritto
+come tale; quello che compra è la scheda intera leggibile in un colpo e 432px di
 distanza da un controllo che porta via dalla schermata a metà turno. La colonna
 scorre, quindi la portata al momento del tiro se la sceglie il giocatore, mentre
 gli 88px di chrome fisso non se li sceglieva nessuno — per questo il pin non
@@ -992,7 +1086,18 @@ shell, così non possono più invecchiare di 150px in silenzio.
 
 ### 9.4 Dettagli che contano a tavolo
 
-- Tap target minimo 44 px; contatori: tap segna, pressione lunga libera
+- Tap target minimo: **44px su puntatore grossolano, 34px su puntatore fine**
+  (`--tap` e `--control` in `tokens.css`; `--control` risolve a `--tap` sotto i
+  1180px e sotto `pointer: coarse`). È un floor **su tutti e due gli assi**: un
+  controllo che dichiara `min-height` e si ferma prende la larghezza dal proprio
+  label, e questo audit ne ha trovati cinque fra i 30,81 e i 42,81px. Ogni
+  bottone di un blocco dichiara il floor su entrambi gli assi anche quando il
+  suo label è largo abbastanza da non averne bisogno, perché è una regola che il
+  lettore successivo può verificare. **Un difetto vivo dentro questa regola**:
+  `pointer` descrive il puntatore *primario*, quindi un portatile con schermo
+  touch prende 34 a 1180px e oltre pur avendo un dito sul vetro — è la voce
+  aperta in `BACKLOG.md` e la query giusta è quella che `--pip-h` usa già,
+  `any-pointer`. Contatori: tap segna, pressione lunga libera
 - `user-select: none` ovunque tranne le note
 - Wake lock durante la sessione
 - Tema scuro predefinito, alto contrasto: si gioca in stanze buie
