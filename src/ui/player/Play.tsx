@@ -567,6 +567,14 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
  * the section behind a fold rather than the four lines of prose under the
  * name. The card level cap is the one number here that answers a question
  * asked mid-scene: "can I take that".
+ *
+ * "Domini, ancestry, community. In ordine inverso forse. XD" - and the reason
+ * is in the joke. A character sheet leads with ancestry because that is the
+ * order you build a character in. By the time you are playing, the ancestry is
+ * the thing you already know and the domain is the thing you look up: it says
+ * which cards you may take and to what level, and `cardLevelCap` is the one
+ * number in this fold that answers a question asked mid-scene. So the domains
+ * lead and the ancestry and community follow them.
  */
 function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
@@ -577,9 +585,6 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
 
   return (
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
-      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
-        {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
-      </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {stats.domains.map((domain) => (
           <span
@@ -608,6 +613,9 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
             No domains — this sheet has no class the app can read.
           </span>
         )}
+      </div>
+      <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+        {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
       </div>
     </div>
   );

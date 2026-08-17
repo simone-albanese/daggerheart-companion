@@ -229,6 +229,29 @@ describe('what a phone shows of the character sheet', () => {
   });
 
   /*
+   * "Domini, ancestry, community. In ordine inverso forse. XD" - the reverse of
+   * how a character sheet leads, because by the time you are playing the
+   * ancestry is the thing you already know and the domain is the thing you look
+   * up. Read off the fold's own contents rather than off the page: the header
+   * itself says "Lineage & domains", so a whole-page search would find the word
+   * before either subject.
+   */
+  it('reads domains first, then the ancestry and the community', () => {
+    play(seed());
+    click(fold('Lineage'));
+    const body = fold('Lineage').nextElementSibling!.textContent ?? '';
+    const domain = playedStats().domains[0]!;
+    const first = body.indexOf(domain.toUpperCase());
+    const ancestry = body.indexOf(dataset.ancestries[0]!.name);
+    expect(first, `the fold does not name the ${domain} domain at all`).toBeGreaterThanOrEqual(0);
+    expect(ancestry, 'the fold does not name the ancestry at all').toBeGreaterThanOrEqual(0);
+    expect(
+      first,
+      'the lineage fold still leads with where you are from rather than with what you can take',
+    ).toBeLessThan(ancestry);
+  });
+
+  /*
    * Strengthened from `expect(text()).toContain(...)`, which the gold row
    * satisfied and which a total buried inside an open fold would satisfy too.
    * The claim is that the gold is readable with every fold shut, so it is
