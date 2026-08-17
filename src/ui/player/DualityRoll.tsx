@@ -30,7 +30,7 @@
  * disarmed again the instant the roll resolves - an Experience left standing
  * would inflate the next roll by two and say nothing about it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Experience, Trait } from '../../../shared/types.ts';
 import { TRAIT_LABELS } from '../../../shared/types.ts';
 import { rollModifier, type DerivedStats } from '../../engine/character.ts';
@@ -387,6 +387,45 @@ interface Props {
 /** A stable empty list, so a character without Experiences is not a new array. */
 const NO_EXPERIENCES: Experience[] = [];
 
+/**
+ * Whether a scrolling box still has content under its bottom edge.
+ *
+ * `.scroll-fade` is this app's "there is more below" mark, and base.css's own
+ * docblock says the sentence it used to carry - "disappears once you reach the
+ * end" - was never true anywhere it was declared, because it was declared
+ * unconditionally. This is what makes it true: the class goes on only while
+ * something is actually below the fold, so reaching the end takes the fade with
+ * it and a panel that fits never wears one.
+ *
+ * IT RE-READS ON EVERY RENDER, deliberately and with no dependency list. What
+ * moves this answer is the box's own scrollTop (the listener), the box's own
+ * size (the observer) and its children's heights - the damage row appearing,
+ * the keypad opening, a name wrapping to a third line - and the last of those
+ * is not observable without watching every descendant. A layout effect that
+ * runs after each commit sees all three, before the browser paints. The
+ * `ResizeObserver` guard is for jsdom, which has no such constructor.
+ */
+function useMoreBelow<T extends HTMLElement>(): [React.RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [more, setMore] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null) return undefined;
+    const read = (): void => {
+      setMore(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+    };
+    read();
+    el.addEventListener('scroll', read, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(read);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', read);
+      observer?.disconnect();
+    };
+  });
+  return [ref, more];
+}
+
 export function DualityRoll({
   stats,
   trait,
@@ -420,6 +459,10 @@ export function DualityRoll({
    * die is being typed" and both layouts read it.
    */
   const [typing, setTyping] = useState<'hope' | 'fear' | null>(null);
+  /* The cockpit panel's fold, and whether it has anything under it. Declared
+     here rather than in the desktop branch because that branch is a `return`
+     past a phone one, and a hook cannot live behind a `return`. */
+  const [panelRef, panelHasMore] = useMoreBelow<HTMLDivElement>();
 
   /*
    * The keyboard's way out, beside the pointer's.
@@ -1133,11 +1176,34 @@ export function DualityRoll({
    * and was already clipped; making it a horizontal scrollbar instead would be
    * a new defect shipped inside a fix.
    *
-   * NO `scrollbarWidth` HERE. This is now the only scroll on the cockpit's
-   * middle column - the modifier shelf above used to be a second one, at
-   * `overflowX: 'auto'` with `scrollbarWidth: 'none'`, and it wraps instead -
-   * so it is the one scroll a player has to notice. It takes the platform's
-   * own bar at the platform's own width, and nothing here suppresses it.
+   * AND IT SAYS SO, WHICH IS THE PART THAT WAS MISSING. This is the only
+   * scroll on the cockpit's middle column - the modifier shelf above used to be
+   * a second one, at `overflowX: 'auto'` with `scrollbarWidth: 'none'`, and it
+   * wraps instead - so it is the one scroll a player has to notice, and for one
+   * commit it was the only scroller in the app that carried none of the app's
+   * scroll treatment. It was a bare inline `overflowY: 'auto'`: no `.scroll`,
+   * so no coloured thumb, no `scrollbar-width: thin` and `overscroll-behavior:
+   * auto`; and on macOS, which is the platform this repository is developed and
+   * measured on, no bar is painted at rest at all. Measured with a Chrome
+   * launched without `--hide-scrollbars`: this panel's gutter is offsetWidth
+   * 428 less clientWidth 426, which is the border and nothing else. The
+   * paragraph that used to sit here said the platform's bar "announces itself";
+   * it announces itself after you have already scrolled.
+   *
+   * SO `.scroll` FOR THE TREATMENT AND `.scroll-fade` FOR THE EDGE.
+   * `className="panel stack scroll"` buys the app's own thumb and
+   * `overscroll-behavior: contain`, so a wheel that runs out here stops instead
+   * of scrolling the page behind it. The inline `overflowY: 'auto'` stays
+   * beside it rather than being left to the class: it is the declaration this
+   * file's docblocks and `cockpitRoll.test.tsx`'s ancestor walk both read, and
+   * a scroll that only exists in a stylesheet is a scroll that can be deleted
+   * by a stylesheet. The fade is conditional on `useMoreBelow`, which is what
+   * makes it honest - base.css's own docblock says "a hard edge reads as 'that
+   * is all there is'", and an unconditional mask says the opposite lie at the
+   * bottom of a panel that fits. Its one stated precondition is no
+   * `position: fixed` descendant, because a mask clips its whole painted
+   * subtree; there is none in this subtree - no `useDialog`, and no fixed
+   * positioning in this file or in `DamageRoll.tsx`.
    *
    * ERGONOMICS. The cockpit is 1180px and up, so 393x852 and its thumb arc are
    * not the reference here - `PlayPhone` is what a phone gets. What does reach
@@ -1182,7 +1248,8 @@ export function DualityRoll({
    */
   return (
     <div
-      className="panel stack"
+      ref={panelRef}
+      className={`panel stack scroll${panelHasMore ? ' scroll-fade' : ''}`}
       style={{
         flex: 1,
         minHeight: 0,

@@ -144,6 +144,32 @@ describe('the cockpit roll panel can be scrolled to', () => {
     expect(root_.style.overflowX).toBe('hidden');
   });
 
+  it('carries the app scroll treatment, and the fade only when there is more', () => {
+    /*
+     * For one commit this was the only scroller in the app with none of the
+     * app's scroll treatment on it: no `.scroll`, so no coloured thumb, no
+     * `scrollbar-width: thin`, and `overscroll-behavior: auto`. On macOS, which
+     * is where this repository is measured, no bar is painted at rest either -
+     * the panel's whole gutter is offsetWidth 428 less clientWidth 426, i.e.
+     * the border. So the fold had no affordance at all until after you had
+     * scrolled.
+     */
+    const root_ = panel();
+    expect(root_.className, 'the panel scrolls with none of the app treatment').toContain(
+      'scroll',
+    );
+    /*
+     * And the fade is conditional, which is the whole difference between this
+     * and the unconditional `.scroll-fade` that cost `Play`'s column four
+     * dialogs their CLOSE button. jsdom lays nothing out, so nothing overflows,
+     * so the mark must be absent here.
+     */
+    expect(
+      root_.className.split(' '),
+      'the fade is unconditional, so a panel that fits wears one too',
+    ).not.toContain('scroll-fade');
+  });
+
   it('leaves nothing between ROLL and the screen that clips it, in the cockpit', () => {
     seed();
     render(createElement(Play, { stats: playedStats() }));
