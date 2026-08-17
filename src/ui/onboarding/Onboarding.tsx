@@ -78,7 +78,7 @@
  * It does not skip to the app, though: it skips to the same summary card every
  * other route ends on, with the defaults on it and "none" beside the count of
  * questions answered. Two reasons. Escaping by accident is how a feature becomes
- * one nobody has ever seen, and a 44px ghost button in the corner of the nav is
+ * one nobody has ever seen, and a 48px ghost button in the corner of the nav is
  * easier to brush than four 64px rows in the middle of the screen. And the card
  * is where the app says which preferences it is about to write and where each
  * one is changed afterwards - which is the sentence that makes skipping safe
@@ -115,8 +115,9 @@
  * ## Ergonomics, measured in Chrome rather than estimated
  *
  * Every number below was read off the layout engine through the audit harness,
- * 30 cases across seven viewports and two safe-area configurations. Across all
- * of them: no target under the floor, no overlap, nothing clipped, no horizontal
+ * 30 cases across seven viewports; the two that ship with a home indicator,
+ * 393x852 and 375x667, were swept installed as well as in a tab. Across all of
+ * them: no target under the floor, no overlap, nothing clipped, no horizontal
  * overflow, no console error.
  *
  * The fixed bands. Header 53 (52 of content plus its rule). The pinned nav is
@@ -145,19 +146,31 @@
  *   568x320             198    566     185-471     251   scrolls 368
  *
  * The GM's party question is the other four-row screen and is 11px shorter
- * (206-492 at 320x568, against the same 499). The three import doors are 185-400
- * at 320 and 185-397 everywhere else; with the camera open at 393x852 the
- * content goes to 984 against a 730 window, which is the one state this screen
- * is *designed* to scroll in.
+ * (206-492 at 320x568, against the same 499).
  *
- * The reading of that table. On every portrait phone, at every safe-area
- * setting, **every answer is above the fold** - including the fourth on the
- * smallest phone in the sweep, at 493 against 499. Where the screen scrolls,
- * what is below the fold is the licence notice, which is where that notice is
- * meant to be. Two measurements bought that fit and both are recorded where they
- * are set: the question runs at `t-vital`, which clamps to 21px at these widths
- * where the demo's 25px wrapped every headline to two lines, and the gaps inside
- * a question are 12 rather than 16.
+ * The three import doors are 185-400 at 320 and 185-397 at 393, and they sit
+ * lower above the phone band for the reason the answer-row table already
+ * records: the panel's `padding` is `14px 12px 20px` on a phone and
+ * `18px 20px 24px` off it. 189-401 at 744x1133 and at 852x393, 194-406 at
+ * 1180x800 - the same +4 and +9 the rows above take. With the camera open at
+ * 393x852 the content goes to 984 against a 730 window, which is the one state
+ * this screen is *designed* to scroll in.
+ *
+ * The reading of that table. On every portrait phone in the sweep, at the
+ * safe-area settings those phones actually ship with, **every answer is above
+ * the fold** - including the fourth on the smallest, at 493 against 499. That
+ * qualifier is doing work rather than hedging: 320x568 is the pre-notch SE and
+ * pays no bottom inset, and forcing a 34px one on it moves the fold to 465 and
+ * puts 28px of the fourth row behind the nav until you scroll. No shipping
+ * phone is 320 CSS px wide *and* has a home indicator - the mini at Display
+ * Zoom is 320x693, where the fold is 590 against rows ending 543 - so the
+ * combination is a hole in the sweep rather than a state a person can be in.
+ *
+ * Where the screen scrolls, what is below the fold is the licence notice, which
+ * is where that notice is meant to be. Two measurements bought that fit and both
+ * are recorded where they are set: the question runs at `t-vital`, which clamps
+ * to 21px at these widths where the demo's 25px wrapped every headline to two
+ * lines, and the gaps inside a question are 12 rather than 16.
  *
  * The arc, honestly. At 393x852 the rows occupy y185 to y482 and a one-handed
  * thumb is comfortable from about y300 down, so the first row is a stretch and
@@ -165,8 +178,15 @@
  * the right way round for what this is: four rows that are read before any of
  * them is touched, once, on a screen with nothing else on it. 297px of rows is a
  * slide rather than a re-grip, and the two controls that ARE reflexes - Back and
- * Skip - are 48px in the pinned nav at y783-831, the band the wizard's Back and
- * Next occupy and the same band `TabBar` holds on every other screen.
+ * Skip - are 48px in the pinned nav at y794-842, which is the band `TabBar`
+ * holds (792-852) on every other screen.
+ *
+ * Not the wizard's band, which this used to claim, and the arithmetic three
+ * paragraphs up is where the claim went wrong: the nav box is 69 tall and ends
+ * at the bottom of the window, so its buttons start 10px inside it at 793 and
+ * not at 783, the top edge. The wizard's nav rides *above* `TabBar` rather than
+ * instead of it, which puts its Back and Next at y733-781 - 13px clear of where
+ * these two begin, so the two bands do not overlap at all.
  *
  * Landscape scrolls and is meant to: 271px of window at 852x393 and 198 at
  * 568x320 cannot hold a headline and four 64px rows however they are arranged,
