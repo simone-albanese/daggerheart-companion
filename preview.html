@@ -37,6 +37,18 @@
       <iframe src="/" width="375" height="667" title="Small phone preview"></iframe>
     </figure>
     <figure>
+      <!--
+        The width the sheet is laid out for, and the one that was missing.
+        360 is the commonest Android viewport there has ever been and it is the
+        floor `playSheet.test.tsx`'s «the width this sheet is laid out for»
+        names; before the reflow the trait row wrapped here, the damage cell
+        painted over the Proficiency panel and nothing on this page would have
+        shown either.
+      -->
+      <figcaption>ANDROID — 360 × 800</figcaption>
+      <iframe src="/" width="360" height="800" title="Narrow phone preview"></iframe>
+    </figure>
+    <figure>
       <figcaption>IPAD MINI — 744 × 1000</figcaption>
       <iframe src="/" width="744" height="1000" title="Tablet preview"></iframe>
     </figure>
