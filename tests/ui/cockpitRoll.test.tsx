@@ -251,6 +251,12 @@ describe('what the panel asks its column for', () => {
  * renders only in the phone branch, so on the cockpit the difficulty control
  * was not named anywhere else before a roll.
  *
+ * The shelf is 402 now, not 303: the `Duality Roll` title that took 93 of it
+ * is gone, and 402 is the middle track's 428 less the panel's 2 of border and
+ * 24 of padding. `ControlRow` is the wrapping row itself rather than one of two
+ * children of a `.spread`, which is why `shelf()` below reads the panel's first
+ * child directly.
+ *
  * jsdom does not wrap and does not measure, so these are declaration reads.
  * What they can prove is that the row is allowed to wrap, that nothing in this
  * file suppresses a scrollbar any more, and that every control the shelf holds
@@ -258,10 +264,23 @@ describe('what the panel asks its column for', () => {
  */
 describe('the cockpit modifier shelf', () => {
   const shelf = (): HTMLElement => {
-    const row = panel().firstElementChild!.querySelector<HTMLElement>('.row');
-    if (row === null) throw new Error('the control row has no shelf');
+    const row = panel().firstElementChild as HTMLElement | null;
+    if (row === null || !row.className.includes('row')) {
+      throw new Error('the panel does not open with the control row');
+    }
     return row;
   };
+
+  it('spends none of its width on a title', () => {
+    // The title was `!narrow`, i.e. the cockpit only - the one surface that
+    // could not afford it. Nothing on this row is a static label any more.
+    const row = shelf();
+    expect(row.textContent, 'the cockpit shelf still spends 93px on a word').not.toContain(
+      'Duality Roll',
+    );
+    expect(row.textContent).not.toContain('Reaction Roll');
+    expect(row.style.flexWrap).toBe('wrap');
+  });
 
   it('wraps instead of scrolling sideways, on the cockpit as well as the phone', () => {
     const row = shelf();
@@ -311,16 +330,19 @@ describe('the cockpit modifier shelf', () => {
     }
   });
 
-  it('costs the panel 80px at two Experiences and 180 at five', () => {
+  it('costs the panel 50px at two Experiences and 111 at five', () => {
     /*
-     * Greedy flex packing into a 303px shelf with a 6px gap, from the widths
+     * Greedy flex packing into the 402px shelf with a 6px gap, from the widths
      * measured in Chrome: REACTION 62.2, DIS/—/ADV 34 each, an Experience chip
      * at its 124px `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4. The
-     * unnamed second Experience of the repo fixture measures 99.6.
+     * unnamed second Experience of the repo fixture measures 99.3.
      *
-     * Row heights are declared: `ExperienceChip` is `minHeight: var(--tap)`,
-     * 44px at every pointer, and every other control is `var(--control)`, 34 on
-     * a mouse. The row gap is the shelf's own 6.
+     * Row heights: every control but the Experience chips is
+     * `minHeight: var(--control)`, 34 on a mouse and on a touchscreen laptop
+     * alike - `--control`'s query is `(pointer: coarse)`, which a touchscreen
+     * laptop does not match, measured 34px on the rig's `hybrid` profile. An
+     * `ExperienceChip` is `minHeight: var(--tap)` = 44, and 49.7 when its name
+     * takes the third line the clamp allows. The row gap is the shelf's own 6.
      */
     const GAP = 6;
     const rows = (widths: number[], shelfWidth: number): number[][] => {
@@ -341,10 +363,16 @@ describe('the cockpit modifier shelf', () => {
       out.push(line);
       return out;
     };
-    const CHIP = 124;
-    const height = (line: number[]): number => (line.some((w) => w === CHIP || w === 99.6) ? 44 : 34);
+    const SHELF = 402;
+    const CHIP = 124; // a chip whose name fits two lines
+    const LONG = 124.001; // the same width, but a name that takes the third
+    const UNNAMED = 99.3;
+    const height = (line: number[]): number => {
+      if (line.some((w) => w === LONG)) return 49.7;
+      return line.some((w) => w === CHIP || w === UNNAMED) ? 44 : 34;
+    };
     const cost = (widths: number[]): number => {
-      const packed = rows(widths, 303);
+      const packed = rows(widths, SHELF);
       const tall = packed.reduce((n, line) => n + height(line), 0) + GAP * (packed.length - 1);
       // Against the single 44px row it replaces.
       return tall - 44;
@@ -352,8 +380,14 @@ describe('the cockpit modifier shelf', () => {
 
     const base = [62.2, 34, 34, 34];
     const tail = [45.4, 88.4, 68.4];
-    expect(cost([...base, CHIP, 99.6, ...tail])).toBeCloseTo(80, 1);
-    expect(cost([...base, CHIP, CHIP, CHIP, CHIP, CHIP, ...tail])).toBeCloseTo(180, 1);
+    // `played`: two rows of 44. Measured 94 of shelf in Chrome at 1280x800.
+    expect(cost([...base, CHIP, UNNAMED, ...tail])).toBeCloseTo(50, 1);
+    // `wizard10`: three rows, the first two carrying one long name each.
+    // Measured 155.3 of shelf at 1180, 1280, 1366 and 1440 alike.
+    expect(cost([...base, LONG, LONG, CHIP, CHIP, CHIP, ...tail])).toBeCloseTo(111.4, 1);
+    // And what the title cost: the same five Experiences packed into 302.8
+    // measured 229.7, so dropping it is worth 74.4 of panel height.
+    expect(155.4 - 229.7).toBeCloseTo(-74.3, 1);
   });
 });
 

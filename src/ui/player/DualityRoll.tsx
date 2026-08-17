@@ -41,7 +41,6 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import { useIsNarrow } from '../shared/useLayout.ts';
 import type { ArmedAttack, AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
@@ -1627,9 +1626,11 @@ function HeldDieChip({
  * CONTROLS. The row was `overflowX: 'auto'` with `scrollbarWidth: 'none'`, so
  * nothing on the glass said it scrolled and a mouse had no bar to drag. The
  * shelf's width reconstructs from the source: the middle grid track is capped
- * at `minmax(360px, 428px)` in `PlayDesktop`, less the roll panel's own 24 of
- * padding is 404, less the 93px `Duality Roll` title this row draws when
- * `!narrow` and less `.spread`'s 8px gap leaves 303. What it holds
+ * at `minmax(360px, 428px)` in `PlayDesktop`, less the roll panel's own 2 of
+ * border and 24 of padding is 402 - measured 402, and the 404 this docblock
+ * used to say was that arithmetic with the border left out - less the 93px
+ * `Duality Roll` title this row used to draw when `!narrow` and less
+ * `.spread`'s gap left 302.8. What it holds
  * reconstructs too, at the five Experiences an SRD character carries from
  * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at their 124px
  * `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -
@@ -1654,39 +1655,76 @@ function HeldDieChip({
  * modifier you cannot see is not a declaration, and the SRD requires the
  * declaration before the dice.
  *
- * WHAT IT COSTS, DERIVED RATHER THAN ESTIMATED. Flex wrap packs greedily into
- * 303 with a 6px gap. At the two Experiences a level-3 character has: row 1
- * takes REACTION + the three advantage chips (182.2 wide, 34 tall), row 2
- * takes both chips and `+ DIE` (281 wide, 44 tall because `ExperienceChip` is
- * `minHeight: var(--tap)`), row 3 takes DIFF and SPELLCAST (162.8 wide, 34
- * tall). 34 + 44 + 34 + two 6px row gaps = 124, against 44 for the single row
- * it replaces: **+80px**. At five Experiences it is five rows -
- * 34 + 44 + 44 + 44 + 34 + four gaps = 224, so **+180px**. That is why this
- * change had to land *after* the panel was allowed to scroll and never before
- * it: on a 1180x695 window it would otherwise have taken all 80 straight off
- * ROLL, which was already painted 0.0px.
+ * AND THE TITLE WENT, BECAUSE THE WRAP COST HAD TO COME DOWN. `Duality Roll`
+ * was 93 of the 402 the panel has, a quarter of the shelf, and its own comment
+ * called it "a desktop luxury" while arguing that REACTION carries the state it
+ * named - which it does: REACTION is the first control on the row, it is
+ * `aria-pressed`, and it turns `--fear` when a reaction roll is armed. An
+ * earlier revision of this docblock wrote that down as "one thing not done".
+ * It is done, it is worth 74.4px of shelf, and the reason it stopped being a
+ * matter of taste is in the measurements below.
  *
- * ERGONOMICS. The cockpit is 1180px and up, so the reference is a mouse and a
- * touchscreen laptop rather than 393x852's thumb arc - but tokens.css widens
- * `--control` to `var(--tap)` under `(pointer: coarse)` at any width, so on
- * glass every chip here is 44px and on a mouse 34, which are this project's
- * two floors. Wrapping changes neither: it changes how many of them are
- * painted, from eight of thirteen to thirteen. READ VERSUS TOUCH is what the
- * extra rows are spent on, and they are spent in the right direction - this
- * row is the *declaration*, everything in it is read before it is touched and
- * touched before ROLL is, and it stays above the dice faces and above ROLL
- * where the rules order puts it. The 80-180px lands between the top of the
- * panel and ROLL, which on a short window means ROLL is now something you
- * scroll to; that is a worse reach than a 695px-tall laptop deserves and it is
- * still strictly better than a control that no pointer could reach at all.
+ * WHAT IT COSTS, MEASURED AND NOT ESTIMATED. Flex wrap packs greedily into 402
+ * with a 6px gap, and `ExperienceChip` is the only thing here that is not
+ * `var(--control)` tall: it is `minHeight: var(--tap)`, and 44 becomes 49.7
+ * when a name takes the third line the clamp now allows (1 of border + 4 + 3 *
+ * 13.225 + 4, `box-sizing: border-box`).
  *
- * ONE THING NOT DONE, WITH ITS NUMBER. The `Duality Roll` title costs the
- * shelf 93 + 8 = 101 of 404, a quarter of the row, and its own comment already
- * calls it "a desktop luxury" and argues that REACTION carries the state it
- * names. Dropping it on the cockpit as well would give the shelf 404 and take
- * the wrap cost to +50 and +100 instead of +80 and +180. That is a change to
- * what the panel says, not to whether it can be reached, so it is written down
- * here rather than made here.
+ *   Two Experiences, the `played` fixture at level 3. Row 1 is REACTION +
+ *   DIS/—/ADV + the first chip (312.2 of 402); row 2 is the second chip, `+
+ *   DIE`, DIFF and SPELLCAST (319.5). Both names fit two lines, so 44 + 6 + 44
+ *   = **94**, against the 44 of the single row it replaces: **+50**.
+ *
+ *   Five Experiences, `wizard10`, which is what an SRD character carries from
+ *   level 8. Row 1 REACTION + DIS/—/ADV + one chip (312.2), row 2 three chips
+ *   (384), row 3 the last chip + `+ DIE` + DIFF + SPELLCAST (344.2). Rows 1 and
+ *   2 each hold one of the two long names, so 49.7 + 49.7 + 44 + two 6px row
+ *   gaps = 155.4. Measured 155.3. **+111.3**.
+ *
+ * At the 302.8 the title left, the same five Experiences packed into five rows
+ * and measured 229.7 - +185.7, not the +180 an earlier revision derived, and
+ * the difference is exactly the third line the chip commit added. That was
+ * enough to push ROLL below the panel's fold at 1280x800, which is the reason
+ * the title is gone rather than deferred.
+ *
+ * WHERE ROLL IS NOW, at five Experiences, `wizard10`, campaign on, measured in
+ * Chrome. With the backup banner up - a default state of a fresh install, and
+ * the state this file's other docblocks measure in: 1280x800 panel 418 client /
+ * 418 scroll, ROLL painted 54 of 54; 1366x768 386/413, painted 49; 1180x695
+ * 313/407, painted 0 and one scroll away. With the banner dismissed: 1280x800
+ * 474/474 painted 54, 1366x768 442/442 painted 54, 1440x900 574/574 painted 54,
+ * 1180x695 369/407 painted 37.9. Before the wrap and before the title went, the
+ * same five Experiences took ROLL to 29.9 of 54 at 1280x800; before the panel
+ * was allowed to scroll at all it was 0.0 of 54 at 1180x695 with no wheel, drag
+ * or tap that reached it. A 695px-tall window with a banner on it is still a
+ * scroll, and that is what the fade and the bar on the panel are for.
+ *
+ * ERGONOMICS. TARGET SIZE, and the pointer facts an earlier revision of this
+ * paragraph got wrong. tokens.css:203-207 is `(max-width: 1179px), (pointer:
+ * coarse)`, and `pointer` describes the *primary* pointer - so on the cockpit,
+ * which is 1180 and up, `--control` is 34 for a mouse AND for the touchscreen
+ * laptop this paragraph used to claim got 44. Measured with the rig's `hybrid`
+ * profile (`pointer: fine` with `any-pointer: coarse`) at 1280x800 and
+ * 1440x900: `--control` 34px, `--pip-h` 44px. tokens.css:129-132 says so in as
+ * many words. So the shelf is REACTION 62.2x34, DIS/—/ADV 34x34, `+ DIE`
+ * 45.4x34, DIFF 88.4x34, SPELLCAST 68.4x34, and the Experience chips 124x44 or
+ * 124x49.7 - clear of this project's 34px fine floor and, for the chips, of its
+ * 44px coarse one, but 10px under that coarse floor for a finger on a
+ * touchscreen laptop. That is a live defect of `--control`'s query and not of
+ * this row; it is written up in the lane's doc-deltas file, and the reason
+ * tokens.css:122-127 gives for not widening the query - that this panel is
+ * `overflow: hidden` and would crush its own contents - died when the panel was
+ * allowed to scroll.
+ *
+ * THUMB ARC does not apply on its own terms here and the honest substitute is
+ * reach: this row is at the top of the middle column, the far end of a reach
+ * across a keyboard, and it is the only thing on this screen you touch *before*
+ * the dice - so paying for it in reach and getting ROLL, which you touch every
+ * turn, at the near end is the right way round. READ VERSUS TOUCH is what the
+ * extra rows buy. This row is the declaration: everything in it is read before
+ * it is touched and touched before ROLL is, and wrapping takes it from eight of
+ * thirteen controls painted to thirteen. A declaration you cannot see is not a
+ * declaration, and the SRD requires it before the dice.
  */
 function ControlRow({
   difficulty,
@@ -1711,7 +1749,6 @@ function ControlRow({
   discardDie,
 }: ControlProps): React.JSX.Element {
   const [picking, setPicking] = useState(false);
-  const narrow = useIsNarrow();
 
   // The picker takes over the whole row, the way `DieKeypad` takes over the
   // whole face row to be typed into - both for the same reason, which is that
@@ -1764,150 +1801,143 @@ function ControlRow({
   }
 
   return (
-    <div className="spread" style={{ alignItems: 'center' }}>
-      {/* The title is a desktop luxury, and now the cockpit's only one: below
-          1180 it is 99px of a 369px row spent on a word, and REACTION leads
-          instead, so the state the title carried - which kind of roll this is
-          - is still the first thing on the row. On the cockpit it costs the
-          controls 93 of the 404px the panel has, which is measured in the
-          docblock above and is the next thing to reconsider here. */}
-      {!narrow && (
-        <span className="t-label" style={{ flex: 'none' }}>
-          {reaction ? 'Reaction Roll' : 'Duality Roll'}
-        </span>
-      )}
-      {/*
-        `flexWrap: 'wrap'` unconditionally, and no overflow of any kind.
-        This used to be `wrap ? … : …` on a prop the phone passed true and the
-        cockpit passed false, and the false branch was `overflowX: 'auto'` with
-        `scrollbarWidth: 'none'` - a 303px shelf holding 1058px that announced
-        nothing and gave a mouse no bar. The ternaries are gone rather than
-        pinned to `true`, because a dead branch that says "this can scroll
-        sideways" is the same defect as a docblock that says it. `overflowY`
-        went with them: `overflow-y: hidden` beside an `overflow-x: visible`
-        computes the x axis back to `auto`, so the phone's wrapped row has
-        quietly been a horizontal scroll container this whole time.
-      */}
-      <div className="row" style={{ flex: 1, minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
-        {/* A reaction roll resolves the same way and pays nothing: no Hope, no
-            Fear, and no cleared Stress on a critical. 38 adversaries and 9
-            environments call for one, so this is a switch, not a footnote, and
-            it leads the row because on a phone it is also the only thing
-            saying which kind of roll this is. It still takes Experiences - the
-            SRD spends Hope on "an action or reaction roll" - and what it
-            refuses is an ally's Help. */}
+    /*
+      `flexWrap: 'wrap'` unconditionally, and no overflow of any kind.
+      This used to be `wrap ? … : …` on a prop the phone passed true and the
+      cockpit passed false, and the false branch was `overflowX: 'auto'` with
+      `scrollbarWidth: 'none'` - a 303px shelf holding 1058px that announced
+      nothing and gave a mouse no bar. The ternaries are gone rather than
+      pinned to `true`, because a dead branch that says "this can scroll
+      sideways" is the same defect as a docblock that says it. `overflowY`
+      went with them: `overflow-y: hidden` beside an `overflow-x: visible`
+      computes the x axis back to `auto`, so the phone's wrapped row has
+      quietly been a horizontal scroll container this whole time.
+
+      THIS ROW IS THE WHOLE COMPONENT NOW. It used to be the second child of a
+      `.spread`, beside a `Duality Roll` title drawn when `!narrow` - that is,
+      on the cockpit only, which is the one surface that could not afford it.
+      The title and its wrapper went together: a flex container with a single
+      `flex: 1` child is that child with extra steps.
+    */
+    <div className="row" style={{ minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
+      {/* A reaction roll resolves the same way and pays nothing: no Hope, no
+          Fear, and no cleared Stress on a critical. 38 adversaries and 9
+          environments call for one, so this is a switch, not a footnote, and
+          it leads the row because on a phone it is also the only thing
+          saying which kind of roll this is. It still takes Experiences - the
+          SRD spends Hope on "an action or reaction roll" - and what it
+          refuses is an ally's Help. */}
+      <button
+        type="button"
+        onClick={() => setReaction(!reaction)}
+        aria-pressed={reaction}
+        className="chip"
+        title="A reaction roll grants no Hope and no Fear, and no ally can Help"
+        style={{
+          flex: 'none',
+          minHeight: 'var(--control)',
+          background: reaction ? 'var(--fear)' : 'var(--raised)',
+          color: reaction ? 'var(--app)' : 'var(--muted)',
+        }}
+      >
+        REACTION
+      </button>
+
+      {/* Advantage next, because at 393px only the first few controls are on
+          screen and this is the one every roll touches. */}
+      {([-1, 0, 1] as const).map((a) => (
         <button
+          key={a}
           type="button"
-          onClick={() => setReaction(!reaction)}
-          aria-pressed={reaction}
+          onClick={() => setAdvantage(a)}
           className="chip"
-          title="A reaction roll grants no Hope and no Fear, and no ally can Help"
-          style={{
-            flex: 'none',
-            minHeight: 'var(--control)',
-            background: reaction ? 'var(--fear)' : 'var(--raised)',
-            color: reaction ? 'var(--app)' : 'var(--muted)',
-          }}
-        >
-          REACTION
-        </button>
-
-        {/* Advantage next, because at 393px only the first few controls are on
-            screen and this is the one every roll touches. */}
-        {([-1, 0, 1] as const).map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setAdvantage(a)}
-            className="chip"
-            aria-pressed={advantage === a}
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              minWidth: 'var(--control)',
-              background: advantage === a ? 'var(--raised)' : 'transparent',
-              border: `1px solid ${advantage === a ? 'var(--line)' : 'transparent'}`,
-              color: a === 1 ? 'var(--ok)' : a === -1 ? 'var(--damage)' : 'var(--muted)',
-            }}
-          >
-            {a === 1 ? 'ADV' : a === -1 ? 'DIS' : '—'}
-          </button>
-        ))}
-
-        {inlineExperiences &&
-          experiences.map((experience) => (
-            <ExperienceChip
-              key={experience.id}
-              experience={experience}
-              armed={armedExperiences.includes(experience.id)}
-              affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
-              onToggle={() => toggleExperience(experience.id)}
-            />
-          ))}
-
-        {held.map((die) => (
-          <HeldDieChip
-            key={die.id}
-            die={die}
-            armed={armedDice.includes(die.id)}
-            onToggle={() => toggleDie(die.id)}
-            onDiscard={() => discardDie(die.id)}
-          />
-        ))}
-        <button
-          type="button"
-          className="chip"
-          onClick={() => setPicking(true)}
-          disabled={held.length >= MAX_HELD}
-          aria-label="Hold a die for later rolls"
-          title="A Rally, Prayer or Slayer Die, or the d6 from Help an Ally"
+          aria-pressed={advantage === a}
           style={{
             flex: 'none',
             minHeight: 'var(--control)',
             minWidth: 'var(--control)',
-            background: 'transparent',
-            border: '1px dashed var(--line)',
-            color: 'var(--muted)',
-            opacity: held.length >= MAX_HELD ? 0.4 : 1,
+            background: advantage === a ? 'var(--raised)' : 'transparent',
+            border: `1px solid ${advantage === a ? 'var(--line)' : 'transparent'}`,
+            color: a === 1 ? 'var(--ok)' : a === -1 ? 'var(--damage)' : 'var(--muted)',
           }}
         >
-          + DIE
+          {a === 1 ? 'ADV' : a === -1 ? 'DIS' : '—'}
         </button>
+      ))}
 
-        <label className="row" style={{ flex: 'none', gap: 4 }}>
-          <span className="t-meta">DIFF</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={difficulty ?? ''}
-            placeholder="—"
-            onChange={(e) => setDifficulty(e.target.value === '' ? null : Number(e.target.value))}
-            style={{
-              width: 58,
-              minHeight: 'var(--control)',
-              padding: '4px 6px',
-              textAlign: 'center',
-              font: '600 13px/1 var(--mono)',
-            }}
+      {inlineExperiences &&
+        experiences.map((experience) => (
+          <ExperienceChip
+            key={experience.id}
+            experience={experience}
+            armed={armedExperiences.includes(experience.id)}
+            affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
+            onToggle={() => toggleExperience(experience.id)}
           />
-        </label>
+        ))}
 
-        {stats.spellcastTrait !== null && (
-          <button
-            type="button"
-            onClick={() => onTraitChange(trait === 'spellcast' ? stats.spellcastTrait! : 'spellcast')}
-            className="chip"
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              background: trait === 'spellcast' ? 'var(--hope)' : 'var(--raised)',
-              color: trait === 'spellcast' ? 'var(--app)' : 'var(--muted)',
-            }}
-          >
-            SPELLCAST
-          </button>
-        )}
-      </div>
+      {held.map((die) => (
+        <HeldDieChip
+          key={die.id}
+          die={die}
+          armed={armedDice.includes(die.id)}
+          onToggle={() => toggleDie(die.id)}
+          onDiscard={() => discardDie(die.id)}
+        />
+      ))}
+      <button
+        type="button"
+        className="chip"
+        onClick={() => setPicking(true)}
+        disabled={held.length >= MAX_HELD}
+        aria-label="Hold a die for later rolls"
+        title="A Rally, Prayer or Slayer Die, or the d6 from Help an Ally"
+        style={{
+          flex: 'none',
+          minHeight: 'var(--control)',
+          minWidth: 'var(--control)',
+          background: 'transparent',
+          border: '1px dashed var(--line)',
+          color: 'var(--muted)',
+          opacity: held.length >= MAX_HELD ? 0.4 : 1,
+        }}
+      >
+        + DIE
+      </button>
+
+      <label className="row" style={{ flex: 'none', gap: 4 }}>
+        <span className="t-meta">DIFF</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={difficulty ?? ''}
+          placeholder="—"
+          onChange={(e) => setDifficulty(e.target.value === '' ? null : Number(e.target.value))}
+          style={{
+            width: 58,
+            minHeight: 'var(--control)',
+            padding: '4px 6px',
+            textAlign: 'center',
+            font: '600 13px/1 var(--mono)',
+          }}
+        />
+      </label>
+
+      {stats.spellcastTrait !== null && (
+        <button
+          type="button"
+          onClick={() => onTraitChange(trait === 'spellcast' ? stats.spellcastTrait! : 'spellcast')}
+          className="chip"
+          style={{
+            flex: 'none',
+            minHeight: 'var(--control)',
+            background: trait === 'spellcast' ? 'var(--hope)' : 'var(--raised)',
+            color: trait === 'spellcast' ? 'var(--app)' : 'var(--muted)',
+          }}
+        >
+          SPELLCAST
+        </button>
+      )}
     </div>
   );
 }

@@ -46,8 +46,14 @@ export function useLayout(): Layout {
  */
 export const useIsPhone = (): boolean => useMedia(PHONE_QUERY);
 
-/** True for phone *and* tablet - anything that is not the full cockpit. */
-export const useIsNarrow = (): boolean => useMedia(TABLET_QUERY);
+/*
+ * There was a `useIsNarrow` here - `useMedia(TABLET_QUERY)`, true for phone
+ * *and* tablet. Its last caller was `ControlRow`, which used it to draw a
+ * `Duality Roll` title on the cockpit and not below it; that title is gone,
+ * because the cockpit could not afford 93px of a 402px shelf, and an exported
+ * hook with no caller is a feature that ships switched off. `useLayout()` and
+ * `TABLET_QUERY` are both still here for whatever wants the band next.
+ */
 
 /**
  * The one height band, for the same reason there are three width bands.
