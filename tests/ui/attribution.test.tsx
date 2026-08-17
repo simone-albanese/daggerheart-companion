@@ -18,8 +18,11 @@
  *
  * So this file asks the questions no unit test can:
  *
- *   1. does the string reach the DOM, on **every** screen, with a character in
- *      the library - which is the state the old code failed in;
+ *   1. does the string reach the DOM, on **every** surface, with a character in
+ *      the library - which is the state the old code failed in. Five of the six
+ *      are mounted that way; the sixth is the first-run flow, which exists only
+ *      on a device that has no characters and has never been asked anything, so
+ *      mounting it with one would be mounting something else;
  *   2. is it in a region that scrolls, as the last thing in it, rather than in
  *      a strip pinned above the tab bar;
  *   3. is there exactly one copy of it in `src`, so that a refactor of any one

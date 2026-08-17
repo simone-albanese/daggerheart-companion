@@ -97,21 +97,30 @@
  * There are two facts and they compose. `TabBar` is the shell's own bottom bar
  * and is drawn on a phone, which this component can ask the media query about
  * itself. Everything else below a scroll is *screen-local* chrome that only the
- * screen knows it has - `GmBar` under the session list, and the wizard's and
- * the level-up's navigation rows - so those three screens say `pinnedBelow` and
- * the thing they pinned pays instead. Nothing else in the app pins anything
- * under its scroll, so the default is the common case and a screen that grows a
- * bar has one word to add.
+ * screen knows it has - `GmBar` under the session list, the wizard's and the
+ * level-up's navigation rows, and the first run's Back/Skip row - so those four
+ * screens say `pinnedBelow` and the thing they pinned pays instead. Nothing
+ * else in the app pins anything under its scroll, so the default is the common
+ * case and a screen that grows a bar has one word to add.
+ *
+ * The onboarding surface is the one place where the first fact is not true and
+ * where the composition saves it anyway: the shell does *not* draw `TabBar`
+ * during the first run, so the media query here would answer "a phone, so
+ * something below me pays" about a phone with nothing below it. It never gets
+ * asked, because that screen pins a nav and says `pinnedBelow` - which is the
+ * whole point of asking each call site for the one fact it holds rather than for
+ * the answer.
  *
  * That is deliberately not the old `bottomMost` prop inverted for tidiness. The
  * old prop asked every call site to work out the *answer*; this one asks each
  * for the one *fact* it alone holds, and leaves the arithmetic in one place. A
  * screen cannot get it wrong by forgetting how wide a phone is.
  *
- * `tests/ui/attribution.test.tsx` sweeps every screen at both widths, and both
- * of Build's other two modes, counting the inline declarations of the inset in
- * the whole tree. It fails if the count is ever not one. That sweep is why
- * `TabBar`, `GmBar` and the two Build navigation rows now spell the payment
+ * `tests/ui/attribution.test.tsx` sweeps all six surfaces at both widths, and
+ * both of Build's other two modes, counting the inline declarations of the inset
+ * in the whole tree. It fails if the count is ever not one. That sweep is why
+ * `TabBar`, `GmBar`, the two Build navigation rows and the first run's nav spell
+ * the payment
  * `calc(0px + env(...))`: jsdom's CSS parser drops a bare `env()` and drops any
  * shorthand containing one, so the property the owner actually asked for was
  * unobservable - `GmBar`'s docblock said outright that an assertion on it
