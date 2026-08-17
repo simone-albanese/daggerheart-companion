@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * What a stored preferences record means, now that there is a field it cannot
- * possibly contain.
+ * possibly contain - and where the app opens once it has been read.
  *
  * `onboarded` gates the first-run questions, and the interesting device is not
  * the new one - it is the one that has been playing since before the field
@@ -13,7 +13,13 @@
  * nobody would think to open the app to check.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_PREFS, loadPrefs, savePrefs } from '../../src/store/prefs.ts';
+import {
+  DEFAULT_PREFS,
+  loadPrefs,
+  openingScreen,
+  savePrefs,
+  type Prefs,
+} from '../../src/store/prefs.ts';
 
 const KEY = 'dhc.prefs.v1';
 
@@ -79,5 +85,56 @@ describe('a stored record from before the questions existed', () => {
   it('falls back to the defaults when the record is not JSON', () => {
     localStorage.setItem(KEY, '{not json');
     expect(loadPrefs()).toEqual(DEFAULT_PREFS);
+  });
+});
+
+describe('where the app opens', () => {
+  const gm = (over: Partial<Prefs> = {}): Prefs => ({
+    ...DEFAULT_PREFS,
+    lastScreen: 'gm',
+    gmSection: true,
+    ...over,
+  });
+
+  /*
+   * The rule the onboarding step had to change, and the two either side of it
+   * that it must not have traded away.
+   *
+   * A GM who answers "I run the game" is sent to the GM screen, and before this
+   * that answer survived exactly one launch: `openingScreen` returned 'build'
+   * for every empty library, so the second launch put the wizard in front of
+   * somebody who had already said they were not making a character. The
+   * empty-library rule was written about Play - "a Play screen with no
+   * character is a screen with nothing on it" - and that argument was never
+   * true of the GM screen, which needs no character and is fully usable without
+   * one.
+   */
+  it('opens on the GM screen when that is where the last session ended', () => {
+    expect(
+      openingScreen(gm(), 0),
+      'the GM branch of onboarding survives exactly one launch: the next one ' +
+        'sends a GM with no characters back to the character wizard',
+    ).toBe('gm');
+  });
+
+  it('still sends an empty library to Build for every other screen', () => {
+    expect(openingScreen(DEFAULT_PREFS, 0)).toBe('build');
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 0)).toBe('build');
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'settings' }, 0)).toBe('build');
+  });
+
+  it('still refuses a stored GM screen the preferences have switched off', () => {
+    expect(
+      openingScreen(gm({ gmSection: false }), 0),
+      '`allowedScreen` was traded away for the GM branch, so the app opens on a ' +
+        'screen with no tab and no way back to one',
+    ).toBe('build');
+    expect(openingScreen(gm({ gmSection: false }), 2)).toBe('play');
+  });
+
+  it('leaves a library with characters in it exactly as it was', () => {
+    expect(openingScreen(gm(), 2)).toBe('gm');
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 2)).toBe('cards');
+    expect(openingScreen(DEFAULT_PREFS, 2)).toBe('play');
   });
 });

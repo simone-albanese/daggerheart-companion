@@ -273,9 +273,23 @@ describe('the GM section, switched off', () => {
    * Where the app opens, as arithmetic rather than as a mounted screen.
    *
    * Both rules are in one function precisely so their order is a thing that can
-   * be asserted: reversed, a device with no characters and a stored GM screen
-   * would open on Play instead of on Build, and the empty-library rule that has
-   * been true since `init` was written would have regressed silently.
+   * be asserted, and this file's stake in that order is the *first* one: a
+   * stored `'gm'` has to be filtered through `allowedScreen` before anything
+   * else looks at it, or switching the section off opens the app on a screen
+   * with no tab pointing at it. Both cases below carry `lastScreen: 'gm'` for
+   * that reason, and the one with the section off is the one that regresses.
+   *
+   * ## What changed here, and it is not this file's rule
+   *
+   * The second rule used to be `if (characterCount === 0) return 'build';`,
+   * ahead of everything, and both empty-library cases below therefore expected
+   * `'build'`. The onboarding step carved one exception into it - a stored
+   * `'gm'` survives an empty library, because the GM screen has never needed a
+   * character and is fully usable without one - so `on` with nothing on the
+   * device is now `'gm'`. The comment that used to sit on those two lines said
+   * the empty-library rule came first "however the last session ended and
+   * whatever the GM preference says"; the second half of that is still exactly
+   * true, and `off` is still `'build'` because `allowedScreen` makes it so.
    */
   it('opens somewhere that exists, whatever the last screen was', () => {
     const off = { ...DEFAULT_PREFS, lastScreen: 'gm' as const, gmSection: false };
@@ -283,12 +297,17 @@ describe('the GM section, switched off', () => {
 
     expect(openingScreen(off, 2)).toBe('play');
     expect(openingScreen(on, 2)).toBe('gm');
-    // The older rule, still first: an empty library goes to Build however the
-    // last session ended and whatever the GM preference says.
+    // With nothing on the device: a section switched off still cannot be opened
+    // on, and a section switched on now survives to the next launch.
     expect(openingScreen(off, 0)).toBe('build');
-    expect(openingScreen(on, 0)).toBe('build');
+    expect(
+      openingScreen(on, 0),
+      'a GM with no characters is handed the character wizard on every launch ' +
+        'after the one that asked whose phone this is',
+    ).toBe('gm');
     // And nothing else is touched by any of it.
     expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 2)).toBe('cards');
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 0)).toBe('build');
   });
 
   it('does not open the app on the screen it just took away', async () => {

@@ -168,17 +168,40 @@ export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
 /**
  * Where the app opens.
  *
- * Both rules, in the order they have to be asked. An empty library goes to
- * Build whatever was last open - that has been true since `init` was written,
- * and it comes first because a Play screen with no character is a screen with
- * nothing on it. Then the stored screen, filtered through the preferences: a
- * `lastScreen` of `'gm'` left over from before the section was switched off is
- * a stored value that is no longer reachable, and honouring it would open the
- * app on a screen with no tab and no way back to one.
+ * Two rules, and the preferences are consulted first because the second one now
+ * has an exception that can only be spotted after they have been. The stored
+ * screen is filtered through `allowedScreen`: a `lastScreen` of `'gm'` left over
+ * from before the section was switched off is a stored value that is no longer
+ * reachable, and honouring it would open the app on a screen with no tab and no
+ * way back to one. Then the empty library, which goes to Build - true since
+ * `init` was written, because a Play screen with no character is a screen with
+ * nothing on it.
+ *
+ * ## SUPERSEDED: "an empty library goes to Build whatever was last open"
+ *
+ * That was the whole of the second rule and it read `if (characterCount === 0)
+ * return 'build';`, ahead of everything. Its argument, kept because this project
+ * keeps its reversals visible, was the sentence above: a Play screen with no
+ * character is a screen with nothing on it.
+ *
+ * True of Play. True of Cards. Never true of the GM screen, which has never
+ * needed a character and is fully usable without one - the session list, the
+ * campaigns, the encounter builder and the bestiary are all somebody else's
+ * material. So the rule was over-broad in exactly one place, and that place is
+ * the one the onboarding step routes a GM to. A person who answered "I run the
+ * game" was sent to the GM screen once, and then on every launch afterwards was
+ * handed the character wizard instead - the app asking a question, being
+ * answered, and forgetting the answer at the door.
+ *
+ * The exception is `wanted !== 'gm'` rather than `prefs.gmSection`, and the
+ * difference matters: it is the *stored screen* that earns the exemption, not
+ * the preference. A GM who was last on Play still opens on Build with an empty
+ * library, because Play is still a screen with nothing on it.
  */
 export function openingScreen(prefs: Prefs, characterCount: number): Screen {
-  if (characterCount === 0) return 'build';
-  return allowedScreen(prefs, prefs.lastScreen);
+  const wanted = allowedScreen(prefs, prefs.lastScreen);
+  if (characterCount === 0 && wanted !== 'gm') return 'build';
+  return wanted;
 }
 
 /**
