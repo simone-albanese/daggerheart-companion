@@ -294,6 +294,9 @@ const QUESTIONS: Question[] = [
   },
 ];
 
+/** The one question every route asks, which is the whole of the import route. */
+const WHO = QUESTIONS.filter((q) => q.id === 'who');
+
 export function Onboarding(): React.JSX.Element {
   const setPrefs = useApp((s) => s.setPrefs);
   const setScreen = useApp((s) => s.setScreen);
@@ -420,6 +423,34 @@ export function Onboarding(): React.JSX.Element {
   };
 
   /*
+   * What this run is allowed to write, from the questions it actually asked.
+   *
+   * `back` leaves answers standing rather than unwinding them, and that is
+   * right: re-answering a question overwrites its own keys, so an answer nobody
+   * changes on the way past is an answer they are keeping. What it also left
+   * standing was the answers to questions the run no longer asks. Answer "The
+   * GM", the dice and "Six or more", press Back three times and pick "my
+   * character is on another device", and the flow wrote a party size of six
+   * under a card reading ONE QUESTION, ANSWERED. The same three Backs onto "a
+   * player" ended on a summary with no PLAYERS row - `isGm` is false - while
+   * `finish` wrote `gmPartySize` anyway, so the one card in the app that says
+   * what a first run writes was short by one. That is the same defect the
+   * `skipped` flag was added to fix: the card stating something the run did not
+   * do.
+   *
+   * Derived from `QUESTIONS` rather than listed, because a list here is a
+   * second copy of the table that nothing could see going stale. The summary is
+   * given the same filtered patch, so the card and the write are one value.
+   */
+  const written = (questions: Question[]): Partial<Prefs> => {
+    const owned = new Set(questions.flatMap((q) => q.options.flatMap((o) => Object.keys(o.set))));
+    return Object.fromEntries(
+      Object.entries(patch).filter(([key]) => owned.has(key)),
+    ) as Partial<Prefs>;
+  };
+  const answers = written(route === 'import' ? WHO : asked);
+
+  /*
    * The one write, and the hand-off.
    *
    * `setPrefs` first and `setScreen` second: `setScreen` writes `lastScreen`
@@ -427,7 +458,7 @@ export function Onboarding(): React.JSX.Element {
    * carries the answers rather than racing them.
    */
   const finish = (): void => {
-    setPrefs({ ...patch, onboarded: true });
+    setPrefs({ ...answers, onboarded: true });
     setScreen(isGm ? 'gm' : 'build');
   };
 
@@ -440,7 +471,7 @@ export function Onboarding(): React.JSX.Element {
    * that just arrived is a character to play.
    */
   const arrive = (): void => {
-    setPrefs({ ...patch, onboarded: true });
+    setPrefs({ ...answers, onboarded: true });
     setScreen('play');
   };
 
@@ -496,7 +527,7 @@ export function Onboarding(): React.JSX.Element {
             route === 'import' ? (
               <Doors />
             ) : (
-              <Summary isGm={isGm} patch={patch} answered={answered} onFinish={finish} />
+              <Summary isGm={isGm} patch={answers} answered={answered} onFinish={finish} />
             )
           ) : (
             <Ask question={current} step={step} of={asked.length} onChoose={choose} />

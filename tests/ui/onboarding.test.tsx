@@ -385,6 +385,69 @@ describe('runs once, and is never seen again', () => {
   });
 });
 
+/*
+ * Back is navigational, not destructive - it leaves the answers standing so
+ * that walking past a question you do not want to change keeps it. What it must
+ * not leave standing is an answer to a question the run has since stopped
+ * asking, because then the flow writes a preference no card on screen names.
+ */
+describe('what Back leaves behind', () => {
+  /** Answer the whole GM branch, then walk back to the first question. */
+  async function theGmBranchThenBackToTheTop(): Promise<void> {
+    await boot();
+    await press('The GM');
+    await press('The app rolls for me');
+    await press('Six or more');
+    await settle(() => text().includes('Your table is ready'));
+    await press('Back');
+    await press('Back');
+    await press('Back');
+    await settle(() => text().includes('Who are you at this table?'));
+  }
+
+  it('does not write a party size to a run that never asked for one', async () => {
+    await theGmBranchThenBackToTheTop();
+    await press("I'll make a character now");
+    await press('The app rolls for me');
+    await settle(() => text().includes('Ready when you are'));
+
+    expect(
+      text(),
+      'the card names a party size on a route that does not ask about one',
+    ).not.toContain('PLAYERS');
+
+    await press('Create a character');
+    await settle(() => loadPrefs().onboarded);
+
+    expect(
+      loadPrefs().gmPartySize,
+      'the run wrote a fourth preference under a card that lists three, which is ' +
+        'the app doing something it has just finished saying it would not',
+    ).toBe(DEFAULT_PREFS.gmPartySize);
+  });
+
+  it('writes one answer on the import route, which is what the card says', async () => {
+    await import('../../src/ui/onboarding/ImportDoors.tsx');
+    await theGmBranchThenBackToTheTop();
+    await press('on another device');
+    await settle(() => text().includes('Choose a file'));
+    expect(text()).toContain('ONE QUESTION, ANSWERED');
+
+    await act(async () => {
+      await useApp.getState().importCharacters([playedCharacter()], { warnings: [] });
+    });
+    await settle(() => loadPrefs().onboarded);
+
+    const prefs = loadPrefs();
+    expect(prefs.gmSection, 'the one answer this route does give').toBe(false);
+    expect(
+      prefs.gmPartySize,
+      'four questions were answered and four preferences written, on the screen ' +
+        'that says "Nothing else to ask"',
+    ).toBe(DEFAULT_PREFS.gmPartySize);
+  });
+});
+
 describe('skipping', () => {
   it('goes to the summary rather than straight past it, and keeps nothing', async () => {
     await boot();
