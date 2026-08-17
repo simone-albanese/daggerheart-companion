@@ -676,8 +676,16 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * risk; a mis-tap arms a neighbouring trait, which is visible instantly - the
  * chip fills with `--hope` - and costs one tap to undo; and it spends nothing.
  * No Hope, no log line, no roll. Every costly mis-tap on this screen (ROLL,
- * RECALL, USE, the damage commit) has either a much bigger target or a second
- * tap. Content is about 341.6px against a 369px column at 393px and 351px at
+ * RECALL, USE, the damage commit, and CLEAR ALL in the conditions dialog this
+ * screen opens) has either a much bigger target or a second tap. CLEAR ALL is
+ * the one that needed both, and it is worth knowing why, because it is the only
+ * control here whose target and whose second tap were decided by something
+ * outside this file: it lives in a `position: fixed` panel drawn over the shell,
+ * so at 393x852 its footer sits on top of the tab bar and the GM tab's centre
+ * lands inside it. A second tap in the same place would have been the same
+ * accident twice, so the second tap is somewhere else - see the docblock over
+ * `ConditionsDialog` in `Conditions.tsx` for the geometry that decided it.
+ * Content is about 341.6px against a 369px column at 393px and 351px at
  * 375px - "AGI +1" is 45.6px at `.chip`'s 9.5px mono with its tracking and 4px
  * of padding either side, six of those plus the 44px control plus six 4px gaps
  * - and the row carries `flexWrap: 'wrap'`, so an unforeseen width degrades to
