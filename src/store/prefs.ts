@@ -48,8 +48,6 @@ export interface Prefs {
   lastBackupAt?: string;
   /** Directory handle name, when the File System Access API is available. */
   backupTarget?: string;
-  /** Suppresses the "cards have no art" offer once it has been seen. */
-  seenArtOffer: boolean;
   gmPartySize: number;
   /**
    * The whole GM section: the night's plan, the encounter builder, the live
@@ -106,6 +104,30 @@ export interface Prefs {
    * booleans would be that cost arriving by the back door.
    */
   playSections: Record<string, boolean>;
+  /**
+   * Have the first-run questions been answered on this device?
+   *
+   * It gates exactly one surface - the first-run questions, drawn instead of
+   * the five screens while this is false and the library is empty - and it is
+   * the only new field that step needed. The *answers* all had keys
+   * already: `gmSection`, `digitalDice`, `manualDice` and `gmPartySize` are
+   * above, and the demo this was built from says so. What it got wrong is the
+   * flow: "runs once and is never seen again" cannot be derived from any of
+   * them, so it is written down here rather than inferred.
+   *
+   * Here rather than on the character, for the reason `playSections` gives at
+   * length: this is a fact about a device, it must not ride out in a `.dhchar`
+   * where it would arrive as a difference between two copies of one character,
+   * and it must not bump `SCHEMA_VERSION` - a price P1-7 actually paid once, in
+   * a converter, two fixtures and a re-stamped dataset. A localStorage key costs
+   * none of that.
+   *
+   * `false` is the truthful default: a record that has just been constructed
+   * from `DEFAULT_PREFS` belongs to a device nobody has answered anything on.
+   * The device that has *stored* a record is handled in `loadPrefs`, which is
+   * where the upgrade rule for it is argued.
+   */
+  onboarded: boolean;
 }
 
 const KEY = 'dhc.prefs.v1';
@@ -120,12 +142,12 @@ export const DEFAULT_PREFS: Prefs = {
   wakeLock: true,
   reduceMotion: false,
   lastScreen: 'play',
-  seenArtOffer: false,
   gmPartySize: 4,
   gmSection: true,
   gmBestiary: true,
   gmPartyBoard: true,
   playSections: {},
+  onboarded: false,
 };
 
 /**
@@ -159,12 +181,35 @@ export function openingScreen(prefs: Prefs, characterCount: number): Screen {
   return allowedScreen(prefs, prefs.lastScreen);
 }
 
+/**
+ * The stored record, over the defaults - and one upgrade in between.
+ *
+ * A device that has a prefs record has plainly been used: this key is written
+ * by `setScreen`, by `select`, by every switch in Settings and by every fold on
+ * the Play screen, so the record exists from the first minute anybody spends in
+ * the app. Every one of those installs predates `onboarded`, so the field is
+ * missing from all of them - and spread against a `false` default that would
+ * make the app open the first-run questions on somebody who has been playing a
+ * character for two years. That is the worst false first-run there is, and it
+ * would arrive on an upgrade rather than on an install, which is exactly when
+ * nobody is looking for it.
+ *
+ * So a record with no `onboarded` key is read as onboarded, and the line sits
+ * *above* the spread so that a record which owns the key still wins with it.
+ * That ordering is the difference between an upgrade rule and an override.
+ *
+ * It has one consequence the first-run flow has to honour, and it is not
+ * optional: that flow may not write a preference until it is finished. A run
+ * that wrote its answers as they were given would leave a record with no
+ * `onboarded` key behind on the first reload, and this line would then read
+ * that half-finished run as a completed one.
+ */
 export function loadPrefs(): Prefs {
   if (typeof localStorage === 'undefined') return DEFAULT_PREFS;
   try {
     const raw = localStorage.getItem(KEY);
     if (raw === null) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Prefs>) };
+    return { ...DEFAULT_PREFS, onboarded: true, ...(JSON.parse(raw) as Partial<Prefs>) };
   } catch {
     return DEFAULT_PREFS;
   }
