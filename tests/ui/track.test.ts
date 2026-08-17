@@ -179,38 +179,20 @@ describe('press and hold', () => {
     expect(onChange.mock.calls).toEqual([[3]]);
   });
 
-  it('does not fire from the label in the gutter layout either', () => {
-    /*
-     * The gutter moves the label from above the pips to beside them, which is
-     * a new chance to make the original mistake: put the label inside the
-     * element carrying the handlers and a press on the word "STRESS" wipes the
-     * track. Same assertion as the header, different arrangement.
-     */
-    const onChange = vi.fn();
-    render(
-      createElement(Track, {
-        kind: 'stress',
-        label: 'STRESS',
-        value: 4,
-        max: 6,
-        onChange,
-        readout: '4/6',
-        headerLayout: 'gutter',
-      }),
-    );
-
-    const label = [...container.querySelectorAll('span')].find(
-      (s) => s.textContent === 'STRESS',
-    );
-    if (label === undefined) throw new Error('no gutter label rendered');
-    pressAndHold(label);
-
-    expect(onChange).not.toHaveBeenCalled();
-    // And the pips still work, so this is not passing because nothing renders.
-    pressAndHold(pip(1));
-    expect(onChange).toHaveBeenCalledWith(0);
-  });
-
+  /*
+   * DELETED WITH THE BRANCH IT TESTED: «does not fire from the label in the
+   * gutter layout either». It passed `headerLayout: 'gutter'`, and its own
+   * comment gave its reason - "the gutter moves the label from above the pips
+   * to beside them, which is a new chance to make the original mistake: put the
+   * label inside the element carrying the handlers and a press on the word
+   * STRESS wipes the track. Same assertion as the header, different
+   * arrangement."
+   *
+   * There is one arrangement now. `Vitals` was the gutter's only caller in
+   * `src/` and decision 7 deleted it, so the branch went too. The claim itself
+   * loses nothing: the test directly below makes it over the stacked header,
+   * which is the one the party board, the live scene and the companion draw.
+   */
   it('does not fire from the readout or the label either', () => {
     const onChange = vi.fn();
     render(
