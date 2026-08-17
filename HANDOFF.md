@@ -446,6 +446,21 @@ installed as a PWA pays a 34px `env(safe-area-inset-bottom)`, which takes the
 fit in a browser and is lost by a hair in the installed app. Nobody has measured
 that inset on the owner's own phone; it belongs in *Needs a human*.
 
+**And a second thing, found by opening the app rather than by measuring it.**
+Every figure in this section is computed for a screen with no banner on it. The
+shell draws banners above the scroll — `BackupBanner` is **58px** — and
+`BackupBanner` is on screen from first launch until the first backup is taken.
+Measured in Chrome at a true 393×852 with a seeded character: with the banner
+the column is 672 and the folded sheet of 697 is **25px over**; dismissed, the
+column is 738 and it fits with 41 to spare. So **the at-a-glance sheet does not
+fit for a new user**, which is exactly the user whose first impression it is.
+The banner is honest and should not be deleted — it is P0-2's remedy — but the
+budget has never counted it, and neither `Play.tsx`'s table nor the assertions in
+`playSheet.test.tsx` know it exists. Three shapes to weigh, none taken: let the
+banner overlay rather than displace, count it in the budget and lose a fold to
+it, or shorten it. This was found with the app open on a phone viewport; no test
+in the suite renders a banner and a sheet together.
+
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
 rewriting; both landed in this pass, in parallel worktrees, and were merged here.
