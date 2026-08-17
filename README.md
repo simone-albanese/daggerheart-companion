@@ -289,8 +289,15 @@ is personal, for their own devices, not for sharing.
 The one piece of official artwork here is Darrington Press's "Daggerheart
 Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
 use. The full lockup sits under the attribution on the empty-library screen and
-at the foot of every screen's own scroll, and the dagger-and-flame icon alone
-sits in the header on every screen. It is
+nowhere else — `<Attribution>` is the only thing that mounts `CompatibleLockup`,
+and `App.tsx:631` holds the one `<Attribution>` in `src/`. The dagger-and-flame
+icon alone is what appears everywhere else: `CompatibleIcon size={18}` in the
+header on every screen (`Header.tsx:588`), and `size={14}` at the foot of every
+screen's own scroll, beside the attribution text, in `LicenceFooter.tsx:171`.
+*(This paragraph used to say the lockup was at the foot of every scroll too —
+**superseded**: `LicenceFooter` has never rendered it, and the distinction is
+worth keeping because a 220px lockup below every page is a different licensing
+posture from a 14px mark.)* It is
 deliberately never the app's own icon, because a home-screen icon that is the
 official logo reads as an official app, which this is not. The licence text in
 Settings › About carries the attribution as words, without the mark. No
