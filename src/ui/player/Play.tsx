@@ -26,11 +26,17 @@
  *   Below 1180px - every phone and every tablet - the sheet is one scrolling
  *   column in Giorgio's order, with nothing outside the scroll. `PlayPhone`.
  *
- *   At 1180px and above, the three-column cockpit, which fits without
- *   scrolling and is laid out for a mouse. `PlayDesktop`.
+ *   At 1180px and above, the three-column cockpit, laid out for a mouse.
+ *   `PlayDesktop`. It used to say here that it "fits without scrolling", and
+ *   that was measurably untrue: at 1180x695 - a viewport `Vitals` names as
+ *   this app's real constraint - the roll panel holds 277.9px of declared
+ *   content in 197, and with `overflow: hidden` on it ROLL was painted 0.0px
+ *   with no wheel, drag or tap anywhere on the glass that reached it. Two of
+ *   the three columns have always scrolled; the middle one does now too, and
+ *   the argument is in the docblock over `DualityRoll`'s desktop branch.
  *
  * The middle band used to run the cockpit at two columns, and that is P2-1:
- * `DualityRoll`'s root is `flex: 1, minHeight: 0, overflow: hidden` inside a
+ * `DualityRoll`'s root was `flex: 1, minHeight: 0, overflow: hidden` inside a
  * scrolling column, so on an iPad it was crushed - 45px at 744x1133, 26px at
  * 1024x768 - while its children laid out to their natural height, putting ROLL
  * about 228px past the clip. In the DOM, invisible, and still reachable by

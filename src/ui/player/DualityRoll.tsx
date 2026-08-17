@@ -870,8 +870,94 @@ export function DualityRoll({
     );
   }
 
+  /*
+   * The cockpit's roll panel, which scrolls - and that is the fix, not a
+   * concession.
+   *
+   * IT USED TO BE `overflow: 'hidden'`, AND THAT COST THE SCREEN ROLL. Every
+   * term of what this panel holds is declared in this file, so the sum can be
+   * read off the source: 24 of padding here, 44 for the control row (its
+   * tallest child is `ExperienceChip`'s `minHeight: var(--tap)`), 62 for the
+   * dice faces (`Die`'s `minHeight: 62`), 38.9 for the verdict strip (20 of
+   * padding around a `clamp(16px,1.6vw,22px)/1` line, which is 18.88px at a
+   * 1180px window), ROLL's own declared 54, 15 for `RecentLog` at its floor -
+   * the 10px RECENT label over a 5px gap and an empty box - and four 10px
+   * gaps. 277.9px. Measured in Chrome at 1180x695 with the backup banner up
+   * and the last Hit Point marked, this panel is 197 tall with a scrollHeight
+   * of 277, and ROLL's 54px box is laid out at y 677.9 against a panel bottom
+   * edge at y 674: painted 0.0px. Both of those conditions are default states
+   * of a fresh install rather than contrivances, and 695 is this repository's
+   * own stated constraint - `Vitals` says "a 1440x695 laptop viewport is the
+   * real constraint, not the 900px mock". The same clip takes `DamageRow`'s
+   * `IF IT HIT · 4d8+6` to 15 of its declared 44 at 1280x800.
+   *
+   * AND NOTHING ABOVE COULD GIVE THE HEIGHT BACK, which is what made it a
+   * reachability defect rather than an ugly one. Measured at 1180x695, `main`
+   * and `.app` both have `scrollHeight === clientHeight`, and the middle grid
+   * column is `overflowY: visible`, so there was no wheel, no drag and no tap
+   * anywhere on the glass that reached ROLL. `roll.focus()` did: it sets this
+   * element's `scrollTop` to 80 and brings the button back to y 597.9. Laid
+   * out, invisible, still keyboard-reachable - P2-1's exact signature, on the
+   * desktop, in the one control the screen exists for.
+   *
+   * `overflowY: 'auto'` AND NOT A SHORTER PANEL. The other three answers were
+   * available and all of them are worse. Dropping the dice faces takes the two
+   * raw numbers off the cockpit, where they are the readout and not an input.
+   * Pinning ROLL to the bottom of the panel breaks this screen's standing rule
+   * that nothing on Play is out of the flow, and would park a 54px button over
+   * the log. Moving the scroll up to the middle grid column would take `Vitals`
+   * with it, and the counters are the thing you have to be able to see *while*
+   * you roll. Scrolling the panel itself is the reflow this project already
+   * decided it prefers to a clip.
+   *
+   * `overflowX` STAYS `hidden`, ON PURPOSE. `overflow-x: visible` beside a
+   * scrolling y-axis computes to `auto`, and the panel does have content that
+   * can exceed 404px of inner width: ROLL's second line is `.t-num` (13px
+   * mono) with no `min-width: 0`, so an Experience named as one unbroken word
+   * of ~34 characters is about 280px that cannot wrap. That already overflowed
+   * and was already clipped; making it a horizontal scrollbar instead would be
+   * a new defect shipped inside a fix.
+   *
+   * NO `scrollbarWidth` HERE, WHERE THE MODIFIER SHELF HAS `'none'`. That
+   * shelf is the next defect in this file precisely because it hides the fact
+   * that it scrolls. This panel is the last place on the cockpit that can
+   * afford a silent one, so it takes the platform's own bar at the platform's
+   * own width.
+   *
+   * ERGONOMICS. The cockpit is 1180px and up, so 393x852 and its thumb arc are
+   * not the reference here - `PlayPhone` is what a phone gets. What does reach
+   * this panel with a finger is a touchscreen laptop, and tokens.css:203-207
+   * widens `--control` to `var(--tap)` under `(pointer: coarse)` at any width,
+   * so every chip in the control row above is already 44px there and ROLL is
+   * 54 by declaration. TARGET SIZE was never the charge: 0px and 15px are what
+   * a clip leaves, and no floor survives that - not this project's 44/34 and
+   * not WCAG's 24 either. READ VERSUS TOUCH is what the scroll has to keep,
+   * and it does, because the order in this column is already right: what you
+   * declare (the control row) is read first, what reports (the faces and the
+   * verdict strip) sits above what you press, ROLL and the damage row come
+   * after them, and `RecentLog` - the only thing here you merely read back -
+   * is the one `flex: 1` child, so it gives up its height first and the panel
+   * only scrolls once the log is at zero. What a player scrolls to is
+   * therefore always the bottom of the column and always the thing they were
+   * about to press, never a readout they have to hunt back up for.
+   *
+   * IT COSTS NO PIXELS. `overflowY: 'auto'` adds no layout height; on a
+   * platform with classic scrollbars it takes the bar's width out of the
+   * panel's 404px of inner width, and only while the panel is actually
+   * overflowing.
+   */
   return (
-    <div className="panel stack" style={{ flex: 1, minHeight: 0, padding: 12, gap: 10, overflow: 'hidden' }}>
+    <div
+      className="panel stack"
+      style={{
+        flex: 1,
+        minHeight: 0,
+        padding: 12,
+        gap: 10,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+      }}
+    >
       {control}
 
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
@@ -961,11 +1047,23 @@ export function DualityRoll({
       {/*
        * Between ROLL and the log, and never after it.
        *
-       * This panel is `flex: 1, minHeight: 0, overflow: hidden`, and
-       * `RecentLog` is its only `flex: 1` child - so a row placed here takes
-       * its height out of the log, which can spare it, while a row placed
-       * after the log, or left shrinkable, would push ROLL past the clip. That
-       * is P2-1 exactly: laid out, invisible, and still reachable by keyboard.
+       * The reason used to be that `RecentLog` is this panel's only `flex: 1`
+       * child, so a row placed here takes its height out of the log, which can
+       * spare it. THAT PREMISE IS FALSE IN THE STATE THAT MATTERS. Measured in
+       * Chrome at 1180x695 with the backup banner up and the last Hit Point
+       * marked, the log is already 0px tall *before* this row is drawn - the
+       * panel is 197 tall holding 277.9 of declared content - so the 44 this
+       * row asks for does not come out of the log. It comes off the bottom of
+       * the column, and at 1280x800 in the same state it took this row's own
+       * button to 15 of 44.
+       *
+       * The placement is still right, for a reason that survives the
+       * measurement: the log gives way first *when it has anything to give*,
+       * and past that the panel scrolls rather than clipping, so what the
+       * order buys is that the two things a player presses stay adjacent and
+       * stay last. ROLL and the damage offer are one scroll apart at worst
+       * instead of one scroll apart with a log between them. Putting this row
+       * after the log would separate them and put a readout in the gap.
        */}
       <DamageRow key={rollId} attack={attack} affordance={affordance} layout="desktop" />
 
