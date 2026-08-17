@@ -2164,6 +2164,56 @@ describe('the conditions, drawn only when there are any', () => {
       'the desktop strip lost the only door it has',
     ).toHaveLength(1);
   });
+
+  /**
+   * And that one desktop door may not be inside the part that scrolls.
+   *
+   * Measured in Chrome at 1180x820, 1280x800 and 1440x900 - identical, because
+   * the middle track is capped at 428 - with three standard conditions on and
+   * the two named ones `MAX_NAMED` allows: the strip held **593px in 428**, the
+   * second named chip painted 31.6 of its 147.4, and the door was laid out at
+   * x 922.8 against a right edge of 802, **120.8px past it and painting
+   * nothing**, with `scrollbarWidth: 'none'` so nothing on the glass said the
+   * row scrolled at all. On the cockpit that door is the only way into
+   * `ConditionsDialog`, so naming a state depended on having room for the
+   * states you had already named.
+   *
+   * jsdom has no layout, so what is asserted is the structure that produces the
+   * fix: the door is a sibling of the scrollport, not a child of it.
+   */
+  it('keeps that door out of the strip’s own scrollport', () => {
+    const c = seed();
+    play(c);
+    act(() => {
+      useConditions.getState().addNamed(c.id, 'CLOAKED IN THE SHADO');
+      useConditions.getState().addNamed(c.id, 'NO MERCY FOR THE WIC');
+    });
+    render(createElement(ActiveConditions));
+
+    const group = container.querySelector<HTMLElement>(
+      '[role="group"][aria-label="Active conditions"]',
+    )!;
+    const door = buttons().find(
+      (b) =>
+        (b.getAttribute('aria-label') ?? '') === 'Condition rules, and states you name yourself',
+    )!;
+    const scroller = [...group.children].find(
+      (el) => el instanceof HTMLElement && el.style.overflowX === 'auto',
+    );
+
+    expect(scroller, 'the chips have nowhere to scroll').toBeDefined();
+    expect(group.style.overflowX, 'the group itself is the scrollport again').toBe('');
+    expect(
+      door.parentElement,
+      'the door is back inside the scrolling row, where two named conditions push it off',
+    ).toBe(group);
+    expect(scroller!.contains(door), 'the door scrolls with the chips again').toBe(false);
+    // Both named chips are still in the part that scrolls: the fix moves the
+    // door, and moves nothing else out of the strip.
+    expect(
+      [...scroller!.querySelectorAll('button')].map((b) => (b.textContent ?? '').trim()),
+    ).toEqual(['HIDDEN', 'RESTRAINED', 'VULNERABLE', 'CLOAKED IN THE SHADO', 'NO MERCY FOR THE WIC']);
+  });
 });
 
 /**

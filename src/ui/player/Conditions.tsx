@@ -270,12 +270,17 @@ function Chip({
  * glass in every state, so the chip at the end of this strip would be a second
  * door to the same dialog, present only in the state where you least need it.
  *
- * DESKTOP IS UNTOUCHED, deliberately and by default. `Vitals` mounts this with
- * no props in the cockpit's middle column, where the strip is permanent, the
- * `+ NAME` chip is the door, and there is room for both. The alternative that
- * was considered and rejected - putting the strip inside `DualityRoll`'s
- * `ControlRow` - would have given the cockpit two `role="group"
- * aria-label="Active conditions"` groups and two doors into the same dialog.
+ * DESKTOP KEEPS BOTH IN ONE ROW. `Vitals` mounts this with no props in the
+ * cockpit's middle column, where the strip is permanent and the `+ NAME` chip
+ * is the door. "And there is room for both" stood here and was measurably
+ * false: with the two named conditions `MAX_NAMED` allows, the row held 593px
+ * in 428 and the door was laid out 120.8px past the right edge, painting
+ * nothing. The door is outside the scrollport now - see the note on the strip
+ * itself - so what runs out of room is the chips, which scroll. The
+ * alternative that was considered and rejected - putting the strip inside
+ * `DualityRoll`'s `ControlRow` - would have given the cockpit two
+ * `role="group" aria-label="Active conditions"` groups and two doors into the
+ * same dialog.
  */
 export function ActiveConditions({
   onlyWhenOn = false,
@@ -303,12 +308,54 @@ export function ActiveConditions({
   if (onlyWhenOn && on.length === 0) return null;
 
   const strip = (
+    /*
+     * THE DOOR IS OUTSIDE THE SCROLLER, and that is this row's whole shape.
+     *
+     * The strip used to be one horizontally-scrolling row with the chips and
+     * the `+ NAME` door in it together. Measured in Chrome at 1180x820,
+     * 1280x800 and 1440x900 - identical, because the middle track is capped at
+     * 428 - with three standard conditions on and two named ones of 20
+     * characters: the row held 593px in 428, the second named chip painted
+     * 31.6 of its 147.4, and the door was laid out at **x 922.8 against a right
+     * edge of 802 - 120.8px past it, painting nothing at all**, with
+     * `scrollbarWidth: 'none'` so no affordance said the row scrolled.
+     * `elementFromPoint` at its centre returned the loadout column. Two named
+     * conditions is the cap `MAX_NAMED` sets, so that is not a corner: it is
+     * the full state this strip is designed for. And on the cockpit this door
+     * is the *only* way into `ConditionsDialog` - `Identity` is mounted there
+     * with no props on purpose - so being able to name a state depended on
+     * having room for the chips you had already named.
+     *
+     * So the group keeps both, and only the chips scroll. The door is a
+     * `flex: none` sibling of the scrollport rather than a child of it, which
+     * is the arrangement `position: sticky` would have approximated at the cost
+     * of painting over the last chip. It costs the chips 49px of scrollport -
+     * they scroll, which is what they are for - and it costs the column nothing:
+     * the outer row is the height of one 34px chip either way. Measured after,
+     * in the same state: the door is 44.2px wide, paints all of it, and sits
+     * hard against the strip's right edge at x 757.8 of 802.
+     *
+     * WHAT THIS DOES NOT FIX, said plainly. The chips themselves still scroll
+     * under `scrollbarWidth: 'none'`, and in that same full state the scrollport
+     * is 379 holding 544, so the second named chip paints 0 until you drag it
+     * into view - 369 holding 544 on a 393px phone, where it is the same. It is
+     * the shape of the defect above, one step down: the strip is not silent
+     * about a condition, but it can be silent about *which* one. Closing it
+     * means wrapping onto a second 34px row, which costs the phone's Play
+     * budget in a state that is already 19px over, so it is a decision for
+     * whoever owns that budget rather than a line to slip in here.
+     */
+    <div
+      className="row"
+      role="group"
+      aria-label="Active conditions"
+      style={{ flex: 'none', gap: 5 }}
+    >
       <div
         className="row"
-        role="group"
-        aria-label="Active conditions"
         style={{
-          flex: 'none',
+          flex: '1 1 auto',
+          minWidth: 0,
           gap: 5,
           overflowX: 'auto',
           overflowY: 'hidden',
@@ -357,30 +404,31 @@ export function ActiveConditions({
             onClick={() => toggleNamed(character.id, n.id)}
           />
         ))}
-
-        {!onlyWhenOn && (
-          <button
-            type="button"
-            className="chip"
-            onClick={() => setOpen(true)}
-            title="Condition rules, and states you name yourself"
-            aria-label="Condition rules, and states you name yourself"
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              minWidth: 'var(--control)',
-              padding: '0 10px',
-              borderRadius: 'var(--r3)',
-              background: 'transparent',
-              border: '1px solid var(--line)',
-              color: 'var(--muted)',
-              letterSpacing: '0.18em',
-            }}
-          >
-            {conditions.named.length < MAX_NAMED ? '+ NAME' : '...'}
-          </button>
-        )}
       </div>
+
+      {!onlyWhenOn && (
+        <button
+          type="button"
+          className="chip"
+          onClick={() => setOpen(true)}
+          title="Condition rules, and states you name yourself"
+          aria-label="Condition rules, and states you name yourself"
+          style={{
+            flex: 'none',
+            minHeight: 'var(--control)',
+            minWidth: 'var(--control)',
+            padding: '0 10px',
+            borderRadius: 'var(--r3)',
+            background: 'transparent',
+            border: '1px solid var(--line)',
+            color: 'var(--muted)',
+            letterSpacing: '0.18em',
+          }}
+        >
+          {conditions.named.length < MAX_NAMED ? '+ NAME' : '...'}
+        </button>
+      )}
+    </div>
   );
 
   if (onlyWhenOn) return strip;
