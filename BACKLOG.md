@@ -2693,16 +2693,21 @@ table and the shell's three constants, so they cannot go 150px stale again.
 
 **Not done, and named rather than hidden:**
 
-- [ ] **The fit is a fit in a browser and is lost by one pixel in the installed
-      app.** A home-indicator iPhone installed as a PWA pays a 34px
+- [x] ~~**The fit is a fit in a browser and is lost by one pixel in the installed
+      app.**~~ — **closed by the reflow rather than by a fix, `0cdf42f`.** A
+      home-indicator iPhone installed as a PWA pays a 34px
       `env(safe-area-inset-bottom)`, which this repo has always treated as 0.
-      That takes the 393×852 column from 730 to 696, so the 697 is **one pixel
-      over** — and ROLL's margins become 311 and 126 rather than 345 and 160.
-      Nobody has measured the inset on the owner's own phone; it is item 7 in
-      *Needs a human* below, and this is now a second reason to do it.
-- [ ] **Nobody has watched a thumb reach for ROLL at the top of the scroll.**
-      414-480px above the bezel at 393×852 is outside the sweep the old comment
-      cited, and the argument that it does not matter — the column scrolls, so
+      That takes the 393×852 column from 730 to 696: against P5-8's 697 it was
+      one pixel over, against the 618 the sheet declares now it is 78px of room.
+      **The measurement is still owed** — nobody has read the inset off the
+      owner's own phone, and everything in the app that pays it is arranged
+      around a number nobody has seen.
+- [ ] **Nobody has watched a thumb reach for ROLL at the top of the scroll**,
+      and the reflow made the question sharper rather than answering it: the row
+      is **493-559px** above the bezel at 393×852 and **308-374** at 375×667,
+      where P5-8 measured 414-480 and 229-295 and the small phone was still
+      inside the arc. It is outside at both now — outside the sweep the old
+      comment cited — and the argument that it does not matter — the column scrolls, so
       the position at rest is not the position at use — is an argument and not
       an observation. It belongs beside the counter cell's 4px cushion in
       *Needs a human*: both are questions about a real hand at a real table.

@@ -440,9 +440,10 @@ Play**. It is now the last thing in each screen's own scrolling content on all
 five. Three things a cold start should know about it:
 
 - **It costs the Play budget nothing and that is asserted, not assumed.** It is
-  below the last shut fold, so 385 and (since P5-8) 697 are unchanged; the
-  budget test counts the column's children and pins the last one as a
-  `<footer>`.
+  below the last shut fold, so ROLL's edge and the sheet's total are unchanged
+  by it — 385 and 697 when this was written, 306 and 618 after the audit's
+  reflow, and the point is that the footer moves neither; the budget test counts
+  the column's children and pins the last one as a `<footer>`.
 - **`env(safe-area-inset-bottom)` is paid exactly once per screen**, and the
   prop that arranges it is `pinnedBelow` rather than `bottomMost` — each screen
   declares the one fact only it holds ("I have a bar under this scroll"), and

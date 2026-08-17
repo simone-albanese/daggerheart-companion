@@ -550,8 +550,9 @@ is on the player's side, and the rules say the GM sets the number.
   a GM whose night is only half written about 236px more list. **It costs the
   Play sheet nothing**: it sits below the last folded row, past everything the
   sheet's own height budget counts, so the numbers that decided ROLL's place
-  are unchanged — its lower edge is still 385px down a 730px column at 393×852,
-  and the whole folded sheet measures 697.
+  are unchanged by it — 385px down a 730px column and a 697px sheet when this
+  landed, 306 and 618 after the reflow that followed, and the notice moved
+  neither of them either time.
 - **The notice itself is not touched.** It is the same 342 characters, written
   out in exactly one place in the source, and the suite still fails if a second
   copy of them is ever declared.

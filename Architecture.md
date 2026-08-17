@@ -824,7 +824,7 @@ daggerheart-companion/
 
 **In fondo a ognuno di quei cinque scroll c'è l'avviso di licenza, e non c'è
 niente dopo** (P5-6). Non è chrome: è l'ultimo blocco del contenuto, un filetto
-e del testo attenuato. Su Play sta sotto l'ultima tendina, quindi *dopo* i 697px
+e del testo attenuato. Su Play sta sotto l'ultima tendina, quindi *dopo* i 618px
 che la scheda misura chiusa, e non entra in nessuno dei due totali del budget —
 `playSheet.test.tsx` conta dodici figli della colonna e chiede che il
 dodicesimo sia un `<footer>` e sia l'ultimo, perché «fuori dal budget» deve
