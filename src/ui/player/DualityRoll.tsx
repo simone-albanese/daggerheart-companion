@@ -30,7 +30,7 @@
  * disarmed again the instant the roll resolves - an Experience left standing
  * would inflate the next roll by two and say nothing about it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Experience, Trait } from '../../../shared/types.ts';
 import { TRAIT_LABELS } from '../../../shared/types.ts';
 import { rollModifier, type DerivedStats } from '../../engine/character.ts';
@@ -41,7 +41,6 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import { useIsNarrow } from '../shared/useLayout.ts';
 import type { ArmedAttack, AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
@@ -131,27 +130,247 @@ interface DieProps {
   label: string;
   color: string;
   value: number | null;
-  onSet: (value: number | null) => void;
+  /** Ask the roll surface to swap both faces for the keypad. */
+  onEdit: () => void;
   size: number;
   editable: boolean;
 }
 
 /**
- * A die face. It reports what the die showed, and when `editable` it is also
- * its own input, so physical dice have somewhere to go.
+ * The keypad a physical die is typed into. It takes the whole face row, and
+ * that is the fix rather than the styling.
  *
- * Not editable is the default state of the app, and then this is a readout and
- * says so: no pointer cursor, and an accessible name without the invitation to
- * tap. A control that looks pressable and does nothing is worse than a label.
+ * IT USED TO TAKE ONE FACE, AND ONE FACE IS NOT WIDE ENOUGH TO HOLD IT. The
+ * twelve keys are `repeat(4, 1fr)` with `gap: 3`, `padding: 6` and a 1.5px
+ * border that lays out as 1 at dpr 1, so a key is `(G - 23) / 4` for a grid of
+ * outer width G, and they carry `minHeight: var(--control)` and no `minWidth`
+ * at all - the width simply falls out of whatever box they are in.
+ *
+ * Inside one die face, G was half the row: on a phone the column is the
+ * viewport less 24 of padding, the face row gaps by 8, so G = (vw - 32) / 2 and
+ * a key is **(vw - 78) / 8** - 30.3px at 320, 35.3 at 360, **37.1 at 375**,
+ * 39.4 at 393, and still under 44 all the way to 429px of viewport. On the
+ * cockpit the die face is narrower still: the middle grid track is 428, less
+ * the panel's border and padding is 402, less the 132px trait box and two 12px
+ * gaps leaves 246 for two faces, so G is 123 and a key is **24px wide**, which
+ * is what the audit measured in Chrome at 1440x900 (grid 119x122, four 24px
+ * columns). My reconstruction from the declared track gives 24.75 if the
+ * border lays out at its declared 1.5 and 25.0 if it rounds to 1, and I could
+ * not close the last pixel against the measured 24; the measurement is the one
+ * used here and all three numbers say the same thing. 24 is under this
+ * project's 34px fine-pointer floor, under its 44px
+ * coarse one, and under WCAG's 24 by a hair - on the control a player uses to
+ * type the number they just rolled on a real die.
+ *
+ * NO COLUMN COUNT FIXES THE COCKPIT, WHICH IS WHY THE WIDTH HAD TO MOVE. Four
+ * 34px keys need 4 * 34 + 9 of gaps + 12 of padding + 2 of border = 159px of
+ * grid, and the cockpit die face is 123. Three need 122, which is inside 123
+ * by one pixel and is not a margin. `repeat(auto-fit, minmax(var(--control),
+ * 1fr))` is the CSS-native form of that arithmetic and it lands on three 34.33
+ * columns - a third of a pixel of slack over the fine floor, and 9.67 under the
+ * coarse one, on every machine that draws this layout. An earlier revision said
+ * it landed on two for a touchscreen laptop "where `(pointer: coarse)` takes
+ * `--control` to 44", and that is not what tokens.css does: see the ERGONOMICS
+ * paragraph below. The audit proposed a `--die-keys` token switched at 437px
+ * instead, which fixes the phone and leaves the cockpit at 24. Taking the whole
+ * face row fixes both: the keypad is `flex: 1` where the two faces were, so G
+ * is 299 at 375 and 206 on the cockpit - measured 206 in Chrome - and a key is
+ * **69px** and **45.75px** wide, measured 45.8. Above 44 in width at every
+ * width in the audit sweep, 320 included, where it is 55.25 - so it needs no
+ * breakpoint of its own, which `useLayout.ts` forbids a component to invent,
+ * and no new token in a stylesheet.
+ *
+ * THE COCKPIT'S 402 HAS A SCROLLBAR TERM IN IT, WHICH THIS ARITHMETIC USED TO
+ * OMIT. The panel scrolls, and this keypad is the state that guarantees it
+ * overflows - so on a platform that draws a classic bar rather than an overlay
+ * one, the panel's content box is narrower than 402 and every number above
+ * comes down with it. The panel reserves that gutter with `scrollbar-gutter:
+ * stable` so it is one width per platform instead of one per scroll state, and
+ * `.scroll` bounds the bar at 8px: worst case 394 of content, 186 of grid, and
+ * a key of (186 - 23) / 4 = **43.75** - a quarter-pixel under the 44px coarse
+ * floor and 9.75 over the 34px fine one. macOS draws overlay bars, so the
+ * gutter is 0 there and the number stays 45.75; measured with a Chrome launched
+ * without `--hide-scrollbars`, this panel's whole gutter is its 2px border.
+ *
+ * IT COSTS NO HEIGHT THAT IT DID NOT ALREADY COST. The grid is still three rows
+ * of `var(--control)` with two 3px gaps, 12 of padding and 2 of border: 152 on
+ * a phone and 122 on the cockpit, exactly what it measured before this widened
+ * it. What it replaces is the dice row, which is 76 on the cockpit and not the
+ * 62 of `Die`'s `minHeight` - see the roll panel's budget table - so opening
+ * the keypad costs the panel 46px there. Measured at 1280x800 with five
+ * Experiences: 474 of panel client, 474 of scrollHeight closed and 494 open,
+ * ROLL painted 54 of 54 in both.
+ *
+ * AND IT HAS A WAY OUT, WHICH IS BACKLOG P3-12. The grid replaced the die
+ * button while it was open, so there was nothing left to tap again: no cancel,
+ * no backdrop, no Escape, and the only exit was committing a face - typing a
+ * number you did not roll to get out of a keypad you opened by accident. The
+ * die's own label is that exit now. It is a full-height 44px column at the head
+ * of the row, so it costs no height at all, and it does the second job the
+ * one-face keypad did for free: saying which die you are typing.
+ *
+ * FOR THE KEYBOARD TOO, WHICH THE FIRST VERSION OF THAT EXIT WAS NOT. Opening
+ * this unmounts the die face that had focus, so focus fell to `<body>`:
+ * measured, `document.activeElement` is BODY the instant the grid appears, and
+ * the exit is then the 53rd focusable on the cockpit with key "1" the 54th of
+ * 81 - fifty tabs to reach a control the player had just opened. Escape worked
+ * and left focus on `<body>` as well, so the way out fired into nothing. The
+ * exit takes focus on mount now, and `DualityRoll` puts focus back on the die
+ * face when the keypad closes, however it closed. That is `useDialog`'s
+ * pattern minus the Tab trap: this is not an overlay, nothing behind it is
+ * inert, and tabbing straight out of it is allowed.
+ *
+ * ERGONOMICS. TARGET SIZE is the whole charge and it moves from 24x34 on the
+ * cockpit and 37.1x44 on a phone to 45.75x34 and 69x44 - measured 45.8x34 in
+ * Chrome at 1280x800 and 1440x900 alike. WHICH FLOOR EACH OF THOSE CLEARS,
+ * SINCE AN EARLIER REVISION SAID "both floors in both directions" AND THAT IS
+ * NOT TRUE OF THE HEIGHT ON THE COCKPIT. `--control` is 44 below 1180 and 34 at
+ * 1180 and up, because tokens.css:203-207 is `(max-width: 1179px), (pointer:
+ * coarse)` and `pointer` describes only the PRIMARY pointer - a touchscreen
+ * laptop and an iPad in a keyboard case both answer `pointer: fine`, which
+ * tokens.css:129-132 states outright and which is the entire reason `--pip-h`
+ * has an `any-pointer: coarse` query of its own. Measured with the rig's
+ * `hybrid` profile at 1280x800 and 1440x900: `--control` 34px, `--pip-h` 44px.
+ * So a phone key is 69x44 and clears both floors; a cockpit key is 45.8x34,
+ * which clears the 34px fine floor in both directions and is 10px under this
+ * project's 44px coarse floor in height for a finger on a touchscreen laptop.
+ * That is `--control`'s query and not this grid - every chip on this panel has
+ * it - and it is written up in the lane's doc-deltas file. The 3px gutter is
+ * left alone: it is a gutter between 45-to-69px targets now rather than between
+ * 24px ones, and widening it would come straight back out of the keys.
+ * THUMB ARC: on a phone this row sits directly above ROLL, the
+ * band the file's own docblock calls the best on the screen, and the keys are
+ * where they already were; what moved is the exit, to the LEFT edge, away from
+ * where a right thumb rests. That is deliberate and it is the same argument
+ * MODS is placed on - except inverted, because here the resting corner is a
+ * digit and a digit is the consequential press. READ VERSUS TOUCH: the label
+ * you read to know which die this is now sits at the start of the row rather
+ * than being the thing that vanished, and the twelve things you touch follow
+ * it left to right, top to bottom.
+ *
+ * AND THE OTHER DIE IS READ BACK HERE, BECAUSE TAKING THE WHOLE ROW TOOK IT
+ * OFF THE SCREEN. When this replaced one face the other stayed beside it,
+ * showing the number already typed into it; taking both means that number has
+ * nowhere else to be. Nothing else prints it: `rollLine`'s raw-dice branch is
+ * gated on `!canType`, and the cockpit's trait box prints `result?.total ?? '—'`
+ * - an em dash until BOTH faces are in, which is exactly the state this is. The
+ * comment that used to sit over the cockpit's face row called that box "the one
+ * number you want in front of you while you type the two that make it"; it
+ * reads `—` in the only state where it would be wanted. Concretely, at 393x852
+ * with typed dice on and the digital roller off: tap HOPE, press 5, tap FEAR,
+ * and the 5 was nowhere on the glass.
+ *
+ * It goes under the exit rather than beside the grid. A readout beside the grid
+ * would take about 50 of the cockpit's 206 and put a key at (148 - 23) / 4 =
+ * 31.25, under the 34px fine floor - undoing the change this component exists
+ * for. The exit column is `var(--tap)` wide by 122 on the cockpit and 152 on a
+ * phone and it holds one 10px label over a 15px glyph, so a 30px readout under
+ * it costs the exit height it has to spare. Measured with a HOPE of 7 typed and
+ * the FEAR keypad open: the exit is 44x88 at 1280x800 and 44x118 at 393x852,
+ * the grid is still 206 and 317 wide, and the keys are still 45.8x34 and
+ * 73.5x44 - so the readout costs the twelve targets nothing at all. It is drawn
+ * only when the other die HAS a value, so a keypad opened first shows the same
+ * column it always did.
  */
-function Die({ label, color, value, onSet, size, editable }: DieProps): React.JSX.Element {
-  const [editing, setEditing] = useState(false);
+function DieKeypad({
+  label,
+  color,
+  value,
+  onSet,
+  onCancel,
+  otherLabel,
+  otherColor,
+  otherValue,
+}: {
+  label: string;
+  color: string;
+  value: number | null;
+  onSet: (value: number) => void;
+  onCancel: () => void;
+  otherLabel: string;
+  otherColor: string;
+  otherValue: number | null;
+}): React.JSX.Element {
+  /*
+   * The keyboard's way IN, beside the pointer's.
+   *
+   * Opening this unmounts the die face that had focus, and focus falls to
+   * `<body>` - measured, `document.activeElement` is BODY the instant the grid
+   * appears. For a keyboard that is worse than the missing cancel this control
+   * exists to be: the exit is the 53rd focusable on the cockpit and key "1" the
+   * 54th of 81, so a keypad the player just opened was fifty-odd tabs away.
+   *
+   * The exit takes focus instead, so the way out is where the keyboard already
+   * is and the twelve keys are one Tab further on. This is `useDialog`'s
+   * pattern minus the Tab trap, which is exactly what the docblock over the
+   * Escape listener says this surface cannot use: it is not an overlay, nothing
+   * behind it is inert, and tabbing out of it is allowed.
+   */
+  const exit = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    exit.current?.focus();
+  }, []);
 
-  if (editing) {
-    return (
+  return (
+    <div className="row" style={{ flex: 1, minWidth: 0, gap: 8, alignItems: 'stretch' }}>
+      <div
+        className="stack"
+        style={{ flex: 'none', width: 'var(--tap)', minWidth: 'var(--tap)', gap: 4 }}
+      >
+      <button
+        ref={exit}
+        type="button"
+        onClick={onCancel}
+        aria-keyshortcuts="Escape"
+        aria-label={`Stop typing the ${label} die`}
+        title="Back to the dice"
+        style={{
+          flex: 1,
+          width: 'var(--tap)',
+          minWidth: 'var(--tap)',
+          background: 'var(--app)',
+          border: `1.5px solid ${color}`,
+          borderRadius: 'var(--r4)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+        }}
+      >
+        <span className="t-meta" style={{ color, letterSpacing: '0.14em' }}>
+          {label}
+        </span>
+        <span aria-hidden="true" style={{ font: '600 15px/1 var(--sans)', color }}>
+          ×
+        </span>
+      </button>
+      {otherValue !== null && (
+        <div
+          style={{
+            flex: 'none',
+            background: 'var(--raised)',
+            borderRadius: 'var(--r3)',
+            padding: '3px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <span className="t-meta" style={{ color: otherColor, letterSpacing: '0.1em' }}>
+            {otherLabel}
+          </span>
+          <span className="t-num" style={{ color: 'var(--text)' }}>
+            {otherValue}
+          </span>
+        </div>
+      )}
+      </div>
       <div
         style={{
           flex: 1,
+          minWidth: 0,
           background: 'var(--app)',
           border: `1.5px solid ${color}`,
           borderRadius: 'var(--r4)',
@@ -166,10 +385,7 @@ function Die({ label, color, value, onSet, size, editable }: DieProps): React.JS
           <button
             key={n}
             type="button"
-            onClick={() => {
-              onSet(n);
-              setEditing(false);
-            }}
+            onClick={() => onSet(n)}
             style={{
               minHeight: 'var(--control)',
               borderRadius: 'var(--r1)',
@@ -182,13 +398,28 @@ function Die({ label, color, value, onSet, size, editable }: DieProps): React.JS
           </button>
         ))}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
+/**
+ * A die face. It reports what the die showed, and when `editable` it is also
+ * the way into the keypad, so physical dice have somewhere to go.
+ *
+ * Not editable is the default state of the app, and then this is a readout and
+ * says so: no pointer cursor, and an accessible name without the invitation to
+ * tap. A control that looks pressable and does nothing is worse than a label.
+ *
+ * The keypad used to live in here, in a `useState` of its own, and returned in
+ * place of this button. It is `DieKeypad` now and the roll surface owns which
+ * die is being typed, because a keypad that fits inside one face is a keypad
+ * with 24px keys on the cockpit - the arithmetic is over `DieKeypad`.
+ */
+function Die({ label, color, value, onEdit, size, editable }: DieProps): React.JSX.Element {
   return (
     <button
       type="button"
-      onClick={() => editable && setEditing(true)}
+      onClick={() => editable && onEdit()}
       aria-label={`${label} die${value === null ? '' : `: ${value}`}${editable ? ' - tap to enter a physical roll' : ''}`}
       style={{
         flex: 1,
@@ -256,6 +487,45 @@ interface Props {
 /** A stable empty list, so a character without Experiences is not a new array. */
 const NO_EXPERIENCES: Experience[] = [];
 
+/**
+ * Whether a scrolling box still has content under its bottom edge.
+ *
+ * `.scroll-fade` is this app's "there is more below" mark, and base.css's own
+ * docblock says the sentence it used to carry - "disappears once you reach the
+ * end" - was never true anywhere it was declared, because it was declared
+ * unconditionally. This is what makes it true: the class goes on only while
+ * something is actually below the fold, so reaching the end takes the fade with
+ * it and a panel that fits never wears one.
+ *
+ * IT RE-READS ON EVERY RENDER, deliberately and with no dependency list. What
+ * moves this answer is the box's own scrollTop (the listener), the box's own
+ * size (the observer) and its children's heights - the damage row appearing,
+ * the keypad opening, a name wrapping to a third line - and the last of those
+ * is not observable without watching every descendant. A layout effect that
+ * runs after each commit sees all three, before the browser paints. The
+ * `ResizeObserver` guard is for jsdom, which has no such constructor.
+ */
+function useMoreBelow<T extends HTMLElement>(): [React.RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [more, setMore] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null) return undefined;
+    const read = (): void => {
+      setMore(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+    };
+    read();
+    el.addEventListener('scroll', read, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(read);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', read);
+      observer?.disconnect();
+    };
+  });
+  return [ref, more];
+}
+
 export function DualityRoll({
   stats,
   trait,
@@ -279,6 +549,90 @@ export function DualityRoll({
     hope: null,
     fear: null,
   });
+  /*
+   * Which face the keypad is open on, and why it is not `Die`'s own state.
+   *
+   * The keypad needs the whole face row to hold twelve targets at the floor -
+   * inside one face it was 24px wide on the cockpit, and the arithmetic is
+   * over `DieKeypad`. A component that replaces both of its siblings cannot be
+   * one of them, so the surface that draws the row owns the answer to "which
+   * die is being typed" and both layouts read it.
+   */
+  const [typing, setTyping] = useState<'hope' | 'fear' | null>(null);
+  /* The cockpit panel's fold, and whether it has anything under it. Declared
+     here rather than in the desktop branch because that branch is a `return`
+     past a phone one, and a hook cannot live behind a `return`. */
+  const [panelRef, panelHasMore] = useMoreBelow<HTMLDivElement>();
+
+  /*
+   * The keyboard's way out, beside the pointer's.
+   *
+   * `DomainCardView` already argues that the three ways out of an overlay are
+   * not equal and that Escape is the keyboard's; this is not an overlay and
+   * cannot use `useDialog`, which traps Tab and moves focus, but the key is
+   * free and its absence was half of BACKLOG P3-12. It is a window listener
+   * rather than an `onKeyDown` on the grid because the tap that opens the
+   * keypad unmounts the button that had focus, so there is nothing inside it
+   * for a bubbling handler to catch until something is tabbed to.
+   *
+   * AND IT CHECKS WHAT IS ON TOP OF IT, WHICH IS THE PART THIS CODEBASE HAS
+   * NAMED TWICE. `useDialog` registers its own unconditional window keydown per
+   * dialog and does not `stopPropagation`, so two of these fire on one key:
+   * `SessionBody` says "one Escape would close both, and every Tab would be
+   * fought over by two traps" and draws a card inline rather than as an overlay
+   * because of it, and `Gm` restructures its `sheet`/`tool` state for the same
+   * reason. This listener was the first non-dialog member of that set.
+   * Reproduced in Chrome at 1440x900: open the keypad on the HOPE face, open
+   * the `Book of Ava` loadout card over it, press Escape once - the card closed
+   * AND the keypad closed, so the player came back to a roll surface that had
+   * silently reverted. `CardReader` mounts above `Play`, so this component and
+   * its listener stay mounted underneath.
+   *
+   * The guard is the topmost check the rest of the app does not have: if
+   * anything in the document is a `role="dialog"`, that surface owns the key
+   * and this one does nothing. That is one query against a document that has at
+   * most a handful of them, run only while the keypad is open. A `capture`
+   * listener plus `stopPropagation` would be the other shape and it is worse -
+   * it would make this the surface that wins over a dialog, which is exactly
+   * backwards.
+   */
+  useEffect(() => {
+    if (typing === null) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"]') !== null) return;
+      setTyping(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [typing]);
+  /*
+   * And the way back to where you were, when the keypad closes.
+   *
+   * `DieKeypad` takes focus on open because the tap that opens it unmounts the
+   * button that had it. Closing does the same thing in reverse: the exit
+   * button, or the key you pressed, is unmounted by its own click, and without
+   * this focus falls to `<body>` again - so Escape worked and then fired the
+   * keyboard into nothing, which is `useDialog`'s "back to the control that
+   * opened it" left undone. `wasTyping` is a ref rather than state because it
+   * exists only to be read once in the effect that follows the change, and it
+   * starts null so a fresh mount focuses nothing.
+   */
+  const wasTyping = useRef<'hope' | 'fear' | null>(null);
+  useEffect(() => {
+    if (typing !== null) {
+      wasTyping.current = typing;
+      return;
+    }
+    const which = wasTyping.current;
+    if (which === null) return;
+    wasTyping.current = null;
+    document
+      .querySelector<HTMLElement>(`button[aria-label^="${which === 'hope' ? 'HOPE' : 'FEAR'} die"]`)
+      ?.focus();
+  }, [typing]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
    * Whether the modifier controls are showing, on a phone.
@@ -349,6 +703,10 @@ export function DualityRoll({
      */
     setResult(null);
     setManual({ hope: null, fear: null });
+    // And the keypad shuts with them. It is opened on a face, the face it was
+    // opened on has just been cleared, and a keypad standing over an arriving
+    // sheet is this component's oldest bug in its newest control.
+    setTyping(null);
   }, [characterId]);
 
   const experiences = character?.experiences ?? NO_EXPERIENCES;
@@ -476,6 +834,9 @@ export function DualityRoll({
   const setDie = (which: 'hope' | 'fear') => (value: number | null) => {
     const next = { ...manual, [which]: value };
     setManual(next);
+    // Committing a face shuts the keypad, which is what it always did - it is
+    // just no longer the ONLY thing that shuts it. See `DieKeypad`.
+    setTyping(null);
     if (next.hope !== null && next.fear !== null) {
       resolve({ hope: next.hope, fear: next.fear });
     }
@@ -617,6 +978,27 @@ export function DualityRoll({
     );
   };
 
+  /*
+   * The keypad, or nothing - one element read by both layouts, for the reason
+   * `control` is one element read by both layouts. The switches can be turned
+   * off while it is open, and then it is nothing: `canType` is the gate on
+   * every way in, so it has to be the gate on the way already taken.
+   */
+  const typingDie = canType ? typing : null;
+  const keypad =
+    typingDie === null ? null : (
+      <DieKeypad
+        label={typingDie === 'hope' ? 'HOPE' : 'FEAR'}
+        color={typingDie === 'hope' ? 'var(--hope)' : 'var(--fear)'}
+        value={manual[typingDie]}
+        onSet={setDie(typingDie)}
+        onCancel={() => setTyping(null)}
+        otherLabel={typingDie === 'hope' ? 'FEAR' : 'HOPE'}
+        otherColor={typingDie === 'hope' ? 'var(--fear)' : 'var(--hope)'}
+        otherValue={manual[typingDie === 'hope' ? 'fear' : 'hope']}
+      />
+    );
+
   const control = (
     <ControlRow
       difficulty={difficulty}
@@ -641,7 +1023,6 @@ export function DualityRoll({
       }
       addDie={(sides) => characterId !== null && addDie(characterId, sides)}
       discardDie={(id) => characterId !== null && discardDie(characterId, id)}
-      wrap={layout === 'phone'}
     />
   );
 
@@ -686,10 +1067,14 @@ export function DualityRoll({
          * modifier the player cannot see is this project's founding rule
          * failing on a number.
          *
-         * Open, the row still wraps rather than scrolling sideways: ten
-         * controls in about 480px of content showed four of themselves at
-         * 393px, and a chip you had armed could be off the side by the time
-         * you reached ROLL.
+         * Open, the row wraps rather than scrolling sideways: ten controls in
+         * about 480px of content showed four of themselves at 393px, and a
+         * chip you had armed could be off the side by the time you reached
+         * ROLL. That is no longer a phone rule. The cockpit was the same
+         * sentence with worse numbers - thirteen controls in 1058px of content
+         * showing four and a half of themselves in 303 - so `ControlRow` wraps
+         * everywhere now and the prop that used to make this the exception is
+         * gone. Its docblock carries the arithmetic.
          */}
         {modifiersOpen && control}
         {!modifiersOpen && armedMods.length > 0 && (
@@ -734,22 +1119,26 @@ export function DualityRoll({
          */}
         {canType && (
           <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
-            <Die
-              label="HOPE"
-              color="var(--hope)"
-              value={manual.hope}
-              onSet={setDie('hope')}
-              size={26}
-              editable
-            />
-            <Die
-              label="FEAR"
-              color="var(--fear)"
-              value={manual.fear}
-              onSet={setDie('fear')}
-              size={26}
-              editable
-            />
+            {keypad ?? (
+              <>
+                <Die
+                  label="HOPE"
+                  color="var(--hope)"
+                  value={manual.hope}
+                  onEdit={() => setTyping('hope')}
+                  size={26}
+                  editable
+                />
+                <Die
+                  label="FEAR"
+                  color="var(--fear)"
+                  value={manual.fear}
+                  onEdit={() => setTyping('fear')}
+                  size={26}
+                  editable
+                />
+              </>
+            )}
           </div>
         )}
         {/*
@@ -870,13 +1259,195 @@ export function DualityRoll({
     );
   }
 
+  /*
+   * The cockpit's roll panel, which scrolls - and that is the fix, not a
+   * concession.
+   *
+   * IT USED TO BE `overflow: 'hidden'`, AND THAT COST THE SCREEN ROLL.
+   * Measured in Chrome at 1180x695 with the backup banner up and the last Hit
+   * Point marked, this panel was 197 tall holding a scrollHeight of 277, and
+   * ROLL's 54px box was laid out at y 677.9 against a panel bottom edge at y
+   * 674: painted 0.0px. Both of those conditions are default states of a fresh
+   * install rather than contrivances, and 695 is this repository's own stated
+   * constraint - `Vitals` says "a 1440x695 laptop viewport is the real
+   * constraint, not the 900px mock". The same clip took `DamageRow`'s
+   * `IF IT HIT · 4d8+6` to 15 of its declared 44 at 1280x800.
+   *
+   * WHAT IT HOLDS NOW, TERM BY TERM. Every term is declared in this file or in
+   * a stylesheet this file names, so the sum reads off the source; the version
+   * of this table that argued for the scroll got two of them wrong and the
+   * errors cancelled, which is why the terms carry their derivations now.
+   *
+   *   24    this panel's own `padding: 12`, top and bottom.
+   *   155.3 the control row at five Experiences. NOT 44: `ControlRow` wraps,
+   *         and its docblock packs the rows. 44 is the one-row height it had
+   *         while it scrolled sideways and hid five of thirteen controls.
+   *   76    the dice row. NOT `Die`'s `minHeight: 62`, which never binds on
+   *         this layout: `Die` is drawn `size={46}` here, so its own content is
+   *         10 of `t-meta` label + 46 of number + 18 of padding + 2 of border =
+   *         76. The 62 binds on the phone, where `size={26}` makes it 56.
+   *   38.9  the verdict strip idle: 20 of padding around a
+   *         `clamp(16px,1.6vw,22px)/1` line, 18.88px at a 1180px window.
+   *         Measured 38.9 at 1180 and 40.5 at 1280. After a roll the second
+   *         span wraps and it measures 57.8 to 64 - content, not declaration.
+   *   54    ROLL's own declared height, and it is `flex: none`.
+   *   38    `RecentLog`'s floor - 15 of RECENT label and gap, plus one 23px
+   *         entry. It was `minHeight: 0` and measured 0, which is why the log
+   *         has a docblock of its own now.
+   *   40    four 10px gaps.
+   *
+   * 426.2, against a scrollHeight of 426 measured idle at 1180x695. ROLL is
+   * painted 54 of 54 in that state, because the two terms that come after it
+   * are the two the panel can afford to put below the fold.
+   *
+   * AND NOTHING ABOVE COULD GIVE THE HEIGHT BACK, which is what made it a
+   * reachability defect rather than an ugly one. Measured at 1180x695, `main`
+   * and `.app` both have `scrollHeight === clientHeight`, and the middle grid
+   * column is `overflowY: visible`, so there was no wheel, no drag and no tap
+   * anywhere on the glass that reached ROLL. `roll.focus()` did: it sets this
+   * element's `scrollTop` to 80 and brings the button back to y 597.9. Laid
+   * out, invisible, still keyboard-reachable - P2-1's exact signature, on the
+   * desktop, in the one control the screen exists for.
+   *
+   * `overflowY: 'auto'` AND NOT A SHORTER PANEL. The other three answers were
+   * available and all of them are worse. Dropping the dice faces takes the two
+   * raw numbers off the cockpit, where they are the readout and not an input.
+   * Pinning ROLL to the bottom of the panel breaks this screen's standing rule
+   * that nothing on Play is out of the flow, and would park a 54px button over
+   * the log. Moving the scroll up to the middle grid column would take `Vitals`
+   * with it, and the counters are the thing you have to be able to see *while*
+   * you roll. Scrolling the panel itself is the reflow this project already
+   * decided it prefers to a clip.
+   *
+   * `overflowX` STAYS `hidden`, ON PURPOSE. `overflow-x: visible` beside a
+   * scrolling y-axis computes to `auto`, and the panel does have content that
+   * can exceed 404px of inner width: ROLL's second line is `.t-num` (13px
+   * mono) with no `min-width: 0`, so an Experience named as one unbroken word
+   * of ~34 characters is about 280px that cannot wrap. That already overflowed
+   * and was already clipped; making it a horizontal scrollbar instead would be
+   * a new defect shipped inside a fix.
+   *
+   * AND IT SAYS SO, WHICH IS THE PART THAT WAS MISSING. This is the only
+   * scroll on the cockpit's middle column - the modifier shelf above used to be
+   * a second one, at `overflowX: 'auto'` with `scrollbarWidth: 'none'`, and it
+   * wraps instead - so it is the one scroll a player has to notice, and for one
+   * commit it was the only scroller in the app that carried none of the app's
+   * scroll treatment. It was a bare inline `overflowY: 'auto'`: no `.scroll`,
+   * so no coloured thumb, no `scrollbar-width: thin` and `overscroll-behavior:
+   * auto`; and on macOS, which is the platform this repository is developed and
+   * measured on, no bar is painted at rest at all. Measured with a Chrome
+   * launched without `--hide-scrollbars`: this panel's gutter is offsetWidth
+   * 428 less clientWidth 426, which is the border and nothing else. The
+   * paragraph that used to sit here said the platform's bar "announces itself";
+   * it announces itself after you have already scrolled.
+   *
+   * SO `.scroll` FOR THE TREATMENT AND `.scroll-fade` FOR THE EDGE.
+   * `className="panel stack scroll"` buys the app's own thumb and
+   * `overscroll-behavior: contain`, so a wheel that runs out here stops instead
+   * of scrolling the page behind it. The inline `overflowY: 'auto'` stays
+   * beside it rather than being left to the class: it is the declaration this
+   * file's docblocks and `cockpitRoll.test.tsx`'s ancestor walk both read, and
+   * a scroll that only exists in a stylesheet is a scroll that can be deleted
+   * by a stylesheet. The fade is conditional on `useMoreBelow`, which is what
+   * makes it honest - base.css's own docblock says "a hard edge reads as 'that
+   * is all there is'", and an unconditional mask says the opposite lie at the
+   * bottom of a panel that fits. Its one stated precondition is no
+   * `position: fixed` descendant, because a mask clips its whole painted
+   * subtree; there is none in this subtree - no `useDialog`, and no fixed
+   * positioning in this file or in `DamageRoll.tsx`.
+   *
+   * ERGONOMICS. The cockpit is 1180px and up, so 393x852 and its thumb arc are
+   * not the reference here - `PlayPhone` is what a phone gets. What does reach
+   * this panel with a finger is a touchscreen laptop, AND IT DOES NOT GET 44px
+   * CHIPS, WHICH AN EARLIER REVISION OF THIS PARAGRAPH SAID IT DID.
+   * tokens.css:203-207 is `(max-width: 1179px), (pointer: coarse)`, and
+   * `pointer` describes the primary pointer only: a touchscreen laptop answers
+   * `pointer: fine` while a finger reaches the glass, which tokens.css:129-132
+   * says in as many words and which is why `--pip-h` gets its own
+   * `any-pointer: coarse` query. Measured with the rig's `hybrid` profile at
+   * 1280x800 and 1440x900: `--control` 34px, `--pip-h` 44px. So on the machine
+   * this paragraph is written about, every chip in the control row and every
+   * key in the die keypad is 34 tall - 10px under this project's coarse floor -
+   * while ROLL is 54 by its own declaration and the Experience chips are 44 by
+   * theirs. That is a defect of `--control`'s query, it is written up in the
+   * lane's doc-deltas file, and the reason tokens.css:122-127 gives for not
+   * widening the query is that THIS PANEL is `overflow: hidden` and would crush
+   * its own contents - which stopped being true four lines below this comment.
+   * TARGET SIZE was never the charge for the scroll itself: 0px and 15px are
+   * what a clip leaves, and no floor survives that - not this project's 44/34
+   * and not WCAG's 24 either. READ VERSUS TOUCH is what the scroll has to keep,
+   * and it does, because the order in this column is already right: what you
+   * declare (the control row) is read first, what reports (the faces and the
+   * verdict strip) sits above what you press, ROLL and the damage row come
+   * after them, and `RecentLog` - the only thing here you merely read back -
+   * comes last and is the one `flex: 1` child, so it is the first to give
+   * height up and the last thing the fold takes. AN EARLIER REVISION OF THIS
+   * PARAGRAPH SAID "the panel only scrolls once the log is at zero", AND THAT
+   * WAS A FLOOR THE LOG DID NOT HAVE. It went to zero and its content went with
+   * it: a zero-height child adds nothing to this panel's scrollHeight, and the
+   * log's own box is `.scroll`, so its 69px of entries were not in this panel's
+   * overflow to be scrolled to. `RecentLog` declares a 38px floor now and the
+   * sentence is true as written. What a player scrolls to is therefore always
+   * the bottom of the column - the thing they were about to press, and then the
+   * one thing here they only read - never a readout they have to hunt back up
+   * for.
+   *
+   * IT COSTS NO HEIGHT AND A RESERVED WIDTH. `overflowY: 'auto'` adds no layout
+   * height. It does take width on any platform that draws a classic scrollbar
+   * rather than an overlay one, and every width term in this file - the shelf's
+   * 402, `DieKeypad`'s 45.75 key - derives from a content box that a bar
+   * narrows. That is not visible from here: macOS uses overlay scrollbars, so
+   * measured with a Chrome launched without `--hide-scrollbars` this panel's
+   * whole gutter is offsetWidth 428 less clientWidth 426, the border and
+   * nothing else, and the rig this lane measures on launches Chrome WITH
+   * `--hide-scrollbars` (cdp.mjs), so no measurement in this pass could have
+   * seen it either.
+   *
+   * SO THE GUTTER IS RESERVED RATHER THAN LEFT TO APPEAR. `scrollbarGutter:
+   * 'stable'` reserves it whether or not the panel is currently overflowing,
+   * which does two things. It makes the width one number per platform instead
+   * of two: without it, opening the keypad - which always makes this panel
+   * overflow - would narrow every key by about two pixels on Windows AT THE
+   * MOMENT the keypad appears, and the twelve targets would move under a
+   * pointer already travelling towards one. And it bounds the arithmetic: the
+   * bar is 8px, not the platform's ~15, because `.scroll` declares
+   * `scrollbar-width: thin` and an 8px `::-webkit-scrollbar`. Worst case is
+   * therefore a 394px content box, which takes `DieKeypad`'s key from 45.75 to
+   * 43.75 - a quarter-pixel under this project's 44px coarse floor in width and
+   * 9.75 over its 34px fine one. On an overlay platform the gutter is 0 and
+   * nothing changes.
+   */
   return (
-    <div className="panel stack" style={{ flex: 1, minHeight: 0, padding: 12, gap: 10, overflow: 'hidden' }}>
+    <div
+      ref={panelRef}
+      className={`panel stack scroll${panelHasMore ? ' scroll-fade' : ''}`}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        padding: 12,
+        gap: 10,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        scrollbarGutter: 'stable',
+      }}
+    >
       {control}
 
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
-        <Die label="HOPE" color="var(--hope)" value={manual.hope} onSet={setDie('hope')} size={46} editable={canType} />
-        <Die label="FEAR" color="var(--fear)" value={manual.fear} onSet={setDie('fear')} size={46} editable={canType} />
+        {/* The keypad takes the two faces' share of the row and leaves the
+            trait box standing. An earlier version of this comment called that
+            box "where the total is printed - the one number you want in front
+            of you while you type the two that make it", and it prints
+            `result?.total ?? '—'`: an em dash until both faces are in, which is
+            every moment this keypad is open. What the box keeps is the trait
+            you are rolling, which is worth keeping; the number already typed
+            into the other die is carried by the keypad's own exit column. */}
+        {keypad ?? (
+          <>
+            <Die label="HOPE" color="var(--hope)" value={manual.hope} onEdit={() => setTyping('hope')} size={46} editable={canType} />
+            <Die label="FEAR" color="var(--fear)" value={manual.fear} onEdit={() => setTyping('fear')} size={46} editable={canType} />
+          </>
+        )}
         <div
           style={{
             width: 132,
@@ -961,11 +1532,21 @@ export function DualityRoll({
       {/*
        * Between ROLL and the log, and never after it.
        *
-       * This panel is `flex: 1, minHeight: 0, overflow: hidden`, and
-       * `RecentLog` is its only `flex: 1` child - so a row placed here takes
-       * its height out of the log, which can spare it, while a row placed
-       * after the log, or left shrinkable, would push ROLL past the clip. That
-       * is P2-1 exactly: laid out, invisible, and still reachable by keyboard.
+       * The reason used to be that `RecentLog` is this panel's only `flex: 1`
+       * child, so a row placed here takes its height out of the log, which can
+       * spare it - and that was only true while the log had height to give.
+       * Measured in Chrome at 1180x695 with the backup banner up and the last
+       * Hit Point marked, the log was 0px tall *before* this row was drawn, so
+       * the 44 this row asks for came off the bottom of the column instead, and
+       * at 1280x800 in the same state it took this row's own button to 15 of
+       * 44. The log has a 38px floor now, so what this row takes comes out of
+       * the log's *growth* first and out of the panel's scroll after that -
+       * never out of the log's floor, which is the point of a floor.
+       *
+       * The placement is right for a reason that does not depend on any of
+       * that: the two things a player presses stay adjacent and stay last. ROLL
+       * and the damage offer are one scroll apart at worst instead of one
+       * scroll apart with a readout in the gap.
        */}
       <DamageRow key={rollId} attack={attack} affordance={affordance} layout="desktop" />
 
@@ -1035,8 +1616,11 @@ function ExperienceChip({
          * Larger than `.chip`'s 9.5px, because this is not a shelf label being
          * scanned past: it is a phrase the player wrote, read across a table
          * in a dim room at the moment they decide to spend a Hope on it. The
-         * row is 44px for the touch floor rather than for the text, so the
-         * bigger type costs no height at all.
+         * row is 44px for the touch floor rather than for the text, so at one
+         * or two lines the bigger type costs no height at all - 13.225px of
+         * line-height twice over, plus 4 + 4 of padding, is 34.45 inside a 44.
+         * At three it costs 3.7, and the clamp below argues why that is the
+         * right trade.
          */
         font: '600 11.5px/1.15 var(--mono)',
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
@@ -1048,15 +1632,82 @@ function ExperienceChip({
     >
       <HopePip on={armed} />
       {/*
-       * Wrapping, not an ellipsis.
+       * Wrapping, not an ellipsis - and three lines, not two.
        *
        * "SILVER-TONGUED DIPLOMAT" truncated to "SILVER-TONG…" on a phone, and
        * the full name lived only in the title attribute and the accessible
        * name - neither of which a thumb can reach. An Experience is a phrase
        * the player wrote themselves; being unable to read it back on the one
-       * screen that spends it is a poor trade for a tidier chip. Two lines fit
-       * inside the 44px the touch floor already requires, so this costs no
-       * height at all in the common case.
+       * screen that spends it is a poor trade for a tidier chip.
+       *
+       * TWO LINES WAS THE SAME DEFECT ONE STEP FURTHER ALONG. The clamp came in
+       * with the docblock that claims the fix, and on both narrow surfaces it
+       * went on hiding a whole line. `line-height: 1.15` on `11.5px` is
+       * 13.225px, so two lines clip at 26.45 and three want 39.675 - the 14px
+       * of hidden text the audit measured, in Chrome, twice: on the cockpit
+       * chip at its 124px `maxWidth` (span 77.8 wide, clientHeight 26,
+       * scrollHeight 40) for "SILVER-TONGUED DIPLOMAT", "Read every book in
+       * the tower" and "Talked my way past a magistrate" alike, and on the
+       * phone at 375x1000 for a character with five Experiences, where
+       * `ExperienceRow` goes two across and the chip is 172.5 with a 126.3px
+       * span. The crossing on the phone is exactly 381px of viewport.
+       *
+       * WHAT THREE COSTS: 5.7px, ONCE PER WRAPPED ROW THAT HOLDS ONE. 39.675 of
+       * text, plus this chip's own 4 + 4 of padding, plus the 1 + 1 of the
+       * border it declares two properties above - always 1px, `transparent`
+       * when unarmed but laid out either way - is 49.675 against a
+       * `minHeight: var(--tap)` of 44, with `box-sizing: border-box` set
+       * globally by base.css. Measured 49.7 in Chrome on the cockpit chip at
+       * its 124px `maxWidth`. So a chip that needs the third line goes 44 ->
+       * 49.7 and one that does not is unchanged at 44 - two lines are 26.45 + 8
+       * + 2 = 36.45, comfortably inside the floor. An earlier revision of this
+       * paragraph left the border out and said 47.675 and +3.7.
+       *
+       * "ONCE" IS PER ROW AND NOT PER CHIP, because the shelf wraps: a flex
+       * line is as tall as its tallest item, so one long name in a row of three
+       * costs that row 5.7 and the other two chips ride along. Measured with
+       * `wizard10`'s five Experiences, whose two long names land on separate
+       * rows: the shelf is 155.3 where three rows of 44 and two 6px gaps would
+       * be 144. Both surfaces can carry it - the phone column scrolls, and the
+       * cockpit's roll panel scrolls too now.
+       *
+       * WHY NOT THE OTHER PROPOSAL, WHICH WAS TO WIDEN THE COCKPIT CHIP FROM
+       * 124 TO 168. It loses on two counts and both are numbers. It does not
+       * touch the phone, where the same declaration hides the same 14px on a
+       * 172.5px chip - one line of code covers both surfaces and one of the two
+       * fixes only covers one of them. And it costs the cockpit far more than
+       * this does: the shelf is 402px wide, so at 168 it packs two chips to a
+       * row where 124 packs three. Packed the way `ControlRow`'s docblock packs
+       * them, five 168px chips take four rows - 44 + 44 + 44 + 34 and three 6px
+       * gaps, 184 - against the measured 155.3 the 124px chips take. That is
+       * +28.7 for the wider chip against +11.3 for the third line, on the same
+       * shelf, for the same five names. Its stated premise, that the roll panel
+       * is `overflow: hidden` and has no
+       * spare height, was true when it was written and is no longer; the
+       * arithmetic would have decided it either way.
+       *
+       * ERGONOMICS. TARGET SIZE moves the right way and only the right way:
+       * 44 -> 49.7 on the chips that need the third line, above this project's
+       * 44px coarse floor and its 34px fine one in both states, with the width
+       * untouched at 172.5 on a two-across phone and at most 124 on the
+       * cockpit - width was never the charge here. THUMB ARC is the question of
+       * whether 5.7px moves a neighbour under a thumb that was aiming at this
+       * chip, and it does not: `ExperienceRow` gaps its rows by 6, so a row
+       * that grows by 5.7 still ends short of where the next row's targets
+       * begin, and everything below simply shifts down inside a column that
+       * scrolls. READ VERSUS TOUCH is the whole reason for the change. The
+       * name is the entire content of this control - there is no other text to
+       * an Experience - so a chip whose third line is clipped is a target you
+       * are asked to press without being allowed to finish reading it, at the
+       * exact moment you decide to spend a Hope on it.
+       *
+       * THREE AND NOT UNBOUNDED. The clamp is still a clamp, because the name
+       * is text a player typed and nothing stops it being sixty characters -
+       * six lines and an 87px chip on the primary roll surface. Three clears
+       * every string in the audit's bisect, the longest of which is the 31
+       * characters of "Talked my way past a magistrate", and past it the full
+       * name is still spelled out on the ROLL bar the moment the chip is armed,
+       * which is `armSummary`'s whole job.
        */}
       <span
         style={{
@@ -1070,7 +1721,7 @@ function ExperienceChip({
           lineHeight: 1.15,
           display: '-webkit-box',
           WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
         }}
       >
         {name.toUpperCase()}
@@ -1085,11 +1736,15 @@ function ExperienceChip({
 /**
  * Every Experience at once, wrapping, each one a full-height target.
  *
- * They used to live in the control row, which scrolls sideways, behind
+ * They used to live in the control row, which scrolled sideways, behind
  * REACTION and the advantage group - so on a 393px phone the second one was
  * already off screen, and the file's own comment admitted that a chip you had
  * armed could be out of sight by the time you reached ROLL. Declaring a
- * modifier you cannot see is not a declaration.
+ * modifier you cannot see is not a declaration. (That row wraps now, on every
+ * layout, and `ControlRow`'s docblock carries the cockpit numbers that forced
+ * it. The Experiences still get a row of their own on a phone, because
+ * `ControlRow` is behind MODS there and a declaration behind a tap is not a
+ * declaration in front of you.)
  *
  * Two across is deliberate. It is the count a character starts with, it keeps
  * each chip wide enough for a real phrase rather than an ellipsis, and it puts
@@ -1145,10 +1800,14 @@ export function ExperienceRow({
    * levels and most tables never leave that range.
    *
    * From four it goes two across, because five full-width rows would be 244px
-   * and would not fit a 375px phone at all. At two across a chip is about
-   * 175px, which is roughly 25 characters - short of the longest names, which
-   * is why the label wraps to a second line rather than truncating, and why
-   * the ROLL bar spells out in full whatever is armed.
+   * and would not fit a 375px phone at all. At two across a chip is 172.5px at
+   * 375 and 175 at 380 - measured, and the docblock's old estimate of "about
+   * 175px" was right - which leaves the label span 126.3 and takes it to
+   * roughly 16 characters a line. That is short of the longest names, so the
+   * label wraps rather than truncating; it wraps to THREE lines and not two,
+   * because at two this row hid a whole 14px line of every name past about 33
+   * characters, and the crossing was measured at exactly 381px of viewport.
+   * Past three the ROLL bar is what spells out in full whatever is armed.
    */
   const perRow = experiences.length > 3 ? 2 : 1;
   const basis = `calc(${(100 / perRow).toFixed(3)}% - ${String((6 * (perRow - 1)) / perRow)}px)`;
@@ -1192,15 +1851,6 @@ interface ControlProps {
   toggleDie: (id: string) => void;
   addDie: (sides: (typeof DIE_SIZES)[number]) => void;
   discardDie: (id: string) => void;
-  /**
-   * Wrap onto as many lines as the controls need, instead of scrolling
-   * sideways.
-   *
-   * Only affordable because the row is behind MODS: as a permanent band it
-   * would have cost 88-132px of the thumb zone on every phone. See the note
-   * at the phone branch.
-   */
-  wrap?: boolean;
 }
 
 const HOLD_MS = 480;
@@ -1285,13 +1935,116 @@ function HeldDieChip({
 }
 
 /**
- * Everything you declare before you roll.
+ * Everything you declare before you roll. It wraps. It does not scroll.
  *
- * On a desktop it is one line, above the dice, and it scrolls sideways if it
- * has to. On a phone it is not drawn at all until MODS is tapped, and then it
- * wraps onto as many rows as it needs - which is the whole reason it can stop
- * being a scroller: a surface you opened on purpose can afford the height, and
- * a permanent band above ROLL could not.
+ * IT USED TO SCROLL SIDEWAYS ON THE COCKPIT, AND THAT HID FIVE OF THIRTEEN
+ * CONTROLS. The row was `overflowX: 'auto'` with `scrollbarWidth: 'none'`, so
+ * nothing on the glass said it scrolled and a mouse had no bar to drag. The
+ * shelf's width reconstructs from the source: the middle grid track is capped
+ * at `minmax(360px, 428px)` in `PlayDesktop`, less the roll panel's own 2 of
+ * border and 24 of padding is 402 - measured 402, and the 404 this docblock
+ * used to say was that arithmetic with the border left out - less the 93px
+ * `Duality Roll` title this row used to draw when `!narrow` and less
+ * `.spread`'s gap left 302.8. On a platform that draws a classic scrollbar
+ * rather than an overlay one the panel reserves 8px of that 402 for the bar -
+ * `scrollbar-gutter: stable` beside `.scroll`'s `scrollbar-width: thin` - so
+ * the shelf is 394 there and every packing below shifts by one chip's slack.
+ * macOS draws overlay bars and the rig hides them, so 402 is what is measured.
+ * What it holds
+ * reconstructs too, at the five Experiences an SRD character carries from
+ * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at their 124px
+ * `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -
+ * 1058.4, against 1058 measured in Chrome. It is byte-identical at 1180,
+ * 1280, 1440 and 2560, because the track never widens: a bigger monitor
+ * bought nothing at all.
+ *
+ * Painted, per control, against that 303: REACTION 62.2 of 62.2, the three
+ * advantage chips whole, the first Experience 108.8 of 124, and then zero.
+ * Four Experience chips, `+ DIE`, DIFF and SPELLCAST all painted 0.0px.
+ * SPELLCAST is at least named elsewhere - the trait box beside the dice reads
+ * `SPELLCAST · KNOWLEDGE` - but DIFF is named nowhere else before a roll:
+ * `armedMods` is rendered only in the phone branch. On the cockpit the
+ * difficulty control was not small, it was absent.
+ *
+ * SO THE SAME ANSWER THE PHONE ALREADY HAD. This file's own comment above the
+ * phone's `{modifiersOpen && control}` argued it in as many words - "ten
+ * controls in about 480px of content showed four of themselves at 393px, and a
+ * chip you had armed could be off the side by the time you reached ROLL" - and
+ * the cockpit is the same sentence with worse numbers: thirteen controls in
+ * 1058px of content showing four and a half of themselves in 303. Declaring a
+ * modifier you cannot see is not a declaration, and the SRD requires the
+ * declaration before the dice.
+ *
+ * AND THE TITLE WENT, BECAUSE THE WRAP COST HAD TO COME DOWN. `Duality Roll`
+ * was 93 of the 402 the panel has, a quarter of the shelf, and its own comment
+ * called it "a desktop luxury" while arguing that REACTION carries the state it
+ * named - which it does: REACTION is the first control on the row, it is
+ * `aria-pressed`, and it turns `--fear` when a reaction roll is armed. An
+ * earlier revision of this docblock wrote that down as "one thing not done".
+ * It is done, it is worth 74.4px of shelf, and the reason it stopped being a
+ * matter of taste is in the measurements below.
+ *
+ * WHAT IT COSTS, MEASURED AND NOT ESTIMATED. Flex wrap packs greedily into 402
+ * with a 6px gap, and `ExperienceChip` is the only thing here that is not
+ * `var(--control)` tall: it is `minHeight: var(--tap)`, and 44 becomes 49.7
+ * when a name takes the third line the clamp now allows (1 of border + 4 + 3 *
+ * 13.225 + 4, `box-sizing: border-box`).
+ *
+ *   Two Experiences, the `played` fixture at level 3. Row 1 is REACTION +
+ *   DIS/—/ADV + the first chip (312.2 of 402); row 2 is the second chip, `+
+ *   DIE`, DIFF and SPELLCAST (319.5). Both names fit two lines, so 44 + 6 + 44
+ *   = **94**, against the 44 of the single row it replaces: **+50**.
+ *
+ *   Five Experiences, `wizard10`, which is what an SRD character carries from
+ *   level 8. Row 1 REACTION + DIS/—/ADV + one chip (312.2), row 2 three chips
+ *   (384), row 3 the last chip + `+ DIE` + DIFF + SPELLCAST (344.2). Rows 1 and
+ *   2 each hold one of the two long names, so 49.7 + 49.7 + 44 + two 6px row
+ *   gaps = 155.4. Measured 155.3. **+111.3**.
+ *
+ * At the 302.8 the title left, the same five Experiences packed into five rows
+ * and measured 229.7 - +185.7, not the +180 an earlier revision derived, and
+ * the difference is exactly the third line the chip commit added. That was
+ * enough to push ROLL below the panel's fold at 1280x800, which is the reason
+ * the title is gone rather than deferred.
+ *
+ * WHERE ROLL IS NOW, at five Experiences, `wizard10`, campaign on, measured in
+ * Chrome. With the backup banner up - a default state of a fresh install, and
+ * the state this file's other docblocks measure in: 1280x800 panel 418 client /
+ * 418 scroll, ROLL painted 54 of 54; 1366x768 386/413, painted 49; 1180x695
+ * 313/407, painted 0 and one scroll away. With the banner dismissed: 1280x800
+ * 474/474 painted 54, 1366x768 442/442 painted 54, 1440x900 574/574 painted 54,
+ * 1180x695 369/407 painted 37.9. Before the wrap and before the title went, the
+ * same five Experiences took ROLL to 29.9 of 54 at 1280x800; before the panel
+ * was allowed to scroll at all it was 0.0 of 54 at 1180x695 with no wheel, drag
+ * or tap that reached it. A 695px-tall window with a banner on it is still a
+ * scroll, and that is what the fade and the bar on the panel are for.
+ *
+ * ERGONOMICS. TARGET SIZE, and the pointer facts an earlier revision of this
+ * paragraph got wrong. tokens.css:203-207 is `(max-width: 1179px), (pointer:
+ * coarse)`, and `pointer` describes the *primary* pointer - so on the cockpit,
+ * which is 1180 and up, `--control` is 34 for a mouse AND for the touchscreen
+ * laptop this paragraph used to claim got 44. Measured with the rig's `hybrid`
+ * profile (`pointer: fine` with `any-pointer: coarse`) at 1280x800 and
+ * 1440x900: `--control` 34px, `--pip-h` 44px. tokens.css:129-132 says so in as
+ * many words. So the shelf is REACTION 62.2x34, DIS/—/ADV 34x34, `+ DIE`
+ * 45.4x34, DIFF 88.4x34, SPELLCAST 68.4x34, and the Experience chips 124x44 or
+ * 124x49.7 - clear of this project's 34px fine floor and, for the chips, of its
+ * 44px coarse one, but 10px under that coarse floor for a finger on a
+ * touchscreen laptop. That is a live defect of `--control`'s query and not of
+ * this row; it is written up in the lane's doc-deltas file, and the reason
+ * tokens.css:122-127 gives for not widening the query - that this panel is
+ * `overflow: hidden` and would crush its own contents - died when the panel was
+ * allowed to scroll.
+ *
+ * THUMB ARC does not apply on its own terms here and the honest substitute is
+ * reach: this row is at the top of the middle column, the far end of a reach
+ * across a keyboard, and it is the only thing on this screen you touch *before*
+ * the dice - so paying for it in reach and getting ROLL, which you touch every
+ * turn, at the near end is the right way round. READ VERSUS TOUCH is what the
+ * extra rows buy. This row is the declaration: everything in it is read before
+ * it is touched and touched before ROLL is, and wrapping takes it from eight of
+ * thirteen controls painted to thirteen. A declaration you cannot see is not a
+ * declaration, and the SRD requires it before the dice.
  */
 function ControlRow({
   difficulty,
@@ -1314,14 +2067,14 @@ function ControlRow({
   toggleDie,
   addDie,
   discardDie,
-  wrap = false,
 }: ControlProps): React.JSX.Element {
   const [picking, setPicking] = useState(false);
-  const narrow = useIsNarrow();
 
-  // The picker takes over the whole row, the way a die takes over its own face
-  // to be typed into. A popover would either be clipped by the panel or open
-  // off the side of a row that scrolls.
+  // The picker takes over the whole row, the way `DieKeypad` takes over the
+  // whole face row to be typed into - both for the same reason, which is that
+  // a control with eight or twelve targets in it needs the width. A popover
+  // would either be clipped by the panel or open off the side of a row this
+  // narrow.
   if (picking) {
     return (
       <div className="row" style={{ gap: 4 }}>
@@ -1368,162 +2121,184 @@ function ControlRow({
   }
 
   return (
-    <div className="spread" style={{ alignItems: 'center' }}>
-      {/* The title is a desktop luxury. Anywhere narrower it is 99px of a
-          369px row spent on a word, and the row has ten controls to fit;
-          REACTION leads the scroller instead, so the state the title carried -
-          which kind of roll this is - is still the first thing on screen. */}
-      {!narrow && (
-        <span className="t-label" style={{ flex: 'none' }}>
-          {reaction ? 'Reaction Roll' : 'Duality Roll'}
-        </span>
-      )}
-      <div
-        className="row"
+    /*
+      `flexWrap: 'wrap'` unconditionally, and no overflow of any kind.
+      This used to be `wrap ? … : …` on a prop the phone passed true and the
+      cockpit passed false, and the false branch was `overflowX: 'auto'` with
+      `scrollbarWidth: 'none'` - a 303px shelf holding 1058px that announced
+      nothing and gave a mouse no bar. The ternaries are gone rather than
+      pinned to `true`, because a dead branch that says "this can scroll
+      sideways" is the same defect as a docblock that says it. `overflowY`
+      went with them: `overflow-y: hidden` beside an `overflow-x: visible`
+      computes the x axis back to `auto`, so the phone's wrapped row has
+      quietly been a horizontal scroll container this whole time.
+
+      THIS ROW IS THE WHOLE COMPONENT NOW. It used to be the second child of a
+      `.spread`, beside a `Duality Roll` title drawn when `!narrow` - that is,
+      on the cockpit only, which is the one surface that could not afford it.
+      The title and its wrapper went together: a flex container with a single
+      `flex: 1` child is that child with extra steps.
+    */
+    <div className="row" style={{ minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
+      {/* A reaction roll resolves the same way and pays nothing: no Hope, no
+          Fear, and no cleared Stress on a critical. 38 adversaries and 9
+          environments call for one, so this is a switch, not a footnote, and
+          it leads the row because on a phone it is also the only thing
+          saying which kind of roll this is. It still takes Experiences - the
+          SRD spends Hope on "an action or reaction roll" - and what it
+          refuses is an ally's Help. */}
+      <button
+        type="button"
+        onClick={() => setReaction(!reaction)}
+        aria-pressed={reaction}
+        className="chip"
+        title="A reaction roll grants no Hope and no Fear, and no ally can Help"
         style={{
-          flex: 1,
-          minWidth: 0,
-          gap: 6,
-          flexWrap: wrap ? 'wrap' : 'nowrap',
-          overflowX: wrap ? 'visible' : 'auto',
-          overflowY: 'hidden',
-          scrollbarWidth: 'none',
+          flex: 'none',
+          minHeight: 'var(--control)',
+          background: reaction ? 'var(--fear)' : 'var(--raised)',
+          color: reaction ? 'var(--app)' : 'var(--muted)',
         }}
       >
-        {/* A spacer, not `justify-content: flex-end`: end-alignment pushes the
-            overflow off the start edge, where several engines will not scroll
-            to it. This collapses to nothing the moment the row is full - and
-            it is not drawn at all when the row wraps, where a growing child
-            would push everything after it onto a line of its own. */}
-        {!wrap && <span style={{ flex: '1 1 0', minWidth: 0 }} />}
+        REACTION
+      </button>
 
-        {/* A reaction roll resolves the same way and pays nothing: no Hope, no
-            Fear, and no cleared Stress on a critical. 38 adversaries and 9
-            environments call for one, so this is a switch, not a footnote, and
-            it leads the row because on a phone it is also the only thing
-            saying which kind of roll this is. It still takes Experiences - the
-            SRD spends Hope on "an action or reaction roll" - and what it
-            refuses is an ally's Help. */}
+      {/* Advantage next, because at 393px only the first few controls are on
+          screen and this is the one every roll touches. */}
+      {([-1, 0, 1] as const).map((a) => (
         <button
+          key={a}
           type="button"
-          onClick={() => setReaction(!reaction)}
-          aria-pressed={reaction}
+          onClick={() => setAdvantage(a)}
           className="chip"
-          title="A reaction roll grants no Hope and no Fear, and no ally can Help"
-          style={{
-            flex: 'none',
-            minHeight: 'var(--control)',
-            background: reaction ? 'var(--fear)' : 'var(--raised)',
-            color: reaction ? 'var(--app)' : 'var(--muted)',
-          }}
-        >
-          REACTION
-        </button>
-
-        {/* Advantage next, because at 393px only the first few controls are on
-            screen and this is the one every roll touches. */}
-        {([-1, 0, 1] as const).map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setAdvantage(a)}
-            className="chip"
-            aria-pressed={advantage === a}
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              minWidth: 'var(--control)',
-              background: advantage === a ? 'var(--raised)' : 'transparent',
-              border: `1px solid ${advantage === a ? 'var(--line)' : 'transparent'}`,
-              color: a === 1 ? 'var(--ok)' : a === -1 ? 'var(--damage)' : 'var(--muted)',
-            }}
-          >
-            {a === 1 ? 'ADV' : a === -1 ? 'DIS' : '—'}
-          </button>
-        ))}
-
-        {inlineExperiences &&
-          experiences.map((experience) => (
-            <ExperienceChip
-              key={experience.id}
-              experience={experience}
-              armed={armedExperiences.includes(experience.id)}
-              affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
-              onToggle={() => toggleExperience(experience.id)}
-            />
-          ))}
-
-        {held.map((die) => (
-          <HeldDieChip
-            key={die.id}
-            die={die}
-            armed={armedDice.includes(die.id)}
-            onToggle={() => toggleDie(die.id)}
-            onDiscard={() => discardDie(die.id)}
-          />
-        ))}
-        <button
-          type="button"
-          className="chip"
-          onClick={() => setPicking(true)}
-          disabled={held.length >= MAX_HELD}
-          aria-label="Hold a die for later rolls"
-          title="A Rally, Prayer or Slayer Die, or the d6 from Help an Ally"
+          aria-pressed={advantage === a}
           style={{
             flex: 'none',
             minHeight: 'var(--control)',
             minWidth: 'var(--control)',
-            background: 'transparent',
-            border: '1px dashed var(--line)',
-            color: 'var(--muted)',
-            opacity: held.length >= MAX_HELD ? 0.4 : 1,
+            background: advantage === a ? 'var(--raised)' : 'transparent',
+            border: `1px solid ${advantage === a ? 'var(--line)' : 'transparent'}`,
+            color: a === 1 ? 'var(--ok)' : a === -1 ? 'var(--damage)' : 'var(--muted)',
           }}
         >
-          + DIE
+          {a === 1 ? 'ADV' : a === -1 ? 'DIS' : '—'}
         </button>
+      ))}
 
-        <label className="row" style={{ flex: 'none', gap: 4 }}>
-          <span className="t-meta">DIFF</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={difficulty ?? ''}
-            placeholder="—"
-            onChange={(e) => setDifficulty(e.target.value === '' ? null : Number(e.target.value))}
-            style={{
-              width: 58,
-              minHeight: 'var(--control)',
-              padding: '4px 6px',
-              textAlign: 'center',
-              font: '600 13px/1 var(--mono)',
-            }}
+      {inlineExperiences &&
+        experiences.map((experience) => (
+          <ExperienceChip
+            key={experience.id}
+            experience={experience}
+            armed={armedExperiences.includes(experience.id)}
+            affordable={armedExperiences.includes(experience.id) || hopeCost < hopeAvailable}
+            onToggle={() => toggleExperience(experience.id)}
           />
-        </label>
+        ))}
 
-        {stats.spellcastTrait !== null && (
-          <button
-            type="button"
-            onClick={() => onTraitChange(trait === 'spellcast' ? stats.spellcastTrait! : 'spellcast')}
-            className="chip"
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              background: trait === 'spellcast' ? 'var(--hope)' : 'var(--raised)',
-              color: trait === 'spellcast' ? 'var(--app)' : 'var(--muted)',
-            }}
-          >
-            SPELLCAST
-          </button>
-        )}
-      </div>
+      {held.map((die) => (
+        <HeldDieChip
+          key={die.id}
+          die={die}
+          armed={armedDice.includes(die.id)}
+          onToggle={() => toggleDie(die.id)}
+          onDiscard={() => discardDie(die.id)}
+        />
+      ))}
+      <button
+        type="button"
+        className="chip"
+        onClick={() => setPicking(true)}
+        disabled={held.length >= MAX_HELD}
+        aria-label="Hold a die for later rolls"
+        title="A Rally, Prayer or Slayer Die, or the d6 from Help an Ally"
+        style={{
+          flex: 'none',
+          minHeight: 'var(--control)',
+          minWidth: 'var(--control)',
+          background: 'transparent',
+          border: '1px dashed var(--line)',
+          color: 'var(--muted)',
+          opacity: held.length >= MAX_HELD ? 0.4 : 1,
+        }}
+      >
+        + DIE
+      </button>
+
+      <label className="row" style={{ flex: 'none', gap: 4 }}>
+        <span className="t-meta">DIFF</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={difficulty ?? ''}
+          placeholder="—"
+          onChange={(e) => setDifficulty(e.target.value === '' ? null : Number(e.target.value))}
+          style={{
+            width: 58,
+            minHeight: 'var(--control)',
+            padding: '4px 6px',
+            textAlign: 'center',
+            font: '600 13px/1 var(--mono)',
+          }}
+        />
+      </label>
+
+      {stats.spellcastTrait !== null && (
+        <button
+          type="button"
+          onClick={() => onTraitChange(trait === 'spellcast' ? stats.spellcastTrait! : 'spellcast')}
+          className="chip"
+          style={{
+            flex: 'none',
+            minHeight: 'var(--control)',
+            background: trait === 'spellcast' ? 'var(--hope)' : 'var(--raised)',
+            color: trait === 'spellcast' ? 'var(--app)' : 'var(--muted)',
+          }}
+        >
+          SPELLCAST
+        </button>
+      )}
     </div>
   );
 }
 
+/**
+ * What you rolled, on the cockpit only - this is the app's one log surface.
+ *
+ * IT HAD NO FLOOR, AND THAT COST IT EVERYTHING. This is the roll panel's only
+ * `flex: 1` child, so it absorbs whatever the panel is short of, and with
+ * `minHeight: 0` "whatever" had no bottom: measured in Chrome with `wizard10`
+ * and three rolls made, this box was 0 tall at 1180x695, 1280x800 and 1366x768
+ * alike, and its three 23px entries were painted 0.0px each.
+ *
+ * MAKING THE PANEL SCROLL DID NOT SAVE IT, which is the part worth writing
+ * down. A zero-height child contributes nothing to its parent's scrollHeight,
+ * and this box's own content lives behind `.scroll` - `overflow-y: auto` - so
+ * it does not join the panel's overflow either: the panel's scrollHeight was
+ * 485 against 418 of client with a 69px log that was in neither number. Laid
+ * out, invisible, and not reachable by any scroll on the screen. That is P2-1's
+ * signature, in a control that had been fully painted the week before.
+ *
+ * SO A FLOOR, AND IT IS 38. `minHeight: 0` becomes 38 = the 15 the RECENT label
+ * and its 5px gap measure, plus one 23px entry. Two things follow. The panel's
+ * scrollHeight grows by 38, so the log is *in* the panel's overflow and one
+ * scroll reaches it, instead of being squeezed out of the sum entirely. And 38
+ * is a floor rather than a size: `flex: 1` still grows this box into whatever
+ * the panel has spare, which measured 63.7 at 1280x800, 125 with the two
+ * Experiences of the `played` fixture, and 160.7 at 1440x900.
+ *
+ * ONE ENTRY AND NOT THREE. Three would be 84 and would cost the panel another
+ * 46px of scroll at every window, and this is the one thing in the panel that
+ * is read back rather than acted on - it comes after ROLL and after the damage
+ * offer in draw order for exactly that reason. What the floor has to buy is
+ * that the log is *there* and says what your last roll was; the rest of it is
+ * behind this box's own scroll, which is where the other eleven entries have
+ * always been.
+ */
 function RecentLog(): React.JSX.Element {
   const log = useApp((s) => s.log);
   return (
-    <div className="stack" style={{ flex: 1, minHeight: 0, gap: 5 }}>
+    <div className="stack" style={{ flex: 1, minHeight: 38, gap: 5 }}>
       <span className="t-meta" style={{ letterSpacing: '0.14em', color: 'var(--muted)' }}>
         RECENT
       </span>

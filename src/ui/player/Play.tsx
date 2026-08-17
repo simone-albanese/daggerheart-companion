@@ -26,11 +26,17 @@
  *   Below 1180px - every phone and every tablet - the sheet is one scrolling
  *   column in Giorgio's order, with nothing outside the scroll. `PlayPhone`.
  *
- *   At 1180px and above, the three-column cockpit, which fits without
- *   scrolling and is laid out for a mouse. `PlayDesktop`.
+ *   At 1180px and above, the three-column cockpit, laid out for a mouse.
+ *   `PlayDesktop`. It used to say here that it "fits without scrolling", and
+ *   that was measurably untrue: at 1180x695 - a viewport `Vitals` names as
+ *   this app's real constraint - the roll panel holds 277.9px of declared
+ *   content in 197, and with `overflow: hidden` on it ROLL was painted 0.0px
+ *   with no wheel, drag or tap anywhere on the glass that reached it. Two of
+ *   the three columns have always scrolled; the middle one does now too, and
+ *   the argument is in the docblock over `DualityRoll`'s desktop branch.
  *
  * The middle band used to run the cockpit at two columns, and that is P2-1:
- * `DualityRoll`'s root is `flex: 1, minHeight: 0, overflow: hidden` inside a
+ * `DualityRoll`'s root was `flex: 1, minHeight: 0, overflow: hidden` inside a
  * scrolling column, so on an iPad it was crushed - 45px at 744x1133, 26px at
  * 1024x768 - while its children laid out to their natural height, putting ROLL
  * about 228px past the clip. In the DOM, invisible, and still reachable by
@@ -2102,12 +2108,25 @@ function PlayDesktop({
         <Rest stats={stats} rng={cryptoRng} />
         {/*
           And the licence notice under it, in this column for the same reason
-          `Rest` is in this column: it is the only one of the three that
-          scrolls. The cockpit itself is laid out to fit, so there is no "end of
-          the page" anywhere else on this screen - the middle column ends at
-          ROLL and the right one at the vault, both of which are meant to be on
-          the glass at all times. A 342-character paragraph under either of
-          those would be a pinned strip by another name.
+          `Rest` is in this column: this is the column with an end a player is
+          meant to reach.
+
+          THE SENTENCE THAT USED TO BE HERE IS FALSE NOW. It said "the cockpit
+          itself is laid out to fit, so there is no 'end of the page' anywhere
+          else on this screen - the middle column ends at ROLL and the right one
+          at the vault, both of which are meant to be on the glass at all
+          times". The middle column does not end at ROLL and is not laid out to
+          fit: it ends at the roll log, and the panel holding both scrolls.
+          Measured at 1180x695 with five Experiences and the backup banner up,
+          313 of panel against 445 of content, with ROLL painted 0 of 54 until
+          you scroll. The docblock over `DualityRoll`'s desktop branch carries
+          the table; `Play`'s own docblock at the head of this file was
+          corrected in the same pass and this line was missed.
+
+          The placement survives the correction, for what was underneath it: the
+          middle column's end is a readout you scroll to when you want it and
+          the right one's is the vault, so a 342-character paragraph under
+          either would be something you hit while looking for something else.
         */}
         <LicenceFooter />
       </div>
