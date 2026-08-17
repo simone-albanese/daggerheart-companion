@@ -15,7 +15,7 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 | Dati manuale | Parsing in-app, opzionale, **desktop** | Il parser fragile non blocca più nessuno |
 | Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla |
 | Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
-| Scroll | **Ovunque**, con fisso solo ciò che si tocca a ogni azione | La regola «niente scroll su Play» è caduta con `91097eb`; § 9.1 dice cosa resta fisso su ognuna delle quattro schermate |
+| Scroll | **Ovunque**; su Play non è fisso più niente | La regola «niente scroll su Play» è caduta con `91097eb`, e con P5-5 è caduto anche il blocco fisso che l'aveva sostituita: nell'ordine di Giorgio ROLL arriva a 685 di 730 a 393×852 senza pin. § 9.1 dice cosa resta fisso sulle altre schermate |
 | Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
 | Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
 | Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
@@ -787,7 +787,7 @@ daggerheart-companion/
 
 | Modalità | Scroll | Perché |
 |---|---|---|
-| **Play** (giocatore) | **Nel corpo, con l'identità e il blocco del tiro fissi** | La regola «nessuno scroll» è caduta con `91097eb`: affamava il loadout e tagliava il controllo di tiro. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda ufficiale intera, che non ci sta |
+| **Play** (giocatore) | **Tutto, in una colonna sola: non è fisso niente** | La regola «nessuno scroll» è caduta con `91097eb`; il blocco fisso che l'aveva sostituita è caduto con P5-5. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda intera, che non ci sta — e con i contatori e le soglie in cima, ROLL sta comunque sopra la piega a 393×852 senza essere fissato |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
@@ -802,11 +802,26 @@ produce testo a 9px, che a tavolo non si legge.
 stata sbagliata più a lungo. "Nessuno" descriveva una schermata con sei tratti e
 quattro contatori; da quando Play *è* la scheda — identità, difese, verbi dei
 tratti, equipaggiamento, loadout, vault, oro, condizioni — il contenuto non ci
-sta e non ci sta a nessuna larghezza. Resta fisso solo ciò che un pollice tocca
-a ogni azione: la riga dei tratti e il blocco del tiro, con un pavimento di 88px
-sotto la parte che scorre. Quando nemmeno quello basta — cinque Experience, dadi
-digitati, un'offerta di danno viva, su 375×667 — scorre la colonna esterna, che
-è il motivo per cui il pavimento esiste.
+sta e non ci sta a nessuna larghezza.
+
+**E poi è caduto anche il blocco fisso** (P5-5). Per un po' restava fisso ciò che
+un pollice tocca a ogni azione — la riga dei tratti e il blocco del tiro, con un
+pavimento di 88px sotto la parte che scorre. Quel pin comprava una portata che
+adesso la fornisce l'ordine: con i quattro contatori e le soglie in cima, dove il
+messaggio di Giorgio li mette, il bordo inferiore di ROLL cade a 685 di 730 px di
+colonna utile a 393×852 (852 meno 53 di header, 61 di tab bar, 8 di padding).
+Fissato, ROLL stava 8px sopra un bersaglio di 98×60 che porta via dalla
+schermata; libero, ne sta 105 sopra. Niente su Play è fisso, non c'è più uno
+scroller interno e non c'è più il pavimento, che esisteva solo perché un blocco
+fisso poteva affamare lo scroll.
+
+L'aritmetica non è prosa: sta in `playSheet.test.tsx`, nel describe «the budget
+the pin came off for», che somma le altezze *dichiarate* — jsdom non ha motore di
+layout e il test dice da sé cosa può e cosa non può dimostrare. Dice anche le due
+cifre che non fanno bella figura: a 375×667 ROLL è ancora 140px sotto la piega
+finché non cadono la riga MODIFIERS e le Experience che gli stanno sopra, e la
+scheda piegata intera è 1087 contro 730. «Tutta la scheda in una volta sola» non
+è ancora vero, e il test lo dice con un numero invece che con un silenzio.
 
 ### 9.2 Desktop / Mac — 3 colonne
 

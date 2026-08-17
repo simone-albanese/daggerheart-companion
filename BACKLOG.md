@@ -1534,6 +1534,18 @@ what the paper shows.
       The pinned block at the bottom stays: it holds the trait chips and ROLL,
       because those are touched on every single action and a control you have to
       scroll to find is a control that stops being used.
+
+      **[SUPERSEDED by P5-5, `0ccc857`]** — left standing rather than edited,
+      because the reasoning above is the best short statement of what had to be
+      true for the reversal to be safe. What changed is the premise, not the
+      argument: with the four counters and the thresholds moved to the top where
+      Giorgio's message puts them, ROLL's own lower edge lands at 685 of 730px
+      of usable column at 393×852, so it is above the fold *without* a pin and
+      105px clear of the tab bar instead of 8. The pin was buying a reach the
+      order provides and charging 266px for it. The arithmetic is an executable
+      assertion — `playSheet.test.tsx`, «the budget the pin came off for» — and
+      it carries the unflattering half too: at 375×667 ROLL is still 140px below
+      the fold until the two items above it come out.
 - [ ] **Collapsible sections — the *tendina*.** Weapons & armour, cards,
       inventory, and lineage each behind a disclosure that remembers whether it
       was open. This is what makes "the whole sheet at once" fit: a closed
@@ -1559,6 +1571,15 @@ what the paper shows.
       request was to delete it; it is kept because advantage and disadvantage
       are core roll modifiers and an app that cannot roll with them is wrong at
       the table. Collapsing reclaims the band that was actually being asked for.
+
+      **[SUPERSEDED by P5-5 decision 6]** — the refusal holds and the answer
+      does not. Collapsing reclaimed nothing: a 44px header reading
+      «▶ MODIFIERS … NONE» is the same band, spent on announcing that nothing is
+      happening, which is what the owner's screenshot shows. The row is to be
+      drawn only when something *is* armed, reached from a control on the roll
+      bar itself. Not yet built: it is still 50px above ROLL as of `0ccc857`,
+      and it is one of the two reasons the small phone still scrolls to reach
+      the dice.
 
 **Five items above are folded into this rebuild rather than done before it**,
 because they all live in `Play.tsx` and doing them first means building them
@@ -2088,6 +2109,56 @@ that `33a7d92` and `0fb3365` just made behave.
       filled boxes up to the current maximum and dashed to twelve, six Hope
       diamonds, five Experience lines, the class feature printed in full, and
       inventory weapons carrying primary/secondary checkboxes.
+
+## P5-5 · The whole sheet in one look — the reflow, half built
+
+**Decisions taken by the owner on 2026-08-17**, two of them overruling P5-1
+above, which is why those two bullets are marked SUPERSEDED there rather than
+edited away. Giorgio's message in full: *"rendendo quindi la pagina principale
+un sistema per vedere in una volta sola tutta la scheda"* — with every fold
+shut, a player looks once and sees the whole sheet.
+
+**Built, `0ccc857`:** the phone sheet is one scrolling column in Giorgio's order
+— identity, the four defence numbers, the four counters, the traits, ROLL, then
+the folds — with nothing pinned; the six trait tiles and the pinned chip strip
+are one 44px row of chips with the SRD verbs behind its own 44×44 control, kept
+in full in every chip's accessible name with that control shut; `Vitals.part` is
+gone and the counters lost their `.panel` box.
+
+**The arithmetic, as built, at 393×852** (column 730 = 852 − 53 header − 61 tab
+bar − 8 foot): Identity 91, the defence band 58, the counters and the TOOK row
+244, the trait row 44, the roll surface 216, four 8px gaps. **ROLL's lower edge
+is 685 of 730** — above the fold with 45px to spare, which is the condition
+decision 1 names. It is in `playSheet.test.tsx` as an assertion, not as prose.
+
+**Still owed, and both of them are above ROLL:**
+
+- [ ] **Decision 6 — draw the modifier row only when something is armed**, and
+      reach it from a control on the roll bar. Today it is a permanent 44px
+      header reading `▶ MODIFIERS … NONE`, 50px above ROLL. When something *is*
+      armed the row must appear and name it: `advantage` and `reaction` are
+      deliberately not cleared when a roll resolves, so a modifier the player
+      cannot see is the founding rule failing on a number.
+- [ ] **The Experience chips move into a fold below ROLL**, which is where
+      Giorgio's order puts them. That needs `armedExperiences` hoisted out of
+      `DualityRoll` into `Play`, beside `declared` and `spellModifier`, and
+      cleared in the same `[characterId]` effect — one clearing rule in one
+      place rather than the same rule written twice in two files.
+- [ ] **The fold set**: the vault nested inside a Cards fold rather than beside
+      it, the gold onto the Carried header instead of its own 30px row, and the
+      lineage fold reordered to domains → ancestry → community ("in ordine
+      inverso forse").
+
+**What those buy, and what they do not.** −150px above ROLL takes it to 535
+against 545 at 375×667, which is the first time the small phone can reach the
+dice without scrolling. The whole folded sheet is **1087 against 730 today**;
+the three items above take roughly 270 off it. It still does not all fit at
+either phone size, and `playSheet.test.tsx` says by how much rather than
+rounding it down — see «says how far the whole folded sheet misses the glass».
+
+- [ ] **`CHANGELOG.md` has no entry for any of this yet**, deliberately: half a
+      reflow is not a thing to describe to a user. Write it when the two items
+      above ROLL are done, and carry the two unflattering numbers in it.
 
 ## Needs a human, two devices and a dim room
 

@@ -2,14 +2,18 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2237 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2247 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
-called done, 2230 in 96 when the five lanes were merged, and 2237 after the
-seven tests the honesty pass below added.
+called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
+tests the honesty pass below added, and 2247 after P5-5's first commit replaced
+the eight assertions that pinned the Play screen's pinned block.
 
-**Nothing is pushed.** `origin/main` is still at `87b9238` — **172 commits
-behind, 146 of them non-merge.** A push triggers a live GitHub Pages deploy, so
-the next person to press it is publishing all of it at once.
+**Push state, re-measured rather than remembered.** `origin/main` is at
+`dd66d35`, which is one commit behind `main` — so the "nothing is pushed,
+`87b9238`, 172 commits behind" that stood here through the whole P1-P5 pass is
+no longer true and the warning below about worktrees being cut from a stale
+`origin/main` no longer bites the way it did. A push still triggers a live
+GitHub Pages deploy, so it still waits to be asked for.
 
 **Where the numbers that matter stand.** `SCHEMA_VERSION` is **4**, with exactly
 one converter in `MIGRATIONS` (`from: 3`) and `OLDEST_READABLE` still 3, because
@@ -37,7 +41,17 @@ repository says it is.
 
 - **Reason about screen ergonomics explicitly before writing UI.** Thumb arc,
   target size (44 px floor), read-vs-touch. Say the numbers.
-- **The Play screen scrolls.** The old "no scrolling here" rule is overruled.
+- **The Play screen scrolls, and nothing on it is pinned.** The old "no
+  scrolling here" rule was overruled at `91097eb`; the fixed block that replaced
+  it was overruled at `0ccc857`, and the number that decides whether *that*
+  stays true is ROLL's declared lower edge against the usable column — 685 of
+  730 at 393×852 today. It is a test, `playSheet.test.tsx` › "the budget the pin
+  came off for", and it says in its own docblock what it can and cannot prove:
+  jsdom has no layout engine, so it sums declared heights and never measures.
+  Anything added to that column has to go through it. The same describe records
+  the two numbers that are not flattering — ROLL is still 140px below the fold
+  at 375×667, and the whole folded sheet is 1087 against 730 — and P5-5 in
+  `BACKLOG.md` names the two removals that close the first of them.
 - **One commit per step**, with a message that says what was wrong and why the
   fix is shaped the way it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
