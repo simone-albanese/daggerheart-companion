@@ -164,6 +164,48 @@ be wrong* at the foot of this entry.
 
 ### On a phone
 
+- **The Play screen is the whole sheet, in the order you read it at the table,
+  and nothing on it is pinned any more.** Identity, then Evasion and the two
+  damage thresholds and Proficiency as four big numbers, then HP, Stress, Hope
+  and Armor, then the six traits, then ROLL — and under ROLL, one row each:
+  weapons & armour, Experiences, what you are carrying, your cards, rest &
+  downtime, and where you are from. Every one of those opens with a tap and
+  remembers per character whether you left it open. **On the build before this
+  one, HP, Stress, Hope and Armor were not on the screen at all** on a 393px
+  phone: they were below the fold, under the identity block, the defence band
+  and six trait tiles, while a fixed block at the bottom held the trait chips
+  and ROLL.
+- **ROLL is in the flow now, and that is a bigger target in a better place.**
+  Pinned, it sat 8px above the Play tab — a 98×60 control that navigates away
+  from your sheet mid-turn. It is now 250px clear of it, and still above the
+  fold without being fixed there: its lower edge lands at 535px of the 730px a
+  393×852 phone leaves for content, and at 535 of 545 on a 375×667 one. That
+  last figure is a margin of **ten pixels**, and four ordinary things eat it —
+  typing your own dice, boxes instead of numbers, a companion, a Beastform — so
+  on the small phone some tables will still scroll a little to reach the dice.
+- **The six traits are one row of chips, and the verbs are one tap behind it.**
+  SPRINT · LEAP · MANEUVER under every trait cost about 210px, a quarter of the
+  glass. The row costs 44. The verbs are still there behind a control at the end
+  of it that remembers per character — and they are still read out in full by a
+  screen reader with that control shut, so nothing is lost by listening.
+- **The advantage / disadvantage / reaction row is not drawn when nothing is
+  armed.** It used to be a permanent band saying `MODIFIERS … NONE`. The
+  controls are behind a MODS button on the roll bar, which costs no height at
+  all, and the moment anything *is* armed — ADV, DIS, REACTION, a Difficulty, a
+  held die — a row appears above ROLL and names it, because a modifier you
+  cannot see is a modifier the app is applying behind your back.
+- **Two rows fewer for the same facts:** the vault is a fold inside your cards
+  rather than beside them, with both counts on the shut header (`3 / 5 · 3
+  INACTIVE`), and the gold moved onto the Carried header (`2 ITEMS · 1 BAG · 4
+  HANDFULS`) instead of a row of its own. The lineage fold opens with your
+  domains and their card level caps, then says where you are from — that is the
+  order you actually look them up in.
+- **What it does not do, said plainly.** With every fold shut the sheet comes to
+  899px. That fits on an iPad mini with 173px to spare, so on a tablet you
+  really do see all of it at once. On a 393×852 phone it is 169px over — the
+  conditions strip and the last three fold headers are below the glass — and on
+  a 375×667 phone it is 354px over. Nothing here was bought by squeezing the
+  spacing, because a fit bought that way is one the next change undoes.
 - **The Play screen scrolls, and your weapons, armour and items are on it.**
   Equipped gear had only ever rendered inside the desktop layout. With every
   band pinned, the loadout absorbed every shortfall: measured at 130px of the

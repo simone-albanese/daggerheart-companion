@@ -96,6 +96,14 @@ export interface Prefs {
    * two cards does not want a vault, and the whole point of the disclosures is
    * that the sheet fits once you have said which parts of it you use. Entries
    * are dropped when their character is deleted.
+   *
+   * TWO DEAD KEYS, RECORDED RATHER THAN MIGRATED. P5-5's reflow renamed Play's
+   * `loadout` fold to `cards` and deleted the `rollmods` one outright, so
+   * `<id>:loadout` and `<id>:rollmods` may still sit in this record on a device
+   * that ran the previous build. Nothing reads them. There is no converter,
+   * deliberately: the whole argument above is that this record exists so a
+   * chevron never costs a schema bump, and a migration written for two orphan
+   * booleans would be that cost arriving by the back door.
    */
   playSections: Record<string, boolean>;
 }

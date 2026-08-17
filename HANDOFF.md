@@ -2,14 +2,15 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2247 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2252 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
-tests the honesty pass below added, and 2247 after P5-5's first commit replaced
-the eight assertions that pinned the Play screen's pinned block.
+tests the honesty pass below added, 2247 after P5-5's first commit replaced the
+eight assertions that pinned the Play screen's pinned block, and 2252 with P5-5
+finished.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is one commit behind `main` — so the "nothing is pushed,
+`dd66d35`, which is eight commits behind `main` — so the "nothing is pushed,
 `87b9238`, 172 commits behind" that stood here through the whole P1-P5 pass is
 no longer true and the warning below about worktrees being cut from a stale
 `origin/main` no longer bites the way it did. A push still triggers a live
@@ -44,14 +45,17 @@ repository says it is.
 - **The Play screen scrolls, and nothing on it is pinned.** The old "no
   scrolling here" rule was overruled at `91097eb`; the fixed block that replaced
   it was overruled at `0ccc857`, and the number that decides whether *that*
-  stays true is ROLL's declared lower edge against the usable column — 685 of
-  730 at 393×852 today. It is a test, `playSheet.test.tsx` › "the budget the pin
-  came off for", and it says in its own docblock what it can and cannot prove:
-  jsdom has no layout engine, so it sums declared heights and never measures.
-  Anything added to that column has to go through it. The same describe records
-  the two numbers that are not flattering — ROLL is still 140px below the fold
-  at 375×667, and the whole folded sheet is 1087 against 730 — and P5-5 in
-  `BACKLOG.md` names the two removals that close the first of them.
+  stays true is ROLL's declared lower edge against the usable column — **535 of
+  730 at 393×852, and 535 of 545 at 375×667**. It is a test,
+  `playSheet.test.tsx` › "the budget the pin came off for", and it says in its
+  own docblock what it can and cannot prove: jsdom has no layout engine, so it
+  sums declared heights and never measures. **Anything added to that column has
+  to go through it**, and at 375×667 the whole margin is **ten pixels** — the
+  test lists four ordinary states that cost more than ten. The same describe
+  records the numbers that are not flattering: the folded sheet is 899 and fits
+  only at 744×1133, missing the glass by 169px at 393×852 and 354 at 375×667.
+  P5-5 in `BACKLOG.md` names the two things that would close some of that and
+  says why neither was taken here.
 - **One commit per step**, with a message that says what was wrong and why the
   fix is shaped the way it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
@@ -96,7 +100,7 @@ also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
-| **Play is the sheet** (P5-1) | Rebuilt in the official sheet's order on phone **and** tablet. Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference; trait verbs are on the tiles, parsed out of the SRD; four sections fold, and each character remembers its folds; the roll modifier row folds away and names whatever is armed on its closed edge. |
+| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; six tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Lineage — all shut by default and each remembered per character. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
 | **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out, the campaigns and the two tools no row can otherwise open; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and everything the disk did or failed to do — a write that did not land, a tap the saved campaign replaced — is said on the screen it happened on, with a retry only where a retry can do something. |

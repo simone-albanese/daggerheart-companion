@@ -1535,17 +1535,19 @@ what the paper shows.
       because those are touched on every single action and a control you have to
       scroll to find is a control that stops being used.
 
-      **[SUPERSEDED by P5-5, `0ccc857`]** — left standing rather than edited,
-      because the reasoning above is the best short statement of what had to be
-      true for the reversal to be safe. What changed is the premise, not the
-      argument: with the four counters and the thresholds moved to the top where
-      Giorgio's message puts them, ROLL's own lower edge lands at 685 of 730px
-      of usable column at 393×852, so it is above the fold *without* a pin and
-      105px clear of the tab bar instead of 8. The pin was buying a reach the
-      order provides and charging 266px for it. The arithmetic is an executable
-      assertion — `playSheet.test.tsx`, «the budget the pin came off for» — and
-      it carries the unflattering half too: at 375×667 ROLL is still 140px below
-      the fold until the two items above it come out.
+      **[SUPERSEDED by P5-5, `0ccc857` … `b11c423`]** — left standing rather
+      than edited, because the reasoning above is the best short statement of
+      what had to be true for the reversal to be safe. What changed is the
+      premise, not the argument: with the four counters and the thresholds moved
+      to the top where Giorgio's message puts them, the Experiences moved into a
+      fold below ROLL and the permanent MODIFIERS row deleted, ROLL's own lower
+      edge lands at **535 of 730px** of usable column at 393×852 and at **535 of
+      545** at 375×667 — above the fold on both reference phones *without* a
+      pin, and 250px clear of the tab bar instead of 8. The pin was buying a
+      reach the order provides and charging 266px for it. The arithmetic is an
+      executable assertion — `playSheet.test.tsx`, «the budget the pin came off
+      for» — and it carries the unflattering half too: the 375×667 margin is
+      **ten pixels**, and four ordinary states cost more than ten.
 - [ ] **Collapsible sections — the *tendina*.** Weapons & armour, cards,
       inventory, and lineage each behind a disclosure that remembers whether it
       was open. This is what makes "the whole sheet at once" fit: a closed
@@ -1572,14 +1574,17 @@ what the paper shows.
       are core roll modifiers and an app that cannot roll with them is wrong at
       the table. Collapsing reclaims the band that was actually being asked for.
 
-      **[SUPERSEDED by P5-5 decision 6]** — the refusal holds and the answer
-      does not. Collapsing reclaimed nothing: a 44px header reading
+      **[SUPERSEDED by P5-5 decision 6, `598c07f`]** — the refusal holds and the
+      answer does not. Collapsing reclaimed nothing: a 44px header reading
       «▶ MODIFIERS … NONE» is the same band, spent on announcing that nothing is
-      happening, which is what the owner's screenshot shows. The row is to be
-      drawn only when something *is* armed, reached from a control on the roll
-      bar itself. Not yet built: it is still 50px above ROLL as of `0ccc857`,
-      and it is one of the two reasons the small phone still scrolls to reach
-      the dice.
+      happening, which is what the owner's screenshot shows. What shipped
+      instead: the row is not drawn at all when nothing is armed, and is reached
+      from a 44×66 MODS control at the right end of the roll bar, which costs no
+      height because ROLL is already 66 tall. When something *is* armed a 44px
+      strip appears above ROLL and names it — `advantage` and `reaction` are
+      deliberately not cleared when a roll resolves, so a modifier the player
+      cannot see would be the founding rule failing on a number — and tapping
+      that strip opens the row it is naming.
 
 **Five items above are folded into this rebuild rather than done before it**,
 because they all live in `Play.tsx` and doing them first means building them
@@ -2110,7 +2115,7 @@ that `33a7d92` and `0fb3365` just made behave.
       diamonds, five Experience lines, the class feature printed in full, and
       inventory weapons carrying primary/secondary checkboxes.
 
-## P5-5 · The whole sheet in one look — the reflow, half built
+## ~~P5-5 · The whole sheet in one look — the reflow~~ — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`, `b11c423`**
 
 **Decisions taken by the owner on 2026-08-17**, two of them overruling P5-1
 above, which is why those two bullets are marked SUPERSEDED there rather than
@@ -2118,43 +2123,77 @@ edited away. Giorgio's message in full: *"rendendo quindi la pagina principale
 un sistema per vedere in una volta sola tutta la scheda"* — with every fold
 shut, a player looks once and sees the whole sheet.
 
-**Built, `0ccc857`:** the phone sheet is one scrolling column in Giorgio's order
-— identity, the four defence numbers, the four counters, the traits, ROLL, then
-the folds — with nothing pinned; the six trait tiles and the pinned chip strip
-are one 44px row of chips with the SRD verbs behind its own 44×44 control, kept
-in full in every chip's accessible name with that control shut; `Vitals.part` is
-gone and the counters lost their `.panel` box.
+**What was built.** The phone sheet is one scrolling column with nothing pinned
+(`0ccc857`), in Giorgio's order: identity, the four defence numbers, the four
+counters with the incoming-damage box, the six traits as one 44px row of chips
+with the SRD verbs behind its own 44×44 control, ROLL — and then the folds, all
+of them shut by default: **weapons & armour, Experiences, Carried, Cards, Rest &
+downtime, Lineage & domains**. `Vitals.part` is gone and the counters lost their
+`.panel` box. The armed Experiences moved out of `DualityRoll` into `Play`
+(`d049ac0`) so the fold below ROLL could hold them (`b11c423`); the vault is a
+tendina inside Cards and the gold rides on the Carried header (`a1ff3c3`); the
+lineage fold opens with the domains (`0fb61d0`); the permanent MODIFIERS row is
+gone in favour of a 44×66 MODS control on the roll bar and a strip that exists
+only while something is armed (`598c07f`).
 
-**The arithmetic, as built, at 393×852** (column 730 = 852 − 53 header − 61 tab
-bar − 8 foot): Identity 91, the defence band 58, the counters and the TOOK row
-244, the trait row 44, the roll surface 216, four 8px gaps. **ROLL's lower edge
-is 685 of 730** — above the fold with 45px to spare, which is the condition
-decision 1 names. It is in `playSheet.test.tsx` as an assertion, not as prose.
+**THE ARITHMETIC, AS BUILT** — declared heights, every fold shut, default prefs,
+nothing armed, the `playedCharacter` fixture. Column = glass − 53 header − 61 tab
+bar − 8 foot.
 
-**Still owed, and both of them are above ROLL:**
+| | px |
+|---|---|
+| Identity (21 name + 7 + 10 meta + 9 + 44 RENAME) | 91 |
+| gap | 8 |
+| the defence band (16 padding + 10 label + 4 + 26 number + 2 border) | 58 |
+| gap | 8 |
+| the four counters and the TOOK row (4×44 + 3×6 + 44 + 6) | 244 |
+| gap | 8 |
+| the trait row | 44 |
+| gap | 8 |
+| the ROLL row (MODS is 44 wide *inside* it) | 66 |
+| **ROLL's lower edge** | **535** |
+| the six fold headers and the conditions strip, with their gaps | 364 |
+| **the whole folded sheet** | **899** |
 
-- [ ] **Decision 6 — draw the modifier row only when something is armed**, and
-      reach it from a control on the roll bar. Today it is a permanent 44px
-      header reading `▶ MODIFIERS … NONE`, 50px above ROLL. When something *is*
-      armed the row must appear and name it: `advantage` and `reaction` are
-      deliberately not cleared when a roll resolves, so a modifier the player
-      cannot see is the founding rule failing on a number.
-- [ ] **The Experience chips move into a fold below ROLL**, which is where
-      Giorgio's order puts them. That needs `armedExperiences` hoisted out of
-      `DualityRoll` into `Play`, beside `declared` and `spellModifier`, and
-      cleared in the same `[characterId]` effect — one clearing rule in one
-      place rather than the same rule written twice in two files.
-- [ ] **The fold set**: the vault nested inside a Cards fold rather than beside
-      it, the gold onto the Carried header instead of its own 30px row, and the
-      lineage fold reordered to domains → ancestry → community ("in ordine
-      inverso forse").
+- **393×852** — column 730. ROLL is above the fold with **195px to spare**. The
+  whole folded sheet is **169px over**: the conditions strip and the last three
+  fold headers are below the glass.
+- **375×667** — column 545. ROLL is above the fold **by ten pixels**. The whole
+  folded sheet is **354px over**.
+- **744×1133** — column 1072, because `App.tsx` draws the tab bar only below
+  720px. The whole folded sheet **fits, with 173px to spare**. "Tutta la scheda
+  in una volta sola" is literally true on a tablet and nowhere else.
 
-**What those buy, and what they do not.** −150px above ROLL takes it to 535
-against 545 at 375×667, which is the first time the small phone can reach the
-dice without scrolling. The whole folded sheet is **1087 against 730 today**;
-the three items above take roughly 270 off it. It still does not all fit at
-either phone size, and `playSheet.test.tsx` says by how much rather than
-rounding it down — see «says how far the whole folded sheet misses the glass».
+Every one of those numbers is an executable assertion in `playSheet.test.tsx`,
+describe «the budget the pin came off for», whose own docblock says what it can
+and cannot prove: jsdom has no layout engine, so it sums *declared* heights and
+never measures. It also lists six things it cannot see, four of which cost more
+than the ten pixels of margin at 375×667 — typed dice (+68), pips instead of
+numbers (+49), a companion (+50), a Beastform banner (+52) — plus the
+`env(safe-area-inset-bottom)` question, which this repo has always treated as 0
+and which is 34px on a home-indicator iPhone installed as a PWA.
+
+**Not done, and named rather than hidden:**
+
+- [ ] **The conditions strip is still permanent**, 44px plus its gap, low in the
+      column between the rest and the lineage. Decision 6's treatment would fit
+      it exactly — seven grey chips and a `+ NAME` button, every frame of every
+      session, to say that you are not Restrained — but decision 6 is about the
+      modifier row and nothing asked for this one. It is 52 of the 169px the
+      folded sheet is over at 393×852. The obvious shape is `ActiveConditions`
+      gaining a variant that draws only what is on and returns null otherwise,
+      with the full strip and its door to `ConditionsDialog` living behind MODS;
+      the obvious objection is that a condition is a state the GM inflicted, not
+      a modifier the player declared, so MODS may be the wrong door for it.
+- [ ] **The incoming-damage box is not in the defence band.** Giorgio's
+      "threshold bene in vista" is delivered — the four numbers are 26px in a
+      band of their own, second on the sheet — but the box you type the damage
+      into is still a row inside the counters, printing `8/16` in 10px beside
+      itself because it needs the ladder and cannot see it. Merging it in as a
+      fifth cell of the band is worth about 46px above ROLL and would put the
+      number you were just told next to the ladder it is read against. It needs
+      `DamageEntry` extracted out of `Vitals`, which is the one component on
+      this screen that writes Hit Points, so it is a refactor to do on its own.
 
 - [ ] **The death-move offer can now be off screen when it appears, and that is
       a regression `0ccc857` introduced.** It used to be in the pinned block, so
@@ -2162,15 +2201,13 @@ rounding it down — see «says how far the whole folded sheet misses the glass�
       you have fallen it is the only thing that matters - but position is not
       visibility on a screen that scrolls. Marking HP by hand or committing
       damage is fine: both controls are within 400px of the top. The path that
-      strands it is P1-2's, `RecallButton` in the vault fold: the confirming tap
-      can mark the last Hit Point from about 900px down the column, and the
-      banner then renders above the viewport with nothing on screen saying it
-      appeared. Two honest answers - make the offer a dialog the way its own
-      `DeathMoveDialog` already is, or have the recall that spends the last Hit
-      Point say so on its own row - and this is not the commit that picks one.
-- [ ] **`CHANGELOG.md` has no entry for any of this yet**, deliberately: half a
-      reflow is not a thing to describe to a user. Write it when the two items
-      above ROLL are done, and carry the two unflattering numbers in it.
+      strands it is P1-2's, `RecallButton` in the vault, which is now a tendina
+      inside Cards and further down still: the confirming tap can mark the last
+      Hit Point from about 750px down the column, and the banner then renders
+      above the viewport with nothing on screen saying it appeared. Two honest
+      answers - make the offer a dialog the way its own `DeathMoveDialog`
+      already is, or have the recall that spends the last Hit Point say so on
+      its own row - and neither of the P5-5 commits picks one.
 
 ## Needs a human, two devices and a dim room
 
@@ -2246,14 +2283,17 @@ Verified, and listed so effort goes where it is needed.
 
 ## Done since `87b9238`, which is everything not yet pushed
 
-`origin/main` is at `87b9238` and nothing above it has left this machine. The
-suite is **2237 passing in 96 files** and `tsc --noEmit` is clean.
+`origin/main` is at `dd66d35` and everything above it is still on this machine.
+The suite is **2252 passing in 96 files** and `tsc --noEmit` is clean. (This
+heading's `87b9238` is the commit the not-yet-pushed run *started* from; the
+remote has since moved to `dd66d35`, which `HANDOFF.md` re-measured.)
 
 **Closed and struck above, with their commits on the heading:** P0-1 through
 P0-8 (the whole band), P1-7 (rests, and the first `SCHEMA_VERSION` bump this
 project has ever made), P1-1 (attack rolls into damage rolls), P3-7 (the
 orphan harness), P5-1 (Play is the sheet), P5-1(b) (rename), P5-2 (the GM
-session screen), P5-3 (the GM reference) and P5-4 (the printed sheet).
+session screen), P5-3 (the GM reference), P5-4 (the printed sheet) and P5-5
+(the reflow into Giorgio's order).
 
 **The P1 to P4 entries below `P1-1` have not been re-adjudicated in this pass,
 and several of them have shipped.** That is a known gap in this file, written
