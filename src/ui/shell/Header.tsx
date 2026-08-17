@@ -92,10 +92,44 @@
  * this element moves the *contents* in and leaves the background painting edge
  * to edge, which is the native convention and the thing a bar is supposed to do
  * under a cutout; padding on an ancestor would stop the panel colour 59px short
- * of the glass and draw a strip of `--app` beside it. `main` is transparent and
- * owns no content of its own, so the screens inside it are their own files'
- * half of this - the Cards filter rails are still unpaid, and are not this
- * file's to fix.
+ * of the glass and draw a strip of `--app` beside it.
+ *
+ * WHAT `<main>` OWNS, said correctly this time. This used to read "`main` is
+ * transparent and owns no content of its own, so the screens inside it are
+ * their own files' half of this", and the second half of that is wrong.
+ * `App.tsx` renders six blocks directly inside `<main>`, above every screen and
+ * below this bar: `UnsavedWork` (App.tsx:499), the storage-error alert (:260),
+ * the integrity alert (:295), the quarantined-characters alert (:360), and
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx:168`. None is a
+ * screen; all six are shell chrome, and all six are hard-coded to
+ * `margin: '8px 20px 0'`. Measured at 852x393 with 59 on both sides,
+ * `BackupBanner` renders at [20, 832] and its box is identical with the insets
+ * at 0 - it does not move, so its first 39px sit inside the left strip while
+ * this bar 8px above it is now correctly inset to 79. The two gutters used to
+ * line up at 20 and no longer do.
+ *
+ * So the unpaid surface is in two columns and neither is "the Cards filter
+ * rails", which is what this file used to name.
+ *
+ *   Shell chrome: those six margins. They were unpaid before this change too,
+ *     so this is not a regression it introduces, and the repair is one line
+ *     each - `margin: '8px calc(20px + env(safe-area-inset-right)) 0
+ *     calc(20px + env(safe-area-inset-left))'`, which keeps them aligned with
+ *     this bar at every inset. Left deliberately: they live in `App.tsx` and
+ *     `ShellBanner.tsx` and belong in a commit that can test those two files.
+ *   Screens: measured on Play at 852x393 with 59 on both sides, `<main>`'s
+ *     only other child is the column at [0, 852] and it pays nothing. ROLL
+ *     2d12 sits at [12, 788] with 47px of its left end under the left strip;
+ *     the Agility trait button at [12, 138.7], 37% of it under; the HP and
+ *     Hope tracks at [12, 327]; six section headers at [12, 840]. At the other
+ *     end MODS, the trait-help button and the three `+` steppers are each
+ *     44x44 at [796, 840], which is *entirely* inside a right strip that
+ *     starts at 793.
+ *
+ * That second list is the half inside the thumb arc, and it is the half that
+ * is left. This bar's own casualties were at the top of the glass and outside
+ * every arc; Play's are the controls a thumb actually lands on mid-scene. A
+ * reader of this file should not come away thinking the cutout is paid.
  *
  * `calc(20px + env(...))` and not a bare `env()` in a `padding` shorthand: this
  * is the idiom `TabBar.tsx` established and the reason is testability at both
