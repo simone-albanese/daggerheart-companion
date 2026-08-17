@@ -149,6 +149,32 @@ function fold(label: string): HTMLButtonElement {
  * and a query that swept the whole tree would count it as part of the index.
  */
 /**
+ * Open the weapons fold, which starts shut like every other one.
+ *
+ * Every fold on this sheet defaults shut, because the budget below is computed
+ * with every fold shut and a default that contradicted it would make the
+ * arithmetic a fiction. Roughly twenty tests reach a weapon row, the Spellcast
+ * panel or the unarmed row, and they are about arming rather than about the
+ * fold - so the helpers they already use call this rather than each test
+ * growing a line.
+ *
+ * ONE TEST MUST NOT USE THE HELPERS FOR THIS, and it says so where it stands:
+ * `draws no panel at all for a character who cannot cast` asserts that the word
+ * Spellcast is absent, which a shut fold satisfies for the wrong reason. It
+ * opens the fold by hand first.
+ */
+function openEquipped(): void {
+  const header = fold('Weapons & armour');
+  if (header.getAttribute('aria-expanded') === 'false') click(header);
+}
+
+/** Open the Experiences fold, which is where the chips live now. */
+function openExperiences(): void {
+  const header = fold('Experiences');
+  if (header.getAttribute('aria-expanded') === 'false') click(header);
+}
+
+/**
  * Open the vault, which is a tendina inside the cards fold now.
  *
  * The nesting is the point of `Two fewer rows for the same facts`: the loadout
@@ -324,6 +350,7 @@ describe('what a phone shows of the character sheet', () => {
       'AGI +', // the traits, as one row of numbers
       'ROLL', // and then the dice, in the flow
       'Weapons & armour',
+      'Experiences', // "e fare entrare le armi e le experience"
       'Carried', // "sotto armi e armature..."
       'Cards', // "...e ultime le carte", with the vault folded inside them
       'Rest & downtime',
@@ -368,7 +395,7 @@ describe('what a phone shows of the character sheet', () => {
     // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
     // inside it, which is decision 6's business and not this test's.
     const headers = indexHeaders();
-    expect(headers.length, 'the fold index is gone').toBe(5);
+    expect(headers.length, 'the fold index is gone').toBe(6);
     for (const header of headers) {
       expect(rootEl.contains(header), `${header.textContent ?? '?'} is outside the column`).toBe(
         true,
@@ -598,12 +625,18 @@ describe('the trait row and the roll surface', () => {
  *   - a companion, which adds a 44px WhoSwitch inside the counters.
  *   - `counterStyle: 'pips'`, which wraps the fixture's 12-box HP track onto a
  *     second row and takes the counters from 244 to about 293.
- *   - `manualDice`, which puts two 62px faces back above ROLL.
+ *   - `manualDice`, which puts two 62px faces back above ROLL: +68.
+ *   - an armed modifier, which puts a 44px strip back above ROLL: +50.
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
  *     already committed in this repo and treats the inset as 0. On a
  *     home-indicator iPhone installed as a PWA it is 34px, which would take the
- *     393x852 column from 730 to 696 and leave ROLL 11px of margin instead
- *     of 45. Somebody should check that on the owner's own phone.
+ *     393x852 column from 730 to 696 and leave ROLL 161px of margin instead of
+ *     195 - and would put ROLL 24px BELOW the fold at 375x667, where the whole
+ *     margin is 10. Somebody should check that on the owner's own phone.
+ *
+ * FOUR OF THOSE SIX COST MORE THAN THE 10px OF SLACK AT 375x667. On the small
+ * phone this arrangement clears the fold and does not clear it comfortably, and
+ * that is stated here rather than rounded up.
  *
  * So this test is a tripwire on the declared arithmetic and not a measurement,
  * and it says which of the two it is in every failure message.
@@ -659,10 +692,10 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
-    { what: 'the roll surface · two Experience chips, one to a row', px: 2 * 44 + 6, from: 'dom' },
-    { what: 'the roll surface · its own 6px gap', px: 6, from: 'dom' },
-    // ROLL and MODS share this row, so MODS costs the column nothing: it is
-    // 44 wide inside the 66 ROLL was already holding.
+    // The roll surface is ROLL and nothing else with nothing armed: the
+    // Experience chips are a fold below it now and the modifier row is not
+    // drawn. ROLL and MODS share this row, so MODS costs the column nothing -
+    // it is 44 wide inside the 66 ROLL was already holding.
     { what: 'the ROLL row', px: 66, from: 'dom' },
   ];
 
@@ -670,6 +703,8 @@ describe('the budget the pin came off for', () => {
   const INDEX: Array<{ what: string; px: number }> = [
     { what: 'gap', px: GAP },
     { what: 'Weapons & armour', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Experiences', px: 44 },
     { what: 'gap', px: GAP },
     { what: 'Carried, with the gold on its header', px: 44 },
     { what: 'gap', px: GAP },
@@ -690,7 +725,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 635').toBe(635);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 535').toBe(535);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -699,42 +734,64 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(95);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(195);
   });
 
   /*
-   * The unflattering half, as a number rather than as silence. Decision 1 says
-   * "say so rather than shipping a ROLL that has to be scrolled to", and on the
-   * small phone that is exactly what this step ships - so it is written down
-   * here, with the two things standing in the way, rather than found on a
-   * phone.
+   * The small phone, where the slack is ten pixels and that number is the
+   * headline rather than a footnote.
+   *
+   * ROLL clears the fold at 375x667 by 10px. That is not comfortable and this
+   * test does not pretend it is: it asserts the ten, so that anything which
+   * spends eleven fails here with the arithmetic in front of it rather than
+   * being found on somebody's phone. The docblock above lists six ordinary
+   * states this table cannot see, and four of them cost more than ten.
    */
-  it('says how far ROLL misses the fold at 375x667, rather than claiming it does not', () => {
+  it('puts ROLL above the fold at 375x667 too, by ten pixels, and says it is ten', () => {
     const glass = column(667);
     expect(glass).toBe(545);
     expect(
-      ROLL_BOTTOM - glass,
-      'ROLL at 375x667: the overflow has changed and nobody said which way.',
-    ).toBe(90);
-    // The one removal still owed, and it is Giorgio's fold order rather than a
-    // shaved gap: the Experience chips move into a tendina below ROLL.
-    const experiences = 2 * 44 + 6 + 6;
-    expect(
-      ROLL_BOTTOM - experiences,
-      'the removal still owed no longer adds up to a ROLL above the fold at 375x667',
+      ROLL_BOTTOM,
+      `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
+        'small phone. Something above ROLL grew, and ten pixels was the whole margin.',
     ).toBeLessThanOrEqual(glass);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(10);
   });
 
+  /*
+   * Giorgio's stronger sentence, answered with a number instead of with a
+   * claim. "Vedere in una volta sola tutta la scheda" is true on a tablet and
+   * is not true on either phone, and the gap is stated rather than shaved: a
+   * fit bought by taking the column gap from 8 to 6 is a fit the next honest
+   * edit un-buys, and the assertion pinning it would be a tripwire on a design
+   * nobody chose.
+   */
   it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(947);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(899);
     expect(
       SHEET_BOTTOM - column(852),
       'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(217);
+    ).toBe(169);
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(402);
+    ).toBe(354);
+  });
+
+  it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
+    /*
+     * 744x1133, and the tab bar is not in the sum because `App.tsx` draws it
+     * only below 720px - `phone && screen !== 'gm' && <TabBar />`. So the
+     * column is the glass less the header and the root's own foot.
+     */
+    const glass = 1133 - HEADER - FOOT;
+    expect(glass).toBe(1072);
+    expect(
+      SHEET_BOTTOM,
+      'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
+        'width where "tutta la scheda in una volta sola" was literally true',
+    ).toBeLessThanOrEqual(glass);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(173);
   });
 
   it('the terms this budget can read, it reads', () => {
@@ -750,19 +807,19 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a fourteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Eleven, with the fixture: Identity, the defence band, the counters, the
-     * trait row, the roll surface, then Weapons & armour, Carried, Cards,
-     * Rest, the conditions strip and Lineage. The vault is a tendina inside
-     * Cards and costs the column no child of its own; the death move and the
-     * Beastform banner draw nothing for this character, and both are named in
-     * the docblock as things this budget does not carry.
+     * Twelve, with the fixture: Identity, the defence band, the counters, the
+     * trait row, the roll surface, then Weapons & armour, Experiences, Carried,
+     * Cards, Rest, the conditions strip and Lineage. The vault is a tendina
+     * inside Cards and costs the column no child of its own; the death move and
+     * the Beastform banner draw nothing for this character, and both are named
+     * in the docblock as things this budget does not carry.
      */
     expect(
       rootEl.children.length,
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(11);
+    ).toBe(12);
 
     // Identity: the two margins and the chip that holds the third row open.
     const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
@@ -813,26 +870,40 @@ describe('the budget the pin came off for', () => {
       "the roll surface's own gap moved",
     ).toBe('6px');
     expect(roll.parentElement!.style.gap, 'the ROLL/MODS gutter moved').toBe('8px');
-    const experiences = buttons().filter((b) =>
-      (b.getAttribute('aria-label') ?? '').startsWith('Utilize '),
-    );
-    expect(experiences.length, 'the fixture carries two Experiences').toBe(2);
-    for (const chipEl of experiences) {
-      expect(chipEl.style.minHeight).toBe('var(--tap)');
-    }
+    /*
+     * And the roll surface is ROLL's row and nothing else with nothing armed.
+     * This is the 100px the Experience fold bought and the 50 the modifier row
+     * bought: if either comes back above ROLL, the table above is wrong by that
+     * much and this is where it says so.
+     */
+    expect(
+      [...roll.parentElement!.parentElement!.children].map((el) => el.tagName),
+      'something is drawn on the roll surface that the budget does not carry',
+    ).toEqual(['DIV']);
+    expect(
+      buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Utilize ')),
+      'the Experience chips are back above ROLL, where they cost 100px',
+    ).toHaveLength(0);
 
     // The fold index: every header at the floor, and there are six rows of it
-    // plus the gold row and the conditions strip.
+    // plus the conditions strip.
     const headers = indexHeaders();
     for (const header of headers) {
       expect(header.style.minHeight, `${header.textContent ?? '?'} is not at the floor`).toBe(
         'var(--tap)',
       );
     }
-    const LABELS = ['Weapons & armour', 'Carried', 'Cards', 'Rest & downtime', 'Lineage & domains'];
+    const LABELS = [
+      'Weapons & armour',
+      'Experiences',
+      'Carried',
+      'Cards',
+      'Rest & downtime',
+      'Lineage & domains',
+    ];
     expect(
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
-      'the budget counts five fold headers below ROLL and the screen draws a different set',
+      'the budget counts six fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
   });
 });
@@ -1073,6 +1144,9 @@ describe('a card this build cannot read', () => {
 
   it('is drawn, and names the ref so somebody can act on it', () => {
     play(withGhosts());
+    // Through the fold, and the count above it is asserted separately: the
+    // rows are what this test is about, and the fold defaults shut.
+    click(fold('Cards'));
     const body = text();
     expect(body).toContain('CARD NOT IN THIS BUILD');
     expect(body).toContain('card-from-a-newer-bundle');
@@ -1082,6 +1156,7 @@ describe('a card this build cannot read', () => {
   it('can be moved to the vault by hand, which frees the slot', () => {
     const c = withGhosts();
     play(c);
+    click(fold('Cards'));
     const move = buttons().find((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith(
         'Move the unreadable card card-from-a-newer-bundle',
@@ -1290,6 +1365,7 @@ describe('the roll modifier row', () => {
 describe('the Experiences a roll is declared with', () => {
   /** The chip for one Experience, by the name `ExperienceChip` announces. */
   const chip = (name: string): HTMLButtonElement => {
+    openExperiences();
     const found = buttons().find((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith(`Utilize ${name},`),
     );
@@ -1501,26 +1577,32 @@ describe('the tendina', () => {
     expect(text()).toContain('Minor Health Potion');
   });
 
+  /*
+   * The direction is flipped from what it was, and that is the point: every
+   * fold on this sheet defaults shut now, so the arrangement worth remembering
+   * is the one a player opened rather than the one they closed.
+   */
   it('remembers what was open, per character, across a remount', () => {
     const c = seed();
     play(c);
-    click(fold('Cards'));
     expect(fold('Cards').getAttribute('aria-expanded')).toBe('false');
+    click(fold('Cards'));
+    expect(fold('Cards').getAttribute('aria-expanded')).toBe('true');
 
     act(() => root.unmount());
     root = createRoot(container);
     play(c);
     expect(
       fold('Cards').getAttribute('aria-expanded'),
-      'the fold reopened itself on the next launch',
-    ).toBe('false');
+      'the fold shut itself again on the next launch',
+    ).toBe('true');
   });
 
   it('does not carry one character’s arrangement onto another', () => {
     const first = seed();
     play(first);
     click(fold('Cards'));
-    expect(useApp.getState().prefs.playSections[`${first.id}:cards`]).toBe(false);
+    expect(useApp.getState().prefs.playSections[`${first.id}:cards`]).toBe(true);
 
     const second = seed({ id: 'other-sheet' });
     // A fresh sheet, keeping whatever the first one recorded.
@@ -1532,7 +1614,10 @@ describe('the tendina', () => {
     act(() => root.unmount());
     root = createRoot(container);
     play(second);
-    expect(fold('Cards').getAttribute('aria-expanded')).toBe('true');
+    expect(
+      fold('Cards').getAttribute('aria-expanded'),
+      'the second sheet arrived holding the first one’s arrangement',
+    ).toBe('false');
   });
 
   /*
@@ -1611,6 +1696,7 @@ describe('the tendina', () => {
 describe('what the attack is made with', () => {
   /** A row you can arm: the weapon buttons carry the weapon's own name. */
   function weaponRow(name: string): HTMLButtonElement {
+    openEquipped();
     const found = buttons().find(
       (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
     );
@@ -1755,6 +1841,7 @@ describe('what the attack is made with', () => {
     // Having nothing equipped is the state the rule is written for, so this is
     // the one row that must not disappear with the loadout.
     play(seed({ activePrimaryWeapon: null, activeSecondaryWeapon: null, activeArmor: null }));
+    openEquipped();
     expect(text()).toContain('Nothing equipped');
     expect(weaponRow('Unarmed').textContent).toContain('d4');
   });
@@ -1850,11 +1937,14 @@ describe('what the attack is made with', () => {
  */
 describe('the spell, and the +0 that rolls nothing', () => {
   /** Every die chip in the Spellcast panel, in the order they are drawn. */
-  const dieChips = (): HTMLButtonElement[] =>
-    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Cast with a d'));
+  const dieChips = (): HTMLButtonElement[] => {
+    openEquipped();
+    return buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Cast with a d'));
+  };
 
   /** The panel itself: a div, where the weapon rows are buttons. */
   function panel(): HTMLElement {
+    openEquipped();
     const found = [...container.querySelectorAll<HTMLElement>('div.panel')].find((el) =>
       (el.textContent ?? '').startsWith('Spellcast'),
     );
@@ -1863,6 +1953,7 @@ describe('the spell, and the +0 that rolls nothing', () => {
   }
 
   function armable(name: string): HTMLButtonElement {
+    openEquipped();
     const found = buttons().find(
       (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
     );
@@ -1881,6 +1972,7 @@ describe('the spell, and the +0 that rolls nothing', () => {
 
   /** The MOD field, which is the `+3` a player reads off the card in their hand. */
   function modInput(): HTMLInputElement {
+    openEquipped();
     const found = [...container.querySelectorAll<HTMLInputElement>('input[type="number"]')].find(
       (el) => (el.parentElement?.textContent ?? '').startsWith('MOD'),
     );
@@ -2022,6 +2114,14 @@ describe('the spell, and the +0 that rolls nothing', () => {
     // A Guardian/Stalwart has no Spellcast trait. Four lines explaining that
     // would be the sheet answering a question this character never asked.
     play(seed({ classRef: 'guardian', subclassRefs: ['stalwart'], loadout: [], vault: [] }));
+    /*
+     * The fold is opened BEFORE the assertion, and that is the whole
+     * difference between this test working and this test lying. Weapons &
+     * armour defaults shut, so `text()` does not contain 'Spellcast' for a
+     * Bard either - the claim here is that the panel is not drawn, not that it
+     * is not currently visible.
+     */
+    openEquipped();
     expect(text()).not.toContain('Spellcast');
     expect(dieChips()).toHaveLength(0);
   });
@@ -2046,6 +2146,7 @@ describe('rolling the damage the attack earned', () => {
   }
 
   function weaponRow(name: string): HTMLButtonElement {
+    openEquipped();
     const found = buttons().find(
       (b) => b.getAttribute('aria-pressed') !== null && (b.textContent ?? '').includes(name),
     );

@@ -636,13 +636,6 @@ export function DualityRoll({
             </span>
           </button>
         )}
-        <ExperienceRow
-          experiences={experiences}
-          armedExperiences={armedExperiences}
-          hopeCost={hopeCost}
-          hopeAvailable={hopeAvailable}
-          toggleExperience={toggleExperience}
-        />
         {/*
          * The faces only take a row when they are inputs.
          *
@@ -1029,17 +1022,29 @@ function ExperienceChip({
 export function ExperienceRow({
   experiences,
   armedExperiences,
-  hopeCost,
   hopeAvailable,
   toggleExperience,
 }: {
   experiences: Experience[];
   armedExperiences: string[];
-  hopeCost: number;
+  /** Hope on the sheet. What the armed chips will cost is worked out here. */
   hopeAvailable: number;
   toggleExperience: (id: string) => void;
 }): React.JSX.Element | null {
   if (experiences.length === 0) return null;
+  /*
+   * The cost is derived here rather than taken as a prop, and that is the
+   * difference between one number and two that can disagree. `DualityRoll`
+   * works the same total out for `resolve`, off the same two lists; this
+   * component's only caller is `Play`, several hundred pixels of document
+   * away, and a `hopeCost` handed across that distance is a number waiting to
+   * be computed from a stale list.
+   *
+   * One Hope per Experience. SRD, Hope & Fear: "You can spend multiple Hope to
+   * utilize multiple Experiences." Nothing caps the count, so neither does
+   * this; what caps it is the Hope on the sheet.
+   */
+  const hopeCost = experiences.filter((e) => armedExperiences.includes(e.id)).length;
 
   /*
    * How many to a row, and why it changes.

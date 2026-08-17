@@ -56,11 +56,12 @@
  * Two things this file deliberately does not do. It never sets
  * `aria-expanded` on anything but the fold header `Disclosure` draws for it:
  * `playSheet.test.tsx` sweeps every button carrying that attribute anywhere on
- * Play and demands `var(--tap)` of all of them, and `width: 100%` of the ones a
- * `<section>` owns - the trait row's verbs control is the one in-row
- * expandable this screen has, and it clears 44px in both directions instead.
- * A second use of the attribute here would be a third answer to a question two
- * files have already settled between them. And it never
+ * Play and demands the 44px floor of all of them, and `width: 100%` of the ones
+ * a `<section>` owns. There are exactly two in-row exceptions on this screen -
+ * the trait row's verbs control at 44x44 and MODS at 44x66 - and both are named
+ * in that test rather than exempted from it. A third use of the attribute here
+ * would be a fourth answer to a question two files have already settled between
+ * them. And it never
  * counts to five: the swap goes through `canAddToLoadout` and `recallCard` with
  * `{ downtime: true }`, which is the flag `loadout.ts` has carried since it was
  * written and this is its first caller, so MAX_LOADOUT stays enforced in one
@@ -89,8 +90,9 @@
  * measurement.
  *
  * THUMB ARC. The whole column scrolls now, so this fold's own header starts
- * around y=790 unscrolled at 393x852 and is reached by scrolling rather than by
- * reaching; a right thumb rests around y=560..730. The kind switch is at the
+ * around y=804 unscrolled at 393x852 - below the glass, which ends at 791 -
+ * and is reached by scrolling rather than by reaching; a right thumb rests
+ * around y=560..730. The kind switch is at the
  * top of the fold, so
  * opening the fold puts it ~300px above that rest and it is chosen with the
  * eyes. COMMIT is last on the surface - it applies everything drawn above it,

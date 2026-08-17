@@ -593,7 +593,6 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <ExperienceRow
       experiences={playedCharacter().experiences}
       armedExperiences={[]}
-      hopeCost={0}
       hopeAvailable={3}
       toggleExperience={noop}
     />

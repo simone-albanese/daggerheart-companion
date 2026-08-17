@@ -11,10 +11,12 @@
  * Nothing on it is pinned, either, and that reversal is younger still. The
  * trait chips and ROLL sat in a fixed block at the bottom until the order
  * changed underneath them: with the counters and the thresholds moved to the
- * top where Giorgio's message puts them, ROLL's own lower edge lands 45px
- * above the fold at 393x852 without a pin, so the block was buying a reach the
- * order already provides and charging 266px for it. `PlayPhone`'s docblock
- * carries that arithmetic and `playSheet.test.tsx` carries it as assertions.
+ * top where Giorgio's message puts them, and the Experiences and the modifier
+ * row moved out from above ROLL, ROLL's own lower edge lands 195px above the
+ * fold at 393x852 and 10px above it at 375x667 without a pin - so the block
+ * was buying a reach the order already provides and charging 266px for it.
+ * `PlayPhone`'s docblock carries that arithmetic and `playSheet.test.tsx`
+ * carries every number of it as an assertion.
  *
  * Two layouts, at one breakpoint rather than two.
  *
@@ -72,7 +74,7 @@ import {
 import { Beastform } from './Beastform.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
-import { DualityRoll, type RollTrait } from './DualityRoll.tsx';
+import { DualityRoll, ExperienceRow, type RollTrait } from './DualityRoll.tsx';
 import { shortReason, useRecall } from './recall.ts';
 import { Rest } from './Rest.tsx';
 import { spellcastZeroNote, traitVerbs } from '../shared/ruleText.ts';
@@ -2102,37 +2104,44 @@ function PlayDesktop({
  * THE ORDER, AND WHOSE IT IS. "Metterei le stat in alto, i counter Hope,
  * armour (e threshold bene in vista) stress e hp, sotto armi e armature e
  * ultime le carte." Identity, the four defence numbers, the four counters, the
- * traits, ROLL, and then the folds: weapons and armour, what you are carrying,
- * the cards, the rest, and last the lineage. Measured on the owner's phone at
- * 393x852 the shipped build put the identity block, RENAME, the defence band,
- * six trait tiles with their verbs and the pinned roll block above the fold -
- * and HP, Stress, Hope and Armor, the four counters the message puts second,
- * were not on the screen at all. The order that was asked for was never
- * delivered on a phone.
+ * traits, ROLL, and then the folds: weapons and armour, the Experiences, what
+ * you are carrying, the cards with the vault inside them, the rest, and last
+ * the lineage with its domains first. Measured on the owner's phone at 393x852
+ * the shipped build put the identity block, RENAME, the defence band, six
+ * trait tiles with their verbs and the pinned roll block above the fold - and
+ * HP, Stress, Hope and Armor, the four counters the message puts second, were
+ * not on the screen at all. The order that was asked for was never delivered
+ * on a phone.
  *
  * NOTHING IS PINNED, AND THE ARITHMETIC IS THE WHOLE WARRANT FOR THAT. P5-1
  * decided the block stays because "a control you have to scroll to find is a
  * control that stops being used", and that reasoning is sound and its
  * conclusion is now reversed, because its premise moved. Against declared
- * heights at 393x852: Identity 91, the defence band 58, the four counters and
- * the damage box 244, the trait row 44, and the roll surface 216 - the
- * modifier header at 44, two Experience rows at 94 and ROLL at 66, with 6
- * between them - plus four of this column's 8px gaps. ROLL's lower edge lands
- * at 685 of a usable 730 (852 less the header's 52+1, the tab bar's 60+1 and
- * this root's own 8px foot). It is above the fold with 45px to spare, and it
- * is 105px clear of the tab bar instead of the 8px it used to sit above a
- * 98x60 target that leaves the screen mid-turn.
+ * heights at 393x852, every fold shut and nothing armed: Identity 91, the
+ * defence band 58, the four counters and the damage box 244, the trait row 44,
+ * and the roll row 66 - ROLL beside a MODS control that costs the column
+ * nothing because it is 44 wide inside a height ROLL was already holding -
+ * plus four of this column's 8px gaps. ROLL's lower edge lands at 535 of a
+ * usable 730 (852 less the header's 52+1, the tab bar's 60+1 and this root's
+ * own 8px foot). It is above the fold with 195px to spare, and it is 250px
+ * clear of the tab bar instead of the 8px it used to sit above a 98x60 target
+ * that leaves the screen mid-turn.
  *
- * WHAT THIS DOES NOT DO YET, SAID PLAINLY RATHER THAN ROUNDED DOWN. At
- * 375x667 the usable column is 545 and ROLL's lower edge is still 685, so on
- * the small phone ROLL is 140px below the fold and has to be scrolled to. The
- * two things standing between it and the fold are both above it and both
- * belong to the next step: the permanent MODIFIERS row, which decision 6
- * deletes in favour of a control on the roll bar (-50), and the Experience
- * chips, which Giorgio's order puts in a fold below ROLL (-100). The whole
- * folded sheet is 1087 against 730 here, which is not "tutta la scheda in una
- * volta sola" either. `playSheet.test.tsx` carries both numbers as
- * assertions rather than as prose, so neither can quietly stop being true.
+ * AT 375x667 THE SAME 535 CLEARS A 545px COLUMN BY TEN PIXELS. That is a pass
+ * and it is not a comfortable one. Four ordinary states cost more than ten:
+ * typed dice (+68), pips instead of numbers (+49), a companion (+50), a worn
+ * or wearable Beastform (+52). Any one of them and the small phone scrolls to
+ * reach ROLL.
+ *
+ * WHAT THIS DOES NOT DO, SAID PLAINLY RATHER THAN ROUNDED DOWN. The whole
+ * folded sheet is 899px. That fits at 744x1133, where there is no tab bar, with
+ * 173px to spare - "tutta la scheda in una volta sola" is literally true on a
+ * tablet. It does not fit on either phone: 169px over at 393x852, which is the
+ * conditions strip and the last three fold headers, and 354px over at 375x667.
+ * Nothing here is bought by shaving a gap, because a fit bought that way is one
+ * the next honest edit un-buys. `playSheet.test.tsx` carries every one of these
+ * numbers as an assertion rather than as prose, so none of them can quietly
+ * stop being true.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
@@ -2147,9 +2156,17 @@ function PlayDesktop({
  * there even untransformed, which is 52px of this budget that every Druid
  * pays and nobody else does.
  *
- * The conditions strip stays low, where it already was: it is set once a
- * scene, not once a turn, and putting it above ROLL would spend 52px of the
- * 45 this arrangement has left.
+ * The conditions strip stays low, where it already was, and it stays
+ * permanent: it is set once a scene rather than once a turn, so it does not
+ * belong above ROLL, and drawing it only when a condition is true is the same
+ * treatment decision 6 gave the modifier row but was not asked for here. It is
+ * 52px of the 169 the folded sheet is over at 393x852, and P5-5 in
+ * `BACKLOG.md` says so rather than this file quietly taking it.
+ *
+ * EVERY FOLD DEFAULTS SHUT, `equipped` and the cards included. The budget above
+ * is computed with every fold shut, and a default that contradicted it would
+ * make the arithmetic a fiction; the folds remember per character, so a player
+ * who wants their weapons open opens them once.
  */
 function PlayPhone({
   stats,
@@ -2170,6 +2187,11 @@ function PlayPhone({
     character.activeArmor,
   ].filter((r) => r !== null && index.byRef.has(r)).length;
   const carried = character.inventory.length;
+  // Filtered through the character rather than counted off the armed list: an
+  // Experience deleted in Build must not go on being counted on a header.
+  const armedCount = character.experiences.filter((e) =>
+    armedExperiences.includes(e.id),
+  ).length;
 
   return (
     /*
@@ -2256,10 +2278,51 @@ function PlayPhone({
               ? 'NOTHING'
               : `${equippedCount} WORN`
         }
-        defaultOpen
       >
         <Equipped stats={stats} arming={arming} bare />
       </Disclosure>
+
+      {/*
+       * "E fare entrare le armi e le experience." The Experiences come
+       * straight after the weapons, which is where Giorgio's message puts
+       * them and where the printed sheet has them.
+       *
+       * They used to be two 44px chips pinned directly above ROLL, which is
+       * the best band on the phone and which they held on every frame of
+       * every session to offer something a player arms on maybe one roll in
+       * ten. Behind a fold they cost 44 instead of 100, and nothing about
+       * arming one changes: the chips are the same control, and whatever is
+       * armed is spelled out in full on the ROLL bar itself - so a
+       * declaration is never behind a tap even when the fold is.
+       *
+       * Drawn only when there are any. Every character starts with two, but a
+       * fold that opens onto nothing is 44px spent on an empty room.
+       */}
+      {character.experiences.length > 0 && (
+        <Disclosure
+          id="experiences"
+          characterId={character.id}
+          label="Experiences"
+          summary={
+            armedCount === 0
+              ? `${character.experiences.length}`
+              : `${character.experiences.length} · ${armedCount} ARMED`
+          }
+        >
+          <ExperienceRow
+            experiences={character.experiences}
+            armedExperiences={armedExperiences}
+            hopeAvailable={character.hope.marked}
+            toggleExperience={(id) =>
+              setArmedExperiences(
+                armedExperiences.includes(id)
+                  ? armedExperiences.filter((x) => x !== id)
+                  : [...armedExperiences, id],
+              )
+            }
+          />
+        </Disclosure>
+      )}
 
       {/*
        * "Sotto armi e armature e ultime le carte": the inventory comes
@@ -2304,7 +2367,6 @@ function PlayPhone({
         // header saying 3 / 5 over a recall that refuses with "Loadout is
         // full (5)" is the screen contradicting itself.
         summary={`${loadout.length + ghostLoadout.length} / 5 · ${vault.length + ghostVault.length} INACTIVE`}
-        defaultOpen
       >
         <div className="stack" style={{ flex: 'none', gap: 4 }}>
           <LoadoutRows />
