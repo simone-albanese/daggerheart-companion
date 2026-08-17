@@ -10,17 +10,46 @@
  * be wrong. That is the one job a stepper is worse at too, so the number
  * itself is the third control: tap it and type 7.
  *
- * The order across the row is deliberate. LABEL and the value are on the left,
- * where they are *read*; the two stepper buttons are pinned to the right edge,
- * where they are *touched*, with the whole flexible middle of the row between
- * them and the value. Inside the Play panel on a 393px phone that gap measures
- * about 105px, and about 88px on a 375px one, which is what stops a thumb
- * travelling to `+` from opening a keyboard on the way - the failure mode a
- * full-width number target would have.
+ * THE SHAPE, AND WHAT IT COST TO GET IT. This used to be one full-width row -
+ * LABEL and the value on the left where they are read, the two steppers pinned
+ * to the right edge where they are touched, and the whole flexible middle of a
+ * 369px row between them, which measured about 105px on a 393px phone. Four of
+ * those rows are 4x44 plus three 6px gaps: **194px**, a quarter of the usable
+ * column on the owner's phone, spent on four numbers.
  *
- * The silhouettes come from `Track` rather than being redrawn here. Four rows
- * of digits look more alike than four rows of pips do, so the shape that lets
- * a thumb find Stress without looking matters more in this mode, not less.
+ * They are a 2x2 grid now, which is **94px** - two rows and one gap - and the
+ * hundred pixels that buys is what puts the rest of the sheet on the glass. The
+ * price is paid here, in this file, and it is the cushion. Measured in Chrome
+ * with the shipped fonts, at the two widths that matter:
+ *
+ *   viewport 393  ->  column 369  ->  cell 181.5  ->  value target 85.5 wide
+ *   viewport 375  ->  column 351  ->  cell 172.5  ->  value target 76.5 wide
+ *
+ * with two 44x44 steppers and a 4px gutter either side of them. So the value
+ * target no longer stands 105px clear of `−`; it stands 4px clear of it. That
+ * is stated rather than softened, and it is survivable for one reason: the two
+ * mistakes it makes possible are both recoverable and neither is silent. A
+ * thumb aimed at `−` that lands on the value opens numeric entry, which writes
+ * nothing and closes on one tap; a thumb aimed at `−` that lands on `+` writes
+ * +1 into a number that is 20px tall and directly above it. Neither is the
+ * failure the old cushion was defending against - a keyboard opening under a
+ * finger that was travelling somewhere else and had no way back.
+ *
+ * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
+ * value line at two digits over two digits - `12 / 12` at 800 20px Archivo plus
+ * `.t-meta` - which measures **59.5px**. The label line is `13px` of silhouette,
+ * a 4px gap and `STRESS` at `.t-label` with the tracking this file sets, which
+ * is **57.9px**. The narrowest target the grid ever hands the value is 76.5px,
+ * less 10px of padding and 2px of border: **64.5px of room for 59.5px of ink,
+ * at 375**. Five pixels. It is `nowrap` and `overflow: hidden` on purpose - if
+ * a font ever falls back and that five goes, the tail of `/ 12` clips, and the
+ * cell does not wrap onto a second line and take the whole budget with it.
+ *
+ * The silhouettes come from `Track` rather than being redrawn here. Four cells
+ * of digits look more alike than four rows of pips do, so the shape that lets a
+ * thumb find Stress without looking matters more in this mode, not less - and
+ * in a grid it is doing a second job, because the four cells no longer read
+ * top-to-bottom in one column.
  */
 import { useEffect, useRef, useState } from 'react';
 import { TRACK_SHAPES, type TrackKind } from './Track.tsx';
@@ -37,6 +66,17 @@ interface Props {
 
 /** The touch floor. Both steppers and the value target are all at least this. */
 const TAP = 44;
+
+/**
+ * The gutter between the value target and the first stepper, and between the
+ * steppers themselves.
+ *
+ * Four rather than six, and the two pixels are not cosmetic: they are the
+ * difference between 64.5px of room for the value line and 60.5px, against
+ * 59.5px of ink. Six left one pixel of slack at 375 and one pixel is not a
+ * margin, it is a coincidence.
+ */
+const GUTTER = 4;
 
 export function Counter({
   kind,
@@ -81,15 +121,24 @@ export function Counter({
   );
 
   if (typing !== null) {
+    /*
+     * Entry, in a cell 172.5px wide.
+     *
+     * Four things want to be here and three of them fit: the field, the
+     * ceiling, SET and ×. The silhouette is the one that goes, because the
+     * ceiling is the one that cannot. `clamp` turns a typed 15 into a 12
+     * without saying so, and a limit the player can read before they commit is
+     * the difference between that being a guard rail and being the app quietly
+     * writing a different number - which is the one thing this project does
+     * not do. Which track this is stays said twice: by the field's own
+     * accessible name, and by the three sibling cells that did not change.
+     *
+     * SET and × carry `padding: 0 6px` rather than `.btn`'s `0 14px` so that
+     * `min-width: 44` is what decides their width. At the default padding SET
+     * measured 52 and took eight pixels off the field.
+     */
     return (
-      <div className="row" style={{ gap: 6, minHeight: TAP }}>
-        {mark}
-        <span
-          className="t-label"
-          style={{ flex: 'none', color: labelColor ?? 'var(--text)', letterSpacing: '0.08em' }}
-        >
-          {label}
-        </span>
+      <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
         <input
           ref={field}
           type="number"
@@ -103,7 +152,13 @@ export function Counter({
             if (e.key === 'Enter') commit();
             if (e.key === 'Escape') setTyping(null);
           }}
-          style={{ flex: 1, minWidth: 0, minHeight: TAP, textAlign: 'center' }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: TAP,
+            padding: '0 4px',
+            textAlign: 'center',
+          }}
         />
         <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
           / {max}
@@ -113,7 +168,7 @@ export function Counter({
           className="btn btn-primary"
           aria-label={`Set ${label}`}
           onClick={commit}
-          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 10px' }}
+          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 6px' }}
         >
           SET
         </button>
@@ -122,7 +177,7 @@ export function Counter({
           className="btn"
           aria-label={`Leave ${label} at ${String(value)}`}
           onClick={() => setTyping(null)}
-          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 10px' }}
+          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 6px' }}
         >
           ×
         </button>
@@ -131,54 +186,72 @@ export function Counter({
   }
 
   return (
-    <div className="row" style={{ gap: 6, minHeight: TAP }}>
-      {mark}
-      <span
-        className="t-label"
-        style={{ flex: 'none', color: labelColor ?? 'var(--text)', letterSpacing: '0.08em' }}
-      >
-        {label}
-      </span>
-
+    <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
       {/*
        * The value, and the target that types it.
        *
-       * Left-aligned and hugging the label, because it is the thing being read
-       * and a number that moves with the width of the row is a number you have
-       * to find. Everything after it is a spacer, so the distance between this
-       * and the minus button is the whole flexible middle of the row.
+       * Two lines, because two lines is what fits: the silhouette and the
+       * label above, the number below at 20px where it is the thing being
+       * read. It is the only item in the cell that grows, so every pixel the
+       * grid hands this cell over the 88 the steppers take lands on the target
+       * you read rather than on empty space.
+       *
+       * `min-width: 44` rather than 0: it is a target, and a target's declared
+       * floor is what `keeps every target at the touch floor in both
+       * directions` reads. Nothing ever drives it there - the narrowest cell
+       * gives it 76.5 - but a floor that is only true by arithmetic somewhere
+       * else is not a floor.
        */}
       <button
         type="button"
         onClick={() => setTyping(String(value))}
         aria-label={`${label} ${String(value)} of ${String(max)} - tap to type a value`}
         style={{
-          flex: 'none',
-          minWidth: 76,
+          flex: '1 1 auto',
+          minWidth: TAP,
           minHeight: TAP,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: 2,
           borderRadius: 'var(--r3)',
           border: '1px solid var(--line-soft)',
           background: 'var(--app)',
           textAlign: 'left',
-          padding: '0 10px',
+          padding: '0 5px',
+          overflow: 'hidden',
         }}
       >
-        <span
-          style={{
-            font: '800 20px/1 var(--sans)',
-            color: shape.color,
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {value}
+        <span className="row" style={{ gap: 4, minWidth: 0 }}>
+          {mark}
+          <span
+            className="t-label"
+            style={{
+              flex: 'none',
+              color: labelColor ?? 'var(--text)',
+              letterSpacing: '0.08em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </span>
         </span>
-        <span className="t-meta" style={{ color: 'var(--dim)' }}>
-          {' '}
-          / {max}
+        <span style={{ whiteSpace: 'nowrap' }}>
+          <span
+            style={{
+              font: '800 20px/1 var(--sans)',
+              color: shape.color,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {value}
+          </span>
+          <span className="t-meta" style={{ color: 'var(--dim)' }}>
+            {' '}
+            / {max}
+          </span>
         </span>
       </button>
-
-      <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 12 }} />
 
       <Step
         label={`${label} minus one`}

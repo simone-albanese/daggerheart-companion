@@ -50,6 +50,28 @@ interface Props {
   bare?: boolean;
 }
 
+/**
+ * Put the four phone counters two across, or leave them alone.
+ *
+ * A plain function rather than a component: it takes the children the branch
+ * below has already built and decides whether they are a grid, which is one
+ * decision and not a second surface. Lowercase for the same reason
+ * `usePlaySection` is - `screens.test.tsx` demands a mount fixture for every
+ * PascalCase export under `src/ui`, and this is not something you can mount.
+ *
+ * The 6px gap is the one the four stacked rows already used between them, kept
+ * in both axes so the block still reads as one object with its own rhythm
+ * rather than as four siblings of the defence band above it.
+ */
+function arrange(grid: boolean, cells: React.JSX.Element[]): React.JSX.Element {
+  if (!grid) return <>{cells}</>;
+  return (
+    <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+      {cells}
+    </div>
+  );
+}
+
 export function Vitals({
   stats,
   layout,
@@ -238,29 +260,29 @@ export function Vitals({
       {companionSwitch && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
       {phone ? (
         /*
-         * One track to a row, full width, ordered by how often the game makes
-         * you touch them - least first, so the most-touched sits nearest the
-         * thumb.
+         * NUMBERS GO TWO ACROSS; PIPS STAY ONE TO A ROW. The two modes want
+         * opposite things from the width and this is the one place that can
+         * give them different answers.
          *
-         * The order is measured against the shipped SRD rather than taken from
-         * the printed sheet. Of 189 domain cards, 84 mention Hope and 80
-         * mention Stress, and 158 of them cost Stress to recall; a PC gains
-         * Hope on any roll that comes up with Hope and spends one on every
-         * Experience. Hit Points are touched when something hits you - all 129
-         * adversaries deal damage, but that is an event rather than a heartbeat
-         * - and Armor Slots are a subset of those events, named by 15 cards.
-         * The printed sheet leads with HP, which is the least frequent of the
-         * top three.
+         * As numbers, a counter is a value target and two 44x44 steppers, and
+         * the widest thing it ever draws is `12 / 12` at 59.5px - so half a
+         * column is 22px more than it needs, and four of them stacked cost
+         * **194px** (4x44 plus three 6px gaps) of a 730px screen. Two across is
+         * **94px**, and the hundred pixels that frees is most of what puts the
+         * rest of the sheet on the glass. `Counter`'s own docblock carries what
+         * that costs inside the cell, which is the gap between the value target
+         * and the steppers, measured.
          *
-         * Hope sits last on purpose: it is immediately above the Experience
-         * chips that spend it, so the pending pips showing that debit are
-         * beside the control that caused it.
-         *
-         * Full width is also what fixes the pips. Hope and Armor used to share
-         * a row with Armor pinned into a fixed 132px column, which measured
-         * 18px a pip at armour score 6 on a real 393px phone - and thirteen of
-         * the thirty-four SRD armours score 6 or more, so a third of the gear
-         * in the game had targets under WCAG's 24px floor. About 43px now.
+         * As pips it is the other way round and this grid would be a defect. A
+         * 12-box Hit Point track is twelve targets that may not go below
+         * WCAG's 24px, plus a header; in a 172px cell it wraps onto three or
+         * four rows and the four tracks come out taller than the four rows they
+         * replaced. Hope and Armor already learned this the expensive way -
+         * they used to share a row with Armor in a fixed 132px column, which
+         * measured 18px a pip at armour score 6 on a real 393px phone, and
+         * thirteen of the thirty-four SRD armours score 6 or more. So pips keep
+         * the full width, and `counterStyle: 'pips'` keeps costing this column
+         * what it has always cost it.
          */
         <>
           {
@@ -279,48 +301,55 @@ export function Vitals({
              * Slots come last here because they are the one counter that is not
              * yours but your armour's, and the Active Armor row that says where
              * they came from is the very next section on the screen.
+             *
+             * In a 2x2 grid that order is read across and then down - HP and
+             * Stress on the top row, under the thresholds that are read against
+             * them; Hope and Armor beneath.
              */
-            (['hp', 'stress', 'hope', 'armor'] as const).map((kind) => {
-              const counter =
-                kind === 'hp'
-                  ? character.hp
-                  : kind === 'stress'
-                    ? character.stress
-                    : kind === 'hope'
-                      ? character.hope
-                      : character.armorSlots;
-              const label = kind === 'armor' ? 'ARMOR' : kind.toUpperCase();
-              const write = (v: number): void =>
-                update((c) => {
-                  const key = kind === 'armor' ? 'armorSlots' : kind;
-                  return { ...c, [key]: { ...c[key], marked: v } };
-                });
-              return counterStyle === 'numbers' ? (
-                <Counter
-                  key={kind}
-                  kind={kind}
-                  label={label}
-                  labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
-                  value={counter.marked}
-                  max={counter.max}
-                  onChange={write}
-                />
-              ) : (
-                <Track
-                  key={kind}
-                  kind={kind}
-                  label={label}
-                  labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
-                  value={counter.marked}
-                  max={counter.max}
-                  clearTo={kind === 'hope' ? counter.max : 0}
-                  onChange={write}
-                  readout={`${counter.marked}/${counter.max}`}
-                  headerLayout="gutter"
-                  rowHeight={rowHeight}
-                />
-              );
-            })
+            arrange(
+              counterStyle === 'numbers',
+              (['hp', 'stress', 'hope', 'armor'] as const).map((kind) => {
+                const counter =
+                  kind === 'hp'
+                    ? character.hp
+                    : kind === 'stress'
+                      ? character.stress
+                      : kind === 'hope'
+                        ? character.hope
+                        : character.armorSlots;
+                const label = kind === 'armor' ? 'ARMOR' : kind.toUpperCase();
+                const write = (v: number): void =>
+                  update((c) => {
+                    const key = kind === 'armor' ? 'armorSlots' : kind;
+                    return { ...c, [key]: { ...c[key], marked: v } };
+                  });
+                return counterStyle === 'numbers' ? (
+                  <Counter
+                    key={kind}
+                    kind={kind}
+                    label={label}
+                    labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
+                    value={counter.marked}
+                    max={counter.max}
+                    onChange={write}
+                  />
+                ) : (
+                  <Track
+                    key={kind}
+                    kind={kind}
+                    label={label}
+                    labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
+                    value={counter.marked}
+                    max={counter.max}
+                    clearTo={kind === 'hope' ? counter.max : 0}
+                    onChange={write}
+                    readout={`${counter.marked}/${counter.max}`}
+                    headerLayout="gutter"
+                    rowHeight={rowHeight}
+                  />
+                );
+              }),
+            )
           }
           <div className="row" style={{ gap: 8, alignItems: 'center' }}>
             {/* No TOOK prompt when nothing can be typed into it. */}

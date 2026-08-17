@@ -623,20 +623,24 @@ describe('the trait row and the roll surface', () => {
  *     the head of the column even untransformed: 52 with the gap, so every
  *     Druid is 52px worse off than this table says.
  *   - a companion, which adds a 44px WhoSwitch inside the counters.
- *   - `counterStyle: 'pips'`, which wraps the fixture's 12-box HP track onto a
- *     second row and takes the counters from 244 to about 293.
+ *   - `counterStyle: 'pips'`, which does not get the 2x2 grid - a 12-box track
+ *     cannot live in a 172px cell - so it keeps the four full-width rows and
+ *     wraps the fixture's Hit Points onto a second one: the counters go from
+ *     144 to about 293, which is +149 and the most expensive thing on this
+ *     list by a factor of two.
  *   - `manualDice`, which puts two 62px faces back above ROLL: +68.
  *   - an armed modifier, which puts a 44px strip back above ROLL: +50.
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
  *     already committed in this repo and treats the inset as 0. On a
  *     home-indicator iPhone installed as a PWA it is 34px, which would take the
- *     393x852 column from 730 to 696 and leave ROLL 161px of margin instead of
- *     195 - and would put ROLL 24px BELOW the fold at 375x667, where the whole
- *     margin is 10. Somebody should check that on the owner's own phone.
+ *     393x852 column from 730 to 696 and leave ROLL 261px of margin instead of
+ *     295, and 76 instead of 110 at 375x667. Somebody should check that on the
+ *     owner's own phone.
  *
- * FOUR OF THOSE SIX COST MORE THAN THE 10px OF SLACK AT 375x667. On the small
- * phone this arrangement clears the fold and does not clear it comfortably, and
- * that is stated here rather than rounded up.
+ * ONE OF THOSE SIX NOW COSTS MORE THAN THE SLACK AT 375x667, where it used to
+ * be four of them: the margin under ROLL on the small phone went from 10px to
+ * 110px when the counters became a grid, and only pips exceed it. That is the
+ * number the grid was bought for and it is asserted below rather than told.
  *
  * So this test is a tripwire on the declared arithmetic and not a measurement,
  * and it says which of the two it is in every failure message.
@@ -685,8 +689,8 @@ describe('the budget the pin came off for', () => {
     { what: 'the defence band · the number at 26/1', px: 26, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
     { what: 'gap', px: GAP, from: 'dom' },
-    { what: 'the four counters, four rows at the touch floor', px: 4 * 44, from: 'dom' },
-    { what: 'the counters · three 6px gaps between them', px: 3 * 6, from: 'dom' },
+    { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
+    { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
     { what: 'the counters · the TOOK row, held open by its input', px: 44, from: 'dom' },
     { what: 'the counters · the fourth 6px gap, above TOOK', px: 6, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
@@ -731,7 +735,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 535').toBe(535);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 435').toBe(435);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -740,7 +744,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(195);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(295);
   });
 
   /*
@@ -753,15 +757,15 @@ describe('the budget the pin came off for', () => {
    * being found on somebody's phone. The docblock above lists six ordinary
    * states this table cannot see, and four of them cost more than ten.
    */
-  it('puts ROLL above the fold at 375x667 too, by ten pixels, and says it is ten', () => {
+  it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
     expect(glass).toBe(545);
     expect(
       ROLL_BOTTOM,
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
-        'small phone. Something above ROLL grew, and ten pixels was the whole margin.',
+        'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(10);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(110);
   });
 
   /*
@@ -773,15 +777,15 @@ describe('the budget the pin came off for', () => {
    * nobody chose.
    */
   it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(899);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(799);
     expect(
       SHEET_BOTTOM - column(852),
       'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(169);
+    ).toBe(69);
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(354);
+    ).toBe(254);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -797,7 +801,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(173);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(273);
   });
 
   it('the terms this budget can read, it reads', () => {
@@ -843,17 +847,21 @@ describe('the budget the pin came off for', () => {
     expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 9px');
     expect(cell.style.gap).toBe('4px');
 
-    // The counters: four rows at the floor plus the TOOK row, at a 6px gap,
+    // The counters: a 2x2 grid at the floor plus the TOOK row, at a 6px gap,
     // in a box that no longer draws a box.
     const counters = container
       .querySelector<HTMLElement>('input[aria-label="Incoming damage"]')!
       .closest<HTMLElement>('.stack')!;
     expect(counters.className, 'the counters got their .panel back').toBe('stack');
     expect(counters.style.gap).toBe('6px');
-    const rows = [...counters.children].filter(
-      (el) => (el as HTMLElement).style.minHeight === '44px',
+    const grid = buttons().find((b) => b.getAttribute('aria-label') === 'HP plus one')!
+      .parentElement!.parentElement!;
+    expect(grid.style.gridTemplateColumns, 'the four counters stopped being two across').toBe(
+      '1fr 1fr',
     );
-    expect(rows, 'the four counter rows no longer declare 44px each').toHaveLength(4);
+    expect(grid.style.gap, 'the gap inside the counters grid moved').toBe('6px');
+    const rows = [...grid.children].filter((el) => (el as HTMLElement).style.minHeight === '44px');
+    expect(rows, 'the four counter cells no longer declare 44px each').toHaveLength(4);
     expect(
       container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!.style
         .minHeight,
