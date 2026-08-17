@@ -141,6 +141,19 @@ function fold(label: string): HTMLButtonElement {
   return found;
 }
 
+/**
+ * The fold index: the sections the phone column owns, in document order.
+ *
+ * Scoped to the column's own children on purpose. `Modifiers` is a `Disclosure`
+ * as well, but it belongs to `DualityRoll` and is drawn inside it above ROLL,
+ * and a query that swept the whole tree would count it as part of the index.
+ */
+const indexHeaders = (): HTMLButtonElement[] => [
+  ...(container.firstElementChild?.querySelectorAll<HTMLButtonElement>(
+    ':scope > section > button[aria-expanded]',
+  ) ?? []),
+];
+
 const click = (el: Element): void => {
   act(() => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -221,7 +234,13 @@ describe('what a phone shows of the character sheet', () => {
     ).not.toBeNull();
   });
 
-  it('runs top to bottom in the order of the printed sheet', () => {
+  /*
+   * Replaces `runs top to bottom in the order of the printed sheet`, whose
+   * list carried 'SPRINT' - now behind the verbs control, so absent from the
+   * shut screen - and put 'HP' after the traits, which is the half of
+   * Giorgio's order the phone never delivered.
+   */
+  it("runs top to bottom in Giorgio's order", () => {
     const c = seed();
     play(c);
     const body = text();
@@ -232,17 +251,16 @@ describe('what a phone shows of the character sheet', () => {
     };
     const order = [
       'Fixture', // identity
-      'EVASION', // the defence band
-      'SPRINT', // the traits, with their verbs
-      'HP', // the counters
+      'EVASION', // the defence band: "threshold bene in vista"
+      'HP', // the four counters, second, where the message puts them
+      'AGI +', // the traits, as one row of numbers
+      'ROLL', // and then the dice, in the flow
       'Weapons & armour',
-      'Loadout',
-      // Between the cards and the two sections read once a session: a rest is
-      // between-scenes work, and the free swap it offers is the vault's own
-      // operation at the other price.
-      'Rest & downtime',
-      'Carried',
+      'Carried', // "sotto armi e armature..."
       'Gold',
+      'Loadout', // "...e ultime le carte"
+      'Vault',
+      'Rest & downtime',
       'Lineage & domains',
     ].map(at);
     expect(
@@ -251,21 +269,50 @@ describe('what a phone shows of the character sheet', () => {
     ).toEqual([...order].sort((a, b) => a - b));
   });
 
-  it('keeps only the roll block out of the scroll', () => {
+  /*
+   * Replaces `keeps only the roll block out of the scroll`, which asserted
+   * that the phone root had exactly two children and that the second one held
+   * ROLL and AGI.
+   *
+   * A child count is the weakest form of this claim - it is satisfied by
+   * accident and broken by a wrapper - so the replacement says the thing
+   * itself: nothing is taken out of the flow, there is one scrolling box, and
+   * every fold in the index is inside it and below ROLL.
+   */
+  it('has nothing pinned: one scrolling box, with ROLL and every fold inside it', () => {
     play(seed());
-    // The scrolling region and the pinned block are the phone root's two
-    // children. What is pinned is what a thumb must never have to hunt for.
-    const rootEl = container.firstElementChild!;
-    expect(rootEl.children).toHaveLength(2);
-    const pinned = rootEl.children[1]!;
-    expect(pinned.textContent ?? '').toContain('ROLL');
-    expect(pinned.textContent ?? '').toContain('AGI');
-    // and what is not: everything that is a section of the sheet.
-    for (const section of ['EVASION', 'Loadout', 'Gold', 'HP']) {
+    const rootEl = container.firstElementChild as HTMLElement;
+
+    const taken = [...container.querySelectorAll<HTMLElement>('*')]
+      .filter((el) => el.style.position === 'fixed' || el.style.position === 'sticky')
+      .map((el) => `${el.tagName}.${el.className} ${el.style.position}`);
+    expect(taken, 'something on Play is out of the flow').toEqual([]);
+
+    expect(rootEl.style.overflowY, 'the sheet is not the scrolling box').toBe('auto');
+    const others = [...container.querySelectorAll<HTMLElement>('*')]
+      .filter((el) => el !== rootEl && el.style.overflowY === 'auto')
+      .map((el) => `${el.tagName}.${el.className}`);
+    expect(others, 'there is a second scrolling region inside the sheet').toEqual([]);
+
+    const roll = buttons().find((b) => b.style.height === '66px');
+    expect(roll, 'no ROLL control on the phone').toBeDefined();
+    expect(rootEl.contains(roll!), 'ROLL is outside the column').toBe(true);
+
+    // The fold index: the sections the column itself owns. `Modifiers` is a
+    // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
+    // inside it, which is decision 6's business and not this test's.
+    const headers = indexHeaders();
+    expect(headers.length, 'the fold index is gone').toBe(6);
+    for (const header of headers) {
+      expect(rootEl.contains(header), `${header.textContent ?? '?'} is outside the column`).toBe(
+        true,
+      );
+      // Node.DOCUMENT_POSITION_FOLLOWING, without the constant, because jsdom's
+      // Node is not in scope here.
       expect(
-        pinned.textContent ?? '',
-        `${section} is pinned, and only the roll block should be`,
-      ).not.toContain(section);
+        (roll!.compareDocumentPosition(header) & 4) !== 0,
+        `${(header.textContent ?? '?').trim()} is above ROLL`,
+      ).toBe(true);
     }
   });
 });
@@ -290,7 +337,10 @@ describe('the whole sheet, at 393x852', () => {
    * says so.
    */
   function openEverything(): void {
-    for (let i = 0; i < 20; i += 1) {
+    // 30 rather than 20: the trait row's verbs control answers `aria-expanded`
+    // now too, and the drain assertion below is what stops the bound being a
+    // silent cap rather than a bound.
+    for (let i = 0; i < 30; i += 1) {
       const shut = buttons().find((b) => b.getAttribute('aria-expanded') === 'false');
       if (shut === undefined) break;
       click(shut);
@@ -369,45 +419,65 @@ describe('the whole sheet, at 393x852', () => {
 });
 
 /**
- * What the pinned block costs.
+ * The trait row and the roll surface, which used to be the pinned block.
  *
- * jsdom has no layout engine, so this does not measure pixels - it pins every
- * number the arithmetic in the commit message is built out of, which is the
- * part that rots. The sum is: the trait chip row at the touch floor, a 6px
- * gap, and the roll block, which is the control row at the floor, the
- * Experience rows at the floor, and a 66px ROLL bar with 6px between each.
- *
- * 44 + 6 + (44 + 6 + rows*44 + (rows-1)*6 + 6 + 66)
- *
- * which is 266px with two Experiences on one row each, and 316px with five at
- * two across. Against 731px of usable column at 393x852 and 546px at 375x667,
- * that leaves scroll windows of 457/407 and 272/222 - where the previous pass
- * measured 288 and 188 at 393x852 and 88 at 375x667 with the page itself
- * scrolling by 85.
+ * These four tests replace the four the pinned block had, one for one. The old
+ * ones asserted that the phone root's second child held exactly two regions at
+ * a 6px gap, that every target in it cleared 44px, that ROLL declared 66px at
+ * the bottom of it, and that the scrolling region beside it kept an 88px floor.
+ * The last of those existed only because a fixed block could starve the scroll,
+ * and there is no fixed block; it is replaced by the budget below, which is the
+ * assertion the reversal actually rests on.
  */
-describe('the pinned block', () => {
-  const floor = (el: Element): string => (el as HTMLElement).style.minHeight;
+describe('the trait row and the roll surface', () => {
+  /** The one control on the phone that fixes its own height. */
+  const roll = (): HTMLButtonElement => {
+    const found = buttons().find((b) => b.style.height === '66px');
+    if (found === undefined) throw new Error('the phone has no roll control');
+    return found;
+  };
 
-  it('is the trait chips and the roll, and nothing else', () => {
+  /** Everything `DualityRoll` draws on a phone: the roll control's own stack. */
+  const rollSurface = (): HTMLElement => roll().parentElement!;
+
+  /** The six trait chips and the verbs control, as one row. */
+  const traitRowEl = (): HTMLElement => {
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()));
+    if (chip === undefined) throw new Error('no AGI chip on the sheet');
+    return chip.parentElement!;
+  };
+
+  it('the trait row is one 44px row, and the verbs are behind its own control', () => {
     play(seed());
-    const pinned = container.firstElementChild!.children[1]!;
-    // Two regions: the chip row and the roll block. The death move adds a
-    // third only when the character has fallen, which is the one time it is
-    // the most important thing on the screen.
-    expect(pinned.children).toHaveLength(2);
-    expect((pinned as HTMLElement).style.gap).toBe('6px');
+    const row = traitRowEl();
+    const targets = [...row.querySelectorAll('button')];
+    // Six chips and the verbs control, and nothing else: the tiles and the
+    // pinned strip were two arming surfaces for the same six numbers.
+    expect(targets).toHaveLength(7);
+    for (const t of targets) {
+      expect(t.style.minHeight, `${t.textContent ?? '?'} is under the floor`).toBe('var(--tap)');
+    }
+    expect(row.style.flexWrap, 'the row cannot wrap, so it will clip instead').toBe('wrap');
+
+    const verbs = targets[6]!;
+    expect(verbs.getAttribute('aria-label')).toBe('What each trait is for');
+    expect(verbs.getAttribute('aria-expanded')).toBe('false');
+    expect(verbs.style.width, 'the verbs control is not square at the floor').toBe('44px');
   });
 
-  it('holds every one of its targets at the touch floor', () => {
+  it('holds every target on the trait row and the roll surface at the touch floor', () => {
     play(seed());
-    const pinned = container.firstElementChild!.children[1]!;
-    const targets = [...pinned.querySelectorAll('button')];
+    const targets = [
+      ...traitRowEl().querySelectorAll('button'),
+      ...rollSurface().querySelectorAll('button'),
+    ];
     expect(targets.length).toBeGreaterThan(6);
     for (const t of targets) {
-      const declared = t.style.height !== '' ? t.style.height : floor(t);
-      const value = declared === 'var(--tap)' || declared === 'var(--control)'
-        ? 44
-        : Number.parseFloat(declared);
+      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
+      const value =
+        declared === 'var(--tap)' || declared === 'var(--control)'
+          ? 44
+          : Number.parseFloat(declared);
       expect(
         value,
         `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
@@ -415,21 +485,286 @@ describe('the pinned block', () => {
     }
   });
 
-  it('gives ROLL the 66px it had, at the bottom of the block', () => {
+  it('gives ROLL the 66px it had, in the column and above every fold', () => {
     play(seed());
-    const pinned = container.firstElementChild!.children[1]!;
-    const rollBar = [...pinned.querySelectorAll('button')].find((b) =>
-      (b.textContent ?? '').includes('ROLL'),
-    );
-    expect(rollBar, 'no ROLL bar in the pinned block').toBeDefined();
-    expect(rollBar!.style.height).toBe('66px');
+    expect(roll().style.height).toBe('66px');
+    // It is inside the one scrolling column rather than beside it, and the
+    // whole fold index is below it. `has nothing pinned` makes the second half
+    // of that claim over every fold; this one is about ROLL itself.
+    expect((container.firstElementChild as HTMLElement).contains(roll())).toBe(true);
+    expect(text().indexOf('ROLL')).toBeLessThan(text().indexOf('Weapons & armour'));
+  });
+});
+
+/**
+ * THE BUDGET, WHICH IS THE WHOLE WARRANT FOR TAKING THE PIN OFF.
+ *
+ * P5-5's decision 1 reverses P5-1's pinned block *conditionally*: "This
+ * decision is therefore conditional on the arithmetic, and the arithmetic is
+ * the deliverable. If the folded sheet does not fit above the tab bar at
+ * 393x852, the change has failed on its own terms." Until now that arithmetic
+ * lived in a commit message, which is the one place in this repository a number
+ * is never checked again. Here it is a test.
+ *
+ * WHAT THIS CAN PROVE. jsdom has no layout engine, so it measures nothing. What
+ * it does is sum the heights the source *declares*, in the order the column
+ * draws them, and compare the running total at ROLL against the column the
+ * shell leaves for content. Every term that is declared inline is read back off
+ * the DOM by `the terms this budget can read, it reads` below, so a change to
+ * any of them moves the budget instead of silently invalidating it.
+ *
+ * WHAT THIS CANNOT PROVE, stated rather than implied. Six of the terms are
+ * stylesheet constants that jsdom cannot see - `.t-vital`'s 21px, `.t-meta`'s
+ * 10px, the 26px defence numbers, `.panel`'s 1px border - and they are marked
+ * `css` in the table. Beyond that it cannot see:
+ *
+ *   - a character name or a multiclass line that WRAPS. "Bard / Wizard —
+ *     Troubadour · School of Knowledge" is two or three lines in a ~171px cell,
+ *     which adds 13 or 26 to Identity.
+ *   - a class with the Beastform feature, which draws a 44px HUMAN FORM chip at
+ *     the head of the column even untransformed: 52 with the gap, so every
+ *     Druid is 52px worse off than this table says.
+ *   - a companion, which adds a 44px WhoSwitch inside the counters.
+ *   - `counterStyle: 'pips'`, which wraps the fixture's 12-box HP track onto a
+ *     second row and takes the counters from 244 to about 293.
+ *   - `manualDice`, which puts two 62px faces back above ROLL.
+ *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
+ *     already committed in this repo and treats the inset as 0. On a
+ *     home-indicator iPhone installed as a PWA it is 34px, which would take the
+ *     393x852 column from 730 to 696 and leave ROLL 11px of margin instead
+ *     of 45. Somebody should check that on the owner's own phone.
+ *
+ * So this test is a tripwire on the declared arithmetic and not a measurement,
+ * and it says which of the two it is in every failure message.
+ */
+describe('the budget the pin came off for', () => {
+  /*
+   * The column the shell leaves, derived from the three things that take it
+   * rather than hard-coded, so a change to any of them moves this rather than
+   * invalidating it.
+   *
+   *   Header.tsx    height: 52, content-box, borderBottom 1px  -> 53
+   *   TabBar.tsx    minHeight: 60 plus borderTop 1px            -> 61
+   *   Play.tsx      the phone root's padding: '0 12px 8px'      ->  8
+   *
+   * That is one pixel tighter than the 731/546 already committed in this repo,
+   * which forgot the header's border. It is corrected here rather than carried,
+   * because it is the number the reversal is argued from.
+   */
+  const HEADER = 52 + 1;
+  const TABBAR = 60 + 1;
+  const FOOT = 8;
+  const column = (glass: number): number => glass - HEADER - TABBAR - FOOT;
+
+  /** This column's own gap, between every pair of sections. */
+  const GAP = 8;
+
+  /**
+   * The stack at 393x852 with every fold shut, default prefs (numbers, digital
+   * dice on, typing off), the `playedCharacter` fixture, nothing armed, no roll
+   * yet, no Beastform, not fallen, no companion.
+   *
+   * `from` says where each number comes from: `dom` is declared inline and
+   * checked against the DOM below, `css` is a stylesheet constant jsdom cannot
+   * read, `sum` is arithmetic over the two.
+   */
+  const STACK: Array<{ what: string; px: number; from: 'dom' | 'css' | 'sum' }> = [
+    { what: 'Identity · the name at .t-vital, clamp() floors at 21', px: 21, from: 'css' },
+    { what: 'Identity · the meta row: marginTop 7', px: 7, from: 'dom' },
+    { what: 'Identity · the meta row itself, .t-meta at 10/1', px: 10, from: 'css' },
+    { what: 'Identity · the class row: marginTop 9', px: 9, from: 'dom' },
+    { what: 'Identity · the class row, held open by RENAME at --control', px: 44, from: 'dom' },
+    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
+    { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
+    { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
+    { what: 'the defence band · the number at 26/1', px: 26, from: 'css' },
+    { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
+    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the four counters, four rows at the touch floor', px: 4 * 44, from: 'dom' },
+    { what: 'the counters · three 6px gaps between them', px: 3 * 6, from: 'dom' },
+    { what: 'the counters · the TOOK row, held open by its input', px: 44, from: 'dom' },
+    { what: 'the counters · the fourth 6px gap, above TOOK', px: 6, from: 'dom' },
+    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
+    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the roll surface · the MODIFIERS fold header', px: 44, from: 'dom' },
+    { what: 'the roll surface · its own 6px gap', px: 6, from: 'dom' },
+    { what: 'the roll surface · two Experience chips, one to a row', px: 2 * 44 + 6, from: 'dom' },
+    { what: 'the roll surface · its own 6px gap', px: 6, from: 'dom' },
+    { what: 'ROLL', px: 66, from: 'dom' },
+  ];
+
+  /** What follows ROLL: the fold index, every one of them shut. */
+  const INDEX: Array<{ what: string; px: number }> = [
+    { what: 'gap', px: GAP },
+    { what: 'Weapons & armour', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Carried', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'the gold row', px: 30 },
+    { what: 'gap', px: GAP },
+    { what: 'Loadout', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Vault', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Rest & downtime', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'the conditions strip', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Lineage & domains', px: 44 },
+  ];
+
+  const total = (items: Array<{ px: number }>): number =>
+    items.reduce((sum, item) => sum + item.px, 0);
+
+  const ROLL_BOTTOM = total(STACK);
+  const SHEET_BOTTOM = ROLL_BOTTOM + total(INDEX);
+
+  it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
+    // The premise, so a table that has drifted cannot pass by cancelling out.
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 685').toBe(685);
+    const glass = column(852);
+    expect(glass).toBe(730);
+    expect(
+      ROLL_BOTTOM,
+      `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column. ` +
+        'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
+        'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
+    ).toBeLessThanOrEqual(glass);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(45);
   });
 
-  it('never lets the scrolling region be crushed below two rows', () => {
+  /*
+   * The unflattering half, as a number rather than as silence. Decision 1 says
+   * "say so rather than shipping a ROLL that has to be scrolled to", and on the
+   * small phone that is exactly what this step ships - so it is written down
+   * here, with the two things standing in the way, rather than found on a
+   * phone.
+   */
+  it('says how far ROLL misses the fold at 375x667, rather than claiming it does not', () => {
+    const glass = column(667);
+    expect(glass).toBe(545);
+    expect(
+      ROLL_BOTTOM - glass,
+      'ROLL at 375x667: the overflow has changed and nobody said which way.',
+    ).toBe(140);
+    // Both of them are above ROLL and both belong to decision 6 and Giorgio's
+    // fold order: the permanent MODIFIERS row goes for a control on the roll
+    // bar, and the Experience chips move into a fold below ROLL.
+    const modifiers = 44 + 6;
+    const experiences = 2 * 44 + 6 + 6;
+    expect(
+      ROLL_BOTTOM - modifiers - experiences,
+      'the two removals still owed no longer add up to a ROLL above the fold at 375x667',
+    ).toBeLessThanOrEqual(glass);
+  });
+
+  it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 402 below ROLL').toBe(1087);
+    expect(
+      SHEET_BOTTOM - column(852),
+      'the whole-sheet overflow at 393x852 has moved',
+    ).toBe(357);
+    expect(
+      SHEET_BOTTOM - column(667),
+      'the whole-sheet overflow at 375x667 has moved',
+    ).toBe(542);
+  });
+
+  it('the terms this budget can read, it reads', () => {
     play(seed());
-    const scroll = container.firstElementChild!.children[0] as HTMLElement;
-    expect(scroll.style.minHeight).toBe('88px');
-    expect((container.firstElementChild as HTMLElement).style.overflowY).toBe('auto');
+    const rootEl = container.firstElementChild as HTMLElement;
+    const read = new Map<string, number>();
+
+    expect(rootEl.style.gap, 'the column gap moved and the budget did not').toBe(`${String(GAP)}px`);
+
+    /*
+     * The one thing that would otherwise slip past this whole describe: a
+     * section added to the column that the table above never hears about. The
+     * table is arithmetic and cannot notice a fourteenth child, so the child
+     * count is asserted directly and the failure says what to do about it.
+     *
+     * Thirteen, with the fixture: Identity, the defence band, the counters, the
+     * trait row, the roll surface, then Weapons & armour, Carried, the gold
+     * row, Loadout, Vault, Rest, the conditions strip and Lineage. The death
+     * move and the Beastform banner draw nothing for this character, and both
+     * are named in the docblock as things this budget does not carry.
+     */
+    expect(
+      rootEl.children.length,
+      'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
+        'has to be re-done, and the three totals with them - this is the budget the pin ' +
+        'came off for, and an unaccounted section is how it stops being true quietly.',
+    ).toBe(13);
+
+    // Identity: the two margins and the chip that holds the third row open.
+    const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
+    read.set('meta marginTop', Number.parseFloat((identity.children[1] as HTMLElement).style.marginTop));
+    read.set('class marginTop', Number.parseFloat((identity.children[2] as HTMLElement).style.marginTop));
+    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
+    expect(rename.style.minHeight).toBe('var(--control)');
+    expect(read.get('meta marginTop')).toBe(7);
+    expect(read.get('class marginTop')).toBe(9);
+
+    // The defence band: the padding and the gap inside one cell.
+    const cell = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
+      /^EVASION/.test((el.textContent ?? '').trim()),
+    )!;
+    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 9px');
+    expect(cell.style.gap).toBe('4px');
+
+    // The counters: four rows at the floor plus the TOOK row, at a 6px gap,
+    // in a box that no longer draws a box.
+    const counters = container
+      .querySelector<HTMLElement>('input[aria-label="Incoming damage"]')!
+      .closest<HTMLElement>('.stack')!;
+    expect(counters.className, 'the counters got their .panel back').toBe('stack');
+    expect(counters.style.gap).toBe('6px');
+    const rows = [...counters.children].filter(
+      (el) => (el as HTMLElement).style.minHeight === '44px',
+    );
+    expect(rows, 'the four counter rows no longer declare 44px each').toHaveLength(4);
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!.style
+        .minHeight,
+    ).toBe('var(--control)');
+
+    // The trait row and the roll surface.
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
+    expect(chip.style.minHeight).toBe('var(--tap)');
+    // By its label, not by its height: eight `Counter` steppers declare
+    // `height: 44` and every one of them is above ROLL in document order, so
+    // reading the budget's last term off "the first button with a height" would
+    // read it off a stepper and pass whatever ROLL did.
+    const roll = buttons().find((b) => (b.textContent ?? '').includes('ROLL'))!;
+    expect(
+      roll.style.height,
+      "ROLL's declared height and the last term of the budget have parted company",
+    ).toBe(`${String(STACK[STACK.length - 1]!.px)}px`);
+    expect(roll.parentElement!.style.gap, "the roll surface's own gap moved").toBe('6px');
+    expect(fold('Modifiers').style.minHeight).toBe('var(--tap)');
+    const experiences = buttons().filter((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Utilize '),
+    );
+    expect(experiences.length, 'the fixture carries two Experiences').toBe(2);
+    for (const chipEl of experiences) {
+      expect(chipEl.style.minHeight).toBe('var(--tap)');
+    }
+
+    // The fold index: every header at the floor, and there are six rows of it
+    // plus the gold row and the conditions strip.
+    const headers = indexHeaders();
+    for (const header of headers) {
+      expect(header.style.minHeight, `${header.textContent ?? '?'} is not at the floor`).toBe(
+        'var(--tap)',
+      );
+    }
+    const LABELS = ['Weapons & armour', 'Carried', 'Loadout', 'Vault', 'Rest & downtime', 'Lineage & domains'];
+    expect(
+      headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
+      'the budget counts six fold headers below ROLL and the screen draws a different set',
+    ).toEqual(LABELS);
   });
 });
 
@@ -917,8 +1252,18 @@ describe('every width below the cockpit', () => {
     // for on the left and never rendered on the right.
     expect(text()).toContain('Gold');
     expect(fold('Vault')).toBeDefined();
-    const rootEl = container.firstElementChild!;
-    expect(rootEl.children, 'this is the grid cockpit, not the one-column sheet').toHaveLength(2);
+    /*
+     * This used to assert `rootEl.children` had length 2 - the scroll and the
+     * pinned block - which distinguished the sheet from the cockpit only by
+     * accident. It is the same claim said properly now: the cockpit is a grid
+     * of three named columns and the sheet is one scrolling flex column.
+     */
+    const rootEl = container.firstElementChild as HTMLElement;
+    expect(rootEl.style.display, 'this is the grid cockpit, not the one-column sheet').not.toBe(
+      'grid',
+    );
+    expect(rootEl.className).toContain('stack');
+    expect(rootEl.style.overflowY).toBe('auto');
   });
 
   it('still gives the cockpit to a real desktop', () => {
@@ -979,13 +1324,47 @@ describe('the tendina', () => {
     expect(fold('Loadout').getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('gives the header the whole width and the touch floor', () => {
+  /*
+   * This used to demand `var(--tap)` AND `width: 100%` of every button on Play
+   * carrying `aria-expanded`, and `Rest.tsx`'s docblock cites it by name as the
+   * reason that file never sets the attribute.
+   *
+   * The touch-floor half is kept whole-screen, because that is the half the
+   * rule is about and the half other files are written against. The width half
+   * is scoped to what it was always really claiming - a section header, which
+   * `Disclosure` renders as a `<button>` directly inside its own `<section>` -
+   * because the trait row's verbs control is a 44x44 button at the end of a row
+   * of chips and a full-width one there would cost the row this whole change
+   * saved. Its own dimensions are asserted below rather than exempted.
+   */
+  it('gives every expandable the touch floor, and every section header the whole width', () => {
     play(seed());
-    for (const b of buttons().filter((x) => x.getAttribute('aria-expanded') !== null)) {
+    const expandables = buttons().filter((x) => x.getAttribute('aria-expanded') !== null);
+    expect(expandables.length, 'nothing on the sheet expands').toBeGreaterThan(5);
+    for (const b of expandables) {
       expect(b.style.minHeight, `${b.textContent ?? '?'} is not at the touch floor`).toBe(
         'var(--tap)',
       );
-      expect(b.style.width).toBe('100%');
+    }
+    for (const b of [...container.querySelectorAll<HTMLButtonElement>('section > button')].filter(
+      (x) => x.getAttribute('aria-expanded') !== null,
+    )) {
+      expect(b.style.width, `${b.textContent ?? '?'} is not the whole column`).toBe('100%');
+    }
+  });
+
+  it('gives the two in-row expandables 44px in both directions instead', () => {
+    play(seed());
+    const inRow = buttons().filter(
+      (b) => b.getAttribute('aria-expanded') !== null && b.closest('section') === null,
+    );
+    expect(
+      inRow.map((b) => b.getAttribute('aria-label')),
+      'the verbs control is the only expandable on Play that is not a section header',
+    ).toEqual(['What each trait is for']);
+    for (const b of inRow) {
+      expect(b.style.minHeight).toBe('var(--tap)');
+      expect(Number.parseFloat(b.style.width)).toBeGreaterThanOrEqual(44);
     }
   });
 });
@@ -1011,26 +1390,27 @@ describe('what the attack is made with', () => {
     return found;
   }
 
-  /** A pinned trait chip, by the three letters it prints. */
+  /**
+   * A trait chip, by the three letters it prints.
+   *
+   * There used to be a `traitTile` beside this, because the phone drew the six
+   * traits twice - a grid in the scroll and a strip in the pinned block - and a
+   * test could arm one and read the other. There is one row now, so the helper
+   * that found the tile is gone and its five callers point here; the tiles
+   * survive in the desktop cockpit, which these tests do not render.
+   */
   function traitChip(abbreviation: string): HTMLButtonElement {
     const found = buttons().find((b) =>
       new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
     );
-    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
-    return found;
-  }
-
-  /** A tile in the scrolling trait grid, by the trait it announces. */
-  function traitTile(label: string): HTMLButtonElement {
-    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
-    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    if (found === undefined) throw new Error(`no trait chip called "${abbreviation}"`);
     return found;
   }
 
   /** A sheet whose primary weapon rolls with something other than the default. */
   const withBattleaxe = (): Character => seed({ activePrimaryWeapon: 'battleaxe' });
 
-  it('takes the trait from the weapon, and takes the weapon back when a tile is tapped', () => {
+  it('takes the trait from the weapon, and takes the weapon back when a trait is tapped', () => {
     play(withBattleaxe());
     click(weaponRow('Battleaxe'));
     expect(weaponRow('Battleaxe').getAttribute('aria-pressed')).toBe('true');
@@ -1038,8 +1418,13 @@ describe('what the attack is made with', () => {
     // spell being used." A player who taps a sword has declared that roll.
     expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
 
-    click(traitTile('Agility'));
+    // The same scenario the tile version drove, on the one row. Tapping AGI is
+    // declaring a roll the axe did not specify, so the axe steps back - and
+    // because there is one surface now, the chip that is pressed and the chip
+    // that was tapped are necessarily the same object.
+    click(traitChip('AGI'));
     expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(traitChip('STR').getAttribute('aria-pressed')).toBe('false');
     expect(
       weaponRow('Battleaxe').getAttribute('aria-pressed'),
       'the axe is still armed for an Agility roll it was not declared for',
@@ -1164,7 +1549,7 @@ describe('what the attack is made with', () => {
     // is completing the declaration, not replacing it.
     play(seed());
     click(weaponRow('Unarmed'));
-    click(traitTile('Strength'));
+    click(traitChip('STR'));
     expect(traitChip('STR').getAttribute('aria-pressed')).toBe('true');
     expect(
       weaponRow('Unarmed').getAttribute('aria-pressed'),
@@ -1172,7 +1557,7 @@ describe('what the attack is made with', () => {
     ).toBe('true');
 
     // And the other half of "either Strength or Finesse".
-    click(traitTile('Finesse'));
+    click(traitChip('FIN'));
     expect(weaponRow('Unarmed').getAttribute('aria-pressed')).toBe('true');
   });
 
@@ -1186,7 +1571,7 @@ describe('what the attack is made with', () => {
      */
     play(seed());
     click(weaponRow('Unarmed'));
-    click(traitTile('Knowledge'));
+    click(traitChip('KNO'));
     expect(traitChip('KNO').getAttribute('aria-pressed')).toBe('true');
     expect(
       weaponRow('Unarmed').getAttribute('aria-pressed'),
@@ -1257,17 +1642,12 @@ describe('the spell, and the +0 that rolls nothing', () => {
     return found;
   }
 
-  function pinnedChip(abbreviation: string): HTMLButtonElement {
+  /** A trait chip on the one trait row. Was `pinnedChip`; nothing is pinned. */
+  function traitChip(abbreviation: string): HTMLButtonElement {
     const found = buttons().find((b) =>
       new RegExp(`^${abbreviation} [+−]`).test((b.textContent ?? '').trim()),
     );
-    if (found === undefined) throw new Error(`no pinned chip called "${abbreviation}"`);
-    return found;
-  }
-
-  function tile(label: string): HTMLButtonElement {
-    const found = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label));
-    if (found === undefined) throw new Error(`no trait tile called "${label}"`);
+    if (found === undefined) throw new Error(`no trait chip called "${abbreviation}"`);
     return found;
   }
 
@@ -1338,7 +1718,7 @@ describe('the spell, and the +0 that rolls nothing', () => {
     // "The trait that applies to an attack roll is specified by the weapon or
     // spell being used." SPELLCAST is not one of the six pinned chips, so the
     // modifier row is where the sheet says which slot is armed.
-    expect(pinnedChip('PRE').getAttribute('aria-pressed')).toBe('false');
+    expect(traitChip('PRE').getAttribute('aria-pressed')).toBe('false');
     expect(fold('Modifiers').textContent).toContain('SPELLCAST');
     expect(fold('Weapons & armour').textContent).toContain('ARMED · SPELLCAST');
   });
@@ -1382,9 +1762,9 @@ describe('the spell, and the +0 that rolls nothing', () => {
     expect(armable('Broadsword').getAttribute('aria-pressed')).toBe('false');
     // And back the other way: picking a trait by hand is declaring a roll the
     // spell did not, so the spell steps back the way a weapon does.
-    click(tile('Agility'));
+    click(traitChip('AGI'));
     expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('false');
-    expect(pinnedChip('AGI').getAttribute('aria-pressed')).toBe('true');
+    expect(traitChip('AGI').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('stops calling a spell armed when the trait that counted its dice is gone', () => {
@@ -1444,6 +1824,21 @@ describe('rolling the damage the attack earned', () => {
     return found;
   }
 
+  /**
+   * Everything `DualityRoll` draws on a phone.
+   *
+   * This used to be `container.firstElementChild.children[1]`, the pinned
+   * block, with a comment explaining that the defence band up in the scroll is
+   * a `repeat(4, 1fr)` grid too and comes first in document order. That is
+   * still true and the block is gone, so the surface is found from the one
+   * control that fixes its own height instead of from a child index.
+   */
+  const rollSurface = (): HTMLElement => {
+    const roll = buttons().find((b) => b.style.height === '66px');
+    if (roll === undefined) throw new Error('the phone has no roll control');
+    return roll.parentElement!;
+  };
+
   /** Tap a die face open and pick a value out of its 4-column grid. */
   function typeFace(label: 'HOPE' | 'FEAR', value: number): void {
     const face = buttons().find((b) =>
@@ -1451,10 +1846,7 @@ describe('rolling the damage the attack earned', () => {
     );
     if (face === undefined) throw new Error(`no ${label} die face to type into`);
     click(face);
-    // Inside the pinned block: the defence band up in the scroll is a
-    // `repeat(4, 1fr)` grid too, and it comes first in document order.
-    const pinned = container.firstElementChild!.children[1]!;
-    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+    const grid = [...rollSurface().querySelectorAll<HTMLElement>('div')].find(
       (d) => d.style.gridTemplateColumns === 'repeat(4, 1fr)',
     );
     if (grid === undefined) throw new Error('the die did not open its face grid');
@@ -1476,8 +1868,7 @@ describe('rolling the damage the attack earned', () => {
     const slot = damageSlots()[index];
     if (slot === undefined) throw new Error(`no damage slot ${String(index + 1)}`);
     click(slot);
-    const pinned = container.firstElementChild!.children[1]!;
-    const grid = [...pinned.querySelectorAll<HTMLElement>('div')].find(
+    const grid = [...rollSurface().querySelectorAll<HTMLElement>('div')].find(
       (d) => d.style.gridTemplateColumns === 'repeat(5, 1fr)',
     );
     if (grid === undefined) throw new Error('the damage die did not open its face grid');
@@ -1619,36 +2010,54 @@ describe('rolling the damage the attack earned', () => {
   });
 
   /*
-   * The pinned block, measured again after a roll.
+   * The roll surface, measured again after a roll.
    *
    * Every sweep in this file runs before any roll has happened, so none of them
    * has ever seen the damage row. The Duality bar cannot be found by text here:
    * once a roll resolves its label becomes OUTCOME_LABEL - "Critical Success",
    * "Rolled with Hope" - and not one of those contains the substring ROLL. It
-   * is found structurally instead, as the one control in the block that fixes
-   * its own height rather than declaring a floor.
+   * is found structurally instead, as the one control on this surface that
+   * fixes its own height rather than declaring a floor.
    */
-  it('still costs the pinned block exactly two regions, with typing on', () => {
+  it('lands the damage row under ROLL, inside the one column', () => {
     withTypedDice({ activePrimaryWeapon: 'battleaxe' });
     click(weaponRow('Battleaxe'));
     typeFace('HOPE', 5);
     typeFace('FEAR', 5);
-    expect(damageControl(), 'this test is not measuring a block with a damage row in it').toBeDefined();
+    const damage = damageControl();
+    expect(damage, 'this test is not measuring a surface with a damage row on it').toBeDefined();
 
-    const rootEl = container.firstElementChild!;
-    expect(rootEl.children, 'the damage row was mounted as a sibling of the scroll').toHaveLength(2);
-    const pinned = rootEl.children[1]!;
-    expect(pinned.children, 'the damage row was mounted beside the roll block').toHaveLength(2);
+    /*
+     * Replaces `still costs the pinned block exactly two regions, with typing
+     * on`, which asserted the root had two children and the pinned one had two
+     * of its own. The claim it was making is the one below: the damage row is
+     * not a third pinned region, it is drawn inside the scrolling column, after
+     * ROLL - everything above ROLL is declared before the dice and this is the
+     * only thing here that comes after them.
+     */
+    const rootEl = container.firstElementChild as HTMLElement;
+    expect(rootEl.contains(damage!), 'the damage row is outside the column').toBe(true);
+    const roll = buttons().find((b) => b.style.height === '66px')!;
+    expect(
+      (roll.compareDocumentPosition(damage!) & 4) !== 0,
+      'the damage row is above ROLL, where only declarations belong',
+    ).toBe(true);
+    // And it costs the fold index rather than ROLL: every fold is still below.
+    for (const header of indexHeaders()) {
+      expect(
+        (damage!.compareDocumentPosition(header) & 4) !== 0,
+        `${(header.textContent ?? '?').trim()} is above the damage row`,
+      ).toBe(true);
+    }
   });
 
-  it('leaves every target in the pinned block at the floor after a roll', () => {
+  it('leaves every target on the roll surface at the floor after a roll', () => {
     withTypedDice({ activePrimaryWeapon: 'battleaxe' });
     click(weaponRow('Battleaxe'));
     typeFace('HOPE', 5);
     typeFace('FEAR', 5);
 
-    const pinned = container.firstElementChild!.children[1]!;
-    const targets = [...pinned.querySelectorAll('button')];
+    const targets = [...rollSurface().querySelectorAll('button')];
     for (const t of targets) {
       const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
       const value =
@@ -1659,10 +2068,18 @@ describe('rolling the damage the attack earned', () => {
       ).toBeGreaterThanOrEqual(44);
     }
 
+    /*
+     * Scoped to the roll surface, and that is a correction rather than a
+     * narrowing. `Counter.tsx`'s stepper declares `height: 44` and there are
+     * eight of them on the sheet, so this assertion has never been true of the
+     * whole screen - it passed because the pinned block did not contain the
+     * counters. What it is really about is that nothing on the roll surface
+     * fixes its height except ROLL, and that is what it now says.
+     */
     const fixed = targets.filter((b) => b.style.height !== '');
     expect(
       fixed.map((b) => b.style.height),
-      'the roll bar is no longer the one control that fixes its own height',
+      'the roll bar is no longer the one control on this surface that fixes its own height',
     ).toEqual(['66px']);
   });
 });
@@ -1851,28 +2268,97 @@ describe('renaming from the sheet', () => {
   });
 });
 
+/**
+ * The verbs, which are the whole reason the six tiles were 210px tall.
+ *
+ * Decision 3 moves them behind a control on the trait row rather than deleting
+ * them: they are what tells a new player which of the six a thing is, and P5-1
+ * read them out of the SRD on purpose. So both of these assert both directions
+ * - the 150px this change buys, and the fact that it buys it from the eye and
+ * not from the ear.
+ */
 describe('the verbs under the traits', () => {
-  it('prints all six sets, in the words the SRD uses', () => {
+  const VERBS = [
+    'SPRINT · LEAP · MANEUVER',
+    'LIFT · SMASH · GRAPPLE',
+    'CONTROL · HIDE · TINKER',
+    'PERCEIVE · SENSE · NAVIGATE',
+    'CHARM · PERFORM · DECEIVE',
+    'RECALL · ANALYZE · COMPREHEND',
+  ];
+
+  const verbsControl = (): HTMLButtonElement => {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-label') === 'What each trait is for',
+    );
+    if (found === undefined) throw new Error('the trait row has no verbs control');
+    return found;
+  };
+
+  /*
+   * Replaces `prints all six sets, in the words the SRD uses`, which asserted
+   * only that they were on the screen - true when each of six tiles was 92px
+   * tall.
+   */
+  it('are behind the trait row’s own control, and all six are still there', () => {
     play(seed());
+    expect(verbsControl().getAttribute('aria-expanded')).toBe('false');
+    for (const verbs of VERBS) {
+      expect(text(), `"${verbs}" is on the shut sheet, so the 150px was not saved`).not.toContain(
+        verbs,
+      );
+    }
+
+    click(verbsControl());
+    expect(verbsControl().getAttribute('aria-expanded')).toBe('true');
     const body = text();
-    for (const verbs of [
-      'SPRINT · LEAP · MANEUVER',
-      'LIFT · SMASH · GRAPPLE',
-      'CONTROL · HIDE · TINKER',
-      'PERCEIVE · SENSE · NAVIGATE',
-      'CHARM · PERFORM · DECEIVE',
-      'RECALL · ANALYZE · COMPREHEND',
-    ]) {
-      expect(body, `the trait tiles do not print "${verbs}"`).toContain(verbs);
+    for (const verbs of VERBS) {
+      expect(body, `the trait row does not print "${verbs}"`).toContain(verbs);
     }
   });
 
-  it('puts them in the tile’s accessible name too', () => {
+  it('remembers per character which way the verbs were left', () => {
+    const first = seed();
+    play(first);
+    click(verbsControl());
+    expect(useApp.getState().prefs.playSections[`${first.id}:traitverbs`]).toBe(true);
+
+    const second = seed({ id: 'other-sheet' });
+    useApp.setState({
+      prefs: { ...useApp.getState().prefs },
+      characters: [second],
+      activeId: second.id,
+    });
+    act(() => root.unmount());
+    root = createRoot(container);
+    play(second);
+    expect(
+      verbsControl().getAttribute('aria-expanded'),
+      'one character’s verbs were opened on another character’s sheet',
+    ).toBe('false');
+  });
+
+  /*
+   * Replaces `puts them in the tile's accessible name too`, and is the stronger
+   * claim: all six rather than one, and with the control SHUT. A listening user
+   * loses nothing at all from this change and gains the same 150px.
+   */
+  it('stay in every chip’s accessible name with the control shut', () => {
     play(seed());
-    const tile = [...container.querySelectorAll('button')].find((b) =>
-      (b.getAttribute('aria-label') ?? '').startsWith('Agility'),
-    );
-    expect(tile, 'no trait tile announces itself as Agility').toBeDefined();
-    expect(tile!.getAttribute('aria-label')).toContain('use it to Sprint, Leap, Maneuver');
+    expect(verbsControl().getAttribute('aria-expanded')).toBe('false');
+    const named = buttons()
+      .map((b) => b.getAttribute('aria-label') ?? '')
+      .filter((label) => label.includes('use it to '));
+    expect(named, 'the six trait chips do not announce what they are for').toHaveLength(6);
+    for (const [i, phrase] of [
+      'Agility +1 - use it to Sprint, Leap, Maneuver',
+      'Strength +2 - use it to Lift, Smash, Grapple',
+      'Finesse +0 - use it to Control, Hide, Tinker',
+      'Instinct +1 - use it to Perceive, Sense, Navigate',
+      'Presence +0 - use it to Charm, Perform, Deceive',
+      'Knowledge −1 - use it to Recall, Analyze, Comprehend',
+    ].entries()) {
+      expect(named[i], `chip ${String(i)} announces "${named[i] ?? ''}"`).toBe(phrase);
+    }
   });
 });

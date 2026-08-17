@@ -218,16 +218,39 @@ function srdSentence(needle: string): string {
 }
 
 describe('where it sits on the Play screen', () => {
-  it('is in the part that scrolls, and never in the pinned block', () => {
+  /*
+   * Replaces `is in the part that scrolls, and never in the pinned block`,
+   * which asserted the phone root had two children and that the rest was in the
+   * first of them. There is one child region now - nothing on Play is pinned -
+   * so the claim becomes the one it was standing in for: a rest is
+   * between-scenes work, so it is a fold, below the dice and above the two
+   * sections read once a session.
+   */
+  it('is a fold in the one column, below ROLL and above the lineage', () => {
     const c = seed();
     render(createElement(Play, { stats: playedStats(c) }));
-    const rootEl = container.firstElementChild!;
-    expect(rootEl.children).toHaveLength(2);
-    expect(rootEl.children[0]!.textContent ?? '').toContain('Rest & downtime');
+    const rootEl = container.firstElementChild as HTMLElement;
+    expect(rootEl.style.overflowY, 'the sheet is not the one scrolling column').toBe('auto');
+
+    const all = [...container.querySelectorAll('button')];
+    const rest = all.find((b) => (b.textContent ?? '').startsWith('Rest & downtime'));
+    expect(rest, 'there is no rest fold on the phone sheet').toBeDefined();
+    expect(rootEl.contains(rest!), 'the rest fold is outside the column').toBe(true);
+
+    const roll = all.find((b) => b.style.height === '66px');
+    expect(roll, 'there is no roll control to place it against').toBeDefined();
+    const lineage = all.find((b) => (b.textContent ?? '').startsWith('Lineage & domains'));
+    expect(lineage, 'there is no lineage fold to place it against').toBeDefined();
+
+    // Node.DOCUMENT_POSITION_FOLLOWING, spelled as its bit.
     expect(
-      rootEl.children[1]!.textContent ?? '',
-      'the rest is pinned under the thumb, where only the roll block belongs',
-    ).not.toContain('Rest & downtime');
+      (roll!.compareDocumentPosition(rest!) & 4) !== 0,
+      'the rest is above ROLL, among the things you declare before the dice',
+    ).toBe(true);
+    expect(
+      (rest!.compareDocumentPosition(lineage!) & 4) !== 0,
+      'the lineage is no longer last',
+    ).toBe(true);
   });
 
   it('costs one row closed, and says on that row what it is holding', () => {

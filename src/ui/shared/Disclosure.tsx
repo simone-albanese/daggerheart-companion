@@ -39,6 +39,32 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Whether one section of the sheet is open, remembered per character.
+ *
+ * Lifted out of the component below because the fold header is no longer the
+ * only thing on Play with something to remember. The trait row's verbs control
+ * is a 44x44 button at the end of a row of chips - it cannot be a `Disclosure`,
+ * which is a full-width header by contract - and a second copy of the
+ * `<characterId>:<id>` key format is how the two would eventually disagree
+ * about where a player's arrangement is written.
+ *
+ * Lowercase on purpose. `screens.test.tsx` derives its fixture list from every
+ * PascalCase export under `src/ui`, and a hook is not a component; naming this
+ * `UsePlaySection` would demand a fixture that mounts a hook.
+ */
+export function usePlaySection(
+  characterId: string | null,
+  id: string,
+  defaultOpen = false,
+): [boolean, () => void] {
+  const sections = useApp((s) => s.prefs.playSections);
+  const setPrefs = useApp((s) => s.setPrefs);
+  const key = `${characterId ?? 'none'}:${id}`;
+  const open = sections[key] ?? defaultOpen;
+  return [open, () => setPrefs({ playSections: { ...sections, [key]: !open } })];
+}
+
 export function Disclosure({
   id,
   characterId,
@@ -47,17 +73,14 @@ export function Disclosure({
   defaultOpen = false,
   children,
 }: Props): React.JSX.Element {
-  const sections = useApp((s) => s.prefs.playSections);
-  const setPrefs = useApp((s) => s.setPrefs);
-  const key = `${characterId ?? 'none'}:${id}`;
-  const open = sections[key] ?? defaultOpen;
+  const [open, toggle] = usePlaySection(characterId, id, defaultOpen);
 
   return (
     <section className="stack" style={{ flex: 'none', gap: open ? 8 : 0 }}>
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setPrefs({ playSections: { ...sections, [key]: !open } })}
+        onClick={toggle}
         className="row"
         style={{
           flex: 'none',

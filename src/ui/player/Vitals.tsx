@@ -23,31 +23,38 @@ interface Props {
   /**
    * Render the conditions strip and the death-move offer alongside the tracks.
    *
-   * The phone says no and places them itself: the tracks belong in the fixed
-   * block under the thumb, and the conditions strip does not - it is set once
-   * a scene, not once a turn. The death-move offer goes with the tracks
-   * regardless, because when it appears it is the most important thing on the
-   * screen.
+   * The phone says no and places them itself: the counters are the second thing
+   * on the sheet and the conditions strip is set once a scene rather than once
+   * a turn, so it sits far below them; the death-move offer leads the whole
+   * column, because when it appears it is the most important thing on the
+   * screen and nothing on Play is pinned any more.
    */
   showState?: boolean;
   /**
-   * Which half of this panel to draw. Only the phone splits it.
+   * Drop the `.panel` box around the four tracks. Phone only.
    *
-   * 'tracks' is all four counters - they are the state of the character and
-   * they are pinned. 'damage' is the incoming-damage calculator on its own:
-   * it is the one part of this panel that is a question rather than a state
-   * ("someone hit you for 14 - how many HP is that?"), it is asked when
-   * something hits you rather than continuously, and its answer lands on the
-   * Armor and HP tracks, which stay pinned above it either way.
+   * Not "draw less": the same children in the same order, without the border,
+   * the background and the 8px of padding - 18px of the column, spent on a box
+   * around four silhouettes that are already distinguishable from each other by
+   * shape. The rows keep their own 6px gap, because that gap is the spacing
+   * between the counters and not the padding of the panel; letting the parent
+   * column's gap take over would make the four tracks four siblings of the
+   * defence band rather than one object.
+   *
+   * A `part` prop used to live here, splitting this component in two so the
+   * phone could pin the tracks and leave the calculator in the scroll. It was
+   * already dead when it was deleted: nothing in `src/` had passed it since the
+   * phone stopped mounting this twice, and now nothing on Play is pinned at
+   * all.
    */
-  part?: 'all' | 'tracks' | 'damage';
+  bare?: boolean;
 }
 
 export function Vitals({
   stats,
   layout,
   showState = true,
-  part = 'all',
+  bare = false,
 }: Props): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
@@ -111,7 +118,12 @@ export function Vitals({
     setUseArmor(0);
   };
 
-  const panel = { flex: 'none' as const, padding: phone ? 8 : 12, gap: phone ? 6 : 10 };
+  const panelClass = bare ? 'stack' : 'panel stack';
+  const panel = {
+    flex: 'none' as const,
+    padding: bare ? 0 : phone ? 8 : 12,
+    gap: phone ? 6 : 10,
+  };
 
   /**
    * The calculator itself: a number in, a verdict and a commit out.
@@ -198,22 +210,20 @@ export function Vitals({
   ) : null;
 
   /*
-   * The companion switch belongs to the counters, not to the calculator.
+   * The companion switch belongs to the counters.
    *
-   * On a phone this component is mounted twice - once for `tracks` and once
-   * for `damage` - and the switch used to render inside both, so a Ranger with
-   * a wolf got two of them on one screen, each with its own idea of who was
-   * being looked at. The damage calculator is also always about the character:
-   * a companion has no Hit Points and no thresholds, so there is nothing for
-   * it to compute. So it never takes the switch and never gets taken over.
+   * It used to be gated on `part`, because the phone mounted this component
+   * twice and the switch rendered inside both - so a Ranger with a wolf got two
+   * of them on one screen, each with its own idea of who was being looked at.
+   * There is one mount now, so the gate is the companion and nothing else.
    */
-  const companionSwitch = hasCompanion && part !== 'damage';
+  const companionSwitch = hasCompanion;
 
   if (companionSwitch && who === 'companion') {
     return (
       <>
         {state}
-        <div className="panel stack" style={panel}>
+        <div className={panelClass} style={panel}>
           <WhoSwitch who={who} setWho={setWho} compact={!phone} />
           <CompanionPanel stats={stats} layout={layout} />
         </div>
@@ -224,7 +234,7 @@ export function Vitals({
   return (
     <>
     {state}
-    <div className="panel stack" style={panel}>
+    <div className={panelClass} style={panel}>
       {companionSwitch && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
       {phone ? (
         /*
@@ -253,17 +263,16 @@ export function Vitals({
          * in the game had targets under WCAG's 24px floor. About 43px now.
          */
         <>
-          {part !== 'damage' &&
+          {
             /*
              * Sheet order, not frequency order.
              *
              * These used to run Armor, HP, Stress, Hope, argued from how often
              * the game makes you touch each one, with Hope last so its pips sat
              * against the Experience chips that spend them. Both halves of that
-             * argument have expired: the counters are no longer pinned under
-             * the thumb - the roll block is - so "nearest the thumb" is not a
-             * position this band has to allocate, and the chips are now several
-             * hundred pixels below in a block of their own.
+             * argument have expired: nothing on Play is pinned, so "nearest the
+             * thumb" is not a position this band has to allocate, and the chips
+             * are now several hundred pixels below, beside ROLL.
              *
              * What is left is the paper sheet, where Hit Points and Stress sit
              * directly under the damage thresholds and Hope follows them. Armor
@@ -311,21 +320,20 @@ export function Vitals({
                   rowHeight={rowHeight}
                 />
               );
-            })}
-          {part !== 'tracks' && (
-            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              {/* No TOOK prompt when nothing can be typed into it. */}
-              {!ladderUnknown && (
-                <span
-                  className="t-label"
-                  style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}
-                >
-                  TOOK
-                </span>
-              )}
-              {ladderUnknown ? unknownLadder : inlineDamage}
-            </div>
-          )}
+            })
+          }
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            {/* No TOOK prompt when nothing can be typed into it. */}
+            {!ladderUnknown && (
+              <span
+                className="t-label"
+                style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}
+              >
+                TOOK
+              </span>
+            )}
+            {ladderUnknown ? unknownLadder : inlineDamage}
+          </div>
         </>
       ) : (
         <>

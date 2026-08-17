@@ -54,10 +54,13 @@
  * loadout is a bare column in the cockpit and there is no fold to open.
  *
  * Two things this file deliberately does not do. It never sets
- * `aria-expanded`: `playSheet.test.tsx` sweeps every button carrying that
- * attribute anywhere on Play and demands `var(--tap)` and `width: 100%`,
- * because that attribute belongs to `Disclosure` alone, and a second use of it
- * here would fail a test naming a rule about a different file. And it never
+ * `aria-expanded` on anything but the fold header `Disclosure` draws for it:
+ * `playSheet.test.tsx` sweeps every button carrying that attribute anywhere on
+ * Play and demands `var(--tap)` of all of them, and `width: 100%` of the ones a
+ * `<section>` owns - the trait row's verbs control is the one in-row
+ * expandable this screen has, and it clears 44px in both directions instead.
+ * A second use of the attribute here would be a third answer to a question two
+ * files have already settled between them. And it never
  * counts to five: the swap goes through `canAddToLoadout` and `recallCard` with
  * `{ downtime: true }`, which is the flag `loadout.ts` has carried since it was
  * written and this is its first caller, so MAX_LOADOUT stays enforced in one
@@ -67,8 +70,8 @@
  * ERGONOMICS, at 393x852 (column 369px), 375x667 (351px), 744 and 1024 (both
  * the one-column sheet), and 1180+ (the cockpit's first column, 300-336px).
  * Closed it is one `Disclosure` header - 44px at `var(--tap)` - plus the
- * scrolling column's 10px gap: 54px of scroll content, and nothing at all from
- * the pinned block, which stays 266px with two Experiences. Open on the played
+ * column's 8px gap: 52px, and all of it below ROLL, which is where the fold
+ * index sits now that nothing on Play is pinned. Open on the played
  * fixture (three cards in the loadout, three in the vault) it is about 990px
  * for a short rest and about 1,185 for a long one, which carries five moves
  * and the interrupted-rest rule; the party toggle adds 52 when a Prepare is
@@ -85,8 +88,10 @@
  * never forced wider than the phone by construction rather than by
  * measurement.
  *
- * THUMB ARC. In the scroll window - roughly y=88..545 at 393x852 - a right
- * thumb rests around y=420..545. The kind switch is at the top of the fold, so
+ * THUMB ARC. The whole column scrolls now, so this fold's own header starts
+ * around y=790 unscrolled at 393x852 and is reached by scrolling rather than by
+ * reaching; a right thumb rests around y=560..730. The kind switch is at the
+ * top of the fold, so
  * opening the fold puts it ~300px above that rest and it is chosen with the
  * eyes. COMMIT is last on the surface - it applies everything drawn above it,
  * including the swaps, so it cannot sit in the middle of what it applies - and

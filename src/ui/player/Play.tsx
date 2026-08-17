@@ -8,11 +8,18 @@
  * region was the loadout, measured at 130px of the 230 it needs on a 393px
  * phone and at *zero* on a 375px one.
  *
+ * Nothing on it is pinned, either, and that reversal is younger still. The
+ * trait chips and ROLL sat in a fixed block at the bottom until the order
+ * changed underneath them: with the counters and the thresholds moved to the
+ * top where Giorgio's message puts them, ROLL's own lower edge lands 45px
+ * above the fold at 393x852 without a pin, so the block was buying a reach the
+ * order already provides and charging 266px for it. `PlayPhone`'s docblock
+ * carries that arithmetic and `playSheet.test.tsx` carries it as assertions.
+ *
  * Two layouts, at one breakpoint rather than two.
  *
- *   Below 1180px - every phone and every tablet - the sheet is one column in
- *   the printed sheet's order, scrolling, with the trait chips and ROLL pinned
- *   to the bottom. `PlayPhone`.
+ *   Below 1180px - every phone and every tablet - the sheet is one scrolling
+ *   column in Giorgio's order, with nothing outside the scroll. `PlayPhone`.
  *
  *   At 1180px and above, the three-column cockpit, which fits without
  *   scrolling and is laid out for a mouse. `PlayDesktop`.
@@ -46,7 +53,7 @@ import {
   type SwapCheck,
 } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import { Disclosure } from '../shared/Disclosure.tsx';
+import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { RenameField } from '../shared/RenameField.tsx';
@@ -189,6 +196,11 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * chips put the armed weapon down. The other two left it standing, so tapping
    * KNOWLEDGE on a tile kept a sword declared for a Knowledge check with
    * nothing on screen disagreeing with anything else.
+   *
+   * A phone has two of those surfaces now rather than three: the chips and the
+   * grid were the same six traits drawn twice, and `TraitRow` is the one row
+   * that replaced them both. This route is unchanged by that, because the rule
+   * it enforces is about the tap and not about which surface took it.
    *
    * It is one rule, so it lives in one place: *"The trait that applies to an
    * attack roll is specified by the weapon or spell being used."* Choosing the
@@ -370,15 +382,20 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * control that is touched - `Counter.tsx:13-19`'s rule, applied to a name
  * instead of a number.
  *
- * Vertically, at 393x852: the header is 52px, the phone root has no top
- * padding and `Beastform` draws nothing for a class without one, so the name
- * runs y 52-73, the metadata row y 80-90, and the chip's row y 99-143. The
- * header's SETTINGS button is 44px in a 52px bar, so y 4-48. That is 51px of
- * dead space between the only two 44px targets in the top band, and 95px
- * centre to centre, against an adult fingertip contact patch of about 38-40
- * CSS px. On the name line the clearance would be 4px; on the metadata row,
- * 32px - less than one fingertip. On a fourth row of its own it would be 104px
- * and cost 53px of the 457px scroll window instead of 25px.
+ * Vertically, at 393x852: the header is 52px plus a 1px border, the phone root
+ * has no top padding and `Beastform` draws nothing for a class without one, so
+ * the name runs y 53-74, the metadata row y 81-91, and the chip's row y
+ * 100-144. The header's SETTINGS button is 44px in a 52px bar, so y 4-48. That
+ * is 52px of dead space between the only two 44px targets in the top band, and
+ * 96px centre to centre, against an adult fingertip contact patch of about
+ * 38-40 CSS px. On the name line the clearance would be 5px; on the metadata
+ * row, 33px - less than one fingertip. On a fourth row of its own it would be
+ * 105px and cost 53px of the column instead of 25px.
+ *
+ * This is also why Identity is not compressed to 74px to buy the reflow its
+ * last 17 pixels: merging the pronouns and level into the class row would put
+ * RENAME at y 83-127 and take that clearance to 35px, which is the number this
+ * paragraph already rejects.
  *
  * Arming cannot outlive the character it was armed for. `Header.tsx:138-154`
  * draws the character `<select>` on every screen, Play included, as soon as
@@ -417,7 +434,20 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
       <div className="t-vital">{character.name || 'Unnamed'}</div>
       <div className="row" style={{ marginTop: 7, gap: 8 }}>
         {character.pronouns !== '' && <span className="t-meta">{character.pronouns.toUpperCase()}</span>}
-        {character.pronouns !== '' && <span style={{ color: 'var(--line)' }}>·</span>}
+        {/*
+         * `.t-meta`, and that is a 9px fix rather than a tidy-up. Bare, this
+         * span had no type class and `base.css` sets no `font-size` on `body`,
+         * so a middle dot between two 10px mono labels rendered at the user
+         * agent's own 16px - and because `.row` is `align-items: center`, the
+         * *row* was as tall as the dot: 19px where the labels beside it are 10.
+         * Identity's own docblock has been costing this band at 10 since it was
+         * written.
+         */}
+        {character.pronouns !== '' && (
+          <span className="t-meta" style={{ color: 'var(--line)' }}>
+            ·
+          </span>
+        )}
         <span className="t-meta" style={{ color: 'var(--muted)' }}>
           LEVEL {character.level}
         </span>
@@ -585,6 +615,197 @@ function GoldRow(): React.JSX.Element | null {
   );
 }
 
+/**
+ * The six traits as one row, with the verbs one tap behind it.
+ *
+ * This replaces two surfaces with one. The phone drew a 3x2 grid of tiles in
+ * the scroll *and* a strip of six chips in the pinned block, both of which
+ * armed the roll, and a player could see one of them saying AGI while the other
+ * one was off screen. The tiles cost about 210px - a quarter of the glass on a
+ * 393x852 phone - because each carried its three SRD verbs under the number.
+ * Six chips cost 44.
+ *
+ * THE VERBS ARE NOT DELETED, AND THEY ARE NOT EVEN HIDDEN FROM EVERYONE. They
+ * move behind a 44x44 control at the end of the same row, which costs no height
+ * because the row is already 44 tall, and which remembers per character. And
+ * they stay in every chip's accessible name WITH THAT CONTROL SHUT - "Agility
+ * +1 - use it to Sprint, Leap, Maneuver" - so a screen-reader user loses
+ * nothing at all and gains the 150px a sighted user gains.
+ *
+ * ERGONOMICS. Six chips at `flex: '1 1 46px'` with 4px between them is the
+ * tightest target spacing on this screen, and I am not going to pretend it is
+ * comfortable. Three things make it acceptable: it is exactly the arrangement
+ * and exactly the gap the shipped pinned strip already used, so it is not a new
+ * risk; a mis-tap arms a neighbouring trait, which is visible instantly - the
+ * chip fills with `--hope` - and costs one tap to undo; and it spends nothing.
+ * No Hope, no log line, no roll. Every costly mis-tap on this screen (ROLL,
+ * RECALL, USE, the damage commit) has either a much bigger target or a second
+ * tap. Content is about 341.6px against a 369px column at 393px and 351px at
+ * 375px - "AGI +1" is 45.6px at `.chip`'s 9.5px mono with its tracking and 4px
+ * of padding either side, six of those plus the 44px control plus six 4px gaps
+ * - and the row carries `flexWrap: 'wrap'`, so an unforeseen width degrades to
+ * a second 44px row rather than to clipped text.
+ *
+ * The space in "AGI +1" is load-bearing: `playSheet.test.tsx`'s `traitChip`
+ * helper matches `^AGI [+−]`, and seven tests would change to save five pixels.
+ */
+function TraitRow({
+  stats,
+  trait,
+  onPick,
+  characterId,
+}: {
+  stats: DerivedStats;
+  trait: RollTrait;
+  /** Named for what it is, not for what it sets: the route, not the setter. */
+  onPick: (t: RollTrait) => void;
+  /** Whose arrangement the verbs control is remembered against. */
+  characterId: string | null;
+}): React.JSX.Element | null {
+  const character = useActive();
+  const rules = useApp((s) => s.dataset.rules);
+  // Parsed once per dataset, not once per render: the rules body is 4KB of
+  // prose and there are six chips reading the same answer out of it.
+  const verbs = useMemo(() => traitVerbs(rules), [rules]);
+  const [showVerbs, toggleVerbs] = usePlaySection(characterId, 'traitverbs');
+  if (!character) return null;
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 6 }}>
+      <div className="row" style={{ flex: 'none', gap: 4, flexWrap: 'wrap' }}>
+        {TRAITS.map((t: Trait) => {
+          // stats.traits, not the character's own: a Beastform raises one of
+          // these, and a chip that disagreed with the roll would be a lie.
+          const value = stats.traits[t];
+          const active = trait === t;
+          const marked = (character.traitMarks[t] ?? 0) > 0;
+          const raised = stats.beastform?.raised.some((r) => r.trait === t) === true;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onPick(t)}
+              aria-pressed={active}
+              /*
+               * The verbs are in the name whether or not they are on the glass.
+               * A chip reading "AGI +1" is announced as "A G I plus one", which
+               * tells a listening user nothing about what Agility is for - and
+               * that is precisely the gap the printed sheet fills with these
+               * three words.
+               */
+              aria-label={
+                verbs[t] === undefined
+                  ? undefined
+                  : `${TRAIT_LABELS[t]} ${value >= 0 ? '+' : '−'}${String(Math.abs(value))} - use it to ${verbs[t].join(', ')}`
+              }
+              className="chip"
+              style={{
+                position: 'relative',
+                flex: '1 1 46px',
+                minHeight: 'var(--tap)',
+                justifyContent: 'center',
+                padding: '0 4px',
+                background: active ? 'var(--hope)' : 'var(--raised)',
+                color: active ? 'var(--app)' : 'var(--muted)',
+                // Carried over from the tile: sage for a trait a Beastform
+                // raised, a washed --hope for the Spellcast trait, which is not
+                // one of the six and has nowhere else to be named.
+                borderBottom: `2px solid ${
+                  raised
+                    ? 'var(--sage)'
+                    : stats.spellcastTrait === t
+                      ? 'color-mix(in srgb, var(--hope) 30%, transparent)'
+                      : 'transparent'
+                }`,
+              }}
+            >
+              {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {value >= 0 ? '+' : '−'}
+              {Math.abs(value)}
+              {marked && (
+                <span
+                  aria-label="marked this tier"
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    background: active ? 'var(--app)' : 'var(--muted)',
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+        {/*
+         * The verbs control. Square at the touch floor in both directions, and
+         * `aria-expanded` because that is what it is - but deliberately not a
+         * `Disclosure`, which is a full-width header by contract and would cost
+         * the 44px row this whole component exists to save.
+         */}
+        <button
+          type="button"
+          aria-expanded={showVerbs}
+          aria-label="What each trait is for"
+          onClick={toggleVerbs}
+          className="row"
+          style={{
+            flex: 'none',
+            width: 44,
+            minWidth: 44,
+            minHeight: 'var(--tap)',
+            justifyContent: 'center',
+            borderRadius: 'var(--r3)',
+            background: 'var(--raised)',
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 8,
+              height: 8,
+              background: 'var(--muted)',
+              clipPath: showVerbs
+                ? 'polygon(0 25%,100% 25%,50% 100%)'
+                : 'polygon(25% 0,100% 50%,25% 100%)',
+            }}
+          />
+        </button>
+      </div>
+      {showVerbs && (
+        <div className="stack" style={{ flex: 'none', gap: 5, padding: '2px 2px 0' }}>
+          {TRAITS.map((t: Trait) =>
+            verbs[t] === undefined ? null : (
+              <div key={t} className="row" style={{ gap: 8 }}>
+                <span className="t-meta" style={{ flex: 'none', width: 74, color: 'var(--text-2)' }}>
+                  {TRAIT_LABELS[t].toUpperCase()}
+                </span>
+                <span className="t-meta" style={{ flex: 1, minWidth: 0, color: 'var(--dim)' }}>
+                  {verbs[t].join(' · ').toUpperCase()}
+                </span>
+              </div>
+            ),
+          )}
+          <div className="t-meta" style={{ color: 'var(--muted)', letterSpacing: '0.04em' }}>
+            TAP A TRAIT TO ARM THE ROLL
+            {stats.spellcastTrait !== null &&
+              ` · ${TRAIT_LABELS[stats.spellcastTrait].toUpperCase()} IS SPELLCAST`}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The traits as six tiles, which is now the cockpit's shape and only its shape.
+ *
+ * The phone runs `TraitRow` instead: at 1180px and up the first column has
+ * 300-336px and no tab bar under it, so 210px of tiles with their verbs printed
+ * is a fair price for a surface a mouse hits accurately. At 393px it was a
+ * quarter of the glass.
+ */
 function TraitGrid({
   stats,
   trait,
@@ -1860,47 +2081,55 @@ function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JS
 }
 
 /**
- * The phone screen: the whole character sheet, in the sheet's own order.
+ * The phone screen: the whole character sheet, in one column, in Giorgio's
+ * order, with nothing pinned.
  *
- * It used to render nine things and leave four out. Identity, the trait grid,
- * the defences and the vault were defined in this file and called only from
- * `PlayDesktop`, so on the width the README says is used ninety per cent of the
- * time the app did not show Evasion, the damage thresholds - except as 10px
- * `--dim` text beside a damage input - Proficiency, the class, the subclass,
- * the ancestry, the community, the vault, or the gold. Nothing was broken.
- * Four sections of the character sheet were simply absent.
+ * THE ORDER, AND WHOSE IT IS. "Metterei le stat in alto, i counter Hope,
+ * armour (e threshold bene in vista) stress e hp, sotto armi e armature e
+ * ultime le carte." Identity, the four defence numbers, the four counters, the
+ * traits, ROLL, and then the folds: weapons and armour, what you are carrying,
+ * the cards, the rest, and last the lineage. Measured on the owner's phone at
+ * 393x852 the shipped build put the identity block, RENAME, the defence band,
+ * six trait tiles with their verbs and the pinned roll block above the fold -
+ * and HP, Stress, Hope and Armor, the four counters the message puts second,
+ * were not on the screen at all. The order that was asked for was never
+ * delivered on a phone.
  *
- * The order below is the printed sheet's, reflowed to one column: identity,
- * the defence band, the traits with their verbs, the counters, weapons and
- * armour, the cards, what you are carrying, gold, conditions, lineage. Read
- * top to bottom it is the same document the player has in front of them on
- * paper, which is the only ordering nobody has to learn.
+ * NOTHING IS PINNED, AND THE ARITHMETIC IS THE WHOLE WARRANT FOR THAT. P5-1
+ * decided the block stays because "a control you have to scroll to find is a
+ * control that stops being used", and that reasoning is sound and its
+ * conclusion is now reversed, because its premise moved. Against declared
+ * heights at 393x852: Identity 91, the defence band 58, the four counters and
+ * the damage box 244, the trait row 44, and the roll surface 216 - the
+ * modifier header at 44, two Experience rows at 94 and ROLL at 66, with 6
+ * between them - plus four of this column's 8px gaps. ROLL's lower edge lands
+ * at 685 of a usable 730 (852 less the header's 52+1, the tab bar's 60+1 and
+ * this root's own 8px foot). It is above the fold with 45px to spare, and it
+ * is 105px clear of the tab bar instead of the 8px it used to sit above a
+ * 98x60 target that leaves the screen mid-turn.
  *
- * Two things are not in that order, and both are ergonomic rather than
- * editorial.
+ * WHAT THIS DOES NOT DO YET, SAID PLAINLY RATHER THAN ROUNDED DOWN. At
+ * 375x667 the usable column is 545 and ROLL's lower edge is still 685, so on
+ * the small phone ROLL is 140px below the fold and has to be scrolled to. The
+ * two things standing between it and the fold are both above it and both
+ * belong to the next step: the permanent MODIFIERS row, which decision 6
+ * deletes in favour of a control on the roll bar (-50), and the Experience
+ * chips, which Giorgio's order puts in a fold below ROLL (-100). The whole
+ * folded sheet is 1087 against 730 here, which is not "tutta la scheda in una
+ * volta sola" either. `playSheet.test.tsx` carries both numbers as
+ * assertions rather than as prose, so neither can quietly stop being true.
  *
- *   - A worn Beastform leads. It changes what every number under it means, and
- *     a state banner nobody scrolls to is a state banner nobody reads. It
- *     draws nothing the rest of the time.
- *   - The roll block is pinned to the bottom, outside the scroll: the trait
- *     chips and ROLL, plus the death move when it is offered. Those are
- *     touched on every single action, and a control you have to go looking for
- *     is a control that stops being used.
+ * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
+ * EDITORIAL. The death move leads the column, because when you have fallen it
+ * is the only thing that matters; it draws nothing the rest of the time. A
+ * worn Beastform follows it, because it changes what every number under it
+ * means - and a class with the Beastform feature draws a 44px HUMAN FORM chip
+ * there even untransformed, which is 52px of this budget that every Druid
+ * pays and nobody else does.
  *
- * Everything else scrolls, and five sections fold. A closed section costs one
- * 44px row, which is what makes "the whole sheet at once" fit at all: the
- * stack measures about 1290px fully open on a 393px phone against a scroll
- * window of 457, and about 900 with the vault, the carried items and the
- * lineage folded away.
- *
- * The fifth fold is the rest surface, added after those numbers were taken. It
- * costs 54px closed - a 44px header plus this column's 10px gap - and nothing
- * at all from the pinned block, which is still 266px with two Experiences and
- * 316 with five, so the folded stack goes to about 954 and the scroll window
- * stays 457. Opened onto a long rest it adds about 1,240 more, taking the
- * fully open stack to roughly 2,530. The scroll got longer; nothing else
- * moved, which is the whole reason it is here and not in the block under the
- * thumb.
+ * The conditions strip stays low, where it already was: it is set once a
+ * scene, not once a turn, and putting it above ROLL would spend 52px of the
+ * 45 this arrangement has left.
  */
 function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
   const character = useActive();
@@ -1917,180 +2146,161 @@ function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.
 
   return (
     /*
-     * The outer column scrolls only as a last resort.
+     * One column, and it is the only thing on this screen that scrolls.
      *
-     * Pinning the roll block is right until it does not fit, and a floor stops
-     * the scrolling region absorbing every shortfall the way the loadout used
-     * to. Two rows of something is the least that can be called a region
-     * rather than a slot; below that the page itself takes up the slack. On
-     * both reference phones the outer scroller never engages: the roll block
-     * is 266px with two Experiences and 316px with five, against 731px at
-     * 393x852 and 546px at 375x667.
+     * There is no outer scroller and no inner one any more, because there is
+     * nothing pinned for them to be arranged around - and with them went the
+     * 88px floor that existed only to stop a fixed block starving the scroll.
+     * `overflowY` is declared inline as well as by `.scroll`, because that is
+     * the one property a test can read back: jsdom applies no stylesheet.
      */
     <div
-      className="stack"
-      style={{ flex: 1, minHeight: 0, padding: '0 12px 8px', gap: 8, overflowY: 'auto' }}
+      className="stack scroll scroll-fade"
+      style={{
+        flex: 1,
+        minHeight: 0,
+        padding: '0 12px 8px',
+        gap: 8,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+      }}
     >
-      <div
-        className="stack scroll scroll-fade"
-        style={{ flex: '1 1 auto', minHeight: 88, gap: 10, overflowX: 'hidden' }}
-      >
-        {/* A worn Beastform changes what every number under it means, so it
-            leads: a state banner nobody scrolls to is a state banner nobody
-            reads. It renders nothing when no form is worn. */}
-        <Beastform stats={stats} layout="phone" />
+      {/* When you have fallen this is the only thing that matters, so it leads
+          the column. It renders nothing the rest of the time. */}
+      <DeathMoveOffer />
 
-        <Identity showLineage={false} />
+      {/* A worn Beastform changes what every number under it means, so it
+          comes before them. It renders nothing for a class without one. */}
+      <Beastform stats={stats} layout="phone" />
 
-        {/* Read under pressure, so it is four numbers and not a footnote. */}
-        <Defenses stats={stats} />
+      <Identity showLineage={false} />
 
-        <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
+      {/* Read under pressure, so it is four numbers and not a footnote - and
+          second, because "threshold bene in vista" is the one instruction in
+          Giorgio's message with a reason attached to it. */}
+      <Defenses stats={stats} />
 
-        {/* The four counters, and under them the incoming-damage calculator -
-            which is a question rather than a state ("someone hit you for 14,
-            how many HP is that") and whose answer lands on the two tracks
-            directly above it. */}
-        <Vitals stats={stats} layout="phone" showState={false} />
+      {/* The four counters, and under them the incoming-damage calculator -
+          which is a question rather than a state ("someone hit you for 14,
+          how many HP is that") and whose answer lands on the two tracks
+          directly above it. `bare`, because a box drawn around four
+          silhouettes costs 18px and distinguishes nothing. */}
+      <Vitals stats={stats} layout="phone" showState={false} bare />
 
-        <Disclosure
-          id="equipped"
-          characterId={character.id}
-          label="Weapons & armour"
-          /*
-           * What is armed rides on the closed header, the way the modifier
-           * row's does. A declaration you cannot see is not a declaration, and
-           * this fold can be shut with a sword armed - after which the only
-           * thing on screen saying which weapon the damage offer belongs to
-           * would be behind a tap.
-           */
-          summary={
-            arming.source !== null
-              ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
-              : equippedCount === 0
-                ? 'NOTHING'
-                : `${equippedCount} WORN`
-          }
-          defaultOpen
-        >
-          <Equipped stats={stats} arming={arming} bare />
-        </Disclosure>
-
-        {/*
-         * The cards.
-         *
-         * They are the answer to "what can I do", which is the question a
-         * player asks on every turn of their own, so the loadout opens by
-         * default.
-         */}
-        <Disclosure
-          id="loadout"
-          characterId={character.id}
-          label="Loadout"
-          // The gate counts every ref, readable or not, so this does too: a
-          // header saying 3 / 5 over a recall that refuses with "Loadout is
-          // full (5)" is the screen contradicting itself.
-          summary={`${loadout.length + ghostLoadout.length} / 5`}
-          defaultOpen
-        >
-          <div className="stack" style={{ flex: 'none', gap: 4 }}>
-            <LoadoutRows />
-          </div>
-        </Disclosure>
-
-        {/*
-         * The vault is a second fold rather than part of the first.
-         *
-         * A level 8 character owns about a dozen cards and carries five, so
-         * folding the two together would mean opening twelve rows to look at
-         * the five you are holding - which is the opposite of what the fold is
-         * for. Closed by default for the same reason: recalling is a downtime
-         * decision most of the time, and the loadout is a turn-by-turn one.
-         */}
-        <Disclosure
-          id="vault"
-          characterId={character.id}
-          label="Vault"
-          summary={`${vault.length + ghostVault.length} INACTIVE`}
-        >
-          <Vault layout="rows" />
-        </Disclosure>
-
-        {/*
-         * A rest is between-scenes work, so it sits below everything the game
-         * makes you touch during a scene - the counters, the weapons, the
-         * cards - and above the two sections read once a session. Directly
-         * under the vault, because the free swap it offers is the vault's own
-         * operation at the other price.
-         */}
-        <Rest stats={stats} rng={cryptoRng} />
-
-        <Disclosure
-          id="carried"
-          characterId={character.id}
-          label="Carried"
-          summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'}`}
-        >
-          <Items bare />
-        </Disclosure>
-
-        <GoldRow />
-
-        {/* Conditions are set once a scene rather than once a turn. */}
-        <ActiveConditions />
-
-        <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
-          <Lineage stats={stats} />
-        </Disclosure>
-      </div>
+      <TraitRow
+        stats={stats}
+        trait={trait}
+        onPick={chooseTrait}
+        characterId={character.id}
+      />
 
       {/*
-       * The roll block. Out of the scroll on purpose - it is the one thing
-       * touched on every single action, and a control you have to go looking
-       * for is a control you stop using. It also holds everything the rules
-       * make you declare before the dice, in that order.
+       * ROLL, in the flow, at the end of everything the rules make you declare
+       * before the dice. It is 250px from the bottom bezel and 105px clear of
+       * the tab bar, which is inside a 95th-percentile right-thumb sweep from
+       * the bottom-right pivot on a 393px phone; pinned, it was 8px above a
+       * 98x60 control that navigates away.
        */}
-      <div className="stack" style={{ flex: 'none', gap: 6 }}>
-        {/* When you have fallen, this is the only thing that matters, so it
-            goes above everything else and outside the scroll. It renders
-            nothing the rest of the time. */}
-        <DeathMoveOffer />
+      <DualityRoll
+        stats={stats}
+        trait={trait}
+        onTraitChange={chooseTrait}
+        source={arming.source}
+        layout="phone"
+      />
 
-        <div
-          className="row"
-          style={{ gap: 4, overflowX: 'auto', flex: 'none', scrollbarWidth: 'none' }}
-        >
-          {TRAITS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => chooseTrait(t)}
-              className="chip"
-              aria-pressed={trait === t}
-              style={{
-                minHeight: 'var(--tap)',
-                flex: '1 0 auto',
-                background: trait === t ? 'var(--hope)' : 'var(--raised)',
-                color: trait === t ? 'var(--app)' : 'var(--muted)',
-                borderBottom:
-                  stats.beastform?.raised.some((r) => r.trait === t) === true
-                    ? '2px solid var(--sage)'
-                    : '2px solid transparent',
-              }}
-            >
-              {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {stats.traits[t] >= 0 ? '+' : '−'}
-              {Math.abs(stats.traits[t])}
-            </button>
-          ))}
+      <Disclosure
+        id="equipped"
+        characterId={character.id}
+        label="Weapons & armour"
+        /*
+         * What is armed rides on the closed header, the way the modifier
+         * row's does. A declaration you cannot see is not a declaration, and
+         * this fold can be shut with a sword armed - after which the only
+         * thing on screen saying which weapon the damage offer belongs to
+         * would be behind a tap.
+         */
+        summary={
+          arming.source !== null
+            ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
+            : equippedCount === 0
+              ? 'NOTHING'
+              : `${equippedCount} WORN`
+        }
+        defaultOpen
+      >
+        <Equipped stats={stats} arming={arming} bare />
+      </Disclosure>
+
+      {/* "Sotto armi e armature e ultime le carte": the inventory comes
+          between the weapons and the cards, which is also the printed
+          sheet's order. */}
+      <Disclosure
+        id="carried"
+        characterId={character.id}
+        label="Carried"
+        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'}`}
+      >
+        <Items bare />
+      </Disclosure>
+
+      <GoldRow />
+
+      {/*
+       * The cards.
+       *
+       * They are the answer to "what can I do", which is the question a
+       * player asks on every turn of their own, so the loadout opens by
+       * default. It is below ROLL now, so that default costs the reach
+       * arithmetic above nothing at all.
+       */}
+      <Disclosure
+        id="loadout"
+        characterId={character.id}
+        label="Loadout"
+        // The gate counts every ref, readable or not, so this does too: a
+        // header saying 3 / 5 over a recall that refuses with "Loadout is
+        // full (5)" is the screen contradicting itself.
+        summary={`${loadout.length + ghostLoadout.length} / 5`}
+        defaultOpen
+      >
+        <div className="stack" style={{ flex: 'none', gap: 4 }}>
+          <LoadoutRows />
         </div>
-        <DualityRoll
-          stats={stats}
-          trait={trait}
-          onTraitChange={chooseTrait}
-          source={arming.source}
-          layout="phone"
-        />
-      </div>
+      </Disclosure>
+
+      {/*
+       * The vault is a second fold rather than part of the first.
+       *
+       * A level 8 character owns about a dozen cards and carries five, so
+       * folding the two together would mean opening twelve rows to look at
+       * the five you are holding - which is the opposite of what the fold is
+       * for. Closed by default for the same reason: recalling is a downtime
+       * decision most of the time, and the loadout is a turn-by-turn one.
+       */}
+      <Disclosure
+        id="vault"
+        characterId={character.id}
+        label="Vault"
+        summary={`${vault.length + ghostVault.length} INACTIVE`}
+      >
+        <Vault layout="rows" />
+      </Disclosure>
+
+      {/*
+       * A rest is between-scenes work, so it sits below everything the game
+       * makes you touch during a scene and above the two sections read once a
+       * session. Directly under the vault, because the free swap it offers is
+       * the vault's own operation at the other price.
+       */}
+      <Rest stats={stats} rng={cryptoRng} />
+
+      {/* Conditions are set once a scene rather than once a turn. */}
+      <ActiveConditions />
+
+      <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
+        <Lineage stats={stats} />
+      </Disclosure>
     </div>
   );
 }

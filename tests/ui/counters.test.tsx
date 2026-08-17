@@ -264,6 +264,18 @@ const pipGroups = (): number => container.querySelectorAll('[role="group"]').len
 const stepperCount = (): number =>
   buttons().filter((b) => (b.getAttribute('aria-label') ?? '').endsWith('plus one')).length;
 
+/*
+ * The three phone mounts below used to pass `part: 'tracks'` and now pass
+ * `bare: true`, and that swap is deliberately the only edit in this file.
+ *
+ * `part` split this component in two so the phone could pin the tracks and
+ * leave the calculator in the scroll; nothing on Play is pinned any more, so
+ * the prop is gone and these mounts draw the calculator's row as well - which
+ * changes neither the stepper count nor the pip-group count either of them
+ * asserts. Everything else here - the HP/STRESS/HOPE/ARMOR order, numbers
+ * versus pips, the desktop keeping its pips, the Settings row - is untouched,
+ * and that is the evidence P5-5 moved the counters rather than rebuilding them.
+ */
 describe('where the numbers are allowed to be', () => {
   it('is the default, so a new install gets them', () => {
     expect(DEFAULT_PREFS.counterStyle).toBe('numbers');
@@ -276,7 +288,7 @@ describe('where the numbers are allowed to be', () => {
         stats: playedStats(),
         layout: 'phone',
         showState: false,
-        part: 'tracks',
+        bare: true,
       }),
     );
     expect(stepperCount(), 'four counters, four plus buttons').toBe(4);
@@ -290,7 +302,7 @@ describe('where the numbers are allowed to be', () => {
         stats: playedStats(),
         layout: 'phone',
         showState: false,
-        part: 'tracks',
+        bare: true,
       }),
     );
     expect(stepperCount()).toBe(0);
@@ -337,7 +349,7 @@ describe('where the numbers are allowed to be', () => {
         stats: playedStats(),
         layout: 'phone',
         showState: false,
-        part: 'tracks',
+        bare: true,
       }),
     );
     const order = buttons()
