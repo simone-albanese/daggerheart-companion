@@ -711,6 +711,40 @@ describe('the trait row and the roll surface', () => {
    * whatever ROLL draws it draws, and its own floor is asserted with it so the
    * pair cannot drift apart.
    */
+  /*
+   * THE BAND'S 8px, AND THE HALF OF IT THAT IS A GATE RATHER THAN A NUMBER.
+   *
+   * The four readout cells went from `8px 6px` to `4px 6px`, which is the band
+   * at 56 instead of 64 - ink 52, two real pixels of margin either side, and
+   * the fifth cell's two 44px controls still riding inside it with 6px of
+   * clearance where they had 10. That much `the terms this budget can read, it
+   * reads` asserts on the phone.
+   *
+   * This is the other half: the cockpit's band did NOT move. It is a different
+   * budget - `Vitals` gave 70px back to `DualityRoll` in that column - it is
+   * read with a mouse at a desk rather than across a table, and the owner's
+   * complaint was about a phone. A `tight` prop rather than a layout read, for
+   * the same reason `damage` and `conditions` are props: this component has no
+   * business asking how wide the window is.
+   */
+  it('takes the 8px off the phone band only, and leaves the cockpit at 64', () => {
+    setViewport(1280);
+    play(seed());
+    const cells = [...container.querySelectorAll<HTMLElement>('.panel')].filter((el) =>
+      /^(EVASION|MAJOR|SEVERE|PROF)/.test((el.textContent ?? '').trim()),
+    );
+    expect(cells, 'the cockpit no longer draws the four-cell defence band').toHaveLength(4);
+    for (const cell of cells) {
+      expect(
+        cell.style.padding,
+        `the cockpit's ${(cell.textContent ?? '?').slice(0, 7)} cell followed the phone down ` +
+          'to 56. The phone is the column that was half empty; this one has 70px of slack in ' +
+          'it and is read with a mouse.',
+      ).toBe('8px 6px');
+    }
+    setViewport(393);
+  });
+
   it('gives ROLL a floor of 56 and not a ceiling, in the column and above every fold', () => {
     play(seed());
     expect(
@@ -885,7 +919,11 @@ describe('the budget the pin came off for', () => {
      * class, the subclass, the pronouns and the level, one fold away` asserts
      * that half, so the saving cannot quietly become a deletion.
      */
-    { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
+    // 4 and not 8 since the reflow, and it is the second of the three savings
+    // that do not touch a target: ink 52 inside 56, two real pixels of margin
+    // above the caption and two below the number. `Defenses`'s own docblock
+    // carries why it stops at 56 rather than going to 52.
+    { what: 'the defence band · .panel padding 4 top and bottom', px: 8, from: 'dom' },
     { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
     { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
     // 32 since decision 4, and it is the only term of the band that moved: the
@@ -961,7 +999,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 296').toBe(296);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 288').toBe(288);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -970,7 +1008,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(434);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(442);
   });
 
   /*
@@ -992,7 +1030,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(249);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(257);
   });
 
   /*
@@ -1016,7 +1054,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(608);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(600);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1027,12 +1065,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(122);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(130);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(63);
+    ).toBe(55);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -1048,7 +1086,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(464);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(472);
   });
 
   /*
@@ -1079,7 +1117,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([293, 349]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([285, 341]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1091,11 +1129,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([503, 559]);
+    ).toEqual([511, 567]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([318, 374]);
+    ).toEqual([326, 382]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -1105,7 +1143,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(442);
+    ).toBe(450);
   });
 
   /*
@@ -1219,7 +1257,12 @@ describe('the budget the pin came off for', () => {
      * cell at 360 instead of wrapping them. The vertical 8 is what this table
      * reads.
      */
-    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 6px');
+    expect(
+      cell.style.padding,
+      'the defence cell padding moved. The vertical 4 is 8px of column - the band goes 64 to ' +
+        '56 - and the horizontal 6 is the term of the WIDTH budget that stands the door and ' +
+        'the field side by side at 360 instead of wrapping them.',
+    ).toBe('4px 6px');
     expect(cell.style.gap).toBe('4px');
 
     /*
@@ -1538,7 +1581,7 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBeUndefined();
   });
 
-  it('puts the permanent door inside the defence band, in a cell already 58px tall', () => {
+  it('puts the permanent door inside the defence band, in a cell already 56px tall', () => {
     play(seed());
     const door = control();
     expect(
