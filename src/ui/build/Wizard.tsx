@@ -96,6 +96,112 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
   return pool;
 }
 
+// ---------------------------------------------------------------------------
+// Choosing from prose
+// ---------------------------------------------------------------------------
+
+/**
+ * A `Choice` with the SRD's own description of the thing under it, on request.
+ *
+ * The class, the ancestry and the community are the three decisions in this
+ * wizard whose only evidence is a paragraph. They used to hand that paragraph
+ * to `Choice`'s `body` under a `clamp` - three lines for the class, *two* for
+ * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box, so
+ * 48px of window for the class and 32px for the other two. Measured in Chrome
+ * at 375x667 before the change: 95-158px hidden on each of the nine class
+ * cards, 111-285 on each of the eighteen ancestries, 158-253 on each of the
+ * nine communities. The two longer lists were under the tighter clamp.
+ *
+ * A fourth surface had no words at all. The Mixed Ancestry grids pass no
+ * `body`, so switching the Segmented control from "One ancestry" to "Mixed
+ * Ancestry" replaced two clipped lines with none - the same person, the same
+ * step, one tap apart. Both mixed columns take this reader too, which is why
+ * the same lineage's description is reachable from either of them: each card
+ * is its own decision and each decision carries its own evidence.
+ *
+ * The clamp was not sloppy and this is worth saying plainly, because it decides
+ * the shape of the fix. `clamp` is an opt-in prop, `-webkit-line-clamp` draws
+ * its own ellipsis so the truncation is signposted where it happens, and the
+ * facts a class is *compared* on - Evasion, Hit Points, domains - are in `meta`
+ * above the clamp and were never inside it. So this is an addition, not a
+ * repair: the three lines were the right three lines, and what was missing was
+ * any way at all to read the rest without choosing first.
+ *
+ * The reader is a `Fold` and not a bigger clamp, a `title` or an overlay:
+ *
+ *   - a bigger clamp is the same defect with a different number, and no number
+ *     fits thirty-six descriptions that run 509-1243 characters;
+ *   - it cannot go *inside* the `Choice`, whose root is a `<button>`
+ *     (parts.tsx) - a button inside a button is invalid HTML and this repo has
+ *     already been bitten by it twice, recorded at parts.tsx and
+ *     DomainCardView.tsx;
+ *   - `Disclosure` is the wrong disclosure: it keys its open state into
+ *     `prefs.playSections`, which Fold.tsx's own docblock defines as the Play
+ *     screen's per-character folds and then spends eight lines forbidding a
+ *     screen with no character from writing `'none:'` keys into it. Creation
+ *     has no character. `Fold` was extracted for exactly this.
+ *
+ * Two targets, and a tap on either is unambiguous. The `Choice` is the
+ * decision - `aria-pressed`, a filled `Mark` at its right edge, 369x52.8 on a
+ * 393px phone and floored at `var(--tap)` by its own `minHeight`. The `Fold`
+ * header is the reading target - `aria-expanded`, a rotated triangle, 369x44
+ * exactly, the full width of the column. They are siblings separated by 6px, so
+ * neither contains the other and a thumb landing in the gap does nothing rather
+ * than doing the wrong one of the two. Reading a class does not select it.
+ *
+ * The reader is the *last* thing in the closed card, so opening it moves
+ * nothing above it and nothing beside it - `Columns` sets `alignItems: 'start'`
+ * so on a multi-column layout only that one grid cell grows. StepExperiences
+ * wrote the rule this follows: a screen may grow underneath a hand, never
+ * beneath it.
+ *
+ * What the shut card costs, measured at 393x852, one column: 104.8px, against
+ * 108.38 for a three-line clamp and 92.52 for a two-line one. So the class step
+ * came out 33px SHORTER (1497 -> 1464 of scroll) and the two two-line steps
+ * came out longer - ancestry 2179 -> 2401 (+222 over eighteen cards), community
+ * 1164 -> 1275 (+111 over nine). The Mixed Ancestry branch pays most, because
+ * it had no prose at all to replace: 2603 -> 4403, +1800 over thirty-six cards,
+ * against a 596px window. That is the price of the fourth surface not being
+ * blank, and it is a scroll rather than a hidden paragraph.
+ *
+ * `summary` carries the page the words came from when the dataset knows it,
+ * which is the stamp `StepExperiences` and the GM reference already use: in an
+ * app whose whole discipline is quoting the SRD rather than paraphrasing it,
+ * "whose words are these" is part of what the fold promises.
+ */
+function ChoiceWithReader({
+  name,
+  description,
+  page,
+  children,
+}: {
+  name: string;
+  description: string;
+  /** `sourcePage` is optional on every SRD record, so the stamp is too. */
+  page?: number;
+  /** The `Choice` itself. Drawn first; the reader is drawn under it. */
+  children: React.ReactNode;
+}): React.JSX.Element {
+  // An imported dataset may carry a record with no description at all, and an
+  // empty reader is a promise of text that is not there. `Choice` guards its
+  // own `body` the same way.
+  if (description === '') return <>{children}</>;
+
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {children}
+      <Fold
+        label={`About ${name}`}
+        summary={`SRD 1.0${page === undefined ? '' : ` · P.${String(page)}`}`}
+      >
+        <p className="t-read" style={{ margin: 0, padding: '0 2px', whiteSpace: 'pre-line' }}>
+          {description}
+        </p>
+      </Fold>
+    </div>
+  );
+}
+
 export function Wizard({
   onCancel,
   onCreated,
@@ -558,9 +664,31 @@ function WizardHeader({
                     : `${i + 1}. ${s.title}`
                 }
                 className="row"
+                /*
+                 * `var(--control)`, not the 34 that used to be written here.
+                 *
+                 * This rail is only drawn from 720px up - below that the phone
+                 * header above returns instead - and `--control` is
+                 * `var(--tap)`, 44, on every viewport under 1180 and on every
+                 * coarse pointer at any width. So a literal 34 was 10px under
+                 * the touch floor across the whole band this rail exists in:
+                 * measured at 744x1133, steps 1-9 drew 43.61x34 and steps
+                 * 10-12 50.2x34, with computed min-height 0. It passed only at
+                 * 1180+ with a mouse, where --control is 34 anyway.
+                 *
+                 * `minWidth` closes the other 0.39px: 11 + 11 padding + 2
+                 * border + 7 gap + a 6px dot + 6.6px per mono digit is 43.61
+                 * for a one-digit step, which is under 44 by a rounding error
+                 * and under it all the same. Twelve buttons and eleven 4px
+                 * gaps then measure ~570px against the 704px of content width
+                 * a 744px tablet has, so the row still does not wrap and the
+                 * whole cost of this is one band 10px taller.
+                 */
                 style={{
                   gap: 7,
-                  height: 34,
+                  justifyContent: 'center',
+                  height: 'var(--control)',
+                  minWidth: 'var(--control)',
                   padding: '0 11px',
                   borderRadius: 'var(--r2)',
                   background: here ? 'var(--raised)' : 'transparent',
@@ -635,31 +763,35 @@ function StepClass({
         ) : (
           <Columns min={280}>
             {dataset.classes.map((c) => (
-              <Choice
+              <ChoiceWithReader
                 key={c.id}
-                selected={draft.classRef === c.id}
-                onClick={() =>
-                  set({
-                    classRef: c.id,
-                    // Everything downstream of the class stops being valid.
-                    subclassRef: null,
-                    cards: [],
-                    background: [],
-                    connections: [],
-                    classItem: 0,
-                  })
-                }
-                title={c.name}
-                meta={`EVASION ${c.startingEvasion} · ${c.startingHitPoints} HP · ${c.domains.join(' + ').toUpperCase()}`}
-                body={c.description}
-                clamp={3}
-                lead={
-                  <span className="row" style={{ gap: 3, flex: 'none', marginTop: 2 }}>
-                    <DomainMark domain={c.domains[0]} size={13} shapes={shapes} />
-                    <DomainMark domain={c.domains[1]} size={13} shapes={shapes} />
-                  </span>
-                }
-              />
+                name={c.name}
+                description={c.description}
+                page={c.sourcePage}
+              >
+                <Choice
+                  selected={draft.classRef === c.id}
+                  onClick={() =>
+                    set({
+                      classRef: c.id,
+                      // Everything downstream of the class stops being valid.
+                      subclassRef: null,
+                      cards: [],
+                      background: [],
+                      connections: [],
+                      classItem: 0,
+                    })
+                  }
+                  title={c.name}
+                  meta={`EVASION ${c.startingEvasion} · ${c.startingHitPoints} HP · ${c.domains.join(' + ').toUpperCase()}`}
+                  lead={
+                    <span className="row" style={{ gap: 3, flex: 'none', marginTop: 2 }}>
+                      <DomainMark domain={c.domains[0]} size={13} shapes={shapes} />
+                      <DomainMark domain={c.domains[1]} size={13} shapes={shapes} />
+                    </span>
+                  }
+                />
+              </ChoiceWithReader>
             ))}
           </Columns>
         )}
@@ -789,15 +921,19 @@ function StepAncestry({
         {!draft.mixed ? (
           <Columns min={250}>
             {dataset.ancestries.map((a) => (
-              <Choice
+              <ChoiceWithReader
                 key={a.id}
-                selected={draft.ancestryTop === a.id}
-                onClick={() => set({ ancestryTop: a.id })}
-                title={a.name}
-                meta={`${a.features[0].name.toUpperCase()} · ${a.features[1].name.toUpperCase()}`}
-                body={a.description}
-                clamp={2}
-              />
+                name={a.name}
+                description={a.description}
+                page={a.sourcePage}
+              >
+                <Choice
+                  selected={draft.ancestryTop === a.id}
+                  onClick={() => set({ ancestryTop: a.id })}
+                  title={a.name}
+                  meta={`${a.features[0].name.toUpperCase()} · ${a.features[1].name.toUpperCase()}`}
+                />
+              </ChoiceWithReader>
             ))}
           </Columns>
         ) : (
@@ -807,15 +943,21 @@ function StepAncestry({
                 FIRST FEATURE FROM
               </span>
               {dataset.ancestries.map((a) => (
-                <Choice
+                <ChoiceWithReader
                   key={a.id}
-                  selected={draft.ancestryTop === a.id}
-                  disabled={draft.ancestryBottom === a.id}
-                  reason={draft.ancestryBottom === a.id ? 'Already your second lineage' : undefined}
-                  onClick={() => set({ ancestryTop: a.id })}
-                  title={a.name}
-                  meta={a.features[0].name.toUpperCase()}
-                />
+                  name={a.name}
+                  description={a.description}
+                  page={a.sourcePage}
+                >
+                  <Choice
+                    selected={draft.ancestryTop === a.id}
+                    disabled={draft.ancestryBottom === a.id}
+                    reason={draft.ancestryBottom === a.id ? 'Already your second lineage' : undefined}
+                    onClick={() => set({ ancestryTop: a.id })}
+                    title={a.name}
+                    meta={a.features[0].name.toUpperCase()}
+                  />
+                </ChoiceWithReader>
               ))}
             </div>
             <div className="stack" style={{ gap: 8 }}>
@@ -823,15 +965,21 @@ function StepAncestry({
                 SECOND FEATURE FROM
               </span>
               {dataset.ancestries.map((a) => (
-                <Choice
+                <ChoiceWithReader
                   key={a.id}
-                  selected={draft.ancestryBottom === a.id}
-                  disabled={draft.ancestryTop === a.id}
-                  reason={draft.ancestryTop === a.id ? 'Already your first lineage' : undefined}
-                  onClick={() => set({ ancestryBottom: a.id })}
-                  title={a.name}
-                  meta={a.features[1].name.toUpperCase()}
-                />
+                  name={a.name}
+                  description={a.description}
+                  page={a.sourcePage}
+                >
+                  <Choice
+                    selected={draft.ancestryBottom === a.id}
+                    disabled={draft.ancestryTop === a.id}
+                    reason={draft.ancestryTop === a.id ? 'Already your first lineage' : undefined}
+                    onClick={() => set({ ancestryBottom: a.id })}
+                    title={a.name}
+                    meta={a.features[1].name.toUpperCase()}
+                  />
+                </ChoiceWithReader>
               ))}
             </div>
           </Columns>
@@ -871,15 +1019,19 @@ function StepCommunity({
     <Section label="Community" hint={`${dataset.communities.length} to choose from`}>
       <Columns min={250}>
         {dataset.communities.map((c) => (
-          <Choice
+          <ChoiceWithReader
             key={c.id}
-            selected={draft.communityRef === c.id}
-            onClick={() => set({ communityRef: c.id })}
-            title={c.name}
-            meta={c.feature.name.toUpperCase()}
-            body={c.description}
-            clamp={2}
-          />
+            name={c.name}
+            description={c.description}
+            page={c.sourcePage}
+          >
+            <Choice
+              selected={draft.communityRef === c.id}
+              onClick={() => set({ communityRef: c.id })}
+              title={c.name}
+              meta={c.feature.name.toUpperCase()}
+            />
+          </ChoiceWithReader>
         ))}
       </Columns>
       {community && (

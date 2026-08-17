@@ -610,6 +610,42 @@ describe('the gate, on the screen it is wired to', () => {
   });
 });
 
+/**
+ * The rail's twelve steps, as targets rather than as a route.
+ *
+ * The docblock above the rail argues only about *reachability* - which steps it
+ * may jump to and why - and nothing above it ever argued about size, so a
+ * literal `height: 34` sat there from the first commit. The rail is drawn from
+ * 720px up, and `--control` is `var(--tap)` (44) below 1180 and on every coarse
+ * pointer, so that literal was 10px under the touch floor across the entire
+ * band the rail exists in. Measured at 744x1133 before the fix: steps 1-9 at
+ * 43.61x34, steps 10-12 at 50.2x34, computed min-height 0.
+ *
+ * Node has no layout engine, so what is checked here is the *declaration* - the
+ * token these buttons ask for - which is exactly the thing that was wrong. What
+ * the token then resolves to is `tokens.css`'s business and is asserted there.
+ */
+describe('the step rail as something a finger lands on', () => {
+  const opening = openingScreen();
+
+  it('asks for the control height rather than writing a number under the floor', () => {
+    const steps = rail(opening);
+    expect(steps).toHaveLength(STEPS.length);
+    for (const step of steps) {
+      expect(step.attrs).toContain('height:var(--control)');
+      expect(step.attrs).toContain('min-width:var(--control)');
+    }
+  });
+
+  it('declares no pixel height at all, so no viewport can be left under 44', () => {
+    // The failure this catches is the shape the defect had: a literal that is
+    // right for a mouse at 1180+ and wrong for every touch width below it.
+    for (const step of rail(opening)) {
+      expect(step.attrs).not.toMatch(/height:\d/);
+    }
+  });
+});
+
 describe('gear above tier 1', () => {
   it('is a warning, never a refusal — a table that hands out an heirloom is allowed', () => {
     const heirloom = makeDataset({
