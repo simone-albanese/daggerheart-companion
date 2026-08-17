@@ -2271,8 +2271,10 @@ P5-6; the pips entry is gone, because decision 7 deleted the mode; and the
 companion is 58. `WhoSwitch` is a 44px button inside `padding: 3` and a 1px
 border on each side — a 52px box — added to a `Vitals` panel whose phone `gap`
 is 6. +50 counted the box and not the space it lands in, which is exactly the
-error `ShellBanner.tsx` found in the banner's own 58. **`Play.tsx:2389` still
-says +50** and is another lane's file. The list is five.)*
+error `ShellBanner.tsx` found in the banner's own 58. ~~**`Play.tsx:2389` still
+says +50** and is another lane's file.~~ — **closed:** no lane owned `src/` by
+the end of the audit, and the docblock carries `~~+50~~ **+58**` with the
+derivation beside it. The list is five.)*
 
 **What the verifier pass found, and fixed.** Three defects a green suite had not
 seen, all of them a sentence in the source that the code did not do.
