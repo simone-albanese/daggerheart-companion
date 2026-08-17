@@ -21,7 +21,7 @@ the pass that finally made the whole folded sheet fit, and **2481 in 108 files**
 after the resolution audit's eleven lanes.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is **131 commits** behind `main` — `git rev-list --count
+`dd66d35`, which is **136 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short (it
 said twenty-six before the audit) — so
@@ -175,9 +175,11 @@ One session ran 19 lanes in parallel git worktrees and a later one ran five. Two
 things cost real time and will cost it again:
 
 - **A worktree is cut from `origin/main`, not from local `main`,** and nothing
-  is pushed, so it starts **172 commits stale** as of `HEAD` — it was ~75 when
+  is pushed, so it starts **136 commits stale** as of `HEAD` — it was ~75 when
   this warning was written, and the gap only grows until somebody
-  pushes. Six lanes in the first wave wrote
+  pushes. **Cut it from local `main` yourself**, which is what
+  `audit-harness/analysis/mkwt.sh` does, and what every lane of the resolution
+  audit did. Six lanes in the first wave wrote
   against a tree that had no `tests/harness/`, no `tests/ui/screens.test.tsx`
   and no `tests/store/migrations.test.ts`, and truthfully reported that the
   traps they were warned about "do not exist". Make the first two commands in
@@ -186,6 +188,13 @@ things cost real time and will cost it again:
       ln -s "<repo>/node_modules" node_modules      # node_modules is gitignored
       git merge --ff-only main
 
+- **An ignore rule with a trailing slash does not match a symlink**, and that
+  cost this project 321MB of bought PDFs in a near miss. `Manuali/` in
+  `.gitignore` does not match the `Manuali` *symlink* a worktree gets, so a lane
+  committed a mode-120000 blob for it, and merging that would have replaced the
+  real directory with a link to itself. Same trap for `node_modules`. Ignore
+  both **without** the slash, and read `git diff --name-only` before every merge.
+  Backup of the PDFs: `~/Documents/Manuali-BACKUP-audit`.
 - **`git stash` is repository-wide, not per-worktree.** `refs/stash` is shared.
   One lane stashed, another popped, and the second lane's tree was overwritten
   with the first lane's files. Both were recovered from the dangling stash
@@ -200,8 +209,9 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**175 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
-five lanes merged after it. Counted at `HEAD` with `git rev-list --count
+**276 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
+five lanes merged after it and the resolution audit's eleven. Counted at `HEAD`
+with `git rev-list --count
 --no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146
 that stood here at one point does not reconcile with any
 range this repo can produce, so it was replaced with a measurement and the

@@ -8,8 +8,9 @@ due si toccano.
 **Stato.** `main` è a `ae32323` più i commit di questo passaggio, che tocca
 soltanto i `.md`. **2481 test in 108 file, verdi**, `tsc --noEmit` pulito.
 `origin/main` è a `dd66d35`: `git rev-list --count origin/main..HEAD` dice
-**131** (116 senza i merge) contando i commit di questo file; **niente è
-pushato.** Il push fa partire un deploy vero su GitHub Pages.
+**136** (123 senza i merge) contando il commit che scrive questa riga — un
+handoff che si modifica sposta il proprio numero, quindi si conta dopo;
+**niente è pushato.** Il push fa partire un deploy vero su GitHub Pages.
 
 Le cifre della suite qui sopra non sono ricordate: vengono da `npx vitest run` e
 `npx tsc --noEmit` lanciati in questo worktree alla fine del passaggio di
