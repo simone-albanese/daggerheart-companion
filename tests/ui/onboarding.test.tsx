@@ -668,7 +668,14 @@ describe('one question for somebody who already has a character', () => {
     expect(prefs.manualDice).toBe(DEFAULT_PREFS.manualDice);
     await settle(() => useApp.getState().screen === 'play');
     expect(useApp.getState().screen).toBe('play');
-    // Named, not counted: `describeImport` says which character arrived.
+    // The doors are gone, which is all this line ever checked. It used to be
+    // introduced as "Named, not counted: `describeImport` says which character
+    // arrived", and that is not what is asserted and not what happens: the
+    // status paragraph is written and then unmounted in the same tick by the
+    // hand-off, because a character arriving takes the whole flow down. The
+    // sheet the person is now looking at is the confirmation on this route -
+    // `describeImport`'s sentence is read on the Settings route, and here only
+    // when nothing arrived.
     expect(text()).not.toContain('Choose a file');
   });
 

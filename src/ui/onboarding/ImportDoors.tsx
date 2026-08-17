@@ -50,9 +50,18 @@
  * dead button on a laptop with the lens taped over: it is a button that opens
  * onto a sentence.
  *
- * And an import that succeeds says which characters arrived, by name, through
+ * And an import says which characters arrived, by name, through
  * `describeImport`. A count on its own is what let "Imported 1 character" stand
  * over a newer copy that had just been destroyed.
+ *
+ * On this screen that sentence is read in the case it matters most and not in
+ * the case it reads best. A file full of characters this device already has
+ * newer copies of writes nothing, so the flow stays up and the sentence is
+ * there to be read. An import that *does* write takes the flow down with it -
+ * the hand-off unmounts this subtree in the same tick - so what confirms it is
+ * the sheet the person is looking at a moment later rather than a line of text
+ * they never saw. That is the right trade on a first run and the wrong one in
+ * Settings, which is why Settings keeps its own copy of the message.
  *
  * The camera is mounted on the tap and not before, so the permission prompt
  * arrives with the reason for it on screen, and unmounting the door stops the
