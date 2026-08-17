@@ -157,6 +157,15 @@ interface Props {
    * are the numbers the script produced. The preview never sees it.
    */
   rng: Rng;
+  /**
+   * Draw the fold header as two lines, because it is sharing a row.
+   *
+   * Forwarded straight to `Disclosure` and nothing else in this file reads it.
+   * The phone pairs this section with `Cards`, and the pairing lives in
+   * `Play.tsx` where the column's arithmetic is - so what arrives here is the
+   * answer, not the question.
+   */
+  stacked?: boolean;
 }
 
 /**
@@ -334,7 +343,7 @@ const applySwaps = (c: Character, swaps: Swap[], index: DatasetIndex): Character
     return card === undefined ? sheet : recallCard(sheet, card, { downtime: true }).character;
   }, c);
 
-export function Rest({ stats, rng }: Props): React.JSX.Element | null {
+export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   const rules = useApp((s) => s.dataset.rules);
@@ -510,7 +519,13 @@ export function Rest({ stats, rng }: Props): React.JSX.Element | null {
   const ghostVault = staged.vault.filter((r) => missing.has(r));
 
   return (
-    <Disclosure id="rest" characterId={character.id} label="Rest & downtime" summary={summary}>
+    <Disclosure
+      id="rest"
+      characterId={character.id}
+      label="Rest & downtime"
+      summary={summary}
+      stacked={stacked}
+    >
       <div className="stack" style={{ flex: 'none', gap: 8 }}>
         {longDue && (
           <div

@@ -75,6 +75,37 @@ interface Props {
    * folds, not about which section of which screen it is drawing.
    */
   tightSummary?: boolean;
+  /**
+   * Draw the header as two lines instead of one, for a header that is sharing
+   * its row with another one.
+   *
+   * The phone pairs four of its folds two-up, which is where the reflow's
+   * biggest saving comes from: six 44px rows around a 10px line each were 264px
+   * of column carrying 60px of ink, and the owner's own words for it were «è
+   * tutto attaccato sopra» - dense where the content is, empty where it is not.
+   * A pair halves the rows and doubles the ink in each.
+   *
+   * It has to be two lines, and that is measured rather than chosen. A cell is
+   * (393 - 24 - 6) / 2 = 181.5 at the owner's width and 165 at 360, and a
+   * one-line header is the marker, the name, a spacer and the summary: `Weapons
+   * & armour` beside `ARMED · LONGSWORD` does not fit either, so the summary -
+   * the half with the ellipsis - would lose its tail at rest rather than at the
+   * bottom of the width range. That is the failure this whole component exists
+   * to prevent, so the header stacks instead: the name on its own line at the
+   * cell's full width, then the marker and the summary under it.
+   *
+   * THE MARKER GOES WITH THE SUMMARY AND NOT WITH THE NAME. On the second line
+   * it sits beside the thing that changes when you press the header, which is
+   * what a disclosure marker is for. On one line it leads, because there it is
+   * the first thing under the thumb.
+   *
+   * The name may ellipsise here where it never does on one line. In a half cell
+   * there is no half of the header that can be sacrificed instead, and a name
+   * cut at the tail still says which section it is; the alternative is a row
+   * that overflows the column, which is worse and is what the note at the top
+   * of this file is about.
+   */
+  stacked?: boolean;
   /** What it costs to be wrong about the default, per section. */
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -112,10 +143,58 @@ export function Disclosure({
   label,
   summary,
   tightSummary = false,
+  stacked = false,
   defaultOpen = false,
   children,
 }: Props): React.JSX.Element {
   const [open, toggle] = usePlaySection(characterId, id, defaultOpen);
+
+  /*
+   * A triangle, rotated. Not a character from the font: the arrow glyphs sit on
+   * wildly different baselines across the two families this app ships, and a
+   * marker that jumps by three pixels when a section opens reads as the row
+   * moving.
+   */
+  const marker = (
+    <span
+      aria-hidden="true"
+      style={{
+        flex: 'none',
+        width: 8,
+        height: 8,
+        background: 'var(--muted)',
+        clipPath: open ? 'polygon(0 25%,100% 25%,50% 100%)' : 'polygon(25% 0,100% 50%,25% 100%)',
+      }}
+    />
+  );
+
+  const theSummary = summary !== undefined && (
+    // On one line the label is `flex: 'none'` and this is not: where the two
+    // cannot both fit, the section's name is the half that has to survive whole
+    // and its number is the half that can lose its tail. See the note at the
+    // top of this file for what that was costing at 360 and below. Stacked, the
+    // two are on separate lines and this shrinks against the marker instead.
+    <span
+      className="t-meta"
+      style={{
+        flex: '0 1 auto',
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        color: 'var(--muted)',
+        // 11 rather than `.t-meta`'s 10, and inline rather than a new class:
+        // `.t-meta` is the app's smallest type and is right at 10 in the twenty
+        // other places it is used. This is one line in one component, raised
+        // because the reflow's brief was legibility and this line had 34px of
+        // unused headroom under it. `tightSummary` is the single measured
+        // exception - see the prop.
+        fontSize: tightSummary ? undefined : 11,
+      }}
+    >
+      {summary}
+    </span>
+  );
 
   return (
     <section className="stack" style={{ flex: 'none', gap: open ? 8 : 0 }}>
@@ -123,61 +202,53 @@ export function Disclosure({
         type="button"
         aria-expanded={open}
         onClick={toggle}
-        className="row"
+        className={stacked ? 'stack' : 'row'}
         style={{
           flex: 'none',
           minHeight: 'var(--tap)',
           width: '100%',
-          gap: 8,
+          // 2 between the two lines and 8 along the one. The stacked gap is
+          // small on purpose: two 11px lines and a 2px gap is 24 of ink in a
+          // 44px floor, so the pair still reads as one block rather than as two
+          // rows that happen to be adjacent.
+          gap: stacked ? 2 : 8,
+          // The two lines sit in the middle of the 44px floor rather than at
+          // its top, so a cell whose partner is taller does not look hung.
+          justifyContent: stacked ? 'center' : undefined,
           padding: '0 2px',
           textAlign: 'left',
         }}
       >
-        {/*
-         * A triangle, rotated. Not a character from the font: the arrow
-         * glyphs sit on wildly different baselines across the two families
-         * this app ships, and a marker that jumps by three pixels when a
-         * section opens reads as the row moving.
-         */}
-        <span
-          aria-hidden="true"
-          style={{
-            flex: 'none',
-            width: 8,
-            height: 8,
-            background: 'var(--muted)',
-            clipPath: open ? 'polygon(0 25%,100% 25%,50% 100%)' : 'polygon(25% 0,100% 50%,25% 100%)',
-          }}
-        />
-        <span className="t-label" style={{ flex: 'none', color: 'var(--text-2)' }}>
-          {label}
-        </span>
-        <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
-        {summary !== undefined && (
-          // The label is `flex: 'none'` and this is not: where the two cannot
-          // both fit, the section's name is the half that has to survive whole
-          // and its number is the half that can lose its tail. See the note at
-          // the top of this file for what that was costing at 360 and below.
-          <span
-            className="t-meta"
-            style={{
-              flex: '0 1 auto',
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: 'var(--muted)',
-              // 11 rather than `.t-meta`'s 10, and inline rather than a new
-              // class: `.t-meta` is the app's smallest type and is right at 10
-              // in the twenty other places it is used. This is one line in one
-              // component, raised because the reflow's brief was legibility and
-              // this line had 34px of unused headroom under it. `tightSummary`
-              // is the single measured exception - see the prop.
-              fontSize: tightSummary ? undefined : 11,
-            }}
-          >
-            {summary}
-          </span>
+        {stacked ? (
+          <>
+            <span
+              className="t-label"
+              style={{
+                // The name gets the cell's full width and may lose its tail
+                // here, which it never does on one line - see `stacked`.
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: 'var(--text-2)',
+              }}
+            >
+              {label}
+            </span>
+            <span className="row" style={{ gap: 6, minWidth: 0 }}>
+              {marker}
+              {theSummary}
+            </span>
+          </>
+        ) : (
+          <>
+            {marker}
+            <span className="t-label" style={{ flex: 'none', color: 'var(--text-2)' }}>
+              {label}
+            </span>
+            <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
+            {theSummary}
+          </>
         )}
       </button>
       {open && children}

@@ -215,11 +215,29 @@ function modsButton(): HTMLButtonElement {
 const armedStrip = (): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Modifiers armed:'));
 
-const indexHeaders = (): HTMLButtonElement[] => [
-  ...(container.firstElementChild?.querySelectorAll<HTMLButtonElement>(
-    ':scope > section > button[aria-expanded]',
-  ) ?? []),
-];
+/**
+ * The fold index: the sections this column itself owns, in the order it draws
+ * them.
+ *
+ * Two shapes since the reflow, because four of the six folds share two rows.
+ * A full-width one is `column > section > button`; a paired one is
+ * `column > FoldPair > cell > section > button`, two divs deeper. Both are
+ * listed, and anything inside the head of the column is then excluded by hand:
+ * `DualityRoll`'s own MODS control answers `aria-expanded` too, it belongs to
+ * the roll row rather than to the index, and the day it grows a `<section>`
+ * around itself this filter is what stops it being counted as a seventh fold.
+ */
+const indexHeaders = (): HTMLButtonElement[] => {
+  const col = container.firstElementChild;
+  if (col === null) return [];
+  const head = col.querySelector(':scope > .stack');
+  return [
+    ...col.querySelectorAll<HTMLButtonElement>(
+      ':scope > section > button[aria-expanded], ' +
+        ':scope > div > div > section > button[aria-expanded]',
+    ),
+  ].filter((b) => head === null || !head.contains(b));
+};
 
 const click = (el: Element): void => {
   act(() => {
@@ -390,8 +408,13 @@ describe('what a phone shows of the character sheet', () => {
       // fold a player opens most, and the message's order is an order rather
       // than a frequency. It costs the column nothing - two 44px headers swap.
       'Cards', // with the vault folded inside them
-      'Carried',
+      // Rest comes up from below `Carried` to share Cards' row, which is the
+      // reflow's only reorder and the price of the second pair. Both keep their
+      // `Disclosure` id, so no player's remembered arrangement moves, and a
+      // rest is still between-scenes work below everything a scene makes you
+      // touch.
       'Rest & downtime',
+      'Carried',
       'Lineage & domains',
     ].map(at);
     expect(
@@ -429,9 +452,10 @@ describe('what a phone shows of the character sheet', () => {
     expect(roll, 'no ROLL control on the phone').toBeDefined();
     expect(rootEl.contains(roll!), 'ROLL is outside the column').toBe(true);
 
-    // The fold index: the sections the column itself owns. `Modifiers` is a
-    // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
-    // inside it, which is decision 6's business and not this test's.
+    // The fold index: the sections the column itself owns, six of them across
+    // four rows since the reflow paired two. `Modifiers` is a `Disclosure` too,
+    // but it belongs to `DualityRoll` and lives above ROLL inside it, which is
+    // decision 6's business and not this test's.
     const headers = indexHeaders();
     expect(headers.length, 'the fold index is gone').toBe(6);
     for (const header of headers) {
@@ -570,6 +594,94 @@ describe('the whole sheet, at 393x852', () => {
       'the summaries went back to 10px, so the smallest type on the sheet is small again ' +
         'for no reason - the room it needs is headroom nothing else was using',
     ).toBeGreaterThanOrEqual(3);
+  });
+
+  /*
+   * THE PAIRING, WHICH IS THE 104 PIXELS AND THE ANSWER TO «È TUTTO ATTACCATO
+   * SOPRA».
+   *
+   * Six shut folds were six 44px rows around one small line each. Four of them
+   * share two rows now, which is 88px of row and two of this column's gaps, and
+   * it is the largest single saving in the reflow - most of the reason the whole
+   * folded sheet fits a 375x667 phone for the first time.
+   *
+   * Which four is measured and not chosen. Every paired member was checked in
+   * Chrome at 393, 375 and 360 with the `wizard10` fixture, `scrollWidth`
+   * against `clientWidth` on every span, and nothing clips: the worst of them is
+   * `Cards` at 131px of summary in a 161px cell at 360. `Carried` fails that
+   * test at 257.41px and `Lineage & domains` stays on this column by the
+   * owner's decision, so those two keep whole rows.
+   *
+   * THE OPENING RULE IS THE HALF THAT IS EASY TO GET WRONG. The member you
+   * press takes the row and its partner drops below it, so the header the thumb
+   * just landed on does not move. A pair that reverted to two stacked rows in
+   * DOM order would move the second member out from under the finger that just
+   * hit it, which is half the taps.
+   */
+  it('pairs four of the six folds two-up, and gives the row to the one that opens', () => {
+    play(seed());
+    const rootEl = container.firstElementChild as HTMLElement;
+
+    const pairs = [...rootEl.children].filter(
+      (el) => (el as HTMLElement).style.display === 'grid',
+    ) as HTMLElement[];
+    expect(
+      pairs,
+      'the folds are not two-up any more. That is 104px back into the column and the sheet ' +
+        'stops fitting a 375x667 phone.',
+    ).toHaveLength(2);
+    for (const pair of pairs) {
+      expect(pair.style.gridTemplateColumns, 'a pair is not two equal halves').toBe(
+        'minmax(0, 1fr) minmax(0, 1fr)',
+      );
+      // 6 and not this column's 8: the gutter inside one row says something
+      // different from the distance between two sections.
+      expect(pair.style.gap, 'the gutter inside a pair moved').toBe('6px');
+      expect(pair.children, 'a pair is not two cells').toHaveLength(2);
+      for (const cell of [...pair.children] as HTMLElement[]) {
+        // Without it the track refuses to be 181.5 wide and the pair overflows
+        // a column that hides its overflow, which is a silent failure.
+        expect(cell.style.minWidth, 'a pair cell can refuse to shrink to its track').toBe('0px');
+      }
+    }
+
+    const named = (b: HTMLButtonElement): string => (b.textContent ?? '').trim();
+    // The name off its own span rather than off the header's whole text, which
+    // also carries the summary and would read `Rest & downtimeNONE COUNTED`.
+    const upTo = (b: HTMLButtonElement): string =>
+      (b.querySelector('.t-label')?.textContent ?? '').trim();
+    expect(
+      indexHeaders()
+        .filter((b) => b.className === 'stack')
+        .map(upTo),
+      'the wrong set of folds is drawing the two-line header that fits half a cell',
+    ).toEqual(['Weapons & armour', 'Experiences', 'Cards', 'Rest & downtime']);
+    expect(
+      indexHeaders()
+        .filter((b) => b.className === 'row')
+        .map(upTo),
+      'the two folds that cannot take half a cell are no longer the two on whole rows',
+    ).toEqual(['Carried', 'Lineage & domains']);
+
+    /*
+     * And the opening rule, asserted on the SECOND member, because the first
+     * one passes it by accident: `order: -1` on a member that is already first
+     * changes nothing, so a pair that simply reverted to DOM order would look
+     * correct until somebody opened the right-hand fold.
+     */
+    const second = indexHeaders().find((h) => named(h).startsWith('Experiences'))!;
+    click(second);
+    const pairA = pairs[0]!;
+    expect(
+      pairA.style.gridTemplateColumns,
+      'an open pair is still two columns, so the fold that opened has half a cell to open into',
+    ).toBe('minmax(0, 1fr)');
+    const cells = [...pairA.children] as HTMLElement[];
+    expect(
+      [cells[0]!.style.order, cells[1]!.style.order],
+      'the fold that opened did not come first, so the header the thumb just hit moved down ' +
+        'the screen under it',
+    ).toEqual(['0', '-1']);
   });
 
   /*
@@ -983,6 +1095,44 @@ describe('the budget the pin came off for', () => {
   const GAP = 8;
 
   /**
+   * The gap INSIDE the head of the column, which is a different number on
+   * purpose. Not «the cockpit», which in this repo is the desktop layout.
+   *
+   * The four blocks above the folds - thresholds, tracks, traits, ROLL - are
+   * held 14px apart, and the folds below are still 8. The owner looked at the
+   * shipped sheet on their own phone and said «è tutto attaccato sopra»: 258px
+   * of content in 282 up top, against 264px of fold rows carrying 60px of ink
+   * below. The two numbers say two different things now - what is read under
+   * pressure holds its parts apart, an index that is scanned holds them
+   * together - and the 18px it costs comes out of the 104 the pairing gives
+   * back.
+   */
+  const HEAD_GAP = 14;
+
+  /**
+   * The column's own top padding, which was 0 and is 8.
+   *
+   * The sheet used to begin at zero pixels under the header, so the densest
+   * block on the screen shared an edge with the chrome above it. It is a term
+   * of this budget because it is column the sheet has to fit inside, and it is
+   * the other half of the same sentence.
+   */
+  const TOP_PAD = 8;
+
+  /**
+   * What the counters give back below viewport 390, where `--counter-cell` does
+   * not step to 48.
+   *
+   * The table below is written at 393 and is also read at 375 and 360, and
+   * since the reflow those two are not the same sheet: the 26px counter value
+   * and its 48px cell are a `min-width: 390` step, so the narrow phones keep
+   * the 44px cell and are 8px shorter. Stated as a term rather than folded into
+   * a second table, because it is one token and one step.
+   */
+  const NARROW_CELLS =
+    2 * (resolve('var(--counter-cell)', PHONE) - resolve('var(--counter-cell)', NARROW));
+
+  /**
    * The stack at 393x852 with every fold shut, default prefs (numbers, digital
    * dice on, typing off), the `playedCharacter` fixture, nothing armed, no roll
    * yet, no Beastform, not fallen, no companion.
@@ -992,6 +1142,12 @@ describe('the budget the pin came off for', () => {
    * read, `sum` is arithmetic over the two.
    */
   const STACK: Array<{ what: string; px: number; from: 'dom' | 'css' | 'sum' }> = [
+    /*
+     * The column's own top padding, first because it is first on the glass.
+     * Everything below is measured from the top of the defence band, and this
+     * is the distance between that and the header.
+     */
+    { what: "the column's top padding", px: TOP_PAD, from: 'dom' },
     /*
      * THE IDENTITY BLOCK IS NOT IN THIS TABLE, AND THAT IS THE 99PX.
      *
@@ -1022,7 +1178,7 @@ describe('the budget the pin came off for', () => {
     // the box left the counters, where it cost 44 and a 6px gap, the door left
     // the identity block, and the band did not grow for either.
     { what: 'the defence band · the door and the field, inside the 64 already spent', px: 0, from: 'dom' },
-    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the gap inside the head of the column', px: HEAD_GAP, from: 'dom' },
     /*
      * The one term the reflow SPENDS, and it is read out of `tokens.css` rather
      * than written here. `--counter-cell` is 48 from viewport 390 up and 44
@@ -1037,13 +1193,13 @@ describe('the budget the pin came off for', () => {
       from: 'dom',
     },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
-    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the gap inside the head of the column', px: HEAD_GAP, from: 'dom' },
     // 44 since the reflow. Decision 5 stacked the abbreviation over the value
     // and paid 14 for it; measured, that bought a 58px chip around 34.48 of
     // ink. The chip is at the touch floor now and the type inside it went the
     // other way - the modifier 15 -> 17, the abbreviation 15 -> 13.
     { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
-    { what: 'gap', px: GAP, from: 'dom' },
+    { what: 'the gap inside the head of the column', px: HEAD_GAP, from: 'dom' },
     // The roll surface is ROLL and nothing else with nothing armed: the
     // Experience chips are a fold below it now and the modifier row is not
     // drawn. ROLL and MODS share this row, so MODS costs the column nothing -
@@ -1058,19 +1214,29 @@ describe('the budget the pin came off for', () => {
   ];
 
   /** What follows ROLL: the fold index, every one of them shut. */
+  /*
+   * FOUR ROWS AND NOT SIX, WHICH IS THE 104 PIXELS THIS REFLOW IS PAID WITH.
+   *
+   * Six shut folds were six 44px rows around one small line each - 264px of
+   * column carrying about 60px of ink. Two pairs turn four of them into two:
+   * 88px of row and two of this column's gaps. What can be paired is decided by
+   * measurement and not by taste - a member needs a short name AND a short
+   * summary at 360, which is where they were measured in Chrome - and two folds
+   * fail that test. `Carried`'s worst summary is 257.41px against a 181.5px
+   * half cell, and `Lineage & domains` stays on this column by the owner's
+   * decision when the plan had it leaving. So they are the last two full-width
+   * rows, and there are two pairs rather than three.
+   */
   const INDEX: Array<{ what: string; px: number }> = [
     { what: 'gap', px: GAP },
-    { what: 'Weapons & armour', px: 44 },
+    { what: 'Weapons & armour | Experiences, paired', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'Experiences', px: 44 },
+    // Cards above Carried since decision 6, and Rest comes up beside it from
+    // below Carried - the reflow's only reorder, and it costs this table
+    // nothing: every fold keeps its own `Disclosure` id.
+    { what: 'Cards | Rest & downtime, paired', px: 44 },
     { what: 'gap', px: GAP },
-    // Cards above Carried since decision 6, and the swap costs this table
-    // nothing: two 44px headers change places and both keep their id.
-    { what: 'Cards, with the vault folded inside it', px: 44 },
-    { what: 'gap', px: GAP },
-    { what: 'Carried, with the gold on its header', px: 44 },
-    { what: 'gap', px: GAP },
-    { what: 'Rest & downtime', px: 44 },
+    { what: 'Carried, with the gold on its header, full width', px: 44 },
     { what: 'gap', px: GAP },
     /*
      * THE CONDITIONS ARE NOT IN THIS TABLE, AND THAT IS THE 52PX.
@@ -1099,7 +1265,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 282').toBe(282);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 308').toBe(308);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1108,33 +1274,40 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(448);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(422);
   });
 
   /*
-   * The small phone, where the slack used to be ten pixels and is now 263.
+   * The small phone, where the slack used to be ten pixels and is now 245.
    *
    * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
-   * and that ten was the number the grid was bought with. The reflow's four
-   * landed steps moved it again - ROLL's lower edge from 306 of the column to
-   * 282, which is the 24px lift the whole plan was chosen for - so the margin
-   * here is 263. It asserts that number, so anything spending 264 fails with
-   * the arithmetic in front of it rather than being found on somebody's phone.
+   * and that ten was the number the grid was bought with. The reflow moved it
+   * twice and in opposite directions: the first four steps took ROLL's lower
+   * edge from 306 of the column to 282, and then the cockpit's 14px gaps and
+   * the column's new 8px of top padding put it back down to 300. That is the
+   * ergonomic answer to the lift, and it was not the point of the spacing - it
+   * is what the spacing happened to buy.
+   *
+   * 300 and not 308 here, because `--counter-cell` does not step below viewport
+   * 390: at 375 the counters are 94 and not 102. `NARROW_CELLS` is that
+   * difference, read out of `tokens.css` rather than written down.
    *
    * The docblock above lists five ordinary states this table cannot see, and
-   * the dearest of them - typed dice, at +68 - leaves 195. It was six, and the
+   * the dearest of them - typed dice, at +68 - leaves 177. It was six, and the
    * dearest was pips at +100, until decision 7 took the pip tracks off this
    * sheet.
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
     expect(glass).toBe(545);
+    const narrow = ROLL_BOTTOM - NARROW_CELLS;
+    expect(narrow, 'the narrow stack no longer sums to 300').toBe(300);
     expect(
-      ROLL_BOTTOM,
-      `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
+      narrow,
+      `ROLL's lower edge is ${String(narrow)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(263);
+    expect(glass - narrow, 'the slack at 375x667 has moved').toBe(245);
   });
 
   /*
@@ -1150,17 +1323,24 @@ describe('the budget the pin came off for', () => {
    * Nothing here was shaved. The 19 went the way P5-6 said the last 52 would
    * have to go - the conditions are drawn only while one is on, with the door
    * moved to a band that was already 44px tall - so this now asserts the fit
-   * and the slack, and fails the moment the sheet stops fitting. Measured in
-   * Chrome at 393x852 with the `playedCharacter` fixture, every fold shut: 697.
+   * and the slack, and fails the moment the sheet stops fitting.
    *
-   * 375x667 IS STILL A MISS AND IS STILL STATED, and the reflow has brought it
-   * within sight. The small phone is 49px over, where it was 204 and then 152.
-   * That is one fold header and its gap - so for the first time the miss is
-   * something an arrangement of this sheet could close, rather than the three
-   * headers out of six it used to be.
+   * AND 375x667 IS NO LONGER A MISS AT ALL, WHICH IT HAS BEEN SINCE THIS FILE
+   * WAS WRITTEN. It was 204px over, then 152, then 49; the pairing took four
+   * fold rows down to two and the small phone now fits the whole folded sheet
+   * with 37px to spare. That is the first time «vedere in una volta sola tutta
+   * la scheda» is literally true on the smaller of the two reference phones,
+   * and it is asserted here rather than described.
+   *
+   * MEASURED IN CHROME, and this pass re-measured rather than re-summed: with
+   * every fold shut, the distance from the top of the defence band to the
+   * bottom edge of the last fold header is **508.0** at 393 and **500.0** at
+   * 375 and 360, the 8px difference being `--counter-cell`'s step. Add the
+   * column's own 8px of top padding and the sheet takes 516 of column at 393,
+   * which is what `SHEET_BOTTOM` says.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(594);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 208 below ROLL').toBe(516);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1171,12 +1351,22 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(136);
-    // Stated, not asserted away: the small phone is still short of it.
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(214);
+    /*
+     * AND THE SMALL PHONE, WHICH USED TO BE THE LINE THAT SAID BY HOW MUCH THIS
+     * MISSED. 375x667 fits, for the first time in this file's life: 508 of
+     * sheet against 545 of column, 37 to spare. Asserted as a fit and not as an
+     * overflow, so that the day something takes those 37 back it fails here.
+     */
+    const narrow = SHEET_BOTTOM - NARROW_CELLS;
+    expect(narrow, 'the narrow whole sheet no longer sums to 508').toBe(508);
     expect(
-      SHEET_BOTTOM - column(667),
-      'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(49);
+      narrow,
+      `the whole folded sheet is ${String(narrow)} against ${String(column(667))} of column at ` +
+        '375x667, so the small phone has stopped fitting it. It started fitting when four fold ' +
+        'rows became two, and that is the saving this assertion is guarding.',
+    ).toBeLessThanOrEqual(column(667));
+    expect(column(667) - narrow, 'the whole-sheet slack at 375x667 has moved').toBe(37);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -1192,7 +1382,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(478);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(556);
   });
 
   /*
@@ -1260,10 +1450,9 @@ describe('the budget the pin came off for', () => {
    *
    * Everything here is derived from the table above and the shell's own three
    * constants, so it moves when the stack moves instead of going quietly stale.
-   * Measured in Chrome with the `playedCharacter` fixture, every fold shut, at
-   * both reference widths: the ROLL row is y372-438 on the glass, its lower
-   * edge is 414px above the bottom bezel at 393x852 and 229 at 375x667, and it
-   * is 353px clear of the tab bar.
+   * Measured in Chrome with every fold shut: the distance from the top of the
+   * defence band to ROLL's lower edge is 300 at 393 and 292 below viewport 390,
+   * which is this table less its 8px of top padding, to the pixel.
    */
   it('says where on the glass ROLL is drawn, and how far that is from the thumb', () => {
     const ROLL_ROW = STACK[STACK.length - 1]!.px;
@@ -1273,7 +1462,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([279, 335]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([305, 361]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1282,39 +1471,53 @@ describe('the budget the pin came off for', () => {
      * both of these are outside it, which the comment on `<DualityRoll>` now
      * says in those words rather than claiming the opposite.
      *
-     * THE REFLOW LIFTED ROLL AND THIS IS WHERE THAT IS PAID FOR. It was
-     * 493-559 above the bezel at 393x852 and is 517-573: 24px further from the
-     * thumb, the cost of giving ROLL its own content's height back and taking
-     * eight pixels of padding out of the band above it. That 24 is the
-     * smallest lift of the three plans that were costed and it is why this one
-     * was chosen; the two that reached further up were refused for it.
+     * THE REFLOW LIFTED ROLL AND THEN PUT IT BACK, WHICH IS THE PART WORTH
+     * KEEPING. It was 493-559 above the bezel at 393x852 before any of this.
+     * The first four steps took it to 517-573 - 24px further from the thumb,
+     * the cost of giving ROLL its own content's height back and taking eight
+     * pixels of padding out of the band above it, and the smallest lift of the
+     * three plans that were costed, which is why this one was chosen. Then the
+     * cockpit's 14px gaps and the column's 8px of top padding pushed everything
+     * below them back down, and it is **491-547**: two pixels CLOSER to the
+     * thumb than it was before the reflow started. The reach cost is paid off.
      *
-     * At 375x667 the lower edge is now 332 against that ~330 sweep, which is
-     * to say it has just left it. The figure is a published percentile and not
-     * a measurement of this owner's hand, and there is a second, sharper
-     * uncertainty beside it: in a Safari tab the browser's own bottom toolbar
-     * sits below the viewport, roughly 130px of glass, and whether that counts
-     * as reach nobody has measured. 130px is larger than anything this reflow
-     * trades, so it is named here rather than assumed either way.
+     * That was not what the spacing was for - it was for «è tutto attaccato
+     * sopra» - and it is worth saying plainly that it is a side effect rather
+     * than a plan, because the next edit to those gaps will move ROLL again.
+     *
+     * At 375x667 the lower edge is 314 against a ~330 sweep, which is to say
+     * inside it, where before the reflow it was outside. The figure is a
+     * published percentile and not a measurement of this owner's hand, and
+     * there is a second, sharper uncertainty beside it: in a Safari tab the
+     * browser's own bottom toolbar sits below the viewport, roughly 130px of
+     * glass, and whether that counts as reach nobody has measured. 130px is
+     * larger than anything this reflow trades, so it is named here rather than
+     * assumed either way.
      */
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([517, 573]);
+    ).toEqual([491, 547]);
+    /*
+     * The small phone reads the narrow stack: no 390 step, so ROLL is 8px
+     * higher up the column and 8px further from the bezel than this table's
+     * own numbers would put it.
+     */
+    const narrowBottom = bottom - NARROW_CELLS;
     expect(
-      [667 - bottom, 667 - top],
+      [667 - narrowBottom, 667 - (narrowBottom - ROLL_ROW)],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([332, 388]);
+    ).toEqual([314, 370]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
-     * was 8px above a 98x60 control that navigates away mid-turn. It is 456px
+     * was 8px above a 98x60 control that navigates away mid-turn. It is 430px
      * clear of it now.
      */
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(456);
+    ).toBe(430);
   });
 
   /*
@@ -1374,17 +1577,24 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a thirteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Eleven, with the fixture and a clear sheet: the defence band, the
-     * counters, the trait row, the roll surface, then Weapons & armour,
-     * Experiences, Carried, Cards, Rest and Lineage - and, since P5-7, the
-     * licence notice. Ten of those are `STACK` and `INDEX`. It was twelve until
-     * decision 2 deleted the identity block. The vault is a tendina inside
-     * Cards and costs the column no child of its own; the death move, the
-     * Beastform banner and - since P5-8 - the conditions strip draw nothing in
-     * this state, and all three are named in the docblock as things this budget
-     * does not carry.
+     * Six, with the fixture and a clear sheet, where it was eleven before the
+     * reflow grouped things: the head of the column (one child holding the
+     * defence band, the counters, the trait row and the roll surface at 14px
+     * apart), the two
+     * fold pairs, `Carried`, `Lineage & domains` and - since P5-7 - the licence
+     * notice. Five of those are `STACK` and `INDEX`; ten sections are drawn
+     * inside them.
      *
-     * THE ELEVENTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
+     * The count went down and the sheet did not get simpler, which is worth
+     * saying: four blocks moved one level in so they could be spaced apart from
+     * each other without spacing the folds apart too, and four fold headers
+     * moved one level in so they could share two rows. The vault is a tendina
+     * inside Cards and costs the column no child of its own; the death move,
+     * the Beastform banner and - since P5-8 - the conditions strip draw nothing
+     * in this state, and all three are named in the docblock as things this
+     * budget does not carry.
+     *
+     * THE SIXTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
      * `STACK` and `INDEX` sum the sheet, and the sheet is everything a player
      * has to be able to reach; the notice is below the last fold, is read once
      * by somebody who is not at a table, and is never needed on the glass - so
@@ -1397,7 +1607,7 @@ describe('the budget the pin came off for', () => {
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(11);
+    ).toBe(6);
     const last = rootEl.children[rootEl.children.length - 1]!;
     expect(
       last.tagName,
@@ -1518,8 +1728,9 @@ describe('the budget the pin came off for', () => {
       'the Experience chips are back above ROLL, where they cost 100px',
     ).toHaveLength(0);
 
-    // The fold index: every header at the floor, and there are six rows of it
-    // now that the conditions have no permanent row at all.
+    // The fold index: every header at the floor. Six headers across four rows
+    // since the reflow - two pairs and two full-width - and the conditions
+    // still have no permanent row at all.
     const headers = indexHeaders();
     for (const header of headers) {
       expect(header.style.minHeight, `${header.textContent ?? '?'} is not at the floor`).toBe(
@@ -1530,8 +1741,8 @@ describe('the budget the pin came off for', () => {
       'Weapons & armour',
       'Experiences',
       'Cards',
-      'Carried',
       'Rest & downtime',
+      'Carried',
       'Lineage & domains',
     ];
     expect(
@@ -1603,8 +1814,11 @@ describe('the width this sheet is laid out for', () => {
     const rootEl = container.firstElementChild as HTMLElement;
     // jsdom expands the shorthand's `0` to `0px`, the same normalisation the
     // `flex: none` check in `the tendina` reads back.
+    // jsdom collapses `8px 12px 8px` to `8px 12px`, top and bottom being equal.
+    // The 8 at the top is the reflow's: the sheet used to share an edge with
+    // the header, which is half of what «è tutto attaccato sopra» named.
     expect(rootEl.style.padding, 'the column padding moved and these sums did not').toBe(
-      '0px 12px 8px',
+      '8px 12px',
     );
 
     // 1. THE TRAIT ROW. Six chips at their declared flex-basis, the verbs

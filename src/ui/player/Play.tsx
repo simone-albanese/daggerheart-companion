@@ -2458,9 +2458,10 @@ function PlayDesktop({
  * 44, and the roll row 56 - a floor rather than the hard 66 it was, and the ten
  * pixels are the first of the reflow's savings - ROLL beside a MODS control that costs the column
  * nothing because it is 44 wide inside a height ROLL was already holding, plus
- * three of this column's 8px gaps. **ROLL's lower edge lands at 282 of a usable
- * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
- * foot), which is 448px of slack.
+ * three of this column's 14px gaps and the column's own 8px of top padding.
+ * **ROLL's lower edge lands at 308 of a usable 730** (852 less the header's
+ * 52+1, the tab bar's 60+1 and this root's own 8px foot), which is 422px of
+ * slack.
  *
  * THE COUNTERS ARE 102 AND NOT 94 BECAUSE THAT IS THE ONE THING THE REFLOW
  * BUYS RATHER THAN SELLS: `--counter-cell` steps to 48 from viewport 390 so the
@@ -2470,7 +2471,8 @@ function PlayDesktop({
  * not step, so a 360px Android still reads 94 here and pays nothing for the
  * raise at all.
  *
- * AT 375x667 THE SAME 282 CLEARS A 545px COLUMN BY 263px, where before the
+ * AT 375x667 THE SAME STACK IS 300 - no 390 step, so the counters are 94 - AND
+ * IT CLEARS A 545px COLUMN BY 245px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
  * are the dearest of them at **+68**, a companion (**+50**), a Beastform
@@ -2492,24 +2494,28 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **594px against 730 at 393x852, with 136 to spare** - every fold
- * shut, the `playedCharacter` fixture. 586.0 of that was measured in Chrome and
- * not only summed - the distance from the top of the defence band to the bottom
- * edge of the lineage header, at 356, 360, 368, 375, 393 and 744 - and the
- * eight above it are `--counter-cell`'s step, which only widths from 390 up
- * pay. That is the condition P5-5's own decision 1 made the unpinning
- * conditional on, unmet through P5-5 (899, over by 169) and P5-6 (749, over by
- * 19), met at P5-8 (697, 33 to spare) and now clear by 136. It fits at 744x1133
- * with 478 to spare, and it is **49px over at 375x667** - one fold header and a
- * gap, where it was three.
+ * TWICE OVER. **516px against 730 at 393x852, with 214 to spare** - every fold
+ * shut, the `playedCharacter` fixture, and re-measured in Chrome rather than
+ * re-summed: the distance from the top of the defence band to the bottom edge
+ * of the last fold header is **508.0** at 393 and **500.0** at 375 and 360, the
+ * 8px difference being `--counter-cell`'s step, and the column's own 8px of top
+ * padding takes it to 516. That is the condition P5-5's own decision 1 made the
+ * unpinning conditional on, unmet through P5-5 (899, over by 169) and P5-6
+ * (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 214. It
+ * fits at 744x1133 with 556 to spare.
+ *
+ * **AND IT FITS 375x667, WHICH IT NEVER HAS.** 508 against 545, 37 to spare.
+ * That sheet was 204px over, then 152, then 49; the pairing took four fold rows
+ * down to two and closed it. «Vedere in una volta sola tutta la scheda» is now
+ * literally true on both reference phones rather than on the larger one only.
  *
  * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
- * predicted it would not: 586 against 678, 92 to spare, measured. The report's
+ * predicted it would not: 508 against 678, 170 to spare, measured. The report's
  * own closing table had 360x800 at -2 because it costed decision 5 without the
  * width fix beside it - a taller chip is not a narrower one - and with the
  * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
  * the 62px that ate it is not spent. With two conditions on, the strip is back
- * in its slot and the sheet is 638 against 678, which still fits.
+ * in its slot and the sheet is 560 against 678, which still fits.
  *
  * Those three numbers are untouched by the reflow's one cost, and that is not a
  * coincidence: 360 is below `--counter-cell`'s 390 step, so the narrowest phone
@@ -2553,17 +2559,19 @@ function PlayDesktop({
  * target under 44 in either direction at any of them.
  *
  * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
- * always had here. At 320x568 the folded sheet is 664 against a 446px column, and
- * no arrangement of six fold headers closes 218px; it scrolls, exactly as 375
- * does at 73. What it does not do is hide anything or put anything out of reach.
+ * always had here. At 344 and 320 the defence band and the trait row each
+ * reflow onto a second line and the folded sheet measures **586**, so 594 of
+ * column: at 320x568 that is 148 over a 446px column and it scrolls. 375 no
+ * longer does. What scrolling does not do is hide anything or put anything out
+ * of reach.
  *
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
- * this sheet now clears by 110 where P5-8's 697 was one pixel over. `BackupBanner`
+ * this sheet now clears by 180 where P5-8's 697 was one pixel over. `BackupBanner`
  * is the other one the budget has never counted: it costs this column **66**
  * from first launch until the first backup is taken, so a new user's column is
- * **664** - and 586 clears that by **78**, where 697 was 33px over it.
+ * **664** - and 516 clears that by **148**, where 697 was 33px over it.
  *
  * *(~~58, a 672px column and 54 to spare~~ - superseded, and it is the same
  * mistake as the companion's +50 above: 58 is the banner's border
@@ -2582,10 +2590,9 @@ function PlayDesktop({
  * path. Measured rather than doubled, because two stacked 8px margins are
  * exactly where adding up would be wrong if they collapsed: 738 -> 672 -> **606**
  * of glass at 393x852, so **132** off this column and **598** left of the 730.
- * The folded sheet is 586, so **it fits with 12 to spare** - the state this
- * budget has always failed passes for the first time, and it passes on the
- * strength of the reflow's first three savings rather than on anything being
- * hidden; at 618 it was 20px over. Neither banner may be deleted:
+ * The folded sheet takes 516, so **it fits with 82 to spare** - the state this
+ * budget has always failed passes comfortably, where at 618 it was 20px over
+ * and after the reflow's first three savings it passed by 12. Neither banner may be deleted:
  * they are P0-2's remedy, and a banner nobody sees is the defect they fix.
  * `playSheet.test.tsx` does not know either exists; `tests/ui/banners.test.tsx`
  * adds the costs up out of the declarations so 66 and 132 cannot drift.
@@ -2622,10 +2629,88 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 586 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 516 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
+/**
+ * Two fold headers sharing one row of the phone's column, and what happens when
+ * one of them opens.
+ *
+ * THE 104 PIXELS. Six shut folds were six 44px rows around one 10px line each -
+ * 264px of column carrying 60 of ink, 77% of it air - while the four blocks
+ * above them held 258px of numbers in 282. The owner looked at that on their own
+ * phone and said «è tutto attaccato sopra», which is the same observation from
+ * the other end. Two pairs turn four of those rows into two: 88px and two of
+ * this column's gaps, 104 in total, and it is the largest single saving in the
+ * reflow. Some of it is spent on air between the blocks that were crammed; the
+ * rest is the margin that puts the folded sheet inside a Safari tab's column.
+ *
+ * TWO PAIRS AND NOT THREE. `Carried` cannot take a half cell - its worst
+ * summary is 257.41px against a 181.5px one - and with `Lineage & domains`
+ * staying on this column by the owner's decision, those two are the sheet's
+ * last two full-width rows. Pairing is not free to hand out: the member has to
+ * have a short name AND a short summary at 360, which is where they are
+ * measured.
+ *
+ * WHAT OPENING DOES, WHICH IS THE PART A GRID GETS WRONG BY DEFAULT. The member
+ * you press takes the full width and its partner drops below it - so the header
+ * the thumb just hit does not move, and the one it is not on does. `order: -1`
+ * on the open member and one column instead of two is the whole mechanism: if
+ * the second member is the one that opened, it stays on the row it was on and
+ * only grows leftwards, which is the property being bought. Reverting to two
+ * stacked rows in DOM order would move the header out from under the finger
+ * that just landed on it, half the time.
+ *
+ * Both members go back to one-line headers while the pair is open, because at
+ * full width there is room for one and it is the shape every other fold has.
+ *
+ * PHONE ONLY. The cockpit and `Rest`'s own surface draw the same `Disclosure`
+ * with the same `usePlaySection` key and are untouched: what is paired is not
+ * the section, it is this column's row.
+ */
+function FoldPair({
+  openFirst,
+  openSecond,
+  first,
+  second,
+}: {
+  openFirst: boolean;
+  openSecond: boolean;
+  first: React.ReactNode;
+  /** Null when the second fold is not drawn at all: the first takes the row. */
+  second: React.ReactNode | null;
+}): React.JSX.Element {
+  const anyOpen = openFirst || openSecond;
+  // One column when a member has opened, and also when there is only one member
+  // to draw: a pair with a hole in it is not a pair, it is a half-width header
+  // beside 181.5px of nothing.
+  const oneColumn = anyOpen || second === null;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        flex: 'none',
+        gridTemplateColumns: oneColumn ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
+        // 6 across a pair and 8 down an open one: the gutter between two halves
+        // of one row is tighter than the distance between two sections, because
+        // that is the difference it has to say.
+        gap: anyOpen ? 8 : 6,
+      }}
+    >
+      {/*
+       * `minWidth: 0` on both, and it is load-bearing rather than tidy: a grid
+       * item's automatic minimum is its min-content, and a fold header's
+       * min-content is its longest unbreakable word plus its summary. Without
+       * it the track refuses to be 181.5 wide and the pair overflows the column
+       * - which `Play`'s `overflow-x: hidden` would then cut in silence.
+       */}
+      <div style={{ minWidth: 0, order: openFirst ? -1 : 0 }}>{first}</div>
+      <div style={{ minWidth: 0, order: openSecond ? -1 : 0 }}>{second}</div>
+    </div>
+  );
+}
+
 function PlayPhone({
   stats,
   trait,
@@ -2637,6 +2722,28 @@ function PlayPhone({
   const character = useActive();
   const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
   const index = useApp((s) => s.index);
+
+  /*
+   * Whether each of the four paired folds is open, read HERE and not inside
+   * `FoldPair`, for two reasons that both matter.
+   *
+   * A pair is a layout, and a layout component that reaches into the preference
+   * store to find out what shape it is cannot be reasoned about from the call
+   * site - and this call site is where the column's whole arithmetic lives.
+   * More concretely: the answer is needed twice, by the grid AND by each
+   * `Disclosure`'s `stacked`, and a component that computed it privately would
+   * have to hand it back out again.
+   *
+   * Above the `!character` guard because these are hooks. `usePlaySection`
+   * takes a null id and answers `false`, which is the right answer for a screen
+   * with no character on it.
+   */
+  const folded = character?.id ?? null;
+  const [equippedOpen] = usePlaySection(folded, 'equipped');
+  const [experiencesOpen] = usePlaySection(folded, 'experiences');
+  const [cardsOpen] = usePlaySection(folded, 'cards');
+  const [restOpen] = usePlaySection(folded, 'rest');
+
   if (!character) return <div />;
 
   const equippedCount = [
@@ -2650,6 +2757,19 @@ function PlayPhone({
   const armedCount = character.experiences.filter((e) =>
     armedExperiences.includes(e.id),
   ).length;
+
+  /*
+   * Whether each pair is drawing two-line headers, which is true exactly while
+   * it is drawing two of them side by side.
+   *
+   * A stacked header is the answer to half a cell, so the moment a pair is one
+   * column wide - because a member opened, or because there is only one member
+   * to draw - both go back to the one-line shape every other fold has. Computed
+   * once here and handed to both the grid and the headers, so the layout and
+   * the thing being laid out cannot disagree about which shape they are in.
+   */
+  const stackedA = character.experiences.length > 0 && !(equippedOpen || experiencesOpen);
+  const stackedB = !(cardsOpen || restOpen);
 
   return (
     /*
@@ -2689,7 +2809,17 @@ function PlayPhone({
       style={{
         flex: 1,
         minHeight: 0,
-        padding: '0 12px 8px',
+        /*
+         * 8px of top padding, where there was none.
+         *
+         * The sheet used to begin at zero pixels under the header: EVASION's
+         * box shared an edge with `Header.tsx`'s bottom border, so the densest
+         * block on the screen was glued to the chrome above it. That is the
+         * other half of «è tutto attaccato sopra» and it is the cheapest eight
+         * pixels in this budget. The 8 at the bottom has always been here and
+         * is the same idea at the other end of the scroll.
+         */
+        padding: '8px 12px 8px',
         gap: 8,
         overflowY: 'auto',
         overflowX: 'hidden',
@@ -2703,216 +2833,285 @@ function PlayPhone({
           comes before them. It renders nothing for a class without one. */}
       <Beastform stats={stats} layout="phone" />
 
-      {/* Read under pressure, so it is four numbers and not a footnote - and
-          FIRST, since decision 2 took the identity block off this column:
-          "threshold bene in vista" is the one instruction in Giorgio's message
-          with a reason attached to it, and the name, class and level it used to
-          sit under are on `Header.tsx` on every screen anyway. `damage` puts
-          the box you type a hit into beside the two thresholds it is read
-          against, which is where it was already looking: it used to print
-          `8/16` in 10px next to itself from inside the counters. `conditions`
-          puts the phone's permanent door into `ConditionsDialog` at the head of
-          that same fifth cell - it was on the identity's class row, and that
-          row has gone. */}
-      <Defenses stats={stats} damage conditions tight />
-
-      {/* The four counters, two across. `bare`, because a box drawn around
-          four silhouettes costs 18px and distinguishes nothing. */}
-      <Vitals stats={stats} layout="phone" showState={false} bare />
-
-      <TraitRow
-        stats={stats}
-        trait={trait}
-        onPick={chooseTrait}
-        characterId={character.id}
-      />
-
       {/*
-       * ROLL, in the flow, at the end of everything the rules make you declare
-       * before the dice. 317x56 at 393px and 299x56 at 375px, the largest
-       * target on the screen after a fold header.
+       * THE HEAD OF THE COLUMN, AND IT IS SPACED APART FROM ITSELF ON PURPOSE.
        *
-       * WHERE IT ACTUALLY IS, MEASURED RATHER THAN REMEMBERED. This comment
-       * carried `y522-588 … 264 to 330px up from the bottom bezel … 203px clear
-       * of the tab bar` for two passes after the 2x2 counter grid took 150px
-       * out of the stack above it, and every one of those numbers was 150px
-       * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-       * shut, at the top of the scroll: the ROLL row spans **y271-327** on the
-       * glass at both reference widths, because everything above it is the same
-       * height at both. At 393x852 that is **525 to 581px above the bottom
-       * bezel** and **464px clear of the tab bar**; at 375x667 it is **340 to
-       * 396px above the bezel** and 279px clear.
+       * (Not «the cockpit», which in this repo means the desktop layout and
+       * nothing else - see `Vitals`. This is the phone's top four blocks.)
        *
-       * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
-       * The old sentence cited a 95th-percentile right-thumb sweep of about
-       * 330px from the bottom-right pivot and said ROLL was inside it. It is
-       * not, at either width, and the reflow made that worse rather than
-       * better: deleting the 99px identity block lifted everything below it, so
-       * on a 393x852 phone the resting sheet now puts ROLL some 195px beyond the
-       * far edge of that arc where P5-8 put it 84 beyond, and on a 375x667 phone
-       * ROLL has left the arc altogether - it was 229-295 and comfortably inside
-       * it, and it is 340-396 and outside it by 66 at the far edge. That is a real cost of what
-       * was asked for rather than a detail, and it is the cost of decision 2
-       * specifically: every pixel the sheet gets shorter above ROLL is a pixel
-       * further from the thumb at rest.
+       * These four blocks carry everything the game makes you read or press
+       * during a turn - the thresholds, the four tracks, the six traits and
+       * ROLL - and between them they were 258px of content in 282px of column,
+       * three 8px gaps and nothing else. Below them six shut folds were 264px
+       * carrying 60px of ink. The owner looked at that on their own phone and
+       * said «è tutto attaccato sopra»: dense where the content is, empty
+       * where it is not, and the first four steps of this reflow had made it
+       * worse by taking 32px out of these four blocks while leaving the six
+       * nearly-empty rows alone.
        *
-       * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-       * The whole folded sheet is now readable in one look - 586 of 730 at
-       * 393x852 - which is the sentence the owner actually wrote and which a
-       * pinned block made arithmetically impossible. And ROLL is 464px clear of
-       * the tab bar, where pinned it sat 8px above a 98x60 control that
-       * navigates away: a thumb aiming for ROLL and missing low used to leave
-       * the screen mid-turn.
+       * So the gap here is 14 and the gap between the folds below is still 8,
+       * and the two numbers say two different things. This is read under
+       * pressure, so its parts are held apart; the index below is scanned, so
+       * its parts are held together. The 18px this costs comes out of the 104
+       * the pairing below gives back.
        *
-       * The deciding asymmetry is that one of those costs is recoverable and
-       * the other is not. This column scrolls, so a player about to roll can
-       * bring ROLL under their thumb with the gesture that got them there, and
-       * at the moment of rolling its position is theirs to choose; a pinned
-       * block's position is nobody's to choose, and 88px of pinned chrome could
-       * not be scrolled back into the sheet. The cost is paid at rest, where
-       * nobody is reaching for ROLL, and the benefit is paid while reading,
-       * which is what the resting sheet is for. I would not put the pin back.
-       *
-       * What would change that answer is a measurement nobody has taken: a real
-       * thumb, at a table, on a 393x852 phone, being asked whether the reach at
-       * the top of the scroll is a shrug or a fumble. `BACKLOG.md` keeps that in
-       * the list of things that need a human rather than an argument.
-       * `playSheet.test.tsx`, «says where on the glass ROLL is drawn», derives
-       * every number above from the budget table and the shell's own three
-       * constants, so none of them can go 150px stale again.
+       * `flex: 'none'` for the reason every child of this column carries it:
+       * see the sweep in `playSheet.test.tsx`. A group that could shrink would
+       * absorb the whole column's overflow on its own.
        */}
-      <DualityRoll
-        stats={stats}
-        trait={trait}
-        onTraitChange={chooseTrait}
-        source={arming.source}
-        layout="phone"
-        armedExperiences={armedExperiences}
-        onArmedExperiencesChange={setArmedExperiences}
-      />
+      <div className="stack" style={{ flex: 'none', gap: 14 }}>
+        {/* Read under pressure, so it is four numbers and not a footnote - and
+            FIRST, since decision 2 took the identity block off this column:
+            "threshold bene in vista" is the one instruction in Giorgio's message
+            with a reason attached to it, and the name, class and level it used to
+            sit under are on `Header.tsx` on every screen anyway. `damage` puts
+            the box you type a hit into beside the two thresholds it is read
+            against, which is where it was already looking: it used to print
+            `8/16` in 10px next to itself from inside the counters. `conditions`
+            puts the phone's permanent door into `ConditionsDialog` at the head of
+            that same fifth cell - it was on the identity's class row, and that
+            row has gone. */}
+        <Defenses stats={stats} damage conditions tight />
 
-      <Disclosure
-        id="equipped"
-        characterId={character.id}
-        label="Weapons & armour"
-        /*
-         * What is armed rides on the closed header, the way the modifier
-         * row's does. A declaration you cannot see is not a declaration, and
-         * this fold can be shut with a sword armed - after which the only
-         * thing on screen saying which weapon the damage offer belongs to
-         * would be behind a tap.
-         */
-        summary={
-          arming.source !== null
-            ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
-            : equippedCount === 0
-              ? 'NOTHING'
-              : `${equippedCount} WORN`
-        }
-      >
-        <Equipped stats={stats} arming={arming} bare />
-      </Disclosure>
+        {/* The four counters, two across. `bare`, because a box drawn around
+            four silhouettes costs 18px and distinguishes nothing. */}
+        <Vitals stats={stats} layout="phone" showState={false} bare />
 
-      {/*
-       * "E fare entrare le armi e le experience." The Experiences come
-       * straight after the weapons, which is where Giorgio's message puts
-       * them and where the printed sheet has them.
-       *
-       * They used to be two 44px chips pinned directly above ROLL, which is
-       * the best band on the phone and which they held on every frame of
-       * every session to offer something a player arms on maybe one roll in
-       * ten. Behind a fold they cost 44 instead of 100, and nothing about
-       * arming one changes: the chips are the same control, and whatever is
-       * armed is spelled out in full on the ROLL bar itself - so a
-       * declaration is never behind a tap even when the fold is.
-       *
-       * That sentence is the warrant for this fold, so it is load-bearing
-       * rather than descriptive, and it shipped false: `DualityRoll` named the
-       * armed Experiences only while no verdict was standing, which is every
-       * state but the one a player is in from their second roll of the evening
-       * onwards. `the Experiences a roll is declared with` asserts it in the
-       * state that used to lose it. What is armed *after* a roll is prefixed
-       * `NEXT:` there, because the bar is reporting a total at the same time
-       * and a +2 printed beside an 18 reads as an 18 that counted it.
-       *
-       * Drawn only when there are any. Every character starts with two, but a
-       * fold that opens onto nothing is 44px spent on an empty room.
-       */}
-      {character.experiences.length > 0 && (
-        <Disclosure
-          id="experiences"
+        <TraitRow
+          stats={stats}
+          trait={trait}
+          onPick={chooseTrait}
           characterId={character.id}
-          label="Experiences"
-          summary={
-            armedCount === 0
-              ? `${character.experiences.length}`
-              : `${character.experiences.length} · ${armedCount} ARMED`
-          }
-        >
-          <ExperienceRow
-            experiences={character.experiences}
-            armedExperiences={armedExperiences}
-            hopeAvailable={character.hope.marked}
-            toggleExperience={(id) =>
-              setArmedExperiences(
-                armedExperiences.includes(id)
-                  ? armedExperiences.filter((x) => x !== id)
-                  : [...armedExperiences, id],
-              )
+        />
+
+        {/*
+         * ROLL, in the flow, at the end of everything the rules make you declare
+         * before the dice. 317x56 at 393px and 299x56 at 375px, the largest
+         * target on the screen after a fold header.
+         *
+         * WHERE IT ACTUALLY IS, MEASURED RATHER THAN REMEMBERED. This comment
+         * carried `y522-588 … 264 to 330px up from the bottom bezel … 203px clear
+         * of the tab bar` for two passes after the 2x2 counter grid took 150px
+         * out of the stack above it, and every one of those numbers was 150px
+         * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
+         * shut, at the top of the scroll: the ROLL row spans **y305-361** on the
+         * glass at 393, and y297-353 at 375 and below, where the counters do not
+         * take `--counter-cell`'s 390 step. At 393x852 that is **491 to 547px
+         * above the bottom bezel** and **430px clear of the tab bar**; at
+         * 375x667 it is **314 to 370px above the bezel** and 253px clear.
+         *
+         * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
+         * The old sentence cited a 95th-percentile right-thumb sweep of about
+         * 330px from the bottom-right pivot and said ROLL was inside it. On the
+         * larger phone it is not, and deleting the 99px identity block is what
+         * put it there: the resting sheet puts ROLL some 161px beyond the
+         * far edge of that arc where P5-8 put it 84 beyond. On a 375x667 phone
+         * it is back INSIDE the arc: 314-370, where the reflow's first four
+         * steps had it at 332-388 and outside. That is a real cost of what was
+         * asked for rather than a detail, and it is the cost of decision 2
+         * specifically: every pixel the sheet gets shorter above ROLL is a pixel
+         * further from the thumb at rest.
+         *
+         * AND THE SPACING GAVE MOST OF IT BACK, WHICH WAS NOT THE PLAN. The
+         * head of the column's 14px gaps and its 8px of top padding exist because
+         * the owner said «è tutto attaccato sopra», and they push everything
+         * below them down: ROLL was 493-559 above the bezel before any of this
+         * and is 491-547 now, two pixels CLOSER to the thumb than it started.
+         * Worth stating as the side effect it is, because the next edit to
+         * those gaps moves ROLL again and should know that it does.
+         *
+         * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
+         * The whole folded sheet is now readable in one look - 516 of 730 at
+         * 393x852 - which is the sentence the owner actually wrote and which a
+         * pinned block made arithmetically impossible. And ROLL is 430px clear of
+         * the tab bar, where pinned it sat 8px above a 98x60 control that
+         * navigates away: a thumb aiming for ROLL and missing low used to leave
+         * the screen mid-turn.
+         *
+         * The deciding asymmetry is that one of those costs is recoverable and
+         * the other is not. This column scrolls, so a player about to roll can
+         * bring ROLL under their thumb with the gesture that got them there, and
+         * at the moment of rolling its position is theirs to choose; a pinned
+         * block's position is nobody's to choose, and 88px of pinned chrome could
+         * not be scrolled back into the sheet. The cost is paid at rest, where
+         * nobody is reaching for ROLL, and the benefit is paid while reading,
+         * which is what the resting sheet is for. I would not put the pin back.
+         *
+         * What would change that answer is a measurement nobody has taken: a real
+         * thumb, at a table, on a 393x852 phone, being asked whether the reach at
+         * the top of the scroll is a shrug or a fumble. `BACKLOG.md` keeps that in
+         * the list of things that need a human rather than an argument.
+         * `playSheet.test.tsx`, «says where on the glass ROLL is drawn», derives
+         * every number above from the budget table and the shell's own three
+         * constants, so none of them can go 150px stale again.
+         */}
+        <DualityRoll
+          stats={stats}
+          trait={trait}
+          onTraitChange={chooseTrait}
+          source={arming.source}
+          layout="phone"
+          armedExperiences={armedExperiences}
+          onArmedExperiencesChange={setArmedExperiences}
+        />
+      </div>
+
+      {/*
+       * THE FIRST PAIR: what you are wearing, and what you are good at.
+       *
+       * Two folds share this row because both have a short name and a short
+       * summary at 360 - `2 WORN` and `2` - which is the test a fold has to
+       * pass to be paired at all. `Weapons & armour` leads because Giorgio's
+       * message does: "E fare entrare le armi e le experience."
+       *
+       * If the character has no Experiences the fold is not drawn, the pair has
+       * one member, and `FoldPair` gives it the whole row rather than half of
+       * it with a hole beside it.
+       */}
+      <FoldPair
+        openFirst={equippedOpen}
+        openSecond={experiencesOpen}
+        first={
+          <Disclosure
+            id="equipped"
+            characterId={character.id}
+            label="Weapons & armour"
+            /*
+             * What is armed rides on the closed header, the way the modifier
+             * row's does. A declaration you cannot see is not a declaration, and
+             * this fold can be shut with a sword armed - after which the only
+             * thing on screen saying which weapon the damage offer belongs to
+             * would be behind a tap.
+             */
+            summary={
+              arming.source !== null
+                ? `ARMED · ${sourceName(arming.source).toUpperCase()}`
+                : equippedCount === 0
+                  ? 'NOTHING'
+                  : `${equippedCount} WORN`
             }
-          />
-        </Disclosure>
-      )}
+            stacked={stackedA}
+          >
+            <Equipped stats={stats} arming={arming} bare />
+          </Disclosure>
+        }
+        second={
+          /*
+           * "E fare entrare le armi e le experience." The Experiences come
+           * straight after the weapons, which is where Giorgio's message puts
+           * them and where the printed sheet has them - and since the reflow
+           * that is beside rather than below.
+           *
+           * They used to be two 44px chips pinned directly above ROLL, which is
+           * the best band on the phone and which they held on every frame of
+           * every session to offer something a player arms on maybe one roll in
+           * ten. Behind a fold they cost 44 instead of 100, and behind half a
+           * shared row they cost nothing at all; nothing about arming one
+           * changes: the chips are the same control, and whatever is armed is
+           * spelled out in full on the ROLL bar itself - so a declaration is
+           * never behind a tap even when the fold is.
+           *
+           * That sentence is the warrant for this fold, so it is load-bearing
+           * rather than descriptive, and it shipped false: `DualityRoll` named
+           * the armed Experiences only while no verdict was standing, which is
+           * every state but the one a player is in from their second roll of the
+           * evening onwards. `the Experiences a roll is declared with` asserts
+           * it in the state that used to lose it. What is armed *after* a roll
+           * is prefixed `NEXT:` there, because the bar is reporting a total at
+           * the same time and a +2 printed beside an 18 reads as an 18 that
+           * counted it.
+           *
+           * Drawn only when there are any. Every character starts with two, but
+           * a fold that opens onto nothing is a row spent on an empty room.
+           */
+          character.experiences.length > 0 ? (
+            <Disclosure
+              id="experiences"
+              characterId={character.id}
+              label="Experiences"
+              summary={
+                armedCount === 0
+                  ? `${character.experiences.length}`
+                  : `${character.experiences.length} · ${armedCount} ARMED`
+              }
+              stacked={stackedA}
+            >
+              <ExperienceRow
+                experiences={character.experiences}
+                armedExperiences={armedExperiences}
+                hopeAvailable={character.hope.marked}
+                toggleExperience={(id) =>
+                  setArmedExperiences(
+                    armedExperiences.includes(id)
+                      ? armedExperiences.filter((x) => x !== id)
+                      : [...armedExperiences, id],
+                  )
+                }
+              />
+            </Disclosure>
+          ) : null
+        }
+      />
 
       {/*
-       * The cards, which are one section and used to be drawn as two.
+       * THE SECOND PAIR: what you can play, and what you do between scenes.
        *
-       * "Ultime le carte." The loadout and the vault are the same subject -
-       * what you own and which five of it you are holding - and they were
-       * costing two 44px headers to say so. The vault is now a tendina inside
-       * this one, keeping its own id so a player who had it open still has it
-       * open, and the closed header carries both numbers: a fold that hides
-       * how many cards are where has cost a tap rather than saved a scroll.
+       * `Cards` keeps the place decision 6 gave it - above `Carried`, because
+       * it is the fold a player opens most and `Carried` is read when somebody
+       * asks what you have on you - and `Rest & downtime` comes up beside it
+       * from below `Carried`. That swap is the only reorder in this reflow and
+       * it costs the column nothing: both keep their `Disclosure` id, so no
+       * player's remembered arrangement moves.
        *
-       * Nested rather than merged, because the argument that separated them
-       * still holds: a level 8 character owns about a dozen cards and carries
-       * five, and opening the loadout must not hand you twelve rows.
-       *
-       * ABOVE `Carried` AND NOT BELOW IT, WHICH IS DECISION 6 AND WHICH READS
-       * AGAINST THE MESSAGE. "Sotto armi e armature e ultime le carte" puts the
-       * cards last and they were last; the owner moved them one place up. The
-       * warrant is frequency rather than order: this is the fold a player opens
-       * most - it is where every domain ability is - and `Carried` is read when
-       * somebody asks what you have on you. It costs the column **0px**: two
-       * 44px headers swap places, both keep their `Disclosure` id, so no
-       * player's remembered arrangement moves and neither total in the budget
-       * changes. What moves is reading order and reach: the Cards header's
-       * lower edge goes from 470 to 418 relative to the top of the column, i.e.
-       * from 429 to 481px above the bezel at 393x852. Both are outside the
-       * ~330px thumb sweep, so this is a reading gain and not a reach gain, and
-       * it is described as one.
+       * A rest is still between-scenes work sitting below everything the game
+       * makes you touch during a scene; beside the cards is where it already
+       * belonged, because the free swap it offers is the vault's own operation
+       * at the other price.
        */}
-      <Disclosure
-        id="cards"
-        characterId={character.id}
-        label="Cards"
-        // The gate counts every ref, readable or not, so this does too: a
-        // header saying 3 / 5 over a recall that refuses with "Loadout is
-        // full (5)" is the screen contradicting itself.
-        summary={`${loadout.length + ghostLoadout.length} / 5 · ${vault.length + ghostVault.length} INACTIVE`}
-      >
-        <div className="stack" style={{ flex: 'none', gap: 4 }}>
-          <LoadoutRows />
-        </div>
-        <Disclosure
-          id="vault"
-          characterId={character.id}
-          label="Vault"
-          summary={`${vault.length + ghostVault.length} INACTIVE`}
-        >
-          <Vault layout="rows" />
-        </Disclosure>
-      </Disclosure>
+      <FoldPair
+        openFirst={cardsOpen}
+        openSecond={restOpen}
+        first={
+          /*
+           * The cards, which are one section and used to be drawn as two.
+           *
+           * "Ultime le carte." The loadout and the vault are the same subject -
+           * what you own and which five of it you are holding - and they were
+           * costing two 44px headers to say so. The vault is now a tendina
+           * inside this one, keeping its own id so a player who had it open
+           * still has it open, and the closed header carries both numbers: a
+           * fold that hides how many cards are where has cost a tap rather than
+           * saved a scroll.
+           *
+           * Nested rather than merged, because the argument that separated them
+           * still holds: a level 8 character owns about a dozen cards and
+           * carries five, and opening the loadout must not hand you twelve rows.
+           */
+          <Disclosure
+            id="cards"
+            characterId={character.id}
+            label="Cards"
+            // The gate counts every ref, readable or not, so this does too: a
+            // header saying 3 / 5 over a recall that refuses with "Loadout is
+            // full (5)" is the screen contradicting itself.
+            summary={`${loadout.length + ghostLoadout.length} / 5 · ${vault.length + ghostVault.length} INACTIVE`}
+            stacked={stackedB}
+          >
+            <div className="stack" style={{ flex: 'none', gap: 4 }}>
+              <LoadoutRows />
+            </div>
+            <Disclosure
+              id="vault"
+              characterId={character.id}
+              label="Vault"
+              summary={`${vault.length + ghostVault.length} INACTIVE`}
+            >
+              <Vault layout="rows" />
+            </Disclosure>
+          </Disclosure>
+        }
+        second={<Rest stats={stats} rng={cryptoRng} stacked={stackedB} />}
+      />
 
       {/*
        * "Sotto armi e armature e ultime le carte": the inventory comes
@@ -2925,6 +3124,12 @@ function PlayPhone({
        * and still has it on the glass with every fold shut. An empty purse
        * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
        * nothing and is chosen rather than discovered.
+       *
+       * FULL WIDTH, AND IT IS THE REASON THERE ARE TWO PAIRS AND NOT THREE.
+       * Its worst summary - `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` - is
+       * 257.41px against a 181.5px half cell. There is no arrangement of a
+       * shared row that does not cut it, and cutting it is the one failure
+       * `Disclosure` exists to prevent.
        */}
       <Disclosure
         id="carried"
@@ -2932,24 +3137,15 @@ function PlayPhone({
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
         /*
-         * The one fold that keeps `.t-meta`'s 10px while the other five go to
-         * 11. This summary is the longest on the sheet - `4 ITEMS · 1 CHEST ·
-         * 3 BAGS · 7 HANDFULS` measures 257.41 at 10 with 4.39px of slack in
-         * the column - and the pixel it would gain in legibility it would lose
-         * by ellipsising the gold. See `Disclosure`'s note on `tightSummary`.
+         * The one fold that keeps `.t-meta`'s 10px while the others go to 11.
+         * Same measurement as the paragraph above, one step further: at 11 that
+         * line is ~283 with its right edge past 390 in a 369px column, so it
+         * ellipsises at full width too. See `Disclosure`'s `tightSummary`.
          */
         tightSummary
       >
         <Items bare />
       </Disclosure>
-
-      {/*
-       * A rest is between-scenes work, so it sits below everything the game
-       * makes you touch during a scene and above the section read once a
-       * session. Directly under the cards, because the free swap it offers is
-       * the vault's own operation at the other price.
-       */}
-      <Rest stats={stats} rng={cryptoRng} />
 
       {/*
        * Conditions are set once a scene rather than once a turn, so they are
@@ -2961,7 +3157,7 @@ function PlayPhone({
        * the permanent strip was - and the only arrangement that removes the 52
        * is this one, paid for by a door that costs no height, which is the
        * 44x44 control in the defence band's fifth cell at the top of this
-       * column. With nothing on, the folded sheet is 586 of 730 at 393x852.
+       * column. With nothing on, the folded sheet is 516 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A
