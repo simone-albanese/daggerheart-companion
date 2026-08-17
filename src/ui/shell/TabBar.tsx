@@ -32,6 +32,49 @@
  * height either way - well above the 44px floor, because this bar is the one
  * control strip that lives inside the thumb arc - and at 320, 375, 393 and 719
  * every tab returns itself from its own centre.
+ *
+ * ## The horizontal insets, which here are a guarantee and not a repair either
+ *
+ * The app has paid `env(safe-area-inset-bottom)` and `-top` since it was
+ * written and had never once paid `-left` or `-right`: zero hits for either
+ * across the whole of `src/`. On a notched iPhone in landscape that is exactly
+ * where the cutout is, and `Header.tsx` really was losing 39 of the 54.4px of
+ * SETTINGS to it. This bar was named in the same finding, and the measurement
+ * refuses that half of it.
+ *
+ * Measured through the audit rig at 852x393 - an iPhone 14/15 in landscape -
+ * `document.querySelector('main > nav')` comes back **null**. `App.tsx` draws
+ * this bar only while `phone` is true, `useLayout.ts` puts phone below 720, and
+ * every notched iPhone in landscape is wider than that: 812 on a 12/13 mini,
+ * 852, 932 on a Pro Max. So the band that draws this bar and the band that has
+ * a horizontal inset do not meet on any iPhone - and in the orientation this
+ * bar *is* drawn in, iOS reports both sides as 0 anyway: at 393x852 with a 59px
+ * inset injected the rig reads this element's padding-left and padding-right
+ * back as `0px`, while its padding-bottom is the 34px it has always paid.
+ *
+ * The two declarations below are therefore worth what `minmax(0, 1fr)` above is
+ * worth, and for the same reason: they are what this bar does if the band ever
+ * moves - a window under 720px wide on a device that reports a side cutout, a
+ * foldable, an Android in split screen - rather than a repair to anything that
+ * can be measured today. They cost 0px on every device that draws this bar, and
+ * that is the honest claim rather than a larger one.
+ *
+ * They go on the `<nav>` itself and not on an ancestor because padding sits
+ * inside the background box: `var(--panel)` keeps painting to the physical edge
+ * while the four buttons move in, which is what a bar under a cutout is meant
+ * to look like. The same padding on `.app` or on `<main>` would move the
+ * background with the buttons and leave a strip of `--app` down the glass.
+ *
+ * ERGONOMICS. This is the one control strip in the app deliberately inside the
+ * thumb arc, and in the orientation it is drawn in both insets are 0, so the
+ * arc is untouched and no tab moves by a pixel today. If a device ever did
+ * report one, the cost lands on the grid rather than on the height: at 393 the
+ * four columns are 98.3 each, and a 59px inset would take them to 83.5 - or
+ * 131 to 111.3 with the GM section off - both still far above the 44px floor,
+ * with the 60px height untouched because this padding is horizontal. What the
+ * tabs would gain is the part that matters at a table: a label under a cutout
+ * is a destination you cannot read in a dim room, which is the whole argument
+ * for the four silhouettes above.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, type Screen } from '../../store/state.ts';
@@ -93,6 +136,14 @@ export function TabBar(): React.JSX.Element {
          * browser computes the same pixels either way.
          */
         paddingBottom: 'calc(0px + env(safe-area-inset-bottom))',
+        /*
+         * The display cutout, in the same spelling and for the same parser
+         * reason. See "The horizontal insets" above for why these are a
+         * guarantee rather than a repair: measured at 852x393 this bar is not
+         * rendered at all, and at 393x852 both of these resolve to 0px.
+         */
+        paddingLeft: 'calc(0px + env(safe-area-inset-left))',
+        paddingRight: 'calc(0px + env(safe-area-inset-right))',
       }}
     >
       {tabs.map((tab) => {
