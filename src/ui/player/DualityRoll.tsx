@@ -1408,34 +1408,48 @@ function ExperienceChip({
        * `ExperienceRow` goes two across and the chip is 172.5 with a 126.3px
        * span. The crossing on the phone is exactly 381px of viewport.
        *
-       * WHAT THREE COSTS: 3.7px, ONCE. 39.675 of text plus this chip's own 4 +
-       * 4 of padding is 47.675 against a `minHeight: var(--tap)` of 44, and
-       * `box-sizing: border-box` is set globally - so a chip that needs the
-       * third line goes 44 -> 47.7 and one that does not is unchanged. Both
-       * surfaces can carry it: the phone column scrolls, and the cockpit's roll
-       * panel scrolls too now.
+       * WHAT THREE COSTS: 5.7px, ONCE PER WRAPPED ROW THAT HOLDS ONE. 39.675 of
+       * text, plus this chip's own 4 + 4 of padding, plus the 1 + 1 of the
+       * border it declares two properties above - always 1px, `transparent`
+       * when unarmed but laid out either way - is 49.675 against a
+       * `minHeight: var(--tap)` of 44, with `box-sizing: border-box` set
+       * globally by base.css. Measured 49.7 in Chrome on the cockpit chip at
+       * its 124px `maxWidth`. So a chip that needs the third line goes 44 ->
+       * 49.7 and one that does not is unchanged at 44 - two lines are 26.45 + 8
+       * + 2 = 36.45, comfortably inside the floor. An earlier revision of this
+       * paragraph left the border out and said 47.675 and +3.7.
+       *
+       * "ONCE" IS PER ROW AND NOT PER CHIP, because the shelf wraps: a flex
+       * line is as tall as its tallest item, so one long name in a row of three
+       * costs that row 5.7 and the other two chips ride along. Measured with
+       * `wizard10`'s five Experiences, whose two long names land on separate
+       * rows: the shelf is 155.3 where three rows of 44 and two 6px gaps would
+       * be 144. Both surfaces can carry it - the phone column scrolls, and the
+       * cockpit's roll panel scrolls too now.
        *
        * WHY NOT THE OTHER PROPOSAL, WHICH WAS TO WIDEN THE COCKPIT CHIP FROM
        * 124 TO 168. It loses on two counts and both are numbers. It does not
        * touch the phone, where the same declaration hides the same 14px on a
        * 172.5px chip - one line of code covers both surfaces and one of the two
        * fixes only covers one of them. And it costs the cockpit far more than
-       * this does: the modifier shelf is 303px wide, so at 168 two chips plus
-       * their 6px gap is 342 and every Experience takes a wrapped row of its
-       * own - five rows of 44 where 124px chips pack two to a row. That is
-       * about +96px against +3.7. Its stated premise, that the roll panel is
-       * `overflow: hidden` and has no spare height, was true when it was
-       * written and is no longer; the arithmetic would have decided it either
-       * way.
+       * this does: the shelf is 402px wide, so at 168 it packs two chips to a
+       * row where 124 packs three. Packed the way `ControlRow`'s docblock packs
+       * them, five 168px chips take four rows - 44 + 44 + 44 + 34 and three 6px
+       * gaps, 184 - against the measured 155.3 the 124px chips take. That is
+       * +28.7 for the wider chip against +11.3 for the third line, on the same
+       * shelf, for the same five names. Its stated premise, that the roll panel
+       * is `overflow: hidden` and has no
+       * spare height, was true when it was written and is no longer; the
+       * arithmetic would have decided it either way.
        *
        * ERGONOMICS. TARGET SIZE moves the right way and only the right way:
-       * 44 -> 47.7 on the chips that need the third line, above this project's
+       * 44 -> 49.7 on the chips that need the third line, above this project's
        * 44px coarse floor and its 34px fine one in both states, with the width
        * untouched at 172.5 on a two-across phone and at most 124 on the
        * cockpit - width was never the charge here. THUMB ARC is the question of
-       * whether 3.7px moves a neighbour under a thumb that was aiming at this
+       * whether 5.7px moves a neighbour under a thumb that was aiming at this
        * chip, and it does not: `ExperienceRow` gaps its rows by 6, so a row
-       * that grows by 3.7 still ends short of where the next row's targets
+       * that grows by 5.7 still ends short of where the next row's targets
        * begin, and everything below simply shifts down inside a column that
        * scrolls. READ VERSUS TOUCH is the whole reason for the change. The
        * name is the entire content of this control - there is no other text to

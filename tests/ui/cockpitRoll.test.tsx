@@ -445,10 +445,20 @@ describe('the cockpit modifier shelf', () => {
  * Two lanes proposed incompatible fixes. This settles it at three lines rather
  * than a wider cockpit chip; the docblock over the span carries the argument
  * and the numbers below carry the arithmetic.
+ *
+ * The shipped chip measures 49.7 when a name takes the third line and 44 when
+ * it does not. The 47.675 an earlier revision of this file asserted left out
+ * the chip's own 1px border, which is declared unconditionally - `transparent`
+ * when unarmed - and lays out either way under a global `box-sizing:
+ * border-box`.
  */
 describe('an Experience is legible on the chip that spends it', () => {
   const LINE = 11.5 * 1.15; // the declared `600 11.5px/1.15 var(--mono)`
-  const PADDING = 8; // the chip's own paddingTop 4 + paddingBottom 4
+  // The chip's own box around the text: paddingTop 4 + paddingBottom 4, plus
+  // the 1px + 1px of the border it declares unconditionally (`transparent`
+  // when unarmed, and a transparent border is still laid out). `box-sizing:
+  // border-box` is global, so all of it comes out of the 44.
+  const BOX = 4 + 4 + 1 + 1;
   const FLOOR = 44; // `minHeight: var(--tap)`
 
   const labels = (el: ParentNode): HTMLElement[] =>
@@ -489,31 +499,44 @@ describe('an Experience is legible on the chip that spends it', () => {
     expect(source.match(/WebkitLineClamp/g) ?? []).toHaveLength(1);
   });
 
-  it('costs the chip 3.7px, and only when the third line is used', () => {
-    // Two lines sit inside the touch floor; three step past it by 3.7. That is
-    // the whole price, and `box-sizing: border-box` is what makes the padding
-    // part of the 44 rather than on top of it.
-    expect(2 * LINE + PADDING).toBeCloseTo(34.45, 2);
-    expect(2 * LINE + PADDING).toBeLessThan(FLOOR);
-    expect(3 * LINE + PADDING).toBeCloseTo(47.675, 3);
-    expect(3 * LINE + PADDING - FLOOR).toBeCloseTo(3.675, 3);
+  it('costs the chip 5.7px, and only when the third line is used', () => {
+    // Two lines sit inside the touch floor; three step past it by 5.7. That is
+    // the whole price. `box-sizing: border-box` is what makes the padding part
+    // of the 44 rather than on top of it - and the border with it, which is why
+    // `BOX` is 10 and not 8. Measured 49.7 in Chrome on the cockpit chip at its
+    // 124px `maxWidth`, and 44 on the chips whose names fit two lines.
+    expect(2 * LINE + BOX).toBeCloseTo(36.45, 2);
+    expect(2 * LINE + BOX).toBeLessThan(FLOOR);
+    expect(3 * LINE + BOX).toBeCloseTo(49.675, 3);
+    expect(3 * LINE + BOX - FLOOR).toBeCloseTo(5.675, 3);
 
-    // And the terms of that arithmetic are still declared on the chip.
+    // And the terms of that arithmetic are still declared on the chip - the
+    // border included, so the term cannot go missing again.
     const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
     expect(chip).not.toBeNull();
     expect(chip!.style.font).toBe('600 11.5px/1.15 var(--mono)');
     expect(chip!.style.minHeight).toBe('var(--tap)');
     expect(chip!.style.paddingTop).toBe('4px');
     expect(chip!.style.paddingBottom).toBe('4px');
+    expect(chip!.style.border, 'the chip lost the border its height is costed with').toMatch(
+      /^1px solid /,
+    );
   });
 
-  it('refuses the 168px chip, because the shelf cannot pack two of them', () => {
-    // The rejected proposal, kept as a number rather than as prose: the
-    // cockpit shelf is 303px, so two 168px chips and their 6px gap is 342 and
-    // every Experience would take a wrapped row of its own.
-    expect(168 * 2 + 6).toBeGreaterThan(303);
-    // Where the shipped 124px `maxWidth` packs two to a row with room to spare.
-    expect(124 * 2 + 6).toBeLessThan(303);
+  it('refuses the 168px chip, because it packs two to a row where 124 packs three', () => {
+    /*
+     * The rejected proposal, kept as a number rather than as prose. The shelf
+     * is 402 since the `Duality Roll` title went, so 168 is no longer a chip
+     * that cannot pack at all - it is a chip that packs two to a row where 124
+     * packs three, which at five Experiences is four rows instead of three.
+     */
+    expect(168 * 3 + 12, 'three 168px chips would fit after all').toBeGreaterThan(402);
+    expect(168 * 2 + 6).toBeLessThan(402);
+    expect(124 * 3 + 12, 'the shipped chip no longer packs three to a row').toBeLessThan(402);
+    // 44 + 44 + 44 + 34 and three 6px gaps, against the 155.3 the shipped chip
+    // measures: +28.7 for the wider chip against +11.3 for the third line.
+    expect(44 * 3 + 34 + 6 * 3).toBeCloseTo(184, 1);
+    expect(184 - 155.3).toBeCloseTo(28.7, 1);
     const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
     expect(chip!.style.maxWidth, 'the cockpit chip was widened after all').toBe('124px');
   });
