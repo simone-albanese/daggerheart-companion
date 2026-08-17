@@ -11,11 +11,25 @@
  * the wrong instruction at the worst possible moment. So it offers the bridge
  * first and creation second.
  *
- * It outranks the first-run questions for the same reason, and `App.tsx` checks
- * `needsPasteboardBridge()` before the onboarding gate to make that so. An empty
- * library is the state onboarding claims too, and on this device it has an
- * explanation - so being asked whether you are a player or a GM would be the app
- * answering a question nobody asked while ignoring the one they did.
+ * It outranks the first-run questions for the same reason, and the term that
+ * makes that so is inside `needsOnboarding` (`src/store/prefs.ts`) rather than
+ * in front of the gate: that rule reads `!prefs.onboarded && characterCount ===
+ * 0 && !needsPasteboardBridge()`, and both of its callers - `App`, which draws
+ * the questions, and `Header`, which strips its nav while they are up - get the
+ * whole answer from it. It was moved there because those two disagreed:
+ * `Header` had only the first two terms, so on exactly this device the shell
+ * drew the five screens while the bar above them took away the nav and the door
+ * to Settings, and this screen became unreachable from the app written to
+ * offer it.
+ *
+ * `App.tsx`'s one remaining call to `needsPasteboardBridge()` is not that gate.
+ * It is inside `EmptyState` - the Play screen's "no character yet" panel - and
+ * it is what puts this screen in that panel's place once the questions are done
+ * with.
+ *
+ * An empty library is the state onboarding claims too, and on this device it has
+ * an explanation - so being asked whether you are a player or a GM would be the
+ * app answering a question nobody asked while ignoring the one they did.
  */
 import { useState } from 'react';
 import { pasteLibrary } from '../../transfer/pasteboard.ts';
