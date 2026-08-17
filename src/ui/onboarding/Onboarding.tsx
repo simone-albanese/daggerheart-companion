@@ -112,6 +112,15 @@
  * whose characters have gone missing must be told so, and must not instead be
  * quietly asked who it belongs to.
  *
+ * One control in those banners outranks this screen, and it is the only thing
+ * that does: the integrity alert's RESTORE FROM A BACKUP chip takes the gate
+ * down on its way to Settings (`routedByAlert` in `App.tsx`). A person told
+ * their characters are gone and offered the one route back has to be able to
+ * take it, and the chip landed nowhere while this was drawn instead of all five
+ * screens. `Header` is handed the same answer, so that lands on Settings with
+ * the nav and the door back rather than in the trap the paragraph above
+ * describes. Nothing is written: the questions are still owed next launch.
+ *
  * ## Ergonomics, measured in Chrome rather than estimated
  *
  * Every number below was read off the layout engine through the audit harness,
