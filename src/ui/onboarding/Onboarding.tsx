@@ -192,10 +192,17 @@
  *
  * Not the wizard's band, which this used to claim, and the arithmetic three
  * paragraphs up is where the claim went wrong: the nav box is 69 tall and ends
- * at the bottom of the window, so its buttons start 10px inside it at 793 and
- * not at 783, the top edge. The wizard's nav rides *above* `TabBar` rather than
- * instead of it, which puts its Back and Next at y733-781 - 13px clear of where
- * these two begin, so the two bands do not overlap at all.
+ * at the bottom of the window, so it starts at 783 and its buttons start 11px
+ * inside that, at 794. The eleven is `borderTop: 1px` plus `paddingTop: 10`,
+ * and the whole 69 is that same 1 + 10, the 48px buttons and the 10px bottom
+ * padding the home-indicator inset is added to. This sentence used to say 10px
+ * and 793, having counted the padding and not the border - one pixel, but a
+ * pixel that made the paragraph disagree with the y794-842 measured directly
+ * above it and with the 13px clearance stated directly below.
+ *
+ * The wizard's nav rides *above* `TabBar` rather than instead of it, which puts
+ * its Back and Next at y733-781 - 13px clear of where these two begin, so the
+ * two bands do not overlap at all.
  *
  * Landscape scrolls and is meant to: 271px of window at 852x393 and 198 at
  * 568x320 cannot hold a headline and four 64px rows however they are arranged,
@@ -534,8 +541,33 @@ export function Onboarding(): React.JSX.Element {
    * the shape: the flow ends when a character is on the device, so the flow
    * watches for a character being on the device. There is nothing left for a
    * fourth door to forget to call, and the two doors that did call it no longer
-   * can - the conflict rows count too now, so choosing "replace" on the last
-   * blocked arrival hands off exactly as a clean import does.
+   * can.
+   *
+   * ## The conflict rows, which cannot happen here
+   *
+   * This used to close "the conflict rows count too now, so choosing 'replace'
+   * on the last blocked arrival hands off exactly as a clean import does" - a
+   * sentence describing a state this surface cannot reach, and therefore one
+   * nothing could ever disprove. `importCharacters` files a conflict only when
+   * `decideImport` returns `keep-local`, and that needs `local !== undefined`:
+   * a character already on this device carrying the same id. This screen is
+   * drawn only while `needsOnboarding` is true, and one of that rule's three
+   * terms is `characterCount === 0`. An empty library has nothing to conflict
+   * with, and the first arrival takes the whole flow down through the line
+   * below, so there is no second one either.
+   *
+   * The code handles them anyway, and not defensively. `ImportDoors` renders
+   * `ImportConflicts` because it goes through `useImportFlow`, the shared module
+   * Settings, `Recovery` and the transfer screen also use - and on those three
+   * surfaces a conflict is ordinary, because they run against a library that
+   * already has characters in it. The rows are here because the component is
+   * shared, not because this route can produce one.
+   *
+   * The subscription below is likewise not a rule about conflicts. It watches
+   * the character count cross zero and cannot tell which action moved it, so
+   * `resolveImport` would satisfy it exactly as `importCharacters` does. That is
+   * a property of watching the state rather than the doors, and it is the reason
+   * this shape needs no clause for a case it has never been able to see.
    *
    * A store subscription rather than an effect on `characters.length`, and that
    * is not a style choice: the count going above zero is what unmounts this

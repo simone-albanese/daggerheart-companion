@@ -126,6 +126,7 @@
  * two controls have taken their floor.
  */
 import { useState, type ReactNode } from 'react';
+import { SHELL_BLOCK_MARGIN } from './gutter.ts';
 
 /** A button in a banner: what it says, and what it does. */
 export interface BannerAction {
@@ -165,7 +166,7 @@ export function ShellBanner({
         flex: 'none',
         alignItems: 'center',
         gap: 12,
-        margin: '8px 20px 0',
+        ...SHELL_BLOCK_MARGIN,
         padding: '6px 6px 6px 12px',
         borderRadius: 'var(--r2)',
         background: urgent ? 'var(--hope-wash)' : 'var(--panel)',

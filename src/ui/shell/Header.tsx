@@ -100,23 +100,29 @@
  * `App.tsx` renders six blocks directly inside `<main>`, above every screen and
  * below this bar: `UnsavedWork` (App.tsx:499), the storage-error alert (:260),
  * the integrity alert (:295), the quarantined-characters alert (:360), and
- * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx:168`. None is a
- * screen; all six are shell chrome, and all six are hard-coded to
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx`. None is a screen;
+ * all six are shell chrome, and all six were hard-coded to
  * `margin: '8px 20px 0'`. Measured at 852x393 with 59 on both sides,
- * `BackupBanner` renders at [20, 832] and its box is identical with the insets
- * at 0 - it does not move, so its first 39px sit inside the left strip while
- * this bar 8px above it is now correctly inset to 79. The two gutters used to
- * line up at 20 and no longer do.
+ * `BackupBanner` rendered at [20, 832] and its box was identical with the insets
+ * at 0 - it did not move, so its first 39px sat inside the left strip while this
+ * bar 8px above it was correctly inset to 79. The two gutters used to line up at
+ * 20 and had stopped.
  *
- * So the unpaid surface is in two columns and neither is "the Cards filter
+ * So the unpaid surface was in two columns and neither is "the Cards filter
  * rails", which is what this file used to name.
  *
- *   Shell chrome: those six margins. They were unpaid before this change too,
- *     so this is not a regression it introduces, and the repair is one line
- *     each - `margin: '8px calc(20px + env(safe-area-inset-right)) 0
- *     calc(20px + env(safe-area-inset-left))'`, which keeps them aligned with
- *     this bar at every inset. Left deliberately: they live in `App.tsx` and
- *     `ShellBanner.tsx` and belong in a commit that can test those two files.
+ *   Shell chrome: those six margins. DONE - they take `SHELL_BLOCK_MARGIN` from
+ *     `gutter.ts` now, which is the same two `calc()` strings this bar's padding
+ *     uses, from the same file, so the two cannot drift again. The repair was
+ *     proposed here as a `margin` shorthand carrying `env()`; that would have
+ *     been wrong for the reason stated thirty lines below, since jsdom drops
+ *     such a shorthand whole and would have taken the 8px top margin with it.
+ *     Four longhands, as this bar pays its padding. The right strip is why it
+ *     was worth doing rather than recording: `ShellBanner`'s dismiss ✕ is a
+ *     44x44 target at [781, 825] against a strip starting at 793, so 32 of its
+ *     44px - 72.7% - were inside the cutout, leaving 12px of glass. That is a
+ *     worse casualty than the SETTINGS button this bar's own fix was written
+ *     for, which kept 15.4.
  *   Screens: measured on Play at 852x393 with 59 on both sides, `<main>`'s
  *     only other child is the column at [0, 852] and it pays nothing. ROLL
  *     2d12 sits at [12, 788] with 47px of its left end under the left strip;
@@ -140,6 +146,42 @@
  * measured again. `paddingTop` is converted to the same form here - it computes
  * the same pixels and it is the first time that declaration has been visible to
  * the suite at all.
+ *
+ * ## THE FALLBACK THIS GAVE UP, AND WHY IT IS NOT OWED
+ *
+ * Written down rather than fixed, with the evidence, because it is unreachable.
+ *
+ * `padding: '0 20px'` gave 20px side gutters unconditionally. These two
+ * longhands do not: a CSS parser that has never heard of `env()` drops the whole
+ * declaration, so such a browser would get **zero** side padding on this bar
+ * where it used to get 20. The standard repair is the shorthand first and the
+ * longhands after it, so the 20 survives the drop. It is not written here
+ * because the browser it protects does not exist in this app's supported set,
+ * and the set is defined by what the app already requires without a fallback:
+ *
+ *   - `base.css:222` declares `.app { height: 100svh }` and nothing else. `svh`
+ *     shipped in Safari 15.4 and Chrome 108. Drop that declaration and the whole
+ *     shell grid has no height.
+ *   - nine `color-mix(in srgb, ...)` backgrounds across `Play`, `DomainCardView`,
+ *     `Conditions`, `DeathMove`, `Beastform` and `Companion`, none with a
+ *     fallback colour. `color-mix()` shipped in Safari 16.2 and Chrome 111.
+ *
+ * `env(safe-area-inset-*)` shipped in Safari 11.2 and Chrome 69, four years
+ * before either. A browser that parses `svh` and `color-mix()` but not `env()`
+ * would have to be four years newer and four years older at once. And a browser
+ * that fails all three does not lose a 20px gutter here - it loses the app's
+ * height and every washed background in it.
+ *
+ * Six overlays make the point sharper still. `GearPicker`, `DomainCardView`,
+ * `Conditions`, `DeathMove`, `Beastform` and `Companion` each declare a `padding`
+ * SHORTHAND carrying `env()` (`max(10px, env(safe-area-inset-top)) 10px ...`),
+ * and a parser that does not know `env()` drops each of those whole - taking
+ * every side's padding with it, not merely an inset. So the hypothetical browser
+ * loses far more elsewhere than a fallback here could return, and repairing this
+ * bar alone would leave the same shape in six places while implying it had been
+ * dealt with. `tests/ui/safeArea.test.ts` asserts these exact declared values on
+ * purpose; adding a shorthand above them would change what that file reads back
+ * and buy nothing any real device can use.
  *
  * ERGONOMICS, and landscape is the case, so this reasons about landscape. At
  * 852x393 both thumbs are on the short edges and the arc each sweeps is wide
@@ -221,6 +263,7 @@
  * `tests/ui/safeArea.test.ts` does now.
  */
 import { allowedScreen } from '../../store/prefs.ts';
+import { GUTTER_LEFT, GUTTER_RIGHT } from './gutter.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
@@ -319,11 +362,17 @@ export function Header({
          * it jsdom keeps. Longhands because a `padding` shorthand carrying an
          * `env()` is dropped whole by that parser, which would take the two
          * ordinary 20s down with it in every test.
+         *
+         * The two horizontal values come from `gutter.ts` rather than being
+         * written out here, and the six shell-chrome blocks inside `<main>` take
+         * their margins from the same file. They are one gutter and they had
+         * drifted 59px apart under a cutout; a shared constant is the only
+         * version of "identical" that cannot be broken by a typo.
          */
         paddingTop: 'calc(0px + env(safe-area-inset-top))',
-        paddingRight: 'calc(20px + env(safe-area-inset-right))',
+        paddingRight: GUTTER_RIGHT,
         paddingBottom: 0,
-        paddingLeft: 'calc(20px + env(safe-area-inset-left))',
+        paddingLeft: GUTTER_LEFT,
         boxSizing: 'content-box',
         borderBottom: '1px solid var(--line-soft)',
         background: 'var(--panel)',

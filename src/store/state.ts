@@ -21,7 +21,7 @@ import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
 import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
 import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from './merge.ts';
-import { loadPrefs, openingScreen, savePrefs, type Prefs } from './prefs.ts';
+import { loadPrefs, onboardedByDoing, openingScreen, savePrefs, type Prefs } from './prefs.ts';
 
 export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'settings';
 
@@ -585,6 +585,59 @@ export const useApp = create<AppState>((set, get) => ({
     set({ dataset: resolved.dataset, index: resolved.index, layers: resolved.layers });
   },
 }));
+
+/**
+ * A character on this device is an answer to "who are you", and it is written
+ * down here the moment there is one.
+ *
+ * The rule is `onboardedByDoing` in `prefs.ts`, where the argument for it sits
+ * beside `needsOnboarding`'s. This is only the place it fires.
+ *
+ * ## Why an invariant and not a fix to the route that found it
+ *
+ * The route was the integrity alert's RESTORE FROM A BACKUP chip. It calls
+ * `setScreen('settings')`, which goes through `setPrefs` and persists the whole
+ * record with `onboarded: false`; the restore that follows takes the first-run
+ * gate down by the character count rather than by writing anything; and the disk
+ * still says `false` afterwards. Nothing is wrong until the library is next
+ * empty - a deletion, an eviction, a quarantine - and then the app asks
+ * somebody who has been playing for months who they are.
+ *
+ * Patching that chip would have closed that chip. `loadPrefs`'s docblock says
+ * the shape out loud - "any route that puts a character on this device without
+ * reaching the flow's one write leaves `onboarded: false` behind for good" - and
+ * a shape with a name is a shape that will happen again: the camera import door
+ * was the same defect a fortnight ago, and the next way in has not been written
+ * yet. So the store watches for the state instead of asking each door to report
+ * itself, which is the same conclusion `Onboarding.tsx` reached for the import
+ * route and for the same reason.
+ *
+ * ## Where it can safely live
+ *
+ * Not in a component. React may not be asked to write a preference while it is
+ * rendering, and the component that would own the effect - the first-run flow -
+ * is unmounted by the very transition being recorded, so an effect there would
+ * be scheduled on a tree that no longer exists. A store subscription is notified
+ * inside `set`, synchronously, before React is asked to render anything.
+ *
+ * Not on every commit either. The guard is the field itself: once it is true
+ * this listener is two property reads and a return, and there is exactly one
+ * write per device for the life of the install. The nested `setPrefs` re-enters
+ * this listener once and is stopped by the same guard, so it cannot loop.
+ *
+ * And not for a device that has none. `onboardedByDoing` requires
+ * `characterCount > 0`, so a genuinely new install keeps its `false` and is
+ * still asked - which is the whole point of the field.
+ *
+ * `init` is covered by the same line without a second thought: it `set`s the
+ * library it has just read, so a device that already carried the durable
+ * `false` from before this rule existed is repaired on its next launch rather
+ * than left waiting for its next import.
+ */
+useApp.subscribe((state) => {
+  if (!onboardedByDoing(state.prefs, state.characters.length)) return;
+  state.setPrefs({ onboarded: true });
+});
 
 export const flushPending = flush;
 

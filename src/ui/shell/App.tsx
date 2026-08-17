@@ -57,6 +57,7 @@ import { Cards } from '../player/Cards.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
+import { SHELL_BLOCK_MARGIN } from './gutter.ts';
 import { AppBoundary } from './AppBoundary.tsx';
 import { BackupBanner } from './BackupBanner.tsx';
 import { Header } from './Header.tsx';
@@ -290,7 +291,7 @@ function Shell(): React.JSX.Element {
               flex: 'none',
               alignItems: 'center',
               gap: 12,
-              margin: '8px 20px 0',
+              ...SHELL_BLOCK_MARGIN,
               padding: '8px 12px',
               borderRadius: 'var(--r2)',
               background: 'var(--fear-wash)',
@@ -325,7 +326,7 @@ function Shell(): React.JSX.Element {
             style={{
               flex: 'none',
               gap: 8,
-              margin: '8px 20px 0',
+              ...SHELL_BLOCK_MARGIN,
               padding: '10px 12px',
               borderRadius: 'var(--r2)',
               background: 'var(--fear-wash)',
@@ -401,7 +402,7 @@ function Shell(): React.JSX.Element {
             style={{
               flex: 'none',
               gap: 6,
-              margin: '8px 20px 0',
+              ...SHELL_BLOCK_MARGIN,
               padding: '10px 12px',
               borderRadius: 'var(--r2)',
               background: 'var(--raised)',
@@ -569,7 +570,7 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
       style={{
         flex: 'none',
         gap: 8,
-        margin: '8px 20px 0',
+        ...SHELL_BLOCK_MARGIN,
         padding: '10px 12px',
         borderRadius: 'var(--r2)',
         background: 'var(--fear-wash)',

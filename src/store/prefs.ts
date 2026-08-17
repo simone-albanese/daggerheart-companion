@@ -209,6 +209,41 @@ export function needsOnboarding(prefs: Prefs, characterCount: number): boolean {
 }
 
 /**
+ * Has this device answered the question by doing, without ever being asked?
+ *
+ * The other half of `needsOnboarding`, and it is the half that makes the first
+ * one safe over time. That rule already refuses to ask anybody holding a
+ * character - `characterCount === 0` is one of its three terms, and its docblock
+ * argues for it at length: somebody with a sheet on this device has answered
+ * "who are you" by doing rather than by tapping. But the *evidence* is the
+ * library, and the library is exactly what is gone at the moment the question
+ * gets asked. A deletion, an eviction, a quarantine, and the proof of an answer
+ * that was given two years ago disappears with it.
+ *
+ * So the answer is recorded when it is given rather than inferred when it is
+ * needed. `loadPrefs` states the hazard this closes: any route that puts a
+ * character on this device without reaching the flow's one write leaves
+ * `onboarded: false` behind for good. There were and will be several of those -
+ * the integrity alert's RESTORE FROM A BACKUP chip takes the first-run gate down
+ * on its way to Settings, and the restore that follows takes it down for real by
+ * the character count, so nothing on that whole path ever writes the field - and
+ * an invariant closes the ones nobody has thought of as well as the one somebody
+ * has. A patch to `routedByAlert` would close exactly one route.
+ *
+ * `characterCount > 0` and not `>= 0`: a device that legitimately has no
+ * character must keep its `false`, because it genuinely has not answered. This
+ * says only that having one is an answer, never that having none is.
+ *
+ * Pure and boolean, so the two places that could act on it - `state.ts`'s
+ * subscription, and any test that wants to state the rule directly - cannot
+ * disagree about what it means. Where the write happens, and why it is a store
+ * subscription rather than an effect, is argued in `state.ts`.
+ */
+export function onboardedByDoing(prefs: Prefs, characterCount: number): boolean {
+  return !prefs.onboarded && characterCount > 0;
+}
+
+/**
  * Where the app opens.
  *
  * Two rules, and the preferences are consulted first because the second one now
