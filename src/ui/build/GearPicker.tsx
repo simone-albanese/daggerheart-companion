@@ -189,12 +189,15 @@ const LIST_FLOOR = 140;
  * dialog is for, so a filter that costs a flick beats a comparison that has
  * nothing to compare.
  *
- * (The armor filter block is **158, not 108, below viewport 393**, since its
- * rail was given `wrap` - see the note on `ChipRow`. Re-measured over the same
- * six: list 208, 307, 542, 823 and 140/140, whole rows 2, 3, 5, 8 and 1/1. The
- * only entry that moves is 375x667, four whole rows to three; 320x568 held two
- * either way, and both landscape widths are untouched because the rail fits on
- * one line inside a 634px content box there.)
+ * (The armor filter block is **158, not 108, below viewport 392**, since its
+ * rail was given `wrap` - see the note on `ChipRow`, which derives that
+ * threshold and re-measures it. Re-measured over the same six: list 208, 307,
+ * 542, 823 and 140/140, whole rows 2, 3, 5, 8 and 1/1. The only entry of these
+ * six that moves is 375x667, four whole rows to three; 320x568 held two either
+ * way, and both landscape widths are untouched because the rail fits on one line
+ * inside a 634px content box there. `ChipRow` states the cost over a wider set
+ * that includes 360x800, where a second row is lost - "of these six" is doing
+ * real work in that sentence and is not a hedge.)
  *
  * So the viewports that were already right are unchanged to the pixel, and the
  * ones that were broken are the only ones that move.
@@ -582,21 +585,40 @@ function Chips<T extends string | number>({
  *
  * `wrap` exists for the armor picker, whose rail is the *only* one that holds a
  * `Seg` - the control this lane raised to the 44px floor. Measured in Chrome
- * with the shipped fonts: that rail's content is 345.30px, so at 393 and above
- * it fits on one line and `wrap` costs nothing at all; below 393 the last TIER
- * chip would otherwise be cut by the scrollport - 27.70px of a 44px target on
- * glass at 375, 12.70 at 360, 0.00 at 320 - and a hidden scrollbar is not a cue
- * that anything is there to reach. Wrapping puts every chip on the glass at
- * every supported width.
+ * with the shipped fonts: that rail's content is 345.30px against a content box
+ * of `viewport - 46` - the overlay's 2x10, the panel's 2x1 border and band 2's
+ * 2x12 padding - so it fits on one line while `viewport >= 391.3`, which in
+ * whole CSS pixels is **392 and above**. Measured: the rail is 48px tall at 392
+ * and 98px at 391. Below that the last TIER chip would otherwise be cut by the
+ * scrollport - 27.70px of a 44px target on glass at 375, 12.70 at 360, 0.00 at
+ * 320, each of them `44 - (345.30 - (viewport - 46))` - and a hidden scrollbar
+ * is not a cue that anything is there to reach. Wrapping puts every chip on the
+ * glass at every supported width.
+ *
+ * (This used to say 393. The threshold is one pixel lower than the nearest
+ * viewport in the sweep, which is exactly the kind of number a sweep cannot see:
+ * 392 and 393 both fit, and the sweep only had 393.)
  *
  * What it costs, measured over `PickerDialog`'s own six plus 360x800: band 2
  * goes 108 -> 158 at 320x568, 360x800 and 375x667, and is unchanged at 393x852,
- * 744x1133 and both landscape widths. That comes off the list, and it loses a
- * row in exactly one place - 375x667, 357px and four rows to 307px and three.
- * 320x568 goes 258 -> 208 and holds two rows either way; 852x393 and 667x375
- * are already at `LIST_FLOOR` and do not move. One row of armor at one viewport
- * is the price of a TIER filter chip that is 0.00px wide on glass at 320, and
- * the band that pays it scrolls with a scrollbar you can see.
+ * 744x1133 and both landscape widths. That comes off the list, and over this set
+ * it costs a row in **two** places, not one:
+ *
+ *   - 375x667, list 357 -> 307, four whole rows to three;
+ *   - 360x800, list 490 -> 440, five whole rows to four.
+ *
+ * 320x568 goes 258 -> 208 and holds two rows either way; 393x852 (542, five) and
+ * 744x1133 (823, eight) do not move at all; 852x393 and 667x375 are already at
+ * `LIST_FLOOR` and do not move either. Rows draw 63.6-85.4 with an 8px gap, so a
+ * 50px band is worth about one of them and which viewports round the wrong way
+ * is not derivable - it is measured, per viewport, and both of the two are.
+ *
+ * (This used to say "in exactly one place - 375x667". True over `PickerDialog`'s
+ * six, which is the set that docblock states and where it is still correct;
+ * false over this one, which adds the 360 width and is the set stated in the
+ * sentence above. Two rows of armor at two viewports is the price of a TIER
+ * filter chip that is 0.00px wide on glass at 320, and the band that pays it
+ * scrolls with a scrollbar you can see.)
  *
  * ERGONOMICS, at 375x667 - the shortest viewport this project measures, and the
  * one that pays. **Thumb arc:** taking the same right-thumb pivot the rest of
@@ -616,7 +638,9 @@ function Chips<T extends string | number>({
  * then which tier - and a wrapped flex line continues where the one above it
  * stopped, so the order is the order. The list, which is the thing being
  * compared and the thing the thumb returns to, stays between the count and
- * Done, 54px shorter.
+ * Done, 50px shorter - the height of the second flex line, which is what band 2
+ * gained and band 4 gave up. (54 here was a third wrong number in this
+ * docblock; the rail goes 48 -> 98 and the list 357 -> 307, both measured.)
  */
 const ChipRow = ({
   children,
