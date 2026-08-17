@@ -68,7 +68,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import * as db from '../../src/store/db.ts';
-import { DEFAULT_PREFS, savePrefs } from '../../src/store/prefs.ts';
+import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { ATTRIBUTION } from '../../src/ui/shared/CompatibleMark.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
@@ -276,11 +276,16 @@ async function throughOnboarding(): Promise<void> {
  * onboarding is the sixth, added the day it was.
  *
  * `paysTheInset` is which single element is genuinely last in the window at a
- * given width. Five of the six answer differently at 393 and at 1024, because
- * `TabBar` is drawn on a phone and is last there. Onboarding answers the same
- * at both, and that is the whole trap in it: it suppresses `TabBar`, so its own
- * nav is last at every width and has to pay unconditionally, where the wizard's
- * nav - the obvious thing to copy - pays only above 720.
+ * given width. Four of the six answer differently at 393 and at 1024, because
+ * `TabBar` is drawn on a phone and is last there. `gm` and `onboarding` answer
+ * the same at both, for two different reasons: `GmBar` is drawn under the GM
+ * scroll at every width and has been since before this branch, and onboarding
+ * suppresses `TabBar` entirely.
+ *
+ * That second one is the whole trap in it. Its own nav is last at every width
+ * and has to pay unconditionally, where the wizard's nav - the obvious thing to
+ * copy - pays only above 720, because on a phone `TabBar` is underneath it and
+ * pays there.
  */
 const SURFACES: Array<{
   name: string;
@@ -338,8 +343,14 @@ describe('the notice, on every surface the app draws', () => {
       await surface.mount();
       expect(
         text(),
-        `the ${surface.name} screen carries no licence notice with a character in the ` +
-          'library, which is the state every real install is in from the first minute onwards',
+        // The library clause stays behind the surface rather than in front of
+        // it: five of these are mounted with a character, which is the state
+        // every real install is in from the first minute onwards, and
+        // onboarding is mounted without one, which is the only state it has.
+        // Stated the other way round, this message sent whoever read an
+        // onboarding failure looking for a bug that cannot exist there.
+        `the ${surface.name} screen carries no licence notice in the state it is ` +
+          'actually reachable in',
       ).toContain(NOTICE);
     });
   }
