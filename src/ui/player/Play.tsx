@@ -93,6 +93,16 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
    * forgetting a thing it was told two seconds ago.
    */
   const [spellModifier, setSpellModifier] = useState(0);
+  /*
+   * The Experiences declared for the next roll.
+   *
+   * Here rather than inside `DualityRoll`, where they used to live, because
+   * the fold that holds the chips on a phone is below ROLL and is drawn by
+   * `PlayPhone` - so the component that owns the state and the component that
+   * draws the control are no longer the same one. It also puts the third
+   * declaration beside the other two, under one clearing rule instead of two.
+   */
+  const [armedExperiences, setArmedExperiences] = useState<string[]>([]);
 
   /*
    * A declaration belongs to the sheet that made it.
@@ -118,6 +128,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   useEffect(() => {
     setDeclared(null);
     setSpellModifier(0);
+    // An Experience left armed across a switch costs the arriving player a
+    // Hope and inflates their first roll by two, with nothing on the screen
+    // saying where the number came from.
+    setArmedExperiences([]);
   }, [characterId]);
 
   /*
@@ -230,10 +244,16 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   const arming: Arming = { declared, source, arm, spellModifier, setSpellModifier };
 
   if (!character) return null;
-  if (layout !== 'desktop') {
-    return <PlayPhone stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
-  }
-  return <PlayDesktop stats={stats} trait={trait} chooseTrait={chooseTrait} arming={arming} />;
+  const view = {
+    stats,
+    trait,
+    chooseTrait,
+    arming,
+    armedExperiences,
+    setArmedExperiences,
+  };
+  if (layout !== 'desktop') return <PlayPhone {...view} />;
+  return <PlayDesktop {...view} />;
 }
 
 interface ViewProps {
@@ -246,6 +266,9 @@ interface ViewProps {
    */
   chooseTrait: (t: RollTrait) => void;
   arming: Arming;
+  /** The Experiences declared for the next roll, and the one way to set them. */
+  armedExperiences: string[];
+  setArmedExperiences: (ids: string[]) => void;
 }
 
 interface Held {
@@ -1916,7 +1939,14 @@ function LoadoutRows(): React.JSX.Element {
  * 1180px now runs the one-column sheet, which is both what the tablet
  * measurements asked for and the end of a layout nobody could roll in.
  */
-function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
+function PlayDesktop({
+  stats,
+  trait,
+  chooseTrait,
+  arming,
+  armedExperiences,
+  setArmedExperiences,
+}: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, ghostLoadout } = useLoadout();
   const shapes = useApp((s) => s.prefs.shapeCoding);
@@ -1958,6 +1988,8 @@ function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JS
           onTraitChange={chooseTrait}
           source={arming.source}
           layout="desktop"
+          armedExperiences={armedExperiences}
+          onArmedExperiencesChange={setArmedExperiences}
         />
       </div>
 
@@ -2136,7 +2168,14 @@ function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JS
  * scene, not once a turn, and putting it above ROLL would spend 52px of the
  * 45 this arrangement has left.
  */
-function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.Element {
+function PlayPhone({
+  stats,
+  trait,
+  chooseTrait,
+  arming,
+  armedExperiences,
+  setArmedExperiences,
+}: ViewProps): React.JSX.Element {
   const character = useActive();
   const { loadout, vault, ghostLoadout, ghostVault } = useLoadout();
   const index = useApp((s) => s.index);
@@ -2212,6 +2251,8 @@ function PlayPhone({ stats, trait, chooseTrait, arming }: ViewProps): React.JSX.
         onTraitChange={chooseTrait}
         source={arming.source}
         layout="phone"
+        armedExperiences={armedExperiences}
+        onArmedExperiencesChange={setArmedExperiences}
       />
 
       <Disclosure

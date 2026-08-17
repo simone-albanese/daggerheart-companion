@@ -1133,6 +1133,64 @@ describe('the roll modifier row', () => {
 });
 
 /**
+ * The Experiences, which are declared before the dice and spent by them.
+ *
+ * The ids live in `Play` rather than in `DualityRoll`, because Giorgio's fold
+ * order puts the chips below ROLL and the component that draws them there is
+ * not the component that rolls. That move is invisible on the glass, which is
+ * exactly why it needs an assertion: the rule it carries - declared for one
+ * roll, disarmed by it - is the difference between a Hope spent once and a
+ * roll silently two points high for the rest of the session.
+ */
+describe('the Experiences a roll is declared with', () => {
+  /** The chip for one Experience, by the name `ExperienceChip` announces. */
+  const chip = (name: string): HTMLButtonElement => {
+    const found = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Utilize ${name},`),
+    );
+    if (found === undefined) throw new Error(`no Experience chip for "${name}"`);
+    return found;
+  };
+
+  const rollControl = (): HTMLButtonElement => {
+    const found = buttons().find((b) => b.style.height === '66px');
+    if (found === undefined) throw new Error('the phone has no roll control');
+    return found;
+  };
+
+  it('is declared for one roll, and the roll disarms it', () => {
+    play(seed());
+    click(chip('Ran with the wolves'));
+    expect(chip('Ran with the wolves').getAttribute('aria-pressed')).toBe('true');
+
+    click(rollControl());
+    // The log is the deterministic half: the dice are random, the declaration
+    // is not, and the line says what the Experience added and what it cost.
+    expect(useApp.getState().log[0]!.detail).toContain('+2 exp (−1 Hope)');
+    expect(
+      chip('Ran with the wolves').getAttribute('aria-pressed'),
+      'the Experience is still armed after the roll that spent it',
+    ).toBe('false');
+
+    click(rollControl());
+    expect(
+      useApp.getState().log[0]!.detail,
+      'the second roll was paid for by an Experience nobody declared',
+    ).not.toContain('exp');
+  });
+
+  it('does not follow the player onto the next sheet', () => {
+    play(seed());
+    click(chip('Ran with the wolves'));
+    switchTo({ ...playedCharacter(), name: 'The other one' });
+    expect(
+      chip('Ran with the wolves').getAttribute('aria-pressed'),
+      'the arriving sheet is holding somebody else’s Experience',
+    ).toBe('false');
+  });
+});
+
+/**
  * A verdict belongs to the sheet that rolled it.
  *
  * `App` renders `<Play />` unkeyed and `Play` renders `<DualityRoll />` unkeyed

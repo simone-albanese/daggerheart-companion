@@ -108,7 +108,7 @@ import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
-import { DualityRoll, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { DualityRoll, ExperienceRow, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { Rest } from '../../src/ui/player/Rest.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
@@ -582,6 +582,20 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       onTraitChange={noop}
       source={null}
       layout="desktop"
+      armedExperiences={[]}
+      onArmedExperiencesChange={noop}
+    />
+  ),
+  // The Experience chips, which `Play` now draws in a fold of their own below
+  // ROLL - so they are an export with two call sites rather than a private
+  // helper, and this is the fixture that says so.
+  'player/DualityRoll.tsx::ExperienceRow': () => (
+    <ExperienceRow
+      experiences={playedCharacter().experiences}
+      armedExperiences={[]}
+      hopeCost={0}
+      hopeAvailable={3}
+      toggleExperience={noop}
     />
   ),
   'player/Play.tsx::Play': () => <Play stats={stats()} />,

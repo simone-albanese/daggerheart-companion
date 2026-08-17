@@ -235,6 +235,23 @@ interface Props {
    */
   source: AttackSource | null;
   layout: 'desktop' | 'phone';
+  /**
+   * The Experiences declared for the next roll, owned by `Play`.
+   *
+   * They used to live in this component's own `useState`, and they cannot stay
+   * there: Giorgio's order puts the Experiences behind a fold *below* ROLL,
+   * between the weapons and the inventory, and that fold is rendered by
+   * `PlayPhone` - several hundred pixels of document above the component that
+   * knows which chips are armed.
+   *
+   * Moving them up also puts the clearing rule in one place. `Play` already
+   * clears the armed attack and the spell modifier on a character switch, in
+   * one `[characterId]` effect; the Experiences were being cleared by a second
+   * effect in this file, on the same key, which is how the two could ever have
+   * disagreed about whose declaration the arriving sheet was holding.
+   */
+  armedExperiences: string[];
+  onArmedExperiencesChange: (ids: string[]) => void;
 }
 
 /** A stable empty list, so a character without Experiences is not a new array. */
@@ -246,6 +263,8 @@ export function DualityRoll({
   onTraitChange,
   source,
   layout,
+  armedExperiences,
+  onArmedExperiencesChange,
 }: Props): React.JSX.Element {
   const character = useActive();
   const pushLog = useApp((s) => s.pushLog);
@@ -261,7 +280,6 @@ export function DualityRoll({
     hope: null,
     fear: null,
   });
-  const [armedExperiences, setArmedExperiences] = useState<string[]>([]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
    * The attack the damage row is answering, and which roll it came from.
@@ -291,7 +309,9 @@ export function DualityRoll({
    * remounted, so nothing is cleared unless it is cleared here.
    */
   useEffect(() => {
-    setArmedExperiences([]);
+    // Not the Experiences: `Play` owns those now and clears them in the effect
+    // that already clears the declaration and the spell modifier, on this same
+    // key. Two effects clearing one list is two rules that can disagree.
     setArmedDice([]);
     // And nobody else's attack either: a damage offer left standing across a
     // character switch would be this sheet being offered that sheet's sword.
@@ -361,7 +381,7 @@ export function DualityRoll({
       setResult(r);
       setManual({ hope: r.hope, fear: r.fear });
       // Declared for this roll and this roll only.
-      setArmedExperiences([]);
+      onArmedExperiencesChange([]);
       setArmedDice([]);
 
       /*
@@ -422,6 +442,11 @@ export function DualityRoll({
       experienceBonus,
       hopeCost,
       modifier.value,
+      // In the array for the reason the two below are: this is a prop now, and
+      // a callback left out of it runs the first render's closure. `Play`
+      // passes the `useState` setter itself, so the identity is stable and
+      // naming it here costs nothing.
+      onArmedExperiencesChange,
       pushLog,
       reaction,
       // Without these two the snapshot is taken from the first render's
@@ -499,6 +524,21 @@ export function DualityRoll({
     trait === 'spellcast' ? 'SPELLCAST' : null,
   ].filter((x): x is string => x !== null);
 
+  /*
+   * One toggle, used by both surfaces that arm an Experience: the chips in the
+   * cockpit's control row and the fold below ROLL on a phone. It reads the
+   * current list off the prop rather than out of an updater callback, because
+   * the list lives in `Play` now and this component only ever sees the value
+   * it was rendered with.
+   */
+  const toggleExperience = (id: string): void => {
+    onArmedExperiencesChange(
+      armedExperiences.includes(id)
+        ? armedExperiences.filter((x) => x !== id)
+        : [...armedExperiences, id],
+    );
+  };
+
   const control = (
     <ControlRow
       difficulty={difficulty}
@@ -513,11 +553,7 @@ export function DualityRoll({
       experiences={experiences}
       inlineExperiences={layout !== 'phone'}
       armedExperiences={armedExperiences}
-      toggleExperience={(id) =>
-        setArmedExperiences((ids) =>
-          ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-        )
-      }
+      toggleExperience={toggleExperience}
       hopeCost={hopeCost}
       hopeAvailable={hopeAvailable}
       held={held}
@@ -573,11 +609,7 @@ export function DualityRoll({
           armedExperiences={armedExperiences}
           hopeCost={hopeCost}
           hopeAvailable={hopeAvailable}
-          toggleExperience={(id) =>
-            setArmedExperiences((ids) =>
-              ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-            )
-          }
+          toggleExperience={toggleExperience}
         />
         {/*
          * The faces only take a row when they are inputs.
@@ -891,8 +923,12 @@ function ExperienceChip({
  * each chip wide enough for a real phrase rather than an ellipsis, and it puts
  * the whole set inside the thumb arc directly above ROLL - which is also the
  * order the rules ask for, since Experiences are declared before the dice.
+ *
+ * Exported because `Play` renders it too: Giorgio's fold order puts the
+ * Experiences behind their own tendina under ROLL, and the ids it reads are
+ * owned by `Play` for exactly that reason.
  */
-function ExperienceRow({
+export function ExperienceRow({
   experiences,
   armedExperiences,
   hopeCost,
