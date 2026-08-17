@@ -4,7 +4,9 @@
  * `App.tsx` mounts `<UpdateBanner/>` and `<BackupBanner/>` as `flex: none`
  * children of `<main>`, above whichever screen is up. They had been written
  * separately and had ended up almost identical - the same `role="status"`, the
- * same `.spread` row, the same `8px 20px 0` margin, the same `6px 6px 6px 12px`
+ * same `8px 20px 0` margin (a flat gutter then; it reads its left and right off
+ * `gutter.ts` now, so the blocks inside `<main>` line up with the header under a
+ * display cutout), the same `.spread` row, the same `6px 6px 6px 12px`
  * padding, the same 1px border, the same `.t-dense` message, the same
  * chip-and-dismiss pair - which is not the same thing as being one shape. Two
  * declarations that agree today drift tomorrow, and they had already drifted in

@@ -633,6 +633,26 @@ export const useApp = create<AppState>((set, get) => ({
  * library it has just read, so a device that already carried the durable
  * `false` from before this rule existed is repaired on its next launch rather
  * than left waiting for its next import.
+ *
+ * ## One sharp edge, for whoever adds the next subscriber
+ *
+ * This listener calls `setPrefs`, which is a `set` from inside a notification,
+ * and zustand walks its listener Set live rather than over a copy. So on the one
+ * transition that qualifies, **every listener registered after this one is
+ * called twice** - the second time with a stale `state`/`previous` pair from the
+ * outer notification - and a listener removed mid-flush is skipped entirely.
+ *
+ * That is harmless today and only because of a property nothing enforces: the
+ * one other subscriber, in `Onboarding.tsx`, tests for the character count
+ * *crossing* zero, so the stale repeat fails its own condition and does nothing.
+ * A subscriber that merely reacts to `characters` would run twice on the one
+ * transition that matters most.
+ *
+ * If you are adding one: make it idempotent, or read the store yourself with
+ * `useApp.getState()` instead of trusting the arguments, or register it *before*
+ * this line. This is written down rather than fixed because the fix - deferring
+ * the write to a microtask - would put it after React has rendered on the state
+ * that made it necessary, which is the thing the section above exists to avoid.
  */
 useApp.subscribe((state) => {
   if (!onboardedByDoing(state.prefs, state.characters.length)) return;
