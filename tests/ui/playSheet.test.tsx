@@ -2335,6 +2335,50 @@ describe('the tendina', () => {
   });
 
   /*
+   * THE HEADER'S OWN PROMISE, AT THE WIDTH WHERE IT WAS BEING BROKEN SILENTLY.
+   *
+   * `Disclosure`'s first rule is that the header always says what is inside it.
+   * The summary span was `flex: 'none'` with no `minWidth: 0` and no
+   * `textOverflow`, so nothing on that line could give and a summary wider than
+   * the column ran past the edge of a column that is `overflow-x: hidden`:
+   * measured in Chrome with a purse spanning all three denominations,
+   * `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` has a viewport-invariant right
+   * edge of 364.61, so 4.61px was gone at 360, 20.61 at 344 and 44.61 at 320,
+   * with no ellipsis and no gesture that reveals it.
+   *
+   * jsdom measures nothing, so what is asserted is the contract that makes the
+   * cut impossible rather than the cut: the label cannot shrink, the summary
+   * can, and the summary says so when it does.
+   */
+  it('lets the summary lose its tail to an ellipsis, and never the section name', () => {
+    play(seed());
+    const header = fold('Carried');
+    const spans = [...header.querySelectorAll('span')];
+    const label = spans.find((el) => (el.textContent ?? '').trim() === 'Carried')!;
+    const summary = spans.find((el) => /ITEM/.test(el.textContent ?? ''))!;
+
+    // `none` reads back as its longhand triple: jsdom's CSS parser expands the
+    // shorthand, which is the same normalisation `flexShrink` checks elsewhere
+    // in this file rely on.
+    expect(label.style.flex, 'the section name can shrink, so it is the half that clips').toBe(
+      '0 0 auto',
+    );
+    expect(
+      summary.style.flex,
+      'the summary cannot shrink, so a header wider than the column is cut off the glass by ' +
+        'the phone column\'s overflow-x: hidden rather than truncated',
+    ).toBe('0 1 auto');
+    expect(summary.style.minWidth, 'flex-shrink alone does nothing without this').toBe('0px');
+    expect(summary.style.overflow).toBe('hidden');
+    expect(
+      summary.style.textOverflow,
+      'the summary shrinks and then cuts a character in half with no ellipsis, which is the ' +
+        'header claiming a number it is not showing',
+    ).toBe('ellipsis');
+    expect(summary.style.whiteSpace).toBe('nowrap');
+  });
+
+  /*
    * The direction is flipped from what it was, and that is the point: every
    * fold on this sheet defaults shut now, so the arrangement worth remembering
    * is the one a player opened rather than the one they closed.

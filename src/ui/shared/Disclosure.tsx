@@ -15,6 +15,20 @@
  * `summary` is drawn open and closed alike, so opening a section never changes
  * what the header claims.
  *
+ * AND WHERE IT DOES NOT FIT IT SAYS SO, RATHER THAN BEING SAWN OFF. The summary
+ * span was `flex: 'none'` with no `minWidth: 0` and no `textOverflow`, so
+ * nothing on the header line could give: a header wider than the column simply
+ * ran past the edge, and `Play`'s column is `overflow-x: hidden`, so it was cut
+ * with no ellipsis and no gesture that brings it back. Measured in Chrome with
+ * the `wizard10` fixture, whose purse spans all three denominations: `4 ITEMS ·
+ * 1 CHEST · 3 BAGS · 7 HANDFULS` is 257.41px wide with a viewport-invariant
+ * right edge of **364.61**, so 4.61px was gone at 360, 20.61 at 344 and 44.61 at
+ * 320 - the gold falls off the summary at exactly the widths where the fold
+ * stays shut longest. It is `0 1 auto` with `minWidth: 0` and an ellipsis now,
+ * so the rule above degrades to "partially said" instead of "silently cut", and
+ * the column's `scrollWidth` drops back to the viewport's width. It costs zero
+ * vertically: the header is `minHeight: var(--tap)` around one 10px line.
+ *
  * The whole header is the target, not the chevron. It is 44px tall and the
  * full width of the column - about 369px on a 393px phone - which is the
  * largest target on the screen and the only one that can be hit without
@@ -112,7 +126,21 @@ export function Disclosure({
         </span>
         <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
         {summary !== undefined && (
-          <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
+          // The label is `flex: 'none'` and this is not: where the two cannot
+          // both fit, the section's name is the half that has to survive whole
+          // and its number is the half that can lose its tail. See the note at
+          // the top of this file for what that was costing at 360 and below.
+          <span
+            className="t-meta"
+            style={{
+              flex: '0 1 auto',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'var(--muted)',
+            }}
+          >
             {summary}
           </span>
         )}
