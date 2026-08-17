@@ -700,10 +700,36 @@ describe('typing a physical die', () => {
     expect(exit!.style.width).toBe('var(--tap)');
     expect(exit!.getAttribute('aria-keyshortcuts')).toBe('Escape');
 
+    // And it is where the keyboard already is. Opening the keypad unmounts the
+    // die face that had focus, so focus fell to `<body>` - measured - and the
+    // exit was the 53rd focusable on the cockpit, key "1" the 54th of 81.
+    expect(document.activeElement, 'the keypad opens with focus on nothing').toBe(exit);
+
     click(exit!);
     expect(grid(), 'the cancel did not shut the keypad').toBeNull();
     // And nothing was written: the face is still empty.
     expect(face('HOPE').getAttribute('aria-label')).not.toContain(': ');
+    // And focus is back on the face that opened it, not on `<body>`: closing
+    // unmounts the exit the same way opening unmounted the face.
+    expect(document.activeElement, 'the way out fires the keyboard into nothing').toBe(
+      face('HOPE'),
+    );
+  });
+
+  it('gives focus back on Escape and on a committed face alike', () => {
+    panel(typed);
+    click(face('FEAR'));
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(grid()).toBeNull();
+    expect(document.activeElement, 'Escape left focus on the body').toBe(face('FEAR'));
+
+    click(face('HOPE'));
+    click([...grid()!.querySelectorAll('button')][6]!); // the seventh key: 7
+    expect(document.activeElement, 'committing a face left focus on the body').toBe(
+      face('HOPE'),
+    );
   });
 
   it('closes on Escape, and commits nothing when it does', () => {

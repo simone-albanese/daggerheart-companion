@@ -197,6 +197,17 @@ interface DieProps {
  * of the row, so it costs no height at all, and it does the second job the
  * one-face keypad did for free: saying which die you are typing.
  *
+ * FOR THE KEYBOARD TOO, WHICH THE FIRST VERSION OF THAT EXIT WAS NOT. Opening
+ * this unmounts the die face that had focus, so focus fell to `<body>`:
+ * measured, `document.activeElement` is BODY the instant the grid appears, and
+ * the exit is then the 53rd focusable on the cockpit with key "1" the 54th of
+ * 81 - fifty tabs to reach a control the player had just opened. Escape worked
+ * and left focus on `<body>` as well, so the way out fired into nothing. The
+ * exit takes focus on mount now, and `DualityRoll` puts focus back on the die
+ * face when the keypad closes, however it closed. That is `useDialog`'s
+ * pattern minus the Tab trap: this is not an overlay, nothing behind it is
+ * inert, and tabbing straight out of it is allowed.
+ *
  * ERGONOMICS. TARGET SIZE is the whole charge and it moves from 24x34 on the
  * cockpit and 37.1x44 on a phone to 45.75x34 and 69x44 - measured 45.8x34 in
  * Chrome at 1280x800 and 1440x900 alike. WHICH FLOOR EACH OF THOSE CLEARS,
@@ -238,9 +249,30 @@ function DieKeypad({
   onSet: (value: number) => void;
   onCancel: () => void;
 }): React.JSX.Element {
+  /*
+   * The keyboard's way IN, beside the pointer's.
+   *
+   * Opening this unmounts the die face that had focus, and focus falls to
+   * `<body>` - measured, `document.activeElement` is BODY the instant the grid
+   * appears. For a keyboard that is worse than the missing cancel this control
+   * exists to be: the exit is the 53rd focusable on the cockpit and key "1" the
+   * 54th of 81, so a keypad the player just opened was fifty-odd tabs away.
+   *
+   * The exit takes focus instead, so the way out is where the keyboard already
+   * is and the twelve keys are one Tab further on. This is `useDialog`'s
+   * pattern minus the Tab trap, which is exactly what the docblock over the
+   * Escape listener says this surface cannot use: it is not an overlay, nothing
+   * behind it is inert, and tabbing out of it is allowed.
+   */
+  const exit = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    exit.current?.focus();
+  }, []);
+
   return (
     <div className="row" style={{ flex: 1, minWidth: 0, gap: 8, alignItems: 'stretch' }}>
       <button
+        ref={exit}
         type="button"
         onClick={onCancel}
         aria-keyshortcuts="Escape"
@@ -507,6 +539,31 @@ export function DualityRoll({
     return () => {
       window.removeEventListener('keydown', onKey);
     };
+  }, [typing]);
+  /*
+   * And the way back to where you were, when the keypad closes.
+   *
+   * `DieKeypad` takes focus on open because the tap that opens it unmounts the
+   * button that had it. Closing does the same thing in reverse: the exit
+   * button, or the key you pressed, is unmounted by its own click, and without
+   * this focus falls to `<body>` again - so Escape worked and then fired the
+   * keyboard into nothing, which is `useDialog`'s "back to the control that
+   * opened it" left undone. `wasTyping` is a ref rather than state because it
+   * exists only to be read once in the effect that follows the change, and it
+   * starts null so a fresh mount focuses nothing.
+   */
+  const wasTyping = useRef<'hope' | 'fear' | null>(null);
+  useEffect(() => {
+    if (typing !== null) {
+      wasTyping.current = typing;
+      return;
+    }
+    const which = wasTyping.current;
+    if (which === null) return;
+    wasTyping.current = null;
+    document
+      .querySelector<HTMLElement>(`button[aria-label^="${which === 'hope' ? 'HOPE' : 'FEAR'} die"]`)
+      ?.focus();
   }, [typing]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
