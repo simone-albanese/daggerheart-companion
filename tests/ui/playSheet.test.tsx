@@ -26,6 +26,8 @@ import { useApp } from '../../src/store/state.ts';
 import { useConditions } from '../../src/ui/player/conditionsStore.ts';
 import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
 import type { Character } from '@shared/types.ts';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
 declare global {
@@ -3336,5 +3338,125 @@ describe('the verbs under the traits', () => {
     ].entries()) {
       expect(named[i], `chip ${String(i)} announces "${named[i] ?? ''}"`).toBe(phrase);
     }
+  });
+});
+
+/**
+ * The column may not carry a paint effect, because it hosts four modals.
+ *
+ * `PlayPhone`'s root carried `.scroll-fade` - `mask-image` - and that one class
+ * made every dialog opened from this screen unusable on every phone. A mask is
+ * an effect node applied to the element's whole *painted subtree*, and its
+ * painting area is confined by the initial `mask-clip: border-box`. A
+ * `position: fixed` descendant escapes for layout and is still clipped for
+ * paint and hit-testing, so the dialogs measured their full 852 at 393x852 and
+ * had everything outside the column's box, y 53-791, given mask alpha 0: CLOSE
+ * drew 9-10px of its 44 and its centre tapped the PLAY tab, CLEAR ALL tapped
+ * GM, and two 10px titles drew 0 of 10.
+ *
+ * These assertions are about DOM ancestry and stylesheet text, not geometry.
+ * jsdom computes no layout and can no more see a mask clip than it can see the
+ * 738-of-852 that states the defect; that half stays with the Chrome harness.
+ * What they can do is stop the class coming back, and stop the next one - the
+ * set below is every property that creates an effect node or a containing
+ * block, not just the one that bit.
+ */
+describe('nothing above an open dialog may clip it', () => {
+  /** Every property whose presence on an ancestor breaks a fixed descendant. */
+  const EFFECTS = [
+    'mask-image',
+    '-webkit-mask-image',
+    'mask',
+    'filter',
+    'backdrop-filter',
+    '-webkit-backdrop-filter',
+    'transform',
+    'perspective',
+    'will-change',
+    'contain',
+  ];
+
+  /**
+   * The class names `src/ui/*.css` declares one of those on, read off the
+   * stylesheets rather than listed here, so a rule added tomorrow is covered
+   * without anybody remembering to add it. jsdom applies no stylesheet, which
+   * is exactly why the class has to be matched by name.
+   */
+  const effectClasses = (): string[] => {
+    const found = new Set<string>();
+    for (const file of readdirSync('src/ui').filter((f) => f.endsWith('.css'))) {
+      const css = readFileSync(join('src/ui', file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const declares = EFFECTS.some((p) =>
+          new RegExp(`(^|[;\\s])${p}\\s*:`).test(body ?? ''),
+        );
+        if (!declares) continue;
+        for (const [, cls] of (selector ?? '').matchAll(/\.([\w-]+)/g)) found.add(cls!);
+      }
+    }
+    return [...found];
+  };
+
+  /** Walk from an element to the test container, collecting anything that clips. */
+  const clippers = (from: HTMLElement): string[] => {
+    const classes = effectClasses();
+    const out: string[] = [];
+    for (let el = from.parentElement; el !== null && el !== container; el = el.parentElement) {
+      const inline = EFFECTS.filter((p) => el!.style.getPropertyValue(p) !== '');
+      const byClass = [...el.classList].filter((c) => classes.includes(c));
+      if (inline.length > 0 || byClass.length > 0) {
+        out.push(`${el.tagName}.${el.className} [${[...inline, ...byClass].join(' ')}]`);
+      }
+    }
+    return out;
+  };
+
+  it('leaves the conditions dialog its whole box', () => {
+    setViewport(393);
+    play(seed());
+
+    const door = buttons().find(
+      (b) => (b.getAttribute('aria-label') ?? '') === 'Conditions: none',
+    );
+    expect(door, 'no door into the conditions dialog').toBeDefined();
+    act(() => door!.click());
+
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog, 'the door did not open a dialog').not.toBeNull();
+
+    const found = clippers(dialog as HTMLElement);
+    expect(
+      found,
+      `an ancestor clips the dialog's paint and hit-testing: ${found.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  /*
+   * The second lock, and the cheap one. The walk above is the statement; this
+   * is what fails loudly if the walk is ever refactored into something that
+   * cannot reach the column. Source-text assertions have precedent in
+   * `domainCardView.test.ts`.
+   */
+  it('does not put a fade back on the column', () => {
+    const src = readFileSync('src/ui/player/Play.tsx', 'utf8');
+    // The class in a `className`, not the word in the prose: the docblock
+    // above that element names `scroll-fade` on purpose, to say why it may
+    // never come back, and a test that forbade the word would delete the
+    // explanation along with the bug.
+    const applied = [...src.matchAll(/className="([^"]*)"/g)].map((m) => m[1] ?? '');
+    expect(
+      applied.filter((c) => c.split(/\s+/).includes('scroll-fade')),
+      'Play.tsx applies `scroll-fade` again - it masks the four dialogs mounted in that column',
+    ).toEqual([]);
+  });
+
+  /*
+   * And the class itself stays defined, because `DomainCardView` still applies
+   * it - conditionally, to card text, where nothing is fixed and where the
+   * "disappears once you reach the end" it was written for is actually true.
+   */
+  it('keeps the fade for the one region that has no modal in it', () => {
+    expect(readFileSync('src/ui/base.css', 'utf8')).toContain('.scroll-fade');
+    expect(readFileSync('src/ui/shared/DomainCardView.tsx', 'utf8')).toContain('scroll-fade');
   });
 });

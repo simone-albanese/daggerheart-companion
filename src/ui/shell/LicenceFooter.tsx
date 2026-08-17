@@ -78,10 +78,15 @@
  * muted text at the end of a page: the ordinary shape of a colophon, and one
  * that needs no call site to tell it how wide its container's gutter is.
  *
- * The 18px foot is not a round number. `Play`'s column carries `.scroll-fade`,
- * whose mask takes the last 18px of the box to transparent, so a notice ending
- * flush with the padding edge would have its final line faded out on the one
- * screen where it is newest. 18px of foot puts the last line clear of the mask.
+ * The 18px foot was not a round number: it was clearance. `Play`'s column
+ * carried `.scroll-fade`, whose mask took the last 18px of the box to
+ * transparent, so a notice ending flush with the padding edge had its final
+ * line faded out on the one screen where it was newest, and 18px of foot put
+ * the last line clear of the mask. That mask is gone - it was clipping four
+ * dialogs mounted in that column, see `Play.tsx` - so 18 is now this
+ * component's own choice and nothing derives it. It stays because a colophon
+ * pressed against the end of a scroll reads as cut off, not because anything
+ * upstream still fades.
  *
  * ## Who pays `env(safe-area-inset-bottom)`
  *

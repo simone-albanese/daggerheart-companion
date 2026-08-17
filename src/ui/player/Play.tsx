@@ -2314,9 +2314,32 @@ function PlayPhone({
      * 88px floor that existed only to stop a fixed block starving the scroll.
      * `overflowY` is declared inline as well as by `.scroll`, because that is
      * the one property a test can read back: jsdom applies no stylesheet.
+     *
+     * ## No paint effect may ever be declared on this element or above it
+     *
+     * This column is the mount point for four `position: fixed; inset: 0`
+     * dialogs - `DeathMoveOffer` below, `Beastform` below, `ConditionsControl`
+     * through `Identity`, and `CompanionSheet` through `Vitals`. It carried
+     * `.scroll-fade` until this commit, and that one class made every one of
+     * them unusable on every phone: a mask is an effect node applied to the
+     * element's whole *painted subtree*, fixed descendants included, and its
+     * painting area is confined by the initial `mask-clip: border-box`. So the
+     * dialogs resolved `inset: 0` against the viewport correctly and measured
+     * their full 852 at 393x852 - and then had everything outside this
+     * column's border box, y 53-791, given mask alpha 0. Not painted and not
+     * hit-tested. CLOSE showed 9-10px of its 44 and its centre at y=804 landed
+     * in the tab bar's band, so tapping it went to PLAY; CLEAR ALL went to GM;
+     * the 10px `.t-label` titles of Conditions and Beastform were painted 0 of
+     * 10. It was dormant, never absent, at 744x1133, where no tab bar is drawn
+     * and the panel happens to fit inside the clip.
+     *
+     * The property was `mask-image`, but the rule is the class of property:
+     * mask, filter, backdrop-filter, transform, perspective, will-change and
+     * contain all create either an effect node or a containing block, and any
+     * of them here breaks the same four dialogs the same way.
      */
     <div
-      className="stack scroll scroll-fade"
+      className="stack scroll"
       style={{
         flex: 1,
         minHeight: 0,

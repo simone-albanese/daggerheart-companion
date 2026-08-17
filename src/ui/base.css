@@ -196,7 +196,25 @@ select,
  * thumb-zone controls exceed 852px, and shrinking either would break the
  * touch floor. Scrolling it is the honest answer, but a hard edge reads as
  * "that is all there is". The mask fades the last few pixels so the edge
- * looks like a continuation, and disappears once you reach the end.
+ * looks like a continuation.
+ *
+ * ## It may not wrap a region that contains a modal
+ *
+ * This is a mask, and a mask is an effect node applied to the element's whole
+ * *painted subtree*. Its painting area is confined by the initial
+ * `mask-clip: border-box`, so a `position: fixed` descendant - which escapes
+ * this element for *layout*, and correctly measures the viewport - is still
+ * clipped to this element's box for *paint and hit-testing*. Declared on a
+ * region that hosts a dialog, that reads as: the dialog is the right size, the
+ * parts of it outside this box are invisible, and taps in them land on
+ * whatever is painted underneath. `Play`'s column carried this class and it
+ * cost four dialogs their CLOSE button on every phone.
+ *
+ * So the only correct use is a region with nothing fixed inside it. Today that
+ * is `DomainCardView`'s card text, which applies it conditionally on `clipped`
+ * - and that conditional is also the one place where the sentence this comment
+ * used to carry, "disappears once you reach the end", was ever true. It was
+ * never true on `Play`, where the class was declared unconditionally.
  */
 .scroll-fade {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
