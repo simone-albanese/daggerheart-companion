@@ -201,8 +201,9 @@ be wrong* at the foot of this entry.
   393×852 phone, with the sheet scrolled to the top, ROLL sits **493 to 559px**
   above the bottom edge of the screen — further than a thumb comfortably reaches
   one-handed, where the pinned block was inside that reach. On a 375×667 phone it
-  is **308 to 374px** up, which has also left that reach: it was 229-295 and
-  comfortably inside. Every row taken off the top of the sheet lifts ROLL further
+  is **308 to 374px** up, which puts it half out: its top edge is 44px past the
+  ~330px one-handed sweep and its bottom edge is still 22px inside, where at
+  229-295 the whole row was comfortably in. Every row taken off the top of the sheet lifts ROLL further
   from a thumb at rest, so the same rearrangement that put the whole sheet on one
   screen moved the button further away. The judgement behind keeping it: the page
   scrolls, so when you are about to roll you can bring ROLL to your thumb with
