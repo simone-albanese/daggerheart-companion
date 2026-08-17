@@ -14,13 +14,29 @@
  * relationship to the game". Today that is three places, and this list is the
  * one to keep true:
  *
- *   - `CompatibleIcon` in the header, on every screen, beside the door to
- *     Settings.
- *   - `CompatibleLockup`, under `Attribution`, on the first-run screen and in
- *     the shell's footer.
+ *   - `CompatibleIcon` at 18px in the header (`Header.tsx:588`), on every
+ *     screen, beside the door to Settings.
+ *   - `CompatibleLockup` at 168px, inside `Attribution`, on the empty-library
+ *     screen and there only: `App.tsx:631` is the whole of it.
+ *   - `CompatibleIcon` again, at 14px, in the shell's licence footer
+ *     (`LicenceFooter.tsx:171`) - the icon and not the lockup.
  *   - The About panel carries the notice as words, without the mark: it sits
  *     inside a settings screen that is already dense, and the lockup is
  *     eighteen inches from the reader there rather than a badge on a shelf.
+ *
+ * ~~"`CompatibleLockup`, under `Attribution`, on the first-run screen and in
+ * the shell's footer."~~ - **superseded, and both halves were false.** The
+ * first-run screen is `Onboarding`, which renders no `Attribution` at all; the
+ * one that does is `EmptyState`, which is where you land when the library has
+ * gone empty, and those are not the same arrival - it is the difference between
+ * a new user and somebody who has just lost their characters. The footer draws
+ * `CompatibleIcon` at 14, not the lockup, which is the deliberate trade
+ * `LicenceFooter.tsx` argues out at :41-47. It is the same false claim the
+ * audit took out of `README.md`, one file further in, and it survived because a
+ * docblock that says "this list is the one to keep true" is exactly the kind a
+ * reader trusts without checking. Checked now:
+ * `grep -rn 'CompatibleLockup\|<Attribution\|CompatibleIcon' src/` returns the
+ * three call sites above and nothing else.
  *
  * It is deliberately never used as the PWA icon. An app whose home-screen icon
  * is the official logo reads as an official app, which this is not.
