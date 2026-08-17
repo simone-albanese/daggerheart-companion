@@ -128,6 +128,7 @@ import {
   Section as SettingsSection,
   Switch,
 } from '../../src/ui/settings/parts.tsx';
+import { Onboarding } from '../../src/ui/onboarding/Onboarding.tsx';
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
@@ -385,6 +386,14 @@ describe('the shell, on every screen', () => {
     await render(createElement(App));
     await settle(() => useApp.getState().ready);
       expect(useApp.getState().ready, 'init() never answered').toBe(true);
+    // Past the first run, which is a different empty library from this one.
+    // `EmptyState` is what somebody who has answered the questions and then
+    // deleted their last character sees; the questions themselves are asserted
+    // in `onboarding.test.tsx`. Set after `init`, because `init` reads the
+    // preferences off the disk and this file installs no localStorage.
+    await act(async () => {
+      useApp.getState().setPrefs({ onboarded: true });
+    });
     await act(async () => {
       useApp.getState().setScreen('play');
     });
@@ -607,6 +616,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // The desktop row, because the `band` variant is two children of a grid
   // `Defenses` owns and this sweep mounts every fixture on its own.
   'player/Vitals.tsx::IncomingDamage': () => <IncomingDamage stats={stats()} layout="desktop" />,
+
+  // The first run, mounted on its own question rather than through the shell.
+  // It takes no props at all: everything it needs is the store, and everything
+  // it decides it holds itself until its last button.
+  'onboarding/Onboarding.tsx::Onboarding': () => <Onboarding />,
 
   'print/CharacterSheet.tsx::CharacterSheet': () => (
     <CharacterSheet sheet={buildSheet(playedCharacter(), dataset, index)} />

@@ -65,7 +65,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import * as db from '../../src/store/db.ts';
-import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { DEFAULT_PREFS, savePrefs } from '../../src/store/prefs.ts';
 import { useApp, type Screen } from '../../src/store/state.ts';
 import { ATTRIBUTION } from '../../src/ui/shared/CompatibleMark.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
@@ -214,12 +214,84 @@ async function mountOn(screen: Screen): Promise<void> {
 }
 
 /**
- * Every screen the app has. Not a list of the ones that happen to carry the
- * notice - that list *was* four of these, and Play's absence from it is the
- * defect P5-6 fixed. If a sixth screen is ever added it belongs here on the day
- * it is added, and this file failing is the correct way to find that out.
+ * Boot the real shell the way a device out of its box does: nothing in the
+ * library, nothing in localStorage, and therefore the first-run questions.
+ *
+ * The other five mounts put a character in first, because the defect this file
+ * was written about was the notice being present only while there were none.
+ * This one is the exception that proves nothing: onboarding exists in exactly
+ * one state, an empty library that has never been asked anything, so mounting
+ * it with a character would be mounting something else.
  */
-const SCREENS = ['play', 'cards', 'build', 'gm', 'settings'] as const;
+async function mountOnboarding(): Promise<void> {
+  await act(async () => {
+    root.render(createElement(App));
+  });
+  await settle(() => useApp.getState().ready);
+  expect(useApp.getState().ready, 'init() never answered').toBe(true);
+  await settle(() => text().includes(NOTICE));
+  expect(
+    text(),
+    'the shell did not draw the first-run questions on an empty device, so this ' +
+      'is measuring some other screen',
+  ).toContain('Who are you at this table?');
+}
+
+/** Click the one button whose text contains `match`. */
+async function press(match: string): Promise<void> {
+  const found = [...container.querySelectorAll('button')].filter((b) =>
+    (b.textContent ?? '').includes(match),
+  );
+  expect(found, `expected exactly one button containing "${match}"`).toHaveLength(1);
+  await act(async () => {
+    found[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+/**
+ * The two questions a player is asked, and the hand-off at the end of them.
+ *
+ * The wizard is no longer the first thing a new device shows - this is - so the
+ * two tests below that say "first screen a new device ever shows" walk the real
+ * route to it rather than being given `onboarded: true` and set down on the
+ * other side. Skipping the flow to test what is after it would leave the one
+ * path every new install takes untested by the file that mounts the real shell.
+ */
+async function throughOnboarding(): Promise<void> {
+  await mountOnboarding();
+  await press("I'll make a character now");
+  await press('The app rolls for me');
+  await press('Create a character');
+  await settle(() => useApp.getState().prefs.onboarded);
+}
+
+/**
+ * Every surface the app draws, and how to arrive on it. Not a list of the ones
+ * that happen to carry the notice - that list *was* four of these, and Play's
+ * absence from it is the defect P5-6 fixed. A new surface belongs here on the
+ * day it is added, and this file failing is the correct way to find that out;
+ * onboarding is the sixth, added the day it was.
+ *
+ * `paysTheInset` is which single element is genuinely last in the window at a
+ * given width. Five of the six answer differently at 393 and at 1024, because
+ * `TabBar` is drawn on a phone and is last there. Onboarding answers the same
+ * at both, and that is the whole trap in it: it suppresses `TabBar`, so its own
+ * nav is last at every width and has to pay unconditionally, where the wizard's
+ * nav - the obvious thing to copy - pays only above 720.
+ */
+const SURFACES: Array<{
+  name: string;
+  mount: () => Promise<void>;
+  paysTheInset: (width: number) => string;
+}> = [
+  ...(['play', 'cards', 'build', 'settings'] as const).map((screen: Screen) => ({
+    name: screen,
+    mount: () => mountOn(screen),
+    paysTheInset: (width: number) => (width === 393 ? 'NAV' : 'FOOTER'),
+  })),
+  { name: 'gm', mount: () => mountOn('gm'), paysTheInset: () => 'NAV[Session tools]' },
+  { name: 'onboarding', mount: mountOnboarding, paysTheInset: () => 'NAV[Onboarding]' },
+];
 
 /**
  * The one `<footer>` in the shell, which is the notice.
@@ -252,17 +324,19 @@ function insetPayers(): string[] {
     });
 }
 
-describe('the notice, once there is a character', () => {
+describe('the notice, on every surface the app draws', () => {
   // The regression in one line: every one of these screens showed the notice
   // only while `characters.length === 0`. Play showed it in no state at all
   // until P5-6, which is why it is in this loop now and not exempted below it.
-  for (const screen of SCREENS) {
-    it(`is on the ${screen} screen`, async () => {
-      await mountOn(screen);
+  // Onboarding is the one entry mounted *without* a character, because that is
+  // the only state it has - see `mountOnboarding`.
+  for (const surface of SURFACES) {
+    it(`is on the ${surface.name} screen`, async () => {
+      await surface.mount();
       expect(
         text(),
-        `the ${screen} screen carries no licence notice with a character in the library, ` +
-          'which is the state every real install is in from the first minute onwards',
+        `the ${surface.name} screen carries no licence notice with a character in the ` +
+          'library, which is the state every real install is in from the first minute onwards',
       ).toContain(NOTICE);
     });
   }
@@ -349,23 +423,23 @@ describe('the notice, once there is a character', () => {
  * one of those.
  */
 describe('the notice sits at the end of a scrolling region, on every screen', () => {
-  for (const screen of SCREENS) {
-    it(`is the last thing in ${screen}'s own scroll`, async () => {
-      await mountOn(screen);
+  for (const surface of SURFACES) {
+    it(`is the last thing in ${surface.name}'s own scroll`, async () => {
+      await surface.mount();
       const footer = theNotice();
 
       expect(
         container.querySelector('main > footer'),
-        `the notice on ${screen} is a pinned sibling of the screen again, which is the ` +
-          'strip P5-6 removed: it costs the screen a band on every frame instead of a ' +
+        `the notice on ${surface.name} is a pinned sibling of the screen again, which is ` +
+          'the strip P5-6 removed: it costs the screen a band on every frame instead of a ' +
           'scroll position once',
       ).toBeNull();
 
       const scroll = footer.closest('.scroll');
       expect(
         scroll,
-        `the notice on ${screen} is not inside a scrolling region at all, so it is neither ` +
-          'pinned nor reachable by scrolling to the end of the page',
+        `the notice on ${surface.name} is not inside a scrolling region at all, so it is ` +
+          'neither pinned nor reachable by scrolling to the end of the page',
       ).not.toBeNull();
 
       // Last, not merely present. A notice in the middle of a screen's content
@@ -374,8 +448,8 @@ describe('the notice sits at the end of a scrolling region, on every screen', ()
       const after = within.slice(within.indexOf(footer) + 1).filter((el) => !footer.contains(el));
       expect(
         after.map((el) => `${el.tagName}.${el.className || '(none)'}`),
-        `these are drawn after the notice inside ${screen}'s scroll, so it is not the last ` +
-          'thing on the page any more',
+        `these are drawn after the notice inside ${surface.name}'s scroll, so it is not the ` +
+          'last thing on the page any more',
       ).toEqual([]);
     });
   }
@@ -397,12 +471,11 @@ describe('the notice sits at the end of a scrolling region, on every screen', ()
 describe('the home-indicator inset', () => {
   /** A phone, where `TabBar` is drawn, and a tablet, where it is not. */
   for (const width of [393, 1024]) {
-    for (const screen of SCREENS) {
-      const expected =
-        screen === 'gm' ? 'NAV[Session tools]' : width === 393 ? 'NAV' : 'FOOTER';
-      it(`is paid once on ${screen} at ${String(width)}px, by ${expected}`, async () => {
+    for (const surface of SURFACES) {
+      const expected = surface.paysTheInset(width);
+      it(`is paid once on ${surface.name} at ${String(width)}px, by ${expected}`, async () => {
         setViewport(width);
-        await mountOn(screen);
+        await surface.mount();
         expect(
           insetPayers(),
           'the home-indicator inset is not paid exactly once by the thing that is last in ' +
@@ -420,18 +493,23 @@ describe('the home-indicator inset', () => {
    * needed to, because the shell drew the licence strip underneath them. With
    * the strip gone they are last, and they say so.
    */
-  it('is paid by the wizard’s nav, on the first screen a new device ever shows', async () => {
+  /*
+   * This used to boot the shell with no character and assert on what it landed
+   * on, because `openingScreen` sent an empty library straight to Build and
+   * Build with an empty library is the wizard. The wizard is still where a new
+   * device lands - it is just no longer the *first* thing it shows, because the
+   * two first-run questions are now in front of it.
+   *
+   * So the route is walked rather than skipped. Answering the questions is what
+   * a real new install does, `onboarded` is written by the same button that
+   * hands over to Build, and the assertion afterwards is untouched.
+   */
+  it('is paid by the wizard’s nav, which the first run hands a new device to', async () => {
     setViewport(1024);
-    // No character at all: `openingScreen` sends an empty library to Build, and
-    // Build with an empty library is the wizard.
-    await act(async () => {
-      root.render(createElement(App));
-    });
-    await settle(() => useApp.getState().ready);
-    await act(async () => {
-      useApp.getState().setScreen('build');
-    });
-    await settle(() => text().includes(NOTICE));
+    await throughOnboarding();
+    await settle(() => text().includes('Name & class'));
+
+    expect(useApp.getState().screen, 'onboarding did not hand over to Build').toBe('build');
     expect(text(), 'the wizard lost the licence notice').toContain(NOTICE);
     expect(insetPayers()).toEqual(['NAV[Wizard navigation]']);
   });
@@ -452,12 +530,17 @@ describe('the home-indicator inset', () => {
   });
 });
 
-describe('the first-run screen', () => {
+describe('the empty state, on the far side of the first run', () => {
+  /*
+   * `EmptyState` is what somebody sees on Play or Cards with nothing in the
+   * library, and until the onboarding step existed that was also the first-run
+   * state - which is what this test was called. It is not any more: a device
+   * with nothing on it gets the questions first, and this screen is what is
+   * behind them. The route is walked rather than skipped for the same reason as
+   * the wizard case above, and the two assertions are unchanged.
+   */
   it('still carries it, and does not print it twice', async () => {
-    await act(async () => {
-      root.render(createElement(App));
-    });
-    await settle(() => useApp.getState().ready);
+    await throughOnboarding();
     await act(async () => {
       useApp.getState().setScreen('cards');
     });

@@ -166,6 +166,26 @@ export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
 }
 
 /**
+ * Should the app ask who is holding it before it draws anything else?
+ *
+ * Here, beside `allowedScreen`, and for the same reason its docblock gives: two
+ * callers need one rule and they need it for different reasons. `App` asks so
+ * it knows whether to draw the onboarding surface instead of the five screens;
+ * `Header` asks so it knows whether to draw any navigation at all.
+ *
+ * The conjunction is load-bearing in both directions and neither half is
+ * decoration. `characterCount === 0` on its own would ask a two-year user who
+ * they are the first time they delete their last character - a wipe is not a
+ * new device. `!prefs.onboarded` on its own would ask somebody who already has
+ * a sheet on this device, which is a person who has answered "who are you" by
+ * doing rather than by tapping, and asking them again would be the app failing
+ * to notice what is right in front of it.
+ */
+export function needsOnboarding(prefs: Prefs, characterCount: number): boolean {
+  return !prefs.onboarded && characterCount === 0;
+}
+
+/**
  * Where the app opens.
  *
  * Two rules, and the preferences are consulted first because the second one now
