@@ -30,6 +30,32 @@
  * **77.44**. Which sentence needs how many lines at which width is the banner's
  * own business and is written down in each of them.
  *
+ * ## What a banner costs the screen under it is 66, and 58 is the wrong number
+ *
+ * `<main>` is a flex column with `minHeight: 0; overflow: hidden` and a banner
+ * is a `flex: none` child of it, so the screen below loses the banner's whole
+ * border box **and its 8px top margin**. `HANDOFF.md` and the commit that first
+ * wrote this down carry **58**, which is the border box alone; what the Play
+ * column actually loses is **66**. Measured, banner off → on, at every iPhone
+ * width and identical at all four: 553→487 at 375×667, 738→672 at 393×852,
+ * 760→694 at 402×874, 818→752 at 430×932. On a mouse cockpit the box is 48 and
+ * the column loses 56 (729→673 at 1180×820). Where a sentence takes a third or
+ * fourth line it is 70 or 85, and each banner records which of its own
+ * sentences does that where.
+ *
+ * The other half of that correction is a convention, not a measurement. The
+ * Play budget states its column **net** of the phone root's own 8px foot - 738
+ * of glass is the documented 730 - so with a banner up the usable column is
+ * 664, and the 697px folded sheet is **33px over rather than the 25 the head
+ * commit carries**: the exact mirror of the +33 of slack the budget asserts
+ * with no banner on the screen. 672 against 730 was two conventions compared,
+ * and it understated the miss by precisely the 8px of margin.
+ *
+ * Neither `Play.tsx`'s budget docblock nor `playSheet.test.tsx` knows a banner
+ * exists, and neither is this file's to edit. This is where the number is
+ * measured; `tests/ui/banners.test.tsx` adds it up out of the declarations
+ * above so it cannot drift, and the budget can take 66 from there.
+ *
  * ## The message wraps and is never ellipsised
  *
  * This is the rule the backup nag was breaking: it declared `white-space:

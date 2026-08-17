@@ -29,6 +29,8 @@
  * back.
  */
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -248,5 +250,81 @@ describe('the two shell banners', () => {
     expect(label(backup).toLowerCase()).toContain('backup');
     expect(label(update).toLowerCase()).toContain('update');
     expect(label(backup)).not.toBe(label(update));
+  });
+});
+
+/**
+ * What a banner costs the screen under it, which nothing had ever counted.
+ *
+ * `App.tsx` draws both banners as `flex: none` children of `<main>`, which is
+ * `minHeight: 0; overflow: hidden`, so the screen below loses each banner's
+ * whole border box **and its 8px top margin**. `HANDOFF.md` and the commit that
+ * found this carry 58, which is the border box alone; the column loses 66.
+ * Measured in Chrome, banner off → on, identical at every iPhone width: 553→487
+ * at 375×667, 738→672 at 393×852, 760→694 at 402×874, 818→752 at 430×932, and
+ * 729→673 on a mouse cockpit where `--control` is 34 instead of 44.
+ *
+ * jsdom cannot measure any of that. What it can do is add up the declarations
+ * the measurement is *made of* - the margin, the padding, the border and the
+ * floor the two controls hold the row open at - and fail when one of them
+ * changes, which is the only way 66 stops being 66. The Play budget owes the
+ * banner this number: `Play.tsx`'s docblock and `playSheet.test.tsx` compute
+ * their 730px column from three constants with no banner term in either, so
+ * they assert a fit that only holds for a screen with no banner on it. Neither
+ * file is this lane's to edit; the number is here.
+ */
+describe('the height a banner takes off the screen below it', () => {
+  /*
+   * Read out of `src/ui/tokens.css` rather than assumed, because the whole
+   * arithmetic below rests on `--control` being the touch floor on a phone: if
+   * that media query ever goes, 66 is fiction and this file should say so.
+   */
+  const tokens = readFileSync(join(process.cwd(), 'src/ui/tokens.css'), 'utf8');
+  const TAP = 44;
+  const CONTROL = 34;
+
+  it('reads its two tokens off the stylesheet, not off memory', () => {
+    expect(tokens).toContain(`--tap: ${TAP}px;`);
+    expect(tokens).toContain(`--control: ${CONTROL}px;`);
+    expect(tokens).toMatch(
+      /@media \(max-width: 1179px\), \(pointer: coarse\) \{\s*:root \{\s*--control: var\(--tap\);/,
+    );
+  });
+
+  /**
+   * margin-top + border + padding-top + the control floor + padding-bottom +
+   * border. `borderTopWidth` reads back empty in jsdom when the shorthand
+   * carries a `var()`, so the width comes off the shorthand string itself.
+   */
+  const columnCost = (el: HTMLElement, control: number): number => {
+    const border = parseFloat(el.style.border);
+    return (
+      parseFloat(el.style.marginTop) +
+      border +
+      parseFloat(el.style.paddingTop) +
+      control +
+      parseFloat(el.style.paddingBottom) +
+      border
+    );
+  };
+
+  it('is 66 on a phone and 56 on the cockpit, for both banners alike', async () => {
+    await render(
+      <>
+        <UpdateBanner apply={noop} />
+        <BackupBanner />
+      </>,
+    );
+
+    const { backup, update } = both();
+    expect(columnCost(backup, TAP)).toBe(66);
+    expect(columnCost(update, TAP)).toBe(66);
+    expect(columnCost(backup, CONTROL)).toBe(56);
+    expect(columnCost(update, CONTROL)).toBe(56);
+
+    // The 58 and 48 the documents carry are this less the margin, which is the
+    // whole reason the number in circulation is eight short.
+    expect(columnCost(backup, TAP) - parseFloat(backup.style.marginTop)).toBe(58);
+    expect(columnCost(backup, CONTROL) - parseFloat(backup.style.marginTop)).toBe(48);
   });
 });
