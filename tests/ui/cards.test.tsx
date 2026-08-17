@@ -26,11 +26,29 @@ declare global {
 let container: HTMLDivElement;
 let root: Root;
 
+/*
+ * The viewport the stub answers for. It used to be a regex that said yes to
+ * `max-width: 719px` and `max-width: 1179px` and no to everything else, which
+ * was enough while width was the only axis anything asked about. `useIsShort`
+ * asks about height, and a stub that silently answers "no" to a query the
+ * component branches on is a test suite that only ever sees one branch.
+ */
+const viewport = { w: 375, h: 667 };
+
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  window.matchMedia = ((query: string) =>
-    ({
-      matches: /max-width:\s*(719|1179)px/.test(query),
+  viewport.w = 375;
+  viewport.h = 667;
+  window.matchMedia = ((query: string) => {
+    const w = /max-width:\s*(\d+)px/.exec(query);
+    const h = /max-height:\s*(\d+)px/.exec(query);
+    return {
+      // A query about neither axis - `prefers-reduced-motion`, say - is not
+      // this stub's business and is answered no rather than accidentally yes.
+      matches:
+        (w !== null || h !== null) &&
+        (w === null || viewport.w <= Number(w[1])) &&
+        (h === null || viewport.h <= Number(h[1])),
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},
@@ -38,7 +56,8 @@ beforeEach(() => {
       removeListener: () => {},
       dispatchEvent: () => false,
       onchange: null,
-    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -270,5 +289,100 @@ describe('the card browser draws inside its own box', () => {
     browse(c);
     const root = container.firstElementChild!;
     expect([...root.children].map((el) => el.className)).toEqual(['scroll']);
+  });
+});
+
+/**
+ * The filter block's two arrangements.
+ *
+ * Four rows of filters is 278px on a portrait phone, 226 at 640x360, 170 where
+ * the first row fits on one line - out of a column that is 438 at 320x568, 230
+ * at 640x360 and 306 at 852x393. Compact is search, a door and the readout:
+ * 62px shut. jsdom has no layout engine, so none of those numbers is measured
+ * here; what is measured is which controls are in the tree, which rows wrap
+ * instead of scrolling sideways, and what the door says while it is shut.
+ */
+describe('the filters, on a screen that cannot afford four rows of them', () => {
+  const named = (name: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').trim().startsWith(name));
+
+  // `NumberFilter` renders a fragment and `FilterChip` is itself `.row chip`,
+  // so the row a chip sits in is its parent and not its nearest `.row`.
+  const rowOf = (label: string): HTMLElement => {
+    const chip = buttons().find(
+      (b) => b.getAttribute('aria-label') === label || (b.textContent ?? '').trim() === label,
+    );
+    expect(chip, `no chip named "${label}"`).toBeDefined();
+    return chip!.parentElement as HTMLElement;
+  };
+
+  it('folds the level, recall, domain and type filters behind one door on a phone', () => {
+    const c = seed();
+    browse(c);
+    const door = named('FILTERS');
+    expect(door, 'no FILTERS control on a phone').toBeDefined();
+    expect(door!.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      buttons().map((b) => b.getAttribute('aria-label') ?? ''),
+      'a folded filter is still drawn while the door is shut',
+    ).not.toContain('LV 3');
+    // The search box is not behind the door: it is the head row.
+    expect(container.querySelector('input[type="search"]')).not.toBeNull();
+  });
+
+  it('opens onto every chip at once, with nothing left to scroll sideways for', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    const labels = buttons().map((b) => b.getAttribute('aria-label') ?? '');
+    expect(labels, 'the level filters are still not reachable').toContain('LV 3');
+    expect(labels, 'the recall filters are still not reachable').toContain('RECALL 1');
+    for (const row of [rowOf('LV 3'), rowOf('RECALL 1'), rowOf('My domains')]) {
+      expect(row.style.flexWrap, 'a filter row still scrolls sideways instead of wrapping').toBe(
+        'wrap',
+      );
+      expect(row.style.overflowX, 'a filter row keeps a hidden horizontal scroll').toBe('');
+      expect(row.style.scrollbarWidth, 'a filter row still suppresses its scrollbar').toBe('');
+    }
+  });
+
+  it('says how many filters are set while they are out of sight', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    click(buttons().find((b) => b.getAttribute('aria-label') === 'LV 3')!);
+    click(named('FILTERS')!);
+    const door = named('FILTERS')!;
+    expect(door.getAttribute('aria-expanded')).toBe('false');
+    expect(door.textContent, 'a shut door does not say a filter is on').toContain('1');
+    expect(container.textContent ?? '').toContain('CLEAR FILTERS');
+  });
+
+  /*
+   * Both sides of the band in one case, because only one of them can fail on
+   * the pre-fix code: before the door existed there was no door to look for at
+   * 1440x900 either, so the desktop half proves nothing on its own. It is here
+   * as the boundary - a fold is the answer to a short column, not to a wide
+   * screen with 813px of one - and it is asserted beside the half that does
+   * fail, rather than in a case of its own that could never go red.
+   */
+  it('is short, not narrow: 852x393 is a tablet by width and still cannot afford them', () => {
+    viewport.w = 1440;
+    viewport.h = 900;
+    const c = seed();
+    browse(c);
+    expect(named('FILTERS'), 'a desktop has to open a fold to reach a filter').toBeUndefined();
+    const labels = buttons().map((b) => b.getAttribute('aria-label') ?? '');
+    expect(labels).toContain('LV 3');
+    expect(labels).toContain('RECALL 1');
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    // 852x393 is in the tablet band by width and has 306px of column under the
+    // header: 170px of filters is 56% of it.
+    viewport.w = 852;
+    viewport.h = 393;
+    browse(c);
+    expect(named('FILTERS'), 'a 393px-tall window still draws the full band').toBeDefined();
   });
 });

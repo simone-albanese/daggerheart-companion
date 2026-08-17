@@ -11,6 +11,12 @@
  * of a 268px card; at 640x360 it is 226 of 230 and the grid gets a 0px content
  * box laid inside the tab bar. The scroll region is the whole column now.
  *
+ * And on anything narrow or short the block itself is two rows rather than
+ * four - search, a door and the readout, 62px - with the type, owned, level
+ * and recall filters behind the door and wrapped, so none of them is hidden
+ * off the right edge of a rail any more. The full four-row band is what a
+ * window with 720px of width and more than 520px of height still gets.
+ *
  * Cards you cannot take are shown, not hidden, with the reason attached. A
  * player planning three levels ahead needs to see the level 7 card that is
  * out of reach, and "why can't I take this" is a question the sheet should
@@ -24,7 +30,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { useIsPhone } from '../shared/useLayout.ts';
+import { useIsPhone, useIsShort } from '../shared/useLayout.ts';
 import { useRecall } from './recall.ts';
 
 type Owned = 'all' | 'owned' | 'available';
@@ -37,6 +43,10 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const update = useApp((s) => s.update);
   const recall = useRecall();
   const phone = useIsPhone();
+  const short = useIsShort();
+  // Narrow *or* short: see the table above the controls. A rotated phone is in
+  // the tablet band by width and still has only 306px of column to spend.
+  const compact = phone || short;
 
   const [domain, setDomain] = useState<DomainId | 'mine' | 'all'>('mine');
   const [type, setType] = useState<DomainCardType | 'all'>('all');
@@ -53,6 +63,13 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * controls in a grid of 189 is worse than none.
    */
   const [armed, setArmed] = useState<string | null>(null);
+  /*
+   * Whether the four folded filters are open, in the compact arrangement only.
+   * Deliberately not remembered: it is a state of one visit to this screen,
+   * not of the character, and `prefs.playSections` is keyed per character for
+   * a reason the card browser does not share.
+   */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const toggle = (set: ReadonlySet<number>, n: number): ReadonlySet<number> => {
     const next = new Set(set);
@@ -76,6 +93,18 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
 
   const filtered =
     domain !== 'mine' || type !== 'all' || owned !== 'all' || levels.size > 0 || recalls.size > 0 || search !== '';
+  /*
+   * How many of the filters behind the compact door are set. The search box is
+   * not one of them: it is in the head row, where you can see what you typed.
+   * This is the number the door prints, so a shut fold can never be the reason
+   * a player cannot find a card they own.
+   */
+  const folded =
+    (domain === 'mine' ? 0 : 1) +
+    (type === 'all' ? 0 : 1) +
+    (owned === 'all' ? 0 : 1) +
+    (levels.size > 0 ? 1 : 0) +
+    (recalls.size > 0 ? 1 : 0);
   const clearAll = (): void => {
     setDomain('mine');
     setType('all');
@@ -191,6 +220,112 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     overflow: 'hidden',
   };
 
+  /*
+   * The six controls, written once and arranged twice.
+   *
+   * `compact` is the arrangement, and the two rows below are the whole of it:
+   * search plus a door, then the readout. 44 + 8 + 10 = **62px** shut, or 96
+   * once something is filtered and CLEAR FILTERS holds the readout row open at
+   * `--control`. The other arrangement is the four rows this screen has always
+   * drawn, which measure 278 on a portrait phone, 226 at 640x360 and 568x320,
+   * and 170 where the first row fits on one line.
+   *
+   * What that is worth, as the card area visible without scrolling - the
+   * scrollport less the block and the grid's 12px gap, against a tile 268px
+   * tall on a phone and 310 on a tablet:
+   *
+   *   window     port   was ->  now    of a card
+   *   320x568     438   148 ->  364    55% -> 136%
+   *   360x640     510   220 ->  436    82% -> 163%
+   *   375x667     537   247 ->  463    92% -> 173%
+   *   393x852     722   432 ->  648   161% -> 242%
+   *   568x320     190     0 ->  116     0% ->  43%
+   *   640x360     230     0 ->  156     0% ->  58%
+   *   667x375     245    63 ->  171    24% ->  64%
+   *   852x393     306   124 ->  232    40% ->  75%
+   *
+   * The two landscape windows are the reason `compact` is not simply `phone`.
+   * 852x393 is in the tablet band by width and has 306px of column; at 170 the
+   * filters were 56% of it. `useIsShort()` is 520px and under, which separates
+   * every rotated phone in the sweep (320..448 tall) from every portrait one
+   * (568 and up) and from 1180x695.
+   *
+   * The cost is one tap to reach the type, owned, level and recall filters,
+   * and it buys back more than it spends even measured only in reach: those
+   * chips were behind a horizontal scroll with `scrollbar-width: none`, so at
+   * 393 the whole RECALL group sat 447px off the right edge of a 369px rail
+   * with nothing on screen saying so, and 7 of 9 domains with it. Wrapped
+   * inside the fold they are all on the glass. And the state is never silent:
+   * the door reads FILTERS 2 with the count in bold, the readout beside it
+   * says how many of 189 survived, and CLEAR FILTERS is drawn the moment
+   * anything is set.
+   */
+  const searchField = (
+    <input
+      type="search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search 189 cards"
+      aria-label="Search cards"
+      style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
+    />
+  );
+  const ownedFilter = (
+    <Segmented
+      value={owned}
+      onChange={setOwned}
+      options={[
+        ['all', 'All'],
+        ['owned', 'Owned'],
+        ['available', 'Can take'],
+      ]}
+    />
+  );
+  const typeFilter = (
+    <Segmented
+      value={type}
+      onChange={setType}
+      options={[
+        ['all', 'Any'],
+        ['Ability', 'Ability'],
+        ['Spell', 'Spell'],
+        ['Grimoire', 'Grimoire'],
+      ]}
+    />
+  );
+  const domainFilter = (
+    <>
+      <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
+        My domains
+      </FilterChip>
+      <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
+        All
+      </FilterChip>
+      {DOMAINS.map((d) => (
+        <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
+          <DomainMark domain={d} size={11} shapes={shapes} />
+          <span style={{ textTransform: 'capitalize' }}>{d}</span>
+        </FilterChip>
+      ))}
+    </>
+  );
+  const levelFilter = (
+    <NumberFilter
+      label="LV"
+      values={allLevels}
+      selected={levels}
+      onToggle={(n) => setLevels(toggle(levels, n))}
+    />
+  );
+  const recallFilter = (
+    <NumberFilter
+      label="RECALL"
+      values={allRecalls}
+      selected={recalls}
+      onToggle={(n) => setRecalls(toggle(recalls, n))}
+    />
+  );
+
   return (
     <div className="stack" style={rootStyle}>
       <div
@@ -235,61 +370,99 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           state. `gridColumn: '1 / -1'` for the same reason the notice and
           the empty state carry it: a 150px cell is not a filter bar.
         */}
-        <div className="stack" style={{ gap: 8, gridColumn: '1 / -1' }}>
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search 189 cards"
-              aria-label="Search cards"
-              style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
-            />
-            <Segmented
-              value={owned}
-              onChange={setOwned}
-              options={[
-                ['all', 'All'],
-                ['owned', 'Owned'],
-                ['available', 'Can take'],
-              ]}
-            />
-            <Segmented
-              value={type}
-              onChange={setType}
-              options={[
-                ['all', 'Any'],
-                ['Ability', 'Ability'],
-                ['Spell', 'Spell'],
-                ['Grimoire', 'Grimoire'],
-              ]}
-            />
-          </div>
-          <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
-              My domains
-            </FilterChip>
-            <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
-              All
-            </FilterChip>
-            {DOMAINS.map((d) => (
-              <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
-                <DomainMark domain={d} size={11} shapes={shapes} />
-                <span style={{ textTransform: 'capitalize' }}>{d}</span>
-              </FilterChip>
-            ))}
-          </div>
+        {/*
+          Compact: search, the door to the rest, and the readout. 44 + 8 + 10 =
+          62px, against the 278 the four rows cost on the same phone.
 
-          <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            <NumberFilter label="LV" values={allLevels} selected={levels} onToggle={(n) => setLevels(toggle(levels, n))} />
-            <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
-            <NumberFilter
-              label="RECALL"
-              values={allRecalls}
-              selected={recalls}
-              onToggle={(n) => setRecalls(toggle(recalls, n))}
-            />
-          </div>
+          Wide: the four rows as they were, because a 1046px column can afford
+          170 of them and a mouse should not have to open a fold to reach a
+          control there is room for.
+
+          Behind the door nothing scrolls sideways: every row wraps, so all
+          eleven domain chips, all ten levels and all six recall costs are on
+          the glass at once, which is the first time any of them has been.
+        */}
+        <div className="stack" style={{ gap: 8, gridColumn: '1 / -1' }}>
+          {compact ? (
+            <>
+              <div className="row" style={{ gap: 8 }}>
+                {searchField}
+                <button
+                  type="button"
+                  className="row chip"
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                  style={{
+                    flex: 'none',
+                    gap: 6,
+                    minHeight: 'var(--control)',
+                    minWidth: 'var(--control)',
+                    padding: '0 10px',
+                    background: folded > 0 ? 'var(--raised)' : 'transparent',
+                    border: `1px solid ${folded > 0 ? 'var(--line)' : 'var(--line-soft)'}`,
+                    color: 'var(--text)',
+                  }}
+                >
+                  {/* The same rotated triangle `Disclosure` draws, for the
+                      same reason: the arrow glyphs in the two families this
+                      app ships sit on different baselines. */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      flex: 'none',
+                      width: 8,
+                      height: 8,
+                      background: 'var(--muted)',
+                      clipPath: filtersOpen
+                        ? 'polygon(0 25%,100% 25%,50% 100%)'
+                        : 'polygon(25% 0,100% 50%,25% 100%)',
+                    }}
+                  />
+                  FILTERS
+                  {folded > 0 && (
+                    <>
+                      <span style={{ fontWeight: 700 }}>{folded}</span>
+                      <span className="sr-only"> set</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {filtersOpen && (
+                <div className="stack" style={{ gap: 8 }}>
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    {ownedFilter}
+                    {typeFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {domainFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {levelFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {recallFilter}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                {searchField}
+                {ownedFilter}
+                {typeFilter}
+              </div>
+              <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {domainFilter}
+              </div>
+
+              <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {levelFilter}
+                <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
+                {recallFilter}
+              </div>
+            </>
+          )}
 
           <div className="spread" style={{ alignItems: 'center' }}>
             <span className="t-meta" style={{ color: 'var(--muted)' }}>
