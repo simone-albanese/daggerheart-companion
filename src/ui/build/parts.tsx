@@ -6,6 +6,17 @@
  * nothing under 44px, and a selected state that survives being read by someone
  * who cannot tell the accent colour from the border. Every choice here carries
  * a filled indicator box as well as a tint.
+ *
+ * "One tap target per decision" is about the *decision* and not about the card,
+ * and the difference matters on the three steps where the only evidence for a
+ * choice is a paragraph of SRD prose. There the card carries a second target,
+ * to read rather than to decide, and it is a sibling of the `Choice` rather
+ * than something inside it - `Choice`'s root is a `<button>`, and a button
+ * inside a button is invalid HTML that this repo has already shipped twice (see
+ * the note further down this file, and DomainCardView.tsx). `Wizard.tsx`'s
+ * `ChoiceWithReader` is where that pairing lives and where its geometry is
+ * argued. `Choice`'s own `clamp` stays for the surfaces that still want a
+ * fixed teaser rather than a reader: `LevelUp.tsx` passes it twice.
  */
 import { useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';

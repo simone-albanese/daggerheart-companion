@@ -96,6 +96,95 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
   return pool;
 }
 
+// ---------------------------------------------------------------------------
+// Choosing from prose
+// ---------------------------------------------------------------------------
+
+/**
+ * A `Choice` with the SRD's own description of the thing under it, on request.
+ *
+ * The class, the ancestry and the community are the three decisions in this
+ * wizard whose only evidence is a paragraph. They used to hand that paragraph
+ * to `Choice`'s `body` under a `clamp` - three lines for the class, *two* for
+ * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box and
+ * 48px of window onto text that measured 143-206px on a 375px phone. Measured
+ * before this change, at 375x667: 95px hidden on the shortest class card and
+ * 158px on the Wizard's.
+ *
+ * The clamp was not sloppy and this is worth saying plainly, because it decides
+ * the shape of the fix. `clamp` is an opt-in prop, `-webkit-line-clamp` draws
+ * its own ellipsis so the truncation is signposted where it happens, and the
+ * facts a class is *compared* on - Evasion, Hit Points, domains - are in `meta`
+ * above the clamp and were never inside it. So this is an addition, not a
+ * repair: the three lines were the right three lines, and what was missing was
+ * any way at all to read the rest without choosing first.
+ *
+ * The reader is a `Fold` and not a bigger clamp, a `title` or an overlay:
+ *
+ *   - a bigger clamp is the same defect with a different number, and no number
+ *     fits nine descriptions that run 518-763 characters;
+ *   - it cannot go *inside* the `Choice`, whose root is a `<button>`
+ *     (parts.tsx) - a button inside a button is invalid HTML and this repo has
+ *     already been bitten by it twice, recorded at parts.tsx and
+ *     DomainCardView.tsx;
+ *   - `Disclosure` is the wrong disclosure: it keys its open state into
+ *     `prefs.playSections`, which Fold.tsx's own docblock defines as the Play
+ *     screen's per-character folds and then spends eight lines forbidding a
+ *     screen with no character from writing `'none:'` keys into it. Creation
+ *     has no character. `Fold` was extracted for exactly this.
+ *
+ * Two targets, and a tap on either is unambiguous. The `Choice` is the
+ * decision - `aria-pressed`, a filled `Mark` at its right edge, 369x52.8 on a
+ * 393px phone and floored at `var(--tap)` by its own `minHeight`. The `Fold`
+ * header is the reading target - `aria-expanded`, a rotated triangle, 369x44
+ * exactly, the full width of the column. They are siblings separated by 6px, so
+ * neither contains the other and a thumb landing in the gap does nothing rather
+ * than doing the wrong one of the two. Reading a class does not select it.
+ *
+ * The reader is the *last* thing in the closed card, so opening it moves
+ * nothing above it and nothing beside it - `Columns` sets `alignItems: 'start'`
+ * so on a multi-column layout only that one grid cell grows. StepExperiences
+ * wrote the rule this follows: a screen may grow underneath a hand, never
+ * beneath it.
+ *
+ * `summary` carries the page the words came from when the dataset knows it,
+ * which is the stamp `StepExperiences` and the GM reference already use: in an
+ * app whose whole discipline is quoting the SRD rather than paraphrasing it,
+ * "whose words are these" is part of what the fold promises.
+ */
+function ChoiceWithReader({
+  name,
+  description,
+  page,
+  children,
+}: {
+  name: string;
+  description: string;
+  /** `sourcePage` is optional on every SRD record, so the stamp is too. */
+  page?: number;
+  /** The `Choice` itself. Drawn first; the reader is drawn under it. */
+  children: React.ReactNode;
+}): React.JSX.Element {
+  // An imported dataset may carry a record with no description at all, and an
+  // empty reader is a promise of text that is not there. `Choice` guards its
+  // own `body` the same way.
+  if (description === '') return <>{children}</>;
+
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {children}
+      <Fold
+        label={`About ${name}`}
+        summary={`SRD 1.0${page === undefined ? '' : ` · P.${String(page)}`}`}
+      >
+        <p className="t-read" style={{ margin: 0, padding: '0 2px', whiteSpace: 'pre-line' }}>
+          {description}
+        </p>
+      </Fold>
+    </div>
+  );
+}
+
 export function Wizard({
   onCancel,
   onCreated,
@@ -657,31 +746,35 @@ function StepClass({
         ) : (
           <Columns min={280}>
             {dataset.classes.map((c) => (
-              <Choice
+              <ChoiceWithReader
                 key={c.id}
-                selected={draft.classRef === c.id}
-                onClick={() =>
-                  set({
-                    classRef: c.id,
-                    // Everything downstream of the class stops being valid.
-                    subclassRef: null,
-                    cards: [],
-                    background: [],
-                    connections: [],
-                    classItem: 0,
-                  })
-                }
-                title={c.name}
-                meta={`EVASION ${c.startingEvasion} · ${c.startingHitPoints} HP · ${c.domains.join(' + ').toUpperCase()}`}
-                body={c.description}
-                clamp={3}
-                lead={
-                  <span className="row" style={{ gap: 3, flex: 'none', marginTop: 2 }}>
-                    <DomainMark domain={c.domains[0]} size={13} shapes={shapes} />
-                    <DomainMark domain={c.domains[1]} size={13} shapes={shapes} />
-                  </span>
-                }
-              />
+                name={c.name}
+                description={c.description}
+                page={c.sourcePage}
+              >
+                <Choice
+                  selected={draft.classRef === c.id}
+                  onClick={() =>
+                    set({
+                      classRef: c.id,
+                      // Everything downstream of the class stops being valid.
+                      subclassRef: null,
+                      cards: [],
+                      background: [],
+                      connections: [],
+                      classItem: 0,
+                    })
+                  }
+                  title={c.name}
+                  meta={`EVASION ${c.startingEvasion} · ${c.startingHitPoints} HP · ${c.domains.join(' + ').toUpperCase()}`}
+                  lead={
+                    <span className="row" style={{ gap: 3, flex: 'none', marginTop: 2 }}>
+                      <DomainMark domain={c.domains[0]} size={13} shapes={shapes} />
+                      <DomainMark domain={c.domains[1]} size={13} shapes={shapes} />
+                    </span>
+                  }
+                />
+              </ChoiceWithReader>
             ))}
           </Columns>
         )}
