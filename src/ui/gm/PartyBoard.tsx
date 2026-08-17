@@ -490,7 +490,6 @@ function Drawer({
   const remove = useGm((s) => s.removePartyMember);
   const index = useApp((s) => s.index);
   const sheet = member.sheet;
-  const rowHeight = phone ? 44 : 34;
   const clamp = (n: number, max: number): number => Math.min(n, max);
 
   const lineage = [
@@ -546,7 +545,6 @@ function Drawer({
           max={stats.maxHp}
           onChange={(v) => mark(member.id, { hp: v })}
           readout={`${clamp(member.tracks.hp, stats.maxHp)} / ${stats.maxHp} MARKED`}
-          rowHeight={rowHeight}
           compact={!phone}
         />
         <Track
@@ -556,7 +554,6 @@ function Drawer({
           max={stats.maxStress}
           onChange={(v) => mark(member.id, { stress: v })}
           readout={`${clamp(member.tracks.stress, stats.maxStress)} / ${stats.maxStress} MARKED`}
-          rowHeight={rowHeight}
           compact={!phone}
         />
         <Track
@@ -568,7 +565,6 @@ function Drawer({
           clearTo={stats.maxHope}
           onChange={(v) => mark(member.id, { hope: v })}
           readout={`${clamp(member.tracks.hope, stats.maxHope)} / ${stats.maxHope} AVAILABLE`}
-          rowHeight={rowHeight}
           compact={!phone}
         />
         <Track
@@ -578,7 +574,6 @@ function Drawer({
           max={stats.armorScore}
           onChange={(v) => mark(member.id, { armor: v })}
           readout={`${clamp(member.tracks.armor, stats.armorScore)} / ${stats.armorScore} USED`}
-          rowHeight={rowHeight}
           compact={!phone}
         />
       </div>

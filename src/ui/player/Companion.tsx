@@ -198,7 +198,6 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
           update((c) => withCompanion(c, { stress: { ...companion.stress, marked: v } }))
         }
         readout={`${companion.stress.marked} / ${companion.stress.max} MARKED`}
-        rowHeight={phone ? 46 : 40}
         compact={!phone}
       />
 

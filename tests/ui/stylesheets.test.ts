@@ -300,6 +300,66 @@ describe('the pip tokens', () => {
   it('never lets a pip go below the WCAG target floor', () => {
     expect(tokensCss).toMatch(/--pip-min:\s*24px/);
   });
+
+  /**
+   * AND NOTHING OVERRULES IT. The two assertions above prove the token adapts
+   * and that `--control` does not follow it. Neither proves that anything
+   * *reads* it, and for the whole life of the token nothing did: `Track`
+   * defaults `rowHeight` to `var(--pip-h)`, and every caller passed a literal
+   * straight past that default.
+   *
+   * What that cost, measured in Chrome. The desktop cockpit passed `phone ? 44
+   * : 32` and drew 29 targets 32px tall - HP 32x32 x11, Stress 40.2x32 x9,
+   * Hope 56.8x32 x4, Armor 25.6x32 x5 - at 1180x820, 1280x800, 1440x900 and
+   * 1440x695. The party board passed `phone ? 44 : 34` off a `layout ===
+   * 'phone'` test that is only true below 720px, so the entire 720-1179 band
+   * drew 34px pips with no pointer condition anywhere in the decision: measured
+   * at 820x1180 with an ordinary mouse and no touch emulation, `--pip-h` had
+   * already resolved to 44px and every pip was 34. The live scene passed
+   * `phone ? 44 : 38`, the companion `phone ? 46 : 40`.
+   *
+   * This is a source-text assertion for the reason `backupSeam.test.ts` gives
+   * about its own: the defect is not in what the component does, it is in what
+   * its callers hand it. A jsdom mount cannot catch it either way - it computes
+   * no layout and resolves none of these media queries - so the only place this
+   * can fail is here.
+   *
+   * The prop stays on `Track`. A future surface with a real reason can take it
+   * and take this failure with it, which makes it a decision rather than a
+   * habit.
+   */
+  it('is what every caller reads, rather than a number each caller decides', () => {
+    const stripJs = (source: string): string =>
+      source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? walk(join(dir, entry.name))
+          : /\.tsx?$/.test(entry.name)
+            ? [join(dir, entry.name)]
+            : [],
+      );
+
+    const offenders: string[] = [];
+    for (const path of walk('src')) {
+      // Where the prop is declared and defaulted is not a call site.
+      if (path.endsWith('ui/shared/Track.tsx')) continue;
+      for (const hit of stripJs(readFileSync(path, 'utf8')).matchAll(/rowHeight=\{([^}]*)\}/g)) {
+        const value = (hit[1] ?? '').trim();
+        if (!value.includes('--pip-h')) offenders.push(`${path}: rowHeight={${value}}`);
+      }
+    }
+
+    expect(
+      offenders,
+      'a caller is deciding how tall a pip is with a number:\n' +
+        offenders.map((o) => `  ${o}`).join('\n') +
+        '\n\nDelete the prop and let `Track` read `--pip-h`. An inline height beats the ' +
+        'token, so a machine whose token has already resolved to 44 draws whatever the ' +
+        'caller guessed - which is how the party board drew 34px pips on a plain mouse ' +
+        'tablet at 820x1180 and the desktop cockpit drew 32px ones.',
+    ).toEqual([]);
+  });
 });
 
 describe('form controls on a touch screen', () => {

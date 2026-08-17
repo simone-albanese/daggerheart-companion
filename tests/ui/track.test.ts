@@ -21,10 +21,21 @@
  * been put back on an ancestor of both. So jsdom renders the real component
  * and real events are dispatched at the two places a thumb actually lands.
  *
- * The header is given the shape Vitals gives it - a live input plus a chip
- * that writes on click - so the assertion is the one that matters at the
- * table: after a long press on the header, the track still reads what the
- * player left it at, and the chip's own number is what lands.
+ * The header is given the shape the phone sheet used to give it - a live input
+ * plus a chip that writes on click - so the assertion is the one that mattered
+ * at the table: after a long press on the header, the track still reads what
+ * the player left it at, and the chip's own number is what lands. `Vitals` is
+ * not a caller any more; decision 7 took the pip tracks off the player's own
+ * sheet and the three that remain are the GM's party board, the live scene and
+ * the companion panel. The shape is kept because `headerExtra` still takes
+ * arbitrary controls and the rule is about the gesture, not about who asked
+ * for it.
+ *
+ * The companion question - whether any caller is still deciding a pip's height
+ * with a number instead of letting `--pip-h` decide it - is not a render
+ * question and is not here. jsdom computes no layout and resolves no media
+ * query, so it is asserted on source text in `stylesheets.test.ts`, beside the
+ * token itself.
  */
 import { act } from 'react';
 import { createElement, type ReactElement } from 'react';
