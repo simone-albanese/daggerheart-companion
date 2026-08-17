@@ -4,8 +4,14 @@ A digital character sheet and GM toolkit for **Daggerheart**. Local-first,
 offline, no account, no server, no telemetry.
 
 The app ships with the whole SRD already in it — 189 domain cards, 129
-adversaries, 19 environments, nine classes and every table — so the first
-screen is *create a character*, not *load a PDF*.
+adversaries, 19 environments, nine classes and every table — so nothing has to
+be loaded before it is usable. The first screen asks **who is at the table**:
+two questions for a player, three for a GM, and for somebody whose character
+already exists on another device, a door to bring it over rather than a
+question. It is skippable at every step, and a skip lands on the same summary
+card as answering, carrying the shipped defaults. Before that the app opened on
+the character wizard's class step — the same nine cards whether you were making
+a character, running the game, or arriving with a finished sheet in your pocket.
 
 ---
 
@@ -282,8 +288,9 @@ is personal, for their own devices, not for sharing.
 
 The one piece of official artwork here is Darrington Press's "Daggerheart
 Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
-use. The full lockup sits under the attribution on the first-run screen, and
-the dagger-and-flame icon alone sits in the header on every screen. It is
+use. The full lockup sits under the attribution on the empty-library screen and
+at the foot of every screen's own scroll, and the dagger-and-flame icon alone
+sits in the header on every screen. It is
 deliberately never the app's own icon, because a home-screen icon that is the
 official logo reads as an official app, which this is not. The licence text in
 Settings › About carries the attribution as words, without the mark. No
