@@ -102,13 +102,33 @@ afterEach(() => {
   container.remove();
 });
 
-async function settle(until: () => boolean = () => true, turns = 120): Promise<void> {
+/**
+ * Turn the event loop until something is true - and say so when it never is.
+ *
+ * The give-up used to be silent: 120 turns, then return as though the condition
+ * had been met. That is a helper breaking this project's own rule about not
+ * claiming something happened that did not happen, and it cost a red deploy.
+ * `Build` is a `lazy()` chunk, so "the wizard is up" is asynchronous; on this
+ * laptop it resolved inside 120 turns and on CI's runner, under load, it did
+ * not. The test then walked on and failed three lines later on a nav that was
+ * never going to be there, reporting `[null]` - the tab bar's unlabelled nav -
+ * instead of "the wizard never mounted", which is what actually happened.
+ *
+ * Throwing costs nothing when the condition holds and turns every future race
+ * in this file into a sentence naming the thing that never arrived.
+ */
+async function settle(until: () => boolean = () => true, turns = 400): Promise<void> {
   for (let i = 0; i < turns; i += 1) {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     if (until()) return;
   }
+  throw new Error(
+    `settle() gave up after ${String(turns)} turns: the condition it was waiting for never became ` +
+      'true. This is a race, not a failed assertion - whatever is asserted next will report ' +
+      'something misleading about a tree that never finished rendering.',
+  );
 }
 
 const text = (): string => container.textContent ?? '';
@@ -191,7 +211,16 @@ describe('the first thing a new device shows', () => {
     await press("I'll make a character now");
     await press('The app rolls for me');
     await press('Create a character');
-    await settle(() => text().includes('Name & class'));
+    // Wait for the nav this test is about, not for the step title beside it.
+    // `Build` is a `lazy()` chunk and its `<nav>` is the last thing in it, so
+    // the title is a proxy that can be true a commit early - and a proxy is
+    // what turns a slow chunk on a loaded runner into an assertion about the
+    // wrong element.
+    await settle(() =>
+      [...container.querySelectorAll('nav')].some(
+        (n) => n.getAttribute('aria-label') === 'Wizard navigation',
+      ),
+    );
 
     expect(
       buttons().some((b) => (b.textContent ?? '').trim() === 'SETTINGS'),
