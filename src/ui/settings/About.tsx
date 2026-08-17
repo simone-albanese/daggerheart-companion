@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { APP_VERSION, BUILD_ID, shortBuildId } from '../../buildInfo.ts';
 import { forgetBackupFolder } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { countCampaigns } from '../../store/campaigns.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
@@ -59,10 +60,23 @@ export function About({
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const characters = useApp((s) => s.characters);
+  const quarantined = useApp((s) => s.quarantined);
   const [health, setHealth] = useState<StorageHealth | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [campaignCount, setCampaignCount] = useState<number | null>(null);
   const [typed, setTyped] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+
+  /*
+   * The character records the reset destroys, which is more than the library.
+   *
+   * `characters` is the readable half; `quarantined` is the records a newer
+   * build wrote that this one refuses to render (state.ts, db.ts::readLibrary),
+   * and `clearAll` deletes those too. The "On this device" hint above counts
+   * only `characters` on purpose - it is describing the library a person can
+   * open - but a destruction confirmation counts what goes, not what shows.
+   */
+  const characterCount = characters.length + quarantined.length;
 
   useEffect(() => {
     void navigator.storage
@@ -72,6 +86,41 @@ export function About({
       )
       .catch(() => setHealth(null));
   }, []);
+
+  /*
+   * Re-read the campaign count on arming, not once on mount.
+   *
+   * `clearAll` empties the `campaigns` store along with the other four, so the
+   * confirmation has to say how many campaigns that is - and the number has to
+   * be true at the moment it is read, which is when the panel opens rather than
+   * when the screen mounted. There is no cross-tab invalidation anywhere in
+   * this app: a second tab sitting on the GM screen can create or delete a
+   * campaign with nothing here to hear about it, and a stale number on this
+   * particular sentence is the exact failure this control exists not to have.
+   *
+   * One `count` request, on the connection `readLibrary` has already opened.
+   * The count and not `readCampaigns` - see `countCampaigns`'s own docblock:
+   * quarantined campaigns are held out of that array and deleted anyway.
+   */
+  useEffect(() => {
+    let live = true;
+    void countCampaigns().then(
+      (n) => {
+        if (live) setCampaignCount(n);
+      },
+      () => {
+        // Storage refused. The sentence below drops to naming the campaigns
+        // without counting them, which is still true; inventing a zero here
+        // would be the app claiming there is nothing to lose.
+        if (live) setCampaignCount(null);
+      },
+    );
+    // Not decoration: About unmounts on every tab change (App.tsx renders it
+    // conditionally), and `confirming` can toggle twice before a read lands.
+    return () => {
+      live = false;
+    };
+  }, [confirming]);
 
   const counts: Array<[string, number]> = [
     ['Domain cards', dataset.domainCards.length],
@@ -294,10 +343,43 @@ export function About({
 
         {confirming && (
           <div style={{ background: 'var(--panel)', padding: 14 }}>
+            {/*
+              The sentence has to count the campaigns, because the button
+              deletes them. `clearAll` clears all five stores, `campaigns`
+              included; this Note counted one of them.
+
+              Ergonomics, measured in Chrome and not predicted. The text column
+              here is 313px at 393x852 and 295px at 375x667 - the viewport less
+              24 (scroller padding, Settings.tsx `12px 12px 28px`), less 2 (Rows
+              border), less 28 (this div's `padding: 14`), less 24 and 2 (Note's
+              `10px 12px` and its 1px border). Type is `.t-dense` 11.5px with
+              Note overriding line-height to 1.5, so 17.25px a line.
+
+              The sentence goes 160 -> 173 characters and the Note stays three
+              lines and 73.8px at both phone widths, two lines and 55px at
+              744x1133: **this costs zero pixels**. Every rect below it is
+              unmoved to the pixel - the ERASE input at 220x44, "Erase
+              everything" at 139.9x44, "Keep my data" at 110.3x44, all three at
+              the `var(--tap)` 44px floor with an 8px gap, and `LicenceFooter`
+              still the last child of this screen's scroll. Read-vs-touch order
+              is read, type, then touch, and the added clause is on the read
+              side above all three targets, so no target moved and none left the
+              thumb's arc.
+
+              Headroom before a fourth line, because a later edit will not
+              re-measure: 24 characters at 393 and **12 at 375**, which is the
+              binding one. Past that the Note grows 17.25px and nothing shrinks
+              to pay for it - it would push the three targets down a scroll the
+              thumb is already positioning, which costs a scroll position rather
+              than a reach, but it is no longer free.
+            */}
             <Note tone="danger">
-              This erases {characters.length} character{characters.length === 1 ? '' : 's'} and
-              everything else this device holds. Export a backup first if there is any doubt — that
-              file is the only thing that can bring it back.
+              This erases {characterCount} character{characterCount === 1 ? '' : 's'},{' '}
+              {campaignCount === null
+                ? 'every campaign on this device and everything else it holds'
+                : `${String(campaignCount)} campaign${campaignCount === 1 ? '' : 's'} and everything else this device holds`}
+              . Export a backup first if there is any doubt — that file is the only thing that can
+              bring it back.
             </Note>
             <label className="stack" style={{ gap: 8, marginTop: 12 }}>
               <span className="t-label">Type ERASE to confirm</span>
