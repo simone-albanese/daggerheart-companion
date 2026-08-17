@@ -179,17 +179,23 @@
    *
    * AND THERE IS A THIRD STEP AT 390, WHICH IS THE REFLOW'S HEADLINE RAISE.
    * This is the number the screen exists for during a fight and it was sitting
-   * BELOW the 30px roll total and 2px above a stepper glyph. It is 26 from 390
-   * up. The step is 390 and not 386 for the same reason 380 is not 368: 390 is
-   * the iPhone 12/13/14/15/16 width and 393 the Pro, no device lives between
-   * 386 and 389, and the arithmetic at 386 leaves a margin too thin to call
-   * one. `Counter` paid for it in HEIGHT - the cell is 48 tall from 390 up -
-   * and deliberately not in width: the room is still the target less 88 of
-   * steppers, 8 of gutters, 10 of padding and 2 of border, because a stepper
-   * that grew to 48 wide would take 8px out of the very number it grew for.
+   * BELOW the 30px roll total and 2px above a stepper glyph. It is **38** from
+   * 390 up. The step is 390 and not 386 for the same reason 380 is not 368: 390
+   * is the iPhone 12/13/14/15/16 width and 393 the Pro, no device lives between
+   * 386 and 389, and the arithmetic at 386 leaves a margin too thin to call one.
    *
-   * ON THE DESKTOP the query is true and the cell is 198 wide, so the cockpit
-   * gets 26 as well: 102px of target, 90 of room, against the same line.
+   * 38 AND NOT 26, AND WHAT PAID FOR THE OTHER TWELVE. 26 was the ceiling while
+   * the maximum sat on the value's own line: measured in Chrome, `11 / 11` is
+   * **68.92px** of the 74 the target has, so the WIDTH and not the height was
+   * what capped the size. The maximum has its own line now, so the widest thing
+   * the line draws is `11` - 47.65 at 38 - and the ceiling moved with it. Every
+   * size between 28 and 38 was rendered and measured before this one was picked.
+   *
+   * THE COCKPIT DOES NOT TAKE THIS STEP, and that is the 1180 query below. Its
+   * cell is 198 wide rather than 181.5, it does not scroll, and the panel it
+   * sits in hands what it saves to `DualityRoll` underneath - so it keeps the
+   * compact two-line shape at 26 and 48. The phone is the surface this reflow
+   * was asked about.
    */
   --counter-num: 18px;
 
@@ -213,8 +219,42 @@
    * 390 the cell is 44, the maximum is 10 and the number is 18, exactly as it
    * shipped.
    */
-  --counter-cell: 44px;
+  --counter-cell: 56px;
   --counter-max: 10px;
+
+  /*
+   * The card's own padding and the space between its three lines, stepped by
+   * the same width and for the same reason as everything else here.
+   *
+   * A narrow phone draws the same three lines - name, number, maximum - around
+   * a 22px number instead of a 38px one, and it has less column to spend on
+   * air: 3 and 2 there against 7 and 6 from 390 up. 3 + 11 + 2 + 22 + 2 + 10 +
+   * 3 is 53 of content, which is what `--counter-cell`'s 56 is derived from,
+   * and the same sum with the wide values is 85 against 88.
+   *
+   * They are tokens and not literals in `Counter` because they are three terms
+   * of one height, and a height that is a token cannot be kept true by three
+   * numbers living somewhere else.
+   */
+  --counter-pad: 3px;
+  --counter-gap: 2px;
+
+  /*
+   * How wide the incoming-damage field is, and it is here because it is a term
+   * of the defence band's width rather than a property of the input.
+   *
+   * 44 is the touch floor and the value every width below 390 keeps. From 390
+   * up it is 64, and the twenty are the band's own spare rather than anything
+   * taken from a neighbour: the row is `auto repeat(3, 1fr) auto`, so a wider
+   * field simply makes the fifth track wider and the three shared ones narrower.
+   *
+   * IT STEPS BECAUSE 360 CANNOT AFFORD IT. `playSheet.test`'s width budget sums
+   * the widest row this sheet draws, and at 64 the band needs a 372.47px
+   * viewport - so a 360px Android would squeeze MAJOR's cell to 45.5 around 50
+   * of content and paint the label over its neighbour. That assertion caught it
+   * before this shipped, which is what it is for.
+   */
+  --damage-w: 44px;
 
   /*
    * The boundary that has to be *seen*, as opposed to the ones that only have
@@ -267,21 +307,56 @@
 }
 
 /*
- * The second step, and the one the reflow added.
+ * The second step, and the one the reflow added: the phone's counter cell.
  *
- * Same shape and same argument as the 380 above, one size up: 26 from 390,
- * which is the width every non-Pro iPhone since the 12 has and one below the
- * 393 the owner holds. `Counter`'s cell went 44 -> 48 TALL in the same pass and
- * its steppers went with it, so the value target is still 85.5 at 393 and this
- * size is measured against the 73.5 of room inside it. The other reading - 48px
- * steppers, a 77.5 target, 65.5 of room - is the one this design rejected,
- * because 68.94 of ink does not fit in it.
+ * Same shape and same argument as the 380 above, several sizes up. 390 is the
+ * width every non-Pro iPhone since the 12 has and one below the 393 the owner
+ * holds. The cell is 84 tall because the block draws three lines now - the name
+ * with its mark, the number, the maximum - centred on one axis inside 7px of
+ * padding: 7 + 11 + 6 + 38 + 6 + 10 + 7 = **85** of content, and 90 is that
+ * plus the card's 1px border top and bottom and the two pixels the row's own
+ * box adds. It is measured rather than derived: 84 and then 88 both let the
+ * content overflow its own minimum and the cell drew 90 anyway, which would
+ * have left `playSheet`'s budget short of what the browser does.
+ *
+ * `--counter-max` does NOT step here and that is the change that let the number
+ * grow. It was 11 and rode beside the value; on its own line it is subordinate
+ * to a 38px number and `.t-meta`'s 10 is the right size for it.
  */
 @media (min-width: 390px) {
   :root {
+    --counter-num: 38px;
+    --counter-cell: 90px;
+    --counter-pad: 7px;
+    --counter-gap: 6px;
+    --damage-w: 64px;
+  }
+}
+
+/*
+ * And the cockpit takes it back, because a cockpit cell is a different
+ * measurement and always has been.
+ *
+ * 198px of track rather than 181.5, a mouse rather than a thumb, and no
+ * scrolling: the desktop panel hands every pixel this block saves to
+ * `DualityRoll` below it, which is the panel this repo has measured crushed to
+ * 45px. So the cockpit keeps the two-line shape at 26 in a 48px cell - exactly
+ * what it drew before the phone reflow - and `Counter` draws the three-line
+ * card only when `Vitals` asks for it by layout.
+ *
+ * A `min-width` and not a pointer query, for the reason the 380 above gives:
+ * this is a question about how wide a grid track is.
+ */
+@media (min-width: 1180px) {
+  :root {
     --counter-num: 26px;
     --counter-cell: 48px;
-    --counter-max: 11px;
+    /* Unused there - the cockpit is not a card - and set back for the same
+       reason the two above are: nothing at this width should inherit a phone's
+       arithmetic. */
+    --counter-pad: 3px;
+    --counter-gap: 2px;
+    --damage-w: 44px;
   }
 }
 

@@ -73,6 +73,27 @@ interface Props {
   max: number;
   onChange: (value: number) => void;
   labelColor?: string;
+  /**
+   * Draw the phone's card: one bordered object per track, three lines centred
+   * inside it, with the steppers at its outer edges.
+   *
+   * A prop and not a media query, because the two shapes answer two different
+   * measurements and both can be on screen at once. The phone's cell is 181.5
+   * wide and 84 tall and is read at arm's length under pressure, so it gets a
+   * 38px number on its own line with the maximum beneath it. The cockpit's is
+   * 198 wide, has a mouse and hands what it saves to `DualityRoll` below, so it
+   * keeps the two-line shape at 26. `tokens.css` steps `--counter-cell` and
+   * `--counter-num` the same way, at 390 up and back again at 1180.
+   *
+   * WHAT THE CARD IS, AND WHY IT COSTS NOTHING. It is the same pixels drawn as
+   * one object instead of three: the border, the fill and the radius move from
+   * the value button to the row, minus goes to the row's left edge and plus to
+   * its right, and the two 4px gutters between the old boxes disappear - which
+   * hands the number 6px of width it did not have. Every target keeps its own
+   * hit area and every one of them is over the floor: 44 wide by the cell's
+   * full height for the steppers, 91.5 for the value.
+   */
+  tall?: boolean;
 }
 
 /** The touch floor. Nothing in this file is ever declared under it. */
@@ -142,8 +163,43 @@ export function Counter({
   max,
   onChange,
   labelColor,
+  tall = false,
 }: Props): React.JSX.Element {
   const shape = TRACK_SHAPES[kind];
+
+  /*
+   * The number answers a press, briefly.
+   *
+   * Marking a track is the commonest thing anybody does on this screen and it
+   * used to happen in silence: the digit changed and nothing said the tap had
+   * landed. On a phone at a table that is the difference between pressing once
+   * and pressing twice. So the value takes a short step up and settles back.
+   *
+   * A TRANSITION AND NOT A KEYFRAME, which is the whole reason this is three
+   * lines rather than one. `base.css` zeroes `--motion` for both ways a player
+   * can ask for less movement - the OS's `prefers-reduced-motion` and this
+   * app's own switch through `[data-reduce-motion]` - but its blanket
+   * `animation: none` only covers the OS one. A transition driven by `--motion`
+   * is off for both, and off means instant rather than absent: the number still
+   * changes, it simply does not travel.
+   *
+   * It watches `value` rather than the two buttons, so typing a number into the
+   * cell answers the same way pressing plus does, and a value that changes
+   * because a rest healed it does too.
+   */
+  const [bumped, setBumped] = useState(false);
+  const settled = useRef(true);
+  useEffect(() => {
+    // Not on mount: a sheet opening is not a press, and four counters flinching
+    // as the screen arrives would be motion nobody asked for.
+    if (settled.current) {
+      settled.current = false;
+      return undefined;
+    }
+    setBumped(true);
+    const t = setTimeout(() => setBumped(false), 130);
+    return () => clearTimeout(t);
+  }, [value]);
   const [typing, setTyping] = useState<string | null>(null);
   const field = useRef<HTMLInputElement | null>(null);
 
@@ -257,15 +313,50 @@ export function Counter({
      * the one thing in the cell designed to absorb it. `Vitals` has to declare
      * `minmax(0, 1fr)` as well; neither alone does anything.
      */
-    <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: CELL }}>
+    <div
+      className="row"
+      style={{
+        minWidth: 0,
+        minHeight: CELL,
+        // Nothing between the three parts when they are one card: the border is
+        // the boundary and a gutter inside it would draw a second one.
+        gap: tall ? 0 : GUTTER,
+        ...(tall
+          ? {
+              border: '1px solid var(--line-soft)',
+              background: 'var(--app)',
+              borderRadius: 'var(--r3)',
+              // The steppers reach the card's edge and stop at its radius.
+              overflow: 'hidden',
+            }
+          : null),
+      }}
+    >
+      {/*
+       * Minus leads the card, so the pair reads low to high across it and the
+       * two glyphs sit at the two edges a thumb reaches without aiming. Outside
+       * the card it stays where it always was, after the value.
+       */}
+      {tall && (
+        <Step
+          label={`${label} minus one`}
+          glyph="−"
+          tall
+          disabled={value <= 0}
+          onPress={() => onChange(clamp(value - 1))}
+        />
+      )}
       {/*
        * The value, and the target that types it.
        *
-       * Two lines, because two lines is what fits: the silhouette and the
-       * label above, the number below at 20px where it is the thing being
-       * read. It is the only item in the cell that grows, so every pixel the
-       * grid hands this cell over the 88 the steppers take lands on the target
-       * you read rather than on empty space.
+       * Three lines on the phone and two in the cockpit, and both are what
+       * fits rather than what was wanted. The silhouette and the name lead,
+       * then the number, and on the phone the maximum drops onto a third line -
+       * which is the only reason the number is 38 rather than 26, because
+       * `11 / 11` on one line measures 68.92 of the 74 this target has and the
+       * ceiling was WIDTH. It is the only item in the cell that grows, so every
+       * pixel the grid hands this cell over the 88 the steppers take lands on
+       * the target you read rather than on empty space.
        *
        * `min-width: 44` rather than 0: it is a target, and a target's declared
        * floor is what `keeps every target at the touch floor in both
@@ -282,34 +373,86 @@ export function Counter({
         style={{
           flex: '1 1 auto',
           minWidth: TAP,
-          minHeight: CELL,
+          // Inside the card the ROW carries the height and this carries only
+          // its own floor. Declaring the cell here as well made the row
+          // `CELL + 2` - its minimum plus its border - so the block drew two
+          // pixels taller than the token said at every width.
+          minHeight: tall ? TAP : CELL,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          gap: 2,
-          borderRadius: 'var(--r3)',
-          border: '1px solid var(--line-soft)',
-          background: 'var(--app)',
-          textAlign: 'left',
-          padding: '0 5px',
           overflow: 'hidden',
+          ...(tall
+            ? {
+                // The card carries the boundary; this is the middle of it.
+                border: 'none',
+                background: 'transparent',
+                borderRadius: 0,
+                // Padding on every side and equal, where it was '0 5px'.
+                // Nothing above or below is what put the number against the
+                // edge of its own target.
+                padding: 'var(--counter-pad) 9px',
+                gap: 'var(--counter-gap)',
+                alignItems: 'stretch',
+                textAlign: 'center',
+              }
+            : {
+                gap: 2,
+                borderRadius: 'var(--r3)',
+                border: '1px solid var(--line-soft)',
+                background: 'var(--app)',
+                textAlign: 'left',
+                padding: '0 5px',
+              }),
         }}
       >
-        <span className="row" style={{ gap: 4, minWidth: 0 }}>
+        <span
+          className="row"
+          style={{ gap: 4, minWidth: 0, ...(tall ? { width: '100%', justifyContent: 'center' } : null) }}
+        >
           {mark}
           <span
             className="t-label"
             style={{
-              flex: 'none',
+              // `0 1 auto` in the card rather than `none`: `STRESS` is 53px of
+              // the 65.5 a padded line has, so the name is the half that can
+              // lose a letter if a future label is longer. On one line it is
+              // `none` and the summary beside it gives instead.
+              flex: tall ? '0 1 auto' : 'none',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               color: labelColor ?? 'var(--text)',
               letterSpacing: '0.08em',
               whiteSpace: 'nowrap',
+              // 11, not `.t-label`'s own size: this line is subordinate to a
+              // 38px number now rather than heading a 26px one.
+              ...(tall ? { fontSize: 11 } : null),
             }}
           >
             {label}
           </span>
         </span>
-        <span style={{ whiteSpace: 'nowrap' }}>
+        <span
+          style={{
+            whiteSpace: 'nowrap',
+            ...(tall
+              ? {
+                  // The maximum drops under the value, and that is what let the
+                  // number go to 38: on one line `11 / 11` is 68.92 of 74, so
+                  // width and not height was the ceiling. Stacked, the widest
+                  // line is `11` at 47.65.
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  lineHeight: 1,
+                  gap: 'var(--counter-gap)',
+                }
+              : null),
+          }}
+        >
           <span
             style={{
               // `--counter-num`, not a literal: this size is decided by how wide
@@ -319,6 +462,12 @@ export function Counter({
               font: '800 var(--counter-num)/1 var(--sans)',
               color: shape.color,
               fontVariantNumeric: 'tabular-nums',
+              // `inline-block` because a transform does not apply to a
+              // non-replaced inline box, and in the two-line shape this span is
+              // exactly that.
+              display: 'inline-block',
+              transform: bumped ? 'scale(1.14)' : 'scale(1)',
+              transition: 'transform var(--motion) ease-out',
             }}
           >
             {value}
@@ -334,22 +483,32 @@ export function Counter({
            * by it - and it steps with the number, because the 3.32px it adds is
            * 3.32px the narrow cell does not have.
            */}
-          <span className="t-meta" style={{ fontSize: 'var(--counter-max)', color: 'var(--dim)' }}>
+          <span
+            className="t-meta"
+            style={{
+              fontSize: 'var(--counter-max)',
+              color: 'var(--dim)',
+              ...(tall ? { display: 'block' } : null),
+            }}
+          >
             {' '}
             / {max}
           </span>
         </span>
       </button>
 
-      <Step
-        label={`${label} minus one`}
-        glyph="−"
-        disabled={value <= 0}
-        onPress={() => onChange(clamp(value - 1))}
-      />
+      {!tall && (
+        <Step
+          label={`${label} minus one`}
+          glyph="−"
+          disabled={value <= 0}
+          onPress={() => onChange(clamp(value - 1))}
+        />
+      )}
       <Step
         label={`${label} plus one`}
         glyph="+"
+        tall={tall}
         disabled={value >= max}
         onPress={() => onChange(clamp(value + 1))}
       />
@@ -381,11 +540,14 @@ function Step({
   glyph,
   disabled,
   onPress,
+  tall = false,
 }: {
   label: string;
   glyph: string;
   disabled: boolean;
   onPress: () => void;
+  /** Inside the phone's card: no box of its own, and the card's full height. */
+  tall?: boolean;
 }): React.JSX.Element {
   return (
     <button
@@ -409,9 +571,31 @@ function Step({
         // fighting for: 44x48 is still square-enough at the floor in both
         // directions, which is the property this button exists to hold.
         width: TAP,
-        height: CELL,
-        borderRadius: 'var(--r3)',
-        background: 'var(--raised)',
+        ...(tall
+          ? {
+              // The card is the box. These two are the regions of it you press,
+              // so they stretch to its full height, and they carry no fill or
+              // radius of their own - two rounded rectangles inside a third
+              // would be three boundaries saying one thing.
+              //
+              // `minHeight` AS WELL AS `alignSelf`, and it is not belt and
+              // braces. A stretched height is computed by the parent, which
+              // means it is a height no test can read: `playSheet`'s sweep over
+              // every target on the sheet scored these eight 0 and reported
+              // them as under the floor. The floor is declared here, where it
+              // is the button's own promise, and the stretch is what makes it
+              // taller than its promise.
+              height: 'auto',
+              minHeight: TAP,
+              alignSelf: 'stretch',
+              background: 'transparent',
+              borderRadius: 0,
+            }
+          : {
+              height: CELL,
+              borderRadius: 'var(--r3)',
+              background: 'var(--raised)',
+            }),
         color: 'var(--text)',
         font: '700 20px/1 var(--sans)',
         opacity: disabled ? 0.35 : 1,

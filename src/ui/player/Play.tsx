@@ -1190,9 +1190,31 @@ function Defenses({
         display: 'grid',
         // Four across while the thresholds are numbers; when they are not, the
         // sentence that replaces them takes both of their cells rather than
-        // being squeezed into 80px. With the damage box in, the four size to
-        // their labels and the box takes the remainder - four equal cells plus
-        // the box overflow even a 393px phone.
+        // being squeezed into 80px.
+        //
+        // WITH THE DAMAGE BOX IN, THE ROW IS `auto repeat(3, 1fr) auto` AND
+        // THAT IS THE END OF THE HOLE. It used to be `auto auto auto auto 1fr`:
+        // the four readings took their content width - 61.6, 48, 54.8 and 41.2
+        // at 393, four different sizes - and the fifth track, being the only
+        // flexible one, swallowed all 139.4 of the remainder while holding 94px
+        // of controls. The 45.4 left over drew as an empty band at the
+        // right-hand end of the row.
+        //
+        // Now the fifth is `auto`, so it is exactly its door and its field and
+        // nothing is left to leave a hole; EVASION keeps `auto` because its
+        // label is the longest of the four and equal fifths would clip it -
+        // measured, 49.6 of ink against 45.75 of inner - and the other three
+        // share what is left, which makes them equal where they used to be
+        // arbitrary. Four equal cells plus the box overflow even a 393px phone,
+        // which is why this is not `repeat(5, 1fr)`.
+        //
+        // `minmax(min-content, 1fr)` AND NOT `minmax(0, 1fr)`, WHICH IS ABOUT
+        // WHAT HAPPENS BELOW THE SUPPORTED WIDTH. A `1fr` floored at zero is
+        // free to squeeze a track under its own content, and at 320 that put
+        // 50px of MAJOR into 38.8 of track - text over its neighbour, which is
+        // worse than the overflow it replaced. Floored at `min-content` these
+        // three behave exactly as the `auto` tracks they replaced did below 360
+        // and share the row equally above it, which is the whole change.
         //
         // The unreadable-armor shape grows a fourth track when the door is
         // here, because the door is the phone's only way into the conditions
@@ -1205,7 +1227,7 @@ function Defenses({
             ? '1fr 2fr 1fr auto'
             : '1fr 2fr 1fr'
           : damage
-            ? 'auto auto auto auto 1fr'
+            ? 'auto repeat(3, minmax(min-content, 1fr)) auto'
             : 'repeat(4, 1fr)',
         gap: 6,
       }}
@@ -2459,20 +2481,21 @@ function PlayDesktop({
  * pixels are the first of the reflow's savings - ROLL beside a MODS control that costs the column
  * nothing because it is 44 wide inside a height ROLL was already holding, plus
  * three of this column's 14px gaps and the column's own 8px of top padding.
- * **ROLL's lower edge lands at 308 of a usable 730** (852 less the header's
- * 52+1, the tab bar's 60+1 and this root's own 8px foot), which is 422px of
+ * **ROLL's lower edge lands at 392 of a usable 730** (852 less the header's
+ * 52+1, the tab bar's 60+1 and this root's own 8px foot), which is 338px of
  * slack.
  *
- * THE COUNTERS ARE 102 AND NOT 94 BECAUSE THAT IS THE ONE THING THE REFLOW
- * BUYS RATHER THAN SELLS: `--counter-cell` steps to 48 from viewport 390 so the
- * value inside it can be 26 instead of 22, and the eight pixels are exactly
- * what this band's own padding returned in the same pass - so the counters grow
- * UPWARD and every number below them is where it was. Below 390 the token does
- * not step, so a 360px Android still reads 94 here and pays nothing for the
- * raise at all.
+ * THE COUNTERS ARE 186 AND THAT IS THE ONE THING THIS REFLOW BUYS RATHER THAN
+ * SELLS. Each track is a card 90px tall: its name and mark, a **38px** number,
+ * and the maximum on a line of its own, centred on one axis inside 7px of
+ * padding. The maximum moving off the value's line is what let the number grow
+ * - beside it, `11 / 11` measured 68.92 of the 74 the target has, so WIDTH and
+ * not height was the ceiling, and every size from 28 to 38 was rendered before
+ * this one was chosen. Below viewport 390 the card is 56 around a 22px number,
+ * so a 360px Android reads 118 here.
  *
- * AT 375x667 THE SAME STACK IS 300 - no 390 step, so the counters are 94 - AND
- * IT CLEARS A 545px COLUMN BY 245px, where before the
+ * AT 375x667 THE SAME STACK IS 324 - no 390 step, so the card is 56 - AND IT
+ * CLEARS A 545px COLUMN BY 221px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
  * are the dearest of them at **+68**, a companion (**+50**), a Beastform
@@ -2494,33 +2517,39 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **516px against 730 at 393x852, with 214 to spare** - every fold
+ * TWICE OVER. **600px against 730 at 393x852, with 130 to spare** - every fold
  * shut, the `playedCharacter` fixture, and re-measured in Chrome rather than
  * re-summed: the distance from the top of the defence band to the bottom edge
- * of the last fold header is **508.0** at 393 and **500.0** at 375 and 360, the
- * 8px difference being `--counter-cell`'s step, and the column's own 8px of top
- * padding takes it to 516. That is the condition P5-5's own decision 1 made the
- * unpinning conditional on, unmet through P5-5 (899, over by 169) and P5-6
- * (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 214. It
- * fits at 744x1133 with 556 to spare.
+ * of the last fold header is **592.0** at 393 and **524.0** at 375 and 360, and
+ * the column's own 8px of top padding takes those to 600 and 532. That is the
+ * condition P5-5's own decision 1 made the unpinning conditional on, unmet
+ * through P5-5 (899, over by 169) and P5-6 (749, over by 19), met at P5-8 (697,
+ * 33 to spare) and now clear by 130. It fits at 744x1133 with 472 to spare.
  *
- * **AND IT FITS 375x667, WHICH IT NEVER HAS.** 508 against 545, 37 to spare.
+ * IT DOES NOT FIT A SAFARI TAB, AND THAT IS A DECISION RATHER THAN A MISS. That
+ * column is about 515 and the sheet is 600, so the last two folds and the
+ * licence notice are a thumb-flick down. The owner was given the arithmetic and
+ * chose the larger numbers over the single screen, in those words: «aria vera,
+ * e pazienza se scrolla». Everything a turn touches - thresholds, tracks,
+ * traits, ROLL - is above the fold at that height.
+ *
+ * **AND IT FITS 375x667, WHICH IT NEVER HAS.** 532 against 545, 13 to spare.
  * That sheet was 204px over, then 152, then 49; the pairing took four fold rows
  * down to two and closed it. «Vedere in una volta sola tutta la scheda» is now
  * literally true on both reference phones rather than on the larger one only.
  *
  * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
- * predicted it would not: 508 against 678, 170 to spare, measured. The report's
+ * predicted it would not: 532 against 678, 146 to spare, measured. The report's
  * own closing table had 360x800 at -2 because it costed decision 5 without the
  * width fix beside it - a taller chip is not a narrower one - and with the
  * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
  * the 62px that ate it is not spent. With two conditions on, the strip is back
- * in its slot and the sheet is 560 against 678, which still fits.
+ * in its slot and the sheet is 584 against 678, which still fits.
  *
- * Those three numbers are untouched by the reflow's one cost, and that is not a
- * coincidence: 360 is below `--counter-cell`'s 390 step, so the narrowest phone
- * this app supports keeps the 44px cell and the 22px number and pays nothing
- * for a raise it had no room to take. The raise is spent where the room is.
+ * 360 is below every one of the reflow's steps - `--counter-cell`,
+ * `--counter-num`, the card's own padding and gap, and `--damage-w` - so the
+ * narrowest phone this app supports keeps a 22px number in a 56px card and a
+ * 44px damage field. It pays for the card's third line and for nothing else.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
  * of that saving survives this reflow with a different door. Nothing is drawn
@@ -2560,18 +2589,18 @@ function PlayDesktop({
  *
  * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
  * always had here. At 344 and 320 the defence band and the trait row each
- * reflow onto a second line and the folded sheet measures **586**, so 594 of
- * column: at 320x568 that is 148 over a 446px column and it scrolls. 375 no
+ * reflow onto a second line and the folded sheet measures **610**, so 618 of
+ * column: at 320x568 that is 172 over a 446px column and it scrolls. 375 no
  * longer does. What scrolling does not do is hide anything or put anything out
  * of reach.
  *
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
- * this sheet now clears by 180 where P5-8's 697 was one pixel over. `BackupBanner`
+ * this sheet now clears by 96 where P5-8's 697 was one pixel over. `BackupBanner`
  * is the other one the budget has never counted: it costs this column **66**
  * from first launch until the first backup is taken, so a new user's column is
- * **664** - and 516 clears that by **148**, where 697 was 33px over it.
+ * **664** - and 600 clears that by **64**, where 697 was 33px over it.
  *
  * *(~~58, a 672px column and 54 to spare~~ - superseded, and it is the same
  * mistake as the companion's +50 above: 58 is the banner's border
@@ -2590,9 +2619,10 @@ function PlayDesktop({
  * path. Measured rather than doubled, because two stacked 8px margins are
  * exactly where adding up would be wrong if they collapsed: 738 -> 672 -> **606**
  * of glass at 393x852, so **132** off this column and **598** left of the 730.
- * The folded sheet takes 516, so **it fits with 82 to spare** - the state this
- * budget has always failed passes comfortably, where at 618 it was 20px over
- * and after the reflow's first three savings it passed by 12. Neither banner may be deleted:
+ * The folded sheet takes 600 against that 598, so **it is 2px over** and that
+ * state scrolls, like the Safari tab and for the same reason. It passed by 12
+ * after the reflow's first three savings and by 82 after the pairing; the
+ * counter card spent both. Neither banner may be deleted:
  * they are P0-2's remedy, and a banner nobody sees is the defect they fix.
  * `playSheet.test.tsx` does not know either exists; `tests/ui/banners.test.tsx`
  * adds the costs up out of the declarations so 66 and 132 cannot drift.
@@ -2629,7 +2659,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 516 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 600 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2894,19 +2924,19 @@ function PlayPhone({
          * of the tab bar` for two passes after the 2x2 counter grid took 150px
          * out of the stack above it, and every one of those numbers was 150px
          * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-         * shut, at the top of the scroll: the ROLL row spans **y305-361** on the
-         * glass at 393, and y297-353 at 375 and below, where the counters do not
-         * take `--counter-cell`'s 390 step. At 393x852 that is **491 to 547px
-         * above the bottom bezel** and **430px clear of the tab bar**; at
-         * 375x667 it is **314 to 370px above the bezel** and 253px clear.
+         * shut, at the top of the scroll: the ROLL row spans **y389-445** on the
+         * glass at 393, and y321-377 at 375 and below, where the card is 56 and
+         * not 90. At 393x852 that is **407 to 463px above the bottom bezel** and
+         * **346px clear of the tab bar**; at 375x667 it is **290 to 346px above
+         * the bezel** and 229px clear.
          *
          * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
          * The old sentence cited a 95th-percentile right-thumb sweep of about
          * 330px from the bottom-right pivot and said ROLL was inside it. On the
          * larger phone it is not, and deleting the 99px identity block is what
          * put it there: the resting sheet puts ROLL some 161px beyond the
-         * far edge of that arc where P5-8 put it 84 beyond. On a 375x667 phone
-         * it is back INSIDE the arc: 314-370, where the reflow's first four
+         * far edge of that arc where P5-8 put it 77 beyond. On a 375x667 phone
+         * it is back INSIDE the arc: 290-346, where the reflow's first four
          * steps had it at 332-388 and outside. That is a real cost of what was
          * asked for rather than a detail, and it is the cost of decision 2
          * specifically: every pixel the sheet gets shorter above ROLL is a pixel
@@ -2916,14 +2946,16 @@ function PlayPhone({
          * head of the column's 14px gaps and its 8px of top padding exist because
          * the owner said «è tutto attaccato sopra», and they push everything
          * below them down: ROLL was 493-559 above the bezel before any of this
-         * and is 491-547 now, two pixels CLOSER to the thumb than it started.
-         * Worth stating as the side effect it is, because the next edit to
-         * those gaps moves ROLL again and should know that it does.
+         * and is **407-463** now, 86px CLOSER to the thumb than it started, most
+         * of that bought by the counter card's own height. The reach cost of the
+         * whole reflow is not merely repaid, it is reversed. Worth stating as
+         * the side effect it is, because the next edit to those gaps moves ROLL
+         * again and should know that it does.
          *
          * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-         * The whole folded sheet is now readable in one look - 516 of 730 at
+         * The whole folded sheet is now readable in one look - 600 of 730 at
          * 393x852 - which is the sentence the owner actually wrote and which a
-         * pinned block made arithmetically impossible. And ROLL is 430px clear of
+         * pinned block made arithmetically impossible. And ROLL is 346px clear of
          * the tab bar, where pinned it sat 8px above a 98x60 control that
          * navigates away: a thumb aiming for ROLL and missing low used to leave
          * the screen mid-turn.
@@ -3157,7 +3189,7 @@ function PlayPhone({
        * the permanent strip was - and the only arrangement that removes the 52
        * is this one, paid for by a door that costs no height, which is the
        * 44x44 control in the defence band's fifth cell at the top of this
-       * column. With nothing on, the folded sheet is 516 of 730 at 393x852.
+       * column. With nothing on, the folded sheet is 600 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A

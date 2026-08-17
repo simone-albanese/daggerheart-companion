@@ -1265,7 +1265,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 308').toBe(308);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 392').toBe(392);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1274,7 +1274,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(422);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(338);
   });
 
   /*
@@ -1301,13 +1301,13 @@ describe('the budget the pin came off for', () => {
     const glass = column(667);
     expect(glass).toBe(545);
     const narrow = ROLL_BOTTOM - NARROW_CELLS;
-    expect(narrow, 'the narrow stack no longer sums to 300').toBe(300);
+    expect(narrow, 'the narrow stack no longer sums to 324').toBe(324);
     expect(
       narrow,
       `ROLL's lower edge is ${String(narrow)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - narrow, 'the slack at 375x667 has moved').toBe(245);
+    expect(glass - narrow, 'the slack at 375x667 has moved').toBe(221);
   });
 
   /*
@@ -1340,7 +1340,7 @@ describe('the budget the pin came off for', () => {
    * which is what `SHEET_BOTTOM` says.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 208 below ROLL').toBe(516);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 208 below ROLL').toBe(600);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1351,7 +1351,7 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(214);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(130);
     /*
      * AND THE SMALL PHONE, WHICH USED TO BE THE LINE THAT SAID BY HOW MUCH THIS
      * MISSED. 375x667 fits, for the first time in this file's life: 508 of
@@ -1359,14 +1359,14 @@ describe('the budget the pin came off for', () => {
      * overflow, so that the day something takes those 37 back it fails here.
      */
     const narrow = SHEET_BOTTOM - NARROW_CELLS;
-    expect(narrow, 'the narrow whole sheet no longer sums to 508').toBe(508);
+    expect(narrow, 'the narrow whole sheet no longer sums to 532').toBe(532);
     expect(
       narrow,
       `the whole folded sheet is ${String(narrow)} against ${String(column(667))} of column at ` +
         '375x667, so the small phone has stopped fitting it. It started fitting when four fold ' +
         'rows became two, and that is the saving this assertion is guarding.',
     ).toBeLessThanOrEqual(column(667));
-    expect(column(667) - narrow, 'the whole-sheet slack at 375x667 has moved').toBe(37);
+    expect(column(667) - narrow, 'the whole-sheet slack at 375x667 has moved').toBe(13);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -1382,7 +1382,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(556);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(472);
   });
 
   /*
@@ -1462,7 +1462,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([305, 361]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([389, 445]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1497,7 +1497,7 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([491, 547]);
+    ).toEqual([407, 463]);
     /*
      * The small phone reads the narrow stack: no 390 step, so ROLL is 8px
      * higher up the column and 8px further from the bezel than this table's
@@ -1507,7 +1507,7 @@ describe('the budget the pin came off for', () => {
     expect(
       [667 - narrowBottom, 667 - (narrowBottom - ROLL_ROW)],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([314, 370]);
+    ).toEqual([290, 346]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -1517,7 +1517,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(430);
+    ).toBe(346);
   });
 
   /*
@@ -1661,7 +1661,7 @@ describe('the budget the pin came off for', () => {
     expect(
       (band as HTMLElement).style.gridTemplateColumns,
       'the four numbers went back to equal columns, which the box does not fit beside',
-    ).toBe('auto auto auto auto 1fr');
+    ).toBe('auto repeat(3, minmax(min-content, 1fr)) auto');
     expect(damage.style.minHeight).toBe('var(--control)');
 
     // The counters: a 2x2 grid at the floor, at a 6px gap, in a box that no
@@ -1681,8 +1681,8 @@ describe('the budget the pin came off for', () => {
     expect(rows, 'the four counter cells no longer declare `--counter-cell` each').toHaveLength(4);
     // And the token is what the table above counted: 48 on this glass, 44
     // below the 390 step, so this block is 102 here and 94 on a 360px Android.
-    expect(resolve('var(--counter-cell)', PHONE)).toBe(48);
-    expect(resolve('var(--counter-cell)', NARROW)).toBe(44);
+    expect(resolve('var(--counter-cell)', PHONE)).toBe(90);
+    expect(resolve('var(--counter-cell)', NARROW)).toBe(56);
     expect(
       counters.contains(damage),
       'the damage box is back inside the counters, where it costs 50px',
@@ -1833,8 +1833,10 @@ describe('the width this sheet is laid out for', () => {
     const TRAIT = 6 * basis + Number.parseFloat(verbs.style.width) + 6 * traitGap;
     expect(TRAIT).toBe(332);
 
-    // 2. THE DEFENCE BAND. The four `auto` cells, four of the grid's declared
-    //    gaps, and the fifth cell: a 44px door, one gutter, a 44px field.
+    // 2. THE DEFENCE BAND. The four reading cells, four of the grid's declared
+    //    gaps, and the fifth cell: a 44px door, one gutter, a 64px field. The
+    //    field went 44 -> 64 when the row stopped leaving 45.4px of the fifth
+    //    track empty, so this sum is 20 wider than it was and still inside 360.
     const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
     const cell = field.parentElement!;
     const band = cell.parentElement as HTMLElement;
@@ -1853,12 +1855,23 @@ describe('the width this sheet is laid out for', () => {
       4 * bandGap +
       Number.parseFloat(door.style.width) +
       Number.parseFloat(cell.style.gap) +
-      Number.parseFloat(field.style.width);
+      // The field is `--damage-w`, and this budget is the reason it is a token:
+      // 44 below viewport 390 and 64 from 390 up. Resolved NARROW, because the
+      // question this whole `it` asks is what the SMALLEST supported width has
+      // to hold - and at 64 the band would need 372.47 of viewport.
+      resolve(field.style.width, NARROW);
     expect(Math.round(BAND * 100) / 100).toBe(328.47);
+    expect(
+      resolve(field.style.width, PHONE),
+      'the damage field stopped taking the band spare width from 390 up',
+    ).toBe(64);
 
     // 3. THE COUNTER GRID. Two cells at the floor a `Counter` row can be
-    //    squeezed to - the value target's own declared `minWidth`, two 44px
-    //    steppers and two gutters - plus the grid's one gap.
+    //    squeezed to - the value target's own declared `minWidth` and two 44px
+    //    steppers - plus the grid's one gap. There are no gutters inside the
+    //    row any more: the card is one bordered object and a gap between its
+    //    parts would draw a second boundary, so the floor is 8px narrower than
+    //    it was.
     const value = buttons().find((b) => /tap to type a value$/.test(b.getAttribute('aria-label') ?? ''))!;
     const counterRow = value.parentElement!;
     const grid = counterRow.parentElement as HTMLElement;
@@ -1867,8 +1880,8 @@ describe('the width this sheet is laid out for', () => {
     const cellFloor =
       Number.parseFloat(value.style.minWidth) + 2 * Number.parseFloat(stepper.style.width) + 2 * gutter;
     const COUNTERS = 2 * cellFloor + Number.parseFloat(grid.style.gap);
-    expect(cellFloor).toBe(140);
-    expect(COUNTERS).toBe(286);
+    expect(cellFloor).toBe(132);
+    expect(COUNTERS).toBe(270);
 
     /*
      * The floor each of them implies, and the largest of the three is the
@@ -1880,7 +1893,7 @@ describe('the width this sheet is laid out for', () => {
     const floors = { trait: floorFor(TRAIT), band: floorFor(BAND), counters: floorFor(COUNTERS) };
     expect(floors.trait).toBe(356);
     expect(Math.round(floors.band * 100) / 100).toBe(352.47);
-    expect(floors.counters).toBe(310);
+    expect(floors.counters).toBe(294);
 
     const SUPPORTED = 360;
     expect(column(SUPPORTED)).toBe(336);
@@ -2002,7 +2015,7 @@ describe('the conditions, drawn only when there are any', () => {
     expect(
       band.style.gridTemplateColumns,
       'the door\'s cell is not a child of the defence band',
-    ).toBe('auto auto auto auto 1fr');
+    ).toBe('auto repeat(3, minmax(min-content, 1fr)) auto');
     expect(
       buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename ')),
       'the RENAME chip is back on the sheet, which decision 1 deleted',

@@ -289,6 +289,14 @@ export function Vitals({
                 value={counter.marked}
                 max={counter.max}
                 onChange={write}
+                /*
+                 * The card, on the phone only. The cockpit's cell is 198 wide
+                 * against 181.5, has a mouse, and hands what it saves to
+                 * `DualityRoll` below it, so it keeps the compact two-line
+                 * shape - and `tokens.css` steps `--counter-cell` and
+                 * `--counter-num` back at 1180 to match.
+                 */
+                tall={phone}
               />
             );
           })
@@ -562,13 +570,24 @@ export function IncomingDamage({
       style={
         layout === 'band'
           ? {
-              // 44, not the 58 it was: the touch floor in both directions, and
+              // `--damage-w`: 44 at the touch floor below viewport 390, and 64
+              // from 390 up, where the twenty over the floor are the band's own
+              // spare width rather than anything taken from a neighbour. The row is
+              // `auto repeat(3, 1fr) auto`: EVASION keeps its content width
+              // because its label is the longest of the four, the other three
+              // share what is left equally, and this cell is exactly the door
+              // plus this field - so nothing is left over to sit as a hole at
+              // the right-hand end, which is what it used to do at 45.4px wide.
+              //
+              // It was 44 - the floor in both directions - and before that 58.
               // `base.css` forces `max(16px, 1rem)` on any coarse pointer, so
               // three digits at 16px IBM Plex Mono are 28.8 plus 8 of padding
-              // and 2 of border - 38.8 inside 44. The 14px it gives back is
-              // most of what lets the door stand beside it at 360.
+              // and 2 of border: 38.8, which fitted 44 and is not why 44 was
+              // chosen. It was chosen because the door had to stand beside it
+              // at 360, and it still does - at 360 the fifth cell is 114 of a
+              // 336px row and the three shared tracks are 46 each.
               flex: 'none',
-              width: 44,
+              width: 'var(--damage-w)',
               minHeight: 'var(--control)',
               padding: '2px 4px',
               textAlign: 'center',

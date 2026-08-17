@@ -354,7 +354,7 @@ describe('the pip tokens', () => {
      * size would hand a width nobody anticipated the size that clips.
      */
     expect(rootBlock, 'the counter cell height is not a token at all').toMatch(
-      /--counter-cell:\s*44px/,
+      /--counter-cell:\s*56px/,
     );
     expect(rootBlock, 'the counter maximum is not a token at all').toMatch(
       /--counter-max:\s*10px/,
@@ -364,14 +364,17 @@ describe('the pip tokens', () => {
     const raising = widthSteps.filter((rule) => /--counter-num:/.test(rule));
     expect(
       raising.length,
-      'the counter number is stepped by some number of width queries other than two. Two is ' +
-        'the whole design: three sizes, each measured against the cell it has to fit - 18 ' +
-        'below 380, 22 at 380, 26 at 390 with the cell and the maximum stepping with it.',
-    ).toBe(2);
+      'the counter number is stepped by some number of width queries other than three. ' +
+        'Three is the whole design: 18 below 380, 22 at 380, 38 at 390 where the card gives ' +
+        'the maximum its own line and width stops being the ceiling, and 26 again at 1180 ' +
+        'where the cockpit keeps its own compact cell.',
+    ).toBe(3);
     expect(raising[0]).toMatch(/min-width:\s*380px/);
     expect(raising[0]).toMatch(/--counter-num:\s*22px/);
     expect(raising[1]).toMatch(/min-width:\s*390px/);
-    expect(raising[1]).toMatch(/--counter-num:\s*26px/);
+    expect(raising[1]).toMatch(/--counter-num:\s*38px/);
+    expect(raising[2]).toMatch(/min-width:\s*1180px/);
+    expect(raising[2]).toMatch(/--counter-num:\s*26px/);
     /*
      * The three raises are in ONE query and it is the same one. A 26px number
      * in a 44px cell has 1px of margin, and a 26px number beside an 11px
@@ -381,11 +384,29 @@ describe('the pip tokens', () => {
     expect(
       raising[1],
       'the cell height stopped stepping with the number it exists to hold',
-    ).toMatch(/--counter-cell:\s*48px/);
+    ).toMatch(/--counter-cell:\s*90px/);
+    /*
+     * And the padding and the gap step with it, because the cell's height is
+     * the sum of all four: 7 + 11 + 6 + 38 + 6 + 10 + 7 = 85 inside 88 of
+     * inner. A number that stepped without them would overflow its own cell.
+     */
+    expect(raising[1], 'the card padding stopped stepping with the number').toMatch(
+      /--counter-pad:\s*7px/,
+    );
+    expect(raising[1], 'the gap between the card lines stopped stepping').toMatch(
+      /--counter-gap:\s*6px/,
+    );
+    /*
+     * `--counter-max` deliberately does NOT step. It rode beside the value at
+     * 11 and it sits under it now, subordinate to a 38px number, where
+     * `.t-meta`'s 10 is the right size - and taking it out of the step is what
+     * freed the width that let the number go from 26 to 38.
+     */
     expect(
       raising[1],
-      'the maximum stopped stepping with the value it is half of',
-    ).toMatch(/--counter-max:\s*11px/);
+      'the maximum started stepping again. On its own line it is subordinate to the number, ' +
+        'and it was its old place beside the value that capped the number at 26.',
+    ).not.toMatch(/--counter-max:/);
 
     /*
      * And not in either pointer query. A mouse-only 1280px desktop draws this

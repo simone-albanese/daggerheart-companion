@@ -306,12 +306,14 @@ describe('a counter drawn as a number', () => {
     ).toBe('var(--counter-cell)');
     expect(
       resolve(target.style.minHeight, NARROW),
-      'the cell went through the touch floor at the narrow end',
-    ).toBe(44);
+      'the narrow cell moved. It is 56 and not 44 because the card draws three ' +
+        'lines at every width - 3 + 11 + 2 + 22 + 2 + 10 + 3 - and 56 is that sum plus its ' +
+        'border. The touch floor is what the button declares, not what the card is.',
+    ).toBe(56);
     expect(
       resolve(target.style.minHeight, PHONE),
-      'the cell stopped growing for the 26px number, which leaves 41 of ink in 42 of inner',
-    ).toBe(48);
+      'the cell stopped growing for the 38px number and the three lines around it',
+    ).toBe(90);
     // Width did not move, and that is deliberate: see `Step`.
     expect(target.style.minWidth).toBe('44px');
   });
@@ -568,8 +570,9 @@ describe('where the numbers are allowed to be', () => {
    * The hundred pixels the whole reflow is paid for with.
    *
    * Four stacked rows are 4x44 + 3x6 = 194; two across are two cells and one
-   * 6px gap - 102 on the owner's phone since the reflow raised the number to
-   * 26, and 94 below viewport 390, both of them under half of the 194. The
+   * 6px gap - **186** on the owner's phone, where the card draws a 38px number
+   * with its name above and its maximum below, and 118 below viewport 390 where
+   * the number is 22. The
    * second half of this test used to be the pip mode, which had to stay one to
    * a row - a 12-box Hit Point track in a 172px cell wraps onto three rows at
    * WCAG's 24px floor and the four tracks come out *taller* than the four they
@@ -595,23 +598,26 @@ describe('where the numbers are allowed to be', () => {
       );
       expect(
         resolve(c.style.minHeight, PHONE),
-        'a counter cell stopped growing for the 26px number',
-      ).toBe(48);
+        'a counter cell stopped growing for the 38px number',
+      ).toBe(90);
     }
     // Two cells and one 6px gap, against the 4x44 + three 6px gaps it replaced.
-    expect(2 * resolve('var(--counter-cell)', PHONE) + 6).toBe(102);
-    expect(2 * resolve('var(--counter-cell)', NARROW) + 6).toBe(94);
+    expect(2 * resolve('var(--counter-cell)', PHONE) + 6).toBe(186);
+    expect(2 * resolve('var(--counter-cell)', NARROW) + 6).toBe(118);
 
     /*
      * The cockpit, where this is a redraw rather than a no-op. It was three
      * 48px track rows - a 10px `.t-label`, its 6px margin, a 32px pip row -
      * inside a 428x245 panel; it is 102px of grid inside a 428x183 one, and 62
      * of the original 70 still go to `DualityRoll` below it. The eight that
-     * stayed behind are `--counter-cell`'s step, which every cockpit width
-     * answers: the cell height is one constant for both layouts, and a height
-     * prop here would leave the cockpit clipping a 26px number by a pixel.
+     * stayed behind are the step to a 48px cell, which the cockpit still takes.
+     *
+     * It does NOT take the phone's 90px card. `tokens.css` puts
+     * `--counter-cell` and `--counter-num` back to 48 and 26 at 1180, and
+     * `Vitals` passes `tall` only for the phone, so the two shapes are one
+     * decision expressed twice rather than a media query fighting a prop.
      * A cockpit cell is (402 - 6) / 2 = 198 wide, so the value target is
-     * 102x48 against the phone's 85.5x48 at 393.
+     * 102x48 against the phone's 91.5x90 at 393.
      */
     seed();
     render(createElement(Vitals, { stats: playedStats(), layout: 'desktop', showState: false }));
@@ -631,20 +637,126 @@ describe('where the numbers are allowed to be', () => {
       // 390 step as well and its cells are 48. That is what the token being a
       // width query buys over a phone branch: one arithmetic, both layouts.
       expect(
+        // 48 and not the phone's 90: the cockpit takes `--counter-cell` back at
+        // 1180, because its track is 198 wide, it has a mouse, and it hands
+        // what it saves to `DualityRoll` under it.
         resolve(c.style.minHeight, { glass: 1280, coarse: false }),
-        'a cockpit counter cell is below the touch floor',
+        'the cockpit followed the phone up instead of keeping its own cell',
       ).toBe(48);
     }
   });
 
   /*
    * The one thing that would take the saving back without failing anything
-   * else: a value line that wraps. The cell is `--counter-cell` tall by
-   * declaration - 48 on the owner's phone, 44 below 390 - and two lines fit
-   * inside it either way: 13 + 2 + 26 = 41 into 46 of inner at 48, and the
-   * older 10 + 20 into 42 at 44. A third line does not fit in either, and four
-   * cells each one line taller is the 100px back.
+   * else: a value line that wraps. The card is `--counter-cell` tall by
+   * declaration - 90 on the owner's phone, 56 below 390 - and its three lines
+   * are derived from that rather than discovered: 7 + 11 + 6 + 38 + 6 + 10 + 7
+   * is 85 of content inside 88 of inner, and 3 + 11 + 2 + 22 + 2 + 10 + 3 is 53
+   * inside 54. A FOURTH line fits in neither, and four cells each one line
+   * taller is the saving back.
    */
+  /*
+   * THE CARD, WHICH IS THE SAME PIXELS DRAWN AS ONE OBJECT.
+   *
+   * The phone used to draw three boxes per track - a bordered value with two
+   * bordered buttons beside it - and the owner's word for the result was that
+   * the plus and minus sat outside the block rather than belonging to it. The
+   * border, the fill and the radius move to the ROW; minus goes to its left
+   * edge and plus to its right; the two 4px gutters between the old boxes
+   * disappear, which is 6px of width the number did not have and 8px off the
+   * row's own minimum.
+   *
+   * It costs no height. What is asserted here is the part that would rot: three
+   * boundaries where there should be one, or a value target that keeps its box
+   * and draws a second rectangle inside the card.
+   */
+  it('draws the phone track as one card, with the steppers at its edges', () => {
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    const row = container.firstElementChild as HTMLElement;
+
+    expect(row.style.border, 'the card lost the boundary the three boxes gave up').toBe(
+      '1px solid var(--line-soft)',
+    );
+    expect(row.style.background, 'the card is not filled, so it is a line and not an object').toBe(
+      'var(--app)',
+    );
+    expect(
+      row.style.gap,
+      'there is a gutter inside the card again, which draws a second boundary where the ' +
+        'border already drew one - and takes 8px off the width the number was given',
+    ).toBe('0px');
+
+    const value = named('HP 2 of 6 - tap to type a value');
+    // `borderStyle` and not `border`: jsdom serialises the `none` shorthand
+    // back as `medium`, which says nothing about whether a line is drawn.
+    expect(
+      [value.style.borderStyle, value.style.background],
+      'the value target kept a box of its own, so the card contains a second rectangle',
+    ).toEqual(['none', 'transparent']);
+
+    // Minus leads, so the pair reads low to high across the card and the two
+    // glyphs sit at the two edges a thumb reaches without aiming.
+    expect(
+      [...row.children].map((el) => el.getAttribute('aria-label')),
+      'the card is not [minus][value][plus]',
+    ).toEqual(['HP minus one', 'HP 2 of 6 - tap to type a value', 'HP plus one']);
+
+    for (const step of [named('HP minus one'), named('HP plus one')]) {
+      expect(step.style.alignSelf, 'a stepper stopped filling the card it lives in').toBe('stretch');
+      expect(
+        step.style.background,
+        'a stepper drew its own fill inside the card, which is two boundaries saying one thing',
+      ).toBe('transparent');
+      /*
+       * AND IT STILL DECLARES ITS OWN FLOOR. A stretched height is computed by
+       * the parent, so it is a height no test can read: `playSheet`'s sweep
+       * over every target scored these 0 and called them under the floor. The
+       * promise is declared here; the stretch only ever makes it taller.
+       */
+      expect(px(step.style.minHeight), 'a stepper stopped promising the touch floor').toBe(44);
+      expect(step.style.width).toBe('44px');
+    }
+  });
+
+  /*
+   * THE PRESS ANSWERS, WHICH IS THE ONE THING MARKING A TRACK NEVER DID.
+   *
+   * A tap changed the digit and said nothing else, and on a phone at a table
+   * that is the difference between pressing once and pressing twice. The value
+   * takes a short step up and settles.
+   *
+   * A TRANSITION AND NOT A KEYFRAME, and this is the assertion that keeps it
+   * one. `base.css` zeroes `--motion` for both ways a player can ask for less
+   * movement - the OS's `prefers-reduced-motion` and this app's own switch
+   * through `[data-reduce-motion]` - but its blanket `animation: none` only
+   * covers the OS one. An animation here would keep moving for anybody who
+   * turned the app's switch off.
+   */
+  it('answers a press with a transition, so both reduced-motion switches reach it', () => {
+    render(<Counter kind="stress" label="STRESS" value={3} max={6} onChange={() => {}} tall />);
+    const value = named('STRESS 3 of 6 - tap to type a value');
+    const digits = [...value.querySelectorAll('span')].find((s) =>
+      (s.getAttribute('style') ?? '').includes('var(--sans)'),
+    )!;
+
+    expect(
+      digits.style.transition,
+      'the number no longer transitions, so a press is silent again - or it animates, which ' +
+        'the app own reduced-motion switch cannot turn off',
+    ).toBe('transform var(--motion) ease-out');
+    expect(
+      digits.style.animation,
+      'the bump became a keyframe animation. `[data-reduce-motion]` only zeroes `--motion`, ' +
+        'so a player who asked this app for less movement would still get this.',
+    ).toBe('');
+    // A transform does not apply to a non-replaced inline box, and in the
+    // two-line shape this span is exactly that.
+    expect(digits.style.display, 'the number went back to being an inline box').toBe(
+      'inline-block',
+    );
+    expect(digits.style.transform, 'the number is bumped at rest').toBe('scale(1)');
+  });
+
   it('holds the readout on one line, whatever the font does', () => {
     render(<Counter kind="stress" label="STRESS" value={12} max={12} onChange={() => {}} />);
     const value = named('STRESS 12 of 12 - tap to type a value');
