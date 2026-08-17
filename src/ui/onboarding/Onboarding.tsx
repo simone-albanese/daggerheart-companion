@@ -44,15 +44,28 @@
  * distinct behaviours and the fourth is "both of two of those" is a question
  * that costs everybody a moment to serve a few.
  *
- * ## Nothing is written until the last button
+ * ## Nothing is written until the hand-off
  *
- * Answers are held in this component and go to `setPrefs` once, on the hand-off.
- * That is not tidiness, it is the contract `loadPrefs` states: a record with no
- * `onboarded` key is read as *already onboarded*, because every install that
- * predates the field is in that state. A flow that wrote each answer as it was
- * given would leave exactly such a record behind the moment somebody answered
- * one question and closed the tab - and the next launch would read that
- * half-finished run as a completed one and never ask again.
+ * Answers are held in this component and go to `setPrefs` once, at the end of
+ * whichever route was taken.
+ *
+ * The reason used to be given as a contract with `loadPrefs`: a record with no
+ * `onboarded` key is read as already onboarded, so a flow writing each answer
+ * as it was given would leave such a record behind and the next launch would
+ * read a half-finished run as a completed one. That is not reachable. `setPrefs`
+ * spreads its patch over the whole record and `savePrefs` serialises all of it,
+ * so a mid-flow write persists `onboarded: false` rather than omitting the key,
+ * and `loadPrefs` honours a stored `false`.
+ *
+ * The real reason is the same shape turned round, and it is the sharper one.
+ * Every partial write persists `onboarded: false` *durably*, and that stored
+ * `false` is what re-asks these questions of somebody who has been playing for
+ * months, the first time their library is empty. So a run that has not ended
+ * must leave nothing behind at all - which is why the answers live in component
+ * state until then - and a run that ends any way whatever, answered or skipped
+ * or a character arriving, must write `onboarded: true` in the same call as its
+ * answers. There is one `setPrefs` per route in this file and no other write
+ * anywhere in it.
  *
  * ## Skippable, and what a skip actually does
  *

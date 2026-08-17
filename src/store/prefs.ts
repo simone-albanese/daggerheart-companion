@@ -281,11 +281,28 @@ export function openingScreen(prefs: Prefs, characterCount: number): Screen {
  * *above* the spread so that a record which owns the key still wins with it.
  * That ordering is the difference between an upgrade rule and an override.
  *
- * It has one consequence the first-run flow has to honour, and it is not
- * optional: that flow may not write a preference until it is finished. A run
- * that wrote its answers as they were given would leave a record with no
- * `onboarded` key behind on the first reload, and this line would then read
- * that half-finished run as a completed one.
+ * ## SUPERSEDED: what this was said to cost the first-run flow
+ *
+ * This paragraph used to close: "that flow may not write a preference until it
+ * is finished. A run that wrote its answers as they were given would leave a
+ * record with no `onboarded` key behind on the first reload, and this line
+ * would then read that half-finished run as a completed one."
+ *
+ * The store disproves it. `setPrefs` spreads its patch over the whole record
+ * and `savePrefs` serialises all of it, so a write made in the middle of the
+ * flow persists `onboarded: false` rather than omitting the key - measured,
+ * mid-flow, against a device with no stored record: the key is present and
+ * false - and the line above honours a stored `false` because it sits over the
+ * spread rather than under it. There is no route to the stated catastrophe.
+ *
+ * The real hazard is the same shape turned round, and it is worse because it is
+ * durable. Any route that puts a character on this device without reaching the
+ * flow's one write leaves `onboarded: false` behind for good, and the first
+ * time that library is next empty - a deletion, an eviction, a quarantine - the
+ * app asks somebody who has been playing for months who they are. That is the
+ * false first run, arriving through a stored `false` instead of a missing key,
+ * and it is why the import route watches the store for an arrival rather than
+ * trusting each door to report itself.
  */
 export function loadPrefs(): Prefs {
   if (typeof localStorage === 'undefined') return DEFAULT_PREFS;
