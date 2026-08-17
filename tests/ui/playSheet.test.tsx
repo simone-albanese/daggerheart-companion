@@ -813,6 +813,50 @@ describe('the budget the pin came off for', () => {
     expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(323);
   });
 
+  /*
+   * THE PROPERTY THAT MAKES EVERY NUMBER ABOVE A DRAWN NUMBER RATHER THAN A
+   * WISH, and the defect that proved it was missing.
+   *
+   * The column is `display: flex; flex-direction: column; flex: 1; min-height:
+   * 0; overflow-y: auto`. A flex child keeps `flex-shrink: 1` unless it says
+   * otherwise, and in that box the browser shrinks whatever can shrink *before*
+   * it scrolls anything. So a single section without `flex: none` does not make
+   * the sheet 44px taller - it absorbs the whole overflow of the sheet, on its
+   * own, and everything else keeps the height this table gives it.
+   *
+   * That is not hypothetical. Rendered in Chrome at 393x852, `DualityRoll`'s
+   * phone surface was the one child that had never declared it: it measured
+   * **33px tall holding a 66px ROLL**, which overflowed onto the fold header
+   * below - two 44px targets on the same band - and the column's
+   * `scrollHeight` equalled its `clientHeight`, so the sheet did not scroll at
+   * all. Nothing in this file could see it, because jsdom has no layout engine
+   * and every assertion here reads a *declared* height, which was still 66.
+   *
+   * This is the assertion that would have. It is deliberately a sweep rather
+   * than a check on the one section that was wrong.
+   */
+  it('lets no section of the column shrink instead of scrolling', () => {
+    play(seed());
+    const rootEl = container.firstElementChild as HTMLElement;
+    expect(rootEl.style.overflowY, 'this is no longer the scrolling box').toBe('auto');
+
+    const shrinkable = [...rootEl.children]
+      .map((el) => el as HTMLElement)
+      .filter((el) => {
+        const declared = el.style.flex !== '' ? el.style.flex : el.style.flexShrink;
+        return !/^(none|0 0 auto|0)$/.test(declared);
+      })
+      .map((el) => `${el.tagName}.${el.className || '(none)'} "${(el.textContent ?? '').slice(0, 28)}"`);
+
+    expect(
+      shrinkable,
+      'a section of the phone column can shrink. In a scrolling flex column that means it ' +
+        'absorbs the whole overflow of the sheet rather than the sheet scrolling: the section ' +
+        'is drawn shorter than its contents, they overlap whatever is under it, and every ' +
+        'height this budget sums stops being the height that is drawn.',
+    ).toEqual([]);
+  });
+
   it('the terms this budget can read, it reads', () => {
     play(seed());
     const rootEl = container.firstElementChild as HTMLElement;

@@ -647,7 +647,24 @@ export function DualityRoll({
 
   if (layout === 'phone') {
     return (
-      <div className="stack" style={{ gap: 6 }}>
+      /*
+       * `flex: none`, and it is load-bearing rather than tidy.
+       *
+       * The phone column is `display: flex; flex-direction: column; flex: 1;
+       * min-height: 0; overflow-y: auto`. In that box a child keeps the default
+       * `flex-shrink: 1`, so when the sheet is taller than the glass the
+       * browser shrinks whatever *can* shrink before it lets anything scroll -
+       * and every other section of this column declares `flex: none`, so this
+       * one was the only thing it could take it out of. Rendered at 393x852
+       * this surface measured 33px tall holding a 66px ROLL, which overflowed
+       * onto the fold header below it: two 44px targets stacked on the same
+       * band, and a column whose `scrollHeight` equalled its `clientHeight`, so
+       * the sheet did not scroll at all - it crushed the one control the whole
+       * unpinning was argued from. Every height `playSheet.test.tsx` sums is a
+       * declared height, and this is the property that makes the declared
+       * heights the drawn ones.
+       */
+      <div className="stack" style={{ flex: 'none', gap: 6 }}>
         {/*
          * The modifier row, which is not drawn when it has nothing to say.
          *
