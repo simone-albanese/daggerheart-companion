@@ -5,14 +5,23 @@ appena partita senza commit. Sono tutte atterrate: **niente è più in volo.**
 Resta più recente di `HANDOFF.md` e continua a contraddirlo di proposito dove i
 due si toccano.
 
-**Stato.** `main` è a `ae32323` più la lane `a3-polish` e i commit di questo
-passaggio, che a parte una riga di docblock in `Play.tsx` tocca soltanto i
-`.md`. **2487 test in 108 file, verdi**, `tsc --noEmit` pulito. *(~~2481 in
-108~~: erano i numeri prima che `a3-polish` atterrasse.)* `origin/main` è a
-`dd66d35`: `git rev-list --count origin/main..HEAD` dice **157** (142 senza i
-merge) contando il commit che scrive questa riga — un handoff che si modifica
-sposta il proprio numero, quindi si conta dopo; **niente è pushato.** Il push fa
-partire un deploy vero su GitHub Pages.
+**Stato.** `main` porta tutte e sei le lane di questa tornata — `a3-cockpit`,
+`a3-targets`, `a3-safearea`, `a2-onboarding`, `a3-polish` e i tre giri di
+documentazione. **2487 test in 108 file, verdi**, `tsc --noEmit` pulito.
+*(~~2481 in 108~~: erano i numeri prima che `a3-polish` atterrasse.)*
+
+I giri di documentazione hanno toccato anche `src/`, e vale la pena dirlo
+perché la riga precedente diceva di no: `Play.tsx` due volte (il costo del
+compagno da +50 a +58, e il budget del banner da 58 a 66 con lo stato a due
+banner che non era mai stato contato) e `CompatibleMark.tsx` una, tutte e tre
+correzioni a docblock che il codice smentiva. *(~~«a parte una riga di docblock
+in `Play.tsx` tocca soltanto i `.md`»~~.)*
+
+`origin/main` è a `dd66d35`: `git rev-list --count origin/main..HEAD` dice
+**165** (148 senza i merge) contando il commit che scrive questa riga — un
+handoff che si modifica sposta il proprio numero, quindi si conta dopo, e
+questa riga è stata sbagliata due volte per averlo contato prima. **Niente è
+pushato.** Il push fa partire un deploy vero su GitHub Pages.
 
 Le cifre della suite qui sopra non sono ricordate: vengono da `npx vitest run` e
 `npx tsc --noEmit` lanciati in questo worktree alla fine del passaggio di
@@ -468,9 +477,15 @@ nomina cosa cambia se la misura non è quella che il codice ha assunto.
    nello stesso fotogramma: a 852×393 con 59 su entrambi i lati, il marchio da
    20,8px sepolto a sinistra e SETTINGS coperto al 71,7% a destra (39,0 dei suoi
    54,4) erano **lo stesso istante**, non due rotazioni alternative. PLAY, il
-   primo bottone della nav, partiva da 62,8 e la striscia sinistra la scavalcava
-   di 3,8px — quindi la nav non è mai stata la vittima da quel lato: lo era il
-   marchio. *Tutto il primo giro di misure di questo audit era scritto sul
+   primo bottone della nav, partiva da 62,8 e **scavalcava** la striscia sinistra
+   — che finisce a 59 — **di 3,8px**: quindi la nav non è mai stata la vittima da
+   quel lato, lo era il marchio. *(Questa frase diceva il contrario, «la striscia
+   la scavalcava di 3,8px», e contraddiceva la propria conclusione nella riga
+   successiva. Il verso è quello di `Header.tsx:70`: «PLAY … starts at 62.8 and
+   clears the strip by 3.8px». 3,8 è un margine, non una sovrapposizione — ed è
+   un margine di 3,8px, che è la ragione per cui questo punto resta da leggere su
+   vetro vero anziché essere archiviato.)* *Tutto il primo giro di misure di
+   questo audit era scritto sul
    modello a un lato solo ed è stato rifatto; §1 e §2 della delta di quella lane
    portano ancora la vecchia forma e sono superate dalla sua §6.*
 

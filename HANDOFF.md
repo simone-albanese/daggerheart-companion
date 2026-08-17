@@ -149,10 +149,13 @@ repository says it is.
   did, leaving Play with no notice at all. Inside the scroll it costs a scroll
   position, which nobody has ever needed to reclaim.
   `tests/ui/attribution.test.tsx` is the guard between this project and a DPCGL
-  takedown: it asks **all five** screens for the notice, asks that it is inside
+  takedown: it asks **all six** surfaces for the notice, asks that it is inside
   a `.scroll` with nothing drawn after it, and counts the payers of
-  `env(safe-area-inset-bottom)` on five screens × two widths plus Build's other
-  two modes. Anything added to the bottom of a screen goes through it. Note the
+  `env(safe-area-inset-bottom)` on six surfaces × two widths plus Build's other
+  two modes. *(~~five~~ — the file's `SURFACES` is play, cards, build, settings,
+  gm and, since the first run landed, `onboarding`, which is the one surface
+  here that is not one of the five screens and the only one a brand-new device
+  ever sees.)* Anything added to the bottom of a screen goes through it. Note the
   one mechanical trap it took to make that last sweep possible: **jsdom's CSS
   parser drops a bare `env()`** and drops any shorthand containing one, so every
   payer declares it as `calc(0px + env(...))`; written bare, the declaration
