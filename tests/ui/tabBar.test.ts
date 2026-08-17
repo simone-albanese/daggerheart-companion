@@ -112,7 +112,16 @@ describe('a tab with nothing behind it', () => {
     act(() => root.render(createElement(TabBar)));
 
     expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM']);
-    expect(nav().style.gridTemplateColumns).toBe('repeat(4, 1fr)');
+    /*
+     * This assertion read `toBe('repeat(4, 1fr)')` and the reversal is
+     * deliberate. `1fr` is `minmax(auto, 1fr)`: a column's minimum is its
+     * content's min-content size, so a label that outgrew its share would
+     * widen the bar past the viewport rather than shrink - the same trap
+     * `.app` was actually caught in one file over. Latent here, and measured
+     * as latent: in Chrome the columns resolve to 80px at 320 against a widest
+     * per-tab min-content of 35. So this pins a guarantee, not a repair.
+     */
+    expect(nav().style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
   });
 
   it('drops the GM tab when the GM section is switched off, and takes its column with it', () => {
@@ -131,7 +140,9 @@ describe('a tab with nothing behind it', () => {
 
     expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD']);
     expect(labels()).not.toContain('GM');
-    expect(nav().style.gridTemplateColumns).toBe('repeat(3, 1fr)');
+    // Was `toBe('repeat(3, 1fr)')`, for the reason given above: the count is
+    // what this case is about, and the minimum is now zero either way.
+    expect(nav().style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
   });
 
   it('keeps every surviving tab a 60px target with a glyph', () => {
