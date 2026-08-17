@@ -2,6 +2,7 @@
  * Preferences live in localStorage: they are small, synchronous, and losing
  * them costs nothing. Everything that would hurt to lose is in IndexedDB.
  */
+import { needsPasteboardBridge } from '../transfer/pasteboard.ts';
 import type { Screen } from './state.ts';
 
 export interface Prefs {
@@ -32,8 +33,6 @@ export interface Prefs {
   lastBackupAt?: string;
   /** Directory handle name, when the File System Access API is available. */
   backupTarget?: string;
-  /** Suppresses the "cards have no art" offer once it has been seen. */
-  seenArtOffer: boolean;
   gmPartySize: number;
   /**
    * The whole GM section: the night's plan, the encounter builder, the live
@@ -90,6 +89,30 @@ export interface Prefs {
    * booleans would be that cost arriving by the back door.
    */
   playSections: Record<string, boolean>;
+  /**
+   * Have the first-run questions been answered on this device?
+   *
+   * It gates exactly one surface - the first-run questions, drawn instead of
+   * the five screens while this is false and the library is empty - and it is
+   * the only new field that step needed. The *answers* all had keys
+   * already: `gmSection`, `digitalDice`, `manualDice` and `gmPartySize` are
+   * above, and the demo this was built from says so. What it got wrong is the
+   * flow: "runs once and is never seen again" cannot be derived from any of
+   * them, so it is written down here rather than inferred.
+   *
+   * Here rather than on the character, for the reason `playSections` gives at
+   * length: this is a fact about a device, it must not ride out in a `.dhchar`
+   * where it would arrive as a difference between two copies of one character,
+   * and it must not bump `SCHEMA_VERSION` - a price P1-7 actually paid once, in
+   * a converter, two fixtures and a re-stamped dataset. A localStorage key costs
+   * none of that.
+   *
+   * `false` is the truthful default: a record that has just been constructed
+   * from `DEFAULT_PREFS` belongs to a device nobody has answered anything on.
+   * The device that has *stored* a record is handled in `loadPrefs`, which is
+   * where the upgrade rule for it is argued.
+   */
+  onboarded: boolean;
 }
 
 const KEY = 'dhc.prefs.v1';
@@ -103,13 +126,23 @@ export const DEFAULT_PREFS: Prefs = {
   wakeLock: true,
   reduceMotion: false,
   lastScreen: 'play',
-  seenArtOffer: false,
   gmPartySize: 4,
   gmSection: true,
   gmBestiary: true,
   gmPartyBoard: true,
   playSections: {},
+  onboarded: false,
 };
+
+/**
+ * Every screen the shell has a branch for.
+ *
+ * A list rather than the type, because the type is gone at runtime and the
+ * value this rule is handed comes off the disk: `loadPrefs` JSON-parses a
+ * record and spreads it over the defaults without inspecting `lastScreen`, so
+ * `Screen` is a promise TypeScript makes about code and not about storage.
+ */
+const SCREENS: readonly Screen[] = ['play', 'cards', 'build', 'gm', 'settings'];
 
 /**
  * The screen the shell is allowed to draw, given what the preferences allow.
@@ -121,48 +154,160 @@ export const DEFAULT_PREFS: Prefs = {
  * callers of this rule need it for different reasons, which is why it is one
  * function and not two conditions: `openingScreen` applies it to a value read
  * off the disk at boot, and `App` applies it to whatever the store holds now.
+ *
+ * A value that is none of the five is the same blank room arriving by a
+ * different door, and it used to be returned unchanged: `App`'s five
+ * `{screen === '…' && …}` branches would then all miss and draw a header, a tab
+ * bar and nothing between them. Reachable from a hand-edited or corrupted
+ * record, and from a downgrade after a future build adds a sixth screen -
+ * which is the case worth guarding, because it is the one that arrives on
+ * somebody who did nothing wrong.
  */
 export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
+  if (!SCREENS.includes(screen)) return 'play';
   return screen === 'gm' && !prefs.gmSection ? 'play' : screen;
+}
+
+/**
+ * Should the app ask who is holding it before it draws anything else?
+ *
+ * Here, beside `allowedScreen`, and for the same reason its docblock gives: the
+ * shell asks so it knows whether to draw this surface instead of the five
+ * screens, and the header asks so it knows whether to draw any navigation at
+ * all - and those two answers have to be the same answer.
+ *
+ * They were not. `App` read this AND `!needsPasteboardBridge()`; `Header` read
+ * this alone. On an installed iOS or iPadOS app with an empty library - the one
+ * device the bridge exists for, and its ordinary first launch - the shell drew
+ * the five screens while the header stripped its nav and the door to Settings.
+ * On an installed iPad that is no navigation at all, and the recovery screen
+ * that is the only route back to characters stranded in Safari became
+ * unreachable from the app written to offer it. So the exception is inside the
+ * rule now, where a third caller cannot forget it, and `App` computes the whole
+ * answer once and hands it to `Header` rather than letting it be recomputed.
+ *
+ * The conjunction is load-bearing in all three directions and no term is
+ * decoration. `characterCount === 0` on its own would ask a two-year user who
+ * they are the first time they delete their last character - a wipe is not a
+ * new device. `!prefs.onboarded` on its own would ask somebody who already has
+ * a sheet on this device, which is a person who has answered "who are you" by
+ * doing rather than by tapping, and asking them again would be the app failing
+ * to notice what is right in front of it. And `!needsPasteboardBridge()` is not
+ * a technicality: an installed iOS app with an empty library is almost never a
+ * new user - a new user has not installed anything yet - it is somebody whose
+ * Safari data did not follow them across the platform's storage boundary, and
+ * that person has to be told why their characters are not here rather than
+ * asked whether they are a player or a GM.
+ *
+ * That last term is the one thing here that reads the environment rather than
+ * the record, which is why it is stated in the signature's absence: this
+ * function is no longer pure, and `needsPasteboardBridge()` is false on every
+ * platform but one.
+ */
+export function needsOnboarding(prefs: Prefs, characterCount: number): boolean {
+  return !prefs.onboarded && characterCount === 0 && !needsPasteboardBridge();
 }
 
 /**
  * Where the app opens.
  *
- * Both rules, in the order they have to be asked. An empty library goes to
- * Build whatever was last open - that has been true since `init` was written,
- * and it comes first because a Play screen with no character is a screen with
- * nothing on it. Then the stored screen, filtered through the preferences: a
- * `lastScreen` of `'gm'` left over from before the section was switched off is
- * a stored value that is no longer reachable, and honouring it would open the
- * app on a screen with no tab and no way back to one.
+ * Two rules, and the preferences are consulted first because the second one now
+ * has an exception that can only be spotted after they have been. The stored
+ * screen is filtered through `allowedScreen`: a `lastScreen` of `'gm'` left over
+ * from before the section was switched off is a stored value that is no longer
+ * reachable, and honouring it would open the app on a screen with no tab and no
+ * way back to one. Then the empty library, which goes to Build - true since
+ * `init` was written, because a Play screen with no character is a screen with
+ * nothing on it.
+ *
+ * ## SUPERSEDED: "an empty library goes to Build whatever was last open"
+ *
+ * That was the whole of the second rule and it read `if (characterCount === 0)
+ * return 'build';`, ahead of everything. Its argument, kept because this project
+ * keeps its reversals visible, was the sentence above: a Play screen with no
+ * character is a screen with nothing on it.
+ *
+ * True of Play. True of Cards. Never true of the GM screen, which has never
+ * needed a character and is fully usable without one - the session list, the
+ * campaigns, the encounter builder and the bestiary are all somebody else's
+ * material. So the rule was over-broad in exactly one place, and that place is
+ * the one the onboarding step routes a GM to. A person who answered "I run the
+ * game" was sent to the GM screen once, and then on every launch afterwards was
+ * handed the character wizard instead - the app asking a question, being
+ * answered, and forgetting the answer at the door.
+ *
+ * The exception is `wanted !== 'gm'` rather than `prefs.gmSection`, and the
+ * difference matters: it is the *stored screen* that earns the exemption, not
+ * the preference. A GM who was last on Play still opens on Build with an empty
+ * library, because Play is still a screen with nothing on it.
  */
 export function openingScreen(prefs: Prefs, characterCount: number): Screen {
-  if (characterCount === 0) return 'build';
-  return allowedScreen(prefs, prefs.lastScreen);
+  const wanted = allowedScreen(prefs, prefs.lastScreen);
+  if (characterCount === 0 && wanted !== 'gm') return 'build';
+  return wanted;
 }
 
 /**
- * Read the record, over the defaults.
+ * The stored record, over the defaults - and one upgrade in between.
  *
- * A THIRD DEAD KEY, RECORDED RATHER THAN MIGRATED - the same decision as the
- * two `playSections` carries above, and taken for the same reason. Decision 7
- * deleted `counterStyle: 'numbers' | 'pips'`, which shipped, so a real install
- * has `{"counterStyle":"pips"}` sitting in `dhc.prefs.v1` right now. What
- * happens to it, exactly: the spread below is `{...DEFAULT_PREFS, ...parsed}`
- * and a spread keeps keys it has never heard of, so the string survives in the
- * object, survives `savePrefs`'s `JSON.stringify` on the next preference
- * change, and is read by nobody. It cannot throw - `JSON.parse` does not care,
- * and the `catch` below is for a corrupt record, not an extra field - it
- * cannot resurrect the branch, because no reader of it is left in `src/`, and
- * it cannot cost the record anything else: every *other* preference in that
- * same JSON is applied exactly as before, which is the half of this that would
- * be silent if it broke.
+ * A device that has a prefs record has plainly been used: this key is written
+ * by `setScreen`, by `select`, by every switch in Settings and by every fold on
+ * the Play screen, so the record exists from the first minute anybody spends in
+ * the app. Every one of those installs predates `onboarded`, so the field is
+ * missing from all of them - and spread against a `false` default that would
+ * make the app open the first-run questions on somebody who has been playing a
+ * character for two years. That is the worst false first-run there is, and it
+ * would arrive on an upgrade rather than on an install, which is exactly when
+ * nobody is looking for it.
+ *
+ * So a record with no `onboarded` key is read as onboarded, and the line sits
+ * *above* the spread so that a record which owns the key still wins with it.
+ * That ordering is the difference between an upgrade rule and an override.
+ *
+ * ## SUPERSEDED: what this was said to cost the first-run flow
+ *
+ * This paragraph used to close: "that flow may not write a preference until it
+ * is finished. A run that wrote its answers as they were given would leave a
+ * record with no `onboarded` key behind on the first reload, and this line
+ * would then read that half-finished run as a completed one."
+ *
+ * The store disproves it. `setPrefs` spreads its patch over the whole record
+ * and `savePrefs` serialises all of it, so a write made in the middle of the
+ * flow persists `onboarded: false` rather than omitting the key - measured,
+ * mid-flow, against a device with no stored record: the key is present and
+ * false - and the line above honours a stored `false` because it sits over the
+ * spread rather than under it. There is no route to the stated catastrophe.
+ *
+ * The real hazard is the same shape turned round, and it is worse because it is
+ * durable. Any route that puts a character on this device without reaching the
+ * flow's one write leaves `onboarded: false` behind for good, and the first
+ * time that library is next empty - a deletion, an eviction, a quarantine - the
+ * app asks somebody who has been playing for months who they are. That is the
+ * false first run, arriving through a stored `false` instead of a missing key,
+ * and it is why the import route watches the store for an arrival rather than
+ * trusting each door to report itself.
+ *
+ * ## A THIRD DEAD KEY, RECORDED RATHER THAN MIGRATED
+ *
+ * The same decision as the two `playSections` carries above, and taken for the
+ * same reason. Decision 7 deleted `counterStyle: 'numbers' | 'pips'`, which
+ * shipped, so a real install has `{"counterStyle":"pips"}` sitting in
+ * `dhc.prefs.v1` right now. What happens to it, exactly: the spread below keeps
+ * keys it has never heard of, so the string survives in the object, survives
+ * `savePrefs`'s `JSON.stringify` on the next preference change, and is read by
+ * nobody. It cannot throw - `JSON.parse` does not care, and the `catch` below is
+ * for a corrupt record, not an extra field - it cannot resurrect the branch,
+ * because no reader of it is left in `src/`, and it cannot cost the record
+ * anything else: every *other* preference in that same JSON is applied exactly
+ * as before, which is the half of this that would be silent if it broke.
+ *
+ * `seenArtOffer` is the fourth, deleted by the onboarding step because nothing
+ * ever read it, and it is carried the same way for the same reasons.
  *
  * No converter, deliberately, and no `SCHEMA_VERSION` move: preferences are
  * localStorage-only and never ride out in a `.dhchar` or a `.dhbackup`, so
  * there is nothing on anyone's disk that a version number would help with. The
- * one path that ever removes the key is "Erase everything" in About, which
+ * one path that ever removes these keys is "Erase everything" in About, which
  * clears every `dhc.*` key and writes `DEFAULT_PREFS` fresh.
  */
 export function loadPrefs(): Prefs {
@@ -170,7 +315,7 @@ export function loadPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw === null) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Prefs>) };
+    return { ...DEFAULT_PREFS, onboarded: true, ...(JSON.parse(raw) as Partial<Prefs>) };
   } catch {
     return DEFAULT_PREFS;
   }

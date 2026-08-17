@@ -86,7 +86,10 @@ interface World {
   characters?: number;
 }
 
-const mount = (element: Parameters<typeof createElement>[0], world: World = {}): void => {
+// A node rather than a component, since `Header` took a prop: the shell decides
+// whether the first-run questions are up and hands the answer down, so a mount
+// of this bar has to say which of the two states it is measuring.
+const mount = (node: React.ReactNode, world: World = {}): void => {
   viewport = world.width ?? DESKTOP;
   const characters = Array.from({ length: world.characters ?? 1 }, (_, i) =>
     makeCharacter({ name: `Character ${i + 1}` }),
@@ -99,8 +102,11 @@ const mount = (element: Parameters<typeof createElement>[0], world: World = {}):
       prefs: { ...DEFAULT_PREFS, theme: world.theme ?? 'dark' },
     });
   });
-  act(() => root.render(createElement(element)));
+  act(() => root.render(node));
 };
+
+/** The bar in its ordinary state: the first-run questions are not up. */
+const header = (): React.ReactElement => createElement(Header, { onboarding: false });
 
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 
@@ -137,7 +143,7 @@ describe('the door to Settings', () => {
     const said = new Map<Prefs['theme'], string>();
 
     for (const theme of ['dark', 'light', 'system'] as const) {
-      mount(Header, { width: PHONE, theme });
+      mount(header(), { width: PHONE, theme });
       const doors = doorsToSettings();
       expect(doors, `theme ${theme}: expected one control to open Settings`).toHaveLength(1);
       said.set(theme, word(doors[0]!));
@@ -158,14 +164,14 @@ describe('the door to Settings', () => {
   it('is the only permanent route to Settings on a phone, and a 44px target', () => {
     // The tab bar is the other navigation a phone has, and it has four
     // destinations, none of which is this one.
-    mount(TabBar, { width: PHONE });
+    mount(createElement(TabBar), { width: PHONE });
     const tabs = buttons();
     expect(tabs).toHaveLength(4);
     for (const tab of tabs) {
       expect(routesTo(tab), `the ${word(tab)} tab reaches Settings`).not.toBe('settings');
     }
 
-    mount(Header, { width: PHONE, theme: 'light' });
+    mount(header(), { width: PHONE, theme: 'light' });
     const doors = doorsToSettings();
     expect(doors).toHaveLength(1);
     const door = doors[0]!;
@@ -220,7 +226,7 @@ describe('the nav and the readout share one line', () => {
     const NAV = ['play', 'cards', 'build', 'gm'];
 
     for (const width of [PHONE, 719, 720, TABLET, 1179, 1180, DESKTOP]) {
-      mount(Header, { width });
+      mount(header(), { width });
 
       const tabs = buttons()
         .filter((b) => NAV.includes(word(b).toLowerCase()))
@@ -263,7 +269,7 @@ describe('what the header calls its buttons', () => {
     for (const width of [PHONE, DESKTOP]) {
       for (const theme of ['dark', 'light', 'system'] as const) {
         for (const characters of [0, 1, 2]) {
-          mount(Header, { width, theme, characters });
+          mount(header(), { width, theme, characters });
           for (const button of buttons()) {
             const label = button.getAttribute('aria-label');
             const text = word(button);

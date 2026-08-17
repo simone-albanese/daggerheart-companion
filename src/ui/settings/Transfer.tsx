@@ -280,7 +280,19 @@ function Sender({ character }: { character: Character }): React.JSX.Element {
 // Receiving
 // ---------------------------------------------------------------------------
 
-function Receiver(): React.JSX.Element {
+/**
+ * The camera half, exported since the first run grew a door onto it.
+ *
+ * `Transfer` above is the whole Section - send *and* receive, under a lead about
+ * moving a character between two devices at a table - which is the right framing
+ * in Settings and the wrong one for somebody who has just said their character
+ * is on another phone. So the machinery is shared and the framing is not: this
+ * owns the scanner lifecycle, `characterFromPayload`, the frame pips, the
+ * "another transfer is in view" warning, the refusals `cameraError` writes for a
+ * camera that is missing, denied or already in use, and the camera stop on
+ * unmount. All of that is what makes rebuilding it the wrong move.
+ */
+export function Receiver(): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [session, setSession] = useState(0);
   const [progress, setProgress] = useState<TransferProgress | null>(null);

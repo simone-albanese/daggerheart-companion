@@ -118,7 +118,7 @@ import { CoinRow, PrintDomainMark, TickRow } from '../../src/ui/print/marks.tsx'
 import { About } from '../../src/ui/settings/About.tsx';
 import { ReconciliationReport, Rulebook } from '../../src/ui/settings/Rulebook.tsx';
 import { Settings } from '../../src/ui/settings/Settings.tsx';
-import { Transfer } from '../../src/ui/settings/Transfer.tsx';
+import { Receiver, Transfer } from '../../src/ui/settings/Transfer.tsx';
 import {
   Action,
   Choice as SettingsChoice,
@@ -128,6 +128,9 @@ import {
   Section as SettingsSection,
   Switch,
 } from '../../src/ui/settings/parts.tsx';
+import { ImportDoors } from '../../src/ui/onboarding/ImportDoors.tsx';
+import { Onboarding } from '../../src/ui/onboarding/Onboarding.tsx';
+import { AnswerRow } from '../../src/ui/onboarding/parts.tsx';
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
@@ -189,6 +192,12 @@ beforeAll(() => {
   // than in the app, and both would otherwise read as a crash.
   Element.prototype.scrollTo = (): void => {};
   Element.prototype.scrollIntoView = (): void => {};
+  // And no media element. `Receiver` releases the camera on unmount by pausing
+  // the `<video>` and clearing `srcObject`, which is right in a browser and
+  // prints "Not implemented: HTMLMediaElement's pause()" here - a third gap in
+  // the environment, and one this file reads as a React complaint because it
+  // arrives on `console.error`.
+  HTMLMediaElement.prototype.pause = (): void => {};
 });
 
 beforeEach(async () => {
@@ -374,23 +383,49 @@ describe('the shell, on every screen', () => {
     expect(alerts).toMatch(/Nothing has been deleted/);
   });
 
-  it('opens on Build when there is nothing to play, rather than on an empty Play', async () => {
+  /*
+   * The store value, and no longer what is drawn.
+   *
+   * This was called "opens on Build when there is nothing to play", and the
+   * title stopped being true when the first-run questions went in front of all
+   * five screens: `screen` is still `'build'` in exactly this state, and
+   * `<Onboarding/>` is what `<main>` holds. The assertion never noticed because
+   * it reads the store rather than the tree, so the title drifted with the test
+   * green. Both halves are asserted now.
+   */
+  it('routes an empty library to Build in the store, behind the first run drawn over it', async () => {
     await render(createElement(App));
     await settle(() => useApp.getState().ready);
       expect(useApp.getState().ready, 'init() never answered').toBe(true);
     expect(useApp.getState().screen).toBe('build');
+    expect(
+      container.textContent ?? '',
+      'the questions are not what a brand-new device draws, so the stored screen ' +
+        'is also what is on it and this test is measuring one thing twice',
+    ).toContain('Who are you at this table?');
   });
 
   it('says something rather than nothing when the library is empty', async () => {
     await render(createElement(App));
     await settle(() => useApp.getState().ready);
       expect(useApp.getState().ready, 'init() never answered').toBe(true);
+    // Past the first run, which is a different empty library from this one.
+    // `EmptyState` is what somebody who has answered the questions and then
+    // deleted their last character sees; the questions themselves are asserted
+    // in `onboarding.test.tsx`. Set after `init`, because `init` reads the
+    // preferences off the disk and this file installs no localStorage.
+    await act(async () => {
+      useApp.getState().setPrefs({ onboarded: true });
+    });
     await act(async () => {
       useApp.getState().setScreen('play');
     });
     await settle();
-    // The empty state is the first thing a new user sees, and the only screen
-    // that carries the licence notice today (P3-10).
+    // `EmptyState` is what a device that has answered the questions and then
+    // emptied its library sees - not the first thing a new user sees, which is
+    // the comment this replaces and which the four lines above it already
+    // contradict. The licence notice is on all six surfaces since P5-6, so it
+    // is not what makes this screen special either.
     expect(container.textContent ?? '').toContain('No character yet');
   });
 });
@@ -608,6 +643,19 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // `Defenses` owns and this sweep mounts every fixture on its own.
   'player/Vitals.tsx::IncomingDamage': () => <IncomingDamage stats={stats()} layout="desktop" />,
 
+  // The first run, mounted on its own question rather than through the shell.
+  // It takes no props at all: everything it needs is the store, and everything
+  // it decides it holds itself until its last button.
+  'onboarding/Onboarding.tsx::Onboarding': () => <Onboarding />,
+  // The three doors, mounted with none of them open — which is the state they
+  // are in when the screen arrives, and the only one that does not want a
+  // camera. Each door opens on its own tap and `onboarding.test.tsx` drives
+  // them; this asks the smaller question of whether the closed screen draws.
+  'onboarding/ImportDoors.tsx::ImportDoors': () => <ImportDoors />,
+  'onboarding/parts.tsx::AnswerRow': () => (
+    <AnswerRow glyph="PC" label="A player" sub="NEXT: THE NINE CLASSES" onPick={noop} />
+  ),
+
   'print/CharacterSheet.tsx::CharacterSheet': () => (
     <CharacterSheet sheet={buildSheet(playedCharacter(), dataset, index)} />
   ),
@@ -630,6 +678,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'settings/Settings.tsx::Settings': () => <Settings />,
   'settings/Transfer.tsx::Transfer': () => <Transfer />,
+  // The camera half on its own, which the first run's import door mounts
+  // directly. jsdom has no `navigator.mediaDevices`, so this fixture exercises
+  // the branch that matters most on a real device too: the scanner refusing to
+  // start, and the refusal reaching the screen instead of a blank panel.
+  'settings/Transfer.tsx::Receiver': () => <Receiver />,
   'settings/parts.tsx::Section': () => (
     <SettingsSection id="s" title="A Section">
       body
@@ -691,7 +744,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <AppBoundary>inside the app boundary</AppBoundary>
   ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
-  'shell/Header.tsx::Header': () => <Header />,
+  'shell/Header.tsx::Header': () => <Header onboarding={false} />,
   'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,
   'shell/ScreenBoundary.tsx::ScreenBoundary': () => (

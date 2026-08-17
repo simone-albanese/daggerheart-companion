@@ -234,7 +234,40 @@ const SCREENS: Array<{ id: Screen; label: string }> = [
   { id: 'gm', label: 'GM' },
 ];
 
-export function Header(): React.JSX.Element {
+export function Header({
+  onboarding,
+}: {
+  /*
+   * Whether the first-run questions are up, decided by `App` and never here.
+   *
+   * This bar carries the mark and nothing else while they are - no nav, and no
+   * door to Settings either.
+   *
+   * The paragraph on the SETTINGS button below says the GM filter may never
+   * take that door away, because Settings is the screen the section is switched
+   * back on from. That argument is about a *preference*, which is permanent
+   * until somebody changes it back and therefore must never be able to remove
+   * its own remedy. This is not that: onboarding is at most three taps long, it
+   * always has a Skip in its own nav, and it writes `onboarded` the moment it
+   * ends. The door is a few seconds away rather than gone.
+   *
+   * Leaving it live is the worse option, and not by a little. Onboarding is
+   * drawn instead of all five screens, so a tap on SETTINGS would either do
+   * nothing at all - a dead control on the first screen anybody sees - or land
+   * somebody on a Settings screen with no tab bar, no nav here and no way back:
+   * exactly the trap the paragraph below exists to prevent, arriving through
+   * the door it protects.
+   *
+   * A prop rather than a second call to `needsOnboarding`, because the second
+   * call is what went wrong. This file computed the gate without the
+   * pasteboard-bridge term `App` applies, so on an installed iOS or iPadOS app
+   * with an empty library the shell drew the ordinary screens while this bar
+   * stripped both the nav and the SETTINGS door - the trap above, arriving on
+   * the one device the recovery screen was written for, in the state it was
+   * written for. Two expressions cannot disagree if there is only one.
+   */
+  onboarding: boolean;
+}): React.JSX.Element {
   const screen = useApp((s) => s.screen);
   const setScreen = useApp((s) => s.setScreen);
   const characters = useApp((s) => s.characters);
@@ -298,7 +331,7 @@ export function Header(): React.JSX.Element {
     >
       <div className="row" style={{ gap: 22, minWidth: 0 }}>
         <AppMark />
-        {!phone && (
+        {!phone && !onboarding && (
           <nav className="row" style={{ gap: 4 }}>
             {screens.map((s) => (
               <button
@@ -545,20 +578,27 @@ export function Header(): React.JSX.Element {
          * regression because it was never here. It is a three-way choice -
          * Dark, Light, System - and a header toggle cannot express the third,
          * which is the one that follows the device's own schedule.
+         *
+         * The one state it is not drawn in is the first run, and the reason is
+         * argued on the `onboarding` prop at the top of this file: the rule
+         * above is about a preference removing its own remedy, and three taps
+         * that end by writing `onboarded` is not that.
          */}
-        <button
-          type="button"
-          onClick={() => setScreen('settings')}
-          className="t-meta"
-          style={{
-            minHeight: 'var(--control)',
-            minWidth: 'var(--control)',
-            color: screen === 'settings' ? 'var(--text)' : 'var(--dim)',
-            letterSpacing: '0.08em',
-          }}
-        >
-          SETTINGS
-        </button>
+        {!onboarding && (
+          <button
+            type="button"
+            onClick={() => setScreen('settings')}
+            className="t-meta"
+            style={{
+              minHeight: 'var(--control)',
+              minWidth: 'var(--control)',
+              color: screen === 'settings' ? 'var(--text)' : 'var(--dim)',
+              letterSpacing: '0.08em',
+            }}
+          >
+            SETTINGS
+          </button>
+        )}
       </div>
     </header>
   );

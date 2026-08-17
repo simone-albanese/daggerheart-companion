@@ -46,7 +46,7 @@ import {
   type IntegrityReport,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
-import { allowedScreen } from '../../store/prefs.ts';
+import { allowedScreen, needsOnboarding } from '../../store/prefs.ts';
 import { useApp, useStats, type WriteFailure } from '../../store/state.ts';
 import { CardReader } from '../shared/DomainCardView.tsx';
 import { AppMark } from '../shared/DomainMark.tsx';
@@ -54,6 +54,7 @@ import { Attribution } from '../shared/CompatibleMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
+import { Onboarding } from '../onboarding/Onboarding.tsx';
 import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { AppBoundary } from './AppBoundary.tsx';
@@ -118,6 +119,24 @@ function Shell(): React.JSX.Element {
   const phone = useIsPhone();
   const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
+  /*
+   * An explicit screen request from an alert, which outranks the first-run gate
+   * for the rest of this launch.
+   *
+   * The alerts are drawn above the questions on purpose - a library that
+   * vanished between sessions has to be told about rather than quietly
+   * re-onboarded - and one of them offers a way out of the state it reports.
+   * That offer was a chip that did nothing: it called `setScreen('settings')`
+   * while `<Onboarding/>` was drawn instead of all five screens, so a person
+   * was told their characters were gone, given the one route back to them, and
+   * nothing happened when they took it. This app does not draw controls that
+   * cannot work, and it does not claim something happened that did not.
+   *
+   * For the launch rather than for ever: nothing is written, because nothing was
+   * answered. If the library is still empty next time, the questions are still
+   * owed and are asked again.
+   */
+  const [routedByAlert, setRoutedByAlert] = useState(false);
 
   useEffect(() => {
     void init();
@@ -244,9 +263,23 @@ function Shell(): React.JSX.Element {
   const screen = allowedScreen(prefs, stored);
   const needsCharacter = characters.length === 0 || stats === null;
 
+  /*
+   * Ask who this is, before any of the five screens.
+   *
+   * Computed once, here, and handed to `Header` below rather than worked out
+   * again there. The rule itself lives in `prefs.ts` beside `allowedScreen`,
+   * and the two together are one belt and one pair of braces: the rule carries
+   * every term including the pasteboard-bridge exception, so a third caller
+   * cannot get a different answer by forgetting one, and the only two callers
+   * there are read one value. They did drift - `Header` was missing the bridge
+   * term - and that is how the tab bar and the desktop nav once disagreed about
+   * the GM section too.
+   */
+  const onboarding = needsOnboarding(prefs, characters.length) && !routedByAlert;
+
   return (
     <div className="app">
-      <Header />
+      <Header onboarding={onboarding} />
       <main className="stack" style={{ minHeight: 0, overflow: 'hidden' }}>
         {writeError !== null && <UnsavedWork failure={writeError} />}
         {storageError !== null && (
@@ -315,12 +348,23 @@ function Shell(): React.JSX.Element {
                 neither. The offer is only made when there is something to
                 restore from - `integrity.message` has already said so when
                 there is not.
+
+                And it takes the first-run gate down on its way, because this
+                alert can be on screen at the same time as the questions and
+                `setScreen` on its own cannot get past them - `<Onboarding/>` is
+                drawn instead of all five. See `routedByAlert` above. The header
+                is handed the same answer, so this lands on Settings with the
+                nav and the door back rather than in the trap that rule exists
+                to prevent.
               */}
               {integrity.canRestore && (
                 <button
                   type="button"
                   className="chip"
-                  onClick={() => setScreen('settings')}
+                  onClick={() => {
+                    setRoutedByAlert(true);
+                    setScreen('settings');
+                  }}
                   style={{
                     flex: 'none',
                     minHeight: 'var(--control)',
@@ -390,36 +434,59 @@ function Shell(): React.JSX.Element {
         )}
         <UpdateBanner apply={applyUpdate} />
         <BackupBanner />
-        {screen === 'play' && (
-          <ScreenBoundary name="Play">
-            {needsCharacter ? <EmptyState /> : <Play stats={stats} />}
+        {/*
+          The first-run questions, in place of whichever screen the store names
+          and below every alert above this line.
+
+          Below them deliberately. A library that vanished between sessions has
+          to say so, and a device that could not write has to say so, and both of
+          those states are reachable with an empty library - which is exactly the
+          state this surface claims. Drawn above the alerts, a wiped library
+          would be silently re-onboarded instead of told SOMETHING IS MISSING.
+
+          Not `lazy()`, unlike the three screens below it. This is the first
+          frame a new device ever draws, and a spinner is not an acceptable first
+          impression of an app whose whole premise is that everything is already
+          on the device.
+        */}
+        {onboarding ? (
+          <ScreenBoundary name="Onboarding">
+            <Onboarding />
           </ScreenBoundary>
-        )}
-        {screen === 'cards' && (
-          <ScreenBoundary name="Cards">
-            {needsCharacter ? <EmptyState /> : <Cards stats={stats} />}
-          </ScreenBoundary>
-        )}
-        {screen === 'build' && (
-          <ScreenBoundary name="Build">
-            <Suspense fallback={<Loading />}>
-              <Build />
-            </Suspense>
-          </ScreenBoundary>
-        )}
-        {screen === 'gm' && (
-          <ScreenBoundary name="GM tools">
-            <Suspense fallback={<Loading />}>
-              <Gm />
-            </Suspense>
-          </ScreenBoundary>
-        )}
-        {screen === 'settings' && (
-          <ScreenBoundary name="Settings">
-            <Suspense fallback={<Loading />}>
-              <Settings />
-            </Suspense>
-          </ScreenBoundary>
+        ) : (
+          <>
+            {screen === 'play' && (
+              <ScreenBoundary name="Play">
+                {needsCharacter ? <EmptyState /> : <Play stats={stats} />}
+              </ScreenBoundary>
+            )}
+            {screen === 'cards' && (
+              <ScreenBoundary name="Cards">
+                {needsCharacter ? <EmptyState /> : <Cards stats={stats} />}
+              </ScreenBoundary>
+            )}
+            {screen === 'build' && (
+              <ScreenBoundary name="Build">
+                <Suspense fallback={<Loading />}>
+                  <Build />
+                </Suspense>
+              </ScreenBoundary>
+            )}
+            {screen === 'gm' && (
+              <ScreenBoundary name="GM tools">
+                <Suspense fallback={<Loading />}>
+                  <Gm />
+                </Suspense>
+              </ScreenBoundary>
+            )}
+            {screen === 'settings' && (
+              <ScreenBoundary name="Settings">
+                <Suspense fallback={<Loading />}>
+                  <Settings />
+                </Suspense>
+              </ScreenBoundary>
+            )}
+          </>
         )}
         {/*
           No tab bar inside the GM section. `GmBar` is the bottom bar there -
@@ -428,8 +495,14 @@ function Shell(): React.JSX.Element {
           owner decided: leaving the section is a rare gesture, and the arc
           belongs to the continuous ones. Two bars stacked would also cost the
           plan 94px it does not have.
+
+          And no tab bar during onboarding, for a different reason: the flow's
+          own pinned nav is the last thing in the window and pays the
+          home-indicator inset itself, so a second bar underneath it would be
+          both a second payment and four destinations offered to somebody who
+          has not said yet what they want the app for.
         */}
-        {phone && screen !== 'gm' && <TabBar />}
+        {phone && !onboarding && screen !== 'gm' && <TabBar />}
       </main>
       {openCard !== null && (
         <CardReader

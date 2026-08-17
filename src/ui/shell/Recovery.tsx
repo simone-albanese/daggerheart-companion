@@ -10,6 +10,12 @@
  * Telling them "create a character" there would be the app confidently giving
  * the wrong instruction at the worst possible moment. So it offers the bridge
  * first and creation second.
+ *
+ * It outranks the first-run questions for the same reason, and `App.tsx` checks
+ * `needsPasteboardBridge()` before the onboarding gate to make that so. An empty
+ * library is the state onboarding claims too, and on this device it has an
+ * explanation - so being asked whether you are a player or a GM would be the app
+ * answering a question nobody asked while ignoring the one they did.
  */
 import { useState } from 'react';
 import { pasteLibrary } from '../../transfer/pasteboard.ts';
