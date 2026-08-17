@@ -1,7 +1,15 @@
 /**
  * The card browser: 189 cards, and the only screen where scrolling is the
- * point. Filters sit above the grid and never move; the grid scrolls under
- * them.
+ * point. So everything on it is inside one scroll, filters included: they are
+ * the grid's first row and they scroll away with the cards they filter.
+ *
+ * The line above used to read "Filters sit above the grid and never move; the
+ * grid scrolls under them", and that promise had a price nobody had counted.
+ * The block is 278px on any portrait phone, 226 at 640x360, 170 where its
+ * first row fits on one line; the column it is spent from is H-130 on a phone
+ * and H-87 on a tablet. At 320x568 that is 278 of 438 and the grid gets 148px
+ * of a 268px card; at 640x360 it is 226 of 230 and the grid gets a 0px content
+ * box laid inside the tab bar. The scroll region is the whole column now.
  *
  * Cards you cannot take are shown, not hidden, with the reason attached. A
  * player planning three levels ahead needs to see the level 7 card that is
@@ -156,108 +164,35 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * and `overflow: hidden`, so the header takes 53 and `<main>` 307; the tab
    * bar is `flex: none`, 60px of button plus a 1px top border, laid y299..360.
    * That leaves this root 246px at y53..299 and a content box of 230 at
-   * y61..291. The filter block below it is `flex: none` and 226px tall at this
-   * width, so the grid is offered 4px of free space - and under the global
-   * `box-sizing: border-box` (base.css:10-14) a `flex: 1; min-height: 0` box
-   * cannot floor below its own `padding-bottom`, so the grid was laid at
-   * y299..311: clientHeight 12, content box **0px**, and every one of those 12
-   * pixels inside the nav. `DomainCardView`'s root is `position: relative` and
-   * the nav declares no `position`, so the tiles painted in the positioned
-   * layer above a static bar and took the hit-testing with them:
-   * `document.elementFromPoint(111, 303)` returned a card's overlay button
-   * rather than PLAY, and the same for CARDS, BUILD and GM.
+   * y61..291. The filter block was a `flex: none` sibling of the grid and 226px
+   * tall at this width, so the grid was offered 4px of free space - and under
+   * the global `box-sizing: border-box` (base.css:10-14) a `flex: 1;
+   * min-height: 0` box cannot floor below its own `padding-bottom`, so the grid
+   * was laid at y299..311: clientHeight 12, content box **0px**, and every one
+   * of those 12 pixels inside the nav. `DomainCardView`'s root is
+   * `position: relative` and the nav declares no `position`, so the tiles
+   * painted in the positioned layer above a static bar and took the hit-testing
+   * with them: `document.elementFromPoint(111, 303)` returned a card's overlay
+   * button rather than PLAY, and the same for CARDS, BUILD and GM.
    *
-   * The clip costs the grid nothing it had - it had a 0px content box - and
-   * gives four 160x61 targets back their top 12px, at the bottom edge of a
-   * two-handed landscape grip, on the only route off this screen. It does not
-   * give the grid a box of its own; that is the next commit's job, and this
-   * one deliberately leaves the landscape grid invisible rather than
-   * mis-tappable, because a card you cannot see is recoverable by rotating and
-   * a tab bar you cannot tap is not.
+   * The filters have since moved inside the scroll, so the grid fills this box
+   * exactly and there is nothing left to overhang. The clip stays anyway, and
+   * it is a guard rather than a fix now: `<main>` clips at a box that contains
+   * the tab bar, this root is the last ancestor between the two, and the next
+   * thing anybody adds here would be painting over four 160x61 targets at the
+   * bottom edge of a two-handed grip, on the only route off this screen.
+   *
+   * No `gap`: there is one child.
    */
   const rootStyle: React.CSSProperties = {
     flex: 1,
     minHeight: 0,
     padding: phone ? '8px 12px' : '14px 20px 20px',
-    gap: 12,
     overflow: 'hidden',
   };
 
   return (
     <div className="stack" style={rootStyle}>
-      <div className="stack" style={{ gap: 8, flex: 'none' }}>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search 189 cards"
-            aria-label="Search cards"
-            style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
-          />
-          <Segmented
-            value={owned}
-            onChange={setOwned}
-            options={[
-              ['all', 'All'],
-              ['owned', 'Owned'],
-              ['available', 'Can take'],
-            ]}
-          />
-          <Segmented
-            value={type}
-            onChange={setType}
-            options={[
-              ['all', 'Any'],
-              ['Ability', 'Ability'],
-              ['Spell', 'Spell'],
-              ['Grimoire', 'Grimoire'],
-            ]}
-          />
-        </div>
-        <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
-            My domains
-          </FilterChip>
-          <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
-            All
-          </FilterChip>
-          {DOMAINS.map((d) => (
-            <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
-              <DomainMark domain={d} size={11} shapes={shapes} />
-              <span style={{ textTransform: 'capitalize' }}>{d}</span>
-            </FilterChip>
-          ))}
-        </div>
-
-        <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <NumberFilter label="LV" values={allLevels} selected={levels} onToggle={(n) => setLevels(toggle(levels, n))} />
-          <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
-          <NumberFilter
-            label="RECALL"
-            values={allRecalls}
-            selected={recalls}
-            onToggle={(n) => setRecalls(toggle(recalls, n))}
-          />
-        </div>
-
-        <div className="spread" style={{ alignItems: 'center' }}>
-          <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {rows.length} OF {dataset.domainCards.length}
-          </span>
-          {filtered && (
-            <button
-              type="button"
-              className="chip"
-              onClick={clearAll}
-              style={{ minHeight: 'var(--control)', color: 'var(--text)' }}
-            >
-              CLEAR FILTERS
-            </button>
-          )}
-        </div>
-      </div>
-
       <div
         className="scroll"
         style={{
@@ -270,6 +205,108 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           paddingBottom: 12,
         }}
       >
+        {/*
+          The filters are the grid's first row, not a block above it.
+
+          They used to be a `flex: none` stack outside this scroll, and the
+          price of "they never move" was never counted: the block is 278px on
+          every portrait phone - 320, 360, 375 and 393 all wrap its first row
+          to three lines - 226 at 640x360 and 568x320, and 170 wherever that
+          row fits on one. The column it is spent out of is only H-130 on a
+          phone (header 53, tab bar 61, 16 of root padding) and H-87 on a
+          tablet, so it took 278 of 438 at 320x568, 278 of 722 at 393x852, 170
+          of 306 at 852x393 - and 226 of 230 at 640x360, where the grid then
+          floored at its own 12px of padding and was laid inside the tab bar.
+
+          As a row of the grid it costs the same pixels at scroll 0 and none
+          at any other scroll position, so the scrollport is the whole column:
+          148 -> 438 at 320x568, 220 -> 510 at 360x640, 247 -> 537 at 375x667,
+          432 -> 722 at 393x852, 124 -> 306 at 852x393, and 12 -> 230 at
+          640x360, which is the first card pixel that window has ever drawn.
+          Nothing is lost on the way: the visible card area at scroll 0 is
+          port - block - gap, which is exactly the number the old fixed block
+          left, so this is a gain at every scroll position and a loss at none.
+
+          What it costs is the promise: scroll past the first screen and the
+          filters are gone until you scroll back. That is the right way round
+          for this screen - they are out of reach only when there are enough
+          results to scroll, which is exactly when nobody is reading them, and
+          a filtered-to-nothing grid still shows them above its own empty
+          state. `gridColumn: '1 / -1'` for the same reason the notice and
+          the empty state carry it: a 150px cell is not a filter bar.
+        */}
+        <div className="stack" style={{ gap: 8, gridColumn: '1 / -1' }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search 189 cards"
+              aria-label="Search cards"
+              style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
+            />
+            <Segmented
+              value={owned}
+              onChange={setOwned}
+              options={[
+                ['all', 'All'],
+                ['owned', 'Owned'],
+                ['available', 'Can take'],
+              ]}
+            />
+            <Segmented
+              value={type}
+              onChange={setType}
+              options={[
+                ['all', 'Any'],
+                ['Ability', 'Ability'],
+                ['Spell', 'Spell'],
+                ['Grimoire', 'Grimoire'],
+              ]}
+            />
+          </div>
+          <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
+              My domains
+            </FilterChip>
+            <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
+              All
+            </FilterChip>
+            {DOMAINS.map((d) => (
+              <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
+                <DomainMark domain={d} size={11} shapes={shapes} />
+                <span style={{ textTransform: 'capitalize' }}>{d}</span>
+              </FilterChip>
+            ))}
+          </div>
+
+          <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <NumberFilter label="LV" values={allLevels} selected={levels} onToggle={(n) => setLevels(toggle(levels, n))} />
+            <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
+            <NumberFilter
+              label="RECALL"
+              values={allRecalls}
+              selected={recalls}
+              onToggle={(n) => setRecalls(toggle(recalls, n))}
+            />
+          </div>
+
+          <div className="spread" style={{ alignItems: 'center' }}>
+            <span className="t-meta" style={{ color: 'var(--muted)' }}>
+              {rows.length} OF {dataset.domainCards.length}
+            </span>
+            {filtered && (
+              <button
+                type="button"
+                className="chip"
+                onClick={clearAll}
+                style={{ minHeight: 'var(--control)', color: 'var(--text)' }}
+              >
+                CLEAR FILTERS
+              </button>
+            )}
+          </div>
+        </div>
         {rows.map((row) => {
           // The Hit Points a recall would cost, if it would cost any. Only a
           // card in the vault can be recalled, so only that one is costed.

@@ -231,4 +231,44 @@ describe('the card browser draws inside its own box', () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.style.overflow, 'the browser root declares no overflow').toBe('hidden');
   });
+
+  /*
+   * The filters used to be a `flex: none` sibling of the grid, and the pixels
+   * they took came off the grid at every scroll position rather than only at
+   * the first: 278 of a 438px column at 320x568, 226 of a 230px one at
+   * 640x360. Inside the scroll they are the grid's first row.
+   *
+   * jsdom has no layout engine, so none of those numbers is reachable here.
+   * What is reachable is the tree they follow from: which element the filters
+   * are inside, and whether they span the grid instead of taking one 150px
+   * cell of it.
+   */
+  it('scrolls its filters with the cards they filter, instead of standing on them', () => {
+    const c = seed();
+    browse(c);
+    const scroll = container.querySelector('.scroll');
+    expect(scroll, 'the browser has no scroll region').not.toBeNull();
+    const searchBox = container.querySelector('input[type="search"]');
+    expect(searchBox, 'the browser has no search field').not.toBeNull();
+    expect(
+      searchBox!.closest('.scroll'),
+      'the filters are outside the scroll region, so they cost the grid their height at every scroll position',
+    ).toBe(scroll);
+  });
+
+  it('spans the filter row across the grid rather than dropping it in one cell', () => {
+    const c = seed();
+    browse(c);
+    const scroll = container.querySelector('.scroll')!;
+    const first = scroll.firstElementChild as HTMLElement;
+    expect(first.contains(container.querySelector('input[type="search"]'))).toBe(true);
+    expect(first.style.gridColumn, 'the filter row takes one card-sized cell').toBe('1 / -1');
+  });
+
+  it('leaves the root one child, so nothing else can be laid beside the scroll', () => {
+    const c = seed();
+    browse(c);
+    const root = container.firstElementChild!;
+    expect([...root.children].map((el) => el.className)).toEqual(['scroll']);
+  });
 });
