@@ -106,10 +106,18 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * The class, the ancestry and the community are the three decisions in this
  * wizard whose only evidence is a paragraph. They used to hand that paragraph
  * to `Choice`'s `body` under a `clamp` - three lines for the class, *two* for
- * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box and
- * 48px of window onto text that measured 143-206px on a 375px phone. Measured
- * before this change, at 375x667: 95px hidden on the shortest class card and
- * 158px on the Wizard's.
+ * the other two - which at `.t-dense`'s 11.5px/1.38 is a 15.87px line box, so
+ * 48px of window for the class and 32px for the other two. Measured in Chrome
+ * at 375x667 before the change: 95-158px hidden on each of the nine class
+ * cards, 111-285 on each of the eighteen ancestries, 158-253 on each of the
+ * nine communities. The two longer lists were under the tighter clamp.
+ *
+ * A fourth surface had no words at all. The Mixed Ancestry grids pass no
+ * `body`, so switching the Segmented control from "One ancestry" to "Mixed
+ * Ancestry" replaced two clipped lines with none - the same person, the same
+ * step, one tap apart. Both mixed columns take this reader too, which is why
+ * the same lineage's description is reachable from either of them: each card
+ * is its own decision and each decision carries its own evidence.
  *
  * The clamp was not sloppy and this is worth saying plainly, because it decides
  * the shape of the fix. `clamp` is an opt-in prop, `-webkit-line-clamp` draws
@@ -122,7 +130,7 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * The reader is a `Fold` and not a bigger clamp, a `title` or an overlay:
  *
  *   - a bigger clamp is the same defect with a different number, and no number
- *     fits nine descriptions that run 518-763 characters;
+ *     fits thirty-six descriptions that run 509-1243 characters;
  *   - it cannot go *inside* the `Choice`, whose root is a `<button>`
  *     (parts.tsx) - a button inside a button is invalid HTML and this repo has
  *     already been bitten by it twice, recorded at parts.tsx and
@@ -146,6 +154,15 @@ function poolRemaining(traits: Draft['traits']): Map<number, number> {
  * so on a multi-column layout only that one grid cell grows. StepExperiences
  * wrote the rule this follows: a screen may grow underneath a hand, never
  * beneath it.
+ *
+ * What the shut card costs, measured at 393x852, one column: 104.8px, against
+ * 108.38 for a three-line clamp and 92.52 for a two-line one. So the class step
+ * came out 33px SHORTER (1497 -> 1464 of scroll) and the two two-line steps
+ * came out longer - ancestry 2179 -> 2401 (+222 over eighteen cards), community
+ * 1164 -> 1275 (+111 over nine). The Mixed Ancestry branch pays most, because
+ * it had no prose at all to replace: 2603 -> 4403, +1800 over thirty-six cards,
+ * against a 596px window. That is the price of the fourth surface not being
+ * blank, and it is a scroll rather than a hidden paragraph.
  *
  * `summary` carries the page the words came from when the dataset knows it,
  * which is the stamp `StepExperiences` and the GM reference already use: in an
@@ -904,15 +921,19 @@ function StepAncestry({
         {!draft.mixed ? (
           <Columns min={250}>
             {dataset.ancestries.map((a) => (
-              <Choice
+              <ChoiceWithReader
                 key={a.id}
-                selected={draft.ancestryTop === a.id}
-                onClick={() => set({ ancestryTop: a.id })}
-                title={a.name}
-                meta={`${a.features[0].name.toUpperCase()} · ${a.features[1].name.toUpperCase()}`}
-                body={a.description}
-                clamp={2}
-              />
+                name={a.name}
+                description={a.description}
+                page={a.sourcePage}
+              >
+                <Choice
+                  selected={draft.ancestryTop === a.id}
+                  onClick={() => set({ ancestryTop: a.id })}
+                  title={a.name}
+                  meta={`${a.features[0].name.toUpperCase()} · ${a.features[1].name.toUpperCase()}`}
+                />
+              </ChoiceWithReader>
             ))}
           </Columns>
         ) : (
@@ -922,15 +943,21 @@ function StepAncestry({
                 FIRST FEATURE FROM
               </span>
               {dataset.ancestries.map((a) => (
-                <Choice
+                <ChoiceWithReader
                   key={a.id}
-                  selected={draft.ancestryTop === a.id}
-                  disabled={draft.ancestryBottom === a.id}
-                  reason={draft.ancestryBottom === a.id ? 'Already your second lineage' : undefined}
-                  onClick={() => set({ ancestryTop: a.id })}
-                  title={a.name}
-                  meta={a.features[0].name.toUpperCase()}
-                />
+                  name={a.name}
+                  description={a.description}
+                  page={a.sourcePage}
+                >
+                  <Choice
+                    selected={draft.ancestryTop === a.id}
+                    disabled={draft.ancestryBottom === a.id}
+                    reason={draft.ancestryBottom === a.id ? 'Already your second lineage' : undefined}
+                    onClick={() => set({ ancestryTop: a.id })}
+                    title={a.name}
+                    meta={a.features[0].name.toUpperCase()}
+                  />
+                </ChoiceWithReader>
               ))}
             </div>
             <div className="stack" style={{ gap: 8 }}>
@@ -938,15 +965,21 @@ function StepAncestry({
                 SECOND FEATURE FROM
               </span>
               {dataset.ancestries.map((a) => (
-                <Choice
+                <ChoiceWithReader
                   key={a.id}
-                  selected={draft.ancestryBottom === a.id}
-                  disabled={draft.ancestryTop === a.id}
-                  reason={draft.ancestryTop === a.id ? 'Already your first lineage' : undefined}
-                  onClick={() => set({ ancestryBottom: a.id })}
-                  title={a.name}
-                  meta={a.features[1].name.toUpperCase()}
-                />
+                  name={a.name}
+                  description={a.description}
+                  page={a.sourcePage}
+                >
+                  <Choice
+                    selected={draft.ancestryBottom === a.id}
+                    disabled={draft.ancestryTop === a.id}
+                    reason={draft.ancestryTop === a.id ? 'Already your first lineage' : undefined}
+                    onClick={() => set({ ancestryBottom: a.id })}
+                    title={a.name}
+                    meta={a.features[1].name.toUpperCase()}
+                  />
+                </ChoiceWithReader>
               ))}
             </div>
           </Columns>
@@ -986,15 +1019,19 @@ function StepCommunity({
     <Section label="Community" hint={`${dataset.communities.length} to choose from`}>
       <Columns min={250}>
         {dataset.communities.map((c) => (
-          <Choice
+          <ChoiceWithReader
             key={c.id}
-            selected={draft.communityRef === c.id}
-            onClick={() => set({ communityRef: c.id })}
-            title={c.name}
-            meta={c.feature.name.toUpperCase()}
-            body={c.description}
-            clamp={2}
-          />
+            name={c.name}
+            description={c.description}
+            page={c.sourcePage}
+          >
+            <Choice
+              selected={draft.communityRef === c.id}
+              onClick={() => set({ communityRef: c.id })}
+              title={c.name}
+              meta={c.feature.name.toUpperCase()}
+            />
+          </ChoiceWithReader>
         ))}
       </Columns>
       {community && (
