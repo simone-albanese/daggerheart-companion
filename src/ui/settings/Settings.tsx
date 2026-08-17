@@ -318,21 +318,19 @@ function Display({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
           <Switch label="Show the shapes" checked={demoShapes} onChange={setDemoShapes} />
         </Field>
 
-        <Field
-          label="Counters"
-          hint="On a phone or a tablet, the Play screen's Hit Points, Stress, Hope and Armor Slots can be a number with a stepper, or the row of pips. Numbers also let you tap the value and type it, which pips cannot. The desktop layout, the party board and the companion keep pips either way."
-        >
-          <Choice
-            label="Counters"
-            value={prefs.counterStyle}
-            onChange={(counterStyle) => setPrefs({ counterStyle })}
-            options={[
-              ['numbers', 'Numbers'],
-              ['pips', 'Pips'],
-            ]}
-          />
-        </Field>
-
+        {/*
+         * THE COUNTERS ROW IS GONE, AND ITS HINT IS WHY IT COULD NOT SIMPLY BE
+         * EDITED. It read "On a phone or a tablet, the Play screen's Hit
+         * Points, Stress, Hope and Armor Slots can be a number with a stepper,
+         * or the row of pips … The desktop layout, the party board and the
+         * companion keep pips either way." The first half now has one answer
+         * and the second half was never true of the desktop: that layout drew
+         * four `<Track>` rows the switch could not reach, at 32px against this
+         * project's own 44px floor. A hint that describes a branch nobody can
+         * choose is the same defect as a feature nothing calls, so the row goes
+         * rather than gets reworded. Pips survive on the party board, the live
+         * scene and the companion, none of which has ever had a switch.
+         */}
         <Field
           label="Keep the screen awake"
           hint={

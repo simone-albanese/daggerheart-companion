@@ -61,11 +61,14 @@ repository says it is.
   own docblock what it can and cannot prove: jsdom has no layout engine, so it
   sums declared heights and never measures. **Anything added to that column has
   to go through it.** The margin at 375×667 is 160px, where P5-5 had ten and had
-  to defend it, and since P5-8 **no** ordinary state the budget cannot see costs
-  more than it: the dearest is pips, and pips are **+100** and not the +149 that
-  four documents carried — measured in Chrome, the Vitals block is 94 as numbers
-  and 194 as pips, nothing wraps at either width, and with pips ROLL lands at
-  485 of 545 with 60 to spare.
+  to defend it, and **no** ordinary state the budget cannot see costs more than
+  it. The dearest is now typed dice at **+68**, which leaves 92. It was pips at
+  **+100**, leaving 60 — measured in Chrome, the Vitals block was 94 as numbers
+  and 194 as pips, and nothing wrapped at either width — and decision 7 deleted
+  `counterStyle`, its Settings switch and every branch on it, so that state is
+  unreachable and the list is five things rather than six. The counters are
+  numbers on the phone **and** in the desktop cockpit; pips survive on the party
+  board, the live scene and the companion.
 
   **And since P5-8 the whole folded sheet fits: 697 against 730 at 393×852,
   with 33px to spare.** That is the first time, and it is the condition P5-5's
@@ -167,7 +170,7 @@ one session of it — which is also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
-| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; seven tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Conditions, Lineage — all shut by default and each remembered per character. Since P5-6 the four counters are a 2×2 grid and the incoming-damage box is a fifth cell of the defence band, beside the thresholds it is read against. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. Since P5-7 the licence notice is the last child of the column, below the lineage fold and outside the budget. |
+| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad, on every layout: decision 7 deleted `prefs.counterStyle` and its Settings switch, took the pip tracks off the desktop cockpit as well as the phone — 29 targets 32px tall against a 44px floor, and the preference could never reach them — and gave the cockpit's `DualityRoll` the 70px back (the Vitals block is 428×175 where it was 428×245). Pips survive on the party board, the live scene and the companion. Nothing is pinned; seven tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Conditions, Lineage — all shut by default and each remembered per character. Since P5-6 the four counters are a 2×2 grid and the incoming-damage box is a fifth cell of the defence band, beside the thresholds it is read against. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. Since P5-7 the licence notice is the last child of the column, below the lineage fold and outside the budget. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
 | **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out, the campaigns and the two tools no row can otherwise open; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and everything the disk did or failed to do — a write that did not land, a tap the saved campaign replaced — is said on the screen it happened on, with a retry only where a retry can do something. |
@@ -347,12 +350,14 @@ than bought:
   at. What it costs is inside the cell: the value target used to stand about
   105px clear of `−` and now stands 4, because 88 of a 172.5px cell is the two
   steppers. Both mistakes that allows are recoverable and neither is silent.
-  Pips deliberately do **not** get the grid — a 12-box track in a 172px cell
-  wraps under WCAG's 24px floor — so they keep the full width and are the
+  Pips deliberately did **not** get the grid — a 12-box track in a 172px cell
+  wraps under WCAG's 24px floor — so they kept the full width and were the
   dearest thing the budget cannot see, at **+100**: 194 as pips against 94 as
   numbers, measured in Chrome, nothing wrapping at either reference width. This
   file said +149 in two places and so did `Play.tsx` and `Architecture.md`;
-  P5-8 corrected all four and turned the arithmetic into an assertion.
+  P5-8 corrected all four and turned the arithmetic into an assertion. **Past
+  tense since decision 7:** the pip mode is deleted, the assertion with it, and
+  the dearest state the budget cannot see is typed dice at +68.
 - **The incoming-damage box is the fifth cell of the defence band**, worth 50
   rather than 46: a 44px field fits inside a row the number cells already hold
   open at 58, so the band did not grow at all. `IncomingDamage` came out of
@@ -432,8 +437,12 @@ built screen in Chrome and found four things; all four are closed.
 - **Pips cost +100, not +149**, and the "144 base" they were computed from
   contradicted `STACK`'s own 2×44 + 6 = 94. Measured in Chrome: 94 as numbers,
   194 as pips, nothing wrapping at either width. The conclusion was wrong in the
-  other direction too — with pips ROLL lands at 485 of 545 at 375×667, 60px of
+  other direction too — with pips ROLL landed at 485 of 545 at 375×667, 60px of
   slack, where `Play.tsx` told the reader pips cost the small phone its margin.
+  **Superseded by decision 7**, which deleted the mode rather than re-costing
+  it; the corrected number is kept here because the *shape* of that defect — a
+  figure carried by four documents that no document had re-measured — is the
+  thing worth remembering.
 - **Three prose numbers in the budget's own docblock contradicted the assertions
   below them**, all computed against an obsolete `ROLL_BOTTOM` of 435: the
   safe-area bullet's 261/295 and 76/110 (they are 311/345 and 126/160), "went

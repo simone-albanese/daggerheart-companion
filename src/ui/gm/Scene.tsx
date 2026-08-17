@@ -128,7 +128,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
           }}
         >
           {combatants.map((c) => (
-            <CombatantCard key={c.id} combatant={c} adversary={byRef.get(c.adversaryRef)} phone={phone} />
+            <CombatantCard key={c.id} combatant={c} adversary={byRef.get(c.adversaryRef)} />
           ))}
         </div>
       )}
@@ -139,11 +139,9 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
 function CombatantCard({
   combatant,
   adversary,
-  phone,
 }: {
   combatant: SceneCombatant;
   adversary: Adversary | undefined;
-  phone: boolean;
 }): React.JSX.Element {
   const patch = useGm((s) => s.patchCombatant);
   const remove = useGm((s) => s.removeCombatant);
@@ -214,7 +212,6 @@ function CombatantCard({
         max={c.hp.max}
         onChange={(v) => patch(c.id, { hp: { ...c.hp, marked: v } })}
         readout={`${c.hp.marked} / ${c.hp.max} MARKED`}
-        rowHeight={phone ? 44 : 38}
         compact
       />
       <Track
@@ -224,7 +221,6 @@ function CombatantCard({
         max={c.stress.max}
         onChange={(v) => patch(c.id, { stress: { ...c.stress, marked: v } })}
         readout={`${c.stress.marked} / ${c.stress.max} MARKED`}
-        rowHeight={phone ? 44 : 38}
         compact
       />
 

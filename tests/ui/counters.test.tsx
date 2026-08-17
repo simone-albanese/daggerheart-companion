@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Counters as numbers, and the preference that chooses them.
+ * Counters as numbers, which is now the only way the player's own sheet draws
+ * them.
  *
  * A pip row is five taps from 2 to 7, on five 24px-wide neighbouring targets,
  * and the SRD hands Stress out in lumps - "mark 3 Stress" is three taps and
@@ -10,19 +11,26 @@
  * floor, and a value target sitting close enough to `+` that a thumb on its
  * way there opens a keyboard instead.
  *
- * The scope of the preference is tested too, because it is the part that is
- * easiest to get subtly wrong: numbers are for the Play screen on a phone or a
- * tablet, and the desktop cockpit keeps its pips.
+ * THE SCOPE IS TESTED TOO, AND IT HAS REVERSED. This file used to say "numbers
+ * are for the Play screen on a phone or a tablet, and the desktop cockpit keeps
+ * its pips", and it asserted exactly that. Decision 7 takes the pips off the
+ * player's own sheet on **every** layout: the cockpit's four `<Track>` rows
+ * were 29 targets 32px tall - two under `--pip-h` on a mouse-only desktop and
+ * twelve under it on any machine with a coarse pointer, which is every
+ * touchscreen laptop and every iPad in a keyboard case - and the preference
+ * could never reach them anyway. Pips survive where you read somebody else's state
+ * rather than mark your own - the party board, the live scene and the
+ * companion - and none of those is mounted here.
  */
 import 'fake-indexeddb/auto';
 import { act } from 'react';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
 import { Settings } from '../../src/ui/settings/Settings.tsx';
-import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { DEFAULT_PREFS, loadPrefs } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
@@ -241,8 +249,9 @@ describe('a counter drawn as a number', () => {
     ).toEqual(['HP 2 of 6 - tap to type a value', 'HP minus one', 'HP plus one']);
 
     // The gutter is the row's own gap now, and it is 4 rather than 6 for a
-    // measured reason: `Counter`'s docblock has the 59.5px of ink against the
-    // 64.5px of room, and six left one pixel.
+    // measured reason: `Counter`'s docblock has the ink against the room at
+    // every width, and six left one pixel at 375 when the number was a flat 20.
+    // Since `--counter-num` the four is load-bearing at 360 and below instead.
     expect(row.style.gap, 'the cell gutter moved and the fit was computed on 4').toBe('4px');
 
     const grows = kids.filter((el) => el.style.flex.startsWith('1 1'));
@@ -253,13 +262,85 @@ describe('a counter drawn as a number', () => {
   });
 
   /*
+   * The number's size is a token, not a literal, and that is decision 4 of the
+   * reflow. What decides it is how wide the grid track is - 85.5 of target at
+   * 393, 76.5 at 375, 69 at 360 - and a component cannot ask a grid track its
+   * width at style time, so the arithmetic and its one breakpoint live in
+   * `tokens.css` where `--control` and `--pip-h` already are. `stylesheets.test`
+   * holds the token's own contract; this holds that the cell reads it.
+   */
+  it('draws the value at --counter-num rather than at a size of its own', () => {
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
+    const target = container.querySelector<HTMLButtonElement>('button')!;
+    const value = [...target.querySelectorAll('span')].find((el) =>
+      (el.getAttribute('style') ?? '').includes('var(--sans)'),
+    );
+    expect(
+      value?.style.font,
+      'the counter number is back to a literal size, so the 360px cell clips the tail of ' +
+        '`/ 11` and no stylesheet can say otherwise - an inline font is not overridable',
+    ).toBe('800 var(--counter-num)/1 var(--sans)');
+    // And the target it sits in did not move: this decision is ink only.
+    expect(target.style.minHeight, 'the value target left the touch floor').toBe('44px');
+    expect(target.style.minWidth).toBe('44px');
+  });
+
+  /*
    * The width the cell has to live in, stated where a change to the grid would
    * fail rather than in a comment. jsdom measures nothing, so these are the
    * declared terms: the column is the glass less this screen's 12px of padding
    * either side, the grid is two columns with one 6px gap, and the steppers are
    * two 44s with the row's 4px gutter twice.
    */
-  it('leaves 76.5px for the value at 375, which is what the readout was fitted to', () => {
+  /*
+   * THE NARROW END OF THAT SAME TABLE, WHICH NOTHING STATED UNTIL NOW.
+   *
+   * `1fr` is `minmax(auto, 1fr)`, so each track's floor was the `Counter` row's
+   * own min-content - 165.81 for the STRESS cell, measured in Chrome - and the
+   * grid's minimum was a viewport-independent 325.37 with its right edge pinned
+   * at x = 337.37. Below that width the column's `overflow-x: hidden` simply cut
+   * the `+` on STRESS and ARMOR: 17.4px of a 44px target off the glass at 320,
+   * unreachable by any gesture. Floored at 0 in both places - the track here and
+   * the item in `Counter` - the cell takes what the column gives it and the
+   * value button absorbs the shortfall behind its own `overflow: hidden`.
+   *
+   * The second half is arithmetic over declared terms and cannot fail on its
+   * own; it is here, in the same `it` as the two style assertions that do fail
+   * pre-fix, because it is the number that says where the shape stops: 310.
+   */
+  it('lets the cell shrink to the column, down to the 310px where the steppers stop fitting', () => {
+    seed();
+    render(
+      createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
+    );
+    const cell = named('HP plus one').parentElement as HTMLElement;
+    const grid = cell.parentElement as HTMLElement;
+    expect(
+      grid.style.gridTemplateColumns,
+      'the tracks are back to a bare 1fr, whose automatic minimum is the cell\'s min-content - ' +
+        'so the grid is 325.37 wide at every viewport and the STRESS and ARMOR steppers are ' +
+        'cut off the glass below 337',
+    ).toBe('minmax(0, 1fr) minmax(0, 1fr)');
+    expect(
+      cell.style.minWidth,
+      'the Counter row keeps its automatic minimum, so it overflows the track it was given ' +
+        'and flooring the track achieved nothing',
+    ).toBe('0px');
+
+    const width = (glass: number): number => (glass - 24 - 6) / 2;
+    const forTheValue = (glass: number): number => width(glass) - 44 * 2 - 2 * 4;
+    expect(forTheValue(360)).toBe(69);
+    expect(forTheValue(344)).toBe(61);
+    expect(forTheValue(320)).toBe(49);
+    expect(
+      forTheValue(310),
+      'the floor of this shape moved. At 310 the value target is exactly the 44 it declares ' +
+        'as its own minWidth, and below it the two steppers start being pushed out of the ' +
+        'cell again - which is the failure this fix exists to close',
+    ).toBe(44);
+  });
+
+  it('leaves 76.5px for the value at 375, which is the widest the token steps down for', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
     const gutter = Number.parseFloat(row.style.gap);
@@ -278,8 +359,10 @@ describe('a counter drawn as a number', () => {
     expect(forTheValue(393)).toBe(85.5);
     expect(
       forTheValue(375),
-      'the narrowest cell no longer leaves the 76.5px the 59.5px value line was measured ' +
-        'against - the gutter or the steppers moved and the readout was fitted to neither',
+      'the 375px cell no longer leaves the 76.5px the value line was measured against - the ' +
+        'gutter or the steppers moved and the readout was fitted to neither. It is no longer ' +
+        'the narrowest cell either: `lets the cell shrink to the column` has 69 at 360, 61 at ' +
+        '344 and 49 at 320',
     ).toBe(76.5);
   });
 });
@@ -288,7 +371,7 @@ describe('a counter drawn as a number', () => {
 // Which surfaces get them
 // ---------------------------------------------------------------------------
 
-function seed(counterStyle: 'numbers' | 'pips'): void {
+function seed(): void {
   const character = playedCharacter();
   useApp.setState({
     ready: true,
@@ -297,7 +380,7 @@ function seed(counterStyle: 'numbers' | 'pips'): void {
     index,
     characters: [character],
     activeId: character.id,
-    prefs: { ...DEFAULT_PREFS, counterStyle },
+    prefs: { ...DEFAULT_PREFS },
     log: [],
     openCard: null,
   });
@@ -309,24 +392,25 @@ const stepperCount = (): number =>
   buttons().filter((b) => (b.getAttribute('aria-label') ?? '').endsWith('plus one')).length;
 
 /*
- * The three phone mounts below used to pass `part: 'tracks'` and now pass
- * `bare: true`, and that swap is deliberately the only edit in this file.
+ * WHAT THIS DESCRIBE USED TO SAY, QUOTED BECAUSE IT WAS TRUE AND DELIBERATE.
  *
- * `part` split this component in two so the phone could pin the tracks and
- * leave the calculator in the scroll; nothing on Play is pinned any more, so
- * the prop is gone and these mounts draw the calculator's row as well - which
- * changes neither the stepper count nor the pip-group count either of them
- * asserts. Everything else here - the HP/STRESS/HOPE/ARMOR order, numbers
- * versus pips, the desktop keeping its pips, the Settings row - is untouched,
- * and that is the evidence P5-5 moved the counters rather than rebuilding them.
+ * It held three assertions about scope: numbers are the default, the phone
+ * gets pips back «when the preference says so», and the cockpit «leaves the
+ * desktop cockpit on pips whatever the preference says». The first two named a
+ * preference that no longer exists and are gone; the third is inverted below,
+ * with its old title kept in this comment so the reversal is a decision on the
+ * record rather than a test that quietly disappeared.
+ *
+ * The reason is measured twice. Pips were the single dearest state the Play
+ * budget could not see (+100 on a 730px column), and on the cockpit they drew
+ * 29 targets 32px tall - from a literal `phone ? 44 : 32` in `Vitals` that beat
+ * `--pip-h`, the token that had already resolved to 44 on every machine with a
+ * coarse pointer and to 34 on a mouse-only one. Two pixels under on a plain
+ * desktop, twelve under on a touchscreen laptop.
  */
 describe('where the numbers are allowed to be', () => {
-  it('is the default, so a new install gets them', () => {
-    expect(DEFAULT_PREFS.counterStyle).toBe('numbers');
-  });
-
   it('draws them on the phone Play screen', () => {
-    seed('numbers');
+    seed();
     render(
       createElement(Vitals, {
         stats: playedStats(),
@@ -339,25 +423,15 @@ describe('where the numbers are allowed to be', () => {
     expect(pipGroups(), 'a pip row was drawn as well').toBe(0);
   });
 
-  it('gives the phone its pips back when the preference says so', () => {
-    seed('pips');
-    render(
-      createElement(Vitals, {
-        stats: playedStats(),
-        layout: 'phone',
-        showState: false,
-        bare: true,
-      }),
-    );
-    expect(stepperCount()).toBe(0);
-    expect(pipGroups(), 'four tracks, four pip rows').toBe(4);
-  });
-
-  it('leaves the desktop cockpit on pips whatever the preference says', () => {
-    seed('numbers');
+  it('draws them in the desktop cockpit too, where the pips used to be', () => {
+    seed();
     render(createElement(Vitals, { stats: playedStats(), layout: 'desktop', showState: false }));
-    expect(stepperCount(), 'the desktop layout grew steppers').toBe(0);
-    expect(pipGroups()).toBe(4);
+    expect(stepperCount(), 'the cockpit did not grow the four steppers').toBe(4);
+    expect(
+      pipGroups(),
+      'the cockpit is still drawing pip rows - 29 targets 32px tall, and the one surface ' +
+        'the deleted preference could never reach',
+    ).toBe(0);
   });
 
   /*
@@ -367,43 +441,110 @@ describe('where the numbers are allowed to be', () => {
    * being true when the Play screen became the character sheet.
    */
   /*
-   * A preference nothing can reach is the same defect as a feature nothing
-   * calls: it ships switched off behind a passing test. Settings is edited by
-   * another lane, so this asks the smallest question that would notice the row
-   * going missing rather than pinning anything about the section around it.
+   * REPLACES «can be changed from Settings, and changing it writes the
+   * preference», which was the only test in the suite that resolved the switch
+   * by its accessible name, and which is now the assertion turned round.
+   *
+   * That test's own comment gave the reason it existed: "a preference nothing
+   * can reach is the same defect as a feature nothing calls". The same sentence
+   * is why the switch had to go rather than be left standing - after decision 7
+   * it was a control whose two options draw the identical screen, sitting under
+   * a hint that promised pips on three surfaces it does not govern.
    */
-  it('can be changed from Settings, and changing it writes the preference', async () => {
-    seed('numbers');
+  it('is not a switch in Settings any more, because it is not a choice any more', async () => {
+    seed();
     render(createElement(Settings));
     await settle();
-    const row = container.querySelector('[role="group"][aria-label="Counters"]');
-    expect(row, 'Settings has no Counters row').not.toBeNull();
-    const pips = [...row!.querySelectorAll('button')].find(
-      (b) => (b.textContent ?? '').trim() === 'Pips',
-    );
-    expect(pips, 'the Counters row offers no way to pick pips').toBeDefined();
-    click(pips!);
-    expect(useApp.getState().prefs.counterStyle).toBe('pips');
+    expect(
+      container.querySelector('[role="group"][aria-label="Counters"]'),
+      'Settings still draws the Counters switch. Both of its options now render the same ' +
+        'four numeric cells, so it is a control that claims to change something and does ' +
+        'not - which is the one thing this app does not do.',
+    ).toBeNull();
   });
 
   /*
-   * The hundred pixels the whole reflow is paid for with, and the one mode
-   * that must not get them.
+   * THE INSTALL THAT ALREADY SAID `pips`, WHICH IS THE ONLY WAY THIS CHANGE
+   * COULD HURT ANYONE.
    *
-   * Four stacked rows are 4x44 + 3x6 = 194; two across are 2x44 + 6 = 94. A
-   * grid that quietly caught the pip mode as well would be a regression
-   * disguised as the same saving: a 12-box Hit Point track in a 172px cell
-   * wraps onto three rows at WCAG's 24px floor and the four tracks come out
-   * *taller* than the four they replaced.
+   * `Prefs` is localStorage-only, so there is no schema version to move and no
+   * converter was written. What has to hold instead is the read path: a record
+   * carrying the deleted key must not throw, must not resurrect the branch, and
+   * must not cost the *other* preferences in the same record - which is the
+   * half that would fail in silence, because a user whose theme quietly reset
+   * has nothing to read about it. `loadPrefs` spreads the parsed JSON over
+   * `DEFAULT_PREFS`, so the orphan is kept verbatim and read by nobody.
    */
-  it('puts the numbers two across and leaves the pips one to a row', () => {
-    seed('numbers');
+  it('ignores a stored counterStyle without dropping the record around it', () => {
+    /*
+     * A `localStorage` of this file's own, the way `heldDice.test.ts` and
+     * `gmStore.test.ts` already do it: neither the node environment nor this
+     * repo's jsdom hands one over.
+     */
+    const map = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+      clear: () => map.clear(),
+    });
+    localStorage.setItem(
+      'dhc.prefs.v1',
+      JSON.stringify({ counterStyle: 'pips', theme: 'light', gmPartySize: 6 }),
+    );
+    const stored = loadPrefs();
+    expect(stored.theme, 'a record with an unknown key lost the preferences beside it').toBe(
+      'light',
+    );
+    expect(stored.gmPartySize).toBe(6);
+    expect(
+      Object.keys(stored),
+      'the orphan key was converted away. It is deliberately left where it is: prefs are ' +
+        'localStorage-only, so a migration for one dead string would be a schema cost ' +
+        'arriving by the back door.',
+    ).toContain('counterStyle');
+
+    const character = playedCharacter();
+    useApp.setState({
+      ready: true,
+      storageError: null,
+      dataset,
+      index,
+      characters: [character],
+      activeId: character.id,
+      prefs: stored,
+      log: [],
+      openCard: null,
+    });
+    render(
+      createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
+    );
+    expect(stepperCount(), 'a stored "pips" still reaches a branch').toBe(4);
+    expect(pipGroups(), 'a stored "pips" still draws pip rows').toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  /*
+   * The hundred pixels the whole reflow is paid for with.
+   *
+   * Four stacked rows are 4x44 + 3x6 = 194; two across are 2x44 + 6 = 94. The
+   * second half of this test used to be the pip mode, which had to stay one to
+   * a row - a 12-box Hit Point track in a 172px cell wraps onto three rows at
+   * WCAG's 24px floor and the four tracks come out *taller* than the four they
+   * replaced. That mode is gone from this component, so what stands in its
+   * place is the cockpit, which is now the same grid rather than a second
+   * arrangement that has to be argued separately.
+   */
+  it('puts the numbers two across, on the phone and in the cockpit alike', () => {
+    seed();
     render(
       createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
     );
     const cell = named('HP plus one').parentElement!;
     const grid = cell.parentElement as HTMLElement;
-    expect(grid.style.gridTemplateColumns, 'the four counters are not two across').toBe('1fr 1fr');
+    expect(grid.style.gridTemplateColumns, 'the four counters are not two across').toBe(
+      'minmax(0, 1fr) minmax(0, 1fr)',
+    );
     expect(grid.style.gap, 'the counters lost the 6px rhythm the four rows had').toBe('6px');
     expect(grid.children, 'the grid holds something other than the four counters').toHaveLength(4);
     for (const c of [...grid.children] as HTMLElement[]) {
@@ -412,15 +553,29 @@ describe('where the numbers are allowed to be', () => {
     // 2x44 + one 6px gap, against the 4x44 + three 6px gaps it replaced.
     expect(2 * 44 + 6).toBe(94);
 
-    seed('pips');
-    render(
-      createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
-    );
-    const track = container.querySelector<HTMLElement>('[role="group"]')!;
+    /*
+     * The cockpit, where this is a redraw rather than a no-op. It was three
+     * 48px track rows - a 10px `.t-label`, its 6px margin, a 32px pip row -
+     * inside a 428x245 panel; it is 94px of grid inside a 428x175 one, and the
+     * 70px go to `DualityRoll` below it. A cockpit cell is (402 - 6) / 2 = 198
+     * wide, so the value target is 102x44 against the phone's 76.5x44.
+     */
+    seed();
+    render(createElement(Vitals, { stats: playedStats(), layout: 'desktop', showState: false }));
+    const deskGrid = named('HP plus one').parentElement!.parentElement as HTMLElement;
     expect(
-      (track.parentElement as HTMLElement).style.gridTemplateColumns,
-      'the pip tracks were put two across, where a 12-box track cannot fit',
-    ).toBe('');
+      deskGrid.style.gridTemplateColumns,
+      'the cockpit counters are not the phone\'s 2x2 grid',
+    ).toBe('minmax(0, 1fr) minmax(0, 1fr)');
+    expect(deskGrid.style.gap, 'the cockpit grid does not carry the counters\' 6px gap').toBe(
+      '6px',
+    );
+    expect(deskGrid.children, 'the cockpit grid holds something other than four cells').toHaveLength(
+      4,
+    );
+    for (const c of [...deskGrid.children] as HTMLElement[]) {
+      expect(c.style.minHeight, 'a cockpit counter cell is below the touch floor').toBe('44px');
+    }
   });
 
   /*
@@ -444,7 +599,7 @@ describe('where the numbers are allowed to be', () => {
   });
 
   it('runs HP, Stress, Hope, Armor, the way the printed sheet does', () => {
-    seed('numbers');
+    seed();
     render(
       createElement(Vitals, {
         stats: playedStats(),

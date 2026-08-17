@@ -13,11 +13,28 @@
  * least - for the first field on the paper sheet and the most-shown string in
  * the app.
  *
- * So there is one control and two doors, rather than two implementations. The
- * rule it enforces is not restated here: `freeName` and `nameHolder` in
- * `src/store/merge.ts` are the single definition of "the same name", and this
- * component's whole job is to put that definition in front of a person before
- * they commit rather than after.
+ * IT HAD TWO DOORS AND IT HAS ONE AGAIN, WHICH IS WORTH SAYING OUT LOUD.
+ * P5-1(b) put the second door on the Play sheet - a 72x44 RENAME chip on the
+ * class row - and the reflow's decision 1 deleted it, because 72px plus an 8px
+ * gutter of that row's width and one fewer permanent target on the screen that
+ * is open ninety per cent of the time were judged worth more than taking the
+ * rename from four gestures to nought. So the paragraph above is in force
+ * again, for every layout: `Edit.tsx`'s Identity section is the only way in.
+ * The rule this component enforces is not restated here: `freeName` and
+ * `nameHolder` in `src/store/merge.ts` are the single definition of "the same
+ * name", and this component's whole job is to put that definition in front of
+ * a person before they commit rather than after.
+ *
+ * TWO THINGS LOST THEIR PRODUCTION CALLER WITH THAT CHIP AND ONLY ONE WENT WITH
+ * IT. `autoFocus` is deleted: Play was its only caller - it existed because a
+ * chip had already been tapped to open the field - and focusing this field on
+ * arrival at the Build form is the exact failure the backlog bullet forbids, so
+ * nothing was left for it to do. `onDone`, and the `×` it draws, are still here
+ * and are still exercised: `rename.test.tsx` mounts this component directly
+ * through them, and they carry its whole coverage of the cancel path and of the
+ * refusal offer. Kept deliberately and named here rather than left to be
+ * discovered - the shape any future in-place door needs is this one, and
+ * deleting it would delete the tests that prove the naming rule with it.
  *
  * Three things it deliberately does not do.
  *
@@ -64,44 +81,40 @@ const MAX_NAME = 40;
 
 export function RenameField({
   label,
-  autoFocus = false,
   commitOnBlur = false,
   onDone,
 }: {
   /**
-   * A visible caption, for the Build form where every field has one. Play
-   * passes none: the field replaces a row that already says what it is.
+   * A visible caption, for the Build form where every field has one. A caller
+   * that replaces a row already saying what it is passes none.
    */
   label?: string;
   /**
-   * Focus the field on mount. True on Play, where a chip has already been
-   * tapped to get here; false in Build, where the field is simply part of a
-   * form and focusing it would open a keyboard on arrival at the screen.
-   */
-  autoFocus?: boolean;
-  /**
    * Commit when the field loses focus.
    *
-   * The two doors differ on whether a blur can be read, not on whether typing
-   * can be lost. Typing can be lost on both: tap the Cards tab with a name
-   * half-entered on the sheet and `Identity` unmounts with the draft in it,
-   * exactly as the Build form would if this were false there. What Build has
-   * that Play does not is an unambiguous blur - it draws no cancel target, so
-   * every way out of the field is a way out of the screen and there is nothing
-   * a commit could contradict. On Play the `×` is a blur before it is a click,
-   * so committing on blur would write the name the `×` exists to abandon.
+   * Build passes it and it is the only production caller, so this reads as a
+   * flat "yes" today - but it is a prop rather than the behaviour because the
+   * two shapes genuinely differ, and the difference is whether a blur can be
+   * read rather than whether typing can be lost. Typing can be lost either
+   * way: a screen that unmounts with a draft in the field drops it. What Build
+   * has is an unambiguous blur - it draws no cancel target, so every way out of
+   * the field is a way out of the screen and there is nothing a commit could
+   * contradict. Any caller that passes `onDone` gets a `×`, and a `×` is a blur
+   * before it is a click, so committing on blur there would write the name the
+   * `×` exists to abandon.
    *
    * The other half of Build's case is the company it keeps: every neighbouring
    * field on that form writes on the keystroke, so a Name that took SAVE and
    * nothing else would be the one field there that drops a half-typed value on
-   * a tab tap. The sheet's field keeps no such company - it is a thing you
-   * opened, with a `×` on it - which is what makes the same loss legible there
-   * and not here.
+   * a tab tap.
    */
   commitOnBlur?: boolean;
   /**
-   * Draws the cancel target and is called after a commit. Build passes
-   * neither, so Build has no `×`.
+   * Draws the cancel target and is called after a commit.
+   *
+   * No production caller since the Play chip went - Build passes neither this
+   * nor a cancel - and `rename.test.tsx` mounts this component through it. See
+   * the docblock above for why it is kept rather than deleted with `autoFocus`.
    */
   onDone?: () => void;
 }): React.JSX.Element | null {
@@ -213,7 +226,6 @@ export function RenameField({
             autoComplete="off"
             spellCheck={false}
             autoCapitalize="words"
-            autoFocus={autoFocus}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitOnBlur ? commit : undefined}
             onKeyDown={(e) => {

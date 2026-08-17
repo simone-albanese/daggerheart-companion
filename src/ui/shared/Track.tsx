@@ -76,18 +76,25 @@ const HOLD_MS = 480;
  * re-imports what is already on the disk. A component that cannot be made to
  * hang is the only guarantee that survives its own callers.
  *
- * Forty, from the geometry rather than from taste. `--pip-min` is 24px and
- * `--pip-gap` is 5px, so a column costs 29px; the narrowest phone this has to
- * draw on is 320 CSS px and the frame spends 12 each side, so a full-bleed row
- * is 296px and fits ten columns - twelve on a 393px phone, which is why a full
- * HP track is one line there and two on the small one. A wrapped row then costs
- * `--pip-h` plus the gap, 44 + 5, wherever a finger can reach the glass. Four
- * rows is 4x44 + 3x5 = 191px: a third of a 568px viewport, spent on one track,
- * on a screen that already scrolls. Past four rows a track has stopped being a
- * shape the eye takes in and become a grid you count. Ten columns by four rows
- * is forty, which is 3.3x the largest track the rules can produce and 3.3x the
- * largest in the shipped dataset - a 12 HP adversary - so nothing legitimate
- * comes near it.
+ * Forty, from the geometry rather than from taste, and stated as a ceiling
+ * rather than as a description of any surface. `--pip-min` is 24px and
+ * `--pip-gap` is 5px, so a column costs 29px; ten columns is about 290px of
+ * row, which is roughly what the narrowest phone this has to draw on has left
+ * after its frame. A wrapped row then costs `--pip-h` plus the gap, 44 + 5,
+ * wherever a finger can reach the glass. Four rows is 4x44 + 3x5 = 191px: a
+ * third of a 568px viewport, spent on one track, on a screen that already
+ * scrolls. Past four rows a track has stopped being a shape the eye takes in
+ * and become a grid you count. Ten columns by four rows is forty, which is
+ * 3.3x the largest track the rules can produce and 3.3x the largest in the
+ * shipped dataset - a 12 HP adversary - so nothing legitimate comes near it.
+ *
+ * This paragraph used to finish "- twelve on a 393px phone, which is why a
+ * full HP track is one line there and two on the small one", and no caller has
+ * ever drawn the full-bleed 296px row that sentence assumed. The gutter took
+ * 52px off it before decision 7 deleted the gutter, and the three surviving
+ * callers frame their rows harder still: measured on the party board at
+ * 820x1180, an eleven-box HP track is 11 x 28.9 + 10 x 5 = 368px inside a
+ * two-column drawer. The ceiling is the claim; the phone arithmetic was not.
  */
 const MAX_PIPS = 40;
 
@@ -108,30 +115,20 @@ interface Props {
    * Row height. Defaults to `--pip-h`, which is the touch floor wherever the
    * machine has a coarse pointer at all and 34 on a mouse-only desktop.
    *
-   * It used to default to a bare 44 and Vitals passed `phone ? 44 : 32` from a
-   * viewport-width test, which is why every iPad drew 32px pips while the
-   * token sitting next to it had already resolved to 44. A token a component
-   * reads beats a number a component decides.
+   * It used to default to a bare 44, and every caller passed a literal past it
+   * from a viewport-width test - which is how a machine whose token had already
+   * resolved to 44 drew 32px pips anyway. A token a component reads beats a
+   * number a component decides. `Vitals` was the caller that sentence was
+   * written about and it is gone: decision 7 took the pip tracks off the
+   * player's own sheet entirely. The three that remain - the GM's party board,
+   * the live scene and the companion panel - are the surfaces where you read
+   * somebody else's state rather than mark your own, and they still pass
+   * numbers of their own.
    */
   rowHeight?: number | string;
   gap?: number;
   labelColor?: string;
   compact?: boolean;
-  /**
-   * Where the label and the readout sit.
-   *
-   * 'stacked' is the original - a header row above the pips, which is what the
-   * GM's party board, the scene panel and the companion want, and where
-   * `headerExtra` docks. 'gutter' puts them in a fixed cell to the left of the
-   * pip row instead: it spends width, which a full-bleed phone track has, to
-   * save 16px of height, which it does not.
-   *
-   * In both shapes the label sits outside the element carrying the hold
-   * handlers, and that is not a style choice. The root used to wrap the header,
-   * and a 480ms press to put a caret in the damage field zeroed the track
-   * underneath it.
-   */
-  headerLayout?: 'stacked' | 'gutter';
   /**
    * How many of the filled pips are *proposed* rather than spent.
    *
@@ -161,7 +158,6 @@ export function Track({
   gap = 5,
   labelColor,
   compact = false,
-  headerLayout = 'stacked',
   pending = 0,
 }: Props): React.JSX.Element {
   const shape = TRACK_SHAPES[kind];
@@ -206,8 +202,6 @@ export function Track({
   const overflowing = max > MAX_PIPS;
   const pips = Array.from({ length: Math.min(max, MAX_PIPS) }, (_, i) => i);
   const markHeight = compact ? Math.round(shape.markHeight * 0.72) : shape.markHeight;
-
-  const gutter = headerLayout === 'gutter';
 
   const pipRow = (
     <div
@@ -351,49 +345,20 @@ export function Track({
   );
 
   /*
-   * The gutter spends width to buy height.
+   * The one header this component has, now that the gutter is gone.
    *
-   * Stacked costs a 14px label line plus 6px of margin above every track. On a
-   * phone with four of them that is 80px, which is two whole loadout rows, and
-   * width is the thing a full-bleed phone track has spare. The label cell is
-   * the touch floor wide so the numbers have room to be read at a glance from
-   * the same left edge every time - a readout that moves with the label's
-   * length is a readout you have to hunt for.
+   * There were two. 'gutter' put the label and the readout in a fixed 44px cell
+   * to the left of the pips - spending width, which a full-bleed phone track
+   * had, to save the 16px of height that a stacked header costs, which it did
+   * not. `Vitals` was its only caller in `src/`, and decision 7 deleted the
+   * caller, so the branch went with it rather than sitting here as a shape
+   * nothing draws. The GM's party board, the live scene and the companion all
+   * render this one and always have.
+   *
+   * The label sits outside the element carrying the hold handlers, and that is
+   * not a style choice: the root used to wrap the header, and a 480ms press to
+   * put a caret in the damage field zeroed the track underneath it.
    */
-  if (gutter) {
-    return (
-      <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
-        <div
-          className="stack"
-          style={{
-            flex: 'none',
-            width: 44,
-            justifyContent: 'center',
-            gap: 1,
-            minHeight: rowHeight,
-          }}
-        >
-          <span
-            className="t-label"
-            style={{ color: labelColor ?? 'var(--text)', letterSpacing: '0.08em' }}
-          >
-            {label}
-          </span>
-          {readout !== undefined && (
-            <span className="t-meta" style={{ color: 'var(--dim)' }}>
-              {readout}
-            </span>
-          )}
-        </div>
-        {pipRow}
-        {headerExtra !== undefined && <span style={{ flex: 'none' }}>{headerExtra}</span>}
-      </div>
-    );
-  }
-
-  // Unchanged from before the gutter existed, deliberately: the GM's party
-  // board, the scene panel and the companion all render this shape, and none
-  // of them is part of this reorganisation.
   return (
     <div>
       <div className="spread" style={{ marginBottom: 6, padding: '0 2px' }}>

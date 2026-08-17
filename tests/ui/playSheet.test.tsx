@@ -243,13 +243,16 @@ describe('what a phone shows of the character sheet', () => {
     // The numbers themselves, and at a size a person can read across a table:
     // the band was 10px --dim text before this, which is what the item is
     // about, so the size is asserted rather than only the presence.
+    // 32 and not 26 since decision 4: the six pixels are the whole of that
+    // decision on this band, and they are spent inside a row whose height they
+    // set, beside two targets that stayed at 44.
     const cells = [...container.querySelectorAll('.panel')].filter((el) =>
       /^(EVASION|MAJOR|SEVERE|PROF)/.test((el.textContent ?? '').trim()),
     );
     expect(cells, 'the defence band is not four cells').toHaveLength(4);
     for (const cell of cells) {
       const big = [...cell.querySelectorAll('span')].find((el) =>
-        el.getAttribute('style')?.includes('26px'),
+        el.getAttribute('style')?.includes('32px'),
       );
       expect(big, `${cell.textContent ?? '?'} has no full-size number`).toBeDefined();
     }
@@ -257,11 +260,34 @@ describe('what a phone shows of the character sheet', () => {
     expect(body).toContain(String(s.thresholds[1]));
   });
 
-  it('names the class, the subclass and the level', () => {
-    play(seed());
-    const body = text();
-    expect(body).toContain('Fixture');
-    expect(body).toContain('LEVEL 3');
+  /*
+   * The class, the subclass, the pronouns and the level, one fold away.
+   *
+   * They were four lines of the identity block at the head of this column until
+   * decision 2 deleted it for 99px. Three of the four survive in the chrome -
+   * `Header.tsx` draws the name (or the character `<select>`) and
+   * `CLASS / MULTICLASS · LVn` on every screen, which `header.test.ts` pins -
+   * and this file mounts `Play` on its own, so the chrome is not in `text()`
+   * here and this test cannot see them there. What it *can* see is the two the
+   * header has never carried: `Header.tsx` joins `classRef` and `multiclassRef`
+   * and deliberately not `subclassRefs`, and it has no pronouns at all. So this
+   * is the test that stops decision 2 from having quietly deleted them, and it
+   * asserts the fold they moved into rather than the block they left.
+   */
+  it('names the class, the subclass, the pronouns and the level, one fold away', () => {
+    const c = seed();
+    play(c);
+    expect(
+      text(),
+      'the subclass is on the resting sheet, which means the identity block is back',
+    ).not.toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
+
+    click(fold('Lineage'));
+    const body = fold('Lineage').nextElementSibling!.textContent ?? '';
+    expect(body).toContain(`LEVEL ${String(c.level)}`);
+    expect(body, 'the pronouns are on the Play screen nowhere at all').toContain(
+      c.pronouns.toUpperCase(),
+    );
     expect(body).toContain(dataset.classes[0]!.name);
     expect(body).toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
   });
@@ -348,15 +374,21 @@ describe('what a phone shows of the character sheet', () => {
       return i;
     };
     const order = [
-      'Fixture', // identity
+      // The identity block is not in this list because it is not on this
+      // screen: decision 2 took it off for 99px, and the name, class and level
+      // are on `Header.tsx` on every screen. The band leads the column now.
       'EVASION', // the defence band: "threshold bene in vista"
       'HP', // the four counters, second, where the message puts them
       'AGI +', // the traits, as one row of numbers
       'ROLL', // and then the dice, in the flow
       'Weapons & armour',
       'Experiences', // "e fare entrare le armi e le experience"
-      'Carried', // "sotto armi e armature..."
-      'Cards', // "...e ultime le carte", with the vault folded inside them
+      // Cards before Carried, which reads *against* "sotto armi e armature e
+      // ultime le carte" and is decision 6 of the reflow: the cards are the
+      // fold a player opens most, and the message's order is an order rather
+      // than a frequency. It costs the column nothing - two 44px headers swap.
+      'Cards', // with the vault folded inside them
+      'Carried',
       'Rest & downtime',
       'Lineage & domains',
     ].map(at);
@@ -549,7 +581,7 @@ describe('the trait row and the roll surface', () => {
     return chip.parentElement!;
   };
 
-  it('the trait row is one 44px row, and the verbs are behind its own control', () => {
+  it('the trait row is one 58px row, and the verbs are behind its own control', () => {
     play(seed());
     const row = traitRowEl();
     const targets = [...row.querySelectorAll('button')];
@@ -557,7 +589,10 @@ describe('the trait row and the roll surface', () => {
     // pinned strip were two arming surfaces for the same six numbers.
     expect(targets).toHaveLength(7);
     for (const t of targets) {
-      expect(t.style.minHeight, `${t.textContent ?? '?'} is under the floor`).toBe('var(--tap)');
+      expect(
+        t.style.minHeight,
+        `${t.textContent ?? '?'} is not the row's one height`,
+      ).toBe('58px');
     }
     expect(row.style.flexWrap, 'the row cannot wrap, so it will clip instead').toBe('wrap');
 
@@ -565,6 +600,60 @@ describe('the trait row and the roll surface', () => {
     expect(verbs.getAttribute('aria-label')).toBe('What each trait is for');
     expect(verbs.getAttribute('aria-expanded')).toBe('false');
     expect(verbs.style.width, 'the verbs control is not square at the floor').toBe('44px');
+  });
+
+  /*
+   * DECISION 5, AND THE HALF OF IT THAT IS NOT THE HEIGHT.
+   *
+   * The chip stacks the abbreviation over the value at 15px, which is what the
+   * decision buys: from the smallest type on the sheet to the third-largest,
+   * for six of the numbers a player reads most often, at +14 on the column.
+   *
+   * The basis is the other half and it is a different defect. Flex breaks lines
+   * on the declared `flex-basis`, so a taller chip is not a narrower one - at
+   * `1 1 46px` the row declared 344 against a column of `viewport - 24`, which
+   * is an exact fit at 368 and a wrap at 367, and every 360px Android paid 48px
+   * for it. Both are asserted here because a future edit that undoes either one
+   * silently undoes the other's warrant.
+   */
+  it('stacks the chip at 15px and declares a line that fits the commonest Android', () => {
+    play(seed());
+    const row = traitRowEl();
+    const chips = [...row.querySelectorAll('button')].slice(0, 6);
+
+    for (const chip of chips) {
+      expect(chip.style.fontSize, 'the chip is back to `.chip`\'s 9.5px').toBe('15px');
+      expect(chip.style.flexDirection, 'the two lines are back on one line').toBe('column');
+      expect(chip.style.flex, 'the flex basis is what decides the wrap, and it moved').toBe(
+        '1 1 44px',
+      );
+      expect(chip.style.minWidth, 'the chip declares no width floor of its own').toBe('44px');
+      const lines = [...chip.children].filter(
+        (el) => (el as HTMLElement).style.display === 'block',
+      );
+      expect(lines, `${chip.textContent ?? '?'} is not two block lines`).toHaveLength(2);
+    }
+    // The space between them is inside the first line, and seven tests read it.
+    expect(/^AGI [+−]/.test((chips[0]!.textContent ?? '').trim())).toBe(true);
+
+    /*
+     * The horizontal budget for this row, in declared terms. jsdom measures
+     * nothing, so this is the same idiom as the vertical budget: six chips at
+     * their basis, the verbs control at its declared width, and six of the
+     * row's declared gaps, against the column a 360px Android leaves.
+     */
+    const verbs = [...row.querySelectorAll('button')][6]!;
+    const basis = Number.parseFloat(chips[0]!.style.flex.split(' ')[2] ?? '0');
+    const gap = Number.parseFloat(row.style.gap);
+    const line = 6 * basis + Number.parseFloat(verbs.style.width) + 6 * gap;
+    expect(line, 'the declared trait line is no longer 332').toBe(332);
+    expect(
+      line,
+      `the trait row declares ${String(line)}px against 336 of column at 360x800, so it wraps ` +
+        'to two 58px lines and the sheet is 62px taller on the commonest Android viewport ' +
+        'there has ever been. That was the state at a 46px basis, where the line was 344 and ' +
+        '368 was an exact fit.',
+    ).toBeLessThanOrEqual(360 - 24);
   });
 
   it('holds every target on the trait row and the roll surface at the touch floor', () => {
@@ -615,30 +704,23 @@ describe('the trait row and the roll surface', () => {
  * the DOM by `the terms this budget can read, it reads` below, so a change to
  * any of them moves the budget instead of silently invalidating it.
  *
- * WHAT THIS CANNOT PROVE, stated rather than implied. Six of the terms are
- * stylesheet constants that jsdom cannot see - `.t-vital`'s 21px, `.t-meta`'s
- * 10px, the 26px defence numbers, `.panel`'s 1px border - and they are marked
- * `css` in the table. Beyond that it cannot see:
+ * WHAT THIS CANNOT PROVE, stated rather than implied. Three of the terms are
+ * stylesheet constants that jsdom cannot see - `.t-meta`'s 10px, the 32px
+ * defence numbers, `.panel`'s 1px border - and they are marked `css` in the
+ * table. Beyond that it cannot see:
  *
  *   - a character name or a multiclass line that WRAPS, which is one line of
  *     18.9px each time (14px at 1.35). Measured in Chrome: the class cell is
- *     237px at 393 and 219 at 375 - it was 289 and 271 until P5-8's conditions
- *     control took 52 of it - the fixture's "Bard — Troubadour" needs 125.6 and
- *     clears both, and "Bard / Wizard — Troubadour · School of Knowledge" needs
- *     326.5 and is two lines at either width, which adds 18.9 to Identity.
+ *     317px at 393 and 299 at 375 - it was 237 and 219 until decision 1 deleted
+ *     the 72px RENAME chip and its 8px gutter, and 289 and 271 before P5-8's
+ *     conditions control took 52 - the fixture's "Bard — Troubadour" needs
+ *     125.6 and clears both, and "Bard / Wizard — Troubadour · School of
+ *     Knowledge" needs 326.5 and is still two lines at either width, which adds
+ *     18.9 to Identity.
  *   - a class with the Beastform feature, which draws a 44px HUMAN FORM chip at
  *     the head of the column even untransformed: 52 with the gap, so every
  *     Druid is 52px worse off than this table says.
  *   - a companion, which adds a 44px WhoSwitch inside the counters.
- *   - `counterStyle: 'pips'`, which does not get the 2x2 grid - a 12-box track
- *     cannot live in a 172px cell - so it keeps the four full-width rows.
- *     Rendered in Chrome with this fixture at both reference widths, the Vitals
- *     block is **94 as numbers and 194 as pips**, which is **+100**: four rows
- *     at the touch floor and three 6px gaps, exactly the 2x2 grid's own
- *     arithmetic run the other way. Nothing wraps at either width. This bullet
- *     said "144 to about 293, which is +149" for two passes - a base that
- *     contradicted `STACK`'s own 2x44 + 6, and a cost wrong by half - and it
- *     was the number the paragraph below drew a false conclusion from.
  *   - `manualDice`, which puts two 62px faces back above ROLL: +68.
  *   - an armed modifier, which puts a 44px strip back above ROLL: +50.
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
@@ -650,12 +732,15 @@ describe('the trait row and the roll surface', () => {
  *     file now asserts is a fit in a browser, and is lost by a hair in the
  *     installed app. Somebody should check the inset on the owner's own phone.
  *
- * NONE OF THOSE SIX NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
+ * NONE OF THOSE FIVE NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
  * them used to: the margin under ROLL on the small phone went from 10px to
- * **160px** when the counters became a grid, and the dearest of them, pips at
- * +100, leaves 60. That is the number the grid was bought for, it is asserted
- * below rather than told, and this paragraph said 110 against an assertion of
- * 160 for two passes.
+ * **160px** when the counters became a grid, and the dearest of them is now
+ * typed dice at +68, which leaves 92. It was six states and the dearest was
+ * `counterStyle: 'pips'` at +100, leaving 60; decision 7 deleted the
+ * preference and the branch, so the 194px shape is not reachable from this
+ * screen at all and the bullet went with it rather than being re-costed. That
+ * is the number the grid was bought for, it is asserted below rather than told,
+ * and this paragraph said 110 against an assertion of 160 for two passes.
  *
  * ONE THING IN THE COLUMN IS DELIBERATELY NOT IN EITHER TABLE: the licence
  * notice, which P5-6 put at the end of this scroll. Everything `STACK` and
@@ -668,7 +753,18 @@ describe('the trait row and the roll surface', () => {
  * anything else can be dropped into.
  *
  * So this test is a tripwire on the declared arithmetic and not a measurement,
- * and it says which of the two it is in every failure message.
+ * and it says which of the two it is in every failure message. The measurement
+ * that stands beside it was taken in Chrome on a dev server with the harness's
+ * `played` and `wizard10` fixtures at 320, 344, 356, 360, 368, 375, 393 and 744:
+ * the distance from the top of the defence band to the bottom edge of the
+ * lineage header is **618.0** at every width from 356 up, which is this table's
+ * `SHEET_BOTTOM` to the pixel, and 710 at 344 and 320, where the trait row and
+ * the damage cell each reflow onto a second line.
+ *
+ * THE HORIZONTAL BUDGET IS ITS OWN DESCRIBE, BELOW. This one is written for
+ * 393x852 and 375x667 and says nothing about width; «the width this sheet is
+ * laid out for» is the same idiom applied to the other axis, and it is where the
+ * answer to "is 320 supported" lives.
  */
 describe('the budget the pin came off for', () => {
   /*
@@ -702,27 +798,39 @@ describe('the budget the pin came off for', () => {
    * read, `sum` is arithmetic over the two.
    */
   const STACK: Array<{ what: string; px: number; from: 'dom' | 'css' | 'sum' }> = [
-    { what: 'Identity · the name at .t-vital, clamp() floors at 21', px: 21, from: 'css' },
-    { what: 'Identity · the meta row: marginTop 7', px: 7, from: 'dom' },
-    { what: 'Identity · the meta row itself, .t-meta at 10/1', px: 10, from: 'css' },
-    { what: 'Identity · the class row: marginTop 9', px: 9, from: 'dom' },
-    { what: 'Identity · the class row, held open by RENAME at --control', px: 44, from: 'dom' },
-    { what: 'gap', px: GAP, from: 'dom' },
+    /*
+     * THE IDENTITY BLOCK IS NOT IN THIS TABLE, AND THAT IS THE 99PX.
+     *
+     * It was five terms and a gap: 21 for the name at `.t-vital`, 7 + 10 for
+     * the pronouns and level row, 9 + 44 for the class row, and this column's
+     * own 8px gap. Decision 2 deletes it from the phone. `Header.tsx` draws the
+     * name and `CLASS / MULTICLASS · LVn` on every screen, so three of the four
+     * facts are still on the glass and 53px higher up; the pronouns and the
+     * subclass, which the header has never carried, moved into the shut
+     * `Lineage & domains` fold, where they cost this table nothing. `names the
+     * class, the subclass, the pronouns and the level, one fold away` asserts
+     * that half, so the saving cannot quietly become a deletion.
+     */
     { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
     { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
     { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
-    { what: 'the defence band · the number at 26/1', px: 26, from: 'css' },
+    // 32 since decision 4, and it is the only term of the band that moved: the
+    // two targets in the fifth cell are 44 and 44 either side of it.
+    { what: 'the defence band · the number at 32/1', px: 32, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
-    // The fifth cell is TOOK and a 44px field, vertically centred in a row the
-    // four number cells already hold open at 58. It is in this table at zero
-    // rather than absent from it, because zero is the claim: the box left the
-    // counters, where it cost 44 and a 6px gap, and the band did not grow.
-    { what: 'the defence band · the TOOK cell, inside the 58 already spent', px: 0, from: 'dom' },
+    // The fifth cell is the 44x44 conditions door and a 44px field, vertically
+    // centred in a row the four number cells already hold open at 64. It is in
+    // this table at zero rather than absent from it, because zero is the claim:
+    // the box left the counters, where it cost 44 and a 6px gap, the door left
+    // the identity block, and the band did not grow for either.
+    { what: 'the defence band · the door and the field, inside the 64 already spent', px: 0, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
-    { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
+    // 58 since decision 5: the chip stacks the abbreviation over the value at
+    // 15px, and the verbs control follows so the row is one height.
+    { what: 'the trait row, six chips and the verbs control', px: 58, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     // The roll surface is ROLL and nothing else with nothing armed: the
     // Experience chips are a fold below it now and the modifier row is not
@@ -744,9 +852,11 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP },
     { what: 'Experiences', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'Carried, with the gold on its header', px: 44 },
-    { what: 'gap', px: GAP },
+    // Cards above Carried since decision 6, and the swap costs this table
+    // nothing: two 44px headers change places and both keep their id.
     { what: 'Cards, with the vault folded inside it', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Carried, with the gold on its header', px: 44 },
     { what: 'gap', px: GAP },
     { what: 'Rest & downtime', px: 44 },
     { what: 'gap', px: GAP },
@@ -777,7 +887,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 385').toBe(385);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 306').toBe(306);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -786,7 +896,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(345);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(424);
   });
 
   /*
@@ -795,9 +905,10 @@ describe('the budget the pin came off for', () => {
    * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
    * and that ten was the number the grid was bought with. It asserts the 160,
    * so that anything spending 161 fails here with the arithmetic in front of it
-   * rather than being found on somebody's phone. The docblock above lists six
-   * ordinary states this table cannot see, and one of them - pips, at +100 -
-   * still leaves 60.
+   * rather than being found on somebody's phone. The docblock above lists five
+   * ordinary states this table cannot see, and the dearest of them - typed
+   * dice, at +68 - still leaves 92. It was six, and the dearest was pips at
+   * +100 leaving 60, until decision 7 took the pip tracks off this sheet.
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
@@ -807,7 +918,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(160);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(239);
   });
 
   /*
@@ -831,7 +942,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(697);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(618);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -842,12 +953,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(33);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(112);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(152);
+    ).toBe(73);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -863,70 +974,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(375);
-  });
-
-  /*
-   * THE ONE STATE THIS BUDGET CANNOT SEE THAT WAS QUOTED WRONG BY HALF.
-   *
-   * `counterStyle: 'pips'` was costed at +149 over a "144 base" in four
-   * documents and in this file, and both numbers were invented: 144 is not the
-   * base - `STACK`'s own counters term is 2x44 + 6 = 94 - and the fixture's
-   * Hit Points do not wrap, which is where the extra 55 was supposed to come
-   * from. Rendered in Chrome at 393x852 and 375x667 with this fixture, the
-   * Vitals block is 94 as numbers and 194 as pips, and nothing wraps at either
-   * width. So it is **+100**, which is the 2x2 grid's own saving run backwards,
-   * and it is the dearest of the six states listed in the docblock rather than
-   * "the most expensive by a factor of two".
-   *
-   * The conclusion drawn from the bad number was false in the other direction
-   * too, so it is asserted here rather than described: with pips ROLL lands at
-   * 485 against the 545 column at 375x667, with 60px to spare, and `Play.tsx`
-   * told the reader pips cost the small phone its margin.
-   *
-   * jsdom cannot see a wrap, so this asserts the shape the 194 follows from -
-   * four full-width rows at the touch floor with the counters' own 6px gap
-   * between them, and no grid - and does the arithmetic on it.
-   */
-  it('costs the column 100 for pips, not the 149 four documents quoted', () => {
-    const c = seed();
-    act(() => {
-      useApp.setState({ prefs: { ...DEFAULT_PREFS, counterStyle: 'pips' } });
-    });
-    play(c);
-
-    const hp = container.querySelector<HTMLElement>('[role="group"][aria-label^="HP: "]')!;
-    const counters = hp.parentElement!.parentElement!;
-    expect(
-      counters.style.gap,
-      "the gap between the pip tracks moved and this arithmetic did not",
-    ).toBe('6px');
-    expect(
-      counters.style.gridTemplateColumns,
-      'the pip tracks are in a 2x2 grid, where a 12-box Hit Point track cannot go',
-    ).toBe('');
-
-    // Four rows, each held open by its own label cell at the touch floor.
-    const rows = [...counters.children].map((el) => el as HTMLElement);
-    expect(
-      rows.map((r) => (r.firstElementChild as HTMLElement).style.minHeight),
-      'the four pip tracks are no longer four full-width rows at 44',
-    ).toEqual(['44px', '44px', '44px', '44px']);
-
-    const PIPS = 4 * 44 + 3 * 6;
-    const NUMBERS = 2 * 44 + 6;
-    expect([PIPS, NUMBERS], 'the two counter shapes no longer sum to 194 and 94').toEqual([
-      194, 94,
-    ]);
-    expect(PIPS - NUMBERS, 'the cost of choosing pips has moved').toBe(100);
-
-    const rollWithPips = ROLL_BOTTOM + (PIPS - NUMBERS);
-    expect(rollWithPips).toBe(485);
-    expect(
-      column(667) - rollWithPips,
-      'pips now cost the small phone its margin under ROLL, which for two passes this ' +
-        'repo said they already did',
-    ).toBe(60);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(454);
   });
 
   /*
@@ -957,7 +1005,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([372, 438]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([293, 359]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -969,11 +1017,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([414, 480]);
+    ).toEqual([493, 559]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([229, 295]);
+    ).toEqual([308, 374]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -983,7 +1031,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(353);
+    ).toBe(432);
   });
 
   /*
@@ -1043,16 +1091,17 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a thirteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Twelve, with the fixture and a clear sheet: Identity, the defence band,
-     * the counters, the trait row, the roll surface, then Weapons & armour,
+     * Eleven, with the fixture and a clear sheet: the defence band, the
+     * counters, the trait row, the roll surface, then Weapons & armour,
      * Experiences, Carried, Cards, Rest and Lineage - and, since P5-7, the
-     * licence notice. Eleven of those are `STACK` and `INDEX`. The vault is a
-     * tendina inside Cards and costs the column no child of its own; the death
-     * move, the Beastform banner and - since P5-8 - the conditions strip draw
-     * nothing in this state, and all three are named in the docblock as things
-     * this budget does not carry.
+     * licence notice. Ten of those are `STACK` and `INDEX`. It was twelve until
+     * decision 2 deleted the identity block. The vault is a tendina inside
+     * Cards and costs the column no child of its own; the death move, the
+     * Beastform banner and - since P5-8 - the conditions strip draw nothing in
+     * this state, and all three are named in the docblock as things this budget
+     * does not carry.
      *
-     * THE TWELFTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
+     * THE ELEVENTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
      * `STACK` and `INDEX` sum the sheet, and the sheet is everything a player
      * has to be able to reach; the notice is below the last fold, is read once
      * by somebody who is not at a table, and is never needed on the glass - so
@@ -1065,7 +1114,7 @@ describe('the budget the pin came off for', () => {
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(12);
+    ).toBe(11);
     const last = rootEl.children[rootEl.children.length - 1]!;
     expect(
       last.tagName,
@@ -1074,20 +1123,29 @@ describe('the budget the pin came off for', () => {
         'or something new has been added below it and is exempt from the budget by accident',
     ).toBe('FOOTER');
 
-    // Identity: the two margins and the chip that holds the third row open.
-    const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
-    read.set('meta marginTop', Number.parseFloat((identity.children[1] as HTMLElement).style.marginTop));
-    read.set('class marginTop', Number.parseFloat((identity.children[2] as HTMLElement).style.marginTop));
-    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
-    expect(rename.style.minHeight).toBe('var(--control)');
-    expect(read.get('meta marginTop')).toBe(7);
-    expect(read.get('class marginTop')).toBe(9);
+    /*
+     * The identity block is gone, and this is where the table's 99px is
+     * checked rather than assumed: `.t-vital` is the name line and it is the
+     * one element only that block ever drew.
+     */
+    expect(
+      container.querySelector('.t-vital'),
+      'the identity block is back on the phone column, which is 99px this table no longer ' +
+        'carries',
+    ).toBeNull();
 
     // The defence band: the padding and the gap inside one cell.
     const cell = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
       /^EVASION/.test((el.textContent ?? '').trim()),
     )!;
-    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 9px');
+    /*
+     * 6 and not 9 horizontally, and that is a term of the *horizontal* budget
+     * rather than this one: three pixels a side off four readout cells is the
+     * 24px that stands a 44px door and a 44px field side by side in the fifth
+     * cell at 360 instead of wrapping them. The vertical 8 is what this table
+     * reads.
+     */
+    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 6px');
     expect(cell.style.gap).toBe('4px');
 
     /*
@@ -1116,7 +1174,7 @@ describe('the budget the pin came off for', () => {
     expect(counters.className, 'the counters got their .panel back').toBe('stack');
     expect(counters.style.gap).toBe('6px');
     expect(grid.style.gridTemplateColumns, 'the four counters stopped being two across').toBe(
-      '1fr 1fr',
+      'minmax(0, 1fr) minmax(0, 1fr)',
     );
     expect(grid.style.gap, 'the gap inside the counters grid moved').toBe('6px');
     const rows = [...grid.children].filter((el) => (el as HTMLElement).style.minHeight === '44px');
@@ -1128,7 +1186,7 @@ describe('the budget the pin came off for', () => {
 
     // The trait row and the roll surface.
     const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
-    expect(chip.style.minHeight).toBe('var(--tap)');
+    expect(chip.style.minHeight).toBe('58px');
     // By its label, not by its height: eight `Counter` steppers declare
     // `height: 44` and every one of them is above ROLL in document order, so
     // reading the budget's last term off "the first button with a height" would
@@ -1169,8 +1227,8 @@ describe('the budget the pin came off for', () => {
     const LABELS = [
       'Weapons & armour',
       'Experiences',
-      'Carried',
       'Cards',
+      'Carried',
       'Rest & downtime',
       'Lineage & domains',
     ];
@@ -1178,6 +1236,189 @@ describe('the budget the pin came off for', () => {
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
       'the budget counts six fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
+  });
+});
+
+/**
+ * THE WIDTH THIS SHEET IS LAID OUT FOR, WHICH NOTHING HAS EVER STATED.
+ *
+ * The budget above is vertical and is written for 393x852 and 375x667. The
+ * horizontal one was never written at all, and the audit found three separate
+ * declared sums that each overran the column with nothing in the repo saying
+ * so - the trait row wrapping at every viewport <= 367, the incoming-damage
+ * cell overflowing its grid track *leftwards* onto the Proficiency panel, and
+ * the 2x2 counter grid pinned at a viewport-independent 325.37 with the `+` on
+ * STRESS and ARMOR cut off the glass by the column's own `overflow-x: hidden`.
+ *
+ * WHY THE EXISTING GUARD COULD NOT CATCH ANY OF THEM. «never forces the column
+ * wider than the phone» rejects a single element declaring a `width` or a
+ * `minWidth` above 369. Every one of these three is a *sum* of small declared
+ * widths, so the missing test is a budget and not a wider filter - which is why
+ * this is a `describe` of its own in the same idiom as the vertical one: a table
+ * of declared terms with a `from` provenance, summed, and compared against the
+ * column a named viewport leaves.
+ *
+ * WHAT IT CANNOT SEE, on the same terms as the vertical budget. Three of the
+ * numbers below are Chrome-measured text constants that jsdom has no engine to
+ * produce - the four defence cells' `auto` widths, which are their `.t-meta`
+ * labels plus 12px of padding and 2 of border - and they enter as named
+ * constants with the measurement cited beside them. Everything else is read off
+ * the DOM.
+ *
+ * THE ANSWER IS 360, AND IT IS A DECISION RATHER THAN A DISCOVERY. 360 is the
+ * commonest Android viewport there has ever been; 320 is an iPhone SE 1st
+ * generation and a Z Fold cover screen, and it is a width at which this sheet
+ * degrades honestly rather than one it is laid out for. Below 356 the trait row
+ * is two lines (+62) and below 353 the damage cell is two lines (+30);
+ * `Disclosure` summaries truncate with an ellipsis; the counter cells shrink and
+ * clip their own labels. Nothing is clipped off the glass, nothing overlaps and
+ * no target goes under 44 at any width down to 310 - verified in Chrome at 320,
+ * 344, 356, 360, 368, 375, 393 and 744 with two fixtures.
+ */
+describe('the width this sheet is laid out for', () => {
+  /** The phone column: the glass less this screen's 12px of padding either side. */
+  const column = (glass: number): number => glass - 24;
+
+  /**
+   * The ink inside the four defence cells, measured in Chrome and named here.
+   *
+   * Only the *ink* is a constant: EVASION 47.61, MAJOR 38.84, SEVERE 40.81, PROF
+   * 27.20 with the `wizard10` fixture, at `.t-meta`'s 10px mono with 0.08em of
+   * tracking - except MAJOR, whose cell is sized by its two-digit number at 32px
+   * rather than by its five-letter label, so decision 4's 26 -> 32 is a term of
+   * this budget as well as of the vertical one and this fixture is the widest of
+   * the four. jsdom has no layout engine, so this is the same kind of term as
+   * `STACK`'s `css` rows. The padding and the border around it are declared and
+   * are read off the DOM below, so a change to either moves this sum rather than
+   * invalidating it in silence.
+   */
+  const DEFENCE_INK = 47.6094 + 38.8438 + 40.8125 + 27.2031;
+  /** `.panel`'s hairline, which jsdom cannot read either. */
+  const PANEL_BORDER = 1;
+
+  it('states the smallest width every row on this sheet fits, and it is at most 360', () => {
+    play(seed());
+    const rootEl = container.firstElementChild as HTMLElement;
+    // jsdom expands the shorthand's `0` to `0px`, the same normalisation the
+    // `flex: none` check in `the tendina` reads back.
+    expect(rootEl.style.padding, 'the column padding moved and these sums did not').toBe(
+      '0px 12px 8px',
+    );
+
+    // 1. THE TRAIT ROW. Six chips at their declared flex-basis, the verbs
+    //    control at its declared width, six of the row's declared gaps. Flex
+    //    breaks lines on the basis, so this is the number that decides the wrap
+    //    and the chip's rendered width never enters it.
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
+    const traitRow = chip.parentElement!;
+    const verbs = [...traitRow.querySelectorAll('button')][6]!;
+    const basis = Number.parseFloat(chip.style.flex.split(' ')[2] ?? '0');
+    const traitGap = Number.parseFloat(traitRow.style.gap);
+    const TRAIT = 6 * basis + Number.parseFloat(verbs.style.width) + 6 * traitGap;
+    expect(TRAIT).toBe(332);
+
+    // 2. THE DEFENCE BAND. The four `auto` cells, four of the grid's declared
+    //    gaps, and the fifth cell: a 44px door, one gutter, a 44px field.
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    const cell = field.parentElement!;
+    const band = cell.parentElement as HTMLElement;
+    const door = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'),
+    )!;
+    const bandGap = Number.parseFloat(band.style.gap);
+    const defenceCell = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
+      /^EVASION/.test((el.textContent ?? '').trim()),
+    )!;
+    const padX = Number.parseFloat(defenceCell.style.padding.split(' ')[1] ?? '0');
+    const DEFENCE_CELLS = DEFENCE_INK + 4 * (2 * padX + 2 * PANEL_BORDER);
+    expect(Math.round(DEFENCE_CELLS * 100) / 100).toBe(210.47);
+    const BAND =
+      DEFENCE_CELLS +
+      4 * bandGap +
+      Number.parseFloat(door.style.width) +
+      Number.parseFloat(cell.style.gap) +
+      Number.parseFloat(field.style.width);
+    expect(Math.round(BAND * 100) / 100).toBe(328.47);
+
+    // 3. THE COUNTER GRID. Two cells at the floor a `Counter` row can be
+    //    squeezed to - the value target's own declared `minWidth`, two 44px
+    //    steppers and two gutters - plus the grid's one gap.
+    const value = buttons().find((b) => /tap to type a value$/.test(b.getAttribute('aria-label') ?? ''))!;
+    const counterRow = value.parentElement!;
+    const grid = counterRow.parentElement as HTMLElement;
+    const stepper = buttons().find((b) => b.getAttribute('aria-label') === 'HP plus one')!;
+    const gutter = Number.parseFloat(counterRow.style.gap);
+    const cellFloor =
+      Number.parseFloat(value.style.minWidth) + 2 * Number.parseFloat(stepper.style.width) + 2 * gutter;
+    const COUNTERS = 2 * cellFloor + Number.parseFloat(grid.style.gap);
+    expect(cellFloor).toBe(140);
+    expect(COUNTERS).toBe(286);
+
+    /*
+     * The floor each of them implies, and the largest of the three is the
+     * answer. `Disclosure`'s summary contributes no term on purpose: it is
+     * `flex: '0 1 auto'` with `minWidth: 0` and an ellipsis, so it shrinks to
+     * nothing rather than setting a floor - which is what that fix bought.
+     */
+    const floorFor = (sum: number): number => sum + 24;
+    const floors = { trait: floorFor(TRAIT), band: floorFor(BAND), counters: floorFor(COUNTERS) };
+    expect(floors.trait).toBe(356);
+    expect(Math.round(floors.band * 100) / 100).toBe(352.47);
+    expect(floors.counters).toBe(310);
+
+    const SUPPORTED = 360;
+    expect(column(SUPPORTED)).toBe(336);
+    const worst = Math.max(...Object.values(floors));
+    expect(
+      worst,
+      `the widest row on this sheet needs a ${String(worst)}px viewport and the smallest width ` +
+        'this sheet is laid out for is 360. Before this pass the three sums were 344, 345.37 ' +
+        'and 325.37, whose floors are 368, 369.37 and 349.37 - so every 360px Android paid 48px ' +
+        'for a wrapped trait row, the damage cell painted its label and its field over the ' +
+        'Proficiency panel, and a tenth marked Hit Point cut the STRESS and ARMOR steppers off ' +
+        'a 344px glass. This is the single assertion that would have caught all three.',
+    ).toBeLessThanOrEqual(SUPPORTED);
+
+    // And each sum individually, so a failure names the row rather than the max.
+    for (const [what, floor] of Object.entries(floors)) {
+      expect(floor, `the ${what} row needs a ${String(floor)}px viewport`).toBeLessThanOrEqual(
+        SUPPORTED,
+      );
+    }
+  });
+
+  /*
+   * WHAT HAPPENS BELOW IT, which is the half that makes 360 a floor rather than
+   * a cliff. Both reflows are declared rather than measured - jsdom has no
+   * layout engine and cannot wrap anything - so what is asserted is that the two
+   * rows that have to reflow *can*, and the third one's guard is elsewhere.
+   */
+  it('reflows rather than clipping below it, which is why 320 is not a defect', () => {
+    play(seed());
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
+    expect(
+      chip.parentElement!.style.flexWrap,
+      'the trait row cannot wrap, so below 356 seven 44px targets are laid out in 332px of ' +
+        'column and the last one is cut off the glass',
+    ).toBe('wrap');
+
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    expect(
+      (field.parentElement as HTMLElement).style.flexWrap,
+      'the damage cell cannot wrap, so below 353 its two 44px children overflow their grid ' +
+        'track backwards and paint over the Proficiency panel',
+    ).toBe('wrap');
+
+    /*
+     * And the counter cells do not reflow at all - they shrink, which is what
+     * `minmax(0, 1fr)` and `Counter`'s `minWidth: 0` are for, and what clips is
+     * label ink inside a target that keeps its declared size. `counters.test`
+     * holds that pair and the 310 it bottoms out at.
+     */
+    const grid = buttons()
+      .find((b) => b.getAttribute('aria-label') === 'HP plus one')!
+      .parentElement!.parentElement as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe('minmax(0, 1fr) minmax(0, 1fr)');
   });
 });
 
@@ -1215,7 +1456,7 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBeUndefined();
   });
 
-  it('puts the permanent door in a row that was already 44px tall', () => {
+  it('puts the permanent door inside the defence band, in a cell already 58px tall', () => {
     play(seed());
     const door = control();
     expect(
@@ -1224,18 +1465,49 @@ describe('the conditions, drawn only when there are any', () => {
         'set Hidden on',
     ).toBeDefined();
 
-    // In the class row, beside RENAME - the whole reason it costs nothing.
-    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
+    /*
+     * IN THE FIFTH CELL, NOT BESIDE IT AND NOT IN THE IDENTITY BLOCK.
+     *
+     * It stood at the end of the identity's class row until decision 2 deleted
+     * that block, and the report's prose asked for "a sixth cell" of the band -
+     * which does not fit at any phone width: the four cells and their gaps are
+     * 234.47, a fifth of 44 + 6 + 44 is 94 and a sixth of 44 plus a gap is 50,
+     * against 369px of column at 393. So the assertion is the shape that was
+     * measured: the door's own row is the row holding the incoming-damage
+     * field, and that row's parent is the element declaring the band's grid.
+     */
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
     expect(
       door!.parentElement,
-      'the conditions control left the identity class row, where RENAME holds the band ' +
-        'open at 44 and it therefore costs the column nothing',
-    ).toBe(rename.parentElement);
+      'the conditions door is not in the same cell as the incoming-damage field, so it is ' +
+        'either a sixth grid track - which does not fit - or somewhere off the band entirely',
+    ).toBe(field.parentElement);
+    const band = door!.parentElement!.parentElement!;
+    expect(
+      band.style.gridTemplateColumns,
+      'the door\'s cell is not a child of the defence band',
+    ).toBe('auto auto auto auto 1fr');
+    expect(
+      buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename ')),
+      'the RENAME chip is back on the sheet, which decision 1 deleted',
+    ).toHaveLength(0);
     expect(door!.style.minHeight, 'the door is below the touch floor').toBe('var(--control)');
     expect(door!.style.width, 'the door is not the 44 wide the budget assumes').toBe('44px');
     expect(door!.getAttribute('aria-label'), 'a clear sheet does not say so').toBe(
       'Conditions: none',
     );
+    /*
+     * And the cell it shares can never spill leftwards onto the Proficiency
+     * panel, which is what it did before this arrangement: two `flex: none`
+     * children right-aligned in a track narrower than they are overflowed
+     * *backwards*, measured at 27.2px over PROF's box at 320 and 2.8 at 360.
+     * The wrap is the whole fix and jsdom can only see that it is declared.
+     */
+    expect(
+      (door!.parentElement as HTMLElement).style.flexWrap,
+      'the damage cell cannot wrap, so at any width where 44 + 6 + 44 does not fit it paints ' +
+        'over the number beside it instead',
+    ).toBe('wrap');
   });
 
   it('says what is on, in the strip and on the door, the moment anything is', () => {
@@ -1371,7 +1643,7 @@ describe('the incoming-damage box, where the ladder is', () => {
      * The whole argument for the move, as an assertion. Inside the counters
      * the box printed `8/16` - the two thresholds, in the smallest type on the
      * screen - because it needed them and could not see them. They are two
-     * 26px numbers three cells to its left now, so the restatement is deleted
+     * 32px numbers three cells to its left now, so the restatement is deleted
      * rather than duplicated.
      */
     expect(
@@ -1424,6 +1696,40 @@ describe('the incoming-damage box, where the ladder is', () => {
       (text().match(/ARMOR NOT IN THIS BUILD/g) ?? []).length,
       'the sentence is on the screen twice, which is 44px of saying it again',
     ).toBe(1);
+  });
+
+  /*
+   * AND THE DOOR SURVIVES THE STATE THE FIELD DOES NOT.
+   *
+   * `IncomingDamage` returned a bare `null` for an unreadable ladder, which was
+   * right while the cell held only a field. Decision 3 put the phone's one
+   * permanent way into `ConditionsDialog` in that same cell, and a sheet whose
+   * armor this build cannot read is not a sheet that stops being able to be
+   * Restrained - so the early return now keeps the row when a door was passed.
+   * This is the only test that fails if it goes back to `return null`.
+   */
+  it('keeps the conditions door in the band when the ladder is unreadable', () => {
+    play(seed({ activeArmor: '?60007', thresholdOverride: null }));
+    const door = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'),
+    );
+    expect(
+      door,
+      'an unresolvable armor ref takes the only permanent way into the conditions off the ' +
+        'sheet, so a player whose sheet came from a newer bundle cannot be told they are Hidden',
+    ).toBeDefined();
+    expect(door!.style.width).toBe('44px');
+    expect(door!.style.minHeight).toBe('var(--control)');
+
+    const band = door!.parentElement!.parentElement!;
+    expect(
+      band.style.gridTemplateColumns,
+      'the band did not grow a track for the door, so it is drawn on top of PROF',
+    ).toBe('1fr 2fr 1fr auto');
+    expect(
+      band.querySelector('input[aria-label="Incoming damage"]'),
+      'the field is back in a band that cannot read a verdict for it',
+    ).toBeNull();
   });
 });
 
@@ -2221,6 +2527,50 @@ describe('the tendina', () => {
 
     click(fold('Carried'));
     expect(text()).toContain('Minor Health Potion');
+  });
+
+  /*
+   * THE HEADER'S OWN PROMISE, AT THE WIDTH WHERE IT WAS BEING BROKEN SILENTLY.
+   *
+   * `Disclosure`'s first rule is that the header always says what is inside it.
+   * The summary span was `flex: 'none'` with no `minWidth: 0` and no
+   * `textOverflow`, so nothing on that line could give and a summary wider than
+   * the column ran past the edge of a column that is `overflow-x: hidden`:
+   * measured in Chrome with a purse spanning all three denominations,
+   * `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS` has a viewport-invariant right
+   * edge of 364.61, so 4.61px was gone at 360, 20.61 at 344 and 44.61 at 320,
+   * with no ellipsis and no gesture that reveals it.
+   *
+   * jsdom measures nothing, so what is asserted is the contract that makes the
+   * cut impossible rather than the cut: the label cannot shrink, the summary
+   * can, and the summary says so when it does.
+   */
+  it('lets the summary lose its tail to an ellipsis, and never the section name', () => {
+    play(seed());
+    const header = fold('Carried');
+    const spans = [...header.querySelectorAll('span')];
+    const label = spans.find((el) => (el.textContent ?? '').trim() === 'Carried')!;
+    const summary = spans.find((el) => /ITEM/.test(el.textContent ?? ''))!;
+
+    // `none` reads back as its longhand triple: jsdom's CSS parser expands the
+    // shorthand, which is the same normalisation `flexShrink` checks elsewhere
+    // in this file rely on.
+    expect(label.style.flex, 'the section name can shrink, so it is the half that clips').toBe(
+      '0 0 auto',
+    );
+    expect(
+      summary.style.flex,
+      'the summary cannot shrink, so a header wider than the column is cut off the glass by ' +
+        'the phone column\'s overflow-x: hidden rather than truncated',
+    ).toBe('0 1 auto');
+    expect(summary.style.minWidth, 'flex-shrink alone does nothing without this').toBe('0px');
+    expect(summary.style.overflow).toBe('hidden');
+    expect(
+      summary.style.textOverflow,
+      'the summary shrinks and then cuts a character in half with no ellipsis, which is the ' +
+        'header claiming a number it is not showing',
+    ).toBe('ellipsis');
+    expect(summary.style.whiteSpace).toBe('nowrap');
   });
 
   /*
@@ -3063,186 +3413,70 @@ describe('rolling the damage the attack earned', () => {
 });
 
 /**
- * P5-1(b), the half that is on this screen.
+ * P5-1(b), reversed on this screen by the reflow's decision 1.
  *
- * The name is the first field on the paper sheet and the most-shown string in
- * the app - it is in the top bar of every screen - and the way to change it was
- * four gestures deep in the tab visited least. Putting it back on the sheet is
- * only half the item, though: the backlog names the failure the other half
- * would be, and names it as worse. *"A name at the top of a scrolling screen
- * that opens a keyboard when a thumb brushes it is worse than a name you cannot
- * edit."*
+ * The rename was on the sheet from P5-1(b) until now: a 72x44 chip at the right
+ * end of the class row, with the name line beside it deliberately not a target.
+ * Decision 1 deletes the chip. Both halves of that are asserted here, because
+ * both can regress and they regress in opposite directions - the chip coming
+ * back is 72px plus an 8px gutter of a row the budget above has been re-costed
+ * without it, and the *name* becoming a target is the failure the backlog
+ * bullet names as worse than no rename at all: "a name at the top of a
+ * scrolling screen that opens a keyboard when a thumb brushes it".
  *
- * So these are about where the target is and where it is not. The name line is
- * not a target at all; the chip is a separate 72x44 control on the row below,
- * 51px clear of the only other 44px target in the top band; arming it moves
- * nothing; and it cannot outlive the character it was armed for, because the
- * header draws a character picker on this very screen.
- *
- * Every input query here is scoped to `input[aria-label="Character name"]`. A
- * bare `container.querySelector('input')` would be non-null before anything is
- * tapped and after: `Vitals.tsx:128-133` draws the incoming-damage field on the
- * phone, which this file's 'the damage calculator is not on the phone' pins
- * green on purpose.
+ * WHAT REPLACED THE TESTS THAT WERE HERE. They covered the chip, the field it
+ * opened, the refusal row, the `autoFocus` that put a cursor in it, and the
+ * reset that stopped an armed editor riding the header's character picker onto
+ * another sheet. Every one of those described a control that no longer exists
+ * on any layout. The control itself is unchanged and is still covered end to
+ * end by `rename.test.tsx`, which mounts `RenameField` directly and drives
+ * Build's door: nothing about the naming rule lost coverage here, only the door
+ * did.
  */
-describe('renaming from the sheet', () => {
-  const nameField = (): HTMLInputElement | null =>
-    container.querySelector<HTMLInputElement>('input[aria-label="Character name"]');
-
+describe('the rename that is not on this sheet', () => {
   const chip = (): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '));
 
-  /** The Identity block: whatever holds the name line. */
-  const identity = (): HTMLElement => container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
+  const nameField = (): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('input[aria-label="Character name"]');
 
-  /**
-   * A second character, because `seed()` only ever sets one.
-   *
-   * Without this the rule has nobody to refuse for: typing "Ilya" into a
-   * library of one collides with nothing, no refusal row and no offer button
-   * are ever drawn, and a sweep over "every rename target" quietly covers two
-   * of the four.
-   */
-  function seedTwo(neighbour: string): Character {
-    const fixture = seed();
-    useApp.setState({
-      characters: [fixture, { ...playedCharacter(), id: 'the-other-sheet', name: neighbour }],
-      activeId: fixture.id,
-    });
-    return fixture;
-  }
-
-  /**
-   * Type, the way a person does.
-   *
-   * jsdom does not notify React when `input.value` is assigned, so the obvious
-   * spelling of this helper asserts against an unchanged field and passes for
-   * the wrong reason. The native setter plus a bubbling `input` event is what
-   * React's synthetic `onChange` actually listens for.
-   */
-  function type(input: HTMLInputElement, value: string): void {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-    act(() => {
-      setter.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  }
-
-  /** A declared length in px, the same resolution the sweep at :260-265 uses. */
-  function px(value: string): number {
-    if (value === 'var(--tap)' || value === 'var(--control)') return 44;
-    const n = Number.parseFloat(value);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  it('puts the rename on a control of its own, and leaves the name itself untouchable', () => {
+  it('draws no rename control, on the phone or in the cockpit', () => {
     play(seed());
-    expect(chip(), 'there is no rename control on the sheet').toBeDefined();
-    expect(chip()!.getAttribute('aria-label')).toBe('Rename Fixture');
-
-    const name = container.querySelector('.t-vital')!;
-    expect(name.closest('button'), 'the name line is inside a button').toBeNull();
-    expect(name.tagName).toBe('DIV');
-    expect(name.getAttribute('role')).toBeNull();
-    expect(name.getAttribute('tabindex')).toBeNull();
-
-    expect(nameField(), 'the field is open before anything was tapped').toBeNull();
-  });
-
-  it('names the chip after a character with no name, rather than trailing off', () => {
-    play(seed({ name: '' }));
-    expect(chip()!.getAttribute('aria-label')).toBe('Rename Unnamed');
-  });
-
-  it('declares the chip at the touch floor and inside the column', () => {
-    play(seed());
-    expect(chip()!.style.minHeight).toBe('var(--control)');
-    expect(chip()!.style.minWidth).toBe('72px');
-  });
-
-  it('opens the field only on a deliberate tap, and puts the cursor in it', () => {
-    play(seed());
-    expect(nameField()).toBeNull();
     expect(
-      document.activeElement,
-      'something on the sheet took focus before anything was tapped',
-    ).toBe(document.body);
+      chip(),
+      'the RENAME chip is back on the phone sheet. It costs the class row 72px plus an 8px ' +
+        'gutter, which the identity block above is no longer costed with',
+    ).toBeUndefined();
 
-    click(chip()!);
-    const field = nameField();
-    expect(field, 'tapping RENAME opened nothing').not.toBeNull();
-    expect(field!.value).toBe('Fixture');
-    expect(field!.style.minHeight).toBe('var(--tap)');
-    expect(field!.maxLength).toBe(40);
-    // The other half of the deliberate gesture, and the reason `autoFocus` is
-    // passed here and not on the Build door. A chip has already been tapped to
-    // get here, so the keyboard the tap asked for opens with it; a field that
-    // arrived without focus would mean tapping the chip, seeing a field, and
-    // tapping again to type. Nothing else in this file or in `rename.test.tsx`
-    // was asking for it: `autoFocus` could be deleted from `Play.tsx` with
-    // every gate in the repo still green.
-    expect(document.activeElement, 'the field opened with no cursor in it').toBe(field);
-  });
-
-  it('arming the rename moves nothing above it', () => {
-    play(seed());
-    // Name, metadata row, and the wrapper that holds either the class line or
-    // the editor. The editor replaces the class line inside that wrapper, so
-    // the count and the margin are the same before and after.
-    expect(identity().children).toHaveLength(3);
-    const wrapper = (): HTMLElement => identity().children[2] as HTMLElement;
-    expect(wrapper().style.marginTop).toBe('9px');
-    click(chip()!);
-    expect(identity().children, 'the editor was added instead of swapped in').toHaveLength(3);
-    expect(wrapper().style.marginTop).toBe('9px');
-  });
-
-  it('holds every rename target at the touch floor, refusal and all', () => {
-    play(seedTwo('Ilya'));
-    click(chip()!);
-    type(nameField()!, 'Ilya');
-    expect(text(), 'no refusal, so the offer button was never drawn').toContain(
-      'already called "Ilya"',
-    );
-
-    const targets = [...identity().querySelectorAll('button')];
-    // SAVE, the cancel, and the offer.
-    expect(targets.length, 'the refusal row drew no controls').toBeGreaterThanOrEqual(3);
-    for (const t of targets) {
-      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
-      expect(
-        px(declared),
-        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
-      ).toBeGreaterThanOrEqual(44);
-    }
-  });
-
-  it('gives the desktop cockpit the same control', () => {
     setViewport(1280);
     play(seed());
-    expect(chip(), 'the cockpit has no rename').toBeDefined();
+    expect(
+      chip(),
+      'the RENAME chip is back in the desktop cockpit. There is one Identity component, so ' +
+        'this is the same deletion and not a second one',
+    ).toBeUndefined();
   });
 
-  it('closes the rename when the picker changes character, so no keyboard opens by navigation', () => {
-    // `Header.tsx:138-154` draws the character `<select>` on every screen,
-    // Play included, as soon as there are two characters. An armed editor that
-    // survived that switch would remount with `autoFocus` on a sheet nobody
-    // asked to rename - a software keyboard opening on arrival, which is the
-    // exact failure the backlog bullet forbids.
-    const fixture = seedTwo('Ilya');
-    play(fixture);
-    click(chip()!);
-    expect(nameField()).not.toBeNull();
-    // The premise the rest of this test rests on, asserted rather than
-    // assumed: an armed field *is* a focused field, so an armed field that
-    // survived the switch would be a keyboard opening on arrival.
-    expect(document.activeElement, 'arming the field does not focus it').toBe(nameField());
-
-    act(() => useApp.setState({ activeId: 'the-other-sheet' }));
-    expect(nameField(), 'the editor followed the picker onto another sheet').toBeNull();
-
-    act(() => useApp.setState({ activeId: fixture.id }));
-    expect(nameField(), 'the editor reopened on a sheet nobody armed').toBeNull();
+  it('leaves the name a readout that cannot open a keyboard, where it is still drawn', () => {
+    // The phone has no name line at all since decision 2; the cockpit does, and
+    // the rule about not making it a target is the same component's.
+    setViewport(1280);
+    play(seed());
+    const name = container.querySelector('.t-vital')!;
+    expect(name.tagName).toBe('DIV');
+    expect(name.closest('button'), 'the name line is inside a button').toBeNull();
+    expect(name.getAttribute('role')).toBeNull();
+    expect(name.getAttribute('tabindex')).toBeNull();
+    /*
+     * And there is no way to reach the field from this screen at all - not
+     * before a tap, which was already true, and not after every one of them.
+     * Scoped to the rename field by its own accessible name: a bare `input`
+     * query is non-null on this screen either way, because the
+     * incoming-damage box is one.
+     */
+    expect(nameField(), 'a rename field is on the sheet').toBeNull();
+    for (const b of buttons()) click(b);
+    expect(nameField(), 'something on the sheet opens a rename field').toBeNull();
   });
 });
 

@@ -1517,7 +1517,12 @@ Evasion, thresholds, Proficiency, class/subclass/ancestry/community and gold are
 on a phone for the first time; `d80bb51` added the vault and made a card that
 will not recall say why; `a0a389e` gave it five `Disclosure` folds that each
 character remembers; `5be7384` made the counters numbers with a keypad behind
-`prefs.counterStyle`, defaulting to numbers, on phone and tablet only; `52da38c`
+`prefs.counterStyle`, defaulting to numbers, on phone and tablet only — **and
+decision 7 has since reversed the preference half of that**: `bfd6e4e` drew the
+desktop cockpit's four counters as numbers too and `0719e4e` deleted
+`prefs.counterStyle` and its Settings switch, so the pip tracks are off the
+player's own sheet on every layout and survive only on the party board, the live
+scene and the companion; `52da38c`
 put the trait verbs on the tiles, read out of the SRD rather than typed in; and
 `9035b2b` carried the same stack to every iPad, which is P2-1's tablet half.
 
@@ -1593,6 +1598,11 @@ what the paper shows.
       and a precise pointer — and the GM's PartyBoard and the Companion panel
       keep them too, because there you are reading someone else's state rather
       than marking your own.
+      *(This bullet is part of the superseded record above and is left as
+      written. Decision 7 later deleted the preference outright — see the
+      `bfd6e4e` / `0719e4e` note at the head of this item. Its premise about
+      the cockpit was never true in the code: that layout drew four `<Track>`
+      rows the preference could not reach.)*
 - [ ] **Thresholds prominent**, not 10 px dim text. They are read under pressure
       by someone who has just been told a number.
 - [ ] **Trait verbs on the trait tiles** — Sprint/Leap/Manoeuvre, Lift/Smash/
@@ -2206,11 +2216,13 @@ conditions only when there are any.
 Every one of those numbers is an executable assertion in `playSheet.test.tsx`,
 describe «the budget the pin came off for», whose own docblock says what it can
 and cannot prove: jsdom has no layout engine, so it sums *declared* heights and
-never measures. It also lists six things it cannot see, four of which cost more
+never measures. It also lists the things it cannot see, four of which cost more
 than the ten pixels of margin at 375×667 — typed dice (+68), pips instead of
-numbers (+49), a companion (+50), a Beastform banner (+52) — plus the
-`env(safe-area-inset-bottom)` question, which this repo has always treated as 0
-and which is 34px on a home-indicator iPhone installed as a PWA.
+numbers (+49, later measured at +100), a companion (+50), a Beastform banner
+(+52) — plus the `env(safe-area-inset-bottom)` question, which this repo has
+always treated as 0 and which is 34px on a home-indicator iPhone installed as a
+PWA. *(The margin is 160 now, not ten, and the pips entry is gone: decision 7
+deleted the mode. The list is five.)*
 
 **What the verifier pass found, and fixed.** Three defects a green suite had not
 seen, all of them a sentence in the source that the code did not do.
@@ -2331,7 +2343,9 @@ tab bar − 8 foot.
   ten and had to defend it. The whole sheet is 204px over, which the owner
   accepted in advance. Of the states the budget cannot see, ~~none now costs the
   small phone its margin except pips (+149)~~ — **that exception was wrong and
-  P5-8 measured it: pips are +100 and leave 60, so nothing costs it.**
+  P5-8 measured it: pips are +100 and leave 60, so nothing costs it.** Decision
+  7 then deleted the mode, so the dearest state the budget cannot see is typed
+  dice at +68, leaving 92.
 - **744×1133** — column 1072. The whole folded sheet **fits with 323px to
   spare**.
 
@@ -2608,7 +2622,9 @@ table and the shell's three constants, so they cannot go 150px stale again.
   slack, where `Play.tsx` told the reader pips cost the small phone its margin.
   It was quoted in four places (`Play.tsx`, `playSheet.test.tsx`,
   `Architecture.md`, `HANDOFF.md` twice); all are corrected and the arithmetic
-  is now an assertion.
+  is now an assertion. *(Decision 7 has since deleted the mode and the
+  assertion with it. What survives is the shape of the defect: a figure carried
+  by four documents that no document had ever re-measured.)*
 - **Three prose numbers in the budget's docblock contradicted the assertions
   below them**, all computed against an obsolete `ROLL_BOTTOM` of 435: the
   safe-area bullet's 261/295 and 76/110, which against 385 are 311/345 and

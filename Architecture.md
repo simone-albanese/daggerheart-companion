@@ -890,16 +890,25 @@ the pin came off for», che somma le altezze *dichiarate* — jsdom non ha motor
 layout e il test dice da sé cosa può e cosa non può dimostrare. Dice anche le
 cifre che non fanno bella figura. Il margine sotto ROLL a 375×667 era di 10px ed
 è di **160**, e **nessuno** degli stati che il conto non vede se lo mangia: dadi
-digitati (+68), un compagno (+50), un Beastform (+52), i 34px dell'inset
-dell'home indicator, e i pip, che sono il più caro dei cinque a **+100**. I pip
-restano a tutta larghezza — una traccia da 12 caselle in una cella da 172px
-andrebbe a capo sotto il pavimento WCAG di 24px — quindi il blocco dei contatori
-è 94 a numeri e 194 a pip, misurato in Chrome col fixture a entrambe le
-larghezze, e non va a capo niente: con i pip ROLL cade a 485 sui 545 della
-colonna piccola, con 60px di avanzo. Questo repo ha scritto **+149 su un
-«base 144»** in quattro documenti per due passate; erano tutti e due inventati —
-il termine del budget è 2×44 + 6 = 94 — e la conclusione che ne discendeva era
-sbagliata anche di segno.
+digitati, che sono il più caro dei cinque a **+68** e ne lasciano 92, un compagno
+(+50), un Beastform (+52), un modificatore armato (+50) e i 34px dell'inset
+dell'home indicator.
+
+Gli stati erano sei e il più caro erano i pip, a **+100**: restavano a tutta
+larghezza — una traccia da 12 caselle in una cella da 172px andrebbe a capo sotto
+il pavimento WCAG di 24px — quindi il blocco dei contatori era 94 a numeri e 194
+a pip, misurato in Chrome col fixture a entrambe le larghezze, senza andare a
+capo, e con i pip ROLL cadeva a 485 sui 545 della colonna piccola, con 60px di
+avanzo. Questo repo aveva scritto **+149 su un «base 144»** in quattro documenti
+per due passate; erano tutti e due inventati — il termine del budget è 2×44 + 6 =
+94 — e la conclusione che ne discendeva era sbagliata anche di segno. **La
+decisione 7 ha poi cancellato la modalità invece di ri-costarla:** via
+`prefs.counterStyle`, via il suo interruttore in Impostazioni, via ogni ramo che
+la leggeva, e i pip escono dalla scheda del giocatore su *ogni* layout — anche
+dal cockpit desktop, dove disegnavano 29 bersagli alti 32px contro il pavimento
+di 44 che questo progetto si è dato, e dove la preferenza non arrivava comunque.
+Restano dove si legge lo stato di qualcun altro invece di segnare il proprio: la
+plancia del party, la scena dal vivo e il compagno.
 
 **E la scheda piegata intera ci sta: 697 contro 730 a 393×852, con 33px di
 avanzo.** È la prima volta, ed è la condizione che la decisione 1 di P5-5 aveva

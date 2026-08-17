@@ -11,12 +11,15 @@
  * Nothing on it is pinned, either, and that reversal is younger still. The
  * trait chips and ROLL sat in a fixed block at the bottom until the order
  * changed underneath them: with the counters and the thresholds moved to the
- * top where Giorgio's message puts them, and the Experiences and the modifier
- * row moved out from above ROLL, ROLL's own lower edge lands 195px above the
- * fold at 393x852 and 10px above it at 375x667 without a pin - so the block
- * was buying a reach the order already provides and charging 266px for it.
- * `PlayPhone`'s docblock carries that arithmetic and `playSheet.test.tsx`
- * carries every number of it as an assertion.
+ * top where Giorgio's message puts them, the Experiences and the modifier row
+ * moved out from above ROLL, and - since the reflow - the identity block off
+ * the phone entirely, ROLL's own lower edge lands **424px** above the fold at
+ * 393x852 and **239px** above it at 375x667 without a pin, so the block was
+ * buying a reach the order already provides and charging 266px for it. This
+ * paragraph carried "195px and 10px" for two passes against assertions of 345
+ * and 160, which is exactly the habit `playSheet.test.tsx` exists to break:
+ * `PlayPhone`'s docblock carries the arithmetic and that file carries every
+ * number of it as an assertion, and these two are derived from the same table.
  *
  * Two layouts, at one breakpoint rather than two.
  *
@@ -58,7 +61,6 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
-import { RenameField } from '../shared/RenameField.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
@@ -393,71 +395,49 @@ function lineageOf(character: Character, index: DatasetIndex): string {
 }
 
 /**
- * Who this is, and the one place the name can be changed.
+ * Who this is - and since the reflow, the desktop cockpit only.
  *
  * The `stats` prop this used to take was never read - `--noUnusedLocals` does
  * not see an unused destructured prop, so it sat there through every edit
- * looking load-bearing.
+ * looking load-bearing. `showLineage` went the same way in this commit rather
+ * than surviving as a `false` nobody passes.
  *
- * The name line stays a `<div>`. That is the whole design of P5-1(b)'s first
- * bullet, which forbids "a name at the top of a scrolling screen that opens a
- * keyboard when a thumb brushes it": the failure it describes requires the
- * name itself to be the target, so the name is not the target. It carries no
- * `role`, no `tabIndex`, no handler and no wrapping `<button>`. The rename
- * lives on a 72x44 chip on the row below, pinned to the right edge with the
- * whole flexible middle of the row between the text that is read and the
- * control that is touched - `Counter.tsx:13-19`'s rule, applied to a name
- * instead of a number.
+ * THE PHONE DOES NOT DRAW THIS AT ALL, WHICH IS DECISION 2 OF THE REFLOW. 99px
+ * of a 730px column - 21 for the name, 7 + 10 for the pronouns and level, 9 + 44
+ * for the class row, and the column's own 8px gap - spent on four facts, three
+ * of which `Header.tsx` already prints on *every* screen: the name (or the
+ * character `<select>` when there are two), and `CLASS / MULTICLASS · LVn`. The
+ * sheet was saying them a second time, 53px below the first.
  *
- * Vertically, at 393x852: the header is 52px plus a 1px border, the phone root
- * has no top padding and `Beastform` draws nothing for a class without one, so
- * the name runs y 53-74, the metadata row y 81-91, and the chip's row y
- * 100-144. The header's SETTINGS button is 44px in a 52px bar, so y 4-48. That
- * is 52px of dead space between the only two 44px targets in the top band, and
- * 96px centre to centre, against an adult fingertip contact patch of about
- * 38-40 CSS px. On the name line the clearance would be 5px; on the metadata
- * row, 33px - less than one fingertip. On a fourth row of its own it would be
- * 105px and cost 53px of the column instead of 25px.
+ * THE TWO IT DOES NOT DUPLICATE ARE THE PRONOUNS AND THE SUBCLASS, AND THEY ARE
+ * NOT DELETED. `Header.tsx` joins `classRef` and `multiclassRef` and deliberately
+ * not `subclassRefs`, and the pronouns exist nowhere in the chrome. Both moved
+ * into the `Lineage & domains` fold, which is shut in the budget and therefore
+ * costs the column nothing - see `Lineage` below, which now opens on the same
+ * two lines this block drew. That is the whole of decision 2's honesty: nothing
+ * left the sheet, one thing left the *resting* sheet and is one tap away.
  *
- * This is also why Identity is not compressed to 74px to buy the reflow its
- * last 17 pixels: merging the pronouns and level into the class row would put
- * RENAME at y 83-127 and take that clearance to 35px, which is the number this
- * paragraph already rejects.
+ * THE RENAME IS NOT HERE EITHER, AND THAT WAS DECISION 1. A 72x44 RENAME chip
+ * used to sit at the right end of the class row, and the whole of P5-1(b)'s
+ * argument was about where to put a target beside a name without making the name
+ * one. There is no target here at all now on the desktop: the one door to a
+ * rename is `Edit.tsx`'s `<RenameField commitOnBlur />` in Build's Identity
+ * section, and `RenameField`'s own docblock says what that costs. The class row
+ * has no 44px child in the cockpit, so it collapses to the 18.9px class line -
+ * 25px back to a column whose roll panel this repo has measured crushed to 45px
+ * at 744x1133.
  *
- * Arming cannot outlive the character it was armed for. `Header.tsx:138-154`
- * draws the character `<select>` on every screen, Play included, as soon as
- * there are two characters - so an armed flag that survived a switch would
- * remount `RenameField` with `autoFocus` on a sheet nobody asked to rename: a
- * software keyboard opening on arrival, which is the failure the backlog
- * bullet forbids. The reset happens *during* the render that changes character
- * rather than in an effect, because an effect runs after a commit and that
- * commit is the one frame in which the field is on the wrong sheet.
+ * The name line stays a `<div>`. P5-1(b)'s first bullet forbids "a name at the
+ * top of a scrolling screen that opens a keyboard when a thumb brushes it": the
+ * failure it describes requires the name itself to be the target, so the name
+ * carries no `role`, no `tabIndex`, no handler and no wrapping `<button>`. The
+ * cockpit does not scroll and has a mouse, so the bullet is not what binds here
+ * any more - it is kept because there is one component and the phone's rule is
+ * the stricter of the two.
  */
-function Identity({
-  showLineage = true,
-  conditions = false,
-}: {
-  showLineage?: boolean;
-  /**
-   * Put `ConditionsControl` at the end of the class row. Phone only.
-   *
-   * A prop rather than a layout read, because this is not a layout question:
-   * the cockpit draws a permanent conditions strip with its own door inside
-   * `Vitals`, and a second door here would be two ways into one dialog on one
-   * screen. The phone has no permanent strip - it is drawn only while something
-   * is on - so this is the only way in that is always there.
-   */
-  conditions?: boolean;
-}): React.JSX.Element | null {
+function Identity(): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
-  const [renaming, setRenaming] = useState(false);
-  const [armedFor, setArmedFor] = useState<string | null>(character?.id ?? null);
-  const activeId = character?.id ?? null;
-  if (activeId !== armedFor) {
-    setArmedFor(activeId);
-    setRenaming(false);
-  }
   if (!character) return null;
   // A multiclassed character is two classes and two subclasses, and both belong
   // on the line that says who they are.
@@ -495,94 +475,29 @@ function Identity({
         </span>
       </div>
       {/*
-       * One wrapper, two contents, so arming costs nothing.
-       *
-       * The `marginTop: 9` lives here rather than on either child: the class
-       * line and the editor swap inside it, the row is 44px tall both ways,
-       * and the sheet below Identity does not move by a pixel when the chip is
-       * tapped. Putting the margin on the class line and none on the editor
-       * would jump the whole sheet up 9px on arming, which is the opposite of
-       * the point.
-       *
-       * While the editor is open this row stops saying what class the
-       * character is. That is the deliberate half of the trade: the
-       * alternative is a fourth row and 53px of permanent scroll window
-       * instead of 25px, and the class is one tap and no scroll away.
+       * The class row. `marginTop: 9` is the row's own margin, and it is the
+       * one thing left of the wrapper that used to swap the class line for a
+       * rename editor: with the editor gone there is one content, so the
+       * wrapper and the row are one element again. It is `.row` and not a bare
+       * div because the conditions door stood in it until decision 3 moved the
+       * door into the defence band, and the class line keeps its `flex: 1,
+       * minWidth: 0` so a two-class string still truncates rather than pushing
+       * the cockpit's first column wide.
        */}
-      <div style={{ marginTop: 9 }}>
-        {renaming ? (
-          <RenameField key={character.id} autoFocus onDone={() => setRenaming(false)} />
-        ) : (
-          <div className="row" style={{ gap: 8 }}>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                font: '600 14px/1.35 var(--sans)',
-                color: 'var(--text-2)',
-              }}
-            >
-              {klass === '' ? 'No class' : klass}
-              {subclass !== '' && ` — ${subclass}`}
-            </div>
-            {/*
-             * The chip. `TO VAULT` at :207-209 is the in-file precedent for a
-             * chip label on this screen and this matches it: `.t-meta` is 10px
-             * mono at 0.06em, and legibility in a dim room is bought by the
-             * weight and the ink colour rather than by the word.
-             *
-             * `--control` resolves to `--tap`, 44px, at every width below 1180
-             * and whenever the *primary* pointer is coarse - `tokens.css:174`,
-             * pinned by `header.test.ts:189`. Primary, not `any-pointer`:
-             * `tokens.css:180-186` makes that distinction on purpose for
-             * `--pip-h` and `stylesheets.test.ts:287` keeps `--control` out of
-             * it, because widening it would crush the desktop cockpit's roll
-             * panel from the inside. So a touchscreen laptop at 1280px answers
-             * `pointer: fine` and gets a 34px chip with a finger available.
-             * That is the token's behaviour for every chip in the app rather
-             * than a choice made here, and this chip follows it instead of
-             * pinning `--tap`: a rename that was the one 44px chip on a
-             * cockpit of 34px ones would be answering the token's question
-             * again, in one place, where the answer would then disagree with
-             * `TO VAULT` eleven rows down. Every width the sheet is actually
-             * played at is coarse-primary and gets 44.
-             */}
-            <button
-              type="button"
-              onClick={() => setRenaming(true)}
-              aria-label={`Rename ${character.name || 'Unnamed'}`}
-              className="row"
-              style={{
-                flex: 'none',
-                minWidth: 72,
-                minHeight: 'var(--control)',
-                justifyContent: 'center',
-                borderRadius: 'var(--r3)',
-                background: 'var(--raised)',
-                border: '1px solid var(--line)',
-                padding: '0 8px',
-              }}
-            >
-              <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
-                RENAME
-              </span>
-            </button>
-            {/*
-             * The conditions, at the end of a row that was already 44px tall.
-             *
-             * This is the door that let the conditions strip stop being drawn
-             * when nothing is on, which is the 52px that finally puts the whole
-             * folded sheet on a 393x852 phone. It costs this column nothing:
-             * RENAME holds the row open to 44 whether this is here or not, and
-             * the 52px it takes out of the class cell leaves the fixture's line
-             * 111px of slack at 393 and 93 at 375. `ConditionsControl` carries
-             * the placement argument and the measurements.
-             */}
-            {conditions && <ConditionsControl />}
-          </div>
-        )}
+      <div className="row" style={{ marginTop: 9, gap: 8 }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            font: '600 14px/1.35 var(--sans)',
+            color: 'var(--text-2)',
+          }}
+        >
+          {klass === '' ? 'No class' : klass}
+          {subclass !== '' && ` — ${subclass}`}
+        </div>
       </div>
-      {showLineage && lineage !== '' && (
+      {lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
       )}
     </div>
@@ -606,6 +521,18 @@ function Identity({
  * which cards you may take and to what level, and `cardLevelCap` is the one
  * number in this fold that answers a question asked mid-scene. So the domains
  * lead and the ancestry and community follow them.
+ *
+ * THE PRONOUNS AND THE SUBCLASS ARE HERE BECAUSE DECISION 2 TOOK THE IDENTITY
+ * BLOCK OFF THE PHONE, AND THEY HAD NOWHERE ELSE. `Header.tsx` prints the name
+ * and `CLASS / MULTICLASS · LVn` on every screen, so those three survive the
+ * deletion in the chrome - but it joins `classRef` and `multiclassRef` and
+ * deliberately not `subclassRefs`, and it has never carried pronouns. Without
+ * this line both would be on the Play screen nowhere at all, which is a
+ * deletion nobody decided. They lead this fold rather than trailing it because
+ * they are the "who" and the rest of the fold is the "where from"; the class
+ * and level are repeated with them so the two lines read as a sentence rather
+ * than as an orphaned subclass. Zero pixels of the budget: this fold is shut in
+ * it, and a shut `Disclosure` renders no children at all.
  */
 function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
@@ -613,9 +540,37 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const shapes = useApp((s) => s.prefs.shapeCoding);
   if (!character) return null;
   const lineage = lineageOf(character, index);
+  // The same two joins the identity block made, and for the same reason: a
+  // multiclassed character is two classes and two subclasses, and the line that
+  // says who they are should say so.
+  const klass = [character.classRef, character.multiclassRef]
+    .map((r) => (r === null ? undefined : index.classes.get(r)?.name))
+    .filter(Boolean)
+    .join(' / ');
+  const subclass = character.subclassRefs
+    .map((r) => index.subclasses.get(r)?.name)
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      <div className="row" style={{ gap: 8 }}>
+        {character.pronouns !== '' && (
+          <span className="t-meta">{character.pronouns.toUpperCase()}</span>
+        )}
+        {character.pronouns !== '' && (
+          <span className="t-meta" style={{ color: 'var(--line)' }}>
+            ·
+          </span>
+        )}
+        <span className="t-meta" style={{ color: 'var(--muted)' }}>
+          LEVEL {character.level}
+        </span>
+      </div>
+      <div style={{ font: '600 14px/1.35 var(--sans)', color: 'var(--text-2)' }}>
+        {klass === '' ? 'No class' : klass}
+        {subclass !== '' && ` — ${subclass}`}
+      </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {stats.domains.map((domain) => (
           <span
@@ -669,22 +624,54 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * +1 - use it to Sprint, Leap, Maneuver" - so a screen-reader user loses
  * nothing at all and gains the 150px a sighted user gains.
  *
- * ERGONOMICS. Six chips at `flex: '1 1 46px'` with 4px between them is the
- * tightest target spacing on this screen, and I am not going to pretend it is
- * comfortable. Three things make it acceptable: it is exactly the arrangement
- * and exactly the gap the shipped pinned strip already used, so it is not a new
- * risk; a mis-tap arms a neighbouring trait, which is visible instantly - the
- * chip fills with `--hope` - and costs one tap to undo; and it spends nothing.
- * No Hope, no log line, no roll. Every costly mis-tap on this screen (ROLL,
- * RECALL, USE, the damage commit) has either a much bigger target or a second
- * tap. Content is about 341.6px against a 369px column at 393px and 351px at
- * 375px - "AGI +1" is 45.6px at `.chip`'s 9.5px mono with its tracking and 4px
- * of padding either side, six of those plus the 44px control plus six 4px gaps
- * - and the row carries `flexWrap: 'wrap'`, so an unforeseen width degrades to
- * a second 44px row rather than to clipped text.
+ * THE CHIP IS TWO LINES AT 15px, WHICH IS DECISION 5. It was one line at
+ * `.chip`'s 9.5px - the smallest type anywhere on this sheet, for six of the
+ * numbers a player reads most often. Stacked, the abbreviation sits over the
+ * value at 15px and the chip is 58 tall instead of 44: **+14 on the column**,
+ * and the third-largest type on the screen where it was the smallest. Nothing
+ * else in the row moves; the verbs control follows to 58 so the row is one
+ * height rather than a 44 floating in a 58.
  *
- * The space in "AGI +1" is load-bearing: `playSheet.test.tsx`'s `traitChip`
- * helper matches `^AGI [+−]`, and seven tests would change to save five pixels.
+ * AND THE BASIS IS 44, WHICH IS A SEPARATE FIX AND IS NOT THE SAME ONE. Flex
+ * line-breaking is decided on the declared `flex-basis`, not on what the chip
+ * draws, so a taller chip is not a narrower one and decision 5 closes nothing
+ * on its own - the audit report says so in as many words. At `1 1 46px` the row
+ * declared 6 x 46 + 44 + 6 x 4 = **344**, which is exactly the column at
+ * viewport 368 and one pixel more at 367: an exact fit is a coincidence, and
+ * every Android at 360 paid 48px for it (two rows, the second holding nothing
+ * but the 44x44 chevron - measured: the row is 92 tall at 367 and 44 at 368).
+ * At `1 1 44px` with `minWidth: 44` the line declares 6 x 44 + 44 + 24 =
+ * **332**, so it is one row from viewport **356** up. Nothing changes at 368 and
+ * above: flex-grow redistributes the same free space, so the chips are still
+ * 46.0 at 368, 47.17 at 375 and 50.17 at 393, measured before and after.
+ *
+ * ERGONOMICS. Six targets at ~50.2px wide at 393, 47.2 at 375, 44.67 at 360 and
+ * exactly 44.0 at 356, all 58 tall, with 4px between them. That is still the
+ * tightest target spacing on this screen and I am not going to pretend it is
+ * comfortable; what changed is that it is 32% taller and that the floor is now
+ * declared rather than true by arithmetic somewhere else. The horizontal gutter
+ * is unchanged, so the near-miss risk sideways is exactly what it was, and three
+ * things still make it acceptable: it is the arrangement and the gap the shipped
+ * pinned strip already used; a mis-tap arms a neighbouring trait, which is
+ * visible instantly - the chip fills with `--hope` - and costs one tap to undo;
+ * and it spends nothing. No Hope, no log line, no roll. Every costly mis-tap on
+ * this screen (ROLL, RECALL, the damage commit) has either a much bigger target
+ * or a second tap.
+ *
+ * BELOW 356 IT IS TWO ROWS AND THAT IS CORRECT RATHER THAN A DEFECT. Seven 44px
+ * targets and six 4px gaps need 332 of column, which needs a 356px viewport;
+ * below that no arrangement puts them on one line without taking one under the
+ * floor. So the row wraps - 58 + 4 + 58 = **120**, +62 on the column - and the
+ * second line carries the chevron alone. It is a reflow on a column that scrolls,
+ * and nothing is ever clipped or off the glass.
+ *
+ * The space after the abbreviation is load-bearing and it is *inside* the first
+ * span for that reason: the two lines are two `display: block` spans, so
+ * `textContent` concatenates them with nothing between, and
+ * `playSheet.test.tsx`'s `traitChip` helper matches `^AGI [+−]` in seven tests.
+ * At 15px mono with `.chip`'s 0.06em the widest line a chip draws is the
+ * abbreviation at 29.7px, which is 37.7 with the padding - inside the 44px
+ * basis, so no chip ever paints outside its own box.
  */
 function TraitRow({
   stats,
@@ -738,9 +725,21 @@ function TraitRow({
               className="chip"
               style={{
                 position: 'relative',
-                flex: '1 1 46px',
-                minHeight: 'var(--tap)',
+                // 44 and not 46, and declared twice: the basis is what flex
+                // breaks lines on, and the `minWidth` is what makes "every
+                // target is at the floor in both directions" true by
+                // declaration rather than by arithmetic somewhere else.
+                flex: '1 1 44px',
+                minWidth: 44,
+                minHeight: 58,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'center',
+                // Overrides `.chip`'s `font: 600 9.5px/1 var(--mono)` size and
+                // leading and keeps its family, its weight and its tracking.
+                fontSize: 15,
+                lineHeight: 1.15,
                 padding: '0 4px',
                 background: active ? 'var(--hope)' : 'var(--raised)',
                 color: active ? 'var(--app)' : 'var(--muted)',
@@ -756,8 +755,16 @@ function TraitRow({
                 }`,
               }}
             >
-              {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {value >= 0 ? '+' : '−'}
-              {Math.abs(value)}
+              {/* Two blocks, and the trailing space in the first one is not a
+                  typo: `textContent` joins two block spans with nothing between
+                  them, and `traitChip` matches `^AGI [+−]` in seven tests. */}
+              <span style={{ display: 'block' }}>
+                {TRAIT_LABELS[t].slice(0, 3).toUpperCase()}{' '}
+              </span>
+              <span style={{ display: 'block' }}>
+                {value >= 0 ? '+' : '−'}
+                {Math.abs(value)}
+              </span>
               {marked && (
                 <span
                   aria-label="marked this tier"
@@ -776,10 +783,12 @@ function TraitRow({
           );
         })}
         {/*
-         * The verbs control. Square at the touch floor in both directions, and
-         * `aria-expanded` because that is what it is - but deliberately not a
-         * `Disclosure`, which is a full-width header by contract and would cost
-         * the 44px row this whole component exists to save.
+         * The verbs control. At the touch floor in width and taller than it in
+         * height, because it follows the chips to 58 so the row is one height
+         * rather than a 44 floating in a 58 - and `aria-expanded` because that
+         * is what it is, but deliberately not a `Disclosure`, which is a
+         * full-width header by contract and would cost the row this whole
+         * component exists to save.
          */}
         <button
           type="button"
@@ -791,7 +800,7 @@ function TraitRow({
             flex: 'none',
             width: 44,
             minWidth: 44,
-            minHeight: 'var(--tap)',
+            minHeight: 58,
             justifyContent: 'center',
             borderRadius: 'var(--r3)',
             background: 'var(--raised)',
@@ -1003,31 +1012,62 @@ function TraitGrid({
  * badly, Proficiency is the one you reach for when it is your turn instead of
  * theirs.
  *
- * `damage` adds `TOOK [ ]` as a fifth cell, phone only, and the argument for it
- * is that it was already reading these numbers - the box printed `8/16` in 10px
- * beside itself because it needed the ladder and could not see it. Now the
- * number you were told and the ladder you read it against are one glance.
+ * `damage` adds the incoming-damage box as a fifth cell, phone only, and the
+ * argument for it is that it was already reading these numbers - the box printed
+ * `8/16` in 10px beside itself because it needed the ladder and could not see
+ * it. Now the number you were told and the ladder you read it against are one
+ * glance.
  *
- * THE COLUMNS STOPPED BEING EQUAL, AND THAT IS THE WHOLE COST. Four equal cells
+ * `conditions` puts the phone's permanent conditions door at the head of that
+ * same fifth cell, in place of the `TOOK` caption. That is decision 3 of the
+ * reflow, and it is *inside* the fifth cell rather than beside it as a sixth
+ * because a sixth does not fit at any phone width: the four cells and their four
+ * gaps are 234.47, a fifth of 44 + 6 + 44 is 94, and a sixth of 44 plus a fifth
+ * gap is 50 - 378.47 against 369px of column at 393.
+ *
+ * THE COLUMNS STOPPED BEING EQUAL, AND THAT IS THE FIRST COST. Four equal cells
  * plus the box do not fit: `EVASION` at `.t-meta` with this tracking measures
- * 47.75px, so its cell wants 67.75 with the padding and the border, and four of
- * those plus a 91.29px `TOOK [ ]` plus four 6px gaps is 386.29 against 369px of
- * column at 393 - over at the *wider* phone. Sized to their contents the four
- * come to 230.08 and the box gets the rest: 114.92 at 393 and 96.92 at 375,
- * against the 91.29 it needs. Measured in Chrome with the shipped fonts, both
- * widths, no overflow at either.
+ * 47.61px, so at 9px of padding either side its cell wanted 67.61 with the
+ * border, and four of those plus the box plus four 6px gaps overflowed even a
+ * 393px phone. Sized to their contents instead, the four take their labels and
+ * the box takes the remainder.
  *
- * The band does not get taller. A number cell is 8 + 10 + 4 + 26 + 8 + 2 = 58px
- * and the field is 44 in a row already 58 tall, so the fifth cell rides for
- * free and the counters are 50px shorter for it.
+ * THE PADDING IS 6 AND NOT 9, WHICH IS THE SECOND COST AND IS BOUGHT
+ * DELIBERATELY. Three pixels a side off four readout cells is 24px of column,
+ * and it is what stands the door and the field side by side at 360 - the
+ * commonest Android width there has ever been - instead of wrapping them onto
+ * two lines. Measured in Chrome with the `wizard10` fixture at `8px 6px`: the
+ * four cells are 61.61 + 52.84 + 54.81 + 41.20 = 210.47 with the number at 32px,
+ * so the fifth track is `column - 234.47` and the 94 it has to hold has 134.53
+ * at 393, 116.53 at 375, 101.53 at 360 and 97.53 at 356. At `8px 9px` the same
+ * pair had 93.53 at 360 and wrapped. Nothing in these four cells is a target -
+ * they are four numbers you read - so the twelve pixels are spent on nothing a
+ * finger has to find.
+ *
+ * The band's height is the four number cells: 8 + 10 label + 4 + 32 number + 8 +
+ * 2 border = 64px, and the 32 is decision 4 - the only term of this band that
+ * grew, and it grew inside a row whose two targets are 44 and did not move. The
+ * door and the field are 44 inside that, so both ride for free and the counters
+ * are 50px shorter for them.
  */
 function Defenses({
   stats,
   damage = false,
+  conditions = false,
 }: {
   stats: DerivedStats;
   /** Draw the incoming-damage box as a fifth cell. Phone only. */
   damage?: boolean;
+  /**
+   * Put `ConditionsControl` at the head of that fifth cell. Phone only.
+   *
+   * A prop rather than a layout read, because this is not a layout question:
+   * the cockpit draws a permanent conditions strip with its own door inside
+   * `Vitals`, and a second door here would be two ways into one dialog on one
+   * screen. The phone has no permanent strip - it is drawn only while something
+   * is on - so this is the only way in that is always there.
+   */
+  conditions?: boolean;
 }): React.JSX.Element {
   // A Beastform replaces Evasion, so the panel says so twice: sage, and the
   // number it replaced printed struck through underneath it.
@@ -1058,8 +1098,17 @@ function Defenses({
         // being squeezed into 80px. With the damage box in, the four size to
         // their labels and the box takes the remainder - four equal cells plus
         // the box overflow even a 393px phone.
+        //
+        // The unreadable-armor shape grows a fourth track when the door is
+        // here, because the door is the phone's only way into the conditions
+        // and a sheet the app cannot read a ladder for is not a sheet that
+        // stops being able to be Restrained. `auto` and not `1fr`: it holds one
+        // 44px control and nothing else, and the sentence beside it is what
+        // should have the room.
         gridTemplateColumns: unknownThresholds
-          ? '1fr 2fr 1fr'
+          ? conditions
+            ? '1fr 2fr 1fr auto'
+            : '1fr 2fr 1fr'
           : damage
             ? 'auto auto auto auto 1fr'
             : 'repeat(4, 1fr)',
@@ -1073,7 +1122,7 @@ function Defenses({
         under={worn ? String(worn.baseEvasion) : undefined}
       />
       {unknownThresholds ? (
-        <div className="panel stack" style={{ padding: '8px 9px', gap: 3, minWidth: 0 }}>
+        <div className="panel stack" style={{ padding: '8px 6px', gap: 3, minWidth: 0 }}>
           <span className="t-meta" style={{ letterSpacing: '0.08em', color: 'var(--damage)' }}>
             ARMOR NOT IN THIS BUILD
           </span>
@@ -1088,11 +1137,17 @@ function Defenses({
         </>
       )}
       <Defence label="PROF" value={stats.proficiency} />
-      {/* One gate, and it is not here: with the ladder unreadable this returns
-          null on its own, and the template above has already given the band the
-          three-cell shape that says why. Two components asking the same
+      {/* One gate, and it is not here: with the ladder unreadable this draws
+          the door and no field on its own, and the template above has already
+          given the band the shape that says why. Two components asking the same
           question is how they eventually answer it differently. */}
-      {damage && <IncomingDamage stats={stats} layout="band" />}
+      {damage && (
+        <IncomingDamage
+          stats={stats}
+          layout="band"
+          door={conditions ? <ConditionsControl /> : undefined}
+        />
+      )}
     </div>
   );
 }
@@ -1114,14 +1169,21 @@ function Defence({
   return (
     <div
       className="panel stack"
-      style={{ padding: '8px 9px', gap: 4, minWidth: 0, borderColor: tone }}
+      // 6px of horizontal padding, not 9: `Defenses`'s own note carries what
+      // the twelve pixels buy and why a readout cell is where they come from.
+      style={{ padding: '8px 6px', gap: 4, minWidth: 0, borderColor: tone }}
     >
       <span className="t-meta" style={{ letterSpacing: '0.08em', color: tone }}>
         {label}
       </span>
       <span
         style={{
-          font: '800 26px/1 var(--sans)',
+          // 32, not 26. These four are the numbers you read across a table
+          // under pressure and they are the only things in the band that are
+          // not targets, so the six pixels are pure legibility: the row's
+          // height comes from this line, and 8 + 10 + 4 + 32 + 8 + 2 = 64
+          // against 58, which is +6 on the whole column and nothing else.
+          font: '800 32px/1 var(--sans)',
           letterSpacing: '-0.02em',
           fontVariantNumeric: 'tabular-nums',
         }}
@@ -2179,71 +2241,118 @@ function PlayDesktop({
  *
  * THE ORDER, AND WHOSE IT IS. "Metterei le stat in alto, i counter Hope,
  * armour (e threshold bene in vista) stress e hp, sotto armi e armature e
- * ultime le carte." Identity, the four defence numbers, the four counters, the
- * traits, ROLL, and then the folds: weapons and armour, the Experiences, what
- * you are carrying, the cards with the vault inside them, the rest, and last
- * the lineage with its domains first. Measured on the owner's phone at 393x852
- * the shipped build put the identity block, RENAME, the defence band, six
- * trait tiles with their verbs and the pinned roll block above the fold - and
- * HP, Stress, Hope and Armor, the four counters the message puts second, were
- * not on the screen at all. The order that was asked for was never delivered
- * on a phone.
+ * ultime le carte." The four defence numbers, the four counters, the traits,
+ * ROLL, and then the folds: weapons and armour, the Experiences, what you are
+ * carrying, the cards with the vault inside them, the rest, and last the
+ * lineage with its domains first. Measured on the owner's phone at 393x852 the
+ * shipped build put the identity block, RENAME, the defence band, six trait
+ * tiles with their verbs and the pinned roll block above the fold - and HP,
+ * Stress, Hope and Armor, the four counters the message puts second, were not
+ * on the screen at all. The order that was asked for was never delivered on a
+ * phone.
+ *
+ * THE IDENTITY BLOCK IS NOT THE FIRST THING HERE ANY MORE, AND THAT IS DECISION
+ * 2. 99px - 21 for the name, 7 + 10 for the pronouns and level, 9 + 44 for the
+ * class row, and this column's own 8px gap - spent on four facts, three of which
+ * `Header.tsx` prints 53px higher up on *every* screen: the name (or the
+ * character `<select>`), and `CLASS / MULTICLASS · LVn`. The two it does not
+ * duplicate are the pronouns and the subclass, and they are not deleted: both
+ * moved into the shut `Lineage & domains` fold, where they cost this budget
+ * nothing. So the band leads the column, which is also where "threshold bene in
+ * vista" wanted it.
  *
  * NOTHING IS PINNED, AND THE ARITHMETIC IS THE WHOLE WARRANT FOR THAT. P5-1
  * decided the block stays because "a control you have to scroll to find is a
  * control that stops being used", and that reasoning is sound and its
  * conclusion is now reversed, because its premise moved. Against declared
- * heights at 393x852, every fold shut and nothing armed: Identity 91, the
- * defence band 58 - which now carries the incoming-damage box as a fifth cell,
- * for nothing, because a 44px field fits inside a row the numbers already hold
- * open at 58 - the four counters 94 as a 2x2 grid, the trait row 44, and the
- * roll row 66, ROLL beside a MODS control that costs the column nothing because
- * it is 44 wide inside a height ROLL was already holding, plus four of this
- * column's 8px gaps. **ROLL's lower edge lands at 385 of a usable 730** (852
- * less the header's 52+1, the tab bar's 60+1 and this root's own 8px foot),
- * which is 345px of slack. Measured in Chrome through `preview.html` with the
- * `playedCharacter` fixture, every section drawn at exactly its declared
- * height: 385.
+ * heights at 393x852, every fold shut and nothing armed: the defence band 64 -
+ * which carries the incoming-damage field *and* the conditions door as its
+ * fifth cell, for nothing, because two 44px controls fit inside a row the
+ * numbers hold open at 64 - the four counters 94 as a 2x2 grid, the trait row
+ * 58, and the roll row 66, ROLL beside a MODS control that costs the column
+ * nothing because it is 44 wide inside a height ROLL was already holding, plus
+ * three of this column's 8px gaps. **ROLL's lower edge lands at 306 of a usable
+ * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
+ * foot), which is 424px of slack.
  *
- * AT 375x667 THE SAME 385 CLEARS A 545px COLUMN BY 160px, where before the
+ * AT 375x667 THE SAME 306 CLEARS A 545px COLUMN BY 239px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
- * this budget cannot see costs the small phone its margin: typed dice (+68), a
- * companion (+50), a Beastform banner (+52), the 34px home-indicator inset -
- * and pips, which are the dearest of them at **+100**. This comment said +149
- * and concluded that pips do cost it; both halves were wrong. Rendered in
- * Chrome with the `playedCharacter` fixture, `counterStyle: 'pips'` keeps the
- * four full-width rows and wraps nothing at either width, so the Vitals block
- * is 94 as numbers and 194 as pips - the 2x2 grid's own arithmetic run
- * backwards - and ROLL lands at 485 of the 545 column, with **60px to spare**.
+ * this budget cannot see costs the small phone its margin: typed dice, which
+ * are the dearest of them at **+68**, a companion (+50), a Beastform banner
+ * (+52), an armed modifier (+50), and the 34px home-indicator inset. There used
+ * to be a sixth and it used to be the dearest - pips, at +100 - and decision 7
+ * deleted `counterStyle`, its switch and every branch on it, so the 194px shape
+ * is not reachable from this screen on any layout. The four counters are numbers
+ * here and in the cockpit; pips survive on the party board, the live scene and
+ * the companion, where you are reading somebody else's state rather than marking
+ * your own.
  *
- * AND THE WHOLE FOLDED SHEET FITS, WHICH IT HAS NEVER DONE BEFORE. **697px
- * against 730 at 393x852, with 33 to spare** - measured in Chrome, every fold
- * shut, the `playedCharacter` fixture. That is the condition P5-5's own
- * decision 1 made the unpinning conditional on, unmet through P5-5 (899, over
- * by 169) and P5-6 (749, over by 19) and met here. It fits at 744x1133 with 375
- * to spare, and it is still **152px over at 375x667**, which no arrangement of
- * this sheet closes: 152 is three fold headers and there are six.
+ * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
+ * TWICE OVER. **618px against 730 at 393x852, with 112 to spare** - every fold
+ * shut, the `playedCharacter` fixture, measured in Chrome and not only summed:
+ * the distance from the top of the defence band to the bottom edge of the
+ * lineage header is 618.0 at 356, 360, 368, 375, 393 and 744. That is the
+ * condition P5-5's own decision 1 made the unpinning conditional on, unmet
+ * through P5-5 (899, over by 169) and P5-6 (749, over by 19), met at P5-8 (697,
+ * 33 to spare) and now clear by 112. It fits at 744x1133 with 454 to spare, and
+ * it is **73px over at 375x667** - one fold header and a gap, where it was three.
  *
- * The last 52 came from the conditions, and from nowhere else. P5-6's three
- * savings were costed at 198 and were worth 150 - the 2x2 grid is the 100 it
- * was estimated at, the damage box is 50 rather than 46 because the band did
- * not have to grow for it, and folding the conditions away was worth **nothing
- * at all**, because a shut `Disclosure` is 44 plus this column's 8px gap, which
- * is exactly what the permanent strip was. The 52 is only available from
- * decision 6's shape: draw nothing when nothing is on, with the door somewhere
- * that costs no height. `ConditionsControl` is that door - 44x44 at the end of
- * the identity's class row, in a band RENAME already holds open at 44 - and the
- * strip is back, in its own slot, the moment anything is on. Nothing here is
- * bought by shaving a gap, because a fit bought that way is one the next honest
- * edit un-buys. `playSheet.test.tsx` carries every one of these numbers as an
+ * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
+ * predicted it would not: 618 against 678, 60 to spare, measured. The report's
+ * own closing table had 360x800 at -2 because it costed decision 5 without the
+ * width fix beside it - a taller chip is not a narrower one - and with the
+ * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
+ * the 62px that ate it is not spent. With two conditions on, the strip is back
+ * in its slot and the sheet is 670 against 678, which still fits.
+ *
+ * P5-8's last 52 came from the conditions and from nowhere else, and the shape
+ * of that saving survives this reflow with a different door. Nothing is drawn
+ * while nothing is on; the permanent way in is a 44x44 `ConditionsControl`,
+ * which sat at the end of the identity's class row and is at the head of the
+ * defence band's fifth cell now that the class row has gone. Both homes cost the
+ * same thing, which is nothing, for the same reason: a 44px control inside a
+ * band that is taller than it for another reason. Nothing here is bought by
+ * shaving a gap, because a fit bought that way is one the next honest edit
+ * un-buys. `playSheet.test.tsx` carries every one of these numbers as an
  * assertion rather than as prose, so none of them can quietly stop being true.
+ *
+ * AND THE OTHER BUDGET, WHICH HAD NEVER BEEN WRITTEN AT ALL. Everything above is
+ * vertical and is computed for 393x852 and 375x667. There was no horizontal
+ * budget, and three separate declared sums each overran the column with nothing
+ * in the repo saying so: the trait row wrapped at every viewport <= 367 (+48,
+ * and on a 360px Android the second row held nothing but the 44x44 chevron), the
+ * incoming-damage cell overflowed its grid track *leftwards* and painted its
+ * label and its 58px field over the Proficiency panel below viewport 353, and
+ * the 2x2 counter grid was pinned at a viewport-independent 325.37 with the `+`
+ * on STRESS and ARMOR cut off the glass by this column's own `overflowX:
+ * 'hidden'` - 17.4px of a 44px target at 320, and no gesture of any kind brings
+ * a hidden overflow back.
+ *
+ * **THE SMALLEST WIDTH THIS SHEET IS LAID OUT FOR IS 360**, and that is a
+ * decision rather than a discovery: 360 is the commonest Android viewport there
+ * has ever been. The three sums are 332, 328.47 and 286, whose floors are 356,
+ * 352.47 and 310, and `playSheet.test.tsx`'s «the width this sheet is laid out
+ * for» carries them the way «the budget the pin came off for» carries the
+ * vertical ones. Everything below 360 reflows and nothing breaks: under 356 the
+ * trait row is two 58px lines (+62), under 353 the damage cell is two 44px lines
+ * (+30), a `Disclosure` summary that will not fit ends in an ellipsis, and the
+ * counter cells shrink and clip their own labels inside targets that keep their
+ * declared size. Verified in Chrome at 320, 344, 356, 360, 368, 375, 393 and 744
+ * with two fixtures: nothing painted past the clip edge, no overlap, and no
+ * target under 44 in either direction at any of them.
+ *
+ * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
+ * always had here. At 320x568 the folded sheet is 710 against a 446px column, and
+ * no arrangement of six fold headers closes 264px; it scrolls, exactly as 375
+ * does at 73. What it does not do is hide anything or put anything out of reach.
  *
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
- * has always treated as 0. That takes the 393x852 column from 730 to 696 and
- * the fit to **one pixel over**. So "tutta la scheda in una volta sola" is true
- * in a browser on that phone and false by a hair in the installed app, and
- * nobody has yet checked the inset on the owner's own device.
+ * has always treated as 0. That takes the 393x852 column from 730 to 696, which
+ * this sheet now clears by 78 where P5-8's 697 was one pixel over. `BackupBanner`
+ * is the other one the budget has never counted: it is 58px above this scroll
+ * from first launch until the first backup is taken, so a new user's column is
+ * 672 - and 618 clears that by 54, where 697 was 25px over it.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
@@ -2262,8 +2371,9 @@ function PlayDesktop({
  * than once a turn, so they do not belong above ROLL - and they are drawn only
  * while one is on. The fold P5-6 put them behind was a better 44px than the
  * strip and not a cheaper one; this is the cheaper one, and it is paid for by
- * the 44x44 `ConditionsControl` on the identity's class row, in a band RENAME
- * already holds open. See `ActiveConditions` and `ConditionsControl`.
+ * the 44x44 `ConditionsControl` at the head of the defence band's fifth cell,
+ * in a row the four number cells already hold open. See `ActiveConditions` and
+ * `ConditionsControl`.
  *
  * EVERY FOLD DEFAULTS SHUT, `equipped` and the cards included. The budget above
  * is computed with every fold shut, and a default that contradicted it would
@@ -2276,7 +2386,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 697 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 618 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2357,15 +2467,18 @@ function PlayPhone({
           comes before them. It renders nothing for a class without one. */}
       <Beastform stats={stats} layout="phone" />
 
-      <Identity showLineage={false} conditions />
-
       {/* Read under pressure, so it is four numbers and not a footnote - and
-          second, because "threshold bene in vista" is the one instruction in
-          Giorgio's message with a reason attached to it. `damage` puts the
-          box you type a hit into beside the two thresholds it is read
+          FIRST, since decision 2 took the identity block off this column:
+          "threshold bene in vista" is the one instruction in Giorgio's message
+          with a reason attached to it, and the name, class and level it used to
+          sit under are on `Header.tsx` on every screen anyway. `damage` puts
+          the box you type a hit into beside the two thresholds it is read
           against, which is where it was already looking: it used to print
-          `8/16` in 10px next to itself from inside the counters. */}
-      <Defenses stats={stats} damage />
+          `8/16` in 10px next to itself from inside the counters. `conditions`
+          puts the phone's permanent door into `ConditionsDialog` at the head of
+          that same fifth cell - it was on the identity's class row, and that
+          row has gone. */}
+      <Defenses stats={stats} damage conditions />
 
       {/* The four counters, two across. `bare`, because a box drawn around
           four silhouettes costs 18px and distinguishes nothing. */}
@@ -2388,27 +2501,29 @@ function PlayPhone({
        * of the tab bar` for two passes after the 2x2 counter grid took 150px
        * out of the stack above it, and every one of those numbers was 150px
        * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-       * shut, at the top of the scroll: the ROLL row spans **y372-438** on the
+       * shut, at the top of the scroll: the ROLL row spans **y293-359** on the
        * glass at both reference widths, because everything above it is the same
-       * height at both. At 393x852 that is **414 to 480px above the bottom
-       * bezel** and **353px clear of the tab bar**; at 375x667 it is **229 to
-       * 295px above the bezel** and 168px clear.
+       * height at both. At 393x852 that is **493 to 559px above the bottom
+       * bezel** and **432px clear of the tab bar**; at 375x667 it is **308 to
+       * 374px above the bezel** and 247px clear.
        *
        * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
        * The old sentence cited a 95th-percentile right-thumb sweep of about
-       * 330px from the bottom-right pivot and said ROLL was inside it. At
-       * 414-480 it is not: on a 393x852 phone the resting sheet puts ROLL some
-       * 84px beyond the far edge of that arc, so it cannot be reached
-       * one-handed without shifting the grip. On a 375x667 phone the same row
-       * is 229-295 above a nearer bezel and is comfortably inside it. So
-       * unpinning plus the grid moved ROLL *further* from a one-handed thumb
-       * than the pinned block was, on the larger of the two reference phones,
-       * and that is a real cost of what was asked for rather than a detail.
+       * 330px from the bottom-right pivot and said ROLL was inside it. It is
+       * not, at either width, and the reflow made that worse rather than
+       * better: deleting the 99px identity block lifted everything below it, so
+       * on a 393x852 phone the resting sheet now puts ROLL some 163px beyond the
+       * far edge of that arc where P5-8 put it 84 beyond, and on a 375x667 phone
+       * ROLL has left the arc altogether - it was 229-295 and comfortably inside
+       * it, and it is 308-374 and outside it by 44 at the far edge. That is a real cost of what
+       * was asked for rather than a detail, and it is the cost of decision 2
+       * specifically: every pixel the sheet gets shorter above ROLL is a pixel
+       * further from the thumb at rest.
        *
        * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-       * The whole folded sheet is now readable in one look - 697 of 730 at
+       * The whole folded sheet is now readable in one look - 618 of 730 at
        * 393x852 - which is the sentence the owner actually wrote and which a
-       * pinned block made arithmetically impossible. And ROLL is 353px clear of
+       * pinned block made arithmetically impossible. And ROLL is 432px clear of
        * the tab bar, where pinned it sat 8px above a 98x60 control that
        * navigates away: a thumb aiming for ROLL and missing low used to leave
        * the screen mid-turn.
@@ -2514,27 +2629,6 @@ function PlayPhone({
       )}
 
       {/*
-       * "Sotto armi e armature e ultime le carte": the inventory comes
-       * between the weapons and the cards, which is also the printed sheet's
-       * order - and it carries the gold, because gold is a carried thing.
-       *
-       * The gold used to be a 30px row of its own whose entire content was
-       * the word "Gold" and a formatted total. `Disclosure` draws `summary`
-       * open and closed alike, so putting the total here spends no row at all
-       * and still has it on the glass with every fold shut. An empty purse
-       * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
-       * nothing and is chosen rather than discovered.
-       */}
-      <Disclosure
-        id="carried"
-        characterId={character.id}
-        label="Carried"
-        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
-      >
-        <Items bare />
-      </Disclosure>
-
-      {/*
        * The cards, which are one section and used to be drawn as two.
        *
        * "Ultime le carte." The loadout and the vault are the same subject -
@@ -2547,6 +2641,20 @@ function PlayPhone({
        * Nested rather than merged, because the argument that separated them
        * still holds: a level 8 character owns about a dozen cards and carries
        * five, and opening the loadout must not hand you twelve rows.
+       *
+       * ABOVE `Carried` AND NOT BELOW IT, WHICH IS DECISION 6 AND WHICH READS
+       * AGAINST THE MESSAGE. "Sotto armi e armature e ultime le carte" puts the
+       * cards last and they were last; the owner moved them one place up. The
+       * warrant is frequency rather than order: this is the fold a player opens
+       * most - it is where every domain ability is - and `Carried` is read when
+       * somebody asks what you have on you. It costs the column **0px**: two
+       * 44px headers swap places, both keep their `Disclosure` id, so no
+       * player's remembered arrangement moves and neither total in the budget
+       * changes. What moves is reading order and reach: the Cards header's
+       * lower edge goes from 470 to 418 relative to the top of the column, i.e.
+       * from 429 to 481px above the bezel at 393x852. Both are outside the
+       * ~330px thumb sweep, so this is a reading gain and not a reach gain, and
+       * it is described as one.
        */}
       <Disclosure
         id="cards"
@@ -2571,6 +2679,27 @@ function PlayPhone({
       </Disclosure>
 
       {/*
+       * "Sotto armi e armature e ultime le carte": the inventory comes
+       * between the weapons and the cards, which is also the printed sheet's
+       * order - and it carries the gold, because gold is a carried thing.
+       *
+       * The gold used to be a 30px row of its own whose entire content was
+       * the word "Gold" and a formatted total. `Disclosure` draws `summary`
+       * open and closed alike, so putting the total here spends no row at all
+       * and still has it on the glass with every fold shut. An empty purse
+       * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
+       * nothing and is chosen rather than discovered.
+       */}
+      <Disclosure
+        id="carried"
+        characterId={character.id}
+        label="Carried"
+        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
+      >
+        <Items bare />
+      </Disclosure>
+
+      {/*
        * A rest is between-scenes work, so it sits below everything the game
        * makes you touch during a scene and above the section read once a
        * session. Directly under the cards, because the free swap it offers is
@@ -2582,13 +2711,13 @@ function PlayPhone({
        * Conditions are set once a scene rather than once a turn, so they are
        * low in the column - and they are drawn only while one is actually on.
        *
-       * This is the last 19px and it is decision 6's shape on a second surface:
-       * nothing is drawn to say nothing. The fold P5-6 put here saved not one
-       * pixel - a shut `Disclosure` is 44 plus this column's 8px gap, which is
-       * exactly what the permanent strip was - and the only arrangement that
-       * removes the 52 is this one, paid for by a door that costs no height,
-       * which is the 44x44 control on the identity's class row above. With
-       * nothing on, the folded sheet is 697 of 730 at 393x852.
+       * This is decision 6's shape on a second surface: nothing is drawn to
+       * say nothing. The fold P5-6 put here saved not one pixel - a shut
+       * `Disclosure` is 44 plus this column's 8px gap, which is exactly what
+       * the permanent strip was - and the only arrangement that removes the 52
+       * is this one, paid for by a door that costs no height, which is the
+       * 44x44 control in the defence band's fifth cell at the top of this
+       * column. With nothing on, the folded sheet is 618 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A
@@ -2612,13 +2741,13 @@ function PlayPhone({
        *
        * Here it is the last child of the scroll, under the last shut fold. The
        * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 697px against 730 - and everything
+       * bottom edge of the lineage header - 618px against 730 - and everything
        * it sums is something a player has to be able to reach. This is not:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is
        * outside `STACK` and outside `INDEX` on purpose, and the test says that
        * in the one place it could otherwise be mistaken for an omission - the
-       * child count, which goes from eleven to twelve.
+       * child count, which goes from ten to eleven.
        *
        * No `pinnedBelow`: nothing on Play is pinned. On a phone `TabBar` is
        * below the whole screen and pays the home-indicator inset; from 720px up

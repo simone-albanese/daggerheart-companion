@@ -21,10 +21,21 @@
  * been put back on an ancestor of both. So jsdom renders the real component
  * and real events are dispatched at the two places a thumb actually lands.
  *
- * The header is given the shape Vitals gives it - a live input plus a chip
- * that writes on click - so the assertion is the one that matters at the
- * table: after a long press on the header, the track still reads what the
- * player left it at, and the chip's own number is what lands.
+ * The header is given the shape the phone sheet used to give it - a live input
+ * plus a chip that writes on click - so the assertion is the one that mattered
+ * at the table: after a long press on the header, the track still reads what
+ * the player left it at, and the chip's own number is what lands. `Vitals` is
+ * not a caller any more; decision 7 took the pip tracks off the player's own
+ * sheet and the three that remain are the GM's party board, the live scene and
+ * the companion panel. The shape is kept because `headerExtra` still takes
+ * arbitrary controls and the rule is about the gesture, not about who asked
+ * for it.
+ *
+ * The companion question - whether any caller is still deciding a pip's height
+ * with a number instead of letting `--pip-h` decide it - is not a render
+ * question and is not here. jsdom computes no layout and resolves no media
+ * query, so it is asserted on source text in `stylesheets.test.ts`, beside the
+ * token itself.
  */
 import { act } from 'react';
 import { createElement, type ReactElement } from 'react';
@@ -179,38 +190,20 @@ describe('press and hold', () => {
     expect(onChange.mock.calls).toEqual([[3]]);
   });
 
-  it('does not fire from the label in the gutter layout either', () => {
-    /*
-     * The gutter moves the label from above the pips to beside them, which is
-     * a new chance to make the original mistake: put the label inside the
-     * element carrying the handlers and a press on the word "STRESS" wipes the
-     * track. Same assertion as the header, different arrangement.
-     */
-    const onChange = vi.fn();
-    render(
-      createElement(Track, {
-        kind: 'stress',
-        label: 'STRESS',
-        value: 4,
-        max: 6,
-        onChange,
-        readout: '4/6',
-        headerLayout: 'gutter',
-      }),
-    );
-
-    const label = [...container.querySelectorAll('span')].find(
-      (s) => s.textContent === 'STRESS',
-    );
-    if (label === undefined) throw new Error('no gutter label rendered');
-    pressAndHold(label);
-
-    expect(onChange).not.toHaveBeenCalled();
-    // And the pips still work, so this is not passing because nothing renders.
-    pressAndHold(pip(1));
-    expect(onChange).toHaveBeenCalledWith(0);
-  });
-
+  /*
+   * DELETED WITH THE BRANCH IT TESTED: «does not fire from the label in the
+   * gutter layout either». It passed `headerLayout: 'gutter'`, and its own
+   * comment gave its reason - "the gutter moves the label from above the pips
+   * to beside them, which is a new chance to make the original mistake: put the
+   * label inside the element carrying the handlers and a press on the word
+   * STRESS wipes the track. Same assertion as the header, different
+   * arrangement."
+   *
+   * There is one arrangement now. `Vitals` was the gutter's only caller in
+   * `src/` and decision 7 deleted it, so the branch went too. The claim itself
+   * loses nothing: the test directly below makes it over the stacked header,
+   * which is the one the party board, the live scene and the companion draw.
+   */
   it('does not fire from the readout or the label either', () => {
     const onChange = vi.fn();
     render(

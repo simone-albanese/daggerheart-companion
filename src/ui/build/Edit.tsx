@@ -112,13 +112,19 @@ export function Edit({
             <Section label="Identity">
               <Columns min={200}>
                 {/*
-                 * Two doors to one capability, not two implementations.
+                 * The only door to a rename, since the reflow took the chip off
+                 * the Play sheet.
                  *
-                 * The rename that matters is on the Play sheet now, where the
-                 * name is. This one stays because a form that lists everything
-                 * about a character and omits its name is a worse form - but
-                 * it is the same control, so there is no guard restated here
-                 * and nothing here to keep in step with the other one.
+                 * It was two doors to one capability - this one and a 72x44
+                 * RENAME chip on the sheet's class row - and it is one again.
+                 * That is a real cost, and it is the paragraph `RenameField`
+                 * opens with: this field is in the Identity section of the
+                 * Build tab's edit screen, four gestures deep in the tab
+                 * visited least, for the first field on the paper sheet. What
+                 * it bought is 72px plus an 8px gutter of the sheet's class row
+                 * and one fewer permanent target on the screen that is open
+                 * ninety per cent of the time. Nothing here changed: it is the
+                 * same control, so there is no guard restated here.
                  *
                  * `commitOnBlur` because this door has no cancel target and no
                  * other way to not lose the typing: every neighbouring field

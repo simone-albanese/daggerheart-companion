@@ -24,6 +24,9 @@
  *
  *   viewport 393  ->  column 369  ->  cell 181.5  ->  value target 85.5 wide
  *   viewport 375  ->  column 351  ->  cell 172.5  ->  value target 76.5 wide
+ *   viewport 360  ->  column 336  ->  cell 165    ->  value target 69   wide
+ *   viewport 344  ->  column 320  ->  cell 157    ->  value target 61   wide
+ *   viewport 320  ->  column 296  ->  cell 145    ->  value target 49   wide
  *
  * with two 44x44 steppers and a 4px gutter either side of them. So the value
  * target no longer stands 105px clear of `−`; it stands 4px clear of it. That
@@ -36,14 +39,18 @@
  * finger that was travelling somewhere else and had no way back.
  *
  * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
- * value line at two digits over two digits - `12 / 12` at 800 20px Archivo plus
- * `.t-meta` - which measures **59.5px**. The label line is `13px` of silhouette,
- * a 4px gap and `STRESS` at `.t-label` with the tracking this file sets, which
- * is **57.9px**. The narrowest target the grid ever hands the value is 76.5px,
- * less 10px of padding and 2px of border: **64.5px of room for 59.5px of ink,
- * at 375**. Five pixels. It is `nowrap` and `overflow: hidden` on purpose - if
- * a font ever falls back and that five goes, the tail of `/ 12` clips, and the
- * cell does not wrap onto a second line and take the whole budget with it.
+ * value line at two digits over two digits, and it is `--counter-num` that
+ * decides how wide that is: measured in Chrome with the `wizard10` fixture at
+ * full Hit Points, `11 / 11` is **60.61px at 22, 58.09 at 20 and 55.59 at 18**.
+ * The label line is `13px` of silhouette, a 4px gap and `STRESS` at `.t-label`
+ * with the tracking this file sets, which is **57.81px**. The target the grid
+ * hands the value is 85.5 at 393, 76.5 at 375, 69 at 360, 61 at 344 and 49 at
+ * 320, less 10px of padding and 2px of border - so the number has 73.5 of room
+ * at 393 against 60.61 of ink, and 64.5 at 375 against 55.59, because the token
+ * steps down to 18 below 380. It is `nowrap` and `overflow: hidden` on purpose:
+ * where the room does run out - the label at 360, both lines at 344 and below -
+ * the tail clips inside a target that keeps its declared size, and the cell does
+ * not wrap onto a second line and take the whole budget with it.
  *
  * The silhouettes come from `Track` rather than being redrawn here. Four cells
  * of digits look more alike than four rows of pips do, so the shape that lets a
@@ -72,9 +79,13 @@ const TAP = 44;
  * steppers themselves.
  *
  * Four rather than six, and the two pixels are not cosmetic: they are the
- * difference between 64.5px of room for the value line and 60.5px, against
- * 59.5px of ink. Six left one pixel of slack at 375 and one pixel is not a
- * margin, it is a coincidence.
+ * difference between 64.5px of room for the value line at 375 and 60.5px. When
+ * that was decided the number was a flat 20px and the widest line was 59.5, so
+ * six left one pixel of slack and one pixel is not a margin, it is a
+ * coincidence. Since `--counter-num` the line at 375 is 55.59 and the slack is
+ * 8.91, so the four is no longer load-bearing *there* - it is load-bearing at
+ * 360 and below, where the target is 69 wide and then 61 and then 49, and every
+ * gutter pixel is one the label loses.
  */
 const GUTTER = 4;
 
@@ -138,7 +149,10 @@ export function Counter({
      * measured 52 and took eight pixels off the field.
      */
     return (
-      <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
+      // `minWidth: 0` for the same reason the readout row below carries it: a
+      // grid item's automatic minimum is its min-content, and this row's is a
+      // 44px field plus `/ 12` plus two 44px buttons. See `Vitals`'s note.
+      <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
         <input
           ref={field}
           type="number"
@@ -186,7 +200,18 @@ export function Counter({
   }
 
   return (
-    <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
+    /*
+     * `minWidth: 0`, and it is the half of the narrow-width fix that lives here.
+     *
+     * This row is a grid item in `Vitals`'s 2x2, and a grid item's automatic
+     * minimum is its min-content: 44 + 4 + 44 + 4 plus the value button's own
+     * label line, which measures 165.81 for STRESS. Floored at 0 the row takes
+     * the track it is given and the shortfall lands on the value button, which
+     * is `flex: '1 1 auto'` with `minWidth: 44` and `overflow: hidden` and is
+     * the one thing in the cell designed to absorb it. `Vitals` has to declare
+     * `minmax(0, 1fr)` as well; neither alone does anything.
+     */
+    <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
       {/*
        * The value, and the target that types it.
        *
@@ -198,9 +223,11 @@ export function Counter({
        *
        * `min-width: 44` rather than 0: it is a target, and a target's declared
        * floor is what `keeps every target at the touch floor in both
-       * directions` reads. Nothing ever drives it there - the narrowest cell
-       * gives it 76.5 - but a floor that is only true by arithmetic somewhere
-       * else is not a floor.
+       * directions` reads. It stopped being decorative when the grid's tracks
+       * were floored at 0 - the cell is 145 at viewport 320, which leaves this
+       * 49, and at viewport 310 it leaves exactly the 44 declared here. That is
+       * the floor of the whole 2x2 shape and it is below every phone that
+       * ships.
        */}
       <button
         type="button"
@@ -239,7 +266,10 @@ export function Counter({
         <span style={{ whiteSpace: 'nowrap' }}>
           <span
             style={{
-              font: '800 20px/1 var(--sans)',
+              // `--counter-num`, not a literal: this size is decided by how wide
+              // the grid track is, and the token is where that arithmetic and
+              // its one breakpoint live. 22px at 380 and up, 18 below.
+              font: '800 var(--counter-num)/1 var(--sans)',
               color: shape.color,
               fontVariantNumeric: 'tabular-nums',
             }}
