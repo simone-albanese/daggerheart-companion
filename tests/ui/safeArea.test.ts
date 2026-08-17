@@ -71,6 +71,8 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Header } from '../../src/ui/shell/Header.tsx';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
+import { UpdateBanner } from '../../src/ui/shell/UpdateBanner.tsx';
+import { GUTTER_LEFT, GUTTER_RIGHT } from '../../src/ui/shell/gutter.ts';
 import { makeCharacter } from '../fixtures/factories.ts';
 
 declare global {
@@ -309,5 +311,87 @@ describe('the precondition, and the grep that found this', () => {
     expect(all, 'nothing in src/ pays the right cutout again').toMatch(
       /env\(safe-area-inset-right\)/,
     );
+  });
+});
+
+/**
+ * THE GUTTER THE HEADER INSETS AND THE BLOCKS UNDER IT DID NOT.
+ *
+ * The cutout fix moved this bar's side padding to `calc(20px + env(...))`. The
+ * six shell-chrome blocks `App.tsx` draws inside `<main>` directly beneath it -
+ * the write-failure, storage, integrity and quarantine alerts, and `UpdateBanner`
+ * and `BackupBanner` through `ShellBanner` - stayed at a flat `margin: '8px 20px
+ * 0'`, so under a cutout the two stopped lining up.
+ *
+ * Measured in Chrome through the audit rig at 852x393 with 59px substituted on
+ * both sides: the header's content ran [79, 773] and the banner's box [20, 832],
+ * identical to its box with the insets at 0. Fifty-nine pixels of misalignment
+ * on each side - and, worse than the misalignment, `ShellBanner`'s dismiss ✕ is
+ * a 44x44 target at [781, 825] against a right strip beginning at 793, so 32 of
+ * its 44 pixels (72.7%) sat inside the cutout. That is a worse casualty than the
+ * SETTINGS button this whole repair began with, which kept 15.4px of glass.
+ *
+ * Both now come from `gutter.ts`. jsdom resolves `env()` to nothing and lays
+ * nothing out, so what these cases can hold is the declaration and the identity
+ * of the two spellings - which is precisely what drifted, and precisely what a
+ * shared constant is for.
+ */
+describe('the header and the blocks beneath it share one gutter', () => {
+  it('declares the same two horizontal values on both, from one place', () => {
+    mountHeader(LANDSCAPE);
+    const header = container.querySelector('header')!.style;
+
+    act(() => root.render(createElement(UpdateBanner, { apply: () => undefined })));
+    const banner = container.querySelector<HTMLElement>('[role="status"]');
+    expect(banner, 'the shell banner did not render').not.toBeNull();
+    const block = banner!.style;
+
+    expect(
+      block.marginLeft,
+      'the blocks under the header keep a flat 20px gutter while the header ' +
+        'insets past the cutout, so under a notch they no longer line up',
+    ).toBe(header.paddingLeft);
+    expect(block.marginRight).toBe(header.paddingRight);
+    expect(block.marginLeft).toBe(GUTTER_LEFT);
+    expect(block.marginRight).toBe(GUTTER_RIGHT);
+    // And the vertical half is unchanged: 8px of air under the bar, none below.
+    expect(block.marginTop).toBe('8px');
+    expect(block.marginBottom).toBe('0px');
+  });
+
+  it('spells the margin in longhands, so jsdom does not drop the 8px with it', () => {
+    /*
+     * The trap this file's first case exists for, arriving on a second
+     * property. `Header.tsx` proposed this repair as `margin: '8px calc(20px +
+     * env(...)) 0 calc(...)'`; jsdom drops a shorthand carrying an `env()`
+     * whole, so all four margins would have read back `''` and the 8px top
+     * margin would have gone with the insets - silently, in every test.
+     */
+    act(() => root.render(createElement(UpdateBanner, { apply: () => undefined })));
+    const block = container.querySelector<HTMLElement>('[role="status"]')!.style;
+    for (const [property, value] of [
+      ['margin-top', block.marginTop],
+      ['margin-right', block.marginRight],
+      ['margin-bottom', block.marginBottom],
+      ['margin-left', block.marginLeft],
+    ] as const) {
+      expect(
+        value,
+        `${property} read back empty, which is what a margin shorthand carrying ` +
+          'an env() does in jsdom - and it takes the 8px top margin down with it',
+      ).not.toBe('');
+    }
+  });
+
+  it('leaves no hard-coded copy of the old gutter in the shell', () => {
+    // The five call sites this replaced, guarded as a source sweep because the
+    // sixth one will be written by somebody who never read `gutter.ts`.
+    for (const file of ['src/ui/shell/App.tsx', 'src/ui/shell/ShellBanner.tsx']) {
+      expect(
+        readFileSync(file, 'utf8'),
+        `${file} declares a flat 20px shell gutter again, which is the gutter ` +
+          'that stops agreeing with the header the moment there is a cutout',
+      ).not.toMatch(/margin:\s*'8px 20px 0'/);
+    }
   });
 });

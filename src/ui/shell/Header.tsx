@@ -100,23 +100,29 @@
  * `App.tsx` renders six blocks directly inside `<main>`, above every screen and
  * below this bar: `UnsavedWork` (App.tsx:499), the storage-error alert (:260),
  * the integrity alert (:295), the quarantined-characters alert (:360), and
- * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx:168`. None is a
- * screen; all six are shell chrome, and all six are hard-coded to
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx`. None is a screen;
+ * all six are shell chrome, and all six were hard-coded to
  * `margin: '8px 20px 0'`. Measured at 852x393 with 59 on both sides,
- * `BackupBanner` renders at [20, 832] and its box is identical with the insets
- * at 0 - it does not move, so its first 39px sit inside the left strip while
- * this bar 8px above it is now correctly inset to 79. The two gutters used to
- * line up at 20 and no longer do.
+ * `BackupBanner` rendered at [20, 832] and its box was identical with the insets
+ * at 0 - it did not move, so its first 39px sat inside the left strip while this
+ * bar 8px above it was correctly inset to 79. The two gutters used to line up at
+ * 20 and had stopped.
  *
- * So the unpaid surface is in two columns and neither is "the Cards filter
+ * So the unpaid surface was in two columns and neither is "the Cards filter
  * rails", which is what this file used to name.
  *
- *   Shell chrome: those six margins. They were unpaid before this change too,
- *     so this is not a regression it introduces, and the repair is one line
- *     each - `margin: '8px calc(20px + env(safe-area-inset-right)) 0
- *     calc(20px + env(safe-area-inset-left))'`, which keeps them aligned with
- *     this bar at every inset. Left deliberately: they live in `App.tsx` and
- *     `ShellBanner.tsx` and belong in a commit that can test those two files.
+ *   Shell chrome: those six margins. DONE - they take `SHELL_BLOCK_MARGIN` from
+ *     `gutter.ts` now, which is the same two `calc()` strings this bar's padding
+ *     uses, from the same file, so the two cannot drift again. The repair was
+ *     proposed here as a `margin` shorthand carrying `env()`; that would have
+ *     been wrong for the reason stated thirty lines below, since jsdom drops
+ *     such a shorthand whole and would have taken the 8px top margin with it.
+ *     Four longhands, as this bar pays its padding. The right strip is why it
+ *     was worth doing rather than recording: `ShellBanner`'s dismiss ✕ is a
+ *     44x44 target at [781, 825] against a strip starting at 793, so 32 of its
+ *     44px - 72.7% - were inside the cutout, leaving 12px of glass. That is a
+ *     worse casualty than the SETTINGS button this bar's own fix was written
+ *     for, which kept 15.4.
  *   Screens: measured on Play at 852x393 with 59 on both sides, `<main>`'s
  *     only other child is the column at [0, 852] and it pays nothing. ROLL
  *     2d12 sits at [12, 788] with 47px of its left end under the left strip;
@@ -257,6 +263,7 @@
  * `tests/ui/safeArea.test.ts` does now.
  */
 import { allowedScreen } from '../../store/prefs.ts';
+import { GUTTER_LEFT, GUTTER_RIGHT } from './gutter.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
@@ -355,11 +362,17 @@ export function Header({
          * it jsdom keeps. Longhands because a `padding` shorthand carrying an
          * `env()` is dropped whole by that parser, which would take the two
          * ordinary 20s down with it in every test.
+         *
+         * The two horizontal values come from `gutter.ts` rather than being
+         * written out here, and the six shell-chrome blocks inside `<main>` take
+         * their margins from the same file. They are one gutter and they had
+         * drifted 59px apart under a cutout; a shared constant is the only
+         * version of "identical" that cannot be broken by a typo.
          */
         paddingTop: 'calc(0px + env(safe-area-inset-top))',
-        paddingRight: 'calc(20px + env(safe-area-inset-right))',
+        paddingRight: GUTTER_RIGHT,
         paddingBottom: 0,
-        paddingLeft: 'calc(20px + env(safe-area-inset-left))',
+        paddingLeft: GUTTER_LEFT,
         boxSizing: 'content-box',
         borderBottom: '1px solid var(--line-soft)',
         background: 'var(--panel)',
