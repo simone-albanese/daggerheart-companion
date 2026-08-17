@@ -673,6 +673,40 @@ describe('one question for somebody who already has a character', () => {
   });
 
   /*
+   * The one asymmetry in the Skip button, which had no test and survived being
+   * mutated away in both directions.
+   *
+   * It stays live in front of the three doors and goes dead on the summary. On
+   * the summary there is nothing left to skip - it is the end of every route.
+   * In front of the doors there is: somebody who tapped "my character is on
+   * another device", found the other phone was in another room, and would now
+   * like to be let into the app. That is the escape hatch on the branch a
+   * first-time user is most likely to take by mistake, and nothing in the suite
+   * could tell whether it was there.
+   */
+  it('leaves Skip live in front of the doors and kills it on the summary', async () => {
+    await toTheDoors();
+
+    const atTheDoors = buttons().find((b) => (b.textContent ?? '').includes('Skip these'));
+    expect(
+      atTheDoors?.disabled,
+      'somebody who opened the import doors by mistake, with the other phone in ' +
+        'another room, has no way into the app at all',
+    ).toBe(false);
+
+    await press('Skip these');
+    await settle(() => text().includes('None — skipped'));
+    expect(text()).toContain('None — skipped');
+
+    const onTheSummary = buttons().find((b) => (b.textContent ?? '').includes('Skip these'));
+    expect(
+      onTheSummary?.disabled,
+      'Skip is live on the summary, which is the end of every route - there is ' +
+        'nothing left for it to skip',
+    ).toBe(true);
+  });
+
+  /*
    * The hand-off belongs to the arrival, not to the door that reported it.
    *
    * The camera door reported nothing: `<Receiver/>` was mounted with no props
