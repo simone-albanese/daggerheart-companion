@@ -421,14 +421,27 @@ export function ActiveConditions({
  * played at.
  *
  * WHERE IT SITS IN THE CELL, WHICH IS BEFORE THE FIELD. Both are at the top of
- * the screen, roughly 750px from the bottom-right pivot on a 393x852 phone and
- * therefore outside any one-handed thumb sweep - neither is reachable without
- * shuffling the grip, so the arc does not decide this. Two things do. The field
- * is the cell's subject and reads right-to-left off the thresholds beside it, so
- * the newcomer goes outside it rather than between the ladder and the box you
- * type a hit into. And of the two, a stray tap here is the cheaper mistake: this
- * opens a modal that CLOSE dismisses, while the field opens a numeric keypad
- * over the sheet mid-scene.
+ * the screen - measured at 393x852, this control's box is 734.5px from a
+ * bottom-right pivot at (373, 812) and the field's is 729.0 - so both are more
+ * than twice the ~330px sweep `Play.tsx` argues for, neither is reachable
+ * without shuffling the grip, and the arc does not decide this.
+ *
+ * What decides it is which of the two a stray tap is cheaper on. This opens a
+ * modal that CLOSE dismisses; the field opens a numeric keypad over the sheet
+ * mid-scene. The door is therefore the one that takes the outside position,
+ * where a thumb travelling in from the PROF cell arrives first.
+ *
+ * (This paragraph used to give a second reason - that the field is the cell's
+ * subject, so "the newcomer goes outside it rather than between the ladder and
+ * the box you type a hit into". `Vitals.tsx` moved the pair to `flex-start` and
+ * that sentence stopped being true: measured at 393, the fifth track's contents
+ * now start at x246.47, so this control occupies 246.47-290.47 flush against
+ * the PROF cell and the field 296.47-340.47, and the door is *exactly* between
+ * the ladder and the box. It had a reading under the old `flex-end`, where
+ * there were 40.53px of slack between PROF and the door at 393 and 826.53 at
+ * 1179; it has none now. DOM order is `{door}{field}` and `justify-content`
+ * never reordered it, so the *decision* is unchanged - only the argument that
+ * was offered for it, which the code now disproves.)
  *
  * WHAT IT SAYS, WHICH IS NEVER "NOTHING IS WRONG" WHEN SOMETHING IS. With
  * nothing on it is a hollow 44x44 reading `— COND`. With anything on it fills
