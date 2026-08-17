@@ -185,35 +185,54 @@ describe('the cockpit roll panel can be scrolled to', () => {
  * ones it can read. jsdom measures nothing, so the table is the deliverable
  * and the reads below are the tripwire on it drifting.
  *
- * The measured counterpart, in Chrome at 1180x695 with the backup banner up and
- * the last Hit Point marked: 197 of panel holding a scrollHeight of 277.
+ * The measured counterpart of the state that forced the scroll, in Chrome at
+ * 1180x695 with the backup banner up and the last Hit Point marked: 197 of
+ * panel holding a scrollHeight of 277.
+ *
+ * THE TABLE BELOW IS THE SHIPPED PANEL, NOT THAT ONE, and two of the terms it
+ * used to carry were wrong in opposite directions by about 14px each, so the
+ * sum came out right and neither error showed. The control row is not 44 - it
+ * wraps, and measures 155.3 at five Experiences. The dice row is not `Die`'s
+ * `minHeight: 62` - on the cockpit `Die` is drawn `size={46}`, so its own
+ * content is 76 and the 62 never binds here at all. Both are pinned against
+ * Chrome now rather than against an assumption.
  */
 describe('what the panel asks its column for', () => {
   const PADDING = 24; // 12 top + 12 bottom, declared on the panel
   const GAP = 10; // declared on the panel, four times over five children
-  const STACK: Array<[string, number, 'declared' | 'css']> = [
-    // `ExperienceChip`'s `minHeight: var(--tap)` is the tallest thing in it.
-    ['the control row', 44, 'css'],
-    // `Die`'s `minHeight: 62`, both faces and the trait box beside them.
-    ['the dice row', 62, 'declared'],
+  const STACK: Array<[string, number, 'declared' | 'css' | 'measured']> = [
+    // `ControlRow` wraps. 44 is the single-row height it had while it scrolled
+    // sideways and hid five of thirteen controls; 155.3 is what three wrapped
+    // rows measure at the five Experiences of `wizard10`, and 94 is the two
+    // rows the `played` fixture's two Experiences pack into.
+    ['the control row', 155.3, 'measured'],
+    // NOT `Die`'s `minHeight: 62`, which binds on the phone and never here:
+    // `size={46}` here, so 10 of `t-meta` label + 46 of number + 18 of padding
+    // + 2 of border = 76, and the trait box beside it matches.
+    ['the dice row', 76, 'measured'],
     // 10 + 10 of padding around a `clamp(16px,1.6vw,22px)/1` line, which is
-    // 18.88px at a 1180px window and 20.48px at 1280.
+    // 18.88px at a 1180px window and 20.48px at 1280. Idle; after a roll the
+    // detail span wraps and it measures 57.8 to 64.
     ['the verdict strip', 38.9, 'css'],
     ['ROLL', 54, 'declared'],
-    // `RecentLog` at its floor: the 10px RECENT label, a 5px gap, an empty box.
-    ['the log', 15, 'css'],
+    // `RecentLog`'s floor: 15 of RECENT label and gap, plus one 23px entry.
+    ['the log', 38, 'declared'],
   ];
 
-  it('adds up to 277.9, which is 80.9 more than a 1180x695 window gives it', () => {
+  it('adds up to 426.2, and puts the two terms below ROLL below the fold', () => {
     const sum = STACK.reduce((n, [, h]) => n + h, 0) + PADDING + GAP * (STACK.length - 1);
-    expect(sum).toBeCloseTo(277.9, 1);
-    // The number the harness measured, and the reason `overflow: hidden` was a
-    // reachability defect rather than a tight fit: ROLL is the 54 at the bottom
-    // of that sum, and 277.9 - 197 = 80.9 is more than 54.
-    expect(sum - 197).toBeGreaterThan(54);
+    expect(sum).toBeCloseTo(426.2, 1);
+    // Measured idle at 1180x695: this panel is 369 tall with a scrollHeight of
+    // 426. What is over the 369 is the log and part of its gap - ROLL is
+    // painted 54 of 54 - which is the whole point of the draw order.
+    const roll = STACK.findIndex(([name]) => name === 'ROLL');
+    const throughRoll =
+      STACK.slice(0, roll + 1).reduce((n, [, h]) => n + h, 0) + 12 + GAP * roll;
+    expect(throughRoll).toBeCloseTo(366.2, 1);
+    expect(throughRoll, 'ROLL no longer ends inside a 369px panel').toBeLessThan(369);
   });
 
-  it('still declares the two terms of that sum it can be asked for', () => {
+  it('still declares the terms of that sum it can be asked for', () => {
     const root_ = panel();
     expect(root_.style.padding).toBe('12px');
     expect(root_.style.gap).toBe('10px');
@@ -222,6 +241,14 @@ describe('what the panel asks its column for', () => {
       (b) => b.style.minHeight === '62px',
     );
     expect(die, 'the dice faces no longer declare 62px').toBeDefined();
+    // And the 62 is not the dice row's height on this layout: `size` is what
+    // decides it, and 46 of number over a 10px label inside 18 of padding and
+    // 2 of border is 76.
+    const number = [...die!.querySelectorAll<HTMLElement>('span')].find((s) =>
+      s.style.font.includes('46px'),
+    );
+    expect(number, 'the cockpit die no longer draws its number at 46px').toBeDefined();
+    expect(die!.style.padding).toBe('9px 10px');
     expect(rollButton()?.style.height, 'ROLL no longer declares its own height').toBe('54px');
     // And ROLL is `flex: none`, so nothing above it can take the pixels back by
     // shrinking it instead of scrolling.
@@ -236,6 +263,18 @@ describe('what the panel asks its column for', () => {
     );
     expect(flexible).toHaveLength(1);
     expect(flexible[0]!.textContent).toContain('RECENT');
+    /*
+     * And it gives back down to a floor, not to nothing. With `minHeight: 0`
+     * this box measured 0 tall at 1180x695, 1280x800 and 1366x768 with three
+     * rolls made, and its content did not join the panel's overflow either -
+     * the log's own box is `.scroll`, so its 69px sat behind a scroll of its
+     * own inside a 0px box. 38 is the RECENT label and its gap (15) plus one
+     * 23px entry, and it puts the log back in the panel's scrollHeight.
+     */
+    expect(
+      (flexible[0] as HTMLElement).style.minHeight,
+      'the log can be squeezed to nothing again',
+    ).toBe('38px');
   });
 });
 

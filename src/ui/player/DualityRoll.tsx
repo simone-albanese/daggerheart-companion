@@ -1049,22 +1049,42 @@ export function DualityRoll({
    * The cockpit's roll panel, which scrolls - and that is the fix, not a
    * concession.
    *
-   * IT USED TO BE `overflow: 'hidden'`, AND THAT COST THE SCREEN ROLL. Every
-   * term of what this panel holds is declared in this file, so the sum can be
-   * read off the source: 24 of padding here, 44 for the control row (its
-   * tallest child is `ExperienceChip`'s `minHeight: var(--tap)`), 62 for the
-   * dice faces (`Die`'s `minHeight: 62`), 38.9 for the verdict strip (20 of
-   * padding around a `clamp(16px,1.6vw,22px)/1` line, which is 18.88px at a
-   * 1180px window), ROLL's own declared 54, 15 for `RecentLog` at its floor -
-   * the 10px RECENT label over a 5px gap and an empty box - and four 10px
-   * gaps. 277.9px. Measured in Chrome at 1180x695 with the backup banner up
-   * and the last Hit Point marked, this panel is 197 tall with a scrollHeight
-   * of 277, and ROLL's 54px box is laid out at y 677.9 against a panel bottom
-   * edge at y 674: painted 0.0px. Both of those conditions are default states
-   * of a fresh install rather than contrivances, and 695 is this repository's
-   * own stated constraint - `Vitals` says "a 1440x695 laptop viewport is the
-   * real constraint, not the 900px mock". The same clip takes `DamageRow`'s
+   * IT USED TO BE `overflow: 'hidden'`, AND THAT COST THE SCREEN ROLL.
+   * Measured in Chrome at 1180x695 with the backup banner up and the last Hit
+   * Point marked, this panel was 197 tall holding a scrollHeight of 277, and
+   * ROLL's 54px box was laid out at y 677.9 against a panel bottom edge at y
+   * 674: painted 0.0px. Both of those conditions are default states of a fresh
+   * install rather than contrivances, and 695 is this repository's own stated
+   * constraint - `Vitals` says "a 1440x695 laptop viewport is the real
+   * constraint, not the 900px mock". The same clip took `DamageRow`'s
    * `IF IT HIT · 4d8+6` to 15 of its declared 44 at 1280x800.
+   *
+   * WHAT IT HOLDS NOW, TERM BY TERM. Every term is declared in this file or in
+   * a stylesheet this file names, so the sum reads off the source; the version
+   * of this table that argued for the scroll got two of them wrong and the
+   * errors cancelled, which is why the terms carry their derivations now.
+   *
+   *   24    this panel's own `padding: 12`, top and bottom.
+   *   155.3 the control row at five Experiences. NOT 44: `ControlRow` wraps,
+   *         and its docblock packs the rows. 44 is the one-row height it had
+   *         while it scrolled sideways and hid five of thirteen controls.
+   *   76    the dice row. NOT `Die`'s `minHeight: 62`, which never binds on
+   *         this layout: `Die` is drawn `size={46}` here, so its own content is
+   *         10 of `t-meta` label + 46 of number + 18 of padding + 2 of border =
+   *         76. The 62 binds on the phone, where `size={26}` makes it 56.
+   *   38.9  the verdict strip idle: 20 of padding around a
+   *         `clamp(16px,1.6vw,22px)/1` line, 18.88px at a 1180px window.
+   *         Measured 38.9 at 1180 and 40.5 at 1280. After a roll the second
+   *         span wraps and it measures 57.8 to 64 - content, not declaration.
+   *   54    ROLL's own declared height, and it is `flex: none`.
+   *   38    `RecentLog`'s floor - 15 of RECENT label and gap, plus one 23px
+   *         entry. It was `minHeight: 0` and measured 0, which is why the log
+   *         has a docblock of its own now.
+   *   40    four 10px gaps.
+   *
+   * 426.2, against a scrollHeight of 426 measured idle at 1180x695. ROLL is
+   * painted 54 of 54 in that state, because the two terms that come after it
+   * are the two the panel can afford to put below the fold.
    *
    * AND NOTHING ABOVE COULD GIVE THE HEIGHT BACK, which is what made it a
    * reachability defect rather than an ugly one. Measured at 1180x695, `main`
@@ -1111,10 +1131,17 @@ export function DualityRoll({
    * declare (the control row) is read first, what reports (the faces and the
    * verdict strip) sits above what you press, ROLL and the damage row come
    * after them, and `RecentLog` - the only thing here you merely read back -
-   * is the one `flex: 1` child, so it gives up its height first and the panel
-   * only scrolls once the log is at zero. What a player scrolls to is
-   * therefore always the bottom of the column and always the thing they were
-   * about to press, never a readout they have to hunt back up for.
+   * comes last and is the one `flex: 1` child, so it is the first to give
+   * height up and the last thing the fold takes. AN EARLIER REVISION OF THIS
+   * PARAGRAPH SAID "the panel only scrolls once the log is at zero", AND THAT
+   * WAS A FLOOR THE LOG DID NOT HAVE. It went to zero and its content went with
+   * it: a zero-height child adds nothing to this panel's scrollHeight, and the
+   * log's own box is `.scroll`, so its 69px of entries were not in this panel's
+   * overflow to be scrolled to. `RecentLog` declares a 38px floor now and the
+   * sentence is true as written. What a player scrolls to is therefore always
+   * the bottom of the column - the thing they were about to press, and then the
+   * one thing here they only read - never a readout they have to hunt back up
+   * for.
    *
    * IT COSTS NO PIXELS. `overflowY: 'auto'` adds no layout height; on a
    * platform with classic scrollbars it takes the bar's width out of the
@@ -1231,21 +1258,19 @@ export function DualityRoll({
        *
        * The reason used to be that `RecentLog` is this panel's only `flex: 1`
        * child, so a row placed here takes its height out of the log, which can
-       * spare it. THAT PREMISE IS FALSE IN THE STATE THAT MATTERS. Measured in
-       * Chrome at 1180x695 with the backup banner up and the last Hit Point
-       * marked, the log is already 0px tall *before* this row is drawn - the
-       * panel is 197 tall holding 277.9 of declared content - so the 44 this
-       * row asks for does not come out of the log. It comes off the bottom of
-       * the column, and at 1280x800 in the same state it took this row's own
-       * button to 15 of 44.
+       * spare it - and that was only true while the log had height to give.
+       * Measured in Chrome at 1180x695 with the backup banner up and the last
+       * Hit Point marked, the log was 0px tall *before* this row was drawn, so
+       * the 44 this row asks for came off the bottom of the column instead, and
+       * at 1280x800 in the same state it took this row's own button to 15 of
+       * 44. The log has a 38px floor now, so what this row takes comes out of
+       * the log's *growth* first and out of the panel's scroll after that -
+       * never out of the log's floor, which is the point of a floor.
        *
-       * The placement is still right, for a reason that survives the
-       * measurement: the log gives way first *when it has anything to give*,
-       * and past that the panel scrolls rather than clipping, so what the
-       * order buys is that the two things a player presses stay adjacent and
-       * stay last. ROLL and the damage offer are one scroll apart at worst
-       * instead of one scroll apart with a log between them. Putting this row
-       * after the log would separate them and put a readout in the gap.
+       * The placement is right for a reason that does not depend on any of
+       * that: the two things a player presses stay adjacent and stay last. ROLL
+       * and the damage offer are one scroll apart at worst instead of one
+       * scroll apart with a readout in the gap.
        */}
       <DamageRow key={rollId} attack={attack} affordance={affordance} layout="desktop" />
 
@@ -1942,10 +1967,43 @@ function ControlRow({
   );
 }
 
+/**
+ * What you rolled, on the cockpit only - this is the app's one log surface.
+ *
+ * IT HAD NO FLOOR, AND THAT COST IT EVERYTHING. This is the roll panel's only
+ * `flex: 1` child, so it absorbs whatever the panel is short of, and with
+ * `minHeight: 0` "whatever" had no bottom: measured in Chrome with `wizard10`
+ * and three rolls made, this box was 0 tall at 1180x695, 1280x800 and 1366x768
+ * alike, and its three 23px entries were painted 0.0px each.
+ *
+ * MAKING THE PANEL SCROLL DID NOT SAVE IT, which is the part worth writing
+ * down. A zero-height child contributes nothing to its parent's scrollHeight,
+ * and this box's own content lives behind `.scroll` - `overflow-y: auto` - so
+ * it does not join the panel's overflow either: the panel's scrollHeight was
+ * 485 against 418 of client with a 69px log that was in neither number. Laid
+ * out, invisible, and not reachable by any scroll on the screen. That is P2-1's
+ * signature, in a control that had been fully painted the week before.
+ *
+ * SO A FLOOR, AND IT IS 38. `minHeight: 0` becomes 38 = the 15 the RECENT label
+ * and its 5px gap measure, plus one 23px entry. Two things follow. The panel's
+ * scrollHeight grows by 38, so the log is *in* the panel's overflow and one
+ * scroll reaches it, instead of being squeezed out of the sum entirely. And 38
+ * is a floor rather than a size: `flex: 1` still grows this box into whatever
+ * the panel has spare, which measured 63.7 at 1280x800, 125 with the two
+ * Experiences of the `played` fixture, and 160.7 at 1440x900.
+ *
+ * ONE ENTRY AND NOT THREE. Three would be 84 and would cost the panel another
+ * 46px of scroll at every window, and this is the one thing in the panel that
+ * is read back rather than acted on - it comes after ROLL and after the damage
+ * offer in draw order for exactly that reason. What the floor has to buy is
+ * that the log is *there* and says what your last roll was; the rest of it is
+ * behind this box's own scroll, which is where the other eleven entries have
+ * always been.
+ */
 function RecentLog(): React.JSX.Element {
   const log = useApp((s) => s.log);
   return (
-    <div className="stack" style={{ flex: 1, minHeight: 0, gap: 5 }}>
+    <div className="stack" style={{ flex: 1, minHeight: 38, gap: 5 }}>
       <span className="t-meta" style={{ letterSpacing: '0.14em', color: 'var(--muted)' }}>
         RECENT
       </span>
