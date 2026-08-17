@@ -178,7 +178,7 @@ be wrong* at the foot of this entry.
 ### On a phone
 
 - **The Play screen is the whole sheet, in the order you read it at the table,
-  and nothing on it is pinned any more.** Identity, then Evasion and the two
+  and nothing on it is pinned any more.** Evasion and the two
   damage thresholds and Proficiency as four big numbers, then HP, Stress, Hope
   and Armor, then the six traits, then ROLL — and under ROLL, one row each:
   weapons & armour, Experiences, what you are carrying, your cards, rest &
@@ -191,17 +191,20 @@ be wrong* at the foot of this entry.
 - **ROLL is in the flow now, and that is a bigger target further from the one
   control you must not hit by mistake.** Pinned, it sat 8px above the Play tab —
   a 98×60 control that navigates away from your sheet mid-turn. It is now
-  **353px** clear of it, and still above the fold without being fixed there: its
-  lower edge lands at 385px of the 730px a 393×852 phone leaves for content, and
-  at 385 of 545 on a 375×667 one — 160px of margin on the small phone, where it
+  **432px** clear of it, and still above the fold without being fixed there: its
+  lower edge lands at 306px of the 730px a 393×852 phone leaves for content, and
+  at 306 of 545 on a 375×667 one — 239px of margin on the small phone, where it
   was ten before the counters went two across. Nothing ordinary eats that any
-  more, boxes instead of numbers included: those cost 100px and leave 60.
+  more; the dearest thing the count cannot see is dice you type by hand, at 68px.
 
-  **The part that is a cost, and it is a real one.** On a 393×852 phone, with
-  the sheet scrolled to the top, ROLL now sits 414 to 480px above the bottom
-  edge of the screen — further than a thumb comfortably reaches one-handed,
-  where the pinned block was inside that reach. On a 375×667 phone it is 229 to
-  295px up and still in reach. The judgement behind keeping it: the page
+  **The part that is a cost, and it is a real one, and it got worse.** On a
+  393×852 phone, with the sheet scrolled to the top, ROLL sits **493 to 559px**
+  above the bottom edge of the screen — further than a thumb comfortably reaches
+  one-handed, where the pinned block was inside that reach. On a 375×667 phone it
+  is **308 to 374px** up, which has also left that reach: it was 229-295 and
+  comfortably inside. Every row taken off the top of the sheet lifts ROLL further
+  from a thumb at rest, so the same rearrangement that put the whole sheet on one
+  screen moved the button further away. The judgement behind keeping it: the page
   scrolls, so when you are about to roll you can bring ROLL to your thumb with
   the same flick that got you there, and a pinned block's position was nobody's
   to choose. Nobody has watched a real hand do it at a table yet.
@@ -229,21 +232,27 @@ be wrong* at the foot of this entry.
   a target you tap to type into. What it costs is the gap between the value and
   the steppers, which was about 105px on a 393px phone and is now 4: a thumb
   that misses now opens the keypad instead of travelling past it, which writes
-  nothing and closes on one tap. Boxes instead of numbers keep the full width,
-  because a 12-box Hit Point track does not fit in half a column.
+  nothing and closes on one tap. **Boxes instead of numbers are gone from the
+  player's own sheet entirely** — on the desktop too, where they were 29 targets
+  32px tall against this app's own 44px floor and the preference could not reach
+  them anyway. They survive where you read somebody else's state rather than
+  marking your own: the party board, the live scene and the companion.
 
   And the box you type a hit into is now the fifth cell of the defence band,
   beside MAJOR and SEVERE. It used to print `8/16` beside itself in the smallest
   type on the screen, because it needed the ladder and could not see it. It
   costs the band nothing: a 44px field fits inside a row the numbers already
-  hold open at 58.
+  hold open at 64. Below a 353px-wide phone the field wraps under the door
+  instead of pushing sideways into the Proficiency number a player reads under
+  pressure — which is what it used to do, by 27.2px at 320.
 - **Conditions take no room on the sheet until you have one.** There used to be
   a permanent row of seven grey chips scrolling sideways to tell you that you
   are not Hidden, not Restrained and not Vulnerable; then a folded row saying
   `Conditions · NONE`, which cost exactly the same. Now nothing is drawn to say
-  nothing. The way in is a small square beside RENAME at the top of the sheet,
-  in a row that was already there, so it costs the page no height: it reads
-  `— COND` when you are clear, and fills in with a count when you are not. The
+  nothing. The way in is a small square at the end of the defence band, in a row
+  that was already 64px tall for the numbers, so it costs the page no height: it
+  reads `— COND` when you are clear, and fills in with a count when you are not.
+  The
   moment anything is on — including the Vulnerable that a full Stress track
   gives you, which nobody switched on — the chips are back where they always
   were, naming it. Nothing the GM did to you is ever left unsaid.
@@ -253,19 +262,22 @@ be wrong* at the foot of this entry.
   HANDFULS`) instead of a row of its own. The lineage fold opens with your
   domains and their card level caps, then says where you are from — that is the
   order you actually look them up in.
-- **And with every fold shut, the whole sheet is on the screen.** 697px against
+- **And with every fold shut, the whole sheet is on the screen.** 618px against
   the 730 a 393×852 phone leaves, so you really do see all of it at once, with
-  33px to spare — and 375px to spare on an iPad mini. That was the point of the
-  whole rearrangement and it took three goes to get there: the first left it
-  169px over, the second 19. A 375×667 phone is still 152px short of it, which
-  is three folded rows, and nothing short of removing rows will close that.
-  Nothing here was bought by squeezing the spacing, because a fit bought that
-  way is one the next change undoes.
+  112px to spare — and 454px to spare on an iPad mini. That was the point of the
+  whole rearrangement and it took four goes to get there: the first left it
+  169px over, the second 19, the third fitted by 33. A 375×667 phone is still
+  73px short of it, which is one folded row and a gap where it used to be three
+  rows. **And it fits a 360×800 Android for the first time** — 618 against 678 —
+  which the plan said it would not, because the plan costed a taller trait chip
+  without the narrower one beside it. Nothing here was bought by squeezing the
+  spacing, because a fit bought that way is one the next change undoes.
 - **What it does not do, said plainly.** If you have installed the app to your
   home screen on an iPhone with a home indicator, the system takes another 34px
-  off the bottom of the page — so the sheet that fits with 33px to spare in the
-  browser is one pixel over in the installed app. Nobody has measured that on a
-  real phone yet.
+  off the bottom of the page, taking the column from 730 to 696. That used to
+  make the sheet one pixel over; it is now 78px inside it. Nobody has measured
+  that inset on a real phone yet even so, and everything in the app that pays it
+  is arranged around a number no one has read.
 - **The Play screen scrolls, and your weapons, armour and items are on it.**
   Equipped gear had only ever rendered inside the desktop layout. With every
   band pinned, the loadout absorbed every shortfall: measured at 130px of the
@@ -282,19 +294,20 @@ be wrong* at the foot of this entry.
 - **Experiences show their whole name.** They are what the player wrote, so a
   truncated chip has thrown away the entire content of the thing.
 - The character's name, class and level are in the top bar.
-- **You can rename a character from the sheet, and the app will no longer let
-  you make two you cannot tell apart.** Renaming already worked and was four
-  gestures deep in the tab visited least. It is now a 72×44 RENAME chip on the
-  Identity block, 51px clear of the only other target in that band; the name
-  line itself is still not a target, because a name at the top of a scrolling
+- **The app will no longer let you make two characters you cannot tell apart.**
+  Renaming already worked and was four gestures deep in the tab visited least. It
+  came onto the sheet as a 72×44 RENAME chip and then **left it again**: the
+  header already says the name, the class and the level, so the sheet was saying
+  them a second time 53px lower, and Build's Identity section already held the
+  only door a rename needs. The name line on the sheet is still not a target,
+  because a name at the top of a scrolling
   screen that opens a keyboard when a thumb brushes it is worse than a name you
   cannot edit. Nothing is written while you type — the old field wrote on every
   keystroke, which stamped the sheet's "last edited" clock once per letter
-  typed. On the sheet the name is written when you press SAVE or Return, and
-  the ✕ leaves it as it was; on the Build form, where there is no ✕ and every
-  neighbouring field writes as you type, it is written when you leave the field
-  as well, so a half-typed name is not the one thing on that screen a tab tap
-  throws away. If another character already answers to the name the app says
+  typed. The field writes when you press SAVE or Return, and on the Build form —
+  where there is no ✕ and every neighbouring field writes as you type — when you
+  leave it as well, so a half-typed name is not the one thing on that screen a
+  tab tap throws away. If another character already answers to the name the app says
   whose it is and offers the next free one, instead of quietly changing what
   you typed; "ilya", " Ilya" and a second character with no name at all all
   count, because the picker draws all three the same. A refusal is a sentence
@@ -578,6 +591,73 @@ is on the player's side, and the rules say the GM sets the number.
   Node version is written down once in `.nvmrc`, and `env.sh` explains why it
   exists today rather than why it existed once.
 
+### The resolution audit — what a screen actually painted, on glass it was never opened on
+
+Everything above was written from what the code *declares*. This pass measured
+what it *draws*, at fifteen window sizes in a real browser, and found controls
+painted at zero pixels on screens nobody had opened the app on.
+
+- **The desktop roll panel could not be rolled from on a laptop.** On a 1180×695
+  window — an ordinary 13" laptop with a browser bar — with the backup nag up and
+  your last Hit Point marked, both of which a fresh install has, the ROLL button
+  was painted **0.0 pixels tall**. It was in the page, a keyboard could still
+  reach it, and no wheel, drag or tap anywhere on the glass could: the panel was
+  told to hide its overflow rather than scroll it. The same clip cut the damage
+  button to 15px of its 44 at 1280×800. The panel scrolls now, with its
+  scrollbar's width reserved in advance so the twelve die keys do not shift
+  sideways under a pointer already moving towards one the moment it opens.
+- **Four of five Experience chips, the difficulty box, the extra-die button and
+  SPELLCAST were painted at zero on the same panel, at every desktop width.**
+  They were on one line 303px wide holding 1058px of content, with the scrollbar
+  switched off — so they were not merely off-screen, they were unreachable. The
+  row wraps now, and the panel is 402px wide rather than 303 because the
+  decorative `Duality Roll` title above it, which existed only on desktop, was
+  spending 93px of the width its own controls needed.
+- **The die keypad had one way out: answering it.** Brush a die on a scrolling
+  screen and you had to enter a number you did not roll, then re-open it and
+  enter the right one — which in the damage row wrote two log lines for one
+  attack. The Duality dice now have a labelled exit carrying HOPE or FEAR, an ✕,
+  and the Escape key; the keypad takes the keyboard when it opens and hands it
+  back to the die when it shuts, where before the exit was the 53rd stop of 81 on
+  a Tab key. Escape stands down when a card is open over it, so one press no
+  longer closes both. **The typed damage slots still have no way out** and that
+  is written down as open rather than described as done.
+- **Three controls were 44 pixels tall and 31 to 43 wide.** All/Any in the gear
+  picker's filters, SET in the conditions dialog and USE beside every carried
+  item: each declared a height floor and took its width from its own three-letter
+  label. They are 44×44 now, on both axes, and every button in those blocks
+  declares the floor even where its label is already wide enough — a rule the
+  next reader can check beats a coincidence they cannot.
+- **The whole TIER 4 chip in the armour picker was off the glass on a 320px
+  phone** — 44 pixels of target with 0.0 of it visible, behind a scroller with
+  its bar hidden. The rail wraps.
+- **The incoming-damage box sat up to 826 pixels from the thresholds it is read
+  against**, at the far end of the defence band, on every screen wider than a
+  phone. It sits beside SEVERE now, 103px away at every width from 353 up. What
+  that costs is written down too: on a phone held sideways the box and the
+  conditions door move out of the near thumb's sweep.
+- **The app stopped opening on nine class cards.** The first thing this app ever
+  showed anybody was the character wizard's class step — shown to a GM, and shown
+  to somebody whose character was finished an hour ago on another phone. It asks
+  first now: who is at the table, how your table rolls dice, and, for a GM, how
+  many players. Skippable at every step, and a skip lands on the same summary
+  card as every other route with the shipped defaults on it, so nothing is
+  half-applied. "My character is on another device" is not an answer but a door:
+  it ends the questions and opens the import routes. Upgrading does not trigger
+  it — a preferences record written before this existed is read as already
+  answered, or two years of users would be asked who they are.
+- **The two bars that paint to the edge of the glass move out from under a
+  display cutout.** On an iPhone held sideways, iOS reserves a strip down *both*
+  long edges. 39 of the 54 pixels of the SETTINGS button — the only permanent
+  door to export, import, backup and print — were inside the right strip, and the
+  app mark was wholly inside the left one, in the same frame. The header and the
+  tab bar now inset their contents while their backgrounds keep painting to the
+  edge, which is what a bar is supposed to do under a cutout. **Only those two**:
+  the banners, the alerts and the whole Play column still start at the physical
+  edge, and on Play that includes the four 44×44 controls at the right-hand end
+  of the sheet. Nobody has seen any of this on a real phone — see *Known to be
+  wrong*.
+
 ### Known to be wrong
 
 Kept here because a changelog that lists only the fixes describes a different
@@ -601,3 +681,22 @@ someone:
   nothing to this app. `BACKLOG.md` P2-3.
 - **The browser floor is written down nowhere**, and eight `color-mix()` values
   sit where no build target can reach them. `BACKLOG.md` P4-8.
+- **On a touchscreen laptop every chip, stepper and die key is 34 pixels rather
+  than 44.** The app asks the browser whether the *primary* pointer is a finger;
+  a laptop with a touchscreen answers "mouse" while a finger is on the glass. The
+  fix is one word in one media query and it changes every desktop surface in the
+  app, so it is its own piece of work rather than a line slipped into somebody
+  else's. `BACKLOG.md`, *Opened by the resolution audit*.
+- **The display cutout is paid on two bars and nowhere else.** The banners and
+  alerts across the top of every screen, the Cards filter rails, the GM bar and
+  the whole Play column still lay out to the physical edge of the glass, which on
+  a phone held sideways puts four 44×44 controls on Play entirely inside the
+  strip. Same section of `BACKLOG.md`.
+- **A typed damage die still has one way out.** The Duality dice got a cancel and
+  an Escape key; the damage slots did not, so the two gestures now disagree.
+  `BACKLOG.md` P3-12, half struck.
+- **Nothing here has been seen on real hardware.** Every safe-area figure in this
+  release — the home indicator, the notch, the side cutout — is a number this
+  project assumed or substituted, not one read off a phone. `AUDIT-HANDOFF.md`
+  §7 is the list of what a person with an iPhone and an iPad has to check, and
+  it is the last thing that should happen before this is published.
