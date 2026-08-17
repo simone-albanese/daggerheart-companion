@@ -1543,7 +1543,7 @@ what the paper shows.
       fold below ROLL and the permanent MODIFIERS row deleted, ROLL's own lower
       edge lands at **535 of 730px** of usable column at 393×852 and at **535 of
       545** at 375×667 — above the fold on both reference phones *without* a
-      pin, and 250px clear of the tab bar instead of 8. The pin was buying a
+      pin, and 203px clear of the tab bar instead of 8. The pin was buying a
       reach the order provides and charging 266px for it. The arithmetic is an
       executable assertion — `playSheet.test.tsx`, «the budget the pin came off
       for» — and it carries the unflattering half too: the 375×667 margin is

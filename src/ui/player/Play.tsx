@@ -2123,9 +2123,10 @@ function PlayDesktop({
  * nothing because it is 44 wide inside a height ROLL was already holding -
  * plus four of this column's 8px gaps. ROLL's lower edge lands at 535 of a
  * usable 730 (852 less the header's 52+1, the tab bar's 60+1 and this root's
- * own 8px foot). It is above the fold with 195px to spare, and it is 250px
- * clear of the tab bar instead of the 8px it used to sit above a 98x60 target
- * that leaves the screen mid-turn.
+ * own 8px foot). In glass coordinates that puts ROLL at y522-588 against a tab
+ * bar whose top edge is y791, so it is above the fold with 195px to spare and
+ * **203px clear of the tab bar** instead of the 8px it used to sit above a
+ * 98x60 target that navigates away from the sheet mid-turn.
  *
  * AT 375x667 THE SAME 535 CLEARS A 545px COLUMN BY TEN PIXELS. That is a pass
  * and it is not a comfortable one. Four ordinary states cost more than ten:
@@ -2245,10 +2246,12 @@ function PlayPhone({
 
       {/*
        * ROLL, in the flow, at the end of everything the rules make you declare
-       * before the dice. It is 250px from the bottom bezel and 105px clear of
-       * the tab bar, which is inside a 95th-percentile right-thumb sweep from
-       * the bottom-right pivot on a 393px phone; pinned, it was 8px above a
-       * 98x60 control that navigates away.
+       * before the dice. At 393x852 it spans y522-588, which is 264 to 330px up
+       * from the bottom bezel - inside a 95th-percentile right-thumb sweep of
+       * about 330px from the bottom-right pivot at this width - and 203px clear
+       * of the tab bar. Pinned, it was 8px above a 98x60 control that navigates
+       * away. It is 317x66 at 393px and 299x66 at 375px, the largest target on
+       * the screen after a fold header.
        */}
       <DualityRoll
         stats={stats}

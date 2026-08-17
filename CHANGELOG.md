@@ -177,7 +177,7 @@ be wrong* at the foot of this entry.
   and ROLL.
 - **ROLL is in the flow now, and that is a bigger target in a better place.**
   Pinned, it sat 8px above the Play tab — a 98×60 control that navigates away
-  from your sheet mid-turn. It is now 250px clear of it, and still above the
+  from your sheet mid-turn. It is now 203px clear of it, and still above the
   fold without being fixed there: its lower edge lands at 535px of the 730px a
   393×852 phone leaves for content, and at 535 of 545 on a 375×667 one. That
   last figure is a margin of **ten pixels**, and four ordinary things eat it —

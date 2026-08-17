@@ -812,7 +812,8 @@ messaggio di Giorgio li mette, con le Experience dietro una tendina sotto ROLL e
 senza più la riga MODIFIERS permanente, il bordo inferiore di ROLL cade a **535
 di 730** px di colonna utile a 393×852 (852 meno 53 di header, 61 di tab bar, 8
 di padding) e a **535 di 545** a 375×667. Fissato, ROLL stava 8px sopra un
-bersaglio di 98×60 che porta via dalla schermata; libero, ne sta 250 sopra.
+bersaglio di 98×60 che porta via dalla schermata; libero, ne sta 203 sopra
+(y522-588 contro una tab bar che comincia a y791).
 Niente su Play è fisso, non c'è più uno scroller interno e non c'è più il
 pavimento, che esisteva solo perché un blocco fisso poteva affamare lo scroll.
 
