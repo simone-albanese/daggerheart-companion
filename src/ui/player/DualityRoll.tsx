@@ -235,6 +235,30 @@ interface DieProps {
  * you read to know which die this is now sits at the start of the row rather
  * than being the thing that vanished, and the twelve things you touch follow
  * it left to right, top to bottom.
+ *
+ * AND THE OTHER DIE IS READ BACK HERE, BECAUSE TAKING THE WHOLE ROW TOOK IT
+ * OFF THE SCREEN. When this replaced one face the other stayed beside it,
+ * showing the number already typed into it; taking both means that number has
+ * nowhere else to be. Nothing else prints it: `rollLine`'s raw-dice branch is
+ * gated on `!canType`, and the cockpit's trait box prints `result?.total ?? '—'`
+ * - an em dash until BOTH faces are in, which is exactly the state this is. The
+ * comment that used to sit over the cockpit's face row called that box "the one
+ * number you want in front of you while you type the two that make it"; it
+ * reads `—` in the only state where it would be wanted. Concretely, at 393x852
+ * with typed dice on and the digital roller off: tap HOPE, press 5, tap FEAR,
+ * and the 5 was nowhere on the glass.
+ *
+ * It goes under the exit rather than beside the grid. A readout beside the grid
+ * would take about 50 of the cockpit's 206 and put a key at (148 - 23) / 4 =
+ * 31.25, under the 34px fine floor - undoing the change this component exists
+ * for. The exit column is `var(--tap)` wide by 122 on the cockpit and 152 on a
+ * phone and it holds one 10px label over a 15px glyph, so a 30px readout under
+ * it costs the exit height it has to spare. Measured with a HOPE of 7 typed and
+ * the FEAR keypad open: the exit is 44x88 at 1280x800 and 44x118 at 393x852,
+ * the grid is still 206 and 317 wide, and the keys are still 45.8x34 and
+ * 73.5x44 - so the readout costs the twelve targets nothing at all. It is drawn
+ * only when the other die HAS a value, so a keypad opened first shows the same
+ * column it always did.
  */
 function DieKeypad({
   label,
@@ -242,12 +266,18 @@ function DieKeypad({
   value,
   onSet,
   onCancel,
+  otherLabel,
+  otherColor,
+  otherValue,
 }: {
   label: string;
   color: string;
   value: number | null;
   onSet: (value: number) => void;
   onCancel: () => void;
+  otherLabel: string;
+  otherColor: string;
+  otherValue: number | null;
 }): React.JSX.Element {
   /*
    * The keyboard's way IN, beside the pointer's.
@@ -271,6 +301,10 @@ function DieKeypad({
 
   return (
     <div className="row" style={{ flex: 1, minWidth: 0, gap: 8, alignItems: 'stretch' }}>
+      <div
+        className="stack"
+        style={{ flex: 'none', width: 'var(--tap)', minWidth: 'var(--tap)', gap: 4 }}
+      >
       <button
         ref={exit}
         type="button"
@@ -279,7 +313,7 @@ function DieKeypad({
         aria-label={`Stop typing the ${label} die`}
         title="Back to the dice"
         style={{
-          flex: 'none',
+          flex: 1,
           width: 'var(--tap)',
           minWidth: 'var(--tap)',
           background: 'var(--app)',
@@ -299,6 +333,28 @@ function DieKeypad({
           ×
         </span>
       </button>
+      {otherValue !== null && (
+        <div
+          style={{
+            flex: 'none',
+            background: 'var(--raised)',
+            borderRadius: 'var(--r3)',
+            padding: '3px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <span className="t-meta" style={{ color: otherColor, letterSpacing: '0.1em' }}>
+            {otherLabel}
+          </span>
+          <span className="t-num" style={{ color: 'var(--text)' }}>
+            {otherValue}
+          </span>
+        </div>
+      )}
+      </div>
       <div
         style={{
           flex: 1,
@@ -925,6 +981,9 @@ export function DualityRoll({
         value={manual[typingDie]}
         onSet={setDie(typingDie)}
         onCancel={() => setTyping(null)}
+        otherLabel={typingDie === 'hope' ? 'FEAR' : 'HOPE'}
+        otherColor={typingDie === 'hope' ? 'var(--fear)' : 'var(--hope)'}
+        otherValue={manual[typingDie === 'hope' ? 'fear' : 'hope']}
       />
     );
 
@@ -1343,8 +1402,13 @@ export function DualityRoll({
 
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
         {/* The keypad takes the two faces' share of the row and leaves the
-            trait box, which is where the total is printed - the one number you
-            want in front of you while you type the two that make it. */}
+            trait box standing. An earlier version of this comment called that
+            box "where the total is printed - the one number you want in front
+            of you while you type the two that make it", and it prints
+            `result?.total ?? '—'`: an em dash until both faces are in, which is
+            every moment this keypad is open. What the box keeps is the trait
+            you are rolling, which is worth keeping; the number already typed
+            into the other die is carried by the keypad's own exit column. */}
         {keypad ?? (
           <>
             <Die label="HOPE" color="var(--hope)" value={manual.hope} onEdit={() => setTyping('hope')} size={46} editable={canType} />

@@ -772,6 +772,38 @@ describe('typing a physical die', () => {
     expect(grid(), 'the guard swallowed the key for good').toBeNull();
   });
 
+  it('keeps the other die readable while this one is typed', () => {
+    /*
+     * Taking the whole face row took the sibling face with it, and nothing else
+     * prints the number already in it: `rollLine`'s raw-dice branch is gated on
+     * `!canType`, and the cockpit trait box prints `result?.total ?? '—'`,
+     * which is an em dash until both faces are in. So a HOPE of 7 typed a
+     * moment earlier was nowhere on the glass while FEAR was entered.
+     */
+    panel(typed);
+    click(face('HOPE'));
+    click([...grid()!.querySelectorAll('button')][6]!); // 7
+    click(face('FEAR'));
+
+    const open = grid()!;
+    const column = open.parentElement!;
+    expect(column.textContent, 'the HOPE already typed is nowhere on the keypad').toContain(
+      'HOPE',
+    );
+    expect(column.textContent).toContain('7');
+
+  });
+
+  it('draws no sibling readout when there is nothing to keep', () => {
+    // A keypad opened first shows the same exit column it always did.
+    panel(typed);
+    click(face('FEAR'));
+    const column = grid()!.parentElement!;
+    expect(column.textContent, 'an empty sibling is drawn as a readout anyway').not.toContain(
+      'HOPE',
+    );
+  });
+
   it('writes the face it was opened on, and only when a key is pressed', () => {
     panel(typed);
     click(face('HOPE'));
