@@ -655,9 +655,9 @@ painted at zero pixels on screens nobody had opened the app on.
   tab bar now inset their contents while their backgrounds keep painting to the
   edge, which is what a bar is supposed to do under a cutout. **Only those two**:
   the banners, the alerts and the whole Play column still start at the physical
-  edge, and on Play that includes the four 44×44 controls at the right-hand end
-  of the sheet. Nobody has seen any of this on a real phone — see *Known to be
-  wrong*.
+  edge, and on Play that includes the five 44×44 controls at the right-hand end
+  of the sheet — MODS, the trait-help button and the three `+` steppers. Nobody
+  has seen any of this on a real phone — see *Known to be wrong*.
 
 ### Known to be wrong
 
@@ -691,8 +691,9 @@ someone:
 - **The display cutout is paid on two bars and nowhere else.** The banners and
   alerts across the top of every screen, the Cards filter rails, the GM bar and
   the whole Play column still lay out to the physical edge of the glass, which on
-  a phone held sideways puts four 44×44 controls on Play entirely inside the
-  strip. Same section of `BACKLOG.md`.
+  a phone held sideways puts five 44×44 controls on Play entirely inside the
+  strip — MODS, the trait-help button and the three `+` steppers, each at
+  [796, 840] against a strip starting at 793. Same section of `BACKLOG.md`.
 - **A typed damage die still has one way out.** The Duality dice got a cancel and
   an Escape key; the damage slots did not, so the two gestures now disagree.
   `BACKLOG.md` P3-12, half struck.
