@@ -148,6 +148,22 @@ function fold(label: string): HTMLButtonElement {
  * as well, but it belongs to `DualityRoll` and is drawn inside it above ROLL,
  * and a query that swept the whole tree would count it as part of the index.
  */
+/**
+ * Open the vault, which is a tendina inside the cards fold now.
+ *
+ * The nesting is the point of `Two fewer rows for the same facts`: the loadout
+ * and the vault are one section and were costing two headers. Roughly ten tests
+ * reach the vault rows, and every one of them goes through here rather than
+ * being rewritten, so that what they assert is unchanged and only the way in
+ * has moved.
+ */
+function openVault(): void {
+  const cards = fold('Cards');
+  if (cards.getAttribute('aria-expanded') === 'false') click(cards);
+  const vault = fold('Vault');
+  if (vault.getAttribute('aria-expanded') === 'false') click(vault);
+}
+
 const indexHeaders = (): HTMLButtonElement[] => [
   ...(container.firstElementChild?.querySelectorAll<HTMLButtonElement>(
     ':scope > section > button[aria-expanded]',
@@ -212,9 +228,19 @@ describe('what a phone shows of the character sheet', () => {
     }
   });
 
-  it('shows the gold, which was on the printout and on no screen', () => {
+  /*
+   * Strengthened from `expect(text()).toContain(...)`, which the gold row
+   * satisfied and which a total buried inside an open fold would satisfy too.
+   * The claim is that the gold is readable with every fold shut, so it is
+   * asserted where a shut sheet actually shows it: on the Carried header.
+   */
+  it('shows the gold with every fold shut, on the header of the thing carrying it', () => {
     play(seed());
-    expect(text()).toContain('1 BAG · 4 HANDFULS');
+    expect(fold('Carried').getAttribute('aria-expanded')).toBe('false');
+    expect(
+      fold('Carried').textContent,
+      'the gold is not on the one row a shut sheet draws for it',
+    ).toContain('1 BAG · 4 HANDFULS');
   });
 
   it('puts the four counters and the damage calculator on the phone', () => {
@@ -257,9 +283,7 @@ describe('what a phone shows of the character sheet', () => {
       'ROLL', // and then the dice, in the flow
       'Weapons & armour',
       'Carried', // "sotto armi e armature..."
-      'Gold',
-      'Loadout', // "...e ultime le carte"
-      'Vault',
+      'Cards', // "...e ultime le carte", with the vault folded inside them
       'Rest & downtime',
       'Lineage & domains',
     ].map(at);
@@ -302,7 +326,7 @@ describe('what a phone shows of the character sheet', () => {
     // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
     // inside it, which is decision 6's business and not this test's.
     const headers = indexHeaders();
-    expect(headers.length, 'the fold index is gone').toBe(6);
+    expect(headers.length, 'the fold index is gone').toBe(5);
     for (const header of headers) {
       expect(rootEl.contains(header), `${header.textContent ?? '?'} is outside the column`).toBe(
         true,
@@ -600,13 +624,9 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP },
     { what: 'Weapons & armour', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'Carried', px: 44 },
+    { what: 'Carried, with the gold on its header', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'the gold row', px: 30 },
-    { what: 'gap', px: GAP },
-    { what: 'Loadout', px: 44 },
-    { what: 'gap', px: GAP },
-    { what: 'Vault', px: 44 },
+    { what: 'Cards, with the vault folded inside it', px: 44 },
     { what: 'gap', px: GAP },
     { what: 'Rest & downtime', px: 44 },
     { what: 'gap', px: GAP },
@@ -661,15 +681,15 @@ describe('the budget the pin came off for', () => {
   });
 
   it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 402 below ROLL').toBe(1087);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(997);
     expect(
       SHEET_BOTTOM - column(852),
       'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(357);
+    ).toBe(267);
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(542);
+    ).toBe(452);
   });
 
   it('the terms this budget can read, it reads', () => {
@@ -685,18 +705,19 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a fourteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Thirteen, with the fixture: Identity, the defence band, the counters, the
-     * trait row, the roll surface, then Weapons & armour, Carried, the gold
-     * row, Loadout, Vault, Rest, the conditions strip and Lineage. The death
-     * move and the Beastform banner draw nothing for this character, and both
-     * are named in the docblock as things this budget does not carry.
+     * Eleven, with the fixture: Identity, the defence band, the counters, the
+     * trait row, the roll surface, then Weapons & armour, Carried, Cards,
+     * Rest, the conditions strip and Lineage. The vault is a tendina inside
+     * Cards and costs the column no child of its own; the death move and the
+     * Beastform banner draw nothing for this character, and both are named in
+     * the docblock as things this budget does not carry.
      */
     expect(
       rootEl.children.length,
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(13);
+    ).toBe(11);
 
     // Identity: the two margins and the chip that holds the third row open.
     const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
@@ -760,10 +781,10 @@ describe('the budget the pin came off for', () => {
         'var(--tap)',
       );
     }
-    const LABELS = ['Weapons & armour', 'Carried', 'Loadout', 'Vault', 'Rest & downtime', 'Lineage & domains'];
+    const LABELS = ['Weapons & armour', 'Carried', 'Cards', 'Rest & downtime', 'Lineage & domains'];
     expect(
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
-      'the budget counts six fold headers below ROLL and the screen draws a different set',
+      'the budget counts five fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
   });
 });
@@ -787,21 +808,36 @@ describe('the vault', () => {
     });
   }
 
-  it('is on the phone at all, one fold away', () => {
+  it('is on the phone at all, two folds away, and counted on the shut one', () => {
     const c = seed();
     play(c);
-    expect(fold('Vault').textContent).toContain('3 INACTIVE');
-    click(fold('Vault'));
+    /*
+     * The nesting must not hide the count. The vault's own header is inside
+     * the cards fold now, so the number that used to be on it has to be on
+     * the header a shut sheet actually shows - otherwise folding the two
+     * together cost a tap to find out something that used to be readable.
+     */
+    expect(fold('Cards').textContent, 'the shut cards fold does not say how many are where').toContain(
+      '3 INACTIVE',
+    );
+    expect(fold('Cards').textContent).toContain('3 / 5');
+    openVault();
     const names = c.vault.map((ref) => index.cards.get(ref)!.name);
     for (const name of names) {
       expect(text(), `${name} is not in the phone's vault`).toContain(name);
     }
+    // And it is genuinely nested rather than merely adjacent, which is the
+    // 52px this step buys: one section of the index, not two.
+    expect(
+      fold('Cards').closest('section')!.contains(fold('Vault')),
+      'the vault is beside the cards again, so the index is back to two headers for one subject',
+    ).toBe(true);
   });
 
   it('offers a recall that names its price, and pays it', () => {
     const c = seed();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     const recall = buttons().find(
       (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${card.name} for ${card.recallCost} Stress`,
@@ -826,7 +862,7 @@ describe('the vault', () => {
     expect(free, 'the shipped dataset has no card with a Recall Cost of 0').toBeDefined();
     const c = seed({ vault: [free!.id] });
     play(c);
-    click(fold('Vault'));
+    openVault();
     click(
       buttons().find(
         (b) => (b.getAttribute('aria-label') ?? '') === `Recall ${free!.name} for 0 Stress`,
@@ -839,7 +875,7 @@ describe('the vault', () => {
   it('says why on the screen when it will not recall, not in a title', () => {
     const c = fullLoadout();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     const recall = buttons().find((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith(`${card.name} cannot be recalled`),
@@ -887,7 +923,7 @@ describe('a recall that would be paid in Hit Points', () => {
   it('says the number of Hit Points before the first tap', () => {
     const c = onTheEdge();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     const recall = buttons().find((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith(`Recall ${card.name} - no Stress left`),
@@ -899,7 +935,7 @@ describe('a recall that would be paid in Hit Points', () => {
   it('does not take it on one tap', () => {
     const c = onTheEdge();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     const before = useApp.getState().characters[0]!;
 
@@ -923,7 +959,7 @@ describe('a recall that would be paid in Hit Points', () => {
   it('takes it on the second, and marks exactly what it said', () => {
     const c = onTheEdge();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     const find = (prefix: string): HTMLButtonElement => {
       const found = buttons().find((b) =>
@@ -948,7 +984,7 @@ describe('a recall that would be paid in Hit Points', () => {
   it('leaves an affordable recall a single tap', () => {
     const c = seed();
     play(c);
-    click(fold('Vault'));
+    openVault();
     const card = index.cards.get(c.vault[0]!)!;
     click(
       buttons().find(
@@ -982,7 +1018,7 @@ describe('a card this build cannot read', () => {
 
   it('is counted the way the gate counts it', () => {
     play(withGhosts());
-    expect(fold('Loadout').textContent, 'the header disagrees with the recall gate').toContain(
+    expect(fold('Cards').textContent, 'the header disagrees with the recall gate').toContain(
       '5 / 5',
     );
   });
@@ -1011,7 +1047,7 @@ describe('a card this build cannot read', () => {
     expect(after.vault, 'the ref was deleted rather than vaulted').toContain(
       'card-from-a-newer-bundle',
     );
-    expect(fold('Loadout').textContent).toContain('4 / 5');
+    expect(fold('Cards').textContent).toContain('4 / 5');
   });
 
   it('is never dropped on its own', () => {
@@ -1037,8 +1073,8 @@ describe('a card this build cannot read', () => {
     const base = playedCharacter();
     seed({ vault: [...base.vault, 'card-from-a-newer-bundle'] });
     play(useApp.getState().characters[0]!);
-    expect(fold('Vault').textContent).toContain('4 INACTIVE');
-    click(fold('Vault'));
+    expect(fold('Cards').textContent).toContain('4 INACTIVE');
+    openVault();
     expect(text()).toContain('card-from-a-newer-bundle');
   });
 });
@@ -1306,10 +1342,18 @@ describe('every width below the cockpit', () => {
   it('draws the one-column sheet, not the two-column cockpit', () => {
     setViewport(744);
     play(seed());
-    // The sheet's own sections, which the two-column cockpit never had room
-    // for on the left and never rendered on the right.
-    expect(text()).toContain('Gold');
-    expect(fold('Vault')).toBeDefined();
+    /*
+     * The sheet's own sections, which the two-column cockpit never had room
+     * for on the left and never rendered on the right.
+     *
+     * The gold used to be looked for as the word "Gold", which was the label
+     * on a row of its own. That row is gone and the total rides on the Carried
+     * header instead, so the assertion asks for the total - which is the thing
+     * this test was ever really about - rather than for a label that no longer
+     * exists.
+     */
+    expect(fold('Carried').textContent).toContain('1 BAG · 4 HANDFULS');
+    expect(fold('Cards')).toBeDefined();
     /*
      * This used to assert `rootEl.children` had length 2 - the scroll and the
      * pinned block - which distinguished the sheet from the cockpit only by
@@ -1351,14 +1395,14 @@ describe('the tendina', () => {
   it('remembers what was open, per character, across a remount', () => {
     const c = seed();
     play(c);
-    click(fold('Loadout'));
-    expect(fold('Loadout').getAttribute('aria-expanded')).toBe('false');
+    click(fold('Cards'));
+    expect(fold('Cards').getAttribute('aria-expanded')).toBe('false');
 
     act(() => root.unmount());
     root = createRoot(container);
     play(c);
     expect(
-      fold('Loadout').getAttribute('aria-expanded'),
+      fold('Cards').getAttribute('aria-expanded'),
       'the fold reopened itself on the next launch',
     ).toBe('false');
   });
@@ -1366,8 +1410,8 @@ describe('the tendina', () => {
   it('does not carry one character’s arrangement onto another', () => {
     const first = seed();
     play(first);
-    click(fold('Loadout'));
-    expect(useApp.getState().prefs.playSections[`${first.id}:loadout`]).toBe(false);
+    click(fold('Cards'));
+    expect(useApp.getState().prefs.playSections[`${first.id}:cards`]).toBe(false);
 
     const second = seed({ id: 'other-sheet' });
     // A fresh sheet, keeping whatever the first one recorded.
@@ -1379,7 +1423,7 @@ describe('the tendina', () => {
     act(() => root.unmount());
     root = createRoot(container);
     play(second);
-    expect(fold('Loadout').getAttribute('aria-expanded')).toBe('true');
+    expect(fold('Cards').getAttribute('aria-expanded')).toBe('true');
   });
 
   /*

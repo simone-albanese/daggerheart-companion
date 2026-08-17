@@ -614,31 +614,6 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
 }
 
 /**
- * What the sheet is carrying in gold.
- *
- * A readout and not an editor: the coins are changed in Build, where the
- * denominations can be stepped without spending a band of the Play screen on
- * three steppers that are touched once a session. It is here because it was
- * nowhere on a phone at all - the printout had it and the screen the game is
- * played on did not.
- */
-function GoldRow(): React.JSX.Element | null {
-  const character = useActive();
-  if (!character) return null;
-  return (
-    <div className="row" style={{ flex: 'none', gap: 8, minHeight: 30, padding: '0 2px' }}>
-      <span className="t-label" style={{ flex: 'none', color: 'var(--text-2)' }}>
-        Gold
-      </span>
-      <span style={{ flexGrow: 1, flexBasis: 0, minWidth: 8 }} />
-      <span className="t-meta" style={{ flex: 'none', color: 'var(--splendor)' }}>
-        {formatGold(character.gold).toUpperCase()}
-      </span>
-    </div>
-  );
-}
-
-/**
  * The six traits as one row, with the verbs one tap behind it.
  *
  * This replaces two surfaces with one. The phone drew a 3x2 grid of tiles in
@@ -2278,65 +2253,68 @@ function PlayPhone({
         <Equipped stats={stats} arming={arming} bare />
       </Disclosure>
 
-      {/* "Sotto armi e armature e ultime le carte": the inventory comes
-          between the weapons and the cards, which is also the printed
-          sheet's order. */}
+      {/*
+       * "Sotto armi e armature e ultime le carte": the inventory comes
+       * between the weapons and the cards, which is also the printed sheet's
+       * order - and it carries the gold, because gold is a carried thing.
+       *
+       * The gold used to be a 30px row of its own whose entire content was
+       * the word "Gold" and a formatted total. `Disclosure` draws `summary`
+       * open and closed alike, so putting the total here spends no row at all
+       * and still has it on the glass with every fold shut. An empty purse
+       * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
+       * nothing and is chosen rather than discovered.
+       */}
       <Disclosure
         id="carried"
         characterId={character.id}
         label="Carried"
-        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'}`}
+        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
       >
         <Items bare />
       </Disclosure>
 
-      <GoldRow />
-
       {/*
-       * The cards.
+       * The cards, which are one section and used to be drawn as two.
        *
-       * They are the answer to "what can I do", which is the question a
-       * player asks on every turn of their own, so the loadout opens by
-       * default. It is below ROLL now, so that default costs the reach
-       * arithmetic above nothing at all.
+       * "Ultime le carte." The loadout and the vault are the same subject -
+       * what you own and which five of it you are holding - and they were
+       * costing two 44px headers to say so. The vault is now a tendina inside
+       * this one, keeping its own id so a player who had it open still has it
+       * open, and the closed header carries both numbers: a fold that hides
+       * how many cards are where has cost a tap rather than saved a scroll.
+       *
+       * Nested rather than merged, because the argument that separated them
+       * still holds: a level 8 character owns about a dozen cards and carries
+       * five, and opening the loadout must not hand you twelve rows.
        */}
       <Disclosure
-        id="loadout"
+        id="cards"
         characterId={character.id}
-        label="Loadout"
+        label="Cards"
         // The gate counts every ref, readable or not, so this does too: a
         // header saying 3 / 5 over a recall that refuses with "Loadout is
         // full (5)" is the screen contradicting itself.
-        summary={`${loadout.length + ghostLoadout.length} / 5`}
+        summary={`${loadout.length + ghostLoadout.length} / 5 · ${vault.length + ghostVault.length} INACTIVE`}
         defaultOpen
       >
         <div className="stack" style={{ flex: 'none', gap: 4 }}>
           <LoadoutRows />
         </div>
-      </Disclosure>
-
-      {/*
-       * The vault is a second fold rather than part of the first.
-       *
-       * A level 8 character owns about a dozen cards and carries five, so
-       * folding the two together would mean opening twelve rows to look at
-       * the five you are holding - which is the opposite of what the fold is
-       * for. Closed by default for the same reason: recalling is a downtime
-       * decision most of the time, and the loadout is a turn-by-turn one.
-       */}
-      <Disclosure
-        id="vault"
-        characterId={character.id}
-        label="Vault"
-        summary={`${vault.length + ghostVault.length} INACTIVE`}
-      >
-        <Vault layout="rows" />
+        <Disclosure
+          id="vault"
+          characterId={character.id}
+          label="Vault"
+          summary={`${vault.length + ghostVault.length} INACTIVE`}
+        >
+          <Vault layout="rows" />
+        </Disclosure>
       </Disclosure>
 
       {/*
        * A rest is between-scenes work, so it sits below everything the game
-       * makes you touch during a scene and above the two sections read once a
-       * session. Directly under the vault, because the free swap it offers is
+       * makes you touch during a scene and above the section read once a
+       * session. Directly under the cards, because the free swap it offers is
        * the vault's own operation at the other price.
        */}
       <Rest stats={stats} rng={cryptoRng} />
