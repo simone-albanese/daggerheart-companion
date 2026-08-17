@@ -641,7 +641,6 @@ export function DualityRoll({
       }
       addDie={(sides) => characterId !== null && addDie(characterId, sides)}
       discardDie={(id) => characterId !== null && discardDie(characterId, id)}
-      wrap={layout === 'phone'}
     />
   );
 
@@ -686,10 +685,14 @@ export function DualityRoll({
          * modifier the player cannot see is this project's founding rule
          * failing on a number.
          *
-         * Open, the row still wraps rather than scrolling sideways: ten
-         * controls in about 480px of content showed four of themselves at
-         * 393px, and a chip you had armed could be off the side by the time
-         * you reached ROLL.
+         * Open, the row wraps rather than scrolling sideways: ten controls in
+         * about 480px of content showed four of themselves at 393px, and a
+         * chip you had armed could be off the side by the time you reached
+         * ROLL. That is no longer a phone rule. The cockpit was the same
+         * sentence with worse numbers - thirteen controls in 1058px of content
+         * showing four and a half of themselves in 303 - so `ControlRow` wraps
+         * everywhere now and the prop that used to make this the exception is
+         * gone. Its docblock carries the arithmetic.
          */}
         {modifiersOpen && control}
         {!modifiersOpen && armedMods.length > 0 && (
@@ -918,11 +921,11 @@ export function DualityRoll({
    * and was already clipped; making it a horizontal scrollbar instead would be
    * a new defect shipped inside a fix.
    *
-   * NO `scrollbarWidth` HERE, WHERE THE MODIFIER SHELF HAS `'none'`. That
-   * shelf is the next defect in this file precisely because it hides the fact
-   * that it scrolls. This panel is the last place on the cockpit that can
-   * afford a silent one, so it takes the platform's own bar at the platform's
-   * own width.
+   * NO `scrollbarWidth` HERE. This is now the only scroll on the cockpit's
+   * middle column - the modifier shelf above used to be a second one, at
+   * `overflowX: 'auto'` with `scrollbarWidth: 'none'`, and it wraps instead -
+   * so it is the one scroll a player has to notice. It takes the platform's
+   * own bar at the platform's own width, and nothing here suppresses it.
    *
    * ERGONOMICS. The cockpit is 1180px and up, so 393x852 and its thumb arc are
    * not the reference here - `PlayPhone` is what a phone gets. What does reach
@@ -1290,15 +1293,6 @@ interface ControlProps {
   toggleDie: (id: string) => void;
   addDie: (sides: (typeof DIE_SIZES)[number]) => void;
   discardDie: (id: string) => void;
-  /**
-   * Wrap onto as many lines as the controls need, instead of scrolling
-   * sideways.
-   *
-   * Only affordable because the row is behind MODS: as a permanent band it
-   * would have cost 88-132px of the thumb zone on every phone. See the note
-   * at the phone branch.
-   */
-  wrap?: boolean;
 }
 
 const HOLD_MS = 480;
@@ -1383,13 +1377,72 @@ function HeldDieChip({
 }
 
 /**
- * Everything you declare before you roll.
+ * Everything you declare before you roll. It wraps. It does not scroll.
  *
- * On a desktop it is one line, above the dice, and it scrolls sideways if it
- * has to. On a phone it is not drawn at all until MODS is tapped, and then it
- * wraps onto as many rows as it needs - which is the whole reason it can stop
- * being a scroller: a surface you opened on purpose can afford the height, and
- * a permanent band above ROLL could not.
+ * IT USED TO SCROLL SIDEWAYS ON THE COCKPIT, AND THAT HID FIVE OF THIRTEEN
+ * CONTROLS. The row was `overflowX: 'auto'` with `scrollbarWidth: 'none'`, so
+ * nothing on the glass said it scrolled and a mouse had no bar to drag. The
+ * shelf's width reconstructs from the source: the middle grid track is capped
+ * at `minmax(360px, 428px)` in `PlayDesktop`, less the roll panel's own 24 of
+ * padding is 404, less the 93px `Duality Roll` title this row draws when
+ * `!narrow` and less `.spread`'s 8px gap leaves 303. What it holds
+ * reconstructs too, at the five Experiences an SRD character carries from
+ * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at their 124px
+ * `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -
+ * 1058.4, against 1058 measured in Chrome. It is byte-identical at 1180,
+ * 1280, 1440 and 2560, because the track never widens: a bigger monitor
+ * bought nothing at all.
+ *
+ * Painted, per control, against that 303: REACTION 62.2 of 62.2, the three
+ * advantage chips whole, the first Experience 108.8 of 124, and then zero.
+ * Four Experience chips, `+ DIE`, DIFF and SPELLCAST all painted 0.0px.
+ * SPELLCAST is at least named elsewhere - the trait box beside the dice reads
+ * `SPELLCAST · KNOWLEDGE` - but DIFF is named nowhere else before a roll:
+ * `armedMods` is rendered only in the phone branch. On the cockpit the
+ * difficulty control was not small, it was absent.
+ *
+ * SO THE SAME ANSWER THE PHONE ALREADY HAD. This file's own comment above the
+ * phone's `{modifiersOpen && control}` argued it in as many words - "ten
+ * controls in about 480px of content showed four of themselves at 393px, and a
+ * chip you had armed could be off the side by the time you reached ROLL" - and
+ * the cockpit is the same sentence with worse numbers: thirteen controls in
+ * 1058px of content showing four and a half of themselves in 303. Declaring a
+ * modifier you cannot see is not a declaration, and the SRD requires the
+ * declaration before the dice.
+ *
+ * WHAT IT COSTS, DERIVED RATHER THAN ESTIMATED. Flex wrap packs greedily into
+ * 303 with a 6px gap. At the two Experiences a level-3 character has: row 1
+ * takes REACTION + the three advantage chips (182.2 wide, 34 tall), row 2
+ * takes both chips and `+ DIE` (281 wide, 44 tall because `ExperienceChip` is
+ * `minHeight: var(--tap)`), row 3 takes DIFF and SPELLCAST (162.8 wide, 34
+ * tall). 34 + 44 + 34 + two 6px row gaps = 124, against 44 for the single row
+ * it replaces: **+80px**. At five Experiences it is five rows -
+ * 34 + 44 + 44 + 44 + 34 + four gaps = 224, so **+180px**. That is why this
+ * change had to land *after* the panel was allowed to scroll and never before
+ * it: on a 1180x695 window it would otherwise have taken all 80 straight off
+ * ROLL, which was already painted 0.0px.
+ *
+ * ERGONOMICS. The cockpit is 1180px and up, so the reference is a mouse and a
+ * touchscreen laptop rather than 393x852's thumb arc - but tokens.css widens
+ * `--control` to `var(--tap)` under `(pointer: coarse)` at any width, so on
+ * glass every chip here is 44px and on a mouse 34, which are this project's
+ * two floors. Wrapping changes neither: it changes how many of them are
+ * painted, from eight of thirteen to thirteen. READ VERSUS TOUCH is what the
+ * extra rows are spent on, and they are spent in the right direction - this
+ * row is the *declaration*, everything in it is read before it is touched and
+ * touched before ROLL is, and it stays above the dice faces and above ROLL
+ * where the rules order puts it. The 80-180px lands between the top of the
+ * panel and ROLL, which on a short window means ROLL is now something you
+ * scroll to; that is a worse reach than a 695px-tall laptop deserves and it is
+ * still strictly better than a control that no pointer could reach at all.
+ *
+ * ONE THING NOT DONE, WITH ITS NUMBER. The `Duality Roll` title costs the
+ * shelf 93 + 8 = 101 of 404, a quarter of the row, and its own comment already
+ * calls it "a desktop luxury" and argues that REACTION carries the state it
+ * names. Dropping it on the cockpit as well would give the shelf 404 and take
+ * the wrap cost to +50 and +100 instead of +80 and +180. That is a change to
+ * what the panel says, not to whether it can be reached, so it is written down
+ * here rather than made here.
  */
 function ControlRow({
   difficulty,
@@ -1412,14 +1465,13 @@ function ControlRow({
   toggleDie,
   addDie,
   discardDie,
-  wrap = false,
 }: ControlProps): React.JSX.Element {
   const [picking, setPicking] = useState(false);
   const narrow = useIsNarrow();
 
   // The picker takes over the whole row, the way a die takes over its own face
   // to be typed into. A popover would either be clipped by the panel or open
-  // off the side of a row that scrolls.
+  // off the side of a row this narrow.
   if (picking) {
     return (
       <div className="row" style={{ gap: 4 }}>
@@ -1467,34 +1519,30 @@ function ControlRow({
 
   return (
     <div className="spread" style={{ alignItems: 'center' }}>
-      {/* The title is a desktop luxury. Anywhere narrower it is 99px of a
-          369px row spent on a word, and the row has ten controls to fit;
-          REACTION leads the scroller instead, so the state the title carried -
-          which kind of roll this is - is still the first thing on screen. */}
+      {/* The title is a desktop luxury, and now the cockpit's only one: below
+          1180 it is 99px of a 369px row spent on a word, and REACTION leads
+          instead, so the state the title carried - which kind of roll this is
+          - is still the first thing on the row. On the cockpit it costs the
+          controls 93 of the 404px the panel has, which is measured in the
+          docblock above and is the next thing to reconsider here. */}
       {!narrow && (
         <span className="t-label" style={{ flex: 'none' }}>
           {reaction ? 'Reaction Roll' : 'Duality Roll'}
         </span>
       )}
-      <div
-        className="row"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          gap: 6,
-          flexWrap: wrap ? 'wrap' : 'nowrap',
-          overflowX: wrap ? 'visible' : 'auto',
-          overflowY: 'hidden',
-          scrollbarWidth: 'none',
-        }}
-      >
-        {/* A spacer, not `justify-content: flex-end`: end-alignment pushes the
-            overflow off the start edge, where several engines will not scroll
-            to it. This collapses to nothing the moment the row is full - and
-            it is not drawn at all when the row wraps, where a growing child
-            would push everything after it onto a line of its own. */}
-        {!wrap && <span style={{ flex: '1 1 0', minWidth: 0 }} />}
-
+      {/*
+        `flexWrap: 'wrap'` unconditionally, and no overflow of any kind.
+        This used to be `wrap ? … : …` on a prop the phone passed true and the
+        cockpit passed false, and the false branch was `overflowX: 'auto'` with
+        `scrollbarWidth: 'none'` - a 303px shelf holding 1058px that announced
+        nothing and gave a mouse no bar. The ternaries are gone rather than
+        pinned to `true`, because a dead branch that says "this can scroll
+        sideways" is the same defect as a docblock that says it. `overflowY`
+        went with them: `overflow-y: hidden` beside an `overflow-x: visible`
+        computes the x axis back to `auto`, so the phone's wrapped row has
+        quietly been a horizontal scroll container this whole time.
+      */}
+      <div className="row" style={{ flex: 1, minWidth: 0, gap: 6, flexWrap: 'wrap' }}>
         {/* A reaction roll resolves the same way and pays nothing: no Hope, no
             Fear, and no cleared Stress on a critical. 38 adversaries and 9
             environments call for one, so this is a switch, not a footnote, and

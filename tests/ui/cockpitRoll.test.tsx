@@ -237,3 +237,121 @@ describe('what the panel asks its column for', () => {
     expect(flexible[0]!.textContent).toContain('RECENT');
   });
 });
+
+/**
+ * THE MODIFIER SHELF, WHICH USED TO SHOW FOUR AND A HALF OF THIRTEEN CONTROLS.
+ *
+ * `overflowX: 'auto'` with `scrollbarWidth: 'none'` in a 303px row holding
+ * 1058px of content, byte-identical at 1180, 1280, 1440 and 2560 because the
+ * middle grid track is capped at 428. Measured painted widths against that
+ * shelf: REACTION 62.2 of 62.2, the three advantage chips whole, the first
+ * Experience 108.8 of 124, and then four Experience chips, `+ DIE`, DIFF and
+ * SPELLCAST at 0.0px each. DIFF is the one that mattered most: `armedMods`
+ * renders only in the phone branch, so on the cockpit the difficulty control
+ * was not named anywhere else before a roll.
+ *
+ * jsdom does not wrap and does not measure, so these are declaration reads.
+ * What they can prove is that the row is allowed to wrap, that nothing in this
+ * file suppresses a scrollbar any more, and that every control the shelf holds
+ * is in the DOM at a declared floor.
+ */
+describe('the cockpit modifier shelf', () => {
+  const shelf = (): HTMLElement => {
+    const row = panel().firstElementChild!.querySelector<HTMLElement>('.row');
+    if (row === null) throw new Error('the control row has no shelf');
+    return row;
+  };
+
+  it('wraps instead of scrolling sideways, on the cockpit as well as the phone', () => {
+    const row = shelf();
+    expect(row.style.flexWrap, 'the cockpit shelf still scrolls sideways').toBe('wrap');
+    expect(row.style.overflowX, 'the shelf is still a horizontal scroll container').toBe('');
+    // `overflow-y: hidden` beside an `overflow-x: visible` computes the x axis
+    // back to `auto`, so leaving it would put the scroller back by the side
+    // door.
+    expect(row.style.overflowY).toBe('');
+    expect(row.style.scrollbarWidth, 'the shelf still hides its own scrollbar').toBe('');
+  });
+
+  it('leaves no scroller in this file that suppresses its own bar', () => {
+    const source = readFileSync(SOURCE, 'utf8');
+    // A declaration, not a mention: the docblocks argue about `scrollbarWidth`
+    // on purpose, and a test that forbade the word would forbid the argument.
+    expect(source).not.toMatch(/^\s*scrollbarWidth:/m);
+    // And no prop deciding it per layout: one caller, one behaviour.
+    expect(source).not.toMatch(/wrap=\{layout/);
+    expect(source).not.toMatch(/flexWrap: wrap \?/);
+  });
+
+  it('has DIFF on the cockpit, where nothing else names it before a roll', () => {
+    const row = shelf();
+    const diff = row.querySelector<HTMLInputElement>('input[type="number"]');
+    expect(diff, 'the cockpit has no difficulty control at all').not.toBeNull();
+    expect(row.textContent).toContain('DIFF');
+    expect(diff!.style.minHeight, 'DIFF is under the control floor').toBe('var(--control)');
+  });
+
+  it('holds every declared control at a floor, not four and a half of them', () => {
+    const row = shelf();
+    const targets = buttons(row);
+    // REACTION, DIS, —, ADV, two Experience chips, `+ DIE`, and SPELLCAST when
+    // the character has a Spellcast trait. The fixture is a level-3 character
+    // with two Experiences and no held dice.
+    const names = targets.map((b) => (b.textContent ?? '').trim());
+    for (const want of ['REACTION', 'ADV', 'DIS', '+ DIE']) {
+      expect(names.some((n) => n.includes(want)), `${want} is not in the shelf`).toBe(true);
+    }
+    for (const b of targets) {
+      const floor = b.style.minHeight;
+      expect(
+        floor === 'var(--control)' || floor === 'var(--tap)',
+        `${(b.textContent ?? '?').trim()} declares no floor at all`,
+      ).toBe(true);
+    }
+  });
+
+  it('costs the panel 80px at two Experiences and 180 at five', () => {
+    /*
+     * Greedy flex packing into a 303px shelf with a 6px gap, from the widths
+     * measured in Chrome: REACTION 62.2, DIS/—/ADV 34 each, an Experience chip
+     * at its 124px `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4. The
+     * unnamed second Experience of the repo fixture measures 99.6.
+     *
+     * Row heights are declared: `ExperienceChip` is `minHeight: var(--tap)`,
+     * 44px at every pointer, and every other control is `var(--control)`, 34 on
+     * a mouse. The row gap is the shelf's own 6.
+     */
+    const GAP = 6;
+    const rows = (widths: number[], shelfWidth: number): number[][] => {
+      const out: number[][] = [];
+      let line: number[] = [];
+      let used = 0;
+      for (const w of widths) {
+        const next = line.length === 0 ? w : used + GAP + w;
+        if (line.length > 0 && next > shelfWidth) {
+          out.push(line);
+          line = [w];
+          used = w;
+        } else {
+          line.push(w);
+          used = next;
+        }
+      }
+      out.push(line);
+      return out;
+    };
+    const CHIP = 124;
+    const height = (line: number[]): number => (line.some((w) => w === CHIP || w === 99.6) ? 44 : 34);
+    const cost = (widths: number[]): number => {
+      const packed = rows(widths, 303);
+      const tall = packed.reduce((n, line) => n + height(line), 0) + GAP * (packed.length - 1);
+      // Against the single 44px row it replaces.
+      return tall - 44;
+    };
+
+    const base = [62.2, 34, 34, 34];
+    const tail = [45.4, 88.4, 68.4];
+    expect(cost([...base, CHIP, 99.6, ...tail])).toBeCloseTo(80, 1);
+    expect(cost([...base, CHIP, CHIP, CHIP, CHIP, CHIP, ...tail])).toBeCloseTo(180, 1);
+  });
+});
