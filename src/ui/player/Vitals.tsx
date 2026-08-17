@@ -316,9 +316,11 @@ export function Vitals({
  *
  * "One glance" is a distance, and it is a fixed one only since this commit:
  * **103.20px** from SEVERE's right edge to the field's left, at every viewport
- * from 353 up. Before it, that held on a phone and nowhere else - the paragraph
- * below headed WHERE THE BOX SITS carries what it was at 744 and above, and
- * what one word changed.
+ * from 353 up. Before it the distance was `viewport - 249.27` - 143.73 at 393,
+ * 469.73 at the top of the phone band, 494.73 at 744, 929.73 at 1179 - so it
+ * was fixed at no width at all, a phone included, and 103.20 was a number this
+ * band had never once measured. The paragraph below headed WHERE THE BOX SITS
+ * has the derivation and what one word changed.
  *
  * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
  * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px
@@ -390,23 +392,68 @@ export function Vitals({
  * from it, so changing it there would move four numbers to fix the position of
  * one box. One word here moves the one box.
  *
- * ERGONOMICS. **Thumb arc:** this band is the first thing in the phone column,
- * y53-117 on a 393x852 phone, which is the far end of a one-handed sweep in
- * both arrangements. The two 44px targets in it - the door and the field - move
- * 40.53px to the left at 393. Taking a right thumb's pivot at about (373, 812),
- * that is a reach of 727.1px becoming 729.0: **1.9px further**, on a control
- * that is already at the top of the glass and is reached deliberately rather
- * than by habit. Against that, at 744 the same two targets move 391.53px
- * *toward* the centre of a 720px column, which on a tablet held in two hands is
- * the difference between the edge and the middle. **Target size:** unchanged -
- * 44x44 door, 44x44 field, in a 64px row, at every width. Nothing shrinks and
- * nothing wraps that did not wrap before, because the wrap threshold is the
- * pair's 94px against the track and `justify-content` does not enter it.
- * **Read versus touch:** the band reads left to right - Evasion, then the two
- * thresholds, then Proficiency - and the box is the one thing in it you touch.
- * Putting it immediately after the numbers is that order without a hole in it;
- * pinning it right put up to 826.53px of nothing between the last number read
- * and the field the answer is typed into.
+ * ERGONOMICS. Derived at four viewports rather than one, because the geometry
+ * of this move is not the same in portrait as it is on a rotated phone, and the
+ * paragraph that only did 393x852 read the tablet case backwards.
+ *
+ * The reference sweep this project uses is a 95th-percentile right thumb of
+ * about **330px** from the bottom-right pivot - `Play.tsx`'s ROLL note is where
+ * that number is argued - and the pivot is taken at `(viewport - 20, height -
+ * 40)`. Measured in Chrome, the pair is at door x246.47-290.47, field
+ * x296.47-340.47, y63-107 at **every** width from 353 up; before this commit it
+ * was door `viewport-106` to `viewport-62` and field `viewport-56` to
+ * `viewport-12`. Two targets, two numbers each, held apart:
+ *
+ *                        door before -> after     field before -> after
+ *   393x852, one hand     729.8 -> 734.5           727.1 -> 729.0
+ *   852x393, two hands    275.5 -> 365.5           268.4 -> 401.1
+ *   780x360, two hands    243.6 -> 342.0           235.4 -> 379.9
+ *   744x1133, two hands  1010.0 -> 1038.2          1008.1 -> 1051.3
+ *
+ * The two-handed rows are the *nearest* thumb of the two, and which thumb that
+ * is changes with the move: at 852x393 the right thumb had the door at 275.5
+ * and now has it at 624.0, while the left thumb had it at 794.6 and now has it
+ * at 365.5. Quoting only the right-hand pivot on a rotated phone overstates the
+ * loss by 258.5px, which is why both are here.
+ *
+ * **Thumb arc:** in portrait nothing happens - 4.7px on the door and 1.9 on the
+ * field, against a sweep the band is already 2.2x outside in both arrangements,
+ * because this row is the first thing in the column. (The 1.9px the old
+ * paragraph gave for "the two 44px targets" was the field's alone; the door's
+ * is 4.7, and a figure quoted for a pair has to be the worse of the two.) The
+ * landscape rows are the real cost and the old paragraph did not have them: on
+ * a rotated phone the two-handed grip anchors a thumb at each bottom corner,
+ * the *nearest* thumb becomes the left one, and the door goes from 275.5px -
+ * inside the 330 sweep - to 365.5, which is 35px outside it. The field goes
+ * 268.4 to 401.1. That is a shuffle of the grip where there was none, on one
+ * orientation of one class of device, and it is the price of the whole change.
+ * At 744x1133 the old sentence claimed a gain: it said the targets move "toward
+ * the centre of a 720px column, which on a tablet held in two hands is the
+ * difference between the edge and the middle". There is no 720px column -
+ * measured, the column runs x0-744 and the grid x12-732 - and a two-handed grip
+ * anchors at the *edges*, so the middle is the far end of both arcs, not the
+ * near end: nearest-thumb reach goes 1010.0 to 1038.2, 28px worse. Both are
+ * three times the sweep either way, so the honest reading is that the tablet
+ * case is a reading change and not a reach change at all.
+ *
+ * The trade is taken because the other side of it is 499.53px at 852 and
+ * 826.53px at 1179 of dead space between the last number read and the box the
+ * answer goes in, and because both controls here are deliberate rather than
+ * habitual - the field opens a numeric keypad over the sheet, the door opens a
+ * dismissable modal. Neither is the verb a thumb comes back to; that is ROLL,
+ * at the bottom, and it does not move. Capping the column, which is the other
+ * proposal on the table, does not recover any of the landscape reach: under
+ * `flex-start` the pair sits against the PROF cell whatever the column's width
+ * is, so a cap only shortens the dead space to the *right* of the field.
+ *
+ * **Target size:** unchanged - 44x44 door, 44x44 field, in a 64px row, at every
+ * width. Nothing shrinks and nothing wraps that did not wrap before, because
+ * the wrap threshold is the pair's 94px against the track and `justify-content`
+ * does not enter it. **Read versus touch:** the band reads left to right -
+ * Evasion, then the two thresholds, then Proficiency - and the box is the one
+ * thing in it you touch. Putting it immediately after the numbers is that order
+ * without a hole in it; pinning it right put up to 826.53px of nothing between
+ * the last number read and the field the answer is typed into.
  *
  * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
  * commit chip need about 170px between them and the widest this cell ever gets
