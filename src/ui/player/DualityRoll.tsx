@@ -180,6 +180,18 @@ interface DieProps {
  * breakpoint of its own, which `useLayout.ts` forbids a component to invent,
  * and no new token in a stylesheet.
  *
+ * THE COCKPIT'S 402 HAS A SCROLLBAR TERM IN IT, WHICH THIS ARITHMETIC USED TO
+ * OMIT. The panel scrolls, and this keypad is the state that guarantees it
+ * overflows - so on a platform that draws a classic bar rather than an overlay
+ * one, the panel's content box is narrower than 402 and every number above
+ * comes down with it. The panel reserves that gutter with `scrollbar-gutter:
+ * stable` so it is one width per platform instead of one per scroll state, and
+ * `.scroll` bounds the bar at 8px: worst case 394 of content, 186 of grid, and
+ * a key of (186 - 23) / 4 = **43.75** - a quarter-pixel under the 44px coarse
+ * floor and 9.75 over the 34px fine one. macOS draws overlay bars, so the
+ * gutter is 0 there and the number stays 45.75; measured with a Chrome launched
+ * without `--hide-scrollbars`, this panel's whole gutter is its 2px border.
+ *
  * IT COSTS NO HEIGHT THAT IT DID NOT ALREADY COST. The grid is still three rows
  * of `var(--control)` with two 3px gaps, 12 of padding and 2 of border: 152 on
  * a phone and 122 on the cockpit, exactly what it measured before this widened
@@ -1380,10 +1392,30 @@ export function DualityRoll({
    * one thing here they only read - never a readout they have to hunt back up
    * for.
    *
-   * IT COSTS NO PIXELS. `overflowY: 'auto'` adds no layout height; on a
-   * platform with classic scrollbars it takes the bar's width out of the
-   * panel's 404px of inner width, and only while the panel is actually
-   * overflowing.
+   * IT COSTS NO HEIGHT AND A RESERVED WIDTH. `overflowY: 'auto'` adds no layout
+   * height. It does take width on any platform that draws a classic scrollbar
+   * rather than an overlay one, and every width term in this file - the shelf's
+   * 402, `DieKeypad`'s 45.75 key - derives from a content box that a bar
+   * narrows. That is not visible from here: macOS uses overlay scrollbars, so
+   * measured with a Chrome launched without `--hide-scrollbars` this panel's
+   * whole gutter is offsetWidth 428 less clientWidth 426, the border and
+   * nothing else, and the rig this lane measures on launches Chrome WITH
+   * `--hide-scrollbars` (cdp.mjs), so no measurement in this pass could have
+   * seen it either.
+   *
+   * SO THE GUTTER IS RESERVED RATHER THAN LEFT TO APPEAR. `scrollbarGutter:
+   * 'stable'` reserves it whether or not the panel is currently overflowing,
+   * which does two things. It makes the width one number per platform instead
+   * of two: without it, opening the keypad - which always makes this panel
+   * overflow - would narrow every key by about two pixels on Windows AT THE
+   * MOMENT the keypad appears, and the twelve targets would move under a
+   * pointer already travelling towards one. And it bounds the arithmetic: the
+   * bar is 8px, not the platform's ~15, because `.scroll` declares
+   * `scrollbar-width: thin` and an 8px `::-webkit-scrollbar`. Worst case is
+   * therefore a 394px content box, which takes `DieKeypad`'s key from 45.75 to
+   * 43.75 - a quarter-pixel under this project's 44px coarse floor in width and
+   * 9.75 over its 34px fine one. On an overlay platform the gutter is 0 and
+   * nothing changes.
    */
   return (
     <div
@@ -1396,6 +1428,7 @@ export function DualityRoll({
         gap: 10,
         overflowY: 'auto',
         overflowX: 'hidden',
+        scrollbarGutter: 'stable',
       }}
     >
       {control}
@@ -1912,7 +1945,12 @@ function HeldDieChip({
  * border and 24 of padding is 402 - measured 402, and the 404 this docblock
  * used to say was that arithmetic with the border left out - less the 93px
  * `Duality Roll` title this row used to draw when `!narrow` and less
- * `.spread`'s gap left 302.8. What it holds
+ * `.spread`'s gap left 302.8. On a platform that draws a classic scrollbar
+ * rather than an overlay one the panel reserves 8px of that 402 for the bar -
+ * `scrollbar-gutter: stable` beside `.scroll`'s `scrollbar-width: thin` - so
+ * the shelf is 394 there and every packing below shifts by one chip's slack.
+ * macOS draws overlay bars and the rig hides them, so 402 is what is measured.
+ * What it holds
  * reconstructs too, at the five Experiences an SRD character carries from
  * level 8: REACTION 62.2, DIS/—/ADV at 34 each, five chips at their 124px
  * `maxWidth`, `+ DIE` 45.4, DIFF 88.4, SPELLCAST 68.4, and twelve 6px gaps -

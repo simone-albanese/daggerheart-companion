@@ -667,6 +667,29 @@ describe('typing a physical die', () => {
     expect(cockpit).toBeGreaterThanOrEqual(34);
     expect(cockpit, 'the cockpit key clears the coarse floor in width').toBeGreaterThan(44);
 
+    /*
+     * AND THE 402 HAS A SCROLLBAR TERM IN IT. The panel scrolls and an open
+     * keypad is the state that guarantees it overflows, so on a platform that
+     * draws a classic bar rather than an overlay one the content box is
+     * narrower. The panel reserves it with `scrollbar-gutter: stable` so it is
+     * one width per platform rather than one per scroll state, and `.scroll`
+     * bounds the bar at 8px (`scrollbar-width: thin` and an 8px
+     * `::-webkit-scrollbar`). macOS draws overlay bars, so the gutter is 0
+     * there and no measurement in this pass could see this - the rig also
+     * launches Chrome with `--hide-scrollbars`.
+     */
+    const BAR = 8;
+    const withBar = key(402 - BAR - 132 - 12 - EXIT);
+    expect(withBar).toBeCloseTo(43.75, 2);
+    expect(withBar, 'a reserved 8px bar takes the key under the fine floor').toBeGreaterThan(
+      34,
+    );
+    const root_ = panel(typed);
+    expect(
+      root_.style.scrollbarGutter,
+      'the gutter is unreserved, so the keys move when the keypad opens',
+    ).toBe('stable');
+
     // And what it used to be, from the same function: one face is half the
     // pair, so the phone key was `(vw - 78) / 8` and the cockpit key ~24.
     expect(key((375 - 24 - 8) / 2)).toBeCloseTo(37.125, 3);
