@@ -1259,6 +1259,13 @@ describe('the roll modifier row', () => {
   const byText = (label: string): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.textContent ?? '').trim() === label);
 
+  /** ROLL: the one control on this surface that declares its own height. */
+  const rollControl = (): HTMLButtonElement => {
+    const found = buttons().find((b) => b.style.height === '66px');
+    if (found === undefined) throw new Error('the phone has no roll control');
+    return found;
+  };
+
   /*
    * Replaces `is out of the way until it is wanted`, which asserted that a
    * header saying MODIFIERS … NONE was collapsed. This is the stronger claim
@@ -1349,6 +1356,48 @@ describe('the roll modifier row', () => {
         'var(--control)',
       );
     }
+  });
+
+  /**
+   * What the bar says a reaction roll paid.
+   *
+   * SRD, and `rollDuality` implements it: a reaction roll grants no Hope,
+   * gives the GM no Fear and clears no Stress on a critical - `effects` is
+   * three zeroes - so `resolve` moves no counter. Both roll surfaces were
+   * indexing `OUTCOME_DETAIL` directly, and that table says "You gain a Hope"
+   * for every `success-hope` and "Gain a Hope and clear a Stress" for every
+   * critical, reaction or not. So the one line whose whole job is to say what
+   * the roll cost or granted announced a Hope the app then did not hand over,
+   * with the Hope counter four rows up disagreeing with it.
+   *
+   * `dice.ts` has had the honest reader since P4 - `outcomeDetail`, whose own
+   * docblock says "promising a Hope the rules do not give is the same error as
+   * handing one over" - and it was in the orphan list with nothing calling it.
+   */
+  it('does not promise a Hope a reaction roll never gives', () => {
+    play(seed());
+    const before = useApp.getState().characters[0]!;
+    click(modsButton());
+    click(byText('REACTION')!);
+    click(modsButton());
+    click(rollControl());
+
+    const after = useApp.getState().characters[0]!;
+    // The premise, asserted rather than assumed: nothing was paid.
+    expect(after.hope.marked, 'a reaction roll moved Hope').toBe(before.hope.marked);
+    expect(after.stress.marked, 'a reaction roll cleared Stress').toBe(before.stress.marked);
+
+    const bar = rollControl().textContent ?? '';
+    expect(bar, 'the bar hands over a Hope the roll did not').not.toContain('You gain a Hope');
+    expect(bar, 'the bar hands the GM a Fear the roll did not').not.toContain(
+      'The GM gains a Fear',
+    );
+    expect(bar, 'the bar clears a Stress the roll did not').not.toContain('clear a Stress');
+    // Either honest sentence. A critical is 1 in 12 of 2d12, so which one it
+    // is cannot be asserted without making this test a coin flip.
+    expect(bar).toMatch(
+      /A reaction roll pays nothing either way|Ignore what a success would have cost you/,
+    );
   });
 });
 

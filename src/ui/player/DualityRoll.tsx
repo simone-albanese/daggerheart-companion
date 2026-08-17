@@ -35,8 +35,8 @@ import type { Experience, Trait } from '../../../shared/types.ts';
 import { TRAIT_LABELS } from '../../../shared/types.ts';
 import { rollModifier, type DerivedStats } from '../../engine/character.ts';
 import {
-  OUTCOME_DETAIL,
   OUTCOME_LABEL,
+  outcomeDetail,
   rollDuality,
   type DualityResult,
 } from '../../engine/dice.ts';
@@ -553,7 +553,7 @@ export function DualityRoll({
    * the modifier row, so naming them on a control that opens it would be an
    * offer the tap cannot keep.
    *
-   * WHAT GIVES WAY IS `OUTCOME_DETAIL`, AND ONLY IT. The two raw dice stay:
+   * WHAT GIVES WAY IS THE OUTCOME DETAIL, AND ONLY IT. The two raw dice stay:
    * with typed dice off this line is the only place on a phone they are
    * printed - there is no log surface here - and a table checking the app
    * against its own dice needs them. What the detail says instead is the
@@ -567,7 +567,7 @@ export function DualityRoll({
         ? idleDetail
         : declaration
       : `${canType ? '' : `${result.hope} / ${result.fear} · `}${
-          armSummary === '' ? OUTCOME_DETAIL[result.outcome] : declaration
+          armSummary === '' ? outcomeDetail(result) : declaration
         }`;
 
   /*
@@ -899,7 +899,7 @@ export function DualityRoll({
             ? declaration
             : result === null
               ? affordance.prompt
-              : OUTCOME_DETAIL[result.outcome].toUpperCase()}
+              : outcomeDetail(result).toUpperCase()}
         </span>
       </div>
 

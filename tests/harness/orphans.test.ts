@@ -90,8 +90,8 @@ const DELIBERATE: Record<string, string> = {
   'transfer/fileIo.ts::parseBackupFile': 'Same.',
 
   // --- P4 dead weight. Delete or adopt; either is a decision, silence is not.
-  'engine/dice.ts::outcomeLabel': 'P4: both roll surfaces build their own verdict text.',
-  'engine/dice.ts::outcomeDetail': 'P4: same.',
+  'engine/dice.ts::outcomeLabel':
+    'P4: both roll surfaces index OUTCOME_LABEL, which this only wraps - there is no reaction case in the label the way there is in the detail.',
   'engine/levelUp.ts::levelsInTier': 'P4: no caller.',
   'engine/levelUp.ts::tierFor': 'P4: an alias of tierOf that nothing uses.',
   'store/db.ts::getCharacter': 'P4: the store holds every character in memory already.',
