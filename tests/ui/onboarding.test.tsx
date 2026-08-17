@@ -883,6 +883,72 @@ describe('what still outranks it', () => {
   });
 
   /*
+   * And the far end of that route, which is where the durable `false` bites.
+   *
+   * `loadPrefs`'s docblock states the rule this branch wrote for itself: "any
+   * route that puts a character on this device without reaching the flow's one
+   * write leaves `onboarded: false` behind for good". `routedByAlert` was such
+   * a route, and it is the one the app itself offers. Driven end to end: the
+   * integrity alert is up over the questions, RESTORE FROM A BACKUP calls
+   * `setScreen('settings')`, `setScreen` goes through `setPrefs` and persists
+   * the whole record - `onboarded: false` included - and the restore that
+   * follows takes the gate down by the character count rather than by writing
+   * anything. The disk still said `false`, and the first launch afterwards with
+   * an empty library asked an established user who they are.
+   *
+   * Closed by an invariant rather than by patching this route: a device that
+   * has a character has answered "who are you" by doing, so `state.ts` records
+   * that the moment it becomes true, whichever door brought the character in.
+   * Both halves are asserted here - the write, and the launch that used to ask.
+   */
+  it('does not re-ask a device that got its characters back through the alert', async () => {
+    localStorage.setItem(
+      'dhc.backup.v1',
+      JSON.stringify({
+        lastSeenAt: new Date(Date.now() - 9 * 86_400_000).toISOString(),
+        knownCharacterIds: ['one-that-is-gone', 'and-another'],
+      }),
+    );
+    savePrefs({ ...DEFAULT_PREFS, lastBackupAt: new Date().toISOString() });
+
+    await boot();
+    await settle(() => text().includes('SOMETHING IS MISSING'));
+    await press('RESTORE FROM A BACKUP');
+    await settle(() => text().includes('Characters and backup'));
+    // Nothing answered yet, and that is right: the library is still empty and
+    // the questions are still genuinely owed.
+    expect(loadPrefs().onboarded).toBe(false);
+
+    // The restore itself. Every door in this app - the file picker, the
+    // clipboard, the camera, the backup screen - reaches the store through this
+    // one action, which is why the rule watches the store instead of the doors.
+    const restored = playedCharacter();
+    await act(async () => {
+      await useApp.getState().importCharacters([restored], { warnings: [] });
+    });
+    await settle(() => useApp.getState().characters.length > 0);
+
+    expect(
+      loadPrefs().onboarded,
+      'a device that has just had its characters restored still carries ' +
+        '`onboarded: false` on the disk, so the next empty library re-asks ' +
+        'somebody who has been playing for months who they are',
+    ).toBe(true);
+
+    // And durably. The library is emptied - a deletion, an eviction, a
+    // quarantine - and the device is launched again. It must not ask.
+    await db.deleteCharacter(restored.id);
+    await boot();
+
+    expect(useApp.getState().characters).toHaveLength(0);
+    expect(
+      text(),
+      'the next launch with an empty library asked an established user who they ' +
+        'are, which is the false first run this whole rule exists to prevent',
+    ).not.toContain('Who are you at this table?');
+  });
+
+  /*
    * The installed iOS app, which is the one device where an empty library is
    * not a new user.
    *
