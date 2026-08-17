@@ -604,10 +604,19 @@ describe('typing a physical die', () => {
 
     const cockpit = key(402 - 132 - 12 - EXIT);
     expect(cockpit).toBeCloseTo(45.75, 2);
-    // Above the 34px fine floor AND the 44px coarse one, because a touchscreen
-    // laptop reports `pointer: coarse` at 1180 and up and tokens.css widens
-    // `--control` to `var(--tap)` for it.
-    expect(cockpit).toBeGreaterThanOrEqual(44);
+    // Measured 45.8 in Chrome at 1280x800 and 1440x900, on a fine pointer and
+    // on the rig's `hybrid` profile alike.
+    //
+    // WIDTH ONLY. The height is `minHeight: var(--control)`, and `--control`'s
+    // query is `(max-width: 1179px), (pointer: coarse)` - `pointer` is the
+    // PRIMARY pointer, so a touchscreen laptop at 1180 and up answers `fine`
+    // and gets 34, measured 34px on the `hybrid` profile. The cockpit key is
+    // therefore 45.8x34: clear of this project's 34px fine floor in both
+    // directions, and 10px under its 44px coarse floor in height for a finger.
+    // The phone key is 69x44 and clears both, because below 1180 the same query
+    // is true on width alone.
+    expect(cockpit).toBeGreaterThanOrEqual(34);
+    expect(cockpit, 'the cockpit key clears the coarse floor in width').toBeGreaterThan(44);
 
     // And what it used to be, from the same function: one face is half the
     // pair, so the phone key was `(vw - 78) / 8` and the cockpit key ~24.

@@ -167,21 +167,27 @@ interface DieProps {
  * grid, and the cockpit die face is 123. Three need 122, which is inside 123
  * by one pixel and is not a margin. `repeat(auto-fit, minmax(var(--control),
  * 1fr))` is the CSS-native form of that arithmetic and it lands on three 34.33
- * columns for a mouse - a third of a pixel of slack over the floor - and on
- * TWO for a touchscreen laptop, where `(pointer: coarse)` takes `--control` to
- * 44: six rows of keys, 293px replacing a 62px row. The audit proposed a
- * `--die-keys` token switched at 437px instead, which fixes the phone and
- * leaves the cockpit at 24. Taking the whole face row fixes both: the keypad
- * is `flex: 1` where the two faces were, so G is 299 at 375 and 206 on the
- * cockpit, and a key is **69px** and **45.75px**. Above 44 at every width in
- * the audit sweep, 320 included, where it is 55.25 - so it needs no breakpoint
- * of its own, which `useLayout.ts` forbids a component to invent, and no new
- * token in a stylesheet.
+ * columns - a third of a pixel of slack over the fine floor, and 9.67 under the
+ * coarse one, on every machine that draws this layout. An earlier revision said
+ * it landed on two for a touchscreen laptop "where `(pointer: coarse)` takes
+ * `--control` to 44", and that is not what tokens.css does: see the ERGONOMICS
+ * paragraph below. The audit proposed a `--die-keys` token switched at 437px
+ * instead, which fixes the phone and leaves the cockpit at 24. Taking the whole
+ * face row fixes both: the keypad is `flex: 1` where the two faces were, so G
+ * is 299 at 375 and 206 on the cockpit - measured 206 in Chrome - and a key is
+ * **69px** and **45.75px** wide, measured 45.8. Above 44 in width at every
+ * width in the audit sweep, 320 included, where it is 55.25 - so it needs no
+ * breakpoint of its own, which `useLayout.ts` forbids a component to invent,
+ * and no new token in a stylesheet.
  *
- * IT COSTS NO HEIGHT. The grid is still three rows of `var(--control)` with two
- * 3px gaps, 12 of padding and 2 of border: 152 on a phone and 122 on the
- * cockpit, exactly what it measured before. It replaced a 62px face row then
- * and it replaces a 62px face row now.
+ * IT COSTS NO HEIGHT THAT IT DID NOT ALREADY COST. The grid is still three rows
+ * of `var(--control)` with two 3px gaps, 12 of padding and 2 of border: 152 on
+ * a phone and 122 on the cockpit, exactly what it measured before this widened
+ * it. What it replaces is the dice row, which is 76 on the cockpit and not the
+ * 62 of `Die`'s `minHeight` - see the roll panel's budget table - so opening
+ * the keypad costs the panel 46px there. Measured at 1280x800 with five
+ * Experiences: 474 of panel client, 474 of scrollHeight closed and 494 open,
+ * ROLL painted 54 of 54 in both.
  *
  * AND IT HAS A WAY OUT, WHICH IS BACKLOG P3-12. The grid replaced the die
  * button while it was open, so there was nothing left to tap again: no cancel,
@@ -191,11 +197,25 @@ interface DieProps {
  * of the row, so it costs no height at all, and it does the second job the
  * one-face keypad did for free: saying which die you are typing.
  *
- * ERGONOMICS. TARGET SIZE is the whole charge and it moves from 24x34 and
- * 37.1x44 to 45.75x34 and 69x44, clear of both floors in both directions, with
- * the 3px gutter left alone - it is a gutter between 45-to-69px targets now
- * rather than between 24px ones, and widening it would come straight back out
- * of the keys. THUMB ARC: on a phone this row sits directly above ROLL, the
+ * ERGONOMICS. TARGET SIZE is the whole charge and it moves from 24x34 on the
+ * cockpit and 37.1x44 on a phone to 45.75x34 and 69x44 - measured 45.8x34 in
+ * Chrome at 1280x800 and 1440x900 alike. WHICH FLOOR EACH OF THOSE CLEARS,
+ * SINCE AN EARLIER REVISION SAID "both floors in both directions" AND THAT IS
+ * NOT TRUE OF THE HEIGHT ON THE COCKPIT. `--control` is 44 below 1180 and 34 at
+ * 1180 and up, because tokens.css:203-207 is `(max-width: 1179px), (pointer:
+ * coarse)` and `pointer` describes only the PRIMARY pointer - a touchscreen
+ * laptop and an iPad in a keyboard case both answer `pointer: fine`, which
+ * tokens.css:129-132 states outright and which is the entire reason `--pip-h`
+ * has an `any-pointer: coarse` query of its own. Measured with the rig's
+ * `hybrid` profile at 1280x800 and 1440x900: `--control` 34px, `--pip-h` 44px.
+ * So a phone key is 69x44 and clears both floors; a cockpit key is 45.8x34,
+ * which clears the 34px fine floor in both directions and is 10px under this
+ * project's 44px coarse floor in height for a finger on a touchscreen laptop.
+ * That is `--control`'s query and not this grid - every chip on this panel has
+ * it - and it is written up in the lane's doc-deltas file. The 3px gutter is
+ * left alone: it is a gutter between 45-to-69px targets now rather than between
+ * 24px ones, and widening it would come straight back out of the keys.
+ * THUMB ARC: on a phone this row sits directly above ROLL, the
  * band the file's own docblock calls the best on the screen, and the keys are
  * where they already were; what moved is the exit, to the LEFT edge, away from
  * where a right thumb rests. That is deliberate and it is the same argument
@@ -1121,12 +1141,24 @@ export function DualityRoll({
    *
    * ERGONOMICS. The cockpit is 1180px and up, so 393x852 and its thumb arc are
    * not the reference here - `PlayPhone` is what a phone gets. What does reach
-   * this panel with a finger is a touchscreen laptop, and tokens.css:203-207
-   * widens `--control` to `var(--tap)` under `(pointer: coarse)` at any width,
-   * so every chip in the control row above is already 44px there and ROLL is
-   * 54 by declaration. TARGET SIZE was never the charge: 0px and 15px are what
-   * a clip leaves, and no floor survives that - not this project's 44/34 and
-   * not WCAG's 24 either. READ VERSUS TOUCH is what the scroll has to keep,
+   * this panel with a finger is a touchscreen laptop, AND IT DOES NOT GET 44px
+   * CHIPS, WHICH AN EARLIER REVISION OF THIS PARAGRAPH SAID IT DID.
+   * tokens.css:203-207 is `(max-width: 1179px), (pointer: coarse)`, and
+   * `pointer` describes the primary pointer only: a touchscreen laptop answers
+   * `pointer: fine` while a finger reaches the glass, which tokens.css:129-132
+   * says in as many words and which is why `--pip-h` gets its own
+   * `any-pointer: coarse` query. Measured with the rig's `hybrid` profile at
+   * 1280x800 and 1440x900: `--control` 34px, `--pip-h` 44px. So on the machine
+   * this paragraph is written about, every chip in the control row and every
+   * key in the die keypad is 34 tall - 10px under this project's coarse floor -
+   * while ROLL is 54 by its own declaration and the Experience chips are 44 by
+   * theirs. That is a defect of `--control`'s query, it is written up in the
+   * lane's doc-deltas file, and the reason tokens.css:122-127 gives for not
+   * widening the query is that THIS PANEL is `overflow: hidden` and would crush
+   * its own contents - which stopped being true four lines below this comment.
+   * TARGET SIZE was never the charge for the scroll itself: 0px and 15px are
+   * what a clip leaves, and no floor survives that - not this project's 44/34
+   * and not WCAG's 24 either. READ VERSUS TOUCH is what the scroll has to keep,
    * and it does, because the order in this column is already right: what you
    * declare (the control row) is read first, what reports (the faces and the
    * verdict strip) sits above what you press, ROLL and the damage row come

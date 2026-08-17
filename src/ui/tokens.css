@@ -119,17 +119,28 @@
   /*
    * How tall a pip is, and how narrow it is ever allowed to get.
    *
-   * Deliberately not `--control`. That token gates every chip in the app,
-   * including the ones inside the desktop cockpit's roll panel, and that panel
-   * is `flex: 1, min-height: 0, overflow: hidden` - so widening `--control`'s
-   * query to catch touchscreens would inflate the panel's contents from the
-   * inside and crush them against its own clip. That is the same failure the
-   * tablet band already has, arriving on the desktop as a side effect of
-   * fixing it. A pip is a different question from a chip anyway: the honest
-   * test for "a thumb may land here" is whether the machine has *a* coarse
-   * pointer at all, because an iPad with a keyboard attached, and every
-   * touchscreen laptop, reports `pointer: fine` while a finger can still
-   * reach the glass.
+   * Deliberately not `--control`, and the reason has changed. A pip is a
+   * different question from a chip: the honest test for "a thumb may land here"
+   * is whether the machine has *a* coarse pointer at all, because an iPad with
+   * a keyboard attached, and every touchscreen laptop, reports `pointer: fine`
+   * while a finger can still reach the glass. That argument stands on its own
+   * and it is why this token, and not `--control`, answers `any-pointer`.
+   *
+   * WHAT NO LONGER APPLIES, WRITTEN DOWN RATHER THAN DELETED. This comment used
+   * to add that `--control` also *could* not follow: it gates every chip in the
+   * app including the ones inside the desktop cockpit's roll panel, and that
+   * panel was `flex: 1, min-height: 0, overflow: hidden`, so widening
+   * `--control`'s query to catch touchscreens would have inflated the panel's
+   * contents from the inside and crushed them against its own clip. That panel
+   * scrolls now - see the docblock over `DualityRoll`'s desktop branch - so the
+   * blocker is gone, and what is left is a live defect rather than a decision:
+   * measured on the audit rig's `hybrid` profile at 1280x800 and 1440x900,
+   * `--control` resolves to 34 while `--pip-h` resolves to 44, so on a
+   * touchscreen laptop every chip and every die key on the cockpit is 10px
+   * under this project's own 44px coarse floor with a finger on the glass.
+   * Widening the query is the fix; it changes every desktop surface in the app
+   * and not just this panel, so it wants its own pass and its own measurements
+   * of the GM screens, and it is written up in the cockpit lane's doc-deltas.
    */
   --pip-h: 34px;
   /*
