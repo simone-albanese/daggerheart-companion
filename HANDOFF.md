@@ -22,10 +22,12 @@ after the resolution audit's first eleven lanes and **2487 in 108** after the
 twelfth, `a3-polish`.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is **157 commits** behind `main` — `git rev-list --count
+`dd66d35`, which is **163 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short (it
-said twenty-six before the audit) — so
+said twenty-six before the audit). *(~~157~~ — true at the commit that wrote
+it; the lane merge that followed made it 158 and this documents pass adds five
+more. Same distance, measured later, not a different one.)* So
 the "nothing is pushed,
 `87b9238`, 172 commits behind" that stood here through the whole P1-P5 pass is
 no longer true and the warning below about worktrees being cut from a stale
@@ -105,9 +107,11 @@ repository says it is.
   678 and still fits. The last 52 came from the conditions and nowhere else, exactly as
   P5-6 said it would have to: nothing is drawn while nothing is on, and the
   permanent door is a 44×44 `ConditionsControl` — in the identity's class row at
-  P5-8, and **at the head of the defence band's fifth cell** since decision 3
+  P5-8, and **at the head of the defence band's fifth cell** since decision 2
   took the identity block off the phone, in a row the number cells already hold
-  open at 64. The assertion that used to state the miss now states the fit and
+  open at 64. *(~~decision 3~~ — the move into the cell is decision 3; the one
+  that took the identity block off the phone is **2**, which `Play.tsx` says
+  four times and unambiguously at `:411`, `:531`, `:2586` and `:2634`.)* The assertion that used to state the miss now states the fit and
   the slack, so it fails when the sheet stops fitting. **The thing it did not
   cover has stopped binding:** a home-indicator iPhone installed as a PWA pays a
   34px `env(safe-area-inset-bottom)`, which takes the column from 730 to 696 —
@@ -176,9 +180,15 @@ One session ran 19 lanes in parallel git worktrees and a later one ran five. Two
 things cost real time and will cost it again:
 
 - **A worktree is cut from `origin/main`, not from local `main`,** and nothing
-  is pushed, so it starts **138 commits stale** as of `HEAD` — it was ~75 when
+  is pushed, so it starts **163 commits stale** as of `HEAD` — it was ~75 when
   this warning was written, and the gap only grows until somebody
-  pushes. **Cut it from local `main` yourself**, which is what
+  pushes. *(~~138~~ — **superseded**, and it is worth naming how it got wrong:
+  138 was true two commits before the final re-measure and was left behind while
+  the top of this file was updated, so one document was giving two answers for
+  one distance and the one labelled "as of `HEAD`" was the stale one. It is the
+  same number as the push-state paragraph above because it is the same
+  subtraction; if the two ever disagree again, both are wrong and
+  `git rev-list --count origin/main..HEAD` settles it.)* **Cut it from local `main` yourself**, which is what
   `audit-harness/analysis/mkwt.sh` does, and what every lane of the resolution
   audit did. Six lanes in the first wave wrote
   against a tree that had no `tests/harness/`, no `tests/ui/screens.test.tsx`
@@ -538,20 +548,26 @@ spare; both leave 598 and it is 20px over.** So the at-a-glance sheet now
 survives the ordinary new-user state and fails the double-banner one. The
 banners are honest and must not be deleted — they are P0-2's remedy — but
 `playSheet.test.tsx` does not know one exists. ~~Nor does `Play.tsx`'s table~~ —
-**superseded**, and the correction matters because it changes what is owed:
-`Play.tsx:2460-2463` names `BackupBanner` outright, as "the other one the budget
-has never counted", and charges it. What it charges is **58**, the border box
-alone, so it reaches a 672px column and says the 618px sheet clears it by 54.
-Against the 730 the same docblock states — which is already net of the root's
-8px foot — one banner costs **66**, the column is **664** and the margin is
-**46**, the two numbers above. So the charge against that file is an
-undercount of 8, not an omission, and it is the same box-versus-box-plus-space
-error `ShellBanner.tsx` was written to end. What `Play.tsx` genuinely does not
-know is `UpdateBanner` and the both-at-once state: **132**, leaving 598, 20px
-over. **Open, and a `Play.tsx` edit:** no lane owned that file when this was
-found. `ShellBanner.tsx:35-56` is where the number is measured and
-`tests/ui/banners.test.tsx` adds it up out of the declarations so it cannot
-drift; the budget can take 66 and 132 from there.
+**superseded**, and the correction mattered because it changed what was owed:
+`Play.tsx` named `BackupBanner` outright, as "the other one the budget has never
+counted", and charged it **58** — the border box alone — reaching a 672px column
+and saying the 618px sheet cleared it by 54. Against the 730 that same docblock
+states, which is already net of the root's 8px foot, one banner costs **66**,
+the column is **664** and the margin is **46**. So the charge against that file
+was an undercount of 8, not an omission, and it was the same
+box-versus-box-plus-space error `ShellBanner.tsx` was written to end.
+
+~~**Open, and a `Play.tsx` edit:** no lane owned that file when this was
+found.~~ — **closed by the documents pass**, because by then nobody owned `src/`
+at all. `Play.tsx:2467-2481` now charges 66, reaches 664 and clears by 46, with
+the old 58/672/54 struck in place beside it; `:2483-2496` adds the state the
+budget genuinely did not know — `UpdateBanner`, both banners at once, **132**
+off the column, **598** left, and the 618px sheet **20px over**. That paragraph
+says plainly that the whole-sheet-in-one-look claim does not hold in that state
+and is not claimed for it, which is the honest shape: nothing hides and nothing
+goes out of reach, the column scrolls. `ShellBanner.tsx:35-54` is where the two
+numbers are measured and `tests/ui/banners.test.tsx` adds them up out of the
+declarations so they cannot drift.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
@@ -611,10 +627,20 @@ reader assumes has quietly happened:
   order it has to happen in: every fixed height containing type becomes a
   `min-height` first, or a user at a 125 % root gets a clipped verdict bar.
 - **P4-7(a), `noUnusedLocals` / `noUnusedParameters`.** Still absent from
-  `tsconfig.json`. Turning them on today costs **five** errors, not the nine the
-  backlog measured — `GearPicker.tsx:85`, `Settings.tsx:39`,
-  `tools/simulate.ts:22` and two in tests. The Play rebuild swept its own
-  leftovers on the way past; nothing stops the next five arriving unremarked.
+  `tsconfig.json`. Turning them on today costs **six** errors, not the nine the
+  backlog measured. Named, because a count nobody can reproduce is how this
+  audit started: `GearPicker.tsx:85` (`'a'`), `Settings.tsx:39`
+  (`'isStandalone'`), `tools/simulate.ts:22` (`'CharClass'`, and it is TS6196
+  rather than TS6133), and **three in tests** — `tests/gm/gmStore.test.ts:23`
+  (`'Campaign'`), `tests/ui/dialogs.test.tsx:40` (`'createElement'`) and
+  `tests/ui/playSheet.test.tsx:1084` (`'read'`). *(~~five, and two in tests~~ —
+  **superseded**: run at `HEAD` with
+  `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, which prints all six
+  by name. The line above these three bullets promises re-measured rather than
+  remembered and this figure had not been, which is the exact failure it warns
+  about.)*
+  The Play rebuild swept its own
+  leftovers on the way past; nothing stops the next six arriving unremarked.
 - **P4-8, the browser floor.** No `browserslist`, no `@supports` anywhere,
   **nine** `color-mix()` uses in `src/`, and `base.css:222` is still
   `height: 100svh`. *(~~eight, and `base.css:172`~~ — **superseded**:
@@ -736,7 +762,9 @@ are meant to, and the division is:
   moment of writing and are the first thing to distrust.
 - **`BACKLOG.md`** — what is still to do, ordered by what it costs a person when
   it goes wrong, plus the record of what closed and why. It is the only one of
-  the four that is authoritative about whether something is built.
+  the five that is authoritative about whether something is built. *(~~the
+  four~~ — left over from before `AUDIT-HANDOFF.md` joined the set and made the
+  heading above say five.)*
 - **`CHANGELOG.md`** — one `0.2.0` entry, grouped by what a user would notice.
   Not a commit log and not a plan.
 - **`Architecture.md`** — the decisions and the shapes, in Italian. §10 is the GM
