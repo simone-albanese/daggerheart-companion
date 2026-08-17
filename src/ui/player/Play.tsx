@@ -2156,38 +2156,43 @@ function PlayDesktop({
  * control that stops being used", and that reasoning is sound and its
  * conclusion is now reversed, because its premise moved. Against declared
  * heights at 393x852, every fold shut and nothing armed: Identity 91, the
- * defence band 58, the four counters and the damage box 244, the trait row 44,
- * and the roll row 66 - ROLL beside a MODS control that costs the column
- * nothing because it is 44 wide inside a height ROLL was already holding -
- * plus four of this column's 8px gaps. ROLL's lower edge lands at 535 of a
- * usable 730 (852 less the header's 52+1, the tab bar's 60+1 and this root's
- * own 8px foot). In glass coordinates that puts ROLL at y522-588 against a tab
- * bar whose top edge is y791, so it is above the fold with 195px to spare and
- * **203px clear of the tab bar** instead of the 8px it used to sit above a
- * 98x60 target that navigates away from the sheet mid-turn.
+ * defence band 58 - which now carries the incoming-damage box as a fifth cell,
+ * for nothing, because a 44px field fits inside a row the numbers already hold
+ * open at 58 - the four counters 94 as a 2x2 grid, the trait row 44, and the
+ * roll row 66, ROLL beside a MODS control that costs the column nothing because
+ * it is 44 wide inside a height ROLL was already holding, plus four of this
+ * column's 8px gaps. **ROLL's lower edge lands at 385 of a usable 730** (852
+ * less the header's 52+1, the tab bar's 60+1 and this root's own 8px foot),
+ * which is 345px of slack. Measured in Chrome through `preview.html` with the
+ * `playedCharacter` fixture, every section drawn at exactly its declared
+ * height: 385.
  *
- * AT 375x667 THE SAME 535 CLEARS A 545px COLUMN BY TEN PIXELS. That is a pass
- * and it is not a comfortable one. Four ordinary states cost more than ten:
- * typed dice (+68), pips instead of numbers (+49), a companion (+50), a worn
- * or wearable Beastform (+52). Any one of them and the small phone scrolls to
- * reach ROLL.
+ * AT 375x667 THE SAME 385 CLEARS A 545px COLUMN BY 160px, where before the
+ * counters became a grid it cleared it by ten. Of the ordinary states this
+ * budget cannot see - typed dice (+68), a companion (+50), a Beastform banner
+ * (+52), the 34px home-indicator inset - none now costs the small phone its
+ * margin. Pips do: they keep the four full-width rows and wrap, which is +149.
  *
  * WHAT THIS DOES NOT DO, SAID PLAINLY RATHER THAN ROUNDED DOWN. The whole
- * folded sheet is 899px. That fits at 744x1133, where there is no tab bar, with
- * 173px to spare - "tutta la scheda in una volta sola" is literally true on a
- * tablet. It does not fit on either phone: 169px over at 393x852, which is the
- * conditions strip and the last three fold headers, and 354px over at 375x667.
- * Nothing here is bought by shaving a gap, because a fit bought that way is one
- * the next honest edit un-buys. `playSheet.test.tsx` carries every one of these
- * numbers as an assertion rather than as prose, so none of them can quietly
- * stop being true.
+ * folded sheet is **749px against 730**, so it misses "tutta la scheda in una
+ * volta sola" at 393x852 by **19px** - the bottom of the lineage header - and by
+ * 204 at 375x667. It fits at 744x1133, where there is no tab bar, with 323px to
+ * spare. The three savings P5-6 took were costed at 198 and are worth 150: the
+ * 2x2 grid is the 100 it was estimated at, the damage box is 50 rather than 46
+ * because the band did not have to grow for it, and folding the conditions
+ * away is worth **nothing at all** - a shut `Disclosure` is 44 plus this
+ * column's 8px gap, which is what the strip was. `ActiveConditions` says what
+ * would actually buy that 52 and why this pass did not take it. Nothing here is
+ * bought by shaving a gap, because a fit bought that way is one the next honest
+ * edit un-buys. `playSheet.test.tsx` carries every one of these numbers as an
+ * assertion rather than as prose, so none of them can quietly stop being true.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
  * is the only thing that matters; it draws nothing the rest of the time. That
  * is the right place and it is not the same thing as being visible: in the
  * pinned block it could not be off screen and here it can, on exactly one path
- * - a recall confirmed from the vault fold, some 900px down, which can mark the
+ * - a recall confirmed from the vault fold, some 700px down, which can mark the
  * last Hit Point. Written down in `BACKLOG.md` under P5-5 rather than papered
  * over, because the fix is a choice between two shapes and not a placement. A
  * worn Beastform follows it, because it changes what every number under it
@@ -2195,12 +2200,11 @@ function PlayDesktop({
  * there even untransformed, which is 52px of this budget that every Druid
  * pays and nobody else does.
  *
- * The conditions strip stays low, where it already was, and it stays
- * permanent: it is set once a scene rather than once a turn, so it does not
- * belong above ROLL, and drawing it only when a condition is true is the same
- * treatment decision 6 gave the modifier row but was not asked for here. It is
- * 52px of the 169 the folded sheet is over at 393x852, and P5-5 in
- * `BACKLOG.md` says so rather than this file quietly taking it.
+ * The conditions stay low, where they already were - set once a scene rather
+ * than once a turn, so they do not belong above ROLL - and they are behind
+ * their own fold now, whose shut header names what is on instead of showing
+ * seven grey chips. That is a better 44px than the strip was and it is not a
+ * cheaper one: see `ActiveConditions`.
  *
  * EVERY FOLD DEFAULTS SHUT, `equipped` and the cards included. The budget above
  * is computed with every fold shut, and a default that contradicted it would

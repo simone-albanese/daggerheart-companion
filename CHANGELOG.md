@@ -191,11 +191,17 @@ be wrong* at the foot of this entry.
 - **ROLL is in the flow now, and that is a bigger target in a better place.**
   Pinned, it sat 8px above the Play tab — a 98×60 control that navigates away
   from your sheet mid-turn. It is now 203px clear of it, and still above the
-  fold without being fixed there: its lower edge lands at 535px of the 730px a
-  393×852 phone leaves for content, and at 535 of 545 on a 375×667 one. That
-  last figure is a margin of **ten pixels**, and four ordinary things eat it —
-  typing your own dice, boxes instead of numbers, a companion, a Beastform — so
-  on the small phone some tables will still scroll a little to reach the dice.
+  fold without being fixed there: its lower edge lands at 385px of the 730px a
+  393×852 phone leaves for content, and at 385 of 545 on a 375×667 one — 160px
+  of margin on the small phone, where it was ten before the counters went two
+  across. Only one ordinary thing still eats that: choosing boxes instead of
+  numbers, which keeps the four full-width rows.
+
+  It was also being crushed rather than scrolled to, on every build since the
+  block was unpinned. The column is a flex column and the roll surface was the
+  one section in it that had not said it must not shrink, so the browser took
+  the whole overflow of the sheet out of it: 33px of box holding a 66px ROLL,
+  overlapping the fold header underneath. Fixed, and the sheet scrolls.
 - **The six traits are one row of chips, and the verbs are one tap behind it.**
   SPRINT · LEAP · MANEUVER under every trait cost about 210px, a quarter of the
   glass. The row costs 44. The verbs are still there behind a control at the end
@@ -207,6 +213,25 @@ be wrong* at the foot of this entry.
   all, and the moment anything *is* armed — ADV, DIS, REACTION, a Difficulty, a
   held die — a row appears above ROLL and names it, because a modifier you
   cannot see is a modifier the app is applying behind your back.
+- **The four counters are two across, and the damage box moved next to the
+  thresholds.** HP, Stress, Hope and Armor were four full-width rows: 194px of a
+  730px screen for four numbers. As a 2×2 grid they are 94, and each one keeps
+  everything it had — the number, `[−]` and `[+]` at 44×44, and the value itself
+  a target you tap to type into. What it costs is the gap between the value and
+  the steppers, which was about 105px on a 393px phone and is now 4: a thumb
+  that misses now opens the keypad instead of travelling past it, which writes
+  nothing and closes on one tap. Boxes instead of numbers keep the full width,
+  because a 12-box Hit Point track does not fit in half a column.
+
+  And the box you type a hit into is now the fifth cell of the defence band,
+  beside MAJOR and SEVERE. It used to print `8/16` beside itself in the smallest
+  type on the screen, because it needed the ladder and could not see it. It
+  costs the band nothing: a 44px field fits inside a row the numbers already
+  hold open at 58.
+- **Conditions are behind their own fold**, with what is on named on the shut
+  header — `Conditions · RESTRAINED` — instead of seven grey chips scrolling
+  sideways to say you are fine. It saves no height at all: a shut fold is the
+  same 44px plus a gap the strip was. It is a better 44px, not a cheaper one.
 - **Two rows fewer for the same facts:** the vault is a fold inside your cards
   rather than beside them, with both counts on the shut header (`3 / 5 · 3
   INACTIVE`), and the gold moved onto the Carried header (`2 ITEMS · 1 BAG · 4
@@ -214,11 +239,13 @@ be wrong* at the foot of this entry.
   domains and their card level caps, then says where you are from — that is the
   order you actually look them up in.
 - **What it does not do, said plainly.** With every fold shut the sheet comes to
-  899px. That fits on an iPad mini with 173px to spare, so on a tablet you
-  really do see all of it at once. On a 393×852 phone it is 169px over — the
-  conditions strip and the last three fold headers are below the glass — and on
-  a 375×667 phone it is 354px over. Nothing here was bought by squeezing the
-  spacing, because a fit bought that way is one the next change undoes.
+  749px. That fits on an iPad mini with 323px to spare, so on a tablet you
+  really do see all of it at once. On a 393×852 phone it is **19px over** — the
+  bottom edge of the last fold header — and on a 375×667 phone it is 204px over.
+  Nothing here was bought by squeezing the spacing, because a fit bought that
+  way is one the next change undoes: the three changes above were expected to
+  save 198px between them and save 150, because folding the conditions away
+  turned out to be worth nothing.
 - **The Play screen scrolls, and your weapons, armour and items are on it.**
   Equipped gear had only ever rendered inside the desktop layout. With every
   band pinned, the loadout absorbed every shortfall: measured at 130px of the

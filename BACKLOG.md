@@ -1541,13 +1541,14 @@ what the paper shows.
       premise, not the argument: with the four counters and the thresholds moved
       to the top where Giorgio's message puts them, the Experiences moved into a
       fold below ROLL and the permanent MODIFIERS row deleted, ROLL's own lower
-      edge lands at **535 of 730px** of usable column at 393×852 and at **535 of
-      545** at 375×667 — above the fold on both reference phones *without* a
-      pin, and 203px clear of the tab bar instead of 8. The pin was buying a
-      reach the order provides and charging 266px for it. The arithmetic is an
-      executable assertion — `playSheet.test.tsx`, «the budget the pin came off
-      for» — and it carries the unflattering half too: the 375×667 margin is
-      **ten pixels**, and four ordinary states cost more than ten.
+      edge lands above the fold on both reference phones *without* a pin. P5-6
+      then took another 150px out of the two bands above it, and the figure is
+      now **385 of 730px** of usable column at 393×852 and **385 of 545** at
+      375×667 — a margin of 345 and 160 where P5-5 left 195 and ten. The pin was
+      buying a reach the order provides and charging 266px for it. The
+      arithmetic is an executable assertion — `playSheet.test.tsx`, «the budget
+      the pin came off for» — and P5-6 measured it in a real layout engine as
+      well: every section draws at exactly the height it declares.
 - [ ] **Collapsible sections — the *tendina*.** Weapons & armour, cards,
       inventory, and lineage each behind a disclosure that remembers whether it
       was open. This is what makes "the whole sheet at once" fit: a closed
@@ -2140,20 +2141,26 @@ only while something is armed (`598c07f`).
 nothing armed, the `playedCharacter` fixture. Column = glass − 53 header − 61 tab
 bar − 8 foot.
 
-| | px |
-|---|---|
-| Identity (21 name + 7 + 10 meta + 9 + 44 RENAME) | 91 |
-| gap | 8 |
-| the defence band (16 padding + 10 label + 4 + 26 number + 2 border) | 58 |
-| gap | 8 |
-| the four counters and the TOOK row (4×44 + 3×6 + 44 + 6) | 244 |
-| gap | 8 |
-| the trait row | 44 |
-| gap | 8 |
-| the ROLL row (MODS is 44 wide *inside* it) | 66 |
-| **ROLL's lower edge** | **535** |
-| the six fold headers and the conditions strip, with their gaps | 364 |
-| **the whole folded sheet** | **899** |
+| | px | after P5-6 |
+|---|---|---|
+| Identity (21 name + 7 + 10 meta + 9 + 44 RENAME) | 91 | 91 |
+| gap | 8 | 8 |
+| the defence band (16 padding + 10 label + 4 + 26 number + 2 border) | 58 | 58 |
+| gap | 8 | 8 |
+| the four counters and the TOOK row (4×44 + 3×6 + 44 + 6) | 244 | **94** |
+| gap | 8 | 8 |
+| the trait row | 44 | 44 |
+| gap | 8 | 8 |
+| the ROLL row (MODS is 44 wide *inside* it) | 66 | 66 |
+| **ROLL's lower edge** | **535** | **385** |
+| the six fold headers and the conditions strip, with their gaps | 364 | 364 |
+| **the whole folded sheet** | **899** | **749** |
+
+The right-hand column is P5-6 below, which took 150px out of the counters: the
+four rows became a 2×2 grid and the damage box moved into the defence band,
+which did not have to grow for it. The three bullets under this table are the
+numbers **as P5-5 left them**, kept because the reversal was argued from them;
+P5-6 restates them.
 
 - **393×852** — column 730. ROLL is above the fold with **195px to spare**. The
   whole folded sheet is **169px over**: the conditions strip and the last three
@@ -2215,25 +2222,28 @@ seen, all of them a sentence in the source that the code did not do.
 
 **Not done, and named rather than hidden:**
 
-- [ ] **The conditions strip is still permanent**, 44px plus its gap, low in the
-      column between the rest and the lineage. Decision 6's treatment would fit
-      it exactly — seven grey chips and a `+ NAME` button, every frame of every
-      session, to say that you are not Restrained — but decision 6 is about the
-      modifier row and nothing asked for this one. It is 52 of the 169px the
-      folded sheet is over at 393×852. The obvious shape is `ActiveConditions`
-      gaining a variant that draws only what is on and returns null otherwise,
-      with the full strip and its door to `ConditionsDialog` living behind MODS;
-      the obvious objection is that a condition is a state the GM inflicted, not
-      a modifier the player declared, so MODS may be the wrong door for it.
-- [ ] **The incoming-damage box is not in the defence band.** Giorgio's
-      "threshold bene in vista" is delivered — the four numbers are 26px in a
-      band of their own, second on the sheet — but the box you type the damage
-      into is still a row inside the counters, printing `8/16` in 10px beside
-      itself because it needs the ladder and cannot see it. Merging it in as a
-      fifth cell of the band is worth about 46px above ROLL and would put the
-      number you were just told next to the ladder it is read against. It needs
-      `DamageEntry` extracted out of `Vitals`, which is the one component on
-      this screen that writes Hit Points, so it is a refactor to do on its own.
+- ~~**The conditions strip is still permanent**~~ — **behind its own fold,
+      `fcda966`, and it saved nothing.** See P5-6 below: a shut `Disclosure` is
+      44px plus this column's 8px gap, which is what the strip was. The fold is
+      still the better row — the shut header names what is on rather than
+      showing one filled chip among seven empty ones — but the **−52 this was
+      costed at is not available from a fold**, and the shape that would buy it
+      is still the one written here: draw nothing when nothing is on, with the
+      door somewhere that costs the column nothing. That door is still unplaced.
+      MODS is the wrong one for the reason given above, and the candidate P5-6
+      measured and did **not** take, because it is a decision and not an
+      implementation, is a 44×44 control at the end of the identity's class row
+      beside RENAME — a row that is already 44px tall, so it would cost zero.
+- ~~**The incoming-damage box is not in the defence band**~~ — **done,
+      `899fbeb`, and worth 50 rather than 46.** `IncomingDamage` came out of
+      `Vitals`; the phone draws it as a fifth cell of the band and the desktop
+      row is unchanged. It rides for free: a 44px field sits inside a row the
+      number cells already hold open at 58, so the band does not grow and the
+      counters lose the whole 44 + 6. The `8/16` restatement is deleted. The
+      cost is the equal columns — `EVASION` at `.t-meta` is 47.75px, so four
+      equal cells plus the box overflow even a 393px phone (386.29 against 369)
+      — and while a number is standing in the box the verdict spans the band
+      underneath, taking it from 58 to 108.
 
 - [ ] **The death-move offer can now be off screen when it appears, and that is
       a regression `0ccc857` introduced.** It used to be in the pinned block, so
@@ -2243,11 +2253,111 @@ seen, all of them a sentence in the source that the code did not do.
       damage is fine: both controls are within 400px of the top. The path that
       strands it is P1-2's, `RecallButton` in the vault, which is now a tendina
       inside Cards and further down still: the confirming tap can mark the last
-      Hit Point from about 750px down the column, and the banner then renders
+      Hit Point from about 600px down the column, and the banner then renders
       above the viewport with nothing on screen saying it appeared. Two honest
       answers - make the offer a dialog the way its own `DeathMoveDialog`
       already is, or have the recall that spends the last Hit Point say so on
       its own row - and neither of the P5-5 commits picks one.
+
+## ~~P5-6 · The three savings, and what they were actually worth~~ — **done, `379a20a`, `899fbeb`, `fcda966`; a defect found by rendering it, `4608328`**
+
+P5-5 shipped the reflow and failed its own stated condition: the folded sheet
+was 899px against 730 of column at 393×852. The owner chose to close it and
+named three savings, costed at ~198px between them. **They are worth 150**, and
+this section says which one was not worth what it was costed at and why.
+
+| | costed | actual | why |
+|---|---|---|---|
+| the four counters as a 2×2 grid | −100 | **−100** | 4×44 + 3×6 = 194 → 2×44 + 6 = 94 |
+| the damage box into the defence band | −46 | **−50** | the band did not have to grow: a 44px field fits inside a row the number cells already hold open at 58 |
+| the conditions strip behind a fold | −52 | **0** | a shut `Disclosure` is 44px + the column's 8px gap, which is exactly what the strip was |
+| | **−198** | **−150** | |
+
+**THE ARITHMETIC AS BUILT**, declared heights, every fold shut, default prefs,
+nothing armed, the `playedCharacter` fixture. Column = glass − 53 header − 61
+tab bar − 8 foot.
+
+| | px |
+|---|---|
+| Identity | 91 |
+| gap | 8 |
+| the defence band, **with the TOOK cell inside it** | 58 |
+| gap | 8 |
+| the four counters, a 2×2 grid (2×44 + 6) | 94 |
+| gap | 8 |
+| the trait row | 44 |
+| gap | 8 |
+| the ROLL row | 66 |
+| **ROLL's lower edge** | **385** |
+| seven fold headers, with their gaps (7×44 + 7×8) | 364 |
+| **the whole folded sheet** | **749** |
+
+- **393×852** — column 730. ROLL clears the fold with **345px to spare**, where
+  P5-5 left 195. The whole folded sheet is **19px over**: the bottom edge of the
+  lineage header. The target was a fit and this is a miss, stated rather than
+  bought — the 19 is exactly the 52 the conditions fold did not save, less the
+  33 the other two overshot by.
+- **375×667** — column 545. ROLL clears the fold **by 160px**, where P5-5 left
+  ten and had to defend it. The whole sheet is 204px over, which the owner
+  accepted in advance. Of the states the budget cannot see, none now costs the
+  small phone its margin except pips (+149).
+- **744×1133** — column 1072. The whole folded sheet **fits with 323px to
+  spare**.
+
+**MEASURED, NOT ONLY SUMMED.** Every number above is an assertion in
+`playSheet.test.tsx` over *declared* heights, because jsdom has no layout
+engine. This pass also rendered it: Chrome, `preview.html`, all three widths,
+the same fixture. Every section drew at exactly the height it declares, ROLL's
+lower edge landed at **385** and the sheet at **749**. Two things that only a
+layout engine could answer were settled the same way, before the code was
+written and again after:
+
+- **The counter cell.** The widest readout a counter ever draws is `12 / 12` at
+  800 20px Archivo plus `.t-meta`: **59.5px**. The narrowest cell the grid hands
+  it is 172.5 at 375, less two 44px steppers and two 4px gutters, less 10px of
+  padding and 2 of border: **64.5px of room**. Five pixels, `nowrap` and
+  clipped, because a wrap is a third line and a third line is the 100px back.
+- **The defence band.** `EVASION` at `.t-meta` is 47.75px, so four equal cells
+  plus a 91.29px `TOOK [ ]` plus four 6px gaps is 386.29 against 369px of column
+  at 393 — over at the *wider* phone. Sized to their contents the four numbers
+  come to 230.08 and the box takes the remainder: 114.92 at 393 and 96.92 at
+  375. No overflow at either.
+
+**A DEFECT THE SUITE COULD NOT SEE, FOUND BY RENDERING IT** (`4608328`). The
+phone column is a scrolling flex column, and a flex child keeps `flex-shrink: 1`
+unless it says otherwise — so the browser takes the sheet's overflow out of
+whatever can shrink *before* it scrolls anything. Every section declared
+`flex: none` except `DualityRoll`'s phone surface, which had never said it. At
+393×852 it was drawn **33px tall holding a 66px ROLL**, overflowing onto the
+Weapons & armour header below it — two 44px targets on the same band — and the
+column's `scrollHeight` equalled its `clientHeight`, so the sheet did not scroll
+at all. It has been that way since P5-5 unpinned the block. Nothing could catch
+it: every height this repo asserts is a declared height, and ROLL's declared
+height was 66 the whole time it was being drawn at 33. The test that replaces
+that blindness is a sweep — no child of the phone column may be shrinkable —
+because that property is the premise the whole budget rests on.
+
+**Not done, and named rather than hidden:**
+
+- [ ] **The last 19px, and the door that would buy them.** The conditions fold
+      is a better row than the strip and a free one; it is not a cheaper one.
+      The only shape that removes the 52 is decision 6's — draw nothing when
+      nothing is on — and that needs a permanent door somewhere that costs the
+      column no height. Two candidates, neither taken here because both are
+      placements and this pass was asked for a fold: a 44×44 control at the end
+      of the identity's class row, beside RENAME, in a row that is already 44px
+      tall and has the width spare at both reference widths; or the same
+      treatment MODS got, which the owner has already objected to on the grounds
+      that a condition is a state the GM inflicted rather than a modifier the
+      player declared. Taking either one lands the folded sheet at **697 of
+      730**, with 33px to spare.
+- [ ] **The counter cell has no cushion between the value and the steppers, and
+      that is the price of the grid rather than an oversight.** The full-width
+      row put about 105px of dead space between them at 393; the cell has 4.
+      Both mistakes it makes possible are recoverable and neither is silent — a
+      miss onto the value opens numeric entry, which writes nothing and closes
+      on one tap — but nobody has watched a real thumb do it at a table yet. It
+      belongs in the list of things that need a human, below.
 
 ## Needs a human, two devices and a dim room
 

@@ -2,15 +2,17 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2255 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2266 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
 tests the honesty pass below added, 2247 after P5-5's first commit replaced the
 eight assertions that pinned the Play screen's pinned block, 2252 with P5-5
-finished, and 2255 after the verifier pass on P5-5 below.
+finished, 2255 after the verifier pass on P5-5, and 2266 with P5-6 — the three
+savings that close the reflow, plus the sweep that catches the defect P5-6
+found by rendering the screen instead of summing it.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is fifteen commits behind `main` — `git rev-list --count
+`dd66d35`, which is twenty commits behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short — so
 the "nothing is pushed,
@@ -48,17 +50,29 @@ repository says it is.
 - **The Play screen scrolls, and nothing on it is pinned.** The old "no
   scrolling here" rule was overruled at `91097eb`; the fixed block that replaced
   it was overruled at `0ccc857`, and the number that decides whether *that*
-  stays true is ROLL's declared lower edge against the usable column — **535 of
-  730 at 393×852, and 535 of 545 at 375×667**. It is a test,
+  stays true is ROLL's declared lower edge against the usable column — **385 of
+  730 at 393×852, and 385 of 545 at 375×667** since P5-6. It is a test,
   `playSheet.test.tsx` › "the budget the pin came off for", and it says in its
   own docblock what it can and cannot prove: jsdom has no layout engine, so it
   sums declared heights and never measures. **Anything added to that column has
-  to go through it**, and at 375×667 the whole margin is **ten pixels** — the
-  test lists four ordinary states that cost more than ten. The same describe
-  records the numbers that are not flattering: the folded sheet is 899 and fits
-  only at 744×1133, missing the glass by 169px at 393×852 and 354 at 375×667.
-  P5-5 in `BACKLOG.md` names the two things that would close some of that and
-  says why neither was taken here.
+  to go through it.** The margin at 375×667 is 160px, where P5-5 had ten and had
+  to defend it; the only ordinary state that still costs more than the margin is
+  pips (+149). The same describe records the number that is not flattering: the
+  folded sheet is **749 against 730**, so "the whole sheet in one look" misses
+  at 393×852 by **19px** and fits only at 744×1133, with 323 to spare. P5-6 in
+  `BACKLOG.md` says exactly what those 19 are — the 52 that folding the
+  conditions away did not save — and names the door that would buy them.
+
+  **Two of that describe's assertions are now backed by a layout engine and not
+  only by arithmetic.** P5-6 rendered the sheet in Chrome through
+  `preview.html` at 393×852, 375×667 and 744×1000, and every section drew at
+  exactly the height it declares. That is worth doing again after any change to
+  this column, because it is what caught the one defect the suite structurally
+  could not see: the roll surface was the only child of the phone column that
+  had not declared `flex: none`, so the browser shrank it to 33px around a 66px
+  ROLL rather than scrolling the sheet, and the fold header underneath was drawn
+  through it. The sweep «lets no section of the column shrink instead of
+  scrolling» is the guard now.
 - **One commit per step**, with a message that says what was wrong and why the
   fix is shaped the way it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
@@ -107,7 +121,7 @@ one session of it — which is also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
-| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; six tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Lineage — all shut by default and each remembered per character. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. |
+| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; seven tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Conditions, Lineage — all shut by default and each remembered per character. Since P5-6 the four counters are a 2×2 grid and the incoming-damage box is a fifth cell of the defence band, beside the thresholds it is read against. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
 | **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out, the campaigns and the two tools no row can otherwise open; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and everything the disk did or failed to do — a write that did not land, a tap the saved campaign replaced — is said on the screen it happened on, with a retry only where a retry can do something. |
@@ -272,6 +286,37 @@ naming it a third time: **a sentence in the source that the code does not do.**
   or the trait strip**, none of which exist. Every behaviour they justify is
   still right; a warrant citing its own casualty is how a correct thing gets
   deleted by the next reader who checks it.
+
+**Then P5-6 closed the reflow, and the third saving was not worth what it was
+costed at** — `379a20a`, `899fbeb`, `fcda966`, plus `4608328`. The owner named
+three savings worth ~198px between them, to make the folded sheet fit the 730px
+a 393×852 phone leaves. They are worth **150**, and the miss is stated rather
+than bought:
+
+- **The four counters are a 2×2 grid**, 194 → 94, worth the 100 it was costed
+  at. What it costs is inside the cell: the value target used to stand about
+  105px clear of `−` and now stands 4, because 88 of a 172.5px cell is the two
+  steppers. Both mistakes that allows are recoverable and neither is silent.
+  Pips deliberately do **not** get the grid — a 12-box track in a 172px cell
+  wraps under WCAG's 24px floor — so they keep the full width and are now the
+  single most expensive thing the budget cannot see, at +149.
+- **The incoming-damage box is the fifth cell of the defence band**, worth 50
+  rather than 46: a 44px field fits inside a row the number cells already hold
+  open at 58, so the band did not grow at all. `IncomingDamage` came out of
+  `Vitals` — the one component on the player's screen that writes Hit Points,
+  and it had no surface test until this pass gave it four.
+- **The conditions strip is behind its own fold, and that saved nothing.** A
+  shut `Disclosure` is 44px plus this column's 8px gap, which is exactly what
+  the strip was. It is a better row and not a cheaper one. So the folded sheet
+  is **749 against 730** — 19px over, which is the 52 that did not arrive less
+  the 33 the other two overshot by — and `BACKLOG.md` P5-6 names the door that
+  would buy it.
+
+**And rendering it found a defect three passes of tests could not.** See the
+working rule above: the roll surface was the one child of the phone column
+without `flex: none`, so at 393×852 it was drawn 33px tall around a 66px ROLL
+and the sheet did not scroll at all. If you change this column, open
+`preview.html` in a browser and compare what is drawn against what is declared.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
