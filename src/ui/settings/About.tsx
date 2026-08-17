@@ -325,9 +325,43 @@ export function About({
       </Rows>
 
       <Rows style={{ borderColor: 'var(--damage)' }}>
+        {/*
+          The list that is read first, and it was missing a store.
+
+          This sentence is an enumeration, not a summary, and it named four of
+          the five stores `clearAll` empties - characters, content, art and (as
+          "every preference") the localStorage sweep - with no campaign in the
+          list. It is also the string read *before* anything is armed, while the
+          reset is still an idea, so a reader who stopped here was told the
+          wrong thing about what they were about to lose.
+
+          No number here. The hint enumerates categories and the confirmation
+          below counts records; that division is already how the two sentences
+          differ, and a count in both would mean two places to keep true.
+
+          Ergonomics, measured in Chrome, and the surprise is which phone pays.
+          The row is a flex line with a `flex: 1 1 180px` text block and the
+          44px button:
+
+          - 393x852: the button (130.8x44, `min-height: var(--tap)`) fits
+            *beside* the hint, which leaves the hint a 194px column. 137 -> 152
+            characters takes it from four lines to five, so the row goes 112.6
+            -> 128.5px: **+15.87px, one `.t-dense` line at 11.5px/1.38**. The
+            button keeps its 44px and moves 7.9px down inside its own row.
+          - 375x667: the button has *already* wrapped below the hint - 130.8 and
+            a 180px basis do not fit in a 349px row - so the hint has the full
+            321px and stays at three lines and 47.6px. Row 154.8px before and
+            after: **+0**. The narrower phone is the one that pays nothing.
+          - 744x1133: 341px column, three lines, **+0**.
+
+          The 15.87px is a scroll position on a 6188px scroll and not a reach:
+          nothing here is pinned, no target shrank, and the only 44px control on
+          the row is the one the sentence explains. Headroom before a sixth line
+          on the 194px column: 28 characters.
+        */}
         <Field
           label="Reset everything"
-          hint="Deletes every character, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
+          hint="Deletes every character, every campaign, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
         >
           {!confirming && (
             <button

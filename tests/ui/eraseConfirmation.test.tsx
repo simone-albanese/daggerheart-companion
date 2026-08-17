@@ -276,3 +276,33 @@ describe('the sentence read before the app is erased', () => {
     expect(text(), 'a refused read must not read as an empty device').not.toContain('0 campaigns');
   });
 });
+
+describe('the list read before the button is armed', () => {
+  it('enumerates the campaigns along with the other four stores', async () => {
+    /*
+     * This string is a list, and it is the one read first - before anything is
+     * armed and while the reset is still an idea. It named four of the five
+     * stores `clearAll` empties, so a reader who stopped here was told the
+     * wrong thing about what they were about to lose.
+     *
+     * No number: the hint enumerates categories and the confirmation above
+     * counts records, which is already how the two sentences divide the work.
+     */
+    await renderAbout();
+
+    expect(
+      text(),
+      'the list of what the reset deletes leaves out the store holding other tables',
+    ).toContain(
+      'Deletes every character, every campaign, every imported source, all art and every ' +
+        'preference on this device.',
+    );
+  });
+
+  it('still says there is no undo and no copy anywhere else', async () => {
+    // The second half of the hint is unchanged, and it is the half that says
+    // the consequence rather than the contents.
+    await renderAbout();
+    expect(text()).toContain('There is no undo and no copy anywhere else.');
+  });
+});
