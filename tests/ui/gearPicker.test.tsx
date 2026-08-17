@@ -367,4 +367,47 @@ describe.each(Object.keys(PICKERS))('the %s picker', (name) => {
       }
     }
   });
+
+  /*
+   * The one chip rail that may not be a rail.
+   *
+   * Three of the four rails in this file hold nothing but `Chips`, and they
+   * scroll sideways with the scrollbar hidden - a standing cost this file's own
+   * docblock names and does not pay off here. The armor picker's rail is the
+   * exception, because it is the only one that also holds a `Seg`, and its
+   * 345.30px of content clears a 393px window's 347px content box and nothing
+   * narrower. Wrapped, every TIER chip is a whole 44x44 on glass at every
+   * supported width; unwrapped, the `4` chip measured 27.70px at 375, 12.70 at
+   * 360 and 0.00 at 320, behind a scrollbar that is not drawn.
+   *
+   * The loot picker has no rail at all - one `Seg` and a search box - so the
+   * count is asserted per picker rather than assumed to be non-zero, which is
+   * how a loop over an empty list covers nothing and reports a pass.
+   */
+  it('wraps the rail that holds a segmented control and scrolls the ones that do not', () => {
+    mount(name);
+    const rails = [...bands()[1]!.querySelectorAll<HTMLElement>('div.row')].filter(
+      (el) => el.style.overflowX === 'auto' || el.style.flexWrap === 'wrap',
+    );
+    expect(rails.length, 'this picker does not have the rails it is drawn with').toBe(
+      { weapons: 4, armor: 1, loot: 0 }[name],
+    );
+    for (const rail of rails) {
+      const holdsSeg = rail.querySelector('[role="group"]') !== null;
+      // The `Seg` row in the weapons picker is a wrapping row of groups, not a
+      // rail of chips; it is the armor rail this asks about, so a rail is only
+      // interesting when it carries both a group and a chip.
+      const holdsChips = [...rail.children].some((c) => c.matches('button.chip'));
+      if (holdsSeg && holdsChips) {
+        expect(rail.style.flexWrap, 'the rail with a Seg in it still clips its last chip').toBe(
+          'wrap',
+        );
+        expect(rail.style.overflowX, 'the rail wraps and scrolls sideways at once').toBe('');
+        expect(rail.style.scrollbarWidth, 'a wrapping rail has no scrollbar to hide').toBe('');
+      } else if (!holdsSeg) {
+        expect(rail.style.overflowX, 'a chip-only rail stopped scrolling sideways').toBe('auto');
+        expect(rail.style.flexWrap, 'a chip-only rail started wrapping').toBe('');
+      }
+    }
+  });
 });
