@@ -2108,12 +2108,25 @@ function PlayDesktop({
         <Rest stats={stats} rng={cryptoRng} />
         {/*
           And the licence notice under it, in this column for the same reason
-          `Rest` is in this column: it is the only one of the three that
-          scrolls. The cockpit itself is laid out to fit, so there is no "end of
-          the page" anywhere else on this screen - the middle column ends at
-          ROLL and the right one at the vault, both of which are meant to be on
-          the glass at all times. A 342-character paragraph under either of
-          those would be a pinned strip by another name.
+          `Rest` is in this column: this is the column with an end a player is
+          meant to reach.
+
+          THE SENTENCE THAT USED TO BE HERE IS FALSE NOW. It said "the cockpit
+          itself is laid out to fit, so there is no 'end of the page' anywhere
+          else on this screen - the middle column ends at ROLL and the right one
+          at the vault, both of which are meant to be on the glass at all
+          times". The middle column does not end at ROLL and is not laid out to
+          fit: it ends at the roll log, and the panel holding both scrolls.
+          Measured at 1180x695 with five Experiences and the backup banner up,
+          313 of panel against 445 of content, with ROLL painted 0 of 54 until
+          you scroll. The docblock over `DualityRoll`'s desktop branch carries
+          the table; `Play`'s own docblock at the head of this file was
+          corrected in the same pass and this line was missed.
+
+          The placement survives the correction, for what was underneath it: the
+          middle column's end is a readout you scroll to when you want it and
+          the right one's is the vault, so a 342-character paragraph under
+          either would be something you hit while looking for something else.
         */}
         <LicenceFooter />
       </div>
