@@ -64,7 +64,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { globSync } from 'node:fs';
-import { act, createElement } from 'react';
+import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
@@ -117,7 +117,7 @@ afterEach(() => {
   useApp.setState({ prefs: { ...DEFAULT_PREFS } });
 });
 
-const mount = (element: Parameters<typeof createElement>[0], width: number): void => {
+const mount = (element: ReactElement, width: number): void => {
   viewport = width;
   const characters = [makeCharacter({ name: 'Wizard Ten' })];
   act(() => {
@@ -128,8 +128,22 @@ const mount = (element: Parameters<typeof createElement>[0], width: number): voi
       prefs: { ...DEFAULT_PREFS },
     });
   });
-  act(() => root.render(createElement(element)));
+  act(() => root.render(element));
 };
+
+/**
+ * The header, at a width, in one of its two states.
+ *
+ * `onboarding` became a required prop when the first-run questions landed: that
+ * bar carries the mark alone while they are up, with no nav and no door to
+ * Settings. It takes a default here because the cutout is not what decides it -
+ * the padding is on the one `<header>` element, above the branch and outside it,
+ * so both states pay the same four declarations. `pays it in both of the
+ * header's states` is the assertion that keeps that true; if the padding is ever
+ * moved inside the branch, that case fails and this default stops being safe.
+ */
+const mountHeader = (width: number, onboarding = false): void =>
+  mount(createElement(Header, { onboarding }), width);
 
 describe('the header pays the cutout', () => {
   it('spells all four insets in the form jsdom keeps', () => {
@@ -146,7 +160,7 @@ describe('the header pays the cutout', () => {
      * exact declared value catches both shapes; `.not.toBe('')`, which this
      * used to be, catches only the second.
      */
-    mount(Header, LANDSCAPE);
+    mountHeader(LANDSCAPE);
     const header = container.querySelector('header');
     expect(header, 'the header did not render').not.toBeNull();
     const style = header!.style;
@@ -169,7 +183,7 @@ describe('the header pays the cutout', () => {
   });
 
   it('pays left and right on top of the 20px it already had', () => {
-    mount(Header, LANDSCAPE);
+    mountHeader(LANDSCAPE);
     const style = container.querySelector('header')!.style;
 
     // The base padding survives: on every device without a cutout `env()` is
@@ -188,7 +202,7 @@ describe('the header pays the cutout', () => {
     // and rewriting the four longhands is exactly where it would go missing.
     // It is now in the same calc form, which is also the first time this
     // declaration has been visible to the suite at all.
-    mount(Header, LANDSCAPE);
+    mountHeader(LANDSCAPE);
     const style = container.querySelector('header')!.style;
     expect(style.paddingTop).toMatch(/env\(safe-area-inset-top\)/);
     expect(style.paddingBottom).toBe('0px');
@@ -198,10 +212,32 @@ describe('the header pays the cutout', () => {
     // The header is the one piece of chrome drawn at every width, and a phone
     // in landscape lands in the tablet band - 852 and 932 are both 720-1179.
     for (const width of [PHONE, 719, 720, LANDSCAPE, 932, 1180]) {
-      mount(Header, width);
+      mountHeader(width);
       const style = container.querySelector('header')!.style;
       expect(style.paddingLeft, `at ${String(width)}px`).toMatch(/env\(safe-area-inset-left\)/);
       expect(style.paddingRight, `at ${String(width)}px`).toMatch(/env\(safe-area-inset-right\)/);
+    }
+  });
+
+  it('pays it in both of the header states, because a cutout does not wait for the questions', () => {
+    /*
+     * The first-run questions gave this bar a second state - mark alone, no nav
+     * and no door to Settings - and that state is the FIRST thing a new device
+     * ever draws. It is also drawn on a phone that may be sideways in a cutout,
+     * so it has to pay exactly what the ordinary state pays.
+     *
+     * This case is what lets `mountHeader` default `onboarding` to false: the
+     * padding lives on the one `<header>` element, above the branch, so both
+     * states carry the same four declarations. Move the padding inside the
+     * branch and this fails - which is the point of it.
+     */
+    for (const onboarding of [false, true]) {
+      mountHeader(LANDSCAPE, onboarding);
+      const style = container.querySelector('header')!.style;
+      const state = onboarding ? 'during the first run' : 'in the ordinary state';
+      expect(style.paddingLeft, state).toBe('calc(20px + env(safe-area-inset-left))');
+      expect(style.paddingRight, state).toBe('calc(20px + env(safe-area-inset-right))');
+      expect(style.paddingTop, state).toBe('calc(0px + env(safe-area-inset-top))');
     }
   });
 });
@@ -219,7 +255,7 @@ describe('the tab bar pays it too, and not only as a guarantee', () => {
    * Settings, not only a guarantee.
    */
   it('declares both horizontal insets without touching the bottom one', () => {
-    mount(TabBar, PHONE);
+    mount(createElement(TabBar), PHONE);
     const nav = container.querySelector('nav');
     expect(nav, 'the tab bar did not render').not.toBeNull();
     const style = nav!.style;
@@ -236,7 +272,7 @@ describe('the tab bar pays it too, and not only as a guarantee', () => {
     // redistributes. Both sides are paid, so the cost is 2x the inset:
     // measured, 98.3 per column at 393 becomes 68.8 with 59 on each side, and
     // 173.3 at 693x320 becomes 143.8 - still 1.6x and 3.3x the 44px floor.
-    mount(TabBar, PHONE);
+    mount(createElement(TabBar), PHONE);
     const nav = container.querySelector('nav')!;
     expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
     for (const button of nav.querySelectorAll<HTMLButtonElement>('button')) {
