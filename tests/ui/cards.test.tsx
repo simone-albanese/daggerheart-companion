@@ -214,3 +214,21 @@ describe('a recall from the card browser that would cost Hit Points', () => {
     expect(armed, 'an affordable recall was flagged as costing HP').toBeUndefined();
   });
 });
+
+/**
+ * The browser's own box, which it did not have.
+ *
+ * jsdom computes no layout, so nothing here measures anything: the numbers in
+ * the source comment come from Chrome at 640x360 and belong to the harness.
+ * What this file can prove is the declaration that decides the outcome - the
+ * root's `overflow`, which was absent, so a grid laid outside the root's
+ * padding box was painted over the tab bar instead of clipped.
+ */
+describe('the card browser draws inside its own box', () => {
+  it('clips whatever it lays outside itself, instead of painting it over the tab bar', () => {
+    const c = seed();
+    browse(c);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.overflow, 'the browser root declares no overflow').toBe('hidden');
+  });
+});

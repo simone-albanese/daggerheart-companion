@@ -148,8 +148,43 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     update((c) => ({ ...c, vault: [...c.vault, cardId] }));
   };
 
+  /*
+   * `overflow: hidden` is the one declaration this box has never carried, and
+   * without it the browser painted over the tab bar.
+   *
+   * Measured at 640x360. `.app` is `100svh` with `grid-template-rows: auto 1fr`
+   * and `overflow: hidden`, so the header takes 53 and `<main>` 307; the tab
+   * bar is `flex: none`, 60px of button plus a 1px top border, laid y299..360.
+   * That leaves this root 246px at y53..299 and a content box of 230 at
+   * y61..291. The filter block below it is `flex: none` and 226px tall at this
+   * width, so the grid is offered 4px of free space - and under the global
+   * `box-sizing: border-box` (base.css:10-14) a `flex: 1; min-height: 0` box
+   * cannot floor below its own `padding-bottom`, so the grid was laid at
+   * y299..311: clientHeight 12, content box **0px**, and every one of those 12
+   * pixels inside the nav. `DomainCardView`'s root is `position: relative` and
+   * the nav declares no `position`, so the tiles painted in the positioned
+   * layer above a static bar and took the hit-testing with them:
+   * `document.elementFromPoint(111, 303)` returned a card's overlay button
+   * rather than PLAY, and the same for CARDS, BUILD and GM.
+   *
+   * The clip costs the grid nothing it had - it had a 0px content box - and
+   * gives four 160x61 targets back their top 12px, at the bottom edge of a
+   * two-handed landscape grip, on the only route off this screen. It does not
+   * give the grid a box of its own; that is the next commit's job, and this
+   * one deliberately leaves the landscape grid invisible rather than
+   * mis-tappable, because a card you cannot see is recoverable by rotating and
+   * a tab bar you cannot tap is not.
+   */
+  const rootStyle: React.CSSProperties = {
+    flex: 1,
+    minHeight: 0,
+    padding: phone ? '8px 12px' : '14px 20px 20px',
+    gap: 12,
+    overflow: 'hidden',
+  };
+
   return (
-    <div className="stack" style={{ flex: 1, minHeight: 0, padding: phone ? '8px 12px' : '14px 20px 20px', gap: 12 }}>
+    <div className="stack" style={rootStyle}>
       <div className="stack" style={{ gap: 8, flex: 'none' }}>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <input
