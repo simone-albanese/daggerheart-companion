@@ -2061,6 +2061,44 @@ describe('the carried items, out loud', () => {
       'a disabled control is still standing where a name should be',
     ).toEqual([]);
   });
+
+  /*
+   * USE was 30.8x44, and it is the only control on this screen that spends
+   * something on one press with no second tap.
+   *
+   * Its width came entirely from `.chip`'s own `padding: 4px 6px` - nothing
+   * here declares a horizontal padding and `base.css:42-50` zeroes a button's
+   * border. `.chip` is IBM Plex Mono at 9.5px with `letter-spacing: 0.06em`,
+   * and the shipped `plexmono-600-latin.woff2` is a flat 600/1000 advance on
+   * every glyph, so a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px and `USE`
+   * is 3 x 6.27 + 12 = **30.81px**. It is width-invariant: nothing in it reads
+   * the viewport, so the number is the same at 320 as at 1179. It clears WCAG
+   * 2.5.8's 24px on both axes; the floor it breaks is this repo's own 44/34.
+   *
+   * The same omission was closed in the same commit in `GearPicker.tsx` (`All`
+   * and `Any` at 38.81) and `Conditions.tsx` (`SET` at 42.81); the fullest
+   * write-up of the arithmetic is in `gearPicker.test.tsx` beside the same
+   * assertion. jsdom computes no layout, so 30.81 is not reachable here and
+   * this asserts the declaration that produces 44.
+   *
+   * `var(--tap)` and not `var(--control)`, unlike the other three, and that is
+   * deliberate rather than a slip: `Items` is only mounted from the phone
+   * column, which stops at 1179, and `--control` is `var(--tap)` at 1179 and
+   * below - so the two resolve identically here, and the pair on one button is
+   * kept in one token. What the test refuses is a button that says one floor on
+   * its height and a different one on its width.
+   */
+  it('gives USE the floor on the axis it never declared', () => {
+    const c = seed();
+    play(c);
+    click(fold('Carried'));
+    const uses = buttons().filter((b) => (b.textContent ?? '').trim() === 'USE');
+    expect(uses.length, 'the fixture carries two items').toBe(2);
+    for (const use of uses) {
+      expect(use.style.minHeight, 'USE declares no height floor').toBe('var(--tap)');
+      expect(use.style.minWidth, 'USE declares no width floor').toBe('var(--tap)');
+    }
+  });
 });
 
 /**

@@ -719,6 +719,51 @@ function ConditionsDialog({
                   <span style={{ font: '700 14px/1.1 var(--sans)', color: on ? TINT[key] : 'var(--text-2)' }}>
                     {LABEL[key]}
                   </span>
+                  {/*
+                   * The one control on this card, and the axis it never
+                   * declared a floor on.
+                   *
+                   * `minHeight: var(--control)` was here and `min-width` was
+                   * not, so the width was the label plus this button's
+                   * `padding: '0 12px'` and nothing else (`base.css:42-50`
+                   * zeroes a button's border). `.chip` sets IBM Plex Mono at
+                   * 9.5px with `letter-spacing: 0.06em`, and the shipped
+                   * `plexmono-600-latin.woff2` is a 600/1000 advance on every
+                   * glyph, so a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px.
+                   * `SET` is three of them: 3 x 6.27 + 24 = **42.81px**, on a
+                   * 44px floor. `ACTIVE` is six and measures 61.62, so it was
+                   * only ever the off state that was under - which is the state
+                   * the control spends almost all of its life in, and the state
+                   * you are aiming at when you set a condition mid-scene.
+                   *
+                   * It clears WCAG 2.5.8's 24px with room to spare. The floor
+                   * it breaks is `--control` / `--tap`, this project's own,
+                   * which resolves to 44 at every width under 1180 and under
+                   * any coarse pointer. `Chip` at the top of this same file
+                   * has carried `minWidth: 'var(--control)'` all along; this is
+                   * that line, in the one place it was missing.
+                   *
+                   * ERGONOMICS. **Target size:** 42.81 -> 44 is 1.19px, and it
+                   * is taken from slack, not from a neighbour. The row is
+                   * `.spread`, so the name sits hard left and this sits hard
+                   * right; at 393x852 the card's content box is 311px (369 of
+                   * panel, less 2 of border, less 32 of the scroll's padding,
+                   * less 22 of the card's own), the widest name `VULNERABLE`
+                   * is 96.88px at 700/14 Archivo, and 96.88 + 8 + 44 = 148.88
+                   * leaves 162px unspent. At 320 the same sum is 148.88 in a
+                   * 238px box. Nothing reflows and no card grows a pixel.
+                   * **Thumb arc:** these three cards are the top of a scrolling
+                   * dialog that fills the glass, so SET travels with the
+                   * scroll; what does not travel is the pair below it, and this
+                   * is why the 1.19px matters more than it sounds - a target
+                   * that is 42.81 wide and 44 tall has a 1.19px lip on the axis
+                   * a thumb arriving from the left overshoots along.
+                   * **Read versus touch:** the name is read first and is to the
+                   * left of the control, the rule text is read second and is
+                   * below both, and the `ALREADY ACTIVE` line - the one thing
+                   * that says the tap will not do what it looks like it does -
+                   * sits between the control and the rule rather than after it.
+                   */}
                   <button
                     type="button"
                     className="chip"
@@ -730,6 +775,7 @@ function ConditionsDialog({
                     style={{
                       flex: 'none',
                       minHeight: 'var(--control)',
+                      minWidth: 'var(--control)',
                       padding: '0 12px',
                       borderRadius: 'var(--r3)',
                       background: manual ? TINT[key] : 'var(--raised)',

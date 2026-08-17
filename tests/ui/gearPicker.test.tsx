@@ -155,6 +155,12 @@ const flexOf = (el: HTMLElement): string =>
 
 const px = (v: string): number => (v.endsWith('px') ? Number.parseFloat(v) : Number.NaN);
 
+const click = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
 /**
  * One whole row, the column's gap, a sliver of the next, and the list's own
  * padding. 85px is the tallest first row any of the three pickers draws at 320
@@ -247,5 +253,78 @@ describe.each(Object.keys(PICKERS))('the %s picker', (name) => {
     );
     const verbNames = [...verbs!.querySelectorAll('button')].map((b) => (b.textContent ?? '').trim());
     expect(verbNames, 'Done is not in the last band').toContain('Done');
+  });
+
+  /*
+   * The 44px floor, on the axis these buttons never declared.
+   *
+   * THE ARITHMETIC, ONCE, FOR THE WHOLE CLASS. `.chip` is
+   * `font: 600 9.5px/1 var(--mono); letter-spacing: 0.06em`, `base.css:42-50`
+   * zeroes a button's border, and the shipped `plexmono-600-latin.woff2` is a
+   * flat 600/1000 advance on every glyph (checked in the file: `unitsPerEm`
+   * 1000). So a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px, and a
+   * three-character label is 18.81px plus whatever padding the control
+   * declares. `Seg` declares `padding: '0 10px'`, so `All` (Reach), `Any`
+   * (Slot), `Any` (Category) and `All` (Kind) measured **38.81px** wide inside
+   * a 44px-tall box. They clear WCAG 2.5.8's 24px with room; the floor they
+   * break is this project's own `--control` / `--tap`, which resolves to 44 at
+   * every width below 1180 and under any coarse pointer - so at every viewport
+   * this dialog is measured at.
+   *
+   * The same omission, same commit: `Conditions.tsx`'s SET chip at
+   * `padding: '0 12px'` was 42.81, `Play.tsx`'s USE at `.chip`'s own
+   * `padding: 4px 6px` was 30.81. `Cards.tsx` closed its own two in `112cb7f`
+   * and reported this file as out of its lane; this is that report, taken up.
+   *
+   * jsdom computes no layout, so 38.81 is not reachable here. What is testable
+   * is the declaration that produces 44, asked of every button in the two
+   * bands the filters live in rather than of the four labels that were caught -
+   * `Chips` already passed it and is asserted anyway, because the claim is
+   * about the block and not about the buttons that happened to be found.
+   *
+   * A filter is set first so that band 3 has a button in it at all: CLEAR
+   * FILTERS only exists once something is filtered, and asserting over an empty
+   * band is how a test covers nothing and says it covered something. The tap is
+   * on the last option of the first `Seg`, which is the one option all three
+   * pickers agree is not the default (`gear.ts` starts every one of them at
+   * `reach: 'all'` / `kind: 'all'`).
+   *
+   * `minWidth === minHeight` rather than a literal token, because the two
+   * floors in this repo are not interchangeable by accident: `--tap` is always
+   * 44 and `--control` is 44 below 1180 and 34 above it, and a control that
+   * says one on one axis and the other on the other is claiming a difference
+   * it does not mean. Both are accepted; disagreeing with itself is not.
+   */
+  it('states the control floor on both axes, for every button in the filter bands', () => {
+    mount(name);
+    const groups = [...bands()[1]!.querySelectorAll<HTMLElement>('[role="group"]')];
+    expect(groups.length, 'the filter band has no segmented control').toBeGreaterThan(0);
+    const options = [...groups[0]!.querySelectorAll('button')];
+    click(options[options.length - 1]!);
+
+    const [, filters, count] = bands();
+    const chips = [...filters!.querySelectorAll('button'), ...count!.querySelectorAll('button')];
+    const labelled = chips.map((c) => (c.getAttribute('aria-label') ?? c.textContent ?? '').trim());
+    expect(labelled, 'the tap did not open the way back out of the filters').toContain(
+      'CLEAR FILTERS',
+    );
+    expect(
+      labelled.filter((l) => l === 'All' || l === 'Any'),
+      'none of the three-character labels this test exists for is on screen',
+    ).not.toHaveLength(0);
+
+    for (const chip of chips) {
+      const label = (chip.getAttribute('aria-label') ?? chip.textContent ?? '').trim();
+      expect(chip.style.minHeight, `"${label}" declares no height floor`).toMatch(
+        /^var\(--(control|tap)\)$/,
+      );
+      expect(chip.style.minWidth, `"${label}" declares no width floor`).toMatch(
+        /^var\(--(control|tap)\)$/,
+      );
+      expect(
+        chip.style.minWidth,
+        `"${label}" states one floor on its height and another on its width`,
+      ).toBe(chip.style.minHeight);
+    }
   });
 });

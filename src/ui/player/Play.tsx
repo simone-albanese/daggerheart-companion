@@ -658,6 +658,16 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * this screen (ROLL, RECALL, the damage commit, and CLEAR ALL in the conditions
  * dialog this screen opens) has either a much bigger target or a second tap.
  *
+ * USE IS THE ONE THAT HAS NEITHER, AND SAYING SO IS PART OF THE CLAIM. It spends
+ * a carried item and writes a log line on one press, and its target is 44x44 -
+ * the floor, not "much bigger". It measured 30.8x44 until this commit, which was
+ * worse in the exact way that matters here, and the width is now declared; see
+ * the note on the button in `Items` below for the 6.27px-a-character arithmetic
+ * and what the 13.19px comes out of. It gets no second tap because the spend is
+ * recoverable - Build's inventory rows carry a quantity field - so the sentence
+ * above is true of every control it names and *nearly* true of this one, which
+ * is the honest version.
+ *
  * CLEAR ALL is the one that needed both, and it is worth knowing why, because it
  * is the only control reachable from here whose target and whose second tap were
  * decided by something outside this file: it lives in a `position: fixed` panel
@@ -1625,6 +1635,76 @@ function Items({ bare = false }: { bare?: boolean } = {}): React.JSX.Element | n
                   style={{
                     flex: 'none',
                     minHeight: 'var(--tap)',
+                    /*
+                     * The floor is a floor on both axes, and this button
+                     * declared only the height.
+                     *
+                     * Its width came entirely from `.chip`'s own
+                     * `padding: 4px 6px` around the label - there is no
+                     * horizontal padding declared here, and `base.css:42-50`
+                     * zeroes a button's border. `.chip` is IBM Plex Mono at
+                     * 9.5px with `letter-spacing: 0.06em`, and the shipped
+                     * `plexmono-600-latin.woff2` is a flat 600/1000 advance, so
+                     * a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px and `USE`
+                     * is 3 x 6.27 + 12 = **30.81px**. Measured 30.8x44, and it
+                     * is width-invariant: the number is the same at 320 as at
+                     * 1179, because nothing in it reads the viewport.
+                     *
+                     * `var(--tap)` and not `var(--control)`, which is the token
+                     * the same omission was closed with in `Cards.tsx`,
+                     * `GearPicker.tsx` and `Conditions.tsx`: the two resolve
+                     * identically everywhere this control exists - `Items` is
+                     * only ever mounted from the phone column, which stops at
+                     * 1179, and `--control` is `var(--tap)` at 1179 and below -
+                     * and this button's own height already says `--tap`. A pair
+                     * of floors on one control written in two tokens would be
+                     * claiming a difference that is not there.
+                     *
+                     * It clears WCAG 2.5.8's 24px on both axes. The floor it
+                     * breaks is this project's own 44/34, which is the honest
+                     * and sufficient charge.
+                     *
+                     * ERGONOMICS. **Target size:** 30.81 -> 44 is +13.19px, and
+                     * it is taken from the name beside it, which is the only
+                     * flexible thing in the row. At 393x852 the row's content
+                     * box is 345px (369 of column inside `0 12px 8px`, less 2
+                     * of `.panel` border, less 22 of its padding), so the name
+                     * goes 306.19 -> 293; at 320 it goes 233.19 -> 220. The
+                     * longest name in the SRD, `Improved Grindletooth Venom`,
+                     * is 194.0px at 600/14 Archivo and still fits both. The one
+                     * case that crosses is that name carrying a three-digit
+                     * count - 194.0 + 7 of margin + 3 x 6.6 of `.t-meta` mono =
+                     * 220.8 against 220 at 320 wide - and it wraps to a second
+                     * line rather than clipping, because the name has no
+                     * `white-space: nowrap`. A player-typed name longer than
+                     * that wraps 13.19px sooner than it used to. That is the
+                     * whole cost.
+                     * **Thumb arc:** `Carried` is low in the phone column,
+                     * under the counters, the traits and the weapons, so on a
+                     * 393x852 phone these rows sit in the lower half of the
+                     * scroll - the comfortable part of a right thumb's sweep -
+                     * and USE is at the right end of the row, which is the near
+                     * end of that sweep. That is the correct place for it and
+                     * the reason the width mattered: a 44px-tall, 30.81px-wide
+                     * target on the outside edge of the arc is the one geometry
+                     * where the overshoot axis and the short axis are the same
+                     * axis.
+                     * **Read versus touch:** the name is read first and is to
+                     * the left; the printed text of the item is read second and
+                     * only after expanding, below both; the verb is the last
+                     * thing on the line and the only thing that spends
+                     * anything.
+                     *
+                     * NO SECOND TAP, DELIBERATELY. A spend here is recoverable:
+                     * `parts.tsx:707-710` gives every inventory row a quantity
+                     * field in Build, so the number can be typed back. What it
+                     * is not is silent - the log line this writes stays written
+                     * - so "recoverable but not silent" is the accurate charge,
+                     * and it is not enough to justify arming a control a player
+                     * presses several times an evening. The floor on both axes
+                     * is the whole fix.
+                     */
+                    minWidth: 'var(--tap)',
                     background: 'var(--raised)',
                     color: 'var(--text)',
                   }}
