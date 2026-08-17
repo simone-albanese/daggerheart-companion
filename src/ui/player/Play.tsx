@@ -655,8 +655,17 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * pinned strip already used; a mis-tap arms a neighbouring trait, which is
  * visible instantly - the chip fills with `--hope` - and costs one tap to undo;
  * and it spends nothing. No Hope, no log line, no roll. Every costly mis-tap on
- * this screen (ROLL, RECALL, the damage commit) has either a much bigger target
- * or a second tap.
+ * this screen (ROLL, RECALL, the damage commit, and CLEAR ALL in the conditions
+ * dialog this screen opens) has either a much bigger target or a second tap.
+ *
+ * CLEAR ALL is the one that needed both, and it is worth knowing why, because it
+ * is the only control reachable from here whose target and whose second tap were
+ * decided by something outside this file: it lives in a `position: fixed` panel
+ * drawn over the shell, so at 393x852 its footer sits on top of the tab bar and
+ * the GM tab's centre lands inside it. A second tap in the same place would have
+ * been the same accident twice, so the second tap is somewhere else - see the
+ * docblock over `ConditionsDialog` in `Conditions.tsx` for the geometry that
+ * decided it.
  *
  * BELOW 356 IT IS TWO ROWS AND THAT IS CORRECT RATHER THAN A DEFECT. Seven 44px
  * targets and six 4px gaps need 332 of column, which needs a 356px viewport;

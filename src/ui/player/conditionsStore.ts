@@ -157,6 +157,16 @@ export const useConditions = create<ConditionsState>((set, get) => {
     removeNamed: (characterId, namedId) =>
       commit(characterId, (c) => ({ ...c, named: c.named.filter((n) => n.id !== namedId) })),
 
+    /*
+     * The one destructive call in this store, and the only one no other call
+     * can walk back: every other mutation here is its own inverse, and this
+     * one throws away a set of markers and two strings the player typed.
+     * There is no undo anywhere in this app, so the confirmation is the whole
+     * of the protection and it lives on the surface - `ConditionsDialog` arms
+     * on the first tap and commits on a second one somewhere else, for reasons
+     * that are about where the dialog is drawn and are written down there.
+     * Nothing else calls this.
+     */
     clear: (characterId) => commit(characterId, () => NO_CONDITIONS),
   };
 });

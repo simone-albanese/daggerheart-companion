@@ -19,6 +19,7 @@ import { isVulnerableFromStress } from '../../engine/damage.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { useDialog } from '../shared/useDialog.ts';
 import {
+  isEmpty,
   MAX_LABEL,
   MAX_NAMED,
   STANDARD,
@@ -76,6 +77,48 @@ function activeConditions(
       .filter((n) => n.on)
       .map((n) => ({ face: n.label.toUpperCase(), spoken: n.label })),
   ];
+}
+
+/**
+ * Everything one CLEAR ALL destroys - which is not the same list as the strip.
+ *
+ * Two differences, and both of them are the reason this is its own function
+ * rather than a reuse of `activeConditions` above.
+ *
+ * A NAMED STATE THAT IS SWITCHED OFF IS STILL DESTROYED. `clear` writes
+ * `NO_CONDITIONS`, whose `named` is `[]`, so the label a player typed goes with
+ * the chip whether or not the chip was lit. `activeConditions` filters on
+ * `n.on`, because it is answering "what is true of this character"; the
+ * confirmation is answering "what will not exist afterwards", and a player who
+ * typed "Strange Patterns" and toggled it off for a scene has that string
+ * deleted by a control whose sentence never mentioned it.
+ *
+ * THE DERIVED VULNERABLE IS NOT DESTROYED AND MUST NOT BE LISTED. It is
+ * computed from a full Stress track, not stored here, so it is on the sheet
+ * again the instant this dialog closes. `activeConditions` includes it, and
+ * correctly - it is true of you. Listing it here would be the app saying it
+ * removed something it cannot remove.
+ *
+ * The spoken forms, not `LABEL`: this list is read aloud by `role="alert"` and
+ * printed as prose, and the upper-case faces exist for the chips.
+ */
+function clearedByClearAll(conditions: Conditions): string[] {
+  return [
+    ...STANDARD.filter((key) => conditions[key]).map((key) => SPOKEN[key]),
+    ...conditions.named.map((n) => n.label),
+  ];
+}
+
+/**
+ * "A", "A and B", "A, B and C".
+ *
+ * A sentence rather than a comma list, because this one is spoken: an alert
+ * that reads "Hidden comma Restrained comma No Mercy" is a data structure being
+ * read out, and the thing it is warning about is worth a sentence.
+ */
+function inWords(items: string[]): string {
+  if (items.length < 2) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1] ?? ''}`;
 }
 
 /** One hue each, but never the only carrier: the chip is also filled or not. */
@@ -464,6 +507,117 @@ export function ConditionsControl(): React.JSX.Element | null {
 // The expanded view
 // ---------------------------------------------------------------------------
 
+/**
+ * The expanded view, and the one control on it that destroys something.
+ *
+ * ## THE DEFECT THIS FOOTER IS SHAPED AROUND
+ *
+ * `86f4a0e` took a `mask-image` off the Play phone column. That mask had been
+ * clipping the paint *and the hit-testing* of every `position: fixed` dialog
+ * mounted in that column, this one included, and removing it was right. What it
+ * also did was make this footer reachable for the first time - in the worst
+ * place on the glass. Measured in Chrome at 393x852 with the `played` fixture
+ * and three conditions on:
+ *
+ *   the panel runs y12-840 and the shell's tab bar runs y791-852, so the panel
+ *   covers 49 of the tab bar's 61px and the four tab centres at y822 hit-test
+ *   into this footer. PLAY (x49.2) lands on CLOSE. CARDS (x147.5) and BUILD
+ *   (x245.7) land on the footer's own background and do nothing. GM (x344)
+ *   landed on CLEAR ALL, at x283.6-364, y781-825.
+ *
+ * At 375x667 the same thing one row up: tab centres at y637, GM at x328.2, and
+ * CLEAR ALL at x265.6-346, y596-640. At 640x360 landscape it does not happen at
+ * all - the panel is 480 wide and centred, so CLEAR ALL sits at x462.6-543
+ * while the BUILD centre is x400 and the GM centre is x560, which is 17px past
+ * the panel's right edge and therefore a tap on the backdrop, which closes.
+ *
+ * So on both phones, the gesture this app's users have the most muscle memory
+ * for - reaching for a tab at the bottom of the screen - wiped every marker on
+ * the sheet on one tap, with no confirmation, no undo and no log line. That the
+ * modal covers the shell is correct and deliberate; the defect is a one-tap
+ * destructive control sitting where a finger goes by accident.
+ *
+ * ## WHY ARMING IS NOT ENOUGH ON ITS OWN, AND WHAT MAKES IT ENOUGH
+ *
+ * The obvious fix - first tap arms, second tap commits, the shape `RecallButton`
+ * in `Play.tsx` already uses - does not close this on its own, and the numbers
+ * above say why: **the second tap is the same accident as the first.** A player
+ * reaching for GM cannot see the tab bar, because this panel is drawn over it.
+ * They reach again, at the same coordinates, and an arm-in-place would commit.
+ *
+ * So the two controls trade places instead. While it is armed, the chip in the
+ * bottom-right - the one the GM centre lands on - is **KEEP THEM**, and the
+ * commit is a new full-width button *above* the row, clear of the tab band
+ * entirely. Both labels are nine characters of `.chip`'s 9.5px mono and not one
+ * declaration on that button changes between the two faces, so the cancel
+ * occupies the destroyer's footprint to the pixel: 80.4x44 at x283.6-364 at
+ * 393x852 and 80.4x44 at x265.6-346 at 375x667, both unmoved from the CLEAR ALL
+ * they replace and from the resting state. The repeat of the mis-reach
+ * therefore puts the conditions *down* instead of destroying them.
+ *
+ * Where the commit is instead, measured armed in Chrome:
+ *
+ *   393x852   335x44 at x29-364, y725-769
+ *   375x667   317x44 at x29-346, y540-584
+ *   640x360   446x44 at x97-543, y233-277
+ *
+ * The relationship is the same at all three because the footer is anchored to
+ * the bottom of the panel: 14px of padding, the 44px row, a 12px gap. So the
+ * commit's lower edge is always 22px above the top of the tab-bar band and its
+ * centre 75px above the tab centres, and **it does not move when the sentence
+ * above it gets longer** - the widest list this dialog can hold (three standard
+ * conditions and two labels at `MAX_LABEL`) takes the sentence from two lines
+ * to four and the footer from 166.7 to 198.4px, and the commit stays at y725-769
+ * at 393x852 to the pixel. A growing label pushing a target somewhere unexpected
+ * is this project's most-repeated defect; here the growth has nowhere to go but
+ * into the scroll above, which is what a scroll is for. It stays scrollable in
+ * the worst case at every width - 590.6px of scroll at 393x852, 405.6 at
+ * 375x667, 98.6 at 640x360 against 781 of content.
+ *
+ * The commit is also much bigger than what it replaces: 335x44 at 393x852
+ * against the 80.4x44 chip, four times the area. `Play.tsx`'s rule for this
+ * screen is "a much bigger target or a second tap"; this is the first control
+ * here that needed both.
+ *
+ * ## NOTHING IS DRAWN TO SAY NOTHING, HERE TOO
+ *
+ * With nothing to clear there is no CLEAR ALL. `isEmpty` is the store's own
+ * predicate for "this row holds nothing" - the one `prune` drops rows on - and
+ * it is exactly the set `clear` would destroy, so the chip is drawn when and
+ * only when a tap on it would take something away. That is the same rule
+ * `ActiveConditions` above is built on, and it matters most here: the door into
+ * this dialog is permanent, so the state it is most often opened in is the empty
+ * one, and in that state the GM centre now lands on an inert footer.
+ *
+ * ## WHAT WAS WEIGHED AND NOT TAKEN
+ *
+ * *Move CLEAR ALL out of the row it shares with CLOSE.* There is nowhere to
+ * move it to. Four tabs across 393px is a 98px pitch and the footer's content
+ * column is 337px wide, so any control wide enough to read contains a tab
+ * centre; the only axis with room is the vertical one, which is the axis this
+ * fix uses.
+ *
+ * *Make it undoable instead of confirmable.* Nothing in this app has an undo -
+ * `merge.ts`, `ImportConflicts.tsx` and `Edit.tsx` all say so in as many words -
+ * so the first one would be a new app-wide affordance introduced on a control
+ * whose own store says the state "is set and cleared a dozen times a session".
+ * That is a large decision and this is not the place to take it.
+ *
+ * *Give the footer a bottom inset so it clears the tab-bar band.* Rejected, and
+ * it is worth saying why out loud: the tab bar is **not visible** under this
+ * panel. A player reaching for GM is reaching from memory at something they
+ * cannot see, so moving our controls out of the band leaves the reach landing on
+ * the backdrop - which closes the dialog - and leaves the next control to be put
+ * near the bottom of a modal to rediscover the whole defect.
+ *
+ * *A timer that disarms.* Not taken. It is a state change the user did not make,
+ * so to be honest it would have to be announced, and a live region firing on a
+ * timer while somebody is reading the sentence is worse than what it prevents.
+ * The thing a timer is for - a primed control left under a thumb - is already
+ * gone here, because what is left under the thumb is the cancel. The armed state
+ * is put down by KEEP THEM, by any change to the list it was armed against, and
+ * by the dialog closing, which unmounts this component.
+ */
 function ConditionsDialog({
   rules,
   onClose,
@@ -479,10 +633,28 @@ function ConditionsDialog({
   const removeNamed = useConditions((s) => s.removeNamed);
   const clear = useConditions((s) => s.clear);
   const [draft, setDraft] = useState('');
+  /** Waiting for the deliberate second tap. See the docblock above. */
+  const [armed, setArmed] = useState(false);
   const dialog = useDialog('Conditions', onClose);
 
   if (!character) return <div />;
   const derived = isVulnerableFromStress(character);
+
+  const going = clearedByClearAll(conditions);
+  const nothingToClear = isEmpty(conditions);
+  /*
+   * Armed is a fact about a list, so it does not outlive the list. Every
+   * mutation below puts it down as well - what was armed was a confirmation of
+   * those names, and the names have changed.
+   */
+  const primed = armed && !nothingToClear;
+  /*
+   * The one thing CLEAR ALL cannot take, when it is standing. `clear` writes
+   * `NO_CONDITIONS`; a Vulnerable derived from a full Stress track is not in
+   * that record and is drawn again on the next render. Saying so is the
+   * difference between a confirmation and a claim.
+   */
+  const stressKeepsVulnerable = derived && !conditions.vulnerable;
 
   return (
     <div
@@ -551,7 +723,10 @@ function ConditionsDialog({
                     type="button"
                     className="chip"
                     aria-pressed={manual}
-                    onClick={() => toggle(character.id, key)}
+                    onClick={() => {
+                      setArmed(false);
+                      toggle(character.id, key);
+                    }}
                     style={{
                       flex: 'none',
                       minHeight: 'var(--control)',
@@ -609,7 +784,10 @@ function ConditionsDialog({
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={() => removeNamed(character.id, n.id)}
+                  onClick={() => {
+                    setArmed(false);
+                    removeNamed(character.id, n.id);
+                  }}
                   style={{ flex: 'none', minWidth: 'var(--tap)' }}
                 >
                   Remove
@@ -627,6 +805,7 @@ function ConditionsDialog({
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return;
+                    setArmed(false);
                     addNamed(character.id, draft);
                     setDraft('');
                   }}
@@ -637,6 +816,7 @@ function ConditionsDialog({
                   className="btn"
                   disabled={draft.trim() === ''}
                   onClick={() => {
+                    setArmed(false);
                     addNamed(character.id, draft);
                     setDraft('');
                   }}
@@ -650,37 +830,123 @@ function ConditionsDialog({
         </div>
 
         <div
-          className="spread"
+          className="stack"
           style={{
             flex: 'none',
-            alignItems: 'center',
             padding: '10px 16px 14px',
             borderTop: '1px solid var(--line-soft)',
           }}
         >
-          <button
-            type="button"
-            className="t-meta"
-            onClick={onClose}
-            style={{ minHeight: 'var(--tap)', minWidth: 'var(--tap)', padding: '0 12px', marginLeft: -12 }}
+          {/*
+            Mounted empty and filled on arming, never mounted with its sentence
+            already in it: a live region has to exist before its contents change
+            for the change to be spoken. `RenameField.tsx` carries the same note
+            over the same pattern, and `StepIdentity` was the first to use it.
+
+            `role="alert"` rather than `status` because this interrupts on
+            purpose. This is a `role="dialog"` with `aria-modal`, so a
+            screen-reader user gets no colour change and no glance at a chip
+            turning red; without this, arming would be silent to them and the
+            second tap would be the first thing they heard about.
+
+            It says both button names because it is the whole announcement: what
+            goes, that nothing brings it back, and the two ways out.
+          */}
+          <p
+            role="alert"
+            className="t-dense"
+            style={{ margin: 0, color: 'var(--text-2)' }}
           >
-            CLOSE
-          </button>
-          <button
-            type="button"
-            className="chip"
-            onClick={() => clear(character.id)}
-            style={{
-              flex: 'none',
-              minHeight: 'var(--control)',
-              padding: '0 12px',
-              borderRadius: 'var(--r3)',
-              background: 'var(--raised)',
-              color: 'var(--text-2)',
-            }}
+            {primed
+              ? `CLEAR THEM removes ${inWords(going)}, and there is no undo.` +
+                (stressKeepsVulnerable
+                  ? ' The Vulnerable your full Stress derives stays, because that one is not stored here.'
+                  : '') +
+                ' KEEP THEM leaves them alone.'
+              : ''}
+          </p>
+
+          {/*
+            The commit, and the whole point of it is where it is NOT. 335x44 at
+            x29-364, y725-769 at 393x852 - its lower edge 22px above the top of
+            the tab bar at y791 and its centre 75px above the tab centres at
+            y822, so no reach for a tab arrives here. It is also four times the
+            area of the chip it replaces, which is the other half of
+            `Play.tsx`'s rule for this screen rather than an alternative to it.
+
+            `Confirm: clear ...` is `RecallButton`'s wording for the same state
+            one file over, and the names are in it because `CLEAR THEM` on its
+            own tells a listening player nothing about what is about to go.
+          */}
+          {primed && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setArmed(false);
+                clear(character.id);
+              }}
+              aria-label={`Confirm: clear ${inWords(going)}`}
+              style={{
+                marginTop: 10,
+                minHeight: 'var(--tap)',
+                borderColor: 'var(--damage)',
+                color: 'var(--damage)',
+                fontWeight: 800,
+              }}
+            >
+              CLEAR THEM
+            </button>
+          )}
+
+          <div
+            className="spread"
+            style={{ flex: 'none', alignItems: 'center', marginTop: primed ? 12 : 0 }}
           >
-            CLEAR ALL
-          </button>
+            <button
+              type="button"
+              className="t-meta"
+              onClick={onClose}
+              style={{ minHeight: 'var(--tap)', minWidth: 'var(--tap)', padding: '0 12px', marginLeft: -12 }}
+            >
+              CLOSE
+            </button>
+            {/*
+              Nothing here while there is nothing to clear, and the cancel -
+              never the commit - while there is and it is armed. Both faces are
+              nine characters of `.chip`'s 9.5px mono, so the box does not move
+              or resize between them: 80.4x44 at both phone widths, which is
+              what makes the repeat of the mis-reach land on KEEP THEM. Not one
+              declaration below changed when this was armed, for the same
+              reason - a border added on one face only would have made the two
+              boxes 82.4 and 80.4, and the whole guarantee is that they are the
+              same box. Colour is not carrying the state either: the face reads
+              a different word, a sentence appears above it and so does a
+              button that was not there.
+
+              Upper case on the face and sentence case in the name, the same
+              split `SPOKEN` at the top of this file exists for: some screen
+              readers spell an upper-case word out letter by letter.
+            */}
+            {!nothingToClear && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setArmed(!primed)}
+                aria-label={primed ? 'Keep them' : 'Clear all conditions'}
+                style={{
+                  flex: 'none',
+                  minHeight: 'var(--control)',
+                  padding: '0 12px',
+                  borderRadius: 'var(--r3)',
+                  background: 'var(--raised)',
+                  color: primed ? 'var(--text)' : 'var(--text-2)',
+                }}
+              >
+                {primed ? 'KEEP THEM' : 'CLEAR ALL'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
