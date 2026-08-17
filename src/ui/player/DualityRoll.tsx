@@ -1422,11 +1422,15 @@ function ExperienceChip({
 /**
  * Every Experience at once, wrapping, each one a full-height target.
  *
- * They used to live in the control row, which scrolls sideways, behind
+ * They used to live in the control row, which scrolled sideways, behind
  * REACTION and the advantage group - so on a 393px phone the second one was
  * already off screen, and the file's own comment admitted that a chip you had
  * armed could be out of sight by the time you reached ROLL. Declaring a
- * modifier you cannot see is not a declaration.
+ * modifier you cannot see is not a declaration. (That row wraps now, on every
+ * layout, and `ControlRow`'s docblock carries the cockpit numbers that forced
+ * it. The Experiences still get a row of their own on a phone, because
+ * `ControlRow` is behind MODS there and a declaration behind a tap is not a
+ * declaration in front of you.)
  *
  * Two across is deliberate. It is the count a character starts with, it keeps
  * each chip wide enough for a real phrase rather than an ellipsis, and it puts
