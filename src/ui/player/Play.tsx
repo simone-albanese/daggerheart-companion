@@ -2589,27 +2589,6 @@ function PlayPhone({
       )}
 
       {/*
-       * "Sotto armi e armature e ultime le carte": the inventory comes
-       * between the weapons and the cards, which is also the printed sheet's
-       * order - and it carries the gold, because gold is a carried thing.
-       *
-       * The gold used to be a 30px row of its own whose entire content was
-       * the word "Gold" and a formatted total. `Disclosure` draws `summary`
-       * open and closed alike, so putting the total here spends no row at all
-       * and still has it on the glass with every fold shut. An empty purse
-       * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
-       * nothing and is chosen rather than discovered.
-       */}
-      <Disclosure
-        id="carried"
-        characterId={character.id}
-        label="Carried"
-        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
-      >
-        <Items bare />
-      </Disclosure>
-
-      {/*
        * The cards, which are one section and used to be drawn as two.
        *
        * "Ultime le carte." The loadout and the vault are the same subject -
@@ -2622,6 +2601,20 @@ function PlayPhone({
        * Nested rather than merged, because the argument that separated them
        * still holds: a level 8 character owns about a dozen cards and carries
        * five, and opening the loadout must not hand you twelve rows.
+       *
+       * ABOVE `Carried` AND NOT BELOW IT, WHICH IS DECISION 6 AND WHICH READS
+       * AGAINST THE MESSAGE. "Sotto armi e armature e ultime le carte" puts the
+       * cards last and they were last; the owner moved them one place up. The
+       * warrant is frequency rather than order: this is the fold a player opens
+       * most - it is where every domain ability is - and `Carried` is read when
+       * somebody asks what you have on you. It costs the column **0px**: two
+       * 44px headers swap places, both keep their `Disclosure` id, so no
+       * player's remembered arrangement moves and neither total in the budget
+       * changes. What moves is reading order and reach: the Cards header's
+       * lower edge goes from 470 to 418 relative to the top of the column, i.e.
+       * from 429 to 481px above the bezel at 393x852. Both are outside the
+       * ~330px thumb sweep, so this is a reading gain and not a reach gain, and
+       * it is described as one.
        */}
       <Disclosure
         id="cards"
@@ -2643,6 +2636,27 @@ function PlayPhone({
         >
           <Vault layout="rows" />
         </Disclosure>
+      </Disclosure>
+
+      {/*
+       * "Sotto armi e armature e ultime le carte": the inventory comes
+       * between the weapons and the cards, which is also the printed sheet's
+       * order - and it carries the gold, because gold is a carried thing.
+       *
+       * The gold used to be a 30px row of its own whose entire content was
+       * the word "Gold" and a formatted total. `Disclosure` draws `summary`
+       * open and closed alike, so putting the total here spends no row at all
+       * and still has it on the glass with every fold shut. An empty purse
+       * reads `0 ITEMS · NO GOLD`, which is `formatGold`'s own sentence for
+       * nothing and is chosen rather than discovered.
+       */}
+      <Disclosure
+        id="carried"
+        characterId={character.id}
+        label="Carried"
+        summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
+      >
+        <Items bare />
       </Disclosure>
 
       {/*

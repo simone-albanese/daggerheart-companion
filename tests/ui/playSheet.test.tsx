@@ -383,8 +383,12 @@ describe('what a phone shows of the character sheet', () => {
       'ROLL', // and then the dice, in the flow
       'Weapons & armour',
       'Experiences', // "e fare entrare le armi e le experience"
-      'Carried', // "sotto armi e armature..."
-      'Cards', // "...e ultime le carte", with the vault folded inside them
+      // Cards before Carried, which reads *against* "sotto armi e armature e
+      // ultime le carte" and is decision 6 of the reflow: the cards are the
+      // fold a player opens most, and the message's order is an order rather
+      // than a frequency. It costs the column nothing - two 44px headers swap.
+      'Cards', // with the vault folded inside them
+      'Carried',
       'Rest & downtime',
       'Lineage & domains',
     ].map(at);
@@ -836,9 +840,11 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP },
     { what: 'Experiences', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'Carried, with the gold on its header', px: 44 },
-    { what: 'gap', px: GAP },
+    // Cards above Carried since decision 6, and the swap costs this table
+    // nothing: two 44px headers change places and both keep their id.
     { what: 'Cards, with the vault folded inside it', px: 44 },
+    { what: 'gap', px: GAP },
+    { what: 'Carried, with the gold on its header', px: 44 },
     { what: 'gap', px: GAP },
     { what: 'Rest & downtime', px: 44 },
     { what: 'gap', px: GAP },
@@ -1209,8 +1215,8 @@ describe('the budget the pin came off for', () => {
     const LABELS = [
       'Weapons & armour',
       'Experiences',
-      'Carried',
       'Cards',
+      'Carried',
       'Rest & downtime',
       'Lineage & domains',
     ];
