@@ -11,6 +11,27 @@
  * never a smaller one. What must not survive is the tab itself: a destination
  * the shell will not draw is a door to an empty room, and `allowedScreen` in
  * `prefs.ts` is the other half of the same rule.
+ *
+ * ## Why the columns say `minmax(0, 1fr)` and not `1fr`
+ *
+ * `1fr` is shorthand for `minmax(auto, 1fr)`, so each column's *minimum* is its
+ * content's min-content size, not zero. A label that outgrew its share would
+ * therefore widen the bar past the viewport instead of shrinking - the same
+ * trap `.app` was actually caught in, one file over, where an `auto` grid
+ * column sized to an over-wide header laid `main` out 27.5px wider than a 744px
+ * window and clipped 45 elements on every screen at once.
+ *
+ * Here it is a guarantee and not a repair, and the numbers say which: measured
+ * in Chrome, the four columns resolve to 80px at 320, 93.8 at 375, 98.3 at 393
+ * and 179.8 at 719, against per-tab min-contents of 28 (PLAY), 35 (CARDS), 35
+ * (BUILD) and 17 (GM) - a 17px glyph over 10px IBM Plex Mono. The widest
+ * minimum is 35, so the auto minimum could not be reached above a 140px
+ * viewport and nothing moves today. What changes is the failure mode: a longer
+ * word, a translation or a fifth destination can now only make a tab narrower,
+ * where before it could push the bar off the glass. Every button keeps its 60px
+ * height either way - well above the 44px floor, because this bar is the one
+ * control strip that lives inside the thumb arc - and at 320, 375, 393 and 719
+ * every tab returns itself from its own centre.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, type Screen } from '../../store/state.ts';
@@ -53,7 +74,7 @@ export function TabBar(): React.JSX.Element {
       style={{
         flex: 'none',
         display: 'grid',
-        gridTemplateColumns: `repeat(${String(tabs.length)}, 1fr)`,
+        gridTemplateColumns: `repeat(${String(tabs.length)}, minmax(0, 1fr))`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
         /*

@@ -159,6 +159,51 @@ select,
   --motion: 0ms;
 }
 
+/*
+ * The shell's own box, and the one rule about minimum widths in this file.
+ *
+ * ## The column has to be told it may be narrower than its contents
+ *
+ * This grid declared rows and never columns, so it had one implicit `auto`
+ * column - and an `auto` track's base size is the largest min-content
+ * contribution of its items, which nothing clamps to the container. One item
+ * wider than the window therefore made the *whole column* wider than the
+ * window, and `main` stretches to that column: measured in Chrome at 744x1133
+ * with "Bartholomew Ashworth" on the sheet, `main` was laid out at 771.5px
+ * inside a 744px window, and at the 220px name cap it was 846 inside 720. The
+ * header was the item doing it; `main` is immune only because `App.tsx` gives
+ * it `overflow: hidden`, which resolves its own automatic minimum size to 0.
+ * Nothing scrolls it back, because `.app` clips (below), so the excess is
+ * simply gone: 45 elements clipped at 744 and 67 at 720, SETTINGS 81.8px past
+ * the right edge, and Play's 44x44 conditions door and MODS button painted with
+ * 28.5px of themselves reachable - under this project's 44px floor and under
+ * WCAG 2.5.8's 24.
+ *
+ * `minmax(0, 1fr)` is that clamp. `min-width: 0` on the children is the other
+ * half and neither works alone: a grid item keeps `min-width: auto`, whose
+ * content-based minimum overflows the clamped track anyway and is then cut by
+ * the `overflow: hidden` below. Both, or one over-wide child still decides the
+ * layout of every screen at once.
+ *
+ * ## Where minimum-zero goes, and where it deliberately does not
+ *
+ * The rule: it belongs on a box that clips, or on a track that is a share of
+ * the viewport - the two places where content wider than the box is content
+ * nobody can reach. That is `.app` here and the tab bar's grid in `TabBar.tsx`,
+ * and it is the whole list.
+ *
+ * `.row`, `.spread` and `.stack` are deliberately left without it, and not for
+ * lack of appetite: `.stack` already carries `min-height: 0` for the vertical
+ * case. The horizontal case is not symmetric. `min-width: 0` on a bare flex
+ * container does not remove an overflow, it moves it: the box becomes the right
+ * size and its contents spill out of it instead, invisibly, to be painted over
+ * by whatever comes later in the same stacking context. That is not a
+ * hypothetical - it is exactly how the header's nav became untappable, from the
+ * inline `minWidth: 0` at `Header.tsx:102`. Declaring it on helpers used 235,
+ * 74 and 285 times would manufacture that shape across the whole app. So it
+ * stays granted one box at a time, at the 103 places in `src/` that ask for it
+ * by name, each beside the ellipsis or the clip that makes it honest.
+ */
 .app {
   /*
    * `svh`, not `dvh`.
@@ -172,7 +217,12 @@ select,
   height: 100svh;
   display: grid;
   grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
+}
+
+.app > * {
+  min-width: 0;
 }
 
 .panel {

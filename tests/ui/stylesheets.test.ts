@@ -106,6 +106,37 @@ describe('stylesheets', () => {
     expect(chip, 'the chip lost its font').toMatch(/font:\s*\d+\s+9\.5px\/1\s+var\(--mono\)/);
   });
 
+  it('lets the shell grid be narrower than its widest child, in both halves', () => {
+    /*
+     * Two declarations, and neither is any use without the other.
+     *
+     * `.app` declared rows and no columns, so it had one implicit `auto`
+     * column, and an `auto` track's base size is the largest min-content
+     * contribution of its items with nothing clamping it to the container. One
+     * over-wide header therefore laid `main` out wider than the window on every
+     * screen at once - measured in Chrome at 771.5px inside a 744px viewport,
+     * and 846 inside 720 at the header's 220px name cap - and `.app`'s own
+     * `overflow: hidden` then cut the excess with nothing able to scroll it
+     * back. `minmax(0, 1fr)` is the clamp. `min-width: 0` on the children is
+     * the other half: a grid item keeps `min-width: auto`, whose content-based
+     * minimum overflows the clamped track anyway and is cut just the same.
+     *
+     * jsdom computes no layout, so this asserts the two declarations and not
+     * their effect; the effect is the Chrome harness's half, and it is 45
+     * clipped elements at 744 and 67 at 720 going to zero.
+     */
+    const css = strip(readFileSync(join(DIR, 'base.css'), 'utf8'));
+
+    const app = /^\.app\s*\{([^}]*)\}/m.exec(css)?.[1] ?? '';
+    expect(app, 'the shell grid is missing').not.toBe('');
+    expect(app, 'the shell grid column is sized to its widest child again').toMatch(
+      /grid-template-columns:\s*minmax\(\s*0\s*,\s*1fr\s*\)/,
+    );
+
+    const children = /^\.app\s*>\s*\*\s*\{([^}]*)\}/m.exec(css)?.[1] ?? '';
+    expect(children, 'the shell grid items are back on min-width: auto').toMatch(/min-width:\s*0/);
+  });
+
   it('defines both touch tokens, with --control never above the floor', () => {
     const tokens = readFileSync(join(DIR, 'tokens.css'), 'utf8');
     expect(tokens).toMatch(/--tap:\s*44px/);
