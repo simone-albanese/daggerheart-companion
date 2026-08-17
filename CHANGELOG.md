@@ -591,6 +591,15 @@ is on the player's side, and the rules say the GM sets the number.
 - Documentation: the README's factual claims are checked against the code, the
   Node version is written down once in `.nvmrc`, and `env.sh` explains why it
   exists today rather than why it existed once.
+- The desktop roll panel's "there is more below" fade stopped rebuilding its own
+  machinery. Reading whether content is below the fold has to happen on every
+  commit — a child growing is not observable any other way — but the wiring was
+  sharing that effect, so every die tap, every armed modifier and every frame of
+  the roll animation tore off a scroll listener, put an identical one back and
+  threw away a `ResizeObserver` before it had reported anything. Counted against
+  the old hook: two observers and two listeners at a bare mount, six and six
+  after four taps. It is one and one for the life of the panel now, and the
+  count is a test rather than a claim.
 
 ### The resolution audit — what a screen actually painted, on glass it was never opened on
 
@@ -647,17 +656,35 @@ painted at zero pixels on screens nobody had opened the app on.
   it ends the questions and opens the import routes. Upgrading does not trigger
   it — a preferences record written before this existed is read as already
   answered, or two years of users would be asked who they are.
+- **And it never asks again once you have a character, whichever door you came
+  in by.** The first-run flow writes down that you answered, at the end of each
+  route it knows about — so any *other* way of putting a character on the device
+  left "not yet answered" on the disk for good, and the symptom only surfaced
+  months later, the first time the library was empty again: a deletion, an
+  eviction, a quarantine, and the app asks somebody who has been playing since
+  spring who they are. Restoring from a backup did exactly that. Rather than
+  patch that one door, having a character now *is* the answer, recorded the
+  moment there is one — file import, clipboard, QR, backup restore, or simply
+  launching with a library that is not empty. **A device already carrying the
+  wrong answer repairs itself on its next launch.** A device with no characters
+  keeps its "not yet" and is still asked, which is the whole point of the
+  question.
 - **The two bars that paint to the edge of the glass move out from under a
   display cutout.** On an iPhone held sideways, iOS reserves a strip down *both*
   long edges. 39 of the 54 pixels of the SETTINGS button — the only permanent
   door to export, import, backup and print — were inside the right strip, and the
   app mark was wholly inside the left one, in the same frame. The header and the
   tab bar now inset their contents while their backgrounds keep painting to the
-  edge, which is what a bar is supposed to do under a cutout. **Only those two**:
-  the banners, the alerts and the whole Play column still start at the physical
-  edge, and on Play that includes the four 44×44 controls at the right-hand end
-  of the sheet. Nobody has seen any of this on a real phone — see *Known to be
-  wrong*.
+  edge, which is what a bar is supposed to do under a cutout. **And so do the six
+  chrome blocks under the header** — the four alerts and the two banners — which
+  had stayed at a flat 20px gutter while the bar 8px above them moved: the
+  banner's dismiss ✕ had 32 of its 44 pixels inside the strip, a worse casualty
+  than the SETTINGS button this repair was written for. The gutter is spelled
+  once now, in `src/ui/shell/gutter.ts`, and the header and all six blocks read
+  it. **What still starts at the physical edge is the whole Play column**, and on
+  Play that includes the five 44×44 controls at the right-hand end of the sheet —
+  MODS, the trait-help button and the three `+` steppers. Nobody has seen any of
+  this on a real phone — see *Known to be wrong*.
 
 ### Known to be wrong
 
@@ -680,19 +707,24 @@ someone:
   panel with no live region anywhere near it. `BACKLOG.md` P2-6.
 - **Typography is in pixels**, so the operating system's font-size setting does
   nothing to this app. `BACKLOG.md` P2-3.
-- **The browser floor is written down nowhere**, and eight `color-mix()` values
-  sit where no build target can reach them. `BACKLOG.md` P4-8.
+- **The browser floor is written down nowhere**, and nine `color-mix()` values
+  sit where no build target can reach them — eight was an undercount, `Play.tsx`
+  holds two. `BACKLOG.md` P4-8.
 - **On a touchscreen laptop every chip, stepper and die key is 34 pixels rather
   than 44.** The app asks the browser whether the *primary* pointer is a finger;
   a laptop with a touchscreen answers "mouse" while a finger is on the glass. The
   fix is one word in one media query and it changes every desktop surface in the
   app, so it is its own piece of work rather than a line slipped into somebody
   else's. `BACKLOG.md`, *Opened by the resolution audit*.
-- **The display cutout is paid on two bars and nowhere else.** The banners and
-  alerts across the top of every screen, the Cards filter rails, the GM bar and
-  the whole Play column still lay out to the physical edge of the glass, which on
-  a phone held sideways puts four 44×44 controls on Play entirely inside the
-  strip. Same section of `BACKLOG.md`.
+- **The display cutout is paid on the two bars and the six chrome blocks, and
+  nowhere else.** The Cards filter rails, the GM bar and the whole Play column
+  still lay out to the physical edge of the glass, which on a phone held sideways
+  puts five 44×44 controls on Play entirely inside the strip — MODS, the
+  trait-help button and the three `+` steppers, each at [796, 840] against a
+  strip starting at 793. *(~~"paid on two bars and nowhere else … the banners and
+  alerts across the top of every screen"~~ — **superseded**: the banners and
+  alerts were closed after this list was written, and they were the half with a
+  44×44 target in it.)* Same section of `BACKLOG.md`.
 - **A typed damage die still has one way out.** The Duality dice got a cancel and
   an Escape key; the damage slots did not, so the two gestures now disagree.
   `BACKLOG.md` P3-12, half struck.

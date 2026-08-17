@@ -2,12 +2,12 @@
 
 > **Read `AUDIT-HANDOFF.md` first.** It is newer than this file and it
 > contradicts it on purpose: it is the state of the resolution audit, which has
-> merged eleven lanes over this file's head and moved most of the numbers in the
+> merged twelve lanes over this file's head and moved most of the numbers in the
 > Play budget below. Where the two disagree, that one measured later.
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2481 passing in 108 files** — measured at `HEAD` with `npx vitest run`, not
+**2487 passing in 108 files** — measured at `HEAD` with `npx vitest run`, not
 remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
@@ -18,10 +18,11 @@ savings that close the reflow, plus the sweep that catches the defect P5-6
 found by rendering the screen instead of summing it — 2284 with P5-7, the
 licence notice at the end of every screen's scroll, **2289 with P5-8**, which is
 the pass that finally made the whole folded sheet fit, and **2481 in 108 files**
-after the resolution audit's eleven lanes.
+after the resolution audit's first eleven lanes and **2487 in 108** after the
+twelfth, `a3-polish`.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is **138 commits** behind `main` — `git rev-list --count
+`dd66d35`, which is **157 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short (it
 said twenty-six before the audit) — so
@@ -209,8 +210,8 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**278 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
-five lanes merged after it and the resolution audit's eleven. Counted at `HEAD`
+**295 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
+five lanes merged after it and the resolution audit's twelve. Counted at `HEAD`
 with `git rev-list --count
 --no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146
 that stood here at one point does not reconcile with any
@@ -536,10 +537,21 @@ states its column: **one banner leaves 664 and the 618px sheet fits with 46 to
 spare; both leave 598 and it is 20px over.** So the at-a-glance sheet now
 survives the ordinary new-user state and fails the double-banner one. The
 banners are honest and must not be deleted — they are P0-2's remedy — but
-neither `Play.tsx`'s table nor `playSheet.test.tsx` knows one exists.
-`ShellBanner.tsx` is where the number is measured and `tests/ui/banners.test.tsx`
-adds it up out of the declarations so it cannot drift; the budget can take 66
-from there.
+`playSheet.test.tsx` does not know one exists. ~~Nor does `Play.tsx`'s table~~ —
+**superseded**, and the correction matters because it changes what is owed:
+`Play.tsx:2460-2463` names `BackupBanner` outright, as "the other one the budget
+has never counted", and charges it. What it charges is **58**, the border box
+alone, so it reaches a 672px column and says the 618px sheet clears it by 54.
+Against the 730 the same docblock states — which is already net of the root's
+8px foot — one banner costs **66**, the column is **664** and the margin is
+**46**, the two numbers above. So the charge against that file is an
+undercount of 8, not an omission, and it is the same box-versus-box-plus-space
+error `ShellBanner.tsx` was written to end. What `Play.tsx` genuinely does not
+know is `UpdateBanner` and the both-at-once state: **132**, leaving 598, 20px
+over. **Open, and a `Play.tsx` edit:** no lane owned that file when this was
+found. `ShellBanner.tsx:35-56` is where the number is measured and
+`tests/ui/banners.test.tsx` adds it up out of the declarations so it cannot
+drift; the budget can take 66 and 132 from there.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
@@ -603,22 +615,30 @@ reader assumes has quietly happened:
   backlog measured — `GearPicker.tsx:85`, `Settings.tsx:39`,
   `tools/simulate.ts:22` and two in tests. The Play rebuild swept its own
   leftovers on the way past; nothing stops the next five arriving unremarked.
-- **P4-8, the browser floor.** No `browserslist`, no `@supports` anywhere, eight
-  `color-mix()` uses in `src/`, and `base.css:172` is still `height: 100svh`.
+- **P4-8, the browser floor.** No `browserslist`, no `@supports` anywhere,
+  **nine** `color-mix()` uses in `src/`, and `base.css:222` is still
+  `height: 100svh`. *(~~eight, and `base.css:172`~~ — **superseded**:
+  `grep -rn 'color-mix' src` returns twelve, three of them the prose in
+  `Header.tsx:165-170`; `Play.tsx` holds two declarations and the old list had
+  one. `BACKLOG.md` P4-8 carries the nine sites and why the count is
+  load-bearing.)*
 
 All three were blocked on the Play rebuild and are unblocked now.
 
-**Two more the resolution audit opened and deliberately did not close.** Both
-are written up in full in `AUDIT-HANDOFF.md` §2a and §2b, and both are here so
-that a reader of this file does not conclude the audit closed everything it
-found:
+**Two the resolution audit opened and deliberately did not close — one of which
+was closed afterwards.** Both are written up in full in `AUDIT-HANDOFF.md` §2a
+and §2b, and both are here so that a reader of this file does not conclude the
+audit closed everything it found:
 
 - **`--control` is 34px under a finger on a touchscreen laptop.**
   `tokens.css:214` is `@media (max-width: 1179px), (pointer: coarse)`, and
   `pointer` describes the *primary* pointer only — so a touchscreen laptop and
   an iPad in a keyboard case, both `pointer: fine` with `any-pointer: coarse`,
   get 34 at 1180 and up. Measured on the rig's `hybrid` profile at 1280×800 and
-  1440×900: `--control` 34, `--pip-h` 44. Every die key in the cockpit's keypad
+  1440×900: `--control` 34, `--pip-h` 44 — **rig readings, not figures declared
+  anywhere in this repository**, and `AUDIT-HANDOFF.md` §2a says where the rig
+  lives and why nothing in `src/` or `tests/` reproduces them. Do not "correct"
+  them by grepping the tree. Every die key in the cockpit's keypad
   and every chip in its modifier shelf is 10px under this project's own 44px
   coarse floor with a finger on the glass. The cockpit lane declined to move it
   and was right to: `--control` gates every chip, nav item and stepper on the GM
@@ -628,15 +648,21 @@ found:
   was `overflow: hidden` and widening the controls would have crushed them
   against its clip — died at `fbd4884`, and `tokens.css` says so beside
   `--pip-h` rather than leaving the stale reason standing.
-- **The six shell-chrome blocks inside `<main>` do not pay the side cutout.**
-  `App.tsx:293`, `:328`, `:404`, `:572` and `ShellBanner.tsx:168` are all
-  `margin: '8px 20px 0'` while the header 8px above them now insets to
-  `calc(20px + env(safe-area-inset-left))`. Measured at 852×393 with 59 on both
-  sides, `BackupBanner` renders at [20, 832] and its box is identical with the
-  insets at 0 — it does not move, so its first 39px sit under the left strip
-  while the bar above it correctly starts at 79. Not a regression (they were
-  unpaid before too), one line each, and left out because those lines live in
-  two files that want a commit able to test them.
+- ~~**The six shell-chrome blocks inside `<main>` do not pay the side cutout.**~~
+  — **closed after this list was written, by the lane `a3-polish`.** The
+  diagnosis was: `App.tsx:293`, `:328`, `:404`, `:572` and `ShellBanner.tsx:168`
+  all `margin: '8px 20px 0'` while the header 8px above them insets to
+  `calc(20px + env(safe-area-inset-left))`; measured at 852×393 with 59 on both
+  sides, `BackupBanner` rendered at [20, 832] and its box was identical with the
+  insets at 0 — it did not move, so its first 39px sat under the left strip
+  while the bar above it correctly started at 79. What made it a repair rather
+  than a note was a target: `ShellBanner`'s dismiss ✕ is 44×44 at [781, 825]
+  against a strip beginning at 793, so **32 of its 44 pixels — 72.7% — were
+  inside the cutout**, a worse casualty than the 15.4 left to the SETTINGS
+  button this whole safe-area pass began from. The gutter is spelled once now,
+  in `src/ui/shell/gutter.ts`, as four longhands and **not** the `margin`
+  shorthand this entry proposed: jsdom drops a shorthand carrying an `env()`
+  whole, which would have taken the 8px top margin down with it in every test.
 
 **Deferred past the 1.0 this backlog is aimed at, deliberately:** photos shown to
 the table, link rows that open external URLs, full-text rule search. Written into

@@ -2386,8 +2386,15 @@ function PlayDesktop({
  * AT 375x667 THE SAME 306 CLEARS A 545px COLUMN BY 239px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
- * are the dearest of them at **+68**, a companion (+50), a Beastform banner
- * (+52), an armed modifier (+50), and the 34px home-indicator inset. There used
+ * are the dearest of them at **+68**, a companion (~~+50~~ **+58**), a Beastform
+ * banner (+52), an armed modifier (+50), and the 34px home-indicator inset. The
+ * companion is 58 and not 50 for the reason the banner's own 58 turned out to
+ * be 66: +50 counted a box and not the space it lands in. `WhoSwitch`
+ * (`Companion.tsx:41-92`) is drawn `compact={!phone}`, so on a phone its
+ * buttons are `minHeight: 44`, inside `padding: 3` on both edges and a 1px
+ * border on both - a **52px** box - and it is a child of the `Vitals` panel
+ * whose phone `gap` is 6 (`Vitals.tsx:71`), which no other child was paying
+ * before it appeared. 44 + 3 + 3 + 1 + 1 + 6 = **58**. There used
  * to be a sixth and it used to be the dearest - pips, at +100 - and decision 7
  * deleted `counterStyle`, its switch and every branch on it, so the 194px shape
  * is not reachable from this screen on any layout. The four counters are numbers
