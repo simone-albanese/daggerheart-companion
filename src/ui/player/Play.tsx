@@ -437,9 +437,11 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * top of a scrolling screen that opens a keyboard when a thumb brushes it": the
  * failure it describes requires the name itself to be the target, so the name
  * carries no `role`, no `tabIndex`, no handler and no wrapping `<button>`. The
- * cockpit does not scroll and has a mouse, so the bullet is not what binds here
- * any more - it is kept because there is one component and the phone's rule is
- * the stricter of the two.
+ * cockpit has a mouse, so the bullet is not what binds here any more - it is
+ * kept because there is one component and the phone's rule is the stricter of
+ * the two. ("The cockpit does not scroll" stood in that sentence and was never
+ * true of this block: the column `Identity` is drawn in is `.stack scroll`,
+ * which is the whole argument `Rest` and the licence notice are placed on.)
  */
 function Identity(): React.JSX.Element | null {
   const character = useActive();
@@ -2351,24 +2353,84 @@ function PlayDesktop({
               onOpen={() => setOpenCard(card)}
               height="100%"
               headHeight={64}
+              /*
+               * THE FOOTER IS THE TARGET, not a word floating in the middle of
+               * it.
+               *
+               * This was a bare `<button className="t-meta">TO VAULT</button>`
+               * with no height, no width and no padding, inside a band that
+               * `DomainCardView` holds open at `max(34px, var(--control))`
+               * precisely so the card's one action can fill it. Measured in
+               * Chrome: **56x10** at 1280 and 1440 and **35x20** at 1180, where
+               * the cell narrows to 127.3 and the label wraps - five of them,
+               * one per loadout card. 10px of a 34px band, and 34 of 44 on any
+               * touchscreen, so 24 of the band's pixels activated nothing; a
+               * hit test 4px above the band returned the overlay button that
+               * opens the reader instead. On the cockpit this is the loadout's
+               * only per-card action and the only way to free a slot from the
+               * Play screen at all.
+               *
+               * `alignSelf: 'stretch'` is what does it - the footer is
+               * `alignItems: 'center'`, so a child with no declared height is
+               * centred at its own line box - and the negative margin against
+               * the footer's own `0 11px` padding is the trick `CardReader`'s
+               * CLOSE already uses to reach the edges. The result is
+               * **103.3x34 at 1180, 136.7x34 at 1280 and 190x34 at 1440**, and
+               * x44 wherever `--control` resolves to `--tap`: 3511px² against
+               * 560 at the worst width, 6.3 times the target for the same
+               * pixels. Two 10px lines and a 3px gap are 23 inside 34, so the
+               * two-line 35x20 case at 1180 is gone with it.
+               *
+               * COST comes inside the target rather than beside it, which is
+               * `RecallButton`'s shape eleven rows down: the price is what you
+               * read before deciding, and it now rides in the accessible name
+               * too. The overlay that opens the card still stops at the band's
+               * top edge (`inset: 0 0 FOOTER_HEIGHT 0`), so a high miss opens
+               * the card and a low one vaults it - no new ambiguity, and the
+               * dead strip between them is gone.
+               */
               footer={
-                <>
-                  <button
-                    type="button"
-                    className="t-meta"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (character) update((c) => vaultCard(c, card.id));
-                    }}
-                    style={{ letterSpacing: '0.1em' }}
-                  >
+                <button
+                  type="button"
+                  className="stack"
+                  aria-label={`Move ${card.name} to the vault, recall cost ${String(card.recallCost)}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (character) update((c) => vaultCard(c, card.id));
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    alignSelf: 'stretch',
+                    /*
+                     * -1px at the top, and it is the difference between
+                     * clearing the floor and missing it by one. `height:
+                     * FOOTER_HEIGHT` is a border box under this app's global
+                     * `box-sizing`, and the band's 1px `borderTop` is inside
+                     * it, so a stretched child measures 33 of the 34 - and 43
+                     * of the 44 `--control` resolves to on a touchscreen,
+                     * which is a pixel under the floor this project states.
+                     * The negative margin takes the *target* over that
+                     * hairline without painting anything on it. The overlay
+                     * that opens the reader stops at the same edge, and this
+                     * button is later in the DOM inside a `zIndex: 2` footer,
+                     * so the one pixel they share resolves here.
+                     */
+                    margin: '-1px -11px 0',
+                    padding: '0 11px',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3,
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
                     TO VAULT
-                  </button>
-                  <span className="row" style={{ gap: 5 }}>
-                    <span className="t-meta">COST</span>
-                    <span style={{ font: '800 13px/1 var(--sans)' }}>{card.recallCost}</span>
                   </span>
-                </>
+                  <span className="t-meta" style={{ color: 'var(--muted)' }}>
+                    COST {card.recallCost}
+                  </span>
+                </button>
               }
             />
           ))}
@@ -2393,6 +2455,11 @@ function PlayDesktop({
               <span className="t-meta" style={{ color: 'var(--dim)', overflowWrap: 'anywhere' }}>
                 {refId}
               </span>
+              {/* This one always declared `minHeight`, which is the same
+                  file's own proof that the loadout card's bare button was an
+                  oversight and not a policy. `minWidth` joins it so the pair
+                  says the whole rule: a ghost slot's ref can be short enough
+                  that a `.stack` child stretched to it is under the floor. */}
               <button
                 type="button"
                 className="t-meta"
@@ -2400,6 +2467,7 @@ function PlayDesktop({
                 aria-label={`Move the unreadable card ${refId} to the vault, freeing its slot`}
                 style={{
                   minHeight: 'var(--control)',
+                  minWidth: 'var(--control)',
                   letterSpacing: '0.1em',
                   color: 'var(--text)',
                   textAlign: 'left',

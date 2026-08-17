@@ -2352,6 +2352,85 @@ describe('the incoming-damage box, where the ladder is', () => {
 });
 
 /**
+ * TO VAULT, which no test in this repository had ever named.
+ *
+ * It is the loadout card's only per-card action on the cockpit and the only
+ * way to free a loadout slot from the Play screen at a desktop width, and it
+ * was a bare `<button className="t-meta">` with no height, no width and no
+ * padding: measured in Chrome at **56x10** at 1280 and 1440, and 35x20 at 1180
+ * where the cell narrows and the label wraps, five of them at once. The band it
+ * sits in is `max(34px, var(--control))` - 34 on a mouse, 44 on any touchscreen
+ * - so 24 of those 34 pixels activated nothing, and a hit test 4px above the
+ * band returned the overlay button that opens the card reader instead.
+ *
+ * jsdom computes no layout, so the assertions here are the declaration that
+ * fills the band and the behaviour nothing covered at all.
+ */
+describe('the cockpit’s TO VAULT, which had no test of any kind', () => {
+  const toVault = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Move '));
+
+  it('fills the band it sits in instead of being centred inside it', () => {
+    setViewport(1280);
+    const c = seed();
+    play(c);
+    const found = toVault();
+    expect(found.length, 'the cockpit draws no TO VAULT at all').toBe(c.loadout.length);
+    for (const b of found) {
+      expect(
+        b.style.alignSelf,
+        'the footer is `alignItems: center`, so without this the button is its own 10px line box',
+      ).toBe('stretch');
+      expect(b.style.flex, 'it does not take the width of the band either').toBe('1 1 0%');
+      // The negative margin against the footer's own 0 11px padding: without
+      // it the target stops 11px short of each edge of the band it fills.
+      expect(b.style.margin).toBe('-1px -11px 0px');
+      expect(b.style.padding).toBe('0px 11px');
+    }
+  });
+
+  it('says which card it moves, in five identical footers', () => {
+    setViewport(1280);
+    const c = seed();
+    play(c);
+    const names = toVault().map((b) => b.getAttribute('aria-label'));
+    expect(new Set(names).size, 'five controls announce identically as TO VAULT').toBe(
+      c.loadout.length,
+    );
+    expect(names[0]).toContain('recall cost');
+  });
+
+  it('moves the card, and does not open the reader on the way', () => {
+    setViewport(1280);
+    const c = seed();
+    play(c);
+    const first = c.loadout[0]!;
+    click(toVault()[0]!);
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.loadout, 'TO VAULT left the card in the loadout').not.toContain(first);
+    expect(after.vault, 'the card was dropped rather than vaulted').toContain(first);
+    expect(
+      useApp.getState().openCard,
+      'the tap fell through to the overlay and opened the card reader as well',
+    ).toBeNull();
+  });
+
+  it('gives the ghost slot’s own TO VAULT both floors, not one', () => {
+    setViewport(1280);
+    play(
+      seed({ loadout: [...playedCharacter().loadout, 'card-from-a-newer-bundle'] }),
+    );
+    const ghost = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Move the unreadable card'),
+    );
+    expect(ghost, 'the cockpit draws no way out of a slot it cannot read').toBeDefined();
+    expect(ghost!.style.minHeight).toBe('var(--control)');
+    expect(ghost!.style.minWidth, 'it declared one axis and not the other').toBe('var(--control)');
+  });
+});
+
+/**
  * The vault, which had never been on a phone.
  *
  * It was defined in `Play.tsx` and called from `PlayDesktop` only, so on a
