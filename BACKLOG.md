@@ -1289,8 +1289,32 @@ So this is one fix in two places, not a divergence.
       own label, or a CLEAR cell in the grid itself. Whatever it is, both the
       Duality faces and the damage slots take it in the same commit.
 
-### P3-10 · The licence notice is on screen only for a user who has no characters
+### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~ — **done, `905a23c`, `17b4f1c`, `d413e35`; finished by P5-7, `965d419`**
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
+
+**Struck now, and its three bullets are ticked below with the commits that did
+them, because this entry has been closed in the tree and open in this file since
+the nineteen-lane pass — it was in the *Done since `87b9238`* table at the foot
+of this document and nowhere else.**
+
+The history is worth keeping in one place, because the same defect came back in
+a second shape and neither shape was an accident:
+
+1. **The notice was only on the empty state** (this entry). `905a23c` gave the
+   shell a real `<footer>` and put the notice in it, so it survived having a
+   character; `17b4f1c` deleted the second literal in `About.tsx`; `d413e35`
+   made the compatibility mark survive going offline.
+2. **That footer was a fixed strip, and a fixed strip costs a band on every
+   frame** — 126px of a 393px phone, measured. Which means every layout pass
+   after it had a reason to argue it away, and one of them won: when Play was
+   rebuilt, the notice was left off that screen on a height budget, so the
+   screen the README says is open ninety per cent of the time displayed no
+   notice at all. That is P5-7, and it is the same defect as this one with a
+   different mechanism: a notice whose presence is negotiable against pixels
+   eventually loses the negotiation.
+3. **Fixed on both counts by making it cost a scroll position instead of a
+   band** (`965d419`). Five screens, one behaviour, and the guard test now asks
+   for all five and for the scroll rather than for four and the DOM.
 
 `<Attribution compact />` lives inside `EmptyState`, and `App.tsx:170` and `:175`
 render `EmptyState` only when `needsCharacter` is true. So the DPCGL notice and
@@ -1310,17 +1334,24 @@ shape as the four defects already found — a spec that promises, code that exis
 and looks right, and a rendering path nobody exercises — sitting on the one axis
 where being wrong stops the project rather than costing a character.
 
-- [ ] Put the attribution somewhere that survives having a character. A footer on
+- [x] Put the attribution somewhere that survives having a character. A footer on
       Settings and About is the minimum; `Architecture.md` asks for the shell.
-- [ ] Delete `About.tsx:18-22` and import the copy at `CompatibleMark.tsx:54-57`.
+      — `905a23c`. The shell got its first real `<footer>`; P5-7 (`965d419`)
+      moved it out of the pinned strip and onto all five screens.
+- [x] Delete `About.tsx:18-22` and import the copy at `CompatibleMark.tsx:54-57`.
       They are two independent literals that both normalise to the same 342
       characters today with nothing pinning them together — and `About.tsx` is
       already on the P4 work list, so the next refactor drops the notice with CI
       green. The repo learned this exact lesson for a lower-stakes duplicate:
       *"the two duplicated light palettes are now pinned to each other."*
-- [ ] A render test asserting the string reaches the DOM on the screens that must
+      — `17b4f1c`. One literal, and `attribution.test.tsx` fails if a second
+      one is ever declared anywhere in `src/`.
+- [x] A render test asserting the string reaches the DOM on the screens that must
       carry it. Across 50 test files the only assertion is
       `printSheet.test.ts:236`, which covers the paper sheet.
+      — `905a23c`, then strengthened by P5-7: it asks **every** screen rather
+      than the ones that must, because "must" turned out to be the negotiable
+      word.
 
 ## P4 — Release hygiene
 
@@ -2359,6 +2390,118 @@ because that property is the premise the whole budget rests on.
       on one tap — but nobody has watched a real thumb do it at a table yet. It
       belongs in the list of things that need a human, below.
 
+## ~~P5-7 · The licence notice has three behaviours across four screens~~ — **done, `965d419`**
+
+**On the numbering.** The owner's decision file is titled *"P5-6 · The licence
+notice goes to the end of the scroll, on every screen"*, and it was written
+before the savings pass above had been given a number in this file. Two items
+cannot be P5-6, and renumbering the one that already has three commits against
+it would break every reference to them, so this is P5-7 and the collision is
+recorded rather than tidied away. The decision itself is unchanged.
+
+> *"I crediti in basso devono essere visibili scorrendo alla fine di ogni
+> pagina, non fisso o prende troppo spazio per la lettura delle altre
+> informazioni."* — the owner, 2026-08-17, looking at the shipped GM screen on a
+> phone.
+
+**What the build did, which was three answers to one question:**
+
+| screen | how it was drawn | what it cost |
+|---|---|---|
+| Cards, Build, Settings | `App.tsx:408`, a `flex: none` sibling of the screen inside `<main>` | a **fixed strip**, 126px measured on a 393px phone, permanently |
+| GM | inside the session list's scroll, but with `marginTop: auto` (`SessionList.tsx:146-150`) | floats to the foot of a short list, so it **looks and costs the same as fixed** — this is the screen in the screenshot |
+| Play | not drawn at all | the notice is absent from the screen people use most |
+
+**The decision: one behaviour. The notice is the last thing in the screen's own
+scrolling content, on every screen including Play.** Not fixed, not floated with
+`marginTop: auto`, not absent. Seven scroll regions end with it — Play's phone
+column, the cockpit's one scrolling column, Cards' grid, Edit, the wizard, the
+level-up, Settings, the session list — and `App.tsx` draws no strip.
+
+**What it gives back**, measured in Chrome with the shipped fonts:
+
+| screen | back | to |
+|---|---|---|
+| Cards, Build (three modes), Settings | **126px** of a 393px phone | the content above it |
+| GM, with an empty night on it | **236px** | the session list |
+| Play | — | it had no strip to give back; it gains the notice |
+
+**AND THE PART THAT IS NOT A PREFERENCE.** The DPCGL asks for the notice to be
+*displayed*. Play displayed none, and the reason it displayed none is the shape
+this item removes: a fixed strip costs a band on every frame, so every layout
+pass has a standing reason to argue it away, and P5-1 duly did. Below the last
+fold of a scrolling sheet the notice costs a scroll position, which nobody has
+ever needed to reclaim.
+
+**It does not touch the folded-sheet arithmetic, and here is why.** The budget
+in `playSheet.test.tsx` runs from the top of Identity to the bottom edge of the
+lineage header — 749px against 730 of column at 393×852, unchanged. Everything
+it sums is something a player has to be able to *reach*; the notice is below the
+last shut fold, is read once by somebody who is not at a table, and no state of
+the sheet needs it on the glass. So it is outside `STACK`, outside `INDEX` and
+outside both totals. Rendered through `preview.html` at 393×852, 375×667 and
+744×1000: every section still draws at exactly its declared height, ROLL's lower
+edge is **385** at all three, the lineage fold still ends at **749**, and the
+notice runs **775 to 901** — 126px that begin 26px after the sheet ends. The
+child count in the budget test goes twelve to thirteen, and the thirteenth is
+asserted to be *the last child* and *a `<footer>`*, so "outside the budget"
+stays a statement about one element rather than a hole.
+
+**`env(safe-area-inset-bottom)`, paid exactly once per screen.** The prop is
+`pinnedBelow` rather than `bottomMost`, and the inversion is the point:
+`bottomMost` asked every call site for the answer, which is safe with two of
+them and a trap with seven; `pinnedBelow` asks each for the one fact only it
+holds — "there is a bar of mine under this scroll" — and `LicenceFooter` does
+the arithmetic once. Three screens say it: the GM section for `GmBar`, and
+Build's wizard and level-up for their navigation rows. **Those two rows now pay
+the inset themselves above 720px, which they never have**: the shell's licence
+strip used to sit underneath them and pay it, so removing the strip is what
+made them last in the window.
+
+**And that property is asserted for the first time.** `GmBar`'s docblock said
+outright that no test could ever check it, and it was right about the
+declaration as written: jsdom's CSS parser drops a bare `env()`, and drops any
+shorthand containing one, so `paddingBottom: 'env(safe-area-inset-bottom)'` read
+back as `''`. All four payers now spell it `calc(0px + env(...))`, which the
+parser keeps and the browser computes identically, and
+`attribution.test.tsx` counts the payers on five screens × two widths plus
+Build's other two modes.
+
+**The guard was strengthened, not adjusted.** `tests/ui/attribution.test.tsx` is
+what stands between this project and a takedown, so it was written from what the
+licence needs and then satisfied: all five screens rather than four, and per
+screen that the notice is inside a `.scroll` with nothing drawn after it.
+Eighteen new tests; 21 assertions fail on the pre-change tree, checked against a
+`git archive` of the previous `HEAD`.
+
+**Two assertions were reversed rather than deleted, with the old text quoted
+where they stood.** `attribution`'s *"stays out of Play"* held the exemption,
+which was the right way to hold a decision that is now overruled. `gmShell`'s
+*"is still pinned on Cards"* was true and deliberate — the GM screen took the
+notice into its scroll because it had chrome at both ends — and P5-7 is the
+owner deciding that the reason the GM screen had is a reason every screen has.
+
+**The 342 characters are untouched.** This item moved the notice; it did not
+edit a word of it, and `attribution.test.tsx` still fails if a second copy of
+the literal appears anywhere in `src/`.
+
+**Not done, and named rather than hidden:**
+
+- [ ] **Nobody has seen the home-indicator inset on real glass.** Every number
+      above treats `env(safe-area-inset-bottom)` as 0, which is what desktop
+      Chrome reports and what jsdom cannot report at all. On an installed PWA on
+      a home-indicator iPhone it is 34px, and the two Build navigation rows are
+      paying it for the first time. The failure mode is visible in one second
+      and invisible to the whole suite: 34px of empty panel under a bar, or a
+      row of buttons under the indicator. It belongs in *Needs a human* below.
+- [ ] **Settings prints the notice twice and that is still deliberate.** The
+      About panel opens with the same 342 characters, from the same array, about
+      two thousand pixels above the footer — `About.tsx`'s own docblock says the
+      notice is "at the top of this screen and in the shell's footer,
+      unconditionally". Nobody reads a paragraph twice in one glance, so nothing
+      was changed here; it is written down so the next reader does not
+      "fix" it by deleting the copy the other one depends on.
+
 ## Needs a human, two devices and a dim room
 
 None of this can be proved by any test in this repo. Run it after P0 and P2
@@ -2389,6 +2532,16 @@ two-device tests.
    newer and asks, or skips and says so.
 6. **Seven-day iOS eviction.** Install, create a character, do not open it for
    more than a week, then open it. The one test that cannot be hurried.
+7. **The home indicator, on all five screens and both Build flows** (5 min,
+   installed iPhone PWA). Scroll each screen to the end. *Pass:* the last line
+   of the licence notice, or the bottom bar where there is one, clears the
+   indicator with about 34px under it — and there is **no** band of empty panel
+   between a bar and whatever is above it. *Watch for:* the wizard's and the
+   level-up's navigation rows, which pay `env(safe-area-inset-bottom)` for the
+   first time since P5-7, and the tab bar plus the notice on the same screen,
+   which is the pair that would pay it twice. Every number in P5-7 treats the
+   inset as 0, because that is what desktop Chrome reports and jsdom reports
+   nothing at all.
 
 ---
 
@@ -2442,8 +2595,11 @@ remote has since moved to `dd66d35`, which `HANDOFF.md` re-measured.)
 P0-8 (the whole band), P1-7 (rests, and the first `SCHEMA_VERSION` bump this
 project has ever made), P1-1 (attack rolls into damage rolls), P3-7 (the
 orphan harness), P5-1 (Play is the sheet), P5-1(b) (rename), P5-2 (the GM
-session screen), P5-3 (the GM reference), P5-4 (the printed sheet) and P5-5
-(the reflow into Giorgio's order).
+session screen), P5-3 (the GM reference), P5-4 (the printed sheet), P5-5
+(the reflow into Giorgio's order), P5-6 (the three savings) and P5-7 (the
+licence notice at the end of every scroll). **P3-10 is struck above as of
+P5-7** — it had been closed in the tree and open in this file since the
+nineteen-lane pass, recorded only in the table below.
 
 **The P1 to P4 entries below `P1-1` have not been re-adjudicated in this pass,
 and several of them have shipped.** That is a known gap in this file, written
@@ -2465,7 +2621,7 @@ against the tree while writing this, so a cold start does not rebuild them:
 | P3-6 the card reader's footer | `9857e03` | |
 | P3-8 offline readiness in Settings | `aa37467` | |
 | P3-9 three controls that said the wrong thing | `d80bb51`, `ac8a92c`, `962fbee` | |
-| P3-10 the licence notice | `905a23c`, `17b4f1c`, `d413e35` | |
+| P3-10 the licence notice | `905a23c`, `17b4f1c`, `d413e35` | now struck at its own entry, with what P5-7 (`965d419`) finished |
 | P3-11 the card's action, and RECALL the price | `ac8a92c`, `e434605` | |
 | P4-1 to P4-5, P4-9 to P4-13 | `51cc7ea`, `894e1a2`, `21d9e64`, `2ccbc08`, `8afc144`, `4626a0c`, `da5e4dd`, `8914da6`, `15456c9` | |
 

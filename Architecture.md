@@ -161,13 +161,27 @@ la prima volta che apri una carta senza illustrazione.
 > will use the official illustrations. Don't own it? Buying it supports the people
 > who made the game → daggerheart.com/buy
 
-Attribuzione richiesta, sempre visibile nel footer e nel README:
+Attribuzione richiesta, **in fondo allo scroll di ogni schermata** e nel README:
 
 > This product includes materials from the Daggerheart System Reference Document 1.0,
 > © Critical Role, LLC, under the terms of the Darrington Press Community Gaming License.
 > More information at www.daggerheart.com.
 > Daggerheart Compatible. Independent community content, not affiliated with or
 > endorsed by Critical Role, LLC or Darrington Press.
+
+Questa riga diceva *«sempre visibile nel footer»*, e per due volte non è stata
+vera. Prima non c'era nessun `<footer>` in tutta l'app e l'avviso viveva dentro
+`EmptyState`, cioè spariva per sempre appena facevi un personaggio (P3-10).
+Poi c'era, ma su quattro schermate su cinque e in tre forme diverse — striscia
+fissa su Cards, Build e Settings, `marginTop: auto` dentro lo scroll GM, niente
+su Play (P5-6). Adesso è una forma sola: **l'ultima cosa dentro lo scroll della
+schermata, su tutte e cinque**, Play compreso. Non è «sempre visibile»: scorri
+fino in fondo e c'è. La DPCGL chiede che sia *mostrata*, e una striscia fissa
+costa una banda a ogni frame — cioè dà a ogni passata di layout un motivo per
+toglierla, che è esattamente come Play era arrivato a non averla.
+`tests/ui/attribution.test.tsx` è la guardia: chiede tutte e cinque le
+schermate, e chiede che l'avviso sia dentro una regione che scorre e che dopo
+non ci sia altro.
 
 ### 2.1 Una lingua sola: inglese
 
@@ -790,7 +804,26 @@ daggerheart-companion/
 | **Play** (giocatore) | **Tutto, in una colonna sola: non è fisso niente** | La regola «nessuno scroll» è caduta con `91097eb`; il blocco fisso che l'aveva sostituita è caduto con P5-5. Il contenuto non è più «6 tratti e 4 contatori» ma la scheda intera, che non ci sta — e con i contatori e le soglie in cima e le Experience in una tendina, ROLL sta sopra la piega senza essere fissato a **entrambe** le larghezze di riferimento: 385 su 730 a 393×852, 385 su 545 a 375×667 |
 | **Cards** | Nella griglia | 189 carte, ovvio |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
-| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto, e l'avviso di licenza è l'ultima cosa dello scroll invece di una striscia fissa. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
+| **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
+
+**In fondo a ognuno di quei cinque scroll c'è l'avviso di licenza, e non c'è
+niente dopo** (P5-6). Non è chrome: è l'ultimo blocco del contenuto, un filetto
+e del testo attenuato. Su Play sta sotto l'ultima tendina, quindi *dopo* i 749px
+che la scheda misura chiusa, e non entra in nessuno dei due totali del budget —
+`playSheet.test.tsx` conta tredici figli della colonna e chiede che il
+tredicesimo sia un `<footer>` e sia l'ultimo, perché «fuori dal budget» deve
+restare una frase su quell'elemento e non un buco in cui infilare altro.
+Misurato in Chrome a 393×852 sono 126px, che prima erano una striscia fissa e
+adesso sono 126px oltre la fine della pagina.
+
+`env(safe-area-inset-bottom)` lo paga **una cosa sola per schermata**, quella
+davvero ultima nella finestra: `TabBar` sul telefono, `GmBar` nella sezione GM,
+la nav del wizard e quella del level-up su Build sopra i 720px, e l'avviso stesso
+dove non c'è nessuna delle tre. Pagato due volte lascia 34px di pannello vuoto,
+mai lascia l'ultima riga sotto l'home indicator. Le tre barre lo dichiarano come
+`calc(0px + env(...))`: il parser CSS di jsdom butta via un `env()` nudo, quindi
+finché era nudo nessun test poteva leggerlo — dentro `calc()` sopravvive, e
+`attribution.test.tsx` conta i pagatori su ogni schermata a due larghezze.
 | **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU e non da una riga |
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
@@ -987,13 +1020,25 @@ schermata.
 
 Anche l'avviso di licenza si sposta con loro, e **non se ne va**: entra nello
 scroll della lista invece di restare una striscia fissa sopra la barra. Sono
-111px su un telefono, il 17% di quello che non è header, ma un avviso che la
-DPCGL chiede di *mostrare* non è ciò che paga un layout — e le altre tre
-schermate che lo tengono lo tengono già dentro uno scroll, per la stessa frase.
-`LicenceFooter` è un modulo suo (il chunk GM è importato *da* `App.tsx`, quindi
-importarlo al contrario sarebbe un ciclo) e prende `bottomMost`: l'inset
-`env(safe-area-inset-bottom)` lo paga **una** cosa sola, l'ultima nel `<main>`,
-che nella sezione GM è `GmBar`.
+126px su un telefono, ma un avviso che la DPCGL chiede di *mostrare* non è ciò
+che paga un layout. `LicenceFooter` è un modulo suo — il chunk GM è importato
+*da* `App.tsx`, quindi importarlo al contrario sarebbe un ciclo.
+
+Questa schermata è stata la prima a farlo e l'aveva fatto a metà: `marginTop:
+auto` metteva l'avviso in fondo alla *regione* e non dopo il contenuto, quindi
+una lista più corta del vetro — cioè ogni lista all'inizio di una serata —
+pagava la stessa banda della striscia fissa che avrebbe dovuto migliorare. È
+quella la schermata dello screenshot dell'owner. Con P5-6 l'`auto` non c'è più
+qui e non c'è da nessuna parte, e le altre quattro sono entrate nel proprio
+scroll invece del contrario: su una serata vuota sono 236px che tornano a essere
+lista.
+
+Il prop non è più `bottomMost` ma `pinnedBelow`, ed è l'inverso di quello che
+sembra: `bottomMost` chiedeva a ogni chiamante la *risposta* — sicuro con due
+chiamanti, una trappola con sette — mentre `pinnedBelow` chiede a ognuno l'unico
+*fatto* che ha solo lui, «sotto questo scroll c'è una mia barra». L'aritmetica
+sta in un posto solo. Qui è `true` a ogni larghezza, perché `GmBar` è sotto a
+ogni larghezza ed è lei a pagare `env(safe-area-inset-bottom)`.
 
 I verbi della barra sono **ADD**, **SHOW**, **SAVE**. Non sono destinazioni,
 sono verbi — `aria-haspopup="dialog"`
@@ -1115,7 +1160,9 @@ pipeline arte, art pack. Se non la fai mai, l'app resta completa.
 - Il manuale completo no: resta sul dispositivo dell'utente, l'art pack è personale.
 - Nessun logo ufficiale. Per un marchio, usa i loghi "Daggerheart Compatible" della
   licenza: `https://darringtonpress.com/license/`
-- Attribuzione SRD nel footer e nel README.
+- Attribuzione SRD in fondo allo scroll di ogni schermata — le cinque, Play
+  compreso — e nel README. Un solo literal, in `CompatibleMark.tsx::ATTRIBUTION`;
+  `attribution.test.tsx` fallisce se ne compare un secondo in `src/`. Vedi §2.
 - Nessuna telemetria, nessuna analitica.
 
 ---

@@ -408,10 +408,13 @@ be wrong* at the foot of this entry.
   PUT THIS ON THE BOARD; on a screen read out loud they were indistinguishable.
   The row already named its own DELETE that way; now the contents do too.
 - **The licence notice did not leave the GM screen; it moved into the scroll.**
-  It is 111px on a phone, and that screen now has bars at the top and the
-  bottom — but a notice the licence asks to be displayed is not what pays for a
-  layout, so it is the last thing in the session list instead of a strip above
-  the bar.
+  It is 126px on a phone, and that screen has bars at the top and the bottom —
+  but a notice the licence asks to be displayed is not what pays for a layout,
+  so it is the last thing in the session list instead of a strip above the bar.
+  It went in floated to the foot of the region, which on a night with three rows
+  in it looked and cost exactly like the strip it replaced; see *The licence
+  notice* below, which is where that was finished and where the other four
+  screens caught up.
 
 - **A campaign that is not reaching this device says so on the screen, not in a
   sheet.** The GM tools have known when a write failed since campaigns moved
@@ -497,6 +500,28 @@ list, nothing to roll on — and building them would mean copying text out of a
 licensed book, which is the one thing this project will not do. The Difficulty
 examples are also not attached to the roll screen's own difficulty box: that box
 is on the player's side, and the rules say the GM sets the number.
+
+### The licence notice
+
+- **Scroll to the end of any page and it is there.** The Daggerheart licence
+  asks for the notice to be displayed, and the app had three different answers
+  to that. On Cards, Build and Settings it was a fixed strip above the tab bar:
+  126px of a 393px phone, permanently, for two sentences a reader looks at once.
+  On the GM screen it was inside the scroll but floated to the foot of the
+  region, so on a night with three rows written it sat above the bar and cost
+  the same 126px. On Play it was not drawn at all — on the screen that is open
+  for most of a session. Now there is one answer on all five: the notice is the
+  last thing in the page's own content, under everything else, and it looks like
+  the end of a page rather than a bar — a hairline and some quiet text.
+- **That gives Cards, Build and Settings 126px of their screen back**, and gives
+  a GM whose night is only half written about 236px more list. **It costs the
+  Play sheet nothing**: it sits below the last folded row, past everything the
+  sheet's own height budget counts, so the numbers that decided ROLL's place
+  are unchanged — its lower edge is still 385px down a 730px column at 393×852,
+  and the whole folded sheet still measures 749.
+- **The notice itself is not touched.** It is the same 342 characters, written
+  out in exactly one place in the source, and the suite still fails if a second
+  copy of them is ever declared.
 
 ### Offline
 

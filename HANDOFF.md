@@ -2,17 +2,18 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2266 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2284 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
 tests the honesty pass below added, 2247 after P5-5's first commit replaced the
 eight assertions that pinned the Play screen's pinned block, 2252 with P5-5
-finished, 2255 after the verifier pass on P5-5, and 2266 with P5-6 — the three
+finished, 2255 after the verifier pass on P5-5, 2266 with P5-6 — the three
 savings that close the reflow, plus the sweep that catches the defect P5-6
-found by rendering the screen instead of summing it.
+found by rendering the screen instead of summing it — and 2284 with P5-7, the
+licence notice at the end of every screen's scroll.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is twenty commits behind `main` — `git rev-list --count
+`dd66d35`, which is twenty-two commits behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short — so
 the "nothing is pushed,
@@ -37,7 +38,10 @@ repository says it is.
    section at the very foot of that file, *Done since `87b9238`*: the P1 to P4
    entries were closed by the nineteen-lane pass and never struck one by one, so
    that table is what tells you whether the item you are about to build already
-   exists.
+   exists. **Note the numbering collision at the foot of P5**: the owner's
+   decision file for the licence footer is titled "P5-6", but P5-6 was already
+   the savings pass by the time it landed, so it is **P5-7** in the backlog and
+   the collision is written down there rather than tidied away.
 2. `CHANGELOG.md` — one `0.2.0` entry, grouped by what a user would notice.
    Nothing above it: there is no `Unreleased` section, because `0.2.0` itself is
    not released.
@@ -73,6 +77,32 @@ repository says it is.
   ROLL rather than scrolling the sheet, and the fold header underneath was drawn
   through it. The sweep «lets no section of the column shrink instead of
   scrolling» is the guard now.
+
+  **The column has thirteen children since P5-7, and the thirteenth is outside
+  the budget on purpose.** It is the licence notice, and it is the one thing on
+  this screen a player never has to reach: it sits below the last shut fold, so
+  it moves no term of `STACK`, no term of `INDEX` and neither total. The test
+  pins that it is *last* and that it is a `<footer>`, because "outside the
+  budget" has to stay a statement about that one element rather than a hole
+  anything else can be dropped into. Rendered again through `preview.html` at
+  all three widths after the move: every section still at its declared height,
+  385 and 749 unchanged, the notice running 775→901.
+- **The licence notice is the last thing in every screen's own scroll, and it is
+  not negotiable against pixels.** That is P5-7, and it is the second time this
+  defect has been fixed: the first fix gave the shell a footer, the footer was a
+  *fixed* strip costing 126px of a 393px phone on every frame, and a cost like
+  that gives every later layout pass a reason to argue it away — which P5-1 duly
+  did, leaving Play with no notice at all. Inside the scroll it costs a scroll
+  position, which nobody has ever needed to reclaim.
+  `tests/ui/attribution.test.tsx` is the guard between this project and a DPCGL
+  takedown: it asks **all five** screens for the notice, asks that it is inside
+  a `.scroll` with nothing drawn after it, and counts the payers of
+  `env(safe-area-inset-bottom)` on five screens × two widths plus Build's other
+  two modes. Anything added to the bottom of a screen goes through it. Note the
+  one mechanical trap it took to make that last sweep possible: **jsdom's CSS
+  parser drops a bare `env()`** and drops any shorthand containing one, so every
+  payer declares it as `calc(0px + env(...))`; written bare, the declaration
+  reads back as `''` and an assertion on it can never fail.
 - **One commit per step**, with a message that says what was wrong and why the
   fix is shaped the way it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
@@ -110,18 +140,19 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**167 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
+**175 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
 five lanes merged after it. Counted at `HEAD` with `git rev-list --count
---no-merges 87b9238..HEAD`. The 146 that stood here does not reconcile with any
-range this repo can produce — the four commits of the pass that wrote it and the
-four of this one account for eight of the twenty-one — so it is replaced with a
-measurement and the command that took it rather than adjusted. **P0 is closed;
+--no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146
+that stood here at one point does not reconcile with any
+range this repo can produce, so it was replaced with a measurement and the
+command that took it rather than adjusted, and every pass since has re-run the
+command instead of adding to the number. **P0 is closed;
 P1, P2, P3 and P4 are nearly closed.** The table below is that whole span, not
 one session of it — which is also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
-| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; seven tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Conditions, Lineage — all shut by default and each remembered per character. Since P5-6 the four counters are a 2×2 grid and the incoming-damage box is a fifth cell of the defence band, beside the thresholds it is read against. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. |
+| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; seven tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Conditions, Lineage — all shut by default and each remembered per character. Since P5-6 the four counters are a 2×2 grid and the incoming-damage box is a fifth cell of the defence band, beside the thresholds it is read against. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. Since P5-7 the licence notice is the last child of the column, below the lineage fold and outside the budget. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
 | **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out, the campaigns and the two tools no row can otherwise open; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and everything the disk did or failed to do — a write that did not land, a tap the saved campaign replaced — is said on the screen it happened on, with a retry only where a retry can do something. |
@@ -130,7 +161,8 @@ one session of it — which is also the span the next push publishes in one go.
 | **P3-5** | The flaky test is fixed at its cause. It was the test's statistics, not the engine: a flat 6 % band is 2.24 σ at the ends of a 2d12 triangle, which predicts the measured 5 % failure rate exactly. Now five standard errors per bucket and a seeded sample. 200 runs, 200 green. |
 | **P2-5** | A build that will not evaluate now has a voice, and an ES5 inline hatch that opens IndexedDB and hands the library back without the bundle. |
 | **P2-4, P2-6, P3-8, P4-10** | Six overlays that claimed `role="dialog"` now trap and restore focus. Settings says honestly whether this device can open offline, in four states. Every settings hint reaches its control — `aria-describedby` appeared **zero** times in the tree before. |
-| **P3-10, P4-1..5, P4-12, P4-13** | Attribution survives having a character; the DPCGL and MIT texts ship and are readable offline; a build id; a CHANGELOG; one Node version. |
+| **P3-10, then P5-7** | Attribution survives having a character — and, since P5-7, is on **every** screen including Play, as the last thing in that screen's own scroll rather than a fixed strip above the tab bar. `BACKLOG.md` P3-10 is struck at last, with the history of both fixes in one place. |
+| **P4-1..5, P4-12, P4-13** | The DPCGL and MIT texts ship and are readable offline; a build id; a CHANGELOG; one Node version. |
 | **Rename** (P5-1(b)) | Rename is on the sheet, in the Identity block the rebuild created: a 72×44 chip on the class/subclass row with 51 px of clearance below the header's SETTINGS button, **costing 25 px** of the 457 px scroll window measured at 393×852. The name line itself is still not a target — no role, no `tabIndex`, no handler — because that is what the bullet about a keyboard opening under a thumb actually forbids. The unique-name rule left `duplicateFor`'s body and became one comparison in `merge.ts` with two callers: the *keep-both* copy, and one `RenameField` that both Play and Build's Name field go through. Nothing is written while you type; the sheet writes on SAVE or Return, and Build — which has no ✕ and sits among fields that all write on the keystroke — writes on blur as well, which `rename.test.tsx` pins in both directions. A refusal is a `role="status"` sentence with the field pointing at it through `aria-describedby`, not a greyed SAVE, because `disabled` takes the only control carrying the reason out of the tab order. **Enforced at two doors, not everywhere** — creation and a plain import both still write a colliding name, and `characterFileName` still slugifies two distinguishable names to one file. Those three are `BACKLOG.md` P5-1(c), and `Architecture.md` §7 states the limit rather than claiming an invariant. |
 | **Damage rolls** (P1-1) | An attack roll leads into the damage roll it earned, which no screen in this app had ever done — `rollDamage` was correct from the first commit and had no caller outside its tests. Unarmed attacks have a row of their own, drawn even with nothing equipped; Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's own sentence; damage dice can be typed the way the Duality faces already could; and a hidden Difficulty gets the offer labelled IF IT HIT rather than no offer at all. |
 | **Rests** (P1-7) | The rest engine has the screen it had no caller for, as a fold in the part of Play that scrolls: pick short or long, pick two moves, and every row says what tapping it clears before you tap it. Nothing is rolled or applied until COMMIT. This is also the first `SCHEMA_VERSION` bump this project has ever taken — 3 → 4, one converter, two new fixtures, and the two v3 fixtures left untouched because they are the proof. |
@@ -185,9 +217,12 @@ Four things that were carried across on the way, so nobody looks for them again.
 `hydrateGm`'s silent `catch` around the first `putCampaign` is **fixed**: it sets
 `writeError` and leaves the write dirty, which is what makes TRY AGAIN do
 something — as does every other failure that offers one, since `0b5326c`. BESTIARY and PARTY have left the top bar for SHOW. The licence notice
-moved **into** the GM scroll rather than off the screen — 111px of the 653 that
+moved **into** the GM scroll rather than off the screen — 126px of the 653 that
 is not shell header, and `tests/ui/attribution.test.tsx` is the gate that says it
-may not simply go while `tests/gm/gmShell.test.tsx` says *where* it went. And
+may not simply go while `tests/gm/gmShell.test.tsx` says *where* it went. (That
+was half the fix, and P5-7 finished it: the `marginTop: auto` that floated it to
+the foot of a short list is gone, and the other four screens joined it inside
+their own scroll.) And
 `prefs.ts` now owns one rule that three callers share: `allowedScreen(prefs,
 screen)` substitutes `'play'` for a GM screen whose section is off, and
 `openingScreen(prefs, characterCount)` wraps it with the older empty-library
@@ -317,6 +352,34 @@ working rule above: the roll surface was the one child of the phone column
 without `flex: none`, so at 393×852 it was drawn 33px tall around a 66px ROLL
 and the sheet did not scroll at all. If you change this column, open
 `preview.html` in a browser and compare what is drawn against what is declared.
+Note that the dev server will hand you `index.html` for `/preview.html` until
+you unregister the service worker — its shell rules answer the navigation — so
+run `navigator.serviceWorker.getRegistrations()` and unregister first, or you
+will read the app screen and think the harness is broken.
+
+**Then P5-7 made the licence notice one behaviour instead of three** —
+`965d419`. It was a fixed strip above the tab bar on Cards, Build and Settings
+(126px of a 393px phone, permanently), floated to the foot of the GM scroll with
+`marginTop: auto` (which on a short list costs the same 126), and **absent from
+Play**. It is now the last thing in each screen's own scrolling content on all
+five. Three things a cold start should know about it:
+
+- **It costs the Play budget nothing and that is asserted, not assumed.** It is
+  below the last shut fold, so 385 and 749 are unchanged; the budget test counts
+  thirteen children now and pins the thirteenth as the last one and a
+  `<footer>`.
+- **`env(safe-area-inset-bottom)` is paid exactly once per screen**, and the
+  prop that arranges it is `pinnedBelow` rather than `bottomMost` — each screen
+  declares the one fact only it holds ("I have a bar under this scroll"), and
+  `LicenceFooter` does the arithmetic once. `GmBar` says it, and so do Build's
+  wizard and level-up navs, **which now pay the inset themselves above 720px for
+  the first time** — the shell's licence strip used to be underneath them and
+  pay it. Nobody has seen any of this on real glass; it is item 7 in *Needs a
+  human*.
+- **The guard was strengthened rather than adjusted**, and two assertions were
+  reversed with their old text quoted in place: `attribution`'s "stays out of
+  Play" and `gmShell`'s "is still pinned on Cards". Both were true and
+  deliberate when written. Both are the opposite now.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
