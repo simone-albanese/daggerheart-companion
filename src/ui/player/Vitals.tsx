@@ -127,11 +127,17 @@ export function Vitals({
        * WHY, IN TARGETS. A pip is a target, and the height it was drawn at came
        * from a literal here - `phone ? 44 : 32` - which beat `--pip-h`, the
        * token that resolves to the 44px floor on any machine with a coarse
-       * pointer at all. Measured in Chrome at 1180x820, 1280x800 and 1440x900,
-       * the cockpit's four tracks were 29 targets 32px tall: HP 32x32 x11,
-       * Stress 40.2x32 x9, Hope 56.8x32 x4, Armor 25.6x32 x5. Every one is
-       * under the floor in at least one direction, and the audit counted 16 to
-       * 21 such targets in every case where pips were drawn. This block now
+       * pointer at all. Measured in Chrome at 1180x820, 1280x800, 1440x900 and
+       * 1440x695, the cockpit's four tracks were 29 targets 32px tall: HP 32x32
+       * x11, Stress 40.2x32 x9, Hope 56.8x32 x4, Armor 25.6x32 x5. Which floor
+       * they missed depends on the machine, and both readings are worth having:
+       * on a mouse-only desktop `--pip-h` is 34 and 32 was two under it - which
+       * is what the shipped audit's `android-play-pips-1280x800` counts as 30
+       * sub-floor targets at a tap floor of 34 - and on any machine with a
+       * coarse pointer the token is 44 and 32 was twelve under. The phone's own
+       * pips cases in that audit run 16 to 20 sub-44 targets between 320 and
+       * 448px wide, 11 at 540 and 0 from 640 up, where a full-bleed row is wide
+       * enough that every pip clears the floor on width too. This block now
        * draws twelve targets - a value and two steppers per cell - and every
        * one of them is 44x44 or larger, in both directions, for the first time.
        *

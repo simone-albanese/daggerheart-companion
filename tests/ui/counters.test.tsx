@@ -15,8 +15,10 @@
  * are for the Play screen on a phone or a tablet, and the desktop cockpit keeps
  * its pips", and it asserted exactly that. Decision 7 takes the pips off the
  * player's own sheet on **every** layout: the cockpit's four `<Track>` rows
- * were 29 targets 32px tall against a 44px floor, and the preference could
- * never reach them anyway. Pips survive where you read somebody else's state
+ * were 29 targets 32px tall - two under `--pip-h` on a mouse-only desktop and
+ * twelve under it on any machine with a coarse pointer, which is every
+ * touchscreen laptop and every iPad in a keyboard case - and the preference
+ * could never reach them anyway. Pips survive where you read somebody else's state
  * rather than mark your own - the party board, the live scene and the
  * companion - and none of those is mounted here.
  */
@@ -326,9 +328,10 @@ const stepperCount = (): number =>
  *
  * The reason is measured twice. Pips were the single dearest state the Play
  * budget could not see (+100 on a 730px column), and on the cockpit they drew
- * 29 targets 32px tall against this project's own 44px floor - from a literal
- * `phone ? 44 : 32` in `Vitals` that beat `--pip-h`, the token that had already
- * resolved to 44 on every machine with a coarse pointer.
+ * 29 targets 32px tall - from a literal `phone ? 44 : 32` in `Vitals` that beat
+ * `--pip-h`, the token that had already resolved to 44 on every machine with a
+ * coarse pointer and to 34 on a mouse-only one. Two pixels under on a plain
+ * desktop, twelve under on a touchscreen laptop.
  */
 describe('where the numbers are allowed to be', () => {
   it('draws them on the phone Play screen', () => {
