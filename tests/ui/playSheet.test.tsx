@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
+import { useConditions } from '../../src/ui/player/conditionsStore.ts';
 import type { Character } from '@shared/types.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
@@ -395,7 +396,7 @@ describe('what a phone shows of the character sheet', () => {
     // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
     // inside it, which is decision 6's business and not this test's.
     const headers = indexHeaders();
-    expect(headers.length, 'the fold index is gone').toBe(6);
+    expect(headers.length, 'the fold index is gone').toBe(7);
     for (const header of headers) {
       expect(rootEl.contains(header), `${header.textContent ?? '?'} is outside the column`).toBe(
         true,
@@ -725,7 +726,12 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP },
     { what: 'Rest & downtime', px: 44 },
     { what: 'gap', px: GAP },
-    { what: 'the conditions strip', px: 44 },
+    // Its own fold since P5-6, and the same 52 the strip was: a shut
+    // `Disclosure` is a 44px header and this column's 8px gap, which is a 44px
+    // row and this column's 8px gap to the pixel. What changed is what the
+    // 44 says - `Conditions · RESTRAINED` instead of one filled chip among
+    // seven empty ones - not what it costs.
+    { what: 'Conditions, its own fold', px: 44 },
     { what: 'gap', px: GAP },
     { what: 'Lineage & domains', px: 44 },
   ];
@@ -918,8 +924,8 @@ describe('the budget the pin came off for', () => {
       'the Experience chips are back above ROLL, where they cost 100px',
     ).toHaveLength(0);
 
-    // The fold index: every header at the floor, and there are six rows of it
-    // plus the conditions strip.
+    // The fold index: every header at the floor, and there are seven rows of
+    // it now that the conditions strip is one of them.
     const headers = indexHeaders();
     for (const header of headers) {
       expect(header.style.minHeight, `${header.textContent ?? '?'} is not at the floor`).toBe(
@@ -932,12 +938,82 @@ describe('the budget the pin came off for', () => {
       'Carried',
       'Cards',
       'Rest & downtime',
+      'Conditions',
       'Lineage & domains',
     ];
     expect(
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
-      'the budget counts six fold headers below ROLL and the screen draws a different set',
+      'the budget counts seven fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
+  });
+});
+
+/**
+ * The conditions strip, behind its own fold.
+ *
+ * P5-6 asked for this and costed it at −52. It is not worth −52 and these tests
+ * say so with the arithmetic: a shut `Disclosure` is a 44px header plus this
+ * column's 8px gap, which is what the strip was to the pixel. What the fold
+ * buys is not column, it is legibility - seven grey chips scrolling sideways
+ * become a row that names the state you are in - and what it must not cost is
+ * the desktop, which mounts the same component with no props.
+ */
+describe('the conditions strip, behind its own fold', () => {
+  const conditionsFold = (): HTMLButtonElement | undefined =>
+    indexHeaders().find((h) => (h.textContent ?? '').startsWith('Conditions'));
+
+  it('is a fold on the phone, and the chips are inside it', () => {
+    play(seed());
+    const header = conditionsFold();
+    expect(header, 'the conditions are not behind a fold on the phone').toBeDefined();
+    expect(header!.getAttribute('aria-expanded')).toBe('false');
+    expect(header!.style.minHeight, 'the fold header is below the touch floor').toBe('var(--tap)');
+    expect(
+      container.querySelector('[role="group"][aria-label="Active conditions"]'),
+      'the strip is still drawn with the fold shut, so the fold saved nothing at all',
+    ).toBeNull();
+
+    click(header!);
+    const strip = container.querySelector('[role="group"][aria-label="Active conditions"]');
+    expect(strip, 'opening the fold does not reach the chips').not.toBeNull();
+    expect(
+      container.querySelectorAll('[role="group"][aria-label="Active conditions"]'),
+      'there are two conditions groups on one screen',
+    ).toHaveLength(1);
+  });
+
+  it('names on the shut header what the strip used to say with a filled chip', () => {
+    const c = seed();
+    play(c);
+    expect(conditionsFold()!.textContent, 'a clear sheet does not say so').toContain('NONE');
+
+    act(() => {
+      useConditions.getState().toggle(c.id, 'restrained');
+    });
+    expect(
+      conditionsFold()!.textContent,
+      'a condition the GM inflicted is behind a tap, which is the one thing a fold may not do',
+    ).toContain('RESTRAINED');
+  });
+
+  /*
+   * The saving that was asked for and is not available, stated as arithmetic
+   * rather than left to be discovered. If a later pass finds a shape that does
+   * remove the 52 - drawing nothing when nothing is on, with a door that costs
+   * the column nothing - this is the line it will have to change, and changing
+   * it is the point.
+   */
+  it('costs this column exactly what the strip cost it', () => {
+    play(seed());
+    const header = conditionsFold()!;
+    const section = header.parentElement as HTMLElement;
+    expect(section.tagName).toBe('SECTION');
+    // Shut, a Disclosure adds nothing of its own between header and content.
+    expect(section.style.gap, 'a shut fold is spending a gap on nothing').toBe('0px');
+    expect(section.children, 'a shut fold is drawing its contents').toHaveLength(1);
+    // 44 at the touch floor, plus the column's own 8. The strip was 44 at
+    // var(--control), which is 44 on any coarse pointer, plus the same 8.
+    expect(44 + 8).toBe(52);
   });
 });
 

@@ -2439,8 +2439,15 @@ function PlayPhone({
        */}
       <Rest stats={stats} rng={cryptoRng} />
 
-      {/* Conditions are set once a scene rather than once a turn. */}
-      <ActiveConditions />
+      {/*
+       * Conditions are set once a scene rather than once a turn, so they are
+       * low in the column - and behind a fold, because the shut header says
+       * which ones are on where the strip said it with one filled chip among
+       * seven empty ones. It costs the column exactly what the strip cost it,
+       * 44 and a gap; `ActiveConditions` has the arithmetic and says why the
+       * −52 this was costed at is not available from a fold.
+       */}
+      <ActiveConditions fold />
 
       <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
         <Lineage stats={stats} />

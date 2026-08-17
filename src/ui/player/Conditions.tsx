@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react';
 import { isVulnerableFromStress } from '../../engine/damage.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { Disclosure } from '../shared/Disclosure.tsx';
 import { useDialog } from '../shared/useDialog.ts';
 import {
   MAX_LABEL,
@@ -148,7 +149,41 @@ function Chip({
   );
 }
 
-export function ActiveConditions(): React.JSX.Element | null {
+/**
+ * The strip, and - on the phone - the fold it now lives behind.
+ *
+ * WHAT THE FOLD IS FOR, AND WHAT IT IS NOT FOR. The strip is eight chips that
+ * scroll sideways, permanent, low in the column between the rest and the
+ * lineage, and on an ordinary evening every one of them is grey: 44px plus a
+ * gap spent saying you are not Hidden, not Restrained and not Vulnerable.
+ * Behind a fold the same row says `Conditions · NONE` when there is nothing and
+ * `Conditions · RESTRAINED` when there is, which is a strictly better use of
+ * the band - the state you are actually in is on the glass in words, where
+ * before it was a filled chip among seven empty ones.
+ *
+ * IT DOES NOT SAVE THE COLUMN A PIXEL, AND SAYING SO IS THE POINT. A shut
+ * `Disclosure` is a 44px header and the column's 8px gap; the strip was a 44px
+ * row and the column's 8px gap. 52 for 52. P5-6 costed this at −52 and the
+ * arithmetic does not support that: the only shape that removes the 52 is one
+ * where nothing is drawn at all when nothing is on - decision 6's treatment of
+ * the modifier row - and that needs a door somewhere that costs nothing, which
+ * is a placement decision this pass was not asked to take. `playSheet.test.tsx`
+ * carries the total that follows from 52-for-52 rather than the one that was
+ * hoped for.
+ *
+ * DESKTOP IS UNTOUCHED, deliberately and by default. `Vitals` mounts this with
+ * no props in the cockpit's middle column, where the strip is the right shape
+ * and there is room for it. The alternative that was considered and rejected -
+ * putting the strip inside `DualityRoll`'s `ControlRow` - would have given the
+ * cockpit two `role="group" aria-label="Active conditions"` groups and two
+ * doors into the same dialog.
+ */
+export function ActiveConditions({
+  fold = false,
+}: {
+  /** Draw the strip inside its own tendina. Phone only. */
+  fold?: boolean;
+} = {}): React.JSX.Element | null {
   const character = useActive();
   const conditions = useConditionsFor(character?.id ?? null);
   const toggle = useConditions((s) => s.toggle);
@@ -160,8 +195,30 @@ export function ActiveConditions(): React.JSX.Element | null {
 
   const derived = isVulnerableFromStress(character);
 
-  return (
-    <>
+  /*
+   * What the shut header says.
+   *
+   * `Disclosure`'s contract is that the header always says what is inside it,
+   * and for this section that has to be the states themselves rather than a
+   * count: "2 ON" behind a fold is the app knowing you are Restrained and
+   * making you tap to find out. Past two it names the first and counts the
+   * rest, because the summary shares a 369px row with the label and a chevron.
+   * The derived Vulnerable is in the list - it is true of you whoever set it.
+   */
+  const on = [
+    ...STANDARD.filter((key) => conditions[key] || (key === 'vulnerable' && derived)).map(
+      (key) => LABEL[key],
+    ),
+    ...conditions.named.filter((n) => n.on).map((n) => n.label.toUpperCase()),
+  ];
+  const summary =
+    on.length === 0
+      ? 'NONE'
+      : on.length <= 2
+        ? on.join(' · ')
+        : `${on[0]!} +${String(on.length - 1)}`;
+
+  const strip = (
       <div
         className="row"
         role="group"
@@ -238,7 +295,26 @@ export function ActiveConditions(): React.JSX.Element | null {
           {conditions.named.length < MAX_NAMED ? '+ NAME' : '...'}
         </button>
       </div>
+  );
 
+  return (
+    <>
+      {fold ? (
+        <Disclosure
+          id="conditions"
+          characterId={character.id}
+          label="Conditions"
+          summary={summary}
+        >
+          {strip}
+        </Disclosure>
+      ) : (
+        strip
+      )}
+
+      {/* Outside the fold on purpose: it is a modal over the whole screen and
+          it has no business being unmounted by the section it was opened
+          from. */}
       {open && <ConditionsDialog rules={rules} onClose={() => setOpen(false)} />}
     </>
   );
