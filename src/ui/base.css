@@ -176,8 +176,13 @@ select,
  * Nothing scrolls it back, because `.app` clips (below), so the excess is
  * simply gone: 45 elements clipped at 744 and 67 at 720, SETTINGS 81.8px past
  * the right edge, and Play's 44x44 conditions door and MODS button painted with
- * 28.5px of themselves reachable - under this project's 44px floor and under
- * WCAG 2.5.8's 24.
+ * 28.5px of themselves reachable - well under this project's own 44px floor.
+ *
+ * Not, note, under WCAG 2.5.8, whose floor is 24 and which 28.5 clears. The
+ * audit's probe called its check `belowWcagFloor` while computing `w < 24 || h
+ * < 24` with no spacing test at all, and seven findings inherited a charge the
+ * measurements do not support. The 44px floor is this project's own, it is
+ * stricter, and it is the true and sufficient thing to say here.
  *
  * `minmax(0, 1fr)` is that clamp. `min-width: 0` on the children is the other
  * half and neither works alone: a grid item keeps `min-width: auto`, whose
