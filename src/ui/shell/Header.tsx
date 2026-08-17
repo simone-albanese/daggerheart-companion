@@ -34,6 +34,191 @@
  * discovered: Settings > Rulebook prints the same total, `CompatibleIcon` is
  * unconditional at every width, and `LicenceFooter` still ends every screen's
  * own scroll.
+ *
+ * ## The display cutout, which this bar has never paid for
+ *
+ * `grep -rn 'safe-area-inset-left\|safe-area-inset-right' src/` returned zero
+ * hits across the whole tree. The app has paid `-top` here and `-bottom` in
+ * three bars since it was written, and has never once paid the horizontal pair
+ * - which on a notched or Dynamic-Island iPhone **held in landscape** is where
+ * the cutout is.
+ *
+ * The inset is symmetric, and this paragraph used to say it was not. iOS
+ * reports `env(safe-area-inset-left)` AND `env(safe-area-inset-right)` at the
+ * same non-zero value in landscape: UIKit insets both long edges so that a
+ * 180-degree rotation does not reflow anything, and WebKit mirrors the view's
+ * insets into `env()`. Only portrait has a zero on the horizontal pair, which
+ * is why the tab-bar half of this measurement came out right. The earlier
+ * version of this docblock stated as measured fact that iOS reports one side
+ * "and the other side as 0"; every number derived from it below was a
+ * one-sided number, and they are redone here on the symmetric model.
+ *
+ * Measured in Chrome through the audit rig at 852x393 - an iPhone 14/15 in
+ * landscape, which `useLayout.ts` names in its own comments - with 59px
+ * substituted on BOTH sides, that being the figure this audit measured for the
+ * *top* inset in portrait on the same class of device and the same physical
+ * cutout seen edge-on. The header's padding was `0 20px`, so both strips were
+ * live in the same frame, in either rotation:
+ *
+ *   The RIGHT strip, [793, 852]. SETTINGS is laid out at [777.6, 832], 54.4px
+ *     wide, so **39.0px of it - 71.7% - is inside the cutout**, leaving 15.4px
+ *     of visible, aimable glass on the only permanent door this app has to
+ *     export, import, backup and print. The overlap is `inset - 20`, the
+ *     padding this bar already had, so it does not change with the viewport:
+ *     measured identically at 932x430.
+ *   The LEFT strip, [0, 59]. The app mark is at [20, 40.8] and is **100%
+ *     inside it**. PLAY, the first nav button, starts at 62.8 and clears the
+ *     strip by 3.8px - so the nav was never the casualty on that side, and the
+ *     audit's "the header's left group runs under the cutout" is true only of
+ *     the 20.8px mark.
+ *
+ * Those are one case and not two. The earlier write-up reported the left one
+ * as a partial refutation of the finding - "only the mark, and only in the
+ * other rotation" - which the symmetry removes: the mark was buried and the
+ * door was 71.7% gone at the same instant, however the phone was held. What
+ * survives of the refutation is the word "group": the nav cleared the strip
+ * by 3.8px and was never a casualty.
+ *
+ * The fix is the two padding longhands below, and it is deliberately no more
+ * than that: `env()` resolves to 0px on every device without a cutout and in
+ * jsdom, so this is a change nobody can observe on this machine, and a layout
+ * restructured around a number that cannot be watched is how a real-device pass
+ * gets wasted. Padding that resolves to 0 everywhere else is the conservative
+ * shape of the same fix.
+ *
+ * It is paid HERE and not on `.app` or on `<main>`, and that is the whole
+ * design decision. This `<header>` is one of exactly two things in the shell
+ * that paint a `--panel` background to the physical screen edge. Padding on
+ * this element moves the *contents* in and leaves the background painting edge
+ * to edge, which is the native convention and the thing a bar is supposed to do
+ * under a cutout; padding on an ancestor would stop the panel colour 59px short
+ * of the glass and draw a strip of `--app` beside it.
+ *
+ * WHAT `<main>` OWNS, said correctly this time. This used to read "`main` is
+ * transparent and owns no content of its own, so the screens inside it are
+ * their own files' half of this", and the second half of that is wrong.
+ * `App.tsx` renders six blocks directly inside `<main>`, above every screen and
+ * below this bar: `UnsavedWork` (App.tsx:499), the storage-error alert (:260),
+ * the integrity alert (:295), the quarantined-characters alert (:360), and
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx:168`. None is a
+ * screen; all six are shell chrome, and all six are hard-coded to
+ * `margin: '8px 20px 0'`. Measured at 852x393 with 59 on both sides,
+ * `BackupBanner` renders at [20, 832] and its box is identical with the insets
+ * at 0 - it does not move, so its first 39px sit inside the left strip while
+ * this bar 8px above it is now correctly inset to 79. The two gutters used to
+ * line up at 20 and no longer do.
+ *
+ * So the unpaid surface is in two columns and neither is "the Cards filter
+ * rails", which is what this file used to name.
+ *
+ *   Shell chrome: those six margins. They were unpaid before this change too,
+ *     so this is not a regression it introduces, and the repair is one line
+ *     each - `margin: '8px calc(20px + env(safe-area-inset-right)) 0
+ *     calc(20px + env(safe-area-inset-left))'`, which keeps them aligned with
+ *     this bar at every inset. Left deliberately: they live in `App.tsx` and
+ *     `ShellBanner.tsx` and belong in a commit that can test those two files.
+ *   Screens: measured on Play at 852x393 with 59 on both sides, `<main>`'s
+ *     only other child is the column at [0, 852] and it pays nothing. ROLL
+ *     2d12 sits at [12, 788] with 47px of its left end under the left strip;
+ *     the Agility trait button at [12, 138.7], 37% of it under; the HP and
+ *     Hope tracks at [12, 327]; six section headers at [12, 840]. At the other
+ *     end MODS, the trait-help button and the three `+` steppers are each
+ *     44x44 at [796, 840], which is *entirely* inside a right strip that
+ *     starts at 793.
+ *
+ * That second list is the half inside the thumb arc, and it is the half that
+ * is left. This bar's own casualties were at the top of the glass and outside
+ * every arc; Play's are the controls a thumb actually lands on mid-scene. A
+ * reader of this file should not come away thinking the cutout is paid.
+ *
+ * `calc(20px + env(...))` and not a bare `env()` in a `padding` shorthand: this
+ * is the idiom `TabBar.tsx` established and the reason is testability at both
+ * ends. jsdom's CSS parser drops a bare `env()` and any shorthand containing
+ * one, so the declaration reads back as `''` and no assertion can fail on it;
+ * and the audit rig substitutes insets by rewriting inline `style` attributes,
+ * so a value hidden in `tokens.css` behind a custom property could never be
+ * measured again. `paddingTop` is converted to the same form here - it computes
+ * the same pixels and it is the first time that declaration has been visible to
+ * the suite at all.
+ *
+ * ERGONOMICS, and landscape is the case, so this reasons about landscape. At
+ * 852x393 both thumbs are on the short edges and the arc each sweeps is wide
+ * and shallow, anchored at its own bottom corner; the cutout takes a
+ * full-height strip down BOTH of those edges at once, so each thumb rests
+ * against one. Nothing this bar holds is *in* either arc - the row is y4-48,
+ * at the top of the glass, which is the right home for navigation you reach
+ * for deliberately and the reason the corner was chosen for SETTINGS in the
+ * first place. So this is not a reach failure, it is worse and it was worse at
+ * both ends simultaneously: an aimed 54.4px target 71.7% invisible on the
+ * right, and the 20.8px app mark wholly buried on the left, in one frame. A
+ * control you must look at to hit, and cannot see, is worse than one out of
+ * reach.
+ *
+ * After the fix, measured at 852x393 with 59 on both sides: SETTINGS is
+ * [718.6, 773] against a strip that starts at 793 - zero overlap, 54.4x44 of
+ * visible glass, clearing this repo's own 44px floor (`--tap`; `tokens.css`
+ * resolves `--control` to it under `(max-width: 1179px), (pointer: coarse)`,
+ * and a phone in landscape answers both) in both axes rather than in one. The
+ * app mark is [79, 99.8], clear of [0, 59]. The nav's four buttons shift
+ * inward by the inset - PLAY from 62.8 to 121.8 - and that is toward the
+ * centre of the left thumb's sweep, not away from it, so nothing here loses
+ * reach to buy this. Read-versus-touch is unchanged: the app mark and the
+ * identity line are read, the nav and SETTINGS are touched, and both classes
+ * move inward by the same amount, so what is read still sits above and outside
+ * what is reached.
+ *
+ * WHAT IT COSTS IN PIXELS, on the symmetric model. The content box is
+ * `width - 40 - insetLeft - insetRight`, so in landscape it loses twice the
+ * inset, and nothing at all on a device without a cutout or on either
+ * orientation of an iPad. The worst line this bar can be asked for is the one
+ * derived at the foot of this file: 329.8 (left group) + 8 (gap) + 318.4
+ * (right group at the 220px name cap) = 656.2. That is by painted rect; by
+ * content it is 330 + 8 + 318.4 = 656.4, which is where the 0.2px between the
+ * two sets of figures in this file comes from.
+ *
+ * Measured at 812x375 - an iPhone 12/13 mini in landscape, the narrowest
+ * notched phone there is - with a name long enough to bind the 220px cap:
+ *
+ *     insets     padding    content box    slack at the cap
+ *      0 / 0      20/20         772             115.8
+ *     44 / 44     64/64         684              27.8
+ *     50 / 50     70/70         672              15.8
+ *     59 / 59     79/79         654              -2.2
+ *     0 / 59      20/79         713              56.8
+ *
+ * The last row is the one-sided model, and 56.8 is the number this paragraph
+ * used to print as the worst case. On the symmetric model at the same viewport
+ * and the same 59 the line is over-subscribed again and this file's signature
+ * failure returns: the left group's box measures [79, 406.6] with a
+ * clientWidth of 328 against a scrollWidth of 330, and its `<nav>` paints to
+ * 408.8 - 2.2px outside its own parent, into the 8px between the groups. The
+ * one-sided control at the same viewport shows none of it: box [20, 349.8],
+ * clientWidth 330, scrollWidth 330.
+ *
+ * Nothing on shipping hardware reaches that -2.2, and the margin is thinner
+ * than it reads. Every Dynamic-Island phone - the class the 59 was measured on
+ * - is 852 or wider in landscape, where the same 59 on both sides still leaves
+ * 37.8px (measured), and 117.8 at 932x430. The devices that are 812 wide in
+ * landscape are notched rather than Dynamic-Island and the figure usually
+ * quoted for those is 44, which leaves 27.8. But 50 already leaves 15.8, and
+ * this band's floor elsewhere is the 23.8px at 720x1133 (measured, same rig,
+ * same name), so anything above about 46 per side at 812 would make
+ * phone-in-landscape the app's worst line rather than the narrowest tablet.
+ *
+ * TWO THINGS HERE ARE UNVERIFIED ON HARDWARE, and the budget rests on both.
+ * The magnitude: 44 or 50 or 59 per side, per device class, none of it read
+ * off a phone - the 59 is this audit's own portrait top-inset figure reused
+ * edge-on. And, until this rewrite, the shape: one side or both. The shape is
+ * now taken to be symmetric because insetting both long edges is what keeps a
+ * 180-degree rotation from reflowing a layout, which is reasoning rather than
+ * a reading. Both belong in the one on-device pass this fix gets, and the
+ * doc-delta records them together.
+ *
+ * The viewport meta is untouched and was already right: `index.html` says
+ * `width=device-width, initial-scale=1, viewport-fit=cover`, and without that
+ * `viewport-fit=cover` iOS letterboxes the page and every `env()` in this repo
+ * is 0. It is the precondition for all of this and nothing asserted it, so
+ * `tests/ui/safeArea.test.ts` does now.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useActive, useApp } from '../../store/state.ts';
@@ -92,8 +277,20 @@ export function Header(): React.JSX.Element {
         height: 52,
         flex: 'none',
         alignItems: 'center',
-        padding: '0 20px',
-        paddingTop: 'env(safe-area-inset-top)',
+        /*
+         * Four longhands rather than a shorthand and an override. See "The
+         * display cutout" above: the two horizontal ones are new and each
+         * resolves to the bare 20 on every device without a cutout, and
+         * `paddingTop` changes only its spelling - `calc(0px + env(...))`
+         * computes the same pixels a bare `env()` did and is the first form of
+         * it jsdom keeps. Longhands because a `padding` shorthand carrying an
+         * `env()` is dropped whole by that parser, which would take the two
+         * ordinary 20s down with it in every test.
+         */
+        paddingTop: 'calc(0px + env(safe-area-inset-top))',
+        paddingRight: 'calc(20px + env(safe-area-inset-right))',
+        paddingBottom: 0,
+        paddingLeft: 'calc(20px + env(safe-area-inset-left))',
         boxSizing: 'content-box',
         borderBottom: '1px solid var(--line-soft)',
         background: 'var(--panel)',
@@ -133,7 +330,19 @@ export function Header(): React.JSX.Element {
          * pixels back.
          *
          * Arithmetic, measured rather than estimated. The bar's content box is
-         * `width - 40`. The left group's contents are a constant 330 (app mark
+         * `width - 40` - and, since the cutout section above, `width - 40 -
+         * insetLeft - insetRight`, which is the same number on every device
+         * that has no cutout and on both orientations of every iPad. Every
+         * figure below is at zero insets, which is the band this paragraph is
+         * about: 720-1179 is reached by tablets in portrait and by phones in
+         * landscape, and it is only the second of those that has an inset to
+         * pay - and it pays it on both sides at once, so the box loses 2x, not
+         * 1x. The landscape case is worked through in the table at the foot of
+         * the cutout section: its worst line keeps 37.8px of slack at 852x393
+         * and 27.8 at 812x375 with 44 per side, while 812 with 59 per side is
+         * the one pair in the table that goes negative.
+         *
+         * The left group's contents are a constant 330 (app mark
          * 20.8 + gap 22 + nav 287.2), the gap between the groups is 8, and the
          * right group is 485.7 with a ten-character name and 545.6 with
          * "Bartholomew Ashworth". At 720 that line wants 823.7 of 680, so it is
@@ -144,7 +353,8 @@ export function Header(): React.JSX.Element {
          * 244.1 with "Bartholomew Ashworth", and 318.4 at the 220px name cap
          * where it stops growing. So the worst line the band can ask for is
          * 330 + 8 + 318.4 = 656.4 against 680 at the narrowest tablet width -
-         * 23.6px of slack, and 47.6 at 744. The over-subscription is not
+         * 23.6px of slack by content width, 23.8 measured between the two
+         * painted boxes, and 47.6 at 744. The over-subscription is not
          * reduced, it is gone, at every width in the band and at any name.
          *
          * Ergonomics. The nav sits in a 52px bar at the very top of the glass:
@@ -209,6 +419,33 @@ export function Header(): React.JSX.Element {
          * but at 320 the budget is 201 and 168 + 44 was already 11px past it
          * before this change, with the door as the thing being pushed out.
          * 42vw is 134 at that width, so the pair now spends 189 and fits.
+         *
+         * That budget is written at zero insets and this is the one band where
+         * that matters, because the caps here are `min(168px, 42vw)` -
+         * viewport-relative, where the box is not. Paying an inset takes width
+         * off the box and nothing off the cap, so the whole difference comes
+         * off the left group, which is the only one that may shrink, and the
+         * app mark is what yields. Measured, cap-binding name: at 320x568 with
+         * 59 on each side the left group collapses to width 0 at [79, 79] with
+         * a scrollWidth of 21, so the 20.8px mark paints [79, 99.8] while the
+         * right group begins at 87 - 12.8px of the mark under the name - and
+         * SETTINGS lands at [265.4, 319.8], entirely inside a right strip that
+         * starts at 261. At 360x740 with 44 the same collapse happens and
+         * 5.6px of SETTINGS is under the strip. Zero-inset controls at both
+         * widths show none of it: the left group is [20, 40.8], the right
+         * group starts at 67.2 at 320, and there is 18.4px of slack.
+         *
+         * No device does that today, and this is documented rather than
+         * guarded on purpose. The one sub-720 viewport that really does carry
+         * a cutout is a 6.1" iPhone with Display Zoom on, held in landscape -
+         * 693x320, which is where `TabBar.tsx`'s two horizontal insets stop
+         * being hypothetical - and this bar is comfortable there: measured
+         * with 59 on each side, padding 79/79, the nav not drawn, the left
+         * group the mark alone at [79, 99.8], the right group 266.4 at the
+         * cap, so the line wants 295.2 of a 535px content box and keeps
+         * 239.8px of slack. If a narrower cutout device ever appears, the
+         * guard is to subtract the inset from the cap in the same `calc()`
+         * this file already uses on the padding.
          */}
         {active !== null && (
           /*
