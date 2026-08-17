@@ -5,12 +5,14 @@ appena partita senza commit. Sono tutte atterrate: **niente è più in volo.**
 Resta più recente di `HANDOFF.md` e continua a contraddirlo di proposito dove i
 due si toccano.
 
-**Stato.** `main` è a `ae32323` più i commit di questo passaggio, che tocca
-soltanto i `.md`. **2481 test in 108 file, verdi**, `tsc --noEmit` pulito.
-`origin/main` è a `dd66d35`: `git rev-list --count origin/main..HEAD` dice
-**138** (125 senza i merge) contando il commit che scrive questa riga — un
-handoff che si modifica sposta il proprio numero, quindi si conta dopo;
-**niente è pushato.** Il push fa partire un deploy vero su GitHub Pages.
+**Stato.** `main` è a `ae32323` più la lane `a3-polish` e i commit di questo
+passaggio, che a parte una riga di docblock in `Play.tsx` tocca soltanto i
+`.md`. **2487 test in 108 file, verdi**, `tsc --noEmit` pulito. *(~~2481 in
+108~~: erano i numeri prima che `a3-polish` atterrasse.)* `origin/main` è a
+`dd66d35`: `git rev-list --count origin/main..HEAD` dice **157** (142 senza i
+merge) contando il commit che scrive questa riga — un handoff che si modifica
+sposta il proprio numero, quindi si conta dopo; **niente è pushato.** Il push fa
+partire un deploy vero su GitHub Pages.
 
 Le cifre della suite qui sopra non sono ricordate: vengono da `npx vitest run` e
 `npx tsc --noEmit` lanciati in questo worktree alla fine del passaggio di
@@ -173,6 +175,23 @@ descrive il puntatore **primario**, quindi un portatile con schermo touch e un
 iPad in custodia con tastiera — tutti e due `pointer: fine` con
 `any-pointer: coarse` — ricevono `--control: 34px` da 1180px in su. Misurato sul
 profilo `hybrid` del rig a 1280×800 e 1440×900: `--control` 34px, `--pip-h` 44px.
+
+> **Da dove vengono questi due numeri, e perché non si «correggono» con un
+> grep.** Il 34 e il 44 qui sopra sono **letture del rig**, non cifre dichiarate
+> nel codice. Vengono dal profilo `hybrid` del rig di misura, che vive **fuori
+> dal repository**, in
+> `~/.claude/projects/-Users-simonealbanese-Documents-Daggerheart-Companion/audit-harness`,
+> e che per esprimere `pointer: fine` + `any-pointer: coarse` deve riavviare
+> Chrome con `blinkSettings`, perché CDP non sa dirlo (§4 punto 3). **Niente in
+> `src/` o in `tests/` li riproduce**: `tokens.css` dichiara le due media query,
+> non il valore che una macchina ibrida ne ricava, e jsdom non ha un puntatore
+> di cui parlare. Quindi chi non trova 34 e 44 grepando l'albero non ha trovato
+> un errore: ha trovato il confine fra ciò che il codice dichiara e ciò che un
+> browser vero ne fa. Vale per queste due cifre e per ogni coordinata in pixel
+> di questo file marcata «misurato a *W*×*H*». Le regole di lettura del rig —
+> `insetPatch` restituisce l'inset che il caso gli ha dato, e Chrome gira con
+> `--hide-scrollbars` — stanno in §4.
+
 Quindi sulla macchina che la paragrafo ERGONOMICS del pannello del tiro chiama
 «quello che questo pannello lo raggiunge davvero con un dito», ogni chip della
 mensola e ogni tasto del tastierino è **10px sotto il floor di 44** che questo

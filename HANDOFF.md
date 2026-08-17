@@ -22,7 +22,7 @@ after the resolution audit's first eleven lanes and **2487 in 108** after the
 twelfth, `a3-polish`.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is **156 commits** behind `main` — `git rev-list --count
+`dd66d35`, which is **157 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short (it
 said twenty-six before the audit) — so
@@ -210,7 +210,7 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**294 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
+**295 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
 five lanes merged after it and the resolution audit's twelve. Counted at `HEAD`
 with `git rev-list --count
 --no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146
