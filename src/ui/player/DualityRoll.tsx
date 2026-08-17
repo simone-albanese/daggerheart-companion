@@ -972,13 +972,31 @@ export function DualityRoll({
    * `the budget the pin came off for` lists as a state it cannot see. What it
    * can do is wrap, so: at 393px ROLL is 317 wide, less 28 of padding, less 12
    * of gap and about 33 for a two-digit total in 30px, leaves the text stack
-   * 244px. `.t-meta` is 10px mono at 0.06em, about 6.6px a character, so 36
-   * characters to a line - 34 at 375px. The ordinary armed state, typed dice
-   * off, is `8 / 5 · NEXT: RAN WITH THE WOLVES +2 · 1 HOPE`: 45 characters,
-   * two lines, and 17 + 4 + 20 = 41px inside a button that is 66 tall. Two
-   * Experiences and a held die is 63 characters and still two lines. It takes
-   * five lines to overflow, which is about 148 characters of names somebody
-   * wrote themselves, and the idle state could already reach that.
+   * 244px - measured, the line's own box is **245 wide at 393 and 227 at 375**.
+   *
+   * THIS LINE IS 12px NOW, AND THE ARITHMETIC MOVED WITH IT. It is the entire
+   * statement of what the next roll will be and it was the smallest type on the
+   * sheet, so the reflow raises it - `12px/15px` at the declaration below, the
+   * size and the leading together, because `.t-meta` is `500 10px/1` and a size
+   * raised without its leading clips its own ink. At 0.06em that is about 7.9px
+   * a character, so **30 characters to a line** at 393px and 28 at 375px, where
+   * 10px gave 36 and 34.
+   *
+   * The ordinary armed-and-resolved state, typed dice off, is what this
+   * paragraph is written on and it is measured rather than constructed: driven
+   * in Chrome at 393x852 - arm `Ran with the wolves`, shut the fold, roll - the
+   * bar reads `11 / 2 · NEXT: RAN WITH THE WOLVES +2 · 1 HOPE`, 45 characters,
+   * **two lines**, a 237.4x20 meta box at 10px. At 12px those two lines are 30,
+   * so the content is **17 + 4 + 30 = 51px** where it was 41.
+   *
+   * WHICH IS WHY THE BUTTON BELOW DECLARES `minHeight: 56` AND NOT A HEIGHT.
+   * 51 of content plus the 1px border top and bottom is 53, and 56 holds it
+   * with 3 to spare; **44 would clip this line by 9px** inside the one control
+   * on this screen a thumb aims at without looking, which is the failure this
+   * whole file is written against. And a third line - two Experiences and a
+   * held die, 63 characters, which was two lines at 10px - is 17 + 4 + 45 = 66,
+   * so the bar grows to hold it instead of sawing it off. Measured after the
+   * change: idle 56, armed-and-resolved 56, three lines 71.
    */
   const rollLine =
     result === null
@@ -1196,10 +1214,23 @@ export function DualityRoll({
          * So the resting point gets the cheap control and the 317px body of
          * ROLL gets the deliberate reach.
          *
-         * MODS declares `minHeight: 66` and not `height: 66` on purpose: ROLL
-         * is the one control on this surface that fixes its own height, and
-         * `leaves every target on the roll surface at the floor after a roll`
-         * is built on that being true of exactly one button.
+         * NEITHER OF THEM FIXES A HEIGHT ANY MORE, AND THAT IS THE REFLOW.
+         * ROLL used to declare `height: 66` - a hard number, not content-driven
+         * - around 31px of ink in the idle state: 17.5px of nothing above the
+         * word and 17.5 below, the largest single block of dead space on the
+         * phone sheet and the first thing the owner pointed at. It is
+         * `minHeight: 56` now, which is the floor its own content sets:
+         * `rollLine` is 12px/15px and the ordinary armed-and-resolved state is
+         * two of those lines, so 17 + 4 + 30 + 2 = 53 of box in 56. Ten pixels
+         * back, and not the twenty-two a 44px floor would have given, because
+         * 44 clips that second line by 9 - see `rollLine`'s own note above,
+         * where the state is measured rather than reasoned.
+         *
+         * `minHeight` and not `height` for both, so a three-line state grows
+         * the bar instead of sawing the statement of the next roll in half.
+         * MODS follows ROLL rather than leading it: the row is
+         * `alignItems: 'stretch'`, so whatever ROLL draws, MODS draws, and the
+         * 44px width is what keeps it a target.
          */}
         <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
           <button
@@ -1209,7 +1240,7 @@ export function DualityRoll({
             style={{
               flex: 1,
               minWidth: 0,
-              height: 66,
+              minHeight: 56,
               borderRadius: 'var(--r5)',
               background: verdictBackground(result),
               border: `1px solid ${result === null ? 'var(--line-soft)' : verdictColor(result)}`,
@@ -1225,7 +1256,21 @@ export function DualityRoll({
               </span>
               <span
                 className="t-meta"
-                style={{ marginTop: 4, color: verdictColor(result), opacity: 0.75 }}
+                style={{
+                  marginTop: 4,
+                  // 12 and not `.t-meta`'s 10, with the leading declared beside
+                  // it: this is the whole statement of what the next roll will
+                  // be and it was the smallest type on the sheet. `.t-meta` is
+                  // `500 10px/1`, so raising the size alone leaves a 12px glyph
+                  // in a 10px line box and clips its own ink; `15px` is the
+                  // leading that holds it, and it is what makes two lines 30
+                  // rather than 20. Size and leading only - the family, the
+                  // weight and the 0.06em tracking stay the class's.
+                  fontSize: 12,
+                  lineHeight: '15px',
+                  color: verdictColor(result),
+                  opacity: 0.75,
+                }}
               >
                 {rollLine}
               </span>
@@ -1259,7 +1304,7 @@ export function DualityRoll({
               flex: 'none',
               width: 44,
               minWidth: 44,
-              minHeight: 66,
+              minHeight: 56,
               alignItems: 'center',
               justifyContent: 'center',
               gap: 4,

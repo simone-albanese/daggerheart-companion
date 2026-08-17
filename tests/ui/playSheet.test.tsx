@@ -423,7 +423,7 @@ describe('what a phone shows of the character sheet', () => {
       .map((el) => `${el.tagName}.${el.className}`);
     expect(others, 'there is a second scrolling region inside the sheet').toEqual([]);
 
-    const roll = buttons().find((b) => b.style.height === '66px');
+    const roll = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     expect(roll, 'no ROLL control on the phone').toBeDefined();
     expect(rootEl.contains(roll!), 'ROLL is outside the column').toBe(true);
 
@@ -552,16 +552,25 @@ describe('the whole sheet, at 393x852', () => {
  *
  * These four tests replace the four the pinned block had, one for one. The old
  * ones asserted that the phone root's second child held exactly two regions at
- * a 6px gap, that every target in it cleared 44px, that ROLL declared 66px at
+ * a 6px gap, that every target in it cleared 44px, that ROLL declared its height at
  * the bottom of it, and that the scrolling region beside it kept an 88px floor.
  * The last of those existed only because a fixed block could starve the scroll,
  * and there is no fixed block; it is replaced by the budget below, which is the
  * assertion the reversal actually rests on.
  */
 describe('the trait row and the roll surface', () => {
-  /** The one control on the phone that fixes its own height. */
+  /**
+   * ROLL, by the declaration that is a floor now rather than a height.
+   *
+   * This used to be `b.style.height === '66px'`, which doubled as the assertion
+   * that ROLL fixed its own height. It fixes nothing any more - `minHeight: 56`
+   * - so the finder reads the floor, and what the finder used to imply is
+   * asserted out loud in `gives ROLL a floor of 56 and not a ceiling` below.
+   */
   const roll = (): HTMLButtonElement => {
-    const found = buttons().find((b) => b.style.height === '66px');
+    const found = buttons().find(
+      (b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4,
+    );
     if (found === undefined) throw new Error('the phone has no roll control');
     return found;
   };
@@ -676,14 +685,79 @@ describe('the trait row and the roll surface', () => {
     }
   });
 
-  it('gives ROLL the 66px it had, in the column and above every fold', () => {
+  /*
+   * ROLL'S OWN HEIGHT, WHICH IS THE REFLOW'S FIRST AND MOST ARGUED TERM.
+   *
+   * It was `height: 66` - a hard number around 31px of ink, 17.5px of nothing
+   * above the word and 17.5 below, the largest single block of dead space on
+   * the sheet. It is `minHeight: 56` now, and both halves of that matter:
+   *
+   *   56 AND NOT 44. The inventory that opened this pass priced ROLL's floor at
+   *   the 44px touch floor on "31px of ink centred in 66", and that measured
+   *   the IDLE state only. Driven in Chrome at 393x852 - arm `Ran with the
+   *   wolves`, shut the fold, roll - the bar's second line is TWO lines, a
+   *   237.4x20 box at `.t-meta`'s 10px. At the 12px this pass raises it to,
+   *   those two lines are 30, so the content is 17 + 4 + 30 = 51 and the box is
+   *   53. A 44px button has 42 of inner and would cut the statement of the next
+   *   roll by 9px, inside the one control on this screen a thumb aims at
+   *   without looking.
+   *
+   *   A FLOOR AND NOT A CEILING. Two Experiences and a held die is three lines
+   *   at 12px - 17 + 4 + 45 = 66 - where it was two at 10px. `height` would saw
+   *   it off; `minHeight` grows the bar. Measured after the change: idle 56,
+   *   armed-and-resolved 56, three lines 71.
+   *
+   * MODS follows rather than leads: the row is `alignItems: 'stretch'`, so
+   * whatever ROLL draws it draws, and its own floor is asserted with it so the
+   * pair cannot drift apart.
+   */
+  it('gives ROLL a floor of 56 and not a ceiling, in the column and above every fold', () => {
     play(seed());
-    expect(roll().style.height).toBe('66px');
+    expect(
+      roll().style.minHeight,
+      "ROLL's floor moved. 44 clips the armed-and-resolved second line by 9px at 12px/15px; " +
+        'the derivation is 17 + 4 + 30 + 2 = 53 and it is in `DualityRoll`\'s own docblock.',
+    ).toBe('56px');
+    expect(
+      roll().style.height,
+      'ROLL fixes its own height again, so a three-line `rollLine` - two Experiences and a ' +
+        'held die at 12px - is sawn off instead of growing the bar',
+    ).toBe('');
+    expect(
+      modsButton().style.minHeight,
+      'MODS stopped tracking ROLL, so the two halves of the roll row declare different floors',
+    ).toBe('56px');
     // It is inside the one scrolling column rather than beside it, and the
     // whole fold index is below it. `has nothing pinned` makes the second half
     // of that claim over every fold; this one is about ROLL itself.
     expect((container.firstElementChild as HTMLElement).contains(roll())).toBe(true);
     expect(text().indexOf('ROLL')).toBeLessThan(text().indexOf('Weapons & armour'));
+  });
+
+  /*
+   * THE LINE THE FLOOR IS COMPUTED FROM, AND THE HALF OF IT THAT IS EASY TO
+   * LOSE.
+   *
+   * `rollLine` is the whole statement of what the next roll will be - `2d12 +1
+   * · AGILITY` idle, the raw dice and what is armed after a roll - and it was
+   * `.t-meta`, the smallest type on the sheet, on the largest control on it.
+   * Term 2 of this pass raises it, and the raise has two halves: `.t-meta` is
+   * `500 10px/1`, so a size raised on its own leaves a 12px glyph in a 10px
+   * line box and clips its own ink. The leading is declared beside the size.
+   */
+  it('states the next roll at 12px, with the leading that holds it', () => {
+    play(seed());
+    const line = roll().querySelector<HTMLElement>('span.t-meta')!;
+    expect(line.textContent, 'this is not the line that says what the next roll is').toContain(
+      '2d12',
+    );
+    expect(line.style.fontSize, "ROLL's second line is back at `.t-meta`'s 10px").toBe('12px');
+    expect(
+      line.style.lineHeight,
+      '`.t-meta` is `500 10px/1`, so a 12px size with no leading beside it is a 12px glyph in ' +
+        'a 10px line box: the ink clips and the two-line state measures 24 instead of 30, ' +
+        "which is where ROLL's 56px floor comes from",
+    ).toBe('15px');
   });
 });
 
@@ -842,7 +916,7 @@ describe('the budget the pin came off for', () => {
     // which exists in every state, so unlike an armed modifier - the +50 in
     // the docblock above, which draws the ARMED strip - it moves no number
     // here. `DualityRoll`'s `rollLine` carries the wrap arithmetic.
-    { what: 'the ROLL row', px: 66, from: 'dom' },
+    { what: 'the ROLL row', px: 56, from: 'dom' },
   ];
 
   /** What follows ROLL: the fold index, every one of them shut. */
@@ -887,7 +961,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 306').toBe(306);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 296').toBe(296);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -896,7 +970,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(424);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(434);
   });
 
   /*
@@ -918,7 +992,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(239);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(249);
   });
 
   /*
@@ -942,7 +1016,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(618);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(608);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -953,12 +1027,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(112);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(122);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(73);
+    ).toBe(63);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -974,7 +1048,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(454);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(464);
   });
 
   /*
@@ -999,13 +1073,13 @@ describe('the budget the pin came off for', () => {
    */
   it('says where on the glass ROLL is drawn, and how far that is from the thumb', () => {
     const ROLL_ROW = STACK[STACK.length - 1]!.px;
-    expect(ROLL_ROW, 'the last term of the stack is no longer the ROLL row').toBe(66);
+    expect(ROLL_ROW, 'the last term of the stack is no longer the ROLL row').toBe(56);
 
     // On the glass: the column starts under the header, which is the only
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([293, 359]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([293, 349]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1017,11 +1091,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([493, 559]);
+    ).toEqual([503, 559]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([308, 374]);
+    ).toEqual([318, 374]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -1031,7 +1105,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(432);
+    ).toBe(442);
   });
 
   /*
@@ -1047,7 +1121,7 @@ describe('the budget the pin came off for', () => {
    *
    * That is not hypothetical. Rendered in Chrome at 393x852, `DualityRoll`'s
    * phone surface was the one child that had never declared it: it measured
-   * **33px tall holding a 66px ROLL**, which overflowed onto the fold header
+   * **33px tall holding a 66px ROLL** (the height it declared then), which overflowed onto the fold header
    * below - two 44px targets on the same band - and the column's
    * `scrollHeight` equalled its `clientHeight`, so the sheet did not scroll at
    * all. Nothing in this file could see it, because jsdom has no layout engine
@@ -1193,9 +1267,17 @@ describe('the budget the pin came off for', () => {
     // read it off a stepper and pass whatever ROLL did.
     const roll = buttons().find((b) => (b.textContent ?? '').includes('ROLL'))!;
     expect(
-      roll.style.height,
-      "ROLL's declared height and the last term of the budget have parted company",
+      roll.style.minHeight,
+      "ROLL's declared floor and the last term of the budget have parted company",
     ).toBe(`${String(STACK[STACK.length - 1]!.px)}px`);
+    /*
+     * And it is a floor. The budget sums the resting sheet, where `rollLine` is
+     * one line and the bar draws exactly this; a state that needs a third line
+     * grows the bar and is one of the states the docblock above says this table
+     * cannot see. A `height` here would trade that growth for a clip and the
+     * table would go on summing correctly, which is the quiet failure.
+     */
+    expect(roll.style.height, 'ROLL fixes its own height again').toBe('');
     expect(
       roll.parentElement!.parentElement!.style.gap,
       "the roll surface's own gap moved",
@@ -2151,7 +2233,7 @@ describe('the carried items, out loud', () => {
  * The capability stays - 38 adversaries and 9 environments call for a reaction
  * roll, and an app you cannot roll with advantage in is wrong at the table -
  * so the controls move behind MODS on the roll bar, which costs no height at
- * all beside a 66px ROLL. The whole risk of that is the same as the fold's:
+ * all beside a 56px ROLL. The whole risk of that is the same as the fold's:
  * `advantage` and `reaction` are *not* cleared when a roll resolves, so an
  * armed modifier could sit off screen for the rest of the session. That is
  * what these tests are about, in both directions - nothing drawn when nothing
@@ -2163,7 +2245,7 @@ describe('the roll modifier row', () => {
 
   /** ROLL: the one control on this surface that declares its own height. */
   const rollControl = (): HTMLButtonElement => {
-    const found = buttons().find((b) => b.style.height === '66px');
+    const found = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     if (found === undefined) throw new Error('the phone has no roll control');
     return found;
   };
@@ -2182,7 +2264,7 @@ describe('the roll modifier row', () => {
      * short rests have been taken, and that is a fact rather than a placeholder
      * for one.
      */
-    const roll = buttons().find((b) => b.style.height === '66px')!;
+    const roll = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4)!;
     const surface = roll.parentElement!.parentElement!.textContent ?? '';
     expect(surface, 'the band is still spending a row on its own name').not.toContain('MODIFIERS');
     expect(surface, 'the band is still spending a row on the word NONE').not.toContain('NONE');
@@ -2196,9 +2278,11 @@ describe('the roll modifier row', () => {
     const mods = modsButton();
     expect(mods.getAttribute('aria-expanded')).toBe('false');
     expect(mods.style.width).toBe('44px');
-    expect(mods.style.minHeight, 'MODS fixes a height, which ROLL is meant to be alone in').toBe(
-      '66px',
-    );
+    expect(
+      mods.style.minHeight,
+      'MODS stopped tracking ROLL. The row is `alignItems: stretch`, so the two declare the ' +
+        'same floor and MODS draws whatever ROLL draws.',
+    ).toBe('56px');
     expect(mods.style.height, 'MODS declares height, not minHeight').toBe('');
     expect(mods.parentElement, 'MODS is not on the roll row').toBe(roll.parentElement);
     // And it is the second child, not the first: the bottom-right is where an
@@ -2239,7 +2323,7 @@ describe('the roll modifier row', () => {
     click(byText('REACTION')!);
     click(modsButton());
     expect(armedStrip(), 'the strip survives with nothing armed').toBeUndefined();
-    const roll = buttons().find((b) => b.style.height === '66px')!;
+    const roll = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4)!;
     expect(
       roll.parentElement!.parentElement!.textContent ?? '',
       'the strip was emptied rather than removed',
@@ -2325,7 +2409,7 @@ describe('the Experiences a roll is declared with', () => {
   };
 
   const rollControl = (): HTMLButtonElement => {
-    const found = buttons().find((b) => b.style.height === '66px');
+    const found = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     if (found === undefined) throw new Error('the phone has no roll control');
     return found;
   };
@@ -2456,7 +2540,7 @@ describe('the Experiences a roll is declared with', () => {
 describe('the roll surface, when the header swaps the sheet', () => {
   /** The one control on the phone that both rolls and reports. */
   const rollControl = (): HTMLButtonElement => {
-    const found = buttons().find((b) => b.style.height === '66px');
+    const found = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     if (found === undefined) throw new Error('the phone has no roll control');
     return found;
   };
@@ -2547,9 +2631,9 @@ describe('every width below the cockpit', () => {
       }
       expect(clipped, `ROLL is inside a clipped box: ${clipped.join(', ')}`).toEqual([]);
 
-      // And it states its own height, in a block that is `flex: none`, so
+      // And it states its own floor, in a block that is `flex: none`, so
       // nothing above it can take the pixels back.
-      expect(roll!.style.height).toBe('66px');
+      expect(roll!.style.minHeight).toBe('56px');
     });
   }
 
@@ -2713,7 +2797,7 @@ describe('the tendina', () => {
     for (const b of expandables) {
       /*
        * `var(--tap)` or a number at or above it. MODS declares `minHeight: 66`
-       * because it stands beside a 66px ROLL, and the rule this sweep is about
+       * because it stands beside a 56px ROLL, and the rule this sweep is about
        * is the floor rather than the token: a control that clears 44 by
        * twenty-two pixels has not weakened it.
        */
@@ -3239,7 +3323,7 @@ describe('rolling the damage the attack earned', () => {
    * levels up rather than one, because ROLL shares its row with MODS.
    */
   const rollSurface = (): HTMLElement => {
-    const roll = buttons().find((b) => b.style.height === '66px');
+    const roll = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     if (roll === undefined) throw new Error('the phone has no roll control');
     return roll.parentElement!.parentElement!;
   };
@@ -3442,7 +3526,7 @@ describe('rolling the damage the attack earned', () => {
      */
     const rootEl = container.firstElementChild as HTMLElement;
     expect(rootEl.contains(damage!), 'the damage row is outside the column').toBe(true);
-    const roll = buttons().find((b) => b.style.height === '66px')!;
+    const roll = buttons().find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4)!;
     expect(
       (roll.compareDocumentPosition(damage!) & 4) !== 0,
       'the damage row is above ROLL, where only declarations belong',
@@ -3484,8 +3568,11 @@ describe('rolling the damage the attack earned', () => {
     const fixed = targets.filter((b) => b.style.height !== '');
     expect(
       fixed.map((b) => b.style.height),
-      'the roll bar is no longer the one control on this surface that fixes its own height',
-    ).toEqual(['66px']);
+      'something on the roll surface fixes its own height. Nothing here may any more: ' +
+        '`rollLine` is 12px/15px, so a three-line state - two Experiences and a held die - ' +
+        'needs 66 of content where the resting bar draws 56, and a fixed height turns that ' +
+        'growth into a clip inside the one control aimed at without looking.',
+    ).toEqual([]);
   });
 });
 

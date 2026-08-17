@@ -237,7 +237,7 @@ describe('where it sits on the Play screen', () => {
     expect(rest, 'there is no rest fold on the phone sheet').toBeDefined();
     expect(rootEl.contains(rest!), 'the rest fold is outside the column').toBe(true);
 
-    const roll = all.find((b) => b.style.height === '66px');
+    const roll = all.find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     expect(roll, 'there is no roll control to place it against').toBeDefined();
     const lineage = all.find((b) => (b.textContent ?? '').startsWith('Lineage & domains'));
     expect(lineage, 'there is no lineage fold to place it against').toBeDefined();
