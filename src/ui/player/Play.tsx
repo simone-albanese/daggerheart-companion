@@ -2298,6 +2298,15 @@ function PlayPhone({
        * armed is spelled out in full on the ROLL bar itself - so a
        * declaration is never behind a tap even when the fold is.
        *
+       * That sentence is the warrant for this fold, so it is load-bearing
+       * rather than descriptive, and it shipped false: `DualityRoll` named the
+       * armed Experiences only while no verdict was standing, which is every
+       * state but the one a player is in from their second roll of the evening
+       * onwards. `the Experiences a roll is declared with` asserts it in the
+       * state that used to lose it. What is armed *after* a roll is prefixed
+       * `NEXT:` there, because the bar is reporting a total at the same time
+       * and a +2 printed beside an 18 reads as an 18 that counted it.
+       *
        * Drawn only when there are any. Every character starts with two, but a
        * fold that opens onto nothing is 44px spent on an empty room.
        */}

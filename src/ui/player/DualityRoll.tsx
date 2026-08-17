@@ -486,19 +486,19 @@ export function DualityRoll({
       : TRAIT_LABELS[trait].toUpperCase();
 
   /*
-   * What is armed, in words, next to the ROLL button.
+   * What is armed, in words, on the ROLL bar - and the Experiences by name.
    *
-   * The control row scrolls sideways on a phone, so a chip you armed can be
-   * off screen by the time you reach for ROLL. This line is under your thumb
-   * at that moment, and it costs no height: it replaces the readout that would
-   * otherwise be there.
-   */
-  /*
-   * What is armed, in words, next to ROLL - and the Experiences by name.
+   * This is the whole warrant for the Experiences being behind a fold at all.
+   * `PlayPhone` argues the move on the sentence "whatever is armed is spelled
+   * out in full on the ROLL bar itself - so a declaration is never behind a
+   * tap even when the fold is", and the chips themselves are several hundred
+   * pixels of document below ROLL. If this line is not on the bar, the fold
+   * was not safe to make.
    *
    * The chips are compact by necessity and a long phrase runs to two lines on
    * them; this is the one place the full name is spelled out, at the moment it
-   * matters, which is when you are about to spend a Hope on it.
+   * matters, which is when you are about to spend a Hope on it. It costs no
+   * height either way: it replaces the readout that would otherwise be there.
    */
   const armSummary = [
     ...armedList.map(
@@ -515,6 +515,56 @@ export function DualityRoll({
   // The phone's second line normally carries the arithmetic of the next roll.
   // When there is nothing to roll with, the arithmetic is beside the point.
   const idleDetail = affordance.blocked ? affordance.prompt : `2d12 ${modSign} · ${traitLabel}`;
+
+  /*
+   * The declaration, labelled when there is a verdict standing beside it.
+   *
+   * Both roll surfaces put `armSummary` on the same line that reports the last
+   * roll, and neither of them said which roll it belonged to. With a verdict
+   * standing the bar reads `SUCCESS WITH HOPE ... RAN WITH THE WOLVES +2 ...
+   * 18`, and an 18 with a +2 printed next to it is an 18 that counted the +2 -
+   * this project's founding rule failing in the other direction, the app
+   * claiming a modifier applied to a roll that was declared after it. The
+   * Experiences are cleared *by* a roll, so the only way to reach this state is
+   * to arm one for the next roll, which is exactly when the label is needed.
+   *
+   * One expression, read by both layouts, because a phone and a desktop
+   * disagreeing about what the roll surface says would be its own bug - the
+   * argument `rollAffordance` is already written on.
+   */
+  const declaration = result === null ? armSummary : `NEXT: ${armSummary}`;
+
+  /*
+   * The phone bar's second line, in every state - including with a verdict
+   * standing.
+   *
+   * This used to be `result === null ? armSummary : the verdict detail`, and
+   * that made `PlayPhone`'s sentence false the moment a roll had resolved.
+   * Roll once, open the Experiences fold, arm one, shut the fold: the roll
+   * surface read the previous verdict and nothing else. The next roll was
+   * silently two points high and a Hope down, and the only statement left on
+   * the screen was the shut fold's own header - which at 375x667 is below the
+   * fold. The ARMED strip did not cover it either: that strip is a door into
+   * the modifier row, and on a phone the Experiences are deliberately not in
+   * the modifier row, so naming them on a control that opens it would be an
+   * offer the tap cannot keep.
+   *
+   * WHAT GIVES WAY IS `OUTCOME_DETAIL`, AND ONLY IT. The two raw dice stay:
+   * with typed dice off this line is the only place on a phone they are
+   * printed - there is no log surface here - and a table checking the app
+   * against its own dice needs them. What the detail says instead is the
+   * consequence, and the consequence has already been applied to the Hope and
+   * Stress counters higher up the same column; the outcome itself is still in
+   * 17px directly above. One tap disarms the Experience and it comes back.
+   */
+  const rollLine =
+    result === null
+      ? armSummary === ''
+        ? idleDetail
+        : declaration
+      : `${canType ? '' : `${result.hope} / ${result.fear} · `}${
+          armSummary === '' ? OUTCOME_DETAIL[result.outcome] : declaration
+        }`;
 
   /*
    * Everything the modifier row is holding, in words.
@@ -709,11 +759,7 @@ export function DualityRoll({
                 className="t-meta"
                 style={{ marginTop: 4, color: verdictColor(result), opacity: 0.75 }}
               >
-                {result === null
-                  ? armSummary !== ''
-                    ? armSummary
-                    : idleDetail
-                  : `${canType ? '' : `${result.hope} / ${result.fear} · `}${OUTCOME_DETAIL[result.outcome]}`}
+                {rollLine}
               </span>
             </span>
             <span
@@ -846,7 +892,7 @@ export function DualityRoll({
         </span>
         <span className="t-meta" style={{ color: verdictColor(result), opacity: 0.8 }}>
           {armSummary !== ''
-            ? armSummary
+            ? declaration
             : result === null
               ? affordance.prompt
               : OUTCOME_DETAIL[result.outcome].toUpperCase()}

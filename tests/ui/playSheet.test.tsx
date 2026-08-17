@@ -1409,6 +1409,84 @@ describe('the Experiences a roll is declared with', () => {
       'the arriving sheet is holding somebody else’s Experience',
     ).toBe('false');
   });
+
+  /**
+   * The sentence the fold was granted on, asserted in the state that broke it.
+   *
+   * `PlayPhone` moves the chips behind a tendina on the warrant that "whatever
+   * is armed is spelled out in full on the ROLL bar itself - so a declaration
+   * is never behind a tap even when the fold is". That was true only while no
+   * verdict was standing, which is the first roll of the evening and nothing
+   * after it: roll, arm an Experience for the next one, shut the fold, and the
+   * roll surface read the previous verdict and nothing else. The next roll was
+   * +2 and a Hope with the whole screen silent about it, and the only survivor
+   * was the shut header's `2 · 1 ARMED`, which at 375x667 is below the fold.
+   */
+  it('is named on the shut ROLL bar before the first roll and after one', () => {
+    play(seed());
+    const shutFold = (): void => {
+      const header = fold('Experiences');
+      if (header.getAttribute('aria-expanded') === 'true') click(header);
+    };
+
+    click(chip('Ran with the wolves'));
+    shutFold();
+    expect(fold('Experiences').getAttribute('aria-expanded')).toBe('false');
+    expect(
+      rollControl().textContent,
+      'the chips are behind a tap and the bar does not say what is armed',
+    ).toContain('RAN WITH THE WOLVES +2');
+    expect(rollControl().textContent, 'the Hope it will cost is unsaid').toContain('1 HOPE');
+
+    // The roll spends it, so the bar stops claiming it. Nothing is declared
+    // for the roll after this one, and the bar must not imply otherwise.
+    click(rollControl());
+    const verdict = useApp.getState().log[0]!;
+    expect(rollControl().textContent).not.toContain('RAN WITH THE WOLVES');
+
+    // The state this shipped broken: a verdict standing, and an Experience
+    // armed for the roll after it.
+    click(chip('Ran with the wolves'));
+    shutFold();
+    const bar = rollControl().textContent ?? '';
+    expect(bar, 'the next roll is +2 and a Hope, and the roll surface says nothing').toContain(
+      'RAN WITH THE WOLVES +2',
+    );
+    // And it is not readable as part of the number standing beside it: a +2
+    // printed next to a total is a total that counted the +2.
+    expect(bar, 'the declaration reads as though the standing verdict counted it').toContain(
+      'NEXT: RAN WITH THE WOLVES +2',
+    );
+    // The verdict is still reported. The declaration takes the detail line,
+    // which restates a consequence already applied, and nothing else.
+    expect(bar, 'naming the declaration cost the player their result').toContain(verdict.label);
+    expect(bar).toContain(String(verdict.total));
+  });
+
+  it('is labelled the same way on the cockpit, which prints it beside the total too', () => {
+    setViewport(1280);
+    play(seed());
+    // No fold here: the cockpit keeps the chips inline in the control row.
+    const inlineChip = (): HTMLButtonElement => {
+      const found = buttons().find((b) =>
+        (b.getAttribute('aria-label') ?? '').startsWith('Utilize Ran with the wolves,'),
+      );
+      if (found === undefined) throw new Error('the cockpit has no Experience chip');
+      return found;
+    };
+    const rollButton = (): HTMLButtonElement => {
+      const found = buttons().find((b) => (b.textContent ?? '').includes('2d12'));
+      if (found === undefined) throw new Error('the cockpit has no roll button');
+      return found;
+    };
+
+    click(rollButton());
+    click(inlineChip());
+    expect(
+      text(),
+      'the verdict strip prints the next roll’s +2 as though this roll had it',
+    ).toContain('NEXT: RAN WITH THE WOLVES +2');
+  });
 });
 
 /**
