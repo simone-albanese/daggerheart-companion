@@ -291,6 +291,54 @@ describe('a counter drawn as a number', () => {
    * either side, the grid is two columns with one 6px gap, and the steppers are
    * two 44s with the row's 4px gutter twice.
    */
+  /*
+   * THE NARROW END OF THAT SAME TABLE, WHICH NOTHING STATED UNTIL NOW.
+   *
+   * `1fr` is `minmax(auto, 1fr)`, so each track's floor was the `Counter` row's
+   * own min-content - 165.81 for the STRESS cell, measured in Chrome - and the
+   * grid's minimum was a viewport-independent 325.37 with its right edge pinned
+   * at x = 337.37. Below that width the column's `overflow-x: hidden` simply cut
+   * the `+` on STRESS and ARMOR: 17.4px of a 44px target off the glass at 320,
+   * unreachable by any gesture. Floored at 0 in both places - the track here and
+   * the item in `Counter` - the cell takes what the column gives it and the
+   * value button absorbs the shortfall behind its own `overflow: hidden`.
+   *
+   * The second half is arithmetic over declared terms and cannot fail on its
+   * own; it is here, in the same `it` as the two style assertions that do fail
+   * pre-fix, because it is the number that says where the shape stops: 310.
+   */
+  it('lets the cell shrink to the column, down to the 310px where the steppers stop fitting', () => {
+    seed();
+    render(
+      createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
+    );
+    const cell = named('HP plus one').parentElement as HTMLElement;
+    const grid = cell.parentElement as HTMLElement;
+    expect(
+      grid.style.gridTemplateColumns,
+      'the tracks are back to a bare 1fr, whose automatic minimum is the cell\'s min-content - ' +
+        'so the grid is 325.37 wide at every viewport and the STRESS and ARMOR steppers are ' +
+        'cut off the glass below 337',
+    ).toBe('minmax(0, 1fr) minmax(0, 1fr)');
+    expect(
+      cell.style.minWidth,
+      'the Counter row keeps its automatic minimum, so it overflows the track it was given ' +
+        'and flooring the track achieved nothing',
+    ).toBe('0px');
+
+    const width = (glass: number): number => (glass - 24 - 6) / 2;
+    const forTheValue = (glass: number): number => width(glass) - 44 * 2 - 2 * 4;
+    expect(forTheValue(360)).toBe(69);
+    expect(forTheValue(344)).toBe(61);
+    expect(forTheValue(320)).toBe(49);
+    expect(
+      forTheValue(310),
+      'the floor of this shape moved. At 310 the value target is exactly the 44 it declares ' +
+        'as its own minWidth, and below it the two steppers start being pushed out of the ' +
+        'cell again - which is the failure this fix exists to close',
+    ).toBe(44);
+  });
+
   it('leaves 76.5px for the value at 375, which is what the readout was fitted to', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
@@ -491,7 +539,9 @@ describe('where the numbers are allowed to be', () => {
     );
     const cell = named('HP plus one').parentElement!;
     const grid = cell.parentElement as HTMLElement;
-    expect(grid.style.gridTemplateColumns, 'the four counters are not two across').toBe('1fr 1fr');
+    expect(grid.style.gridTemplateColumns, 'the four counters are not two across').toBe(
+      'minmax(0, 1fr) minmax(0, 1fr)',
+    );
     expect(grid.style.gap, 'the counters lost the 6px rhythm the four rows had').toBe('6px');
     expect(grid.children, 'the grid holds something other than the four counters').toHaveLength(4);
     for (const c of [...grid.children] as HTMLElement[]) {
@@ -513,7 +563,7 @@ describe('where the numbers are allowed to be', () => {
     expect(
       deskGrid.style.gridTemplateColumns,
       'the cockpit counters are not the phone\'s 2x2 grid',
-    ).toBe('1fr 1fr');
+    ).toBe('minmax(0, 1fr) minmax(0, 1fr)');
     expect(deskGrid.style.gap, 'the cockpit grid does not carry the counters\' 6px gap').toBe(
       '6px',
     );

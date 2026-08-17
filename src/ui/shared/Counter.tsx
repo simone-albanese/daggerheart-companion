@@ -145,7 +145,10 @@ export function Counter({
      * measured 52 and took eight pixels off the field.
      */
     return (
-      <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
+      // `minWidth: 0` for the same reason the readout row below carries it: a
+      // grid item's automatic minimum is its min-content, and this row's is a
+      // 44px field plus `/ 12` plus two 44px buttons. See `Vitals`'s note.
+      <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
         <input
           ref={field}
           type="number"
@@ -193,7 +196,18 @@ export function Counter({
   }
 
   return (
-    <div className="row" style={{ gap: GUTTER, minHeight: TAP }}>
+    /*
+     * `minWidth: 0`, and it is the half of the narrow-width fix that lives here.
+     *
+     * This row is a grid item in `Vitals`'s 2x2, and a grid item's automatic
+     * minimum is its min-content: 44 + 4 + 44 + 4 plus the value button's own
+     * label line, which measures 165.81 for STRESS. Floored at 0 the row takes
+     * the track it is given and the shortfall lands on the value button, which
+     * is `flex: '1 1 auto'` with `minWidth: 44` and `overflow: hidden` and is
+     * the one thing in the cell designed to absorb it. `Vitals` has to declare
+     * `minmax(0, 1fr)` as well; neither alone does anything.
+     */
+    <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
       {/*
        * The value, and the target that types it.
        *
@@ -205,9 +219,11 @@ export function Counter({
        *
        * `min-width: 44` rather than 0: it is a target, and a target's declared
        * floor is what `keeps every target at the touch floor in both
-       * directions` reads. Nothing ever drives it there - the narrowest cell
-       * gives it 76.5 - but a floor that is only true by arithmetic somewhere
-       * else is not a floor.
+       * directions` reads. It stopped being decorative when the grid's tracks
+       * were floored at 0 - the cell is 145 at viewport 320, which leaves this
+       * 49, and at viewport 310 it leaves exactly the 44 declared here. That is
+       * the floor of the whole 2x2 shape and it is below every phone that
+       * ships.
        */}
       <button
         type="button"

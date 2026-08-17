@@ -188,7 +188,42 @@ export function Vitals({
        * the real one, not the 900px mock - which is why this block giving 70px
        * back matters more than the two it costs the panel's width.
        */}
-      <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+      {/*
+       * `minmax(0, 1fr)` AND NOT `1fr`, WHICH IS TWO WORDS AND A DEFECT.
+       *
+       * A bare `1fr` is `minmax(auto, 1fr)`, and the `auto` minimum is the grid
+       * item's own min-content - which for a `Counter` row is 44 + 4 + 44 + 4 +
+       * the value button's own min-content, and that last term is the label
+       * line: measured in Chrome, `STRESS` behind its 13px silhouette makes the
+       * right-hand track 165.81 and `3 / 11` makes the left one 153.56. So the
+       * grid's minimum was **325.37 whatever the viewport was**, and its right
+       * edge sat at a constant x = 337.37 while the column's clip edge came in
+       * behind it: 17.4px of the 44px `+` on STRESS and ARMOR was off the glass
+       * at 320, and `overflowX: 'hidden'` on the column means no gesture of any
+       * kind brings it back - on the screen whose whole job is marking damage.
+       * A tenth marked Hit Point widens the HP track 12.5px and moves the first
+       * crossing from viewport 337.4 up to 349.9, which drags a 344px Z Fold
+       * cover screen into it.
+       *
+       * Both halves are needed and neither is enough. `minmax(0, 1fr)` floors
+       * the *track*; `minWidth: 0` on `Counter`'s own root floors the *item*,
+       * which otherwise keeps its automatic minimum and overflows the track it
+       * was given. With both, the shortfall lands on the value button - which
+       * already declares `minWidth: 44` and `overflow: hidden` for exactly this
+       * - so what is lost is the tail of a label inside a target that keeps its
+       * size, and never a target. Measured after: the grid's right edge is the
+       * column's at every width, the two steppers stay 44x44 and on the glass
+       * down to viewport 310, and the value target is 69 wide at 360, 61 at 344
+       * and 49 at 320.
+       */}
+      <div
+        style={{
+          flex: 'none',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+          gap: 6,
+        }}
+      >
         {
           /*
            * Sheet order, not frequency order.

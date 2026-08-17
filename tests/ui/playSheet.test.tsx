@@ -1162,7 +1162,7 @@ describe('the budget the pin came off for', () => {
     expect(counters.className, 'the counters got their .panel back').toBe('stack');
     expect(counters.style.gap).toBe('6px');
     expect(grid.style.gridTemplateColumns, 'the four counters stopped being two across').toBe(
-      '1fr 1fr',
+      'minmax(0, 1fr) minmax(0, 1fr)',
     );
     expect(grid.style.gap, 'the gap inside the counters grid moved').toBe('6px');
     const rows = [...grid.children].filter((el) => (el as HTMLElement).style.minHeight === '44px');
