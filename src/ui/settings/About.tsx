@@ -138,13 +138,23 @@ export function About({
   /**
    * Erase everything, and mean everything.
    *
-   * `clearAll` empties IndexedDB and nothing else, so the three localStorage
-   * keys have to go by hand. `dhc.backup.v1` is the one that matters: it holds
-   * the ids the last session saw, and left behind it makes the next startup's
-   * integrity check announce that the characters the user just deleted have
-   * been evicted by the browser - a false alarm about the one failure this app
-   * exists to prevent. `dhc.gm.v1` would likewise leave a stale encounter
-   * standing in a library that no longer has anyone in it.
+   * `clearAll` empties IndexedDB and nothing else, so the six localStorage keys
+   * have to go by hand: `dhc.prefs.v1` (store/prefs.ts), `dhc.conditions.v1`
+   * (ui/player/conditionsStore.ts), `dhc.dice.v1` (ui/player/heldDice.ts),
+   * `dhc.backup.v1` (store/backup.ts), and `dhc.gm.v1` with
+   * `dhc.gm.v1.unreadable` (store/campaignMigration.ts).
+   *
+   * Swept by prefix rather than by that list, and the list is here to be read
+   * rather than to be iterated: a list written out in code is how the seventh
+   * key survives the button that promises to remove everything - the same
+   * argument `db.ts::clearAll` makes for iterating `STORES`.
+   *
+   * `dhc.backup.v1` is the one that matters: it holds the ids the last session
+   * saw, and left behind it makes the next startup's integrity check announce
+   * that the characters the user just deleted have been evicted by the browser
+   * - a false alarm about the one failure this app exists to prevent.
+   * `dhc.gm.v1` would likewise leave a stale encounter standing in a library
+   * that no longer has anyone in it.
    */
   const reset = (): void => {
     setStatus(null);
