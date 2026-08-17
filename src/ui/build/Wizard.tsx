@@ -558,9 +558,31 @@ function WizardHeader({
                     : `${i + 1}. ${s.title}`
                 }
                 className="row"
+                /*
+                 * `var(--control)`, not the 34 that used to be written here.
+                 *
+                 * This rail is only drawn from 720px up - below that the phone
+                 * header above returns instead - and `--control` is
+                 * `var(--tap)`, 44, on every viewport under 1180 and on every
+                 * coarse pointer at any width. So a literal 34 was 10px under
+                 * the touch floor across the whole band this rail exists in:
+                 * measured at 744x1133, steps 1-9 drew 43.61x34 and steps
+                 * 10-12 50.2x34, with computed min-height 0. It passed only at
+                 * 1180+ with a mouse, where --control is 34 anyway.
+                 *
+                 * `minWidth` closes the other 0.39px: 11 + 11 padding + 2
+                 * border + 7 gap + a 6px dot + 6.6px per mono digit is 43.61
+                 * for a one-digit step, which is under 44 by a rounding error
+                 * and under it all the same. Twelve buttons and eleven 4px
+                 * gaps then measure ~570px against the 704px of content width
+                 * a 744px tablet has, so the row still does not wrap and the
+                 * whole cost of this is one band 10px taller.
+                 */
                 style={{
                   gap: 7,
-                  height: 34,
+                  justifyContent: 'center',
+                  height: 'var(--control)',
+                  minWidth: 'var(--control)',
                   padding: '0 11px',
                   borderRadius: 'var(--r2)',
                   background: here ? 'var(--raised)' : 'transparent',
