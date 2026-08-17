@@ -688,11 +688,14 @@ describe('the budget the pin came off for', () => {
     { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
     { what: 'the defence band · the number at 26/1', px: 26, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
+    // The fifth cell is TOOK and a 44px field, vertically centred in a row the
+    // four number cells already hold open at 58. It is in this table at zero
+    // rather than absent from it, because zero is the claim: the box left the
+    // counters, where it cost 44 and a 6px gap, and the band did not grow.
+    { what: 'the defence band · the TOOK cell, inside the 58 already spent', px: 0, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
-    { what: 'the counters · the TOOK row, held open by its input', px: 44, from: 'dom' },
-    { what: 'the counters · the fourth 6px gap, above TOOK', px: 6, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
@@ -735,7 +738,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 435').toBe(435);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 385').toBe(385);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -744,7 +747,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(295);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(345);
   });
 
   /*
@@ -765,7 +768,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(110);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(160);
   });
 
   /*
@@ -777,15 +780,15 @@ describe('the budget the pin came off for', () => {
    * nobody chose.
    */
   it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(799);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(749);
     expect(
       SHEET_BOTTOM - column(852),
       'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(69);
+    ).toBe(19);
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(254);
+    ).toBe(204);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -801,7 +804,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(273);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(323);
   });
 
   it('the terms this budget can read, it reads', () => {
@@ -847,15 +850,31 @@ describe('the budget the pin came off for', () => {
     expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 9px');
     expect(cell.style.gap).toBe('4px');
 
-    // The counters: a 2x2 grid at the floor plus the TOOK row, at a 6px gap,
-    // in a box that no longer draws a box.
-    const counters = container
-      .querySelector<HTMLElement>('input[aria-label="Incoming damage"]')!
-      .closest<HTMLElement>('.stack')!;
-    expect(counters.className, 'the counters got their .panel back').toBe('stack');
-    expect(counters.style.gap).toBe('6px');
+    /*
+     * The damage box is a fifth child of that same grid, not a row of its own.
+     * This is the whole of the 50px the counters gave up: if it ever goes back
+     * to being a sibling of the band, the table above is wrong by 44 plus a gap
+     * and this is the line that says so.
+     */
+    const damage = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    const band = cell.parentElement!;
+    expect(
+      damage.closest('[style*="grid-template-columns"]'),
+      'the incoming-damage box left the defence band',
+    ).toBe(band);
+    expect(
+      (band as HTMLElement).style.gridTemplateColumns,
+      'the four numbers went back to equal columns, which the box does not fit beside',
+    ).toBe('auto auto auto auto 1fr');
+    expect(damage.style.minHeight).toBe('var(--control)');
+
+    // The counters: a 2x2 grid at the floor, at a 6px gap, in a box that no
+    // longer draws a box.
     const grid = buttons().find((b) => b.getAttribute('aria-label') === 'HP plus one')!
       .parentElement!.parentElement!;
+    const counters = grid.closest<HTMLElement>('.stack')!;
+    expect(counters.className, 'the counters got their .panel back').toBe('stack');
+    expect(counters.style.gap).toBe('6px');
     expect(grid.style.gridTemplateColumns, 'the four counters stopped being two across').toBe(
       '1fr 1fr',
     );
@@ -863,9 +882,9 @@ describe('the budget the pin came off for', () => {
     const rows = [...grid.children].filter((el) => (el as HTMLElement).style.minHeight === '44px');
     expect(rows, 'the four counter cells no longer declare 44px each').toHaveLength(4);
     expect(
-      container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!.style
-        .minHeight,
-    ).toBe('var(--control)');
+      counters.contains(damage),
+      'the damage box is back inside the counters, where it costs 50px',
+    ).toBe(false);
 
     // The trait row and the roll surface.
     const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
@@ -919,6 +938,107 @@ describe('the budget the pin came off for', () => {
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
       'the budget counts six fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
+  });
+});
+
+/**
+ * The incoming-damage box, now that it can see the ladder.
+ *
+ * It moved out of the counters and into the defence band, which is a refactor
+ * of the one component on the player's screen that writes Hit Points - and
+ * that component had no surface test at all. `attack.test.ts` and the engine's
+ * own tests cover `applyDamage` and `markDamage`; nothing covered the path a
+ * player actually takes, which is type a number, read a verdict, and tap it.
+ * So the move brings the coverage the move needs: what is drawn, what is not
+ * drawn, what is written, and when.
+ *
+ * The rule the last two assertions are here for is the founding one. This
+ * control *proposes* - it shows what marking the damage would cost - and it
+ * must not write anything until the tap. A calculator that applied on keystroke
+ * would be the app marking Hit Points nobody agreed to.
+ */
+describe('the incoming-damage box, where the ladder is', () => {
+  const damageField = (): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]');
+
+  /** Type the way a keyboard does; React ignores a bare `.value` assignment. */
+  function type(field: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setter?.call(field, value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  it('sits in the band and stops restating the ladder in 10px beside itself', () => {
+    const c = seed();
+    play(c);
+    const s = playedStats(c);
+
+    const box = damageField();
+    expect(box, 'the damage box is not on the phone at all').not.toBeNull();
+    const band = [...container.querySelectorAll<HTMLElement>('.panel')]
+      .find((el) => /^EVASION/.test((el.textContent ?? '').trim()))!
+      .parentElement!;
+    expect(band.contains(box!), 'the damage box is not in the defence band').toBe(true);
+
+    /*
+     * The whole argument for the move, as an assertion. Inside the counters
+     * the box printed `8/16` - the two thresholds, in the smallest type on the
+     * screen - because it needed them and could not see them. They are two
+     * 26px numbers three cells to its left now, so the restatement is deleted
+     * rather than duplicated.
+     */
+    expect(
+      text(),
+      'the box still prints the ladder beside itself, which is what having it in the band is for',
+    ).not.toContain(`${String(s.thresholds[0])}/${String(s.thresholds[1])}`);
+  });
+
+  it('offers a verdict across the band, and writes nothing until it is tapped', () => {
+    const c = seed();
+    play(c);
+    const s = playedStats(c);
+    const before = structuredClone(useApp.getState().characters[0]!);
+
+    // Over Severe, so the verdict is unambiguous whatever the fixture's armor
+    // resolves to and the arithmetic below cannot be satisfied by a Minor.
+    type(damageField()!, String(s.thresholds[1] + 1));
+
+    const verdict = buttons().find((b) => /·\s*\d+ HP$/.test((b.textContent ?? '').trim()));
+    expect(verdict, 'typing a number offered nothing to tap').toBeDefined();
+    expect(verdict!.textContent).toContain('SEVERE');
+    expect(verdict!.style.minHeight, 'the verdict is below the touch floor').toBe('var(--control)');
+    expect(
+      verdict!.parentElement!.style.gridColumn,
+      'the verdict does not span the band, so it is squeezed into the 114px the box has',
+    ).toBe('1 / -1');
+
+    expect(
+      useApp.getState().characters[0],
+      'typing a number marked Hit Points before anybody agreed to it',
+    ).toEqual(before);
+
+    click(verdict!);
+    expect(useApp.getState().characters[0]!.hp.marked, 'the tap marked no Hit Points').toBe(
+      before.hp.marked + 3,
+    );
+    expect(useApp.getState().log[0]!.kind).toBe('incoming');
+    expect(damageField()!.value, 'the box kept the number it had already spent').toBe('');
+  });
+
+  it('draws no box when the armor is not in this build, because the band says so once', () => {
+    const c = seed({ activeArmor: '?60007', thresholdOverride: null });
+    play(c);
+    expect(
+      damageField(),
+      'the calculator is asking for a number it cannot read a verdict from',
+    ).toBeNull();
+    expect(text()).toContain('ARMOR NOT IN THIS BUILD');
+    expect(
+      (text().match(/ARMOR NOT IN THIS BUILD/g) ?? []).length,
+      'the sentence is on the screen twice, which is 44px of saying it again',
+    ).toBe(1);
   });
 });
 

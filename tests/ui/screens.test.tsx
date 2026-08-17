@@ -111,7 +111,7 @@ import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
 import { DualityRoll, ExperienceRow, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { Rest } from '../../src/ui/player/Rest.tsx';
-import { Vitals } from '../../src/ui/player/Vitals.tsx';
+import { IncomingDamage, Vitals } from '../../src/ui/player/Vitals.tsx';
 import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
 import { buildSheet } from '../../src/ui/print/sheetModel.ts';
 import { CoinRow, PrintDomainMark, TickRow } from '../../src/ui/print/marks.tsx';
@@ -602,6 +602,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // closed fold, and a rest that has not been committed never asks for one.
   'player/Rest.tsx::Rest': () => <Rest stats={stats()} rng={cryptoRng} />,
   'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,
+  // The desktop row, because the `band` variant is two children of a grid
+  // `Defenses` owns and this sweep mounts every fixture on its own.
+  'player/Vitals.tsx::IncomingDamage': () => <IncomingDamage stats={stats()} layout="desktop" />,
 
   'print/CharacterSheet.tsx::CharacterSheet': () => (
     <CharacterSheet sheet={buildSheet(playedCharacter(), dataset, index)} />

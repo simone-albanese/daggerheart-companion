@@ -80,47 +80,11 @@ export function Vitals({
 }: Props): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
-  const pushLog = useApp((s) => s.pushLog);
-  const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
   const counterStyle = useApp((s) => s.prefs.counterStyle);
   const hasCompanion = useHasCompanion();
-  const [incoming, setIncoming] = useState('');
-  const [useArmor, setUseArmor] = useState(0);
   const [who, setWho] = useState<Who>('you');
 
   if (!character) return null;
-
-  const amount = Number(incoming);
-  const available = character.armorSlots.max - character.armorSlots.marked;
-
-  /*
-   * The one question this panel cannot answer.
-   *
-   * Every verdict below is read off the damage thresholds, and the thresholds
-   * are the armor's. When the sheet names armor this build does not have -
-   * a `.dhchar` from a device with a homebrew layer, a QR from a newer bundle -
-   * `deriveStats` says so with `unresolvedArmor` and falls back to the
-   * unarmored ladder, which is a floor and not this character's numbers. Every
-   * threshold real armor prints is higher, so answering from it would call a
-   * Minor hit Major and have the player mark HP they did not take. So the
-   * calculator stops asking for a number it cannot read: the tracks above are
-   * still there to be marked by hand, which is what the table does anyway when
-   * the app is not sure. A manual threshold override settles the thresholds by
-   * itself - they are then a fact the sheet carries rather than a lookup - so
-   * it puts the calculator back in business.
-   */
-  const ladderUnknown = stats.unresolvedArmor !== null && character.thresholdOverride === null;
-
-  const preview =
-    !ladderUnknown && incoming !== '' && Number.isFinite(amount)
-      ? applyDamage(amount, stats, available, { armorSlots: useArmor, massiveDamageRule })
-      : null;
-
-  const unknownLadder = (
-    <span className="t-meta" style={{ color: 'var(--damage)', flex: 1, minWidth: 0 }}>
-      ARMOR NOT IN THIS BUILD · MARK HP BY HAND
-    </span>
-  );
 
   const phone = layout === 'phone';
   // 46px on a phone is the thumb target from the design. On desktop the mouse
@@ -128,93 +92,12 @@ export function Vitals({
   // the real constraint, not the 900px mock.
   const rowHeight = phone ? 44 : 32;
 
-  const commit = (): void => {
-    if (!preview) return;
-    update((c) => markDamage(c, preview));
-    pushLog({
-      kind: 'incoming',
-      label: `${SEVERITY_LABEL[preview.severity]} · ${preview.hp} HP`,
-      detail: preview.explanation,
-    });
-    setIncoming('');
-    setUseArmor(0);
-  };
-
   const panelClass = bare ? 'stack' : 'panel stack';
   const panel = {
     flex: 'none' as const,
     padding: bare ? 0 : phone ? 8 : 12,
     gap: phone ? 6 : 10,
   };
-
-  /**
-   * The calculator itself: a number in, a verdict and a commit out.
-   *
-   * It used to ride inside the HP header to save a row, and that turned out to
-   * be a false economy - it took about 110px off the pip row, which pushed HP
-   * at max 8 under the target floor and wrapped the track onto a second line,
-   * so it cost the row anyway and split the pips in half as well. On the phone
-   * it now has its own row beneath the tracks; on desktop it keeps the wider
-   * arrangement further down.
-   */
-  const inlineDamage = (
-    <span className="row" style={{ gap: 6, flex: 'none' }}>
-      <input
-        type="number"
-        inputMode="numeric"
-        value={incoming}
-        placeholder="14"
-        aria-label="Incoming damage"
-        onChange={(e) => {
-          setIncoming(e.target.value);
-          setUseArmor(0);
-        }}
-        onKeyDown={(e) => e.key === 'Enter' && commit()}
-        style={{
-          width: 58,
-          minHeight: 'var(--control)',
-          padding: '2px 4px',
-          textAlign: 'center',
-          font: '600 12px/1 var(--mono)',
-        }}
-      />
-      {preview === null ? (
-        <span className="t-meta" style={{ color: 'var(--dim)' }}>
-          {stats.thresholds[0]}/{stats.thresholds[1]}
-        </span>
-      ) : (
-        <>
-          {available > 0 && (
-            <button
-              type="button"
-              className="chip"
-              onClick={() => setUseArmor((n) => (n + 1 > available || n >= 3 ? 0 : n + 1))}
-              style={{
-                minHeight: 'var(--control)',
-                background: useArmor > 0 ? 'var(--armor)' : 'var(--raised)',
-                color: useArmor > 0 ? 'var(--app)' : 'var(--muted)',
-              }}
-            >
-              {useArmor > 0 ? `−${useArmor}` : 'ARM'}
-            </button>
-          )}
-          <button
-            type="button"
-            className="chip"
-            onClick={commit}
-            style={{
-              minHeight: 'var(--control)',
-              background: 'var(--text)',
-              color: 'var(--app)',
-              fontWeight: 700,
-            }}
-          >
-            {SEVERITY_LABEL[preview.severity].toUpperCase()} · {preview.hp} HP
-          </button>
-        </>
-      )}
-    </span>
-  );
 
   // A companion is a second creature, not a second screen: it takes over this
   // panel - same space, same thumb arc - behind one segmented control.
@@ -351,18 +234,6 @@ export function Vitals({
               }),
             )
           }
-          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-            {/* No TOOK prompt when nothing can be typed into it. */}
-            {!ladderUnknown && (
-              <span
-                className="t-label"
-                style={{ flex: 'none', width: 44, letterSpacing: '0.08em' }}
-              >
-                TOOK
-              </span>
-            )}
-            {ladderUnknown ? unknownLadder : inlineDamage}
-          </div>
         </>
       ) : (
         <>
@@ -413,79 +284,261 @@ export function Vitals({
         </>
       )}
 
-      <div
-        className="row"
-        style={{
-          gap: 8,
-          borderTop: '1px solid var(--line-soft)',
-          paddingTop: 10,
-          display: phone ? 'none' : 'flex',
-        }}
-      >
-        {ladderUnknown && unknownLadder}
-        {!ladderUnknown && (
-          <>
-            <span className="t-meta" style={{ flex: 'none' }}>
-              TOOK
-            </span>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={incoming}
-              placeholder="damage"
-              onChange={(e) => {
-                setIncoming(e.target.value);
-                setUseArmor(0);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && commit()}
-              style={{ width: 84, minHeight: 'var(--control)', padding: '6px 8px', font: '600 15px/1 var(--mono)' }}
-            />
-          </>
-        )}
-        {ladderUnknown ? null : preview === null ? (
-          <span className="t-meta" style={{ color: 'var(--dim)' }}>
-            {stats.thresholds[0]} MAJOR · {stats.thresholds[1]} SEVERE
-          </span>
-        ) : (
-          <>
-            <span
-              className="row"
-              style={{ gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-start' }}
-            >
-              <span
-                style={{
-                  font: '800 15px/1 var(--sans)',
-                  color: preview.hp >= 3 ? 'var(--damage)' : 'var(--text)',
-                }}
-              >
-                {SEVERITY_LABEL[preview.severity]}
-              </span>
-              <span className="t-meta" style={{ color: 'var(--muted)' }}>
-                {preview.hp} HP
-              </span>
-              {available > 0 && (
-                <button
-                  type="button"
-                  className="chip"
-                  onClick={() => setUseArmor((n) => (n + 1 > available || n >= 3 ? 0 : n + 1))}
-                  style={{
-                    minHeight: 'var(--control)',
-                    background: useArmor > 0 ? 'var(--armor)' : 'var(--raised)',
-                    color: useArmor > 0 ? 'var(--app)' : 'var(--muted)',
-                  }}
-                >
-                  {useArmor > 0 ? `−${useArmor} ARMOR` : 'USE ARMOR'}
-                </button>
-              )}
-            </span>
-            <button type="button" className="btn btn-primary" onClick={commit} style={{ minHeight: 'var(--control)' }}>
-              MARK
-            </button>
-          </>
-        )}
-      </div>
+      {/*
+       * The calculator, on the layout that still keeps it here.
+       *
+       * On a phone it has moved into the defence band, beside the two
+       * thresholds it is read against - see `IncomingDamage` below. On the
+       * desktop the cockpit's middle column has the room and the band is in a
+       * different column entirely, so it stays where it was, unchanged, under
+       * the same hairline.
+       */}
+      {!phone && <IncomingDamage stats={stats} layout="desktop" />}
 
     </div>
     </>
+  );
+}
+
+/**
+ * "Someone hit you for fourteen - how many Hit Points is that?"
+ *
+ * A number in, a verdict and a commit out. It proposes; the player commits. It
+ * is the one thing on the player's screen that writes Hit Points without being
+ * a track you tapped, which is why it lives in one component with one copy of
+ * the arithmetic rather than in two layouts that each work it out.
+ *
+ * WHY IT IS NOT IN THE COUNTERS ANY MORE. On a phone it was a 44px row plus a
+ * 6px gap under the four tracks, and the thing it printed beside itself when
+ * idle was `8/16` in 10px grey - the damage ladder, restated in the smallest
+ * type on the screen, because the box needed the ladder and could not see it.
+ * The ladder is two 26px numbers in the defence band, second on the sheet,
+ * where "threshold bene in vista" put them. So the box goes there: the number
+ * you were just told and the two numbers you read it against are now one
+ * glance, and the restatement is deleted rather than duplicated.
+ *
+ * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
+ * is 8 + 10 label + 4 + 26 number + 8 + 2 border = 58px tall. This is a `TOOK`
+ * label beside a 44px field, vertically centred: 44px in a row whose height is
+ * already 58. The band does not grow, the counters lose 50, and the whole move
+ * is a saving of exactly the row it used to be. Measured in Chrome at both
+ * widths, with the shipped fonts, in `Defenses`'s own note.
+ *
+ * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
+ * commit chip need about 170px between them and the widest this cell ever gets
+ * is 114.92 at 393. So the verdict spans the band underneath, and the band is
+ * 108 instead of 58 for exactly as long as there is an unconfirmed number in
+ * the box. That is the one state on this screen that moves what is below it,
+ * and it is the state where what is below it is not what you are looking at:
+ * the field, the ladder and the button you are about to press are all above
+ * the line that grew.
+ */
+export function IncomingDamage({
+  stats,
+  layout,
+}: {
+  stats: DerivedStats;
+  /** `band` is a pair of grid children for `Defenses`; `desktop` is one row. */
+  layout: 'band' | 'desktop';
+}): React.JSX.Element | null {
+  const character = useActive();
+  const update = useApp((s) => s.update);
+  const pushLog = useApp((s) => s.pushLog);
+  const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
+  const [incoming, setIncoming] = useState('');
+  const [useArmor, setUseArmor] = useState(0);
+
+  if (!character) return null;
+
+  const amount = Number(incoming);
+  const available = character.armorSlots.max - character.armorSlots.marked;
+
+  /*
+   * The one question this panel cannot answer.
+   *
+   * Every verdict below is read off the damage thresholds, and the thresholds
+   * are the armor's. When the sheet names armor this build does not have -
+   * a `.dhchar` from a device with a homebrew layer, a QR from a newer bundle -
+   * `deriveStats` says so with `unresolvedArmor` and falls back to the
+   * unarmored ladder, which is a floor and not this character's numbers. Every
+   * threshold real armor prints is higher, so answering from it would call a
+   * Minor hit Major and have the player mark HP they did not take. So the
+   * calculator stops asking for a number it cannot read: the tracks above are
+   * still there to be marked by hand, which is what the table does anyway when
+   * the app is not sure. A manual threshold override settles the thresholds by
+   * itself - they are then a fact the sheet carries rather than a lookup - so
+   * it puts the calculator back in business.
+   */
+  const ladderUnknown = stats.unresolvedArmor !== null && character.thresholdOverride === null;
+
+  const preview =
+    !ladderUnknown && incoming !== '' && Number.isFinite(amount)
+      ? applyDamage(amount, stats, available, { armorSlots: useArmor, massiveDamageRule })
+      : null;
+
+  const commit = (): void => {
+    if (!preview) return;
+    update((c) => markDamage(c, preview));
+    pushLog({
+      kind: 'incoming',
+      label: `${SEVERITY_LABEL[preview.severity]} · ${preview.hp} HP`,
+      detail: preview.explanation,
+    });
+    setIncoming('');
+    setUseArmor(0);
+  };
+
+  const field = (
+    <input
+      type="number"
+      inputMode="numeric"
+      value={incoming}
+      placeholder={layout === 'band' ? '14' : 'damage'}
+      aria-label="Incoming damage"
+      onChange={(e) => {
+        setIncoming(e.target.value);
+        setUseArmor(0);
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && commit()}
+      style={
+        layout === 'band'
+          ? {
+              flex: 'none',
+              width: 58,
+              minHeight: 'var(--control)',
+              padding: '2px 4px',
+              textAlign: 'center',
+              font: '600 12px/1 var(--mono)',
+            }
+          : {
+              width: 84,
+              minHeight: 'var(--control)',
+              padding: '6px 8px',
+              font: '600 15px/1 var(--mono)',
+            }
+      }
+    />
+  );
+
+  const armor = available > 0 && (
+    <button
+      type="button"
+      className="chip"
+      /*
+       * The band spells the name out because the band has no room to write it.
+       * `ARM` and `−1` are the whole visible label there, and neither is a
+       * sentence. The desktop keeps `USE ARMOR` as both, because it always has
+       * and the cockpit is not what this pass is changing.
+       */
+      aria-label={
+        layout === 'desktop'
+          ? undefined
+          : useArmor > 0
+            ? `Marking ${String(useArmor)} Armor Slots against this hit - tap to change`
+            : 'Mark an Armor Slot against this hit'
+      }
+      onClick={() => setUseArmor((n) => (n + 1 > available || n >= 3 ? 0 : n + 1))}
+      style={{
+        flex: 'none',
+        minHeight: 'var(--control)',
+        background: useArmor > 0 ? 'var(--armor)' : 'var(--raised)',
+        color: useArmor > 0 ? 'var(--app)' : 'var(--muted)',
+      }}
+    >
+      {useArmor > 0 ? `−${useArmor}${layout === 'band' ? '' : ' ARMOR'}` : layout === 'band' ? 'ARM' : 'USE ARMOR'}
+    </button>
+  );
+
+  if (layout === 'band') {
+    /*
+     * The band says the armor is unreadable in the cells where MAJOR and
+     * SEVERE would be, so there is nothing for this to add and no number it
+     * could take. It used to say `ARMOR NOT IN THIS BUILD · MARK HP BY HAND`
+     * a second time, one row below the first; on a phone that is 44px spent
+     * repeating the sentence directly above it.
+     */
+    if (ladderUnknown) return null;
+    return (
+      <>
+        <div className="row" style={{ gap: 6, justifyContent: 'flex-end', minWidth: 0 }}>
+          <span className="t-label" style={{ flex: 'none', letterSpacing: '0.08em' }}>
+            TOOK
+          </span>
+          {field}
+        </div>
+        {preview !== null && (
+          <div className="row" style={{ gridColumn: '1 / -1', gap: 6 }}>
+            {armor}
+            <button
+              type="button"
+              className="chip"
+              onClick={commit}
+              style={{
+                flex: 1,
+                minHeight: 'var(--control)',
+                background: 'var(--text)',
+                color: 'var(--app)',
+                fontWeight: 700,
+              }}
+            >
+              {SEVERITY_LABEL[preview.severity].toUpperCase()} · {preview.hp} HP
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div
+      className="row"
+      style={{ gap: 8, borderTop: '1px solid var(--line-soft)', paddingTop: 10 }}
+    >
+      {ladderUnknown ? (
+        <span className="t-meta" style={{ color: 'var(--damage)', flex: 1, minWidth: 0 }}>
+          ARMOR NOT IN THIS BUILD · MARK HP BY HAND
+        </span>
+      ) : (
+        <>
+          <span className="t-meta" style={{ flex: 'none' }}>
+            TOOK
+          </span>
+          {field}
+          {preview === null ? (
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              {stats.thresholds[0]} MAJOR · {stats.thresholds[1]} SEVERE
+            </span>
+          ) : (
+            <>
+              <span
+                className="row"
+                style={{ gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-start' }}
+              >
+                <span
+                  style={{
+                    font: '800 15px/1 var(--sans)',
+                    color: preview.hp >= 3 ? 'var(--damage)' : 'var(--text)',
+                  }}
+                >
+                  {SEVERITY_LABEL[preview.severity]}
+                </span>
+                <span className="t-meta" style={{ color: 'var(--muted)' }}>
+                  {preview.hp} HP
+                </span>
+                {armor}
+              </span>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={commit}
+                style={{ minHeight: 'var(--control)' }}
+              >
+                MARK
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }

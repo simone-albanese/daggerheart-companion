@@ -78,7 +78,7 @@ import { DualityRoll, ExperienceRow, type RollTrait } from './DualityRoll.tsx';
 import { shortReason, useRecall } from './recall.ts';
 import { Rest } from './Rest.tsx';
 import { spellcastZeroNote, traitVerbs } from '../shared/ruleText.ts';
-import { Vitals } from './Vitals.tsx';
+import { IncomingDamage, Vitals } from './Vitals.tsx';
 
 export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
@@ -962,7 +962,8 @@ function TraitGrid({
 }
 
 /**
- * The four numbers you are told under pressure.
+ * The four numbers you are told under pressure, and - on a phone - the box you
+ * are told a number into.
  *
  * Evasion, the two thresholds and Proficiency. Somebody says "eighteen" and
  * the answer is read off this band in the second before the table moves on -
@@ -973,8 +974,33 @@ function TraitGrid({
  * in: Evasion decides whether you were hit at all, the thresholds decide how
  * badly, Proficiency is the one you reach for when it is your turn instead of
  * theirs.
+ *
+ * `damage` adds `TOOK [ ]` as a fifth cell, phone only, and the argument for it
+ * is that it was already reading these numbers - the box printed `8/16` in 10px
+ * beside itself because it needed the ladder and could not see it. Now the
+ * number you were told and the ladder you read it against are one glance.
+ *
+ * THE COLUMNS STOPPED BEING EQUAL, AND THAT IS THE WHOLE COST. Four equal cells
+ * plus the box do not fit: `EVASION` at `.t-meta` with this tracking measures
+ * 47.75px, so its cell wants 67.75 with the padding and the border, and four of
+ * those plus a 91.29px `TOOK [ ]` plus four 6px gaps is 386.29 against 369px of
+ * column at 393 - over at the *wider* phone. Sized to their contents the four
+ * come to 230.08 and the box gets the rest: 114.92 at 393 and 96.92 at 375,
+ * against the 91.29 it needs. Measured in Chrome with the shipped fonts, both
+ * widths, no overflow at either.
+ *
+ * The band does not get taller. A number cell is 8 + 10 + 4 + 26 + 8 + 2 = 58px
+ * and the field is 44 in a row already 58 tall, so the fifth cell rides for
+ * free and the counters are 50px shorter for it.
  */
-function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
+function Defenses({
+  stats,
+  damage = false,
+}: {
+  stats: DerivedStats;
+  /** Draw the incoming-damage box as a fifth cell. Phone only. */
+  damage?: boolean;
+}): React.JSX.Element {
   // A Beastform replaces Evasion, so the panel says so twice: sage, and the
   // number it replaced printed struck through underneath it.
   const worn = stats.beastform;
@@ -1001,8 +1027,14 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
         display: 'grid',
         // Four across while the thresholds are numbers; when they are not, the
         // sentence that replaces them takes both of their cells rather than
-        // being squeezed into 80px.
-        gridTemplateColumns: unknownThresholds ? '1fr 2fr 1fr' : 'repeat(4, 1fr)',
+        // being squeezed into 80px. With the damage box in, the four size to
+        // their labels and the box takes the remainder - four equal cells plus
+        // the box overflow even a 393px phone.
+        gridTemplateColumns: unknownThresholds
+          ? '1fr 2fr 1fr'
+          : damage
+            ? 'auto auto auto auto 1fr'
+            : 'repeat(4, 1fr)',
         gap: 6,
       }}
     >
@@ -1028,6 +1060,11 @@ function Defenses({ stats }: { stats: DerivedStats }): React.JSX.Element {
         </>
       )}
       <Defence label="PROF" value={stats.proficiency} />
+      {/* One gate, and it is not here: with the ladder unreadable this returns
+          null on its own, and the template above has already given the band the
+          three-cell shape that says why. Two components asking the same
+          question is how they eventually answer it differently. */}
+      {damage && <IncomingDamage stats={stats} layout="band" />}
     </div>
   );
 }
@@ -2228,14 +2265,14 @@ function PlayPhone({
 
       {/* Read under pressure, so it is four numbers and not a footnote - and
           second, because "threshold bene in vista" is the one instruction in
-          Giorgio's message with a reason attached to it. */}
-      <Defenses stats={stats} />
+          Giorgio's message with a reason attached to it. `damage` puts the
+          box you type a hit into beside the two thresholds it is read
+          against, which is where it was already looking: it used to print
+          `8/16` in 10px next to itself from inside the counters. */}
+      <Defenses stats={stats} damage />
 
-      {/* The four counters, and under them the incoming-damage calculator -
-          which is a question rather than a state ("someone hit you for 14,
-          how many HP is that") and whose answer lands on the two tracks
-          directly above it. `bare`, because a box drawn around four
-          silhouettes costs 18px and distinguishes nothing. */}
+      {/* The four counters, two across. `bare`, because a box drawn around
+          four silhouettes costs 18px and distinguishes nothing. */}
       <Vitals stats={stats} layout="phone" showState={false} bare />
 
       <TraitRow
