@@ -2352,12 +2352,55 @@ function PlayPhone({
 
       {/*
        * ROLL, in the flow, at the end of everything the rules make you declare
-       * before the dice. At 393x852 it spans y522-588, which is 264 to 330px up
-       * from the bottom bezel - inside a 95th-percentile right-thumb sweep of
-       * about 330px from the bottom-right pivot at this width - and 203px clear
-       * of the tab bar. Pinned, it was 8px above a 98x60 control that navigates
-       * away. It is 317x66 at 393px and 299x66 at 375px, the largest target on
-       * the screen after a fold header.
+       * before the dice. 317x66 at 393px and 299x66 at 375px, the largest
+       * target on the screen after a fold header.
+       *
+       * WHERE IT ACTUALLY IS, MEASURED RATHER THAN REMEMBERED. This comment
+       * carried `y522-588 … 264 to 330px up from the bottom bezel … 203px clear
+       * of the tab bar` for two passes after the 2x2 counter grid took 150px
+       * out of the stack above it, and every one of those numbers was 150px
+       * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
+       * shut, at the top of the scroll: the ROLL row spans **y372-438** on the
+       * glass at both reference widths, because everything above it is the same
+       * height at both. At 393x852 that is **414 to 480px above the bottom
+       * bezel** and **353px clear of the tab bar**; at 375x667 it is **229 to
+       * 295px above the bezel** and 168px clear.
+       *
+       * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
+       * The old sentence cited a 95th-percentile right-thumb sweep of about
+       * 330px from the bottom-right pivot and said ROLL was inside it. At
+       * 414-480 it is not: on a 393x852 phone the resting sheet puts ROLL some
+       * 84px beyond the far edge of that arc, so it cannot be reached
+       * one-handed without shifting the grip. On a 375x667 phone the same row
+       * is 229-295 above a nearer bezel and is comfortably inside it. So
+       * unpinning plus the grid moved ROLL *further* from a one-handed thumb
+       * than the pinned block was, on the larger of the two reference phones,
+       * and that is a real cost of what was asked for rather than a detail.
+       *
+       * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
+       * The whole folded sheet is now readable in one look - 697 of 730 at
+       * 393x852 - which is the sentence the owner actually wrote and which a
+       * pinned block made arithmetically impossible. And ROLL is 353px clear of
+       * the tab bar, where pinned it sat 8px above a 98x60 control that
+       * navigates away: a thumb aiming for ROLL and missing low used to leave
+       * the screen mid-turn.
+       *
+       * The deciding asymmetry is that one of those costs is recoverable and
+       * the other is not. This column scrolls, so a player about to roll can
+       * bring ROLL under their thumb with the gesture that got them there, and
+       * at the moment of rolling its position is theirs to choose; a pinned
+       * block's position is nobody's to choose, and 88px of pinned chrome could
+       * not be scrolled back into the sheet. The cost is paid at rest, where
+       * nobody is reaching for ROLL, and the benefit is paid while reading,
+       * which is what the resting sheet is for. I would not put the pin back.
+       *
+       * What would change that answer is a measurement nobody has taken: a real
+       * thumb, at a table, on a 393x852 phone, being asked whether the reach at
+       * the top of the scroll is a shrug or a fumble. `BACKLOG.md` keeps that in
+       * the list of things that need a human rather than an argument.
+       * `playSheet.test.tsx`, «says where on the glass ROLL is drawn», derives
+       * every number above from the budget table and the shell's own three
+       * constants, so none of them can go 150px stale again.
        */}
       <DualityRoll
         stats={stats}
