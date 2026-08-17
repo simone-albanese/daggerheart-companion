@@ -13,8 +13,8 @@
  * changed underneath them: with the counters and the thresholds moved to the
  * top where Giorgio's message puts them, the Experiences and the modifier row
  * moved out from above ROLL, and - since the reflow - the identity block off
- * the phone entirely, ROLL's own lower edge lands **438px** above the fold at
- * 393x852 and **253px** above it at 375x667 without a pin, so the block was
+ * the phone entirely, ROLL's own lower edge lands **424px** above the fold at
+ * 393x852 and **239px** above it at 375x667 without a pin, so the block was
  * buying a reach the order already provides and charging 266px for it. This
  * paragraph carried "195px and 10px" for two passes against assertions of 345
  * and 160, which is exactly the habit `playSheet.test.tsx` exists to break:
@@ -624,22 +624,54 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * +1 - use it to Sprint, Leap, Maneuver" - so a screen-reader user loses
  * nothing at all and gains the 150px a sighted user gains.
  *
- * ERGONOMICS. Six chips at `flex: '1 1 46px'` with 4px between them is the
- * tightest target spacing on this screen, and I am not going to pretend it is
- * comfortable. Three things make it acceptable: it is exactly the arrangement
- * and exactly the gap the shipped pinned strip already used, so it is not a new
- * risk; a mis-tap arms a neighbouring trait, which is visible instantly - the
- * chip fills with `--hope` - and costs one tap to undo; and it spends nothing.
- * No Hope, no log line, no roll. Every costly mis-tap on this screen (ROLL,
- * RECALL, USE, the damage commit) has either a much bigger target or a second
- * tap. Content is about 341.6px against a 369px column at 393px and 351px at
- * 375px - "AGI +1" is 45.6px at `.chip`'s 9.5px mono with its tracking and 4px
- * of padding either side, six of those plus the 44px control plus six 4px gaps
- * - and the row carries `flexWrap: 'wrap'`, so an unforeseen width degrades to
- * a second 44px row rather than to clipped text.
+ * THE CHIP IS TWO LINES AT 15px, WHICH IS DECISION 5. It was one line at
+ * `.chip`'s 9.5px - the smallest type anywhere on this sheet, for six of the
+ * numbers a player reads most often. Stacked, the abbreviation sits over the
+ * value at 15px and the chip is 58 tall instead of 44: **+14 on the column**,
+ * and the third-largest type on the screen where it was the smallest. Nothing
+ * else in the row moves; the verbs control follows to 58 so the row is one
+ * height rather than a 44 floating in a 58.
  *
- * The space in "AGI +1" is load-bearing: `playSheet.test.tsx`'s `traitChip`
- * helper matches `^AGI [+−]`, and seven tests would change to save five pixels.
+ * AND THE BASIS IS 44, WHICH IS A SEPARATE FIX AND IS NOT THE SAME ONE. Flex
+ * line-breaking is decided on the declared `flex-basis`, not on what the chip
+ * draws, so a taller chip is not a narrower one and decision 5 closes nothing
+ * on its own - the audit report says so in as many words. At `1 1 46px` the row
+ * declared 6 x 46 + 44 + 6 x 4 = **344**, which is exactly the column at
+ * viewport 368 and one pixel more at 367: an exact fit is a coincidence, and
+ * every Android at 360 paid 48px for it (two rows, the second holding nothing
+ * but the 44x44 chevron - measured: the row is 92 tall at 367 and 44 at 368).
+ * At `1 1 44px` with `minWidth: 44` the line declares 6 x 44 + 44 + 24 =
+ * **332**, so it is one row from viewport **356** up. Nothing changes at 368 and
+ * above: flex-grow redistributes the same free space, so the chips are still
+ * 46.0 at 368, 47.17 at 375 and 50.17 at 393, measured before and after.
+ *
+ * ERGONOMICS. Six targets at ~50.2px wide at 393, 47.2 at 375, 44.67 at 360 and
+ * exactly 44.0 at 356, all 58 tall, with 4px between them. That is still the
+ * tightest target spacing on this screen and I am not going to pretend it is
+ * comfortable; what changed is that it is 32% taller and that the floor is now
+ * declared rather than true by arithmetic somewhere else. The horizontal gutter
+ * is unchanged, so the near-miss risk sideways is exactly what it was, and three
+ * things still make it acceptable: it is the arrangement and the gap the shipped
+ * pinned strip already used; a mis-tap arms a neighbouring trait, which is
+ * visible instantly - the chip fills with `--hope` - and costs one tap to undo;
+ * and it spends nothing. No Hope, no log line, no roll. Every costly mis-tap on
+ * this screen (ROLL, RECALL, the damage commit) has either a much bigger target
+ * or a second tap.
+ *
+ * BELOW 356 IT IS TWO ROWS AND THAT IS CORRECT RATHER THAN A DEFECT. Seven 44px
+ * targets and six 4px gaps need 332 of column, which needs a 356px viewport;
+ * below that no arrangement puts them on one line without taking one under the
+ * floor. So the row wraps - 58 + 4 + 58 = **120**, +62 on the column - and the
+ * second line carries the chevron alone. It is a reflow on a column that scrolls,
+ * and nothing is ever clipped or off the glass.
+ *
+ * The space after the abbreviation is load-bearing and it is *inside* the first
+ * span for that reason: the two lines are two `display: block` spans, so
+ * `textContent` concatenates them with nothing between, and
+ * `playSheet.test.tsx`'s `traitChip` helper matches `^AGI [+−]` in seven tests.
+ * At 15px mono with `.chip`'s 0.06em the widest line a chip draws is the
+ * abbreviation at 29.7px, which is 37.7 with the padding - inside the 44px
+ * basis, so no chip ever paints outside its own box.
  */
 function TraitRow({
   stats,
@@ -693,9 +725,21 @@ function TraitRow({
               className="chip"
               style={{
                 position: 'relative',
-                flex: '1 1 46px',
-                minHeight: 'var(--tap)',
+                // 44 and not 46, and declared twice: the basis is what flex
+                // breaks lines on, and the `minWidth` is what makes "every
+                // target is at the floor in both directions" true by
+                // declaration rather than by arithmetic somewhere else.
+                flex: '1 1 44px',
+                minWidth: 44,
+                minHeight: 58,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
                 justifyContent: 'center',
+                // Overrides `.chip`'s `font: 600 9.5px/1 var(--mono)` size and
+                // leading and keeps its family, its weight and its tracking.
+                fontSize: 15,
+                lineHeight: 1.15,
                 padding: '0 4px',
                 background: active ? 'var(--hope)' : 'var(--raised)',
                 color: active ? 'var(--app)' : 'var(--muted)',
@@ -711,8 +755,16 @@ function TraitRow({
                 }`,
               }}
             >
-              {TRAIT_LABELS[t].slice(0, 3).toUpperCase()} {value >= 0 ? '+' : '−'}
-              {Math.abs(value)}
+              {/* Two blocks, and the trailing space in the first one is not a
+                  typo: `textContent` joins two block spans with nothing between
+                  them, and `traitChip` matches `^AGI [+−]` in seven tests. */}
+              <span style={{ display: 'block' }}>
+                {TRAIT_LABELS[t].slice(0, 3).toUpperCase()}{' '}
+              </span>
+              <span style={{ display: 'block' }}>
+                {value >= 0 ? '+' : '−'}
+                {Math.abs(value)}
+              </span>
               {marked && (
                 <span
                   aria-label="marked this tier"
@@ -731,10 +783,12 @@ function TraitRow({
           );
         })}
         {/*
-         * The verbs control. Square at the touch floor in both directions, and
-         * `aria-expanded` because that is what it is - but deliberately not a
-         * `Disclosure`, which is a full-width header by contract and would cost
-         * the 44px row this whole component exists to save.
+         * The verbs control. At the touch floor in width and taller than it in
+         * height, because it follows the chips to 58 so the row is one height
+         * rather than a 44 floating in a 58 - and `aria-expanded` because that
+         * is what it is, but deliberately not a `Disclosure`, which is a
+         * full-width header by contract and would cost the row this whole
+         * component exists to save.
          */}
         <button
           type="button"
@@ -746,7 +800,7 @@ function TraitRow({
             flex: 'none',
             width: 44,
             minWidth: 44,
-            minHeight: 'var(--tap)',
+            minHeight: 58,
             justifyContent: 'center',
             borderRadius: 'var(--r3)',
             background: 'var(--raised)',
@@ -2215,13 +2269,13 @@ function PlayDesktop({
  * which carries the incoming-damage field *and* the conditions door as its
  * fifth cell, for nothing, because two 44px controls fit inside a row the
  * numbers hold open at 64 - the four counters 94 as a 2x2 grid, the trait row
- * 44, and the roll row 66, ROLL beside a MODS control that costs the column
+ * 58, and the roll row 66, ROLL beside a MODS control that costs the column
  * nothing because it is 44 wide inside a height ROLL was already holding, plus
- * three of this column's 8px gaps. **ROLL's lower edge lands at 292 of a usable
+ * three of this column's 8px gaps. **ROLL's lower edge lands at 306 of a usable
  * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
- * foot), which is 438px of slack.
+ * foot), which is 424px of slack.
  *
- * AT 375x667 THE SAME 292 CLEARS A 545px COLUMN BY 253px, where before the
+ * AT 375x667 THE SAME 306 CLEARS A 545px COLUMN BY 239px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
  * are the dearest of them at **+68**, a companion (+50), a Beastform banner
@@ -2234,11 +2288,11 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **604px against 730 at 393x852, with 126 to spare** - every fold
+ * TWICE OVER. **618px against 730 at 393x852, with 112 to spare** - every fold
  * shut, the `playedCharacter` fixture. That is the condition P5-5's own decision
  * 1 made the unpinning conditional on, unmet through P5-5 (899, over by 169) and
- * P5-6 (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 126.
- * It fits at 744x1133 with 468 to spare, and it is **59px over at 375x667** -
+ * P5-6 (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 112.
+ * It fits at 744x1133 with 454 to spare, and it is **73px over at 375x667** -
  * which is one fold header and a gap, where it was three.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
@@ -2255,10 +2309,10 @@ function PlayDesktop({
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
- * this sheet now clears by 92 where P5-8's 697 was one pixel over. `BackupBanner`
+ * this sheet now clears by 78 where P5-8's 697 was one pixel over. `BackupBanner`
  * is the other one the budget has never counted: it is 58px above this scroll
  * from first launch until the first backup is taken, so a new user's column is
- * 672 - and 604 clears that by 68, where 697 was 25px over it.
+ * 672 - and 618 clears that by 54, where 697 was 25px over it.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
@@ -2292,7 +2346,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 604 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 618 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2407,29 +2461,29 @@ function PlayPhone({
        * of the tab bar` for two passes after the 2x2 counter grid took 150px
        * out of the stack above it, and every one of those numbers was 150px
        * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-       * shut, at the top of the scroll: the ROLL row spans **y279-345** on the
+       * shut, at the top of the scroll: the ROLL row spans **y293-359** on the
        * glass at both reference widths, because everything above it is the same
-       * height at both. At 393x852 that is **507 to 573px above the bottom
-       * bezel** and **446px clear of the tab bar**; at 375x667 it is **322 to
-       * 388px above the bezel** and 261px clear.
+       * height at both. At 393x852 that is **493 to 559px above the bottom
+       * bezel** and **432px clear of the tab bar**; at 375x667 it is **308 to
+       * 374px above the bezel** and 247px clear.
        *
        * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
        * The old sentence cited a 95th-percentile right-thumb sweep of about
        * 330px from the bottom-right pivot and said ROLL was inside it. It is
        * not, at either width, and the reflow made that worse rather than
        * better: deleting the 99px identity block lifted everything below it, so
-       * on a 393x852 phone the resting sheet now puts ROLL some 177px beyond the
+       * on a 393x852 phone the resting sheet now puts ROLL some 163px beyond the
        * far edge of that arc where P5-8 put it 84 beyond, and on a 375x667 phone
        * ROLL has left the arc altogether - it was 229-295 and comfortably inside
-       * it, and it is 322-388 and outside it by 8. That is a real cost of what
+       * it, and it is 308-374 and outside it by 44 at the far edge. That is a real cost of what
        * was asked for rather than a detail, and it is the cost of decision 2
        * specifically: every pixel the sheet gets shorter above ROLL is a pixel
        * further from the thumb at rest.
        *
        * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-       * The whole folded sheet is now readable in one look - 604 of 730 at
+       * The whole folded sheet is now readable in one look - 618 of 730 at
        * 393x852 - which is the sentence the owner actually wrote and which a
-       * pinned block made arithmetically impossible. And ROLL is 446px clear of
+       * pinned block made arithmetically impossible. And ROLL is 432px clear of
        * the tab bar, where pinned it sat 8px above a 98x60 control that
        * navigates away: a thumb aiming for ROLL and missing low used to leave
        * the screen mid-turn.
@@ -2609,7 +2663,7 @@ function PlayPhone({
        * the permanent strip was - and the only arrangement that removes the 52
        * is this one, paid for by a door that costs no height, which is the
        * 44x44 control in the defence band's fifth cell at the top of this
-       * column. With nothing on, the folded sheet is 604 of 730 at 393x852.
+       * column. With nothing on, the folded sheet is 618 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A
@@ -2633,7 +2687,7 @@ function PlayPhone({
        *
        * Here it is the last child of the scroll, under the last shut fold. The
        * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 604px against 730 - and everything
+       * bottom edge of the lineage header - 618px against 730 - and everything
        * it sums is something a player has to be able to reach. This is not:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is
