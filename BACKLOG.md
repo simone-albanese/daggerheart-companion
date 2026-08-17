@@ -1448,26 +1448,44 @@ where being wrong stops the project rather than costing a character.
       Note what it would *not* have caught: the `background` +
       `backgroundColor: undefined` collision. That one is already covered by a
       test that fails on the pattern.
-- [ ] **The browser floor is stated nowhere, and eight `color-mix()` values sit
+- [ ] **The browser floor is stated nowhere, and nine `color-mix()` values sit
       where no build target can reach them.** No `browserslist`, no browser
       section in the README, no version in `Architecture.md` §13, no `@supports`
       anywhere in `src/` or `public/` — zero hits. The single statement of intent
       is `vite.config.ts:20` `build.target: 'es2022'`, which governs JS only.
-      Against it, eight `color-mix(in srgb, …)` uses, every one an inline React
-      style string that esbuild never sees as CSS — `Beastform.tsx:31`,
-      `Play.tsx:216`, `Companion.tsx:554`, `Conditions.tsx:116`,
-      `DeathMove.tsx:105` and `:484`, `DomainCardView.tsx:153` and `:375` — so
-      setting `cssTarget` would be a false sense of control. Also `base.css:159`
+      Against it, nine `color-mix(in srgb, …)` uses, every one an inline React
+      style string that esbuild never sees as CSS — `Beastform.tsx:32`,
+      **`Play.tsx:778` and `:1009`**, `Companion.tsx:547`, `Conditions.tsx:204`,
+      `DeathMove.tsx:106` and `:475`, `DomainCardView.tsx:169` and `:419` — so
+      setting `cssTarget` would be a false sense of control. Also `base.css:222`
       `height: 100svh`, load-bearing for the no-document-scroll layout. Below the
       floor (Safari before 16.2 — an iPhone 7 capped at iOS 15) the app loses its
       colour coding and keeps its legibility: every site keeps a border and a
       text colour, and domains carry shape-coding independently. The cost is that
       a contributor has nothing to check a change against, and no CI check can
       exist for a floor nobody wrote down.
-      **Re-measured at HEAD and still open, at the same numbers**: eight
-      `color-mix()` uses in `src/`, `base.css:172` still `height: 100svh`, and
-      `browserslist` plus `@supports` together return zero across `src/`,
-      `public/`, `package.json` and `index.html`.
+      **Re-measured at HEAD: it is nine, not eight, and every line number in the
+      list had moved.** *(~~eight, and `base.css:159`, re-measured to
+      `:172`~~ — **superseded**: `grep -rn 'color-mix' src` returns twelve hits,
+      three of which are the prose in `Header.tsx:165-170` arguing the `env()`
+      fallback, leaving **nine declarations**. `Play.tsx` holds two of them and
+      the list had one. The counting error is small and the shape is not: this
+      is the figure `Header.tsx` leans on to say the browser that would need an
+      `env()` fallback does not exist, so it is the one number in this entry
+      another file's argument rests on.)* `browserslist` plus `@supports`
+      together still return zero across `src/`, `public/`, `package.json` and
+      `index.html`.
+      **And the fallback the header gave up is written down rather than owed**,
+      with this list as its evidence: `padding: '0 20px'` gave 20px gutters
+      unconditionally and two `env()` longhands do not, because a parser that has
+      never heard of `env()` drops the whole declaration. Not written, because
+      `env()` shipped in Safari 11.2 and Chrome 69 while `svh` is 15.4/108 and
+      `color-mix()` is 16.2/111 — so the browser it would serve has to be four
+      years newer and four years older at once — and because six overlays declare
+      a `padding` **shorthand** carrying `env()`, which the same parser drops
+      whole, so repairing one bar would leave the shape in six places while
+      reading as though it had been dealt with. `Header.tsx`, "THE FALLBACK THIS
+      GAVE UP, AND WHY IT IS NOT OWED".
 - [ ] **A screen crash gives the user one line of text and no way to convey it.**
       `ScreenBoundary.tsx:29-31` — *"No telemetry anywhere in this app; the
       console is the only reporter"* — then `console.error`. The fallback renders
@@ -2829,7 +2847,21 @@ scope. They are here so they are visible as **open** rather than quietly closed.
       argument standing. What blocks it now is only that `--control` gates every
       chip on the GM screens too, so it wants `Gm.tsx` and `Build` measured at
       `hybrid` in the same pass.
-- [ ] **The six shell-chrome blocks inside `<main>` do not pay the side cutout.**
+- [x] ~~**The six shell-chrome blocks inside `<main>` do not pay the side
+      cutout.**~~ — **closed, lane `a3-polish`, `src/ui/shell/gutter.ts`.** The
+      diagnosis below stands and is left standing, because the fix it proposed
+      was the wrong shape and that is worth reading: a `margin` shorthand
+      carrying an `env()` is dropped **whole** by jsdom's parser, so it would
+      have taken the 8px top margin with it in every test and read back as four
+      empty strings. Four longhands in one module instead — `SHELL_BLOCK_MARGIN`,
+      the same two `calc()` strings the header pays its padding with, read by the
+      header and by all five call sites. And the measurement that turned this
+      from a note into a repair was not the misalignment: `ShellBanner`'s dismiss
+      ✕ is a 44×44 target at [781, 825] against a strip starting at 793, so **32
+      of its 44 pixels — 72.7% — were inside the cutout**, leaving 12px of
+      aimable glass. That is worse than the 15.4px left to the SETTINGS button
+      this whole safe-area repair began from. After: banner [79, 773], ✕ at
+      [722, 766], clear of the strip; with the insets at 0 nothing changes.
       `App.tsx:293`, `:328`, `:404`, `:572` (`UnsavedWork`, the storage-error
       alert, the integrity alert, the quarantined-characters alert) and
       `ShellBanner.tsx:168` (`UpdateBanner` and `BackupBanner`, two blocks from
@@ -2853,7 +2885,9 @@ scope. They are here so they are visible as **open** rather than quietly closed.
       inside a right strip that starts at 793. The shell's casualties were at the
       top of the glass and outside every arc; these are the controls a thumb
       lands on mid-scene. A reader who sees "the cutout is paid" should know it
-      is paid on two bars and nowhere else.
+      is paid on two bars and the six chrome blocks above the screen, and
+      nowhere else. *(~~"on two bars and nowhere else"~~ — **superseded** by the
+      entry above.)*
 - [ ] **The Cards filter rails do not pay it.** `Cards.tsx`, not the shell: they
       are full-width horizontal scrollers and start at x=0 whatever the inset.
 - [ ] **`GmBar` does not pay it**, and unlike `TabBar` it is drawn at *every*

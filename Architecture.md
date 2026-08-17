@@ -163,7 +163,22 @@ scheda dice già tutto quello che l'app dovrebbe chiedere. `needsOnboarding` in
 `prefs.ts` la disegna solo con la libreria vuota e con `onboarded` falso; una
 scheda letta da disco senza quella chiave è letta **come già onboardata**, o ogni
 aggiornamento chiederebbe «chi tiene in mano questo telefono?» a chi gioca da
-mesi. Si può saltare a ogni passo, e il salto finisce sulla stessa scheda
+mesi.
+
+Il flusso di primo avvio scrive `onboarded` una volta per rotta, ma `onboarded`
+non è più difeso solo da quelle scritture. `state.ts` porta un invariante —
+`onboardedByDoing` in `prefs.ts` — che registra `onboarded: true` nel momento in
+cui esiste un personaggio su questo dispositivo, qualunque porta lo abbia
+portato: import da file, clipboard, QR, ripristino da backup, o semplicemente
+`init` che rilegge una libreria non vuota. Un dispositivo senza personaggi
+mantiene il suo `false` e viene ancora interrogato. Serve perché *qualsiasi*
+rotta che metta un personaggio sul dispositivo senza arrivare a quella scrittura
+lascia `onboarded: false` sul disco per sempre, e il sintomo compare solo mesi
+dopo, la prima volta che la libreria torna vuota. Poiché `init` fa `set` della
+libreria appena letta, un dispositivo che porta già quel `false` durevole si
+ripara al lancio successivo.
+
+Si può saltare a ogni passo, e il salto finisce sulla stessa scheda
 riassuntiva di ogni altro percorso, coi default: uscire per sbaglio è il modo in
 cui una funzione diventa una che nessuno ha mai visto.
 
@@ -799,6 +814,7 @@ daggerheart-companion/
 │  ├─ store/  db.ts  state.ts  backup.ts  campaigns.ts  campaignMigration.ts
 │  ├─ ui/
 │  │  ├─ shell/  player/  gm/  settings/  shared/
+│  │  │  └─ shell/gutter.ts   # la grondaia laterale, scritta una volta sola
 │  └─ main.tsx
 ├─ public/  manifest.webmanifest  sw.js
 └─ tests/fixtures/             # righe di testo dall'SRD, MAI un PDF
@@ -877,9 +893,29 @@ Display Zoom acceso — viewport 320×693, cioè 693×320 di taglio, sotto i 720
 anche `TabBar` è disegnata su un dispositivo che il ritaglio ce l'ha ancora.)*
 Il codice era ed è corretto: `Header.tsx` e `TabBar.tsx` pagano `paddingLeft` e
 `paddingRight` in modo indipendente, il che è giusto a 0, a 44 o a 59 per lato.
-**Cosa non è pagato**: le sei fasce di chrome dentro `<main>`, la colonna di
-Play, i rail dei filtri di Cards, `GmBar` e i sei overlay con `env()` dentro uno
-shorthand. Sta in `BACKLOG.md` e in `AUDIT-HANDOFF.md` §7 punto 6.
+
+**E la grondaia laterale si scrive in un posto solo: `src/ui/shell/gutter.ts`.**
+Due cose stanno contro i bordi lunghi della finestra a ogni larghezza — questo
+`<header>` e le sei fasce di chrome che `App.tsx` disegna dentro `<main>` (i
+quattro alert, più `UpdateBanner` e `BackupBanner` via `ShellBanner`) — e per
+quasi tutta la vita dell'app condividevano una grondaia da 20px scritta a mano
+in due file. Da quando l'header paga il ritaglio hanno smesso di coincidere:
+misurato a 852×393 con 59 per lato, l'header sta a [79, 773] e il banner a
+[20, 832] **in entrambe le passate**, cioè non si muove affatto. Il modulo
+esporta `GUTTER_LEFT`, `GUTTER_RIGHT` e `SHELL_BLOCK_MARGIN`, e li leggono
+l'header e i cinque punti di chiamata delle sei fasce. **Quattro longhand e non
+uno shorthand `margin`**: jsdom butta via intero uno shorthand che porta un
+`env()`, quindi la forma abbreviata avrebbe portato giù con sé anche gli 8px di
+margine superiore in ogni test. Non era una questione di allineamento: la ✕ di
+chiusura di `ShellBanner`, bersaglio 44×44 a [781, 825] contro una striscia che
+comincia a 793, aveva **32 dei suoi 44px — il 72,7% — dentro il ritaglio**, una
+vittima peggiore dei 15,4px rimasti a SETTINGS, che è il difetto da cui questa
+intera riparazione è partita.
+
+**Cosa non è pagato**: la colonna di Play, i rail dei filtri di Cards, `GmBar` e
+i sei overlay con `env()` dentro uno shorthand. *(~~le sei fasce di chrome dentro
+`<main>`~~: **chiuse** da `gutter.ts`.)* Sta in `BACKLOG.md` e in
+`AUDIT-HANDOFF.md` §7 punto 6.
 
 Il vincolo cade dove è aritmeticamente impossibile: Adult Flickerfly ha sette feature,
 Battle Box ne ha una con una tabella di sei voci. Tre avversari di Tier 3 più un

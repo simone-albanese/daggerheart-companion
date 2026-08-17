@@ -2,7 +2,7 @@
 
 > **Read `AUDIT-HANDOFF.md` first.** It is newer than this file and it
 > contradicts it on purpose: it is the state of the resolution audit, which has
-> merged eleven lanes over this file's head and moved most of the numbers in the
+> merged twelve lanes over this file's head and moved most of the numbers in the
 > Play budget below. Where the two disagree, that one measured later.
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
@@ -18,7 +18,7 @@ savings that close the reflow, plus the sweep that catches the defect P5-6
 found by rendering the screen instead of summing it — 2284 with P5-7, the
 licence notice at the end of every screen's scroll, **2289 with P5-8**, which is
 the pass that finally made the whole folded sheet fit, and **2481 in 108 files**
-after the resolution audit's eleven lanes.
+after the resolution audit's twelve lanes.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
 `dd66d35`, which is **138 commits** behind `main` — `git rev-list --count
@@ -210,7 +210,7 @@ time; the campaigns store added a fifth and it went red).
 ## What was finished, across everything that is not pushed
 
 **278 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
-five lanes merged after it and the resolution audit's eleven. Counted at `HEAD`
+five lanes merged after it and the resolution audit's twelve. Counted at `HEAD`
 with `git rev-list --count
 --no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146
 that stood here at one point does not reconcile with any

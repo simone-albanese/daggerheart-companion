@@ -21,8 +21,10 @@ dove non lo è c'è scritto da dove viene.
 
 ## 1. Cosa è già in `main`
 
-Undici lane fuse, ciascuna da un worktree isolato tagliato da `main` locale.
-Le prime sette sono della prima tornata; le ultime quattro sono di oggi.
+**Dodici** lane fuse, ciascuna da un worktree isolato tagliato da `main` locale.
+Le prime sette sono della prima tornata; le quattro successive sono di oggi; la
+dodicesima è `a3-polish`, che era ancora in volo quando questo file diceva
+«undici» ed è atterrata dopo — vedi §1a.
 
 | Chiuso | Cos'era, misurato | Nota |
 |---|---|---|
@@ -42,14 +44,123 @@ Le prime sette sono della prima tornata; le ultime quattro sono di oggi.
 | **Onboarding, decisione 9** (`58c4bd5`) | Il primo schermo che questa app abbia mai mostrato erano nove carte classe — a un GM, e a chi il personaggio ce l'aveva già finito su un altro telefono | Diciassette commit, non zero: l'handoff 2 diceva «appena partito, nessun commit» e si sbagliava |
 | `.gitignore` | `Manuali/` con la barra non matcha un symlink: una lane aveva già committato un blob 120000 che al merge avrebbe sostituito **321MB di PDF acquistati** con un link a sé stesso | Preso prima del merge leggendo `git diff --name-only`. Backup in `~/Documents/Manuali-BACKUP-audit` |
 | Onestà | `probe.js` chiamava «WCAG 2.5.8» un test `w<24||h<24` senza controllo di spaziatura; sette rilevazioni portavano l'accusa sbagliata | Accusare sempre il **floor 44/34 di questo progetto**, che è più severo e sufficiente. **Tre casi in più con la stessa forma**: 38,81 / 42,81 / 30,81px passano tutti e tre i 24px di WCAG 2.5.8 con margine, e rompevano `--control` / `--tap` |
+| **`polish`** (`a3-polish`, sette commit) | Nove voci sollevate da un confermatore indipendente *dopo* il merge delle quattro lane, quindi di livello integrazione e senza padrone. **Sei riparate, una scritta, nessuna smentita** | Vedi §1a. Chiude §2b e la voce 8 di §3 |
+
+### 1a. La lane `polish`, atterrata dopo il passaggio di documenti
+
+Questa lane era ancora in volo quando la lista qui sopra è stata scritta, e per
+questo il file diceva «undici». Le sue sei riparazioni, ognuna verificata contro
+l'albero fuso:
+
+- **`onboarded` non è più difeso soltanto dalle scritture del primo avvio.** Il
+  flusso di primo avvio continua a scrivere `onboarded` una volta per rotta,
+  come questo file dice da sempre; quello che non diceva è la classe di buco che
+  quella forma lascia. *Qualsiasi* rotta che metta un personaggio sul
+  dispositivo senza arrivare a quella scrittura lascia `onboarded: false` sul
+  disco per sempre, e il sintomo compare mesi dopo, la prima volta che la
+  libreria torna vuota — una cancellazione, uno sfratto, una quarantena — e
+  l'app chiede «chi tiene in mano questo telefono?» a chi gioca da mesi. Due
+  rotte così esistevano: la porta dell'import da fotocamera, chiusa dalla lane
+  onboarding, e il chip RESTORE FROM A BACKUP dell'alert di integrità, che chiama
+  `setScreen('settings')` — e `setScreen` persiste tutto il record via `setPrefs`
+  — mentre il ripristino che segue abbassa il cancello per conteggio dei
+  personaggi senza scrivere niente.
+
+  > Il flusso di primo avvio scrive `onboarded` una volta per rotta, ma
+  > `onboarded` non è più difeso solo da quelle scritture. `state.ts` porta un
+  > invariante — `onboardedByDoing` in `prefs.ts` — che registra `onboarded: true`
+  > nel momento in cui esiste un personaggio su questo dispositivo, qualunque
+  > porta lo abbia portato: import da file, clipboard, QR, ripristino da backup,
+  > o semplicemente `init` che rilegge una libreria non vuota. Un dispositivo
+  > senza personaggi mantiene il suo `false` e viene ancora interrogato.
+
+  `onboardedByDoing(prefs, characterCount)` è `!prefs.onboarded && characterCount > 0`
+  (`prefs.ts:242-244`), e l'unico posto in cui spara è la subscription in
+  `state.ts:657-660`. `> 0` e non `>= 0` di proposito: avere un personaggio è una
+  risposta, non averne non lo è. E poiché `init` fa `set` della libreria appena
+  letta, **un dispositivo che porta già il `false` durevole da prima di questa
+  regola si ripara al lancio successivo**, non al prossimo import. Un fix mirato
+  al chip avrebbe chiuso il chip.
+
+  *Un bordo tagliente scritto e non riparato*: questa subscription chiama
+  `setPrefs`, cioè un `set` dentro una notifica, e zustand percorre il proprio
+  Set di listener dal vivo. Sulla transizione che qualifica, **ogni listener
+  registrato dopo questo viene chiamato due volte**, la seconda con una coppia
+  `state`/`previous` stantia. Oggi è innocuo solo perché l'unico altro
+  subscriber (`Onboarding.tsx`) verifica l'*attraversamento* dello zero. Chi ne
+  aggiunge un altro lo legga: `state.ts` lo dice per esteso.
+
+- **`src/ui/shell/gutter.ts`: una sola grondaia laterale.** Le sei fasce di
+  chrome dentro `<main>` pagavano `margin: '8px 20px 0'` fisso mentre l'header
+  era già rientrato di `calc(20px + env(...))`. Adesso `GUTTER_LEFT`,
+  `GUTTER_RIGHT` e `SHELL_BLOCK_MARGIN` stanno in un file solo, letto
+  dall'header (`Header.tsx:373/375`) e dai cinque punti di chiamata che
+  disegnano le sei fasce (`App.tsx:294, :329, :405, :573`,
+  `ShellBanner.tsx:171`). **Misurato prima di essere creduto**, a 852×393 con 59
+  per lato: header [79, 773], banner [20, 832] in *entrambe* le passate — 59px
+  di disallineamento per lato — e la ✕ di chiusura di `ShellBanner`, bersaglio
+  44×44 a [781, 825] contro una striscia che comincia a 793, aveva **32 dei suoi
+  44px (72,7%) dentro il ritaglio**, cioè 12px di vetro mirabile. È una vittima
+  *peggiore* dei 15,4px che restavano a SETTINGS, che è il difetto da cui è
+  partita tutta la riparazione della safe area. Dopo: banner [79, 773], ✕ a
+  [722, 766], fuori dalla striscia. Con inset a 0 non cambia nulla.
+
+  Longhand e non uno shorthand `margin`, di proposito: jsdom butta via **intero**
+  uno shorthand che porta un `env()`, quindi la forma che `Header.tsx` aveva
+  proposto avrebbe portato giù con sé anche gli 8px di margine superiore in ogni
+  test. Quella proposta è corretta sul posto.
+
+- **`useMoreBelow` ricostruiva il proprio `ResizeObserver` e il listener di
+  scroll a ogni commit di `DualityRoll`.** Lettura e cablaggio erano un solo
+  `useLayoutEffect` senza dependency list, e `DualityRoll` committa a ogni tocco
+  di dado, ogni modificatore armato, ogni cambio di tratto e più volte per tiro —
+  nessuno dei quali può cambiare se c'è contenuto sotto la piega. Peggio
+  dell'allocazione: `observe()` schedula una callback per la dimensione iniziale
+  di ogni elemento appena osservato, quindi ognuno di quei commit accodava una
+  lettura in più *e* sostituiva l'observer che l'avrebbe consegnata. Contato in
+  jsdom contro l'hook pre-fix: **2 observer e 2 listener al solo mount, 6 e 6
+  dopo quattro tocchi ordinari, con 5 disconnect**. Adesso è 1 e 1 per la vita
+  del pannello. La lettura tiene la dependency list vuota, che è l'unico modo di
+  vedere un figlio che cresce; il cablaggio è chiavato sull'elemento. jsdom non
+  ha `ResizeObserver` — che è a cosa serve la guardia dell'hook — quindi lo stub
+  contatore in `tests/ui/cockpitRoll.test.tsx` è l'unico modo in cui questo costo
+  è visibile alla suite.
+
+- **Il fallback di `env()` è stato rifiutato su prove, non implementato.** Il
+  rilievo è aritmeticamente corretto — `padding: '0 20px'` dava 20px
+  incondizionati, due longhand con `env()` no, perché un parser che non conosce
+  `env()` butta via l'intera dichiarazione. Non è stato scritto perché il browser
+  che servirebbe non esiste nell'insieme supportato, e l'insieme è definito da
+  ciò che l'app già pretende **senza** fallback: `base.css:222` è
+  `.app { height: 100svh }` e nient'altro (`svh`: Safari 15.4, Chrome 108), e ci
+  sono nove sfondi `color-mix(in srgb, …)` senza colore di ripiego (Safari 16.2,
+  Chrome 111). `env(safe-area-inset-*)` è di Safari 11.2 e Chrome 69, quattro
+  anni prima di entrambi: **il browser da proteggere dovrebbe essere quattro anni
+  più nuovo e quattro più vecchio nello stesso momento.** E sarebbe incompleto
+  comunque: sei overlay dichiarano un `padding` **shorthand** con dentro `env()`,
+  e lo stesso parser butta via anche quelli interi. Registrato in `Header.tsx`
+  sotto «THE FALLBACK THIS GAVE UP, AND WHY IT IS NOT OWED».
+
+- **Due cifre di `ChipRow` rimisurate.** La soglia di a-capo del rail delle
+  armature è **392, non 393**: il content box del rail è `viewport − 46`
+  (overlay 2×10, bordo del pannello 2×1, padding della banda 2 2×12), i 345,30px
+  di contenuto che il docblock dichiara entrano finché `viewport >= 391,3`,
+  quindi 392 in pixel CSS interi — misurato, rail 48px a 392 e 98px a 391. La
+  stessa aritmetica riproduce le tre cifre di ritaglio già scritte accanto,
+  `44 − (345,30 − (W − 46))` = 27,70 a 375, 12,70 a 360 e 0,00 a 320, ed è questo
+  a rendere 392 il numero del codice e non una stima. E **l'a-capo costa una riga
+  intera di lista in due punti, non in uno**: 375×667 (4 righe → 3) e 360×800
+  (5 → 4). La spazzata non aveva viewport fra 375 e 393, ed è per questo che
+  393 era passato.
 
 ---
 
 ## 2. Cosa hanno lasciato aperto le quattro lane di oggi
 
-**Niente è in volo. Tutti i worktree della tornata 2 e 3 sono fusi**, tranne
-`a3-polish`, che sta lavorando adesso su `src/` e `tests/` e non è di questo
-passaggio. Quello che segue è ciò che le lane hanno *deciso di non prendere*,
+**Niente è in volo, e adesso nemmeno `a3-polish`**: tutti i worktree della
+tornata 2 e 3 sono fusi. *(~~«tranne `a3-polish`, che sta lavorando adesso su
+`src/` e `tests/` e non è di questo passaggio»~~ — **superato**: è atterrata,
+vedi §1a.)* Quello che segue è ciò che le lane hanno *deciso di non prendere*,
 con il motivo, perché è la parte che sparisce se non è scritta.
 
 ### 2a. `--control` è 34px sotto un dito, su un portatile touch — difetto vivo
@@ -79,9 +190,12 @@ query che `--pip-h` usa già. Non è stato fatto qui perché `--control` regola
 ogni chip, voce di nav e stepper anche sulle schermate GM, e la lane di una
 schermata sola è il posto sbagliato per cambiarlo.
 
-### 2b. Le sei fasce di chrome dentro `<main>` non pagano il ritaglio laterale
+### 2b. ~~Le sei fasce di chrome dentro `<main>` non pagano il ritaglio laterale~~ — **chiuso dalla lane `polish`**
 
-**Aperto, e non è una regressione**: non lo pagavano nemmeno prima.
+**Era aperto e non era una regressione**: non lo pagavano nemmeno prima. La
+diagnosi qui sotto resta scritta perché è la misura su cui la riparazione è
+stata decisa, e perché la riparazione è arrivata per una strada diversa da
+quella che questa sezione proponeva — vedi §1a.
 
 `App.tsx:293`, `:328`, `:404`, `:572` (`UnsavedWork`, l'alert di storage, quello
 di integrità, quello dei personaggi in quarantena) e `ShellBanner.tsx:168`
@@ -93,13 +207,24 @@ inset 0 — non si muove, quindi i suoi primi 39px stanno sotto la striscia
 sinistra mentre l'header rientra a 79. Le due grondaie si allineavano a 20 e non
 si allineano più.
 
-La riparazione è una riga per ciascuna, ed è quella che `Header.tsx:115-117`
-scrive per esteso:
+~~La riparazione è una riga per ciascuna, ed è quella che `Header.tsx:115-117`
+scrive per esteso:~~
 
     margin: '8px calc(20px + env(safe-area-inset-right)) 0 calc(20px + env(safe-area-inset-left))'
 
-Lasciata fuori di proposito: quelle righe stanno in `App.tsx` e in
-`ShellBanner.tsx`, e vogliono un commit che possa testare quei due file.
+~~Lasciata fuori di proposito: quelle righe stanno in `App.tsx` e in
+`ShellBanner.tsx`, e vogliono un commit che possa testare quei due file.~~
+
+**Superata, e la forma proposta era sbagliata.** Uno shorthand `margin` che
+porta un `env()` viene buttato via **intero** dal parser di jsdom, quindi quella
+riga avrebbe portato giù con sé anche gli 8px di margine superiore in ogni test
+e si sarebbe riletta come quattro stringhe vuote. La lane `polish` ha messo
+quattro longhand in `src/ui/shell/gutter.ts` — `SHELL_BLOCK_MARGIN` — letti dai
+cinque punti di chiamata che disegnano le sei fasce, e le stesse due `calc()`
+sono la `padding` dell'header, così le due grondaie non possono più divergere.
+La proposta è corretta sul posto in `Header.tsx:114-124`. La misura che ha reso
+la cosa urgente invece di annotabile è la ✕ di `ShellBanner`, 72,7% dentro il
+ritaglio: §1a.
 
 ### 2c. `P3-12` è metà costruito e non va spuntato intero
 
@@ -115,8 +240,9 @@ succedere. Chiuderlo è una modifica a `DamageRoll.tsx`.
 ### 2d. Worktree eliminabili
 
 Tutti quelli in `~/Documents/dh-wt2/` e, di `~/Documents/dh-wt3/`, `cockpit`,
-`safearea` e `targets`. `git worktree remove --force <path>` e
-`git branch -D <ramo>`. **Non** `a3-polish`, che è vivo.
+`safearea`, `targets` e — da adesso — `polish`, che è fusa. `git worktree remove
+--force <path>` e `git branch -D <ramo>`. *(~~**Non** `a3-polish`, che è
+vivo.~~ — **superato**: vedi §1a.)*
 
 ---
 
@@ -152,9 +278,11 @@ Tutti quelli in `~/Documents/dh-wt2/` e, di `~/Documents/dh-wt3/`, `cockpit`,
    gutter è riservata con `scrollbar-gutter: stable` invece che lasciata
    comparire. L'uscita dalla griglia è arrivata nello stesso commit **solo per le
    facce Duality**: vedi §2c.
-4. ~~**Decisione 9, onboarding**~~ — **fatto**, `58c4bd5`, diciassette commit.
+4. ~~**Decisione 9, onboarding**~~ — **fatto**, `58c4bd5`, diciassette commit, e
+   da `a3-polish` anche l'invariante che difende `onboarded` da ogni rotta —
+   §1a.
 5. **Caccia alle regressioni.** Ancora da lanciare, e adesso vale di più: sopra
-   i fix della prima tornata ne sono atterrati altri quattro lane.
+   i fix della prima tornata ne sono atterrati altri quattro lane, più `polish`.
    `audit-harness/analysis/review-wave.js`, sei cacciatori più tre scettici per
    candidato, con
    `Workflow({scriptPath: '<quel file>', args: {base: '86f4a0e'}})`. Il motivo
@@ -162,7 +290,8 @@ Tutti quelli in `~/Documents/dh-wt2/` e, di `~/Documents/dh-wt3/`, `cockpit`,
    **creati dai fix** (`CLEAR ALL`, e il tab GM che lo colpiva).
 6. ~~**Pass sui documenti**~~ — **questo**. Vedi §5 per come è finita ogni cifra.
 7. **`--control` sul puntatore ibrido** — §2a.
-8. **Le sei fasce di chrome dentro `<main>`** — §2b.
+8. ~~**Le sei fasce di chrome dentro `<main>`**~~ — **fatto**, lane `a3-polish`,
+   `src/ui/shell/gutter.ts`. Vedi §1a e §2b.
 9. **L'uscita dalle caselle del danno**, la metà aperta di P3-12 — §2c.
 10. **Push.**
 
@@ -330,8 +459,12 @@ nomina cosa cambia se la misura non è quella che il codice ha assunto.
      79/79 con 239,8 di avanzo. **Da provare accendendo Display Zoom.**
 
    **Cosa NON è pagato, ed è la metà dentro l'arco del pollice.** Le due barre
-   della shell sono a posto e basta. Restano: le **sei fasce di chrome dentro
-   `<main>`** (§2b) e **la colonna di Play**, che è la superficie non pagata più
+   della shell sono a posto, e da `a3-polish` lo sono anche le **sei fasce di
+   chrome dentro `<main>`**, che adesso prendono la stessa grondaia dell'header
+   da `gutter.ts` — con la ✕ di `ShellBanner` che passa da 32 dei suoi 44px
+   dentro il ritaglio a zero (§1a). *(~~«Restano: le sei fasce di chrome dentro
+   `<main>` (§2b) e la colonna di Play»~~ — **superato** per la prima metà.)*
+   Resta **la colonna di Play**, che è la superficie non pagata più
    grande. Misurato a 852×393 con 59 su entrambi i lati, l'unico altro figlio di
    `<main>` è la colonna a [0, 852] e non paga niente: ROLL 2d12 a [12, 788]
    (47px del suo capo sinistro sotto la striscia), il tratto Agility a
