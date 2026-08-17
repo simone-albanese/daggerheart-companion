@@ -15,6 +15,7 @@ import { canAddToLoadout, cardAvailability, vaultCard } from '../../engine/loado
 import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { useRecall } from './recall.ts';
 
@@ -321,6 +322,20 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
               : 'No cards match those filters.'}
           </p>
         )}
+        {/*
+          The notice, at the end of the browser rather than pinned above the tab
+          bar - which is where it was, and where it cost this screen ~111px of a
+          393px phone whether or not anybody was reading it. Here it is 189 cards
+          down, or one filter away.
+
+          `gridColumn: '1 / -1'` because this scroll region is the card grid
+          itself: without it the footer takes one 150px cell and sets the
+          342-character notice in a column narrower than a card. The empty state
+          above it spans the row for the same reason.
+        */}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <LicenceFooter />
+        </div>
       </div>
     </div>
   );

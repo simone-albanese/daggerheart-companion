@@ -56,7 +56,22 @@ export function TabBar(): React.JSX.Element {
         gridTemplateColumns: `repeat(${String(tabs.length)}, 1fr)`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        /*
+         * The home-indicator inset, paid here because on a phone outside the GM
+         * section this bar is the last thing in the window. Exactly one thing
+         * per screen pays it: paid twice it leaves 34px of empty panel between
+         * two bars, paid never it puts the labels under the indicator.
+         *
+         * `calc(0px + …)` rather than the bare `env(…)` this used to be, and
+         * the zero is load-bearing in the *test* rather than in the layout.
+         * jsdom's CSS parser drops a bare `env()` on the floor, so the
+         * declaration read back as `''` and no assertion on it could ever fail
+         * - which meant the one property this is easy to get wrong was the one
+         * property nothing checked. Inside `calc()` it survives the parser and
+         * `attribution.test.tsx` can count the payers on each screen. The
+         * browser computes the same pixels either way.
+         */
+        paddingBottom: 'calc(0px + env(safe-area-inset-bottom))',
       }}
     >
       {tabs.map((tab) => {

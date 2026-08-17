@@ -39,11 +39,17 @@
  * `Architecture.md` says twice that it is always visible in the footer, and a
  * layout budget is not a reason to drop a licence obligation.
  *
- * So it goes into the scroll, which is the argument `App.tsx` already makes for
- * Cards, Build and Settings in the same breath - those screens scroll, so there
- * the strip costs a scroll position rather than content. This screen scrolls
- * too. It is drawn here rather than by `Gm.tsx` because "inside the scroll" is
- * the whole of the decision, and this component is the scroll.
+ * So it goes into the scroll. It is drawn here rather than by `Gm.tsx` because
+ * "inside the scroll" is the whole of the decision, and this component is the
+ * scroll.
+ *
+ * This screen got that first and got it half right. `marginTop: 'auto'` put the
+ * notice at the foot of the *region* rather than after the content, so a list
+ * shorter than the glass - which is every list at the top of an evening - paid
+ * the same band as the fixed strip it was supposed to be an improvement on.
+ * That is the screen in the owner's screenshot, and P5-6 is the answer: no
+ * `auto`, on any screen, and the other four join this one inside their own
+ * scroll instead of the other way round.
  */
 import { useState } from 'react';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
@@ -133,26 +139,29 @@ export function SessionList({
         {announcement}
       </span>
       {/*
-        `marginTop: auto` puts the notice at the foot of a short list and after
-        the last row of a long one, which is what "the last thing in the scroll"
-        has to mean in both cases. The negative inline margin cancels this
-        region's own side padding so the strip spans the full width and reads as
-        a footer rather than as a card that lost its panel.
+        The notice, after the last row and nowhere else.
 
-        `bottomMost` is false, always: `GmBar` is below this at every width and
-        pays the home-indicator inset there. Paid twice it would leave 34px of
+        It used to carry `marginTop: 'auto'`, which put it at the foot of the
+        *region* rather than after the content - so on a short list, which is
+        every list before the GM has written the night, it floated down to sit
+        above `GmBar` and looked and cost exactly like the fixed strip the other
+        screens had. That is the behaviour the owner objected to. Without it the
+        notice is simply the last block of the list, ~111px below whatever the
+        GM last wrote, and a plan with three rows in it gets those 111px back as
+        list.
+
+        The negative side margins went with it. `LicenceFooter` no longer paints
+        a panel or sets a horizontal padding of its own, so there is nothing to
+        bleed to the edges: it is a hairline and some muted text, and this
+        region's own gutter is the gutter it wants.
+
+        `pinnedBelow` is the one fact this screen has to hand over: `GmBar` sits
+        under this scroll at every width - it is the only bottom bar in the app
+        that is not the shell's - so it is what is last in the window and it
+        pays `env(safe-area-inset-bottom)`. Paid twice it would leave 34px of
         empty panel between the notice and the bar.
       */}
-      <div
-        style={{
-          flex: 'none',
-          marginTop: 'auto',
-          paddingTop: 14,
-          marginInline: phone ? -12 : -20,
-        }}
-      >
-        <LicenceFooter bottomMost={false} />
-      </div>
+      <LicenceFooter pinnedBelow />
     </div>
   );
 }

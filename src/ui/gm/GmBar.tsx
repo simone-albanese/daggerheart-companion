@@ -62,12 +62,18 @@
  * tab bar on `gm`, and the licence notice is inside the session list's scroll
  * rather than pinned under it. It did not pay the inset in the commit that
  * introduced it, because both of those were still below it and two payments
- * are 34px of empty panel between two bars.
+ * are 34px of empty panel between two bars. `SessionList` says `pinnedBelow` to
+ * `LicenceFooter` for the same reason from the other end.
  *
- * No test asserts the line from the DOM, and that is not an omission: jsdom's
- * CSS parser drops `env(...)` on the floor, so an inline style declaring it
- * reads back as `''` and an assertion on it could never fail. `gmShell.test`
- * reads this file's source instead, and says why where it does it.
+ * **A test does assert it from the DOM now, and this paragraph used to say one
+ * never could.** What it said was true of the declaration as written: jsdom's
+ * CSS parser drops a bare `env(...)` on the floor, so `paddingBottom:
+ * 'env(safe-area-inset-bottom)'` read back as `''` and an assertion on it could
+ * never fail. It keeps the same declaration wrapped in `calc()`, which the
+ * parser does keep and the browser computes identically - so `attribution.test`
+ * can now count the payers on every screen and fail when there are two or none.
+ * `gmShell.test` still reads this file's source as well, which is the belt to
+ * that braces.
  *
  * Nothing here is read-only: the whole bar is target.
  */
@@ -116,7 +122,9 @@ export function GmBar({
         gridTemplateColumns: `repeat(${String(verbs.length)}, 1fr)`,
         borderTop: '1px solid var(--line-soft)',
         background: 'var(--panel)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        // `calc(0px + …)` rather than a bare `env()`, and the zero buys a test
+        // rather than a pixel - see the docblock above.
+        paddingBottom: 'calc(0px + env(safe-area-inset-bottom))',
       }}
     >
       {verbs.map((verb) => {

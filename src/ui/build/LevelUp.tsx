@@ -42,6 +42,7 @@ import {
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   grantFeature,
   levelUpCardGrants,
@@ -437,6 +438,13 @@ export function LevelUp({
 
           <Callout tone="error" items={validation.errors} />
           <Callout tone="warn" items={[...grantWarnings, ...validation.warnings]} />
+
+          {/*
+            The licence notice, last in this scroll like every other screen's.
+            `pinnedBelow`, because the Cancel/Confirm row below is what is last
+            in the window here and it is the thing that pays the inset.
+          */}
+          <LicenceFooter pinnedBelow />
         </div>
       </div>
 
@@ -445,7 +453,12 @@ export function LevelUp({
         style={{
           flex: 'none',
           gap: 10,
-          padding: phone ? '10px 12px' : '12px 20px',
+          // Longhands, and the bottom one carries the home-indicator inset
+          // above 720px - see the same row in `Wizard.tsx`. It had never paid
+          // it because the shell's licence strip used to sit underneath.
+          paddingTop: phone ? 10 : 12,
+          paddingInline: phone ? 12 : 20,
+          paddingBottom: phone ? 10 : 'calc(12px + env(safe-area-inset-bottom))',
           borderTop: '1px solid var(--line-soft)',
           background: 'var(--panel)',
         }}

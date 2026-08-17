@@ -16,6 +16,7 @@ import type { DerivedStats } from '../../engine/character.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import { tierNote } from './gear.ts';
 import {
   ArmorPicker,
@@ -259,6 +260,16 @@ export function Edit({
         </Columns>
 
         <DeleteCharacter character={character} klassName={klass?.name} />
+
+        {/*
+          The licence notice, last, inside the reading column rather than bled
+          to the window edges - this sheet is capped at 980px and centred, and a
+          342-character paragraph running the full width of a desktop monitor
+          under a column that does not is the one place a footer looks like a
+          mistake. It used to be a fixed strip above the tab bar, costing this
+          screen ~111px of a 393px phone whether anybody read it or not.
+        */}
+        <LicenceFooter />
       </div>
 
       {picking === 'armor' ? (

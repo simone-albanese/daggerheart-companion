@@ -9,14 +9,14 @@
  * carries the way back to Play, Cards and Build, which is why the two arrive in
  * one commit rather than two. And the licence notice does not leave: it moves
  * *into* the session list's scroll, where it costs a scroll position rather
- * than content, which is the argument `App.tsx` already makes for Cards, Build
- * and Settings.
+ * than content.
  *
- * `tests/ui/attribution.test.tsx` is the gate on the second one and it is not
- * edited: its `gm` case asks only that the notice is in the DOM with a
- * character in the library, which is exactly the property that must survive.
- * This file asks the questions that one cannot - *where* it is, and what is
- * underneath it.
+ * `tests/ui/attribution.test.tsx` is the gate on the second one, and since P5-6
+ * it asks that of *every* screen: the GM screen was the first to take the notice
+ * into its scroll and is now simply one of five that do. This file keeps the
+ * questions that are about this screen in particular - what is underneath the
+ * notice here, and which single element pays the home-indicator inset when the
+ * bottom bar is `GmBar` rather than the shell's tab bar.
  */
 import 'fake-indexeddb/auto';
 import { readFileSync } from 'node:fs';
@@ -221,20 +221,42 @@ describe('the bottom of the GM screen', () => {
     expect(lastInMain(bar), 'something is drawn under the GM bar').toBe(true);
   });
 
-  it('declares the home-indicator inset on that bar, and nowhere else on the screen', () => {
+  it('declares the home-indicator inset on that bar, and nowhere else on the screen', async () => {
     /*
-     * Read from the source rather than from the DOM, and this is the one place
-     * in the suite that has to be. jsdom's CSS parser drops `env(...)`: an
-     * inline style that declares it reads back as `''`, so an assertion against
-     * `style.paddingBottom` would pass whether the line is there or not, which
-     * is worse than no assertion. What can be checked is that exactly one of
-     * the two files draws it - the bar - because paying it twice leaves 34px of
-     * empty panel between the notice and the bar, and paying it nowhere leaves
-     * the last 34px of the window under the home indicator.
+     * Read from the DOM now, where this used to have to be read from the
+     * source. The old version said, correctly, that jsdom's CSS parser drops
+     * `env(...)` - an inline style declaring it reads back as `''`, so an
+     * assertion against `style.paddingBottom` would have passed whether the
+     * line was there or not - and settled for checking that exactly one of the
+     * two *files* contained the string.
+     *
+     * P5-6 removed the excuse rather than the assertion. The payment is spelled
+     * `calc(0px + env(...))` in `GmBar`, which the parser keeps and the browser
+     * computes identically, so the real question can be asked of the real tree:
+     * how many elements on this screen declare the inset. Two leaves 34px of
+     * empty panel between them, none puts the bar under the home indicator.
+     *
+     * The source check stays as well, one layer down, because a `calc()` that
+     * lost its `env()` would still be a padding and would still be one element.
      */
+    await onGm();
+    const payers = [...main().querySelectorAll<HTMLElement>('*')].filter((el) =>
+      (el.getAttribute('style') ?? '').includes('safe-area-inset-bottom'),
+    );
+    expect(
+      payers.map((el) => `${el.tagName}[${el.getAttribute('aria-label') ?? ''}]`),
+      'the home-indicator inset is not paid exactly once on the GM screen',
+    ).toEqual(['NAV[Session tools]']);
+
     const src = (path: string): string => readFileSync(join(process.cwd(), 'src', path), 'utf8');
-    expect(src('ui/gm/GmBar.tsx')).toContain("paddingBottom: 'env(safe-area-inset-bottom)'");
-    expect(src('ui/gm/SessionList.tsx')).toContain('bottomMost={false}');
+    expect(src('ui/gm/GmBar.tsx')).toContain(
+      "paddingBottom: 'calc(0px + env(safe-area-inset-bottom))'",
+    );
+    expect(
+      src('ui/gm/SessionList.tsx'),
+      'the session list stopped telling the notice that GmBar is under it, so the notice ' +
+        'pays the inset as well and there are 34px of empty panel between them',
+    ).toContain('<LicenceFooter pinnedBelow />');
   });
 });
 
@@ -332,8 +354,8 @@ describe('where the licence notice went', () => {
   it('is on the GM screen, inside the scroll rather than pinned under it', async () => {
     await onGm();
     expect(text(), 'the GM screen lost the licence notice').toContain(NOTICE);
-    // Pinned, it is a direct child of `<main>`, which is where it still is on
-    // Cards. Here it is the last block of the session list's scroll region.
+    // Pinned, it is a direct child of `<main>`. Here it is the last block of
+    // the session list's scroll region.
     expect(
       container.querySelector('main > footer'),
       'the notice is pinned on the GM screen, in the arc the bar was placed in',
@@ -342,8 +364,31 @@ describe('where the licence notice went', () => {
     expect(footer.closest('.scroll'), 'the notice is not inside a scrolling region').not.toBeNull();
   });
 
-  it('is still pinned on Cards, which has no bottom bar of its own', async () => {
+  /*
+   * REVERSED, RATHER THAN DELETED. This test used to read:
+   *
+   *   it('is still pinned on Cards, which has no bottom bar of its own', ...)
+   *     expect(container.querySelector('main > footer')).not.toBeNull();
+   *
+   * and it was true and deliberate: the GM screen took the notice into its
+   * scroll because it had chrome at both ends, and the other four kept the
+   * pinned strip. P5-6 is the owner deciding that the reason the GM screen had
+   * was a reason every screen has - *"i crediti in basso devono essere visibili
+   * scorrendo alla fine di ogni pagina, non fisso"* - so the assertion is
+   * inverted rather than dropped. `attribution.test.tsx` is where the full
+   * sweep lives; this keeps the one screen this file is about honest about
+   * being no longer special.
+   */
+  it('is no longer pinned on Cards either, which is what stopped the GM screen being special', async () => {
     await mountOn('cards', () => text().includes(NOTICE));
-    expect(container.querySelector('main > footer')).not.toBeNull();
+    expect(
+      container.querySelector('main > footer'),
+      'Cards has gone back to a pinned licence strip, which is ~111px of a 393px phone ' +
+        'spent permanently on something a reader looks at once',
+    ).toBeNull();
+    expect(
+      container.querySelector('footer')!.closest('.scroll'),
+      'the notice on Cards is neither pinned nor in the scroll, so it is nowhere',
+    ).not.toBeNull();
   });
 });

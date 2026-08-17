@@ -60,6 +60,7 @@ import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useLayout } from '../shared/useLayout.ts';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   DAMAGE_SIDES,
   sourceFromWeapon,
@@ -2001,6 +2002,16 @@ function PlayDesktop({
             anywhere else. `cryptoRng` is passed rather than defaulted so that
             the one place a rest can roll is visible from this file. */}
         <Rest stats={stats} rng={cryptoRng} />
+        {/*
+          And the licence notice under it, in this column for the same reason
+          `Rest` is in this column: it is the only one of the three that
+          scrolls. The cockpit itself is laid out to fit, so there is no "end of
+          the page" anywhere else on this screen - the middle column ends at
+          ROLL and the right one at the vault, both of which are meant to be on
+          the glass at all times. A 342-character paragraph under either of
+          those would be a pinned strip by another name.
+        */}
+        <LicenceFooter />
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
@@ -2210,6 +2221,16 @@ function PlayDesktop({
  * is computed with every fold shut, and a default that contradicted it would
  * make the arithmetic a fiction; the folds remember per character, so a player
  * who wants their weapons open opens them once.
+ *
+ * AND THE LICENCE NOTICE IS BELOW ALL OF IT, WHICH IS WHY IT COSTS NOTHING.
+ * This screen had no notice at all until P5-6 - the only one of the five that
+ * did not - and the argument for the exemption was every one of the numbers
+ * above: 111px of a 730px column, permanently, on the tightest budget in the
+ * app. That argument was about a *pinned* strip, and there is no longer one. As
+ * the last child of the scroll the notice is below the lineage fold, which is
+ * where the 749 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * neither total. It is the one thing on this column a player never has to
+ * reach, and that is exactly the property that lets it sit past the end.
  */
 function PlayPhone({
   stats,
@@ -2456,6 +2477,32 @@ function PlayPhone({
       <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
         <Lineage stats={stats} />
       </Disclosure>
+
+      {/*
+       * The licence notice, below every fold, and it costs this budget nothing.
+       *
+       * Play had no notice at all until P5-6, and the reason was arithmetic: as
+       * a *fixed* strip it was ~111px off the top of a 730px scroll window on a
+       * 393px phone, forever, on the screen with the tightest budget in the
+       * app. `LicenceFooter`'s own docblock still carries that argument, marked
+       * superseded, because the shape it was arguing against no longer exists.
+       *
+       * Here it is the last child of the scroll, under the last shut fold. The
+       * budget in `playSheet.test.tsx` runs from the top of Identity to the
+       * bottom edge of the lineage header - 749px against 730 - and everything
+       * it sums is something a player has to be able to reach. This is not:
+       * it is read once, by somebody who is not at a table, and there is no
+       * state of this sheet in which it needs to be on the glass. So it is
+       * outside `STACK` and outside `INDEX` on purpose, and the test says that
+       * in the one place it could otherwise be mistaken for an omission - the
+       * child count, which goes from twelve to thirteen.
+       *
+       * No `pinnedBelow`: nothing on Play is pinned. On a phone `TabBar` is
+       * below the whole screen and pays the home-indicator inset; from 720px up
+       * there is no tab bar and this notice is the last thing in the window, so
+       * it pays.
+       */}
+      <LicenceFooter />
     </div>
   );
 }

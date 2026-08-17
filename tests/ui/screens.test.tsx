@@ -690,7 +690,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
   'shell/Header.tsx::Header': () => <Header />,
-  'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter bottomMost />,
+  'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,
   'shell/ScreenBoundary.tsx::ScreenBoundary': () => (
     <ScreenBoundary name="Test">inside the boundary</ScreenBoundary>

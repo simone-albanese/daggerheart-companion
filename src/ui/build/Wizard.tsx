@@ -32,6 +32,7 @@ import { DomainMark } from '../shared/DomainMark.tsx';
 import { Fold } from '../shared/Fold.tsx';
 import { playerExperiences } from '../shared/srdReference.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   BASE_STARTING_CARDS,
   cardCountWord,
@@ -252,6 +253,17 @@ export function Wizard({
               warnings={warnings}
             />
           )}
+          {/*
+            The licence notice, and on a device with nothing on it yet this is
+            the very first screen anybody sees - `openingScreen` sends an empty
+            library to Build, and Build with an empty library is this wizard. It
+            used to be a fixed strip under the nav below, which took ~111px off
+            every step of a flow whose whole job is fitting choices on a phone.
+
+            `pinnedBelow`: that nav is under this scroll at every width, so it
+            is what is last in the window and it pays the home-indicator inset.
+          */}
+          <LicenceFooter pinnedBelow />
         </div>
       </div>
 
@@ -261,7 +273,27 @@ export function Wizard({
         style={{
           flex: 'none',
           gap: 8,
-          padding: phone ? '10px 12px' : '12px 20px',
+          // Three longhands rather than the shorthand plus an override: a
+          // `padding` shorthand followed by a `paddingBottom` is the same shape
+          // as the `background` + `background*` pattern this repo bans, and it
+          // reads correctly only if you know the key order is the cascade.
+          paddingTop: phone ? 10 : 12,
+          paddingInline: phone ? 12 : 20,
+          /*
+           * The home-indicator inset, above 720px only.
+           *
+           * This nav had never paid it and had never needed to: the shell drew
+           * the licence strip underneath it, and that strip paid. With the
+           * notice moved into the scroll above, this row is the last thing in
+           * the window on every tablet and desktop, and an unpaid inset there
+           * puts Back and Create under the indicator. On a phone `TabBar` is
+           * still below and pays, so paying here as well would be the 34px of
+           * empty panel that "exactly once" exists to prevent.
+           *
+           * `calc(0px + …)` so jsdom keeps the declaration and the sweep in
+           * `attribution.test.tsx` can count it - see `TabBar.tsx`.
+           */
+          paddingBottom: phone ? 10 : 'calc(12px + env(safe-area-inset-bottom))',
           borderTop: '1px solid var(--line-soft)',
           background: 'var(--panel)',
         }}

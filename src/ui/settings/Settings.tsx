@@ -42,6 +42,7 @@ import { usePrintSheet } from '../print/usePrintSheet.tsx';
 import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { usePrefersReducedMotion } from '../shared/useMedia.ts';
+import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import { About } from './About.tsx';
 import { Action, Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
 import { Rulebook } from './Rulebook.tsx';
@@ -222,6 +223,17 @@ export function Settings(): React.JSX.Element {
             <Transfer innerRef={bind('transfer')} />
             <Rulebook innerRef={bind('rulebook')} phone={phone} />
             <About innerRef={bind('about')} />
+            {/*
+              The notice, at the end of the last section rather than pinned
+              above the tab bar. On this one screen it is the second copy - the
+              About panel opens with the same 342 characters - and that is
+              deliberate and unchanged: About's own docblock says the notice is
+              "at the top of this screen and in the shell's footer,
+              unconditionally". They are the same array, and About's copy is
+              roughly two thousand pixels above this one, so nobody reads a
+              paragraph twice in one glance.
+            */}
+            <LicenceFooter />
           </div>
         </div>
       </div>

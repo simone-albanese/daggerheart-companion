@@ -3,6 +3,40 @@
  * tab bar in the thumb arc. Screens are switched, not routed - there is no URL
  * to share and nothing to deep-link to, and a router would only add a way for
  * the back button to lose someone's place mid-session.
+ *
+ * ## SUPERSEDED: the licence notice used to be drawn from here
+ *
+ * This file rendered `<LicenceFooter bottomMost={!phone} />` as a `flex: 'none'`
+ * sibling of the screen inside `<main>`, on three screens of five, behind a
+ * `showLicence` guard whose argument was this:
+ *
+ *   > "Two screens draw the notice themselves, for two different reasons, and
+ *   > both of them are 'it is already there' rather than 'it is not needed'.
+ *   >
+ *   > Play has never had it - `LicenceFooter`'s own docblock argues that on the
+ *   > 111px - and the mark in the header carries it there. GM has it *inside*
+ *   > the session list's scroll: that screen has pinned chrome at both ends
+ *   > now, and a strip between the plan and the bar would sit in the thumb arc
+ *   > the two continuous verbs were placed in. It costs a scroll position there
+ *   > instead, which is the same trade this file already makes for Cards, Build
+ *   > and Settings. What it never does is leave: the notice is a licence
+ *   > obligation and a layout budget is not a reason to drop one."
+ *
+ * Kept rather than deleted, because this project keeps its reversals visible.
+ * What it gets wrong is in its own second sentence: it names the trade that GM
+ * takes - a scroll position instead of a band - approves of it, and then does
+ * not take it here, on three screens that scroll just as well. So the sibling
+ * was a fixed strip costing every one of them ~111px of a 393px phone forever,
+ * to say something a reader looks at once. The notice is now the last thing in
+ * each screen's own scrolling content, which is that same trade taken five
+ * times instead of once, and Play is not an exception any more: see
+ * `LicenceFooter.tsx`, which also now decides on its own who pays
+ * `env(safe-area-inset-bottom)`.
+ *
+ * The `emptyState` half of that guard went with it and did not need replacing.
+ * `EmptyState` below is rendered *instead of* Play or Cards when the library is
+ * empty, so those screens' own footers are not mounted at all and the same 342
+ * characters still appear exactly once.
  */
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
@@ -25,7 +59,6 @@ import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { AppBoundary } from './AppBoundary.tsx';
 import { BackupBanner } from './BackupBanner.tsx';
 import { Header } from './Header.tsx';
-import { LicenceFooter } from './LicenceFooter.tsx';
 import { Recovery } from './Recovery.tsx';
 import { ScreenBoundary } from './ScreenBoundary.tsx';
 import { TabBar } from './TabBar.tsx';
@@ -210,23 +243,6 @@ function Shell(): React.JSX.Element {
    */
   const screen = allowedScreen(prefs, stored);
   const needsCharacter = characters.length === 0 || stats === null;
-  // `EmptyState` carries its own copy of the notice, so the footer stands down
-  // wherever it renders rather than printing the same 342 characters twice.
-  const emptyState = needsCharacter && (screen === 'play' || screen === 'cards');
-  /*
-   * Two screens draw the notice themselves, for two different reasons, and both
-   * of them are "it is already there" rather than "it is not needed".
-   *
-   * Play has never had it - `LicenceFooter`'s own docblock argues that on the
-   * 111px - and the mark in the header carries it there. GM has it *inside* the
-   * session list's scroll: that screen has pinned chrome at both ends now, and
-   * a strip between the plan and the bar would sit in the thumb arc the two
-   * continuous verbs were placed in. It costs a scroll position there instead,
-   * which is the same trade this file already makes for Cards, Build and
-   * Settings. What it never does is leave: the notice is a licence obligation
-   * and a layout budget is not a reason to drop one.
-   */
-  const showLicence = screen !== 'play' && screen !== 'gm' && !emptyState;
 
   return (
     <div className="app">
@@ -405,7 +421,6 @@ function Shell(): React.JSX.Element {
             </Suspense>
           </ScreenBoundary>
         )}
-        {showLicence && <LicenceFooter bottomMost={!phone} />}
         {/*
           No tab bar inside the GM section. `GmBar` is the bottom bar there -
           ADD, SHOW, SAVE - and the way back to Play, Cards and Build is the

@@ -643,6 +643,16 @@ describe('the trait row and the roll surface', () => {
  * 110px when the counters became a grid, and only pips exceed it. That is the
  * number the grid was bought for and it is asserted below rather than told.
  *
+ * ONE THING IN THE COLUMN IS DELIBERATELY NOT IN EITHER TABLE: the licence
+ * notice, which P5-6 put at the end of this scroll. Everything `STACK` and
+ * `INDEX` sum is something a player has to be able to reach, and the notice is
+ * the opposite of that - it is below the last shut fold, it is read once by
+ * somebody who is not at a table, and no state of this sheet needs it on the
+ * glass. So it moves no term and neither total. `the terms this budget can
+ * read, it reads` pins that it is the *last* child and that it is a `<footer>`,
+ * which is what stops "outside the budget" from quietly becoming a hole
+ * anything else can be dropped into.
+ *
  * So this test is a tripwire on the declared arithmetic and not a measurement,
  * and it says which of the two it is in every failure message.
  */
@@ -870,19 +880,35 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a fourteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Twelve, with the fixture: Identity, the defence band, the counters, the
+     * Thirteen, with the fixture: Identity, the defence band, the counters, the
      * trait row, the roll surface, then Weapons & armour, Experiences, Carried,
-     * Cards, Rest, the conditions strip and Lineage. The vault is a tendina
-     * inside Cards and costs the column no child of its own; the death move and
-     * the Beastform banner draw nothing for this character, and both are named
-     * in the docblock as things this budget does not carry.
+     * Cards, Rest, the conditions strip and Lineage - and, since P5-6, the
+     * licence notice. The vault is a tendina inside Cards and costs the column
+     * no child of its own; the death move and the Beastform banner draw nothing
+     * for this character, and both are named in the docblock as things this
+     * budget does not carry.
+     *
+     * THE THIRTEENTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN
+     * WAIVED. `STACK` and `INDEX` sum the sheet, and the sheet is everything a
+     * player has to be able to reach; the notice is below the last fold, is
+     * read once by somebody who is not at a table, and is never needed on the
+     * glass - so it changes no term above and neither total. That claim is only
+     * safe while it really is last, which the two lines below check, and while
+     * it really is a footer rather than a section, which its tag says.
      */
     expect(
       rootEl.children.length,
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(12);
+    ).toBe(13);
+    const last = rootEl.children[rootEl.children.length - 1]!;
+    expect(
+      last.tagName,
+      'the thirteenth child of the column is not the licence notice, so either the notice ' +
+        'has moved up into the sheet - where it costs the budget 119px nobody has costed - ' +
+        'or something new has been added below it and is exempt from the budget by accident',
+    ).toBe('FOOTER');
 
     // Identity: the two margins and the chip that holds the third row open.
     const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;

@@ -16,15 +16,47 @@
  * every install past the first character is out of compliance, and the remedy
  * for that is a takedown.
  *
- * So this file asks the two questions no unit test can:
+ * So this file asks the questions no unit test can:
  *
- *   1. does the string reach the DOM, on each screen that has to carry it, with
- *      a character in the library - which is the state the old code failed in;
- *   2. is there exactly one copy of it in `src`, so that a refactor of any one
+ *   1. does the string reach the DOM, on **every** screen, with a character in
+ *      the library - which is the state the old code failed in;
+ *   2. is it in a region that scrolls, as the last thing in it, rather than in
+ *      a strip pinned above the tab bar;
+ *   3. is there exactly one copy of it in `src`, so that a refactor of any one
  *      surface cannot quietly drop the notice with CI green. There were two
  *      before this, in `About.tsx` and `CompatibleMark.tsx`, normalising to the
  *      same 342 characters with nothing pinning them together - and About.tsx
  *      is on the P4 work list.
+ *
+ * ## What P5-6 changed here, and why it is a strengthening rather than a fit
+ *
+ * Until P5-6 this file asserted the notice on four screens of five and then
+ * asserted, in `stays out of Play`, that it was deliberately absent from the
+ * fifth - the screen the README says is open ninety per cent of the time. That
+ * exemption was argued on a height budget for a *pinned* strip, and the owner's
+ * decision removes the strip: the notice is now the last thing in each screen's
+ * own scrolling content, where on Play it sits below every fold and costs the
+ * sheet nothing. So the exemption is gone, and with it the one assertion in
+ * this file that said the licence did not have to be displayed somewhere.
+ *
+ * Both new questions are written from what the licence needs rather than from
+ * what was built. The DPCGL asks for the notice to be *displayed*: a screen
+ * that never shows it fails that outright, which is question 1 extended to
+ * five. And a notice a layout budget can argue away is a notice with a shelf
+ * life - a pinned strip costs a band on every frame, so there is always a next
+ * pass with a reason to drop it, and that is exactly how Play came to have
+ * none. Inside the scroll it costs a scroll position, which nobody ever needs
+ * to reclaim. Question 2 is that property, pinned.
+ *
+ * ## And exactly one thing per screen pays the home-indicator inset
+ *
+ * Not a licence question, but it is the one this move is easy to get wrong on,
+ * and now that there are seven call sites it is worth a sweep rather than an
+ * argument. Paid twice it leaves 34px of empty panel between two bars; paid
+ * never it tucks the last row of the window under the indicator. The count is
+ * read off the real tree, which only became possible when the three bars that
+ * pay it started spelling it `calc(0px + env(...))` - jsdom's CSS parser drops
+ * a bare `env()`, so before P5-6 no assertion on it could ever have failed.
  */
 import 'fake-indexeddb/auto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -181,10 +213,50 @@ async function mountOn(screen: Screen): Promise<void> {
   await settle(() => text().includes(NOTICE));
 }
 
+/**
+ * Every screen the app has. Not a list of the ones that happen to carry the
+ * notice - that list *was* four of these, and Play's absence from it is the
+ * defect P5-6 fixed. If a sixth screen is ever added it belongs here on the day
+ * it is added, and this file failing is the correct way to find that out.
+ */
+const SCREENS = ['play', 'cards', 'build', 'gm', 'settings'] as const;
+
+/**
+ * The one `<footer>` in the shell, which is the notice.
+ *
+ * Asserted to be one rather than taken as the first, because two would be the
+ * same failure as none: the notice printed twice on one screen is 684
+ * characters of a phone, and whichever of them a later refactor deletes, the
+ * test that reads `[0]` goes on passing.
+ */
+function theNotice(): HTMLElement {
+  const footers = [...container.querySelectorAll<HTMLElement>('footer')];
+  expect(footers, 'the shell draws no <footer>, or draws more than one').toHaveLength(1);
+  return footers[0]!;
+}
+
+/**
+ * Every element in the mounted shell whose inline style declares the
+ * home-indicator inset.
+ *
+ * Readable from the DOM only because the three bars that pay it spell it
+ * `calc(0px + env(...))`: jsdom's CSS parser drops a bare `env()`, and drops
+ * any shorthand containing one, so the declaration used to read back as `''`.
+ */
+function insetPayers(): string[] {
+  return [...container.querySelectorAll<HTMLElement>('*')]
+    .filter((el) => (el.getAttribute('style') ?? '').includes('safe-area-inset-bottom'))
+    .map((el) => {
+      const name = el.getAttribute('aria-label');
+      return name === null ? el.tagName : `${el.tagName}[${name}]`;
+    });
+}
+
 describe('the notice, once there is a character', () => {
   // The regression in one line: every one of these screens showed the notice
-  // only while `characters.length === 0`.
-  for (const screen of ['cards', 'build', 'gm', 'settings'] as const) {
+  // only while `characters.length === 0`. Play showed it in no state at all
+  // until P5-6, which is why it is in this loop now and not exempted below it.
+  for (const screen of SCREENS) {
     it(`is on the ${screen} screen`, async () => {
       await mountOn(screen);
       expect(
@@ -212,13 +284,28 @@ describe('the notice, once there is a character', () => {
     );
   });
 
-  it('stays out of Play, where the mark carries it alone', async () => {
-    // The deliberate exception, asserted rather than assumed. Verbatim, the
-    // notice is 342 characters: six lines and ~111px at 11.5px on a 393px
-    // phone, two lines and ~48px on a tablet. Play is laid out to fit rather
-    // than to flow and has been fought over for two passes, so it does not pay
-    // that - and `CompatibleIcon` is in the header on every screen, Play
-    // included, so the mark itself never leaves.
+  /*
+   * REPLACES `stays out of Play, where the mark carries it alone`.
+   *
+   * That test asserted the exemption rather than assuming it, which was the
+   * right way to hold a decision that has now been reversed. What it said:
+   *
+   *   > "The deliberate exception, asserted rather than assumed. Verbatim, the
+   *   > notice is 342 characters: six lines and ~111px at 11.5px on a 393px
+   *   > phone, two lines and ~48px on a tablet. Play is laid out to fit rather
+   *   > than to flow and has been fought over for two passes, so it does not
+   *   > pay that - and `CompatibleIcon` is in the header on every screen, Play
+   *   > included, so the mark itself never leaves."
+   *
+   * Every number in it is the cost of a *pinned* strip, and there is no longer
+   * one anywhere in the app. Below the last shut fold of a scrolling sheet the
+   * notice takes none of the 730px column `playSheet.test.tsx` budgets; it is
+   * simply the last thing you reach if you keep scrolling. So the exemption is
+   * deleted and this is what stands in its place - the same screen, the same
+   * mount, asking that the notice is there *and* that it is not costing Play a
+   * band, which is the half of the old argument that still has to be true.
+   */
+  it('is on Play at the end of the scroll, and takes no band off the sheet', async () => {
     await db.putCharacter(playedCharacter());
     await act(async () => {
       root.render(createElement(App));
@@ -227,19 +314,141 @@ describe('the notice, once there is a character', () => {
     await act(async () => {
       useApp.getState().setScreen('play');
     });
-    await settle(() => text().length > 200);
+    await settle(() => text().includes(NOTICE));
 
     expect(useApp.getState().screen).toBe('play');
     expect(
+      text(),
+      'Play carries no licence notice. It is the screen the README says is open ninety per ' +
+        'cent of the time, so a DPCGL notice that is not on it is a notice most sessions ' +
+        'never display at all.',
+    ).toContain(NOTICE);
+    expect(
       container.querySelector('main > footer'),
-      'the licence strip is taking vertical space from Play',
+      'the licence strip is pinned again, and on Play that is a band off the tightest ' +
+        'height budget in the app',
     ).toBeNull();
     expect(
       [...container.querySelectorAll('img')].some(
         (img) => img.getAttribute('alt') === 'Daggerheart Compatible',
       ),
-      'Play has neither the notice nor the mark, which leaves it with nothing at all',
+      'Play has the notice but not the mark',
     ).toBe(true);
+  });
+});
+
+/**
+ * WHERE THE NOTICE IS, WHICH IS THE HALF THAT DECIDES WHETHER IT SURVIVES.
+ *
+ * A notice in the DOM is the licence's question. A notice in a *scroll* is the
+ * question of whether it will still be in the DOM in six months, and it is not
+ * a rhetorical one: the pinned strip cost every screen it was on ~111px of a
+ * 393px phone on every frame, so every layout pass since had a reason to argue
+ * it away - and one of them won, which is how Play came to have none. Inside
+ * the scroll it costs a scroll position, and nobody has ever needed to reclaim
+ * one of those.
+ */
+describe('the notice sits at the end of a scrolling region, on every screen', () => {
+  for (const screen of SCREENS) {
+    it(`is the last thing in ${screen}'s own scroll`, async () => {
+      await mountOn(screen);
+      const footer = theNotice();
+
+      expect(
+        container.querySelector('main > footer'),
+        `the notice on ${screen} is a pinned sibling of the screen again, which is the ` +
+          'strip P5-6 removed: it costs the screen a band on every frame instead of a ' +
+          'scroll position once',
+      ).toBeNull();
+
+      const scroll = footer.closest('.scroll');
+      expect(
+        scroll,
+        `the notice on ${screen} is not inside a scrolling region at all, so it is neither ` +
+          'pinned nor reachable by scrolling to the end of the page',
+      ).not.toBeNull();
+
+      // Last, not merely present. A notice in the middle of a screen's content
+      // is a block of legal text between two things somebody is using.
+      const within = [...scroll!.querySelectorAll<HTMLElement>('*')];
+      const after = within.slice(within.indexOf(footer) + 1).filter((el) => !footer.contains(el));
+      expect(
+        after.map((el) => `${el.tagName}.${el.className || '(none)'}`),
+        `these are drawn after the notice inside ${screen}'s scroll, so it is not the last ` +
+          'thing on the page any more',
+      ).toEqual([]);
+    });
+  }
+});
+
+/**
+ * `env(safe-area-inset-bottom)`, paid exactly once per screen.
+ *
+ * Three things can be last in the window and each pays it where it is: the
+ * shell's `TabBar` on a phone, `GmBar` inside the GM section at every width,
+ * the wizard's and the level-up's navigation rows on Build, and the notice
+ * itself where there is none of those. Paid twice it leaves 34px of empty panel
+ * between two bars; paid never it puts the last row of the window under the
+ * home indicator.
+ *
+ * This is a sweep rather than a check on `LicenceFooter`, because the failure
+ * mode is a *pair* and either half of it can be the new one.
+ */
+describe('the home-indicator inset', () => {
+  /** A phone, where `TabBar` is drawn, and a tablet, where it is not. */
+  for (const width of [393, 1024]) {
+    for (const screen of SCREENS) {
+      const expected =
+        screen === 'gm' ? 'NAV[Session tools]' : width === 393 ? 'NAV' : 'FOOTER';
+      it(`is paid once on ${screen} at ${String(width)}px, by ${expected}`, async () => {
+        setViewport(width);
+        await mountOn(screen);
+        expect(
+          insetPayers(),
+          'the home-indicator inset is not paid exactly once by the thing that is last in ' +
+            'the window. Two payments are 34px of empty panel; none tucks the last row ' +
+            'under the indicator.',
+        ).toEqual([expected]);
+      });
+    }
+  }
+
+  /*
+   * Build's other two modes, which are the two places in the app where a screen
+   * pins chrome of its own under its scroll and is not the GM section. Both
+   * navs had gone their whole life without paying the inset and had never
+   * needed to, because the shell drew the licence strip underneath them. With
+   * the strip gone they are last, and they say so.
+   */
+  it('is paid by the wizard’s nav, on the first screen a new device ever shows', async () => {
+    setViewport(1024);
+    // No character at all: `openingScreen` sends an empty library to Build, and
+    // Build with an empty library is the wizard.
+    await act(async () => {
+      root.render(createElement(App));
+    });
+    await settle(() => useApp.getState().ready);
+    await act(async () => {
+      useApp.getState().setScreen('build');
+    });
+    await settle(() => text().includes(NOTICE));
+    expect(text(), 'the wizard lost the licence notice').toContain(NOTICE);
+    expect(insetPayers()).toEqual(['NAV[Wizard navigation]']);
+  });
+
+  it('is paid by the level-up’s nav, which is the other bar under a scroll', async () => {
+    setViewport(1024);
+    await mountOn('build');
+    const up = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      (b.textContent ?? '').startsWith('Level up to'),
+    );
+    expect(up, 'Build no longer offers a level-up, so this test is testing nothing').toBeDefined();
+    await act(async () => {
+      up!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle(() => text().includes('Tier achievement'));
+    expect(text(), 'the level-up lost the licence notice').toContain(NOTICE);
+    expect(insetPayers()).toEqual(['NAV']);
   });
 });
 
