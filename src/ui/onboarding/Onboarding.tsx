@@ -13,6 +13,14 @@
  * derivation. What this file is responsible for is not asking anything it does
  * not have to.
  *
+ * The third of those is the shortest and the least obvious. One of the four
+ * answers to the first question - "my character is on another device" - is not
+ * an answer at all, it is a door: somebody whose sheet already exists has
+ * nothing to tell this app about how they play, because the sheet says it. So
+ * that answer ends the flow where it stands and opens `ImportDoors` in place of
+ * the summary, behind a `lazy()` boundary that keeps the QR codec out of the
+ * chunk drawing this very frame.
+ *
  * ## The six questions that are not here
  *
  * Every preference in `prefs.ts` was a candidate and six were dropped, each for
@@ -67,6 +75,12 @@
  * then Skip gets the shipped defaults, not a half-applied GM setup, and the card
  * says so by counting no questions.
  *
+ * It stays live in front of the import doors and goes dead on the summary, which
+ * is the only asymmetry here. On the summary there is nothing left to skip - it
+ * is the end of every route. In front of three doors there is: somebody who
+ * tapped "my character is on another device", found the other phone was in
+ * another room, and would now like to be let into the app.
+ *
  * ## Nothing above this, and nothing beside it
  *
  * `App` draws this instead of the five screens, and suppresses `TabBar`;
@@ -98,51 +112,74 @@
  * wizard this hands off to, so a row is 369 wide at 393.
  *
  * Every answer row is `minHeight: 64` against this app's own 44px floor
- * (`--tap`) - 20px of headroom - and every row is full width, the largest
- * target this column can make. That holds at 1180 with a mouse too, where
- * `--control` is 34: the rows do not shrink with the floor.
+ * (`--tap`) - 20px of headroom - and every row is full width, the largest target
+ * this column can make. `minHeight` gives way to content rather than clipping
+ * it: the longest label, "A player - my character is on another device", wraps
+ * to two lines in a 293px text column and the row is 75. And 64 holds at 1180
+ * with a mouse, where `--control` is 34: these rows do not follow the floor down.
  *
- *   viewport        window   content   rows            fold
- *   393x852          730      730      185-397 / -471   783   no scroll
- *   393x852 inset    637      637      244-456          749   no scroll
- *   375x667          545      545      185-397          598   no scroll
- *   375x667 party    545      598      185-471          598   scrolls 53
- *   375x667 inset    467      524      229-441          564   scrolls 57
- *   320x568          446      551      185-408          499   scrolls 105
- *   320x568 party    446      635      206-492          499   scrolls 189
- *   744x1133        1011     1011      189-401         1064   no scroll
- *   1180x800         678      678      194-406          731   no scroll
- *   852x393          271      484      189-401          324   scrolls 213
- *   568x320          198      492      185-397          251   scrolls 294
+ * The first question, which is the four-row one and therefore the tall one:
+ *
+ *   viewport           window content  rows       fold
+ *   393x852             730    730     185-482     783   no scroll
+ *   393x852 installed   637    637     244-541     749   no scroll
+ *   375x667             545    609     185-482     598   scrolls 64
+ *   375x667 installed   467    609     229-526     564   scrolls 142
+ *   320x568             446    636     185-493     499   scrolls 190
+ *   744x1133           1011   1011     189-475    1064   no scroll
+ *   1180x800            678    678     194-480     731   no scroll
+ *   852x393             271    558     189-475     324   scrolls 287
+ *   568x320             198    566     185-471     251   scrolls 368
+ *
+ * The GM's party question is the other four-row screen and is 11px shorter
+ * (206-492 at 320x568, against the same 499). The three import doors are 185-400
+ * at 320 and 185-397 everywhere else; with the camera open at 393x852 the
+ * content goes to 984 against a 730 window, which is the one state this screen
+ * is *designed* to scroll in.
  *
  * The reading of that table. On every portrait phone, at every safe-area
- * setting, **every answer is above the fold** - including the GM's fourth on the
- * smallest phone in the sweep, which lands at 492 against a fold at 499. Where
- * the screen scrolls, what is below the fold is the licence notice, which is
- * exactly where that notice is meant to be. Two things buy that fit and both are
- * named where they are set: the question runs at `t-vital`, which clamps to 21px
- * at these widths where the demo's 25px would have wrapped every headline to two
- * lines, and the gaps inside a question are 12 rather than 16.
+ * setting, **every answer is above the fold** - including the fourth on the
+ * smallest phone in the sweep, at 493 against 499. Where the screen scrolls,
+ * what is below the fold is the licence notice, which is where that notice is
+ * meant to be. Two measurements bought that fit and both are recorded where they
+ * are set: the question runs at `t-vital`, which clamps to 21px at these widths
+ * where the demo's 25px wrapped every headline to two lines, and the gaps inside
+ * a question are 12 rather than 16.
  *
- * The arc, honestly. At 393x852 the rows occupy y185 to y471 and a one-handed
+ * The arc, honestly. At 393x852 the rows occupy y185 to y482 and a one-handed
  * thumb is comfortable from about y300 down, so the first row is a stretch and
- * the rest are in the arc. That is the wrong way round if this were a control
- * strip and it is the right way round for what it is: four rows that are read
- * before any of them is touched, once, on a screen with nothing else on it. The
- * 286px of rows is a slide rather than a re-grip, and the two controls that ARE
- * reflexes - Back and Skip - are 48px tall in the pinned nav at y783-831, the
- * band the wizard's Back and Next already occupy and the same band `TabBar`
- * holds on every other screen.
+ * the rest are in the arc. That is the wrong way round for a control strip and
+ * the right way round for what this is: four rows that are read before any of
+ * them is touched, once, on a screen with nothing else on it. 297px of rows is a
+ * slide rather than a re-grip, and the two controls that ARE reflexes - Back and
+ * Skip - are 48px in the pinned nav at y783-831, the band the wizard's Back and
+ * Next occupy and the same band `TabBar` holds on every other screen.
  *
  * Landscape scrolls and is meant to: 271px of window at 852x393 and 198 at
- * 568x320 cannot hold a headline and three 64px rows however they are arranged,
+ * 568x320 cannot hold a headline and four 64px rows however they are arranged,
  * and the nav stays put through it. The Play screen scrolls and so does this.
  */
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/state.ts';
 import type { Prefs } from '../../store/prefs.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
+import { AnswerRow } from './parts.tsx';
+
+/*
+ * The three doors, and the reason they are a chunk of their own.
+ *
+ * `ImportDoors` reaches `Transfer.tsx`, which pulls `src/transfer/qr.ts` and
+ * `src/transfer/fileIo.ts`. `App.tsx` splits Settings out of the shell to keep
+ * exactly that off first paint and says so in its own comment; a static import
+ * here would put the QR codec back into the chunk that draws the first frame on
+ * every device, and no test in this suite could see it. The questions above
+ * stay in the shell - a spinner on the first screen anybody ever sees is not
+ * acceptable - and this loads behind a tap, which is what a tap looks like.
+ */
+const ImportDoors = lazy(async () => ({
+  default: (await import('./ImportDoors.tsx')).ImportDoors,
+}));
 
 interface Answer {
   /** Two to four characters of mono in the leading square. */
@@ -153,6 +190,14 @@ interface Answer {
   set: Partial<Prefs>;
   /** Opens the third question and sends the hand-off to the GM screen. */
   branch?: 'gm';
+  /**
+   * Ends the flow here and opens the three import doors instead of a summary.
+   *
+   * Not a fourth question. Somebody whose character is already made has nothing
+   * to tell this app about how they play - it is about to arrive on the sheet
+   * they made - so this is the one answer that is also a destination.
+   */
+  route?: 'import';
 }
 
 interface Question {
@@ -185,6 +230,13 @@ const QUESTIONS: Question[] = [
         label: "A player — I'll make a character now",
         sub: 'NEXT: THE NINE CLASSES',
         set: { gmSection: false },
+      },
+      {
+        glyph: 'HAVE',
+        label: 'A player — my character is on another device',
+        sub: 'FILE · CAMERA · PASTE, RIGHT NOW',
+        set: { gmSection: false },
+        route: 'import',
       },
       {
         glyph: 'GM',
@@ -252,8 +304,20 @@ export function Onboarding(): React.JSX.Element {
   const [isGm, setIsGm] = useState(false);
   /** Every patch given so far, in the order they were given. */
   const [patch, setPatch] = useState<Partial<Prefs>>({});
-  /** How many of the questions were actually answered, for the summary. */
-  const [answered, setAnswered] = useState(0);
+  /**
+   * True when the summary was reached by Skip rather than by answering.
+   *
+   * A flag rather than a tally, and the tally is what it replaces. Counting taps
+   * looked right and was not: Back onto a question and answer it again and the
+   * count went up, so the card could say three questions were answered in a flow
+   * that is two long - the app claiming something that did not happen, in the
+   * one place it exists to say what did. The summary is only reachable by
+   * answering every question on the list or by skipping, so the honest number is
+   * derivable and is derived below.
+   */
+  const [skipped, setSkipped] = useState(false);
+  /** Set by the one answer that is a door rather than a question. */
+  const [route, setRoute] = useState<'import' | null>(null);
 
   /*
    * Which questions this run asks, from one expression with two callers.
@@ -284,7 +348,27 @@ export function Onboarding(): React.JSX.Element {
   const choose = (question: Question, option: Answer): void => {
     const next = { ...patch, ...option.set };
     setPatch(next);
-    setAnswered((n) => n + 1);
+    setSkipped(false);
+
+    /*
+     * The route is written by every answer to the first question, not only by
+     * the one that sets it.
+     *
+     * It was set in the branch below and cleared in `back`, and that pairing had
+     * a hole with no symptom until two moves later: take the import door, press
+     * Back, answer "The GM" instead, and a stale `'import'` put the three doors
+     * where the GM's summary belongs. Setting it here makes the route a property
+     * of the current answer rather than a flag two handlers have to agree about.
+     */
+    if (question.id === 'who') setRoute(option.route ?? null);
+
+    // The door. One question was asked and it has been answered, so the flow is
+    // over whatever else is on the list - which is the "exactly one" half of the
+    // decision, and the reason it is checked before the branch below.
+    if (option.route === 'import') {
+      setDone(true);
+      return;
+    }
 
     // The branch is decided by this answer, so the length of the flow changes
     // underneath the step counter. Ask `visible` for the new list rather than
@@ -307,6 +391,11 @@ export function Onboarding(): React.JSX.Element {
    */
   const back = (): void => {
     if (done) {
+      // The doors are an answer, so backing out of them puts the question they
+      // answered back on screen with its other three rows on it - which is the
+      // way out for somebody who took the import route by mistake. The route
+      // itself is left alone: `choose` owns it, and it is unread while `done`
+      // is false.
       setDone(false);
       return;
     }
@@ -324,7 +413,8 @@ export function Onboarding(): React.JSX.Element {
   const skip = (): void => {
     setPatch({});
     setIsGm(false);
-    setAnswered(0);
+    setRoute(null);
+    setSkipped(true);
     setStep(0);
     setDone(true);
   };
@@ -341,6 +431,22 @@ export function Onboarding(): React.JSX.Element {
     setScreen(isGm ? 'gm' : 'build');
   };
 
+  /*
+   * The same one write, taken by the import route instead of by a button.
+   *
+   * A character arriving *is* the hand-off on this branch - there is nothing
+   * left to confirm and a "Continue" under a sheet that is already on the device
+   * would be a step that does nothing. Play rather than Build, because the thing
+   * that just arrived is a character to play.
+   */
+  const arrive = (): void => {
+    setPrefs({ ...patch, onboarded: true });
+    setScreen('play');
+  };
+
+  /** How many questions this run actually asked, for the card to state. */
+  const answered = skipped ? 0 : route === 'import' ? 1 : asked.length;
+
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <div
@@ -349,9 +455,16 @@ export function Onboarding(): React.JSX.Element {
         style={{ flex: 1, minHeight: 0, padding: phone ? '14px 12px 20px' : '18px 20px 24px' }}
       >
         <div className="stack" style={{ gap: 16, maxWidth: 720, margin: '0 auto' }}>
-          <Rail count={asked.length} at={done ? asked.length : step} />
+          <Rail
+            count={route === 'import' ? 1 : asked.length}
+            at={done ? (route === 'import' ? 1 : asked.length) : step}
+          />
           {done ? (
-            <Summary isGm={isGm} patch={patch} answered={answered} onFinish={finish} />
+            route === 'import' ? (
+              <Doors onArrived={arrive} />
+            ) : (
+              <Summary isGm={isGm} patch={patch} answered={answered} onFinish={finish} />
+            )
           ) : (
             <Ask question={current} step={step} of={asked.length} onChoose={choose} />
           )}
@@ -403,12 +516,55 @@ export function Onboarding(): React.JSX.Element {
           type="button"
           className="btn btn-ghost"
           onClick={skip}
-          disabled={done}
+          /*
+           * Live on the doors, dead on the summary. On the summary there is
+           * nothing left to skip - it is the end of every route - but somebody
+           * standing in front of three import doors having second thoughts is
+           * exactly who needs a way straight into the app.
+           */
+          disabled={done && route === null}
           style={{ minHeight: 48, minWidth: 108 }}
         >
           Skip these
         </button>
       </nav>
+    </div>
+  );
+}
+
+/**
+ * The end of the one-question route: a heading, a line, and three doors.
+ *
+ * It stands where the summary stands on the other two routes and it deliberately
+ * does not summarise. There is nothing to summarise: this route wrote one key,
+ * and the person is here because their character is on another device and they
+ * want it on this one. A card listing preferences would be the app talking about
+ * itself at the one moment somebody is trying to do something.
+ *
+ * The doors are a `lazy()` chunk - see the import at the top of this file for
+ * why that is not optional - so the heading and the line render at once and only
+ * the three rows wait. The fallback is a sentence rather than a spinner, because
+ * a spinner under a promise of "three ways in" is the promise loading.
+ */
+function Doors({ onArrived }: { onArrived: () => void }): React.JSX.Element {
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <span className="t-label">ONE QUESTION, ANSWERED</span>
+      <h2 className="t-vital" style={{ margin: 0, color: 'var(--text)' }}>
+        Bring it across
+      </h2>
+      <p className="t-dense" style={{ margin: 0, maxWidth: '46ch' }}>
+        Nothing else to ask — the character you already made answers the rest. Pick a way in.
+      </p>
+      <Suspense
+        fallback={
+          <p className="t-dense" style={{ margin: 0 }}>
+            Opening the three ways in…
+          </p>
+        }
+      >
+        <ImportDoors onArrived={onArrived} />
+      </Suspense>
     </div>
   );
 }
@@ -480,77 +636,16 @@ function Ask({
       </p>
       <div className="stack" role="group" aria-labelledby={heading} style={{ gap: 10 }}>
         {question.options.map((option) => (
-          <Row key={option.label} option={option} onPick={() => onChoose(question, option)} />
+          <AnswerRow
+            key={option.label}
+            glyph={option.glyph}
+            label={option.label}
+            sub={option.sub}
+            onPick={() => onChoose(question, option)}
+          />
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * One answer: a glyph, a label, and the consequence under it.
- *
- * 64px against the app's 44px floor, and full width, because this is the whole
- * business of the screen it is on and there is nothing to share the column with.
- * The tap on the answer is also the tap that advances - there is no Next to find
- * at the bottom, which is what keeps a two-question flow at two taps.
- */
-function Row({
-  option,
-  onPick,
-}: {
-  option: Answer;
-  onPick: () => void;
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      className="row"
-      onClick={onPick}
-      style={{
-        minHeight: 64,
-        width: '100%',
-        gap: 14,
-        padding: '12px 14px',
-        borderRadius: 'var(--r3)',
-        background: 'var(--raised)',
-        border: '1px solid var(--line)',
-        textAlign: 'left',
-      }}
-    >
-      <span
-        aria-hidden="true"
-        className="t-meta"
-        style={{
-          flex: 'none',
-          width: 34,
-          height: 34,
-          display: 'grid',
-          placeItems: 'center',
-          borderRadius: 'var(--r2)',
-          background: 'var(--panel)',
-          border: '1px solid var(--line)',
-          color: 'var(--hope)',
-          letterSpacing: '0.02em',
-        }}
-      >
-        {option.glyph}
-      </span>
-      <span className="stack" style={{ gap: 3, minWidth: 0 }}>
-        {/*
-          `balance` because the longest label here wraps at 320px and left to
-          itself put the single word "now" on a line of its own - measured, and
-          the one thing the audit sweep flagged on this screen at any viewport.
-          An orphan under a 218px line is the row looking like a mistake.
-        */}
-        <span style={{ font: '600 15px/1.2 var(--sans)', color: 'var(--text)', textWrap: 'balance' }}>
-          {option.label}
-        </span>
-        <span className="t-meta" style={{ color: 'var(--dim)' }}>
-          {option.sub}
-        </span>
-      </span>
-    </button>
   );
 }
 

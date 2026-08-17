@@ -118,7 +118,7 @@ import { CoinRow, PrintDomainMark, TickRow } from '../../src/ui/print/marks.tsx'
 import { About } from '../../src/ui/settings/About.tsx';
 import { ReconciliationReport, Rulebook } from '../../src/ui/settings/Rulebook.tsx';
 import { Settings } from '../../src/ui/settings/Settings.tsx';
-import { Transfer } from '../../src/ui/settings/Transfer.tsx';
+import { Receiver, Transfer } from '../../src/ui/settings/Transfer.tsx';
 import {
   Action,
   Choice as SettingsChoice,
@@ -128,7 +128,9 @@ import {
   Section as SettingsSection,
   Switch,
 } from '../../src/ui/settings/parts.tsx';
+import { ImportDoors } from '../../src/ui/onboarding/ImportDoors.tsx';
 import { Onboarding } from '../../src/ui/onboarding/Onboarding.tsx';
+import { AnswerRow } from '../../src/ui/onboarding/parts.tsx';
 import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shared/CompatibleMark.tsx';
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
@@ -190,6 +192,12 @@ beforeAll(() => {
   // than in the app, and both would otherwise read as a crash.
   Element.prototype.scrollTo = (): void => {};
   Element.prototype.scrollIntoView = (): void => {};
+  // And no media element. `Receiver` releases the camera on unmount by pausing
+  // the `<video>` and clearing `srcObject`, which is right in a browser and
+  // prints "Not implemented: HTMLMediaElement's pause()" here - a third gap in
+  // the environment, and one this file reads as a React complaint because it
+  // arrives on `console.error`.
+  HTMLMediaElement.prototype.pause = (): void => {};
 });
 
 beforeEach(async () => {
@@ -621,6 +629,14 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // It takes no props at all: everything it needs is the store, and everything
   // it decides it holds itself until its last button.
   'onboarding/Onboarding.tsx::Onboarding': () => <Onboarding />,
+  // The three doors, mounted with none of them open — which is the state they
+  // are in when the screen arrives, and the only one that does not want a
+  // camera. Each door opens on its own tap and `onboarding.test.tsx` drives
+  // them; this asks the smaller question of whether the closed screen draws.
+  'onboarding/ImportDoors.tsx::ImportDoors': () => <ImportDoors onArrived={noop} />,
+  'onboarding/parts.tsx::AnswerRow': () => (
+    <AnswerRow glyph="PC" label="A player" sub="NEXT: THE NINE CLASSES" onPick={noop} />
+  ),
 
   'print/CharacterSheet.tsx::CharacterSheet': () => (
     <CharacterSheet sheet={buildSheet(playedCharacter(), dataset, index)} />
@@ -644,6 +660,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'settings/Settings.tsx::Settings': () => <Settings />,
   'settings/Transfer.tsx::Transfer': () => <Transfer />,
+  // The camera half on its own, which the first run's import door mounts
+  // directly. jsdom has no `navigator.mediaDevices`, so this fixture exercises
+  // the branch that matters most on a real device too: the scanner refusing to
+  // start, and the refusal reaching the screen instead of a blank panel.
+  'settings/Transfer.tsx::Receiver': () => <Receiver />,
   'settings/parts.tsx::Section': () => (
     <SettingsSection id="s" title="A Section">
       body

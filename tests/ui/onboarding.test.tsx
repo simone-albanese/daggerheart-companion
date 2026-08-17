@@ -30,6 +30,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import * as db from '../../src/store/db.ts';
 import { DEFAULT_PREFS, loadPrefs, savePrefs } from '../../src/store/prefs.ts';
+import { serializeCharacter } from '../../src/transfer/fileIo.ts';
 import { useApp } from '../../src/store/state.ts';
 import { App } from '../../src/ui/shell/App.tsx';
 import { playedCharacter } from './fixture.ts';
@@ -445,6 +446,223 @@ describe('skipping', () => {
 
     await press('Back');
     expect(text()).toContain('Who are you at this table?');
+  });
+});
+
+/**
+ * The one-question route, and the three doors behind the question.
+ *
+ * Every assertion here is about the same property from a different side: the app
+ * must never claim something happened that did not. A door that cannot open has
+ * to say why, in the words the layer underneath it already wrote - and a door
+ * that opens has to say which character arrived rather than counting one.
+ */
+describe('one question for somebody who already has a character', () => {
+  const anyGlobal = globalThis as unknown as Record<string, unknown>;
+
+  /** The File System Access API, answering with `text` - or `null` to cancel. */
+  function stubFilePicker(text: string | null): void {
+    anyGlobal['showOpenFilePicker'] = async (): Promise<unknown[]> =>
+      text === null
+        ? []
+        : [{ getFile: async () => ({ name: 'ilya.dhchar', text: async () => text }) }];
+  }
+
+  function stubClipboard(read: () => Promise<string>): void {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText: read },
+      configurable: true,
+    });
+  }
+
+  /** A camera that answers the way a real one refuses: by `name`. */
+  function stubCamera(name: string): void {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: () => Promise.reject(Object.assign(new Error('no'), { name })),
+      },
+      configurable: true,
+    });
+  }
+
+  afterEach(() => {
+    delete anyGlobal['showOpenFilePicker'];
+  });
+
+  /** Open the import route and wait for the lazy chunk behind it. */
+  async function toTheDoors(): Promise<void> {
+    await import('../../src/ui/onboarding/ImportDoors.tsx');
+    await boot();
+    await press('on another device');
+    await settle(() => text().includes('Choose a file'));
+  }
+
+  const doors = (): HTMLButtonElement[] => [
+    ...container.querySelectorAll<HTMLButtonElement>(
+      '[role="group"][aria-label="Three ways in"] > button',
+    ),
+  ];
+
+  it('asks nothing further, and opens exactly three doors', async () => {
+    await toTheDoors();
+
+    expect(
+      text(),
+      'somebody whose character is already made is being asked how their table ' +
+        'rolls, which is a question their sheet has already answered',
+    ).not.toContain('How does your table roll?');
+    expect(text()).not.toContain('How many players at your table?');
+
+    const names = doors().map((b) => (b.textContent ?? '').replace(/\s+/g, ' ').trim());
+    expect(names, 'the one question did not open onto three doors').toHaveLength(3);
+    expect(names.join(' | ')).toMatch(/Choose a file/);
+    expect(names.join(' | ')).toMatch(/Open the camera/);
+    expect(names.join(' | ')).toMatch(/Paste what you copied/);
+    for (const door of doors()) {
+      expect(
+        Number.parseInt(door.style.minHeight, 10),
+        'a door is under the 44px floor on the most consequential screen in the app',
+      ).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  it('puts the question back when Back is pressed, so a wrong door is not final', async () => {
+    await toTheDoors();
+    await press('Back');
+
+    expect(
+      text(),
+      'the import route is a one-way door: somebody who tapped the wrong answer ' +
+        'on the first screen they ever saw cannot get back to the other three',
+    ).toContain('Who are you at this table?');
+    expect(text()).toContain("I'll make a character now");
+  });
+
+  /*
+   * Backing out and answering differently, which is the state a route flag can
+   * be stale in. It had no symptom one move after Back and a bad one two moves
+   * after: the three doors standing where the GM's summary belongs.
+   */
+  it('does not leave the doors standing behind a different answer', async () => {
+    await toTheDoors();
+    await press('Back');
+    await press('The GM');
+    await press('The app rolls for me');
+    await press('Four');
+
+    expect(
+      text(),
+      'the flow remembered a route that was backed out of, so a GM who changed ' +
+        'their mind is looking at three import doors',
+    ).toContain('Your table is ready');
+    expect(text()).not.toContain('Choose a file');
+  });
+
+  it('says what is wrong with a file it cannot read', async () => {
+    stubFilePicker('this is not a character');
+    await toTheDoors();
+    await press('Choose a file');
+    await settle(() => container.querySelector('[role="alert"]') !== null);
+
+    const alert = container.querySelector('[role="alert"]');
+    expect(
+      alert,
+      'a file that will not parse was swallowed, so the screen looks exactly the ' +
+        'same as it did before the tap',
+    ).not.toBeNull();
+    expect((alert?.textContent ?? '').length, 'the refusal is empty').toBeGreaterThan(10);
+    expect(useApp.getState().characters).toHaveLength(0);
+  });
+
+  it('says nothing at all when the picker is closed without a choice', async () => {
+    stubFilePicker(null);
+    await toTheDoors();
+    await press('Choose a file');
+    await settle();
+
+    expect(
+      container.querySelector('[role="alert"]'),
+      'closing a file picker is not an error, and reporting one is the app ' +
+        'inventing a failure the person committed on purpose',
+    ).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('takes a character from a file, records the run and opens the sheet', async () => {
+    const arriving = playedCharacter();
+    stubFilePicker(serializeCharacter(arriving));
+    await toTheDoors();
+    await press('Choose a file');
+    await settle(() => useApp.getState().characters.length > 0);
+
+    expect(useApp.getState().characters).toHaveLength(1);
+    const prefs = loadPrefs();
+    expect(prefs.onboarded, 'the import route never recorded that the run happened').toBe(true);
+    expect(prefs.gmSection, 'the one answer this route gives was not written').toBe(false);
+    // Untouched: this route asks one question, so the other two keep the
+    // defaults rather than being decided by silence.
+    expect(prefs.digitalDice).toBe(DEFAULT_PREFS.digitalDice);
+    expect(prefs.manualDice).toBe(DEFAULT_PREFS.manualDice);
+    await settle(() => useApp.getState().screen === 'play');
+    expect(useApp.getState().screen).toBe('play');
+    // Named, not counted: `describeImport` says which character arrived.
+    expect(text()).not.toContain('Choose a file');
+  });
+
+  it('says what is wrong with what is on the clipboard, rather than nothing', async () => {
+    stubClipboard(async () => 'a shopping list');
+    await toTheDoors();
+    await press('Paste what you copied');
+    await settle(() => container.querySelector('[role="alert"]') !== null);
+
+    // Whichever of the two refusals `pasteLibrary` reaches - the parser's own
+    // sentence for something that is not JSON, or its fallback for JSON that is
+    // not a character - it has to name the problem rather than shrug.
+    expect(container.querySelector('[role="alert"]')?.textContent ?? '').toMatch(
+      /not valid JSON|not a Daggerheart character/,
+    );
+    expect(useApp.getState().characters).toHaveLength(0);
+  });
+
+  it('says the clipboard could not be read when the browser refuses', async () => {
+    stubClipboard(() => Promise.reject(new Error('denied')));
+    await toTheDoors();
+    await press('Paste what you copied');
+    await settle(() => container.querySelector('[role="alert"]') !== null);
+
+    expect(container.querySelector('[role="alert"]')?.textContent ?? '').toMatch(
+      /clipboard could not be read/,
+    );
+  });
+
+  /*
+   * The camera door is the one that can be dead, because it depends on hardware
+   * and on a permission. It is not: it opens onto whichever sentence
+   * `cameraError` writes, which is the same sentence the transfer screen in
+   * Settings has always shown.
+   */
+  it('is not a dead button on a device with no camera', async () => {
+    stubCamera('NotFoundError');
+    await toTheDoors();
+    await press('Open the camera');
+    await settle(() => text().includes('No camera was found'));
+
+    expect(
+      text(),
+      'the camera door opened onto a black rectangle and said nothing, on a ' +
+        'device that has no camera to open',
+    ).toContain('No camera was found on this device. Import the file instead.');
+  });
+
+  it('says the permission was refused, and offers the door that does not need one', async () => {
+    stubCamera('NotAllowedError');
+    await toTheDoors();
+    await press('Open the camera');
+    await settle(() => text().includes('Camera access was denied'));
+
+    expect(text()).toContain('Camera access was denied. Allow the camera, or import the file instead.');
+    // And the other two doors are still on screen to take instead.
+    expect(doors()).toHaveLength(3);
   });
 });
 
