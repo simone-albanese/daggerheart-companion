@@ -21,7 +21,7 @@ the pass that finally made the whole folded sheet fit, and **2481 in 108 files**
 after the resolution audit's eleven lanes.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is **136 commits** behind `main` — `git rev-list --count
+`dd66d35`, which is **138 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short (it
 said twenty-six before the audit) — so
@@ -175,7 +175,7 @@ One session ran 19 lanes in parallel git worktrees and a later one ran five. Two
 things cost real time and will cost it again:
 
 - **A worktree is cut from `origin/main`, not from local `main`,** and nothing
-  is pushed, so it starts **136 commits stale** as of `HEAD` — it was ~75 when
+  is pushed, so it starts **138 commits stale** as of `HEAD` — it was ~75 when
   this warning was written, and the gap only grows until somebody
   pushes. **Cut it from local `main` yourself**, which is what
   `audit-harness/analysis/mkwt.sh` does, and what every lane of the resolution
@@ -209,7 +209,7 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**276 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
+**278 non-merge commits since `87b9238`**, across the nineteen-lane pass, the
 five lanes merged after it and the resolution audit's eleven. Counted at `HEAD`
 with `git rev-list --count
 --no-merges 87b9238..HEAD`, counting the commit that writes this line. The 146

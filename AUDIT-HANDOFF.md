@@ -8,7 +8,7 @@ due si toccano.
 **Stato.** `main` è a `ae32323` più i commit di questo passaggio, che tocca
 soltanto i `.md`. **2481 test in 108 file, verdi**, `tsc --noEmit` pulito.
 `origin/main` è a `dd66d35`: `git rev-list --count origin/main..HEAD` dice
-**136** (123 senza i merge) contando il commit che scrive questa riga — un
+**138** (125 senza i merge) contando il commit che scrive questa riga — un
 handoff che si modifica sposta il proprio numero, quindi si conta dopo;
 **niente è pushato.** Il push fa partire un deploy vero su GitHub Pages.
 
