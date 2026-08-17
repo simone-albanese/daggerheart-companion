@@ -301,6 +301,41 @@ describe('the pip tokens', () => {
     expect(tokensCss).toMatch(/--pip-min:\s*24px/);
   });
 
+  /*
+   * `--counter-num` is the third token in this family and it answers a third
+   * question: not "is a finger involved" but "how wide is the grid track this
+   * number is drawn in". It is here because the trap is the same one - a token
+   * that gets dragged into a query it does not belong in - and because the
+   * whole reason the size is a token at all is that `Counter` sets its font
+   * inline, which no stylesheet rule can override.
+   */
+  it('steps the counter number by width, once, and never by pointer', () => {
+    expect(tokensCss, '--counter-num is not defined at all').toMatch(/--counter-num:\s*18px/);
+    const rootBlock = /:root\s*\{[\s\S]*?\n\}/.exec(tokensCss)?.[0] ?? '';
+    expect(rootBlock, 'the base size is not on :root, so a width nobody anticipated gets nothing').
+      toMatch(/--counter-num:\s*18px/);
+
+    const widthSteps = tokensCss.match(/@media[^{]*min-width:[^{]*\{[\s\S]*?\n\}/g) ?? [];
+    const raising = widthSteps.filter((rule) => /--counter-num:/.test(rule));
+    expect(
+      raising.length,
+      'the counter number is stepped by more than one width query. One step is the whole ' +
+        'design: two sizes, both measured against the cell they have to fit',
+    ).toBe(1);
+    expect(raising[0]).toMatch(/min-width:\s*380px/);
+    expect(raising[0]).toMatch(/--counter-num:\s*22px/);
+
+    /*
+     * And not in either pointer query. A mouse-only 1280px desktop draws this
+     * number in a 198px cell and wants the large size exactly as much as a
+     * phone does; a coarse pointer on a 320px phone wants the small one. Size
+     * is not the question those queries answer.
+     */
+    const pointerBlocks = tokensCss.match(/@media[^{]*pointer:\s*coarse[^{]*\{[\s\S]*?\n\}/g) ?? [];
+    expect(pointerBlocks.length).toBeGreaterThan(0);
+    for (const rule of pointerBlocks) expect(rule).not.toMatch(/--counter-num:/);
+  });
+
   /**
    * AND NOTHING OVERRULES IT. The two assertions above prove the token adapts
    * and that `--control` does not follow it. Neither proves that anything

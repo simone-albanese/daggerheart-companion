@@ -143,6 +143,35 @@
   --pip-gap: 5px;
 
   /*
+   * How big the number in a `Counter` cell is drawn, stepped once by width.
+   *
+   * The cell is `(glass - 24 - 6) / 2` and 88 of it is the two steppers plus
+   * their two 4px gutters, so the value target - and therefore the room the
+   * number has - is a straight function of the viewport: 85.5 wide at 393,
+   * 76.5 at 375, 69 at 360, 61 at 344, 49 at 320, less 10px of padding and 2 of
+   * border. Measured in Chrome with the `wizard10` fixture at full Hit Points,
+   * the widest line the cell ever draws is `11 / 11`: 60.61px at 22, 58.09 at
+   * 20, 55.59 at 18. So 22 has 12.89px of slack at 393 and 6.39 at 380, and at
+   * 360 it would clip the tail of `/ 11` by 3.61 where 18 fits with 1.41.
+   *
+   * A STEP AND NOT A CLAMP, and not a `clamp()` on the cell width either,
+   * because what decides this is the *cell*, and the cell is a grid track a
+   * component cannot ask about at style time. A media query on the viewport is
+   * the same arithmetic one indirection earlier, and it is where `--control`
+   * and `--pip-h` already live, so no component invents a breakpoint of its own
+   * - which `useLayout.ts` forbids in as many words.
+   *
+   * 380 AND NOT 368, WHICH IS WHERE THE MEASUREMENT PUT IT RATHER THAN THE
+   * ARITHMETIC. 368 is where the cell first holds 22 at all - 61px of room
+   * against 60.61 of ink - and 0.39px is a coincidence, not a margin. 380 is
+   * the first even width with a real one.
+   *
+   * ON THE DESKTOP the query is true and the cell is 198 wide, so the cockpit
+   * gets 22 as well: 102px of target, 90 of room, against the same 60.61.
+   */
+  --counter-num: 18px;
+
+  /*
    * The boundary that has to be *seen*, as opposed to the ones that only have
    * to be sensed.
    *
@@ -174,6 +203,21 @@
 @media (max-width: 1179px), (pointer: coarse) {
   :root {
     --control: var(--tap);
+  }
+}
+
+/*
+ * The one step in the counter number, and it is a `min-width` on purpose: the
+ * small size is the base so that a width nobody anticipated gets the size that
+ * fits rather than the size that clips. See the note beside `--counter-num`.
+ *
+ * Deliberately not joined to either pointer query. This is a question about how
+ * wide a grid track is, not about what is touching it, and a mouse-only 1280px
+ * desktop wants the large number exactly as much as a phone does.
+ */
+@media (min-width: 380px) {
+  :root {
+    --counter-num: 22px;
   }
 }
 

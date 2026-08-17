@@ -261,6 +261,30 @@ describe('a counter drawn as a number', () => {
   });
 
   /*
+   * The number's size is a token, not a literal, and that is decision 4 of the
+   * reflow. What decides it is how wide the grid track is - 85.5 of target at
+   * 393, 76.5 at 375, 69 at 360 - and a component cannot ask a grid track its
+   * width at style time, so the arithmetic and its one breakpoint live in
+   * `tokens.css` where `--control` and `--pip-h` already are. `stylesheets.test`
+   * holds the token's own contract; this holds that the cell reads it.
+   */
+  it('draws the value at --counter-num rather than at a size of its own', () => {
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
+    const target = container.querySelector<HTMLButtonElement>('button')!;
+    const value = [...target.querySelectorAll('span')].find((el) =>
+      (el.getAttribute('style') ?? '').includes('var(--sans)'),
+    );
+    expect(
+      value?.style.font,
+      'the counter number is back to a literal size, so the 360px cell clips the tail of ' +
+        '`/ 11` and no stylesheet can say otherwise - an inline font is not overridable',
+    ).toBe('800 var(--counter-num)/1 var(--sans)');
+    // And the target it sits in did not move: this decision is ink only.
+    expect(target.style.minHeight, 'the value target left the touch floor').toBe('44px');
+    expect(target.style.minWidth).toBe('44px');
+  });
+
+  /*
    * The width the cell has to live in, stated where a change to the grid would
    * fail rather than in a comment. jsdom measures nothing, so these are the
    * declared terms: the column is the glass less this screen's 12px of padding

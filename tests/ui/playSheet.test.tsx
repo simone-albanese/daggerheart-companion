@@ -243,13 +243,16 @@ describe('what a phone shows of the character sheet', () => {
     // The numbers themselves, and at a size a person can read across a table:
     // the band was 10px --dim text before this, which is what the item is
     // about, so the size is asserted rather than only the presence.
+    // 32 and not 26 since decision 4: the six pixels are the whole of that
+    // decision on this band, and they are spent inside a row whose height they
+    // set, beside two targets that stayed at 44.
     const cells = [...container.querySelectorAll('.panel')].filter((el) =>
       /^(EVASION|MAJOR|SEVERE|PROF)/.test((el.textContent ?? '').trim()),
     );
     expect(cells, 'the defence band is not four cells').toHaveLength(4);
     for (const cell of cells) {
       const big = [...cell.querySelectorAll('span')].find((el) =>
-        el.getAttribute('style')?.includes('26px'),
+        el.getAttribute('style')?.includes('32px'),
       );
       expect(big, `${cell.textContent ?? '?'} has no full-size number`).toBeDefined();
     }
@@ -640,10 +643,10 @@ describe('the trait row and the roll surface', () => {
  * the DOM by `the terms this budget can read, it reads` below, so a change to
  * any of them moves the budget instead of silently invalidating it.
  *
- * WHAT THIS CANNOT PROVE, stated rather than implied. Six of the terms are
- * stylesheet constants that jsdom cannot see - `.t-vital`'s 21px, `.t-meta`'s
- * 10px, the 26px defence numbers, `.panel`'s 1px border - and they are marked
- * `css` in the table. Beyond that it cannot see:
+ * WHAT THIS CANNOT PROVE, stated rather than implied. Three of the terms are
+ * stylesheet constants that jsdom cannot see - `.t-meta`'s 10px, the 32px
+ * defence numbers, `.panel`'s 1px border - and they are marked `css` in the
+ * table. Beyond that it cannot see:
  *
  *   - a character name or a multiclass line that WRAPS, which is one line of
  *     18.9px each time (14px at 1.35). Measured in Chrome: the class cell is
@@ -739,7 +742,9 @@ describe('the budget the pin came off for', () => {
     { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
     { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
     { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
-    { what: 'the defence band · the number at 26/1', px: 26, from: 'css' },
+    // 32 since decision 4, and it is the only term of the band that moved: the
+    // two targets in the fifth cell are 44 and 44 either side of it.
+    { what: 'the defence band · the number at 32/1', px: 32, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
     // The fifth cell is TOOK and a 44px field, vertically centred in a row the
     // four number cells already hold open at 58. It is in this table at zero
@@ -805,7 +810,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 286').toBe(286);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 292').toBe(292);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -814,7 +819,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(444);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(438);
   });
 
   /*
@@ -836,7 +841,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(259);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(253);
   });
 
   /*
@@ -860,7 +865,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(598);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(604);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -871,12 +876,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(132);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(126);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(53);
+    ).toBe(59);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -892,7 +897,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(474);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(468);
   });
 
   /*
@@ -923,7 +928,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([273, 339]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([279, 345]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -935,11 +940,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([513, 579]);
+    ).toEqual([507, 573]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([328, 394]);
+    ).toEqual([322, 388]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -949,7 +954,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(452);
+    ).toBe(446);
   });
 
   /*

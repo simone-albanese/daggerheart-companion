@@ -13,8 +13,8 @@
  * changed underneath them: with the counters and the thresholds moved to the
  * top where Giorgio's message puts them, the Experiences and the modifier row
  * moved out from above ROLL, and - since the reflow - the identity block off
- * the phone entirely, ROLL's own lower edge lands **444px** above the fold at
- * 393x852 and **259px** above it at 375x667 without a pin, so the block was
+ * the phone entirely, ROLL's own lower edge lands **438px** above the fold at
+ * 393x852 and **253px** above it at 375x667 without a pin, so the block was
  * buying a reach the order already provides and charging 266px for it. This
  * paragraph carried "195px and 10px" for two passes against assertions of 345
  * and 160, which is exactly the habit `playSheet.test.tsx` exists to break:
@@ -990,9 +990,11 @@ function TraitGrid({
  * they are four numbers you read - so the twelve pixels are spent on nothing a
  * finger has to find.
  *
- * The band's height is the four number cells: 8 + 10 label + 4 + 26 number + 8 +
- * 2 border = 58px. The door and the field are 44 inside that, so both ride for
- * free and the counters are 50px shorter for them.
+ * The band's height is the four number cells: 8 + 10 label + 4 + 32 number + 8 +
+ * 2 border = 64px, and the 32 is decision 4 - the only term of this band that
+ * grew, and it grew inside a row whose two targets are 44 and did not move. The
+ * door and the field are 44 inside that, so both ride for free and the counters
+ * are 50px shorter for them.
  */
 function Defenses({
   stats,
@@ -1122,7 +1124,12 @@ function Defence({
       </span>
       <span
         style={{
-          font: '800 26px/1 var(--sans)',
+          // 32, not 26. These four are the numbers you read across a table
+          // under pressure and they are the only things in the band that are
+          // not targets, so the six pixels are pure legibility: the row's
+          // height comes from this line, and 8 + 10 + 4 + 32 + 8 + 2 = 64
+          // against 58, which is +6 on the whole column and nothing else.
+          font: '800 32px/1 var(--sans)',
           letterSpacing: '-0.02em',
           fontVariantNumeric: 'tabular-nums',
         }}
@@ -2204,17 +2211,17 @@ function PlayDesktop({
  * decided the block stays because "a control you have to scroll to find is a
  * control that stops being used", and that reasoning is sound and its
  * conclusion is now reversed, because its premise moved. Against declared
- * heights at 393x852, every fold shut and nothing armed: the defence band 58 -
+ * heights at 393x852, every fold shut and nothing armed: the defence band 64 -
  * which carries the incoming-damage field *and* the conditions door as its
  * fifth cell, for nothing, because two 44px controls fit inside a row the
- * numbers already hold open at 58 - the four counters 94 as a 2x2 grid, the
- * trait row 44, and the roll row 66, ROLL beside a MODS control that costs the
- * column nothing because it is 44 wide inside a height ROLL was already
- * holding, plus three of this column's 8px gaps. **ROLL's lower edge lands at
- * 286 of a usable 730** (852 less the header's 52+1, the tab bar's 60+1 and
- * this root's own 8px foot), which is 444px of slack.
+ * numbers hold open at 64 - the four counters 94 as a 2x2 grid, the trait row
+ * 44, and the roll row 66, ROLL beside a MODS control that costs the column
+ * nothing because it is 44 wide inside a height ROLL was already holding, plus
+ * three of this column's 8px gaps. **ROLL's lower edge lands at 292 of a usable
+ * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
+ * foot), which is 438px of slack.
  *
- * AT 375x667 THE SAME 286 CLEARS A 545px COLUMN BY 259px, where before the
+ * AT 375x667 THE SAME 292 CLEARS A 545px COLUMN BY 253px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
  * are the dearest of them at **+68**, a companion (+50), a Beastform banner
@@ -2227,11 +2234,11 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **598px against 730 at 393x852, with 132 to spare** - every fold
+ * TWICE OVER. **604px against 730 at 393x852, with 126 to spare** - every fold
  * shut, the `playedCharacter` fixture. That is the condition P5-5's own decision
  * 1 made the unpinning conditional on, unmet through P5-5 (899, over by 169) and
- * P5-6 (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 132.
- * It fits at 744x1133 with 474 to spare, and it is **53px over at 375x667** -
+ * P5-6 (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 126.
+ * It fits at 744x1133 with 468 to spare, and it is **59px over at 375x667** -
  * which is one fold header and a gap, where it was three.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
@@ -2248,10 +2255,10 @@ function PlayDesktop({
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
- * this sheet now clears by 98 where P5-8's 697 was one pixel over. `BackupBanner`
+ * this sheet now clears by 92 where P5-8's 697 was one pixel over. `BackupBanner`
  * is the other one the budget has never counted: it is 58px above this scroll
  * from first launch until the first backup is taken, so a new user's column is
- * 672 - and 598 clears that by 74, where 697 was 25px over it.
+ * 672 - and 604 clears that by 68, where 697 was 25px over it.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
@@ -2285,7 +2292,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 598 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 604 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2400,29 +2407,29 @@ function PlayPhone({
        * of the tab bar` for two passes after the 2x2 counter grid took 150px
        * out of the stack above it, and every one of those numbers was 150px
        * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-       * shut, at the top of the scroll: the ROLL row spans **y273-339** on the
+       * shut, at the top of the scroll: the ROLL row spans **y279-345** on the
        * glass at both reference widths, because everything above it is the same
-       * height at both. At 393x852 that is **513 to 579px above the bottom
-       * bezel** and **452px clear of the tab bar**; at 375x667 it is **328 to
-       * 394px above the bezel** and 267px clear.
+       * height at both. At 393x852 that is **507 to 573px above the bottom
+       * bezel** and **446px clear of the tab bar**; at 375x667 it is **322 to
+       * 388px above the bezel** and 261px clear.
        *
        * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
        * The old sentence cited a 95th-percentile right-thumb sweep of about
        * 330px from the bottom-right pivot and said ROLL was inside it. It is
        * not, at either width, and the reflow made that worse rather than
        * better: deleting the 99px identity block lifted everything below it, so
-       * on a 393x852 phone the resting sheet now puts ROLL some 183px beyond the
+       * on a 393x852 phone the resting sheet now puts ROLL some 177px beyond the
        * far edge of that arc where P5-8 put it 84 beyond, and on a 375x667 phone
        * ROLL has left the arc altogether - it was 229-295 and comfortably inside
-       * it, and it is 328-394 and outside it by 2. That is a real cost of what
+       * it, and it is 322-388 and outside it by 8. That is a real cost of what
        * was asked for rather than a detail, and it is the cost of decision 2
        * specifically: every pixel the sheet gets shorter above ROLL is a pixel
        * further from the thumb at rest.
        *
        * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-       * The whole folded sheet is now readable in one look - 598 of 730 at
+       * The whole folded sheet is now readable in one look - 604 of 730 at
        * 393x852 - which is the sentence the owner actually wrote and which a
-       * pinned block made arithmetically impossible. And ROLL is 452px clear of
+       * pinned block made arithmetically impossible. And ROLL is 446px clear of
        * the tab bar, where pinned it sat 8px above a 98x60 control that
        * navigates away: a thumb aiming for ROLL and missing low used to leave
        * the screen mid-turn.
@@ -2602,7 +2609,7 @@ function PlayPhone({
        * the permanent strip was - and the only arrangement that removes the 52
        * is this one, paid for by a door that costs no height, which is the
        * 44x44 control in the defence band's fifth cell at the top of this
-       * column. With nothing on, the folded sheet is 598 of 730 at 393x852.
+       * column. With nothing on, the folded sheet is 604 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A
@@ -2626,7 +2633,7 @@ function PlayPhone({
        *
        * Here it is the last child of the scroll, under the last shut fold. The
        * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 598px against 730 - and everything
+       * bottom edge of the lineage header - 604px against 730 - and everything
        * it sums is something a player has to be able to reach. This is not:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is

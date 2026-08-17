@@ -276,10 +276,10 @@ export function Vitals({
  * glance, and the restatement is deleted rather than duplicated.
  *
  * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
- * is 8 + 10 label + 4 + 26 number + 8 + 2 border = 58px tall. This is a 44px
- * field, vertically centred: 44px in a row whose height is already 58. The band
- * does not grow, the counters lose 50, and the whole move is a saving of exactly
- * the row it used to be. Measured in Chrome at both widths, with the shipped
+ * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px
+ * field, vertically centred: 44px in a row whose height is already 64. The band
+ * does not grow for it, the counters lose 50, and the whole move is a saving of
+ * exactly the row it used to be. Measured in Chrome at both widths, with the shipped
  * fonts, in `Defenses`'s own note.
  *
  * `door` IS THE CONDITIONS, AND IT TOOK THE CAPTION'S PLACE RATHER THAN A CELL
@@ -312,7 +312,7 @@ export function Vitals({
  * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
  * commit chip need about 170px between them and the widest this cell ever gets
  * is 126.53 at 393. So the verdict spans the band underneath, and the band is
- * 114 instead of 64 for exactly as long as there is an unconfirmed number in
+ * 120 instead of 64 for exactly as long as there is an unconfirmed number in
  * the box. That is the one state on this screen that moves what is below it,
  * and it is the state where what is below it is not what you are looking at:
  * the field, the ladder and the button you are about to press are all above

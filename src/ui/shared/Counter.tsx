@@ -24,6 +24,9 @@
  *
  *   viewport 393  ->  column 369  ->  cell 181.5  ->  value target 85.5 wide
  *   viewport 375  ->  column 351  ->  cell 172.5  ->  value target 76.5 wide
+ *   viewport 360  ->  column 336  ->  cell 165    ->  value target 69   wide
+ *   viewport 344  ->  column 320  ->  cell 157    ->  value target 61   wide
+ *   viewport 320  ->  column 296  ->  cell 145    ->  value target 49   wide
  *
  * with two 44x44 steppers and a 4px gutter either side of them. So the value
  * target no longer stands 105px clear of `−`; it stands 4px clear of it. That
@@ -36,14 +39,18 @@
  * finger that was travelling somewhere else and had no way back.
  *
  * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
- * value line at two digits over two digits - `12 / 12` at 800 20px Archivo plus
- * `.t-meta` - which measures **59.5px**. The label line is `13px` of silhouette,
- * a 4px gap and `STRESS` at `.t-label` with the tracking this file sets, which
- * is **57.9px**. The narrowest target the grid ever hands the value is 76.5px,
- * less 10px of padding and 2px of border: **64.5px of room for 59.5px of ink,
- * at 375**. Five pixels. It is `nowrap` and `overflow: hidden` on purpose - if
- * a font ever falls back and that five goes, the tail of `/ 12` clips, and the
- * cell does not wrap onto a second line and take the whole budget with it.
+ * value line at two digits over two digits, and it is `--counter-num` that
+ * decides how wide that is: measured in Chrome with the `wizard10` fixture at
+ * full Hit Points, `11 / 11` is **60.61px at 22, 58.09 at 20 and 55.59 at 18**.
+ * The label line is `13px` of silhouette, a 4px gap and `STRESS` at `.t-label`
+ * with the tracking this file sets, which is **57.81px**. The target the grid
+ * hands the value is 85.5 at 393, 76.5 at 375, 69 at 360, 61 at 344 and 49 at
+ * 320, less 10px of padding and 2px of border - so the number has 73.5 of room
+ * at 393 against 60.61 of ink, and 64.5 at 375 against 55.59, because the token
+ * steps down to 18 below 380. It is `nowrap` and `overflow: hidden` on purpose:
+ * where the room does run out - the label at 360, both lines at 344 and below -
+ * the tail clips inside a target that keeps its declared size, and the cell does
+ * not wrap onto a second line and take the whole budget with it.
  *
  * The silhouettes come from `Track` rather than being redrawn here. Four cells
  * of digits look more alike than four rows of pips do, so the shape that lets a
@@ -239,7 +246,10 @@ export function Counter({
         <span style={{ whiteSpace: 'nowrap' }}>
           <span
             style={{
-              font: '800 20px/1 var(--sans)',
+              // `--counter-num`, not a literal: this size is decided by how wide
+              // the grid track is, and the token is where that arithmetic and
+              // its one breakpoint live. 22px at 380 and up, 18 below.
+              font: '800 var(--counter-num)/1 var(--sans)',
               color: shape.color,
               fontVariantNumeric: 'tabular-nums',
             }}
