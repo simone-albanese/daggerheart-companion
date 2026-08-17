@@ -201,6 +201,35 @@ describe('the two shell banners', () => {
   });
 
   /*
+   * And one primary chip and one dismiss, down to the class. The dismisses had
+   * been a `.t-meta` on the inherited ink in one banner and a `.chip` on
+   * `var(--dim)` in the other - two shapes and two contrasts for one job. What
+   * they may not share is the accessible name, which the third test below is
+   * about.
+   */
+  it('draw one primary chip and one dismiss, class and declaration alike', async () => {
+    await render(
+      <>
+        <UpdateBanner apply={noop} />
+        <BackupBanner />
+      </>,
+    );
+
+    const { backup, update } = both();
+    const controls = (el: HTMLElement): HTMLButtonElement[] => [
+      ...actionsRow(el).querySelectorAll<HTMLButtonElement>('button'),
+    ];
+    const [backupAction, backupDismiss] = controls(backup);
+    const [updateAction, updateDismiss] = controls(update);
+
+    expect(backupAction?.className).toBe(updateAction?.className);
+    expect(backupAction?.getAttribute('style')).toBe(updateAction?.getAttribute('style'));
+    expect(backupDismiss?.className).toBe(updateDismiss?.className);
+    expect(backupDismiss?.getAttribute('style')).toBe(updateDismiss?.getAttribute('style'));
+    expect(backupDismiss?.textContent).toBe(updateDismiss?.textContent);
+  });
+
+  /*
    * `--control` is `--tap` = 44 under `(max-width: 1179px), (pointer: coarse)`
    * and 34 above it, so this is the touch floor everywhere a finger can reach
    * and the project's desktop floor where one cannot. Measured with the app

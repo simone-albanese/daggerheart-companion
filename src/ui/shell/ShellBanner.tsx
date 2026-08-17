@@ -88,6 +88,22 @@
  * wider of the two values the banners had, and the extra 2px of separation is
  * bought on the side where a mis-tap is a dismissal you did not mean.
  *
+ * **One dismiss, and it is the higher-contrast of the two the banners had.**
+ * `.t-meta` on the inherited ink rather than a `.chip` on `var(--dim)`: the
+ * glyph resolves to `--muted`, which is `#a6acb7` against `--dim`'s `#888e9c`
+ * on the dark theme and `#575b68` against `#616979` on the light one - lighter
+ * on dark, darker on light, so it is the better-contrasting choice in both
+ * rather than a coin toss between two tokens. It is also the quieter of the two
+ * *shapes*: a chip beside a chip reads as two peers, and these are not peers -
+ * BACK UP and RELOAD are what the banner is for. One glyph too, `✕` in both,
+ * where the update banner used `×`.
+ *
+ * **A dismissal lasts as long as the banner does.** The state is here, so it
+ * survives every re-render of the banner's owner - a day ticking over on the
+ * nag, a new `apply` on the update offer - and is discarded only when the owner
+ * stops drawing a banner at all and starts again. That is the behaviour worth
+ * having: what brings a dismissed banner back is a fresh reason, not a repaint.
+ *
  * **Thumb arc.** These sit at the very top of `<main>` - y61 to y119 at every
  * phone width, 733px above the bottom bezel at 393×852 - which is the furthest
  * point on the screen from a thumb. That is right for a thing that is read
