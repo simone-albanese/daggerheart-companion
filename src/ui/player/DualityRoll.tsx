@@ -131,27 +131,127 @@ interface DieProps {
   label: string;
   color: string;
   value: number | null;
-  onSet: (value: number | null) => void;
+  /** Ask the roll surface to swap both faces for the keypad. */
+  onEdit: () => void;
   size: number;
   editable: boolean;
 }
 
 /**
- * A die face. It reports what the die showed, and when `editable` it is also
- * its own input, so physical dice have somewhere to go.
+ * The keypad a physical die is typed into. It takes the whole face row, and
+ * that is the fix rather than the styling.
  *
- * Not editable is the default state of the app, and then this is a readout and
- * says so: no pointer cursor, and an accessible name without the invitation to
- * tap. A control that looks pressable and does nothing is worse than a label.
+ * IT USED TO TAKE ONE FACE, AND ONE FACE IS NOT WIDE ENOUGH TO HOLD IT. The
+ * twelve keys are `repeat(4, 1fr)` with `gap: 3`, `padding: 6` and a 1.5px
+ * border that lays out as 1 at dpr 1, so a key is `(G - 23) / 4` for a grid of
+ * outer width G, and they carry `minHeight: var(--control)` and no `minWidth`
+ * at all - the width simply falls out of whatever box they are in.
+ *
+ * Inside one die face, G was half the row: on a phone the column is the
+ * viewport less 24 of padding, the face row gaps by 8, so G = (vw - 32) / 2 and
+ * a key is **(vw - 78) / 8** - 30.3px at 320, 35.3 at 360, **37.1 at 375**,
+ * 39.4 at 393, and still under 44 all the way to 429px of viewport. On the
+ * cockpit the die face is narrower still: the middle grid track is 428, less
+ * the panel's border and padding is 402, less the 132px trait box and two 12px
+ * gaps leaves 246 for two faces, so G is 123 and a key is **24px wide**, which
+ * is what the audit measured in Chrome at 1440x900 (grid 119x122, four 24px
+ * columns). My reconstruction from the declared track gives 24.75 if the
+ * border lays out at its declared 1.5 and 25.0 if it rounds to 1, and I could
+ * not close the last pixel against the measured 24; the measurement is the one
+ * used here and all three numbers say the same thing. 24 is under this
+ * project's 34px fine-pointer floor, under its 44px
+ * coarse one, and under WCAG's 24 by a hair - on the control a player uses to
+ * type the number they just rolled on a real die.
+ *
+ * NO COLUMN COUNT FIXES THE COCKPIT, WHICH IS WHY THE WIDTH HAD TO MOVE. Four
+ * 34px keys need 4 * 34 + 9 of gaps + 12 of padding + 2 of border = 159px of
+ * grid, and the cockpit die face is 123. Three need 122, which is inside 123
+ * by one pixel and is not a margin. `repeat(auto-fit, minmax(var(--control),
+ * 1fr))` is the CSS-native form of that arithmetic and it lands on three 34.33
+ * columns for a mouse - a third of a pixel of slack over the floor - and on
+ * TWO for a touchscreen laptop, where `(pointer: coarse)` takes `--control` to
+ * 44: six rows of keys, 293px replacing a 62px row. The audit proposed a
+ * `--die-keys` token switched at 437px instead, which fixes the phone and
+ * leaves the cockpit at 24. Taking the whole face row fixes both: the keypad
+ * is `flex: 1` where the two faces were, so G is 299 at 375 and 206 on the
+ * cockpit, and a key is **69px** and **45.75px**. Above 44 at every width in
+ * the audit sweep, 320 included, where it is 55.25 - so it needs no breakpoint
+ * of its own, which `useLayout.ts` forbids a component to invent, and no new
+ * token in a stylesheet.
+ *
+ * IT COSTS NO HEIGHT. The grid is still three rows of `var(--control)` with two
+ * 3px gaps, 12 of padding and 2 of border: 152 on a phone and 122 on the
+ * cockpit, exactly what it measured before. It replaced a 62px face row then
+ * and it replaces a 62px face row now.
+ *
+ * AND IT HAS A WAY OUT, WHICH IS BACKLOG P3-12. The grid replaced the die
+ * button while it was open, so there was nothing left to tap again: no cancel,
+ * no backdrop, no Escape, and the only exit was committing a face - typing a
+ * number you did not roll to get out of a keypad you opened by accident. The
+ * die's own label is that exit now. It is a full-height 44px column at the head
+ * of the row, so it costs no height at all, and it does the second job the
+ * one-face keypad did for free: saying which die you are typing.
+ *
+ * ERGONOMICS. TARGET SIZE is the whole charge and it moves from 24x34 and
+ * 37.1x44 to 45.75x34 and 69x44, clear of both floors in both directions, with
+ * the 3px gutter left alone - it is a gutter between 45-to-69px targets now
+ * rather than between 24px ones, and widening it would come straight back out
+ * of the keys. THUMB ARC: on a phone this row sits directly above ROLL, the
+ * band the file's own docblock calls the best on the screen, and the keys are
+ * where they already were; what moved is the exit, to the LEFT edge, away from
+ * where a right thumb rests. That is deliberate and it is the same argument
+ * MODS is placed on - except inverted, because here the resting corner is a
+ * digit and a digit is the consequential press. READ VERSUS TOUCH: the label
+ * you read to know which die this is now sits at the start of the row rather
+ * than being the thing that vanished, and the twelve things you touch follow
+ * it left to right, top to bottom.
  */
-function Die({ label, color, value, onSet, size, editable }: DieProps): React.JSX.Element {
-  const [editing, setEditing] = useState(false);
-
-  if (editing) {
-    return (
+function DieKeypad({
+  label,
+  color,
+  value,
+  onSet,
+  onCancel,
+}: {
+  label: string;
+  color: string;
+  value: number | null;
+  onSet: (value: number) => void;
+  onCancel: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="row" style={{ flex: 1, minWidth: 0, gap: 8, alignItems: 'stretch' }}>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-keyshortcuts="Escape"
+        aria-label={`Stop typing the ${label} die`}
+        title="Back to the dice"
+        style={{
+          flex: 'none',
+          width: 'var(--tap)',
+          minWidth: 'var(--tap)',
+          background: 'var(--app)',
+          border: `1.5px solid ${color}`,
+          borderRadius: 'var(--r4)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+        }}
+      >
+        <span className="t-meta" style={{ color, letterSpacing: '0.14em' }}>
+          {label}
+        </span>
+        <span aria-hidden="true" style={{ font: '600 15px/1 var(--sans)', color }}>
+          ×
+        </span>
+      </button>
       <div
         style={{
           flex: 1,
+          minWidth: 0,
           background: 'var(--app)',
           border: `1.5px solid ${color}`,
           borderRadius: 'var(--r4)',
@@ -166,10 +266,7 @@ function Die({ label, color, value, onSet, size, editable }: DieProps): React.JS
           <button
             key={n}
             type="button"
-            onClick={() => {
-              onSet(n);
-              setEditing(false);
-            }}
+            onClick={() => onSet(n)}
             style={{
               minHeight: 'var(--control)',
               borderRadius: 'var(--r1)',
@@ -182,13 +279,28 @@ function Die({ label, color, value, onSet, size, editable }: DieProps): React.JS
           </button>
         ))}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
+/**
+ * A die face. It reports what the die showed, and when `editable` it is also
+ * the way into the keypad, so physical dice have somewhere to go.
+ *
+ * Not editable is the default state of the app, and then this is a readout and
+ * says so: no pointer cursor, and an accessible name without the invitation to
+ * tap. A control that looks pressable and does nothing is worse than a label.
+ *
+ * The keypad used to live in here, in a `useState` of its own, and returned in
+ * place of this button. It is `DieKeypad` now and the roll surface owns which
+ * die is being typed, because a keypad that fits inside one face is a keypad
+ * with 24px keys on the cockpit - the arithmetic is over `DieKeypad`.
+ */
+function Die({ label, color, value, onEdit, size, editable }: DieProps): React.JSX.Element {
   return (
     <button
       type="button"
-      onClick={() => editable && setEditing(true)}
+      onClick={() => editable && onEdit()}
       aria-label={`${label} die${value === null ? '' : `: ${value}`}${editable ? ' - tap to enter a physical roll' : ''}`}
       style={{
         flex: 1,
@@ -279,6 +391,38 @@ export function DualityRoll({
     hope: null,
     fear: null,
   });
+  /*
+   * Which face the keypad is open on, and why it is not `Die`'s own state.
+   *
+   * The keypad needs the whole face row to hold twelve targets at the floor -
+   * inside one face it was 24px wide on the cockpit, and the arithmetic is
+   * over `DieKeypad`. A component that replaces both of its siblings cannot be
+   * one of them, so the surface that draws the row owns the answer to "which
+   * die is being typed" and both layouts read it.
+   */
+  const [typing, setTyping] = useState<'hope' | 'fear' | null>(null);
+
+  /*
+   * The keyboard's way out, beside the pointer's.
+   *
+   * `DomainCardView` already argues that the three ways out of an overlay are
+   * not equal and that Escape is the keyboard's; this is not an overlay and
+   * cannot use `useDialog`, which traps Tab and moves focus, but the key is
+   * free and its absence was half of BACKLOG P3-12. It is a window listener
+   * rather than an `onKeyDown` on the grid because the tap that opens the
+   * keypad unmounts the button that had focus, so there is nothing inside it
+   * for a bubbling handler to catch until something is tabbed to.
+   */
+  useEffect(() => {
+    if (typing === null) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setTyping(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [typing]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
    * Whether the modifier controls are showing, on a phone.
@@ -349,6 +493,10 @@ export function DualityRoll({
      */
     setResult(null);
     setManual({ hope: null, fear: null });
+    // And the keypad shuts with them. It is opened on a face, the face it was
+    // opened on has just been cleared, and a keypad standing over an arriving
+    // sheet is this component's oldest bug in its newest control.
+    setTyping(null);
   }, [characterId]);
 
   const experiences = character?.experiences ?? NO_EXPERIENCES;
@@ -476,6 +624,9 @@ export function DualityRoll({
   const setDie = (which: 'hope' | 'fear') => (value: number | null) => {
     const next = { ...manual, [which]: value };
     setManual(next);
+    // Committing a face shuts the keypad, which is what it always did - it is
+    // just no longer the ONLY thing that shuts it. See `DieKeypad`.
+    setTyping(null);
     if (next.hope !== null && next.fear !== null) {
       resolve({ hope: next.hope, fear: next.fear });
     }
@@ -617,6 +768,24 @@ export function DualityRoll({
     );
   };
 
+  /*
+   * The keypad, or nothing - one element read by both layouts, for the reason
+   * `control` is one element read by both layouts. The switches can be turned
+   * off while it is open, and then it is nothing: `canType` is the gate on
+   * every way in, so it has to be the gate on the way already taken.
+   */
+  const typingDie = canType ? typing : null;
+  const keypad =
+    typingDie === null ? null : (
+      <DieKeypad
+        label={typingDie === 'hope' ? 'HOPE' : 'FEAR'}
+        color={typingDie === 'hope' ? 'var(--hope)' : 'var(--fear)'}
+        value={manual[typingDie]}
+        onSet={setDie(typingDie)}
+        onCancel={() => setTyping(null)}
+      />
+    );
+
   const control = (
     <ControlRow
       difficulty={difficulty}
@@ -737,22 +906,26 @@ export function DualityRoll({
          */}
         {canType && (
           <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
-            <Die
-              label="HOPE"
-              color="var(--hope)"
-              value={manual.hope}
-              onSet={setDie('hope')}
-              size={26}
-              editable
-            />
-            <Die
-              label="FEAR"
-              color="var(--fear)"
-              value={manual.fear}
-              onSet={setDie('fear')}
-              size={26}
-              editable
-            />
+            {keypad ?? (
+              <>
+                <Die
+                  label="HOPE"
+                  color="var(--hope)"
+                  value={manual.hope}
+                  onEdit={() => setTyping('hope')}
+                  size={26}
+                  editable
+                />
+                <Die
+                  label="FEAR"
+                  color="var(--fear)"
+                  value={manual.fear}
+                  onEdit={() => setTyping('fear')}
+                  size={26}
+                  editable
+                />
+              </>
+            )}
           </div>
         )}
         {/*
@@ -964,8 +1137,15 @@ export function DualityRoll({
       {control}
 
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
-        <Die label="HOPE" color="var(--hope)" value={manual.hope} onSet={setDie('hope')} size={46} editable={canType} />
-        <Die label="FEAR" color="var(--fear)" value={manual.fear} onSet={setDie('fear')} size={46} editable={canType} />
+        {/* The keypad takes the two faces' share of the row and leaves the
+            trait box, which is where the total is printed - the one number you
+            want in front of you while you type the two that make it. */}
+        {keypad ?? (
+          <>
+            <Die label="HOPE" color="var(--hope)" value={manual.hope} onEdit={() => setTyping('hope')} size={46} editable={canType} />
+            <Die label="FEAR" color="var(--fear)" value={manual.fear} onEdit={() => setTyping('fear')} size={46} editable={canType} />
+          </>
+        )}
         <div
           style={{
             width: 132,
@@ -1529,9 +1709,11 @@ function ControlRow({
   const [picking, setPicking] = useState(false);
   const narrow = useIsNarrow();
 
-  // The picker takes over the whole row, the way a die takes over its own face
-  // to be typed into. A popover would either be clipped by the panel or open
-  // off the side of a row this narrow.
+  // The picker takes over the whole row, the way `DieKeypad` takes over the
+  // whole face row to be typed into - both for the same reason, which is that
+  // a control with eight or twelve targets in it needs the width. A popover
+  // would either be clipped by the panel or open off the side of a row this
+  // narrow.
   if (picking) {
     return (
       <div className="row" style={{ gap: 4 }}>

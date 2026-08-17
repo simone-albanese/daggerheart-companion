@@ -101,8 +101,9 @@ const render = (element: ReactElement): void => {
 };
 
 /** The panel, mounted on its own - which is how the cockpit renders it. */
-function panel(): HTMLElement {
+function panel(prefs: Partial<typeof DEFAULT_PREFS> = {}): HTMLElement {
   const character = seed();
+  useApp.setState({ prefs: { ...DEFAULT_PREFS, ...prefs } });
   render(
     createElement(DualityRoll, {
       stats: playedStats(character),
@@ -442,5 +443,155 @@ describe('an Experience is legible on the chip that spends it', () => {
     expect(124 * 2 + 6).toBeLessThan(303);
     const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
     expect(chip!.style.maxWidth, 'the cockpit chip was widened after all').toBe('124px');
+  });
+});
+
+/**
+ * THE KEYPAD A PHYSICAL DIE IS TYPED INTO, AND THE WAY OUT OF IT.
+ *
+ * The twelve keys are `repeat(4, 1fr)` with `gap: 3`, `padding: 6` and a 1.5px
+ * border that lays out as 1 at dpr 1, so a key is `(G - 23) / 4` for a grid of
+ * outer width G. They carry `minHeight: var(--control)` and no `minWidth`, so
+ * the width falls out of whatever box holds them - and the box used to be one
+ * die face. On a phone that made a key `(vw - 78) / 8`: 37.1px at 375 and under
+ * 44 all the way to 429px of viewport. On the cockpit the die face is about
+ * 123px wide and the audit measured 24px keys in Chrome at 1440x900 (grid
+ * 119x122, four 24px columns) - under this project's 34px fine-pointer floor,
+ * under its 44px coarse one, and under WCAG's 24 as well.
+ *
+ * The grid also replaced the die button while it was open, so there was no
+ * cancel, no backdrop, no Escape and no second tap: the only exit was
+ * committing a face. That is BACKLOG P3-12, written down and unticked.
+ *
+ * jsdom lays nothing out, so the widths below are arithmetic over declared
+ * terms and the rest are declaration and behaviour reads.
+ */
+describe('typing a physical die', () => {
+  const typed = { manualDice: true, digitalDice: true };
+  const KEYS = 12;
+  const COLUMNS = 4;
+  /** Grid outer width -> key width, from the declared padding, gap and border. */
+  const key = (outer: number): number =>
+    (outer - 2 - 12 - 3 * (COLUMNS - 1)) / COLUMNS;
+
+  const face = (name: 'HOPE' | 'FEAR'): HTMLButtonElement => {
+    const found = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${name} die`),
+    );
+    if (found === undefined) throw new Error(`no ${name} face`);
+    return found;
+  };
+  const click = (el: Element): void => {
+    act(() => {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  };
+  const grid = (): HTMLElement | null =>
+    container.querySelector<HTMLElement>('div[style*="repeat(4, 1fr)"]');
+
+  it('opens the keypad over both faces, not inside one of them', () => {
+    panel(typed);
+    expect(grid(), 'the keypad is open before anything was tapped').toBeNull();
+
+    click(face('HOPE'));
+    const open = grid();
+    expect(open, 'tapping a face opened no keypad').not.toBeNull();
+    // Both faces are gone, which is what makes the grid the width of the pair.
+    expect(
+      buttons().filter((b) => /^(HOPE|FEAR) die/.test(b.getAttribute('aria-label') ?? '')),
+      'a die face is still drawn beside the keypad, so it kept half the row',
+    ).toHaveLength(0);
+    // jsdom expands the `1` shorthand; the point is a zero basis that grows.
+    expect(open!.style.flex, 'the keypad does not take the row it was given').toBe('1 1 0%');
+    expect([...open!.querySelectorAll('button')]).toHaveLength(KEYS);
+  });
+
+  it('puts every key over the floor at every width in the sweep', () => {
+    /*
+     * The keypad is `flex: 1` where the two faces were, less the 44px exit
+     * column and the 8px gap that separates it.
+     *
+     * Phone: the column is the viewport less 24 of padding.
+     * Cockpit: the middle grid track is 428, less the panel's 2 of border and
+     * 24 of padding is 402, less the 132px trait box and one 12px gap.
+     */
+    const EXIT = 44 + 8;
+    const phone = (vw: number): number => key(vw - 24 - EXIT);
+    for (const [vw, want] of [
+      [320, 55.25],
+      [360, 65.25],
+      [375, 69],
+      [393, 73.5],
+    ] as Array<[number, number]>) {
+      expect(phone(vw), `a key at ${vw}px`).toBeCloseTo(want, 2);
+      expect(phone(vw), `a key at ${vw}px is under the 44px coarse floor`).toBeGreaterThanOrEqual(
+        44,
+      );
+    }
+
+    const cockpit = key(402 - 132 - 12 - EXIT);
+    expect(cockpit).toBeCloseTo(45.75, 2);
+    // Above the 34px fine floor AND the 44px coarse one, because a touchscreen
+    // laptop reports `pointer: coarse` at 1180 and up and tokens.css widens
+    // `--control` to `var(--tap)` for it.
+    expect(cockpit).toBeGreaterThanOrEqual(44);
+
+    // And what it used to be, from the same function: one face is half the
+    // pair, so the phone key was `(vw - 78) / 8` and the cockpit key ~24.
+    expect(key((375 - 24 - 8) / 2)).toBeCloseTo(37.125, 3);
+    expect(key((402 - 132 - 24) / 2)).toBeCloseTo(25, 2);
+  });
+
+  it('still declares the terms that arithmetic is derived from', () => {
+    panel(typed);
+    click(face('FEAR'));
+    const open = grid()!;
+    expect(open.style.gridTemplateColumns).toBe('repeat(4, 1fr)');
+    expect(open.style.gap).toBe('3px');
+    expect(open.style.padding).toBe('6px');
+    for (const k of [...open.querySelectorAll<HTMLElement>('button')]) {
+      expect(k.style.minHeight, `key ${k.textContent ?? '?'} lost its floor`).toBe(
+        'var(--control)',
+      );
+    }
+  });
+
+  it('has a way out that is not typing a number you did not roll', () => {
+    panel(typed);
+    click(face('HOPE'));
+    const exit = buttons().find(
+      (b) => b.getAttribute('aria-label') === 'Stop typing the HOPE die',
+    );
+    expect(exit, 'the keypad still has no cancel: BACKLOG P3-12').toBeDefined();
+    // It is the die's own label, so it says which die is being typed as well as
+    // how to stop - and it is a 44px column, so it costs the row no height.
+    expect(exit!.textContent).toContain('HOPE');
+    expect(exit!.style.width).toBe('var(--tap)');
+    expect(exit!.getAttribute('aria-keyshortcuts')).toBe('Escape');
+
+    click(exit!);
+    expect(grid(), 'the cancel did not shut the keypad').toBeNull();
+    // And nothing was written: the face is still empty.
+    expect(face('HOPE').getAttribute('aria-label')).not.toContain(': ');
+  });
+
+  it('closes on Escape, and commits nothing when it does', () => {
+    panel(typed);
+    click(face('FEAR'));
+    expect(grid()).not.toBeNull();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(grid(), 'Escape does nothing, which is half of P3-12').toBeNull();
+    expect(face('FEAR').getAttribute('aria-label')).not.toContain(': ');
+  });
+
+  it('writes the face it was opened on, and only when a key is pressed', () => {
+    panel(typed);
+    click(face('HOPE'));
+    click([...grid()!.querySelectorAll('button')][6]!); // the seventh key: 7
+    expect(grid(), 'committing a face left the keypad open').toBeNull();
+    expect(face('HOPE').getAttribute('aria-label')).toContain(': 7');
+    expect(face('FEAR').getAttribute('aria-label')).not.toContain(': ');
   });
 });
