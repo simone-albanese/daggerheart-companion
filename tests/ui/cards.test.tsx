@@ -359,6 +359,31 @@ describe('the filters, on a screen that cannot afford four rows of them', () => 
   });
 
   /*
+   * The 44px floor, on the axis these chips never declared.
+   *
+   * Measured in Chrome at 320x568, 375x667, 393x852 and 744x1133: the two
+   * segment chips `All` and `Any` were 38.8x44 and the domain `All` 40.8x44,
+   * all three with a computed `min-width: auto`. `--tap` was not what they
+   * were missing - `--control` already resolves to 44 below 1180px - they
+   * simply declared `min-height` and stopped. jsdom cannot produce 38.8, so
+   * this asserts the declaration that produces 44 instead, over every button
+   * in the block rather than over the three that were caught.
+   */
+  it('states the control floor on both axes, for every button in the block', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    const block = container.querySelector('.scroll')!.firstElementChild!;
+    const chips = [...block.querySelectorAll('button')];
+    expect(chips.length, 'the filter block has no buttons').toBeGreaterThan(20);
+    for (const chip of chips) {
+      const name = (chip.getAttribute('aria-label') ?? chip.textContent ?? '').trim();
+      expect(chip.style.minHeight, `"${name}" declares no height floor`).toBe('var(--control)');
+      expect(chip.style.minWidth, `"${name}" declares no width floor`).toBe('var(--control)');
+    }
+  });
+
+  /*
    * Both sides of the band in one case, because only one of them can fail on
    * the pre-fix code: before the door existed there was no door to look for at
    * 1440x900 either, so the desktop half proves nothing on its own. It is here

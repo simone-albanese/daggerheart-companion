@@ -473,7 +473,15 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
                 type="button"
                 className="chip"
                 onClick={clearAll}
-                style={{ minHeight: 'var(--control)', color: 'var(--text)' }}
+                // 14 characters, so ~108px wide and never near the floor -
+                // declared anyway, because "every button in this block states
+                // the floor on both axes" is a rule a later reader can check
+                // and "this one happens to be long enough" is not.
+                style={{
+                  minHeight: 'var(--control)',
+                  minWidth: 'var(--control)',
+                  color: 'var(--text)',
+                }}
               >
                 CLEAR FILTERS
               </button>
@@ -705,6 +713,10 @@ function FilterChip({
       className="row chip"
       style={{
         minHeight: 'var(--control)',
+        // See the note over `Segmented`. `All` is 40.81px wide here - the same
+        // 38.81 plus this chip's two 1px borders - and was the third of the
+        // three controls on this screen under the floor on one axis.
+        minWidth: 'var(--control)',
         flex: 'none',
         gap: 6,
         padding: '0 10px',
@@ -741,6 +753,27 @@ function Segmented<T extends string>({
           className="chip"
           style={{
             minHeight: 'var(--control)',
+            /*
+             * The floor is a floor on both axes, and this button only ever
+             * declared one of them.
+             *
+             * `--tap` is not what it was missing: `--control` already resolves
+             * to `var(--tap)` = 44 at every width below 1180 and under any
+             * coarse pointer (tokens.css:174-178), and the height was 44
+             * everywhere it mattered. The width came from `.chip`'s
+             * `padding: 4px 6px` around the label, and IBM Plex Mono at 9.5px
+             * with 0.06em tracking is 6.27px a character - so `All` and `Any`
+             * were 3 x 6.27 + 20 = **38.81px**, measured 38.8x44 at 320x568,
+             * 375x667, 393x852 and 744x1133 with a computed `min-width: auto`.
+             * They clear WCAG 2.5.8's 24px and not this project's 44.
+             *
+             * `NumberFilter` above has carried both declarations all along and
+             * is 44x44; this is that line, in the two places it was missing.
+             * It costs 5.19px each and no height at all: the first filter row
+             * is 618.7px of content at 720px and up, and 629.1 still fits the
+             * 704 an iPad mini gives it, so the wide band stays 170.
+             */
+            minWidth: 'var(--control)',
             padding: '0 10px',
             background: value === v ? 'var(--raised)' : 'transparent',
             color: value === v ? 'var(--text)' : 'var(--muted)',
