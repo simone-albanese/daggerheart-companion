@@ -284,6 +284,30 @@ describe('the card browser draws inside its own box', () => {
     expect(first.style.gridColumn, 'the filter row takes one card-sized cell').toBe('1 / -1');
   });
 
+  /*
+   * `.stack` is `display: flex; flex-direction: column; min-height: 0`, and
+   * that last property is harmless on a flex item and not on a grid one: it
+   * sets the item's automatic minimum size to zero, so the auto row's base
+   * size is zero, and a row grows towards its growth limit only out of free
+   * space - which a grid of 189 cards in a 438px port has none of. Measured in
+   * Chrome at 320x568 with `.stack` on this div: row 1 was 0px and the block's
+   * 62px of controls were painted over the first card.
+   *
+   * jsdom computes no layout, so it cannot see a 0px row. It can see the class
+   * that causes one, which is the whole of the fix.
+   */
+  it('states its own flex column rather than borrowing one that collapses the row', () => {
+    const c = seed();
+    browse(c);
+    const first = container.querySelector('.scroll')!.firstElementChild as HTMLElement;
+    expect(
+      first.className,
+      'the filter row carries a class whose `min-height: 0` collapses its grid row to nothing',
+    ).toBe('');
+    expect(first.style.display).toBe('flex');
+    expect(first.style.flexDirection).toBe('column');
+  });
+
   it('leaves the root one child, so nothing else can be laid beside the scroll', () => {
     const c = seed();
     browse(c);

@@ -381,8 +381,23 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           Behind the door nothing scrolls sideways: every row wraps, so all
           eleven domain chips, all ten levels and all six recall costs are on
           the glass at once, which is the first time any of them has been.
+
+          Its own `display: flex` rather than `className="stack"`, which is the
+          same declaration less one property - and that property is
+          `min-height: 0`, which on a *grid* item is not the harmless line it
+          is on a flex one. It sets the item's automatic minimum size to zero,
+          so the auto row's base size is zero, and a row grows from its base
+          size towards its growth limit only out of the grid's free space - of
+          which a grid of 189 cards in a 438px port has none. Measured in
+          Chrome at 320x568 with `.stack` on this div: row 1 was **0px**, this
+          element's own `getBoundingClientRect().height` was 0, and its 62px of
+          controls were painted straight over the first card, which began at
+          y73 instead of y135. Nothing in the suite could see it - jsdom
+          computes no layout - and nothing on the glass said it either, because
+          the controls still drew, just on top of a card. Without `.stack` the
+          row is 62px and the first card begins at 61 + 62 + 12 = 135.
         */}
-        <div className="stack" style={{ gap: 8, gridColumn: '1 / -1' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, gridColumn: '1 / -1' }}>
           {compact ? (
             <>
               <div className="row" style={{ gap: 8 }}>
