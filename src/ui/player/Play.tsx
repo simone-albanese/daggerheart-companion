@@ -73,7 +73,7 @@ import {
   type Declaration,
 } from './attack.ts';
 import { Beastform } from './Beastform.tsx';
-import { ActiveConditions } from './Conditions.tsx';
+import { ActiveConditions, ConditionsControl } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, ExperienceRow, type RollTrait } from './DualityRoll.tsx';
 import { shortReason, useRecall } from './recall.ts';
@@ -433,7 +433,22 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * rather than in an effect, because an effect runs after a commit and that
  * commit is the one frame in which the field is on the wrong sheet.
  */
-function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.Element | null {
+function Identity({
+  showLineage = true,
+  conditions = false,
+}: {
+  showLineage?: boolean;
+  /**
+   * Put `ConditionsControl` at the end of the class row. Phone only.
+   *
+   * A prop rather than a layout read, because this is not a layout question:
+   * the cockpit draws a permanent conditions strip with its own door inside
+   * `Vitals`, and a second door here would be two ways into one dialog on one
+   * screen. The phone has no permanent strip - it is drawn only while something
+   * is on - so this is the only way in that is always there.
+   */
+  conditions?: boolean;
+}): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   const [renaming, setRenaming] = useState(false);
@@ -552,6 +567,18 @@ function Identity({ showLineage = true }: { showLineage?: boolean }): React.JSX.
                 RENAME
               </span>
             </button>
+            {/*
+             * The conditions, at the end of a row that was already 44px tall.
+             *
+             * This is the door that let the conditions strip stop being drawn
+             * when nothing is on, which is the 52px that finally puts the whole
+             * folded sheet on a 393x852 phone. It costs this column nothing:
+             * RENAME holds the row open to 44 whether this is here or not, and
+             * the 52px it takes out of the class cell leaves the fixture's line
+             * 111px of slack at 393 and 93 at 375. `ConditionsControl` carries
+             * the placement argument and the measurements.
+             */}
+            {conditions && <ConditionsControl />}
           </div>
         )}
       </div>
@@ -2184,19 +2211,34 @@ function PlayDesktop({
  * (+52), the 34px home-indicator inset - none now costs the small phone its
  * margin. Pips do: they keep the four full-width rows and wrap, which is +149.
  *
- * WHAT THIS DOES NOT DO, SAID PLAINLY RATHER THAN ROUNDED DOWN. The whole
- * folded sheet is **749px against 730**, so it misses "tutta la scheda in una
- * volta sola" at 393x852 by **19px** - the bottom of the lineage header - and by
- * 204 at 375x667. It fits at 744x1133, where there is no tab bar, with 323px to
- * spare. The three savings P5-6 took were costed at 198 and are worth 150: the
- * 2x2 grid is the 100 it was estimated at, the damage box is 50 rather than 46
- * because the band did not have to grow for it, and folding the conditions
- * away is worth **nothing at all** - a shut `Disclosure` is 44 plus this
- * column's 8px gap, which is what the strip was. `ActiveConditions` says what
- * would actually buy that 52 and why this pass did not take it. Nothing here is
+ * AND THE WHOLE FOLDED SHEET FITS, WHICH IT HAS NEVER DONE BEFORE. **697px
+ * against 730 at 393x852, with 33 to spare** - measured in Chrome, every fold
+ * shut, the `playedCharacter` fixture. That is the condition P5-5's own
+ * decision 1 made the unpinning conditional on, unmet through P5-5 (899, over
+ * by 169) and P5-6 (749, over by 19) and met here. It fits at 744x1133 with 375
+ * to spare, and it is still **152px over at 375x667**, which no arrangement of
+ * this sheet closes: 152 is three fold headers and there are six.
+ *
+ * The last 52 came from the conditions, and from nowhere else. P5-6's three
+ * savings were costed at 198 and were worth 150 - the 2x2 grid is the 100 it
+ * was estimated at, the damage box is 50 rather than 46 because the band did
+ * not have to grow for it, and folding the conditions away was worth **nothing
+ * at all**, because a shut `Disclosure` is 44 plus this column's 8px gap, which
+ * is exactly what the permanent strip was. The 52 is only available from
+ * decision 6's shape: draw nothing when nothing is on, with the door somewhere
+ * that costs no height. `ConditionsControl` is that door - 44x44 at the end of
+ * the identity's class row, in a band RENAME already holds open at 44 - and the
+ * strip is back, in its own slot, the moment anything is on. Nothing here is
  * bought by shaving a gap, because a fit bought that way is one the next honest
  * edit un-buys. `playSheet.test.tsx` carries every one of these numbers as an
  * assertion rather than as prose, so none of them can quietly stop being true.
+ *
+ * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
+ * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
+ * has always treated as 0. That takes the 393x852 column from 730 to 696 and
+ * the fit to **one pixel over**. So "tutta la scheda in una volta sola" is true
+ * in a browser on that phone and false by a hair in the installed app, and
+ * nobody has yet checked the inset on the owner's own device.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
@@ -2212,10 +2254,11 @@ function PlayDesktop({
  * pays and nobody else does.
  *
  * The conditions stay low, where they already were - set once a scene rather
- * than once a turn, so they do not belong above ROLL - and they are behind
- * their own fold now, whose shut header names what is on instead of showing
- * seven grey chips. That is a better 44px than the strip was and it is not a
- * cheaper one: see `ActiveConditions`.
+ * than once a turn, so they do not belong above ROLL - and they are drawn only
+ * while one is on. The fold P5-6 put them behind was a better 44px than the
+ * strip and not a cheaper one; this is the cheaper one, and it is paid for by
+ * the 44x44 `ConditionsControl` on the identity's class row, in a band RENAME
+ * already holds open. See `ActiveConditions` and `ConditionsControl`.
  *
  * EVERY FOLD DEFAULTS SHUT, `equipped` and the cards included. The budget above
  * is computed with every fold shut, and a default that contradicted it would
@@ -2228,7 +2271,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 749 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 697 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2286,7 +2329,7 @@ function PlayPhone({
           comes before them. It renders nothing for a class without one. */}
       <Beastform stats={stats} layout="phone" />
 
-      <Identity showLineage={false} />
+      <Identity showLineage={false} conditions />
 
       {/* Read under pressure, so it is four numbers and not a footnote - and
           second, because "threshold bene in vista" is the one instruction in
@@ -2466,13 +2509,22 @@ function PlayPhone({
 
       {/*
        * Conditions are set once a scene rather than once a turn, so they are
-       * low in the column - and behind a fold, because the shut header says
-       * which ones are on where the strip said it with one filled chip among
-       * seven empty ones. It costs the column exactly what the strip cost it,
-       * 44 and a gap; `ActiveConditions` has the arithmetic and says why the
-       * −52 this was costed at is not available from a fold.
+       * low in the column - and they are drawn only while one is actually on.
+       *
+       * This is the last 19px and it is decision 6's shape on a second surface:
+       * nothing is drawn to say nothing. The fold P5-6 put here saved not one
+       * pixel - a shut `Disclosure` is 44 plus this column's 8px gap, which is
+       * exactly what the permanent strip was - and the only arrangement that
+       * removes the 52 is this one, paid for by a door that costs no height,
+       * which is the 44x44 control on the identity's class row above. With
+       * nothing on, the folded sheet is 697 of 730 at 393x852.
+       *
+       * When something *is* on this strip is back, in this slot, naming it -
+       * and the control at the top of the sheet is filled and counting it. A
+       * condition is a state the GM inflicted, so the one thing this may never
+       * do is go quiet about one.
        */}
-      <ActiveConditions fold />
+      <ActiveConditions onlyWhenOn />
 
       <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
         <Lineage stats={stats} />
@@ -2489,13 +2541,13 @@ function PlayPhone({
        *
        * Here it is the last child of the scroll, under the last shut fold. The
        * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 749px against 730 - and everything
+       * bottom edge of the lineage header - 697px against 730 - and everything
        * it sums is something a player has to be able to reach. This is not:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is
        * outside `STACK` and outside `INDEX` on purpose, and the test says that
        * in the one place it could otherwise be mistaken for an omission - the
-       * child count, which goes from twelve to thirteen.
+       * child count, which goes from eleven to twelve.
        *
        * No `pinnedBelow`: nothing on Play is pinned. On a phone `TabBar` is
        * below the whole screen and pays the home-indicator inset; from 720px up

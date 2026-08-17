@@ -105,7 +105,7 @@ import {
 import { Beastform } from '../../src/ui/player/Beastform.tsx';
 import { Cards } from '../../src/ui/player/Cards.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
-import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
+import { ActiveConditions, ConditionsControl } from '../../src/ui/player/Conditions.tsx';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
 import { DualityRoll, ExperienceRow, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
@@ -557,6 +557,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <CompanionPanel stats={stats()} layout="desktop" />
   ),
   'player/Conditions.tsx::ActiveConditions': () => <ActiveConditions />,
+  'player/Conditions.tsx::ConditionsControl': () => <ConditionsControl />,
   // A real attack rather than null, so the row draws and stays out of
   // DRAWS_NOTHING: null is its "no roll has happened yet" state, which is the
   // one state this file cannot tell apart from a broken render.

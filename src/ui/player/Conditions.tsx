@@ -17,7 +17,6 @@
 import { useMemo, useState } from 'react';
 import { isVulnerableFromStress } from '../../engine/damage.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import { Disclosure } from '../shared/Disclosure.tsx';
 import { useDialog } from '../shared/useDialog.ts';
 import {
   MAX_LABEL,
@@ -25,6 +24,7 @@ import {
   STANDARD,
   useConditions,
   useConditionsFor,
+  type Conditions,
   type Standard,
 } from './conditionsStore.ts';
 import { blockNamed, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
@@ -34,6 +34,49 @@ const LABEL: Record<Standard, string> = {
   restrained: 'RESTRAINED',
   vulnerable: 'VULNERABLE',
 };
+
+/**
+ * The same three names as a screen reader should hear them.
+ *
+ * `LABEL` is the chip face and it is upper case because every label on this
+ * sheet is. An accessible name is read aloud, and some screen readers spell
+ * upper-case words out letter by letter, so the one place the names are spoken
+ * rather than drawn gets its own map instead of a `toLowerCase()` on the other.
+ */
+const SPOKEN: Record<Standard, string> = {
+  hidden: 'Hidden',
+  restrained: 'Restrained',
+  vulnerable: 'Vulnerable',
+};
+
+/**
+ * Everything that is true of this character right now, in the order the strip
+ * draws it: the three SRD conditions, then the states the player named.
+ *
+ * One function, because three surfaces have to agree about it - the strip only
+ * exists on the phone while this is non-empty, the control in the identity row
+ * counts it, and the control's accessible name reads it out. Two of those are
+ * the founding rule ("nothing is drawn to say nothing" must never become
+ * "nothing is drawn to say something"), so a second copy of this predicate is
+ * how the two would eventually disagree.
+ *
+ * The derived Vulnerable is in the list. It is true of you whoever set it, and
+ * the reason it is dashed rather than filled on the chip - you cannot put it
+ * down - is not a reason to leave it unsaid.
+ */
+function activeConditions(
+  conditions: Conditions,
+  derived: boolean,
+): { face: string; spoken: string }[] {
+  return [
+    ...STANDARD.filter((key) => conditions[key] || (key === 'vulnerable' && derived)).map(
+      (key) => ({ face: LABEL[key], spoken: SPOKEN[key] }),
+    ),
+    ...conditions.named
+      .filter((n) => n.on)
+      .map((n) => ({ face: n.label.toUpperCase(), spoken: n.label })),
+  ];
+}
 
 /** One hue each, but never the only carrier: the chip is also filled or not. */
 const TINT: Record<Standard, string> = {
@@ -150,39 +193,54 @@ function Chip({
 }
 
 /**
- * The strip, and - on the phone - the fold it now lives behind.
+ * The strip - permanently on the desktop, and on the phone only while
+ * something is actually on.
  *
- * WHAT THE FOLD IS FOR, AND WHAT IT IS NOT FOR. The strip is eight chips that
- * scroll sideways, permanent, low in the column between the rest and the
- * lineage, and on an ordinary evening every one of them is grey: 44px plus a
- * gap spent saying you are not Hidden, not Restrained and not Vulnerable.
- * Behind a fold the same row says `Conditions · NONE` when there is nothing and
- * `Conditions · RESTRAINED` when there is, which is a strictly better use of
- * the band - the state you are actually in is on the glass in words, where
- * before it was a filled chip among seven empty ones.
+ * WHAT THE PHONE DOES NOW, AND WHY THE FOLD WENT. The strip is eight chips
+ * that scroll sideways, low in the column between the rest and the lineage,
+ * and on an ordinary evening every one of them is grey: 44px plus the column's
+ * 8px gap spent saying you are not Hidden, not Restrained and not Vulnerable.
+ * P5-6 put that behind a `Disclosure` and costed the fold at −52. It was worth
+ * nothing: a shut fold is a 44px header plus the same 8px gap, 52 for 52, and
+ * `Conditions · NONE` is still a row spent saying nothing is happening.
  *
- * IT DOES NOT SAVE THE COLUMN A PIXEL, AND SAYING SO IS THE POINT. A shut
- * `Disclosure` is a 44px header and the column's 8px gap; the strip was a 44px
- * row and the column's 8px gap. 52 for 52. P5-6 costed this at −52 and the
- * arithmetic does not support that: the only shape that removes the 52 is one
- * where nothing is drawn at all when nothing is on - decision 6's treatment of
- * the modifier row - and that needs a door somewhere that costs nothing, which
- * is a placement decision this pass was not asked to take. `playSheet.test.tsx`
- * carries the total that follows from 52-for-52 rather than the one that was
- * hoped for.
+ * The shape that does remove the 52 is decision 6's - the one the modifier row
+ * got - and it needs two things at once. Nothing is drawn here while nothing is
+ * on, and the permanent door lives somewhere that costs the column no height:
+ * `ConditionsControl`, 44x44 at the end of the identity's class row, in a row
+ * already held open to 44 by RENAME. Measured in Chrome with the
+ * `playedCharacter` fixture, that takes the folded sheet from 749 to **697 of
+ * 730** at 393x852 - the first arrangement of this screen that fits.
+ *
+ * NOTHING IS DRAWN TO SAY NOTHING; SOMETHING IS ALWAYS DRAWN TO SAY SOMETHING.
+ * The moment any condition is on - including the Vulnerable that full Stress
+ * derives, which is true of you whoever set it - this strip appears in the slot
+ * it always had, naming every one of them, and `ConditionsControl` fills in and
+ * counts them at the top of the sheet where it cannot be scrolled off. A
+ * condition is a state the GM inflicted on you, so the one arrangement this may
+ * never produce is a sheet that is silent about one.
+ *
+ * `+ NAME` IS NOT DRAWN ON THE PHONE, and that is the same rule again. The
+ * control in the identity row is a door into `ConditionsDialog` that is on the
+ * glass in every state, so the chip at the end of this strip would be a second
+ * door to the same dialog, present only in the state where you least need it.
  *
  * DESKTOP IS UNTOUCHED, deliberately and by default. `Vitals` mounts this with
- * no props in the cockpit's middle column, where the strip is the right shape
- * and there is room for it. The alternative that was considered and rejected -
- * putting the strip inside `DualityRoll`'s `ControlRow` - would have given the
- * cockpit two `role="group" aria-label="Active conditions"` groups and two
- * doors into the same dialog.
+ * no props in the cockpit's middle column, where the strip is permanent, the
+ * `+ NAME` chip is the door, and there is room for both. The alternative that
+ * was considered and rejected - putting the strip inside `DualityRoll`'s
+ * `ControlRow` - would have given the cockpit two `role="group"
+ * aria-label="Active conditions"` groups and two doors into the same dialog.
  */
 export function ActiveConditions({
-  fold = false,
+  onlyWhenOn = false,
 }: {
-  /** Draw the strip inside its own tendina. Phone only. */
-  fold?: boolean;
+  /**
+   * Draw nothing while nothing is on, and leave the door to `ConditionsDialog`
+   * to `ConditionsControl`. Phone only - see the docblock above for why the two
+   * halves of this flag are one decision and not two.
+   */
+  onlyWhenOn?: boolean;
 } = {}): React.JSX.Element | null {
   const character = useActive();
   const conditions = useConditionsFor(character?.id ?? null);
@@ -194,29 +252,10 @@ export function ActiveConditions({
   if (!character) return null;
 
   const derived = isVulnerableFromStress(character);
+  const on = activeConditions(conditions, derived);
 
-  /*
-   * What the shut header says.
-   *
-   * `Disclosure`'s contract is that the header always says what is inside it,
-   * and for this section that has to be the states themselves rather than a
-   * count: "2 ON" behind a fold is the app knowing you are Restrained and
-   * making you tap to find out. Past two it names the first and counts the
-   * rest, because the summary shares a 369px row with the label and a chevron.
-   * The derived Vulnerable is in the list - it is true of you whoever set it.
-   */
-  const on = [
-    ...STANDARD.filter((key) => conditions[key] || (key === 'vulnerable' && derived)).map(
-      (key) => LABEL[key],
-    ),
-    ...conditions.named.filter((n) => n.on).map((n) => n.label.toUpperCase()),
-  ];
-  const summary =
-    on.length === 0
-      ? 'NONE'
-      : on.length <= 2
-        ? on.join(' · ')
-        : `${on[0]!} +${String(on.length - 1)}`;
+  // The whole of the 52px. Nothing is drawn to say nothing.
+  if (onlyWhenOn && on.length === 0) return null;
 
   const strip = (
       <div
@@ -274,47 +313,138 @@ export function ActiveConditions({
           />
         ))}
 
-        <button
-          type="button"
-          className="chip"
-          onClick={() => setOpen(true)}
-          title="Condition rules, and states you name yourself"
-          aria-label="Condition rules, and states you name yourself"
-          style={{
-            flex: 'none',
-            minHeight: 'var(--control)',
-            minWidth: 'var(--control)',
-            padding: '0 10px',
-            borderRadius: 'var(--r3)',
-            background: 'transparent',
-            border: '1px solid var(--line)',
-            color: 'var(--muted)',
-            letterSpacing: '0.18em',
-          }}
-        >
-          {conditions.named.length < MAX_NAMED ? '+ NAME' : '...'}
-        </button>
+        {!onlyWhenOn && (
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setOpen(true)}
+            title="Condition rules, and states you name yourself"
+            aria-label="Condition rules, and states you name yourself"
+            style={{
+              flex: 'none',
+              minHeight: 'var(--control)',
+              minWidth: 'var(--control)',
+              padding: '0 10px',
+              borderRadius: 'var(--r3)',
+              background: 'transparent',
+              border: '1px solid var(--line)',
+              color: 'var(--muted)',
+              letterSpacing: '0.18em',
+            }}
+          >
+            {conditions.named.length < MAX_NAMED ? '+ NAME' : '...'}
+          </button>
+        )}
       </div>
   );
 
+  if (onlyWhenOn) return strip;
+
   return (
     <>
-      {fold ? (
-        <Disclosure
-          id="conditions"
-          characterId={character.id}
-          label="Conditions"
-          summary={summary}
-        >
-          {strip}
-        </Disclosure>
-      ) : (
-        strip
-      )}
+      {strip}
+      {open && <ConditionsDialog rules={rules} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
-      {/* Outside the fold on purpose: it is a modal over the whole screen and
-          it has no business being unmounted by the section it was opened
-          from. */}
+/**
+ * The permanent door into the conditions, and the reason the strip is allowed
+ * to disappear.
+ *
+ * WHY IT IS HERE AND NOT ANYWHERE ELSE. Nothing may be drawn to say nothing,
+ * so the strip only exists while something is on - and a section that is not
+ * always there cannot be the way in. The way in has to be permanent and it has
+ * to cost the column no height, and the identity's class row is the only band
+ * on this sheet that offers both: it is already held open to 44px by RENAME, so
+ * a 44x44 sibling adds no row. Measured in Chrome with the `playedCharacter`
+ * fixture, the class line needs 125.6px and the cell it sits in is 289px at
+ * 393 and 271px at 375; this control and its 8px gutter take 52 of that, which
+ * leaves 111px and 93px of slack before the line wraps and costs Identity a
+ * second row. The `--control` token, not a literal 44: it resolves to 44 at
+ * every width below 1180 with a coarse primary pointer, which is every width
+ * this sheet is played at, and matching RENAME beside it is what keeps the row
+ * one height rather than two.
+ *
+ * WHERE IT SITS IN THE ROW, WHICH IS AFTER RENAME. Both controls are at the top
+ * of the screen, roughly 800px from the bottom-right pivot on a 393x852 phone
+ * and therefore outside any one-handed thumb sweep - neither is reachable
+ * without shuffling the grip, so the arc does not decide this. Two things do.
+ * RENAME acts on the line it sits in and has been at that row's right end since
+ * the sheet was built, so the newcomer goes outside it rather than between the
+ * class line and the control that edits it. And of the two, a stray tap here is
+ * the cheaper mistake: this opens a modal that CLOSE dismisses, while RENAME
+ * swaps the row into a focused text field that raises the software keyboard
+ * mid-scene.
+ *
+ * WHAT IT SAYS, WHICH IS NEVER "NOTHING IS WRONG" WHEN SOMETHING IS. With
+ * nothing on it is a hollow 44x44 reading `— COND`. With anything on it fills
+ * in, the count replaces the dash, and its accessible name reads every one of
+ * them out - so a listening player gets `Conditions: Restrained, Vulnerable`
+ * from the top of the sheet without scrolling to the strip. A sighted player
+ * gets the count here and the names in the strip, which is 700px down the
+ * column and below the fold at both reference widths. That is the honest
+ * residual of this arrangement and it is not a regression: the shut fold header
+ * this replaces named them in the same slot, 701px down, and was equally below
+ * the fold at 375x667. What is new is that the count is never off the glass.
+ *
+ * PHONE ONLY. `Identity` draws it behind a prop that `PlayDesktop` does not
+ * pass, because the cockpit already has a permanent strip with its own door and
+ * a second one would be two doors into one dialog.
+ */
+export function ConditionsControl(): React.JSX.Element | null {
+  const character = useActive();
+  const conditions = useConditionsFor(character?.id ?? null);
+  const rules = useConditionRules();
+  const [open, setOpen] = useState(false);
+
+  if (!character) return null;
+
+  const on = activeConditions(conditions, isVulnerableFromStress(character));
+  const lit = on.length > 0;
+  const named = on.map((c) => c.spoken).join(', ');
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={lit ? `Conditions: ${named}` : 'Conditions: none'}
+        title={
+          lit ? `Conditions: ${named}` : 'Conditions, and states you name yourself'
+        }
+        className="stack"
+        style={{
+          flex: 'none',
+          width: 44,
+          minWidth: 44,
+          minHeight: 'var(--control)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 3,
+          borderRadius: 'var(--r3)',
+          background: lit ? 'var(--raised)' : 'transparent',
+          border: `1px solid ${lit ? 'var(--line)' : 'var(--line-soft)'}`,
+        }}
+      >
+        {/* Two carriers, never one: the count changes and so does the ink, so
+            this reads as "on" without relying on colour alone. */}
+        <span
+          aria-hidden="true"
+          className="t-meta"
+          style={{ color: lit ? 'var(--damage)' : 'var(--muted)', fontWeight: lit ? 700 : 500 }}
+        >
+          {lit ? String(on.length) : '—'}
+        </span>
+        <span
+          aria-hidden="true"
+          className="t-meta"
+          style={{ color: lit ? 'var(--text)' : 'var(--muted)' }}
+        >
+          COND
+        </span>
+      </button>
+
       {open && <ConditionsDialog rules={rules} onClose={() => setOpen(false)} />}
     </>
   );

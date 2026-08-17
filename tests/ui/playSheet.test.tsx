@@ -24,6 +24,7 @@ import { Play } from '../../src/ui/player/Play.tsx';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { useConditions } from '../../src/ui/player/conditionsStore.ts';
+import { ActiveConditions } from '../../src/ui/player/Conditions.tsx';
 import type { Character } from '@shared/types.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
@@ -396,7 +397,7 @@ describe('what a phone shows of the character sheet', () => {
     // `Disclosure` too, but it belongs to `DualityRoll` and lives above ROLL
     // inside it, which is decision 6's business and not this test's.
     const headers = indexHeaders();
-    expect(headers.length, 'the fold index is gone').toBe(7);
+    expect(headers.length, 'the fold index is gone').toBe(6);
     for (const header of headers) {
       expect(rootEl.contains(header), `${header.textContent ?? '?'} is outside the column`).toBe(
         true,
@@ -736,13 +737,22 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP },
     { what: 'Rest & downtime', px: 44 },
     { what: 'gap', px: GAP },
-    // Its own fold since P5-6, and the same 52 the strip was: a shut
-    // `Disclosure` is a 44px header and this column's 8px gap, which is a 44px
-    // row and this column's 8px gap to the pixel. What changed is what the
-    // 44 says - `Conditions · RESTRAINED` instead of one filled chip among
-    // seven empty ones - not what it costs.
-    { what: 'Conditions, its own fold', px: 44 },
-    { what: 'gap', px: GAP },
+    /*
+     * THE CONDITIONS ARE NOT IN THIS TABLE, AND THAT IS THE 52PX.
+     *
+     * They were a permanent strip (44 plus this column's 8px gap), then P5-6's
+     * fold (a 44px header plus the same 8px gap - 52 for 52, which is why that
+     * pass bought nothing with it). P5-8 draws them only while one is on, with
+     * the permanent door moved to a 44x44 control in the identity's class row
+     * where RENAME already holds the band open, so the resting sheet spends
+     * nothing on them at all.
+     *
+     * That is the whole difference between 749 and 697, and between missing
+     * 393x852 by 19 and fitting it with 33 to spare. `the conditions, drawn
+     * only when there are any` below asserts both halves: nothing in this slot
+     * with a clear sheet, and 52px back in it - naming what is on - the moment
+     * anything is.
+     */
     { what: 'Lineage & domains', px: 44 },
   ];
 
@@ -767,14 +777,14 @@ describe('the budget the pin came off for', () => {
   });
 
   /*
-   * The small phone, where the slack is ten pixels and that number is the
-   * headline rather than a footnote.
+   * The small phone, where the slack used to be ten pixels and is now 160.
    *
-   * ROLL clears the fold at 375x667 by 10px. That is not comfortable and this
-   * test does not pretend it is: it asserts the ten, so that anything which
-   * spends eleven fails here with the arithmetic in front of it rather than
-   * being found on somebody's phone. The docblock above lists six ordinary
-   * states this table cannot see, and four of them cost more than ten.
+   * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
+   * and that ten was the number the grid was bought with. It asserts the 160,
+   * so that anything spending 161 fails here with the arithmetic in front of it
+   * rather than being found on somebody's phone. The docblock above lists six
+   * ordinary states this table cannot see, and one of them - pips, at +100 -
+   * still leaves 60.
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
@@ -788,23 +798,43 @@ describe('the budget the pin came off for', () => {
   });
 
   /*
-   * Giorgio's stronger sentence, answered with a number instead of with a
-   * claim. "Vedere in una volta sola tutta la scheda" is true on a tablet and
-   * is not true on either phone, and the gap is stated rather than shaved: a
-   * fit bought by taking the column gap from 8 to 6 is a fit the next honest
-   * edit un-buys, and the assertion pinning it would be a tripwire on a design
-   * nobody chose.
+   * GIORGIO'S STRONGER SENTENCE, AND THE FIRST TIME THIS FILE CAN ASSERT IT
+   * RATHER THAN COST IT.
+   *
+   * "Rendendo quindi la pagina principale un sistema per vedere in una volta
+   * sola tutta la scheda." Through P5-5, P5-6 and P5-7 this was an assertion
+   * about how far the sheet missed by - 169px, then 19 - and the docblock on
+   * that assertion said why the gap was stated rather than shaved: a fit bought
+   * by taking the column gap from 8 to 6 is a fit the next honest edit un-buys.
+   *
+   * Nothing here was shaved. The 19 went the way P5-6 said the last 52 would
+   * have to go - the conditions are drawn only while one is on, with the door
+   * moved to a band that was already 44px tall - so this now asserts the fit
+   * and the slack, and fails the moment the sheet stops fitting. Measured in
+   * Chrome at 393x852 with the `playedCharacter` fixture, every fold shut: 697.
+   *
+   * 375x667 IS STILL A MISS AND IS STILL STATED. The small phone is 152px over,
+   * where it was 204. The owner accepted that in advance and no arrangement of
+   * this sheet closes it: 152px is three fold headers, and there are only six.
    */
-  it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 364 below ROLL').toBe(749);
+  it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(697);
+    const glass = column(852);
+    expect(glass).toBe(730);
     expect(
-      SHEET_BOTTOM - column(852),
-      'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(19);
+      SHEET_BOTTOM,
+      `the whole folded sheet is ${String(SHEET_BOTTOM)} against ${String(glass)} of column at ` +
+        '393x852, so "vedere in una volta sola tutta la scheda" has stopped being true. It ' +
+        'became true at P5-8 and this is the assertion that keeps it true: nothing may be ' +
+        'added to this column without taking something out, and a fit bought by shrinking a ' +
+        'gap is not a fit.',
+    ).toBeLessThanOrEqual(glass);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(33);
+    // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(204);
+    ).toBe(152);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -820,7 +850,64 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(323);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(375);
+  });
+
+  /*
+   * WHERE ROLL IS ON THE GLASS, WHICH IS THE ONE THING THE UNPINNING WAS
+   * ARGUED FROM AND THE ONE THING NOTHING ASSERTED.
+   *
+   * `PlayPhone`'s comment above `<DualityRoll>` carried the pre-grid position
+   * for two passes after the grid moved it - "y522-588 … 264 to 330px up from
+   * the bottom bezel … 203px clear of the tab bar" - while the drawn row was
+   * 150px higher, and the conclusion the comment drew from its own numbers
+   * inverted with them: at 414-480px above the bezel ROLL is outside the ~330px
+   * sweep the comment cited to say it was inside. A number in a comment is
+   * never checked again; that is what this file exists to stop, and this is the
+   * assertion that should have existed when the pin came off.
+   *
+   * Everything here is derived from the table above and the shell's own three
+   * constants, so it moves when the stack moves instead of going quietly stale.
+   * Measured in Chrome with the `playedCharacter` fixture, every fold shut, at
+   * both reference widths: the ROLL row is y372-438 on the glass, its lower
+   * edge is 414px above the bottom bezel at 393x852 and 229 at 375x667, and it
+   * is 353px clear of the tab bar.
+   */
+  it('says where on the glass ROLL is drawn, and how far that is from the thumb', () => {
+    const ROLL_ROW = STACK[STACK.length - 1]!.px;
+    expect(ROLL_ROW, 'the last term of the stack is no longer the ROLL row').toBe(66);
+
+    // On the glass: the column starts under the header, which is the only
+    // chrome above it.
+    const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
+    const bottom = HEADER + ROLL_BOTTOM;
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([372, 438]);
+
+    /*
+     * And how far up from the bottom bezel, which is the number the ergonomic
+     * claim is made in. A right thumb pivots at the bottom-right corner, and
+     * the 95th-percentile comfortable sweep at these widths is about 330px;
+     * both of these are outside it, which the comment on `<DualityRoll>` now
+     * says in those words rather than claiming the opposite.
+     */
+    expect(
+      [852 - bottom, 852 - top],
+      "ROLL's distance from the bottom bezel at 393x852 has moved",
+    ).toEqual([414, 480]);
+    expect(
+      [667 - bottom, 667 - top],
+      "ROLL's distance from the bottom bezel at 375x667 has moved",
+    ).toEqual([229, 295]);
+
+    /*
+     * The other half of the trade, and the half that is a gain: pinned, ROLL
+     * was 8px above a 98x60 control that navigates away mid-turn. It is 353px
+     * clear of it now.
+     */
+    expect(
+      852 - TABBAR - bottom,
+      'the gap between ROLL and the tab bar that navigates away has moved',
+    ).toBe(353);
   });
 
   /*
@@ -877,35 +964,36 @@ describe('the budget the pin came off for', () => {
     /*
      * The one thing that would otherwise slip past this whole describe: a
      * section added to the column that the table above never hears about. The
-     * table is arithmetic and cannot notice a fourteenth child, so the child
+     * table is arithmetic and cannot notice a thirteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Thirteen, with the fixture: Identity, the defence band, the counters, the
-     * trait row, the roll surface, then Weapons & armour, Experiences, Carried,
-     * Cards, Rest, the conditions strip and Lineage - and, since P5-6, the
-     * licence notice. The vault is a tendina inside Cards and costs the column
-     * no child of its own; the death move and the Beastform banner draw nothing
-     * for this character, and both are named in the docblock as things this
-     * budget does not carry.
+     * Twelve, with the fixture and a clear sheet: Identity, the defence band,
+     * the counters, the trait row, the roll surface, then Weapons & armour,
+     * Experiences, Carried, Cards, Rest and Lineage - and, since P5-7, the
+     * licence notice. Eleven of those are `STACK` and `INDEX`. The vault is a
+     * tendina inside Cards and costs the column no child of its own; the death
+     * move, the Beastform banner and - since P5-8 - the conditions strip draw
+     * nothing in this state, and all three are named in the docblock as things
+     * this budget does not carry.
      *
-     * THE THIRTEENTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN
-     * WAIVED. `STACK` and `INDEX` sum the sheet, and the sheet is everything a
-     * player has to be able to reach; the notice is below the last fold, is
-     * read once by somebody who is not at a table, and is never needed on the
-     * glass - so it changes no term above and neither total. That claim is only
-     * safe while it really is last, which the two lines below check, and while
-     * it really is a footer rather than a section, which its tag says.
+     * THE TWELFTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
+     * `STACK` and `INDEX` sum the sheet, and the sheet is everything a player
+     * has to be able to reach; the notice is below the last fold, is read once
+     * by somebody who is not at a table, and is never needed on the glass - so
+     * it changes no term above and neither total. That claim is only safe while
+     * it really is last, which the two lines below check, and while it really
+     * is a footer rather than a section, which its tag says.
      */
     expect(
       rootEl.children.length,
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(13);
+    ).toBe(12);
     const last = rootEl.children[rootEl.children.length - 1]!;
     expect(
       last.tagName,
-      'the thirteenth child of the column is not the licence notice, so either the notice ' +
+      'the last child of the column is not the licence notice, so either the notice ' +
         'has moved up into the sheet - where it costs the budget 119px nobody has costed - ' +
         'or something new has been added below it and is exempt from the budget by accident',
     ).toBe('FOOTER');
@@ -994,8 +1082,8 @@ describe('the budget the pin came off for', () => {
       'the Experience chips are back above ROLL, where they cost 100px',
     ).toHaveLength(0);
 
-    // The fold index: every header at the floor, and there are seven rows of
-    // it now that the conditions strip is one of them.
+    // The fold index: every header at the floor, and there are six rows of it
+    // now that the conditions have no permanent row at all.
     const headers = indexHeaders();
     for (const header of headers) {
       expect(header.style.minHeight, `${header.textContent ?? '?'} is not at the floor`).toBe(
@@ -1008,82 +1096,157 @@ describe('the budget the pin came off for', () => {
       'Carried',
       'Cards',
       'Rest & downtime',
-      'Conditions',
       'Lineage & domains',
     ];
     expect(
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
-      'the budget counts seven fold headers below ROLL and the screen draws a different set',
+      'the budget counts six fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
   });
 });
 
 /**
- * The conditions strip, behind its own fold.
+ * The conditions, drawn only when there are any.
  *
- * P5-6 asked for this and costed it at −52. It is not worth −52 and these tests
- * say so with the arithmetic: a shut `Disclosure` is a 44px header plus this
- * column's 8px gap, which is what the strip was to the pixel. What the fold
- * buys is not column, it is legibility - seven grey chips scrolling sideways
- * become a row that names the state you are in - and what it must not cost is
- * the desktop, which mounts the same component with no props.
+ * P5-6 asked for a fold here and costed it at −52. A fold is not worth −52: a
+ * shut `Disclosure` is a 44px header plus this column's 8px gap, which is what
+ * the permanent strip was to the pixel, and `Conditions · NONE` is still a row
+ * spent saying nothing is happening. P5-8 takes the 52 the only way it can be
+ * taken - nothing is drawn while nothing is on - and pays for the door out of a
+ * band that was already 44px tall.
+ *
+ * These tests exist because that trade has exactly one way to go wrong, and it
+ * is the founding rule: a sheet that goes quiet about a condition the GM
+ * inflicted. So they assert the saving *and* the thing the saving must not
+ * cost, at the same time and in the same file as the budget it buys.
  */
-describe('the conditions strip, behind its own fold', () => {
-  const conditionsFold = (): HTMLButtonElement | undefined =>
-    indexHeaders().find((h) => (h.textContent ?? '').startsWith('Conditions'));
+describe('the conditions, drawn only when there are any', () => {
+  const strips = (): NodeListOf<Element> =>
+    container.querySelectorAll('[role="group"][aria-label="Active conditions"]');
+  const control = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'));
 
-  it('is a fold on the phone, and the chips are inside it', () => {
+  it('spends no row on a clear sheet, and no fold either', () => {
     play(seed());
-    const header = conditionsFold();
-    expect(header, 'the conditions are not behind a fold on the phone').toBeDefined();
-    expect(header!.getAttribute('aria-expanded')).toBe('false');
-    expect(header!.style.minHeight, 'the fold header is below the touch floor').toBe('var(--tap)');
     expect(
-      container.querySelector('[role="group"][aria-label="Active conditions"]'),
-      'the strip is still drawn with the fold shut, so the fold saved nothing at all',
-    ).toBeNull();
-
-    click(header!);
-    const strip = container.querySelector('[role="group"][aria-label="Active conditions"]');
-    expect(strip, 'opening the fold does not reach the chips').not.toBeNull();
+      strips(),
+      'the strip is drawn with nothing on, which is the 52px this pass was for',
+    ).toHaveLength(0);
     expect(
-      container.querySelectorAll('[role="group"][aria-label="Active conditions"]'),
-      'there are two conditions groups on one screen',
-    ).toHaveLength(1);
+      indexHeaders().find((h) => (h.textContent ?? '').startsWith('Conditions')),
+      'the conditions fold is back, and a shut fold costs this column exactly what the ' +
+        'permanent strip cost it - 44 plus the gap, 52 for 52',
+    ).toBeUndefined();
   });
 
-  it('names on the shut header what the strip used to say with a filled chip', () => {
+  it('puts the permanent door in a row that was already 44px tall', () => {
+    play(seed());
+    const door = control();
+    expect(
+      door,
+      'nothing on the sheet opens the conditions, so a clear sheet is a sheet you cannot ' +
+        'set Hidden on',
+    ).toBeDefined();
+
+    // In the class row, beside RENAME - the whole reason it costs nothing.
+    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
+    expect(
+      door!.parentElement,
+      'the conditions control left the identity class row, where RENAME holds the band ' +
+        'open at 44 and it therefore costs the column nothing',
+    ).toBe(rename.parentElement);
+    expect(door!.style.minHeight, 'the door is below the touch floor').toBe('var(--control)');
+    expect(door!.style.width, 'the door is not the 44 wide the budget assumes').toBe('44px');
+    expect(door!.getAttribute('aria-label'), 'a clear sheet does not say so').toBe(
+      'Conditions: none',
+    );
+  });
+
+  it('says what is on, in the strip and on the door, the moment anything is', () => {
     const c = seed();
     play(c);
-    expect(conditionsFold()!.textContent, 'a clear sheet does not say so').toContain('NONE');
 
     act(() => {
       useConditions.getState().toggle(c.id, 'restrained');
     });
+
     expect(
-      conditionsFold()!.textContent,
-      'a condition the GM inflicted is behind a tap, which is the one thing a fold may not do',
-    ).toContain('RESTRAINED');
+      strips(),
+      'a condition the GM inflicted is on and this column draws nothing about it, which is ' +
+        'the one way "nothing is drawn to say nothing" can become a defect',
+    ).toHaveLength(1);
+    expect(strips()[0]!.textContent, 'the strip is drawn and does not name it').toContain(
+      'RESTRAINED',
+    );
+    expect(
+      control()!.getAttribute('aria-label'),
+      'the door at the top of the sheet does not name it, so a listening player has to ' +
+        'scroll 650px to a strip to be told they are Restrained',
+    ).toBe('Conditions: Restrained');
+    expect(
+      control()!.textContent,
+      'the door does not count what is on, so the only thing on the glass above the fold ' +
+        'saying something is wrong is a border colour',
+    ).toContain('1');
+
+    act(() => {
+      useConditions.getState().toggle(c.id, 'hidden');
+    });
+    expect(control()!.getAttribute('aria-label')).toBe('Conditions: Hidden, Restrained');
+    expect(control()!.textContent).toContain('2');
   });
 
   /*
-   * The saving that was asked for and is not available, stated as arithmetic
-   * rather than left to be discovered. If a later pass finds a shape that does
-   * remove the 52 - drawing nothing when nothing is on, with a door that costs
-   * the column nothing - this is the line it will have to change, and changing
-   * it is the point.
+   * The Vulnerable the app derives from full Stress is not one the player set,
+   * and it is the state most likely to be true without anybody having touched
+   * a chip. If "draw nothing when nothing is on" read the manual flags only, it
+   * would be silent on exactly that.
    */
-  it('costs this column exactly what the strip cost it', () => {
-    play(seed());
-    const header = conditionsFold()!;
-    const section = header.parentElement as HTMLElement;
-    expect(section.tagName).toBe('SECTION');
-    // Shut, a Disclosure adds nothing of its own between header and content.
-    expect(section.style.gap, 'a shut fold is spending a gap on nothing').toBe('0px');
-    expect(section.children, 'a shut fold is drawing its contents').toHaveLength(1);
-    // 44 at the touch floor, plus the column's own 8. The strip was 44 at
-    // var(--control), which is 44 on any coarse pointer, plus the same 8.
-    expect(44 + 8).toBe(52);
+  it('counts the Vulnerable that full Stress derives, which nobody switched on', () => {
+    const c = seed();
+    play(c);
+    expect(strips(), 'the fixture has Stress left and something is drawn').toHaveLength(0);
+
+    rebuild({ stress: { marked: c.stress.max, max: c.stress.max } });
+    expect(
+      strips(),
+      'every Stress box is marked, so this character is Vulnerable and the sheet says nothing',
+    ).toHaveLength(1);
+    expect(control()!.getAttribute('aria-label')).toBe('Conditions: Vulnerable');
+  });
+
+  /*
+   * Two doors into one dialog is what this arrangement is most likely to
+   * produce by accident, and `ActiveConditions`' docblock has refused it once
+   * already for the cockpit. On the phone the door is the identity control, so
+   * the strip's own `+ NAME` chip is not drawn - and the desktop, which has no
+   * such control, keeps it.
+   */
+  it('has one door on the phone and one on the desktop, never two on either', () => {
+    const c = seed();
+    play(c);
+    act(() => {
+      useConditions.getState().toggle(c.id, 'restrained');
+    });
+
+    const doors = buttons().filter(
+      (b) =>
+        (b.getAttribute('aria-label') ?? '').startsWith('Conditions:') ||
+        (b.getAttribute('aria-label') ?? '') === 'Condition rules, and states you name yourself',
+    );
+    expect(
+      doors.map((b) => b.getAttribute('aria-label')),
+      'the phone has two ways into ConditionsDialog on one screen',
+    ).toEqual(['Conditions: Restrained']);
+
+    render(createElement(ActiveConditions));
+    expect(
+      buttons().filter(
+        (b) =>
+          (b.getAttribute('aria-label') ?? '') === 'Condition rules, and states you name yourself',
+      ),
+      'the desktop strip lost the only door it has',
+    ).toHaveLength(1);
   });
 });
 
