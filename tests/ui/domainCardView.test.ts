@@ -307,16 +307,63 @@ describe('the offer to read the rest', () => {
     // else in the file may print those words.
     const source = readFileSync(SOURCE, 'utf8');
     expect(source.match(/MORE — TAP TO READ/g)).toHaveLength(1);
-    expect(source).toContain('{clipped && (');
     expect(source).toContain("clipped ? 't-read scroll-fade' : 't-read'");
   });
 
-  it('no longer says so in the strip that is not tappable', () => {
-    // The overlay button stops short of the footer by design, so a "tap for
-    // full text" label sitting in the footer named the one part of the card
-    // that does nothing when you tap it.
+  /*
+   * The assertion that stood here read, in full:
+   *
+   *   it('no longer says so in the strip that is not tappable', () => {
+   *     expect(source).toContain(
+   *       "{!reading && card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}");
+   *   });
+   *
+   * It was true and it was pinning dead code. That expression lives in the
+   * `footer ??` default, which renders only when no `footer` prop was passed;
+   * both showcase call sites - `Cards.tsx:246` and the cockpit loadout at
+   * `Play.tsx:2078` - always pass one, and the two that omit it are
+   * `variant="reading"`, where `!reading` is false. So no screen in this app
+   * could draw those words, while 40 of 42 tiles at 393x852 cut their rules
+   * text behind a wordless fade.
+   */
+  it('reaches the showcase card, where the words were three lines away and dead', () => {
     const source = readFileSync(SOURCE, 'utf8');
-    expect(source).toContain("{!reading && card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}");
+    expect(
+      source,
+      'the footer still guesses at truncation from a character count',
+    ).not.toContain('card.text.length > 150');
+    expect(source.match(/TAP FOR FULL TEXT/g), 'the cue is printed twice').toHaveLength(1);
+    // In the text box, over the fade, under the same `clipped` the reading
+    // variant uses - not in the footer, which the overlay button stops short
+    // of and where a tap does nothing.
+    expect(source).toContain('{clipped && opens && (');
+  });
+
+  it('says "tap" only where there is something to tap', () => {
+    // `SessionBody.tsx:400` mounts a reading card with no `onOpen` at all, so
+    // the cue there named a gesture the card does not answer.
+    const source = readFileSync(SOURCE, 'utf8');
+    expect(source).toContain('const opens = onOpen !== undefined;');
+    expect(source.match(/\{clipped && opens && \(/g), 'a cue is drawn without it').toHaveLength(2);
+  });
+
+  it('stops fading a showcase card that is not hiding anything', () => {
+    /*
+     * The showcase fade was unconditional: a 26px gradient over the last line
+     * of every card, including the two of 42 that end inside their box. The
+     * reading branch's own comment has always said why that is wrong - "an
+     * unconditional fade over the last line of a card that ends there just
+     * makes it harder to read" - and the showcase branch did it anyway.
+     *
+     * Static markup has measured nothing, so `clipped` is false and the honest
+     * output is no fade at all. That is what this reads.
+     */
+    expect(showcase, 'a card that has measured nothing is faded anyway').not.toContain(
+      'linear-gradient(180deg',
+    );
+    expect(showcase, 'and it claims there is more to read').not.toContain('TAP FOR FULL TEXT');
+    // The banner's own tint is a different gradient and stays.
+    expect(showcase).toContain('linear-gradient(155deg');
   });
 });
 
