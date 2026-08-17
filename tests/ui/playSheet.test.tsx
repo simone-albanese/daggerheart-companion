@@ -818,11 +818,12 @@ describe('the budget the pin came off for', () => {
     // two targets in the fifth cell are 44 and 44 either side of it.
     { what: 'the defence band · the number at 32/1', px: 32, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
-    // The fifth cell is TOOK and a 44px field, vertically centred in a row the
-    // four number cells already hold open at 58. It is in this table at zero
-    // rather than absent from it, because zero is the claim: the box left the
-    // counters, where it cost 44 and a 6px gap, and the band did not grow.
-    { what: 'the defence band · the TOOK cell, inside the 58 already spent', px: 0, from: 'dom' },
+    // The fifth cell is the 44x44 conditions door and a 44px field, vertically
+    // centred in a row the four number cells already hold open at 64. It is in
+    // this table at zero rather than absent from it, because zero is the claim:
+    // the box left the counters, where it cost 44 and a 6px gap, the door left
+    // the identity block, and the band did not grow for either.
+    { what: 'the defence band · the door and the field, inside the 64 already spent', px: 0, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
@@ -1642,7 +1643,7 @@ describe('the incoming-damage box, where the ladder is', () => {
      * The whole argument for the move, as an assertion. Inside the counters
      * the box printed `8/16` - the two thresholds, in the smallest type on the
      * screen - because it needed them and could not see them. They are two
-     * 26px numbers three cells to its left now, so the restatement is deleted
+     * 32px numbers three cells to its left now, so the restatement is deleted
      * rather than duplicated.
      */
     expect(

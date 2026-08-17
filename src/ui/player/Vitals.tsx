@@ -165,15 +165,18 @@ export function Vitals({
        * for the `1fr`. Inner width is 428 - 2 - 24 = 402, so a cell is
        * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 4 - 4 =
        * **102x44**. Less `padding: 0 5px` and 2px of border that is 90px of
-       * room for the 59.5px value line, against the phone's five at 375. The
+       * room for the 60.61px value line at `--counter-num`'s 22px, against the
+       * phone's 8.91 at 375, where the token steps down to 18. The
        * steppers stay at `Counter`'s hard-coded 44 rather than following
        * `--control` down to 34, for the reason `tokens.css` gives beside
        * `--pip-h`: a touchscreen laptop at 1180px and up reports `pointer:
        * fine` with a finger on the glass.
        *
        * READ VERSUS TOUCH, AND WHAT THE COCKPIT LOSES. The readout stops being
-       * a 32px silhouette read as a shape and becomes two digits at 800 20px
-       * Archivo, with the 13px mark still saying which track it is. Three
+       * a 32px silhouette read as a shape and becomes two digits at 800
+       * `--counter-num` Archivo - 22px here, because the token's one step is a
+       * `min-width: 380px` and every cockpit width answers it - with the 13px
+       * mark still saying which track it is. Three
        * things go with the pips and none of them is hidden: a pip row sets any
        * value in one click where a number is one `+` per point or three
        * gestures; the press-and-hold that cleared a track has no `Counter`
@@ -305,10 +308,11 @@ export function Vitals({
  * 6px gap under the four tracks, and the thing it printed beside itself when
  * idle was `8/16` in 10px grey - the damage ladder, restated in the smallest
  * type on the screen, because the box needed the ladder and could not see it.
- * The ladder is two 26px numbers in the defence band, second on the sheet,
- * where "threshold bene in vista" put them. So the box goes there: the number
- * you were just told and the two numbers you read it against are now one
- * glance, and the restatement is deleted rather than duplicated.
+ * The ladder is two 32px numbers in the defence band, first on the sheet since
+ * the identity block left it, where "threshold bene in vista" put them. So the
+ * box goes there: the number you were just told and the two numbers you read it
+ * against are now one glance, and the restatement is deleted rather than
+ * duplicated.
  *
  * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
  * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px

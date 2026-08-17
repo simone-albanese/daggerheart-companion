@@ -79,9 +79,13 @@ const TAP = 44;
  * steppers themselves.
  *
  * Four rather than six, and the two pixels are not cosmetic: they are the
- * difference between 64.5px of room for the value line and 60.5px, against
- * 59.5px of ink. Six left one pixel of slack at 375 and one pixel is not a
- * margin, it is a coincidence.
+ * difference between 64.5px of room for the value line at 375 and 60.5px. When
+ * that was decided the number was a flat 20px and the widest line was 59.5, so
+ * six left one pixel of slack and one pixel is not a margin, it is a
+ * coincidence. Since `--counter-num` the line at 375 is 55.59 and the slack is
+ * 8.91, so the four is no longer load-bearing *there* - it is load-bearing at
+ * 360 and below, where the target is 69 wide and then 61 and then 49, and every
+ * gutter pixel is one the label loses.
  */
 const GUTTER = 4;
 

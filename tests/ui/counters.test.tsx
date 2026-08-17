@@ -249,8 +249,9 @@ describe('a counter drawn as a number', () => {
     ).toEqual(['HP 2 of 6 - tap to type a value', 'HP minus one', 'HP plus one']);
 
     // The gutter is the row's own gap now, and it is 4 rather than 6 for a
-    // measured reason: `Counter`'s docblock has the 59.5px of ink against the
-    // 64.5px of room, and six left one pixel.
+    // measured reason: `Counter`'s docblock has the ink against the room at
+    // every width, and six left one pixel at 375 when the number was a flat 20.
+    // Since `--counter-num` the four is load-bearing at 360 and below instead.
     expect(row.style.gap, 'the cell gutter moved and the fit was computed on 4').toBe('4px');
 
     const grows = kids.filter((el) => el.style.flex.startsWith('1 1'));
@@ -339,7 +340,7 @@ describe('a counter drawn as a number', () => {
     ).toBe(44);
   });
 
-  it('leaves 76.5px for the value at 375, which is what the readout was fitted to', () => {
+  it('leaves 76.5px for the value at 375, which is the widest the token steps down for', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
     const gutter = Number.parseFloat(row.style.gap);
@@ -358,8 +359,10 @@ describe('a counter drawn as a number', () => {
     expect(forTheValue(393)).toBe(85.5);
     expect(
       forTheValue(375),
-      'the narrowest cell no longer leaves the 76.5px the 59.5px value line was measured ' +
-        'against - the gutter or the steppers moved and the readout was fitted to neither',
+      'the 375px cell no longer leaves the 76.5px the value line was measured against - the ' +
+        'gutter or the steppers moved and the readout was fitted to neither. It is no longer ' +
+        'the narrowest cell either: `lets the cell shrink to the column` has 69 at 360, 61 at ' +
+        '344 and 49 at 320',
     ).toBe(76.5);
   });
 });
