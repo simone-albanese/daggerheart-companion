@@ -164,6 +164,25 @@ function openVault(): void {
   if (vault.getAttribute('aria-expanded') === 'false') click(vault);
 }
 
+/**
+ * MODS: the door to the roll modifiers, at the right end of the roll row.
+ *
+ * It replaces `fold('Modifiers')` as the way in. There is no such fold any
+ * more - a permanent 44px header saying NONE is exactly what decision 6
+ * deletes - so the tests that used to open it open this instead.
+ */
+function modsButton(): HTMLButtonElement {
+  const found = buttons().find((b) =>
+    (b.getAttribute('aria-label') ?? '').startsWith('Modifiers for this roll'),
+  );
+  if (found === undefined) throw new Error('there is no MODS control on the roll row');
+  return found;
+}
+
+/** The strip that names what is armed, or null when nothing is. */
+const armedStrip = (): HTMLButtonElement | undefined =>
+  buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Modifiers armed:'));
+
 const indexHeaders = (): HTMLButtonElement[] => [
   ...(container.firstElementChild?.querySelectorAll<HTMLButtonElement>(
     ':scope > section > button[aria-expanded]',
@@ -484,8 +503,13 @@ describe('the trait row and the roll surface', () => {
     return found;
   };
 
-  /** Everything `DualityRoll` draws on a phone: the roll control's own stack. */
-  const rollSurface = (): HTMLElement => roll().parentElement!;
+  /**
+   * Everything `DualityRoll` draws on a phone.
+   *
+   * Two levels up from ROLL, not one: ROLL shares a row with MODS now, and the
+   * surface is the stack that row sits in.
+   */
+  const rollSurface = (): HTMLElement => roll().parentElement!.parentElement!;
 
   /** The six trait chips and the verbs control, as one row. */
   const traitRowEl = (): HTMLElement => {
@@ -635,11 +659,11 @@ describe('the budget the pin came off for', () => {
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
-    { what: 'the roll surface · the MODIFIERS fold header', px: 44, from: 'dom' },
-    { what: 'the roll surface · its own 6px gap', px: 6, from: 'dom' },
     { what: 'the roll surface · two Experience chips, one to a row', px: 2 * 44 + 6, from: 'dom' },
     { what: 'the roll surface · its own 6px gap', px: 6, from: 'dom' },
-    { what: 'ROLL', px: 66, from: 'dom' },
+    // ROLL and MODS share this row, so MODS costs the column nothing: it is
+    // 44 wide inside the 66 ROLL was already holding.
+    { what: 'the ROLL row', px: 66, from: 'dom' },
   ];
 
   /** What follows ROLL: the fold index, every one of them shut. */
@@ -666,7 +690,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 685').toBe(685);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 635').toBe(635);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -675,7 +699,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(45);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(95);
   });
 
   /*
@@ -691,28 +715,26 @@ describe('the budget the pin came off for', () => {
     expect(
       ROLL_BOTTOM - glass,
       'ROLL at 375x667: the overflow has changed and nobody said which way.',
-    ).toBe(140);
-    // Both of them are above ROLL and both belong to decision 6 and Giorgio's
-    // fold order: the permanent MODIFIERS row goes for a control on the roll
-    // bar, and the Experience chips move into a fold below ROLL.
-    const modifiers = 44 + 6;
+    ).toBe(90);
+    // The one removal still owed, and it is Giorgio's fold order rather than a
+    // shaved gap: the Experience chips move into a tendina below ROLL.
     const experiences = 2 * 44 + 6 + 6;
     expect(
-      ROLL_BOTTOM - modifiers - experiences,
-      'the two removals still owed no longer add up to a ROLL above the fold at 375x667',
+      ROLL_BOTTOM - experiences,
+      'the removal still owed no longer adds up to a ROLL above the fold at 375x667',
     ).toBeLessThanOrEqual(glass);
   });
 
   it('says how far the whole folded sheet misses the glass, rather than claiming it does not', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(997);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(947);
     expect(
       SHEET_BOTTOM - column(852),
       'the whole-sheet overflow at 393x852 has moved',
-    ).toBe(267);
+    ).toBe(217);
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(452);
+    ).toBe(402);
   });
 
   it('the terms this budget can read, it reads', () => {
@@ -786,8 +808,11 @@ describe('the budget the pin came off for', () => {
       roll.style.height,
       "ROLL's declared height and the last term of the budget have parted company",
     ).toBe(`${String(STACK[STACK.length - 1]!.px)}px`);
-    expect(roll.parentElement!.style.gap, "the roll surface's own gap moved").toBe('6px');
-    expect(fold('Modifiers').style.minHeight).toBe('var(--tap)');
+    expect(
+      roll.parentElement!.parentElement!.style.gap,
+      "the roll surface's own gap moved",
+    ).toBe('6px');
+    expect(roll.parentElement!.style.gap, 'the ROLL/MODS gutter moved').toBe('8px');
     const experiences = buttons().filter((b) =>
       (b.getAttribute('aria-label') ?? '').startsWith('Utilize '),
     );
@@ -1139,46 +1164,107 @@ describe('the carried items, out loud', () => {
 });
 
 /**
- * The roll modifiers, folded.
+ * The roll modifiers, which are not drawn when nothing is armed.
  *
- * The request was to delete this row. It is kept - advantage, disadvantage and
- * the reaction switch are core roll modifiers, and the SRD makes you declare
- * every modifier before the dice - and folded instead. The whole risk of
- * folding it is that `advantage` and `reaction` are *not* cleared when a roll
- * resolves, so an armed modifier could sit off-screen for the rest of the
- * session. That is the failure this project's rules exist to prevent, so it is
- * what these tests are about.
+ * Giorgio asked twice for this row to be removed. It was kept and folded, and
+ * what shipped is what decision 6 is about: a permanent 44px band reading
+ * `▶ MODIFIERS … NONE`, the band Giorgio wanted back, spent on announcing that
+ * nothing is happening.
+ *
+ * The capability stays - 38 adversaries and 9 environments call for a reaction
+ * roll, and an app you cannot roll with advantage in is wrong at the table -
+ * so the controls move behind MODS on the roll bar, which costs no height at
+ * all beside a 66px ROLL. The whole risk of that is the same as the fold's:
+ * `advantage` and `reaction` are *not* cleared when a roll resolves, so an
+ * armed modifier could sit off screen for the rest of the session. That is
+ * what these tests are about, in both directions - nothing drawn when nothing
+ * is armed, and a row that names whatever is.
  */
 describe('the roll modifier row', () => {
   const byText = (label: string): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.textContent ?? '').trim() === label);
 
-  it('is out of the way until it is wanted', () => {
+  /*
+   * Replaces `is out of the way until it is wanted`, which asserted that a
+   * header saying MODIFIERS … NONE was collapsed. This is the stronger claim
+   * decision 6 actually makes: the words are nowhere on the screen, and the
+   * whole surface costs one 44px column of a row ROLL was already holding.
+   */
+  it('draws no modifier row at all when nothing is armed', () => {
     play(seed());
-    expect(fold('Modifiers').getAttribute('aria-expanded')).toBe('false');
-    expect(byText('REACTION'), 'the row is drawn while it is folded').toBeUndefined();
-    expect(byText('ADV')).toBeUndefined();
+    /*
+     * Scoped to the roll surface, because the word NONE is not this file's to
+     * ban outright: `Rest.tsx` prints NONE COUNTED on its own header when no
+     * short rests have been taken, and that is a fact rather than a placeholder
+     * for one.
+     */
+    const roll = buttons().find((b) => b.style.height === '66px')!;
+    const surface = roll.parentElement!.parentElement!.textContent ?? '';
+    expect(surface, 'the band is still spending a row on its own name').not.toContain('MODIFIERS');
+    expect(surface, 'the band is still spending a row on the word NONE').not.toContain('NONE');
+    for (const label of ['REACTION', 'ADV', 'DIS', '+ DIE']) {
+      expect(byText(label), `${label} is drawn with nothing armed`).toBeUndefined();
+    }
+    expect(armedStrip(), 'the armed strip is drawn with nothing armed').toBeUndefined();
+
+    // What there is instead: one 44x66 control at the right end of the roll
+    // row, which costs no height because ROLL is already 66 tall.
+    const mods = modsButton();
+    expect(mods.getAttribute('aria-expanded')).toBe('false');
+    expect(mods.style.width).toBe('44px');
+    expect(mods.style.minHeight, 'MODS fixes a height, which ROLL is meant to be alone in').toBe(
+      '66px',
+    );
+    expect(mods.style.height, 'MODS declares height, not minHeight').toBe('');
+    expect(mods.parentElement, 'MODS is not on the roll row').toBe(roll.parentElement);
+    // And it is the second child, not the first: the bottom-right is where an
+    // idle thumb rests, and the control it fires by accident has to be the one
+    // that costs nothing.
+    expect([...roll.parentElement!.children]).toEqual([roll, mods]);
   });
 
-  it('shows everything the closed row is holding, on the closed row', () => {
+  /*
+   * Replaces `shows everything the closed row is holding, on the closed row`.
+   * Same arming, same claim that the shut surface names it, plus the half that
+   * is new: disarm and the row is gone from the DOM rather than emptied.
+   */
+  it('names what is armed on a row that exists only while something is', () => {
     play(seed());
-    expect(fold('Modifiers').textContent).toContain('NONE');
-
-    click(fold('Modifiers'));
+    click(modsButton());
     click(byText('DIS')!);
     click(byText('REACTION')!);
-    click(fold('Modifiers'));
+    click(modsButton());
 
-    expect(fold('Modifiers').getAttribute('aria-expanded')).toBe('false');
-    const header = fold('Modifiers').textContent ?? '';
-    expect(header, 'a modifier is armed and the closed row does not say so').toContain('DIS');
-    expect(header).toContain('REACTION');
-    expect(byText('DIS'), 'the controls are still drawn while folded').toBeUndefined();
+    const strip = armedStrip();
+    expect(strip, 'two modifiers are armed and nothing on the screen says so').toBeDefined();
+    expect(strip!.textContent).toContain('DIS');
+    expect(strip!.textContent).toContain('REACTION');
+    expect(strip!.getAttribute('aria-label')).toContain('DIS');
+    expect(byText('DIS'), 'the controls are still drawn while the row is shut').toBeUndefined();
+    // MODS says it too, for somebody who is listening rather than looking.
+    expect(modsButton().getAttribute('aria-label')).toBe(
+      'Modifiers for this roll: REACTION, DIS',
+    );
+
+    // The strip is a way back in as well as a readout.
+    click(strip!);
+    expect(byText('DIS'), 'tapping the armed strip did not open the row').toBeDefined();
+
+    // Disarm both and the row goes, rather than staying as an empty band.
+    click(byText('—')!);
+    click(byText('REACTION')!);
+    click(modsButton());
+    expect(armedStrip(), 'the strip survives with nothing armed').toBeUndefined();
+    const roll = buttons().find((b) => b.style.height === '66px')!;
+    expect(
+      roll.parentElement!.parentElement!.textContent ?? '',
+      'the strip was emptied rather than removed',
+    ).not.toContain('ARMED');
   });
 
   it('wraps when it is open, instead of hiding half of itself off the side', () => {
     play(seed());
-    click(fold('Modifiers'));
+    click(modsButton());
     const row = byText('REACTION')!.parentElement!;
     expect(row.style.flexWrap, 'the open row still scrolls sideways').toBe('wrap');
     expect(row.style.overflowX).not.toBe('auto');
@@ -1467,9 +1553,18 @@ describe('the tendina', () => {
     const expandables = buttons().filter((x) => x.getAttribute('aria-expanded') !== null);
     expect(expandables.length, 'nothing on the sheet expands').toBeGreaterThan(5);
     for (const b of expandables) {
-      expect(b.style.minHeight, `${b.textContent ?? '?'} is not at the touch floor`).toBe(
-        'var(--tap)',
-      );
+      /*
+       * `var(--tap)` or a number at or above it. MODS declares `minHeight: 66`
+       * because it stands beside a 66px ROLL, and the rule this sweep is about
+       * is the floor rather than the token: a control that clears 44 by
+       * twenty-two pixels has not weakened it.
+       */
+      const declared = b.style.minHeight;
+      const value = declared === 'var(--tap)' ? 44 : Number.parseFloat(declared);
+      expect(
+        value,
+        `${b.getAttribute('aria-label') ?? b.textContent ?? '?'} declares ${declared}`,
+      ).toBeGreaterThanOrEqual(44);
     }
     for (const b of [...container.querySelectorAll<HTMLButtonElement>('section > button')].filter(
       (x) => x.getAttribute('aria-expanded') !== null,
@@ -1483,12 +1578,20 @@ describe('the tendina', () => {
     const inRow = buttons().filter(
       (b) => b.getAttribute('aria-expanded') !== null && b.closest('section') === null,
     );
+    /*
+     * Two, and the list is asserted whole rather than filtered: a third in-row
+     * expandable appearing would be a full-width fold header's worth of screen
+     * spent somewhere this sweep does not check the width, and the way to find
+     * that out is here rather than on a phone.
+     */
     expect(
       inRow.map((b) => b.getAttribute('aria-label')),
-      'the verbs control is the only expandable on Play that is not a section header',
-    ).toEqual(['What each trait is for']);
+      'the expandables that are not section headers have changed',
+    ).toEqual(['What each trait is for', 'Modifiers for this roll']);
     for (const b of inRow) {
-      expect(b.style.minHeight).toBe('var(--tap)');
+      const declared = b.style.minHeight;
+      const value = declared === 'var(--tap)' ? 44 : Number.parseFloat(declared);
+      expect(value, `${b.getAttribute('aria-label') ?? '?'} declares ${declared}`).toBeGreaterThanOrEqual(44);
       expect(Number.parseFloat(b.style.width)).toBeGreaterThanOrEqual(44);
     }
   });
@@ -1559,7 +1662,7 @@ describe('what the attack is made with', () => {
   it('takes the weapon back when SPELLCAST is armed from the modifier row', () => {
     play(withBattleaxe());
     click(weaponRow('Battleaxe'));
-    click(fold('Modifiers'));
+    click(modsButton());
     const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
     expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
     click(spellcast!);
@@ -1713,7 +1816,7 @@ describe('what the attack is made with', () => {
      */
     play(seed());
     click(weaponRow('Unarmed'));
-    click(fold('Modifiers'));
+    click(modsButton());
     const spellcast = buttons().find((b) => (b.textContent ?? '').trim() === 'SPELLCAST');
     expect(spellcast, 'the fixture is a Troubadour and has no SPELLCAST chip').toBeDefined();
     click(spellcast!);
@@ -1841,10 +1944,11 @@ describe('the spell, and the +0 that rolls nothing', () => {
     click(dieChips()[2]!);
     expect(dieChips()[2]!.getAttribute('aria-pressed')).toBe('true');
     // "The trait that applies to an attack roll is specified by the weapon or
-    // spell being used." SPELLCAST is not one of the six pinned chips, so the
-    // modifier row is where the sheet says which slot is armed.
+    // spell being used." SPELLCAST is not one of the six trait chips, so the
+    // armed strip is where the sheet says which slot is armed - and the strip
+    // exists at all only because something is.
     expect(traitChip('PRE').getAttribute('aria-pressed')).toBe('false');
-    expect(fold('Modifiers').textContent).toContain('SPELLCAST');
+    expect(armedStrip()!.textContent).toContain('SPELLCAST');
     expect(fold('Weapons & armour').textContent).toContain('ARMED · SPELLCAST');
   });
 
@@ -1956,12 +2060,13 @@ describe('rolling the damage the attack earned', () => {
    * block, with a comment explaining that the defence band up in the scroll is
    * a `repeat(4, 1fr)` grid too and comes first in document order. That is
    * still true and the block is gone, so the surface is found from the one
-   * control that fixes its own height instead of from a child index.
+   * control that fixes its own height instead of from a child index - and two
+   * levels up rather than one, because ROLL shares its row with MODS.
    */
   const rollSurface = (): HTMLElement => {
     const roll = buttons().find((b) => b.style.height === '66px');
     if (roll === undefined) throw new Error('the phone has no roll control');
-    return roll.parentElement!;
+    return roll.parentElement!.parentElement!;
   };
 
   /** Tap a die face open and pick a value out of its 4-column grid. */

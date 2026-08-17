@@ -41,7 +41,6 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import { Disclosure } from '../shared/Disclosure.tsx';
 import { useIsNarrow } from '../shared/useLayout.ts';
 import type { ArmedAttack, AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
@@ -282,6 +281,17 @@ export function DualityRoll({
   });
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
+   * Whether the modifier controls are showing, on a phone.
+   *
+   * Deliberately local, and deliberately not a `usePlaySection` remembered per
+   * character the way the folds on the sheet are. Those record an arrangement
+   * - which parts of your sheet you use - and survive the app being closed.
+   * This is a drawer you open mid-turn to declare a Difficulty and shut again;
+   * a version of it that came back open next session would be spending the
+   * band decision 6 just took back.
+   */
+  const [modifiersOpen, setModifiersOpen] = useState(false);
+  /*
    * The attack the damage row is answering, and which roll it came from.
    *
    * The snapshot is taken whole from the `DualityResult` that produced it and
@@ -509,12 +519,12 @@ export function DualityRoll({
   /*
    * Everything the modifier row is holding, in words.
    *
-   * This is the price of folding the row away, and it is not optional. The
+   * This is the price of not drawing the row, and it is not optional. The
    * advantage and the reaction switch are *not* cleared when a roll resolves -
    * only the Experiences and the held dice are - so a DIS armed three rolls
    * ago is still armed, and a modifier the player cannot see is exactly the
-   * failure this project's rules are written against. It rides on the closed
-   * header, so nothing that is armed is ever off the screen.
+   * failure this project's rules are written against. Empty, this list is why
+   * there is no row at all; non-empty, it is the row.
    */
   const armedMods = [
     reaction ? 'REACTION' : null,
@@ -571,39 +581,61 @@ export function DualityRoll({
     return (
       <div className="stack" style={{ gap: 6 }}>
         {/*
-         * The modifier row, folded.
+         * The modifier row, which is not drawn when it has nothing to say.
          *
-         * The request was to delete it. It is kept, because advantage and
-         * disadvantage are core roll modifiers - 38 adversaries and 9
-         * environments call for a reaction roll, and the SRD makes you declare
-         * every modifier before the dice - and an app that cannot roll with
-         * them is wrong at the table.
+         * Giorgio asked twice for this row to be removed. P5-1 refused with an
+         * argument that still holds - 38 adversaries and 9 environments call
+         * for a reaction roll, the SRD makes you declare every modifier before
+         * the dice, and an app you cannot roll with advantage in is wrong at
+         * the table - and then shipped the wrong answer to it: a permanent
+         * 44px band reading `▶ MODIFIERS … NONE`, which is the band Giorgio
+         * wanted back, spent on announcing that nothing is happening.
          *
-         * What folding buys is not height: a 44px header replaces a 44px row
-         * and the band is the same. It is that the row no longer has to fit on
-         * one line. Ten controls in about 480px of content had to live in a
-         * horizontal scroller at 393px, showing four of them, with the file's
-         * own comment admitting a chip you had armed could be off screen by
-         * the time you reached ROLL. Behind a fold it can afford to wrap: open,
-         * it is two 44px rows with everything reachable without a sideways
-         * swipe; closed, it is one row that names whatever is armed.
+         * So neither answer. Nothing is drawn here at all while nothing is
+         * armed; the controls are one tap away on MODS, at the right end of
+         * the roll row, where they cost no height because ROLL is already 66
+         * tall. And the moment anything is armed - ADV, DIS, REACTION, a
+         * Difficulty, a held die, SPELLCAST - this strip appears and names it,
+         * because `advantage` and `reaction` are deliberately not cleared when
+         * a roll resolves, so a DIS armed three rolls ago is still armed and a
+         * modifier the player cannot see is this project's founding rule
+         * failing on a number.
+         *
+         * Open, the row still wraps rather than scrolling sideways: ten
+         * controls in about 480px of content showed four of themselves at
+         * 393px, and a chip you had armed could be off the side by the time
+         * you reached ROLL.
          */}
-        <Disclosure
-          id="rollmods"
-          characterId={characterId}
-          label="Modifiers"
-          summary={
-            armedMods.length === 0 ? (
-              <span style={{ color: 'var(--dim)' }}>NONE</span>
-            ) : (
-              <span style={{ color: 'var(--text)', fontWeight: 700 }}>
-                {armedMods.join(' · ')}
-              </span>
-            )
-          }
-        >
-          {control}
-        </Disclosure>
+        {modifiersOpen && control}
+        {!modifiersOpen && armedMods.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-label={`Modifiers armed: ${armedMods.join(', ')} - open the modifier row`}
+            onClick={() => setModifiersOpen(true)}
+            className="row"
+            style={{
+              flex: 'none',
+              minHeight: 'var(--tap)',
+              width: '100%',
+              gap: 8,
+              borderRadius: 'var(--r3)',
+              background: 'var(--raised)',
+              padding: '0 10px',
+              textAlign: 'left',
+            }}
+          >
+            <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
+              ARMED
+            </span>
+            <span
+              className="t-meta"
+              style={{ flex: 1, minWidth: 0, color: 'var(--text)', fontWeight: 700 }}
+            >
+              {armedMods.join(' · ')}
+            </span>
+          </button>
+        )}
         <ExperienceRow
           experiences={experiences}
           armedExperiences={armedExperiences}
@@ -642,47 +674,113 @@ export function DualityRoll({
             />
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => canRoll && resolve()}
-          disabled={!canRoll}
-          style={{
-            height: 66,
-            borderRadius: 'var(--r5)',
-            background: verdictBackground(result),
-            border: `1px solid ${result === null ? 'var(--line-soft)' : verdictColor(result)}`,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 14px',
-            gap: 12,
-            width: '100%',
-          }}
-        >
-          <span className="stack" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-            <span style={{ font: '900 17px/1 var(--sans)', color: verdictColor(result) }}>
-              {result === null ? idleLabel : OUTCOME_LABEL[result.outcome]}
-            </span>
-            <span
-              className="t-meta"
-              style={{ marginTop: 4, color: verdictColor(result), opacity: 0.75 }}
-            >
-              {result === null
-                ? armSummary !== ''
-                  ? armSummary
-                  : idleDetail
-                : `${canType ? '' : `${result.hope} / ${result.fear} · `}${OUTCOME_DETAIL[result.outcome]}`}
-            </span>
-          </span>
-          <span
+        {/*
+         * ROLL and the door to the modifiers, on one row.
+         *
+         * MODS is at the RIGHT end and that is not arbitrary: the bottom-right
+         * is where an idle thumb rests, so the control a resting thumb fires
+         * by accident has to be the harmless one. A stray tap on MODS opens a
+         * row - visible, reversible, costs nothing. A stray tap on ROLL spends
+         * Hope, writes a log line and produces a number the table will act on.
+         * So the resting point gets the cheap control and the 317px body of
+         * ROLL gets the deliberate reach.
+         *
+         * MODS declares `minHeight: 66` and not `height: 66` on purpose: ROLL
+         * is the one control on this surface that fixes its own height, and
+         * `leaves every target on the roll surface at the floor after a roll`
+         * is built on that being true of exactly one button.
+         */}
+        <div className="row" style={{ gap: 8, alignItems: 'stretch' }}>
+          <button
+            type="button"
+            onClick={() => canRoll && resolve()}
+            disabled={!canRoll}
             style={{
-              font: '800 30px/1 var(--sans)',
-              color: verdictColor(result),
-              fontVariantNumeric: 'tabular-nums',
+              flex: 1,
+              minWidth: 0,
+              height: 66,
+              borderRadius: 'var(--r5)',
+              background: verdictBackground(result),
+              border: `1px solid ${result === null ? 'var(--line-soft)' : verdictColor(result)}`,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 14px',
+              gap: 12,
             }}
           >
-            {result?.total ?? '—'}
-          </span>
-        </button>
+            <span className="stack" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+              <span style={{ font: '900 17px/1 var(--sans)', color: verdictColor(result) }}>
+                {result === null ? idleLabel : OUTCOME_LABEL[result.outcome]}
+              </span>
+              <span
+                className="t-meta"
+                style={{ marginTop: 4, color: verdictColor(result), opacity: 0.75 }}
+              >
+                {result === null
+                  ? armSummary !== ''
+                    ? armSummary
+                    : idleDetail
+                  : `${canType ? '' : `${result.hope} / ${result.fear} · `}${OUTCOME_DETAIL[result.outcome]}`}
+              </span>
+            </span>
+            <span
+              style={{
+                font: '800 30px/1 var(--sans)',
+                color: verdictColor(result),
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {result?.total ?? '—'}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-expanded={modifiersOpen}
+            /* The name carries what is armed, because with the row shut there
+               would otherwise be nothing a listening user could hear it from.
+               It deliberately does not begin "Roll": `DamageRow`'s control is
+               named "Roll 2d10+3 …" and a test looking for one would find the
+               other. */
+            aria-label={
+              armedMods.length === 0
+                ? 'Modifiers for this roll'
+                : `Modifiers for this roll: ${armedMods.join(', ')}`
+            }
+            onClick={() => setModifiersOpen(!modifiersOpen)}
+            className="stack"
+            style={{
+              flex: 'none',
+              width: 44,
+              minWidth: 44,
+              minHeight: 66,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              borderRadius: 'var(--r5)',
+              background: armedMods.length > 0 ? 'var(--raised)' : 'transparent',
+              border: `1px solid ${armedMods.length > 0 ? 'var(--line)' : 'var(--line-soft)'}`,
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                background: armedMods.length > 0 ? 'var(--text)' : 'var(--muted)',
+                clipPath: modifiersOpen
+                  ? 'polygon(0 75%,100% 75%,50% 0)'
+                  : 'polygon(0 25%,100% 25%,50% 100%)',
+              }}
+            />
+            <span
+              aria-hidden="true"
+              className="t-meta"
+              style={{ color: armedMods.length > 0 ? 'var(--text)' : 'var(--muted)' }}
+            >
+              MODS
+            </span>
+          </button>
+        </div>
         {/*
          * Last, and therefore hard against the bottom edge of the glass.
          *
@@ -1012,9 +1110,9 @@ interface ControlProps {
    * Wrap onto as many lines as the controls need, instead of scrolling
    * sideways.
    *
-   * Only affordable because the row is behind a fold: as a permanent band it
+   * Only affordable because the row is behind MODS: as a permanent band it
    * would have cost 88-132px of the thumb zone on every phone. See the note
-   * at the disclosure.
+   * at the phone branch.
    */
   wrap?: boolean;
 }
@@ -1101,12 +1199,13 @@ function HeldDieChip({
 }
 
 /**
- * Everything you declare before you roll, on one line.
+ * Everything you declare before you roll.
  *
- * One line is not a preference. On a phone this row sits above the dice and the
- * ROLL button in the thumb arc, and every pixel it grows is a pixel off the
- * loadout - so it scrolls sideways instead, with what you armed repeated next
- * to ROLL for the chips that scrolled out of reach.
+ * On a desktop it is one line, above the dice, and it scrolls sideways if it
+ * has to. On a phone it is not drawn at all until MODS is tapped, and then it
+ * wraps onto as many rows as it needs - which is the whole reason it can stop
+ * being a scroller: a surface you opened on purpose can afford the height, and
+ * a permanent band above ROLL could not.
  */
 function ControlRow({
   difficulty,
