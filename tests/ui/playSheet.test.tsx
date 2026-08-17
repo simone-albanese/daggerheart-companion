@@ -753,7 +753,18 @@ describe('the trait row and the roll surface', () => {
  * anything else can be dropped into.
  *
  * So this test is a tripwire on the declared arithmetic and not a measurement,
- * and it says which of the two it is in every failure message.
+ * and it says which of the two it is in every failure message. The measurement
+ * that stands beside it was taken in Chrome on a dev server with the harness's
+ * `played` and `wizard10` fixtures at 320, 344, 356, 360, 368, 375, 393 and 744:
+ * the distance from the top of the defence band to the bottom edge of the
+ * lineage header is **618.0** at every width from 356 up, which is this table's
+ * `SHEET_BOTTOM` to the pixel, and 710 at 344 and 320, where the trait row and
+ * the damage cell each reflow onto a second line.
+ *
+ * THE HORIZONTAL BUDGET IS ITS OWN DESCRIBE, BELOW. This one is written for
+ * 393x852 and 375x667 and says nothing about width; «the width this sheet is
+ * laid out for» is the same idiom applied to the other axis, and it is where the
+ * answer to "is 320 supported" lives.
  */
 describe('the budget the pin came off for', () => {
   /*
@@ -1224,6 +1235,189 @@ describe('the budget the pin came off for', () => {
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),
       'the budget counts six fold headers below ROLL and the screen draws a different set',
     ).toEqual(LABELS);
+  });
+});
+
+/**
+ * THE WIDTH THIS SHEET IS LAID OUT FOR, WHICH NOTHING HAS EVER STATED.
+ *
+ * The budget above is vertical and is written for 393x852 and 375x667. The
+ * horizontal one was never written at all, and the audit found three separate
+ * declared sums that each overran the column with nothing in the repo saying
+ * so - the trait row wrapping at every viewport <= 367, the incoming-damage
+ * cell overflowing its grid track *leftwards* onto the Proficiency panel, and
+ * the 2x2 counter grid pinned at a viewport-independent 325.37 with the `+` on
+ * STRESS and ARMOR cut off the glass by the column's own `overflow-x: hidden`.
+ *
+ * WHY THE EXISTING GUARD COULD NOT CATCH ANY OF THEM. «never forces the column
+ * wider than the phone» rejects a single element declaring a `width` or a
+ * `minWidth` above 369. Every one of these three is a *sum* of small declared
+ * widths, so the missing test is a budget and not a wider filter - which is why
+ * this is a `describe` of its own in the same idiom as the vertical one: a table
+ * of declared terms with a `from` provenance, summed, and compared against the
+ * column a named viewport leaves.
+ *
+ * WHAT IT CANNOT SEE, on the same terms as the vertical budget. Three of the
+ * numbers below are Chrome-measured text constants that jsdom has no engine to
+ * produce - the four defence cells' `auto` widths, which are their `.t-meta`
+ * labels plus 12px of padding and 2 of border - and they enter as named
+ * constants with the measurement cited beside them. Everything else is read off
+ * the DOM.
+ *
+ * THE ANSWER IS 360, AND IT IS A DECISION RATHER THAN A DISCOVERY. 360 is the
+ * commonest Android viewport there has ever been; 320 is an iPhone SE 1st
+ * generation and a Z Fold cover screen, and it is a width at which this sheet
+ * degrades honestly rather than one it is laid out for. Below 356 the trait row
+ * is two lines (+62) and below 353 the damage cell is two lines (+30);
+ * `Disclosure` summaries truncate with an ellipsis; the counter cells shrink and
+ * clip their own labels. Nothing is clipped off the glass, nothing overlaps and
+ * no target goes under 44 at any width down to 310 - verified in Chrome at 320,
+ * 344, 356, 360, 368, 375, 393 and 744 with two fixtures.
+ */
+describe('the width this sheet is laid out for', () => {
+  /** The phone column: the glass less this screen's 12px of padding either side. */
+  const column = (glass: number): number => glass - 24;
+
+  /**
+   * The ink inside the four defence cells, measured in Chrome and named here.
+   *
+   * Only the *ink* is a constant: EVASION 47.61, MAJOR 38.84, SEVERE 40.81, PROF
+   * 27.20 with the `wizard10` fixture, at `.t-meta`'s 10px mono with 0.08em of
+   * tracking - except MAJOR, whose cell is sized by its two-digit number at 32px
+   * rather than by its five-letter label, so decision 4's 26 -> 32 is a term of
+   * this budget as well as of the vertical one and this fixture is the widest of
+   * the four. jsdom has no layout engine, so this is the same kind of term as
+   * `STACK`'s `css` rows. The padding and the border around it are declared and
+   * are read off the DOM below, so a change to either moves this sum rather than
+   * invalidating it in silence.
+   */
+  const DEFENCE_INK = 47.6094 + 38.8438 + 40.8125 + 27.2031;
+  /** `.panel`'s hairline, which jsdom cannot read either. */
+  const PANEL_BORDER = 1;
+
+  it('states the smallest width every row on this sheet fits, and it is at most 360', () => {
+    play(seed());
+    const rootEl = container.firstElementChild as HTMLElement;
+    // jsdom expands the shorthand's `0` to `0px`, the same normalisation the
+    // `flex: none` check in `the tendina` reads back.
+    expect(rootEl.style.padding, 'the column padding moved and these sums did not').toBe(
+      '0px 12px 8px',
+    );
+
+    // 1. THE TRAIT ROW. Six chips at their declared flex-basis, the verbs
+    //    control at its declared width, six of the row's declared gaps. Flex
+    //    breaks lines on the basis, so this is the number that decides the wrap
+    //    and the chip's rendered width never enters it.
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
+    const traitRow = chip.parentElement!;
+    const verbs = [...traitRow.querySelectorAll('button')][6]!;
+    const basis = Number.parseFloat(chip.style.flex.split(' ')[2] ?? '0');
+    const traitGap = Number.parseFloat(traitRow.style.gap);
+    const TRAIT = 6 * basis + Number.parseFloat(verbs.style.width) + 6 * traitGap;
+    expect(TRAIT).toBe(332);
+
+    // 2. THE DEFENCE BAND. The four `auto` cells, four of the grid's declared
+    //    gaps, and the fifth cell: a 44px door, one gutter, a 44px field.
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    const cell = field.parentElement!;
+    const band = cell.parentElement as HTMLElement;
+    const door = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'),
+    )!;
+    const bandGap = Number.parseFloat(band.style.gap);
+    const defenceCell = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
+      /^EVASION/.test((el.textContent ?? '').trim()),
+    )!;
+    const padX = Number.parseFloat(defenceCell.style.padding.split(' ')[1] ?? '0');
+    const DEFENCE_CELLS = DEFENCE_INK + 4 * (2 * padX + 2 * PANEL_BORDER);
+    expect(Math.round(DEFENCE_CELLS * 100) / 100).toBe(210.47);
+    const BAND =
+      DEFENCE_CELLS +
+      4 * bandGap +
+      Number.parseFloat(door.style.width) +
+      Number.parseFloat(cell.style.gap) +
+      Number.parseFloat(field.style.width);
+    expect(Math.round(BAND * 100) / 100).toBe(328.47);
+
+    // 3. THE COUNTER GRID. Two cells at the floor a `Counter` row can be
+    //    squeezed to - the value target's own declared `minWidth`, two 44px
+    //    steppers and two gutters - plus the grid's one gap.
+    const value = buttons().find((b) => /tap to type a value$/.test(b.getAttribute('aria-label') ?? ''))!;
+    const counterRow = value.parentElement!;
+    const grid = counterRow.parentElement as HTMLElement;
+    const stepper = buttons().find((b) => b.getAttribute('aria-label') === 'HP plus one')!;
+    const gutter = Number.parseFloat(counterRow.style.gap);
+    const cellFloor =
+      Number.parseFloat(value.style.minWidth) + 2 * Number.parseFloat(stepper.style.width) + 2 * gutter;
+    const COUNTERS = 2 * cellFloor + Number.parseFloat(grid.style.gap);
+    expect(cellFloor).toBe(140);
+    expect(COUNTERS).toBe(286);
+
+    /*
+     * The floor each of them implies, and the largest of the three is the
+     * answer. `Disclosure`'s summary contributes no term on purpose: it is
+     * `flex: '0 1 auto'` with `minWidth: 0` and an ellipsis, so it shrinks to
+     * nothing rather than setting a floor - which is what that fix bought.
+     */
+    const floorFor = (sum: number): number => sum + 24;
+    const floors = { trait: floorFor(TRAIT), band: floorFor(BAND), counters: floorFor(COUNTERS) };
+    expect(floors.trait).toBe(356);
+    expect(Math.round(floors.band * 100) / 100).toBe(352.47);
+    expect(floors.counters).toBe(310);
+
+    const SUPPORTED = 360;
+    expect(column(SUPPORTED)).toBe(336);
+    const worst = Math.max(...Object.values(floors));
+    expect(
+      worst,
+      `the widest row on this sheet needs a ${String(worst)}px viewport and the smallest width ` +
+        'this sheet is laid out for is 360. Before this pass the three sums were 344, 345.37 ' +
+        'and 325.37, whose floors are 368, 369.37 and 349.37 - so every 360px Android paid 48px ' +
+        'for a wrapped trait row, the damage cell painted its label and its field over the ' +
+        'Proficiency panel, and a tenth marked Hit Point cut the STRESS and ARMOR steppers off ' +
+        'a 344px glass. This is the single assertion that would have caught all three.',
+    ).toBeLessThanOrEqual(SUPPORTED);
+
+    // And each sum individually, so a failure names the row rather than the max.
+    for (const [what, floor] of Object.entries(floors)) {
+      expect(floor, `the ${what} row needs a ${String(floor)}px viewport`).toBeLessThanOrEqual(
+        SUPPORTED,
+      );
+    }
+  });
+
+  /*
+   * WHAT HAPPENS BELOW IT, which is the half that makes 360 a floor rather than
+   * a cliff. Both reflows are declared rather than measured - jsdom has no
+   * layout engine and cannot wrap anything - so what is asserted is that the two
+   * rows that have to reflow *can*, and the third one's guard is elsewhere.
+   */
+  it('reflows rather than clipping below it, which is why 320 is not a defect', () => {
+    play(seed());
+    const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
+    expect(
+      chip.parentElement!.style.flexWrap,
+      'the trait row cannot wrap, so below 356 seven 44px targets are laid out in 332px of ' +
+        'column and the last one is cut off the glass',
+    ).toBe('wrap');
+
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    expect(
+      (field.parentElement as HTMLElement).style.flexWrap,
+      'the damage cell cannot wrap, so below 353 its two 44px children overflow their grid ' +
+        'track backwards and paint over the Proficiency panel',
+    ).toBe('wrap');
+
+    /*
+     * And the counter cells do not reflow at all - they shrink, which is what
+     * `minmax(0, 1fr)` and `Counter`'s `minWidth: 0` are for, and what clips is
+     * label ink inside a target that keeps its declared size. `counters.test`
+     * holds that pair and the 310 it bottoms out at.
+     */
+    const grid = buttons()
+      .find((b) => b.getAttribute('aria-label') === 'HP plus one')!
+      .parentElement!.parentElement as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe('minmax(0, 1fr) minmax(0, 1fr)');
   });
 });
 

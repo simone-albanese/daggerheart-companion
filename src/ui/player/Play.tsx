@@ -2289,11 +2289,21 @@ function PlayDesktop({
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
  * TWICE OVER. **618px against 730 at 393x852, with 112 to spare** - every fold
- * shut, the `playedCharacter` fixture. That is the condition P5-5's own decision
- * 1 made the unpinning conditional on, unmet through P5-5 (899, over by 169) and
- * P5-6 (749, over by 19), met at P5-8 (697, 33 to spare) and now clear by 112.
- * It fits at 744x1133 with 454 to spare, and it is **73px over at 375x667** -
- * which is one fold header and a gap, where it was three.
+ * shut, the `playedCharacter` fixture, measured in Chrome and not only summed:
+ * the distance from the top of the defence band to the bottom edge of the
+ * lineage header is 618.0 at 356, 360, 368, 375, 393 and 744. That is the
+ * condition P5-5's own decision 1 made the unpinning conditional on, unmet
+ * through P5-5 (899, over by 169) and P5-6 (749, over by 19), met at P5-8 (697,
+ * 33 to spare) and now clear by 112. It fits at 744x1133 with 454 to spare, and
+ * it is **73px over at 375x667** - one fold header and a gap, where it was three.
+ *
+ * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
+ * predicted it would not: 618 against 678, 60 to spare, measured. The report's
+ * own closing table had 360x800 at -2 because it costed decision 5 without the
+ * width fix beside it - a taller chip is not a narrower one - and with the
+ * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
+ * the 62px that ate it is not spent. With two conditions on, the strip is back
+ * in its slot and the sheet is 670 against 678, which still fits.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
  * of that saving survives this reflow with a different door. Nothing is drawn
@@ -2305,6 +2315,36 @@ function PlayDesktop({
  * shaving a gap, because a fit bought that way is one the next honest edit
  * un-buys. `playSheet.test.tsx` carries every one of these numbers as an
  * assertion rather than as prose, so none of them can quietly stop being true.
+ *
+ * AND THE OTHER BUDGET, WHICH HAD NEVER BEEN WRITTEN AT ALL. Everything above is
+ * vertical and is computed for 393x852 and 375x667. There was no horizontal
+ * budget, and three separate declared sums each overran the column with nothing
+ * in the repo saying so: the trait row wrapped at every viewport <= 367 (+48,
+ * and on a 360px Android the second row held nothing but the 44x44 chevron), the
+ * incoming-damage cell overflowed its grid track *leftwards* and painted its
+ * label and its 58px field over the Proficiency panel below viewport 353, and
+ * the 2x2 counter grid was pinned at a viewport-independent 325.37 with the `+`
+ * on STRESS and ARMOR cut off the glass by this column's own `overflowX:
+ * 'hidden'` - 17.4px of a 44px target at 320, and no gesture of any kind brings
+ * a hidden overflow back.
+ *
+ * **THE SMALLEST WIDTH THIS SHEET IS LAID OUT FOR IS 360**, and that is a
+ * decision rather than a discovery: 360 is the commonest Android viewport there
+ * has ever been. The three sums are 332, 328.47 and 286, whose floors are 356,
+ * 352.47 and 310, and `playSheet.test.tsx`'s «the width this sheet is laid out
+ * for» carries them the way «the budget the pin came off for» carries the
+ * vertical ones. Everything below 360 reflows and nothing breaks: under 356 the
+ * trait row is two 58px lines (+62), under 353 the damage cell is two 44px lines
+ * (+30), a `Disclosure` summary that will not fit ends in an ellipsis, and the
+ * counter cells shrink and clip their own labels inside targets that keep their
+ * declared size. Verified in Chrome at 320, 344, 356, 360, 368, 375, 393 and 744
+ * with two fixtures: nothing painted past the clip edge, no overlap, and no
+ * target under 44 in either direction at any of them.
+ *
+ * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
+ * always had here. At 320x568 the folded sheet is 710 against a 446px column, and
+ * no arrangement of six fold headers closes 264px; it scrolls, exactly as 375
+ * does at 73. What it does not do is hide anything or put anything out of reach.
  *
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
