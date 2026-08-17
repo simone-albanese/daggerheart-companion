@@ -609,6 +609,49 @@ describe('one question for somebody who already has a character', () => {
     expect(text()).not.toContain('Choose a file');
   });
 
+  /*
+   * The hand-off belongs to the arrival, not to the door that reported it.
+   *
+   * The camera door reported nothing: `<Receiver/>` was mounted with no props
+   * and completes its own import, so a character that arrived by QR was written
+   * to the store while `onboarded` stayed false, the route's one answer was
+   * dropped, and the person was thrown onto the nine class cards mid-scan.
+   *
+   * Driven by the line `Receiver` itself runs when a code finishes decoding
+   * (`importCharacters`, Transfer.tsx) rather than by a fake scanner, and that
+   * is the point of the test rather than a shortcut around it: the fix is that
+   * the flow watches the library, so what has to be asserted is that *a
+   * character arriving* hands off - whichever door, existing or not yet
+   * written, put it there.
+   */
+  it('hands off when a character arrives at the camera door, which reports nothing', async () => {
+    stubCamera('NotFoundError');
+    await toTheDoors();
+    await press('Open the camera');
+    await settle(() => text().includes('No camera was found'));
+
+    await act(async () => {
+      await useApp.getState().importCharacters([playedCharacter()], { warnings: [] });
+    });
+    await settle(() => useApp.getState().screen === 'play');
+
+    const prefs = loadPrefs();
+    expect(
+      prefs.onboarded,
+      'a character arrived by a door that calls nothing back, so the run was never ' +
+        'recorded - and this device will re-ask an established user who they are the ' +
+        'first time their library is empty',
+    ).toBe(true);
+    expect(
+      prefs.gmSection,
+      'the one answer this route gives was dropped on the floor by the camera door',
+    ).toBe(false);
+    expect(
+      useApp.getState().screen,
+      'somebody who just scanned their own character was handed the nine class cards',
+    ).toBe('play');
+  });
+
   it('says what is wrong with what is on the clipboard, rather than nothing', async () => {
     stubClipboard(async () => 'a shopping list');
     await toTheDoors();

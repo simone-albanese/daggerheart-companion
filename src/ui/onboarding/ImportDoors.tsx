@@ -17,10 +17,25 @@
  *   PASTE   `pasteLibrary` (pasteboard.ts), which is what the iOS recovery
  *           screen already calls, and which has to run inside the gesture.
  *
- * All three end in `useImportFlow`, which is the module that exists because
- * four doors each used to roll their own unconditional `put` and quietly
- * overwrite a newer local copy. A fifth door reusing it is the whole point of
- * its docblock.
+ * Two of the three end in `useImportFlow`, which is the module that exists
+ * because four doors each used to roll their own unconditional `put` and
+ * quietly overwrite a newer local copy. The camera does not: `Receiver` owns
+ * the whole scan, calls `importCharacters` itself and draws its own conflict
+ * rows. What all three genuinely share is the store's `importCharacters` /
+ * `resolveImport` pair, which is where the no-clobber rule actually lives - a
+ * conflict comes back as a question rather than a write, on every door.
+ *
+ * This paragraph used to say all three ended in `useImportFlow`, and that
+ * sentence is what invited the reader to assume the camera door's completion
+ * was handled for it. It was not, for a year, and nothing here said so.
+ *
+ * ## Nothing is handed off from here
+ *
+ * There is no `onArrived` and no completion callback of any kind. The flow that
+ * mounts this ends when a character is on the device, so it watches the store
+ * for one - see the subscription in `Onboarding.tsx`. A door that forgets to
+ * report itself is the defect that shipped; a door that has nothing to report
+ * cannot repeat it.
  *
  * ## Nothing is claimed that did not happen
  *
@@ -72,39 +87,18 @@
 import { useCallback, useState } from 'react';
 import { ImportError, importFromPicker } from '../../transfer/fileIo.ts';
 import { pasteLibrary } from '../../transfer/pasteboard.ts';
-import { useApp } from '../../store/state.ts';
 import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
 import { Receiver } from '../settings/Transfer.tsx';
 import { AnswerRow } from './parts.tsx';
 
 type Door = 'file' | 'camera' | 'paste';
 
-export function ImportDoors({
-  onArrived,
-}: {
-  /**
-   * Called once a character is actually on the device. The flow is over at that
-   * point and the preferences are written by the caller, so that the one write
-   * this run makes stays in one place.
-   */
-  onArrived: () => void;
-}): React.JSX.Element {
+export function ImportDoors(): React.JSX.Element {
   const { conflicts, run, choose } = useImportFlow();
   const [open, setOpen] = useState<Door | null>(null);
   const [busy, setBusy] = useState(false);
   /** What happened, and whether it was a refusal. Never both, never neither. */
   const [status, setStatus] = useState<{ text: string; failed: boolean } | null>(null);
-
-  /*
-   * The store, read after the import rather than subscribed to.
-   *
-   * `run` resolves once the store has settled, so this is the count as of the
-   * import that has just finished - and it is the only honest test of "did
-   * anything arrive". A conflict resolves to no new character, and a file full
-   * of characters this device already has newer copies of arrives as three
-   * questions and zero writes.
-   */
-  const arrived = useCallback((): boolean => useApp.getState().characters.length > 0, []);
 
   const fromFile = useCallback(async (): Promise<void> => {
     setBusy(true);
@@ -116,7 +110,6 @@ export function ImportDoors({
       if (file === null) return;
       const message = await run(file.characters, file.warnings);
       setStatus({ text: message, failed: false });
-      if (arrived()) onArrived();
     } catch (cause) {
       setStatus({
         text: cause instanceof ImportError || cause instanceof Error ? cause.message : String(cause),
@@ -125,7 +118,7 @@ export function ImportDoors({
     } finally {
       setBusy(false);
     }
-  }, [arrived, onArrived, run]);
+  }, [run]);
 
   const fromClipboard = useCallback(async (): Promise<void> => {
     setBusy(true);
@@ -138,7 +131,6 @@ export function ImportDoors({
       }
       const message = await run(result.characters);
       setStatus({ text: message, failed: false });
-      if (arrived()) onArrived();
     } catch (cause) {
       // Without this the door stayed on "Reading…" for ever and the person was
       // left holding a clipboard with no way to try again.
@@ -146,7 +138,7 @@ export function ImportDoors({
     } finally {
       setBusy(false);
     }
-  }, [arrived, onArrived, run]);
+  }, [run]);
 
   /*
    * One handler, so that opening a door always closes the last one.

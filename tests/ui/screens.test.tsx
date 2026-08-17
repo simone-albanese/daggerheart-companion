@@ -633,7 +633,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // are in when the screen arrives, and the only one that does not want a
   // camera. Each door opens on its own tap and `onboarding.test.tsx` drives
   // them; this asks the smaller question of whether the closed screen draws.
-  'onboarding/ImportDoors.tsx::ImportDoors': () => <ImportDoors onArrived={noop} />,
+  'onboarding/ImportDoors.tsx::ImportDoors': () => <ImportDoors />,
   'onboarding/parts.tsx::AnswerRow': () => (
     <AnswerRow glyph="PC" label="A player" sub="NEXT: THE NINE CLASSES" onPick={noop} />
   ),

@@ -444,6 +444,39 @@ export function Onboarding(): React.JSX.Element {
     setScreen('play');
   };
 
+  /*
+   * And the arrival is watched for here rather than reported by each door.
+   *
+   * It was a callback the doors called, and the camera door did not call it.
+   * `ImportDoors` mounted `<Receiver/>` with no props and `Receiver` completes
+   * its own import, so a character that arrived by QR was written to the store
+   * and nothing else happened: `onboarded` was never written, the one answer
+   * this route gives was dropped, and the person was thrown out of the flow
+   * mid-scan onto the nine class cards - because `needsOnboarding` flipped on
+   * the character count rather than because the run had finished. Worse, the
+   * `onboarded: false` left behind is durable, so the first time that library
+   * was next empty the app would ask an established user who they are.
+   *
+   * A callback passed to `Receiver` too would have fixed that door. This fixes
+   * the shape: the flow ends when a character is on the device, so the flow
+   * watches for a character being on the device. There is nothing left for a
+   * fourth door to forget to call, and the two doors that did call it no longer
+   * can - the conflict rows count too now, so choosing "replace" on the last
+   * blocked arrival hands off exactly as a clean import does.
+   *
+   * A store subscription rather than an effect on `characters.length`, and that
+   * is not a style choice: the count going above zero is what unmounts this
+   * component, so an effect watching it would be scheduled on a tree that no
+   * longer exists. The subscription is notified inside `set`, before React is
+   * asked to render anything.
+   */
+  useEffect(() => {
+    if (!done || route !== 'import') return;
+    return useApp.subscribe((state, previous) => {
+      if (previous.characters.length === 0 && state.characters.length > 0) arrive();
+    });
+  }, [done, route, arrive]);
+
   /** How many questions this run actually asked, for the card to state. */
   const answered = skipped ? 0 : route === 'import' ? 1 : asked.length;
 
@@ -461,7 +494,7 @@ export function Onboarding(): React.JSX.Element {
           />
           {done ? (
             route === 'import' ? (
-              <Doors onArrived={arrive} />
+              <Doors />
             ) : (
               <Summary isGm={isGm} patch={patch} answered={answered} onFinish={finish} />
             )
@@ -546,7 +579,7 @@ export function Onboarding(): React.JSX.Element {
  * the three rows wait. The fallback is a sentence rather than a spinner, because
  * a spinner under a promise of "three ways in" is the promise loading.
  */
-function Doors({ onArrived }: { onArrived: () => void }): React.JSX.Element {
+function Doors(): React.JSX.Element {
   return (
     <div className="stack" style={{ gap: 12 }}>
       <span className="t-label">ONE QUESTION, ANSWERED</span>
@@ -563,7 +596,7 @@ function Doors({ onArrived }: { onArrived: () => void }): React.JSX.Element {
           </p>
         }
       >
-        <ImportDoors onArrived={onArrived} />
+        <ImportDoors />
       </Suspense>
     </div>
   );
