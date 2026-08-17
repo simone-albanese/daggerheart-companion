@@ -378,9 +378,17 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           170 of them and a mouse should not have to open a fold to reach a
           control there is room for.
 
-          Behind the door nothing scrolls sideways: every row wraps, so all
-          eleven domain chips, all ten levels and all six recall costs are on
-          the glass at once, which is the first time any of them has been.
+          Nothing in either arrangement scrolls sideways: every row wraps, so
+          all eleven domain chips, all ten levels and all six recall costs are
+          on the glass at once, which is the first time any of them has been.
+          Both rails used to be `overflowX: 'auto', scrollbarWidth: 'none'`,
+          and their content is a constant 853px and 816px against a port of the
+          viewport less 24 on a phone and less 40 at 720 and up. Measured: at
+          393 that hid 484 and 447 - the whole RECALL group, its divider, its
+          label and all six cost buttons, plus 7 of the 9 domains - and left no
+          cut chip at either fold to say so; at 744 it still hid 149 and 112.
+          Wrapping costs the wide band 100px at 744x1133, of a 1046px port, and
+          nothing at all at 890 and above, where the rails already fitted.
 
           Its own `display: flex` rather than `className="stack"`, which is the
           same declaration less one property - and that property is
@@ -467,11 +475,11 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
                 {ownedFilter}
                 {typeFilter}
               </div>
-              <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {domainFilter}
               </div>
 
-              <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {levelFilter}
                 <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
                 {recallFilter}

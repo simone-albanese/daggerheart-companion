@@ -354,6 +354,43 @@ describe('the filters, on a screen that cannot afford four rows of them', () => 
     expect(container.querySelector('input[type="search"]')).not.toBeNull();
   });
 
+  /*
+   * Both rails were `overflowX: 'auto', scrollbarWidth: 'none'` over a
+   * constant 853px and 816px of chips. Measured in Chrome: at 393 that hid 484
+   * and 447 - the whole RECALL group and 7 of 9 domains - with no cut chip at
+   * either fold to say so, and at 744 it still hid 149 and 112. jsdom cannot
+   * measure a scrollWidth, so this asserts the two declarations that produce
+   * one, at both arrangements, over every row in the block.
+   */
+  it('has no row at any width that hides chips off its right edge', () => {
+    for (const size of [
+      { w: 393, h: 852 },
+      { w: 1440, h: 900 },
+    ]) {
+      viewport.w = size.w;
+      viewport.h = size.h;
+      act(() => root.unmount());
+      root = createRoot(container);
+      const c = seed();
+      browse(c);
+      const door = named('FILTERS');
+      if (door) click(door);
+      const block = container.querySelector('.scroll')!.firstElementChild!;
+      const rows = [...block.querySelectorAll('.row')] as HTMLElement[];
+      expect(rows.length, `no filter rows at ${size.w}x${size.h}`).toBeGreaterThan(2);
+      for (const row of rows) {
+        expect(
+          row.style.overflowX,
+          `a filter row scrolls sideways at ${size.w}x${size.h}`,
+        ).not.toBe('auto');
+        expect(
+          row.style.scrollbarWidth,
+          `a filter row hides its scrollbar at ${size.w}x${size.h}`,
+        ).not.toBe('none');
+      }
+    }
+  });
+
   it('opens onto every chip at once, with nothing left to scroll sideways for', () => {
     const c = seed();
     browse(c);
