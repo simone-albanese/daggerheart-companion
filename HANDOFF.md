@@ -1,8 +1,14 @@
 # Handoff — resuming this work with an empty context
 
+> **Read `AUDIT-HANDOFF.md` first.** It is newer than this file and it
+> contradicts it on purpose: it is the state of the resolution audit, which has
+> merged eleven lanes over this file's head and moved most of the numbers in the
+> Play budget below. Where the two disagree, that one measured later.
+
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2289 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2481 passing in 108 files** — measured at `HEAD` with `npx vitest run`, not
+remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
 tests the honesty pass below added, 2247 after P5-5's first commit replaced the
@@ -10,13 +16,15 @@ eight assertions that pinned the Play screen's pinned block, 2252 with P5-5
 finished, 2255 after the verifier pass on P5-5, 2266 with P5-6 — the three
 savings that close the reflow, plus the sweep that catches the defect P5-6
 found by rendering the screen instead of summing it — 2284 with P5-7, the
-licence notice at the end of every screen's scroll, and **2289 with P5-8**,
-which is the pass that finally made the whole folded sheet fit.
+licence notice at the end of every screen's scroll, **2289 with P5-8**, which is
+the pass that finally made the whole folded sheet fit, and **2481 in 108 files**
+after the resolution audit's eleven lanes.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is twenty-six commits behind `main` — `git rev-list --count
+`dd66d35`, which is **131 commits** behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
-handoff's own edit moves this number and the last one was left one short — so
+handoff's own edit moves this number and the last one was left one short (it
+said twenty-six before the audit) — so
 the "nothing is pushed,
 `87b9238`, 172 commits behind" that stood here through the whole P1-P5 pass is
 no longer true and the warning below about worktrees being cut from a stale
@@ -32,6 +40,9 @@ repository says it is.
 
 ## Read these first, in this order
 
+0. `AUDIT-HANDOFF.md` — the resolution audit's state. It is newer than this file
+   and contradicts it where the audit moved a number, and its §7 is the only
+   place that says what a human on real hardware still has to check.
 1. `BACKLOG.md` — the work list. Struck through with a commit hash beside it
    means done; open `- [ ]` bullets mean not. **Start at the `P5` section**: it
    holds the two redesigns, and it records eight decisions the owner took by
@@ -55,14 +66,24 @@ repository says it is.
 - **The Play screen scrolls, and nothing on it is pinned.** The old "no
   scrolling here" rule was overruled at `91097eb`; the fixed block that replaced
   it was overruled at `0ccc857`, and the number that decides whether *that*
-  stays true is ROLL's declared lower edge against the usable column — **385 of
-  730 at 393×852, and 385 of 545 at 375×667** since P5-6. It is a test,
+  stays true is ROLL's declared lower edge against the usable column — **306 of
+  730 at 393×852, and 306 of 545 at 375×667** since the audit's reflow
+  (`0cdf42f`; the same 306 at both widths, because everything above it is the
+  same height). ~~385 of 730 and 385 of 545 since P5-6~~ — **superseded**:
+  decisions 1 to 7 took the identity block off the phone, moved the conditions
+  door into the defence band and made the trait chips two lines at a 44px basis,
+  and the whole stack above ROLL came down with them. It is a test,
   `playSheet.test.tsx` › "the budget the pin came off for", and it says in its
   own docblock what it can and cannot prove: jsdom has no layout engine, so it
   sums declared heights and never measures. **Anything added to that column has
-  to go through it.** The margin at 375×667 is 160px, where P5-5 had ten and had
-  to defend it, and **no** ordinary state the budget cannot see costs more than
-  it. The dearest is now typed dice at **+68**, which leaves 92. It was pips at
+  to go through it.** The margin at 375×667 is **239px**, where P5-5 had ten and
+  had to defend it and P5-6 had 160, and **no** ordinary state the budget cannot
+  see costs more than it. The dearest is now typed dice at **+68**, which leaves
+  171; a companion is **+58** and not the +50 four documents carried — `WhoSwitch`
+  is a 44px button inside `padding: 3` and a 1px border, which is a 52px box,
+  plus the 6px gap of the Vitals panel it is added to. That is the same shape as
+  the banner correction below: a box counted without the space it is placed in.
+  It was pips at
   **+100**, leaving 60 — measured in Chrome, the Vitals block was 94 as numbers
   and 194 as pips, and nothing wrapped at either width — and decision 7 deleted
   `counterStyle`, its Settings switch and every branch on it, so that state is
@@ -70,20 +91,30 @@ repository says it is.
   numbers on the phone **and** in the desktop cockpit; pips survive on the party
   board, the live scene and the companion.
 
-  **And since P5-8 the whole folded sheet fits: 697 against 730 at 393×852,
-  with 33px to spare.** That is the first time, and it is the condition P5-5's
-  own decision 1 made the unpinning conditional on — 899 at P5-5, 749 at P5-6,
-  697 now. It fits at 744×1133 with 375 to spare and is still **152px over at
-  375×667**, which no arrangement closes: 152 is three fold headers and there
-  are six. The last 52 came from the conditions and nowhere else, exactly as
+  **And since P5-8 the whole folded sheet fits — 618 against 730 at 393×852,
+  with 112px to spare** after the audit's reflow, where P5-8 measured 697 with
+  33. That is the condition P5-5's own decision 1 made the unpinning conditional
+  on — 899 at P5-5, 749 at P5-6, 697 at P5-8, 618 now. It fits at 744×1133 with
+  454 to spare, is **73px over at 375×667** where it was 152, and **fits a
+  360×800 Android for the first time**: 618 against 678, 60 to spare. The report
+  predicted 360×800 would not fit because it costed decision 5 without the width
+  fix beside it — a taller chip is not a narrower one — and the trait row's
+  `flex-basis` went 46 → 44 in the same lane, which puts the row on one line from
+  viewport **356** up rather than 368. With two conditions on the sheet is 670 of
+  678 and still fits. The last 52 came from the conditions and nowhere else, exactly as
   P5-6 said it would have to: nothing is drawn while nothing is on, and the
-  permanent door is a 44×44 `ConditionsControl` in the identity's class row,
-  where RENAME already holds the band open at 44. The assertion that used to
-  state the miss now states the fit and the slack, so it fails when the sheet
-  stops fitting. **One thing it does not cover:** a home-indicator iPhone
-  installed as a PWA pays a 34px `env(safe-area-inset-bottom)`, which takes the
-  column to 696 and the fit to one pixel over. Nobody has measured that inset on
-  the owner's own phone.
+  permanent door is a 44×44 `ConditionsControl` — in the identity's class row at
+  P5-8, and **at the head of the defence band's fifth cell** since decision 3
+  took the identity block off the phone, in a row the number cells already hold
+  open at 64. The assertion that used to state the miss now states the fit and
+  the slack, so it fails when the sheet stops fitting. **The thing it did not
+  cover has stopped binding:** a home-indicator iPhone installed as a PWA pays a
+  34px `env(safe-area-inset-bottom)`, which takes the column from 730 to 696 —
+  against 697 that was one pixel over, and against 618 it is 78px of room.
+  ~~One pixel over in the installed app~~ — **superseded by the reflow**, and
+  kept here because the fit was the whole warrant for unpinning and a reader
+  should see that it stopped being a hair's breadth. Nobody has still measured
+  that inset on the owner's own phone, and it is item 1 of `AUDIT-HANDOFF.md` §7.
 
   **Two of that describe's assertions are now backed by a layout engine and not
   only by arithmetic.** P5-6 rendered the sheet in Chrome through
@@ -120,7 +151,18 @@ repository says it is.
   one mechanical trap it took to make that last sweep possible: **jsdom's CSS
   parser drops a bare `env()`** and drops any shorthand containing one, so every
   payer declares it as `calc(0px + env(...))`; written bare, the declaration
-  reads back as `''` and an assertion on it can never fail.
+  reads back as `''` and an assertion on it can never fail. The audit rig has
+  the same constraint from the other end — it substitutes insets by rewriting
+  inline `style` attributes, so a value hidden behind a custom property in
+  `tokens.css` could never be measured on hardware either.
+
+  **And the precondition under all of it, which no document stated until the
+  audit:** `index.html` declares `width=device-width, initial-scale=1,
+  **viewport-fit=cover**`. Without that third term iOS lays out inside the safe
+  area and reports every `env()` in this repo as 0, so the home-indicator
+  padding, the notch padding and the side-cutout padding would become no-ops
+  together and in silence. `maximum-scale` and `user-scalable=no` are absent by
+  choice (WCAG 1.4.4). `tests/ui/safeArea.test.ts` asserts the meta now.
 - **One commit per step**, with a message that says what was wrong and why the
   fix is shaped the way it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
@@ -449,26 +491,44 @@ built screen in Chrome and found four things; all four are closed.
   from 10px to 110px" against an assertion of 160, and a "~171px cell" that
   matches no width this sheet has.
 
-**The one thing P5-8 did not close, said plainly:** a home-indicator iPhone
-installed as a PWA pays a 34px `env(safe-area-inset-bottom)`, which takes the
-393×852 column from 730 to 696 and the 697 to **one pixel over**. The fit is a
-fit in a browser and is lost by a hair in the installed app. Nobody has measured
-that inset on the owner's own phone; it belongs in *Needs a human*.
+**The one thing P5-8 did not close, and the reflow closed for it:** a
+home-indicator iPhone installed as a PWA pays a 34px
+`env(safe-area-inset-bottom)`, which takes the 393×852 column from 730 to 696.
+Against P5-8's 697 that was **one pixel over**; against the 618 the sheet
+declares now it is 78px of room. Nobody has measured that inset on the owner's
+own phone even so; it is item 1 of `AUDIT-HANDOFF.md` §7.
 
 **And a second thing, found by opening the app rather than by measuring it.**
 Every figure in this section is computed for a screen with no banner on it. The
-shell draws banners above the scroll — `BackupBanner` is **58px** — and
-`BackupBanner` is on screen from first launch until the first backup is taken.
-Measured in Chrome at a true 393×852 with a seeded character: with the banner
-the column is 672 and the folded sheet of 697 is **25px over**; dismissed, the
-column is 738 and it fits with 41 to spare. So **the at-a-glance sheet does not
-fit for a new user**, which is exactly the user whose first impression it is.
-The banner is honest and should not be deleted — it is P0-2's remedy — but the
-budget has never counted it, and neither `Play.tsx`'s table nor the assertions in
-`playSheet.test.tsx` know it exists. Three shapes to weigh, none taken: let the
-banner overlay rather than displace, count it in the budget and lose a fold to
-it, or shorten it. This was found with the app open on a phone viewport; no test
-in the suite renders a banner and a sheet together.
+shell draws banners above the scroll, and `BackupBanner` is on screen from first
+launch until the first backup is taken.
+
+~~`BackupBanner` is **58px**, so the column is 672 and the 697px sheet is 25px
+over.~~ — **superseded, and the number was wrong in a way worth naming.** 58 is
+the banner's border box; what the screen under it loses is the border box **and
+its 8px top margin**, because `<main>` is a flex column and a banner is a
+`flex: none` child of it. The cost is **66**, measured banner off → on and
+identical at all four iPhone widths: 553→487 at 375×667, 738→672 at 393×852,
+760→694 at 402×874, 818→752 at 430×932. On a mouse cockpit the box is 48 and the
+column loses 56. Where a sentence takes a third or fourth line it is 70 or 85.
+
+**Both banners at once is 132, and that state was never counted at all.** A new
+user with a waiting worker gets the update nag and the backup nag together, and
+two stacked 8px margins are exactly the case where adding it up would be wrong
+if they collapsed — flex items do not collapse margins, so it is 132 and it was
+measured rather than doubled: 738 → 672 → **606** at 393×852, 553 → 487 → 417 at
+375×667, 454 → 384 → 299 at 320×568, where the two extra costs are the update
+sentence's third and fourth lines.
+
+Against the sheet, net of the phone root's own 8px foot the way this budget
+states its column: **one banner leaves 664 and the 618px sheet fits with 46 to
+spare; both leave 598 and it is 20px over.** So the at-a-glance sheet now
+survives the ordinary new-user state and fails the double-banner one. The
+banners are honest and must not be deleted — they are P0-2's remedy — but
+neither `Play.tsx`'s table nor `playSheet.test.tsx` knows one exists.
+`ShellBanner.tsx` is where the number is measured and `tests/ui/banners.test.tsx`
+adds it up out of the declarations so it cannot drift; the budget can take 66
+from there.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
@@ -482,8 +542,11 @@ What P1-1 deliberately did **not** build, so nobody goes looking for it: extra
 damage *dice* — `rollDamage` takes a flat `extraModifier` and the held-dice tray
 feeds the attack roll, so the SRD's "Tusks: +1d6" still has nowhere to go — the
 `companion` attack source, which needs a second armed slot on Play, and a way
-out of an opened die-face grid that is not answering it. That last one is
-`Die`'s behaviour as much as the damage row's and is written up as P3-12.
+out of an opened die-face grid that is not answering it, **which is still true
+of the damage row alone**. `4c99b84` gave the Duality faces a labelled exit and
+an Escape key; `DamageRoll`'s typed slots did not take it in the same commit the
+way P3-12 asked, so the two gestures have diverged and P3-12 is **half ticked**.
+Closing it is a `DamageRoll.tsx` change.
 
  **P1-7** left four things a cold start needs to know before touching the rest
 surface or anything near the schema.
@@ -533,6 +596,36 @@ reader assumes has quietly happened:
   `color-mix()` uses in `src/`, and `base.css:172` is still `height: 100svh`.
 
 All three were blocked on the Play rebuild and are unblocked now.
+
+**Two more the resolution audit opened and deliberately did not close.** Both
+are written up in full in `AUDIT-HANDOFF.md` §2a and §2b, and both are here so
+that a reader of this file does not conclude the audit closed everything it
+found:
+
+- **`--control` is 34px under a finger on a touchscreen laptop.**
+  `tokens.css:214` is `@media (max-width: 1179px), (pointer: coarse)`, and
+  `pointer` describes the *primary* pointer only — so a touchscreen laptop and
+  an iPad in a keyboard case, both `pointer: fine` with `any-pointer: coarse`,
+  get 34 at 1180 and up. Measured on the rig's `hybrid` profile at 1280×800 and
+  1440×900: `--control` 34, `--pip-h` 44. Every die key in the cockpit's keypad
+  and every chip in its modifier shelf is 10px under this project's own 44px
+  coarse floor with a finger on the glass. The cockpit lane declined to move it
+  and was right to: `--control` gates every chip, nav item and stepper on the GM
+  screens too, so the fix wants its own pass with its own measurements of
+  `Gm.tsx` and `Build` at `hybrid`, then the query `--pip-h` already uses,
+  `(max-width: 1179px), (any-pointer: coarse)`. The old blocker — the roll panel
+  was `overflow: hidden` and widening the controls would have crushed them
+  against its clip — died at `fbd4884`, and `tokens.css` says so beside
+  `--pip-h` rather than leaving the stale reason standing.
+- **The six shell-chrome blocks inside `<main>` do not pay the side cutout.**
+  `App.tsx:293`, `:328`, `:404`, `:572` and `ShellBanner.tsx:168` are all
+  `margin: '8px 20px 0'` while the header 8px above them now insets to
+  `calc(20px + env(safe-area-inset-left))`. Measured at 852×393 with 59 on both
+  sides, `BackupBanner` renders at [20, 832] and its box is identical with the
+  insets at 0 — it does not move, so its first 39px sit under the left strip
+  while the bar above it correctly starts at 79. Not a regression (they were
+  unpaid before too), one line each, and left out because those lines live in
+  two files that want a commit able to test them.
 
 **Deferred past the 1.0 this backlog is aimed at, deliberately:** photos shown to
 the table, link rows that open external URLs, full-text rule search. Written into
@@ -591,12 +684,16 @@ the intended behaviour.**
   three that are only half closed. Read it before you build anything from that
   band; do not trust an unticked `- [ ]` there on its own.
 
-## What the four documents are for, now that five lanes have edited them
+## What the five documents are for, now that sixteen lanes have edited them
 
 They were written by lanes that could not see one another and then merged, so
-this pass read all four end to end against the tree. Where they now overlap they
+each pass reads them end to end against the tree. Where they now overlap they
 are meant to, and the division is:
 
+- **`AUDIT-HANDOFF.md`** — newer than this file and authoritative where the two
+  disagree. It is the resolution audit: what merged, what each lane deliberately
+  did not take, and §7, the list of what only a human with the owner's own iPhone
+  and iPad can measure. Read it before this one.
 - **`HANDOFF.md`** — this file. State at `HEAD`, the working rules, and what a
   cold start needs before touching anything. Numbers here are measured at the
   moment of writing and are the first thing to distrust.
