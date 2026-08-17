@@ -144,6 +144,7 @@ import { Header } from '../../src/ui/shell/Header.tsx';
 import { LicenceFooter } from '../../src/ui/shell/LicenceFooter.tsx';
 import { Recovery } from '../../src/ui/shell/Recovery.tsx';
 import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
+import { ShellBanner } from '../../src/ui/shell/ShellBanner.tsx';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
 import { UpdateBanner } from '../../src/ui/shell/UpdateBanner.tsx';
 
@@ -695,6 +696,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shell/Recovery.tsx::Recovery': () => <Recovery />,
   'shell/ScreenBoundary.tsx::ScreenBoundary': () => (
     <ScreenBoundary name="Test">inside the boundary</ScreenBoundary>
+  ),
+  'shell/ShellBanner.tsx::ShellBanner': () => (
+    <ShellBanner urgent action={{ label: 'DO IT', onClick: noop }} dismissLabel="Dismiss this">
+      the banner both shell banners are
+    </ShellBanner>
   ),
   'shell/TabBar.tsx::TabBar': () => <TabBar />,
   'shell/UpdateBanner.tsx::UpdateBanner': () => <UpdateBanner apply={noop} />,
