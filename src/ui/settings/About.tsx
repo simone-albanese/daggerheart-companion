@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { APP_VERSION, BUILD_ID, shortBuildId } from '../../buildInfo.ts';
 import { forgetBackupFolder } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { countCampaigns } from '../../store/campaigns.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
@@ -59,10 +60,23 @@ export function About({
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const characters = useApp((s) => s.characters);
+  const quarantined = useApp((s) => s.quarantined);
   const [health, setHealth] = useState<StorageHealth | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [campaignCount, setCampaignCount] = useState<number | null>(null);
   const [typed, setTyped] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+
+  /*
+   * The character records the reset destroys, which is more than the library.
+   *
+   * `characters` is the readable half; `quarantined` is the records a newer
+   * build wrote that this one refuses to render (state.ts, db.ts::readLibrary),
+   * and `clearAll` deletes those too. The "On this device" hint above counts
+   * only `characters` on purpose - it is describing the library a person can
+   * open - but a destruction confirmation counts what goes, not what shows.
+   */
+  const characterCount = characters.length + quarantined.length;
 
   useEffect(() => {
     void navigator.storage
@@ -72,6 +86,41 @@ export function About({
       )
       .catch(() => setHealth(null));
   }, []);
+
+  /*
+   * Re-read the campaign count on arming, not once on mount.
+   *
+   * `clearAll` empties the `campaigns` store along with the other four, so the
+   * confirmation has to say how many campaigns that is - and the number has to
+   * be true at the moment it is read, which is when the panel opens rather than
+   * when the screen mounted. There is no cross-tab invalidation anywhere in
+   * this app: a second tab sitting on the GM screen can create or delete a
+   * campaign with nothing here to hear about it, and a stale number on this
+   * particular sentence is the exact failure this control exists not to have.
+   *
+   * One `count` request, on the connection `readLibrary` has already opened.
+   * The count and not `readCampaigns` - see `countCampaigns`'s own docblock:
+   * quarantined campaigns are held out of that array and deleted anyway.
+   */
+  useEffect(() => {
+    let live = true;
+    void countCampaigns().then(
+      (n) => {
+        if (live) setCampaignCount(n);
+      },
+      () => {
+        // Storage refused. The sentence below drops to naming the campaigns
+        // without counting them, which is still true; inventing a zero here
+        // would be the app claiming there is nothing to lose.
+        if (live) setCampaignCount(null);
+      },
+    );
+    // Not decoration: About unmounts on every tab change (App.tsx renders it
+    // conditionally), and `confirming` can toggle twice before a read lands.
+    return () => {
+      live = false;
+    };
+  }, [confirming]);
 
   const counts: Array<[string, number]> = [
     ['Domain cards', dataset.domainCards.length],
@@ -89,13 +138,23 @@ export function About({
   /**
    * Erase everything, and mean everything.
    *
-   * `clearAll` empties IndexedDB and nothing else, so the three localStorage
-   * keys have to go by hand. `dhc.backup.v1` is the one that matters: it holds
-   * the ids the last session saw, and left behind it makes the next startup's
-   * integrity check announce that the characters the user just deleted have
-   * been evicted by the browser - a false alarm about the one failure this app
-   * exists to prevent. `dhc.gm.v1` would likewise leave a stale encounter
-   * standing in a library that no longer has anyone in it.
+   * `clearAll` empties IndexedDB and nothing else, so the six localStorage keys
+   * have to go by hand: `dhc.prefs.v1` (store/prefs.ts), `dhc.conditions.v1`
+   * (ui/player/conditionsStore.ts), `dhc.dice.v1` (ui/player/heldDice.ts),
+   * `dhc.backup.v1` (store/backup.ts), and `dhc.gm.v1` with
+   * `dhc.gm.v1.unreadable` (store/campaignMigration.ts).
+   *
+   * Swept by prefix rather than by that list, and the list is here to be read
+   * rather than to be iterated: a list written out in code is how the seventh
+   * key survives the button that promises to remove everything - the same
+   * argument `db.ts::clearAll` makes for iterating `STORES`.
+   *
+   * `dhc.backup.v1` is the one that matters: it holds the ids the last session
+   * saw, and left behind it makes the next startup's integrity check announce
+   * that the characters the user just deleted have been evicted by the browser
+   * - a false alarm about the one failure this app exists to prevent.
+   * `dhc.gm.v1` would likewise leave a stale encounter standing in a library
+   * that no longer has anyone in it.
    */
   const reset = (): void => {
     setStatus(null);
@@ -276,9 +335,43 @@ export function About({
       </Rows>
 
       <Rows style={{ borderColor: 'var(--damage)' }}>
+        {/*
+          The list that is read first, and it was missing a store.
+
+          This sentence is an enumeration, not a summary, and it named four of
+          the five stores `clearAll` empties - characters, content, art and (as
+          "every preference") the localStorage sweep - with no campaign in the
+          list. It is also the string read *before* anything is armed, while the
+          reset is still an idea, so a reader who stopped here was told the
+          wrong thing about what they were about to lose.
+
+          No number here. The hint enumerates categories and the confirmation
+          below counts records; that division is already how the two sentences
+          differ, and a count in both would mean two places to keep true.
+
+          Ergonomics, measured in Chrome, and the surprise is which phone pays.
+          The row is a flex line with a `flex: 1 1 180px` text block and the
+          44px button:
+
+          - 393x852: the button (130.8x44, `min-height: var(--tap)`) fits
+            *beside* the hint, which leaves the hint a 194px column. 137 -> 152
+            characters takes it from four lines to five, so the row goes 112.6
+            -> 128.5px: **+15.87px, one `.t-dense` line at 11.5px/1.38**. The
+            button keeps its 44px and moves 7.9px down inside its own row.
+          - 375x667: the button has *already* wrapped below the hint - 130.8 and
+            a 180px basis do not fit in a 349px row - so the hint has the full
+            321px and stays at three lines and 47.6px. Row 154.8px before and
+            after: **+0**. The narrower phone is the one that pays nothing.
+          - 744x1133: 341px column, three lines, **+0**.
+
+          The 15.87px is a scroll position on a 6188px scroll and not a reach:
+          nothing here is pinned, no target shrank, and the only 44px control on
+          the row is the one the sentence explains. Headroom before a sixth line
+          on the 194px column: 28 characters.
+        */}
         <Field
           label="Reset everything"
-          hint="Deletes every character, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
+          hint="Deletes every character, every campaign, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
         >
           {!confirming && (
             <button
@@ -294,10 +387,43 @@ export function About({
 
         {confirming && (
           <div style={{ background: 'var(--panel)', padding: 14 }}>
+            {/*
+              The sentence has to count the campaigns, because the button
+              deletes them. `clearAll` clears all five stores, `campaigns`
+              included; this Note counted one of them.
+
+              Ergonomics, measured in Chrome and not predicted. The text column
+              here is 313px at 393x852 and 295px at 375x667 - the viewport less
+              24 (scroller padding, Settings.tsx `12px 12px 28px`), less 2 (Rows
+              border), less 28 (this div's `padding: 14`), less 24 and 2 (Note's
+              `10px 12px` and its 1px border). Type is `.t-dense` 11.5px with
+              Note overriding line-height to 1.5, so 17.25px a line.
+
+              The sentence goes 160 -> 173 characters and the Note stays three
+              lines and 73.8px at both phone widths, two lines and 55px at
+              744x1133: **this costs zero pixels**. Every rect below it is
+              unmoved to the pixel - the ERASE input at 220x44, "Erase
+              everything" at 139.9x44, "Keep my data" at 110.3x44, all three at
+              the `var(--tap)` 44px floor with an 8px gap, and `LicenceFooter`
+              still the last child of this screen's scroll. Read-vs-touch order
+              is read, type, then touch, and the added clause is on the read
+              side above all three targets, so no target moved and none left the
+              thumb's arc.
+
+              Headroom before a fourth line, because a later edit will not
+              re-measure: 24 characters at 393 and **12 at 375**, which is the
+              binding one. Past that the Note grows 17.25px and nothing shrinks
+              to pay for it - it would push the three targets down a scroll the
+              thumb is already positioning, which costs a scroll position rather
+              than a reach, but it is no longer free.
+            */}
             <Note tone="danger">
-              This erases {characters.length} character{characters.length === 1 ? '' : 's'} and
-              everything else this device holds. Export a backup first if there is any doubt — that
-              file is the only thing that can bring it back.
+              This erases {characterCount} character{characterCount === 1 ? '' : 's'},{' '}
+              {campaignCount === null
+                ? 'every campaign on this device and everything else it holds'
+                : `${String(campaignCount)} campaign${campaignCount === 1 ? '' : 's'} and everything else this device holds`}
+              . Export a backup first if there is any doubt — that file is the only thing that can
+              bring it back.
             </Note>
             <label className="stack" style={{ gap: 8, marginTop: 12 }}>
               <span className="t-label">Type ERASE to confirm</span>

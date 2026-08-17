@@ -168,3 +168,23 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
 export async function deleteCampaign(id: string): Promise<void> {
   await (await db()).delete('campaigns', id);
 }
+
+/**
+ * How many campaign records are on this device, readable or not.
+ *
+ * `readCampaigns().campaigns.length` is the wrong number for the one caller
+ * this has. That array deliberately holds back a record a newer build wrote
+ * (:96-105), and `clearAll` deletes that record all the same - so a
+ * confirmation counting only the readable ones would undercount what the
+ * button is about to destroy, which is the same failure as not counting them
+ * at all. The caller is a sentence a person reads before erasing everything;
+ * the number in it has to be the number of records that go.
+ *
+ * A `count` request rather than a `getAll().length` because a campaign carries
+ * whole copies of other people's sheets (`shared/campaigns.ts`), and
+ * deserialising all of them to produce one integer for one sentence is work
+ * nobody asked for.
+ */
+export async function countCampaigns(): Promise<number> {
+  return (await db()).count('campaigns');
+}

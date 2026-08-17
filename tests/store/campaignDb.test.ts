@@ -303,6 +303,40 @@ describe('the reset button, which promises to remove everything', () => {
     const database = await db.db();
     expect([...db.STORES].sort()).toEqual([...database.objectStoreNames].sort());
   });
+
+  it('counts the campaign the reader refuses, because the reset destroys that one too', async () => {
+    /*
+     * The number About prints on the erase confirmation has to be the number
+     * of records `clearAll` deletes, and those are two different numbers.
+     * `readCampaigns` holds a newer-build record out of `campaigns` on purpose
+     * - that is the whole quarantine - while `clearAll` clears the store
+     * wholesale and takes it with everything else. A confirmation counted from
+     * the reader would promise to erase one campaign and erase two, which is
+     * the undercount wearing the fix's clothes.
+     *
+     * This is also the assertion that refuses the obvious implementation:
+     * `countCampaigns` written as `(await readCampaigns()).campaigns.length`
+     * reads 1 here while every assertion in eraseConfirmation.test.tsx stays
+     * green.
+     */
+    await store.putCampaign(make({ name: 'Readable' }));
+    await writeRaw({
+      id: 'c-ahead',
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1,
+      name: 'Written by a newer build',
+    });
+
+    const library = await store.readCampaigns();
+    expect(library.campaigns).toHaveLength(1);
+    expect(library.quarantined).toHaveLength(1);
+    expect(
+      await store.countCampaigns(),
+      'the confirmation would name fewer campaigns than the reset deletes',
+    ).toBe(2);
+
+    await db.clearAll();
+    expect(await store.countCampaigns()).toBe(0);
+  });
 });
 
 describe('nothing here can reach the characters store', () => {
