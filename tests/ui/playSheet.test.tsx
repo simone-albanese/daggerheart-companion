@@ -630,15 +630,6 @@ describe('the trait row and the roll surface', () => {
  *     the head of the column even untransformed: 52 with the gap, so every
  *     Druid is 52px worse off than this table says.
  *   - a companion, which adds a 44px WhoSwitch inside the counters.
- *   - `counterStyle: 'pips'`, which does not get the 2x2 grid - a 12-box track
- *     cannot live in a 172px cell - so it keeps the four full-width rows.
- *     Rendered in Chrome with this fixture at both reference widths, the Vitals
- *     block is **94 as numbers and 194 as pips**, which is **+100**: four rows
- *     at the touch floor and three 6px gaps, exactly the 2x2 grid's own
- *     arithmetic run the other way. Nothing wraps at either width. This bullet
- *     said "144 to about 293, which is +149" for two passes - a base that
- *     contradicted `STACK`'s own 2x44 + 6, and a cost wrong by half - and it
- *     was the number the paragraph below drew a false conclusion from.
  *   - `manualDice`, which puts two 62px faces back above ROLL: +68.
  *   - an armed modifier, which puts a 44px strip back above ROLL: +50.
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
@@ -650,12 +641,15 @@ describe('the trait row and the roll surface', () => {
  *     file now asserts is a fit in a browser, and is lost by a hair in the
  *     installed app. Somebody should check the inset on the owner's own phone.
  *
- * NONE OF THOSE SIX NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
+ * NONE OF THOSE FIVE NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
  * them used to: the margin under ROLL on the small phone went from 10px to
- * **160px** when the counters became a grid, and the dearest of them, pips at
- * +100, leaves 60. That is the number the grid was bought for, it is asserted
- * below rather than told, and this paragraph said 110 against an assertion of
- * 160 for two passes.
+ * **160px** when the counters became a grid, and the dearest of them is now
+ * typed dice at +68, which leaves 92. It was six states and the dearest was
+ * `counterStyle: 'pips'` at +100, leaving 60; decision 7 deleted the
+ * preference and the branch, so the 194px shape is not reachable from this
+ * screen at all and the bullet went with it rather than being re-costed. That
+ * is the number the grid was bought for, it is asserted below rather than told,
+ * and this paragraph said 110 against an assertion of 160 for two passes.
  *
  * ONE THING IN THE COLUMN IS DELIBERATELY NOT IN EITHER TABLE: the licence
  * notice, which P5-6 put at the end of this scroll. Everything `STACK` and
@@ -795,9 +789,10 @@ describe('the budget the pin came off for', () => {
    * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
    * and that ten was the number the grid was bought with. It asserts the 160,
    * so that anything spending 161 fails here with the arithmetic in front of it
-   * rather than being found on somebody's phone. The docblock above lists six
-   * ordinary states this table cannot see, and one of them - pips, at +100 -
-   * still leaves 60.
+   * rather than being found on somebody's phone. The docblock above lists five
+   * ordinary states this table cannot see, and the dearest of them - typed
+   * dice, at +68 - still leaves 92. It was six, and the dearest was pips at
+   * +100 leaving 60, until decision 7 took the pip tracks off this sheet.
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
@@ -864,69 +859,6 @@ describe('the budget the pin came off for', () => {
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
     expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(375);
-  });
-
-  /*
-   * THE ONE STATE THIS BUDGET CANNOT SEE THAT WAS QUOTED WRONG BY HALF.
-   *
-   * `counterStyle: 'pips'` was costed at +149 over a "144 base" in four
-   * documents and in this file, and both numbers were invented: 144 is not the
-   * base - `STACK`'s own counters term is 2x44 + 6 = 94 - and the fixture's
-   * Hit Points do not wrap, which is where the extra 55 was supposed to come
-   * from. Rendered in Chrome at 393x852 and 375x667 with this fixture, the
-   * Vitals block is 94 as numbers and 194 as pips, and nothing wraps at either
-   * width. So it is **+100**, which is the 2x2 grid's own saving run backwards,
-   * and it is the dearest of the six states listed in the docblock rather than
-   * "the most expensive by a factor of two".
-   *
-   * The conclusion drawn from the bad number was false in the other direction
-   * too, so it is asserted here rather than described: with pips ROLL lands at
-   * 485 against the 545 column at 375x667, with 60px to spare, and `Play.tsx`
-   * told the reader pips cost the small phone its margin.
-   *
-   * jsdom cannot see a wrap, so this asserts the shape the 194 follows from -
-   * four full-width rows at the touch floor with the counters' own 6px gap
-   * between them, and no grid - and does the arithmetic on it.
-   */
-  it('costs the column 100 for pips, not the 149 four documents quoted', () => {
-    const c = seed();
-    act(() => {
-      useApp.setState({ prefs: { ...DEFAULT_PREFS, counterStyle: 'pips' } });
-    });
-    play(c);
-
-    const hp = container.querySelector<HTMLElement>('[role="group"][aria-label^="HP: "]')!;
-    const counters = hp.parentElement!.parentElement!;
-    expect(
-      counters.style.gap,
-      "the gap between the pip tracks moved and this arithmetic did not",
-    ).toBe('6px');
-    expect(
-      counters.style.gridTemplateColumns,
-      'the pip tracks are in a 2x2 grid, where a 12-box Hit Point track cannot go',
-    ).toBe('');
-
-    // Four rows, each held open by its own label cell at the touch floor.
-    const rows = [...counters.children].map((el) => el as HTMLElement);
-    expect(
-      rows.map((r) => (r.firstElementChild as HTMLElement).style.minHeight),
-      'the four pip tracks are no longer four full-width rows at 44',
-    ).toEqual(['44px', '44px', '44px', '44px']);
-
-    const PIPS = 4 * 44 + 3 * 6;
-    const NUMBERS = 2 * 44 + 6;
-    expect([PIPS, NUMBERS], 'the two counter shapes no longer sum to 194 and 94').toEqual([
-      194, 94,
-    ]);
-    expect(PIPS - NUMBERS, 'the cost of choosing pips has moved').toBe(100);
-
-    const rollWithPips = ROLL_BOTTOM + (PIPS - NUMBERS);
-    expect(rollWithPips).toBe(485);
-    expect(
-      column(667) - rollWithPips,
-      'pips now cost the small phone its margin under ROLL, which for two passes this ' +
-        'repo said they already did',
-    ).toBe(60);
   });
 
   /*

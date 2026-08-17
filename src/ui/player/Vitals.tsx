@@ -12,7 +12,6 @@ import { applyDamage, markDamage, SEVERITY_LABEL } from '../../engine/damage.ts'
 import type { DerivedStats } from '../../engine/character.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
-import { Track } from '../shared/Track.tsx';
 import { CompanionPanel, useHasCompanion, WhoSwitch, type Who } from './Companion.tsx';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
@@ -50,28 +49,6 @@ interface Props {
   bare?: boolean;
 }
 
-/**
- * Put the four phone counters two across, or leave them alone.
- *
- * A plain function rather than a component: it takes the children the branch
- * below has already built and decides whether they are a grid, which is one
- * decision and not a second surface. Lowercase for the same reason
- * `usePlaySection` is - `screens.test.tsx` demands a mount fixture for every
- * PascalCase export under `src/ui`, and this is not something you can mount.
- *
- * The 6px gap is the one the four stacked rows already used between them, kept
- * in both axes so the block still reads as one object with its own rhythm
- * rather than as four siblings of the defence band above it.
- */
-function arrange(grid: boolean, cells: React.JSX.Element[]): React.JSX.Element {
-  if (!grid) return <>{cells}</>;
-  return (
-    <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-      {cells}
-    </div>
-  );
-}
-
 export function Vitals({
   stats,
   layout,
@@ -80,17 +57,12 @@ export function Vitals({
 }: Props): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
-  const counterStyle = useApp((s) => s.prefs.counterStyle);
   const hasCompanion = useHasCompanion();
   const [who, setWho] = useState<Who>('you');
 
   if (!character) return null;
 
   const phone = layout === 'phone';
-  // 46px on a phone is the thumb target from the design. On desktop the mouse
-  // is precise and the vertical budget is not: a 1440x695 laptop viewport is
-  // the real constraint, not the 900px mock.
-  const rowHeight = phone ? 44 : 32;
 
   const panelClass = bare ? 'stack' : 'panel stack';
   const panel = {
@@ -141,148 +113,128 @@ export function Vitals({
     {state}
     <div className={panelClass} style={panel}>
       {companionSwitch && <WhoSwitch who={who} setWho={setWho} compact={!phone} />}
-      {phone ? (
-        /*
-         * NUMBERS GO TWO ACROSS; PIPS STAY ONE TO A ROW. The two modes want
-         * opposite things from the width and this is the one place that can
-         * give them different answers.
-         *
-         * As numbers, a counter is a value target and two 44x44 steppers, and
-         * the widest thing it ever draws is `12 / 12` at 59.5px - so half a
-         * column is 22px more than it needs, and four of them stacked cost
-         * **194px** (4x44 plus three 6px gaps) of a 730px screen. Two across is
-         * **94px**, and the hundred pixels that frees is most of what puts the
-         * rest of the sheet on the glass. `Counter`'s own docblock carries what
-         * that costs inside the cell, which is the gap between the value target
-         * and the steppers, measured.
-         *
-         * As pips it is the other way round and this grid would be a defect. A
-         * 12-box Hit Point track is twelve targets that may not go below
-         * WCAG's 24px, plus a header; in a 172px cell it wraps onto three or
-         * four rows and the four tracks come out taller than the four rows they
-         * replaced. Hope and Armor already learned this the expensive way -
-         * they used to share a row with Armor in a fixed 132px column, which
-         * measured 18px a pip at armour score 6 on a real 393px phone, and
-         * thirteen of the thirty-four SRD armours score 6 or more. So pips keep
-         * the full width, and `counterStyle: 'pips'` keeps costing this column
-         * what it has always cost it.
-         */
-        <>
-          {
-            /*
-             * Sheet order, not frequency order.
-             *
-             * These used to run Armor, HP, Stress, Hope, argued from how often
-             * the game makes you touch each one, with Hope last so its pips sat
-             * against the Experience chips that spend them. Both halves of that
-             * argument have expired: nothing on Play is pinned, so "nearest the
-             * thumb" is not a position this band has to allocate, and the chips
-             * are now several hundred pixels below, beside ROLL.
-             *
-             * What is left is the paper sheet, where Hit Points and Stress sit
-             * directly under the damage thresholds and Hope follows them. Armor
-             * Slots come last here because they are the one counter that is not
-             * yours but your armour's, and the Active Armor row that says where
-             * they came from is the very next section on the screen.
-             *
-             * In a 2x2 grid that order is read across and then down - HP and
-             * Stress on the top row, under the thresholds that are read against
-             * them; Hope and Armor beneath.
-             */
-            arrange(
-              counterStyle === 'numbers',
-              (['hp', 'stress', 'hope', 'armor'] as const).map((kind) => {
-                const counter =
-                  kind === 'hp'
-                    ? character.hp
-                    : kind === 'stress'
-                      ? character.stress
-                      : kind === 'hope'
-                        ? character.hope
-                        : character.armorSlots;
-                const label = kind === 'armor' ? 'ARMOR' : kind.toUpperCase();
-                const write = (v: number): void =>
-                  update((c) => {
-                    const key = kind === 'armor' ? 'armorSlots' : kind;
-                    return { ...c, [key]: { ...c[key], marked: v } };
-                  });
-                return counterStyle === 'numbers' ? (
-                  <Counter
-                    key={kind}
-                    kind={kind}
-                    label={label}
-                    labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
-                    value={counter.marked}
-                    max={counter.max}
-                    onChange={write}
-                  />
-                ) : (
-                  <Track
-                    key={kind}
-                    kind={kind}
-                    label={label}
-                    labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
-                    value={counter.marked}
-                    max={counter.max}
-                    clearTo={kind === 'hope' ? counter.max : 0}
-                    onChange={write}
-                    readout={`${counter.marked}/${counter.max}`}
-                    headerLayout="gutter"
-                    rowHeight={rowHeight}
-                  />
-                );
-              }),
-            )
-          }
-        </>
-      ) : (
-        <>
-          <Track
-            kind="hp"
-            label="HP"
-            value={character.hp.marked}
-            max={character.hp.max}
-            onChange={(v) => update((c) => ({ ...c, hp: { ...c.hp, marked: v } }))}
-            readout={`${character.hp.marked} / ${character.hp.max} MARKED`}
-            rowHeight={rowHeight}
-            compact
-          />
-          <Track
-            kind="stress"
-            label="STRESS"
-            value={character.stress.marked}
-            max={character.stress.max}
-            onChange={(v) => update((c) => ({ ...c, stress: { ...c.stress, marked: v } }))}
-            readout={`${character.stress.marked} / ${character.stress.max} MARKED`}
-            rowHeight={rowHeight}
-            compact
-          />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 148px', gap: 12 }}>
-            <Track
-              kind="hope"
-              label="HOPE"
-              labelColor="var(--hope)"
-              value={character.hope.marked}
-              max={character.hope.max}
-              clearTo={character.hope.max}
-              onChange={(v) => update((c) => ({ ...c, hope: { ...c.hope, marked: v } }))}
-              readout={`${character.hope.marked} / ${character.hope.max} AVAILABLE`}
-              rowHeight={rowHeight}
-              compact
-            />
-            <Track
-              kind="armor"
-              label="ARMOR"
-              value={character.armorSlots.marked}
-              max={character.armorSlots.max}
-              onChange={(v) => update((c) => ({ ...c, armorSlots: { ...c.armorSlots, marked: v } }))}
-              readout={`${character.armorSlots.marked} / ${character.armorSlots.max} USED`}
-              rowHeight={rowHeight}
-              compact
-            />
-          </div>
-        </>
-      )}
+      {/*
+       * THE FOUR COUNTERS ARE A 2x2 GRID, AND BOTH LAYOUTS DRAW THE SAME ONE.
+       *
+       * This used to be a fork inside a fork. `counterStyle` chose numbers or
+       * pips here on the phone, and the cockpit below was hard-wired to four
+       * `<Track>` rows the preference never reached at all. Decision 7 deletes
+       * every branch of both: the pip tracks leave the player's own sheet on
+       * every layout and survive only where you are reading somebody else's
+       * state rather than marking your own - the GM's party board, the live
+       * scene and the companion panel.
+       *
+       * WHY, IN TARGETS. A pip is a target, and the height it was drawn at came
+       * from a literal here - `phone ? 44 : 32` - which beat `--pip-h`, the
+       * token that resolves to the 44px floor on any machine with a coarse
+       * pointer at all. Measured in Chrome at 1180x820, 1280x800 and 1440x900,
+       * the cockpit's four tracks were 29 targets 32px tall: HP 32x32 x11,
+       * Stress 40.2x32 x9, Hope 56.8x32 x4, Armor 25.6x32 x5. Every one is
+       * under the floor in at least one direction, and the audit counted 16 to
+       * 21 such targets in every case where pips were drawn. This block now
+       * draws twelve targets - a value and two steppers per cell - and every
+       * one of them is 44x44 or larger, in both directions, for the first time.
+       *
+       * THE PHONE DOES NOT MOVE A PIXEL. Numbers were already the default:
+       * 2x44 plus one 6px gap is **94px**, against 194 for four full-width
+       * rows, and that hundred is most of what puts the rest of the sheet on
+       * the glass. What is deleted is the reachable 194px shape, which was the
+       * single dearest state the Play budget could not see. A cell is
+       * (glass - 24 - 6) / 2 - 181.5 at 393 and 172.5 at 375 - of which 88 is
+       * the two steppers and 8 the gutters, so the value target is 85.5 and
+       * 76.5 wide. `Counter`'s own docblock carries what the narrow one costs.
+       *
+       * THE COCKPIT IS REDRAWN, AND IT IS THE ONE PLACE PIXELS MOVE. The block
+       * was 428x245: `.panel` border 2, padding 12 twice, three 48px track rows
+       * (a 10px `.t-label`, its 6px margin, a 32px pip row), three 10px panel
+       * gaps, and 45 for the damage box below (1px hairline, 10px of padding,
+       * `--control` at 34). It is **428x175** now - 2 + 24 + 44 + 6 + 44 + 10 +
+       * 45 - so **70px go back** to `DualityRoll`, the only other child of that
+       * column, which is `flex: 1, minHeight: 0, overflow: hidden` and is the
+       * panel this repo has already measured crushed to 45px at 744x1133.
+       *
+       * WHAT A COCKPIT CELL IS. The middle column is `minmax(360px, 428px)` and
+       * takes its 428 at every width the cockpit is drawn at: 1180 less 40 of
+       * root padding and 36 of gaps is 1104, less column one's 336, leaves 340
+       * for the `1fr`. Inner width is 428 - 2 - 24 = 402, so a cell is
+       * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 4 - 4 =
+       * **102x44**. Less `padding: 0 5px` and 2px of border that is 90px of
+       * room for the 59.5px value line, against the phone's five at 375. The
+       * steppers stay at `Counter`'s hard-coded 44 rather than following
+       * `--control` down to 34, for the reason `tokens.css` gives beside
+       * `--pip-h`: a touchscreen laptop at 1180px and up reports `pointer:
+       * fine` with a finger on the glass.
+       *
+       * READ VERSUS TOUCH, AND WHAT THE COCKPIT LOSES. The readout stops being
+       * a 32px silhouette read as a shape and becomes two digits at 800 20px
+       * Archivo, with the 13px mark still saying which track it is. Three
+       * things go with the pips and none of them is hidden: a pip row sets any
+       * value in one click where a number is one `+` per point or three
+       * gestures; the press-and-hold that cleared a track has no `Counter`
+       * equivalent; and the words MARKED, AVAILABLE and USED survive only
+       * inside `Counter`'s accessible name. All three were already lost on the
+       * phone when numbers became the default, so this makes the cockpit match
+       * rather than inventing a third compromise.
+       *
+       * The height argument that used to sit on the deleted `rowHeight` line is
+       * still the constraint and is kept here: on a desktop the mouse is
+       * precise and the vertical budget is not - a 1440x695 laptop viewport is
+       * the real one, not the 900px mock - which is why this block giving 70px
+       * back matters more than the two it costs the panel's width.
+       */}
+      <div style={{ flex: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        {
+          /*
+           * Sheet order, not frequency order.
+           *
+           * These used to run Armor, HP, Stress, Hope, argued from how often
+           * the game makes you touch each one, with Hope last so its pips sat
+           * against the Experience chips that spend them. Both halves of that
+           * argument have expired: nothing on Play is pinned, so "nearest the
+           * thumb" is not a position this band has to allocate, and the chips
+           * are now several hundred pixels below, beside ROLL.
+           *
+           * What is left is the paper sheet, where Hit Points and Stress sit
+           * directly under the damage thresholds and Hope follows them. Armor
+           * Slots come last here because they are the one counter that is not
+           * yours but your armour's, and the Active Armor row that says where
+           * they came from is the very next section on the screen.
+           *
+           * In a 2x2 grid that order is read across and then down - HP and
+           * Stress on the top row, under the thresholds that are read against
+           * them; Hope and Armor beneath. The cockpit used to read it top to
+           * bottom with Hope and Armor sharing a `1fr 148px` row; it reads the
+           * same four in the same order now, in the same shape as the phone.
+           */
+          (['hp', 'stress', 'hope', 'armor'] as const).map((kind) => {
+            const counter =
+              kind === 'hp'
+                ? character.hp
+                : kind === 'stress'
+                  ? character.stress
+                  : kind === 'hope'
+                    ? character.hope
+                    : character.armorSlots;
+            const label = kind === 'armor' ? 'ARMOR' : kind.toUpperCase();
+            const write = (v: number): void =>
+              update((c) => {
+                const key = kind === 'armor' ? 'armorSlots' : kind;
+                return { ...c, [key]: { ...c[key], marked: v } };
+              });
+            return (
+              <Counter
+                key={kind}
+                kind={kind}
+                label={label}
+                labelColor={kind === 'hope' ? 'var(--hope)' : undefined}
+                value={counter.marked}
+                max={counter.max}
+                onChange={write}
+              />
+            );
+          })
+        }
+      </div>
 
       {/*
        * The calculator, on the layout that still keeps it here.
