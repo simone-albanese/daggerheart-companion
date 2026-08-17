@@ -17,6 +17,17 @@
  * advancements. That box is reproduced, not paraphrased - a player who has seen
  * the page recognises it instantly, and one who hasn't learns the rule from the
  * shape.
+ *
+ * ## What this screen is drawn inside
+ *
+ * One scrolling column and one pinned nav, and the budget the two of them come
+ * out of is in `Build.tsx`'s docblock, because Build owns the bands above.
+ * The two numbers this file is answerable for: the nav is 69px on a phone and
+ * 73 above 720px - 10 or 12 of padding, a 48px Cancel beside a 48px Apply, 10
+ * or 12 more and a 1px rule - and the column is everything left over, which on
+ * a landscape phone is 192px of a flow 1938px long. Anything added to that nav
+ * comes straight off the column, and the column is where two irreversible
+ * choices are made.
  */
 import { useMemo, useState } from 'react';
 import {
