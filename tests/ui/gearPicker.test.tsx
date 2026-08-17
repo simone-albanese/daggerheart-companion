@@ -264,9 +264,12 @@ describe.each(Object.keys(PICKERS))('the %s picker', (name) => {
    * flat 600/1000 advance on every glyph (checked in the file: `unitsPerEm`
    * 1000). So a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px, and a
    * three-character label is 18.81px plus whatever padding the control
-   * declares. `Seg` declares `padding: '0 10px'`, so `All` (Reach), `Any`
-   * (Slot), `Any` (Category) and `All` (Kind) measured **38.81px** wide inside
-   * a 44px-tall box. They clear WCAG 2.5.8's 24px with room; the floor they
+   * declares. `Seg` declared `padding: '0 10px'` when this was written, so
+   * `All` (Reach), `Any` (Slot), `Any` (Category) and `All` (Kind) measured
+   * **38.81px** wide inside a 44px-tall box. (It declares `'0 6px'` now, and
+   * the test after this one is why: the same four labels are 30.81px natural
+   * there and the `min-width` still lifts them to a true 44.) They clear WCAG
+   * 2.5.8's 24px with room; the floor they
    * break is this project's own `--control` / `--tap`, which resolves to 44 at
    * every width below 1180 and under any coarse pointer - so at every viewport
    * this dialog is measured at.
@@ -325,6 +328,43 @@ describe.each(Object.keys(PICKERS))('the %s picker', (name) => {
         chip.style.minWidth,
         `"${label}" states one floor on its height and another on its width`,
       ).toBe(chip.style.minHeight);
+    }
+  });
+
+  /*
+   * Where the width floor is paid from, which is the part that went wrong.
+   *
+   * `min-width: 44` on its own is not free: it only binds on the
+   * three-character labels, every `Seg` group has exactly one of them, and each
+   * group therefore grew 5.19px. Measured in Chrome on both sides, with the
+   * shipped fonts: the weapons filter row's line 1 went 301.84 -> 312.22 and
+   * flipped from two lines to three across **windows 348 to 358** - at 356 the
+   * head went 318 -> 372 and the weapon list 332 -> 278 - while the armor rail
+   * went 348.10 -> 353.29 and pushed 5.19px more of the TIER `4` chip behind a
+   * `scrollbar-width: none` scrollport. Raising one control to the floor may
+   * not push the control next to it further off the glass.
+   *
+   * `padding: '0 6px'` is where the width comes from instead: it is `.chip`'s
+   * own horizontal padding in `base.css`, it takes 8px off only the long
+   * labels, and it leaves line 1 at 288.22 - narrower than before the floor was
+   * declared at all, so no supported width gains a line and 360 has 25.78px of
+   * margin against 12.16 before.
+   *
+   * jsdom cannot see any of those numbers. What it can hold still is the
+   * declaration they follow from, which is the thing an edit would change.
+   */
+  it('pays for the width floor out of its own padding, not out of the row beside it', () => {
+    mount(name);
+    const groups = [...bands()[1]!.querySelectorAll<HTMLElement>('[role="group"]')];
+    expect(groups.length, 'the filter band has no segmented control').toBeGreaterThan(0);
+    for (const group of groups) {
+      for (const option of group.querySelectorAll<HTMLElement>('button')) {
+        const label = (option.textContent ?? '').trim();
+        expect(
+          option.style.padding.replace(/(^|\s)0px/g, '$10'),
+          `"${label}" widens itself past .chip's own padding`,
+        ).toBe('0 6px');
+      }
     }
   });
 });

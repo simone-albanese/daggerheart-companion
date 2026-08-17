@@ -409,8 +409,8 @@ function SearchBox({
  * advance at every weight this app ships (checked in the shipped
  * `plexmono-600-latin.woff2`: `unitsPerEm` 1000, every glyph 600), so at
  * `.chip`'s 9.5px with `letter-spacing: 0.06em` a character is
- * 9.5 x 0.6 + 9.5 x 0.06 = **6.27px**, and this button's `padding: '0 10px'`
- * adds 20 with no border (`base.css:42-50` zeroes it). `All` and `Any` are
+ * 9.5 x 0.6 + 9.5 x 0.06 = **6.27px**. With the `padding: '0 10px'` this button
+ * used to carry and no border (`base.css:42-50` zeroes it), `All` and `Any` are
  * three characters: 3 x 6.27 + 20 = **38.81px**, against a floor of 44.
  *
  * `--tap` is not what was missing. `--control` already resolves to
@@ -421,25 +421,46 @@ function SearchBox({
  * an omission rather than a decision. It clears WCAG 2.5.8's 24px easily; the
  * floor it breaks is the one this project wrote for itself.
  *
- * WHAT THE 5.19px BUYS AND COSTS. Only the three-character labels move: `All`
- * and `Any` go 38.81 -> 44, `Loot` is already 45.08 and every other label here
- * is 51.35 or more. Per group that is +5.19px of width, and the weapons
- * picker's `Seg` row carries three of them - Reach 108.70 -> 113.89, Slot
- * 187.13 -> 192.32, Category 168.32 -> 173.51, +15.57 across the row. It buys
- * **no height at any viewport in `PickerDialog`'s table**: band 2's content box
- * is the window less 20 of overlay padding, 2 of panel border and 24 of band
- * padding, capped by the panel's 660 maxWidth - 274px at 320, 329 at 375, 347
- * at 393 and 634 at 660 - and the row wraps to 3 lines at 320 and 2 at 375 and
- * 393 on both sides of the change, 1 line from 660 up on both. The head heights
- * in that table (489/435/435/381/381/381) do not move.
+ * THE FLOOR IS PAID FOR OUT OF THE PADDING, AND THAT IS THE WHOLE POINT.
+ * `min-width: 44` alone widens every group by 5.19px, because only the
+ * three-character labels move and every group has exactly one of them: Reach
+ * 108.70 -> 113.89, Slot 187.14 -> 192.33, Category 168.34 -> 173.53, measured
+ * in Chrome with the shipped fonts. Those 15.57px land on the two neighbours
+ * that had no room for them, and both costs were real:
  *
- * What it does cost, said plainly: the armor picker puts its single `Seg` in a
- * `ChipRow`, which is `overflow-x: auto` with `scrollbar-width: none` and does
- * not wrap, so that rail's content goes 348.10 -> 353.29 and hides 5.19px more
- * behind an invisible scrollbar - 79.29px hidden at 320 instead of 74.10, 6.29
- * instead of 1.10 at 393, and nothing at all from 660 up where it already fit.
- * That rail is the same defect the card browser fixed by wrapping and it is not
- * this commit's; it is named here so it is not discovered as a surprise.
+ *   - the weapons `Seg` row (`flexWrap: 'wrap'`, gap 6) puts Reach + Slot on
+ *     line 1, so line 1 went 301.84 -> 312.22 and the row flipped from two
+ *     lines to three across an **11px interval, windows 348 to 358** - band 2's
+ *     content box is the window less 20 of overlay padding, 2 of panel border
+ *     and 24 of band padding, so 302 at 348 and 312 at 358. Measured on both
+ *     sides: at 356 the head goes 318 -> 372 and the weapon list 332 -> 278.
+ *     The four spot checks that were here (320, 375, 393, 660) step straight
+ *     over it, and 356 is a width `Play.tsx`'s own sweep names. At 360 - the
+ *     commonest Android there has ever been - it left 1.78px of margin where
+ *     there had been 12.16, which is thinner than this arithmetic can promise.
+ *   - the armor picker puts its single `Seg` in a `ChipRow`, which is
+ *     `overflow-x: auto` with `scrollbar-width: none` and does not wrap, so
+ *     that rail's content went 348.10 -> 353.30 and the TIER `4` chip's width
+ *     on glass went 42.90 -> 37.70 at 393, 24.90 -> 19.70 at 375 and 9.90 ->
+ *     4.70 at 360 - a 44px control shrunk by the commit whose whole subject was
+ *     the 44px floor, behind a scrollbar that is not drawn.
+ *
+ * So the width comes out of `padding: '0 6px'`, which is `.chip`'s own
+ * horizontal padding in `base.css:359` rather than this file's 10px override of
+ * it. `All` and `Any` are 30.81 natural and the `min-width` still lifts them to
+ * a true 44x44; `Loot` joins them at 37.08 natural; only the long labels lose
+ * width, and they had 8px to lose. Measured: Reach **105.89**, Slot **176.33**,
+ * Category **158.17**, line 1 of the wrap row **288.22** - 13.62px *narrower*
+ * than before this lane touched the file. The weapons row therefore flips to
+ * three lines at 334 and holds two from **335** up, against 348 before and 359
+ * with the floor unpaid-for; nothing in the supported range gains a line, and
+ * 360 has 25.78px of margin instead of 12.16. Every head height in
+ * `PickerDialog`'s table is byte-identical before and after, re-measured at all
+ * six: 226/318/318/318/51/33 of content 372/318/318/318/264/264. The armor rail
+ * comes back to **345.30**, 2.80px under where it started, so the `4` chip is
+ * 44.00 on glass at 393 and above where it was 42.90 before; below 393 it is
+ * still cut, which is a standing defect of that rail rather than of this
+ * declaration, and the next commit is where it is paid.
  *
  * ERGONOMICS. **Thumb arc:** band 2 begins at y74 on a 393x852 phone (10 of
  * overlay padding, 1 of border, 54 of the name-and-✕ band, 9 of band padding)
@@ -447,13 +468,18 @@ function SearchBox({
  * top fifth of the glass - the far end of a one-handed sweep, and correctly so.
  * They are set at most once per visit; the list under them and Done at y788-832
  * are what the thumb comes back to, and neither moves. **Target size:** 38.81
- * -> 44 on both axes clears this repo's coarse-pointer floor exactly; no
- * neighbour shrinks to pay for it, because the row wraps rather than
- * compressing. **Read versus touch:** the search box is read first and is
- * above; these three groups are read left to right in the order a player asks
- * the question - can I use it, which hand, which kind - and the count that
- * answers them is `CountRow`, pinned below the filters and above the list where
- * it cannot scroll away from either.
+ * -> 44 on both axes clears this repo's coarse-pointer floor exactly, and no
+ * neighbour pays: the wrap row is 13.62px narrower than it was, and the armor
+ * rail 2.80px narrower, so the two controls nearest this one both end up with
+ * *more* glass than before, not less. What the label loses is clear space: 10px
+ * either side becomes 6, and between two adjacent labels 22px becomes 14 once
+ * the group's own 2px gap is counted. The target is the button box and not the
+ * ink, so it is still 44 whatever the label does, and the two labels that were
+ * under the floor are the two that do not move at all. **Read versus touch:**
+ * the search box is read first and is above; these three groups are read left
+ * to right in the order a player asks the question - can I use it, which hand,
+ * which kind - and the count that answers them is `CountRow`, pinned below the
+ * filters and above the list where it cannot scroll away from either.
  */
 function Seg<T extends string>({
   value,
@@ -485,7 +511,7 @@ function Seg<T extends string>({
             // The floor is a floor on both axes. See the note above this
             // component for the 38.81px and what closing it costs.
             minWidth: 'var(--control)',
-            padding: '0 10px',
+            padding: '0 6px',
             background: value === v ? 'var(--raised)' : 'transparent',
             color: value === v ? 'var(--text)' : 'var(--muted)',
           }}
