@@ -383,11 +383,26 @@ describe('the shell, on every screen', () => {
     expect(alerts).toMatch(/Nothing has been deleted/);
   });
 
-  it('opens on Build when there is nothing to play, rather than on an empty Play', async () => {
+  /*
+   * The store value, and no longer what is drawn.
+   *
+   * This was called "opens on Build when there is nothing to play", and the
+   * title stopped being true when the first-run questions went in front of all
+   * five screens: `screen` is still `'build'` in exactly this state, and
+   * `<Onboarding/>` is what `<main>` holds. The assertion never noticed because
+   * it reads the store rather than the tree, so the title drifted with the test
+   * green. Both halves are asserted now.
+   */
+  it('routes an empty library to Build in the store, behind the first run drawn over it', async () => {
     await render(createElement(App));
     await settle(() => useApp.getState().ready);
       expect(useApp.getState().ready, 'init() never answered').toBe(true);
     expect(useApp.getState().screen).toBe('build');
+    expect(
+      container.textContent ?? '',
+      'the questions are not what a brand-new device draws, so the stored screen ' +
+        'is also what is on it and this test is measuring one thing twice',
+    ).toContain('Who are you at this table?');
   });
 
   it('says something rather than nothing when the library is empty', async () => {
@@ -406,8 +421,11 @@ describe('the shell, on every screen', () => {
       useApp.getState().setScreen('play');
     });
     await settle();
-    // The empty state is the first thing a new user sees, and the only screen
-    // that carries the licence notice today (P3-10).
+    // `EmptyState` is what a device that has answered the questions and then
+    // emptied its library sees - not the first thing a new user sees, which is
+    // the comment this replaces and which the four lines above it already
+    // contradict. The licence notice is on all six surfaces since P5-6, so it
+    // is not what makes this screen special either.
     expect(container.textContent ?? '').toContain('No character yet');
   });
 });
