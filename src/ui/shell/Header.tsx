@@ -141,6 +141,42 @@
  * the same pixels and it is the first time that declaration has been visible to
  * the suite at all.
  *
+ * ## THE FALLBACK THIS GAVE UP, AND WHY IT IS NOT OWED
+ *
+ * Written down rather than fixed, with the evidence, because it is unreachable.
+ *
+ * `padding: '0 20px'` gave 20px side gutters unconditionally. These two
+ * longhands do not: a CSS parser that has never heard of `env()` drops the whole
+ * declaration, so such a browser would get **zero** side padding on this bar
+ * where it used to get 20. The standard repair is the shorthand first and the
+ * longhands after it, so the 20 survives the drop. It is not written here
+ * because the browser it protects does not exist in this app's supported set,
+ * and the set is defined by what the app already requires without a fallback:
+ *
+ *   - `base.css:222` declares `.app { height: 100svh }` and nothing else. `svh`
+ *     shipped in Safari 15.4 and Chrome 108. Drop that declaration and the whole
+ *     shell grid has no height.
+ *   - nine `color-mix(in srgb, ...)` backgrounds across `Play`, `DomainCardView`,
+ *     `Conditions`, `DeathMove`, `Beastform` and `Companion`, none with a
+ *     fallback colour. `color-mix()` shipped in Safari 16.2 and Chrome 111.
+ *
+ * `env(safe-area-inset-*)` shipped in Safari 11.2 and Chrome 69, four years
+ * before either. A browser that parses `svh` and `color-mix()` but not `env()`
+ * would have to be four years newer and four years older at once. And a browser
+ * that fails all three does not lose a 20px gutter here - it loses the app's
+ * height and every washed background in it.
+ *
+ * Six overlays make the point sharper still. `GearPicker`, `DomainCardView`,
+ * `Conditions`, `DeathMove`, `Beastform` and `Companion` each declare a `padding`
+ * SHORTHAND carrying `env()` (`max(10px, env(safe-area-inset-top)) 10px ...`),
+ * and a parser that does not know `env()` drops each of those whole - taking
+ * every side's padding with it, not merely an inset. So the hypothetical browser
+ * loses far more elsewhere than a fallback here could return, and repairing this
+ * bar alone would leave the same shape in six places while implying it had been
+ * dealt with. `tests/ui/safeArea.test.ts` asserts these exact declared values on
+ * purpose; adding a shorthand above them would change what that file reads back
+ * and buy nothing any real device can use.
+ *
  * ERGONOMICS, and landscape is the case, so this reasons about landscape. At
  * 852x393 both thumbs are on the short edges and the arc each sweeps is wide
  * and shallow, anchored at its own bottom corner; the cutout takes a
