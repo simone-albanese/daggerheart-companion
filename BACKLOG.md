@@ -2115,7 +2115,7 @@ that `33a7d92` and `0fb3365` just made behave.
       diamonds, five Experience lines, the class feature printed in full, and
       inventory weapons carrying primary/secondary checkboxes.
 
-## ~~P5-5 · The whole sheet in one look — the reflow~~ — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`, `b11c423`**
+## ~~P5-5 · The whole sheet in one look — the reflow~~ — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`, `b11c423`; verified and corrected in `2802d37`, `959db01`, `d72f8bf`, `bd7bc66`**
 
 **Decisions taken by the owner on 2026-08-17**, two of them overruling P5-1
 above, which is why those two bullets are marked SUPERSEDED there rather than
@@ -2172,6 +2172,46 @@ than the ten pixels of margin at 375×667 — typed dice (+68), pips instead of
 numbers (+49), a companion (+50), a Beastform banner (+52) — plus the
 `env(safe-area-inset-bottom)` question, which this repo has always treated as 0
 and which is 34px on a home-indicator iPhone installed as a PWA.
+
+**What the verifier pass found, and fixed.** Three defects a green suite had not
+seen, all of them a sentence in the source that the code did not do.
+
+- ~~**The ROLL bar named the armed Experiences only while `result === null`.**~~
+  — **fixed, `2802d37`.** Once a roll had resolved, an Experience armed for the
+  next one was named nowhere on the roll surface: reproduce by rolling, opening
+  the Experiences fold, arming one and shutting it. The next roll was silently
+  +2 and a Hope, and the only statement left was the shut header's `2 · 1
+  ARMED`, which at 375×667 is below the fold. The ARMED strip does not cover
+  this and must not — it is a door into the modifier row, and on a phone the
+  Experiences are deliberately not in that row, so naming them on a control
+  that opens it would be an offer the tap cannot keep. **This is worse than an
+  ordinary miss because `PlayPhone` argues the fold on exactly that sentence**
+  — "whatever is armed is spelled out in full on the ROLL bar itself, so a
+  declaration is never behind a tap even when the fold is" — so either it was
+  true or the fold was not safe to make. What is armed after a roll now reads
+  `NEXT: …` on the bar's second line, because a +2 printed beside a standing
+  total is a total that counted it. The desktop verdict strip had the
+  unlabelled half of the same problem; both layouts read one expression now.
+  The line costs the budget above **nothing** — it exists in every state — and
+  `bd7bc66` records the wrap arithmetic beside it.
+- ~~**Both roll surfaces announced a Hope a reaction roll does not give.**~~ —
+  **fixed, `d72f8bf`.** They indexed `OUTCOME_DETAIL` directly, and that table
+  has no reaction case: "You gain a Hope" for every `success-hope` and "Gain a
+  Hope and clear a Stress" for every critical. `rollDuality` returns three
+  zeroes in `effects` for a reaction roll and no counter moves, so the one line
+  whose job is to say what the roll cost or granted was announcing a payment
+  the app then did not make. `engine/dice.ts::outcomeDetail` is the honest
+  reader, has said so in its own docblock since P4, and was in the orphan list
+  with nothing calling it; adopting it took its line off that list.
+- ~~**Eight comments argued from surfaces this reflow deleted.**~~ — **fixed,
+  `959db01`.** `DualityRoll`'s `[characterId]` effect kept advantage, the
+  reaction switch and the Difficulty across a character swap because "they are
+  printed on the closed modifier row whether they are armed or not" — the row
+  decision 6 deleted. `Reference.tsx` argued the GM topic strip is not pinned by
+  contrast with "Play's roll block, which is pinned". `DamageRoll`'s
+  confirm-before-re-roll rested on being hard against the bottom edge of the
+  pinned block. Every behaviour is still right; the warrants now cite things
+  that exist, and the reversals are named rather than quietly swapped.
 
 **Not done, and named rather than hidden:**
 

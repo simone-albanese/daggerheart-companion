@@ -92,6 +92,19 @@ be wrong* at the foot of this entry.
 
 ### Numbers on the sheet
 
+- **A reaction roll no longer says you gained a Hope.** It grants no Hope, gives
+  the GM no Fear and clears no Stress on a critical, and the app has always
+  applied that correctly — it just did not *say* it. The line under the outcome
+  came straight off the outcome table, which has no reaction in it, so the roll
+  bar read "You gain a Hope" while the Hope counter a few rows up did not move.
+  It now says a reaction roll pays nothing either way, and on a critical that
+  you ignore what a success would have cost you.
+- **Whatever you have armed for the next roll is spelled out on the ROLL bar,
+  whether or not a result is still on it.** Arming an Experience after a roll
+  used to leave the bar showing the old verdict and nothing else, so the next
+  roll was quietly two points higher and a Hope cheaper with nowhere on the
+  screen saying so. It is named there now, prefixed `NEXT:` so a `+2` sitting
+  beside a total cannot be read as a total that already counted it.
 - **An attack roll leads into a damage roll, on the screen.** The engine could
   roll damage correctly from the first commit — Proficiency multiplies the dice
   and not the modifier, and a critical adds the maximum the dice could have

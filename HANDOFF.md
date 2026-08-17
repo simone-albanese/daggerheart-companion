@@ -2,15 +2,18 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2252 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2255 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
 tests the honesty pass below added, 2247 after P5-5's first commit replaced the
-eight assertions that pinned the Play screen's pinned block, and 2252 with P5-5
-finished.
+eight assertions that pinned the Play screen's pinned block, 2252 with P5-5
+finished, and 2255 after the verifier pass on P5-5 below.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is eight commits behind `main` — so the "nothing is pushed,
+`dd66d35`, which is fifteen commits behind `main` — `git rev-list --count
+origin/main..HEAD`, counting the commit that wrote this line, because a
+handoff's own edit moves this number and the last one was left one short — so
+the "nothing is pushed,
 `87b9238`, 172 commits behind" that stood here through the whole P1-P5 pass is
 no longer true and the warning below about worktrees being cut from a stale
 `origin/main` no longer bites the way it did. A push still triggers a live
@@ -93,14 +96,18 @@ time; the campaigns store added a fifth and it went red).
 
 ## What was finished, across everything that is not pushed
 
-**146 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
-five lanes merged after it. **P0 is closed; P1, P2, P3 and P4 are nearly
-closed.** The table below is that whole span, not one session of it — which is
-also the span the next push publishes in one go.
+**167 non-merge commits since `87b9238`**, across the nineteen-lane pass and the
+five lanes merged after it. Counted at `HEAD` with `git rev-list --count
+--no-merges 87b9238..HEAD`. The 146 that stood here does not reconcile with any
+range this repo can produce — the four commits of the pass that wrote it and the
+four of this one account for eight of the twenty-one — so it is replaced with a
+measurement and the command that took it rather than adjusted. **P0 is closed;
+P1, P2, P3 and P4 are nearly closed.** The table below is that whole span, not
+one session of it — which is also the span the next push publishes in one go.
 
 | Area | What changed |
 |---|---|
-| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; six tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Lineage — all shut by default and each remembered per character. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. |
+| **Play is the sheet** (P5-1, then P5-5) | Rebuilt in the official sheet's order on phone **and** tablet, then reflowed into Giorgio's (P5-5). Everything that was desktop-only is now on a phone: Evasion, thresholds, Proficiency, class/subclass/ancestry/community, the vault, gold. Counters are numbers with a keypad behind a `counterStyle` preference. Nothing is pinned; six tendine below ROLL — weapons & armour, Experiences, Carried, Cards (vault inside), Rest, Lineage — all shut by default and each remembered per character. The trait verbs moved off the tiles onto a 44×44 control at the end of a one-row chip strip, and stay in every chip's accessible name with it shut. The roll modifier row is not drawn at all when nothing is armed and is reached from MODS on the roll bar; when something is armed a strip above ROLL names it. **Whatever is armed is named on the ROLL bar itself in every state**, verdict standing or not, prefixed `NEXT:` once there is a total beside it — that sentence is the warrant for the Experiences being behind a fold at all, and it shipped false until `2802d37`. |
 | **P2-1's open half** | Every iPad can roll again. It was measured at 45 px at 744×1133 and 26 px at 1024×768, with ROLL rendered ~228 px past its clip — in the DOM, invisible, still keyboard-reachable. |
 | **Campaigns** (P5-2 foundation) | A `campaigns` object store beside `characters`, with its own `CAMPAIGN_SCHEMA_VERSION`, its own converter chain and its own committed fixture. The GM's state left `localStorage` — where it had been holding **other people's whole character sheets**, written synchronously on every `+1` of Fear. Migrated once, read back before the old key was deleted. `DB_VERSION` went 1 → 2, the first time that branch has ever run. |
 | **The GM screen** (P5-2) | The session list *is* the screen. Rows open where they sit and reorder by thumb or by arrow key; the five tools open over the list and are unmounted on close, never hidden; ADD, SHOW and SAVE replace the tab bar and MENU carries the way out, the campaigns and the two tools no row can otherwise open; SAVE says when the last write actually landed instead of implying it is the thing that saves; the section and its two browse tools switch off from Settings and the bar redistributes; and everything the disk did or failed to do — a write that did not land, a tap the saved campaign replaced — is said on the screen it happened on, with a retry only where a retry can do something. |
@@ -240,6 +247,32 @@ The four behavioural fixes carry seven tests between them, each proved by
 mutation and named in its commit message; the comment corrections carry none,
 because nothing they touch renders and a test of a comment is a test of nothing.
 
+**Then a verifier read P5-5's diff back the same way and found three more —
+`2802d37`, `959db01`, `d72f8bf`, with `bd7bc66` writing down what the first one
+cost.** All three are the shape this repo keeps producing, and it is worth
+naming it a third time: **a sentence in the source that the code does not do.**
+
+- **The ROLL bar stopped naming the armed Experiences the moment a verdict
+  stood**, which is every roll of an evening after the first. Roll, arm one for
+  the next roll, shut the fold, and the surface read the old verdict and nothing
+  else — the next roll silently +2 and a Hope, with only the shut fold's header
+  saying so, and that header is below the fold at 375×667. This is not an
+  ordinary miss: `PlayPhone` moves the chips behind a fold **on the warrant of**
+  "whatever is armed is spelled out in full on the ROLL bar itself", so either
+  the sentence was true or the fold was not safe to make. It is true now, and
+  what is armed after a roll is prefixed `NEXT:` so a +2 beside a standing total
+  cannot read as a total that counted it. The cockpit had the unlabelled half of
+  the same thing; both layouts read one expression now.
+- **Both roll surfaces announced a Hope that a reaction roll does not give.**
+  They indexed `OUTCOME_DETAIL` directly, and that table has no reaction case —
+  "You gain a Hope" for every `success-hope`, reaction or not — while
+  `rollDuality` returns three zeroes in `effects` and no counter moves. The
+  honest reader has been in `dice.ts` since P4 with nothing calling it.
+- **Eight comments still argued from the pinned block, the closed modifier row
+  or the trait strip**, none of which exist. Every behaviour they justify is
+  still right; a warrant citing its own casualty is how a correct thing gets
+  deleted by the next reader who checks it.
+
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
 rewriting; both landed in this pass, in parallel worktrees, and were merged here.
@@ -317,17 +350,21 @@ and the grid redistributes on its own.
 ## The fastest way to see what is still unwired
 
 `tests/harness/orphans.test.ts` holds `DELIBERATE`, and every entry names the
-backlog item that deletes it. It is the honest inventory: **23 exported symbols
+backlog item that deletes it. It is the honest inventory: **22 exported symbols
 nothing in the shipped app reaches** — counted off the list at `HEAD` rather than
 remembered, because the figure here once said 43 when the list held 35, and it
 is the one number in this file nobody can check by reading it.
 
-Twelve came off in this pass. Eleven in the same commit that gave the symbol a
+Thirteen came off in this pass. Eleven in the same commit that gave the symbol a
 caller — P1-1's seven (`rollDamage`, `damageOffer`, `isRollableDamage`,
 `sourceFromWeapon`, `sourceName`, `unarmedSource`, `DAMAGE_SIDES`) and P1-7's
 four (`takeRest`, `movesFor`, `mustTakeLongRest`, `DOWNTIME_MOVES`) — which is
-the mechanism working as designed for the first time on this scale. The
-twelfth, `TIER_BENCHMARKS`, came off the other way: P5-3 **deleted** it
+the mechanism working as designed for the first time on this scale. A twelfth,
+`outcomeDetail`, was adopted at `d72f8bf` to fix the bug its absence was
+causing: it is the only reader of the outcome table that knows a reaction roll
+pays nothing, and both roll surfaces were indexing the raw table and announcing
+a Hope the app then did not hand over. The thirteenth,
+`TIER_BENCHMARKS`, came off the other way: P5-3 **deleted** it
 (`1f9afcc`) rather than wiring it, because the same table ships in
 `data/srd-1.0.json` and the typed copy had already lost the `+` from `+1` and
 split `Major 7/Severe 12`. Two copies under one SRD stamp is one copy too many.
