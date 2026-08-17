@@ -836,3 +836,164 @@ describe('typing a physical die', () => {
     expect(face('FEAR').getAttribute('aria-label')).not.toContain(': ');
   });
 });
+
+/**
+ * WHAT THE "THERE IS MORE BELOW" FADE COSTS THE PANEL TO KEEP TRUE.
+ *
+ * `useMoreBelow` re-reads on every commit deliberately: a child growing - the
+ * damage row appearing, the keypad opening, a name wrapping - is not observable
+ * any other way. That part is right and is not what this describes.
+ *
+ * What it dragged with it was the wiring. Reading and wiring were one
+ * `useLayoutEffect` with no dependency list, so every commit of `DualityRoll`
+ * removed the `scroll` listener, added an identical one back, disconnected the
+ * `ResizeObserver` and constructed a new one. `DualityRoll` commits on every die
+ * tap, every armed modifier, every trait change and several times per roll, and
+ * none of those can change whether there is content below the fold. A fresh
+ * `observe()` also schedules a callback for the element's initial size, so each
+ * of those commits queued an extra read after paint and then replaced the
+ * observer that would have delivered it.
+ *
+ * Measured here against the pre-fix hook: a bare mount built 2 observers and
+ * added 2 listeners, and four ordinary taps took that to 6 and 6, with 5
+ * disconnects. After the split it is 1 and 1 for the life of the panel.
+ *
+ * jsdom has no `ResizeObserver`, which is what the hook's own guard is for, so
+ * the counting one below is the only way this cost is visible to the suite at
+ * all. The two cases are the two halves that have to stay true together: the
+ * wiring is built once, and it still works afterwards.
+ */
+describe('the fade watches the panel without rebuilding the watch', () => {
+  const typed = { manualDice: true, digitalDice: true };
+
+  class CountingObserver {
+    static built = 0;
+    static callbacks: (() => void)[] = [];
+    static observed = 0;
+    static disconnected = 0;
+    constructor(callback: () => void) {
+      CountingObserver.built += 1;
+      CountingObserver.callbacks.push(callback);
+    }
+    observe(): void {
+      CountingObserver.observed += 1;
+    }
+    unobserve(): void {}
+    disconnect(): void {
+      CountingObserver.disconnected += 1;
+    }
+  }
+
+  let scrollAdds = 0;
+  let scrollRemoves = 0;
+  const realAdd = HTMLElement.prototype.addEventListener;
+  const realRemove = HTMLElement.prototype.removeEventListener;
+
+  beforeEach(() => {
+    CountingObserver.built = 0;
+    CountingObserver.callbacks = [];
+    CountingObserver.observed = 0;
+    CountingObserver.disconnected = 0;
+    scrollAdds = 0;
+    scrollRemoves = 0;
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = CountingObserver;
+    HTMLElement.prototype.addEventListener = function (
+      this: HTMLElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      if (type === 'scroll') scrollAdds += 1;
+      return (realAdd as unknown as (...a: unknown[]) => void).call(this, type, ...rest);
+    } as typeof realAdd;
+    HTMLElement.prototype.removeEventListener = function (
+      this: HTMLElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      if (type === 'scroll') scrollRemoves += 1;
+      return (realRemove as unknown as (...a: unknown[]) => void).call(this, type, ...rest);
+    } as typeof realRemove;
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.addEventListener = realAdd;
+    HTMLElement.prototype.removeEventListener = realRemove;
+    delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+  });
+
+  const click = (el: Element): void => {
+    act(() => {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  };
+  const face = (name: 'HOPE' | 'FEAR'): HTMLButtonElement => {
+    const found = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`${name} die`),
+    );
+    if (found === undefined) throw new Error(`no ${name} face`);
+    return found;
+  };
+  const keypad = (): HTMLElement | null =>
+    container.querySelector<HTMLElement>('div[style*="repeat(4, 1fr)"]');
+
+  it('builds the listener and the observer once, not once per tap', () => {
+    const box = panel(typed);
+    expect(CountingObserver.built, 'a bare mount already built more than one').toBe(1);
+    expect(scrollAdds, 'a bare mount already added more than one').toBe(1);
+
+    // Four real interactions, each of which commits `DualityRoll`: open the
+    // keypad on one face, type a 7 into it, open it on the other, type a 3.
+    click(face('HOPE'));
+    click([...keypad()!.querySelectorAll('button')][6]!);
+    click(face('FEAR'));
+    click([...keypad()!.querySelectorAll('button')][2]!);
+    expect(face('HOPE').getAttribute('aria-label'), 'the taps did not land').toContain(': 7');
+
+    expect(
+      CountingObserver.built,
+      'every commit of the roll panel throws away its ResizeObserver and builds ' +
+        'another - and a fresh observe() queues a callback the next commit then ' +
+        'discards, so the cost is paid on every die tap and every roll frame',
+    ).toBe(1);
+    expect(
+      scrollAdds,
+      'the scroll listener is torn off and put back on every commit of the panel',
+    ).toBe(1);
+    expect(CountingObserver.disconnected, 'the one observer was disconnected while live').toBe(0);
+    expect(scrollRemoves).toBe(0);
+    // Still the same box, so none of the above is explained by a remount.
+    expect(container.firstElementChild).toBe(box);
+  });
+
+  it('still puts the fade on when the box says there is more, after all of that', () => {
+    const box = panel(typed);
+    click(face('HOPE'));
+    click([...keypad()!.querySelectorAll('button')][6]!);
+
+    // jsdom lays nothing out, so the box is told what it would have measured.
+    Object.defineProperty(box, 'scrollHeight', { value: 900, configurable: true });
+    Object.defineProperty(box, 'clientHeight', { value: 400, configurable: true });
+
+    // Through the listener that was wired before those two taps, which is the
+    // half a rebuilt-every-commit effect could hide: it works either way.
+    act(() => {
+      box.dispatchEvent(new Event('scroll'));
+    });
+    expect(
+      box.className.split(' '),
+      'the panel has 500px below the fold and wears no "more below" mark',
+    ).toContain('scroll-fade');
+
+    // And through the observer's own callback, which is the half that a
+    // disconnected-and-replaced observer would have dropped.
+    Object.defineProperty(box, 'scrollHeight', { value: 400, configurable: true });
+    act(() => {
+      for (const callback of CountingObserver.callbacks) callback();
+    });
+    expect(
+      box.className.split(' '),
+      'the panel fits and still wears the fade, which is the unconditional ' +
+        '`.scroll-fade` this hook was written to replace',
+    ).not.toContain('scroll-fade');
+  });
+});

@@ -497,33 +497,77 @@ const NO_EXPERIENCES: Experience[] = [];
  * something is actually below the fold, so reaching the end takes the fade with
  * it and a panel that fits never wears one.
  *
- * IT RE-READS ON EVERY RENDER, deliberately and with no dependency list. What
- * moves this answer is the box's own scrollTop (the listener), the box's own
- * size (the observer) and its children's heights - the damage row appearing,
- * the keypad opening, a name wrapping to a third line - and the last of those
- * is not observable without watching every descendant. A layout effect that
- * runs after each commit sees all three, before the browser paints. The
- * `ResizeObserver` guard is for jsdom, which has no such constructor.
+ * IT RE-READS ON EVERY COMMIT, deliberately, and that half has not changed.
+ * What moves this answer is the box's own scrollTop (the listener), the box's
+ * own size (the observer) and its children's heights - the damage row
+ * appearing, the keypad opening, a name wrapping to a third line - and the last
+ * of those is not observable without watching every descendant. A layout effect
+ * with no dependency list runs after each commit and sees all three, before the
+ * browser paints.
+ *
+ * ## What re-reading on every commit must not drag with it
+ *
+ * It used to be one effect, so the reading and the wiring shared the empty
+ * dependency list and every commit of `DualityRoll` tore the `scroll` listener
+ * off, put an identical one back, disconnected the `ResizeObserver` and
+ * constructed a fresh one. `DualityRoll` commits on every die tap, every armed
+ * modifier, every trait change and every roll - and, since the roll animation
+ * ticks state, several times per roll - so the panel was paying a listener
+ * swap and an observer allocation for interactions that cannot possibly change
+ * whether there is content below the fold.
+ *
+ * Worse than the allocation: `observe()` schedules a callback for the initial
+ * size of every newly observed element, so each of those commits also queued an
+ * extra `read` to run after paint. The one useful `ResizeObserver` was being
+ * replaced by a new one before it had reported anything.
+ *
+ * So the two are split. The read keeps the empty dependency list, because that
+ * is the only way to see a child's height change. The wiring is keyed on the
+ * element and runs once per element - which is all it ever needed: an observer
+ * survives every resize of the box it watches, that being the entire point of
+ * it, and a `scroll` listener survives every scroll of it. Neither has to be
+ * rebuilt to keep working.
+ *
+ * Keyed on the element, and that is why the hook hands back a callback ref
+ * rather than a ref object. This panel is the cockpit and tablet layout only -
+ * the phone column returns a different tree with no scroller in it - so the
+ * element genuinely comes and goes as a window crosses the breakpoint, and a
+ * mutable ref would have left the effect wired to a box that had been unmounted.
+ * A callback ref into state re-runs the wiring when the node actually changes
+ * and never otherwise.
+ *
+ * The `ResizeObserver` guard is for jsdom, which has no such constructor.
  */
-function useMoreBelow<T extends HTMLElement>(): [React.RefObject<T | null>, boolean] {
-  const ref = useRef<T>(null);
+function useMoreBelow<T extends HTMLElement>(): [(node: T | null) => void, boolean] {
+  const [box, setBox] = useState<T | null>(null);
   const [more, setMore] = useState(false);
+
+  const read = useCallback((): void => {
+    if (box === null) {
+      setMore(false);
+      return;
+    }
+    setMore(box.scrollHeight - box.clientHeight - box.scrollTop > 1);
+  }, [box]);
+
+  // Every commit, because a child growing is not observable any other way.
+  // This allocates nothing and `setMore` bails out on an unchanged value.
+  useLayoutEffect(read);
+
+  // Once per element. `read` changes only with `box`, so this list is `[box]`
+  // spelled honestly.
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (el === null) return undefined;
-    const read = (): void => {
-      setMore(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
-    };
-    read();
-    el.addEventListener('scroll', read, { passive: true });
+    if (box === null) return undefined;
+    box.addEventListener('scroll', read, { passive: true });
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(read);
-    observer?.observe(el);
+    observer?.observe(box);
     return () => {
-      el.removeEventListener('scroll', read);
+      box.removeEventListener('scroll', read);
       observer?.disconnect();
     };
-  });
-  return [ref, more];
+  }, [box, read]);
+
+  return [setBox, more];
 }
 
 export function DualityRoll({
