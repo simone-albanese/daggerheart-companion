@@ -526,8 +526,9 @@ whose roll it is.
       mirrors Hope and Fear, so the dice on screen never sit beside a total they
       do not add up to. With the roller off the control is disabled and wears
       `affordance.label` — ENTER YOUR DICE — rather than a greyed ROLL DAMAGE.
-      The face grid's one-way-in-one-way-out problem is P3-12, which is `Die`'s
-      as much as it is this row's.
+      The face grid's one-way-in-one-way-out problem **was** P3-12, which was
+      `Die`'s as much as it is this row's; `Die`'s half is fixed (`4c99b84`) and
+      this row's is not, so the two idioms have diverged until it is.
 - [x] ~~**Spellcast damage is a different rule and is not implemented.** *"Any
       time an effect says to deal damage using your Spellcast trait, you roll a
       number of dice equal to your Spellcast trait"*, and at +0 or lower you roll
@@ -812,14 +813,16 @@ to the same call while implying the app had seen something it cannot see.
 
 ## P2 — Unusable on a device we support
 
-### P2-1 · The Play screen collapses below 1180 px wide or 700 px tall — **phone done, tablet open**
+### ~~P2-1 · The Play screen collapses below 1180 px wide or 700 px tall~~ — **done: phone `91097eb`, tablet and desktop `fbd4884`**
 `src/ui/player/DualityRoll.tsx:395` · `src/ui/player/Play.tsx:645, 705` · **medium, 4–6 h**
 
 Measured live in Chrome with a deliberately lean character. In the tablet band
 (720–1179 px) `Play.tsx:517` puts Vitals and DualityRoll into a scrolling column;
-DualityRoll's root is `flex: 1, minHeight: 0, overflow: 'hidden'`, so it is
+DualityRoll's root **was** `flex: 1, minHeight: 0, overflow: 'hidden'`, so it was
 crushed to **24 px**. On every iPad, and on every phone held in landscape, **you
-cannot roll.**
+could not roll.** Since `fbd4884` that root is
+`overflowY: 'auto', overflowX: 'hidden'` with `scrollbarGutter: 'stable'`, so a
+short window reflows onto a scroll instead of clipping.
 
 At 375×667 the loadout region collapses to 0 px and the ROLL button renders at
 half height.
@@ -837,10 +840,22 @@ it is off the bottom before it is even clipped.
       longer the region that absorbs every shortfall. Measured after: no band
       at 0 px, ROLL at its full 66 px with its bottom edge clear of the tab bar,
       every pip at or above 31 px.
-- [ ] **The tablet band, 720–1179 px, is untouched and still cannot roll.** The
-      phone rebuild did not reach it. Either give it the phone's stack or the
-      two-column split; what it must not keep is `DualityRoll` as a shrinkable
-      child of a scrolling column.
+- [x] ~~**The tablet band, 720–1179 px, is untouched and still cannot roll.**~~
+      — **done, `fbd4884`**, and by the third route: not the phone's stack and
+      not the two-column split, but letting the panel scroll. What it must not
+      keep — `DualityRoll` as a shrinkable child of a scrolling column — is what
+      changed.
+
+**The same clip reached the desktop, which this entry never claimed.** At
+1180×695 with the backup banner up and the last Hit Point marked — both default
+states of a fresh install — the panel measured 197 client against 277 scroll,
+and ROLL's 54px box was laid out at y 677.9 against a bottom edge at 674:
+**painted 0.0px**. `main` and `.app` both had `scrollHeight === clientHeight`
+and the middle grid column was `overflowY: visible`, so there was no wheel, no
+drag and no tap anywhere on the glass that reached it — `focus()` was the only
+thing that did. The same clip took `DamageRow`'s `IF IT HIT · 4d8+6` to 15 of
+its declared 44 at 1280×800. Closed by `fbd4884`; ROLL is 54 of 54 at 1280×800,
+49 at 1366×768, and at 1180×695 it is one scroll away rather than unreachable.
 
 ### ~~P2-2 · Contrast below WCAG AA on text people read in a dim room~~ — **done, `83c85ae`**
 `src/ui/tokens.css:63, 143, 146` · **small, 2 h**
@@ -1238,6 +1253,19 @@ persistence as GRANTED / NOT GRANTED / UNKNOWN.
       light OS too, so the label is not even a reliable indicator of the thing it
       appears to indicate. Shipped in `8c83f78`; `rg -l Header tests/` returns
       nothing. *(trivial)*
+- [x] ~~**`USE` is 30.81×44** — the same button's *geometry*, which was never in
+      this list.~~ — **done, lane `a3-targets`, `8a35431`.** Same omission class
+      as the two filter chips `112cb7f` closed in `Cards.tsx`: a control that
+      declares `min-height` and stops takes its width from its own label. `.chip`
+      is IBM Plex Mono 9.5px with `letter-spacing: 0.06em` and the shipped
+      `plexmono-600-latin.woff2` advances 600/1000 on *every* glyph, so a
+      character is 9.5 × 0.6 + 9.5 × 0.06 = **6.27px** and `USE` plus its padding
+      is 3 × 6.27 + 12 = **30.81**. What the floor costs: the +13.19px come out
+      of the item name beside it, the only flexible thing in the row — 306.19 →
+      293 at 393, 233.19 → 220 at 320. The longest SRD item name, `Improved
+      Grindletooth Venom`, is 194.0px at 600/14 Archivo and fits both; only that
+      name carrying a **three-digit** count (220.8) crosses at 320, and it wraps
+      rather than clipping.
 
 ### P3-11 · The card's only action does not look like one, and shares its word with the cost
 `src/ui/player/Cards.tsx:239, 241-242` · **small, 1–2 h** · *reported from a phone*
@@ -1270,9 +1298,13 @@ on screen distinguishes them.
       be taken. `row.reason` already exists and is rendered in the cost slot —
       check whether it can carry that instead.
 
-### P3-12 · A die face grid, once opened, can only be closed by answering it
-`src/ui/player/DualityRoll.tsx:148-187` · `src/ui/player/DamageRoll.tsx` ·
+### P3-12 · A die face grid, once opened, can only be closed by answering it — **half done, and the halves have diverged**
+`src/ui/player/DualityRoll.tsx` › `DieKeypad` · `src/ui/player/DamageRoll.tsx:371` ·
 **trivial, 30 min** · *noticed while building P1-1's typed damage*
+
+*(The citation was a line range, `DualityRoll.tsx:148-187`. The component was
+extracted at `4c99b84` and is `DieKeypad` now; a name survives a refactor and a
+line range does not.)*
 
 `Die` turns into a twelve-face grid when it is tapped, and the grid has exactly
 one way out: pick a number. There is no cancel, no backdrop, and no second tap
@@ -1285,9 +1317,22 @@ The typed damage slots copy the same idiom deliberately: inventing a cancel for
 one of the two and not the other would be two gestures for one gesture's job.
 So this is one fix in two places, not a divergence.
 
-- [ ] Give the open grid a way back that is not an answer — a tap on the die's
-      own label, or a CLEAR cell in the grid itself. Whatever it is, both the
-      Duality faces and the damage slots take it in the same commit.
+- [x] ~~The Duality faces~~ — **done, `4c99b84`.** The keypad takes the whole
+      face row rather than one face, and the die's own label leads it as a
+      full-height 44px exit carrying HOPE or FEAR and an ×. Escape closes it
+      through a window listener rather than a handler on the grid, because the
+      tap that opens the keypad unmounts the button that had focus — and the
+      keypad takes focus on open and hands it back to the die face on close, so
+      the way out is where the keyboard already is instead of being the 53rd
+      focusable of 81. The listener returns early when a `[role="dialog"]` is in
+      the document: without that check one Escape closed a loadout card **and**
+      the keypad under it (`6c57c01`).
+- [ ] **The damage slots are still one way out.** `DamageRoll.tsx:371` is
+      `{editing === null ? faces : grid}` with no cancel, no backdrop and no
+      Escape handler. The two gestures have now diverged, which this entry said
+      in as many words they must not; closing it is a `DamageRoll.tsx` change and
+      belongs to whichever lane owns that file. **Do not strike this entry as a
+      whole** — half of it shipped and half of it did not.
 
 ### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~ — **done, `905a23c`, `17b4f1c`, `d413e35`; finished by P5-7, `965d419`**
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
@@ -2218,11 +2263,16 @@ describe «the budget the pin came off for», whose own docblock says what it ca
 and cannot prove: jsdom has no layout engine, so it sums *declared* heights and
 never measures. It also lists the things it cannot see, four of which cost more
 than the ten pixels of margin at 375×667 — typed dice (+68), pips instead of
-numbers (+49, later measured at +100), a companion (+50), a Beastform banner
-(+52) — plus the `env(safe-area-inset-bottom)` question, which this repo has
-always treated as 0 and which is 34px on a home-indicator iPhone installed as a
-PWA. *(The margin is 160 now, not ten, and the pips entry is gone: decision 7
-deleted the mode. The list is five.)*
+numbers (+49, later measured at +100), a companion (~~+50~~ **+58**), a Beastform
+banner (+52) — plus the `env(safe-area-inset-bottom)` question, which this repo
+has always treated as 0 and which is 34px on a home-indicator iPhone installed
+as a PWA. *(The margin is **239** now, not ten and not the 160 this said after
+P5-6; the pips entry is gone, because decision 7 deleted the mode; and the
+companion is 58. `WhoSwitch` is a 44px button inside `padding: 3` and a 1px
+border on each side — a 52px box — added to a `Vitals` panel whose phone `gap`
+is 6. +50 counted the box and not the space it lands in, which is exactly the
+error `ShellBanner.tsx` found in the banner's own 58. **`Play.tsx:2389` still
+says +50** and is another lane's file. The list is five.)*
 
 **What the verifier pass found, and fixed.** Three defects a green suite had not
 seen, all of them a sentence in the source that the code did not do.
@@ -2362,11 +2412,21 @@ written and again after:
   it is 172.5 at 375, less two 44px steppers and two 4px gutters, less 10px of
   padding and 2 of border: **64.5px of room**. Five pixels, `nowrap` and
   clipped, because a wrap is a third line and a third line is the 100px back.
-- **The defence band.** `EVASION` at `.t-meta` is 47.75px, so four equal cells
-  plus a 91.29px `TOOK [ ]` plus four 6px gaps is 386.29 against 369px of column
-  at 393 — over at the *wider* phone. Sized to their contents the four numbers
-  come to 230.08 and the box takes the remainder: 114.92 at 393 and 96.92 at
-  375. No overflow at either.
+- **The defence band.** ~~`EVASION` at `.t-meta` is 47.75px … the four numbers
+  come to 230.08 and the box takes the remainder, 114.92 at 393 and 96.92 at
+  375.~~ — **all three numbers pre-date the reflow and were stated as current.**
+  `TOOK` no longer exists: the conditions door took its place. `EVASION` at
+  `.t-meta` **with the cell's own `0.08em` of tracking** is 47.61px, so four
+  equal cells plus the fifth still do not fit a 393px phone. Sized to their
+  contents the four come to **210.47** — 61.61 EVASION, 52.84 MAJOR (sized by
+  its two-digit number at 32px, not by its label), 54.81 SEVERE, 41.20 PROF, each
+  at `8px 6px` of padding and a 1px `.panel` hairline — and with four 6px gaps
+  the band's fixed part is **234.47**. The fifth track is `column − 234.47` and
+  holds a 44px conditions door, a 6px gutter and a 44px field: 134.53 of track
+  for 94 of content at 393, 116.53 at 375, 101.53 at 360, 61.53 at 320, where it
+  wraps to two lines and the band is 94 instead of 64. `playSheet.test.tsx` reads
+  the four cells' ink off the DOM and asserts the 210.47, so the constant cannot
+  drift again; `Defenses`' own docblock and `Vitals.tsx` agree with it.
 
 **A DEFECT THE SUITE COULD NOT SEE, FOUND BY RENDERING IT** (`4608328`). The
 phone column is a scrolling flex column, and a flex child keeps `flex-shrink: 1`
@@ -2686,21 +2746,123 @@ two-device tests.
    first time since P5-7, and the tab bar plus the notice on the same screen,
    which is the pair that would pay it twice. Every number in P5-7 treats the
    inset as 0, because that is what desktop Chrome reports and jsdom reports
-   nothing at all. **And since P5-8 there is a second reason to run this one:**
-   34px takes the Play column from 730 to 696, so the folded sheet that now fits
-   with 33px to spare is one pixel over in the installed app. Measure the inset
-   while you are in there and write the number down.
+   nothing at all. **The second reason P5-8 gave for running this one has
+   expired and the first has not:** 34px takes the Play column from 730 to 696,
+   which was one pixel over against P5-8's 697 and is 78px of room against the
+   618 the reflow left. Measure the inset while you are in there and write the
+   number down anyway — every payer in the app is arranged around a figure
+   nobody has read off glass.
 8. **A thumb on Play, at a table, on a 393×852 phone** (5 min, one player, one
    evening). Two questions, both of which this repo has argued and neither of
-   which it has observed. *ROLL:* at the top of the scroll its row is 414-480px
-   above the bottom bezel, outside the ~330px one-handed sweep P5-5 cited. Is
-   reaching it a shrug, a grip shuffle, or a two-hander — and does the player
-   scroll it down before rolling, which is the whole of P5-8's argument that the
-   cost does not matter? *The counter cell:* the value target and the `−`
-   stepper are 4px apart where the full-width row left about 105. Does a real
-   thumb open the numeric entry by mistake, and does it notice when it does?
-   *Watch for:* a player who stops using ROLL from the sheet and rolls physical
-   dice instead, which is the failure this whole reflow would be.
+   which it has observed. *ROLL:* at the top of the scroll its row is **493 to
+   559px** above the bottom bezel at 393×852 and **308 to 374** at 375×667 —
+   outside the ~330px one-handed sweep P5-5 cited at both, where P5-8 measured
+   414-480 and 229-295 and the small phone was still inside it. The reflow made
+   this *worse*, because every pixel the sheet loses above ROLL is a pixel
+   further from a thumb at rest. Is reaching it a shrug, a grip shuffle, or a
+   two-hander — and does the player scroll it down before rolling, which is the
+   whole of the argument that the cost does not matter? *The counter cell:* the
+   value target and the `−` stepper are 4px apart where the full-width row left
+   about 105. Does a real thumb open the numeric entry by mistake, and does it
+   notice when it does? *Watch for:* a player who stops using ROLL from the sheet
+   and rolls physical dice instead, which is the failure this whole reflow would
+   be.
+9. **The phone held sideways, with the display cutout** (5 min, iPhone with a
+   notch or a Dynamic Island). The one measurement the whole side-inset budget
+   rests on and nobody has taken. *Read:* what `env(safe-area-inset-left)` and
+   `env(safe-area-inset-right)` actually report in landscape — Safari's console,
+   or `getComputedStyle` on the header's padding. **Two answers are wanted, the
+   magnitude and the shape.** The code assumes they are **equal and non-zero**,
+   because UIKit insets both long edges so a 180-degree rotation does not reflow
+   the page; that is Apple's reasoning and not a reading, and every number in
+   this repo was originally derived from the wrong, one-sided model. The
+   magnitude is 44 or 50 or 59 per side depending on who you ask, and none of it
+   came off a phone — the 59 is this audit's own *portrait top* inset reused
+   edge-on. *Pass:* SETTINGS is wholly on visible glass, the app mark is not
+   under the strip, and nothing in the header's nav paints outside its own box.
+   *Watch for:* the point where it stops fitting. At 812 wide in landscape — a
+   12/13 mini, the narrowest notched phone — the header's worst line has 27.8px
+   of slack at 44 per side, 15.8 at 50 and **−2.2 at 59**, and above about 46 per
+   side the phone in landscape becomes this app's worst line rather than the
+   narrowest tablet.
+10. **The same rotation, with Display Zoom on** (2 min, 6.1" iPhone). Settings >
+    Display & Brightness > View > **Larger Text**, then turn the phone sideways.
+    That drops the viewport to 693×320, which is under the 720 that draws
+    `TabBar` — so this is the one configuration where the tab bar and a side
+    cutout are on the screen together, and it is reachable from Settings rather
+    than hypothetical. *Pass:* all four tab labels are clear of both strips.
+11. **A finger on a touchscreen laptop, if there is one in the house** (2 min).
+    Not measurable on a Mac. At 1180px and up, `--control` resolves to 34 rather
+    than 44 on a machine whose *primary* pointer is fine but which has a finger
+    available. *Pass, and it will not:* every die key in the roll panel's keypad
+    and every chip in its modifier shelf clears 44px. See the item below.
+
+---
+
+## Opened by the resolution audit and deliberately not closed
+
+Each of these was found with a measurement, each has a named fix, and each was
+left because taking it inside the lane that found it would have been the wrong
+scope. They are here so they are visible as **open** rather than quietly closed.
+
+- [ ] **`--control` is 34px under a finger on a touchscreen laptop.**
+      `src/ui/tokens.css:214` is `@media (max-width: 1179px), (pointer: coarse)`.
+      `pointer` describes the machine's *primary* pointer only, so a touchscreen
+      laptop and an iPad in a keyboard case — both `pointer: fine` with
+      `any-pointer: coarse` — take the 34px desktop value at 1180 and up.
+      Measured on the audit rig's `hybrid` profile at 1280×800 and 1440×900:
+      `--control` 34, `--pip-h` 44. That is 10px under this project's own coarse
+      floor on every chip, nav item, stepper and die key on those machines — on
+      the very surface whose ergonomics paragraph names a finger as what reaches
+      it. **The fix is one query**, the one `--pip-h` already uses:
+      `(max-width: 1179px), (any-pointer: coarse)`. The old reason it could not
+      follow — the cockpit's roll panel was `overflow: hidden` and wider controls
+      would have been crushed against its clip — **died at `fbd4884`**, and
+      `tokens.css` says so beside `--pip-h` rather than leaving the stale
+      argument standing. What blocks it now is only that `--control` gates every
+      chip on the GM screens too, so it wants `Gm.tsx` and `Build` measured at
+      `hybrid` in the same pass.
+- [ ] **The six shell-chrome blocks inside `<main>` do not pay the side cutout.**
+      `App.tsx:293`, `:328`, `:404`, `:572` (`UnsavedWork`, the storage-error
+      alert, the integrity alert, the quarantined-characters alert) and
+      `ShellBanner.tsx:168` (`UpdateBanner` and `BackupBanner`, two blocks from
+      one declaration): all six are hard-coded `margin: '8px 20px 0'` while the
+      header 8px above them now insets to
+      `calc(20px + env(safe-area-inset-left))`. Measured at 852×393 with 59 on
+      both sides, `BackupBanner` renders at [20, 832] and its box is identical
+      with the insets at 0 — it does not move, so its first 39px sit inside the
+      left strip while the bar above it correctly starts at 79. Not a regression
+      (unpaid before the header change too), one line each:
+      `margin: '8px calc(20px + env(safe-area-inset-right)) 0 calc(20px + env(safe-area-inset-left))'`.
+      Left out because those lines live in two files a shell-bar commit could
+      not test.
+- [ ] **The Play column does not pay it either, and it is the big one.**
+      Measured at 852×393 with 59 on both sides, `<main>`'s only other child is
+      the column at [0, 852] and it pays nothing: ROLL 2d12 at [12, 788] with
+      47px of its left end under the left strip, the Agility trait button at
+      [12, 138.7] with 37% under, the HP and Hope tracks at [12, 327], six
+      section headers at [12, 840] — and at the other end MODS, the trait-help
+      button and the three `+` steppers, each 44×44 at [796, 840], **entirely**
+      inside a right strip that starts at 793. The shell's casualties were at the
+      top of the glass and outside every arc; these are the controls a thumb
+      lands on mid-scene. A reader who sees "the cutout is paid" should know it
+      is paid on two bars and nowhere else.
+- [ ] **The Cards filter rails do not pay it.** `Cards.tsx`, not the shell: they
+      are full-width horizontal scrollers and start at x=0 whatever the inset.
+- [ ] **`GmBar` does not pay it**, and unlike `TabBar` it is drawn at *every*
+      width, so it is on screen in exactly the landscape case. It already pays
+      `calc(0px + env(safe-area-inset-bottom))` (`GmBar.tsx:127`); it wants the
+      two horizontals in the same form.
+- [ ] **Six overlays hide an `env()` inside a `padding` shorthand.**
+      `DomainCardView`, `Companion`, `Conditions`, `DeathMove`, `Beastform` and
+      `GearPicker` all declare
+      `padding: 'max(12px, env(safe-area-inset-top)) 12px max(12px, env(...-bottom))'`.
+      Two defects in one place: they pay nothing horizontally, and being a
+      shorthand containing an `env()` they are **invisible to jsdom**, which
+      drops the whole declaration — so no test in this repo can read them.
+      `calc(0px + env(...))` longhands are the idiom that fixes both.
+- [ ] **The damage row's face grid still has one way out** — the open half of
+      P3-12, above.
 
 ---
 
