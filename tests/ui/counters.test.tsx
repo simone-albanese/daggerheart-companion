@@ -33,6 +33,7 @@ import { Settings } from '../../src/ui/settings/Settings.tsx';
 import { DEFAULT_PREFS, loadPrefs } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
+import { NARROW, PHONE, px as resolve } from './tokens.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -121,12 +122,22 @@ function type(field: HTMLInputElement, value: string): void {
   });
 }
 
-/** A number an inline style declares, in px. `var(--tap)` is 44 everywhere. */
-function px(value: string): number {
-  if (value === 'var(--tap)') return 44;
-  const n = Number.parseFloat(value);
-  return Number.isFinite(n) ? n : 0;
-}
+/**
+ * A number an inline style declares, in px, at the narrowest glass this app is
+ * drawn on.
+ *
+ * NARROW and not PHONE, and that is the whole argument of the floor sweep
+ * below. `--counter-cell` is 48 from viewport 390 up and 44 below it, so a
+ * sweep that asked the owner's 393px phone would be reading the generous half
+ * of a token and calling the floor safe on the strength of it. 320 is where a
+ * floor breaks if it is going to.
+ *
+ * The numbers come out of `tokens.css` through `tokens.ts`. The line that used
+ * to sit here - `if (value === 'var(--tap)') return 44` - was a copy of the
+ * stylesheet kept by hand, and the day the stylesheet moved it would have gone
+ * on returning 44 and passing this sweep for a target that no longer had it.
+ */
+const px = (value: string): number => resolve(value, NARROW);
 
 describe('a counter drawn as a number', () => {
   it('sets the value in one gesture instead of five taps', () => {
@@ -280,8 +291,28 @@ describe('a counter drawn as a number', () => {
       'the counter number is back to a literal size, so the 360px cell clips the tail of ' +
         '`/ 11` and no stylesheet can say otherwise - an inline font is not overridable',
     ).toBe('800 var(--counter-num)/1 var(--sans)');
-    // And the target it sits in did not move: this decision is ink only.
-    expect(target.style.minHeight, 'the value target left the touch floor').toBe('44px');
+    /*
+     * And the target it sits in steps WITH the number, which is the half of
+     * this decision that is not ink. It used to be a flat 44 and the line here
+     * said «this decision is ink only»; that stopped being true at 26, where a
+     * 13px label row, a 2px gap and a 26px line come to 41 against a 44px
+     * cell's 42 of inner - one pixel, which `tokens.css` calls a coincidence
+     * rather than a margin. So the height is the token too, and the two ends
+     * of it are read out of the stylesheet rather than repeated here.
+     */
+    expect(
+      target.style.minHeight,
+      'the value target is back to a literal height, so it cannot step with the number it holds',
+    ).toBe('var(--counter-cell)');
+    expect(
+      resolve(target.style.minHeight, NARROW),
+      'the cell went through the touch floor at the narrow end',
+    ).toBe(44);
+    expect(
+      resolve(target.style.minHeight, PHONE),
+      'the cell stopped growing for the 26px number, which leaves 41 of ink in 42 of inner',
+    ).toBe(48);
+    // Width did not move, and that is deliberate: see `Step`.
     expect(target.style.minWidth).toBe('44px');
   });
 
@@ -344,10 +375,19 @@ describe('a counter drawn as a number', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
     const gutter = Number.parseFloat(row.style.gap);
+    // 44 WIDE and `--counter-cell` tall. The width is the floor and it is what
+    // the arithmetic below stands on; the height is the cell, because the
+    // stepper takes the room the 26px number bought for nothing. A stepper
+    // that grew in width as well would take 8px out of the value target and
+    // clip the very number it was widened for - see `Counter`'s note on `Step`.
     const steppers = [...row.children].filter(
-      (el) => (el as HTMLElement).style.width === '44px' && (el as HTMLElement).style.height === '44px',
+      (el) =>
+        (el as HTMLElement).style.width === '44px' &&
+        (el as HTMLElement).style.height === 'var(--counter-cell)',
     );
-    expect(steppers, 'the cell no longer holds two square steppers').toHaveLength(2);
+    expect(steppers, 'the cell no longer holds two steppers at the 44px width floor').toHaveLength(
+      2,
+    );
 
     // The column is the glass less this screen's 12px of padding either side;
     // the grid is two columns and one 6px gap.
@@ -527,7 +567,9 @@ describe('where the numbers are allowed to be', () => {
   /*
    * The hundred pixels the whole reflow is paid for with.
    *
-   * Four stacked rows are 4x44 + 3x6 = 194; two across are 2x44 + 6 = 94. The
+   * Four stacked rows are 4x44 + 3x6 = 194; two across are two cells and one
+   * 6px gap - 102 on the owner's phone since the reflow raised the number to
+   * 26, and 94 below viewport 390, both of them under half of the 194. The
    * second half of this test used to be the pip mode, which had to stay one to
    * a row - a 12-box Hit Point track in a 172px cell wraps onto three rows at
    * WCAG's 24px floor and the four tracks come out *taller* than the four they
@@ -548,17 +590,28 @@ describe('where the numbers are allowed to be', () => {
     expect(grid.style.gap, 'the counters lost the 6px rhythm the four rows had').toBe('6px');
     expect(grid.children, 'the grid holds something other than the four counters').toHaveLength(4);
     for (const c of [...grid.children] as HTMLElement[]) {
-      expect(c.style.minHeight, 'a counter cell is below the touch floor').toBe('44px');
+      expect(px(c.style.minHeight), 'a counter cell is below the touch floor').toBeGreaterThanOrEqual(
+        44,
+      );
+      expect(
+        resolve(c.style.minHeight, PHONE),
+        'a counter cell stopped growing for the 26px number',
+      ).toBe(48);
     }
-    // 2x44 + one 6px gap, against the 4x44 + three 6px gaps it replaced.
-    expect(2 * 44 + 6).toBe(94);
+    // Two cells and one 6px gap, against the 4x44 + three 6px gaps it replaced.
+    expect(2 * resolve('var(--counter-cell)', PHONE) + 6).toBe(102);
+    expect(2 * resolve('var(--counter-cell)', NARROW) + 6).toBe(94);
 
     /*
      * The cockpit, where this is a redraw rather than a no-op. It was three
      * 48px track rows - a 10px `.t-label`, its 6px margin, a 32px pip row -
-     * inside a 428x245 panel; it is 94px of grid inside a 428x175 one, and the
-     * 70px go to `DualityRoll` below it. A cockpit cell is (402 - 6) / 2 = 198
-     * wide, so the value target is 102x44 against the phone's 76.5x44.
+     * inside a 428x245 panel; it is 102px of grid inside a 428x183 one, and 62
+     * of the original 70 still go to `DualityRoll` below it. The eight that
+     * stayed behind are `--counter-cell`'s step, which every cockpit width
+     * answers: the cell height is one constant for both layouts, and a height
+     * prop here would leave the cockpit clipping a 26px number by a pixel.
+     * A cockpit cell is (402 - 6) / 2 = 198 wide, so the value target is
+     * 102x48 against the phone's 85.5x48 at 393.
      */
     seed();
     render(createElement(Vitals, { stats: playedStats(), layout: 'desktop', showState: false }));
@@ -574,15 +627,23 @@ describe('where the numbers are allowed to be', () => {
       4,
     );
     for (const c of [...deskGrid.children] as HTMLElement[]) {
-      expect(c.style.minHeight, 'a cockpit counter cell is below the touch floor').toBe('44px');
+      // The cockpit is drawn at 1180 and up, so it answers `--counter-cell`'s
+      // 390 step as well and its cells are 48. That is what the token being a
+      // width query buys over a phone branch: one arithmetic, both layouts.
+      expect(
+        resolve(c.style.minHeight, { glass: 1280, coarse: false }),
+        'a cockpit counter cell is below the touch floor',
+      ).toBe(48);
     }
   });
 
   /*
    * The one thing that would take the saving back without failing anything
-   * else: a value line that wraps. The cell is 44px tall by declaration and
-   * two lines of 10 + 20 fit inside it; a third line does not, and four cells
-   * each one line taller is the 100px back.
+   * else: a value line that wraps. The cell is `--counter-cell` tall by
+   * declaration - 48 on the owner's phone, 44 below 390 - and two lines fit
+   * inside it either way: 13 + 2 + 26 = 41 into 46 of inner at 48, and the
+   * older 10 + 20 into 42 at 44. A third line does not fit in either, and four
+   * cells each one line taller is the 100px back.
    */
   it('holds the readout on one line, whatever the font does', () => {
     render(<Counter kind="stress" label="STRESS" value={12} max={12} onChange={() => {}} />);

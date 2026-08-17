@@ -141,10 +141,15 @@ export function Vitals({
        * draws twelve targets - a value and two steppers per cell - and every
        * one of them is 44x44 or larger, in both directions, for the first time.
        *
-       * THE PHONE DOES NOT MOVE A PIXEL. Numbers were already the default:
-       * 2x44 plus one 6px gap is **94px**, against 194 for four full-width
-       * rows, and that hundred is most of what puts the rest of the sheet on
-       * the glass. What is deleted is the reachable 194px shape, which was the
+       * THE PHONE MOVES EIGHT PIXELS, AND THEY ARE THE ONLY ONES THE REFLOW
+       * SPENDS. Numbers were already the default: 2x44 plus one 6px gap was
+       * **94px**, against 194 for four full-width rows, and that hundred is
+       * most of what puts the rest of the sheet on the glass. The cell is
+       * `--counter-cell` now - 48 from viewport 390 up, 44 below - so this
+       * block is **102** on the owner's phone and 94 on a 360px Android, and
+       * the eight pixels buy a 26px value where it was 22. They are exactly
+       * what the defence band above returned in the same pass, so the block
+       * grows upward and its lower edge does not move. What is deleted is the reachable 194px shape, which was the
        * single dearest state the Play budget could not see. A cell is
        * (glass - 24 - 6) / 2 - 181.5 at 393 and 172.5 at 375 - of which 88 is
        * the two steppers and 8 the gutters, so the value target is 85.5 and
@@ -154,29 +159,39 @@ export function Vitals({
        * was 428x245: `.panel` border 2, padding 12 twice, three 48px track rows
        * (a 10px `.t-label`, its 6px margin, a 32px pip row), three 10px panel
        * gaps, and 45 for the damage box below (1px hairline, 10px of padding,
-       * `--control` at 34). It is **428x175** now - 2 + 24 + 44 + 6 + 44 + 10 +
-       * 45 - so **70px go back** to `DualityRoll`, the only other child of that
-       * column, which is `flex: 1, minHeight: 0, overflow: hidden` and is the
-       * panel this repo has already measured crushed to 45px at 744x1133.
+       * `--control` at 34). It is **428x183** - 2 + 24 + 48 + 6 + 48 + 10 + 45,
+       * measured in Chrome at 1280x800 - so **62px go back** to `DualityRoll`,
+       * the only other child of that column, which is `flex: 1, minHeight: 0,
+       * overflow: hidden` and is the panel this repo has already measured
+       * crushed to 45px at 744x1133.
+       *
+       * (It was 175, and the eight pixels are `--counter-cell`'s step at 390,
+       * which every cockpit width answers. `Counter`'s cell height is one
+       * constant for both layouts and the desktop follows it: a height prop
+       * here would leave the cockpit clipping a 26px number by a pixel, and
+       * taking 8 out of the 70 this block already gave away is the smaller
+       * lie.)
        *
        * WHAT A COCKPIT CELL IS. The middle column is `minmax(360px, 428px)` and
        * takes its 428 at every width the cockpit is drawn at: 1180 less 40 of
        * root padding and 36 of gaps is 1104, less column one's 336, leaves 340
        * for the `1fr`. Inner width is 428 - 2 - 24 = 402, so a cell is
        * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 4 - 4 =
-       * **102x44**. Less `padding: 0 5px` and 2px of border that is 90px of
-       * room for the 60.61px value line at `--counter-num`'s 22px, against the
-       * phone's 8.91 at 375, where the token steps down to 18. The
-       * steppers stay at `Counter`'s hard-coded 44 rather than following
-       * `--control` down to 34, for the reason `tokens.css` gives beside
-       * `--pip-h`: a touchscreen laptop at 1180px and up reports `pointer:
-       * fine` with a finger on the glass.
+       * **102x48** - the steppers grew in height only, so this width did not
+       * move. Less `padding: 0 5px` and 2px of border that is 90px of room for
+       * the **68.94px** value line at `--counter-num`'s 26px over an 11px
+       * maximum, measured in Chrome at 1280x800 with the `wizard10` fixture at
+       * full Hit Points, against the phone's 4.56 of slack at 393. The steppers
+       * stay at `Counter`'s 44 of width rather than following `--control` down
+       * to 34, for the reason `tokens.css` gives beside `--pip-h`: a
+       * touchscreen laptop at 1180px and up reports `pointer: fine` with a
+       * finger on the glass.
        *
        * READ VERSUS TOUCH, AND WHAT THE COCKPIT LOSES. The readout stops being
        * a 32px silhouette read as a shape and becomes two digits at 800
-       * `--counter-num` Archivo - 22px here, because the token's one step is a
-       * `min-width: 380px` and every cockpit width answers it - with the 13px
-       * mark still saying which track it is. Three
+       * `--counter-num` Archivo - 26px here, because the token's two steps are
+       * `min-width` queries at 380 and 390 and every cockpit width answers both
+       * - with the 13px mark still saying which track it is. Three
        * things go with the pips and none of them is hidden: a pip row sets any
        * value in one click where a number is one `+` per point or three
        * gestures; the press-and-hold that cleared a track has no `Counter`

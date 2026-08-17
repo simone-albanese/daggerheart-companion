@@ -340,21 +340,52 @@ describe('the pip tokens', () => {
    * whole reason the size is a token at all is that `Counter` sets its font
    * inline, which no stylesheet rule can override.
    */
-  it('steps the counter number by width, once, and never by pointer', () => {
+  it('steps the whole counter cell by width, twice, and never by pointer', () => {
     expect(tokensCss, '--counter-num is not defined at all').toMatch(/--counter-num:\s*18px/);
     const rootBlock = /:root\s*\{[\s\S]*?\n\}/.exec(tokensCss)?.[0] ?? '';
     expect(rootBlock, 'the base size is not on :root, so a width nobody anticipated gets nothing').
       toMatch(/--counter-num:\s*18px/);
+    /*
+     * AND THE OTHER TWO TERMS OF THE CELL ARE ON :root WITH IT, WHICH IS THE
+     * REFLOW'S ADDITION. `--counter-cell` is the cell's height and the
+     * stepper's, `--counter-max` is the size of the `/ 11` beside the value,
+     * and all three are one measurement: 26 needs 4px more cell to sit in and
+     * the maximum is half of what the value says. A base that is not the small
+     * size would hand a width nobody anticipated the size that clips.
+     */
+    expect(rootBlock, 'the counter cell height is not a token at all').toMatch(
+      /--counter-cell:\s*44px/,
+    );
+    expect(rootBlock, 'the counter maximum is not a token at all').toMatch(
+      /--counter-max:\s*10px/,
+    );
 
     const widthSteps = tokensCss.match(/@media[^{]*min-width:[^{]*\{[\s\S]*?\n\}/g) ?? [];
     const raising = widthSteps.filter((rule) => /--counter-num:/.test(rule));
     expect(
       raising.length,
-      'the counter number is stepped by more than one width query. One step is the whole ' +
-        'design: two sizes, both measured against the cell they have to fit',
-    ).toBe(1);
+      'the counter number is stepped by some number of width queries other than two. Two is ' +
+        'the whole design: three sizes, each measured against the cell it has to fit - 18 ' +
+        'below 380, 22 at 380, 26 at 390 with the cell and the maximum stepping with it.',
+    ).toBe(2);
     expect(raising[0]).toMatch(/min-width:\s*380px/);
     expect(raising[0]).toMatch(/--counter-num:\s*22px/);
+    expect(raising[1]).toMatch(/min-width:\s*390px/);
+    expect(raising[1]).toMatch(/--counter-num:\s*26px/);
+    /*
+     * The three raises are in ONE query and it is the same one. A 26px number
+     * in a 44px cell has 1px of margin, and a 26px number beside an 11px
+     * maximum in a cell that did not grow clips its own tail - measured, 68.94
+     * of ink into 65.5 of room. Splitting them is how that ships.
+     */
+    expect(
+      raising[1],
+      'the cell height stopped stepping with the number it exists to hold',
+    ).toMatch(/--counter-cell:\s*48px/);
+    expect(
+      raising[1],
+      'the maximum stopped stepping with the value it is half of',
+    ).toMatch(/--counter-max:\s*11px/);
 
     /*
      * And not in either pointer query. A mouse-only 1280px desktop draws this
@@ -364,7 +395,11 @@ describe('the pip tokens', () => {
      */
     const pointerBlocks = tokensCss.match(/@media[^{]*pointer:\s*coarse[^{]*\{[\s\S]*?\n\}/g) ?? [];
     expect(pointerBlocks.length).toBeGreaterThan(0);
-    for (const rule of pointerBlocks) expect(rule).not.toMatch(/--counter-num:/);
+    for (const rule of pointerBlocks) {
+      expect(rule).not.toMatch(/--counter-num:/);
+      expect(rule).not.toMatch(/--counter-cell:/);
+      expect(rule).not.toMatch(/--counter-max:/);
+    }
   });
 
   /**

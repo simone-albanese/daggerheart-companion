@@ -29,6 +29,7 @@ import type { Character } from '@shared/types.ts';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
+import { NARROW, PHONE, px as resolve } from './tokens.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -480,13 +481,21 @@ describe('the whole sheet, at 393x852', () => {
     expect(stuck, 'these folds are still shut, so the sweeps below never saw them').toEqual([]);
   }
 
-  /** A declared length in px. Tokens resolve as they do below 1180px. */
-  function px(value: string): number {
-    if (value === 'var(--tap)' || value === 'var(--control)' || value === 'var(--pip-h)') return 44;
-    if (value === '') return 0;
-    const n = Number.parseFloat(value);
-    return Number.isFinite(n) ? n : 0;
-  }
+  /**
+   * A declared length in px, as this phone resolves it.
+   *
+   * PHONE is 393 and coarse, which is the glass this whole describe names, and
+   * `tokens.ts` reads the values out of `tokens.css` instead of listing them
+   * here. The three lines that used to sit in their place - `var(--tap)`,
+   * `var(--control)` and `var(--pip-h)` all answered 44 - were a copy of the
+   * stylesheet maintained by hand beside it, which is the arrangement where
+   * the stylesheet moves and the sweep goes on passing.
+   *
+   * It matters more since the reflow, because `--counter-cell` is the first
+   * token in this file that is NOT 44 everywhere: 48 at 393 and 44 at 320. A
+   * hand-written map has to be told that; a resolver is simply asked.
+   */
+  const px = (value: string): number => resolve(value, PHONE);
 
   it('has no target under the touch floor', () => {
     play(seed());
@@ -885,9 +894,17 @@ describe('the trait row and the roll surface', () => {
  * that stands beside it was taken in Chrome on a dev server with the harness's
  * `played` and `wizard10` fixtures at 320, 344, 356, 360, 368, 375, 393 and 744:
  * the distance from the top of the defence band to the bottom edge of the
- * lineage header is **618.0** at every width from 356 up, which is this table's
- * `SHEET_BOTTOM` to the pixel, and 710 at 344 and 320, where the trait row and
- * the damage cell each reflow onto a second line.
+ * lineage header was **618.0** at every width from 356 up, which was this
+ * table's `SHEET_BOTTOM` to the pixel, and 710 at 344 and 320, where the trait
+ * row and the damage cell each reflow onto a second line.
+ *
+ * That measurement is the reflow's BASELINE rather than its result. Four steps
+ * have landed against it - ROLL's own height back to its content, eight pixels
+ * of padding out of the defence band, the trait chip down to the floor, and the
+ * counter number up to 26 - and they net to 24, so the table now sums to 594.
+ * The measurement above has not been retaken at 594; it is kept because it is
+ * what the arithmetic was calibrated against, and the day somebody re-measures
+ * in Chrome this is the line that says what to compare against what.
  *
  * THE HORIZONTAL BUDGET IS ITS OWN DESCRIBE, BELOW. This one is written for
  * 393x852 and 375x667 and says nothing about width; «the width this sheet is
@@ -957,7 +974,19 @@ describe('the budget the pin came off for', () => {
     // the identity block, and the band did not grow for either.
     { what: 'the defence band · the door and the field, inside the 64 already spent', px: 0, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
-    { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
+    /*
+     * The one term the reflow SPENDS, and it is read out of `tokens.css` rather
+     * than written here. `--counter-cell` is 48 from viewport 390 up and 44
+     * below, so this block is 102 on the glass this table is written for and 94
+     * on a 360px Android - and the eight pixels are exactly what the defence
+     * band above returned in the same pass, which is why the counters grow
+     * upward and everything below them stays where it was.
+     */
+    {
+      what: 'the four counters, a 2x2 grid, both rows at --counter-cell',
+      px: 2 * resolve('var(--counter-cell)', PHONE),
+      from: 'dom',
+    },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     // 44 since the reflow. Decision 5 stacked the abbreviation over the value
@@ -1021,7 +1050,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 274').toBe(274);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 282').toBe(282);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1030,19 +1059,23 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(456);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(448);
   });
 
   /*
-   * The small phone, where the slack used to be ten pixels and is now 160.
+   * The small phone, where the slack used to be ten pixels and is now 263.
    *
    * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
-   * and that ten was the number the grid was bought with. It asserts the 160,
-   * so that anything spending 161 fails here with the arithmetic in front of it
-   * rather than being found on somebody's phone. The docblock above lists five
-   * ordinary states this table cannot see, and the dearest of them - typed
-   * dice, at +68 - still leaves 92. It was six, and the dearest was pips at
-   * +100 leaving 60, until decision 7 took the pip tracks off this sheet.
+   * and that ten was the number the grid was bought with. The reflow's four
+   * landed steps moved it again - ROLL's lower edge from 306 of the column to
+   * 282, which is the 24px lift the whole plan was chosen for - so the margin
+   * here is 263. It asserts that number, so anything spending 264 fails with
+   * the arithmetic in front of it rather than being found on somebody's phone.
+   *
+   * The docblock above lists five ordinary states this table cannot see, and
+   * the dearest of them - typed dice, at +68 - leaves 195. It was six, and the
+   * dearest was pips at +100, until decision 7 took the pip tracks off this
+   * sheet.
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
@@ -1052,7 +1085,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(271);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(263);
   });
 
   /*
@@ -1071,12 +1104,14 @@ describe('the budget the pin came off for', () => {
    * and the slack, and fails the moment the sheet stops fitting. Measured in
    * Chrome at 393x852 with the `playedCharacter` fixture, every fold shut: 697.
    *
-   * 375x667 IS STILL A MISS AND IS STILL STATED. The small phone is 152px over,
-   * where it was 204. The owner accepted that in advance and no arrangement of
-   * this sheet closes it: 152px is three fold headers, and there are only six.
+   * 375x667 IS STILL A MISS AND IS STILL STATED, and the reflow has brought it
+   * within sight. The small phone is 49px over, where it was 204 and then 152.
+   * That is one fold header and its gap - so for the first time the miss is
+   * something an arrangement of this sheet could close, rather than the three
+   * headers out of six it used to be.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(586);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(594);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1087,12 +1122,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(144);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(136);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(41);
+    ).toBe(49);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -1108,7 +1143,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(486);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(478);
   });
 
   /*
@@ -1139,7 +1174,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([271, 327]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([279, 335]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1147,25 +1182,40 @@ describe('the budget the pin came off for', () => {
      * the 95th-percentile comfortable sweep at these widths is about 330px;
      * both of these are outside it, which the comment on `<DualityRoll>` now
      * says in those words rather than claiming the opposite.
+     *
+     * THE REFLOW LIFTED ROLL AND THIS IS WHERE THAT IS PAID FOR. It was
+     * 493-559 above the bezel at 393x852 and is 517-573: 24px further from the
+     * thumb, the cost of giving ROLL its own content's height back and taking
+     * eight pixels of padding out of the band above it. That 24 is the
+     * smallest lift of the three plans that were costed and it is why this one
+     * was chosen; the two that reached further up were refused for it.
+     *
+     * At 375x667 the lower edge is now 332 against that ~330 sweep, which is
+     * to say it has just left it. The figure is a published percentile and not
+     * a measurement of this owner's hand, and there is a second, sharper
+     * uncertainty beside it: in a Safari tab the browser's own bottom toolbar
+     * sits below the viewport, roughly 130px of glass, and whether that counts
+     * as reach nobody has measured. 130px is larger than anything this reflow
+     * trades, so it is named here rather than assumed either way.
      */
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([525, 581]);
+    ).toEqual([517, 573]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([340, 396]);
+    ).toEqual([332, 388]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
-     * was 8px above a 98x60 control that navigates away mid-turn. It is 353px
+     * was 8px above a 98x60 control that navigates away mid-turn. It is 456px
      * clear of it now.
      */
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(464);
+    ).toBe(456);
   });
 
   /*
@@ -1316,8 +1366,14 @@ describe('the budget the pin came off for', () => {
       'minmax(0, 1fr) minmax(0, 1fr)',
     );
     expect(grid.style.gap, 'the gap inside the counters grid moved').toBe('6px');
-    const rows = [...grid.children].filter((el) => (el as HTMLElement).style.minHeight === '44px');
-    expect(rows, 'the four counter cells no longer declare 44px each').toHaveLength(4);
+    const rows = [...grid.children].filter(
+      (el) => (el as HTMLElement).style.minHeight === 'var(--counter-cell)',
+    );
+    expect(rows, 'the four counter cells no longer declare `--counter-cell` each').toHaveLength(4);
+    // And the token is what the table above counted: 48 on this glass, 44
+    // below the 390 step, so this block is 102 here and 94 on a 360px Android.
+    expect(resolve('var(--counter-cell)', PHONE)).toBe(48);
+    expect(resolve('var(--counter-cell)', NARROW)).toBe(44);
     expect(
       counters.contains(damage),
       'the damage box is back inside the counters, where it costs 50px',
@@ -1327,9 +1383,9 @@ describe('the budget the pin came off for', () => {
     const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
     expect(chip.style.minHeight).toBe('44px');
     // By its label, not by its height: eight `Counter` steppers declare
-    // `height: 44` and every one of them is above ROLL in document order, so
-    // reading the budget's last term off "the first button with a height" would
-    // read it off a stepper and pass whatever ROLL did.
+    // `height: var(--counter-cell)` and every one of them is above ROLL in
+    // document order, so reading the budget's last term off "the first button
+    // with a height" would read it off a stepper and pass whatever ROLL did.
     const roll = buttons().find((b) => (b.textContent ?? '').includes('ROLL'))!;
     expect(
       roll.style.minHeight,

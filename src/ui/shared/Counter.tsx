@@ -17,7 +17,8 @@
  * those rows are 4x44 plus three 6px gaps: **194px**, a quarter of the usable
  * column on the owner's phone, spent on four numbers.
  *
- * They are a 2x2 grid now, which is **94px** - two rows and one gap - and the
+ * They are a 2x2 grid now, which is **102px** on the owner's phone and 94 below
+ * viewport 390 - two `--counter-cell` rows and one gap - and the
  * hundred pixels that buys is what puts the rest of the sheet on the glass. The
  * price is paid here, in this file, and it is the cushion. Measured in Chrome
  * with the shipped fonts, at the two widths that matter:
@@ -39,15 +40,18 @@
  * finger that was travelling somewhere else and had no way back.
  *
  * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
- * value line at two digits over two digits, and it is `--counter-num` that
- * decides how wide that is: measured in Chrome with the `wizard10` fixture at
- * full Hit Points, `11 / 11` is **60.61px at 22, 58.09 at 20 and 55.59 at 18**.
+ * value line at two digits over two digits, and it is `--counter-num` and
+ * `--counter-max` that decide how wide that is: measured in Chrome with the
+ * `wizard10` fixture at full Hit Points, `11 / 11` is **68.94px at 26 over an
+ * 11px maximum**, 60.61 at 22 over 10, 58.09 at 20 and 55.59 at 18.
  * The label line is `13px` of silhouette, a 4px gap and `STRESS` at `.t-label`
  * with the tracking this file sets, which is **57.81px**. The target the grid
  * hands the value is 85.5 at 393, 76.5 at 375, 69 at 360, 61 at 344 and 49 at
- * 320, less 10px of padding and 2px of border - so the number has 73.5 of room
- * at 393 against 60.61 of ink, and 64.5 at 375 against 55.59, because the token
- * steps down to 18 below 380. It is `nowrap` and `overflow: hidden` on purpose:
+ * 320 - unchanged by the reflow, because the steppers grew in height and not in
+ * width - less 10px of padding and 2px of border. So the number has 73.5 of
+ * room at 393 against 68.94 of ink, 4.56 of slack; 72 at 390 against the same,
+ * 3.06; and 64.5 at 375 against 55.59, because both tokens step down below
+ * 390. It is `nowrap` and `overflow: hidden` on purpose:
  * where the room does run out - the label at 360, both lines at 344 and below -
  * the tail clips inside a target that keeps its declared size, and the cell does
  * not wrap onto a second line and take the whole budget with it.
@@ -71,8 +75,50 @@ interface Props {
   labelColor?: string;
 }
 
-/** The touch floor. Both steppers and the value target are all at least this. */
+/** The touch floor. Nothing in this file is ever declared under it. */
 const TAP = 44;
+
+/**
+ * The height of a counter cell and the side of a stepper - a token, not a
+ * number, for the same reason `--counter-num` is one.
+ *
+ * `--counter-cell` is the cell's HEIGHT: 44 - the floor, which is what shipped
+ * - and **48 from viewport 390 up**, where `--counter-num` steps to 26. The
+ * four pixels are bought rather than taken. The value in this cell is the
+ * number the screen exists for during a fight and it was 22px: BELOW the 30px
+ * roll total and two pixels above the `+` you press to change it. At 26 the
+ * cell's content is a 13px label row, a 2px gap and a 26px line - 41 - which is
+ * 1px inside a 44px cell's 42 of inner and 5px inside a 48's 46. One pixel is a
+ * coincidence, not a margin, which is the standard `tokens.css` already holds
+ * `--counter-num`'s own step to.
+ *
+ * HEIGHT AND NOT WIDTH, WHICH IS MEASURED AND IS THE OPPOSITE OF WHAT THE PLAN
+ * FOR THIS PASS ASSUMED. Growing the steppers to 48 square takes 8px out of the
+ * value target beside them, and that is exactly the room the raise needs:
+ * measured with the `wizard10` fixture at full Hit Points, `11 / 11` at 26 over
+ * 11 is **68.94px** of ink against **73.5** of room with 44px-wide steppers and
+ * **65.5** with 48px ones - so the wider stepper clips the number the wider
+ * stepper was supposed to be paying for. The steppers are 44x48: taller, not
+ * wider, at the floor in both directions, +9% of area on the eight most-pressed
+ * controls on the sheet, and the four value targets go 85.5x44 -> 85.5x48.
+ *
+ * AND BELOW 390 NOTHING MOVES AT ALL. At 360 the value target is 69 wide, 57 of
+ * room, and the same three raises would put 58.91 of ink into it and clip a
+ * number a player reads. So the cell is 44 there, the maximum 10 and the number
+ * 18, exactly as it shipped - and the arithmetic that decides it lives in
+ * `tokens.css` beside `--control` and `--pip-h` rather than in a breakpoint
+ * this file invented.
+ *
+ * The eight pixels the block costs at 393 are exactly what the defence band
+ * above it returned in the same pass, so the counters grow UPWARD into them and
+ * their lower edge does not move. That is deliberate: everything below this
+ * block is either read (the traits) or aimed at blind (ROLL).
+ *
+ * The entry row uses it too, so a cell being typed into is the same height as
+ * the three beside it and the grid does not jump under the finger that opened
+ * it.
+ */
+const CELL = 'var(--counter-cell)';
 
 /**
  * The gutter between the value target and the first stepper, and between the
@@ -152,7 +198,7 @@ export function Counter({
       // `minWidth: 0` for the same reason the readout row below carries it: a
       // grid item's automatic minimum is its min-content, and this row's is a
       // 44px field plus `/ 12` plus two 44px buttons. See `Vitals`'s note.
-      <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
+      <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: CELL }}>
         <input
           ref={field}
           type="number"
@@ -169,7 +215,7 @@ export function Counter({
           style={{
             flex: 1,
             minWidth: 0,
-            minHeight: TAP,
+            minHeight: CELL,
             padding: '0 4px',
             textAlign: 'center',
           }}
@@ -182,7 +228,7 @@ export function Counter({
           className="btn btn-primary"
           aria-label={`Set ${label}`}
           onClick={commit}
-          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 6px' }}
+          style={{ flex: 'none', minWidth: TAP, minHeight: CELL, padding: '0 6px' }}
         >
           SET
         </button>
@@ -191,7 +237,7 @@ export function Counter({
           className="btn"
           aria-label={`Leave ${label} at ${String(value)}`}
           onClick={() => setTyping(null)}
-          style={{ flex: 'none', minWidth: TAP, minHeight: TAP, padding: '0 6px' }}
+          style={{ flex: 'none', minWidth: TAP, minHeight: CELL, padding: '0 6px' }}
         >
           ×
         </button>
@@ -211,7 +257,7 @@ export function Counter({
      * the one thing in the cell designed to absorb it. `Vitals` has to declare
      * `minmax(0, 1fr)` as well; neither alone does anything.
      */
-    <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: TAP }}>
+    <div className="row" style={{ gap: GUTTER, minWidth: 0, minHeight: CELL }}>
       {/*
        * The value, and the target that types it.
        *
@@ -236,7 +282,7 @@ export function Counter({
         style={{
           flex: '1 1 auto',
           minWidth: TAP,
-          minHeight: TAP,
+          minHeight: CELL,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -268,7 +314,8 @@ export function Counter({
             style={{
               // `--counter-num`, not a literal: this size is decided by how wide
               // the grid track is, and the token is where that arithmetic and
-              // its one breakpoint live. 22px at 380 and up, 18 below.
+              // its two breakpoints live. 26px at 390 and up, 22 at 380, 18
+              // below.
               font: '800 var(--counter-num)/1 var(--sans)',
               color: shape.color,
               fontVariantNumeric: 'tabular-nums',
@@ -276,7 +323,18 @@ export function Counter({
           >
             {value}
           </span>
-          <span className="t-meta" style={{ color: 'var(--dim)' }}>
+          {/*
+           * The maximum, at `--counter-max`: 11 from 390 up, `.t-meta`'s 10
+           * below.
+           *
+           * Nobody reads a marked count on its own: `3` means nothing and
+           * `3 / 6` means everything, so this half of the value is read exactly
+           * as often as the other half and was drawn at the smallest size on
+           * the sheet. It grows with the number rather than being left behind
+           * by it - and it steps with the number, because the 3.32px it adds is
+           * 3.32px the narrow cell does not have.
+           */}
+          <span className="t-meta" style={{ fontSize: 'var(--counter-max)', color: 'var(--dim)' }}>
             {' '}
             / {max}
           </span>
@@ -302,10 +360,21 @@ export function Counter({
 /**
  * One stepper button.
  *
- * Square at the touch floor in both directions - a 44px-tall button 22px wide
+ * At or above the touch floor in both directions - a 44px-tall button 22px wide
  * is not a 44px target, and these two sit next to each other, which is the
  * arrangement where a near miss lands on the opposite control rather than on
  * nothing.
+ *
+ * 44x48 since the reflow, and the asymmetry is the point: the cell grew taller
+ * to carry a 26px number and the stepper takes that height for free, +9% of
+ * area on the eight most-pressed targets on the sheet for nothing extra. It
+ * does NOT take the matching width. 48 square would read tidier and would cost
+ * 8px of the value target beside it - 73.5 of room falling to 65.5 against
+ * 68.94 of measured ink - so the button would clip the number it was widened to
+ * serve. Tidy loses to measured here.
+ *
+ * The glyph stays at 20. It is a pure target: a finger aims at the button, not
+ * at a minus sign.
  */
 function Step({
   label,
@@ -325,9 +394,22 @@ function Step({
       disabled={disabled}
       onClick={onPress}
       style={{
+        // `flex: none` is load-bearing and not tidiness: without it these two
+        // are shrinkable, and at 360 the STRESS cell's flex line is 0.5px over
+        // its 165px track, so both steppers measured 43.75 - under the declared
+        // floor, on the commonest Android viewport there has ever been. The
+        // harness caught it; it is here so nothing takes it out again.
         flex: 'none',
+        // Width is the FLOOR and height is the cell, and the asymmetry is
+        // measured rather than tidy. Four pixels of stepper width is eight
+        // pixels out of the value target beside them, and at 393 that is the
+        // difference between 73.5px of room for `11 / 11` at 26 over 11 - which
+        // measures 68.94 - and 65.5, which clips its tail. So the steppers grow
+        // on the axis the cell has spare and not on the one the number is
+        // fighting for: 44x48 is still square-enough at the floor in both
+        // directions, which is the property this button exists to hold.
         width: TAP,
-        height: TAP,
+        height: CELL,
         borderRadius: 'var(--r3)',
         background: 'var(--raised)',
         color: 'var(--text)',
