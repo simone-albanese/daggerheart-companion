@@ -2,18 +2,19 @@
 
 Everything below is true at `HEAD` on `main`, with every lane of this pass
 merged. The tree is clean, `npx tsc --noEmit` is clean, and the suite is
-**2284 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
+**2289 passing in 96 files** — measured at `HEAD`, not remembered. For scale:
 1333 in 62 at the start of the session that opened P5, 1947 in 89 when P5-2 was
 called done, 2230 in 96 when the five lanes were merged, 2237 after the seven
 tests the honesty pass below added, 2247 after P5-5's first commit replaced the
 eight assertions that pinned the Play screen's pinned block, 2252 with P5-5
 finished, 2255 after the verifier pass on P5-5, 2266 with P5-6 — the three
 savings that close the reflow, plus the sweep that catches the defect P5-6
-found by rendering the screen instead of summing it — and 2284 with P5-7, the
-licence notice at the end of every screen's scroll.
+found by rendering the screen instead of summing it — 2284 with P5-7, the
+licence notice at the end of every screen's scroll, and **2289 with P5-8**,
+which is the pass that finally made the whole folded sheet fit.
 
 **Push state, re-measured rather than remembered.** `origin/main` is at
-`dd66d35`, which is twenty-two commits behind `main` — `git rev-list --count
+`dd66d35`, which is twenty-six commits behind `main` — `git rev-list --count
 origin/main..HEAD`, counting the commit that wrote this line, because a
 handoff's own edit moves this number and the last one was left one short — so
 the "nothing is pushed,
@@ -60,12 +61,26 @@ repository says it is.
   own docblock what it can and cannot prove: jsdom has no layout engine, so it
   sums declared heights and never measures. **Anything added to that column has
   to go through it.** The margin at 375×667 is 160px, where P5-5 had ten and had
-  to defend it; the only ordinary state that still costs more than the margin is
-  pips (+149). The same describe records the number that is not flattering: the
-  folded sheet is **749 against 730**, so "the whole sheet in one look" misses
-  at 393×852 by **19px** and fits only at 744×1133, with 323 to spare. P5-6 in
-  `BACKLOG.md` says exactly what those 19 are — the 52 that folding the
-  conditions away did not save — and names the door that would buy them.
+  to defend it, and since P5-8 **no** ordinary state the budget cannot see costs
+  more than it: the dearest is pips, and pips are **+100** and not the +149 that
+  four documents carried — measured in Chrome, the Vitals block is 94 as numbers
+  and 194 as pips, nothing wraps at either width, and with pips ROLL lands at
+  485 of 545 with 60 to spare.
+
+  **And since P5-8 the whole folded sheet fits: 697 against 730 at 393×852,
+  with 33px to spare.** That is the first time, and it is the condition P5-5's
+  own decision 1 made the unpinning conditional on — 899 at P5-5, 749 at P5-6,
+  697 now. It fits at 744×1133 with 375 to spare and is still **152px over at
+  375×667**, which no arrangement closes: 152 is three fold headers and there
+  are six. The last 52 came from the conditions and nowhere else, exactly as
+  P5-6 said it would have to: nothing is drawn while nothing is on, and the
+  permanent door is a 44×44 `ConditionsControl` in the identity's class row,
+  where RENAME already holds the band open at 44. The assertion that used to
+  state the miss now states the fit and the slack, so it fails when the sheet
+  stops fitting. **One thing it does not cover:** a home-indicator iPhone
+  installed as a PWA pays a 34px `env(safe-area-inset-bottom)`, which takes the
+  column to 696 and the fit to one pixel over. Nobody has measured that inset on
+  the owner's own phone.
 
   **Two of that describe's assertions are now backed by a layout engine and not
   only by arithmetic.** P5-6 rendered the sheet in Chrome through
@@ -78,15 +93,15 @@ repository says it is.
   through it. The sweep «lets no section of the column shrink instead of
   scrolling» is the guard now.
 
-  **The column has thirteen children since P5-7, and the thirteenth is outside
-  the budget on purpose.** It is the licence notice, and it is the one thing on
-  this screen a player never has to reach: it sits below the last shut fold, so
-  it moves no term of `STACK`, no term of `INDEX` and neither total. The test
-  pins that it is *last* and that it is a `<footer>`, because "outside the
-  budget" has to stay a statement about that one element rather than a hole
-  anything else can be dropped into. Rendered again through `preview.html` at
-  all three widths after the move: every section still at its declared height,
-  385 and 749 unchanged, the notice running 775→901.
+  **The column has twelve children with a clear sheet, and the twelfth is
+  outside the budget on purpose.** It is the licence notice, and it is the one
+  thing on this screen a player never has to reach: it sits below the last shut
+  fold, so it moves no term of `STACK`, no term of `INDEX` and neither total.
+  The test pins that it is *last* and that it is a `<footer>`, because "outside
+  the budget" has to stay a statement about that one element rather than a hole
+  anything else can be dropped into. It was thirteen until P5-8; the conditions
+  strip is the thirteenth again the moment a condition is on, in its own slot
+  below Rest, and the sheet is back to 749 while it is.
 - **The licence notice is the last thing in every screen's own scroll, and it is
   not negotiable against pixels.** That is P5-7, and it is the second time this
   defect has been fixed: the first fix gave the shell a footer, the footer was a
@@ -333,19 +348,22 @@ than bought:
   105px clear of `−` and now stands 4, because 88 of a 172.5px cell is the two
   steppers. Both mistakes that allows are recoverable and neither is silent.
   Pips deliberately do **not** get the grid — a 12-box track in a 172px cell
-  wraps under WCAG's 24px floor — so they keep the full width and are now the
-  single most expensive thing the budget cannot see, at +149.
+  wraps under WCAG's 24px floor — so they keep the full width and are the
+  dearest thing the budget cannot see, at **+100**: 194 as pips against 94 as
+  numbers, measured in Chrome, nothing wrapping at either reference width. This
+  file said +149 in two places and so did `Play.tsx` and `Architecture.md`;
+  P5-8 corrected all four and turned the arithmetic into an assertion.
 - **The incoming-damage box is the fifth cell of the defence band**, worth 50
   rather than 46: a 44px field fits inside a row the number cells already hold
   open at 58, so the band did not grow at all. `IncomingDamage` came out of
   `Vitals` — the one component on the player's screen that writes Hit Points,
   and it had no surface test until this pass gave it four.
-- **The conditions strip is behind its own fold, and that saved nothing.** A
+- **The conditions strip went behind its own fold, and that saved nothing.** A
   shut `Disclosure` is 44px plus this column's 8px gap, which is exactly what
-  the strip was. It is a better row and not a cheaper one. So the folded sheet
-  is **749 against 730** — 19px over, which is the 52 that did not arrive less
-  the 33 the other two overshot by — and `BACKLOG.md` P5-6 names the door that
-  would buy it.
+  the strip was. It was a better row and not a cheaper one, so the folded sheet
+  came out **749 against 730** — 19px over, which is the 52 that did not arrive
+  less the 33 the other two overshot by. **P5-8 took the door P5-6 named** and
+  the fold is gone: see below.
 
 **And rendering it found a defect three passes of tests could not.** See the
 working rule above: the roll surface was the one child of the phone column
@@ -365,8 +383,8 @@ Play**. It is now the last thing in each screen's own scrolling content on all
 five. Three things a cold start should know about it:
 
 - **It costs the Play budget nothing and that is asserted, not assumed.** It is
-  below the last shut fold, so 385 and 749 are unchanged; the budget test counts
-  thirteen children now and pins the thirteenth as the last one and a
+  below the last shut fold, so 385 and (since P5-8) 697 are unchanged; the
+  budget test counts the column's children and pins the last one as a
   `<footer>`.
 - **`env(safe-area-inset-bottom)` is paid exactly once per screen**, and the
   prop that arranges it is `pinnedBelow` rather than `bottomMost` — each screen
@@ -380,6 +398,53 @@ five. Three things a cold start should know about it:
   reversed with their old text quoted in place: `attribution`'s "stays out of
   Play" and `gmShell`'s "is still pinned on Cards". Both were true and
   deliberate when written. Both are the opposite now.
+
+**Then P5-8 closed the last 19px and corrected three numbers the suite could not
+see** — `4b3d816`, `039b757`, `93a3e91`. An independent verifier measured the
+built screen in Chrome and found four things; all four are closed.
+
+- **The whole folded sheet fits, for the first time: 697 of 730 at 393×852, 33
+  to spare.** The conditions are not a permanent row any more — nothing is drawn
+  while nothing is on, which is decision 6's shape on a second surface — and the
+  door that pays for it is `ConditionsControl`, 44×44 at the end of the
+  identity's class row beside RENAME, in a band RENAME already holds open at 44.
+  It costs the column zero and it costs the class cell 52 of its width, which
+  leaves the fixture's line 111px of slack at 393 and 93 at 375 before it wraps.
+  Nothing was shaved. **The rule this could have broken and does not:** the
+  moment anything is on — the Vulnerable full Stress derives included — the
+  strip is back in its own slot naming it, and the control fills in, counts it
+  and reads it out in its accessible name. A condition is a state the GM
+  inflicted; the sheet may never be silent about one. Five behavioural
+  assertions cover that, each proved by mutation. The desktop cockpit is
+  untouched: one `role="group" aria-label="Active conditions"`, one door.
+- **`PlayPhone`'s comment above `<DualityRoll>` was 150px stale and its
+  conclusion had inverted.** It read "y522-588 … 264 to 330px up from the bottom
+  bezel — inside a 95th-percentile right-thumb sweep of about 330px". Measured:
+  the ROLL row is y372-438 on the glass, **414 to 480px above the bezel** at
+  393×852 and 229-295 at 375×667, and 353px clear of the tab bar. At 414-480 it
+  is *outside* the arc the comment cited to say it was inside — so unpinning
+  plus the grid moved ROLL further from a one-handed thumb on the larger phone,
+  which is a real cost of what was asked for and is now written as one. The
+  verdict is written down too: the trade stands, because the column scrolls and
+  the reach is the player's to choose at the moment of rolling, while 88px of
+  pinned chrome was nobody's. «says where on the glass ROLL is drawn» derives
+  all six numbers from the budget table so they cannot go stale again.
+- **Pips cost +100, not +149**, and the "144 base" they were computed from
+  contradicted `STACK`'s own 2×44 + 6 = 94. Measured in Chrome: 94 as numbers,
+  194 as pips, nothing wrapping at either width. The conclusion was wrong in the
+  other direction too — with pips ROLL lands at 485 of 545 at 375×667, 60px of
+  slack, where `Play.tsx` told the reader pips cost the small phone its margin.
+- **Three prose numbers in the budget's own docblock contradicted the assertions
+  below them**, all computed against an obsolete `ROLL_BOTTOM` of 435: the
+  safe-area bullet's 261/295 and 76/110 (they are 311/345 and 126/160), "went
+  from 10px to 110px" against an assertion of 160, and a "~171px cell" that
+  matches no width this sheet has.
+
+**The one thing P5-8 did not close, said plainly:** a home-indicator iPhone
+installed as a PWA pays a 34px `env(safe-area-inset-bottom)`, which takes the
+393×852 column from 730 to 696 and the 697 to **one pixel over**. The fit is a
+fit in a browser and is lost by a hair in the installed app. Nobody has measured
+that inset on the owner's own phone; it belongs in *Needs a human*.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was

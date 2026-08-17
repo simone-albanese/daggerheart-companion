@@ -2191,7 +2191,8 @@ The right-hand column is P5-6 below, which took 150px out of the counters: the
 four rows became a 2×2 grid and the damage box moved into the defence band,
 which did not have to grow for it. The three bullets under this table are the
 numbers **as P5-5 left them**, kept because the reversal was argued from them;
-P5-6 restates them.
+P5-6 restates them, and P5-8 takes the sheet from 749 to **697** by drawing the
+conditions only when there are any.
 
 - **393×852** — column 730. ROLL is above the fold with **195px to spare**. The
   whole folded sheet is **169px over**: the conditions strip and the last three
@@ -2253,18 +2254,16 @@ seen, all of them a sentence in the source that the code did not do.
 
 **Not done, and named rather than hidden:**
 
-- ~~**The conditions strip is still permanent**~~ — **behind its own fold,
-      `fcda966`, and it saved nothing.** See P5-6 below: a shut `Disclosure` is
-      44px plus this column's 8px gap, which is what the strip was. The fold is
-      still the better row — the shut header names what is on rather than
-      showing one filled chip among seven empty ones — but the **−52 this was
-      costed at is not available from a fold**, and the shape that would buy it
-      is still the one written here: draw nothing when nothing is on, with the
-      door somewhere that costs the column nothing. That door is still unplaced.
-      MODS is the wrong one for the reason given above, and the candidate P5-6
-      measured and did **not** take, because it is a decision and not an
-      implementation, is a 44×44 control at the end of the identity's class row
-      beside RENAME — a row that is already 44px tall, so it would cost zero.
+- ~~**The conditions strip is still permanent**~~ — **behind its own fold at
+      `fcda966`, which saved nothing; drawn only when something is on at
+      `4b3d816`, which saved the 52.** A shut `Disclosure` is 44px plus this
+      column's 8px gap, which is what the strip was, so the fold was the better
+      row and not the cheaper one and the **−52 was not available from a fold**.
+      P5-8 took the shape written here — draw nothing when nothing is on — and
+      paid for it with the door written here: a 44×44 `ConditionsControl` at the
+      end of the identity's class row beside RENAME, in a row already 44px tall,
+      costing the column zero. MODS stayed the wrong door for the reason given
+      above.
 - ~~**The incoming-damage box is not in the defence band**~~ — **done,
       `899fbeb`, and worth 50 rather than 46.** `IncomingDamage` came out of
       `Vitals`; the phone draws it as a fifth cell of the band and the desktop
@@ -2327,11 +2326,12 @@ tab bar − 8 foot.
   P5-5 left 195. The whole folded sheet is **19px over**: the bottom edge of the
   lineage header. The target was a fit and this is a miss, stated rather than
   bought — the 19 is exactly the 52 the conditions fold did not save, less the
-  33 the other two overshot by.
+  33 the other two overshot by. (P5-8 closed it: 697 of 730, 33 to spare.)
 - **375×667** — column 545. ROLL clears the fold **by 160px**, where P5-5 left
   ten and had to defend it. The whole sheet is 204px over, which the owner
-  accepted in advance. Of the states the budget cannot see, none now costs the
-  small phone its margin except pips (+149).
+  accepted in advance. Of the states the budget cannot see, ~~none now costs the
+  small phone its margin except pips (+149)~~ — **that exception was wrong and
+  P5-8 measured it: pips are +100 and leave 60, so nothing costs it.**
 - **744×1133** — column 1072. The whole folded sheet **fits with 323px to
   spare**.
 
@@ -2370,18 +2370,13 @@ because that property is the premise the whole budget rests on.
 
 **Not done, and named rather than hidden:**
 
-- [ ] **The last 19px, and the door that would buy them.** The conditions fold
-      is a better row than the strip and a free one; it is not a cheaper one.
-      The only shape that removes the 52 is decision 6's — draw nothing when
-      nothing is on — and that needs a permanent door somewhere that costs the
-      column no height. Two candidates, neither taken here because both are
-      placements and this pass was asked for a fold: a 44×44 control at the end
-      of the identity's class row, beside RENAME, in a row that is already 44px
-      tall and has the width spare at both reference widths; or the same
-      treatment MODS got, which the owner has already objected to on the grounds
+- ~~**The last 19px, and the door that would buy them**~~ — **taken, P5-8
+      below, `4b3d816`, and the folded sheet is 697 of 730 with 33px to spare.**
+      The door is the first of the two candidates named here: a 44×44 control at
+      the end of the identity's class row, beside RENAME. The second — the
+      treatment MODS got — stayed refused for the reason the owner already gave,
       that a condition is a state the GM inflicted rather than a modifier the
-      player declared. Taking either one lands the folded sheet at **697 of
-      730**, with 33px to spare.
+      player declared.
 - [ ] **The counter cell has no cushion between the value and the steppers, and
       that is the price of the grid rather than an oversight.** The full-width
       row put about 105px of dead space between them at 393; the cell has 4.
@@ -2502,6 +2497,140 @@ the literal appears anywhere in `src/`.
       was changed here; it is written down so the next reader does not
       "fix" it by deleting the copy the other one depends on.
 
+## ~~P5-8 · The last 19px, and three numbers that had stopped being true~~ — **done, `4b3d816`, `039b757`, `93a3e91`**
+
+An independent verifier measured the built screen in Chrome — not the declared
+heights, the drawn ones — and found four things. All four are closed, and the
+one that mattered was not the pixels.
+
+### 1 · The sheet fits
+
+**697 of 730 at 393×852, with 33px to spare.** Measured in Chrome with the
+`playedCharacter` fixture, every fold shut, through a harness that mounts `Play`
+inside a shell of the exact column height. This is the condition P5-5's own
+decision 1 put on taking the pin off — *"if the folded sheet does not fit above
+the tab bar at 393×852, the change has failed on its own terms"* — unmet at 899
+(P5-5) and 749 (P5-6) and met here.
+
+| | px |
+|---|---|
+| Identity, with the conditions control inside its class row | 91 |
+| gap | 8 |
+| the defence band, with the TOOK cell inside it | 58 |
+| gap | 8 |
+| the four counters, a 2×2 grid | 94 |
+| gap | 8 |
+| the trait row | 44 |
+| gap | 8 |
+| the ROLL row | 66 |
+| **ROLL's lower edge** | **385** |
+| six fold headers, with their gaps (6×44 + 6×8) | 312 |
+| **the whole folded sheet** | **697** |
+
+- **393×852** — column 730. ROLL clears the fold with 345px to spare, and the
+  whole sheet **fits with 33**.
+- **375×667** — column 545. ROLL clears by 160. The whole sheet is **152px
+  over**, where it was 204, and no arrangement of this sheet closes that: 152 is
+  three fold headers and there are six.
+- **744×1133** — column 1072. The whole folded sheet fits with **375** to spare.
+
+**Where the 52 came from, and it is the only place it could have.** P5-6's fold
+was 52 for 52 and the door it named is the one that was taken:
+`ConditionsControl`, 44×44 at the end of the identity's class row beside RENAME,
+in a band RENAME already holds open at 44. The strip is drawn only while
+something is on. **Nothing was shaved** — the column gap is still 8 and every
+section is the height it was — and the class row does not grow: measured, the
+class cell is 237px at 393 and 219 at 375, the fixture's line needs 125.6, so
+the control and its gutter take 52 and leave 111px and 93px before the line
+wraps and costs Identity a second 18.9px row.
+
+**What the saving must not cost, and does not.** A condition is a state the GM
+inflicted, so a sheet that goes quiet about one is the founding rule failing.
+The moment anything is on — the Vulnerable that full Stress derives included —
+the strip is back in its own slot naming it, and the control fills in, counts
+it, and reads every one of them out in its accessible name. The old shut fold
+header named them 701px down the column and was below the fold at 375×667; the
+count is now never off the glass. `+ NAME` is not drawn on the phone, because
+the control is a door into the same dialog in every state and two doors into one
+dialog is what this shape is most likely to produce by accident. **The desktop
+cockpit is untouched**: `Vitals` mounts `ActiveConditions` with no props, one
+`role="group" aria-label="Active conditions"`, one door.
+
+Five behavioural assertions, each proved by mutation: the strip made permanent
+again, the control removed, its name and count frozen at "none", the derived
+Vulnerable dropped from the predicate, and `+ NAME` drawn on the phone too. And
+the budget's own *"misses by 19"* is now *"fits, with 33 to spare"*, so the
+tripwire fires when the sheet stops fitting rather than when it starts.
+
+### 2 · The ergonomic claim that had inverted
+
+This is the finding that mattered, because it was the **only written warrant for
+unpinning ROLL** and grep found it asserted nowhere. The comment above
+`<DualityRoll>` still carried ROLL's pre-grid coordinates: *"at 393×852 it spans
+y522-588, which is 264 to 330px up from the bottom bezel — inside a
+95th-percentile right-thumb sweep of about 330px from the bottom-right pivot at
+this width — and 203px clear of the tab bar."*
+
+Measured: the ROLL row spans **y372-438** on the glass at both reference widths,
+which is **414 to 480px above the bottom bezel** at 393×852 and 229-295 at
+375×667, and **353px clear of the tab bar**. The numbers moved 150px when the
+counters became a grid — and the conclusion inverts against the comment's own
+cited threshold: at 414-480 ROLL is *outside* the ~330px sweep the comment
+claimed it was inside.
+
+So it is corrected and then re-argued rather than papered over. **The cost is
+real:** unpinning plus the 2×2 grid moved ROLL further from a one-handed thumb
+than the pinned block was, on the larger of the two reference phones. On the
+smaller one the same row is 229-295 above a nearer bezel and is comfortably
+inside the arc, so the cost lands on one width and not both. **What it bought:**
+the whole sheet readable in one look, which is the sentence the owner wrote and
+which a pinned block made arithmetically impossible, and 353px of clearance from
+a 98×60 control that navigates away mid-turn where pinned it sat 8px above it.
+
+**The verdict, written down rather than implied: the trade is right and the pin
+does not go back on.** The deciding asymmetry is that this column scrolls, so a
+player about to roll brings ROLL under their thumb with the gesture that got
+them there and the reach is theirs to choose at the moment it is needed; 88px of
+pinned chrome was nobody's to choose. The cost is paid at rest, where nobody is
+reaching for ROLL, and the benefit is paid while reading, which is what the
+resting sheet is for. What would overturn that is a real thumb at a table on a
+393×852 phone, which nobody has watched — it is in *Needs a human* below.
+«says where on the glass ROLL is drawn» derives all six numbers from the budget
+table and the shell's three constants, so they cannot go 150px stale again.
+
+### 3 and 4 · Numbers that had stopped being true
+
+- **Pips cost +100, not +149**, and the "144 base" they were computed from
+  contradicted `STACK`'s own counters term of 2×44 + 6 = 94. Measured in Chrome
+  at both reference widths: the Vitals block is **94 as numbers and 194 as
+  pips**, and nothing wraps at either. The conclusion was false in the other
+  direction too — with pips ROLL lands at **485 of 545** at 375×667, 60px of
+  slack, where `Play.tsx` told the reader pips cost the small phone its margin.
+  It was quoted in four places (`Play.tsx`, `playSheet.test.tsx`,
+  `Architecture.md`, `HANDOFF.md` twice); all are corrected and the arithmetic
+  is now an assertion.
+- **Three prose numbers in the budget's docblock contradicted the assertions
+  below them**, all computed against an obsolete `ROLL_BOTTOM` of 435: the
+  safe-area bullet's 261/295 and 76/110, which against 385 are 311/345 and
+  126/160; *"went from 10px to 110px"* against an assertion of 160; and a
+  "~171px cell" for the class line that matches no width this sheet has.
+
+**Not done, and named rather than hidden:**
+
+- [ ] **The fit is a fit in a browser and is lost by one pixel in the installed
+      app.** A home-indicator iPhone installed as a PWA pays a 34px
+      `env(safe-area-inset-bottom)`, which this repo has always treated as 0.
+      That takes the 393×852 column from 730 to 696, so the 697 is **one pixel
+      over** — and ROLL's margins become 311 and 126 rather than 345 and 160.
+      Nobody has measured the inset on the owner's own phone; it is item 7 in
+      *Needs a human* below, and this is now a second reason to do it.
+- [ ] **Nobody has watched a thumb reach for ROLL at the top of the scroll.**
+      414-480px above the bezel at 393×852 is outside the sweep the old comment
+      cited, and the argument that it does not matter — the column scrolls, so
+      the position at rest is not the position at use — is an argument and not
+      an observation. It belongs beside the counter cell's 4px cushion in
+      *Needs a human*: both are questions about a real hand at a real table.
+
 ## Needs a human, two devices and a dim room
 
 None of this can be proved by any test in this repo. Run it after P0 and P2
@@ -2541,7 +2670,21 @@ two-device tests.
    first time since P5-7, and the tab bar plus the notice on the same screen,
    which is the pair that would pay it twice. Every number in P5-7 treats the
    inset as 0, because that is what desktop Chrome reports and jsdom reports
-   nothing at all.
+   nothing at all. **And since P5-8 there is a second reason to run this one:**
+   34px takes the Play column from 730 to 696, so the folded sheet that now fits
+   with 33px to spare is one pixel over in the installed app. Measure the inset
+   while you are in there and write the number down.
+8. **A thumb on Play, at a table, on a 393×852 phone** (5 min, one player, one
+   evening). Two questions, both of which this repo has argued and neither of
+   which it has observed. *ROLL:* at the top of the scroll its row is 414-480px
+   above the bottom bezel, outside the ~330px one-handed sweep P5-5 cited. Is
+   reaching it a shrug, a grip shuffle, or a two-hander — and does the player
+   scroll it down before rolling, which is the whole of P5-8's argument that the
+   cost does not matter? *The counter cell:* the value target and the `−`
+   stepper are 4px apart where the full-width row left about 105. Does a real
+   thumb open the numeric entry by mistake, and does it notice when it does?
+   *Watch for:* a player who stops using ROLL from the sheet and rolls physical
+   dice instead, which is the failure this whole reflow would be.
 
 ---
 
@@ -2587,7 +2730,7 @@ Verified, and listed so effort goes where it is needed.
 ## Done since `87b9238`, which is everything not yet pushed
 
 `origin/main` is at `dd66d35` and everything above it is still on this machine.
-The suite is **2252 passing in 96 files** and `tsc --noEmit` is clean. (This
+The suite is **2289 passing in 96 files** and `tsc --noEmit` is clean. (This
 heading's `87b9238` is the commit the not-yet-pushed run *started* from; the
 remote has since moved to `dd66d35`, which `HANDOFF.md` re-measured.)
 
@@ -2596,8 +2739,9 @@ P0-8 (the whole band), P1-7 (rests, and the first `SCHEMA_VERSION` bump this
 project has ever made), P1-1 (attack rolls into damage rolls), P3-7 (the
 orphan harness), P5-1 (Play is the sheet), P5-1(b) (rename), P5-2 (the GM
 session screen), P5-3 (the GM reference), P5-4 (the printed sheet), P5-5
-(the reflow into Giorgio's order), P5-6 (the three savings) and P5-7 (the
-licence notice at the end of every scroll). **P3-10 is struck above as of
+(the reflow into Giorgio's order), P5-6 (the three savings), P5-7 (the
+licence notice at the end of every scroll) and P5-8 (the last 19px, and the
+verifier's three stale numbers). **P3-10 is struck above as of
 P5-7** — it had been closed in the tree and open in this file since the
 nineteen-lane pass, recorded only in the table below.
 

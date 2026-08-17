@@ -808,10 +808,10 @@ daggerheart-companion/
 
 **In fondo a ognuno di quei cinque scroll c'è l'avviso di licenza, e non c'è
 niente dopo** (P5-6). Non è chrome: è l'ultimo blocco del contenuto, un filetto
-e del testo attenuato. Su Play sta sotto l'ultima tendina, quindi *dopo* i 749px
+e del testo attenuato. Su Play sta sotto l'ultima tendina, quindi *dopo* i 697px
 che la scheda misura chiusa, e non entra in nessuno dei due totali del budget —
-`playSheet.test.tsx` conta tredici figli della colonna e chiede che il
-tredicesimo sia un `<footer>` e sia l'ultimo, perché «fuori dal budget» deve
+`playSheet.test.tsx` conta dodici figli della colonna e chiede che il
+dodicesimo sia un `<footer>` e sia l'ultimo, perché «fuori dal budget» deve
 restare una frase su quell'elemento e non un buco in cui infilare altro.
 Misurato in Chrome a 393×852 sono 126px, che prima erano una striscia fissa e
 adesso sono 126px oltre la fine della pagina.
@@ -859,10 +859,22 @@ del danno come quinta cella** — sta accanto alle due soglie contro cui la si
 legge, e prima stampava `8/16` in 10px accanto a sé perché le soglie le serviva
 e non le vedeva — i quattro contatori **due per riga**, i tratti, ROLL, e poi le
 tendine: armi e armature, Experience, inventario (con l'oro sull'intestazione),
-carte (col vault dentro), riposo, **condizioni** e per ultima la lineage, che
-apre coi domini. Ogni tendina parte chiusa, perché il conto qui sopra è fatto a
-tendine chiuse e un default che lo contraddicesse renderebbe il numero una
-finzione.
+carte (col vault dentro), riposo e per ultima la lineage, che apre coi domini.
+Ogni tendina parte chiusa, perché il conto qui sopra è fatto a tendine chiuse e
+un default che lo contraddicesse renderebbe il numero una finzione.
+
+**Le condizioni non sono più una riga di quell'elenco** (P5-8). Non si disegna
+niente per dire che non c'è niente: la striscia compare solo quando qualcosa è
+attivo, nel posto che aveva sempre avuto, e la porta permanente è
+`ConditionsControl` — 44×44 in fondo alla riga della classe dell'identità,
+accanto a RENAME, in una banda che RENAME tiene già aperta a 44, quindi costa
+alla colonna esattamente zero. Con la scheda pulita il controllo è vuoto e legge
+`— COND`; con qualcosa attivo si riempie, conta quante sono e il suo nome
+accessibile le elenca tutte, Vulnerable derivato dallo Stress pieno incluso. La
+regola fondante vale anche qui: una condizione è uno stato che il GM ti ha
+inflitto, quindi l'unica cosa che questa forma non può fare è tacerne una.
+Sul desktop non cambia niente — `Vitals` monta `ActiveConditions` senza prop,
+la striscia è permanente e la sua chip `+ NAME` resta l'unica porta.
 
 Nella banda le quattro celle non sono più larghe uguali: `EVASION` a `.t-meta`
 misura 47.75px, quindi quattro celle uguali più la casella non ci stanno neanche
@@ -877,21 +889,57 @@ L'aritmetica non è prosa: sta in `playSheet.test.tsx`, nel describe «the budge
 the pin came off for», che somma le altezze *dichiarate* — jsdom non ha motore di
 layout e il test dice da sé cosa può e cosa non può dimostrare. Dice anche le
 cifre che non fanno bella figura. Il margine sotto ROLL a 375×667 era di 10px ed
-è di **160**: nessuno degli stati che il conto non vede — dadi digitati (+68),
-un compagno (+50), un Beastform (+52), i 34px dell'inset dell'home indicator —
-se lo mangia più da solo. I pip sì: restano a tutta larghezza (una traccia da 12
-caselle in una cella da 172px andrebbe a capo sotto il pavimento WCAG di 24px) e
-costano +149.
+è di **160**, e **nessuno** degli stati che il conto non vede se lo mangia: dadi
+digitati (+68), un compagno (+50), un Beastform (+52), i 34px dell'inset
+dell'home indicator, e i pip, che sono il più caro dei cinque a **+100**. I pip
+restano a tutta larghezza — una traccia da 12 caselle in una cella da 172px
+andrebbe a capo sotto il pavimento WCAG di 24px — quindi il blocco dei contatori
+è 94 a numeri e 194 a pip, misurato in Chrome col fixture a entrambe le
+larghezze, e non va a capo niente: con i pip ROLL cade a 485 sui 545 della
+colonna piccola, con 60px di avanzo. Questo repo ha scritto **+149 su un
+«base 144»** in quattro documenti per due passate; erano tutti e due inventati —
+il termine del budget è 2×44 + 6 = 94 — e la conclusione che ne discendeva era
+sbagliata anche di segno.
 
-**E la scheda piegata intera è 749 contro 730**: manca «tutta la scheda in una
-volta sola» a 393×852 per **19px** — il bordo inferiore dell'intestazione della
-lineage — e per 204 a 375×667. Ci sta a 744×1133, dove non c'è tab bar, con
-323px di avanzo. I tre risparmi di P5-6 erano stimati 198 e valgono 150: la
-griglia 2×2 vale i 100 previsti, la casella del danno 50 invece di 46 perché la
-banda non è dovuta crescere, e mettere le condizioni dietro una tendina vale
-**zero** — una `Disclosure` chiusa è 44 più gli 8 di gap della colonna, cioè
-esattamente ciò che era la striscia. Il test lo dice con dei numeri invece che
-con un silenzio, e nessuno di quei numeri è comprato stringendo un gap.
+**E la scheda piegata intera ci sta: 697 contro 730 a 393×852, con 33px di
+avanzo.** È la prima volta, ed è la condizione che la decisione 1 di P5-5 aveva
+messo sulla rimozione del pin: 899 con P5-5 (169 di troppo), 749 con P5-6 (19 di
+troppo), 697 con P5-8. A 744×1133 ci sta con 375px di avanzo. A 375×667 è ancora
+**152px di troppo**, dove erano 204, e nessuna disposizione di questa scheda lo
+chiude: 152 sono tre intestazioni di tendina e le tendine sono sei.
+
+Gli ultimi 52 sono venuti dalle condizioni e da nient'altro. I tre risparmi di
+P5-6 erano stimati 198 e valevano 150: la griglia 2×2 vale i 100 previsti, la
+casella del danno 50 invece di 46 perché la banda non è dovuta crescere, e
+mettere le condizioni dietro una tendina vale **zero** — una `Disclosure` chiusa
+è 44 più gli 8 di gap della colonna, cioè esattamente ciò che era la striscia.
+L'unica forma che toglie quei 52 è quella della decisione 6, e P5-8 l'ha presa.
+Il test lo dice con dei numeri invece che con un silenzio, e nessuno di quei
+numeri è comprato stringendo un gap.
+
+**Una cosa che non ci sta ancora, detta e non arrotondata.** Un iPhone con home
+indicator installato come PWA paga `env(safe-area-inset-bottom)`, 34px, che
+questo repo ha sempre trattato come 0: la colonna a 393×852 passa da 730 a 696 e
+i 697 diventano **un pixel di troppo**. «Tutta la scheda in una volta sola» è
+vera nel browser su quel telefono e falsa per un capello nell'app installata, e
+l'inset sul telefono del proprietario non l'ha ancora misurato nessuno.
+
+**Dov'è ROLL sul vetro, e quanto costa.** Misurato in Chrome col fixture, tendine
+chiuse, in cima allo scroll: la riga di ROLL va da y372 a y438 a entrambe le
+larghezze di riferimento, perché tutto ciò che le sta sopra è alto uguale. A
+393×852 sono **414–480px sopra il bordo inferiore** e 353 sopra la tab bar; a
+375×667 sono 229–295 sopra il bordo. Il commento in `Play.tsx` ha portato per due
+passate le coordinate di prima della griglia (y522-588, «264–330px dal bordo,
+*dentro* una spazzata del pollice di ~330px») e con i numeri si è ribaltata la
+conclusione: a 414–480 ROLL è **fuori** da quell'arco sul telefono grande, e
+dentro su quello piccolo. È un costo vero della rimozione del pin ed è scritto
+come tale; quello che compra è la scheda intera leggibile in un colpo e 353px di
+distanza da un controllo che porta via dalla schermata a metà turno. La colonna
+scorre, quindi la portata al momento del tiro se la sceglie il giocatore, mentre
+gli 88px di chrome fisso non se li sceglieva nessuno — per questo il pin non
+torna. `playSheet.test.tsx`, «says where on the glass ROLL is drawn», ricava
+tutti e sei quei numeri dalla tabella del budget e dalle tre costanti della
+shell, così non possono più invecchiare di 150px in silenzio.
 
 ### 9.2 Desktop / Mac — 3 colonne
 

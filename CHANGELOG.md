@@ -188,14 +188,23 @@ be wrong* at the foot of this entry.
   phone: they were below the fold, under the identity block, the defence band
   and six trait tiles, while a fixed block at the bottom held the trait chips
   and ROLL.
-- **ROLL is in the flow now, and that is a bigger target in a better place.**
-  Pinned, it sat 8px above the Play tab — a 98×60 control that navigates away
-  from your sheet mid-turn. It is now 203px clear of it, and still above the
-  fold without being fixed there: its lower edge lands at 385px of the 730px a
-  393×852 phone leaves for content, and at 385 of 545 on a 375×667 one — 160px
-  of margin on the small phone, where it was ten before the counters went two
-  across. Only one ordinary thing still eats that: choosing boxes instead of
-  numbers, which keeps the four full-width rows.
+- **ROLL is in the flow now, and that is a bigger target further from the one
+  control you must not hit by mistake.** Pinned, it sat 8px above the Play tab —
+  a 98×60 control that navigates away from your sheet mid-turn. It is now
+  **353px** clear of it, and still above the fold without being fixed there: its
+  lower edge lands at 385px of the 730px a 393×852 phone leaves for content, and
+  at 385 of 545 on a 375×667 one — 160px of margin on the small phone, where it
+  was ten before the counters went two across. Nothing ordinary eats that any
+  more, boxes instead of numbers included: those cost 100px and leave 60.
+
+  **The part that is a cost, and it is a real one.** On a 393×852 phone, with
+  the sheet scrolled to the top, ROLL now sits 414 to 480px above the bottom
+  edge of the screen — further than a thumb comfortably reaches one-handed,
+  where the pinned block was inside that reach. On a 375×667 phone it is 229 to
+  295px up and still in reach. The judgement behind keeping it: the page
+  scrolls, so when you are about to roll you can bring ROLL to your thumb with
+  the same flick that got you there, and a pinned block's position was nobody's
+  to choose. Nobody has watched a real hand do it at a table yet.
 
   It was also being crushed rather than scrolled to, on every build since the
   block was unpinned. The column is a flex column and the roll surface was the
@@ -228,24 +237,35 @@ be wrong* at the foot of this entry.
   type on the screen, because it needed the ladder and could not see it. It
   costs the band nothing: a 44px field fits inside a row the numbers already
   hold open at 58.
-- **Conditions are behind their own fold**, with what is on named on the shut
-  header — `Conditions · RESTRAINED` — instead of seven grey chips scrolling
-  sideways to say you are fine. It saves no height at all: a shut fold is the
-  same 44px plus a gap the strip was. It is a better 44px, not a cheaper one.
+- **Conditions take no room on the sheet until you have one.** There used to be
+  a permanent row of seven grey chips scrolling sideways to tell you that you
+  are not Hidden, not Restrained and not Vulnerable; then a folded row saying
+  `Conditions · NONE`, which cost exactly the same. Now nothing is drawn to say
+  nothing. The way in is a small square beside RENAME at the top of the sheet,
+  in a row that was already there, so it costs the page no height: it reads
+  `— COND` when you are clear, and fills in with a count when you are not. The
+  moment anything is on — including the Vulnerable that a full Stress track
+  gives you, which nobody switched on — the chips are back where they always
+  were, naming it. Nothing the GM did to you is ever left unsaid.
 - **Two rows fewer for the same facts:** the vault is a fold inside your cards
   rather than beside them, with both counts on the shut header (`3 / 5 · 3
   INACTIVE`), and the gold moved onto the Carried header (`2 ITEMS · 1 BAG · 4
   HANDFULS`) instead of a row of its own. The lineage fold opens with your
   domains and their card level caps, then says where you are from — that is the
   order you actually look them up in.
-- **What it does not do, said plainly.** With every fold shut the sheet comes to
-  749px. That fits on an iPad mini with 323px to spare, so on a tablet you
-  really do see all of it at once. On a 393×852 phone it is **19px over** — the
-  bottom edge of the last fold header — and on a 375×667 phone it is 204px over.
+- **And with every fold shut, the whole sheet is on the screen.** 697px against
+  the 730 a 393×852 phone leaves, so you really do see all of it at once, with
+  33px to spare — and 375px to spare on an iPad mini. That was the point of the
+  whole rearrangement and it took three goes to get there: the first left it
+  169px over, the second 19. A 375×667 phone is still 152px short of it, which
+  is three folded rows, and nothing short of removing rows will close that.
   Nothing here was bought by squeezing the spacing, because a fit bought that
-  way is one the next change undoes: the three changes above were expected to
-  save 198px between them and save 150, because folding the conditions away
-  turned out to be worth nothing.
+  way is one the next change undoes.
+- **What it does not do, said plainly.** If you have installed the app to your
+  home screen on an iPhone with a home indicator, the system takes another 34px
+  off the bottom of the page — so the sheet that fits with 33px to spare in the
+  browser is one pixel over in the installed app. Nobody has measured that on a
+  real phone yet.
 - **The Play screen scrolls, and your weapons, armour and items are on it.**
   Equipped gear had only ever rendered inside the desktop layout. With every
   band pinned, the loadout absorbed every shortfall: measured at 130px of the
@@ -518,7 +538,7 @@ is on the player's side, and the rules say the GM sets the number.
   Play sheet nothing**: it sits below the last folded row, past everything the
   sheet's own height budget counts, so the numbers that decided ROLL's place
   are unchanged — its lower edge is still 385px down a 730px column at 393×852,
-  and the whole folded sheet still measures 749.
+  and the whole folded sheet measures 697.
 - **The notice itself is not touched.** It is the same 342 characters, written
   out in exactly one place in the source, and the suite still fails if a second
   copy of them is ever declared.
