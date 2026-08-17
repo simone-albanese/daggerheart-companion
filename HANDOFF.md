@@ -536,10 +536,21 @@ states its column: **one banner leaves 664 and the 618px sheet fits with 46 to
 spare; both leave 598 and it is 20px over.** So the at-a-glance sheet now
 survives the ordinary new-user state and fails the double-banner one. The
 banners are honest and must not be deleted — they are P0-2's remedy — but
-neither `Play.tsx`'s table nor `playSheet.test.tsx` knows one exists.
-`ShellBanner.tsx` is where the number is measured and `tests/ui/banners.test.tsx`
-adds it up out of the declarations so it cannot drift; the budget can take 66
-from there.
+`playSheet.test.tsx` does not know one exists. ~~Nor does `Play.tsx`'s table~~ —
+**superseded**, and the correction matters because it changes what is owed:
+`Play.tsx:2460-2463` names `BackupBanner` outright, as "the other one the budget
+has never counted", and charges it. What it charges is **58**, the border box
+alone, so it reaches a 672px column and says the 618px sheet clears it by 54.
+Against the 730 the same docblock states — which is already net of the root's
+8px foot — one banner costs **66**, the column is **664** and the margin is
+**46**, the two numbers above. So the charge against that file is an
+undercount of 8, not an omission, and it is the same box-versus-box-plus-space
+error `ShellBanner.tsx` was written to end. What `Play.tsx` genuinely does not
+know is `UpdateBanner` and the both-at-once state: **132**, leaving 598, 20px
+over. **Open, and a `Play.tsx` edit:** no lane owned that file when this was
+found. `ShellBanner.tsx:35-56` is where the number is measured and
+`tests/ui/banners.test.tsx` adds it up out of the declarations so it cannot
+drift; the budget can take 66 and 132 from there.
 
 **P1-1 damage rolls and P1-7 rests are both built.** Both were held back because
 they touch `Play.tsx` and `DualityRoll.tsx`, which the Play rebuild was
