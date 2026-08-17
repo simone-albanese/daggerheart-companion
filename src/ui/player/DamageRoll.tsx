@@ -136,9 +136,11 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
   /*
    * The second tap, and why a re-roll needs one.
    *
-   * This control is the last thing in the phone's pinned block, hard against
-   * the bottom edge - the easiest point on the glass to reach, which is right
-   * for the tap that rolls and wrong for every tap after it. There is no log
+   * This control is the last thing in the phone's roll block, directly under
+   * ROLL, so it sits in the arc ROLL was placed in - which is right for the tap
+   * that rolls and wrong for every tap after it. It used to be hard against the
+   * bottom edge of a block that was pinned there; P5-5 unpinned it, and the
+   * argument survives unchanged because it never rested on the pin. There is no log
    * surface on a phone at all (`RecentLog` renders only in the desktop branch),
    * so a stray thumb would replace the number the player just read to the GM
    * with a different one and leave no record on screen that it had. The Vault's
@@ -390,7 +392,7 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
         /*
          * The faces of one die, in `Die`'s own grid at five across instead of
          * four - twenty of them is four rows this way and five the other, and
-         * four rows is 197px of a phone's pinned block rather than 244.
+         * four rows is 197px of the phone's roll block rather than 244.
          */
         <div
           style={{

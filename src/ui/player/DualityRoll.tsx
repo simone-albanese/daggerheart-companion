@@ -330,7 +330,7 @@ export function DualityRoll({
      * The verdict is the other half of the same rule, and it is the visible
      * half. `result` is the whole readout - the outcome word, the two faces,
      * and the total in 30px at the right of the roll control, which is the
-     * largest number on the phone's pinned block. Left standing, the arriving
+     * biggest number the roll surface prints. Left standing, the arriving
      * player looks at their own sheet and reads SUCCESS WITH FEAR and a 20 that
      * belongs to the person who handed them the phone, with nothing on the
      * screen saying whose it was. `manual` goes with it: with typed dice on the
@@ -340,8 +340,12 @@ export function DualityRoll({
      *
      * The advantage, the reaction switch and the Difficulty deliberately stay.
      * They are not a claim about who rolled: they are what the *table* has
-     * declared, they are printed on the closed modifier row whether they are
-     * armed or not, and the docblock on `armedMods` is where that is argued.
+     * declared. What used to make that safe was a closed modifier row printing
+     * them whether they were armed or not, and P5-5's decision 6 deleted that
+     * row rather than go on spending a band on the word NONE. It is the ARMED
+     * strip that carries them onto the arriving sheet now - drawn exactly when
+     * there is something to name - and the docblock on `armedMods` is where
+     * that is argued.
      */
     setResult(null);
     setManual({ hope: null, fear: null });

@@ -57,8 +57,10 @@
  *
  * They are **not pinned**. A topic is chosen once and then read, so pinning the
  * strip would cost 44px of every subsequent scroll to hold a decision already
- * made - the opposite of Play's roll block, which is pinned because it is used
- * continuously.
+ * made - the opposite of `GmTopBar`, which is pinned above this tool because
+ * what it holds has to be true whichever tool is open. Play's roll block used
+ * to be the contrast here, and it no longer is: P5-5 unpinned it, and nothing
+ * on Play is pinned any more.
  *
  * The strip is guarded on `REFERENCE_TOPICS.length > 1`, because a chip that is
  * always pressed and cannot be unpressed is a label rather than a control. With

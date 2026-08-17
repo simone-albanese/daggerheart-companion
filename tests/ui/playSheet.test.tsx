@@ -1496,7 +1496,7 @@ describe('the Experiences a roll is declared with', () => {
  * inside it, so the header's character picker swaps the character underneath a
  * component that keeps every piece of its own state. The armed declaration was
  * cleared on that switch and the resolved *result* was not, so the roll
- * control - the largest object on the phone's pinned block, and the one thing
+ * control - the largest object on the phone's roll surface, and the one thing
  * on it that reports an outcome - went on showing the previous player's total
  * and "Success with Fear" over the arriving player's sheet. Nothing on the
  * screen said whose roll it was, because until the switch there had only ever
@@ -1763,9 +1763,10 @@ describe('the tendina', () => {
 /**
  * What the next attack is declared with.
  *
- * Three surfaces set the trait on this screen - the pinned chips, the trait
- * grid inside the scroll, and the SPELLCAST chip in the modifier row - and only
- * the pinned chips ever put an armed weapon down. So tapping a trait anywhere
+ * Three surfaces set the trait on this screen when this was written - a strip
+ * of chips in the block that was pinned then, the trait grid inside the scroll,
+ * and the SPELLCAST chip in the modifier row - and only the chips ever put an
+ * armed weapon down. So tapping a trait anywhere
  * else left the sword armed, and the damage step P1-1 is about would have
  * offered a sword's dice for a Knowledge check while the screen showed
  * KNOWLEDGE on the roll bar. Nothing threw, and nothing on screen disagreed

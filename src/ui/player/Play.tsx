@@ -207,11 +207,12 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
   /*
    * Picking a trait by hand, wherever the tap came from.
    *
-   * Three surfaces set the trait - the pinned chips, the trait grid inside the
-   * scroll, and the SPELLCAST chip in the modifier row - and only the pinned
-   * chips put the armed weapon down. The other two left it standing, so tapping
-   * KNOWLEDGE on a tile kept a sword declared for a Knowledge check with
-   * nothing on screen disagreeing with anything else.
+   * Three surfaces set the trait when this route was written - a strip of chips
+   * in the block that was pinned then, the trait grid inside the scroll, and the
+   * SPELLCAST chip in the modifier row - and only the chips put the armed weapon
+   * down. The other two left it standing, so tapping KNOWLEDGE on a tile kept a
+   * sword declared for a Knowledge check with nothing on screen disagreeing with
+   * anything else.
    *
    * A phone has two of those surfaces now rather than three: the chips and the
    * grid were the same six traits drawn twice, and `TraitRow` is the one row

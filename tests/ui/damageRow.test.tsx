@@ -163,7 +163,7 @@ describe('what the row puts in front of the player', () => {
   it('clears the 44px floor in both layouts', () => {
     mount(attack(), rollAffordance(true, false), 'phone');
     // 52 on a phone: it clears the floor by 8 and stays under ROLL's 66, so the
-    // hierarchy in the pinned block reads by size alone.
+    // hierarchy in the roll block reads by size alone.
     expect(buttons()[0]!.style.minHeight).toBe('52px');
     mount(attack(), rollAffordance(true, false), 'desktop');
     expect(buttons()[0]!.style.minHeight).toBe('44px');
@@ -203,10 +203,12 @@ describe('what rolling it does, and what it must not do', () => {
 
   it('does not replace the number on a stray second tap', () => {
     /*
-     * This control is the last thing in the phone's pinned block, so it sits at
-     * the easiest point on the glass to reach - and there is no log on a phone
-     * to show what the number used to be. So the second tap asks first, the way
-     * the vault's recall does, and says which number it is about to replace.
+     * This control is the last thing in the phone's roll block, directly under
+     * ROLL, so it sits in the arc ROLL was placed in - and there is no log on a
+     * phone to show what the number used to be. So the second tap asks first,
+     * the way the vault's recall does, and says which number it is about to
+     * replace. It used to be the last thing in a block that was pinned there;
+     * P5-5 unpinned it, and the argument never rested on the pin.
      */
     mount(attack());
     click(buttons()[0]!);
