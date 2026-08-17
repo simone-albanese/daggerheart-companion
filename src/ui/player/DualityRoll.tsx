@@ -474,11 +474,34 @@ export function DualityRoll({
    * rather than an `onKeyDown` on the grid because the tap that opens the
    * keypad unmounts the button that had focus, so there is nothing inside it
    * for a bubbling handler to catch until something is tabbed to.
+   *
+   * AND IT CHECKS WHAT IS ON TOP OF IT, WHICH IS THE PART THIS CODEBASE HAS
+   * NAMED TWICE. `useDialog` registers its own unconditional window keydown per
+   * dialog and does not `stopPropagation`, so two of these fire on one key:
+   * `SessionBody` says "one Escape would close both, and every Tab would be
+   * fought over by two traps" and draws a card inline rather than as an overlay
+   * because of it, and `Gm` restructures its `sheet`/`tool` state for the same
+   * reason. This listener was the first non-dialog member of that set.
+   * Reproduced in Chrome at 1440x900: open the keypad on the HOPE face, open
+   * the `Book of Ava` loadout card over it, press Escape once - the card closed
+   * AND the keypad closed, so the player came back to a roll surface that had
+   * silently reverted. `CardReader` mounts above `Play`, so this component and
+   * its listener stay mounted underneath.
+   *
+   * The guard is the topmost check the rest of the app does not have: if
+   * anything in the document is a `role="dialog"`, that surface owns the key
+   * and this one does nothing. That is one query against a document that has at
+   * most a handful of them, run only while the keypad is open. A `capture`
+   * listener plus `stopPropagation` would be the other shape and it is worse -
+   * it would make this the surface that wins over a dialog, which is exactly
+   * backwards.
    */
   useEffect(() => {
     if (typing === null) return undefined;
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setTyping(null);
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"]') !== null) return;
+      setTyping(null);
     };
     window.addEventListener('keydown', onKey);
     return () => {

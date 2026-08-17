@@ -717,6 +717,35 @@ describe('typing a physical die', () => {
     expect(face('FEAR').getAttribute('aria-label')).not.toContain(': ');
   });
 
+  it('leaves Escape to whatever is on top of it', () => {
+    /*
+     * `useDialog` registers its own unconditional window keydown per dialog and
+     * does not `stopPropagation`, so without a topmost check one Escape closes
+     * the dialog AND this keypad underneath it - and the player comes back to a
+     * roll surface that silently reverted. Reproduced in Chrome at 1440x900
+     * with a loadout card opened over the keypad. `SessionBody` and `Gm` both
+     * name this shape as a defect and restructure around it.
+     */
+    panel(typed);
+    click(face('HOPE'));
+    expect(grid()).not.toBeNull();
+
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    document.body.append(dialog);
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(grid(), 'one Escape closed a dialog and the keypad under it').not.toBeNull();
+
+    // And once the dialog is gone the key is this keypad's again.
+    dialog.remove();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(grid(), 'the guard swallowed the key for good').toBeNull();
+  });
+
   it('writes the face it was opened on, and only when a key is pressed', () => {
     panel(typed);
     click(face('HOPE'));
