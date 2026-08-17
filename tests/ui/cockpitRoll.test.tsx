@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
-import { DualityRoll } from '../../src/ui/player/DualityRoll.tsx';
+import { DualityRoll, ExperienceRow } from '../../src/ui/player/DualityRoll.tsx';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
@@ -353,5 +353,94 @@ describe('the cockpit modifier shelf', () => {
     const tail = [45.4, 88.4, 68.4];
     expect(cost([...base, CHIP, 99.6, ...tail])).toBeCloseTo(80, 1);
     expect(cost([...base, CHIP, CHIP, CHIP, CHIP, CHIP, ...tail])).toBeCloseTo(180, 1);
+  });
+});
+
+/**
+ * THE EXPERIENCE CHIP'S LABEL, WHICH IS THE WHOLE CONTENT OF THE CONTROL.
+ *
+ * One declaration - `WebkitLineClamp` on the label span - covers the cockpit's
+ * inline chips and the phone's `ExperienceRow` alike, and at 2 it clipped a
+ * whole line on both. Measured in Chrome: on the cockpit at the chip's 124px
+ * `maxWidth` the span is 77.8 wide with clientHeight 26 against a scrollHeight
+ * of 40, for "SILVER-TONGUED DIPLOMAT", "Read every book in the tower" and
+ * "Talked my way past a magistrate" alike; on the phone at 375x1000 with five
+ * Experiences the chip is 172.5 with a 126.3px span and the same 26/40. The
+ * crossing on the phone is exactly 381px of viewport.
+ *
+ * Two lanes proposed incompatible fixes. This settles it at three lines rather
+ * than a wider cockpit chip; the docblock over the span carries the argument
+ * and the numbers below carry the arithmetic.
+ */
+describe('an Experience is legible on the chip that spends it', () => {
+  const LINE = 11.5 * 1.15; // the declared `600 11.5px/1.15 var(--mono)`
+  const PADDING = 8; // the chip's own paddingTop 4 + paddingBottom 4
+  const FLOOR = 44; // `minHeight: var(--tap)`
+
+  const labels = (el: ParentNode): HTMLElement[] =>
+    [...el.querySelectorAll<HTMLElement>('button[aria-label^="Utilize "] span')].filter(
+      (s) => s.style.display === '-webkit-box',
+    );
+
+  it('gives the label three lines on the cockpit', () => {
+    const found = labels(panel());
+    expect(found.length, 'the cockpit draws no Experience chips at all').toBeGreaterThan(0);
+    for (const span of found) {
+      expect(span.style.webkitLineClamp, 'the cockpit chip still clips a line').toBe('3');
+      expect(span.style.whiteSpace, '`.chip`s nowrap is back and the clamp does nothing').toBe(
+        'normal',
+      );
+    }
+  });
+
+  it('gives the label three lines on the phone, from the same declaration', () => {
+    const character = seed();
+    render(
+      createElement(ExperienceRow, {
+        experiences: character.experiences,
+        armedExperiences: [],
+        hopeAvailable: 3,
+        toggleExperience: () => undefined,
+      }),
+    );
+    const found = labels(container);
+    expect(found.length).toBe(character.experiences.length);
+    for (const span of found) {
+      expect(span.style.webkitLineClamp).toBe('3');
+    }
+
+    // One declaration and not two: the two surfaces disagreeing about how much
+    // of a name is readable is the defect this settles.
+    const source = readFileSync(SOURCE, 'utf8');
+    expect(source.match(/WebkitLineClamp/g) ?? []).toHaveLength(1);
+  });
+
+  it('costs the chip 3.7px, and only when the third line is used', () => {
+    // Two lines sit inside the touch floor; three step past it by 3.7. That is
+    // the whole price, and `box-sizing: border-box` is what makes the padding
+    // part of the 44 rather than on top of it.
+    expect(2 * LINE + PADDING).toBeCloseTo(34.45, 2);
+    expect(2 * LINE + PADDING).toBeLessThan(FLOOR);
+    expect(3 * LINE + PADDING).toBeCloseTo(47.675, 3);
+    expect(3 * LINE + PADDING - FLOOR).toBeCloseTo(3.675, 3);
+
+    // And the terms of that arithmetic are still declared on the chip.
+    const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
+    expect(chip).not.toBeNull();
+    expect(chip!.style.font).toBe('600 11.5px/1.15 var(--mono)');
+    expect(chip!.style.minHeight).toBe('var(--tap)');
+    expect(chip!.style.paddingTop).toBe('4px');
+    expect(chip!.style.paddingBottom).toBe('4px');
+  });
+
+  it('refuses the 168px chip, because the shelf cannot pack two of them', () => {
+    // The rejected proposal, kept as a number rather than as prose: the
+    // cockpit shelf is 303px, so two 168px chips and their 6px gap is 342 and
+    // every Experience would take a wrapped row of its own.
+    expect(168 * 2 + 6).toBeGreaterThan(303);
+    // Where the shipped 124px `maxWidth` packs two to a row with room to spare.
+    expect(124 * 2 + 6).toBeLessThan(303);
+    const chip = panel().querySelector<HTMLElement>('button[aria-label^="Utilize "]');
+    expect(chip!.style.maxWidth, 'the cockpit chip was widened after all').toBe('124px');
   });
 });

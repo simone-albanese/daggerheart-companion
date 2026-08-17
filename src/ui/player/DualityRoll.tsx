@@ -1136,8 +1136,11 @@ function ExperienceChip({
          * Larger than `.chip`'s 9.5px, because this is not a shelf label being
          * scanned past: it is a phrase the player wrote, read across a table
          * in a dim room at the moment they decide to spend a Hope on it. The
-         * row is 44px for the touch floor rather than for the text, so the
-         * bigger type costs no height at all.
+         * row is 44px for the touch floor rather than for the text, so at one
+         * or two lines the bigger type costs no height at all - 13.225px of
+         * line-height twice over, plus 4 + 4 of padding, is 34.45 inside a 44.
+         * At three it costs 3.7, and the clamp below argues why that is the
+         * right trade.
          */
         font: '600 11.5px/1.15 var(--mono)',
         background: armed ? 'var(--hope-wash)' : 'var(--raised)',
@@ -1149,15 +1152,68 @@ function ExperienceChip({
     >
       <HopePip on={armed} />
       {/*
-       * Wrapping, not an ellipsis.
+       * Wrapping, not an ellipsis - and three lines, not two.
        *
        * "SILVER-TONGUED DIPLOMAT" truncated to "SILVER-TONG…" on a phone, and
        * the full name lived only in the title attribute and the accessible
        * name - neither of which a thumb can reach. An Experience is a phrase
        * the player wrote themselves; being unable to read it back on the one
-       * screen that spends it is a poor trade for a tidier chip. Two lines fit
-       * inside the 44px the touch floor already requires, so this costs no
-       * height at all in the common case.
+       * screen that spends it is a poor trade for a tidier chip.
+       *
+       * TWO LINES WAS THE SAME DEFECT ONE STEP FURTHER ALONG. The clamp came in
+       * with the docblock that claims the fix, and on both narrow surfaces it
+       * went on hiding a whole line. `line-height: 1.15` on `11.5px` is
+       * 13.225px, so two lines clip at 26.45 and three want 39.675 - the 14px
+       * of hidden text the audit measured, in Chrome, twice: on the cockpit
+       * chip at its 124px `maxWidth` (span 77.8 wide, clientHeight 26,
+       * scrollHeight 40) for "SILVER-TONGUED DIPLOMAT", "Read every book in
+       * the tower" and "Talked my way past a magistrate" alike, and on the
+       * phone at 375x1000 for a character with five Experiences, where
+       * `ExperienceRow` goes two across and the chip is 172.5 with a 126.3px
+       * span. The crossing on the phone is exactly 381px of viewport.
+       *
+       * WHAT THREE COSTS: 3.7px, ONCE. 39.675 of text plus this chip's own 4 +
+       * 4 of padding is 47.675 against a `minHeight: var(--tap)` of 44, and
+       * `box-sizing: border-box` is set globally - so a chip that needs the
+       * third line goes 44 -> 47.7 and one that does not is unchanged. Both
+       * surfaces can carry it: the phone column scrolls, and the cockpit's roll
+       * panel scrolls too now.
+       *
+       * WHY NOT THE OTHER PROPOSAL, WHICH WAS TO WIDEN THE COCKPIT CHIP FROM
+       * 124 TO 168. It loses on two counts and both are numbers. It does not
+       * touch the phone, where the same declaration hides the same 14px on a
+       * 172.5px chip - one line of code covers both surfaces and one of the two
+       * fixes only covers one of them. And it costs the cockpit far more than
+       * this does: the modifier shelf is 303px wide, so at 168 two chips plus
+       * their 6px gap is 342 and every Experience takes a wrapped row of its
+       * own - five rows of 44 where 124px chips pack two to a row. That is
+       * about +96px against +3.7. Its stated premise, that the roll panel is
+       * `overflow: hidden` and has no spare height, was true when it was
+       * written and is no longer; the arithmetic would have decided it either
+       * way.
+       *
+       * ERGONOMICS. TARGET SIZE moves the right way and only the right way:
+       * 44 -> 47.7 on the chips that need the third line, above this project's
+       * 44px coarse floor and its 34px fine one in both states, with the width
+       * untouched at 172.5 on a two-across phone and at most 124 on the
+       * cockpit - width was never the charge here. THUMB ARC is the question of
+       * whether 3.7px moves a neighbour under a thumb that was aiming at this
+       * chip, and it does not: `ExperienceRow` gaps its rows by 6, so a row
+       * that grows by 3.7 still ends short of where the next row's targets
+       * begin, and everything below simply shifts down inside a column that
+       * scrolls. READ VERSUS TOUCH is the whole reason for the change. The
+       * name is the entire content of this control - there is no other text to
+       * an Experience - so a chip whose third line is clipped is a target you
+       * are asked to press without being allowed to finish reading it, at the
+       * exact moment you decide to spend a Hope on it.
+       *
+       * THREE AND NOT UNBOUNDED. The clamp is still a clamp, because the name
+       * is text a player typed and nothing stops it being sixty characters -
+       * six lines and an 87px chip on the primary roll surface. Three clears
+       * every string in the audit's bisect, the longest of which is the 31
+       * characters of "Talked my way past a magistrate", and past it the full
+       * name is still spelled out on the ROLL bar the moment the chip is armed,
+       * which is `armSummary`'s whole job.
        */}
       <span
         style={{
@@ -1171,7 +1227,7 @@ function ExperienceChip({
           lineHeight: 1.15,
           display: '-webkit-box',
           WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
         }}
       >
         {name.toUpperCase()}
@@ -1246,10 +1302,14 @@ export function ExperienceRow({
    * levels and most tables never leave that range.
    *
    * From four it goes two across, because five full-width rows would be 244px
-   * and would not fit a 375px phone at all. At two across a chip is about
-   * 175px, which is roughly 25 characters - short of the longest names, which
-   * is why the label wraps to a second line rather than truncating, and why
-   * the ROLL bar spells out in full whatever is armed.
+   * and would not fit a 375px phone at all. At two across a chip is 172.5px at
+   * 375 and 175 at 380 - measured, and the docblock's old estimate of "about
+   * 175px" was right - which leaves the label span 126.3 and takes it to
+   * roughly 16 characters a line. That is short of the longest names, so the
+   * label wraps rather than truncating; it wraps to THREE lines and not two,
+   * because at two this row hid a whole 14px line of every name past about 33
+   * characters, and the crossing was measured at exactly 381px of viewport.
+   * Past three the ROLL bar is what spells out in full whatever is armed.
    */
   const perRow = experiences.length > 3 ? 2 : 1;
   const basis = `calc(${(100 / perRow).toFixed(3)}% - ${String((6 * (perRow - 1)) / perRow)}px)`;
