@@ -1,14 +1,45 @@
 /**
  * The header states three things and then gets out of the way: which character,
- * which screen, and what this device actually holds. That last one matters -
- * "SRD ONLY · NO ART" is how you know at a glance whether the manual import
- * landed, without opening settings.
+ * which screen, and - where the line is wide enough to hold it - what this
+ * device actually holds.
+ *
+ * That last clause is this file's whole layout problem, and it was bought at a
+ * price nothing in the suite could see.
+ *
+ * The bar is one flex line with two groups: the app mark and the nav on the
+ * left, the identity and the door to Settings on the right. The right group is
+ * `flex: 'none'` and the left group carries `minWidth: 0`, so every pixel the
+ * line is over-subscribed by comes off the left group's *box* - and none of it
+ * off its contents, because a nav of four one-word buttons has nothing to give.
+ * The nav therefore paints outside its own box, and the right group, being the
+ * later sibling in the same stacking context, is painted over it and wins the
+ * hit test. Nothing is positioned, nothing is transformed, and no test in this
+ * repo can see it: the DOM is correct and only the pixels are wrong.
+ *
+ * Measured in Chrome at 744x1133 with a one-character library: the left group's
+ * contents want a constant 330px and are allotted 210, GM is painted x295.9-349.8
+ * and is 100% covered by the "SRD ONLY · NO ART" span, BUILD is 73% covered, and
+ * `document.elementFromPoint` at either button's own centre returns the span.
+ * The centre of GM is dead from 720 through 828, the last covered pixel goes at
+ * 856, and the line stops being over-subscribed at 864. Below 720 none of this
+ * exists, because the nav is not drawn and `TabBar` carries the same four
+ * destinations - so the band where the collision lives is exactly the band where
+ * `App.tsx` draws no tab bar and this nav is the only navigation the app has.
+ *
+ * So the readout is the thing that yields. It is read and never touched; the nav
+ * is touched and has to be reachable. It yields by band and not by pixel: the
+ * clean width is 856 and inventing an 856 or an 864 breakpoint here is precisely
+ * the drift `useLayout.ts` was written to stop, so this uses the band boundary
+ * that already exists. What a tablet loses is said out loud rather than
+ * discovered: Settings > Rulebook prints the same total, `CompatibleIcon` is
+ * unconditional at every width, and `LicenceFooter` still ends every screen's
+ * own scroll.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { AppMark } from '../shared/DomainMark.tsx';
 import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
-import { useIsPhone } from '../shared/useLayout.ts';
+import { useLayout } from '../shared/useLayout.ts';
 import type { Screen } from '../../store/state.ts';
 
 const SCREENS: Array<{ id: Screen; label: string }> = [
@@ -28,7 +59,11 @@ export function Header(): React.JSX.Element {
   const active = useActive();
   const index = useApp((s) => s.index);
   const prefs = useApp((s) => s.prefs);
-  const phone = useIsPhone();
+  // One band answer for the whole file, from the one place that defines the
+  // bands: phone is below 720, desktop is 1180 and up, tablet is what is left.
+  const layout = useLayout();
+  const phone = layout === 'phone';
+  const desktop = layout === 'desktop';
 
   const hasManual = layers.some((l) => l.priority > 0);
   /*
@@ -93,7 +128,42 @@ export function Header(): React.JSX.Element {
       </div>
 
       <div className="row" style={{ gap: 14, flex: 'none' }}>
-        {!phone && (
+        {/*
+         * `desktop`, not `!phone`, and this is the line that gives the nav its
+         * pixels back.
+         *
+         * Arithmetic, measured rather than estimated. The bar's content box is
+         * `width - 40`. The left group's contents are a constant 330 (app mark
+         * 20.8 + gap 22 + nav 287.2), the gap between the groups is 8, and the
+         * right group is 485.7 with a ten-character name and 545.6 with
+         * "Bartholomew Ashworth". At 720 that line wants 823.7 of 680, so it is
+         * over-subscribed by 143.7 and the left group - the only one that may
+         * shrink - is allotted 186 for 330 of content. These four children and
+         * four of the row's 14px gaps are 301.5 of that, measured: dropping them
+         * below 1180 leaves a right group of 184.2 with a ten-character name,
+         * 244.1 with "Bartholomew Ashworth", and 318.4 at the 220px name cap
+         * where it stops growing. So the worst line the band can ask for is
+         * 330 + 8 + 318.4 = 656.4 against 680 at the narrowest tablet width -
+         * 23.6px of slack, and 47.6 at 744. The over-subscription is not
+         * reduced, it is gone, at every width in the band and at any name.
+         *
+         * Ergonomics. The nav sits in a 52px bar at the very top of the glass:
+         * y4-48, which on an iPad mini in portrait is ~1085px above the bottom
+         * bezel and outside every thumb arc there is. That is the right home for
+         * navigation you reach for deliberately and the wrong one for anything
+         * mid-roll - but a target you have to reach for AND cannot hit is the
+         * worst of both, and that is what GM was. All four buttons are already
+         * 44px tall (`minHeight: var(--control)`, which tokens.css resolves to
+         * --tap = 44 below 1180 and on any coarse pointer) and 53.8 to 79.9 wide
+         * - GM, the narrowest, clears the 44px floor in both axes - so nothing
+         * here needs to grow. It needs to stop being painted over.
+         *
+         * What is given up: a tablet no longer sees at a glance whether the
+         * Core Rulebook import landed. The phone band has never shown it,
+         * Settings > Rulebook prints the same total, and the alternative was
+         * shrinking or wrapping a nav that is 44px on purpose.
+         */}
+        {desktop && (
           <>
             <span className="t-meta">{hasManual ? 'SRD + CORE RULEBOOK' : 'SRD ONLY · NO ART'}</span>
             <span style={{ color: 'var(--line)' }}>|</span>
@@ -118,9 +188,15 @@ export function Header(): React.JSX.Element {
          * chrome. With several it is the picker, in the same place, because
          * "which character" and "who is this" are the same question asked once.
          *
-         * It moved here from the left row, which also helps: that row wanted
-         * 480px and was allotted 338 at 768px, so this control was being
-         * painted over from the tablet band up.
+         * It moved here from the left row because that row was losing the width
+         * contest - and moving it did not settle the contest, it changed who
+         * lost. This paragraph used to end "so this control was being painted
+         * over from the tablet band up", in the past tense, over a header where
+         * the same thing was still happening to the nav: the row wants 330 and
+         * was allotted 234 at 768, and what the right group was painted over was
+         * BUILD and GM. The move made the right group 485.7px wide, which is the
+         * other half of why. The readout leaving the tablet band above is what
+         * actually settles it; this control stays here, where it is read.
          *
          * The cap and the ellipsis are what stop a long name doing the same
          * thing to the Settings button, and the phone cap is viewport-relative

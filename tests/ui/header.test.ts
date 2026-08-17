@@ -40,6 +40,8 @@ declare global {
 
 /** An iPhone 14, the width the header's own comments are written against. */
 const PHONE = 393;
+/** An iPad mini in portrait: the width the nav collision was measured at. */
+const TABLET = 744;
 const DESKTOP = 1280;
 
 let container: HTMLDivElement;
@@ -188,6 +190,67 @@ describe('the door to Settings', () => {
     expect(tokens).toMatch(
       /@media\s*\(max-width:\s*1179px\),\s*\(pointer:\s*coarse\)\s*\{\s*:root\s*\{\s*--control:\s*var\(--tap\)/,
     );
+  });
+});
+
+describe('the nav and the readout share one line', () => {
+  /**
+   * What this can and cannot prove.
+   *
+   * The defect is invisible to jsdom by construction: the DOM was always
+   * correct. `<header className="spread">` is one flex line, the right group is
+   * `flex: 'none'` and the left group carries `minWidth: 0`, so the whole of the
+   * line's deficit came off the left group's box while its four one-word nav
+   * buttons kept their size and painted outside it. The right group is the later
+   * sibling in the same stacking context, so it was painted over the nav and won
+   * the hit test. Measured in Chrome at 744x1133: GM 100% covered, BUILD 73%,
+   * and `document.elementFromPoint` at either centre returning the "SRD ONLY ·
+   * NO ART" span. jsdom computes no layout, so it can see none of that, and the
+   * whole occlusion is exactly why it survived a repo with 2292 tests.
+   *
+   * What jsdom *can* hold is the rule the fix is made of, which is a rule about
+   * what is rendered rather than about where: the two things that were fighting
+   * over one line are never both on it below 1180, and the one that yields is
+   * the readout rather than the nav. The pixels are the Chrome harness's half -
+   * post-fix the right group measures 184.2 instead of 485.7, the left group's
+   * 330px of content is allotted all 330 from 720 up, and every tab returns
+   * itself from its own centre at 720, 744, 768, 802, 828, 856, 864 and 1179.
+   */
+  it('draws the status readout only in the band whose line can hold it', () => {
+    const NAV = ['play', 'cards', 'build', 'gm'];
+
+    for (const width of [PHONE, 719, 720, TABLET, 1179, 1180, DESKTOP]) {
+      mount(Header, { width });
+
+      const tabs = buttons()
+        .filter((b) => NAV.includes(word(b).toLowerCase()))
+        .map((b) => word(b));
+      expect(tabs, `the nav at ${width}px`).toEqual(
+        width >= 720 ? ['Play', 'Cards', 'Build', 'GM'] : [],
+      );
+
+      // The dataset line and the library count, either wording of the first.
+      const readout = /SRD ONLY · NO ART|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
+        container.textContent ?? '',
+      );
+      expect(
+        readout,
+        `at ${width}px the readout is ${readout ? 'drawn' : 'absent'} and the nav is ${
+          tabs.length > 0 ? 'drawn' : 'absent'
+        }`,
+      ).toBe(width >= 1180);
+
+      // Nothing above may be bought with the two things this header is not
+      // allowed to lose: the only door to Settings, and the licence mark.
+      const doors = doorsToSettings();
+      expect(doors, `one door to Settings at ${width}px`).toHaveLength(1);
+      expect(doors[0]!.style.minHeight).toBe('var(--control)');
+      expect(doors[0]!.style.minWidth).toBe('var(--control)');
+      expect(
+        container.querySelector('img[alt="Daggerheart Compatible"]'),
+        `the compatibility mark at ${width}px`,
+      ).not.toBeNull();
+    }
   });
 });
 
