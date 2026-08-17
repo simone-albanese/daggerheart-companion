@@ -51,6 +51,23 @@ const screen = (tick = 0): ReactElement =>
     children: createElement(Boom, { tick }),
   });
 
+/**
+ * The same boundary with nothing drawn around it.
+ *
+ * `App` passes `alone` for the first run and for nothing else. It is not a
+ * style flag: while the questions are up the header draws no nav and no
+ * SETTINGS door and the tab bar is suppressed, and all three read `onboarding`
+ * from the store rather than from this boundary - so when the flow throws they
+ * stay gone, and every control that could get somebody out went down with the
+ * subtree.
+ */
+const aloneScreen = (tick = 0): ReactElement =>
+  createElement(ScreenBoundary, {
+    name: 'Onboarding',
+    alone: true,
+    children: createElement(Boom, { tick }),
+  });
+
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
@@ -275,5 +292,44 @@ describe('what the person holding the phone can send back', () => {
     expect(shown()).toMatch(/would not give this page the clipboard/);
     // And it says what to do instead, because the details are on the screen.
     expect(shown()).toMatch(/photograph/i);
+  });
+
+  it('does not promise a way out it cannot see, on the one screen that has none', () => {
+    /*
+     * "Everything else still works" is true of the five screens, which keep a
+     * header nav and a tab bar above and below this fallback. It is false of
+     * the first run, and measured false: at 320, 393, 744 and 1280 the whole
+     * document holds three buttons and all of them are this fallback's own.
+     *
+     * The house rule is that the app may never claim something happened that
+     * did not happen, and the first launch of a new install is the worst place
+     * in the app to break it - it is the only screen a person has seen.
+     */
+    act(() => {
+      root.render(aloneScreen());
+    });
+
+    expect(
+      shown(),
+      'the fallback told a stranded first-run user that everything else still works',
+    ).not.toMatch(/Everything else still works/);
+    expect(shown()).toMatch(/Nothing has been saved yet/);
+    // And it says what the one live control will do, rather than leaving the
+    // person to guess: `Try again` remounts the flow, whose step and answers
+    // are local state, so it starts from the first question.
+    expect(shown()).toMatch(/Try again starts the questions over/);
+  });
+
+  it('still tells the five screens the true thing, which is the useful one', () => {
+    // The guard must not cost the ordinary case its sentence: a Play screen
+    // that throws really does leave a working shell around it, and saying so
+    // is the difference between a broken screen and a broken app.
+    act(() => {
+      root.render(screen());
+    });
+
+    expect(shown()).toMatch(/Everything else still works/);
+    expect(shown()).toMatch(/your characters live in this device/);
+    expect(shown()).not.toMatch(/Nothing has been saved yet/);
   });
 });

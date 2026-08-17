@@ -23,6 +23,27 @@ import { copyText } from '../../transfer/pasteboard.ts';
 
 interface Props {
   name: string;
+  /**
+   * Is there anything around this boundary to go to?
+   *
+   * `false` for the five screens, which sit inside a shell that keeps drawing a
+   * header nav and a tab bar while this fallback is up, so "everything else
+   * still works" is a true sentence and a useful one.
+   *
+   * `true` for the first run, where it is neither. `onboarding` is computed
+   * from the store and knows nothing about this boundary, so when the flow
+   * throws, the header is still handed `onboarding` and draws no nav and no
+   * SETTINGS door, and the tab bar is still suppressed - and every control that
+   * could get somebody out, Back and Skip included, lived in the subtree that
+   * just died. Measured at 320, 393, 744 and 1280: the whole document holds
+   * three buttons, all of them this fallback's own.
+   *
+   * So the prop exists to stop one sentence being false rather than to change
+   * what is drawn. "The app may never claim something happened that did not
+   * happen" is the house rule, and the first launch of a new install is the
+   * worst place in the app to break it.
+   */
+  alone?: boolean;
   children: ReactNode;
 }
 
@@ -164,8 +185,16 @@ export class ScreenBoundary extends Component<Props, State> {
       >
         <span className="t-label">{this.props.name} could not open</span>
         <p className="t-body" style={{ maxWidth: 420, textAlign: 'center' }}>
-          Everything else still works, and nothing has been lost — your characters live in this
-          device&rsquo;s storage, not in this screen.
+          {this.props.alone === true
+            ? // Both halves of the ordinary sentence are false here, and for
+              // different reasons: nothing else is drawn, and there are no
+              // characters yet to be reassured about. What IS true is that the
+              // questions are the only thing that failed and they can be taken
+              // again - `Try again` remounts this subtree, and the flow's step,
+              // route and answers are local state, so it starts from the first
+              // question.
+              'Nothing has been saved yet, so there is nothing to lose. Try again starts the questions over.'
+            : 'Everything else still works, and nothing has been lost — your characters live in this device’s storage, not in this screen.'}
         </p>
         <code
           className="t-dense"

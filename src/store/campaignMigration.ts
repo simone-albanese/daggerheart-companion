@@ -67,6 +67,43 @@ const LEGACY_CAMPAIGN_ID = 'campaign-from-gm-v1';
  */
 export const FIRST_CAMPAIGN_NAME = 'My campaign';
 
+/**
+ * Is there a GM's table on this device that the `campaigns` store cannot see?
+ *
+ * For the one caller that has to describe what it is about to destroy. `reset()`
+ * sweeps every `dhc.` key, so both of the keys above go with it - the live
+ * fight, the Fear pool, every countdown and the copies of the players' sheets
+ * in one, and a deliberately-kept unreadable table in the other. Neither is in
+ * the `campaigns` object store, so `countCampaigns()` returns a number that is
+ * *correct about the store* and wrong about the destruction.
+ *
+ * That gap is not hypothetical and it is not rare. The move out of localStorage
+ * runs from `hydrateGm()`, which fires at module load of the GM chunk, and
+ * `App.tsx` imports that chunk lazily - so every upgraded install that has not
+ * opened the GM screen since is sitting in exactly this state.
+ *
+ * A boolean and not a count, deliberately. `dhc.gm.v1` is one key holding one
+ * table, but saying "1 campaign" would be a second specific claim about a blob
+ * this function has not parsed and, in the quarantine case, one that is known
+ * not to parse. The caller drops to naming campaigns without counting them,
+ * which is true in every state - the same choice, for the same reason, that its
+ * storage-refused branch already makes.
+ */
+export function hasUncountedLegacyCampaign(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return (
+      localStorage.getItem(LEGACY_GM_KEY) !== null ||
+      localStorage.getItem(LEGACY_GM_QUARANTINE_KEY) !== null
+    );
+  } catch {
+    // Storage refused the read. Returning `true` would be as much of an
+    // invention as returning a zero; the caller's own catch already covers a
+    // storage that will not answer.
+    return false;
+  }
+}
+
 export type LegacyOutcome =
   | 'nothing-to-do'
   | 'migrated'

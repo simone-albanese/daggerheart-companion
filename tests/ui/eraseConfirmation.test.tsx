@@ -100,12 +100,34 @@ beforeEach(async () => {
   // The connection is cached in a module variable, so the store is emptied
   // through the app's own wipe rather than by a fresh factory.
   await clearAll();
+  // `clearAll` is IndexedDB only - the localStorage sweep lives in About's own
+  // handler - and the legacy-GM cases below write `dhc.gm.v1`. A fresh shim per
+  // case, so a key set by one decides the sentence in no other, which is
+  // exactly the contamination those cases exist to reason about.
+  vi.stubGlobal('localStorage', new MemoryStorage());
 });
 
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.unstubAllGlobals();
 });
+
+/**
+ * The `dhc.` keys, in memory.
+ *
+ * This file's jsdom build does not provide `localStorage`, and the legacy-GM
+ * cases below need one: `hasUncountedLegacyCampaign` reads two keys the
+ * `campaigns` object store cannot see. The same shim seven other test files
+ * install, for the same reason.
+ */
+class MemoryStorage {
+  private readonly map = new Map<string, string>();
+  getItem = (k: string): string | null => this.map.get(k) ?? null;
+  setItem = (k: string, v: string): void => void this.map.set(k, v);
+  removeItem = (k: string): void => void this.map.delete(k);
+  clear = (): void => this.map.clear();
+}
 
 const text = (): string => container.textContent ?? '';
 
@@ -159,6 +181,66 @@ describe('the sentence read before the app is erased', () => {
       'the confirmation is silent about the campaigns the reset deletes, and a campaign ' +
         'holds copies of sheets that belong to other people',
     ).toContain('This erases 1 character, 2 campaigns and everything else this device holds.');
+  });
+
+
+  it('stops counting when a GM table is sitting outside the store it counts', async () => {
+    /*
+     * The count and the destruction have to describe the same set.
+     *
+     * `countCampaigns` reads the `campaigns` object store. `reset()` sweeps
+     * every `dhc.` key, and the move of the GM's table out of localStorage runs
+     * from `hydrateGm()` at module load of the lazily imported GM chunk - so an
+     * upgraded install that has not opened the GM screen since still holds the
+     * live fight, the Fear pool, every countdown and whole copies of the other
+     * players' sheets in `dhc.gm.v1`, where the count cannot see them.
+     *
+     * Counted, that install reads "0 campaigns" over an irreversible control.
+     * That is the same invention the storage-refused branch already refuses -
+     * "inventing a zero here would be the app claiming there is nothing to
+     * lose" - arriving by arithmetic instead of by error. So the sentence drops
+     * to naming campaigns without counting them, which is true in every state.
+     *
+     * Not "1 campaign": this code has not parsed that blob, and in the
+     * quarantine case it is the blob that is known not to parse.
+     */
+    localStorage.setItem('dhc.gm.v1', '{"fear":3}');
+    useApp.setState({ characters: [playedCharacter()] });
+
+    await renderAbout();
+    await arm();
+
+    expect(
+      text(),
+      'an unmigrated GM table was counted as zero campaigns in front of an irreversible control',
+    ).toContain('This erases 1 character, every campaign on this device and everything else it holds.');
+    expect(text()).not.toContain('0 campaigns');
+  });
+
+  it('says the same about a quarantined table, which the reset also deletes', async () => {
+    // `dhc.gm.v1.unreadable` is kept rather than deleted by the migration, on
+    // the argument that "nothing has been thrown away". The reset throws it
+    // away, so the sentence in front of the reset has to allow for it.
+    localStorage.setItem('dhc.gm.v1.unreadable', 'not json at all');
+    useApp.setState({ characters: [playedCharacter()] });
+
+    await renderAbout();
+    await arm();
+
+    expect(text()).toContain('every campaign on this device and everything else it holds');
+    expect(text()).not.toContain('0 campaigns');
+  });
+
+  it('still counts normally when there is no legacy table to miss', async () => {
+    // The guard must not swallow the count it was added to protect: with no
+    // legacy key present this is the ordinary path and the number is the point.
+    await seedCampaigns('The Sablewood Winter');
+    useApp.setState({ characters: [playedCharacter()] });
+
+    await renderAbout();
+    await arm();
+
+    expect(text()).toContain('This erases 1 character, 1 campaign and everything else this device holds.');
   });
 
   it('keeps the consequence sentence that says a backup is the only way back', async () => {

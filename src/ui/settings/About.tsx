@@ -12,6 +12,7 @@ import { APP_VERSION, BUILD_ID, shortBuildId } from '../../buildInfo.ts';
 import { forgetBackupFolder } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { countCampaigns } from '../../store/campaigns.ts';
+import { hasUncountedLegacyCampaign } from '../../store/campaignMigration.ts';
 import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
@@ -106,7 +107,14 @@ export function About({
     let live = true;
     void countCampaigns().then(
       (n) => {
-        if (live) setCampaignCount(n);
+        // A campaign the store cannot see is still a campaign this button
+        // destroys: `reset()` sweeps every `dhc.` key, and an install that has
+        // not opened the GM screen since upgrading still holds its whole table
+        // in `dhc.gm.v1`. Counting only the store would print "0 campaigns"
+        // over a GM's fight, Fear pool, countdowns and copies of the other
+        // players' sheets - which is the same invention as the zero the catch
+        // below refuses, arriving by arithmetic instead of by error.
+        if (live) setCampaignCount(hasUncountedLegacyCampaign() ? null : n);
       },
       () => {
         // Storage refused. The sentence below drops to naming the campaigns

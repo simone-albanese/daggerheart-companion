@@ -451,7 +451,7 @@ function Shell(): React.JSX.Element {
           on the device.
         */}
         {onboarding ? (
-          <ScreenBoundary name="Onboarding">
+          <ScreenBoundary name="Onboarding" alone>
             <Onboarding />
           </ScreenBoundary>
         ) : (
