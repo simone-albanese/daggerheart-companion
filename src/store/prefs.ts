@@ -152,6 +152,16 @@ export const DEFAULT_PREFS: Prefs = {
 };
 
 /**
+ * Every screen the shell has a branch for.
+ *
+ * A list rather than the type, because the type is gone at runtime and the
+ * value this rule is handed comes off the disk: `loadPrefs` JSON-parses a
+ * record and spreads it over the defaults without inspecting `lastScreen`, so
+ * `Screen` is a promise TypeScript makes about code and not about storage.
+ */
+const SCREENS: readonly Screen[] = ['play', 'cards', 'build', 'gm', 'settings'];
+
+/**
  * The screen the shell is allowed to draw, given what the preferences allow.
  *
  * `screen` in the store is a value anything can set, and one of its five is now
@@ -161,8 +171,17 @@ export const DEFAULT_PREFS: Prefs = {
  * callers of this rule need it for different reasons, which is why it is one
  * function and not two conditions: `openingScreen` applies it to a value read
  * off the disk at boot, and `App` applies it to whatever the store holds now.
+ *
+ * A value that is none of the five is the same blank room arriving by a
+ * different door, and it used to be returned unchanged: `App`'s five
+ * `{screen === '…' && …}` branches would then all miss and draw a header, a tab
+ * bar and nothing between them. Reachable from a hand-edited or corrupted
+ * record, and from a downgrade after a future build adds a sixth screen -
+ * which is the case worth guarding, because it is the one that arrives on
+ * somebody who did nothing wrong.
  */
 export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
+  if (!SCREENS.includes(screen)) return 'play';
   return screen === 'gm' && !prefs.gmSection ? 'play' : screen;
 }
 

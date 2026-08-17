@@ -14,12 +14,14 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  allowedScreen,
   DEFAULT_PREFS,
   loadPrefs,
   openingScreen,
   savePrefs,
   type Prefs,
 } from '../../src/store/prefs.ts';
+import type { Screen } from '../../src/store/state.ts';
 
 const KEY = 'dhc.prefs.v1';
 
@@ -136,5 +138,25 @@ describe('where the app opens', () => {
     expect(openingScreen(gm(), 2)).toBe('gm');
     expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 2)).toBe('cards');
     expect(openingScreen(DEFAULT_PREFS, 2)).toBe('play');
+  });
+
+  /*
+   * A stored screen that is not one of the five, which `Screen` cannot prevent.
+   *
+   * `loadPrefs` JSON-parses whatever is on the disk and spreads it over the
+   * defaults; nothing looks at `lastScreen`. So the type is a promise about
+   * code, not about storage, and the value can be anything - a hand-edited
+   * record, a corrupted one, or a downgrade after a future build has added a
+   * sixth screen and written its name here.
+   */
+  it('refuses a stored screen the shell has no branch for', () => {
+    const nowhere = { ...DEFAULT_PREFS, lastScreen: 'sixth' as Screen };
+    expect(
+      allowedScreen(nowhere, nowhere.lastScreen),
+      'the shell is about to draw a header, a tab bar and nothing in between',
+    ).toBe('play');
+    expect(openingScreen(nowhere, 2)).toBe('play');
+    // And an empty library still lands on Build, as it does for the other four.
+    expect(openingScreen(nowhere, 0)).toBe('build');
   });
 });
