@@ -2206,10 +2206,15 @@ function PlayDesktop({
  * height: 385.
  *
  * AT 375x667 THE SAME 385 CLEARS A 545px COLUMN BY 160px, where before the
- * counters became a grid it cleared it by ten. Of the ordinary states this
- * budget cannot see - typed dice (+68), a companion (+50), a Beastform banner
- * (+52), the 34px home-indicator inset - none now costs the small phone its
- * margin. Pips do: they keep the four full-width rows and wrap, which is +149.
+ * counters became a grid it cleared it by ten. Not one of the ordinary states
+ * this budget cannot see costs the small phone its margin: typed dice (+68), a
+ * companion (+50), a Beastform banner (+52), the 34px home-indicator inset -
+ * and pips, which are the dearest of them at **+100**. This comment said +149
+ * and concluded that pips do cost it; both halves were wrong. Rendered in
+ * Chrome with the `playedCharacter` fixture, `counterStyle: 'pips'` keeps the
+ * four full-width rows and wraps nothing at either width, so the Vitals block
+ * is 94 as numbers and 194 as pips - the 2x2 grid's own arithmetic run
+ * backwards - and ROLL lands at 485 of the 545 column, with **60px to spare**.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT HAS NEVER DONE BEFORE. **697px
  * against 730 at 393x852, with 33 to spare** - measured in Chrome, every fold
