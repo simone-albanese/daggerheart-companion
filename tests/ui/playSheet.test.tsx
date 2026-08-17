@@ -622,10 +622,12 @@ describe('the trait row and the roll surface', () => {
  *
  *   - a character name or a multiclass line that WRAPS, which is one line of
  *     18.9px each time (14px at 1.35). Measured in Chrome: the class cell is
- *     237px at 393 and 219 at 375 - it was 289 and 271 until P5-8's conditions
- *     control took 52 of it - the fixture's "Bard — Troubadour" needs 125.6 and
- *     clears both, and "Bard / Wizard — Troubadour · School of Knowledge" needs
- *     326.5 and is two lines at either width, which adds 18.9 to Identity.
+ *     317px at 393 and 299 at 375 - it was 237 and 219 until decision 1 deleted
+ *     the 72px RENAME chip and its 8px gutter, and 289 and 271 before P5-8's
+ *     conditions control took 52 - the fixture's "Bard — Troubadour" needs
+ *     125.6 and clears both, and "Bard / Wizard — Troubadour · School of
+ *     Knowledge" needs 326.5 and is still two lines at either width, which adds
+ *     18.9 to Identity.
  *   - a class with the Beastform feature, which draws a 44px HUMAN FORM chip at
  *     the head of the column even untransformed: 52 with the gap, so every
  *     Druid is 52px worse off than this table says.
@@ -700,7 +702,11 @@ describe('the budget the pin came off for', () => {
     { what: 'Identity · the meta row: marginTop 7', px: 7, from: 'dom' },
     { what: 'Identity · the meta row itself, .t-meta at 10/1', px: 10, from: 'css' },
     { what: 'Identity · the class row: marginTop 9', px: 9, from: 'dom' },
-    { what: 'Identity · the class row, held open by RENAME at --control', px: 44, from: 'dom' },
+    // RENAME held this row open until decision 1 deleted it. `ConditionsControl`
+    // is the only 44px thing in the row now, so the term is that control's own
+    // `minHeight: var(--control)` and the row would be the 18.9px class line
+    // without it - which is what the cockpit, where no door is passed, draws.
+    { what: 'Identity · the class row, held open by the conditions door', px: 44, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
     { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
@@ -1006,12 +1012,23 @@ describe('the budget the pin came off for', () => {
         'or something new has been added below it and is exempt from the budget by accident',
     ).toBe('FOOTER');
 
-    // Identity: the two margins and the chip that holds the third row open.
+    // Identity: the two margins and the control that holds the third row open.
     const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
     read.set('meta marginTop', Number.parseFloat((identity.children[1] as HTMLElement).style.marginTop));
     read.set('class marginTop', Number.parseFloat((identity.children[2] as HTMLElement).style.marginTop));
-    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
-    expect(rename.style.minHeight).toBe('var(--control)');
+    /*
+     * The 44 in the table above used to be RENAME's. Decision 1 deleted that
+     * chip, so the class row is held open by `ConditionsControl` and by
+     * nothing else - which is why this reads the door rather than the chip,
+     * and why the term's name in `STACK` says the door.
+     */
+    const door = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'))!;
+    expect(door.style.minHeight).toBe('var(--control)');
+    expect(
+      identity.children[2]!.contains(door),
+      'the only 44px thing in the class row is not in the class row, so nothing holds the ' +
+        'third term of the identity block open and the table above is wrong by 25px',
+    ).toBe(true);
     expect(read.get('meta marginTop')).toBe(7);
     expect(read.get('class marginTop')).toBe(9);
 
@@ -1147,7 +1164,7 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBeUndefined();
   });
 
-  it('puts the permanent door in a row that was already 44px tall', () => {
+  it('puts the permanent door in the class row, which it now holds open by itself', () => {
     play(seed());
     const door = control();
     expect(
@@ -1156,13 +1173,21 @@ describe('the conditions, drawn only when there are any', () => {
         'set Hidden on',
     ).toBeDefined();
 
-    // In the class row, beside RENAME - the whole reason it costs nothing.
-    const rename = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '))!;
+    /*
+     * In the class row, which it used to share with RENAME. Decision 1 deleted
+     * that chip, so this control is the whole of the row's 44px rather than a
+     * free rider on it - the budget's third identity term is this element's
+     * `minHeight` and nothing else's.
+     */
+    const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
     expect(
       door!.parentElement,
-      'the conditions control left the identity class row, where RENAME holds the band ' +
-        'open at 44 and it therefore costs the column nothing',
-    ).toBe(rename.parentElement);
+      'the conditions control left the identity class row',
+    ).toBe(identity.children[2]);
+    expect(
+      buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename ')),
+      'the RENAME chip is back on the sheet, which decision 1 deleted',
+    ).toHaveLength(0);
     expect(door!.style.minHeight, 'the door is below the touch floor').toBe('var(--control)');
     expect(door!.style.width, 'the door is not the 44 wide the budget assumes').toBe('44px');
     expect(door!.getAttribute('aria-label'), 'a clear sheet does not say so').toBe(
@@ -2995,186 +3020,67 @@ describe('rolling the damage the attack earned', () => {
 });
 
 /**
- * P5-1(b), the half that is on this screen.
+ * P5-1(b), reversed on this screen by the reflow's decision 1.
  *
- * The name is the first field on the paper sheet and the most-shown string in
- * the app - it is in the top bar of every screen - and the way to change it was
- * four gestures deep in the tab visited least. Putting it back on the sheet is
- * only half the item, though: the backlog names the failure the other half
- * would be, and names it as worse. *"A name at the top of a scrolling screen
- * that opens a keyboard when a thumb brushes it is worse than a name you cannot
- * edit."*
+ * The rename was on the sheet from P5-1(b) until now: a 72x44 chip at the right
+ * end of the class row, with the name line beside it deliberately not a target.
+ * Decision 1 deletes the chip. Both halves of that are asserted here, because
+ * both can regress and they regress in opposite directions - the chip coming
+ * back is 72px plus an 8px gutter of a row the budget above has been re-costed
+ * without it, and the *name* becoming a target is the failure the backlog
+ * bullet names as worse than no rename at all: "a name at the top of a
+ * scrolling screen that opens a keyboard when a thumb brushes it".
  *
- * So these are about where the target is and where it is not. The name line is
- * not a target at all; the chip is a separate 72x44 control on the row below,
- * 51px clear of the only other 44px target in the top band; arming it moves
- * nothing; and it cannot outlive the character it was armed for, because the
- * header draws a character picker on this very screen.
- *
- * Every input query here is scoped to `input[aria-label="Character name"]`. A
- * bare `container.querySelector('input')` would be non-null before anything is
- * tapped and after: `Vitals.tsx:128-133` draws the incoming-damage field on the
- * phone, which this file's 'the damage calculator is not on the phone' pins
- * green on purpose.
+ * WHAT REPLACED THE TESTS THAT WERE HERE. They covered the chip, the field it
+ * opened, the refusal row, the `autoFocus` that put a cursor in it, and the
+ * reset that stopped an armed editor riding the header's character picker onto
+ * another sheet. Every one of those described a control that no longer exists
+ * on any layout. The control itself is unchanged and is still covered end to
+ * end by `rename.test.tsx`, which mounts `RenameField` directly and drives
+ * Build's door: nothing about the naming rule lost coverage here, only the door
+ * did.
  */
-describe('renaming from the sheet', () => {
-  const nameField = (): HTMLInputElement | null =>
-    container.querySelector<HTMLInputElement>('input[aria-label="Character name"]');
-
+describe('the rename that is not on this sheet', () => {
   const chip = (): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename '));
 
-  /** The Identity block: whatever holds the name line. */
-  const identity = (): HTMLElement => container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
+  const nameField = (): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('input[aria-label="Character name"]');
 
-  /**
-   * A second character, because `seed()` only ever sets one.
-   *
-   * Without this the rule has nobody to refuse for: typing "Ilya" into a
-   * library of one collides with nothing, no refusal row and no offer button
-   * are ever drawn, and a sweep over "every rename target" quietly covers two
-   * of the four.
-   */
-  function seedTwo(neighbour: string): Character {
-    const fixture = seed();
-    useApp.setState({
-      characters: [fixture, { ...playedCharacter(), id: 'the-other-sheet', name: neighbour }],
-      activeId: fixture.id,
-    });
-    return fixture;
-  }
-
-  /**
-   * Type, the way a person does.
-   *
-   * jsdom does not notify React when `input.value` is assigned, so the obvious
-   * spelling of this helper asserts against an unchanged field and passes for
-   * the wrong reason. The native setter plus a bubbling `input` event is what
-   * React's synthetic `onChange` actually listens for.
-   */
-  function type(input: HTMLInputElement, value: string): void {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-    act(() => {
-      setter.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  }
-
-  /** A declared length in px, the same resolution the sweep at :260-265 uses. */
-  function px(value: string): number {
-    if (value === 'var(--tap)' || value === 'var(--control)') return 44;
-    const n = Number.parseFloat(value);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  it('puts the rename on a control of its own, and leaves the name itself untouchable', () => {
+  it('draws no rename control, on the phone or in the cockpit', () => {
     play(seed());
-    expect(chip(), 'there is no rename control on the sheet').toBeDefined();
-    expect(chip()!.getAttribute('aria-label')).toBe('Rename Fixture');
-
-    const name = container.querySelector('.t-vital')!;
-    expect(name.closest('button'), 'the name line is inside a button').toBeNull();
-    expect(name.tagName).toBe('DIV');
-    expect(name.getAttribute('role')).toBeNull();
-    expect(name.getAttribute('tabindex')).toBeNull();
-
-    expect(nameField(), 'the field is open before anything was tapped').toBeNull();
-  });
-
-  it('names the chip after a character with no name, rather than trailing off', () => {
-    play(seed({ name: '' }));
-    expect(chip()!.getAttribute('aria-label')).toBe('Rename Unnamed');
-  });
-
-  it('declares the chip at the touch floor and inside the column', () => {
-    play(seed());
-    expect(chip()!.style.minHeight).toBe('var(--control)');
-    expect(chip()!.style.minWidth).toBe('72px');
-  });
-
-  it('opens the field only on a deliberate tap, and puts the cursor in it', () => {
-    play(seed());
-    expect(nameField()).toBeNull();
     expect(
-      document.activeElement,
-      'something on the sheet took focus before anything was tapped',
-    ).toBe(document.body);
+      chip(),
+      'the RENAME chip is back on the phone sheet. It costs the class row 72px plus an 8px ' +
+        'gutter, which the identity block above is no longer costed with',
+    ).toBeUndefined();
 
-    click(chip()!);
-    const field = nameField();
-    expect(field, 'tapping RENAME opened nothing').not.toBeNull();
-    expect(field!.value).toBe('Fixture');
-    expect(field!.style.minHeight).toBe('var(--tap)');
-    expect(field!.maxLength).toBe(40);
-    // The other half of the deliberate gesture, and the reason `autoFocus` is
-    // passed here and not on the Build door. A chip has already been tapped to
-    // get here, so the keyboard the tap asked for opens with it; a field that
-    // arrived without focus would mean tapping the chip, seeing a field, and
-    // tapping again to type. Nothing else in this file or in `rename.test.tsx`
-    // was asking for it: `autoFocus` could be deleted from `Play.tsx` with
-    // every gate in the repo still green.
-    expect(document.activeElement, 'the field opened with no cursor in it').toBe(field);
-  });
-
-  it('arming the rename moves nothing above it', () => {
-    play(seed());
-    // Name, metadata row, and the wrapper that holds either the class line or
-    // the editor. The editor replaces the class line inside that wrapper, so
-    // the count and the margin are the same before and after.
-    expect(identity().children).toHaveLength(3);
-    const wrapper = (): HTMLElement => identity().children[2] as HTMLElement;
-    expect(wrapper().style.marginTop).toBe('9px');
-    click(chip()!);
-    expect(identity().children, 'the editor was added instead of swapped in').toHaveLength(3);
-    expect(wrapper().style.marginTop).toBe('9px');
-  });
-
-  it('holds every rename target at the touch floor, refusal and all', () => {
-    play(seedTwo('Ilya'));
-    click(chip()!);
-    type(nameField()!, 'Ilya');
-    expect(text(), 'no refusal, so the offer button was never drawn').toContain(
-      'already called "Ilya"',
-    );
-
-    const targets = [...identity().querySelectorAll('button')];
-    // SAVE, the cancel, and the offer.
-    expect(targets.length, 'the refusal row drew no controls').toBeGreaterThanOrEqual(3);
-    for (const t of targets) {
-      const declared = t.style.height !== '' ? t.style.height : t.style.minHeight;
-      expect(
-        px(declared),
-        `${t.getAttribute('aria-label') ?? t.textContent ?? '?'} declares ${declared}`,
-      ).toBeGreaterThanOrEqual(44);
-    }
-  });
-
-  it('gives the desktop cockpit the same control', () => {
     setViewport(1280);
     play(seed());
-    expect(chip(), 'the cockpit has no rename').toBeDefined();
+    expect(
+      chip(),
+      'the RENAME chip is back in the desktop cockpit. There is one Identity component, so ' +
+        'this is the same deletion and not a second one',
+    ).toBeUndefined();
   });
 
-  it('closes the rename when the picker changes character, so no keyboard opens by navigation', () => {
-    // `Header.tsx:138-154` draws the character `<select>` on every screen,
-    // Play included, as soon as there are two characters. An armed editor that
-    // survived that switch would remount with `autoFocus` on a sheet nobody
-    // asked to rename - a software keyboard opening on arrival, which is the
-    // exact failure the backlog bullet forbids.
-    const fixture = seedTwo('Ilya');
-    play(fixture);
-    click(chip()!);
-    expect(nameField()).not.toBeNull();
-    // The premise the rest of this test rests on, asserted rather than
-    // assumed: an armed field *is* a focused field, so an armed field that
-    // survived the switch would be a keyboard opening on arrival.
-    expect(document.activeElement, 'arming the field does not focus it').toBe(nameField());
-
-    act(() => useApp.setState({ activeId: 'the-other-sheet' }));
-    expect(nameField(), 'the editor followed the picker onto another sheet').toBeNull();
-
-    act(() => useApp.setState({ activeId: fixture.id }));
-    expect(nameField(), 'the editor reopened on a sheet nobody armed').toBeNull();
+  it('leaves the name a readout that cannot open a keyboard', () => {
+    play(seed());
+    const name = container.querySelector('.t-vital')!;
+    expect(name.tagName).toBe('DIV');
+    expect(name.closest('button'), 'the name line is inside a button').toBeNull();
+    expect(name.getAttribute('role')).toBeNull();
+    expect(name.getAttribute('tabindex')).toBeNull();
+    /*
+     * And there is no way to reach the field from this screen at all - not
+     * before a tap, which was already true, and not after every one of them.
+     * Scoped to the rename field by its own accessible name: a bare `input`
+     * query is non-null on this screen either way, because the
+     * incoming-damage box is one.
+     */
+    expect(nameField(), 'a rename field is on the sheet').toBeNull();
+    for (const b of buttons()) click(b);
+    expect(nameField(), 'something on the sheet opens a rename field').toBeNull();
   });
 });
 

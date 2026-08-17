@@ -58,7 +58,6 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
-import { RenameField } from '../shared/RenameField.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
@@ -399,39 +398,31 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * not see an unused destructured prop, so it sat there through every edit
  * looking load-bearing.
  *
- * The name line stays a `<div>`. That is the whole design of P5-1(b)'s first
- * bullet, which forbids "a name at the top of a scrolling screen that opens a
- * keyboard when a thumb brushes it": the failure it describes requires the
- * name itself to be the target, so the name is not the target. It carries no
- * `role`, no `tabIndex`, no handler and no wrapping `<button>`. The rename
- * lives on a 72x44 chip on the row below, pinned to the right edge with the
- * whole flexible middle of the row between the text that is read and the
- * control that is touched - `Counter.tsx:13-19`'s rule, applied to a name
- * instead of a number.
+ * THE RENAME IS NOT HERE ANY MORE, AND THAT IS DECISION 1 OF THE REFLOW. A
+ * 72x44 RENAME chip used to sit at the right end of the class row on both
+ * layouts, and the whole of P5-1(b)'s argument was about where to put a target
+ * beside a name without making the name one. There is no target here at all
+ * now: the one door to a rename is `Edit.tsx`'s `<RenameField commitOnBlur />`
+ * in Build's Identity section. What that costs is stated rather than softened -
+ * `RenameField`'s own docblock opens on "unreachable: four gestures deep in the
+ * tab visited least", and after this commit that sentence is in force again for
+ * every layout. What it buys is 72px plus an 8px gutter of the class row's
+ * width, which at 393 takes the class cell from 237px to 317px - the fixture's
+ * "Bard - Troubadour" needs 125.6px and the two-class
+ * "Bard / Wizard - Troubadour · School of Knowledge" needs 326.5, so the
+ * two-class line stops being a second row this budget could not see. It costs
+ * the column no height: on the phone the row is held open to 44 by
+ * `ConditionsControl`, on the desktop it collapses to the 18.9px class line,
+ * which is 25px the cockpit gets back.
  *
- * Vertically, at 393x852: the header is 52px plus a 1px border, the phone root
- * has no top padding and `Beastform` draws nothing for a class without one, so
- * the name runs y 53-74, the metadata row y 81-91, and the chip's row y
- * 100-144. The header's SETTINGS button is 44px in a 52px bar, so y 4-48. That
- * is 52px of dead space between the only two 44px targets in the top band, and
- * 96px centre to centre, against an adult fingertip contact patch of about
- * 38-40 CSS px. On the name line the clearance would be 5px; on the metadata
- * row, 33px - less than one fingertip. On a fourth row of its own it would be
- * 105px and cost 53px of the column instead of 25px.
- *
- * This is also why Identity is not compressed to 74px to buy the reflow its
- * last 17 pixels: merging the pronouns and level into the class row would put
- * RENAME at y 83-127 and take that clearance to 35px, which is the number this
- * paragraph already rejects.
- *
- * Arming cannot outlive the character it was armed for. `Header.tsx:138-154`
- * draws the character `<select>` on every screen, Play included, as soon as
- * there are two characters - so an armed flag that survived a switch would
- * remount `RenameField` with `autoFocus` on a sheet nobody asked to rename: a
- * software keyboard opening on arrival, which is the failure the backlog
- * bullet forbids. The reset happens *during* the render that changes character
- * rather than in an effect, because an effect runs after a commit and that
- * commit is the one frame in which the field is on the wrong sheet.
+ * The name line stays a `<div>`, and with the chip gone that is now the whole
+ * band rather than half of it. P5-1(b)'s first bullet forbids "a name at the
+ * top of a scrolling screen that opens a keyboard when a thumb brushes it":
+ * the failure it describes requires the name itself to be the target, so the
+ * name carries no `role`, no `tabIndex`, no handler and no wrapping `<button>`.
+ * With nothing beside it there is no near-miss to argue about either - the
+ * nearest target above is the header's 44px SETTINGS button at y 4-48, and the
+ * nearest below is `ConditionsControl` at y 100-144, 52px clear of it.
  */
 function Identity({
   showLineage = true,
@@ -451,13 +442,6 @@ function Identity({
 }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
-  const [renaming, setRenaming] = useState(false);
-  const [armedFor, setArmedFor] = useState<string | null>(character?.id ?? null);
-  const activeId = character?.id ?? null;
-  if (activeId !== armedFor) {
-    setArmedFor(activeId);
-    setRenaming(false);
-  }
   if (!character) return null;
   // A multiclassed character is two classes and two subclasses, and both belong
   // on the line that says who they are.
@@ -495,92 +479,37 @@ function Identity({
         </span>
       </div>
       {/*
-       * One wrapper, two contents, so arming costs nothing.
-       *
-       * The `marginTop: 9` lives here rather than on either child: the class
-       * line and the editor swap inside it, the row is 44px tall both ways,
-       * and the sheet below Identity does not move by a pixel when the chip is
-       * tapped. Putting the margin on the class line and none on the editor
-       * would jump the whole sheet up 9px on arming, which is the opposite of
-       * the point.
-       *
-       * While the editor is open this row stops saying what class the
-       * character is. That is the deliberate half of the trade: the
-       * alternative is a fourth row and 53px of permanent scroll window
-       * instead of 25px, and the class is one tap and no scroll away.
+       * The class row. `marginTop: 9` is the row's own margin, and it is the
+       * one thing left of the wrapper that used to swap the class line for a
+       * rename editor: with the editor gone there is one content, so the
+       * wrapper and the row are one element again.
        */}
-      <div style={{ marginTop: 9 }}>
-        {renaming ? (
-          <RenameField key={character.id} autoFocus onDone={() => setRenaming(false)} />
-        ) : (
-          <div className="row" style={{ gap: 8 }}>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                font: '600 14px/1.35 var(--sans)',
-                color: 'var(--text-2)',
-              }}
-            >
-              {klass === '' ? 'No class' : klass}
-              {subclass !== '' && ` — ${subclass}`}
-            </div>
-            {/*
-             * The chip. `TO VAULT` at :207-209 is the in-file precedent for a
-             * chip label on this screen and this matches it: `.t-meta` is 10px
-             * mono at 0.06em, and legibility in a dim room is bought by the
-             * weight and the ink colour rather than by the word.
-             *
-             * `--control` resolves to `--tap`, 44px, at every width below 1180
-             * and whenever the *primary* pointer is coarse - `tokens.css:174`,
-             * pinned by `header.test.ts:189`. Primary, not `any-pointer`:
-             * `tokens.css:180-186` makes that distinction on purpose for
-             * `--pip-h` and `stylesheets.test.ts:287` keeps `--control` out of
-             * it, because widening it would crush the desktop cockpit's roll
-             * panel from the inside. So a touchscreen laptop at 1280px answers
-             * `pointer: fine` and gets a 34px chip with a finger available.
-             * That is the token's behaviour for every chip in the app rather
-             * than a choice made here, and this chip follows it instead of
-             * pinning `--tap`: a rename that was the one 44px chip on a
-             * cockpit of 34px ones would be answering the token's question
-             * again, in one place, where the answer would then disagree with
-             * `TO VAULT` eleven rows down. Every width the sheet is actually
-             * played at is coarse-primary and gets 44.
-             */}
-            <button
-              type="button"
-              onClick={() => setRenaming(true)}
-              aria-label={`Rename ${character.name || 'Unnamed'}`}
-              className="row"
-              style={{
-                flex: 'none',
-                minWidth: 72,
-                minHeight: 'var(--control)',
-                justifyContent: 'center',
-                borderRadius: 'var(--r3)',
-                background: 'var(--raised)',
-                border: '1px solid var(--line)',
-                padding: '0 8px',
-              }}
-            >
-              <span className="t-meta" style={{ color: 'var(--text)', fontWeight: 700 }}>
-                RENAME
-              </span>
-            </button>
-            {/*
-             * The conditions, at the end of a row that was already 44px tall.
-             *
-             * This is the door that let the conditions strip stop being drawn
-             * when nothing is on, which is the 52px that finally puts the whole
-             * folded sheet on a 393x852 phone. It costs this column nothing:
-             * RENAME holds the row open to 44 whether this is here or not, and
-             * the 52px it takes out of the class cell leaves the fixture's line
-             * 111px of slack at 393 and 93 at 375. `ConditionsControl` carries
-             * the placement argument and the measurements.
-             */}
-            {conditions && <ConditionsControl />}
-          </div>
-        )}
+      <div className="row" style={{ marginTop: 9, gap: 8 }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            font: '600 14px/1.35 var(--sans)',
+            color: 'var(--text-2)',
+          }}
+        >
+          {klass === '' ? 'No class' : klass}
+          {subclass !== '' && ` — ${subclass}`}
+        </div>
+        {/*
+         * The conditions, and on the phone this is now the only thing holding
+         * this row open at all.
+         *
+         * It is the door that let the conditions strip stop being drawn when
+         * nothing is on, which is the 52px that first put the whole folded
+         * sheet on a 393x852 phone. It used to cost this column nothing because
+         * RENAME held the row open at 44 beside it; RENAME has gone, so the
+         * height is this control's own `minHeight: var(--control)` and the row
+         * is 44 on the phone and 18.9 - the bare class line - on the desktop.
+         * `ConditionsControl` carries the placement argument and the
+         * measurements.
+         */}
+        {conditions && <ConditionsControl />}
       </div>
       {showLineage && lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
