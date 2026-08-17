@@ -37,7 +37,27 @@ export function useHasCompanion(): boolean {
   return character.companion !== null || hasCompanionFeature(character, index);
 }
 
-/** "YOU | COMPANION" - the same physical space, one tap apart. */
+/**
+ * "YOU | COMPANION" - the same physical space, one tap apart.
+ *
+ * A RULE AND NOT A BOX, WHICH IS EIGHT PIXELS AND THE BINDING CASE. This was a
+ * bordered box: `padding: 3` on all four edges and a 1px border on all four,
+ * around two 44px segments, so it drew 52px to hold 44 of target. Every one of
+ * those eight pixels was spent on the phone's tightest state - a companion open
+ * in a Safari tab - where the sheet is measured against a 515px column, and
+ * they bought nothing a hairline does not: the two segments already have their
+ * own radius, their own fill and a 3px gutter between them, so what the box was
+ * adding was a second statement of a grouping the segments make themselves.
+ *
+ * The boundary is now one rule under the strip, drawn as an inset shadow rather
+ * than a `borderBottom`, because a border on a box whose height comes from its
+ * child's `minHeight` ADDS that pixel to the column - which is the whole thing
+ * this change exists to stop. The horizontal 3px stays: that one keeps the
+ * segments off the edge and costs the column nothing.
+ *
+ * So a companion costs 44 plus `Vitals`'s own 6px phone gap - **50**, where it
+ * was 58 - and `PlayPhone`'s budget says so in those terms.
+ */
 export function WhoSwitch({
   who,
   setWho,
@@ -54,11 +74,18 @@ export function WhoSwitch({
       className="row"
       style={{
         gap: 3,
-        padding: 3,
+        // Horizontal only. The vertical 3 was 6px of column on the state this
+        // sheet has least room for; the horizontal 3 is the gutter that keeps
+        // a 44px target off the panel's edge and is free.
+        padding: '0 3px',
         flex: 'none',
         borderRadius: 'var(--r3)',
         background: 'var(--app)',
-        border: '1px solid var(--line-soft)',
+        // The boundary, as a rule under the strip. `inset` and not
+        // `borderBottom` on purpose: this box takes its height from the
+        // segments' `minHeight`, so a real border would add its pixel to the
+        // column, and the pixel is the point.
+        boxShadow: 'inset 0 -1px 0 var(--line-soft)',
       }}
     >
       {(

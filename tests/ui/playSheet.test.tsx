@@ -30,6 +30,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 import { NARROW, PHONE, px as resolve } from './tokens.ts';
+import { WhoSwitch } from '../../src/ui/player/Companion.tsx';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -521,6 +522,54 @@ describe('the whole sheet, at 393x852', () => {
       .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
       .map((el) => `${el.tagName}.${el.className} ${el.style.width}/${el.style.minWidth}`);
     expect(wide, 'these are wider than the column, so the page scrolls sideways').toEqual([]);
+  });
+
+  /*
+   * THE FOLD SUMMARIES, RAISED BY A PIXEL, AND THE ONE THAT COULD NOT TAKE IT.
+   *
+   * The reflow's brief was legibility, and these lines were the smallest type on
+   * the sheet at `.t-meta`'s 10px - sitting inside a 44px touch floor with 34px
+   * of headroom doing nothing. So they are 11, and it costs the column zero.
+   *
+   * `Carried` is the exception and it is measured rather than guessed: its worst
+   * summary is 257.41px at 10 with a right edge of 364.61 in a 369px column, so
+   * 4.39px of slack, and at 11 the same line runs past 390 and ellipsises - the
+   * gold being the half that goes. That is the failure `Disclosure` exists to
+   * prevent, so `Carried` passes `tightSummary` and keeps its 10.
+   *
+   * This asserts the split rather than the raise, because a raise applied to all
+   * six would pass any assertion that only counted 11s.
+   */
+  it('raises every fold summary to 11px, and keeps Carried at 10', () => {
+    play(seed());
+    const sized = buttons()
+      // A fold header, and not merely something that expands. `Disclosure`
+      // draws `<section class="stack">` with the header as its first child;
+      // ROLL's own MODS control also answers `aria-expanded` and also holds a
+      // `.t-meta` span, and it is not a summary and not this raise's business.
+      .filter((b) => b.parentElement?.tagName === 'SECTION')
+      .flatMap((header) =>
+        [...header.querySelectorAll<HTMLElement>('span.t-meta')].map((span) => ({
+          fold: (header.textContent ?? '').trim(),
+          size: span.style.fontSize,
+        })),
+      );
+
+    const kept = sized.filter((s) => s.size === '').map((s) => s.fold.slice(0, 24));
+    expect(
+      kept,
+      'these folds are drawing their summary at `.t-meta`\'s 10px. The raise is a pixel of ' +
+        'legibility on the smallest type on the sheet and it is free vertically; exactly one ' +
+        'fold is allowed to decline it, and only because its line was measured against the ' +
+        'column and does not fit.',
+    ).toEqual([expect.stringMatching(/^Carried/)]);
+
+    const raised = sized.filter((s) => s.size === '11px').map((s) => s.fold);
+    expect(
+      raised.length,
+      'the summaries went back to 10px, so the smallest type on the sheet is small again ' +
+        'for no reason - the room it needs is headroom nothing else was using',
+    ).toBeGreaterThanOrEqual(3);
   });
 
   /*
@@ -1144,6 +1193,56 @@ describe('the budget the pin came off for', () => {
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
     expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(478);
+  });
+
+  /*
+   * THE COMPANION, WHICH IS THE DEAREST STATE THIS TABLE CANNOT SEE AND IS THE
+   * BINDING CASE OF THE WHOLE REFLOW.
+   *
+   * The docblock above costs it at +50, and for two passes it was +58 because
+   * `WhoSwitch` drew a bordered box to hold two 44px segments: 3px of padding
+   * and a 1px border on each edge, 52px of strip around 44 of target, plus the
+   * `Vitals` panel's own 6px gap that no other child was paying. Eight of those
+   * pixels bought a second statement of a grouping the two segments already
+   * make with their own fill, radius and gutter - and they were spent on the
+   * one state where this sheet has least room: a companion open in a Safari
+   * tab, against a column of about 515.
+   *
+   * So the boundary is a rule under the strip and the strip is 44. It is an
+   * INSET SHADOW and not a `borderBottom`, and that is the assertion below that
+   * matters most: this box takes its height from its children's `minHeight`, so
+   * a real bottom border would put its pixel straight back into the column and
+   * the change would read as done while giving back an eighth of itself.
+   */
+  it('draws the companion strip as a rule, so it costs 50 of column and not 58', () => {
+    render(createElement(WhoSwitch, { who: 'you' as const, setWho: () => {}, compact: false }));
+    const strip = container.firstElementChild as HTMLElement;
+
+    expect(
+      strip.style.padding,
+      'the strip has vertical padding again - 6px of the column, on the state that has least',
+    ).toBe('0px 3px');
+    expect(
+      strip.style.border,
+      'the strip is a bordered box again, which is 2px of column and one boundary too many',
+    ).toBe('');
+    expect(
+      strip.style.boxShadow,
+      'the boundary is not an inset rule. A `borderBottom` on this box adds its pixel to the ' +
+        'column, because the height comes from the segments inside it - which is the whole ' +
+        'of what this change is.',
+    ).toBe('inset 0 -1px 0 var(--line-soft)');
+
+    // The segments are untouched, which is the other half: this saves column
+    // without taking a pixel off either target.
+    const segments = [...strip.children] as HTMLElement[];
+    expect(segments, 'the strip is not two segments any more').toHaveLength(2);
+    for (const s of segments) {
+      expect(s.style.minHeight, 'a companion segment left the touch floor').toBe('44px');
+    }
+
+    // 44 of strip plus the Vitals panel's own 6px phone gap.
+    expect(44 + 6).toBe(50);
   });
 
   /*

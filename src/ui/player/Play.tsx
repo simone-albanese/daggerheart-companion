@@ -2453,26 +2453,37 @@ function PlayDesktop({
  * heights at 393x852, every fold shut and nothing armed: the defence band 56 -
  * which carries the incoming-damage field *and* the conditions door as its
  * fifth cell, for nothing, because two 44px controls fit inside a row the
- * numbers hold open at 64 - the four counters 94 as a 2x2 grid, the trait row
+ * numbers hold open at 64 - the four counters **102** as a 2x2 grid, the trait
+ * row
  * 44, and the roll row 56 - a floor rather than the hard 66 it was, and the ten
  * pixels are the first of the reflow's savings - ROLL beside a MODS control that costs the column
  * nothing because it is 44 wide inside a height ROLL was already holding, plus
- * three of this column's 8px gaps. **ROLL's lower edge lands at 274 of a usable
+ * three of this column's 8px gaps. **ROLL's lower edge lands at 282 of a usable
  * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
- * foot), which is 456px of slack.
+ * foot), which is 448px of slack.
  *
- * AT 375x667 THE SAME 274 CLEARS A 545px COLUMN BY 271px, where before the
+ * THE COUNTERS ARE 102 AND NOT 94 BECAUSE THAT IS THE ONE THING THE REFLOW
+ * BUYS RATHER THAN SELLS: `--counter-cell` steps to 48 from viewport 390 so the
+ * value inside it can be 26 instead of 22, and the eight pixels are exactly
+ * what this band's own padding returned in the same pass - so the counters grow
+ * UPWARD and every number below them is where it was. Below 390 the token does
+ * not step, so a 360px Android still reads 94 here and pays nothing for the
+ * raise at all.
+ *
+ * AT 375x667 THE SAME 282 CLEARS A 545px COLUMN BY 263px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
- * are the dearest of them at **+68**, a companion (~~+50~~ **+58**), a Beastform
+ * are the dearest of them at **+68**, a companion (**+50**), a Beastform
  * banner (+52), an armed modifier (+50), and the 34px home-indicator inset. The
- * companion is 58 and not 50 for the reason the banner's own 58 turned out to
- * be 66: +50 counted a box and not the space it lands in. `WhoSwitch`
+ * companion was **58** for two passes and is 50 again, and the difference is
+ * the thing the 58 was right to count and the reflow removed. `WhoSwitch`
  * (`Companion.tsx:41-92`) is drawn `compact={!phone}`, so on a phone its
- * buttons are `minHeight: 44`, inside `padding: 3` on both edges and a 1px
- * border on both - a **52px** box - and it is a child of the `Vitals` panel
- * whose phone `gap` is 6 (`Vitals.tsx:71`), which no other child was paying
- * before it appeared. 44 + 3 + 3 + 1 + 1 + 6 = **58**. There used
+ * buttons are `minHeight: 44`; they used to sit inside `padding: 3` on both
+ * edges and a 1px border on both - a **52px** box drawn to hold 44 of target -
+ * and it is a child of the `Vitals` panel whose phone `gap` is 6
+ * (`Vitals.tsx:71`), which no other child was paying before it appeared. That
+ * was 44 + 3 + 3 + 1 + 1 + 6 = **58**. The box is a rule now, drawn as an inset
+ * shadow so the hairline costs no height, and it is 44 + 6 = **50**. There used
  * to be a sixth and it used to be the dearest - pips, at +100 - and decision 7
  * deleted `counterStyle`, its switch and every branch on it, so the 194px shape
  * is not reachable from this screen on any layout. The four counters are numbers
@@ -2481,14 +2492,16 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **586px against 730 at 393x852, with 144 to spare** - every fold
- * shut, the `playedCharacter` fixture, measured in Chrome and not only summed:
- * the distance from the top of the defence band to the bottom edge of the
- * lineage header is 586.0 at 356, 360, 368, 375, 393 and 744. That is the
- * condition P5-5's own decision 1 made the unpinning conditional on, unmet
- * through P5-5 (899, over by 169) and P5-6 (749, over by 19), met at P5-8 (697,
- * 33 to spare) and now clear by 144. It fits at 744x1133 with 486 to spare, and
- * it is **41px over at 375x667** - one fold header and a gap, where it was three.
+ * TWICE OVER. **594px against 730 at 393x852, with 136 to spare** - every fold
+ * shut, the `playedCharacter` fixture. 586.0 of that was measured in Chrome and
+ * not only summed - the distance from the top of the defence band to the bottom
+ * edge of the lineage header, at 356, 360, 368, 375, 393 and 744 - and the
+ * eight above it are `--counter-cell`'s step, which only widths from 390 up
+ * pay. That is the condition P5-5's own decision 1 made the unpinning
+ * conditional on, unmet through P5-5 (899, over by 169) and P5-6 (749, over by
+ * 19), met at P5-8 (697, 33 to spare) and now clear by 136. It fits at 744x1133
+ * with 478 to spare, and it is **49px over at 375x667** - one fold header and a
+ * gap, where it was three.
  *
  * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
  * predicted it would not: 586 against 678, 92 to spare, measured. The report's
@@ -2497,6 +2510,11 @@ function PlayDesktop({
  * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
  * the 62px that ate it is not spent. With two conditions on, the strip is back
  * in its slot and the sheet is 638 against 678, which still fits.
+ *
+ * Those three numbers are untouched by the reflow's one cost, and that is not a
+ * coincidence: 360 is below `--counter-cell`'s 390 step, so the narrowest phone
+ * this app supports keeps the 44px cell and the 22px number and pays nothing
+ * for a raise it had no room to take. The raise is spent where the room is.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
  * of that saving survives this reflow with a different door. Nothing is drawn
@@ -2913,6 +2931,14 @@ function PlayPhone({
         characterId={character.id}
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
+        /*
+         * The one fold that keeps `.t-meta`'s 10px while the other five go to
+         * 11. This summary is the longest on the sheet - `4 ITEMS · 1 CHEST ·
+         * 3 BAGS · 7 HANDFULS` measures 257.41 at 10 with 4.39px of slack in
+         * the column - and the pixel it would gain in legibility it would lose
+         * by ellipsising the gold. See `Disclosure`'s note on `tightSummary`.
+         */
+        tightSummary
       >
         <Items bare />
       </Disclosure>
