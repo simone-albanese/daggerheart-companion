@@ -2,6 +2,7 @@
  * Preferences live in localStorage: they are small, synchronous, and losing
  * them costs nothing. Everything that would hurt to lose is in IndexedDB.
  */
+import { needsPasteboardBridge } from '../transfer/pasteboard.ts';
 import type { Screen } from './state.ts';
 
 export interface Prefs {
@@ -168,21 +169,41 @@ export function allowedScreen(prefs: Prefs, screen: Screen): Screen {
 /**
  * Should the app ask who is holding it before it draws anything else?
  *
- * Here, beside `allowedScreen`, and for the same reason its docblock gives: two
- * callers need one rule and they need it for different reasons. `App` asks so
- * it knows whether to draw the onboarding surface instead of the five screens;
- * `Header` asks so it knows whether to draw any navigation at all.
+ * Here, beside `allowedScreen`, and for the same reason its docblock gives: the
+ * shell asks so it knows whether to draw this surface instead of the five
+ * screens, and the header asks so it knows whether to draw any navigation at
+ * all - and those two answers have to be the same answer.
  *
- * The conjunction is load-bearing in both directions and neither half is
+ * They were not. `App` read this AND `!needsPasteboardBridge()`; `Header` read
+ * this alone. On an installed iOS or iPadOS app with an empty library - the one
+ * device the bridge exists for, and its ordinary first launch - the shell drew
+ * the five screens while the header stripped its nav and the door to Settings.
+ * On an installed iPad that is no navigation at all, and the recovery screen
+ * that is the only route back to characters stranded in Safari became
+ * unreachable from the app written to offer it. So the exception is inside the
+ * rule now, where a third caller cannot forget it, and `App` computes the whole
+ * answer once and hands it to `Header` rather than letting it be recomputed.
+ *
+ * The conjunction is load-bearing in all three directions and no term is
  * decoration. `characterCount === 0` on its own would ask a two-year user who
  * they are the first time they delete their last character - a wipe is not a
  * new device. `!prefs.onboarded` on its own would ask somebody who already has
  * a sheet on this device, which is a person who has answered "who are you" by
  * doing rather than by tapping, and asking them again would be the app failing
- * to notice what is right in front of it.
+ * to notice what is right in front of it. And `!needsPasteboardBridge()` is not
+ * a technicality: an installed iOS app with an empty library is almost never a
+ * new user - a new user has not installed anything yet - it is somebody whose
+ * Safari data did not follow them across the platform's storage boundary, and
+ * that person has to be told why their characters are not here rather than
+ * asked whether they are a player or a GM.
+ *
+ * That last term is the one thing here that reads the environment rather than
+ * the record, which is why it is stated in the signature's absence: this
+ * function is no longer pure, and `needsPasteboardBridge()` is false on every
+ * platform but one.
  */
 export function needsOnboarding(prefs: Prefs, characterCount: number): boolean {
-  return !prefs.onboarded && characterCount === 0;
+  return !prefs.onboarded && characterCount === 0 && !needsPasteboardBridge();
 }
 
 /**

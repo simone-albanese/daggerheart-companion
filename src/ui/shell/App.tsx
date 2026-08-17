@@ -248,23 +248,20 @@ function Shell(): React.JSX.Element {
   /*
    * Ask who this is, before any of the five screens.
    *
-   * The rule is in `prefs.ts` beside `allowedScreen` because `Header` needs the
-   * same answer for its own reason, and two conditions drifting apart is how
-   * the tab bar and the desktop nav once disagreed about the GM section.
-   *
-   * `needsPasteboardBridge()` outranks it, and that is not a technicality. An
-   * installed iOS app with an empty library is almost never a new user - a new
-   * user has not installed anything yet - it is somebody whose Safari data did
-   * not follow them across the platform's storage boundary. That person has to
-   * be told why their characters are not here. Asking them instead whether they
-   * are a player or a GM would be the app answering a question nobody asked
-   * while ignoring the one they did.
+   * Computed once, here, and handed to `Header` below rather than worked out
+   * again there. The rule itself lives in `prefs.ts` beside `allowedScreen`,
+   * and the two together are one belt and one pair of braces: the rule carries
+   * every term including the pasteboard-bridge exception, so a third caller
+   * cannot get a different answer by forgetting one, and the only two callers
+   * there are read one value. They did drift - `Header` was missing the bridge
+   * term - and that is how the tab bar and the desktop nav once disagreed about
+   * the GM section too.
    */
-  const onboarding = needsOnboarding(prefs, characters.length) && !needsPasteboardBridge();
+  const onboarding = needsOnboarding(prefs, characters.length);
 
   return (
     <div className="app">
-      <Header />
+      <Header onboarding={onboarding} />
       <main className="stack" style={{ minHeight: 0, overflow: 'hidden' }}>
         {writeError !== null && <UnsavedWork failure={writeError} />}
         {storageError !== null && (

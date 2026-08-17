@@ -726,7 +726,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <AppBoundary>inside the app boundary</AppBoundary>
   ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
-  'shell/Header.tsx::Header': () => <Header />,
+  'shell/Header.tsx::Header': () => <Header onboarding={false} />,
   'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,
   'shell/ScreenBoundary.tsx::ScreenBoundary': () => (

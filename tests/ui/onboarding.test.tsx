@@ -690,4 +690,90 @@ describe('what still outranks it', () => {
     // Both, and in that order: the alert is above the questions in `<main>`.
     expect(text()).toContain('Who are you at this table?');
   });
+
+  /*
+   * The installed iOS app, which is the one device where an empty library is
+   * not a new user.
+   *
+   * A Home Screen app on Apple's platforms is a separate storage container from
+   * Safari, so the most committed user - the one who built a character and then
+   * installed, because they liked it - opens the installed app and finds it
+   * empty. `needsPasteboardBridge()` is what recognises that state, and the
+   * shell has always let it outrank the questions.
+   *
+   * What no test in this suite could see is that the *header* did not: it read
+   * `needsOnboarding` without the bridge term, so on exactly this device the
+   * shell drew the five screens while the bar above them stripped its nav and
+   * the door to Settings. On an installed iPad that is no navigation at all,
+   * and `Recovery` - the one route back to characters stranded in Safari - sits
+   * behind Play. jsdom's user agent is not iOS, which is how the two
+   * expressions drifted with the whole suite green.
+   */
+  const realUserAgent = navigator.userAgent;
+
+  function installedOnIos(): void {
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (iPad; CPU OS 26_0 like Mac OS X) AppleWebKit/605.1.15 ' +
+        '(KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1',
+      configurable: true,
+    });
+    const byWidth = window.matchMedia;
+    window.matchMedia = ((query: string) =>
+      query.includes('display-mode: standalone')
+        ? ({
+            matches: true,
+            media: query,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            addListener: () => {},
+            removeListener: () => {},
+            dispatchEvent: () => false,
+            onchange: null,
+          } as unknown as MediaQueryList)
+        : byWidth(query)) as typeof window.matchMedia;
+  }
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: realUserAgent,
+      configurable: true,
+    });
+  });
+
+  it('leaves an installed iPad every way out it had, rather than asking who it belongs to', async () => {
+    setViewport(1024);
+    installedOnIos();
+    await boot();
+
+    expect(
+      text(),
+      'an installed iPad whose Safari storage did not follow it was asked whether ' +
+        'it is a player or a GM, instead of being told where its characters went',
+    ).not.toContain('Who are you at this table?');
+    // The tablet band draws no `TabBar`, so the header's nav and its SETTINGS
+    // button are the whole of the navigation this device has.
+    expect(
+      [...container.querySelectorAll('nav')].map((n) => n.getAttribute('aria-label')),
+      'the header drew no nav at a width where the tab bar is not drawn either, ' +
+        'which leaves an installed iPad with no way off the screen it opened on',
+    ).not.toEqual([]);
+    expect(
+      buttons().some((b) => (b.textContent ?? '').trim() === 'SETTINGS'),
+      'the door to Settings - and with it file import and restore-from-backup - ' +
+        'was taken away from the device the recovery screen was written for',
+    ).toBe(true);
+  });
+
+  it('keeps the phone SETTINGS door on the same device', async () => {
+    installedOnIos();
+    await boot();
+
+    expect(text()).not.toContain('Who are you at this table?');
+    expect(
+      buttons().some((b) => (b.textContent ?? '').trim() === 'SETTINGS'),
+      'the only permanent route to Settings on a phone was removed while the ' +
+        'shell was drawing the ordinary screens',
+    ).toBe(true);
+  });
 });
