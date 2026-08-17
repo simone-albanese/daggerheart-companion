@@ -696,6 +696,12 @@ describe('the budget the pin came off for', () => {
     // Experience chips are a fold below it now and the modifier row is not
     // drawn. ROLL and MODS share this row, so MODS costs the column nothing -
     // it is 44 wide inside the 66 ROLL was already holding.
+    //
+    // An armed *Experience* costs the column nothing either, and that is not
+    // an omission from this table. It is named on ROLL's own second line,
+    // which exists in every state, so unlike an armed modifier - the +50 in
+    // the docblock above, which draws the ARMED strip - it moves no number
+    // here. `DualityRoll`'s `rollLine` carries the wrap arithmetic.
     { what: 'the ROLL row', px: 66, from: 'dom' },
   ];
 

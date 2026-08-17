@@ -560,6 +560,20 @@ export function DualityRoll({
    * consequence, and the consequence has already been applied to the Hope and
    * Stress counters higher up the same column; the outcome itself is still in
    * 17px directly above. One tap disarms the Experience and it comes back.
+   *
+   * AND IT COSTS THE COLUMN NOTHING, WHICH IS THE POINT. This line already
+   * exists in every state, so an armed Experience adds no height at all -
+   * unlike an armed modifier, which draws the ARMED strip and is the +50 that
+   * `the budget the pin came off for` lists as a state it cannot see. What it
+   * can do is wrap, so: at 393px ROLL is 317 wide, less 28 of padding, less 12
+   * of gap and about 33 for a two-digit total in 30px, leaves the text stack
+   * 244px. `.t-meta` is 10px mono at 0.06em, about 6.6px a character, so 36
+   * characters to a line - 34 at 375px. The ordinary armed state, typed dice
+   * off, is `8 / 5 · NEXT: RAN WITH THE WOLVES +2 · 1 HOPE`: 45 characters,
+   * two lines, and 17 + 4 + 20 = 41px inside a button that is 66 tall. Two
+   * Experiences and a held die is 63 characters and still two lines. It takes
+   * five lines to overflow, which is about 148 characters of names somebody
+   * wrote themselves, and the idle state could already reach that.
    */
   const rollLine =
     result === null
