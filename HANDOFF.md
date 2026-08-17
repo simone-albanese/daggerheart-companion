@@ -176,6 +176,28 @@ repository says it is.
 - **Every test must fail on the pre-fix code before it counts.** Verify by
   mutation and say so in the commit message.
 - Never let the app claim something happened that did not happen.
+- **A green suite on this machine is weaker than a green suite in CI, and the
+  gap is `localStorage`.** Under jsdom on **Node 24** — `.nvmrc`, and what
+  `deploy.yml` installs — `window.localStorage` is a working Storage. Under
+  **Node 26** it is `undefined`: Node's own experimental `localStorage` shadows
+  jsdom's and answers nothing without `--localstorage-file`. So on a newer local
+  Node, `savePrefs` is a silent no-op, every preference write disappears, and a
+  test that depends on one is passing without exercising it.
+
+  It has already cost one red deploy. `screens.test.tsx` said in a comment that
+  it "installs no localStorage" — true here, false in CI — and an earlier case's
+  `setPrefs({ onboarded: true })` persisted there, so `loadPrefs` read it back
+  and the first-run questions the file asserts were correctly not drawn. Local:
+  2492 green. CI: red, on a test nobody had touched.
+
+  **Before pushing, run the suite on Node 24.** The repository carries one:
+
+      PATH="$PWD/.tools/node/bin:$PATH" npx vitest run
+
+  Any test that writes a preference should install its own shim per case
+  (`vi.stubGlobal('localStorage', new MemoryStorage())`, then
+  `vi.unstubAllGlobals()`), which is what eight test files now do. Relying on
+  localStorage being absent is relying on the local machine, not on the app.
 
 ### If you fan work out across agents, read this first
 

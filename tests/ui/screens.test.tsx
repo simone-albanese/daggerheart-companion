@@ -200,6 +200,34 @@ beforeAll(() => {
   HTMLMediaElement.prototype.pause = (): void => {};
 });
 
+/**
+ * A localStorage per test, because whether there is one at all depends on Node.
+ *
+ * This file used to install none and say so, and that sentence was true of the
+ * machine it was written on and false of the machine that ships it. Measured:
+ * under jsdom on **Node 24** — `.nvmrc`, and what `deploy.yml` runs —
+ * `window.localStorage` is a working Storage; under **Node 26** it is
+ * `undefined`, because Node's own experimental `localStorage` getter shadows
+ * jsdom's and answers nothing without `--localstorage-file`.
+ *
+ * So `savePrefs` is a no-op locally and a real write in CI, and every test here
+ * that reaches `setPrefs` was leaving a record behind for the next `init()` on
+ * one Node and not the other. That is how "routes an empty library to Build,
+ * behind the first run" passed for months here and failed the deploy: an
+ * earlier case had written `onboarded: true`, `loadPrefs` read it back, and the
+ * questions this file asserts were correctly not drawn.
+ *
+ * A fresh shim per case makes the file say the same thing on both, and it is
+ * the same one seven other test files install.
+ */
+class MemoryStorage {
+  private readonly map = new Map<string, string>();
+  getItem = (k: string): string | null => this.map.get(k) ?? null;
+  setItem = (k: string, v: string): void => void this.map.set(k, v);
+  removeItem = (k: string): void => void this.map.delete(k);
+  clear = (): void => this.map.clear();
+}
+
 beforeEach(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
@@ -210,6 +238,10 @@ beforeEach(async () => {
   // file. Without this the fourth test runs against six characters left behind
   // by the first three, and "the library is empty" can never be true.
   await db.clearAll();
+  // And the preferences are the same problem through a different door: on the
+  // Node this project deploys on they persist, so one case's `setPrefs` decides
+  // the next case's first run. See `MemoryStorage` above.
+  vi.stubGlobal('localStorage', new MemoryStorage());
   useApp.setState({
     ready: false,
     storageError: null,
@@ -225,6 +257,9 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  // `restoreAllMocks` does not undo `stubGlobal`, and a shim left standing
+  // would outlive this file on the Node where localStorage is real.
+  vi.unstubAllGlobals();
 });
 
 /**
@@ -413,7 +448,9 @@ describe('the shell, on every screen', () => {
     // `EmptyState` is what somebody who has answered the questions and then
     // deleted their last character sees; the questions themselves are asserted
     // in `onboarding.test.tsx`. Set after `init`, because `init` reads the
-    // preferences off the disk and this file installs no localStorage.
+    // preferences off the disk, and this file's localStorage is a fresh shim
+    // per case rather than absent - which is what it used to say, on the one
+    // Node where it happened to be true.
     await act(async () => {
       useApp.getState().setPrefs({ onboarded: true });
     });
