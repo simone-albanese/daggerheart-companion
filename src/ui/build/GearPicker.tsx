@@ -189,6 +189,13 @@ const LIST_FLOOR = 140;
  * dialog is for, so a filter that costs a flick beats a comparison that has
  * nothing to compare.
  *
+ * (The armor filter block is **158, not 108, below viewport 393**, since its
+ * rail was given `wrap` - see the note on `ChipRow`. Re-measured over the same
+ * six: list 208, 307, 542, 823 and 140/140, whole rows 2, 3, 5, 8 and 1/1. The
+ * only entry that moves is 375x667, four whole rows to three; 320x568 held two
+ * either way, and both landscape widths are untouched because the rail fits on
+ * one line inside a 634px content box there.)
+ *
  * So the viewports that were already right are unchanged to the pixel, and the
  * ones that were broken are the only ones that move.
  *
@@ -401,6 +408,78 @@ function SearchBox({
   );
 }
 
+/**
+ * A segmented control, and the axis it never declared a floor on.
+ *
+ * `minHeight: var(--control)` was here from the start and `min-width` was not,
+ * so the width came from `.chip`'s label alone. IBM Plex Mono is a 600/1000
+ * advance at every weight this app ships (checked in the shipped
+ * `plexmono-600-latin.woff2`: `unitsPerEm` 1000, every glyph 600), so at
+ * `.chip`'s 9.5px with `letter-spacing: 0.06em` a character is
+ * 9.5 x 0.6 + 9.5 x 0.06 = **6.27px**. With the `padding: '0 10px'` this button
+ * used to carry and no border (`base.css:42-50` zeroes it), `All` and `Any` are
+ * three characters: 3 x 6.27 + 20 = **38.81px**, against a floor of 44.
+ *
+ * `--tap` is not what was missing. `--control` already resolves to
+ * `var(--tap)` = 44 at every width below 1180 and under any coarse pointer
+ * (`tokens.css`), which is every viewport this dialog is measured at; the
+ * height was 44 all along. `Chips` directly below has carried both
+ * declarations from the beginning and measures 44x44, which is what makes this
+ * an omission rather than a decision. It clears WCAG 2.5.8's 24px easily; the
+ * floor it breaks is the one this project wrote for itself.
+ *
+ * THE FLOOR IS PAID FOR OUT OF THE PADDING, AND THAT IS THE WHOLE POINT.
+ * `min-width: 44` alone widens every group by 5.19px, because only the
+ * three-character labels move and every group has exactly one of them: Reach
+ * 108.70 -> 113.89, Slot 187.14 -> 192.33, Category 168.34 -> 173.53, measured
+ * in Chrome with the shipped fonts. Those 15.57px land on the two neighbours
+ * that had no room for them, and both costs were real:
+ *
+ *   - the weapons `Seg` row (`flexWrap: 'wrap'`, gap 6) puts Reach + Slot on
+ *     line 1, so line 1 went 301.84 -> 312.22 and the row flipped from two
+ *     lines to three across an **11px interval, windows 348 to 358** - band 2's
+ *     content box is the window less 20 of overlay padding, 2 of panel border
+ *     and 24 of band padding, so 302 at 348 and 312 at 358. Measured on both
+ *     sides: at 356 the head goes 318 -> 372 and the weapon list 332 -> 278.
+ *     The four spot checks that were here (320, 375, 393, 660) step straight
+ *     over it, and 356 is a width `Play.tsx`'s own sweep names. At 360 - the
+ *     commonest Android there has ever been - it left 1.78px of margin where
+ *     there had been 12.16, which is thinner than this arithmetic can promise.
+ *   - the armor `ChipRow` is the one rail that holds a `Seg`; see the note on
+ *     `ChipRow` above for what 5.19px more did to the TIER `4` chip there.
+ *
+ * So the width comes out of `padding: '0 6px'`, which is `.chip`'s own
+ * horizontal padding in `base.css:359` rather than this file's 10px override of
+ * it. `All` and `Any` are 30.81 natural and the `min-width` still lifts them to
+ * a true 44x44; `Loot` joins them at 37.08 natural; only the long labels lose
+ * width, and they had 8px to lose. Measured: Reach **105.89**, Slot **176.33**,
+ * Category **158.17**, line 1 of the wrap row **288.22** - 13.62px *narrower*
+ * than before this lane touched the file. The weapons row therefore flips to
+ * three lines at 334 and holds two from **335** up, against 348 before and 359
+ * with the floor unpaid-for; nothing in the supported range gains a line, and
+ * 360 has 25.78px of margin instead of 12.16. Every head height in
+ * `PickerDialog`'s table is byte-identical before and after, re-measured at all
+ * six: 226/318/318/318/51/33 of content 372/318/318/318/264/264.
+ *
+ * ERGONOMICS. **Thumb arc:** band 2 begins at y74 on a 393x852 phone (10 of
+ * overlay padding, 1 of border, 54 of the name-and-✕ band, 9 of band padding)
+ * and the `Seg` row sits about 50px below that, so these controls live in the
+ * top fifth of the glass - the far end of a one-handed sweep, and correctly so.
+ * They are set at most once per visit; the list under them and Done at y788-832
+ * are what the thumb comes back to, and neither moves. **Target size:** 38.81
+ * -> 44 on both axes clears this repo's coarse-pointer floor exactly, and no
+ * neighbour pays: the wrap row is 13.62px narrower than it was, and the armor
+ * rail 2.80px narrower, so the two controls nearest this one both end up with
+ * *more* glass than before, not less. What the label loses is clear space: 10px
+ * either side becomes 6, and between two adjacent labels 22px becomes 14 once
+ * the group's own 2px gap is counted. The target is the button box and not the
+ * ink, so it is still 44 whatever the label does, and the two labels that were
+ * under the floor are the two that do not move at all. **Read versus touch:**
+ * the search box is read first and is above; these three groups are read left
+ * to right in the order a player asks the question - can I use it, which hand,
+ * which kind - and the count that answers them is `CountRow`, pinned below the
+ * filters and above the list where it cannot scroll away from either.
+ */
 function Seg<T extends string>({
   value,
   onChange,
@@ -428,7 +507,10 @@ function Seg<T extends string>({
           className="chip"
           style={{
             minHeight: 'var(--control)',
-            padding: '0 10px',
+            // The floor is a floor on both axes. See the note above this
+            // component for the 38.81px and what closing it costs.
+            minWidth: 'var(--control)',
+            padding: '0 6px',
             background: value === v ? 'var(--raised)' : 'transparent',
             color: value === v ? 'var(--text)' : 'var(--muted)',
           }}
@@ -489,8 +571,68 @@ function Chips<T extends string | number>({
   );
 }
 
-const ChipRow = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
-  <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+/**
+ * A rail of chips, and the one caller that may not be a rail.
+ *
+ * The default is a horizontal scroller with the scrollbar hidden, which is a
+ * deliberate trade for the weapons picker's three long rows: TRAIT is 510px of
+ * content against 347 at 393, and no wrap makes that fit in fewer than two
+ * lines, so it is swiped. That is this file's oldest open cost and it is not
+ * addressed here.
+ *
+ * `wrap` exists for the armor picker, whose rail is the *only* one that holds a
+ * `Seg` - the control this lane raised to the 44px floor. Measured in Chrome
+ * with the shipped fonts: that rail's content is 345.30px, so at 393 and above
+ * it fits on one line and `wrap` costs nothing at all; below 393 the last TIER
+ * chip would otherwise be cut by the scrollport - 27.70px of a 44px target on
+ * glass at 375, 12.70 at 360, 0.00 at 320 - and a hidden scrollbar is not a cue
+ * that anything is there to reach. Wrapping puts every chip on the glass at
+ * every supported width.
+ *
+ * What it costs, measured over `PickerDialog`'s own six plus 360x800: band 2
+ * goes 108 -> 158 at 320x568, 360x800 and 375x667, and is unchanged at 393x852,
+ * 744x1133 and both landscape widths. That comes off the list, and it loses a
+ * row in exactly one place - 375x667, 357px and four rows to 307px and three.
+ * 320x568 goes 258 -> 208 and holds two rows either way; 852x393 and 667x375
+ * are already at `LIST_FLOOR` and do not move. One row of armor at one viewport
+ * is the price of a TIER filter chip that is 0.00px wide on glass at 320, and
+ * the band that pays it scrolls with a scrollbar you can see.
+ *
+ * ERGONOMICS, at 375x667 - the shortest viewport this project measures, and the
+ * one that pays. **Thumb arc:** taking the same right-thumb pivot the rest of
+ * this pass uses, viewport - 20 by height - 40, so (355, 627). The TIER `4`
+ * chip's box was x324.30-368.30, y125-169, clipped by the scrollport at x352,
+ * so the part of it on glass was centred (338.15, 147): a reach of **480.3px**,
+ * and only after a leftward drag of the rail with the same thumb, on a rail
+ * that draws no scrollbar to say it moves. Wrapped it is x23-67, y179-223,
+ * centre (45, 201), a reach of **526.9px** - 46.6px further out, and one
+ * gesture instead of two. That is the trade, and it is worth taking: the drag
+ * was undiscoverable, the tap is not. **Target size:** the chip is 44x44
+ * declared and 44.00 painted at all six viewports; it was 37.70 at 393, 19.70
+ * at 375 and 0.00 at 320 before this lane's floor commit and 27.70 / 12.70 /
+ * 0.00 after that commit's width was handed back. Nothing else in the dialog
+ * changes size, and Done keeps its y because band 5 is `flex: none` against the
+ * bottom. **Read versus touch:** the rail reads left to right - can I use it,
+ * then which tier - and a wrapped flex line continues where the one above it
+ * stopped, so the order is the order. The list, which is the thing being
+ * compared and the thing the thumb returns to, stays between the count and
+ * Done, 54px shorter.
+ */
+const ChipRow = ({
+  children,
+  wrap = false,
+}: {
+  children: React.ReactNode;
+  wrap?: boolean;
+}): React.JSX.Element => (
+  <div
+    className="row"
+    style={
+      wrap
+        ? { gap: 6, flexWrap: 'wrap' }
+        : { gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }
+    }
+  >
     {children}
   </div>
 );
@@ -519,7 +661,19 @@ function CountRow({
           type="button"
           className="chip"
           onClick={onClear}
-          style={{ minHeight: 'var(--control)', color: 'var(--text)', flex: 'none' }}
+          // 13 characters at `.chip`'s 6.27px each plus its own 4px/6px
+          // padding is 93.51px, so this one was never near the floor and this
+          // declaration changes not a pixel of it. It is here because "every
+          // button in this dialog states the floor on both axes" is a rule a
+          // later reader can check, and "this label happens to be long enough"
+          // is not - the same reason `Cards.tsx` declares it on its own CLEAR
+          // FILTERS.
+          style={{
+            minHeight: 'var(--control)',
+            minWidth: 'var(--control)',
+            color: 'var(--text)',
+            flex: 'none',
+          }}
         >
           CLEAR FILTERS
         </button>
@@ -806,7 +960,7 @@ export function ArmorPicker({
             placeholder={`Search ${armors.length} sets of armor and their features`}
             label="Search armor"
           />
-          <ChipRow>
+          <ChipRow wrap>
             <Seg
               label="Reach"
               value={q.reach}

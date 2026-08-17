@@ -1510,6 +1510,45 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBe('wrap');
   });
 
+  /*
+   * And the pair is packed against the numbers, not against the far edge of a
+   * track that is most of a tablet wide.
+   *
+   * The fifth track is `1fr`, so it is the whole remainder of the column:
+   * `viewport - 24 - 234.47`, which is 134.53 at 393 and **920.53 at 1179**.
+   * `PlayPhone` is not phone-only - `Play.tsx` returns it for
+   * `layout !== 'desktop'`, so it draws at every width up to 1179, and the
+   * column declares no `maxWidth`. With `justify-content: flex-end` the 94px
+   * pair sat at the far end of that track, putting `viewport - 352.47` of
+   * nothing between the PROF cell and the conditions door: 40.53px at 393,
+   * 391.53 at 744, 780.53 at 1133, 826.53 at 1179. This file's own budget test
+   * above and `Vitals.tsx`'s opening both say the box is beside the ladder it
+   * is read against; at 744 it was 494.73px from SEVERE's right edge.
+   *
+   * `flex-start` makes that 103.20px at every width from 353 up - the 6px gap,
+   * PROF's 41.20 cell, another 6px gap, the 44px door and one 6px gutter - and
+   * the slack moves past the end of the band where nothing is read.
+   *
+   * jsdom lays nothing out, so none of those distances is measurable here. The
+   * declaration is, and it is the whole of the change.
+   */
+  it('packs the damage box against the ladder rather than the far edge of the column', () => {
+    play(seed());
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
+    const cell = field.parentElement as HTMLElement;
+    expect(
+      cell.style.justifyContent,
+      'the damage box is pinned to the end of a track that is 920.53px wide at 1179, so the ' +
+        'number you were just told and the ladder you read it against are most of a tablet apart',
+    ).toBe('flex-start');
+    // The other two declarations on the same line, asserted here so that a
+    // later edit cannot trade one for another and still pass: the wrap is what
+    // keeps 94px of targets out of the PROF panel below 353, and `min-width: 0`
+    // is the floor under whatever is added to this cell next.
+    expect(cell.style.flexWrap, 'the wrap went with the alignment').toBe('wrap');
+    expect(cell.style.minWidth, 'the cell can no longer fall under its own content').toBe('0px');
+  });
+
   it('says what is on, in the strip and on the door, the moment anything is', () => {
     const c = seed();
     play(c);
@@ -2060,6 +2099,44 @@ describe('the carried items, out loud', () => {
       dead.map((b) => b.outerHTML.slice(0, 90)),
       'a disabled control is still standing where a name should be',
     ).toEqual([]);
+  });
+
+  /*
+   * USE was 30.8x44, and it is the only control on this screen that spends
+   * something on one press with no second tap.
+   *
+   * Its width came entirely from `.chip`'s own `padding: 4px 6px` - nothing
+   * here declares a horizontal padding and `base.css:42-50` zeroes a button's
+   * border. `.chip` is IBM Plex Mono at 9.5px with `letter-spacing: 0.06em`,
+   * and the shipped `plexmono-600-latin.woff2` is a flat 600/1000 advance on
+   * every glyph, so a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px and `USE`
+   * is 3 x 6.27 + 12 = **30.81px**. It is width-invariant: nothing in it reads
+   * the viewport, so the number is the same at 320 as at 1179. It clears WCAG
+   * 2.5.8's 24px on both axes; the floor it breaks is this repo's own 44/34.
+   *
+   * The same omission was closed in the same commit in `GearPicker.tsx` (`All`
+   * and `Any` at 38.81) and `Conditions.tsx` (`SET` at 42.81); the fullest
+   * write-up of the arithmetic is in `gearPicker.test.tsx` beside the same
+   * assertion. jsdom computes no layout, so 30.81 is not reachable here and
+   * this asserts the declaration that produces 44.
+   *
+   * `var(--tap)` and not `var(--control)`, unlike the other three, and that is
+   * deliberate rather than a slip: `Items` is only mounted from the phone
+   * column, which stops at 1179, and `--control` is `var(--tap)` at 1179 and
+   * below - so the two resolve identically here, and the pair on one button is
+   * kept in one token. What the test refuses is a button that says one floor on
+   * its height and a different one on its width.
+   */
+  it('gives USE the floor on the axis it never declared', () => {
+    const c = seed();
+    play(c);
+    click(fold('Carried'));
+    const uses = buttons().filter((b) => (b.textContent ?? '').trim() === 'USE');
+    expect(uses.length, 'the fixture carries two items').toBe(2);
+    for (const use of uses) {
+      expect(use.style.minHeight, 'USE declares no height floor').toBe('var(--tap)');
+      expect(use.style.minWidth, 'USE declares no width floor').toBe('var(--tap)');
+    }
   });
 });
 

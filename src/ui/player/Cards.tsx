@@ -795,6 +795,32 @@ function Segmented<T extends string>({
              * It costs 5.19px each and no height at all: the first filter row
              * is 618.7px of content at 720px and up, and 629.1 still fits the
              * 704 an iPad mini gives it, so the wide band stays 170.
+             *
+             * RE-MEASURED AT 320, WHERE THE WORRY WAS THAT A ROW WOULD WRAP:
+             * it does not, and it cannot anywhere. 320 draws the *compact*
+             * arrangement - `compact` is true for every width at or below 719
+             * - so the 278px four-row block this file's header describes does
+             * not exist at that width any more; what draws is the 62px head
+             * plus, once the door is opened, a fold whose first row is these
+             * two `Segmented` groups wrapping inside 296px of content
+             * (320 less the phone root's 2x12). Owned is 173.51px after the
+             * change and Type is 239.4, and 173.51 + 8 + 239.4 = 420.91
+             * against 296 - so that row was already two lines before the
+             * change, at 410.53, and is two lines after it. The domain row
+             * repacks identically: `All` at 40.81 and at 44 both leave line 1
+             * as `My domains · All · Arcana · Blade` at 290.48 and 293.67 of
+             * 296. Nothing gains a line at 320.
+             *
+             * And nothing gains one at any other width either, which is worth
+             * writing down as an interval rather than as four spot checks. The
+             * compact fold flips from one line to two somewhere in
+             * 410.53 < content <= 420.91, i.e. a phone 435 to 444 CSS pixels
+             * wide; the wide row 1 flips in 618.53 < content <= 628.91, i.e. a
+             * window 659 to 668 wide - and that window is below 720, so it
+             * never gets the wide arrangement in the first place. The two
+             * bands where the 5.19px could have cost a line are a width no
+             * phone in the sweep has and a width the wide arrangement is never
+             * drawn at.
              */
             minWidth: 'var(--control)',
             padding: '0 10px',

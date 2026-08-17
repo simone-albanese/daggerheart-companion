@@ -155,6 +155,12 @@ const flexOf = (el: HTMLElement): string =>
 
 const px = (v: string): number => (v.endsWith('px') ? Number.parseFloat(v) : Number.NaN);
 
+const click = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
 /**
  * One whole row, the column's gap, a sliver of the next, and the list's own
  * padding. 85px is the tallest first row any of the three pickers draws at 320
@@ -247,5 +253,161 @@ describe.each(Object.keys(PICKERS))('the %s picker', (name) => {
     );
     const verbNames = [...verbs!.querySelectorAll('button')].map((b) => (b.textContent ?? '').trim());
     expect(verbNames, 'Done is not in the last band').toContain('Done');
+  });
+
+  /*
+   * The 44px floor, on the axis these buttons never declared.
+   *
+   * THE ARITHMETIC, ONCE, FOR THE WHOLE CLASS. `.chip` is
+   * `font: 600 9.5px/1 var(--mono); letter-spacing: 0.06em`, `base.css:42-50`
+   * zeroes a button's border, and the shipped `plexmono-600-latin.woff2` is a
+   * flat 600/1000 advance on every glyph (checked in the file: `unitsPerEm`
+   * 1000). So a character is 9.5 x 0.6 + 9.5 x 0.06 = 6.27px, and a
+   * three-character label is 18.81px plus whatever padding the control
+   * declares. `Seg` declared `padding: '0 10px'` when this was written, so
+   * `All` (Reach), `Any` (Slot), `Any` (Category) and `All` (Kind) measured
+   * **38.81px** wide inside a 44px-tall box. (It declares `'0 6px'` now, and
+   * the test after this one is why: the same four labels are 30.81px natural
+   * there and the `min-width` still lifts them to a true 44.) They clear WCAG
+   * 2.5.8's 24px with room; the floor they
+   * break is this project's own `--control` / `--tap`, which resolves to 44 at
+   * every width below 1180 and under any coarse pointer - so at every viewport
+   * this dialog is measured at.
+   *
+   * The same omission, same commit: `Conditions.tsx`'s SET chip at
+   * `padding: '0 12px'` was 42.81, `Play.tsx`'s USE at `.chip`'s own
+   * `padding: 4px 6px` was 30.81. `Cards.tsx` closed its own two in `112cb7f`
+   * and reported this file as out of its lane; this is that report, taken up.
+   *
+   * jsdom computes no layout, so 38.81 is not reachable here. What is testable
+   * is the declaration that produces 44, asked of every button in the two
+   * bands the filters live in rather than of the four labels that were caught -
+   * `Chips` already passed it and is asserted anyway, because the claim is
+   * about the block and not about the buttons that happened to be found.
+   *
+   * A filter is set first so that band 3 has a button in it at all: CLEAR
+   * FILTERS only exists once something is filtered, and asserting over an empty
+   * band is how a test covers nothing and says it covered something. The tap is
+   * on the last option of the first `Seg`, which is the one option all three
+   * pickers agree is not the default (`gear.ts` starts every one of them at
+   * `reach: 'all'` / `kind: 'all'`).
+   *
+   * `minWidth === minHeight` rather than a literal token, because the two
+   * floors in this repo are not interchangeable by accident: `--tap` is always
+   * 44 and `--control` is 44 below 1180 and 34 above it, and a control that
+   * says one on one axis and the other on the other is claiming a difference
+   * it does not mean. Both are accepted; disagreeing with itself is not.
+   */
+  it('states the control floor on both axes, for every button in the filter bands', () => {
+    mount(name);
+    const groups = [...bands()[1]!.querySelectorAll<HTMLElement>('[role="group"]')];
+    expect(groups.length, 'the filter band has no segmented control').toBeGreaterThan(0);
+    const options = [...groups[0]!.querySelectorAll('button')];
+    click(options[options.length - 1]!);
+
+    const [, filters, count] = bands();
+    const chips = [...filters!.querySelectorAll('button'), ...count!.querySelectorAll('button')];
+    const labelled = chips.map((c) => (c.getAttribute('aria-label') ?? c.textContent ?? '').trim());
+    expect(labelled, 'the tap did not open the way back out of the filters').toContain(
+      'CLEAR FILTERS',
+    );
+    expect(
+      labelled.filter((l) => l === 'All' || l === 'Any'),
+      'none of the three-character labels this test exists for is on screen',
+    ).not.toHaveLength(0);
+
+    for (const chip of chips) {
+      const label = (chip.getAttribute('aria-label') ?? chip.textContent ?? '').trim();
+      expect(chip.style.minHeight, `"${label}" declares no height floor`).toMatch(
+        /^var\(--(control|tap)\)$/,
+      );
+      expect(chip.style.minWidth, `"${label}" declares no width floor`).toMatch(
+        /^var\(--(control|tap)\)$/,
+      );
+      expect(
+        chip.style.minWidth,
+        `"${label}" states one floor on its height and another on its width`,
+      ).toBe(chip.style.minHeight);
+    }
+  });
+
+  /*
+   * Where the width floor is paid from, which is the part that went wrong.
+   *
+   * `min-width: 44` on its own is not free: it only binds on the
+   * three-character labels, every `Seg` group has exactly one of them, and each
+   * group therefore grew 5.19px. Measured in Chrome on both sides, with the
+   * shipped fonts: the weapons filter row's line 1 went 301.84 -> 312.22 and
+   * flipped from two lines to three across **windows 348 to 358** - at 356 the
+   * head went 318 -> 372 and the weapon list 332 -> 278 - while the armor rail
+   * went 348.10 -> 353.29 and pushed 5.19px more of the TIER `4` chip behind a
+   * `scrollbar-width: none` scrollport. Raising one control to the floor may
+   * not push the control next to it further off the glass.
+   *
+   * `padding: '0 6px'` is where the width comes from instead: it is `.chip`'s
+   * own horizontal padding in `base.css`, it takes 8px off only the long
+   * labels, and it leaves line 1 at 288.22 - narrower than before the floor was
+   * declared at all, so no supported width gains a line and 360 has 25.78px of
+   * margin against 12.16 before.
+   *
+   * jsdom cannot see any of those numbers. What it can hold still is the
+   * declaration they follow from, which is the thing an edit would change.
+   */
+  it('pays for the width floor out of its own padding, not out of the row beside it', () => {
+    mount(name);
+    const groups = [...bands()[1]!.querySelectorAll<HTMLElement>('[role="group"]')];
+    expect(groups.length, 'the filter band has no segmented control').toBeGreaterThan(0);
+    for (const group of groups) {
+      for (const option of group.querySelectorAll<HTMLElement>('button')) {
+        const label = (option.textContent ?? '').trim();
+        expect(
+          option.style.padding.replace(/(^|\s)0px/g, '$10'),
+          `"${label}" widens itself past .chip's own padding`,
+        ).toBe('0 6px');
+      }
+    }
+  });
+
+  /*
+   * The one chip rail that may not be a rail.
+   *
+   * Three of the four rails in this file hold nothing but `Chips`, and they
+   * scroll sideways with the scrollbar hidden - a standing cost this file's own
+   * docblock names and does not pay off here. The armor picker's rail is the
+   * exception, because it is the only one that also holds a `Seg`, and its
+   * 345.30px of content clears a 393px window's 347px content box and nothing
+   * narrower. Wrapped, every TIER chip is a whole 44x44 on glass at every
+   * supported width; unwrapped, the `4` chip measured 27.70px at 375, 12.70 at
+   * 360 and 0.00 at 320, behind a scrollbar that is not drawn.
+   *
+   * The loot picker has no rail at all - one `Seg` and a search box - so the
+   * count is asserted per picker rather than assumed to be non-zero, which is
+   * how a loop over an empty list covers nothing and reports a pass.
+   */
+  it('wraps the rail that holds a segmented control and scrolls the ones that do not', () => {
+    mount(name);
+    const rails = [...bands()[1]!.querySelectorAll<HTMLElement>('div.row')].filter(
+      (el) => el.style.overflowX === 'auto' || el.style.flexWrap === 'wrap',
+    );
+    expect(rails.length, 'this picker does not have the rails it is drawn with').toBe(
+      { weapons: 4, armor: 1, loot: 0 }[name],
+    );
+    for (const rail of rails) {
+      const holdsSeg = rail.querySelector('[role="group"]') !== null;
+      // The `Seg` row in the weapons picker is a wrapping row of groups, not a
+      // rail of chips; it is the armor rail this asks about, so a rail is only
+      // interesting when it carries both a group and a chip.
+      const holdsChips = [...rail.children].some((c) => c.matches('button.chip'));
+      if (holdsSeg && holdsChips) {
+        expect(rail.style.flexWrap, 'the rail with a Seg in it still clips its last chip').toBe(
+          'wrap',
+        );
+        expect(rail.style.overflowX, 'the rail wraps and scrolls sideways at once').toBe('');
+        expect(rail.style.scrollbarWidth, 'a wrapping rail has no scrollbar to hide').toBe('');
+      } else if (!holdsSeg) {
+        expect(rail.style.overflowX, 'a chip-only rail stopped scrolling sideways').toBe('auto');
+        expect(rail.style.flexWrap, 'a chip-only rail started wrapping').toBe('');
+      }
+    }
   });
 });

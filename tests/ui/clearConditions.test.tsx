@@ -343,3 +343,56 @@ describe('what the armed state says out loud', () => {
     expect(name(byLabelStartingWith('Clear all conditions'))).toBe('Clear all conditions');
   });
 });
+
+/**
+ * The other control in this dialog, and the axis it never declared a floor on.
+ *
+ * Here rather than in a file of its own because this is the only harness in the
+ * suite that opens `ConditionsDialog`, and because the SET/ACTIVE chip is
+ * already the control the cases above reach for when they need the armed state
+ * put down. The claim is not about CLEAR ALL, and it says so.
+ *
+ * The arithmetic is the class's, written out once in `gearPicker.test.tsx`
+ * beside the same assertion: `.chip` is IBM Plex Mono at 9.5px with
+ * `letter-spacing: 0.06em`, the shipped face is a flat 600/1000 advance, so a
+ * character is 6.27px. This button declares `padding: '0 12px'` and no border
+ * (`base.css:42-50` zeroes it), so `SET` measured 3 x 6.27 + 24 = **42.81px**
+ * inside a 44px-tall box, at every viewport under 1180 and under any coarse
+ * pointer. `ACTIVE` is six characters and 61.62, so it was only ever the *off*
+ * state that was under the floor - which is the state the chip is in whenever
+ * a player is aiming at it to switch a condition on. It clears WCAG 2.5.8's
+ * 24px; the floor it breaks is this project's own.
+ *
+ * jsdom computes no layout, so 42.81 cannot be measured here. The assertion is
+ * the declaration that produces 44, over every chip in the standard-conditions
+ * list rather than over the one that was caught, and it is checked in both
+ * states because they are two different labels in one button.
+ */
+describe('the SET chip is a whole target', () => {
+  const setChips = (): HTMLElement[] =>
+    buttons().filter((b) => {
+      const face = (b.textContent ?? '').trim();
+      return face === 'SET' || face === 'ACTIVE';
+    });
+
+  it('states the control floor on both axes, in both of its states', () => {
+    open({ hidden: true });
+    const chips = setChips();
+    // Three standard conditions, so three chips, and the fixture has one on -
+    // both faces on screen at once, which is the point of seeding one.
+    expect(chips.length, 'the standard conditions list has no SET chips').toBe(3);
+    const faces = chips.map((c) => (c.textContent ?? '').trim());
+    expect(faces, 'no chip is drawn in its off state').toContain('SET');
+    expect(faces, 'no chip is drawn in its on state').toContain('ACTIVE');
+
+    for (const chip of chips) {
+      const face = (chip.textContent ?? '').trim();
+      expect(chip.style.minHeight, `the ${face} chip declares no height floor`).toBe(
+        'var(--control)',
+      );
+      expect(chip.style.minWidth, `the ${face} chip declares no width floor`).toBe(
+        'var(--control)',
+      );
+    }
+  });
+});

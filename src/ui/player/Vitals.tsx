@@ -314,6 +314,14 @@ export function Vitals({
  * against are now one glance, and the restatement is deleted rather than
  * duplicated.
  *
+ * "One glance" is a distance, and it is a fixed one only since this commit:
+ * **103.20px** from SEVERE's right edge to the field's left, at every viewport
+ * from 353 up. Before it the distance was `viewport - 249.27` - 143.73 at 393,
+ * 469.73 at the top of the phone band, 494.73 at 744, 929.73 at 1179 - so it
+ * was fixed at no width at all, a phone included, and 103.20 was a number this
+ * band had never once measured. The paragraph below headed WHERE THE BOX SITS
+ * has the derivation and what one word changed.
+ *
  * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
  * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px
  * field, vertically centred: 44px in a row whose height is already 64. The band
@@ -339,14 +347,113 @@ export function Vitals({
  *
  * AND THE CELL WRAPS RATHER THAN OVERFLOWING, WHICH IS WHAT MAKES IT SAFE AT
  * 320. Both children are `flex: none` at 44 in a `1fr` track whose width is
- * `column - 242.47` once the number is 32px and the cells are padded at 6:
- * 126.53 at 393, 108.53 at 375, 101.53 at 360, 85.53 at 344, 61.53 at 320. The
+ * `column - 234.47` once the number is 32px and the cells are padded at 6:
+ * 134.53 at 393, 116.53 at 375, 101.53 at 360, 85.53 at 344, 61.53 at 320. The
  * pair needs 94, so from viewport 353 up they sit side by side and the band is
  * 64; below that the field wraps under the door and the band is 94 for the width
- * of one Android. Without `flexWrap` the row's `justifyContent: flex-end` and
- * `minWidth: 0` sent the shortfall *leftwards*, out of the cell, across the grid
- * gap and onto the Proficiency number a player reads under pressure - measured
- * at 27.2px of overlap at 320 and 2.8px at 360 before this commit.
+ * of one Android. Without `flexWrap` the row's `justifyContent` and `minWidth: 0`
+ * sent the shortfall *leftwards*, out of the cell, across the grid gap and onto
+ * the Proficiency number a player reads under pressure - measured at 27.2px of
+ * overlap at 320 and 2.8px at 360 before the commit that added the wrap.
+ *
+ * (The constant said `242.47` and the first two numbers said 126.53 and 108.53
+ * until this commit, and they were a third stale term rather than a different
+ * measurement: three of the five entries already followed 234.47, as does the
+ * `viewport 353` crossing in the same paragraph. `playSheet.test.tsx` reads the
+ * four cells off the DOM and asserts 210.47, which with four 6px gaps is
+ * 234.47, and `Defenses`' own docblock says 234.47 as well. One paragraph,
+ * two constants, and the wrong one was cited first.)
+ *
+ * WHERE THE BOX SITS INSIDE THAT TRACK, WHICH IS THE PART THAT WAS WRONG AT
+ * EVERY WIDTH ABOVE A PHONE. The track is `1fr`, so it takes the whole
+ * remainder of the column, and the pair inside it was `justifyContent:
+ * 'flex-end'` - pinned to the far edge. `PlayPhone` is not phone-only:
+ * `Play.tsx` returns it for `layout !== 'desktop'`, which is every viewport up
+ * to 1179, and the column has no `maxWidth`. So the empty space between the
+ * PROF cell and the conditions door is `viewport - 352.47`:
+ *
+ *   viewport   fifth track   dead space   SEVERE's right edge to the field
+ *   393            134.53        40.53                   143.73
+ *   744            485.53       391.53                   494.73
+ *   1133           874.53       780.53                   883.73
+ *   1179           920.53       826.53                   929.73
+ *
+ * (the last column is the 6px gap, PROF's 41.20 cell, another 6px gap, the dead
+ * space, the 44px door and one 6px gutter.) This file's own opening says the
+ * box is beside "the two numbers you read it against", and the commit that
+ * moved it here was titled for that claim. It was true at 393 and false by
+ * half a screen at 744 - a width this project supports, measures and names by
+ * device.
+ *
+ * `flex-start` makes it 103.20px at every width from 353 up, and the dead space
+ * moves to the right of the field, past the end of the band, where nothing is
+ * read. Not a cap on the track and not `auto` in place of the `1fr`: the grid
+ * template is `Defenses`' in `Play.tsx` and the four readout cells are sized
+ * from it, so changing it there would move four numbers to fix the position of
+ * one box. One word here moves the one box.
+ *
+ * ERGONOMICS. Derived at four viewports rather than one, because the geometry
+ * of this move is not the same in portrait as it is on a rotated phone, and the
+ * paragraph that only did 393x852 read the tablet case backwards.
+ *
+ * The reference sweep this project uses is a 95th-percentile right thumb of
+ * about **330px** from the bottom-right pivot - `Play.tsx`'s ROLL note is where
+ * that number is argued - and the pivot is taken at `(viewport - 20, height -
+ * 40)`. Measured in Chrome, the pair is at door x246.47-290.47, field
+ * x296.47-340.47, y63-107 at **every** width from 353 up; before this commit it
+ * was door `viewport-106` to `viewport-62` and field `viewport-56` to
+ * `viewport-12`. Two targets, two numbers each, held apart:
+ *
+ *                        door before -> after     field before -> after
+ *   393x852, one hand     729.8 -> 734.5           727.1 -> 729.0
+ *   852x393, two hands    275.5 -> 365.5           268.4 -> 401.1
+ *   780x360, two hands    243.6 -> 342.0           235.4 -> 379.9
+ *   744x1133, two hands  1010.0 -> 1038.2          1008.1 -> 1051.3
+ *
+ * The two-handed rows are the *nearest* thumb of the two, and which thumb that
+ * is changes with the move: at 852x393 the right thumb had the door at 275.5
+ * and now has it at 624.0, while the left thumb had it at 794.6 and now has it
+ * at 365.5. Quoting only the right-hand pivot on a rotated phone overstates the
+ * loss by 258.5px, which is why both are here.
+ *
+ * **Thumb arc:** in portrait nothing happens - 4.7px on the door and 1.9 on the
+ * field, against a sweep the band is already 2.2x outside in both arrangements,
+ * because this row is the first thing in the column. (The 1.9px the old
+ * paragraph gave for "the two 44px targets" was the field's alone; the door's
+ * is 4.7, and a figure quoted for a pair has to be the worse of the two.) The
+ * landscape rows are the real cost and the old paragraph did not have them: on
+ * a rotated phone the two-handed grip anchors a thumb at each bottom corner,
+ * the *nearest* thumb becomes the left one, and the door goes from 275.5px -
+ * inside the 330 sweep - to 365.5, which is 35px outside it. The field goes
+ * 268.4 to 401.1. That is a shuffle of the grip where there was none, on one
+ * orientation of one class of device, and it is the price of the whole change.
+ * At 744x1133 the old sentence claimed a gain: it said the targets move "toward
+ * the centre of a 720px column, which on a tablet held in two hands is the
+ * difference between the edge and the middle". There is no 720px column -
+ * measured, the column runs x0-744 and the grid x12-732 - and a two-handed grip
+ * anchors at the *edges*, so the middle is the far end of both arcs, not the
+ * near end: nearest-thumb reach goes 1010.0 to 1038.2, 28px worse. Both are
+ * three times the sweep either way, so the honest reading is that the tablet
+ * case is a reading change and not a reach change at all.
+ *
+ * The trade is taken because the other side of it is 499.53px at 852 and
+ * 826.53px at 1179 of dead space between the last number read and the box the
+ * answer goes in, and because both controls here are deliberate rather than
+ * habitual - the field opens a numeric keypad over the sheet, the door opens a
+ * dismissable modal. Neither is the verb a thumb comes back to; that is ROLL,
+ * at the bottom, and it does not move. Capping the column, which is the other
+ * proposal on the table, does not recover any of the landscape reach: under
+ * `flex-start` the pair sits against the PROF cell whatever the column's width
+ * is, so a cap only shortens the dead space to the *right* of the field.
+ *
+ * **Target size:** unchanged - 44x44 door, 44x44 field, in a 64px row, at every
+ * width. Nothing shrinks and nothing wraps that did not wrap before, because
+ * the wrap threshold is the pair's 94px against the track and `justify-content`
+ * does not enter it. **Read versus touch:** the band reads left to right -
+ * Evasion, then the two thresholds, then Proficiency - and the box is the one
+ * thing in it you touch. Putting it immediately after the numbers is that order
+ * without a hole in it; pinning it right put up to 826.53px of nothing between
+ * the last number read and the field the answer is typed into.
  *
  * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
  * commit chip need about 170px between them and the widest this cell ever gets
@@ -508,16 +615,32 @@ export function IncomingDamage({
     return (
       <>
         {/*
-         * `flexWrap` is load-bearing, not tidying. Both children are 44 and
-         * `flex: none` inside a `1fr` track that is 61.53 wide at 320: without
-         * a wrap, `justifyContent: flex-end` and `minWidth: 0` push the
-         * shortfall out of the cell to the *left*, over the grid gap and onto
-         * the PROF panel. With it, the field drops under the door and the band
-         * is 94 instead of 64 below viewport 353.
+         * Three declarations, and each one answers a different question. See
+         * the docblock above for the arithmetic behind all three.
+         *
+         * `flexStart` puts the door and the field against the PROF cell rather
+         * than against the far edge of a track that is 920.53px wide at 1179.
+         * It was `flex-end`, which is what put the box the whole width of a
+         * tablet away from the ladder it is documented to be read beside.
+         *
+         * `flexWrap` is load-bearing and stays: both children are 44 and
+         * `flex: none` inside a track that is 61.53 wide at 320, so without a
+         * wrap the 32.47px that do not fit leave the cell - to the left over
+         * the PROF panel under the old `flex-end`, to the right under the
+         * column's `overflowX: 'hidden'` now. Either way one of two 44px
+         * targets is damaged. With the wrap the field drops under the door and
+         * the band is 94 instead of 64 below viewport 353.
+         *
+         * `minWidth: 0` also stays, and it is doing less than it looks. It is
+         * what lets this grid item fall under its own min-content; with the
+         * wrap in place that min-content is one 44px item rather than the whole
+         * 94px pair, and the track never goes under 44 above viewport 302.47,
+         * so nothing in the supported range reaches it. It is a floor against
+         * the next child added here, not a live declaration.
          */}
         <div
           className="row"
-          style={{ gap: 6, justifyContent: 'flex-end', minWidth: 0, flexWrap: 'wrap' }}
+          style={{ gap: 6, justifyContent: 'flex-start', minWidth: 0, flexWrap: 'wrap' }}
         >
           {door}
           {!ladderUnknown && field}
