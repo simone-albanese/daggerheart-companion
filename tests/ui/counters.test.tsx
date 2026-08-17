@@ -24,11 +24,11 @@ import 'fake-indexeddb/auto';
 import { act } from 'react';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Vitals } from '../../src/ui/player/Vitals.tsx';
 import { Settings } from '../../src/ui/settings/Settings.tsx';
-import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
+import { DEFAULT_PREFS, loadPrefs } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
@@ -363,23 +363,87 @@ describe('where the numbers are allowed to be', () => {
    * being true when the Play screen became the character sheet.
    */
   /*
-   * A preference nothing can reach is the same defect as a feature nothing
-   * calls: it ships switched off behind a passing test. Settings is edited by
-   * another lane, so this asks the smallest question that would notice the row
-   * going missing rather than pinning anything about the section around it.
+   * REPLACES «can be changed from Settings, and changing it writes the
+   * preference», which was the only test in the suite that resolved the switch
+   * by its accessible name, and which is now the assertion turned round.
+   *
+   * That test's own comment gave the reason it existed: "a preference nothing
+   * can reach is the same defect as a feature nothing calls". The same sentence
+   * is why the switch had to go rather than be left standing - after decision 7
+   * it was a control whose two options draw the identical screen, sitting under
+   * a hint that promised pips on three surfaces it does not govern.
    */
-  it('can be changed from Settings, and changing it writes the preference', async () => {
+  it('is not a switch in Settings any more, because it is not a choice any more', async () => {
     seed();
     render(createElement(Settings));
     await settle();
-    const row = container.querySelector('[role="group"][aria-label="Counters"]');
-    expect(row, 'Settings has no Counters row').not.toBeNull();
-    const pips = [...row!.querySelectorAll('button')].find(
-      (b) => (b.textContent ?? '').trim() === 'Pips',
+    expect(
+      container.querySelector('[role="group"][aria-label="Counters"]'),
+      'Settings still draws the Counters switch. Both of its options now render the same ' +
+        'four numeric cells, so it is a control that claims to change something and does ' +
+        'not - which is the one thing this app does not do.',
+    ).toBeNull();
+  });
+
+  /*
+   * THE INSTALL THAT ALREADY SAID `pips`, WHICH IS THE ONLY WAY THIS CHANGE
+   * COULD HURT ANYONE.
+   *
+   * `Prefs` is localStorage-only, so there is no schema version to move and no
+   * converter was written. What has to hold instead is the read path: a record
+   * carrying the deleted key must not throw, must not resurrect the branch, and
+   * must not cost the *other* preferences in the same record - which is the
+   * half that would fail in silence, because a user whose theme quietly reset
+   * has nothing to read about it. `loadPrefs` spreads the parsed JSON over
+   * `DEFAULT_PREFS`, so the orphan is kept verbatim and read by nobody.
+   */
+  it('ignores a stored counterStyle without dropping the record around it', () => {
+    /*
+     * A `localStorage` of this file's own, the way `heldDice.test.ts` and
+     * `gmStore.test.ts` already do it: neither the node environment nor this
+     * repo's jsdom hands one over.
+     */
+    const map = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+      clear: () => map.clear(),
+    });
+    localStorage.setItem(
+      'dhc.prefs.v1',
+      JSON.stringify({ counterStyle: 'pips', theme: 'light', gmPartySize: 6 }),
     );
-    expect(pips, 'the Counters row offers no way to pick pips').toBeDefined();
-    click(pips!);
-    expect(useApp.getState().prefs.counterStyle).toBe('pips');
+    const stored = loadPrefs();
+    expect(stored.theme, 'a record with an unknown key lost the preferences beside it').toBe(
+      'light',
+    );
+    expect(stored.gmPartySize).toBe(6);
+    expect(
+      Object.keys(stored),
+      'the orphan key was converted away. It is deliberately left where it is: prefs are ' +
+        'localStorage-only, so a migration for one dead string would be a schema cost ' +
+        'arriving by the back door.',
+    ).toContain('counterStyle');
+
+    const character = playedCharacter();
+    useApp.setState({
+      ready: true,
+      storageError: null,
+      dataset,
+      index,
+      characters: [character],
+      activeId: character.id,
+      prefs: stored,
+      log: [],
+      openCard: null,
+    });
+    render(
+      createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
+    );
+    expect(stepperCount(), 'a stored "pips" still reaches a branch').toBe(4);
+    expect(pipGroups(), 'a stored "pips" still draws pip rows').toBe(0);
+    vi.unstubAllGlobals();
   });
 
   /*

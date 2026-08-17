@@ -24,22 +24,6 @@ export interface Prefs {
   massiveDamageRule: boolean;
   /** Colour-blind safe mode also shapes the domain marks. Shapes are always on. */
   shapeCoding: boolean;
-  /**
-   * How the four resource counters are drawn on the Play screen.
-   *
-   * Numbers by default. A pip row is the better readout - it shows the size of
-   * the track and how much of it is gone in one glance - and it is the worse
-   * *control*, because moving from 2 to 7 is five separate taps at the touch
-   * floor and any one of them landing wrong is a wrong number on the sheet.
-   * The numeric row keeps a stepper for the one-at-a-time case and puts the
-   * whole value one tap from being typed.
-   *
-   * Scoped to the Play screen on phone and tablet. The desktop cockpit keeps
-   * pips because it has the room and a precise pointer; the GM's party board
-   * and the companion panel keep them because there you are reading somebody
-   * else's state rather than marking your own.
-   */
-  counterStyle: 'numbers' | 'pips';
   wakeLock: boolean;
   reduceMotion: boolean;
   lastScreen: Screen;
@@ -116,7 +100,6 @@ export const DEFAULT_PREFS: Prefs = {
   manualDice: false,
   massiveDamageRule: false,
   shapeCoding: true,
-  counterStyle: 'numbers',
   wakeLock: true,
   reduceMotion: false,
   lastScreen: 'play',
@@ -159,6 +142,29 @@ export function openingScreen(prefs: Prefs, characterCount: number): Screen {
   return allowedScreen(prefs, prefs.lastScreen);
 }
 
+/**
+ * Read the record, over the defaults.
+ *
+ * A THIRD DEAD KEY, RECORDED RATHER THAN MIGRATED - the same decision as the
+ * two `playSections` carries above, and taken for the same reason. Decision 7
+ * deleted `counterStyle: 'numbers' | 'pips'`, which shipped, so a real install
+ * has `{"counterStyle":"pips"}` sitting in `dhc.prefs.v1` right now. What
+ * happens to it, exactly: the spread below is `{...DEFAULT_PREFS, ...parsed}`
+ * and a spread keeps keys it has never heard of, so the string survives in the
+ * object, survives `savePrefs`'s `JSON.stringify` on the next preference
+ * change, and is read by nobody. It cannot throw - `JSON.parse` does not care,
+ * and the `catch` below is for a corrupt record, not an extra field - it
+ * cannot resurrect the branch, because no reader of it is left in `src/`, and
+ * it cannot cost the record anything else: every *other* preference in that
+ * same JSON is applied exactly as before, which is the half of this that would
+ * be silent if it broke.
+ *
+ * No converter, deliberately, and no `SCHEMA_VERSION` move: preferences are
+ * localStorage-only and never ride out in a `.dhchar` or a `.dhbackup`, so
+ * there is nothing on anyone's disk that a version number would help with. The
+ * one path that ever removes the key is "Erase everything" in About, which
+ * clears every `dhc.*` key and writes `DEFAULT_PREFS` fresh.
+ */
 export function loadPrefs(): Prefs {
   if (typeof localStorage === 'undefined') return DEFAULT_PREFS;
   try {
