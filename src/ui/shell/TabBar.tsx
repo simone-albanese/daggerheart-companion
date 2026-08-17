@@ -33,31 +33,48 @@
  * control strip that lives inside the thumb arc - and at 320, 375, 393 and 719
  * every tab returns itself from its own centre.
  *
- * ## The horizontal insets, which here are a guarantee and not a repair either
+ * ## The horizontal insets, which are 0px in the common case and not always
  *
  * The app has paid `env(safe-area-inset-bottom)` and `-top` since it was
  * written and had never once paid `-left` or `-right`: zero hits for either
  * across the whole of `src/`. On a notched iPhone in landscape that is exactly
- * where the cutout is, and `Header.tsx` really was losing 39 of the 54.4px of
- * SETTINGS to it. This bar was named in the same finding, and the measurement
- * refuses that half of it.
+ * where the cutout is - on both long edges at once, because iOS insets both so
+ * that a 180-degree rotation does not reflow the layout - and `Header.tsx`
+ * really was losing 39 of the 54.4px of SETTINGS to it. This bar was named in
+ * the same finding, and it is a different case from the header's.
  *
  * Measured through the audit rig at 852x393 - an iPhone 14/15 in landscape -
  * `document.querySelector('main > nav')` comes back **null**. `App.tsx` draws
  * this bar only while `phone` is true, `useLayout.ts` puts phone below 720, and
- * every notched iPhone in landscape is wider than that: 812 on a 12/13 mini,
- * 852, 932 on a Pro Max. So the band that draws this bar and the band that has
- * a horizontal inset do not meet on any iPhone - and in the orientation this
- * bar *is* drawn in, iOS reports both sides as 0 anyway: at 393x852 with a 59px
- * inset injected the rig reads this element's padding-left and padding-right
- * back as `0px`, while its padding-bottom is the 34px it has always paid.
+ * every notched iPhone *at its native resolution* is wider than that in
+ * landscape: 812 on a 12/13 mini, 852, 932 on a Pro Max.
  *
- * The two declarations below are therefore worth what `minmax(0, 1fr)` above is
- * worth, and for the same reason: they are what this bar does if the band ever
- * moves - a window under 720px wide on a device that reports a side cutout, a
- * foldable, an Android in split screen - rather than a repair to anything that
- * can be measured today. They cost 0px on every device that draws this bar, and
- * that is the honest claim rather than a larger one.
+ * "At its native resolution" is the clause this paragraph used to be missing,
+ * and it is why these two declarations are a live repair and not only a
+ * guarantee. iOS Display Zoom - Settings > Display & Brightness > View >
+ * Larger Text - drops a 6.1" iPhone to a 320x693 CSS-pixel viewport. Held
+ * sideways that is 693x320, which is under 720, so `useMedia(PHONE_QUERY)`
+ * matches, `useIsPhone()` is true and `App.tsx` draws this bar - on a device
+ * that still has its cutout down a side edge. Measured at 693x320 with 59
+ * injected on each side: this element's padding-left and padding-right read
+ * back `59px`, the four columns are 143.8x60 spanning [59, 634], clear of both
+ * strips, and the header above is inset to 79/79 with 239.8px of slack.
+ * Nothing is lost and the four labels come out from under the cutout. That is
+ * a configuration a person reaches from Settings, not a hypothetical.
+ *
+ * In portrait iOS reports no horizontal inset, and this rig cannot be the
+ * evidence for that. `insetPatch` in `audit-harness/run.mjs` substitutes each
+ * side with the value the case file gave it, so `sa-play-393x852-portrait`,
+ * which declares `left: 0, right: 0`, reads `0px` back whatever the code says.
+ * This docblock used to quote that reading as a measurement and it was
+ * circular. What the rig does establish is the negative - `main > nav` is null
+ * at 852x393 - and, when it is *given* an inset, the geometry above.
+ *
+ * So the honest status is neither of the two this file used to print. Not "a
+ * guarantee and not a repair", and not "they cost 0px on every device that
+ * draws this bar": 0px on every iPhone at its native resolution, non-zero and
+ * load-bearing on a zoomed 6.1" iPhone in landscape, and whatever a foldable
+ * or an Android in split screen reports.
  *
  * They go on the `<nav>` itself and not on an ancestor because padding sits
  * inside the background box: `var(--panel)` keeps painting to the physical edge
@@ -66,15 +83,20 @@
  * background with the buttons and leave a strip of `--app` down the glass.
  *
  * ERGONOMICS. This is the one control strip in the app deliberately inside the
- * thumb arc, and in the orientation it is drawn in both insets are 0, so the
- * arc is untouched and no tab moves by a pixel today. If a device ever did
- * report one, the cost lands on the grid rather than on the height: at 393 the
- * four columns are 98.3 each, and a 59px inset would take them to 83.5 - or
- * 131 to 111.3 with the GM section off - both still far above the 44px floor,
- * with the 60px height untouched because this padding is horizontal. What the
- * tabs would gain is the part that matters at a table: a label under a cutout
- * is a destination you cannot read in a dim room, which is the whole argument
- * for the four silhouettes above.
+ * thumb arc, so what matters is that the cost lands on the grid and not on the
+ * height - and it does, because this padding is horizontal. In the
+ * configuration where the insets are live, 693x320 in landscape, both thumbs
+ * are on the short edges and each rests against a strip; the four columns go
+ * from 173.3 to 143.8 (both measured), which is 3.3x the 44px floor, and every
+ * button keeps its 60px height. Nothing moves out of either arc: the row is
+ * the last thing in the window and the tabs still span [59, 634] of 693.
+ * Read-versus-touch is unchanged because every item here is touched - a glyph
+ * and its label are one target. What the tabs gain is the part that matters at
+ * a table: a label under a cutout is a destination you cannot read in a dim
+ * room, which is the whole argument for the four silhouettes above. If a
+ * portrait device ever reported one, the same arithmetic holds at 393 - four
+ * columns 98.3 -> 68.8 and three 131 -> 91.7, all four measured with 59 on
+ * each side - still 1.6x and 2.1x the floor.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, type Screen } from '../../store/state.ts';
@@ -138,9 +160,11 @@ export function TabBar(): React.JSX.Element {
         paddingBottom: 'calc(0px + env(safe-area-inset-bottom))',
         /*
          * The display cutout, in the same spelling and for the same parser
-         * reason. See "The horizontal insets" above for why these are a
-         * guarantee rather than a repair: measured at 852x393 this bar is not
-         * rendered at all, and at 393x852 both of these resolve to 0px.
+         * reason. See "The horizontal insets" above: measured at 852x393 this
+         * bar is not rendered at all, so on an iPhone at its native
+         * resolution these cost nothing - but at 693x320, a 6.1" iPhone with
+         * Display Zoom on and held sideways, it *is* rendered, and there these
+         * two are what keeps PLAY and GM out from under the cutout.
          */
         paddingLeft: 'calc(0px + env(safe-area-inset-left))',
         paddingRight: 'calc(0px + env(safe-area-inset-right))',
