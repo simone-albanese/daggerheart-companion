@@ -2465,9 +2465,35 @@ function PlayDesktop({
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
  * this sheet now clears by 78 where P5-8's 697 was one pixel over. `BackupBanner`
- * is the other one the budget has never counted: it is 58px above this scroll
+ * is the other one the budget has never counted: it costs this column **66**
  * from first launch until the first backup is taken, so a new user's column is
- * 672 - and 618 clears that by 54, where 697 was 25px over it.
+ * **664** - and 618 clears that by **46**, where 697 was 33px over it.
+ *
+ * *(~~58, a 672px column and 54 to spare~~ - superseded, and it is the same
+ * mistake as the companion's +50 above: 58 is the banner's border
+ * box, and what the screen under it loses is the border box **plus its 8px top
+ * margin**. `<main>` is a flex column and a banner is a `flex: none` child, so
+ * that margin does not collapse into anything. Measured banner off -> on and
+ * identical at all four iPhone widths - 553->487 at 375x667, 738->672 at
+ * 393x852, 760->694 at 402x874, 818->752 at 430x932. `ShellBanner.tsx:35-54`
+ * holds the measurement and names this file's error outright; the 730 above is
+ * already net of the phone root's own 8px foot, which is why 738 of glass minus
+ * 66 of banner is 664 of budget and not 672.)*
+ *
+ * AND THERE ARE TWO BANNERS, WHICH IS THE STATE THIS BUDGET FAILS. `UpdateBanner`
+ * is the other `ShellBanner`, and a new user with a service worker already
+ * waiting gets both at once - a first launch on a second visit is not an exotic
+ * path. Measured rather than doubled, because two stacked 8px margins are
+ * exactly where adding up would be wrong if they collapsed: 738 -> 672 -> **606**
+ * of glass at 393x852, so **132** off this column and **598** left of the 730.
+ * The folded sheet is 618. **It is 20px over**, and the whole-sheet-in-one-look
+ * claim at the head of this docblock does not hold in that state and is not
+ * claimed for it. Nothing is hidden and nothing goes out of reach - the column
+ * scrolls, exactly as 320 does - but the sentence this screen was rebuilt to
+ * earn is false for as long as both banners are up. Neither may be deleted:
+ * they are P0-2's remedy, and a banner nobody sees is the defect they fix.
+ * `playSheet.test.tsx` does not know either exists; `tests/ui/banners.test.tsx`
+ * adds the costs up out of the declarations so 66 and 132 cannot drift.
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it

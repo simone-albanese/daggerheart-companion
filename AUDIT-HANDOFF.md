@@ -364,13 +364,13 @@ d'accordo, **ha misurato dopo la lane**.
 
 | Voce dell'handoff 2 | Esito |
 |---|---|
-| Il banner costa **66**, non 58; e **132 con due banner** | **Applicato.** Confermato dal codice fuso: `ShellBanner.tsx:33-51` misura 553→487 a 375×667, 738→672 a 393×852, e 738→672→**606** con tutti e due. Il 58 era la scatola sola; i 66 sono la scatola più gli 8px di margine, che `<main>` essendo flex non fa collassare. `HANDOFF.md` corretto |
+| Il banner costa **66**, non 58; e **132 con due banner** | **Applicato.** Confermato dal codice fuso: `ShellBanner.tsx:35-54` misura 553→487 a 375×667, 738→672 a 393×852, e 738→672→**606** con tutti e due. Il 58 era la scatola sola; i 66 sono la scatola più gli 8px di margine, che `<main>` essendo flex non fa collassare. `HANDOFF.md` corretto |
 | Un compagno costa **+58**, non +50 | **Applicato in `BACKLOG.md`, e ri-derivato invece che copiato.** `WhoSwitch` (`Companion.tsx:41-92`) sul telefono è `compact={false}` → bottone `minHeight: 44`, più `padding: 3` due volte e 1px di bordo due volte = **52**; più i 6px di gap del pannello di `Vitals` (`Vitals.tsx:71`, `gap: phone ? 6 : 10`) = **58**. È la stessa correzione del banner: scatola contro scatola-più-spazio. ~~**`Play.tsx:2389` porta ancora +50** e non è di questo passaggio~~ — **chiuso**: alla fine dell'audit nessuna lane possedeva più `src/`, e il docblock adesso porta `~~+50~~ **+58**` con la derivazione accanto |
 | Difetto 6: soglia **337**, e **349** con 10 HP su 11 | **Non applicato come scritto: era attribuito al difetto sbagliato.** 337,37 e 349,9 sono gli attraversamenti della **griglia dei contatori** contro il bordo di ritaglio della colonna (`Vitals.tsx:203-209`), chiusi da `a9d8381` con `minmax(0, 1fr)` più `minWidth: 0`. L'attraversamento della sovrapposizione PROF/casella-danno è **viewport 353** (`Vitals.tsx:352`), chiuso da `f814a3a` con `flexWrap: 'wrap'`. Due difetti, due soglie, e la lista ne aveva scambiate le etichette |
 | Difetto 2: la banda è **720-836**, non 720-828, e ~894 con tre personaggi | **Non applicato: non si riproduce, e le tre cifre in giro non misurano la stessa cosa.** Il codice fuso (`Header.tsx:19-24`, misurato a 744×1133 con **un** personaggio in libreria) dice: centro di GM morto **da 720 a 828**, ultimo pixel coperto a **856**, riga sovra-sottoscritta fino a **864**. ~~§1 di questo file dice «occluso al 100% fino a 802», che è una terza soglia ancora, e le tre sono coerenti fra loro in quest'ordine — 802 (coperto al 100%) < 828 (centro coperto) < 856 (coperto in parte) < 864.~~ **Ritirato, e ritirato per lo stesso motivo per cui sopra si rifiutano l'836 e il ~894: 802 non è derivabile da questo albero.** `grep -rn 802 src/` non lo trova; l'unica occorrenza in tutto il repo è `tests/ui/header.test.ts:223`, dove 802 è semplicemente una delle otto larghezze — 720, 744, 768, 802, 828, 856, 864, 1179 — che una spazzata Chrome *post-fix* percorre per dire che ogni tab si restituisce dal proprio centro. È una larghezza campionata, non una soglia misurata, e `Header.tsx` non ne dichiara nessun'altra oltre a 828, 856 e 864. Che una soglia di copertura al 100% esista è certo — a 744×1133 GM è coperto al 100% e BUILD al 73% (`Header.tsx:19-22`) — ma il suo valore in questo albero non c'è. **Da rimisurare col rig insieme all'836 e al ~894**, dichiarando quanti personaggi ha la libreria: è il termine che sposta il gruppo destro. Fino ad allora l'ordine che questo file può sostenere è quello dichiarato: 828 (centro coperto) < 856 (ultimo pixel coperto) < 864 (fine della sovra-sottoscrizione). L'836 e il ~894 non sono derivabili da questo albero e la loro fixture non è dichiarata |
 | `Architecture.md` sullo scroll di Cards | **Verificato, era già corretto.** La lane cards l'aveva chiuso: la riga §9.1 porta le misure del dopo (scrollport = tutta la colonna, 438 a 320×568, 722 a 393×852, 230 a 640×360) e tiene lo 0px come storia. Lasciata stare |
 | Il contatore era **20px**, non 16 | **Applicato.** `Counter.tsx` dichiarava `font: '800 20px/1 var(--sans)'`; 16 non compare in `src/`. Quindi la decisione 4 a 375 e a 360 è una **riduzione** da 20 a 18 ed è un bugfix, non un ingrandimento: `--counter-num` è 18px su `:root` e 22 da `min-width: 380px` (`tokens.css:183`, `:229-232`), e a 360 il 20 chiederebbe 58,09px di riga in 57 di stanza |
-| «Entra a 360×800» | **Applicato con la sua condizione.** È vero dopo la decisione 2 e falso dopo tutte e sei se non si chiude l'a-capo dei tratti. La lane l'ha chiuso portando la `flex-basis` da 46 a 44 (`Play.tsx:641-652`): a `1 1 46px` la riga dichiarava 6 × 46 + 44 + 24 = **344**, esattamente la colonna a viewport 368; a `1 1 44px` dichiara **332**, quindi è una riga sola **da 356 in su**. Il budget fuso dice 618 contro 678 a 360×800, 60 di avanzo |
+| «Entra a 360×800» | **Applicato con la sua condizione.** È vero dopo la decisione 2 e falso dopo tutte e **sette** se non si chiude l'a-capo dei tratti. *(~~«tutte e sei»~~ — **superato**: il reflow ha sette decisioni, come questo file dice in §1 («Play, decisioni 1-7») e in §7.4 («decisioni 1-7»), e la settima — la cancellazione di `counterStyle` — sposta proprio questo budget: senza i pip il blocco dei contatori è 94 e non 194. Il sei precedeva l'atterraggio della settima.)* La lane l'ha chiuso portando la `flex-basis` da 46 a 44 (`Play.tsx:641-652`): a `1 1 46px` la riga dichiarava 6 × 46 + 44 + 24 = **344**, esattamente la colonna a viewport 368; a `1 1 44px` dichiara **332**, quindi è una riga sola **da 356 in su**. Il budget fuso dice 618 contro 678 a 360×800, 60 di avanzo |
 
 ---
 
@@ -398,13 +398,31 @@ nomina cosa cambia se la misura non è quella che il codice ha assunto.
 
 1. **`env(safe-area-inset-bottom)` sul suo telefono.** Nessuno l'ha mai misurato.
    Il codice lo tratta come 0 quando fa i conti del budget di Play: se sul suo
-   telefono è 34, la colonna a 393×852 passa da 730 a 696. Lo pagano `TabBar`,
-   `GmBar`, le due nav di Build e l'avviso di licenza — **una cosa sola per
-   schermata**, e `attribution.test.tsx` conta i pagatori.
+   telefono è 34, la colonna a 393×852 passa da 730 a 696. I pagatori sono
+   **sei**, uno solo per schermata: `TabBar` (`TabBar.tsx:160`), `GmBar`
+   (`GmBar.tsx:127`), le due nav di Build (`Wizard.tsx:402`,
+   `LevelUp.tsx:472`), l'avviso di licenza (`LicenceFooter.tsx:166`) e la nav
+   di **Onboarding** (`Onboarding.tsx:639`). `attribution.test.tsx:272-280` li
+   conta e nomina onboarding «il sesto, aggiunto il giorno stesso».
+
+   *(~~cinque, senza onboarding~~ — **superato**: era la lista incompleta della
+   schermata che un'installazione nuova vede **per prima**.)* E i sei non
+   pagano tutti alle stesse larghezze, distinzione che questa voce prima
+   appiattiva: le due nav di Build pagano solo **sopra i 720** — sul telefono
+   sono `phone ? 10 : calc(12px + env(…))` — e l'avviso di licenza solo quando
+   non è né sul telefono né già appoggiato a qualcosa
+   (`LicenceFooter.tsx:155`), mentre `TabBar`, `GmBar` e onboarding pagano a
+   **ogni** larghezza. Onboarding paga a ogni larghezza proprio perché sopprime
+   la `TabBar` che altrove paga sotto di lui: se non pagasse lui non pagherebbe
+   nessuno, ed è il primo schermo del primo avvio.
 2. **L'inset superiore da 59px** su iPhone col notch (rilevazione 7). Il
    `paddingTop` dell'header non è più un `env()` nudo: è
-   `calc(0px + env(safe-area-inset-top))` (`Header.tsx:323`), computa gli stessi
+   `calc(0px + env(safe-area-inset-top))` (`Header.tsx:372`), computa gli stessi
    pixel ed è finalmente leggibile dalla suite (`tests/ui/safeArea.test.ts`).
+   *(~~`Header.tsx:323`~~ — **superato**: la lane `a3-polish` ha spostato quella
+   dichiarazione di 49 righe più in basso, e la 323 adesso è la prima riga del
+   commento sulle fasce di layout. §1a è stata aggiornata quel giorno e questa
+   sezione no.)*
 3. **PWA installata contro scheda Safari** — chrome e inset diversi.
 4. **La portata di ROLL.** Il reflow lo allontana di **79px** dal bordo
    inferiore, e sono 79 per tutte e tre le strade con cui questo file conta la
@@ -413,16 +431,33 @@ nomina cosa cambia se la misura non è quella che il codice ha assunto.
    **493-559** sopra il bordo a 393×852, e da 229-295 a **308-374** a 375×667.
    385 − 306 = 493 − 414 = 559 − 480 = 79. *(~~~99px~~ — **superato**: 99 è
    l'altezza del blocco identità che la decisione 2 ha tolto dal telefono
-   (`Play.tsx:411`, `:2363`, `:2622`), non una distanza che ROLL abbia
+   (`Play.tsx:411`, `:2362-2363`, `:2629`), non una distanza che ROLL abbia
    percorso. Tutto ciò che stava sotto quel blocco è salito di 99, ma ROLL ne
    ha riguadagnati 20 dalle altre decisioni della stessa serie.)* A 493-559 ROLL
    è **fuori** dalla spazzata di ~330px che il vecchio commento citava per dire
    che ci stava dentro: il costo è reale ed è scritto come tale. Solo una mano
    vera lo giudica.
+
+   **E le due larghezze non danno la stessa risposta**, che è la ragione per cui
+   vale la pena tenerle in mano tutte e due. A 393×852 è il bordo **vicino**
+   della riga a stare 163px oltre i 330, quindi ne è fuori tutta. A 375×667 la
+   riga sta **a cavallo** del bordo dell'arco: il bordo lontano ne è fuori di 44
+   (374 − 330) e il bordo vicino è **22px dentro** (330 − 308), cioè un terzo
+   dei 66px di riga è ancora nell'arco. `Play.tsx:2633` mette il qualificatore
+   — «outside it by 44 **at the far edge**» — e `Architecture.md`, `CHANGELOG.md`
+   e `BACKLOG.md` l'avevano lasciato cadere tutti e tre, trasformando un margine
+   misurato su un bordo in «fuori a tutte e due». Sul telefono piccolo la
+   domanda è **aperta**, non già risposta in peggio.
 5. **iPad in verticale a 744 e 768**: il tab GM che era morto.
 6. **Orizzontale col ritaglio del display, e l'inset è simmetrico.** La shell
-   adesso paga `safe-area-inset-left` e `-right`: `Header.tsx:324/326` sopra i
+   adesso paga `safe-area-inset-left` e `-right`: `Header.tsx:373/375` sopra i
    `20px` di padding che aveva già, `TabBar.tsx:169/170` su base `0px`.
+   L'header non scrive più quei due valori a mano: legge `GUTTER_RIGHT` e
+   `GUTTER_LEFT` da `gutter.ts:56/59`, che è dove i `calc(20px + env(…))`
+   stanno adesso e dove li prendono anche le sei fasce di chrome (§1a).
+   *(~~`Header.tsx:324/326`~~ — **superato** con la 323 del punto 2, dalla
+   stessa lane e per la stessa ragione: la 324 e la 326 adesso sono il commento
+   sulle fasce di layout e la riga che ne deriva `phone`.)*
 
    **La forma da verificare è la simmetria, non la rotazione.** iOS riporta
    `-left` e `-right` allo **stesso valore non nullo** in orizzontale, perché
@@ -468,8 +503,9 @@ nomina cosa cambia se la misura non è quella che il codice ha assunto.
    - **La forma.** Simmetrica è preso dal ragionamento di Apple, non da una
      lettura. Il rig non può esserne la prova: `insetPatch` restituisce il valore
      che il caso gli ha dato (vedi §4).
-   - **E la tab bar in orizzontale non è ipotetica.** `App.tsx` disegna `TabBar`
-     solo sotto i 720px e ogni iPhone col notch alla risoluzione nativa è più
+   - **E la tab bar in orizzontale non è ipotetica.** `App.tsx:506` disegna
+     `TabBar` solo sotto i 720px — e solo fuori da onboarding e fuori dal tab
+     GM, che hanno le loro barre — e ogni iPhone col notch alla risoluzione nativa è più
      largo di così di taglio. Ma **Display Zoom** (Impostazioni > Schermo e
      luminosità > Vista > Testo più grande) porta un iPhone da 6,1" a 320×693,
      cioè 693×320 tenuto di lato: sotto 720, quindi la barra c'è, su un

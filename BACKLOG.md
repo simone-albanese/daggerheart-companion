@@ -1648,6 +1648,17 @@ what the paper shows.
       arithmetic is an executable assertion — `playSheet.test.tsx`, «the budget
       the pin came off for» — and P5-6 measured it in a real layout engine as
       well: every section draws at exactly the height it declares.
+
+      *Reading note, added by the documents pass.* The **385** in the paragraph
+      above is P5-6's figure and is left standing on purpose — the whole point
+      of this block is what was true when the reversal was argued. But it is
+      written in the present tense inside an already-superseded block, so a
+      reader skimming can meet it without a correction beside it, which is how
+      three other documents came to be carrying it. **At `HEAD` it is 306**, of
+      the same 730 and the same 545: the audit's seven decisions moved it, and
+      ROLL rose **79** of the 99px the identity block gave up, having handed 20
+      back through the band going 58→64 and the trait row 44→58. The live
+      numbers are in `Architecture.md` §9.1 and `Play.tsx:2382-2386`.
 - [ ] **Collapsible sections — the *tendina*.** Weapons & armour, cards,
       inventory, and lineage each behind a disclosure that remembers whether it
       was open. This is what makes "the whole sheet at once" fit: a closed
@@ -2726,8 +2737,14 @@ table and the shell's three constants, so they cannot go 150px stale again.
       and the reflow made the question sharper rather than answering it: the row
       is **493-559px** above the bezel at 393×852 and **308-374** at 375×667,
       where P5-8 measured 414-480 and 229-295 and the small phone was still
-      inside the arc. It is outside at both now — outside the sweep the old
-      comment cited — and the argument that it does not matter — the column scrolls, so
+      inside the arc. ~~It is outside at both now~~ — **superseded**, and the
+      correction is the difference between a question and a verdict: at 393×852
+      the whole row is outside the ~330px sweep, its *near* edge 163px past it,
+      but at 375×667 the row straddles the edge — 44px out at the far edge,
+      22px still in at the near one, which is where `Play.tsx:2633` puts its
+      "outside it by 44 **at the far edge**". Two thirds of that row is out of
+      the arc on the small phone and a third is in, so what a thumb does there
+      is exactly the thing nobody has watched. And the argument that it does not matter — the column scrolls, so
       the position at rest is not the position at use — is an argument and not
       an observation. It belongs beside the counter cell's 4px cushion in
       *Needs a human*: both are questions about a real hand at a real table.
@@ -2780,9 +2797,15 @@ two-device tests.
 8. **A thumb on Play, at a table, on a 393×852 phone** (5 min, one player, one
    evening). Two questions, both of which this repo has argued and neither of
    which it has observed. *ROLL:* at the top of the scroll its row is **493 to
-   559px** above the bottom bezel at 393×852 and **308 to 374** at 375×667 —
-   outside the ~330px one-handed sweep P5-5 cited at both, where P5-8 measured
-   414-480 and 229-295 and the small phone was still inside it. The reflow made
+   559px** above the bottom bezel at 393×852 and **308 to 374** at 375×667.
+   Against the ~330px one-handed sweep P5-5 cited, the two widths do not give
+   the same answer, and the difference is the whole reason to hold both phones:
+   at 393×852 the row is wholly outside, its near edge 163px past the arc; at
+   375×667 it **straddles** the edge, 44px out at the far edge and 22px still
+   in at the near one. P5-8 measured 414-480 and 229-295, with the small phone
+   wholly inside. *(~~"outside the ~330px one-handed sweep P5-5 cited at
+   both"~~ — **superseded**: `Play.tsx:2633` qualifies it, "outside it by 44
+   **at the far edge**", and this line had dropped the qualifier.)* The reflow made
    this *worse*, because every pixel the sheet loses above ROLL is a pixel
    further from a thumb at rest. Is reaching it a shrug, a grip shuffle, or a
    two-hander — and does the player scroll it down before rolling, which is the

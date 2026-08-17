@@ -15,7 +15,7 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 | Dati manuale | Parsing in-app, opzionale, **desktop** | Il parser fragile non blocca più nessuno |
 | Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla |
 | Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
-| Scroll | **Ovunque**; su Play non è fisso più niente | La regola «niente scroll su Play» è caduta con `91097eb`, e con P5-5 è caduto anche il blocco fisso che l'aveva sostituita: nell'ordine di Giorgio ROLL arriva a **306 di 730** a 393×852 e a **306 di 545** a 375×667, senza pin — lo stesso numero alle due larghezze, perché tutto ciò che gli sta sopra è alto uguale (`Play.tsx:2382-2387`, e `playSheet.test.tsx` lo porta come asserzione). *(~~385 di 730 e 385 di 545~~: **superati** dalle decisioni 1-7 dell'audit, `0cdf42f` — vedi § 9.1, dove il numero vecchio resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)* § 9.1 dice cosa resta fisso sulle altre schermate |
+| Scroll | **Ovunque**; su Play non è fisso più niente | La regola «niente scroll su Play» è caduta con `91097eb`, e con P5-5 è caduto anche il blocco fisso che l'aveva sostituita: nell'ordine di Giorgio ROLL arriva a **306 di 730** a 393×852 e a **306 di 545** a 375×667, senza pin — lo stesso numero alle due larghezze, perché tutto ciò che gli sta sopra è alto uguale (`Play.tsx:2382-2386`, e `playSheet.test.tsx` lo porta come asserzione). *(~~385 di 730 e 385 di 545~~: **superati** dalle decisioni 1-7 dell'audit, `0cdf42f` — vedi § 9.1, dove il numero vecchio resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)* § 9.1 dice cosa resta fisso sulle altre schermate |
 | Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
 | Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
 | Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
@@ -159,8 +159,17 @@ che chiedevano quale volessi essere — mostrate a un GM, e mostrate a chi il
 personaggio ce l'aveva finito da un'ora su un altro telefono. **Adesso chiede
 prima chi c'è al tavolo** (decisione 9): due domande per un giocatore, tre per un
 GM, e per chi ha già la scheda altrove nessuna domanda ma una porta, perché la
-scheda dice già tutto quello che l'app dovrebbe chiedere. `needsOnboarding` in
-`prefs.ts` la disegna solo con la libreria vuota e con `onboarded` falso; una
+scheda dice già tutto quello che l'app dovrebbe chiedere. `needsOnboarding`
+(`prefs.ts:207-208`) le disegna solo quando **tutti e tre** i suoi termini sono
+veri: `onboarded` falso, libreria vuota **e** `!needsPasteboardBridge()`. Il
+terzo non è decorativo, ed è l'unico punto della funzione che legge l'ambiente —
+il suo docblock lo dichiara come tale (`:202-206`). Su una PWA iOS installata
+con la libreria vuota chi apre non è quasi mai un utente nuovo — un utente nuovo
+non ha ancora installato niente — è qualcuno i cui dati di Safari non l'hanno
+seguito oltre il confine di storage della piattaforma, e a quello `App.tsx:612`
+mostra `Recovery` invece delle domande o di «no character yet». Senza quel
+termine l'app installata resta **senza navigazione**, che è il difetto HIGH che
+questo audit ha già chiuso una volta. Una
 scheda letta da disco senza quella chiave è letta **come già onboardata**, o ogni
 aggiornamento chiederebbe «chi tiene in mano questo telefono?» a chi gioca da
 mesi.
@@ -814,7 +823,7 @@ daggerheart-companion/
 │  ├─ store/  db.ts  state.ts  backup.ts  campaigns.ts  campaignMigration.ts
 │  ├─ ui/
 │  │  ├─ shell/  player/  gm/  settings/  shared/
-│  │  │  └─ shell/gutter.ts   # la grondaia laterale, scritta una volta sola
+│  │  │  └─ gutter.ts         # in shell/: la grondaia laterale, scritta una volta sola
 │  └─ main.tsx
 ├─ public/  manifest.webmanifest  sw.js
 └─ tests/fixtures/             # righe di testo dall'SRD, MAI un PDF
@@ -944,8 +953,16 @@ Non è solo aritmetica dichiarata: misurato in Chrome via `preview.html` col
 fixture `playedCharacter`, ogni sezione viene disegnata esattamente all'altezza
 che dichiara.
 *(~~385 di 730 e 385 di 545~~, e 353 sopra la tab bar: **superati** dalle
-decisioni 1-7 dell'audit. La decisione 3 ha tolto il blocco identità dal
-telefono e tutto ciò che stava sotto è salito di quei pixel. Il numero vecchio
+decisioni 1-7 dell'audit. La **decisione 2** ha tolto il blocco identità dal
+telefono — 99px — e tutto ciò che gli stava sotto è salito. ROLL però ne ha
+percorsi **79**, non 99: le altre decisioni della stessa serie gliene hanno
+restituiti 20, la banda passando da 58 a 64 e la riga dei tratti da 44 a 58, e
+385 − 306 = 79 come le altre due strade con cui AUDIT-HANDOFF §7.4 conta la
+stessa distanza. *(~~«la decisione 3 … e tutto ciò che stava sotto è salito di
+quei pixel»~~ — **superato due volte**: la decisione che tolse l'identità è la
+2, non la 3, e 99 è l'altezza del blocco identità, non una distanza che ROLL
+abbia percorso. Questa nota ripeteva esattamente la lettura che §7.4 è stata
+riscritta per ritirare.)* Il numero vecchio
 resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)*
 Niente su Play è fisso, non c'è più uno scroller interno e non c'è più il
 pavimento, che esisteva solo perché un blocco fisso poteva affamare lo scroll.
@@ -958,17 +975,20 @@ tendine: armi e armature, Experience, inventario (con l'oro sull'intestazione),
 carte (col vault dentro), riposo e per ultima la lineage, che apre coi domini.
 Ogni tendina parte chiusa, perché il conto qui sopra è fatto a tendine chiuse e
 un default che lo contraddicesse renderebbe il numero una finzione.
-**Il blocco identità non apre più l'elenco sul telefono**: la decisione 3
+**Il blocco identità non apre più l'elenco sul telefono**: la **decisione 2**
 dell'audit l'ha tolto — il nome, la classe e il livello sono già nell'header, e
 RENAME ha già la sua unica porta in Build — e la porta delle condizioni che
-viveva in quella riga è passata nella quinta cella della banda.
+viveva in quella riga è passata nella quinta cella della banda, che è la
+**decisione 3**. Sono due decisioni distinte e `Play.tsx` le numera così quattro
+volte (`:411`, `:531`, `:2586`, `:2634` per la 2; `:488` e `:1047` per la 3).
 
 **Le condizioni non sono più una riga di quell'elenco** (P5-8). Non si disegna
 niente per dire che non c'è niente: la striscia compare solo quando qualcosa è
 attivo, nel posto che aveva sempre avuto, e la porta permanente è
 `ConditionsControl` — 44×44 in testa alla **quinta cella della banda delle
 difese** (a P5-8 stava in fondo alla riga della classe dell'identità, accanto a
-RENAME; la decisione 3 ha tolto quella riga dal telefono), dentro una riga che
+RENAME; la decisione 2 ha tolto quella riga dal telefono e la 3 è questo
+spostamento), dentro una riga che
 le celle dei numeri tengono già aperta a 64, quindi costa
 alla colonna esattamente zero. Con la scheda pulita il controllo è vuoto e legge
 `— COND`; con qualcosa attivo si riempie, conta quante sono e il suo nome
@@ -1009,7 +1029,14 @@ caro dei cinque a **+68** e ne lasciano 171, un compagno (**+58**), un Beastform
 *(~~un compagno (+50)~~: era la scatola contata senza lo spazio in cui viene
 messa, lo stesso errore del banner della shell. `WhoSwitch` sul telefono è un
 bottone da 44px dentro `padding: 3` e 1px di bordo per lato — scatola da **52** —
-più i 6px di gap del pannello di `Vitals`: **58**. `Play.tsx` porta ancora +50.)*
+più i 6px di gap del pannello di `Vitals`: **58**. ~~`Play.tsx` porta ancora
++50.~~ — **chiuso**: `Play.tsx:2389` legge `~~+50~~ **+58**`, con la derivazione
+44 + 3 + 3 + 1 + 1 + 6 scritta accanto (`:2391-2397`). Questa frase è rimasta al
+presente una passata più del dovuto: AUDIT-HANDOFF §5 e `BACKLOG.md` avevano già
+cancellato le loro copie, questo file era il terzo portatore ed è stato saltato.
+Un documento che dichiara aperto un difetto chiuso sbaglia quanto il contrario,
+e in una direzione che costa di più: manda un lettore a «riparare» un numero
+che è già giusto.)*
 
 Gli stati erano sei e il più caro erano i pip, a **+100**: restavano a tutta
 larghezza — una traccia da 12 caselle in una cella da 172px andrebbe a capo sotto
@@ -1064,13 +1091,23 @@ larghezze di riferimento, perché tutto ciò che le sta sopra è alto uguale. A
 375×667 sono **308–374** sopra il bordo e 247 sopra la barra. Il commento in
 `Play.tsx` ha portato per due passate le coordinate di prima della griglia
 (y522-588, «264–330px dal bordo, *dentro* una spazzata del pollice di ~330px») e
-con i numeri si è ribaltata la conclusione: ROLL è **fuori** da quell'arco.
+con i numeri si è ribaltata la conclusione: ROLL è **fuori** da quell'arco per
+intero a 393×852, e **a cavallo del suo bordo** a 375×667 (sotto).
 *(P5-8 aveva corretto quelle coordinate a y372-438, cioè 414–480 dal bordo, e a
 quella misura il telefono piccolo era ancora **dentro** l'arco. Il reflow ha
 peggiorato la cosa invece di migliorarla, ed è giusto che si veda: ogni pixel che
 la scheda accorcia sopra ROLL è un pixel più lontano dal pollice a riposo.
-A 393×852 ROLL sta ora ~163px oltre il bordo esterno dell'arco dove ne stava 84;
-a 375×667 l'arco l'ha lasciato del tutto, di 44px.)*
+A 393×852 ROLL sta ora ~163px oltre il bordo esterno dell'arco dove ne stava 84,
+e lì a essere oltre è il bordo **vicino** della riga, cioè tutta la riga.
+A 375×667 no: la riga scavalca il bordo dell'arco invece di lasciarlo. Il suo
+bordo **lontano** ne sta fuori di 44 — 374 − 330 — ma il bordo vicino è a 308,
+cioè **22px dentro** i 330, quindi un terzo dei 66px di riga è ancora nell'arco.
+È la sfumatura che la fonte fa e che questo file aveva perso:
+`Play.tsx:2633` dice «outside it by 44 **at the far edge**».
+*(~~«a 375×667 l'arco l'ha lasciato del tutto, di 44px»~~ — **superato**:
+trasformava un margine misurato su un solo bordo in un'affermazione senza
+condizioni su tutte e due le larghezze. La domanda che il proprietario sta per
+fare con un pollice vero è aperta a 375×667, non già risposta.)*
 È un costo vero della rimozione del pin ed è scritto
 come tale; quello che compra è la scheda intera leggibile in un colpo e 432px di
 distanza da un controllo che porta via dalla schermata a metà turno. La colonna
