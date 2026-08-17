@@ -590,7 +590,7 @@ describe('the trait row and the roll surface', () => {
     return chip.parentElement!;
   };
 
-  it('the trait row is one 58px row, and the verbs are behind its own control', () => {
+  it('the trait row is one 44px row, and the verbs are behind its own control', () => {
     play(seed());
     const row = traitRowEl();
     const targets = [...row.querySelectorAll('button')];
@@ -600,8 +600,10 @@ describe('the trait row and the roll surface', () => {
     for (const t of targets) {
       expect(
         t.style.minHeight,
-        `${t.textContent ?? '?'} is not the row's one height`,
-      ).toBe('58px');
+        `${t.textContent ?? '?'} is not the row's one height. 58 was a chip around 34.6px of ` +
+          'ink; 44 is the touch floor, which is all this row ever needed, and the 14px it ' +
+          'returns is the third of the reflow\u2019s savings that costs no target anything.',
+      ).toBe('44px');
     }
     expect(row.style.flexWrap, 'the row cannot wrap, so it will clip instead').toBe('wrap');
 
@@ -625,13 +627,22 @@ describe('the trait row and the roll surface', () => {
    * for it. Both are asserted here because a future edit that undoes either one
    * silently undoes the other's warrant.
    */
-  it('stacks the chip at 15px and declares a line that fits the commonest Android', () => {
+  it('stacks the chip at 17 over 13 and declares a line that fits the commonest Android', () => {
     play(seed());
     const row = traitRowEl();
     const chips = [...row.querySelectorAll('button')].slice(0, 6);
 
     for (const chip of chips) {
-      expect(chip.style.fontSize, 'the chip is back to `.chip`\'s 9.5px').toBe('15px');
+      /*
+       * 17 is the chip's own size and it is the MODIFIER's - the number you add
+       * to 2d12, read on every roll. The abbreviation over it overrides down to
+       * 13, which is the one cut in this pass and is the same caption-under-
+       * number relation the band and the counters already have. Both halves are
+       * asserted, because either one alone is a different decision: 17 with a
+       * 15px label is a chip that got taller again, and 13 with a 15px number
+       * is a shrink nobody asked for.
+       */
+      expect(chip.style.fontSize, 'the chip is back to `.chip`\'s 9.5px').toBe('17px');
       expect(chip.style.flexDirection, 'the two lines are back on one line').toBe('column');
       expect(chip.style.flex, 'the flex basis is what decides the wrap, and it moved').toBe(
         '1 1 44px',
@@ -641,6 +652,15 @@ describe('the trait row and the roll surface', () => {
         (el) => (el as HTMLElement).style.display === 'block',
       );
       expect(lines, `${chip.textContent ?? '?'} is not two block lines`).toHaveLength(2);
+      expect(
+        (lines[0] as HTMLElement).style.fontSize,
+        'the three-letter abbreviation is not 13. It names the number under it and is read ' +
+          'once; the modifier is read on every roll, and the 13 is what pays for the 17.',
+      ).toBe('13px');
+      expect(
+        (lines[1] as HTMLElement).style.fontSize,
+        'the modifier declares a size of its own, so it has stopped following the chip',
+      ).toBe('');
     }
     // The space between them is inside the first line, and seven tests read it.
     expect(/^AGI [+−]/.test((chips[0]!.textContent ?? '').trim())).toBe(true);
@@ -940,9 +960,11 @@ describe('the budget the pin came off for', () => {
     { what: 'the four counters, a 2x2 grid, both rows at the touch floor', px: 2 * 44, from: 'dom' },
     { what: 'the counters · the one 6px gap between the two rows', px: 6, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
-    // 58 since decision 5: the chip stacks the abbreviation over the value at
-    // 15px, and the verbs control follows so the row is one height.
-    { what: 'the trait row, six chips and the verbs control', px: 58, from: 'dom' },
+    // 44 since the reflow. Decision 5 stacked the abbreviation over the value
+    // and paid 14 for it; measured, that bought a 58px chip around 34.48 of
+    // ink. The chip is at the touch floor now and the type inside it went the
+    // other way - the modifier 15 -> 17, the abbreviation 15 -> 13.
+    { what: 'the trait row, six chips and the verbs control', px: 44, from: 'dom' },
     { what: 'gap', px: GAP, from: 'dom' },
     // The roll surface is ROLL and nothing else with nothing armed: the
     // Experience chips are a fold below it now and the modifier row is not
@@ -999,7 +1021,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 288').toBe(288);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 274').toBe(274);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1008,7 +1030,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(442);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(456);
   });
 
   /*
@@ -1030,7 +1052,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(257);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(271);
   });
 
   /*
@@ -1054,7 +1076,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(600);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(586);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -1065,12 +1087,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(130);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(144);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(55);
+    ).toBe(41);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -1086,7 +1108,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(472);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(486);
   });
 
   /*
@@ -1117,7 +1139,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([285, 341]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([271, 327]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -1129,11 +1151,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([511, 567]);
+    ).toEqual([525, 581]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([326, 382]);
+    ).toEqual([340, 396]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -1143,7 +1165,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(450);
+    ).toBe(464);
   });
 
   /*
@@ -1303,7 +1325,7 @@ describe('the budget the pin came off for', () => {
 
     // The trait row and the roll surface.
     const chip = buttons().find((b) => /^AGI [+−]/.test((b.textContent ?? '').trim()))!;
-    expect(chip.style.minHeight).toBe('58px');
+    expect(chip.style.minHeight).toBe('44px');
     // By its label, not by its height: eight `Counter` steppers declare
     // `height: 44` and every one of them is above ROLL in document order, so
     // reading the budget's last term off "the first button with a height" would

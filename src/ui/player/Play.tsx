@@ -13,8 +13,8 @@
  * changed underneath them: with the counters and the thresholds moved to the
  * top where Giorgio's message puts them, the Experiences and the modifier row
  * moved out from above ROLL, and - since the reflow - the identity block off
- * the phone entirely, ROLL's own lower edge lands **442px** above the fold at
- * 393x852 and **257px** above it at 375x667 without a pin, so the block was
+ * the phone entirely, ROLL's own lower edge lands **456px** above the fold at
+ * 393x852 and **271px** above it at 375x667 without a pin, so the block was
  * buying a reach the order already provides and charging 266px for it. This
  * paragraph carried "195px and 10px" for two passes against assertions of 345
  * and 160, which is exactly the habit `playSheet.test.tsx` exists to break:
@@ -630,13 +630,30 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * +1 - use it to Sprint, Leap, Maneuver" - so a screen-reader user loses
  * nothing at all and gains the 150px a sighted user gains.
  *
- * THE CHIP IS TWO LINES AT 15px, WHICH IS DECISION 5. It was one line at
- * `.chip`'s 9.5px - the smallest type anywhere on this sheet, for six of the
- * numbers a player reads most often. Stacked, the abbreviation sits over the
- * value at 15px and the chip is 58 tall instead of 44: **+14 on the column**,
- * and the third-largest type on the screen where it was the smallest. Nothing
- * else in the row moves; the verbs control follows to 58 so the row is one
- * height rather than a 44 floating in a 58.
+ * THE CHIP IS TWO LINES, WHICH WAS DECISION 5, AND THE REFLOW GIVES THE 14PX
+ * BACK WITHOUT GIVING THE TYPE BACK. It was one line at `.chip`'s 9.5px - the
+ * smallest type anywhere on this sheet, for six of the numbers a player reads
+ * most often. Decision 5 stacked the abbreviation over the value at 15px and
+ * paid 14px of column for it: the chip went to 58 and the verbs control
+ * followed, so the row was one height rather than a 44 floating in a 58.
+ *
+ * Measured, that bought a 58px chip around **34.6px of ink** - two 17.3px lines
+ * at 15/1.15, y237.8-272.3 inside a chip spanning y227-285, so 10.8 above and
+ * 12.7 below. Nothing in this row needs more than the touch floor, so the chip
+ * and the verbs control are both **44** now and the type inside grows instead:
+ * the modifier - the number you add to 2d12 - goes **15 -> 17**, and the
+ * three-letter abbreviation over it goes **15 -> 13**.
+ *
+ * THE CUT ON THE ABBREVIATION IS DELIBERATE AND IT IS THE ONLY ONE IN THE PASS.
+ * AGI/STR/FIN/INS/PRE/KNO name the number under them and are read once, when a
+ * player learns where the six are; the modifier is read on every roll. That is
+ * the caption-under-number relation the defence band and the counters already
+ * have. It is 13 and not the 10 a flatter ramp would give, because six labels
+ * that carry the identity of the number beneath them, cut by a third, is a
+ * shrink nobody asked for. Measured in Chrome at 393: line boxes 14.95 and
+ * 19.55, **ink 34.48 in 42** of inner - the chip carries a 2px bottom rule -
+ * so 3.75px above and 3.77 below. The row gives back 14 and the number a player
+ * reads is 13% larger.
  *
  * AND THE BASIS IS 44, WHICH IS A SEPARATE FIX AND IS NOT THE SAME ONE. Flex
  * line-breaking is decided on the declared `flex-basis`, not on what the chip
@@ -652,10 +669,12 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * 46.0 at 368, 47.17 at 375 and 50.17 at 393, measured before and after.
  *
  * ERGONOMICS. Six targets at ~50.2px wide at 393, 47.2 at 375, 44.67 at 360 and
- * exactly 44.0 at 356, all 58 tall, with 4px between them. That is still the
+ * exactly 44.0 at 356, all 44 tall, with 4px between them. That is still the
  * tightest target spacing on this screen and I am not going to pretend it is
- * comfortable; what changed is that it is 32% taller and that the floor is now
- * declared rather than true by arithmetic somewhere else. The horizontal gutter
+ * comfortable; what changed is that the floor is declared rather than true by
+ * arithmetic somewhere else, and that the chip is square at it rather than
+ * standing 14px above it. Nothing here goes under 44 in either direction, and
+ * the width - the axis these six are actually tight on - does not move at all. The horizontal gutter
  * is unchanged, so the near-miss risk sideways is exactly what it was, and three
  * things still make it acceptable: it is the arrangement and the gap the shipped
  * pinned strip already used; a mis-tap arms a neighbouring trait, which is
@@ -686,7 +705,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * BELOW 356 IT IS TWO ROWS AND THAT IS CORRECT RATHER THAN A DEFECT. Seven 44px
  * targets and six 4px gaps need 332 of column, which needs a 356px viewport;
  * below that no arrangement puts them on one line without taking one under the
- * floor. So the row wraps - 58 + 4 + 58 = **120**, +62 on the column - and the
+ * floor. So the row wraps - 44 + 4 + 44 = **92**, +48 on the column - and the
  * second line carries the chevron alone. It is a reflow on a column that scrolls,
  * and nothing is ever clipped or off the glass.
  *
@@ -694,9 +713,12 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
  * span for that reason: the two lines are two `display: block` spans, so
  * `textContent` concatenates them with nothing between, and
  * `playSheet.test.tsx`'s `traitChip` helper matches `^AGI [+−]` in seven tests.
- * At 15px mono with `.chip`'s 0.06em the widest line a chip draws is the
- * abbreviation at 29.7px, which is 37.7 with the padding - inside the 44px
- * basis, so no chip ever paints outside its own box.
+ * At 13px mono with `.chip`'s 0.06em the widest line a chip draws is still the
+ * abbreviation, measured at **26.47px** including that space - 34.47 with the
+ * padding, inside the 44px basis - and the modifier at 17px is **22.47**. The
+ * chip itself is 50.16 wide at 393, 44.66 at 360 and exactly 44.0 at 356, all
+ * measured, all one row. So no chip paints outside its own box, and the raise
+ * happened on the axis this row has room on.
  */
 function TraitRow({
   stats,
@@ -756,14 +778,21 @@ function TraitRow({
                 // declaration rather than by arithmetic somewhere else.
                 flex: '1 1 44px',
                 minWidth: 44,
-                minHeight: 58,
+                // 44 and not the 58 it was. Two lines at 15px are 34.6 of ink
+                // in a 58px chip - 10.8 above and 12.7 below - and nothing in
+                // this row needs more than the touch floor. The type inside it
+                // grows while the box shrinks: see the two spans below.
+                minHeight: 44,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 // Overrides `.chip`'s `font: 600 9.5px/1 var(--mono)` size and
                 // leading and keeps its family, its weight and its tracking.
-                fontSize: 15,
+                // 17 is the MODIFIER's size - the number you add to 2d12 - and
+                // it is the chip's own, because the number is what the chip is
+                // for; the three-letter abbreviation overrides it downwards.
+                fontSize: 17,
                 lineHeight: 1.15,
                 padding: '0 4px',
                 background: active ? 'var(--hope)' : 'var(--raised)',
@@ -783,7 +812,20 @@ function TraitRow({
               {/* Two blocks, and the trailing space in the first one is not a
                   typo: `textContent` joins two block spans with nothing between
                   them, and `traitChip` matches `^AGI [+−]` in seven tests. */}
-              <span style={{ display: 'block' }}>
+              {/*
+               * 13, DOWN FROM 15, AND IT IS THE ONE CUT IN THIS PASS.
+               *
+               * AGI/STR/FIN/INS/PRE/KNO name the number under them and are
+               * read once, when you learn where the six are; the modifier
+               * below is read on every roll. That is the same caption-under-
+               * number relation the defence band and the counters already
+               * have, and it is what pays for the number going to 17 inside a
+               * chip that got 14px shorter. Deliberately 13 and not the 10 a
+               * flatter ramp would give: six labels carrying the identity of
+               * the number beneath them, cut by a third, is a shrink nobody
+               * asked for.
+               */}
+              <span style={{ display: 'block', fontSize: 13 }}>
                 {TRAIT_LABELS[t].slice(0, 3).toUpperCase()}{' '}
               </span>
               <span style={{ display: 'block' }}>
@@ -808,9 +850,10 @@ function TraitRow({
           );
         })}
         {/*
-         * The verbs control. At the touch floor in width and taller than it in
-         * height, because it follows the chips to 58 so the row is one height
-         * rather than a 44 floating in a 58 - and `aria-expanded` because that
+         * The verbs control. Square at the touch floor now, because the chips
+         * came down to 44 and the row is one height either way - it was 58 for
+         * exactly as long as they were, so that this was not a 44 floating in a
+         * 58 - and `aria-expanded` because that
          * is what it is, but deliberately not a `Disclosure`, which is a
          * full-width header by contract and would cost the row this whole
          * component exists to save.
@@ -825,7 +868,7 @@ function TraitRow({
             flex: 'none',
             width: 44,
             minWidth: 44,
-            minHeight: 58,
+            minHeight: 44,
             justifyContent: 'center',
             borderRadius: 'var(--r3)',
             background: 'var(--raised)',
@@ -2411,14 +2454,14 @@ function PlayDesktop({
  * which carries the incoming-damage field *and* the conditions door as its
  * fifth cell, for nothing, because two 44px controls fit inside a row the
  * numbers hold open at 64 - the four counters 94 as a 2x2 grid, the trait row
- * 58, and the roll row 56 - a floor rather than the hard 66 it was, and the ten
+ * 44, and the roll row 56 - a floor rather than the hard 66 it was, and the ten
  * pixels are the first of the reflow's savings - ROLL beside a MODS control that costs the column
  * nothing because it is 44 wide inside a height ROLL was already holding, plus
- * three of this column's 8px gaps. **ROLL's lower edge lands at 288 of a usable
+ * three of this column's 8px gaps. **ROLL's lower edge lands at 274 of a usable
  * 730** (852 less the header's 52+1, the tab bar's 60+1 and this root's own 8px
- * foot), which is 442px of slack.
+ * foot), which is 456px of slack.
  *
- * AT 375x667 THE SAME 288 CLEARS A 545px COLUMN BY 257px, where before the
+ * AT 375x667 THE SAME 274 CLEARS A 545px COLUMN BY 271px, where before the
  * counters became a grid it cleared it by ten. Not one of the ordinary states
  * this budget cannot see costs the small phone its margin: typed dice, which
  * are the dearest of them at **+68**, a companion (~~+50~~ **+58**), a Beastform
@@ -2438,22 +2481,22 @@ function PlayDesktop({
  * your own.
  *
  * AND THE WHOLE FOLDED SHEET FITS, WHICH IT DID NOT UNTIL P5-8 AND NOW FITS
- * TWICE OVER. **600px against 730 at 393x852, with 130 to spare** - every fold
+ * TWICE OVER. **586px against 730 at 393x852, with 144 to spare** - every fold
  * shut, the `playedCharacter` fixture, measured in Chrome and not only summed:
  * the distance from the top of the defence band to the bottom edge of the
- * lineage header is 600.0 at 356, 360, 368, 375, 393 and 744. That is the
+ * lineage header is 586.0 at 356, 360, 368, 375, 393 and 744. That is the
  * condition P5-5's own decision 1 made the unpinning conditional on, unmet
  * through P5-5 (899, over by 169) and P5-6 (749, over by 19), met at P5-8 (697,
- * 33 to spare) and now clear by 130. It fits at 744x1133 with 472 to spare, and
- * it is **55px over at 375x667** - one fold header and a gap, where it was three.
+ * 33 to spare) and now clear by 144. It fits at 744x1133 with 486 to spare, and
+ * it is **41px over at 375x667** - one fold header and a gap, where it was three.
  *
  * **AND IT FITS A 360x800 ANDROID FOR THE FIRST TIME**, which the report
- * predicted it would not: 600 against 678, 78 to spare, measured. The report's
+ * predicted it would not: 586 against 678, 92 to spare, measured. The report's
  * own closing table had 360x800 at -2 because it costed decision 5 without the
  * width fix beside it - a taller chip is not a narrower one - and with the
  * trait row's basis at 44 and the damage cell wrapping rather than overflowing,
  * the 62px that ate it is not spent. With two conditions on, the strip is back
- * in its slot and the sheet is 652 against 678, which still fits.
+ * in its slot and the sheet is 638 against 678, which still fits.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
  * of that saving survives this reflow with a different door. Nothing is drawn
@@ -2484,7 +2527,7 @@ function PlayDesktop({
  * 352.47 and 310, and `playSheet.test.tsx`'s «the width this sheet is laid out
  * for» carries them the way «the budget the pin came off for» carries the
  * vertical ones. Everything below 360 reflows and nothing breaks: under 356 the
- * trait row is two 58px lines (+62), under 353 the damage cell is two 44px lines
+ * trait row is two 44px lines (+48), under 353 the damage cell is two 44px lines
  * (+30), a `Disclosure` summary that will not fit ends in an ellipsis, and the
  * counter cells shrink and clip their own labels inside targets that keep their
  * declared size. Verified in Chrome at 320, 344, 356, 360, 368, 375, 393 and 744
@@ -2492,17 +2535,17 @@ function PlayDesktop({
  * target under 44 in either direction at any of them.
  *
  * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
- * always had here. At 320x568 the folded sheet is 692 against a 446px column, and
- * no arrangement of six fold headers closes 246px; it scrolls, exactly as 375
+ * always had here. At 320x568 the folded sheet is 664 against a 446px column, and
+ * no arrangement of six fold headers closes 218px; it scrolls, exactly as 375
  * does at 73. What it does not do is hide anything or put anything out of reach.
  *
  * WHAT IT STILL DOES NOT DO, SAID PLAINLY. A home-indicator iPhone installed as
  * a PWA pays `env(safe-area-inset-bottom)`, which is 34px and which this repo
  * has always treated as 0. That takes the 393x852 column from 730 to 696, which
- * this sheet now clears by 96 where P5-8's 697 was one pixel over. `BackupBanner`
+ * this sheet now clears by 110 where P5-8's 697 was one pixel over. `BackupBanner`
  * is the other one the budget has never counted: it costs this column **66**
  * from first launch until the first backup is taken, so a new user's column is
- * **664** - and 600 clears that by **64**, where 697 was 33px over it.
+ * **664** - and 586 clears that by **78**, where 697 was 33px over it.
  *
  * *(~~58, a 672px column and 54 to spare~~ - superseded, and it is the same
  * mistake as the companion's +50 above: 58 is the banner's border
@@ -2515,17 +2558,16 @@ function PlayDesktop({
  * already net of the phone root's own 8px foot, which is why 738 of glass minus
  * 66 of banner is 664 of budget and not 672.)*
  *
- * AND THERE ARE TWO BANNERS, WHICH IS THE STATE THIS BUDGET FAILS. `UpdateBanner`
+ * AND THERE ARE TWO BANNERS, WHICH IS THE STATE THIS BUDGET USED TO FAIL. `UpdateBanner`
  * is the other `ShellBanner`, and a new user with a service worker already
  * waiting gets both at once - a first launch on a second visit is not an exotic
  * path. Measured rather than doubled, because two stacked 8px margins are
  * exactly where adding up would be wrong if they collapsed: 738 -> 672 -> **606**
  * of glass at 393x852, so **132** off this column and **598** left of the 730.
- * The folded sheet is 600. **It is 2px over**, and the whole-sheet-in-one-look
- * claim at the head of this docblock does not hold in that state and is not
- * claimed for it. Nothing is hidden and nothing goes out of reach - the column
- * scrolls, exactly as 320 does - but the sentence this screen was rebuilt to
- * earn is false for as long as both banners are up. Neither may be deleted:
+ * The folded sheet is 586, so **it fits with 12 to spare** - the state this
+ * budget has always failed passes for the first time, and it passes on the
+ * strength of the reflow's first three savings rather than on anything being
+ * hidden; at 618 it was 20px over. Neither banner may be deleted:
  * they are P0-2's remedy, and a banner nobody sees is the defect they fix.
  * `playSheet.test.tsx` does not know either exists; `tests/ui/banners.test.tsx`
  * adds the costs up out of the declarations so 66 and 132 cannot drift.
@@ -2562,7 +2604,7 @@ function PlayDesktop({
  * above: 111px of a 730px column, permanently, on the tightest budget in the
  * app. That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
- * where the 600 ends, so it moves no term of `STACK`, no term of `INDEX` and
+ * where the 586 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
  * reach, and that is exactly the property that lets it sit past the end.
  */
@@ -2677,29 +2719,29 @@ function PlayPhone({
        * of the tab bar` for two passes after the 2x2 counter grid took 150px
        * out of the stack above it, and every one of those numbers was 150px
        * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
-       * shut, at the top of the scroll: the ROLL row spans **y285-341** on the
+       * shut, at the top of the scroll: the ROLL row spans **y271-327** on the
        * glass at both reference widths, because everything above it is the same
-       * height at both. At 393x852 that is **511 to 567px above the bottom
-       * bezel** and **450px clear of the tab bar**; at 375x667 it is **326 to
-       * 382px above the bezel** and 265px clear.
+       * height at both. At 393x852 that is **525 to 581px above the bottom
+       * bezel** and **464px clear of the tab bar**; at 375x667 it is **340 to
+       * 396px above the bezel** and 279px clear.
        *
        * AND THE CONCLUSION INVERTS WITH THEM, WHICH IS THE PART THAT MATTERS.
        * The old sentence cited a 95th-percentile right-thumb sweep of about
        * 330px from the bottom-right pivot and said ROLL was inside it. It is
        * not, at either width, and the reflow made that worse rather than
        * better: deleting the 99px identity block lifted everything below it, so
-       * on a 393x852 phone the resting sheet now puts ROLL some 181px beyond the
+       * on a 393x852 phone the resting sheet now puts ROLL some 195px beyond the
        * far edge of that arc where P5-8 put it 84 beyond, and on a 375x667 phone
        * ROLL has left the arc altogether - it was 229-295 and comfortably inside
-       * it, and it is 326-382 and outside it by 52 at the far edge. That is a real cost of what
+       * it, and it is 340-396 and outside it by 66 at the far edge. That is a real cost of what
        * was asked for rather than a detail, and it is the cost of decision 2
        * specifically: every pixel the sheet gets shorter above ROLL is a pixel
        * further from the thumb at rest.
        *
        * WHAT IT BOUGHT, AND WHY THE TRADE IS STILL THE RIGHT ONE. Two things.
-       * The whole folded sheet is now readable in one look - 600 of 730 at
+       * The whole folded sheet is now readable in one look - 586 of 730 at
        * 393x852 - which is the sentence the owner actually wrote and which a
-       * pinned block made arithmetically impossible. And ROLL is 450px clear of
+       * pinned block made arithmetically impossible. And ROLL is 464px clear of
        * the tab bar, where pinned it sat 8px above a 98x60 control that
        * navigates away: a thumb aiming for ROLL and missing low used to leave
        * the screen mid-turn.
@@ -2893,7 +2935,7 @@ function PlayPhone({
        * the permanent strip was - and the only arrangement that removes the 52
        * is this one, paid for by a door that costs no height, which is the
        * 44x44 control in the defence band's fifth cell at the top of this
-       * column. With nothing on, the folded sheet is 600 of 730 at 393x852.
+       * column. With nothing on, the folded sheet is 586 of 730 at 393x852.
        *
        * When something *is* on this strip is back, in this slot, naming it -
        * and the control at the top of the sheet is filled and counting it. A
@@ -2917,7 +2959,7 @@ function PlayPhone({
        *
        * Here it is the last child of the scroll, under the last shut fold. The
        * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 600px against 730 - and everything
+       * bottom edge of the lineage header - 586px against 730 - and everything
        * it sums is something a player has to be able to reach. This is not:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is
