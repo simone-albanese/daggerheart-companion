@@ -276,16 +276,43 @@ export function Vitals({
  * glance, and the restatement is deleted rather than duplicated.
  *
  * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
- * is 8 + 10 label + 4 + 26 number + 8 + 2 border = 58px tall. This is a `TOOK`
- * label beside a 44px field, vertically centred: 44px in a row whose height is
- * already 58. The band does not grow, the counters lose 50, and the whole move
- * is a saving of exactly the row it used to be. Measured in Chrome at both
- * widths, with the shipped fonts, in `Defenses`'s own note.
+ * is 8 + 10 label + 4 + 26 number + 8 + 2 border = 58px tall. This is a 44px
+ * field, vertically centred: 44px in a row whose height is already 58. The band
+ * does not grow, the counters lose 50, and the whole move is a saving of exactly
+ * the row it used to be. Measured in Chrome at both widths, with the shipped
+ * fonts, in `Defenses`'s own note.
+ *
+ * `door` IS THE CONDITIONS, AND IT TOOK THE CAPTION'S PLACE RATHER THAN A CELL
+ * OF ITS OWN. Decision 3 of the reflow needs a permanent 44x44 way into
+ * `ConditionsDialog` somewhere that costs the column no height, and the identity
+ * class row that used to hold it is being deleted. A sixth grid track does not
+ * fit - measured, the four auto cells are 229.63 wide and four 6px gaps are 24,
+ * so a fifth cell of 44 + 6 + 44 and a sixth of 44 needs 391.63 of column
+ * against 369 at 393px - so the door goes *inside* the fifth cell, and what it
+ * replaces is the visible word `TOOK`.
+ *
+ * WHICH IS A REAL LOSS AND IS THE ONLY ONE. The field's visible identity is now
+ * its `14` placeholder and its position beside the thresholds; its accessible
+ * name is unchanged at "Incoming damage", so a listening player loses nothing.
+ * The alternative was keeping a 27.2px caption and giving up the door, and the
+ * door is a control while the caption is a label for a control that already has
+ * a name.
+ *
+ * AND THE CELL WRAPS RATHER THAN OVERFLOWING, WHICH IS WHAT MAKES IT SAFE AT
+ * 320. Both children are `flex: none` at 44 in a `1fr` track whose width is
+ * `column - 242.47` once the number is 32px and the cells are padded at 6:
+ * 126.53 at 393, 108.53 at 375, 101.53 at 360, 85.53 at 344, 61.53 at 320. The
+ * pair needs 94, so from viewport 353 up they sit side by side and the band is
+ * 64; below that the field wraps under the door and the band is 94 for the width
+ * of one Android. Without `flexWrap` the row's `justifyContent: flex-end` and
+ * `minWidth: 0` sent the shortfall *leftwards*, out of the cell, across the grid
+ * gap and onto the Proficiency number a player reads under pressure - measured
+ * at 27.2px of overlap at 320 and 2.8px at 360 before this commit.
  *
  * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
  * commit chip need about 170px between them and the widest this cell ever gets
- * is 114.92 at 393. So the verdict spans the band underneath, and the band is
- * 108 instead of 58 for exactly as long as there is an unconfirmed number in
+ * is 126.53 at 393. So the verdict spans the band underneath, and the band is
+ * 114 instead of 64 for exactly as long as there is an unconfirmed number in
  * the box. That is the one state on this screen that moves what is below it,
  * and it is the state where what is below it is not what you are looking at:
  * the field, the ladder and the button you are about to press are all above
@@ -294,10 +321,23 @@ export function Vitals({
 export function IncomingDamage({
   stats,
   layout,
+  door,
 }: {
   stats: DerivedStats;
   /** `band` is a pair of grid children for `Defenses`; `desktop` is one row. */
   layout: 'band' | 'desktop';
+  /**
+   * A 44x44 control to put at the head of the band's fifth cell. Band only.
+   *
+   * A `ReactNode` rather than a boolean because this component has no business
+   * knowing what the conditions are: `Defenses` owns the decision that the
+   * phone gets a door and the cockpit does not, and this owns the cell the door
+   * has to fit in. It is also why the `ladderUnknown` return below is not a
+   * bare `null` any more - with the door in here, returning nothing would leave
+   * a sheet whose armor this build cannot read with no way into the conditions
+   * at all.
+   */
+  door?: React.ReactNode;
 }): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
@@ -361,8 +401,13 @@ export function IncomingDamage({
       style={
         layout === 'band'
           ? {
+              // 44, not the 58 it was: the touch floor in both directions, and
+              // `base.css` forces `max(16px, 1rem)` on any coarse pointer, so
+              // three digits at 16px IBM Plex Mono are 28.8 plus 8 of padding
+              // and 2 of border - 38.8 inside 44. The 14px it gives back is
+              // most of what lets the door stand beside it at 360.
               flex: 'none',
-              width: 58,
+              width: 44,
               minHeight: 'var(--control)',
               padding: '2px 4px',
               textAlign: 'center',
@@ -414,15 +459,29 @@ export function IncomingDamage({
      * could take. It used to say `ARMOR NOT IN THIS BUILD · MARK HP BY HAND`
      * a second time, one row below the first; on a phone that is 44px spent
      * repeating the sentence directly above it.
+     *
+     * The door is the exception, and it is why this is not `return null` any
+     * more: it is the phone's only permanent way into `ConditionsDialog`, and
+     * a sheet whose armor this build cannot read is not a sheet that stops
+     * being able to be Restrained.
      */
-    if (ladderUnknown) return null;
+    if (ladderUnknown && door === undefined) return null;
     return (
       <>
-        <div className="row" style={{ gap: 6, justifyContent: 'flex-end', minWidth: 0 }}>
-          <span className="t-label" style={{ flex: 'none', letterSpacing: '0.08em' }}>
-            TOOK
-          </span>
-          {field}
+        {/*
+         * `flexWrap` is load-bearing, not tidying. Both children are 44 and
+         * `flex: none` inside a `1fr` track that is 61.53 wide at 320: without
+         * a wrap, `justifyContent: flex-end` and `minWidth: 0` push the
+         * shortfall out of the cell to the *left*, over the grid gap and onto
+         * the PROF panel. With it, the field drops under the door and the band
+         * is 94 instead of 64 below viewport 353.
+         */}
+        <div
+          className="row"
+          style={{ gap: 6, justifyContent: 'flex-end', minWidth: 0, flexWrap: 'wrap' }}
+        >
+          {door}
+          {!ladderUnknown && field}
         </div>
         {preview !== null && (
           <div className="row" style={{ gridColumn: '1 / -1', gap: 6 }}>

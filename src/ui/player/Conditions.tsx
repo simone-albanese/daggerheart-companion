@@ -54,7 +54,7 @@ const SPOKEN: Record<Standard, string> = {
  * draws it: the three SRD conditions, then the states the player named.
  *
  * One function, because three surfaces have to agree about it - the strip only
- * exists on the phone while this is non-empty, the control in the identity row
+ * exists on the phone while this is non-empty, the control in the defence band
  * counts it, and the control's accessible name reads it out. Two of those are
  * the founding rule ("nothing is drawn to say nothing" must never become
  * "nothing is drawn to say something"), so a second copy of this predicate is
@@ -207,10 +207,12 @@ function Chip({
  * The shape that does remove the 52 is decision 6's - the one the modifier row
  * got - and it needs two things at once. Nothing is drawn here while nothing is
  * on, and the permanent door lives somewhere that costs the column no height:
- * `ConditionsControl`, 44x44 at the end of the identity's class row, in a row
- * already held open to 44 by RENAME. Measured in Chrome with the
- * `playedCharacter` fixture, that takes the folded sheet from 749 to **697 of
- * 730** at 393x852 - the first arrangement of this screen that fits.
+ * `ConditionsControl`, 44x44. That door was at the end of the identity's class
+ * row until the reflow deleted the identity block; it is at the head of the
+ * defence band's fifth cell now, beside the incoming-damage field, in a row the
+ * four number cells hold open at 64. Both homes cost the same thing, which is
+ * nothing, and the reason is the same: a 44px control inside a band that is
+ * taller than it for another reason.
  *
  * NOTHING IS DRAWN TO SAY NOTHING; SOMETHING IS ALWAYS DRAWN TO SAY SOMETHING.
  * The moment any condition is on - including the Vulnerable that full Stress
@@ -221,7 +223,7 @@ function Chip({
  * never produce is a sheet that is silent about one.
  *
  * `+ NAME` IS NOT DRAWN ON THE PHONE, and that is the same rule again. The
- * control in the identity row is a door into `ConditionsDialog` that is on the
+ * control in the defence band is a door into `ConditionsDialog` that is on the
  * glass in every state, so the chip at the end of this strip would be a second
  * door to the same dialog, present only in the state where you least need it.
  *
@@ -352,43 +354,51 @@ export function ActiveConditions({
  * The permanent door into the conditions, and the reason the strip is allowed
  * to disappear.
  *
- * WHY IT IS HERE AND NOT ANYWHERE ELSE. Nothing may be drawn to say nothing,
- * so the strip only exists while something is on - and a section that is not
- * always there cannot be the way in. The way in has to be permanent and it has
- * to cost the column no height, and the identity's class row is the only band
- * on this sheet that offers both: it is already held open to 44px by RENAME, so
- * a 44x44 sibling adds no row. Measured in Chrome with the `playedCharacter`
- * fixture, the class line needs 125.6px and the cell it sits in is 289px at
- * 393 and 271px at 375; this control and its 8px gutter take 52 of that, which
- * leaves 111px and 93px of slack before the line wraps and costs Identity a
- * second row. The `--control` token, not a literal 44: it resolves to 44 at
- * every width below 1180 with a coarse primary pointer, which is every width
- * this sheet is played at, and matching RENAME beside it is what keeps the row
- * one height rather than two.
+ * WHY IT IS HERE AND NOT ANYWHERE ELSE. Nothing may be drawn to say nothing, so
+ * the strip only exists while something is on - and a section that is not always
+ * there cannot be the way in. The way in has to be permanent and it has to cost
+ * the column no height. It lived at the end of the identity's class row, held
+ * open at 44 by RENAME, until the reflow deleted RENAME and then the whole
+ * identity block; the band that offers the same deal now is the defence band's
+ * fifth cell, which the four number cells hold open at 64 for their own reasons.
  *
- * WHERE IT SITS IN THE ROW, WHICH IS AFTER RENAME. Both controls are at the top
- * of the screen, roughly 800px from the bottom-right pivot on a 393x852 phone
- * and therefore outside any one-handed thumb sweep - neither is reachable
- * without shuffling the grip, so the arc does not decide this. Two things do.
- * RENAME acts on the line it sits in and has been at that row's right end since
- * the sheet was built, so the newcomer goes outside it rather than between the
- * class line and the control that edits it. And of the two, a stray tap here is
- * the cheaper mistake: this opens a modal that CLOSE dismisses, while RENAME
- * swaps the row into a focused text field that raises the software keyboard
- * mid-scene.
+ * THE WIDTH IS WHAT THAT COSTS, AND IT IS MEASURED RATHER THAN ASSUMED. The four
+ * number cells are 210.47 wide at `8px 6px` of padding with the number at 32px,
+ * and four 6px gaps are 24, so the fifth track is `column - 234.47`: 134.53 at
+ * 393, 116.53 at 375, 101.53 at 360, 97.53 at 356, 85.53 at 344, 61.53 at 320.
+ * This control at 44, a 6px gutter and the 44px damage field need 94 of that, so
+ * they stand side by side from viewport 353 up and the field wraps under this
+ * one below it - the band is 94 instead of 64 there, and nothing is ever clipped
+ * or painted over. What paid for the fit is the caption: the word `TOOK` used to
+ * be where this control is, and the field's visible identity is now its `14`
+ * placeholder and its position beside the thresholds it is read against.
+ *
+ * The `--control` token, not a literal 44: it resolves to 44 at every width
+ * below 1180 with a coarse primary pointer, which is every width this sheet is
+ * played at.
+ *
+ * WHERE IT SITS IN THE CELL, WHICH IS BEFORE THE FIELD. Both are at the top of
+ * the screen, roughly 750px from the bottom-right pivot on a 393x852 phone and
+ * therefore outside any one-handed thumb sweep - neither is reachable without
+ * shuffling the grip, so the arc does not decide this. Two things do. The field
+ * is the cell's subject and reads right-to-left off the thresholds beside it, so
+ * the newcomer goes outside it rather than between the ladder and the box you
+ * type a hit into. And of the two, a stray tap here is the cheaper mistake: this
+ * opens a modal that CLOSE dismisses, while the field opens a numeric keypad
+ * over the sheet mid-scene.
  *
  * WHAT IT SAYS, WHICH IS NEVER "NOTHING IS WRONG" WHEN SOMETHING IS. With
  * nothing on it is a hollow 44x44 reading `— COND`. With anything on it fills
  * in, the count replaces the dash, and its accessible name reads every one of
  * them out - so a listening player gets `Conditions: Restrained, Vulnerable`
  * from the top of the sheet without scrolling to the strip. A sighted player
- * gets the count here and the names in the strip, which is 700px down the
+ * gets the count here and the names in the strip, which is some 600px down the
  * column and below the fold at both reference widths. That is the honest
  * residual of this arrangement and it is not a regression: the shut fold header
- * this replaces named them in the same slot, 701px down, and was equally below
- * the fold at 375x667. What is new is that the count is never off the glass.
+ * this replaces named them in the same slot and was equally below the fold at
+ * 375x667. What is new is that the count is never off the glass.
  *
- * PHONE ONLY. `Identity` draws it behind a prop that `PlayDesktop` does not
+ * PHONE ONLY. `Defenses` draws it behind a prop that `PlayDesktop` does not
  * pass, because the cockpit already has a permanent strip with its own door and
  * a second one would be two doors into one dialog.
  */

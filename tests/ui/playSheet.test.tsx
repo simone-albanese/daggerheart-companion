@@ -257,11 +257,34 @@ describe('what a phone shows of the character sheet', () => {
     expect(body).toContain(String(s.thresholds[1]));
   });
 
-  it('names the class, the subclass and the level', () => {
-    play(seed());
-    const body = text();
-    expect(body).toContain('Fixture');
-    expect(body).toContain('LEVEL 3');
+  /*
+   * The class, the subclass, the pronouns and the level, one fold away.
+   *
+   * They were four lines of the identity block at the head of this column until
+   * decision 2 deleted it for 99px. Three of the four survive in the chrome -
+   * `Header.tsx` draws the name (or the character `<select>`) and
+   * `CLASS / MULTICLASS · LVn` on every screen, which `header.test.ts` pins -
+   * and this file mounts `Play` on its own, so the chrome is not in `text()`
+   * here and this test cannot see them there. What it *can* see is the two the
+   * header has never carried: `Header.tsx` joins `classRef` and `multiclassRef`
+   * and deliberately not `subclassRefs`, and it has no pronouns at all. So this
+   * is the test that stops decision 2 from having quietly deleted them, and it
+   * asserts the fold they moved into rather than the block they left.
+   */
+  it('names the class, the subclass, the pronouns and the level, one fold away', () => {
+    const c = seed();
+    play(c);
+    expect(
+      text(),
+      'the subclass is on the resting sheet, which means the identity block is back',
+    ).not.toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
+
+    click(fold('Lineage'));
+    const body = fold('Lineage').nextElementSibling!.textContent ?? '';
+    expect(body).toContain(`LEVEL ${String(c.level)}`);
+    expect(body, 'the pronouns are on the Play screen nowhere at all').toContain(
+      c.pronouns.toUpperCase(),
+    );
     expect(body).toContain(dataset.classes[0]!.name);
     expect(body).toContain(dataset.subclasses.find((s) => s.classRef === dataset.classes[0]!.id)!.name);
   });
@@ -348,7 +371,9 @@ describe('what a phone shows of the character sheet', () => {
       return i;
     };
     const order = [
-      'Fixture', // identity
+      // The identity block is not in this list because it is not on this
+      // screen: decision 2 took it off for 99px, and the name, class and level
+      // are on `Header.tsx` on every screen. The band leads the column now.
       'EVASION', // the defence band: "threshold bene in vista"
       'HP', // the four counters, second, where the message puts them
       'AGI +', // the traits, as one row of numbers
@@ -698,16 +723,19 @@ describe('the budget the pin came off for', () => {
    * read, `sum` is arithmetic over the two.
    */
   const STACK: Array<{ what: string; px: number; from: 'dom' | 'css' | 'sum' }> = [
-    { what: 'Identity · the name at .t-vital, clamp() floors at 21', px: 21, from: 'css' },
-    { what: 'Identity · the meta row: marginTop 7', px: 7, from: 'dom' },
-    { what: 'Identity · the meta row itself, .t-meta at 10/1', px: 10, from: 'css' },
-    { what: 'Identity · the class row: marginTop 9', px: 9, from: 'dom' },
-    // RENAME held this row open until decision 1 deleted it. `ConditionsControl`
-    // is the only 44px thing in the row now, so the term is that control's own
-    // `minHeight: var(--control)` and the row would be the 18.9px class line
-    // without it - which is what the cockpit, where no door is passed, draws.
-    { what: 'Identity · the class row, held open by the conditions door', px: 44, from: 'dom' },
-    { what: 'gap', px: GAP, from: 'dom' },
+    /*
+     * THE IDENTITY BLOCK IS NOT IN THIS TABLE, AND THAT IS THE 99PX.
+     *
+     * It was five terms and a gap: 21 for the name at `.t-vital`, 7 + 10 for
+     * the pronouns and level row, 9 + 44 for the class row, and this column's
+     * own 8px gap. Decision 2 deletes it from the phone. `Header.tsx` draws the
+     * name and `CLASS / MULTICLASS · LVn` on every screen, so three of the four
+     * facts are still on the glass and 53px higher up; the pronouns and the
+     * subclass, which the header has never carried, moved into the shut
+     * `Lineage & domains` fold, where they cost this table nothing. `names the
+     * class, the subclass, the pronouns and the level, one fold away` asserts
+     * that half, so the saving cannot quietly become a deletion.
+     */
     { what: 'the defence band · .panel padding 8 top and bottom', px: 16, from: 'dom' },
     { what: 'the defence band · the label at .t-meta 10/1', px: 10, from: 'css' },
     { what: 'the defence band · the cell gap 4', px: 4, from: 'dom' },
@@ -777,7 +805,7 @@ describe('the budget the pin came off for', () => {
 
   it('puts ROLL above the fold at 393x852, which is what the pin was for', () => {
     // The premise, so a table that has drifted cannot pass by cancelling out.
-    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 385').toBe(385);
+    expect(ROLL_BOTTOM, 'the itemised stack no longer sums to 286').toBe(286);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -786,7 +814,7 @@ describe('the budget the pin came off for', () => {
         'Decision 1 made the reversal conditional on exactly this: if ROLL has to be ' +
         'scrolled to at 393x852, the pin has to go back on or something above it has to go.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(345);
+    expect(glass - ROLL_BOTTOM, 'the slack at 393x852 has moved').toBe(444);
   });
 
   /*
@@ -808,7 +836,7 @@ describe('the budget the pin came off for', () => {
       `ROLL's lower edge is ${String(ROLL_BOTTOM)} against ${String(glass)} of column on the ` +
         'small phone.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(160);
+    expect(glass - ROLL_BOTTOM, 'the slack at 375x667 has moved').toBe(259);
   });
 
   /*
@@ -832,7 +860,7 @@ describe('the budget the pin came off for', () => {
    * this sheet closes it: 152px is three fold headers, and there are only six.
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
-    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(697);
+    expect(SHEET_BOTTOM, 'the fold index no longer sums to 312 below ROLL').toBe(598);
     const glass = column(852);
     expect(glass).toBe(730);
     expect(
@@ -843,12 +871,12 @@ describe('the budget the pin came off for', () => {
         'added to this column without taking something out, and a fit bought by shrinking a ' +
         'gap is not a fit.',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(33);
+    expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(132);
     // Stated, not asserted away: the small phone is still short of it.
     expect(
       SHEET_BOTTOM - column(667),
       'the whole-sheet overflow at 375x667 has moved',
-    ).toBe(152);
+    ).toBe(53);
   });
 
   it('does fit whole on a tablet, where there is no tab bar to fit above', () => {
@@ -864,7 +892,7 @@ describe('the budget the pin came off for', () => {
       'the whole folded sheet no longer fits on an iPad mini either, which was the one ' +
         'width where "tutta la scheda in una volta sola" was literally true',
     ).toBeLessThanOrEqual(glass);
-    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(375);
+    expect(glass - SHEET_BOTTOM, 'the tablet slack has moved').toBe(474);
   });
 
   /*
@@ -895,7 +923,7 @@ describe('the budget the pin came off for', () => {
     // chrome above it.
     const top = HEADER + ROLL_BOTTOM - ROLL_ROW;
     const bottom = HEADER + ROLL_BOTTOM;
-    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([372, 438]);
+    expect([top, bottom], 'the ROLL row has moved on the glass').toEqual([273, 339]);
 
     /*
      * And how far up from the bottom bezel, which is the number the ergonomic
@@ -907,11 +935,11 @@ describe('the budget the pin came off for', () => {
     expect(
       [852 - bottom, 852 - top],
       "ROLL's distance from the bottom bezel at 393x852 has moved",
-    ).toEqual([414, 480]);
+    ).toEqual([513, 579]);
     expect(
       [667 - bottom, 667 - top],
       "ROLL's distance from the bottom bezel at 375x667 has moved",
-    ).toEqual([229, 295]);
+    ).toEqual([328, 394]);
 
     /*
      * The other half of the trade, and the half that is a gain: pinned, ROLL
@@ -921,7 +949,7 @@ describe('the budget the pin came off for', () => {
     expect(
       852 - TABBAR - bottom,
       'the gap between ROLL and the tab bar that navigates away has moved',
-    ).toBe(353);
+    ).toBe(452);
   });
 
   /*
@@ -981,16 +1009,17 @@ describe('the budget the pin came off for', () => {
      * table is arithmetic and cannot notice a thirteenth child, so the child
      * count is asserted directly and the failure says what to do about it.
      *
-     * Twelve, with the fixture and a clear sheet: Identity, the defence band,
-     * the counters, the trait row, the roll surface, then Weapons & armour,
+     * Eleven, with the fixture and a clear sheet: the defence band, the
+     * counters, the trait row, the roll surface, then Weapons & armour,
      * Experiences, Carried, Cards, Rest and Lineage - and, since P5-7, the
-     * licence notice. Eleven of those are `STACK` and `INDEX`. The vault is a
-     * tendina inside Cards and costs the column no child of its own; the death
-     * move, the Beastform banner and - since P5-8 - the conditions strip draw
-     * nothing in this state, and all three are named in the docblock as things
-     * this budget does not carry.
+     * licence notice. Ten of those are `STACK` and `INDEX`. It was twelve until
+     * decision 2 deleted the identity block. The vault is a tendina inside
+     * Cards and costs the column no child of its own; the death move, the
+     * Beastform banner and - since P5-8 - the conditions strip draw nothing in
+     * this state, and all three are named in the docblock as things this budget
+     * does not carry.
      *
-     * THE TWELFTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
+     * THE ELEVENTH IS THE ONE EXCEPTION AND IT IS ASSERTED RATHER THAN WAIVED.
      * `STACK` and `INDEX` sum the sheet, and the sheet is everything a player
      * has to be able to reach; the notice is below the last fold, is read once
      * by somebody who is not at a table, and is never needed on the glass - so
@@ -1003,7 +1032,7 @@ describe('the budget the pin came off for', () => {
       'the phone column gained or lost a section. Every term of STACK and INDEX above ' +
         'has to be re-done, and the three totals with them - this is the budget the pin ' +
         'came off for, and an unaccounted section is how it stops being true quietly.',
-    ).toBe(12);
+    ).toBe(11);
     const last = rootEl.children[rootEl.children.length - 1]!;
     expect(
       last.tagName,
@@ -1012,31 +1041,29 @@ describe('the budget the pin came off for', () => {
         'or something new has been added below it and is exempt from the budget by accident',
     ).toBe('FOOTER');
 
-    // Identity: the two margins and the control that holds the third row open.
-    const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
-    read.set('meta marginTop', Number.parseFloat((identity.children[1] as HTMLElement).style.marginTop));
-    read.set('class marginTop', Number.parseFloat((identity.children[2] as HTMLElement).style.marginTop));
     /*
-     * The 44 in the table above used to be RENAME's. Decision 1 deleted that
-     * chip, so the class row is held open by `ConditionsControl` and by
-     * nothing else - which is why this reads the door rather than the chip,
-     * and why the term's name in `STACK` says the door.
+     * The identity block is gone, and this is where the table's 99px is
+     * checked rather than assumed: `.t-vital` is the name line and it is the
+     * one element only that block ever drew.
      */
-    const door = buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'))!;
-    expect(door.style.minHeight).toBe('var(--control)');
     expect(
-      identity.children[2]!.contains(door),
-      'the only 44px thing in the class row is not in the class row, so nothing holds the ' +
-        'third term of the identity block open and the table above is wrong by 25px',
-    ).toBe(true);
-    expect(read.get('meta marginTop')).toBe(7);
-    expect(read.get('class marginTop')).toBe(9);
+      container.querySelector('.t-vital'),
+      'the identity block is back on the phone column, which is 99px this table no longer ' +
+        'carries',
+    ).toBeNull();
 
     // The defence band: the padding and the gap inside one cell.
     const cell = [...container.querySelectorAll<HTMLElement>('.panel')].find((el) =>
       /^EVASION/.test((el.textContent ?? '').trim()),
     )!;
-    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 9px');
+    /*
+     * 6 and not 9 horizontally, and that is a term of the *horizontal* budget
+     * rather than this one: three pixels a side off four readout cells is the
+     * 24px that stands a 44px door and a 44px field side by side in the fifth
+     * cell at 360 instead of wrapping them. The vertical 8 is what this table
+     * reads.
+     */
+    expect(cell.style.padding, 'the defence cell padding moved').toBe('8px 6px');
     expect(cell.style.gap).toBe('4px');
 
     /*
@@ -1164,7 +1191,7 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBeUndefined();
   });
 
-  it('puts the permanent door in the class row, which it now holds open by itself', () => {
+  it('puts the permanent door inside the defence band, in a cell already 58px tall', () => {
     play(seed());
     const door = control();
     expect(
@@ -1174,16 +1201,27 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBeDefined();
 
     /*
-     * In the class row, which it used to share with RENAME. Decision 1 deleted
-     * that chip, so this control is the whole of the row's 44px rather than a
-     * free rider on it - the budget's third identity term is this element's
-     * `minHeight` and nothing else's.
+     * IN THE FIFTH CELL, NOT BESIDE IT AND NOT IN THE IDENTITY BLOCK.
+     *
+     * It stood at the end of the identity's class row until decision 2 deleted
+     * that block, and the report's prose asked for "a sixth cell" of the band -
+     * which does not fit at any phone width: the four cells and their gaps are
+     * 234.47, a fifth of 44 + 6 + 44 is 94 and a sixth of 44 plus a gap is 50,
+     * against 369px of column at 393. So the assertion is the shape that was
+     * measured: the door's own row is the row holding the incoming-damage
+     * field, and that row's parent is the element declaring the band's grid.
      */
-    const identity = container.querySelector<HTMLElement>('.t-vital')!.parentElement!;
+    const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
     expect(
       door!.parentElement,
-      'the conditions control left the identity class row',
-    ).toBe(identity.children[2]);
+      'the conditions door is not in the same cell as the incoming-damage field, so it is ' +
+        'either a sixth grid track - which does not fit - or somewhere off the band entirely',
+    ).toBe(field.parentElement);
+    const band = door!.parentElement!.parentElement!;
+    expect(
+      band.style.gridTemplateColumns,
+      'the door\'s cell is not a child of the defence band',
+    ).toBe('auto auto auto auto 1fr');
     expect(
       buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rename ')),
       'the RENAME chip is back on the sheet, which decision 1 deleted',
@@ -1193,6 +1231,18 @@ describe('the conditions, drawn only when there are any', () => {
     expect(door!.getAttribute('aria-label'), 'a clear sheet does not say so').toBe(
       'Conditions: none',
     );
+    /*
+     * And the cell it shares can never spill leftwards onto the Proficiency
+     * panel, which is what it did before this arrangement: two `flex: none`
+     * children right-aligned in a track narrower than they are overflowed
+     * *backwards*, measured at 27.2px over PROF's box at 320 and 2.8 at 360.
+     * The wrap is the whole fix and jsdom can only see that it is declared.
+     */
+    expect(
+      (door!.parentElement as HTMLElement).style.flexWrap,
+      'the damage cell cannot wrap, so at any width where 44 + 6 + 44 does not fit it paints ' +
+        'over the number beside it instead',
+    ).toBe('wrap');
   });
 
   it('says what is on, in the strip and on the door, the moment anything is', () => {
@@ -1381,6 +1431,40 @@ describe('the incoming-damage box, where the ladder is', () => {
       (text().match(/ARMOR NOT IN THIS BUILD/g) ?? []).length,
       'the sentence is on the screen twice, which is 44px of saying it again',
     ).toBe(1);
+  });
+
+  /*
+   * AND THE DOOR SURVIVES THE STATE THE FIELD DOES NOT.
+   *
+   * `IncomingDamage` returned a bare `null` for an unreadable ladder, which was
+   * right while the cell held only a field. Decision 3 put the phone's one
+   * permanent way into `ConditionsDialog` in that same cell, and a sheet whose
+   * armor this build cannot read is not a sheet that stops being able to be
+   * Restrained - so the early return now keeps the row when a door was passed.
+   * This is the only test that fails if it goes back to `return null`.
+   */
+  it('keeps the conditions door in the band when the ladder is unreadable', () => {
+    play(seed({ activeArmor: '?60007', thresholdOverride: null }));
+    const door = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith('Conditions:'),
+    );
+    expect(
+      door,
+      'an unresolvable armor ref takes the only permanent way into the conditions off the ' +
+        'sheet, so a player whose sheet came from a newer bundle cannot be told they are Hidden',
+    ).toBeDefined();
+    expect(door!.style.width).toBe('44px');
+    expect(door!.style.minHeight).toBe('var(--control)');
+
+    const band = door!.parentElement!.parentElement!;
+    expect(
+      band.style.gridTemplateColumns,
+      'the band did not grow a track for the door, so it is drawn on top of PROF',
+    ).toBe('1fr 2fr 1fr auto');
+    expect(
+      band.querySelector('input[aria-label="Incoming damage"]'),
+      'the field is back in a band that cannot read a verdict for it',
+    ).toBeNull();
   });
 });
 
@@ -3064,7 +3148,10 @@ describe('the rename that is not on this sheet', () => {
     ).toBeUndefined();
   });
 
-  it('leaves the name a readout that cannot open a keyboard', () => {
+  it('leaves the name a readout that cannot open a keyboard, where it is still drawn', () => {
+    // The phone has no name line at all since decision 2; the cockpit does, and
+    // the rule about not making it a target is the same component's.
+    setViewport(1280);
     play(seed());
     const name = container.querySelector('.t-vital')!;
     expect(name.tagName).toBe('DIV');
