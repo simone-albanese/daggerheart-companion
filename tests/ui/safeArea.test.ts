@@ -6,35 +6,61 @@
  * hits across the whole tree. `env(safe-area-inset-bottom)` is paid by three
  * bars, `-top` by the header and by five overlays, and the horizontal pair by
  * nothing at all - which is where the cutout is on a notched or Dynamic-Island
- * iPhone **held in landscape**, reported as `-left` or `-right` depending on
- * which way it was rotated and 0 on the other side.
+ * iPhone **held in landscape**.
+ *
+ * The inset is symmetric. iOS reports `-left` and `-right` at the same non-zero
+ * value in landscape, because UIKit insets both long edges so that a
+ * 180-degree rotation does not reflow the layout; only portrait has a zero on
+ * the horizontal pair. This docblock used to say the inset was on one side
+ * "and 0 on the other", which is false, and it presented the two casualties
+ * below as two mutually exclusive rotations. They are one case.
  *
  * What that cost, measured in Chrome through the audit rig at 852x393 - an
- * iPhone 14/15 in landscape - with the inset substituted at 59px:
+ * iPhone 14/15 in landscape - with 59px substituted on BOTH sides, so both
+ * strips are live in the same frame:
  *
- *   - the cutout on the right: SETTINGS laid out at [777.6, 832], 54.4px wide,
- *     against a strip of [793, 852]. 39.0px of it, 71.7%, inside the cutout,
- *     leaving 15.4px of visible glass on the app's only permanent door to
- *     export, import, backup and print. The overlap is `inset - 20`, the
- *     padding the header already had, so it is the same 39.0 at 932x430.
- *   - the cutout on the left: the app mark at [20, 40.8], 100% inside the
- *     strip. PLAY starts at 62.8 and clears it by 3.8px, so the nav was never
- *     the casualty on that side.
+ *   - the right strip [793, 852]: SETTINGS laid out at [777.6, 832], 54.4px
+ *     wide. 39.0px of it, 71.7%, inside the cutout, leaving 15.4px of visible
+ *     glass on the app's only permanent door to export, import, backup and
+ *     print. The overlap is `inset - 20`, the padding the header already had,
+ *     so it is the same 39.0 at 932x430.
+ *   - the left strip [0, 59]: the app mark at [20, 40.8], 100% inside it. PLAY
+ *     starts at 62.8 and clears it by 3.8px, so the nav was never the casualty
+ *     on that side.
  *
  * ## What this file can and cannot hold
  *
  * `env()` resolves to 0px in jsdom and on every device without a cutout, and
  * jsdom lays nothing out, so none of the above can fail here. What can fail
  * here is the declaration - and only because this repo spells insets
- * `calc(<base> + env(...))` on a longhand. jsdom's CSS parser drops a bare
- * `env()`, and drops any shorthand containing one, so `padding: '0 20px'` with
- * an `env()` in it would read back as `''` and every assertion below would pass
- * against an empty string. The spelling is the testability, which is why the
- * first case here asserts the values are non-empty before it asserts what they
- * say.
+ * `calc(<base> + env(...))` on a longhand.
  *
- * The pixels are the Chrome rig's half: `audit-harness/cases-safearea.json` and
- * `cases-safearea2.json`.
+ * jsdom's CSS parser drops a bare `env()` and drops any shorthand containing
+ * one, and the two shapes that produces are not the same. Probed against this
+ * worktree's own jsdom:
+ *
+ *   - a shorthand that itself carries an `env()` - `padding: 'env(...) 20px 0'`
+ *     - is dropped whole, and all four longhands read back `''`, taking the two
+ *     ordinary 20s down with it.
+ *   - the shape this header actually had before the fix - `padding: '0 20px'`
+ *     followed by a bare `paddingTop: 'env(...)'` - reads back
+ *     `{top: '0px', right: '20px', bottom: '0px', left: '20px'}`. The longhand
+ *     is rejected, but the shorthand has already written a value, so nothing
+ *     reads back empty. That is the worse of the two: it looks like a real
+ *     number, and the top inset the app has always paid is silently gone.
+ *
+ * So the first case here asserts the four longhands' exact values rather than
+ * their non-emptiness. It used to assert only `.not.toBe('')`, which passes
+ * against the second shape - the exact pre-fix code its own comment named - and
+ * its failure message claimed every assertion below would otherwise pass
+ * against `''`, which was never true of any of them: they are all positive
+ * matches (`toMatch(/env\(safe-area-inset-left\)/)`, `toBe('0px')`) and all of
+ * them fail against an empty string. The claim was true where it came from -
+ * `TabBar`'s `paddingBottom` had no shorthand above it - and false here.
+ *
+ * The pixels are the Chrome rig's half: `audit-harness/cases-safearea.json`,
+ * `cases-safearea2.json`, and `cases-safearea3.json` through `-7` for the
+ * symmetric re-measurement.
  */
 import { readFileSync } from 'node:fs';
 import { globSync } from 'node:fs';
@@ -108,27 +134,37 @@ const mount = (element: Parameters<typeof createElement>[0], width: number): voi
 describe('the header pays the cutout', () => {
   it('spells all four insets in the form jsdom keeps', () => {
     /*
-     * This case exists before the ones below it because without it they are
-     * vacuous. A `padding` shorthand carrying an `env()` reads back as `''`
-     * here, and `expect('').not.toContain(...)` is a test that cannot fail.
+     * The anti-vacuity guard, and it has to assert the values rather than
+     * their non-emptiness to be one.
+     *
+     * The pre-fix header was `padding: '0 20px'` with a bare
+     * `paddingTop: 'env(safe-area-inset-top)'` after it. jsdom rejects the
+     * bare longhand, but the shorthand has already written padding-top, so
+     * that code reads back `0px/20px/0px/20px` - four non-empty strings, one
+     * of which is a top inset that has quietly stopped existing. Only a
+     * shorthand that itself carries an `env()` reads back `''`. Asserting the
+     * exact declared value catches both shapes; `.not.toBe('')`, which this
+     * used to be, catches only the second.
      */
     mount(Header, LANDSCAPE);
     const header = container.querySelector('header');
     expect(header, 'the header did not render').not.toBeNull();
     const style = header!.style;
 
-    for (const [property, value] of [
-      ['padding-top', style.paddingTop],
-      ['padding-right', style.paddingRight],
-      ['padding-bottom', style.paddingBottom],
-      ['padding-left', style.paddingLeft],
+    for (const [property, value, want] of [
+      ['padding-top', style.paddingTop, 'calc(0px + env(safe-area-inset-top))'],
+      ['padding-right', style.paddingRight, 'calc(20px + env(safe-area-inset-right))'],
+      ['padding-bottom', style.paddingBottom, '0px'],
+      ['padding-left', style.paddingLeft, 'calc(20px + env(safe-area-inset-left))'],
     ] as const) {
       expect(
         value,
-        `${property} read back empty, which means it was written as a shorthand or as a ` +
-          'bare env() and jsdom dropped it. Every assertion in this file would then pass ' +
-          'against nothing.',
-      ).not.toBe('');
+        `${property} is not the declaration this header is supposed to carry. Read back ` +
+          `${value === '' ? "'' - a shorthand carrying an env(), dropped whole by jsdom" : `'${value}'`}` +
+          '. A plain length here means the inset was written as a bare env() longhand under ' +
+          'a padding shorthand: jsdom drops the longhand, the shorthand supplies the number, ' +
+          'and the inset is gone while the property still looks answered.',
+      ).toBe(want);
     }
   });
 
@@ -170,14 +206,17 @@ describe('the header pays the cutout', () => {
   });
 });
 
-describe('the tab bar pays it too, as a guarantee', () => {
+describe('the tab bar pays it too, and not only as a guarantee', () => {
   /*
    * Measured at 852x393, `main > nav` is null: `App.tsx` draws this bar only
-   * below 720 and every notched iPhone in landscape is 812px wide or more. In
-   * the orientation it *is* drawn in, iOS reports 0 on both sides. So these
-   * declarations cost 0px on every device that draws the bar, and they are
-   * here for the same reason `minmax(0, 1fr)` is: what the bar does if the
-   * band ever moves.
+   * below 720 and every notched iPhone at its native resolution is 812px wide
+   * or more in landscape. But Display Zoom drops a 6.1" iPhone to 320x693, and
+   * held sideways that is 693x320 - inside the phone band, on a device that
+   * still has a cutout on a side edge. Measured there with 59 injected on both
+   * sides: this bar is drawn, its padding reads 59px/59px, and its four tabs
+   * are 143.8x60 spanning [59, 634], clear of both strips. So these two
+   * declarations are a live repair on a configuration a person can reach from
+   * Settings, not only a guarantee.
    */
   it('declares both horizontal insets without touching the bottom one', () => {
     mount(TabBar, PHONE);
@@ -194,8 +233,9 @@ describe('the tab bar pays it too, as a guarantee', () => {
 
   it('does not spend the tabs to pay it', () => {
     // Horizontal padding, so the 60px height is untouched and the grid
-    // redistributes: 98.3 per column at 393 becomes 83.5 under a 59px inset,
-    // still far above the 44px floor.
+    // redistributes. Both sides are paid, so the cost is 2x the inset:
+    // measured, 98.3 per column at 393 becomes 68.8 with 59 on each side, and
+    // 173.3 at 693x320 becomes 143.8 - still 1.6x and 3.3x the 44px floor.
     mount(TabBar, PHONE);
     const nav = container.querySelector('nav')!;
     expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
