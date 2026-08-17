@@ -1,7 +1,21 @@
 /**
  * The card browser: 189 cards, and the only screen where scrolling is the
- * point. Filters sit above the grid and never move; the grid scrolls under
- * them.
+ * point. So everything on it is inside one scroll, filters included: they are
+ * the grid's first row and they scroll away with the cards they filter.
+ *
+ * The line above used to read "Filters sit above the grid and never move; the
+ * grid scrolls under them", and that promise had a price nobody had counted.
+ * The block is 278px on any portrait phone, 226 at 640x360, 170 where its
+ * first row fits on one line; the column it is spent from is H-130 on a phone
+ * and H-87 on a tablet. At 320x568 that is 278 of 438 and the grid gets 148px
+ * of a 268px card; at 640x360 it is 226 of 230 and the grid gets a 0px content
+ * box laid inside the tab bar. The scroll region is the whole column now.
+ *
+ * And on anything narrow or short the block itself is two rows rather than
+ * four - search, a door and the readout, 62px - with the type, owned, level
+ * and recall filters behind the door and wrapped, so none of them is hidden
+ * off the right edge of a rail any more. The full four-row band is what a
+ * window with 720px of width and more than 520px of height still gets.
  *
  * Cards you cannot take are shown, not hidden, with the reason attached. A
  * player planning three levels ahead needs to see the level 7 card that is
@@ -16,7 +30,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { useIsPhone } from '../shared/useLayout.ts';
+import { useIsPhone, useIsShort } from '../shared/useLayout.ts';
 import { useRecall } from './recall.ts';
 
 type Owned = 'all' | 'owned' | 'available';
@@ -29,6 +43,10 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
   const update = useApp((s) => s.update);
   const recall = useRecall();
   const phone = useIsPhone();
+  const short = useIsShort();
+  // Narrow *or* short: see the table above the controls. A rotated phone is in
+  // the tablet band by width and still has only 306px of column to spend.
+  const compact = phone || short;
 
   const [domain, setDomain] = useState<DomainId | 'mine' | 'all'>('mine');
   const [type, setType] = useState<DomainCardType | 'all'>('all');
@@ -45,6 +63,13 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
    * controls in a grid of 189 is worse than none.
    */
   const [armed, setArmed] = useState<string | null>(null);
+  /*
+   * Whether the four folded filters are open, in the compact arrangement only.
+   * Deliberately not remembered: it is a state of one visit to this screen,
+   * not of the character, and `prefs.playSections` is keyed per character for
+   * a reason the card browser does not share.
+   */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const toggle = (set: ReadonlySet<number>, n: number): ReadonlySet<number> => {
     const next = new Set(set);
@@ -68,6 +93,18 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
 
   const filtered =
     domain !== 'mine' || type !== 'all' || owned !== 'all' || levels.size > 0 || recalls.size > 0 || search !== '';
+  /*
+   * How many of the filters behind the compact door are set. The search box is
+   * not one of them: it is in the head row, where you can see what you typed.
+   * This is the number the door prints, so a shut fold can never be the reason
+   * a player cannot find a card they own.
+   */
+  const folded =
+    (domain === 'mine' ? 0 : 1) +
+    (type === 'all' ? 0 : 1) +
+    (owned === 'all' ? 0 : 1) +
+    (levels.size > 0 ? 1 : 0) +
+    (recalls.size > 0 ? 1 : 0);
   const clearAll = (): void => {
     setDomain('mine');
     setType('all');
@@ -148,81 +185,149 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
     update((c) => ({ ...c, vault: [...c.vault, cardId] }));
   };
 
+  /*
+   * `overflow: hidden` is the one declaration this box has never carried, and
+   * without it the browser painted over the tab bar.
+   *
+   * Measured at 640x360. `.app` is `100svh` with `grid-template-rows: auto 1fr`
+   * and `overflow: hidden`, so the header takes 53 and `<main>` 307; the tab
+   * bar is `flex: none`, 60px of button plus a 1px top border, laid y299..360.
+   * That leaves this root 246px at y53..299 and a content box of 230 at
+   * y61..291. The filter block was a `flex: none` sibling of the grid and 226px
+   * tall at this width, so the grid was offered 4px of free space - and under
+   * the global `box-sizing: border-box` (base.css:10-14) a `flex: 1;
+   * min-height: 0` box cannot floor below its own `padding-bottom`, so the grid
+   * was laid at y299..311: clientHeight 12, content box **0px**, and every one
+   * of those 12 pixels inside the nav. `DomainCardView`'s root is
+   * `position: relative` and the nav declares no `position`, so the tiles
+   * painted in the positioned layer above a static bar and took the hit-testing
+   * with them: `document.elementFromPoint(111, 303)` returned a card's overlay
+   * button rather than PLAY, and the same for CARDS, BUILD and GM.
+   *
+   * The filters have since moved inside the scroll, so the grid fills this box
+   * exactly and there is nothing left to overhang. The clip stays anyway, and
+   * it is a guard rather than a fix now: `<main>` clips at a box that contains
+   * the tab bar, this root is the last ancestor between the two, and the next
+   * thing anybody adds here would be painting over four 160x61 targets at the
+   * bottom edge of a two-handed grip, on the only route off this screen.
+   *
+   * No `gap`: there is one child.
+   */
+  const rootStyle: React.CSSProperties = {
+    flex: 1,
+    minHeight: 0,
+    padding: phone ? '8px 12px' : '14px 20px 20px',
+    overflow: 'hidden',
+  };
+
+  /*
+   * The six controls, written once and arranged twice.
+   *
+   * `compact` is the arrangement, and the two rows below are the whole of it:
+   * search plus a door, then the readout. 44 + 8 + 10 = **62px** shut, or 96
+   * once something is filtered and CLEAR FILTERS holds the readout row open at
+   * `--control`. The other arrangement is the four rows this screen has always
+   * drawn, which measure 278 on a portrait phone, 226 at 640x360 and 568x320,
+   * and 170 where the first row fits on one line.
+   *
+   * What that is worth, as the card area visible without scrolling - the
+   * scrollport less the block and the grid's 12px gap, against a tile 268px
+   * tall on a phone and 310 on a tablet:
+   *
+   *   window     port   was ->  now    of a card
+   *   320x568     438   148 ->  364    55% -> 136%
+   *   360x640     510   220 ->  436    82% -> 163%
+   *   375x667     537   247 ->  463    92% -> 173%
+   *   393x852     722   432 ->  648   161% -> 242%
+   *   568x320     190     0 ->  116     0% ->  43%
+   *   640x360     230     0 ->  156     0% ->  58%
+   *   667x375     245    63 ->  171    24% ->  64%
+   *   852x393     306   124 ->  232    40% ->  75%
+   *
+   * The two landscape windows are the reason `compact` is not simply `phone`.
+   * 852x393 is in the tablet band by width and has 306px of column; at 170 the
+   * filters were 56% of it. `useIsShort()` is 520px and under, which separates
+   * every rotated phone in the sweep (320..448 tall) from every portrait one
+   * (568 and up) and from 1180x695.
+   *
+   * The cost is one tap to reach the type, owned, level and recall filters,
+   * and it buys back more than it spends even measured only in reach: those
+   * chips were behind a horizontal scroll with `scrollbar-width: none`, so at
+   * 393 the whole RECALL group sat 447px off the right edge of a 369px rail
+   * with nothing on screen saying so, and 7 of 9 domains with it. Wrapped
+   * inside the fold they are all on the glass. And the state is never silent:
+   * the door reads FILTERS 2 with the count in bold, the readout beside it
+   * says how many of 189 survived, and CLEAR FILTERS is drawn the moment
+   * anything is set.
+   */
+  const searchField = (
+    <input
+      type="search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search 189 cards"
+      aria-label="Search cards"
+      style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
+    />
+  );
+  const ownedFilter = (
+    <Segmented
+      value={owned}
+      onChange={setOwned}
+      options={[
+        ['all', 'All'],
+        ['owned', 'Owned'],
+        ['available', 'Can take'],
+      ]}
+    />
+  );
+  const typeFilter = (
+    <Segmented
+      value={type}
+      onChange={setType}
+      options={[
+        ['all', 'Any'],
+        ['Ability', 'Ability'],
+        ['Spell', 'Spell'],
+        ['Grimoire', 'Grimoire'],
+      ]}
+    />
+  );
+  const domainFilter = (
+    <>
+      <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
+        My domains
+      </FilterChip>
+      <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
+        All
+      </FilterChip>
+      {DOMAINS.map((d) => (
+        <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
+          <DomainMark domain={d} size={11} shapes={shapes} />
+          <span style={{ textTransform: 'capitalize' }}>{d}</span>
+        </FilterChip>
+      ))}
+    </>
+  );
+  const levelFilter = (
+    <NumberFilter
+      label="LV"
+      values={allLevels}
+      selected={levels}
+      onToggle={(n) => setLevels(toggle(levels, n))}
+    />
+  );
+  const recallFilter = (
+    <NumberFilter
+      label="RECALL"
+      values={allRecalls}
+      selected={recalls}
+      onToggle={(n) => setRecalls(toggle(recalls, n))}
+    />
+  );
+
   return (
-    <div className="stack" style={{ flex: 1, minHeight: 0, padding: phone ? '8px 12px' : '14px 20px 20px', gap: 12 }}>
-      <div className="stack" style={{ gap: 8, flex: 'none' }}>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search 189 cards"
-            aria-label="Search cards"
-            style={{ flex: '1 1 200px', minHeight: 'var(--control)', maxWidth: 320 }}
-          />
-          <Segmented
-            value={owned}
-            onChange={setOwned}
-            options={[
-              ['all', 'All'],
-              ['owned', 'Owned'],
-              ['available', 'Can take'],
-            ]}
-          />
-          <Segmented
-            value={type}
-            onChange={setType}
-            options={[
-              ['all', 'Any'],
-              ['Ability', 'Ability'],
-              ['Spell', 'Spell'],
-              ['Grimoire', 'Grimoire'],
-            ]}
-          />
-        </div>
-        <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <FilterChip active={domain === 'mine'} onClick={() => setDomain('mine')}>
-            My domains
-          </FilterChip>
-          <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
-            All
-          </FilterChip>
-          {DOMAINS.map((d) => (
-            <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
-              <DomainMark domain={d} size={11} shapes={shapes} />
-              <span style={{ textTransform: 'capitalize' }}>{d}</span>
-            </FilterChip>
-          ))}
-        </div>
-
-        <div className="row" style={{ gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <NumberFilter label="LV" values={allLevels} selected={levels} onToggle={(n) => setLevels(toggle(levels, n))} />
-          <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
-          <NumberFilter
-            label="RECALL"
-            values={allRecalls}
-            selected={recalls}
-            onToggle={(n) => setRecalls(toggle(recalls, n))}
-          />
-        </div>
-
-        <div className="spread" style={{ alignItems: 'center' }}>
-          <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {rows.length} OF {dataset.domainCards.length}
-          </span>
-          {filtered && (
-            <button
-              type="button"
-              className="chip"
-              onClick={clearAll}
-              style={{ minHeight: 'var(--control)', color: 'var(--text)' }}
-            >
-              CLEAR FILTERS
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="stack" style={rootStyle}>
       <div
         className="scroll"
         style={{
@@ -235,6 +340,177 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
           paddingBottom: 12,
         }}
       >
+        {/*
+          The filters are the grid's first row, not a block above it.
+
+          They used to be a `flex: none` stack outside this scroll, and the
+          price of "they never move" was never counted: the block is 278px on
+          every portrait phone - 320, 360, 375 and 393 all wrap its first row
+          to three lines - 226 at 640x360 and 568x320, and 170 wherever that
+          row fits on one. The column it is spent out of is only H-130 on a
+          phone (header 53, tab bar 61, 16 of root padding) and H-87 on a
+          tablet, so it took 278 of 438 at 320x568, 278 of 722 at 393x852, 170
+          of 306 at 852x393 - and 226 of 230 at 640x360, where the grid then
+          floored at its own 12px of padding and was laid inside the tab bar.
+
+          As a row of the grid it costs the same pixels at scroll 0 and none
+          at any other scroll position, so the scrollport is the whole column:
+          148 -> 438 at 320x568, 220 -> 510 at 360x640, 247 -> 537 at 375x667,
+          432 -> 722 at 393x852, 124 -> 306 at 852x393, and 12 -> 230 at
+          640x360, which is the first card pixel that window has ever drawn.
+          Nothing is lost on the way: the visible card area at scroll 0 is
+          port - block - gap, which is exactly the number the old fixed block
+          left, so this is a gain at every scroll position and a loss at none.
+
+          What it costs is the promise: scroll past the first screen and the
+          filters are gone until you scroll back. That is the right way round
+          for this screen - they are out of reach only when there are enough
+          results to scroll, which is exactly when nobody is reading them, and
+          a filtered-to-nothing grid still shows them above its own empty
+          state. `gridColumn: '1 / -1'` for the same reason the notice and
+          the empty state carry it: a 150px cell is not a filter bar.
+        */}
+        {/*
+          Compact: search, the door to the rest, and the readout. 44 + 8 + 10 =
+          62px, against the 278 the four rows cost on the same phone.
+
+          Wide: the four rows as they were, because a 1046px column can afford
+          170 of them and a mouse should not have to open a fold to reach a
+          control there is room for.
+
+          Nothing in either arrangement scrolls sideways: every row wraps, so
+          all eleven domain chips, all ten levels and all six recall costs are
+          on the glass at once, which is the first time any of them has been.
+          Both rails used to be `overflowX: 'auto', scrollbarWidth: 'none'`,
+          and their content is a constant 853px and 816px against a port of the
+          viewport less 24 on a phone and less 40 at 720 and up. Measured: at
+          393 that hid 484 and 447 - the whole RECALL group, its divider, its
+          label and all six cost buttons, plus 7 of the 9 domains - and left no
+          cut chip at either fold to say so; at 744 it still hid 149 and 112.
+          Wrapping costs the wide band 100px at 744x1133, of a 1046px port, and
+          nothing at all at 890 and above, where the rails already fitted.
+
+          Its own `display: flex` rather than `className="stack"`, which is the
+          same declaration less one property - and that property is
+          `min-height: 0`, which on a *grid* item is not the harmless line it
+          is on a flex one. It sets the item's automatic minimum size to zero,
+          so the auto row's base size is zero, and a row grows from its base
+          size towards its growth limit only out of the grid's free space - of
+          which a grid of 189 cards in a 438px port has none. Measured in
+          Chrome at 320x568 with `.stack` on this div: row 1 was **0px**, this
+          element's own `getBoundingClientRect().height` was 0, and its 62px of
+          controls were painted straight over the first card, which began at
+          y73 instead of y135. Nothing in the suite could see it - jsdom
+          computes no layout - and nothing on the glass said it either, because
+          the controls still drew, just on top of a card. Without `.stack` the
+          row is 62px and the first card begins at 61 + 62 + 12 = 135.
+        */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, gridColumn: '1 / -1' }}>
+          {compact ? (
+            <>
+              <div className="row" style={{ gap: 8 }}>
+                {searchField}
+                <button
+                  type="button"
+                  className="row chip"
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                  style={{
+                    flex: 'none',
+                    gap: 6,
+                    minHeight: 'var(--control)',
+                    minWidth: 'var(--control)',
+                    padding: '0 10px',
+                    background: folded > 0 ? 'var(--raised)' : 'transparent',
+                    border: `1px solid ${folded > 0 ? 'var(--line)' : 'var(--line-soft)'}`,
+                    color: 'var(--text)',
+                  }}
+                >
+                  {/* The same rotated triangle `Disclosure` draws, for the
+                      same reason: the arrow glyphs in the two families this
+                      app ships sit on different baselines. */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      flex: 'none',
+                      width: 8,
+                      height: 8,
+                      background: 'var(--muted)',
+                      clipPath: filtersOpen
+                        ? 'polygon(0 25%,100% 25%,50% 100%)'
+                        : 'polygon(25% 0,100% 50%,25% 100%)',
+                    }}
+                  />
+                  FILTERS
+                  {folded > 0 && (
+                    <>
+                      <span style={{ fontWeight: 700 }}>{folded}</span>
+                      <span className="sr-only"> set</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {filtersOpen && (
+                <div className="stack" style={{ gap: 8 }}>
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    {ownedFilter}
+                    {typeFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {domainFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {levelFilter}
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {recallFilter}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                {searchField}
+                {ownedFilter}
+                {typeFilter}
+              </div>
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                {domainFilter}
+              </div>
+
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                {levelFilter}
+                <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
+                {recallFilter}
+              </div>
+            </>
+          )}
+
+          <div className="spread" style={{ alignItems: 'center' }}>
+            <span className="t-meta" style={{ color: 'var(--muted)' }}>
+              {rows.length} OF {dataset.domainCards.length}
+            </span>
+            {filtered && (
+              <button
+                type="button"
+                className="chip"
+                onClick={clearAll}
+                // 14 characters, so ~108px wide and never near the floor -
+                // declared anyway, because "every button in this block states
+                // the floor on both axes" is a rule a later reader can check
+                // and "this one happens to be long enough" is not.
+                style={{
+                  minHeight: 'var(--control)',
+                  minWidth: 'var(--control)',
+                  color: 'var(--text)',
+                }}
+              >
+                CLEAR FILTERS
+              </button>
+            )}
+          </div>
+        </div>
         {rows.map((row) => {
           // The Hit Points a recall would cost, if it would cost any. Only a
           // card in the vault can be recalled, so only that one is costed.
@@ -460,6 +736,10 @@ function FilterChip({
       className="row chip"
       style={{
         minHeight: 'var(--control)',
+        // See the note over `Segmented`. `All` is 40.81px wide here - the same
+        // 38.81 plus this chip's two 1px borders - and was the third of the
+        // three controls on this screen under the floor on one axis.
+        minWidth: 'var(--control)',
         flex: 'none',
         gap: 6,
         padding: '0 10px',
@@ -496,6 +776,27 @@ function Segmented<T extends string>({
           className="chip"
           style={{
             minHeight: 'var(--control)',
+            /*
+             * The floor is a floor on both axes, and this button only ever
+             * declared one of them.
+             *
+             * `--tap` is not what it was missing: `--control` already resolves
+             * to `var(--tap)` = 44 at every width below 1180 and under any
+             * coarse pointer (tokens.css:174-178), and the height was 44
+             * everywhere it mattered. The width came from `.chip`'s
+             * `padding: 4px 6px` around the label, and IBM Plex Mono at 9.5px
+             * with 0.06em tracking is 6.27px a character - so `All` and `Any`
+             * were 3 x 6.27 + 20 = **38.81px**, measured 38.8x44 at 320x568,
+             * 375x667, 393x852 and 744x1133 with a computed `min-width: auto`.
+             * They clear WCAG 2.5.8's 24px and not this project's 44.
+             *
+             * `NumberFilter` above has carried both declarations all along and
+             * is 44x44; this is that line, in the two places it was missing.
+             * It costs 5.19px each and no height at all: the first filter row
+             * is 618.7px of content at 720px and up, and 629.1 still fits the
+             * 704 an iPad mini gives it, so the wide band stays 170.
+             */
+            minWidth: 'var(--control)',
             padding: '0 10px',
             background: value === v ? 'var(--raised)' : 'transparent',
             color: value === v ? 'var(--text)' : 'var(--muted)',

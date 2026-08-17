@@ -26,11 +26,29 @@ declare global {
 let container: HTMLDivElement;
 let root: Root;
 
+/*
+ * The viewport the stub answers for. It used to be a regex that said yes to
+ * `max-width: 719px` and `max-width: 1179px` and no to everything else, which
+ * was enough while width was the only axis anything asked about. `useIsShort`
+ * asks about height, and a stub that silently answers "no" to a query the
+ * component branches on is a test suite that only ever sees one branch.
+ */
+const viewport = { w: 375, h: 667 };
+
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  window.matchMedia = ((query: string) =>
-    ({
-      matches: /max-width:\s*(719|1179)px/.test(query),
+  viewport.w = 375;
+  viewport.h = 667;
+  window.matchMedia = ((query: string) => {
+    const w = /max-width:\s*(\d+)px/.exec(query);
+    const h = /max-height:\s*(\d+)px/.exec(query);
+    return {
+      // A query about neither axis - `prefers-reduced-motion`, say - is not
+      // this stub's business and is answered no rather than accidentally yes.
+      matches:
+        (w !== null || h !== null) &&
+        (w === null || viewport.w <= Number(w[1])) &&
+        (h === null || viewport.h <= Number(h[1])),
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},
@@ -38,7 +56,8 @@ beforeEach(() => {
       removeListener: () => {},
       dispatchEvent: () => false,
       onchange: null,
-    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -212,5 +231,244 @@ describe('a recall from the card browser that would cost Hit Points', () => {
       (b.getAttribute('aria-label') ?? '').startsWith(`Recall ${card.name} - no Stress left`),
     );
     expect(armed, 'an affordable recall was flagged as costing HP').toBeUndefined();
+  });
+});
+
+/**
+ * The browser's own box, which it did not have.
+ *
+ * jsdom computes no layout, so nothing here measures anything: the numbers in
+ * the source comment come from Chrome at 640x360 and belong to the harness.
+ * What this file can prove is the declaration that decides the outcome - the
+ * root's `overflow`, which was absent, so a grid laid outside the root's
+ * padding box was painted over the tab bar instead of clipped.
+ */
+describe('the card browser draws inside its own box', () => {
+  it('clips whatever it lays outside itself, instead of painting it over the tab bar', () => {
+    const c = seed();
+    browse(c);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.overflow, 'the browser root declares no overflow').toBe('hidden');
+  });
+
+  /*
+   * The filters used to be a `flex: none` sibling of the grid, and the pixels
+   * they took came off the grid at every scroll position rather than only at
+   * the first: 278 of a 438px column at 320x568, 226 of a 230px one at
+   * 640x360. Inside the scroll they are the grid's first row.
+   *
+   * jsdom has no layout engine, so none of those numbers is reachable here.
+   * What is reachable is the tree they follow from: which element the filters
+   * are inside, and whether they span the grid instead of taking one 150px
+   * cell of it.
+   */
+  it('scrolls its filters with the cards they filter, instead of standing on them', () => {
+    const c = seed();
+    browse(c);
+    const scroll = container.querySelector('.scroll');
+    expect(scroll, 'the browser has no scroll region').not.toBeNull();
+    const searchBox = container.querySelector('input[type="search"]');
+    expect(searchBox, 'the browser has no search field').not.toBeNull();
+    expect(
+      searchBox!.closest('.scroll'),
+      'the filters are outside the scroll region, so they cost the grid their height at every scroll position',
+    ).toBe(scroll);
+  });
+
+  it('spans the filter row across the grid rather than dropping it in one cell', () => {
+    const c = seed();
+    browse(c);
+    const scroll = container.querySelector('.scroll')!;
+    const first = scroll.firstElementChild as HTMLElement;
+    expect(first.contains(container.querySelector('input[type="search"]'))).toBe(true);
+    expect(first.style.gridColumn, 'the filter row takes one card-sized cell').toBe('1 / -1');
+  });
+
+  /*
+   * `.stack` is `display: flex; flex-direction: column; min-height: 0`, and
+   * that last property is harmless on a flex item and not on a grid one: it
+   * sets the item's automatic minimum size to zero, so the auto row's base
+   * size is zero, and a row grows towards its growth limit only out of free
+   * space - which a grid of 189 cards in a 438px port has none of. Measured in
+   * Chrome at 320x568 with `.stack` on this div: row 1 was 0px and the block's
+   * 62px of controls were painted over the first card.
+   *
+   * jsdom computes no layout, so it cannot see a 0px row. It can see the class
+   * that causes one, which is the whole of the fix.
+   */
+  it('states its own flex column rather than borrowing one that collapses the row', () => {
+    const c = seed();
+    browse(c);
+    const first = container.querySelector('.scroll')!.firstElementChild as HTMLElement;
+    expect(
+      first.className,
+      'the filter row carries a class whose `min-height: 0` collapses its grid row to nothing',
+    ).toBe('');
+    expect(first.style.display).toBe('flex');
+    expect(first.style.flexDirection).toBe('column');
+  });
+
+  it('leaves the root one child, so nothing else can be laid beside the scroll', () => {
+    const c = seed();
+    browse(c);
+    const root = container.firstElementChild!;
+    expect([...root.children].map((el) => el.className)).toEqual(['scroll']);
+  });
+});
+
+/**
+ * The filter block's two arrangements.
+ *
+ * Four rows of filters is 278px on a portrait phone, 226 at 640x360, 170 where
+ * the first row fits on one line - out of a column that is 438 at 320x568, 230
+ * at 640x360 and 306 at 852x393. Compact is search, a door and the readout:
+ * 62px shut. jsdom has no layout engine, so none of those numbers is measured
+ * here; what is measured is which controls are in the tree, which rows wrap
+ * instead of scrolling sideways, and what the door says while it is shut.
+ */
+describe('the filters, on a screen that cannot afford four rows of them', () => {
+  const named = (name: string): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').trim().startsWith(name));
+
+  // `NumberFilter` renders a fragment and `FilterChip` is itself `.row chip`,
+  // so the row a chip sits in is its parent and not its nearest `.row`.
+  const rowOf = (label: string): HTMLElement => {
+    const chip = buttons().find(
+      (b) => b.getAttribute('aria-label') === label || (b.textContent ?? '').trim() === label,
+    );
+    expect(chip, `no chip named "${label}"`).toBeDefined();
+    return chip!.parentElement as HTMLElement;
+  };
+
+  it('folds the level, recall, domain and type filters behind one door on a phone', () => {
+    const c = seed();
+    browse(c);
+    const door = named('FILTERS');
+    expect(door, 'no FILTERS control on a phone').toBeDefined();
+    expect(door!.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      buttons().map((b) => b.getAttribute('aria-label') ?? ''),
+      'a folded filter is still drawn while the door is shut',
+    ).not.toContain('LV 3');
+    // The search box is not behind the door: it is the head row.
+    expect(container.querySelector('input[type="search"]')).not.toBeNull();
+  });
+
+  /*
+   * Both rails were `overflowX: 'auto', scrollbarWidth: 'none'` over a
+   * constant 853px and 816px of chips. Measured in Chrome: at 393 that hid 484
+   * and 447 - the whole RECALL group and 7 of 9 domains - with no cut chip at
+   * either fold to say so, and at 744 it still hid 149 and 112. jsdom cannot
+   * measure a scrollWidth, so this asserts the two declarations that produce
+   * one, at both arrangements, over every row in the block.
+   */
+  it('has no row at any width that hides chips off its right edge', () => {
+    for (const size of [
+      { w: 393, h: 852 },
+      { w: 1440, h: 900 },
+    ]) {
+      viewport.w = size.w;
+      viewport.h = size.h;
+      act(() => root.unmount());
+      root = createRoot(container);
+      const c = seed();
+      browse(c);
+      const door = named('FILTERS');
+      if (door) click(door);
+      const block = container.querySelector('.scroll')!.firstElementChild!;
+      const rows = [...block.querySelectorAll('.row')] as HTMLElement[];
+      expect(rows.length, `no filter rows at ${size.w}x${size.h}`).toBeGreaterThan(2);
+      for (const row of rows) {
+        expect(
+          row.style.overflowX,
+          `a filter row scrolls sideways at ${size.w}x${size.h}`,
+        ).not.toBe('auto');
+        expect(
+          row.style.scrollbarWidth,
+          `a filter row hides its scrollbar at ${size.w}x${size.h}`,
+        ).not.toBe('none');
+      }
+    }
+  });
+
+  it('opens onto every chip at once, with nothing left to scroll sideways for', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    const labels = buttons().map((b) => b.getAttribute('aria-label') ?? '');
+    expect(labels, 'the level filters are still not reachable').toContain('LV 3');
+    expect(labels, 'the recall filters are still not reachable').toContain('RECALL 1');
+    for (const row of [rowOf('LV 3'), rowOf('RECALL 1'), rowOf('My domains')]) {
+      expect(row.style.flexWrap, 'a filter row still scrolls sideways instead of wrapping').toBe(
+        'wrap',
+      );
+      expect(row.style.overflowX, 'a filter row keeps a hidden horizontal scroll').toBe('');
+      expect(row.style.scrollbarWidth, 'a filter row still suppresses its scrollbar').toBe('');
+    }
+  });
+
+  it('says how many filters are set while they are out of sight', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    click(buttons().find((b) => b.getAttribute('aria-label') === 'LV 3')!);
+    click(named('FILTERS')!);
+    const door = named('FILTERS')!;
+    expect(door.getAttribute('aria-expanded')).toBe('false');
+    expect(door.textContent, 'a shut door does not say a filter is on').toContain('1');
+    expect(container.textContent ?? '').toContain('CLEAR FILTERS');
+  });
+
+  /*
+   * The 44px floor, on the axis these chips never declared.
+   *
+   * Measured in Chrome at 320x568, 375x667, 393x852 and 744x1133: the two
+   * segment chips `All` and `Any` were 38.8x44 and the domain `All` 40.8x44,
+   * all three with a computed `min-width: auto`. `--tap` was not what they
+   * were missing - `--control` already resolves to 44 below 1180px - they
+   * simply declared `min-height` and stopped. jsdom cannot produce 38.8, so
+   * this asserts the declaration that produces 44 instead, over every button
+   * in the block rather than over the three that were caught.
+   */
+  it('states the control floor on both axes, for every button in the block', () => {
+    const c = seed();
+    browse(c);
+    click(named('FILTERS')!);
+    const block = container.querySelector('.scroll')!.firstElementChild!;
+    const chips = [...block.querySelectorAll('button')];
+    expect(chips.length, 'the filter block has no buttons').toBeGreaterThan(20);
+    for (const chip of chips) {
+      const name = (chip.getAttribute('aria-label') ?? chip.textContent ?? '').trim();
+      expect(chip.style.minHeight, `"${name}" declares no height floor`).toBe('var(--control)');
+      expect(chip.style.minWidth, `"${name}" declares no width floor`).toBe('var(--control)');
+    }
+  });
+
+  /*
+   * Both sides of the band in one case, because only one of them can fail on
+   * the pre-fix code: before the door existed there was no door to look for at
+   * 1440x900 either, so the desktop half proves nothing on its own. It is here
+   * as the boundary - a fold is the answer to a short column, not to a wide
+   * screen with 813px of one - and it is asserted beside the half that does
+   * fail, rather than in a case of its own that could never go red.
+   */
+  it('is short, not narrow: 852x393 is a tablet by width and still cannot afford them', () => {
+    viewport.w = 1440;
+    viewport.h = 900;
+    const c = seed();
+    browse(c);
+    expect(named('FILTERS'), 'a desktop has to open a fold to reach a filter').toBeUndefined();
+    const labels = buttons().map((b) => b.getAttribute('aria-label') ?? '');
+    expect(labels).toContain('LV 3');
+    expect(labels).toContain('RECALL 1');
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    // 852x393 is in the tablet band by width and has 306px of column under the
+    // header: 170px of filters is 56% of it.
+    viewport.w = 852;
+    viewport.h = 393;
+    browse(c);
+    expect(named('FILTERS'), 'a 393px-tall window still draws the full band').toBeDefined();
   });
 });

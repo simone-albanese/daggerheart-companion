@@ -301,14 +301,33 @@ export function DomainCardView({
   const art = useArt(reading ? undefined : card.artKey);
   const color = domainColor(card.domain);
 
-  // Whether the rules text ran past its budget. Only a browser knows - it
-  // depends on the column the card landed in - so the card starts by claiming
-  // nothing and is corrected once there is a layout to ask.
+  /*
+   * Whether the rules text ran past its budget. Only a browser knows - it
+   * depends on the column the card landed in - so the card starts by claiming
+   * nothing and is corrected once there is a layout to ask.
+   *
+   * This used to be `if (!reading || box === null) return`, and the showcase
+   * card was left guessing from a 150-character threshold in a footer no screen
+   * in the app ever drew. It measures now, in both variants. What that is
+   * worth, measured in Chrome on the card browser: at 393x852 **40 of 42**
+   * tiles were cutting their text, median 148px hidden and worst 315 of 398;
+   * at 667x375, 41 of 42, median 179px hidden and worst 402. Two of the 42 were
+   * not cutting anything and had the fade over them anyway, which is the same
+   * defect in the other direction and the reason the reading branch's own
+   * comment says an unconditional fade "just makes it harder to read".
+   *
+   * The ref goes on whichever box does the clipping, and it is not the same
+   * element in all three cases: `reading` clips at `maxHeight` on the text div
+   * itself, an unclamped showcase clips at the card's remaining height on the
+   * box *around* it, and a `clamp` clips at the line count on the inner div
+   * again. Measure the wrong one and it answers `0 - 0 > 1`, which is `false`
+   * for a card hiding two thirds of itself.
+   */
   const textRef = useRef<HTMLDivElement>(null);
   const [clipped, setClipped] = useState(false);
   useEffect(() => {
     const box = textRef.current;
-    if (!reading || box === null) return;
+    if (box === null) return;
     const measure = (): void => setClipped(overflows(box));
     measure();
     // A phone that rotates re-flows the grid, and the answer changes with it.
@@ -316,7 +335,16 @@ export function DomainCardView({
     const observer = new ResizeObserver(measure);
     observer.observe(box);
     return () => observer.disconnect();
-  }, [reading, card.text]);
+  }, [reading, clamp, card.text]);
+
+  /*
+   * And whether saying so would be true. The words are "tap", and on a card
+   * mounted without `onOpen` there is no overlay button and a tap does
+   * nothing - which is exactly the case `SessionBody.tsx:400` mounts, a
+   * reading card at `height={200}` in a 420px column with no handler. It was
+   * printing MORE - TAP TO READ over a card that could not be opened.
+   */
+  const opens = onOpen !== undefined;
 
   // The card used to be one big <button> with the footer's own buttons inside
   // it. That is invalid HTML - a button may not contain interactive content -
@@ -419,7 +447,7 @@ export function DomainCardView({
             >
               <CardText text={card.text} />
             </div>
-            {clipped && (
+            {clipped && opens && (
               <span
                 className="t-meta"
                 style={{
@@ -441,8 +469,12 @@ export function DomainCardView({
             )}
           </div>
         ) : (
-          <div style={{ marginTop: 8, flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+          <div
+            ref={clamp === undefined ? textRef : undefined}
+            style={{ marginTop: 8, flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}
+          >
             <div
+              ref={clamp === undefined ? undefined : textRef}
               className="t-dense"
               style={
                 clamp === undefined
@@ -457,15 +489,57 @@ export function DomainCardView({
             >
               <CardText text={card.text} />
             </div>
-            <span
-              style={{
-                position: 'absolute',
-                inset: 'auto 0 0 0',
-                height: 26,
-                background: 'linear-gradient(180deg, transparent, var(--panel))',
-                pointerEvents: 'none',
-              }}
-            />
+            {clipped && (
+              <span
+                style={{
+                  position: 'absolute',
+                  inset: 'auto 0 0 0',
+                  height: 26,
+                  background: 'linear-gradient(180deg, transparent, var(--panel))',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            {/*
+              The words, at last on a screen.
+
+              This is the component's own cue, unchanged in wording, which lived in
+              the `footer ??` default and could not be reached from anywhere in
+              the app: both showcase call sites - `Cards.tsx` and the cockpit
+              loadout in `Play.tsx` - always pass a `footer`, and the only two
+              that omit one are `variant="reading"`, where the branch's own
+              `!reading` guard turned it off. So 40 of 42 tiles cut their rules
+              text behind a wordless fade and the sentence that would have said
+              so was three lines away in the same file, unreachable.
+
+              It is here rather than in the footer for the reason the reading
+              variant's note gives: the overlay button stops at the footer's
+              top edge, so words printed in the footer name the one strip on
+              the card where a tap does nothing. Here they are inside the
+              button's area and over the fade that is already drawn, so they
+              cost no layout at all - on the loadout card included, which is
+              why the cockpit gains the cue without moving a pixel.
+
+              `pointerEvents: 'none'` so the words are not a second target
+              inside the one that already covers them.
+            */}
+            {clipped && opens && (
+              <span
+                className="t-meta"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  bottom: 0,
+                  letterSpacing: '0.1em',
+                  color: 'var(--text-2)',
+                  background: 'var(--panel)',
+                  paddingLeft: 'var(--s3)',
+                  pointerEvents: 'none',
+                }}
+              >
+                TAP FOR FULL TEXT
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -485,12 +559,19 @@ export function DomainCardView({
       >
         {footer ?? (
           <>
-            {/* Reading cards say "there is more" on the cut, where the text
-                stopped, and only when there is. The showcase default guesses
-                from length because a showcase card measures nothing. */}
-            <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
-              {!reading && card.text.length > 150 ? 'TAP FOR FULL TEXT' : ''}
-            </span>
+            {/* A spacer, and nothing else: `.spread` is `space-between`, so
+                without a first child COST would sit at the left edge.
+
+                It used to hold the showcase truncation cue, guarded on
+                `!reading` and on the card's text running past 150 characters,
+                and that guard could not fire. This default is drawn only when
+                no `footer` prop was passed; both call sites that omit one are
+                `variant="reading"`, so `!reading` is false there, and the two
+                showcase call sites that needed the words always pass a footer.
+                It was dead code in every build that has ever shipped. The cue
+                is in the text box above now, and measured rather than guessed
+                from a character count. */}
+            <span aria-hidden="true" />
             {/* COST, not RECALL. RECALL is the name of an action, and this
                 number is its price; printing the same word for both is how
                 "RECALL" and "RECALL 2" ended up eleven characters apart on
