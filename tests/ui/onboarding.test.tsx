@@ -735,6 +735,50 @@ describe('what still outranks it', () => {
   });
 
   /*
+   * And the way out of that alert has to be a way out.
+   *
+   * The chip called `setScreen('settings')` while `<Onboarding/>` was drawn
+   * instead of all five screens, so it changed a value in the store and nothing
+   * else: a person was told their characters were gone, offered the one route
+   * back to them, and tapped a control that did nothing. "The app may never
+   * claim something happened that did not happen" is the rule this file is
+   * mostly about, and a dead chip is the same failure wearing a different coat.
+   */
+  it('opens the backup screen when the restore chip is taken from under the questions', async () => {
+    // The chunk first: Settings is `lazy()`, and this asserts what is drawn.
+    await import('../../src/ui/settings/Settings.tsx');
+    localStorage.setItem(
+      'dhc.backup.v1',
+      JSON.stringify({
+        lastSeenAt: new Date(Date.now() - 9 * 86_400_000).toISOString(),
+        knownCharacterIds: ['one-that-is-gone', 'and-another'],
+      }),
+    );
+    savePrefs({ ...DEFAULT_PREFS, lastBackupAt: new Date().toISOString() });
+
+    await boot();
+    await settle(() => text().includes('SOMETHING IS MISSING'));
+    expect(text()).toContain('Who are you at this table?');
+
+    await press('RESTORE FROM A BACKUP');
+    await settle(() => text().includes('Characters and backup'));
+
+    expect(
+      text(),
+      'the one route back to the characters this alert has just reported missing ' +
+        'is a chip that changes a value in the store and draws nothing',
+    ).toContain('Characters and backup');
+    expect(useApp.getState().screen).toBe('settings');
+    // And not stranded there: the questions are down, so the header carries its
+    // nav and its door again rather than leaving Settings with no way out.
+    expect(text()).not.toContain('Who are you at this table?');
+    expect(buttons().some((b) => (b.textContent ?? '').trim() === 'SETTINGS')).toBe(true);
+    // Nothing was answered, so nothing was written: the questions are still
+    // owed on the next launch.
+    expect(loadPrefs().onboarded, 'a run nobody answered was recorded as done').toBe(false);
+  });
+
+  /*
    * The installed iOS app, which is the one device where an empty library is
    * not a new user.
    *
