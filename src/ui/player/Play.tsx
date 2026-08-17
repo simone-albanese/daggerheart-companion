@@ -2121,7 +2121,12 @@ function PlayDesktop({ stats, trait, chooseTrait, arming }: ViewProps): React.JS
  *
  * TWO THINGS ARE NOT IN GIORGIO'S ORDER, AND BOTH ARE ERGONOMIC RATHER THAN
  * EDITORIAL. The death move leads the column, because when you have fallen it
- * is the only thing that matters; it draws nothing the rest of the time. A
+ * is the only thing that matters; it draws nothing the rest of the time. That
+ * is the right place and it is not the same thing as being visible: in the
+ * pinned block it could not be off screen and here it can, on exactly one path
+ * - a recall confirmed from the vault fold, some 900px down, which can mark the
+ * last Hit Point. Written down in `BACKLOG.md` under P5-5 rather than papered
+ * over, because the fix is a choice between two shapes and not a placement. A
  * worn Beastform follows it, because it changes what every number under it
  * means - and a class with the Beastform feature draws a 44px HUMAN FORM chip
  * there even untransformed, which is 52px of this budget that every Druid

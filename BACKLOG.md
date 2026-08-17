@@ -2156,6 +2156,18 @@ the three items above take roughly 270 off it. It still does not all fit at
 either phone size, and `playSheet.test.tsx` says by how much rather than
 rounding it down — see «says how far the whole folded sheet misses the glass».
 
+- [ ] **The death-move offer can now be off screen when it appears, and that is
+      a regression `0ccc857` introduced.** It used to be in the pinned block, so
+      it could not be. It leads the column now, which is the right *place* - when
+      you have fallen it is the only thing that matters - but position is not
+      visibility on a screen that scrolls. Marking HP by hand or committing
+      damage is fine: both controls are within 400px of the top. The path that
+      strands it is P1-2's, `RecallButton` in the vault fold: the confirming tap
+      can mark the last Hit Point from about 900px down the column, and the
+      banner then renders above the viewport with nothing on screen saying it
+      appeared. Two honest answers - make the offer a dialog the way its own
+      `DeathMoveDialog` already is, or have the recall that spends the last Hit
+      Point say so on its own row - and this is not the commit that picks one.
 - [ ] **`CHANGELOG.md` has no entry for any of this yet**, deliberately: half a
       reflow is not a thing to describe to a user. Write it when the two items
       above ROLL are done, and carry the two unflattering numbers in it.
