@@ -8,10 +8,10 @@
  * is filtered. Every filter crosses every other.
  *
  * It opens as a dialog because the alternative is a picker nested inside the
- * wizard's own scrolling panel - two scrollbars under one thumb, and filters
- * that scroll away from the list they filter. As a dialog the filters are
- * pinned, the list gets the whole viewport, and the wizard step behind it stays
- * short enough to fit a phone without scrolling at all.
+ * wizard's own scrolling panel - filters that scroll away from the list they
+ * filter, inside a page that also scrolls. As a dialog it owns the viewport and
+ * decides for itself what gives when there is not enough of it; `PickerDialog`
+ * below is where that decision is written down, with the measurements.
  *
  * What a character cannot use yet is shown, dimmed, with the level it arrives
  * at. Hiding it would answer "what can I use" by pretending the rest of the
@@ -89,6 +89,144 @@ export const armorSummary = (a: Armor, thresholds: [number, number], score: numb
 // The dialog and its furniture
 // ---------------------------------------------------------------------------
 
+/**
+ * The list's floor, in pixels, and where the number comes from.
+ *
+ * Measured in Chrome at the narrowest viewport this app is held to, 320x568:
+ * the tallest first row any of the three pickers draws is armor's, at 85px
+ * (weapons are 82). A scrollport exactly one row tall reads as "that is all
+ * there is", so the floor is one whole row, the column's 8px gap, and 25px of
+ * the row after it - 118px of content box, plus the list's own 10+12 of
+ * padding. Below this the list stops being a list.
+ */
+const LIST_FLOOR = 140;
+
+/**
+ * Five bands, and the order in which they give.
+ *
+ * ## What was wrong
+ *
+ * The panel was three bands - a filter head, the list, a footer - and both the
+ * head and the footer were `flex: none`. The head is the expensive one: at 320
+ * CSS pixels of width the three `Seg` groups wrap onto three lines and the
+ * whole block measures **489px**, against the 546px a 320x568 phone leaves
+ * inside the overlay's 10px padding. 489 + 63 of footer is 552, so the list -
+ * the one child that could give, with `flex: 1; min-height: 0` - was squeezed
+ * to its own 22px of padding and **0px of content**, and the remaining 28px
+ * went under the panel's `overflow: hidden`. Measured, at HEAD, with the
+ * fixture equipped: list clientHeight 22 against a scrollHeight of 20534, and
+ * Unequip and Done drawn at y532-576 against a clip edge of 557 - 19px of each
+ * 44px button cut, 25px left. A landscape phone was worse: at 852x393 and
+ * 667x375 the footer is drawn at y424-468 against a clip edge of 382 and 371,
+ * so **both verbs were 0px on glass** and `elementFromPoint` at their centres
+ * returned nothing at all. This is the screen where a player equips a weapon,
+ * and it could show no weapons and had no visible Done.
+ *
+ * The armor picker failed the same way one viewport later, and silently: its
+ * head is 225px, so nothing was ever cut, but at 852x393 and 667x375 the list
+ * came out 83px and 65px against 85px rows - **no whole row of armor on the
+ * screen at all**, on the screen whose only job is comparing armor.
+ *
+ * It is worth saying what this is *not*, because two other defects in this
+ * pass were: it is not a scroll container starved by an ancestor with no
+ * `min-height: 0`. The list already carried `min-height: 0`, and `.stack`
+ * carries it too. The ancestor that would not give is the filter head itself,
+ * at `flex: none`.
+ *
+ * The panel's own height was a second, separate bug, found by measuring the
+ * first fix rather than by reading it. `max-height: 100%` on a flex column
+ * leaves its main size *indefinite*, and the flex algorithm then resolves the
+ * bands against the container's max-content - which here is the list's 15818px
+ * of weapons - and Chrome does not re-run the resolution against the clamped
+ * height. The filter band's flex base size came out **22px around 264px of
+ * content** at 744x1133, where 847px was free. `height: 100%` makes the main
+ * size definite and is the whole of that fix: the same measurement then reads
+ * 264 of 264.
+ *
+ * ## What gives now, in order
+ *
+ * 1. **the name and the way out** - `flex: none`, 54px. The ✕ is the only
+ *    control that is on glass at every viewport this app is measured at
+ *    (y21-65, uncut, all six), and it stays that way: it may not be a thing
+ *    you have to scroll a band to find.
+ * 2. **the filters** - `flex: 0 1 auto` on a `scroll` band wrapping the column.
+ *    The only child of the five with a non-zero shrink factor against a
+ *    non-zero base, so the flex algorithm takes every missing pixel out of
+ *    here; what does not fit is scrolled rather than subtracted from the list.
+ * 3. **the count** - `flex: none`, 63px, pinned *below* the filters and above
+ *    the list. It costs 63px that band 2 would otherwise have, and it is worth
+ *    them: it is the only feedback that a filter did anything, and CLEAR
+ *    FILTERS is the way back out of an over-filtered list. Scrolled away above
+ *    "No weapons match those filters", it strands the player on an empty list
+ *    with no visible way to empty the filters.
+ * 4. **the list** - `flex: 1` with a `LIST_FLOOR` min-height, so it grows into
+ *    whatever is spare and never falls under one row.
+ * 5. **Unequip and Done** - `flex: none`, 63px, and now always inside the clip.
+ *
+ * ## The geometry, measured in Chrome on both sides of the change
+ *
+ * Available height is the window less the overlay's 2x10 and the panel's 2x1.
+ * Bands 1, 3 and 5 are fixed at 54 + 63 + 63 = 180, so the list takes what is
+ * left down to `LIST_FLOOR` and band 2 takes what is left after that. Weapons,
+ * fixture `played`, one tap on the equipped primary slot:
+ *
+ * | viewport | avail | head/filters before → after | list before → after  | Done       |
+ * |----------|-------|-----------------------------|----------------------|------------|
+ * | 320x568  |  546  | 489 → 226 of 372            | 22/0px → 140, 1 row  | cut 19 → 0 |
+ * | 375x667  |  645  | 435 → 435 (318 of 318)      | 147 → 147, 1 row     | uncut both |
+ * | 393x852  |  830  | 435 → 435 (318 of 318)      | 332 → 332, 3 rows    | uncut both |
+ * | 744x1133 | 1111  | 381 → 381 (264 of 264)      | 667 → 667, 8 rows    | uncut both |
+ * | 852x393  |  371  | 381 →  51 of 264            | 22/0px → 140, 1 row  | cut 86 → 0 |
+ * | 667x375  |  353  | 381 →  33 of 264            | 22/0px → 140, 1 row  | cut 104 → 0 |
+ *
+ * Armor over the same six: its filter block is 108 where the weapons' is 264
+ * to 372, so at 320x568, 375x667, 393x852 and 744x1133 nothing shrinks and the
+ * picker is pixel-identical before and after - list 258, 357, 542, 823, and 2,
+ * 4, 5 and 8 whole rows. The two landscape widths trade, and it is a trade
+ * rather than a saving: band 2 goes from all 108 on glass to 51 and 33 and
+ * scrolls the rest, and the list goes from 83px and 65px - **zero whole rows**
+ * against 85px rows - to 140 and one. Comparing armor is the only thing this
+ * dialog is for, so a filter that costs a flick beats a comparison that has
+ * nothing to compare.
+ *
+ * So the viewports that were already right are unchanged to the pixel, and the
+ * ones that were broken are the only ones that move.
+ *
+ * **Targets.** Every control keeps the size it had. Unequip and Done measure
+ * 44x133 at 320 wide, 44x306.5 at 667 and 44x313 at 744, and both are now
+ * wholly inside the clip at all six - which is the change: at 852x393 and
+ * 667x375 they were 0px on glass, and `elementFromPoint` at their own centres
+ * returned nothing. The ✕ stays 44x44 and uncut at all six, before and after.
+ * Rows keep `min-height: var(--tap)` and draw at 64-85.
+ *
+ * **Thumb arc.** Done's box lands y504-548 of 568, y788-832 of 852 and
+ * y329-373 of 393 - its centre 42px above the bottom of the window on every
+ * phone here, because the footer sits 10px off the window edge plus the
+ * safe-area inset. That is the nearest part of a right thumb's sweep and it is
+ * the verb used on every visit. The filters, used once per visit, are the band
+ * that travels away from the thumb; the list sits between the two.
+ *
+ * **What this does not fix, said plainly.**
+ *
+ * - Below a **342px** window (180 of fixed bands + 140 of floor + 20 of overlay
+ *   padding + 2 of border) the fixed bands and the floor exceed the panel and
+ *   `overflow: hidden` cuts again. 667x375 is the shortest viewport this
+ *   project measures and clears it by 33px - which is exactly the height band 2
+ *   has there.
+ * - At 667x375 band 2 is 33px and shows the top 25px of a 44px search box. The
+ *   whole filter block is one flick away inside its own scrollport, but it is
+ *   not on glass, and that is the price of keeping a real list at that height.
+ * - At 375x667 the weapon list is 147px and shows **one** row of 167. That is
+ *   unchanged, not fixed: the head fits there, so nothing shrinks. Capping band
+ *   2 at 40% of the panel would buy a second row (258 filters, 207 list) at the
+ *   cost of 8px at 320x568 and a fraction nothing derives - weighed and
+ *   declined, and written down so the next reader knows which it was.
+ *
+ * `.scroll-fade` is deliberately not used on band 2. `base.css` says the class
+ * may only wrap a region with nothing `position: fixed` inside it and names
+ * `DomainCardView` as its one caller; a second caller would make that sentence
+ * false, and it is not this file's to rewrite.
+ */
 function PickerDialog({
   label,
   count,
@@ -130,41 +268,85 @@ function PickerDialog({
         style={{
           width: '100%',
           maxWidth: 660,
-          maxHeight: '100%',
+          // Not `max-height`, which leaves this box's main size indefinite -
+          // see the note above: the flex algorithm then resolves the bands
+          // against the list's max-content (15818px of weapons) and Chrome does
+          // not re-run against the clamped height, so band 2 came out 22px tall
+          // around 264px of content and band 4 took the difference. Measured:
+          // `100%` and nothing else takes band 2 from 22 to 264 at 744x1133.
+          //
+          // What `max-height` was buying - a panel that shrinks to a short
+          // list - it was not delivering: a flex item with `flex-basis: 0` and
+          // `grow: 1` still contributes its max-content to the container's
+          // intrinsic height, so filtering 204 weapons to 5 left the panel at
+          // 832 of 830 and Done at y788-832 on both sides of this change,
+          // measured. The behaviour could only differ once the whole list fits,
+          // and there `100%` is the one to want anyway: Done keeps its y
+          // instead of walking up the glass as the count falls.
+          height: '100%',
           borderRadius: 'var(--r5)',
           background: 'var(--panel)',
           border: '1px solid var(--line)',
           overflow: 'hidden',
         }}
       >
+        {/* 1. The name and the way out. Never scrolls, never shrinks. */}
+        <div
+          className="spread"
+          style={{ flex: 'none', alignItems: 'center', padding: '10px 12px 0' }}
+        >
+          <h3 style={{ margin: 0, font: '700 15px/1.2 var(--sans)' }}>{label}</h3>
+          <button
+            type="button"
+            className="t-meta"
+            onClick={onClose}
+            aria-label="Close the picker"
+            style={{ minHeight: 'var(--tap)', minWidth: 'var(--tap)', flex: 'none' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/*
+          2. The filters, and the only band that gives. `0 1 auto` against the
+          `flex: none` above and below it means the flex algorithm takes every
+          missing pixel out of here and nowhere else; `min-height: 0` lets it go
+          under its own content, and `.scroll` carries the `overflow-y: auto`
+          and `overscroll-behavior: contain` that make the rest reachable
+          instead of cut.
+
+          The scrollport and the column are two elements on purpose, and it was
+          built the wrong way round first. A scroll container that is *itself*
+          the flex column does not overflow: the flex algorithm shrinks its own
+          children to whatever height the box ends up with, so they collapse to
+          their `min-height` instead of scrolling. Measured at 320x568 with the
+          band at its squeezed 226px, by collapsing this wrapper in the page:
+          `scrollHeight` fell from 372 to 240 and the three chip rows - TIER and
+          HANDS, TRAIT, RANGE - went from 44px each to **0**, unreachable by any
+          amount of scrolling. Scrolling a block-level child instead keeps the
+          column at its natural 364px and the band's flex base size honest.
+        */}
+        <div className="scroll" style={{ flex: '0 1 auto', minHeight: 0, padding: '8px 12px 0' }}>
+          <div className="stack" style={{ gap: 8 }}>
+            {head}
+          </div>
+        </div>
+
+        {/* 3. What the filters did, and the way back out of them. Pinned. */}
         <div
           className="stack"
           style={{
             flex: 'none',
-            gap: 8,
-            padding: '10px 12px',
+            padding: '8px 12px 10px',
             borderBottom: '1px solid var(--line-soft)',
           }}
         >
-          <div className="spread" style={{ alignItems: 'center' }}>
-            <h3 style={{ margin: 0, font: '700 15px/1.2 var(--sans)' }}>{label}</h3>
-            <button
-              type="button"
-              className="t-meta"
-              onClick={onClose}
-              aria-label="Close the picker"
-              style={{ minHeight: 'var(--tap)', minWidth: 'var(--tap)', flex: 'none' }}
-            >
-              ✕
-            </button>
-          </div>
-          {head}
           {count}
         </div>
 
         <div
           className="scroll stack"
-          style={{ flex: 1, minHeight: 0, gap: 8, padding: '10px 12px 12px' }}
+          style={{ flex: 1, minHeight: LIST_FLOOR, gap: 8, padding: '10px 12px 12px' }}
         >
           {children}
         </div>
