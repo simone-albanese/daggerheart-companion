@@ -43,6 +43,14 @@
  * fourth line it is 70 or 85, and each banner records which of its own
  * sentences does that where.
  *
+ * **Both at once is 132, measured rather than added up.** A new user with a
+ * waiting worker gets both banners, and two stacked 8px margins are exactly the
+ * case where the arithmetic would be wrong if they collapsed. They do not:
+ * `<main>` is a flex container and flex items do not collapse margins. Measured
+ * at 393×852, 738 with neither → 672 with the nag → **606 with both**; at
+ * 375×667 it is 553 → 487 → 417, and at 320×568 454 → 384 → 299, where the two
+ * extra costs are the update sentence's third and fourth lines.
+ *
  * The other half of that correction is a convention, not a measurement. The
  * Play budget states its column **net** of the phone root's own 8px foot - 738
  * of glass is the documented 730 - so with a banner up the usable column is

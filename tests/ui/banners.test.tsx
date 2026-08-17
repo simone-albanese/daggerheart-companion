@@ -356,4 +356,24 @@ describe('the height a banner takes off the screen below it', () => {
     expect(columnCost(backup, TAP) - parseFloat(backup.style.marginTop)).toBe(58);
     expect(columnCost(backup, CONTROL) - parseFloat(backup.style.marginTop)).toBe(48);
   });
+
+  /*
+   * A new user with a waiting worker gets both, which is the state where two
+   * 8px margins sit on top of each other - the one case where adding the two
+   * costs up would be wrong if they collapsed. They do not: `<main>` is a flex
+   * container and flex items do not collapse margins. Measured at 393×852: 738
+   * of column with neither banner, 672 with the nag, 606 with both.
+   */
+  it('adds up when both are on screen, because flex items collapse no margins', async () => {
+    await render(
+      <>
+        <UpdateBanner apply={noop} />
+        <BackupBanner />
+      </>,
+    );
+
+    const { backup, update } = both();
+    expect(columnCost(backup, TAP) + columnCost(update, TAP)).toBe(132);
+    expect(columnCost(backup, CONTROL) + columnCost(update, CONTROL)).toBe(112);
+  });
 });
