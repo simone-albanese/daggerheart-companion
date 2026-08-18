@@ -151,11 +151,11 @@
  * The fourth idea, the persuasive one, was measured and is not here: ranking on
  * how many of the diff's things a line names at once moves recall by one
  * finding, and the two replays disagree about the direction. On this section's
- * rule - the exact cited line - multiplying the score by `1 + log2(multiplicity)`
- * is 12 up to 13; on the paragraph rule the 47% above uses, it is 14 down to
- * 13. One finding either way is no case for a second ordering term, so the
- * argument that settles it is not a number. See `placeScore` for that argument,
- * and for what multiplicity is still used for.
+ * rule - the exact cited line - multiplying the score by
+ * `1 + log2(multiplicity)` is 12 up to 13; on the paragraph rule the 47% above
+ * uses, it is 14 down to 13. One finding either way is no case for a second
+ * ordering term, so the argument that settles it is not a number. See
+ * `placeScore` for that argument, and for what multiplicity is still used for.
  *
  * The budget is counted in *places* rather than claims, because places are what
  * a person reads, and every suppression prints its own number. A silent cap

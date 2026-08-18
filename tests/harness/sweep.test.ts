@@ -307,7 +307,10 @@ describe('sweeping a tree', () => {
       "+  it('the four number cells hold open at forty eight pixels here', () => {",
     );
     const quoting = [
-      file('docs/quote.md', 'The suite still says the four number cells hold open at sixty four pixels here.'),
+      file(
+        'docs/quote.md',
+        'The suite still says the four number cells hold open at sixty four pixels here.',
+      ),
     ];
     const names = extractClaims(renamed).filter((c) => c.kind === 'test-name');
     expect(names.length).toBeGreaterThan(6);
