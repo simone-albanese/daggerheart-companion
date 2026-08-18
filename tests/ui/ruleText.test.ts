@@ -11,6 +11,7 @@ import type { Dataset } from '@shared/types.ts';
 import { TRAITS } from '@shared/types.ts';
 import {
   blockNamed,
+  damageBumpRule,
   interruptedRestRule,
   longRestRule,
   paragraphs,
@@ -339,5 +340,58 @@ describe('spellcastZeroNote', () => {
         },
       ]),
     ).toBe('If your Spellcast trait is +0 or lower, you roll one die anyway.');
+  });
+});
+
+/*
+ * The one rule three files had each typed out for themselves.
+ *
+ * `engine/encounter.ts` prices the adjustment, `Encounter.tsx` said what it did
+ * under the toggles, `SessionBody.tsx` printed it on a chip - and the three
+ * transcriptions had already drifted apart from the book and from each other
+ * (`+1d4 (or +2)` against the SRD's `+1d4 (or a static +2)`). This is the read
+ * that replaces the chip's copy, so the screen a GM reads at the table quotes
+ * the dataset rather than the repository.
+ */
+describe('damageBumpRule', () => {
+  it('finds the SRD’s own words for the bump, without the budget half', () => {
+    const bump = damageBumpRule(dataset.rules);
+    expect(bump, 'the SRD no longer carries the damage-bump line').not.toBeNull();
+    expect(section('building-balanced-encounters')).toContain(bump!);
+    // What the dice do, from the `+` onwards. The `-2` in front of it is the
+    // builder's business and `computeBudget` already owns that number; a row
+    // that is not the builder would be printing a cost with no budget beside it.
+    expect(bump).toMatch(/^\+1d4\b/);
+    expect(bump).not.toMatch(/^-|if you add/i);
+    expect(bump).toMatch(/damage rolls$/);
+  });
+
+  it('is null when no loaded layer carries the line', () => {
+    // And then the row says only that the bump is on. Returning a sentence
+    // from this file instead would put the app's arithmetic in quotation marks.
+    expect(damageBumpRule([])).toBeNull();
+    expect(
+      damageBumpRule([
+        {
+          id: 'building-balanced-encounters',
+          title: 'Encounters',
+          body: '- +2 for a harder fight',
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it('follows the line rather than the section it is filed under', () => {
+    // Same argument as `spellcastZeroNote`: a layer that reorganises its
+    // sections must not leave the row silently quoting nothing.
+    expect(
+      damageBumpRule([
+        {
+          id: 'house-rules',
+          title: 'House rules',
+          body: 'Preamble.\n\n- -3 if you add +2d6 (or a static +7) to all adversaries’ damage rolls',
+        },
+      ]),
+    ).toBe('+2d6 (or a static +7) to all adversaries’ damage rolls');
   });
 });

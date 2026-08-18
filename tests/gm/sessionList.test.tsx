@@ -23,6 +23,7 @@ import { countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
+import { damageBumpRule } from '../../src/ui/shared/ruleText.ts';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
@@ -99,6 +100,20 @@ const list = (phone = true): void => {
 const text = (): string => container.textContent ?? '';
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 const rows = (): HTMLLIElement[] => [...container.querySelectorAll('li')];
+
+/**
+ * The one button whose visible words carry this label.
+ *
+ * Throws on none and on two, rather than `find(...)!` returning the first of
+ * an ambiguous pair: every verb on this screen is drawn once per row, and a
+ * test that silently picked row 1's button while meaning row 2's would pass
+ * for the wrong reason.
+ */
+const named = (label: string): HTMLButtonElement => {
+  const found = buttons().filter((b) => (b.textContent ?? '').includes(label));
+  if (found.length !== 1) throw new Error(`${String(found.length)} buttons say “${label}”`);
+  return found[0]!;
+};
 
 /**
  * The controls the *arm* draws, without the chrome every row has.
@@ -315,7 +330,7 @@ describe('the encounter arm', () => {
     expect(text()).toContain('NOT IN THIS DATASET');
   });
 
-  it('states a saved fight as a fact, because nothing here can put one back', () => {
+  it('states a saved fight as a fact, because nothing here can put its marks back', () => {
     seed([
       {
         ...base({ id: 'e', name: 'The ambush', collapsed: false }),
@@ -328,12 +343,23 @@ describe('the encounter arm', () => {
       },
     ]);
     list();
-    expect(text()).toContain('put the plan back on the board but not the fight');
+    expect(text()).toContain('No control here brings those marks back');
+    /*
+     * This used to assert that no verb on the row said the word FIGHT at all,
+     * which OPEN THE FIGHT now does. That string was never the point: what
+     * cannot be restored is the *marks*, because no action in `gmStore` sets a
+     * combatant list wholesale. OPEN THE FIGHT starts the plan again from full
+     * HP, and on a row whose plan is empty there is nothing for it to start -
+     * so it is disabled here, and the saved fight is still untouched afterwards.
+     */
+    const fight = named('OPEN THE FIGHT');
+    expect(fight.disabled).toBe(true);
+    click(fight);
+    expect(useGm.getState().combatants).toEqual([]);
     const verbs = buttons()
       .filter((b) => b.getAttribute('aria-expanded') === null)
       .map((b) => (b.textContent ?? '').trim());
-    // No control offers to restore them, because no action in the store can.
-    expect(verbs.some((v) => v.includes('COMBATANT') || v.includes('FIGHT'))).toBe(false);
+    expect(verbs.some((v) => v.includes('COMBATANT') || v.includes('MARK'))).toBe(false);
   });
 
   it('puts a planned roster on the board through the actions that already exist', () => {
@@ -347,9 +373,236 @@ describe('the encounter arm', () => {
       },
     ]);
     list();
-    click(buttons().find((b) => (b.textContent ?? '').includes('PUT THIS ROSTER ON THE BOARD'))!);
+    click(named('PUT THIS ROSTER ON THE BOARD'));
     expect(useGm.getState().roster).toEqual([{ ref: adversary.id, count: 3 }]);
     expect(useGm.getState().adjustments.easier).toBe(true);
+  });
+});
+
+/*
+ * The three things the playtest GM asked the encounter row for.
+ *
+ * All three are about the row telling the truth about what the dice will do:
+ * how many adversaries a count means, what the fight will actually contain, and
+ * what every one of them adds to its damage. The first was wrong on the screen,
+ * the second could only be reached through the builder, and the third was said
+ * in the builder and nowhere a GM reads at the table.
+ */
+describe('the encounter row at the table', () => {
+  const minion = dataset.adversaries.find((a) => a.role === 'Minion')!;
+
+  const plan = (
+    roster: Array<{ ref: string; count: number }>,
+    adjustments = NO_ADJUSTMENTS,
+  ): void => {
+    seed([
+      {
+        ...base({ id: 'e', name: 'The ambush', collapsed: false }),
+        kind: 'encounter',
+        roster,
+        adjustments,
+        combatants: [],
+      },
+    ]);
+  };
+
+  /** Every tool this list was asked to open, in order. */
+  let opened: string[];
+  beforeEach(() => {
+    opened = [];
+  });
+  const listWatching = (): void => {
+    render(
+      createElement(SessionList, {
+        phone: true,
+        onOpenTool: (tool) => {
+          opened.push(tool);
+        },
+      }),
+    );
+  };
+
+  const partyOf = (n: number): void => {
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartySize: n } });
+  };
+
+  // ③(a) -----------------------------------------------------------------
+
+  it('reads a Minion count as groups the size of the party, not as a multiplier', () => {
+    /*
+     * `EncounterEntry.count` is groups for a Minion, each the size of the
+     * party, and `ROLE_COST` charges 1 point for each of them. So `×3` beside a
+     * Minion said three rats where the budget had been spent on fifteen, and
+     * the builder had been printing "3 GROUPS OF 5" about the very same number.
+     */
+    partyOf(5);
+    plan([{ ref: minion.id, count: 3 }]);
+    list();
+    expect(text()).toContain('3 GROUPS OF 5');
+    expect(text(), 'the row still reads the groups as a multiplier').not.toContain('×3');
+  });
+
+  it('says GROUP, not GROUPS, for a single one', () => {
+    partyOf(4);
+    plan([{ ref: minion.id, count: 1 }]);
+    list();
+    expect(text()).toContain('1 GROUP OF 4');
+    expect(text()).not.toContain('GROUPS');
+  });
+
+  it('control — an adversary that is not a Minion keeps its multiplier', () => {
+    // Passes before and after the fix, and is here because the fix is one
+    // branch away from turning every count on the row into groups.
+    expect(adversary.role).not.toBe('Minion');
+    plan([{ ref: adversary.id, count: 2 }]);
+    list();
+    expect(text()).toContain('×2');
+    expect(text()).not.toContain('GROUP');
+  });
+
+  // ③(b) -----------------------------------------------------------------
+
+  it('says what the damage bump adds, in the book’s own words, on the row', () => {
+    plan([{ ref: adversary.id, count: 1 }], { easier: false, harder: false, damageBump: true });
+    list();
+    const bump = damageBumpRule(dataset.rules);
+    expect(bump, 'the shipped dataset no longer carries the line').not.toBeNull();
+    expect(text(), 'the dice are still only said inside the builder').toContain(bump!);
+    // The chip names the switch; the dice come out of the dataset. The old chip
+    // read "+1D4 (OR +2) TO ALL ADVERSARY DAMAGE" - a rule transcribed by hand,
+    // and one that had already drifted from the SRD's "or a static +2".
+    expect(text()).toContain('ADVERSARY DAMAGE BUMP');
+    expect(text()).not.toContain('+1D4 (OR +2)');
+  });
+
+  it('does not say it on a row that was not built with it', () => {
+    plan([{ ref: adversary.id, count: 1 }]);
+    list();
+    expect(text()).not.toContain(damageBumpRule(dataset.rules)!);
+    expect(text()).not.toContain('ADVERSARY DAMAGE BUMP');
+  });
+
+  // ①(a) -----------------------------------------------------------------
+
+  it('opens a stat block under the roster entry, with nothing on it that writes', () => {
+    plan([{ ref: adversary.id, count: 2 }]);
+    list();
+    expect(text(), 'the stat block is open before anybody asked for it').not.toContain(
+      adversary.attack.name,
+    );
+
+    const entry = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(adversary.name),
+    )!;
+    expect(entry.getAttribute('aria-expanded')).toBe('false');
+    click(entry);
+
+    expect(text()).toContain(adversary.attack.name);
+    expect(text()).toContain(String(adversary.difficulty));
+    // Read-only is a property of `AdversaryBlock` with no `action`, not a
+    // promise: the entry's own disclosure is the only control inside the item.
+    const item = entry.closest('li')!;
+    expect([...item.querySelectorAll('button, input, select, textarea')]).toEqual([entry]);
+    expect(useGm.getState().combatants).toEqual([]);
+    expect(useGm.getState().roster).toEqual([]);
+
+    click(entry);
+    expect(text()).not.toContain(adversary.attack.name);
+  });
+
+  it('gives the preview a thumb-sized target and a name that is not just a number', () => {
+    plan([{ ref: adversary.id, count: 2 }]);
+    list();
+    const entry = buttons().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(adversary.name),
+    )!;
+    // Declared inline, because that is the only place jsdom can read it.
+    expect(entry.style.minHeight).toBe('var(--tap)');
+    // A night with three encounter rows draws this button many times over.
+    expect(entry.getAttribute('aria-label')).toBe(`${adversary.name} — ×2 — The ambush`);
+  });
+
+  it('has nothing to open for a ref this dataset cannot resolve', () => {
+    plan([{ ref: 'the-gnawing', count: 1 }]);
+    list();
+    expect(text()).toContain('the-gnawing');
+    expect(buttons().some((b) => (b.getAttribute('aria-label') ?? '').startsWith('the-gnawing')))
+      .toBe(false);
+  });
+
+  // ①(b) -----------------------------------------------------------------
+
+  it('opens the fight from the row, with the roster the row was planned with', () => {
+    plan([{ ref: adversary.id, count: 2 }]);
+    listWatching();
+    click(named('OPEN THE FIGHT'));
+
+    const combatants = useGm.getState().combatants;
+    expect(combatants).toHaveLength(2);
+    expect(combatants.every((c) => c.adversaryRef === adversary.id)).toBe(true);
+    // `spawn` derives an id from an index; two of the same adversary must not
+    // collide, or the scene draws one card for both.
+    expect(new Set(combatants.map((c) => c.id)).size).toBe(2);
+    expect(opened, 'the row spawned the fight and stayed where it was').toEqual(['scene']);
+  });
+
+  it('sends a Minion entry as groups of the party, the way the builder does', () => {
+    partyOf(5);
+    plan([{ ref: minion.id, count: 2 }]);
+    listWatching();
+    click(named('OPEN THE FIGHT'));
+
+    const combatants = useGm.getState().combatants;
+    expect(combatants).toHaveLength(2);
+    expect(combatants.map((c) => c.minionsRemaining)).toEqual([5, 5]);
+  });
+
+  it('leaves the board’s roster and adjustments exactly where they were', () => {
+    /*
+     * The one thing this button is deliberately not built on. Folding
+     * `putOnBoard` into it would mean one tap quietly overwriting a roster the
+     * GM was in the middle of assembling in the builder - the same shape of
+     * defect as a control that silently drops a saved fight.
+     */
+    useGm.setState({
+      roster: [{ ref: 'the-gnawing', count: 9 }],
+      adjustments: { easier: true, harder: false, damageBump: false },
+    });
+    plan([{ ref: adversary.id, count: 1 }], { easier: false, harder: true, damageBump: true });
+    listWatching();
+    click(named('OPEN THE FIGHT'));
+
+    expect(useGm.getState().roster).toEqual([{ ref: 'the-gnawing', count: 9 }]);
+    expect(useGm.getState().adjustments).toEqual({
+      easier: true,
+      harder: false,
+      damageBump: false,
+    });
+    expect(useGm.getState().combatants).toHaveLength(1);
+  });
+
+  it('will not open a fight it has no stat block to fill', () => {
+    // A roster of refs this dataset cannot resolve would open an empty scene
+    // and look like it had worked.
+    plan([{ ref: 'the-gnawing', count: 2 }]);
+    listWatching();
+    const fight = named('OPEN THE FIGHT');
+    expect(fight.disabled).toBe(true);
+    click(fight);
+    expect(useGm.getState().combatants).toEqual([]);
+    expect(opened).toEqual([]);
+  });
+
+  it('says the scene is not empty before it adds to it', () => {
+    useGm.setState({
+      combatants: [
+        { id: 'x-0', adversaryRef: adversary.id, name: adversary.name, hp: { marked: 3, max: 8 }, stress: { marked: 0, max: 3 }, thresholds: [8, 15], difficulty: 14, spotlighted: false, notes: '' },
+      ],
+    });
+    plan([{ ref: adversary.id, count: 1 }]);
+    list();
+    expect(text()).toContain('The scene already holds 1 adversary');
+    expect(text()).toContain('adds this roster to them');
   });
 });
 

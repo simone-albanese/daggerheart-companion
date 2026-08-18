@@ -231,6 +231,42 @@ export const interruptedRestRule = (rules: RulesSection[]): string | null =>
   downtimeSentence(rules, 'long rest is interrupted');
 
 /**
+ * The damage an encounter's adversaries add, in the book's own words.
+ *
+ * `EncounterAdjustments.damageBump` is a boolean, and every screen that has
+ * ever drawn it has said what it means by typing the dice into the file -
+ * `engine/encounter.ts` for the budget line, `Encounter.tsx` for the note under
+ * the toggles, `SessionBody.tsx` for the chip on a planned row. Three
+ * transcriptions of one sentence, and they had already drifted: the engine says
+ * `+1d4 (or +2)`, the SRD says `+1d4 (or a static +2)`. A dataset layer that
+ * changed the bump would have changed none of them.
+ *
+ * So the sentence is read out of whatever rules layer is loaded, and the screen
+ * quotes it. Found by what the line says rather than by pinning
+ * `building-balanced-encounters`, for `spellcastZeroNote`'s reason: a layer that
+ * reorganises its sections would leave a section-keyed lookup silently empty,
+ * and the phrase is unambiguous - it occurs exactly once in the shipped
+ * dataset.
+ *
+ * The SRD writes it as a budget bullet, `- -2 if you add +1d4 (or a static +2)
+ * to all adversaries' damage rolls`. The points are the builder's business and
+ * `computeBudget` already owns them, so what comes back is only the half after
+ * `if you add`: what the dice do, which is the half a GM reads at the table.
+ *
+ * Null when no loaded layer carries the line, and then the caller says only
+ * that the row was built with the bump on - never a number this file guessed.
+ */
+export function damageBumpRule(rules: RulesSection[]): string | null {
+  for (const rule of rules) {
+    for (const line of rule.body.split('\n')) {
+      const match = /\bif you add\s+(\+\d+d\d+\b.*)$/i.exec(line.trim());
+      if (match !== null) return match[1]!.trim();
+    }
+  }
+  return null;
+}
+
+/**
  * The three verbs printed under each trait on the character sheet.
  *
  * "Use it to Sprint, Leap, Maneuver" is what tells a player who has never read
