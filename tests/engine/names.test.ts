@@ -225,6 +225,14 @@ function coreBookNames(): Set<string> | null {
       .filter((para) => (para.match(/,/g) ?? []).length >= 10)
       .flatMap((para) => para.split(',').map((word) => word.trim()))
       .filter((word) => word !== '');
+    // Deliberately over-inclusive, and this is where that is said rather than
+    // implied. The window is 8,000 characters around the PLACE NAMES heading
+    // and the paragraph filter is "at least ten commas", so it sweeps in some
+    // surrounding prose as well as the four lists - about 150 entries where the
+    // lists themselves are 128. That only makes the guard STRICTER, because
+    // every extra string is one more thing the generator may not produce. What
+    // it means is that this count is not a check on the extraction: the
+    // assertion that the extraction really found the lists is the sample below.
     if (entries.length >= 100) return new Set(entries);
   }
   return null;
@@ -233,6 +241,21 @@ function coreBookNames(): Set<string> | null {
 const coreNames = coreBookNames();
 
 describe.skipIf(coreNames === null)('the Core Book, on the machine that has it', () => {
+  it('really did find the printed lists, and not some other page', () => {
+    /*
+     * The guard above is only worth anything if the window it lifted is the one
+     * with the names in it, and its entry count cannot tell you that - it is
+     * over-inclusive by design and would clear 100 on a page of prose. These
+     * five are the strings a first attempt at these tables emitted verbatim,
+     * which is why they are the sample: if the extraction has drifted off the
+     * lists, the collision test above would pass by looking at nothing.
+     */
+    const printed = coreNames as Set<string>;
+    for (const name of ['Alvyon', 'Hollow Keep', 'Watcher’s Ravine', 'Wicked Smile', 'Idle Fiend']) {
+      expect([...printed].some((entry) => entry.includes(name.replace('’', '’'))), name).toBe(true);
+    }
+  });
+
   it('shares not one string with anything this module can produce', () => {
     const printed = coreNames as Set<string>;
     const folded = new Set([...printed].map((name) => name.toLowerCase()));
@@ -240,6 +263,42 @@ describe.skipIf(coreNames === null)('the Core Book, on the machine that has it',
       (name) => printed.has(name) || folded.has(name.toLowerCase()),
     );
     expect(collisions).toEqual([]);
+  });
+});
+
+describe('the enumeration is tight, not merely a superset', () => {
+  /*
+   * The gap the reachability tests structurally cannot close, closed from the
+   * other side - and the first attempt at it was decoration, which is worth
+   * recording because the reason is not obvious.
+   *
+   * Reachability asserts generator-output ⊆ enumeration, so an enumeration that
+   * GROWS can never fail it; only the pinned `PRODUCIBLE` literal catches that,
+   * and a literal is a number somebody has to remember to move. The obvious
+   * closure - draw with `taken` growing until the generator repeats, then
+   * compare the sets - cannot fail at all: `drawFrom`'s exhaustion fallback
+   * picks out of `space(kind)`, which IS the enumeration, so every member of it
+   * is reachable by construction however unreachable the composer makes it.
+   *
+   * So this drives the composer instead, by drawing with `taken` empty, which
+   * is the path that never reaches the fallback. Coupon collector: the expected
+   * number of draws to see all n is about n(ln n + 0.577), and the cap here is
+   * 30n, which for the largest space is three times the expectation. A member
+   * only the fallback can produce is missing from the result and named.
+   */
+  it.each(NAME_KINDS)('%s: every enumerated string is one the composer builds', (kind) => {
+    const space = enumerateNames(kind);
+    const seen = new Set<string>();
+    const rng = seededRng(7);
+    const none = new Set<string>();
+    const cap = space.length * 30;
+    for (let i = 0; i < cap && seen.size < space.length; i += 1) seen.add(drawName(kind, rng, none));
+
+    const unreachable = space.filter((name) => !seen.has(name));
+    expect(
+      unreachable,
+      `${kind}: enumerated but never composed in ${String(cap)} draws`,
+    ).toEqual([]);
   });
 });
 

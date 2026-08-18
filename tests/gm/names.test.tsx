@@ -12,12 +12,21 @@
  * standing in front of the party.
  *
  * The trick each of those tests uses is the same. The place space is 336
- * strings, all of them enumerable, so the test fills it to within one or two
- * of full through *one* source at a time and then asks what comes out. With one
- * string free there is exactly one right answer, and the assertion is an
- * equality rather than a probability - which matters, because a draw that
- * ignores `taken` entirely still looks correct 99.7% of the time on a single
- * try.
+ * strings, all of them enumerable, so the test fills it through *one* source at
+ * a time and then asks what comes out. A draw that ignores `taken` entirely
+ * still looks correct 99.7% of the time on a single try, so what makes each of
+ * these bite is that there is nothing else it could correctly return.
+ *
+ * **Two shapes, and the difference is not cosmetic.** Where the source under
+ * test is `combatants` - which is also what `fill` uses - one string is left
+ * free and one draw settles it. Where it is `session` or `party`, the string
+ * that source contributes has to be held out of the filler as well, or the test
+ * would pass with the source ignored; that leaves **two** free strings under
+ * the mutation, so a single draw is a coin flip. A first pass at this file
+ * asserted a single draw in both shapes and claimed in this paragraph that one
+ * string was always free: the two tests that need it wrong killed their own
+ * mutation half the time. They draw repeatedly instead, which takes the same
+ * mutation from 50% to better than the 99.7% the other two get.
  *
  * The rng is the real one. This screen is mounted by `Gm.tsx` without a seed
  * and that is what ships, so seeding it here would be testing a component the
@@ -223,6 +232,22 @@ const fill = (keepFree: readonly string[]): void => {
   });
 };
 
+/**
+ * Throw the screen away and put a fresh one up, keeping the store.
+ *
+ * The generator holds the names it has already handed out in its own state, so
+ * a second draw on the same mount is asking a different question. Where a test
+ * needs the same question more than once - because one draw only has a 50%
+ * chance of catching its mutation - it asks it of a new screen each time.
+ */
+const remount = (): void => {
+  act(() => root.unmount());
+  container.remove();
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+};
+
 /** Open the generator on PLACE, with the campaign already loaded. */
 const openOnPlaces = (): void => {
   openNames();
@@ -297,14 +322,23 @@ describe('what it draws', () => {
 
 describe('the campaign is what `taken` is made of', () => {
   it('will not hand back a name that is a row in tonight’s session', () => {
+    // Twelve draws, not one: `viaRow` is held out of the filler so that the
+    // session is the only thing that can take it, which leaves two free strings
+    // if the session is ignored. One draw would then be right half the time.
     const [free, viaRow] = [PLACES[100] as string, PLACES[101] as string];
     fill([free, viaRow]);
     act(() => {
       useGm.setState({ session: [sceneRow(viaRow, 0)] });
     });
-    openOnPlaces();
-    draw();
-    expect(shown()).toBe(free);
+    // Remounted between draws, not drawn twice: the screen adds its own draws
+    // to `taken`, so after the first the space is exhausted and the repeat path
+    // returns anything. A fresh mount asks the same question again.
+    for (let i = 0; i < 12; i++) {
+      openOnPlaces();
+      draw();
+      expect(shown(), `draw ${String(i + 1)} handed back a session row’s name`).toBe(free);
+      remount();
+    }
   });
 
   it('will not hand back the name of something standing on the live scene', () => {
@@ -320,15 +354,19 @@ describe('the campaign is what `taken` is made of', () => {
 
   it('will not hand back a player character’s name', () => {
     // The collision that actually costs the evening something: an NPC named
-    // after somebody at the table.
+    // after somebody at the table. Twelve draws for the same reason as the
+    // session test above - two strings are free if `party` is dropped.
     const [free, viaSheet] = [PLACES[200] as string, PLACES[201] as string];
     fill([free, viaSheet]);
     act(() => {
       useGm.setState({ party: [member(viaSheet, 0)] });
     });
-    openOnPlaces();
-    draw();
-    expect(shown()).toBe(free);
+    for (let i = 0; i < 12; i++) {
+      openOnPlaces();
+      draw();
+      expect(shown(), `draw ${String(i + 1)} handed back a player’s name`).toBe(free);
+      remount();
+    }
   });
 
   it('ignores the empty name a session row is allowed to carry', () => {
@@ -379,7 +417,12 @@ describe('ergonomics, 393 x 852', () => {
 
   it('gives DRAW more than the floor, because it is the tap that repeats', () => {
     openNames();
-    expect(px(drawButton().style.minHeight)).toBeGreaterThanOrEqual(56);
+    // `Names.tsx`'s own docblock says 64: "taller than the 44px floor AND
+    // taller than the 56px the sheets use". This read `>= 56`, so shrinking it
+    // to exactly the value the docblock rules out by name left the suite green
+    // - a test that agreed with the code and disagreed with the sentence
+    // beside it. `> 56` is the claim that was actually made.
+    expect(px(drawButton().style.minHeight)).toBeGreaterThan(56);
   });
 
   it('keeps DRAW out of the scroller, so a growing list cannot push it away', () => {
