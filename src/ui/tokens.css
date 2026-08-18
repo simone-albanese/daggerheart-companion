@@ -281,8 +281,12 @@
    *
    * 44 is the touch floor and the value every width below 390 keeps. From 390
    * up it is 64, and the twenty are the band's own spare rather than anything
-   * taken from a neighbour: the row is `auto repeat(3, 1fr) auto`, so a wider
-   * field simply makes the fifth track wider and the three shared ones narrower.
+   * taken from a neighbour: the row is `auto repeat(3, minmax(min-content, 1fr))
+   * auto`, so the fifth track is exactly this field, the door and the 6px
+   * between them, and widening it takes the twenty out of the three shared
+   * tracks instead. (`auto repeat(3, 1fr) auto` stood here - the template
+   * `playSheet.test.tsx` asserts is the `minmax` one, and the `min-content`
+   * floor is what stops MAJOR's cell painting its label over its neighbour.)
    *
    * IT STEPS BECAUSE 360 CANNOT AFFORD IT. `playSheet.test`'s width budget sums
    * the widest row this sheet draws, and at 64 the band needs a 372.47px

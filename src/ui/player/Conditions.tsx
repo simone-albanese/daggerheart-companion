@@ -253,9 +253,11 @@ function Chip({
  * `ConditionsControl`, 44x44. That door was at the end of the identity's class
  * row until the reflow deleted the identity block; it is at the head of the
  * defence band's fifth cell now, beside the incoming-damage field, in a row the
- * four number cells hold open at 64. Both homes cost the same thing, which is
- * nothing, and the reason is the same: a 44px control inside a band that is
- * taller than it for another reason.
+ * four number cells hold open at 56 - `Defenses` draws them at `4px 6px` on a
+ * phone, so 4 + 10 + 4 + 32 + 4 + 2, and the 64 this said is the cockpit's
+ * band, which draws neither this control nor the field. Both homes cost the
+ * same thing, which is nothing, and the reason is the same: a 44px control
+ * inside a band that is taller than it for another reason.
  *
  * NOTHING IS DRAWN TO SAY NOTHING; SOMETHING IS ALWAYS DRAWN TO SAY SOMETHING.
  * The moment any condition is on - including the Vulnerable that full Stress
@@ -451,15 +453,20 @@ export function ActiveConditions({
  * the column no height. It lived at the end of the identity's class row, held
  * open at 44 by RENAME, until the reflow deleted RENAME and then the whole
  * identity block; the band that offers the same deal now is the defence band's
- * fifth cell, which the four number cells hold open at 64 for their own reasons.
+ * fifth cell, which the four number cells hold open at 56 for their own reasons
+ * - `4px 6px` of padding round a 32px number, so 4 + 10 + 4 + 32 + 4 + 2, and
+ * the 64 that stood here is the cockpit's band, where this control is not drawn.
  *
  * THE WIDTH IS WHAT THAT COSTS, AND IT IS MEASURED RATHER THAN ASSUMED. The four
- * number cells are 210.47 wide at `8px 6px` of padding with the number at 32px,
- * and four 6px gaps are 24, so the fifth track is `column - 234.47`: 134.53 at
- * 393, 116.53 at 375, 101.53 at 360, 97.53 at 356, 85.53 at 344, 61.53 at 320.
- * This control at 44, a 6px gutter and the 44px damage field need 94 of that, so
- * they stand side by side from viewport 353 up and the field wraps under this
- * one below it - the band is 94 instead of 64 there, and nothing is ever clipped
+ * number cells are 210.47 wide at 6px of side padding with the number at 32px,
+ * and four 6px gaps are 24, so the four of them and their gaps are 234.47. The
+ * fifth track was `1fr` and therefore the whole remainder of the column until
+ * 3dff11f made it `auto`; it is exactly the pair now - this control at 44, a 6px
+ * gutter and `--damage-w` - and it measures **114** from viewport 390 up, where
+ * the field is 64, and **94** below it, where the field is 44, at 393, 744 and
+ * 1179 alike, because an `auto` track does not grow with the column. They stand
+ * side by side down to viewport 348 and the field wraps under this one below
+ * that - measured 56 at 348x800 and 94 at 347x800 - and nothing is ever clipped
  * or painted over. What paid for the fit is the caption: the word `TOOK` used to
  * be where this control is, and the field's visible identity is now its `14`
  * placeholder and its position beside the thresholds it is read against.
@@ -469,25 +476,32 @@ export function ActiveConditions({
  * played at.
  *
  * WHERE IT SITS IN THE CELL, WHICH IS BEFORE THE FIELD. Both are at the top of
- * the screen - measured at 393x852, this control's box is 734.5px from a
- * bottom-right pivot at (373, 812) and the field's is 729.0 - so both are more
- * than twice the ~330px sweep `Play.tsx` argues for, neither is reachable
- * without shuffling the grip, and the arc does not decide this.
+ * the screen - measured at 393x852, this control's box centre is 727.9px from a
+ * bottom-right pivot at (373, 812) and the field's is 723.4, and the reach table
+ * in `IncomingDamage`'s docblock in `Vitals.tsx` is the one place those live and
+ * carries the other three viewports - so both are more than twice the ~330px
+ * sweep `Play.tsx` argues for, neither is reachable without shuffling the grip,
+ * and the arc does not decide this. (734.5 and 729.0 stood here: they are the
+ * `flex-start` column of that table, one commit long, and the band's template
+ * has since taken the flexibility out of this track.)
  *
  * What decides it is which of the two a stray tap is cheaper on. This opens a
  * modal that CLOSE dismisses; the field opens a numeric keypad over the sheet
- * mid-scene. The door is therefore the one that takes the outside position,
- * where a thumb travelling in from the PROF cell arrives first.
+ * mid-scene. The door is therefore the one that takes the first position in the
+ * cell, where a thumb travelling in from the PROF cell arrives before it can
+ * reach the field.
  *
  * (This paragraph used to give a second reason - that the field is the cell's
  * subject, so "the newcomer goes outside it rather than between the ladder and
  * the box you type a hit into". `Vitals.tsx` moved the pair to `flex-start` and
- * that sentence stopped being true: measured at 393, the fifth track's contents
- * now start at x246.47, so this control occupies 246.47-290.47 flush against
- * the PROF cell and the field 296.47-340.47, and the door is *exactly* between
- * the ladder and the box. It had a reading under the old `flex-end`, where
- * there were 40.53px of slack between PROF and the door at 393 and 826.53 at
- * 1179; it has none now. DOM order is `{door}{field}` and `justify-content`
+ * then the band's template made the fifth track `auto`, and between them that
+ * sentence stopped being true: the track is exactly the pair, so there is no
+ * slack left in the cell for anything to be outside of. Measured in Chrome at
+ * 393, this control occupies x267-311, across the 6px grid gap from the PROF
+ * cell, and the field x317-381 against the band's right edge, so the door is
+ * *exactly* between the ladder and the box. It had a reading under the old
+ * `flex-end`, where there were 40.53px of slack between PROF and the door at
+ * 393 and 826.53 at 1179; it has none now. DOM order is `{door}{field}` and `justify-content`
  * never reordered it, so the *decision* is unchanged - only the argument that
  * was offered for it, which the code now disproves.)
  *

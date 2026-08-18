@@ -365,21 +365,29 @@ export function Vitals({
  * left and it is not fixed. The paragraph below headed WHERE THE BOX SITS has
  * the derivation, what one word changed, and what the template changed back.
  *
- * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
- * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px
- * field, vertically centred: 44px in a row whose height is already 64. The band
- * does not grow for it, the counters lose 50, and the whole move is a saving of
- * exactly the row it used to be. Measured in Chrome at both widths, with the shipped
- * fonts, in `Defenses`'s own note.
+ * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. This is drawn
+ * on a phone only - `Play.tsx` passes `damage` and `tight` in the same tag and
+ * the cockpit's `<Defenses>` has neither - so the row it rides in is the tight
+ * one: 4 + 10 label + 4 + 32 number + 4 + 2 border = **56px** tall, and the 64
+ * this said is what the cockpit's 8s make. This is a 44px field, vertically
+ * centred: 44 in a row whose height is already 56, six real pixels of clearance
+ * top and bottom. The band does not grow for it, the counters lose 50, and the
+ * whole move is a saving of exactly the row it used to be. Measured in Chrome at
+ * both widths, with the shipped fonts, in `Defenses`'s own note.
  *
  * `door` IS THE CONDITIONS, AND IT TOOK THE CAPTION'S PLACE RATHER THAN A CELL
  * OF ITS OWN. Decision 3 of the reflow needs a permanent 44x44 way into
  * `ConditionsDialog` somewhere that costs the column no height, and the identity
  * class row that used to hold it is being deleted. A sixth grid track does not
- * fit - measured, the four auto cells are 229.63 wide and four 6px gaps are 24,
- * so a fifth cell of 44 + 6 + 44 and a sixth of 44 needs 391.63 of column
- * against 369 at 393px - so the door goes *inside* the fifth cell, and what it
- * replaces is the visible word `TOOK`.
+ * fit - measured, the four auto cells are 210.47 wide and four 6px gaps are 24,
+ * so a fifth cell of 44 + 6 + `--damage-w` is 94 below viewport 390 and 114
+ * from 390 up, and a sixth of 44 behind a fifth 6px gap takes 398.47 of column
+ * against 369 at 393px and 378.47 against 336 at 360 - so the door goes
+ * *inside* the fifth cell, and what it replaces is the visible word `TOOK`.
+ * (`229.63` and `391.63`
+ * stood here, and `Defenses`'s own width budget in `Play.tsx` and
+ * `playSheet.test.tsx`'s «the width this sheet is laid out for» have carried
+ * 210.47 and 398.47 since the padding came down to 6.)
  *
  * WHICH IS A REAL LOSS AND IS THE ONLY ONE. The field's visible identity is now
  * its `14` placeholder and its position beside the thresholds; its accessible

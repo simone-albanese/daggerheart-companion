@@ -744,11 +744,16 @@ function Step({
          * would be reading the serialiser rather than the declaration.
          *
          * `outlineOffset` is the whole of the decision. Positive, it grows past
-         * the border box into the 4px gutter its neighbour is on the other side
-         * of, and the card's `overflow: hidden` clips it; negative, it is drawn
-         * inside a button whose declared 44px width and `--counter-cell` height
-         * above have not moved by a pixel. An outline never took part in layout
-         * either way - this offset is about what is SEEN, not about the target.
+         * the border box and lies across whatever is beside it - inside the card
+         * that is the value target itself, because the row's `gap` is 0 there
+         * and only the two shapes that kept a gutter have 4px to grow into - and
+         * the card's `overflow: hidden` clips the part that escapes. Negative,
+         * it is drawn inside a button whose declared `width: 44` above has not
+         * moved by a pixel, nor has the height that button promises: `height:
+         * var(--counter-cell)` in the two-line row, and `minHeight: 44` under an
+         * `alignSelf: 'stretch'` that takes it to the card's own
+         * `--counter-cell`. An outline never took part in layout either way -
+         * this offset is about what is SEEN, not about the target.
          */
         ...(ringed
           ? {

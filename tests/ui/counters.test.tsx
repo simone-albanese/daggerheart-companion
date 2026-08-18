@@ -148,10 +148,11 @@ function type(field: HTMLInputElement, value: string): void {
  * drawn on.
  *
  * NARROW and not PHONE, and that is the whole argument of the floor sweep
- * below. `--counter-cell` is 48 from viewport 390 up and 44 below it, so a
- * sweep that asked the owner's 393px phone would be reading the generous half
- * of a token and calling the floor safe on the strength of it. 320 is where a
- * floor breaks if it is going to.
+ * below. `--counter-cell` is 90 on the owner's phone, 56 below 390, and
+ * `--counter-num` steps with it, so a sweep that asked the 393px phone would be
+ * reading the generous half of both tokens and calling the floor safe on the
+ * strength of it. 320 is where a floor breaks if it is going to. (48 and 44
+ * stood here; they are the two-line row's cell, which only the cockpit draws.)
  *
  * The numbers come out of `tokens.css` through `tokens.ts`. The line that used
  * to sit here - `if (value === 'var(--tap)') return 44` - was a copy of the
@@ -364,7 +365,10 @@ describe('a counter drawn as a number', () => {
    *
    * The second half is arithmetic over declared terms and cannot fail on its
    * own; it is here, in the same `it` as the two style assertions that do fail
-   * pre-fix, because it is the number that says where the shape stops: 310.
+   * pre-fix, because it is the number that says where the shape stops: 298.
+   * (310 stood here, and it was the floor while the card still carried two 4px
+   * gutters and this sum still left its 1px border out - see the `it`'s own
+   * note on the terms it reads off the DOM.)
    */
   it('lets the cell shrink to the column, down to the 298px where the steppers stop fitting', () => {
     seed();

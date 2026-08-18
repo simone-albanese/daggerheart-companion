@@ -1146,21 +1146,24 @@ describe('the trait row and the roll surface', () => {
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
  *     already committed in this repo and treats the inset as 0. On a
  *     home-indicator iPhone installed as a PWA it is 34px, which would take the
- *     393x852 column from 730 to 696: ROLL would have 311px of margin instead
- *     of 345, and 126 instead of 160 at 375x667 - and the whole folded sheet,
- *     at 697, would be **one pixel over** instead of 33 under. So the fit this
- *     file now asserts is a fit in a browser, and is lost by a hair in the
- *     installed app. Somebody should check the inset on the owner's own phone.
+ *     393x852 column from 730 to 696: ROLL would have 304px of margin instead
+ *     of 338, and 187 instead of 221 at 375x667 - and the whole folded sheet,
+ *     at 600, would still have **96** to spare instead of 130. So the fit this
+ *     file asserts now survives the inset, which it did not when the folded
+ *     sheet was 697 and one pixel over. Somebody should still check the inset
+ *     on the owner's own phone; every number here treats it as 0.
  *
  * NONE OF THOSE FIVE NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
  * them used to: the margin under ROLL on the small phone went from 10px to
- * **160px** when the counters became a grid, and the dearest of them is now
- * typed dice at +68, which leaves 92. It was six states and the dearest was
- * `counterStyle: 'pips'` at +100, leaving 60; decision 7 deleted the
- * preference and the branch, so the 194px shape is not reachable from this
- * screen at all and the bullet went with it rather than being re-costed. That
- * is the number the grid was bought for, it is asserted below rather than told,
- * and this paragraph said 110 against an assertion of 160 for two passes.
+ * **221px** over the reflow, and the dearest of them is now typed dice at +68,
+ * which leaves 153. It was six states and the dearest was `counterStyle:
+ * 'pips'` at +100, leaving 121; decision 7 deleted the preference and the
+ * branch, so that shape is not reachable from this screen at all and the bullet
+ * went with it rather than being re-costed. That is the number the grid was
+ * bought for, and it is asserted below rather than told - `the slack at 375x667
+ * has moved`. (This paragraph said 110 against an assertion of 160 for two
+ * passes, and then 160 and 92 against an assertion of 221 for the whole of the
+ * reflow.)
  *
  * ONE THING IN THE COLUMN IS DELIBERATELY NOT IN EITHER TABLE: the licence
  * notice, which P5-6 put at the end of this scroll. Everything `STACK` and
@@ -1248,13 +1251,15 @@ describe('the budget the pin came off for', () => {
 
   /**
    * What the counters give back below viewport 390, where `--counter-cell` does
-   * not step to 48.
+   * not step to 90.
    *
    * The table below is written at 393 and is also read at 375 and 360, and
-   * since the reflow those two are not the same sheet: the 26px counter value
-   * and its 48px cell are a `min-width: 390` step, so the narrow phones keep
-   * the 44px cell and are 8px shorter. Stated as a term rather than folded into
-   * a second table, because it is one token and one step.
+   * since the reflow those two are not the same sheet: the 38px counter value
+   * and its 90px cell are one `min-width: 390` step, so the narrow phones keep
+   * the 56px cell and are 68px shorter across the grid's two rows. Stated as a
+   * term rather than folded into a second table, because it is one token and
+   * one step - and computed off `tokens.css` below rather than written down,
+   * which is why the sentence is the only place those numbers are spelt out.
    */
   const NARROW_CELLS =
     2 * (resolve('var(--counter-cell)', PHONE) - resolve('var(--counter-cell)', NARROW));
@@ -1299,12 +1304,13 @@ describe('the budget the pin came off for', () => {
     // two targets in the fifth cell are 44 and 44 either side of it.
     { what: 'the defence band · the number at 32/1', px: 32, from: 'css' },
     { what: 'the defence band · .panel border, 1px top and bottom', px: 2, from: 'css' },
-    // The fifth cell is the 44x44 conditions door and a 44px field, vertically
-    // centred in a row the four number cells already hold open at 64. It is in
-    // this table at zero rather than absent from it, because zero is the claim:
-    // the box left the counters, where it cost 44 and a 6px gap, the door left
-    // the identity block, and the band did not grow for either.
-    { what: 'the defence band · the door and the field, inside the 64 already spent', px: 0, from: 'dom' },
+    // The fifth cell is the 44x44 conditions door and a 64x44 field, vertically
+    // centred in a row the four number cells already hold open at 56 - which is
+    // the sum of the five rows immediately above this one, 8 + 10 + 4 + 32 + 2.
+    // It is in this table at zero rather than absent from it, because zero is
+    // the claim: the box left the counters, where it cost 44 and a 6px gap, the
+    // door left the identity block, and the band did not grow for either.
+    { what: 'the defence band · the door and the field, inside the 56 already spent', px: 0, from: 'dom' },
     { what: 'the gap inside the head of the column', px: HEAD_GAP, from: 'dom' },
     /*
      * The one term the reflow SPENDS, and it is read out of `tokens.css` rather
@@ -1407,19 +1413,21 @@ describe('the budget the pin came off for', () => {
   });
 
   /*
-   * The small phone, where the slack used to be ten pixels and is now 245.
+   * The small phone, where the slack used to be ten pixels and is now 221.
    *
    * ROLL cleared a 545px column by 10px before the counters became a 2x2 grid,
    * and that ten was the number the grid was bought with. The reflow moved it
-   * twice and in opposite directions: the first four steps took ROLL's lower
-   * edge from 306 of the column to 282, and then the cockpit's 14px gaps and
-   * the column's new 8px of top padding put it back down to 300. That is the
-   * ergonomic answer to the lift, and it was not the point of the spacing - it
-   * is what the spacing happened to buy.
+   * twice and in opposite directions: deleting the identity block and giving
+   * the counters back a row lifted ROLL a long way up the column, and then the
+   * counter card, the cockpit's 14px gaps and the column's new 8px of top
+   * padding spent part of it again. Where it lands is the assertion below, not
+   * a number written here. That is the ergonomic answer to the lift, and it was
+   * not the point of the spacing - it is what the spacing happened to buy.
    *
-   * 300 and not 308 here, because `--counter-cell` does not step below viewport
-   * 390: at 375 the counters are 94 and not 102. `NARROW_CELLS` is that
-   * difference, read out of `tokens.css` rather than written down.
+   * 324 and not the 392 of the table above, because `--counter-cell` does not
+   * step below viewport 390: at 375 the counters are 118 and not 186.
+   * `NARROW_CELLS` is that difference over the grid's two rows, read out of
+   * `tokens.css` rather than written down.
    *
    * The docblock above lists five ordinary states this table cannot see, and
    * the dearest of them - typed dice, at +68 - leaves 177. It was six, and the
@@ -1457,16 +1465,19 @@ describe('the budget the pin came off for', () => {
    * AND 375x667 IS NO LONGER A MISS AT ALL, WHICH IT HAS BEEN SINCE THIS FILE
    * WAS WRITTEN. It was 204px over, then 152, then 49; the pairing took four
    * fold rows down to two and the small phone now fits the whole folded sheet
-   * with 37px to spare. That is the first time «vedere in una volta sola tutta
+   * with 13px to spare. That is the first time «vedere in una volta sola tutta
    * la scheda» is literally true on the smaller of the two reference phones,
    * and it is asserted here rather than described.
    *
    * MEASURED IN CHROME, and this pass re-measured rather than re-summed: with
    * every fold shut, the distance from the top of the defence band to the
-   * bottom edge of the last fold header is **508.0** at 393 and **500.0** at
-   * 375 and 360, the 8px difference being `--counter-cell`'s step. Add the
-   * column's own 8px of top padding and the sheet takes 516 of column at 393,
-   * which is what `SHEET_BOTTOM` says.
+   * bottom edge of the last fold header is **592.0** at 393 and **524.0** at
+   * 375 and 360, the 68px difference being `--counter-cell`'s step over the
+   * grid's two rows. Add the column's own 8px of top padding and the sheet
+   * takes 600 of column at 393, which is what `SHEET_BOTTOM` says. (508.0,
+   * 500.0 and 516 stood here, from the shape before the counter card; this
+   * file's opening docblock carries the same re-measurement and carried it
+   * alone.)
    */
   it('fits the whole folded sheet on a 393x852 phone, with the slack stated', () => {
     expect(SHEET_BOTTOM, 'the fold index no longer sums to 208 below ROLL').toBe(600);
@@ -1483,9 +1494,9 @@ describe('the budget the pin came off for', () => {
     expect(glass - SHEET_BOTTOM, 'the whole-sheet slack at 393x852 has moved').toBe(130);
     /*
      * AND THE SMALL PHONE, WHICH USED TO BE THE LINE THAT SAID BY HOW MUCH THIS
-     * MISSED. 375x667 fits, for the first time in this file's life: 508 of
-     * sheet against 545 of column, 37 to spare. Asserted as a fit and not as an
-     * overflow, so that the day something takes those 37 back it fails here.
+     * MISSED. 375x667 fits, for the first time in this file's life: 532 of
+     * sheet against 545 of column, 13 to spare. Asserted as a fit and not as an
+     * overflow, so that the day something takes those 13 back it fails here.
      */
     const narrow = SHEET_BOTTOM - NARROW_CELLS;
     expect(narrow, 'the narrow whole sheet no longer sums to 532').toBe(532);
@@ -1808,8 +1819,8 @@ describe('the budget the pin came off for', () => {
       (el) => (el as HTMLElement).style.minHeight === 'var(--counter-cell)',
     );
     expect(rows, 'the four counter cells no longer declare `--counter-cell` each').toHaveLength(4);
-    // And the token is what the table above counted: 48 on this glass, 44
-    // below the 390 step, so this block is 102 here and 94 on a 360px Android.
+    // And the token is what the table above counted: 90 on this glass, 56
+    // below the 390 step, so this block is 186 here and 118 on a 360px Android.
     expect(resolve('var(--counter-cell)', PHONE)).toBe(90);
     expect(resolve('var(--counter-cell)', NARROW)).toBe(56);
     expect(
@@ -2079,15 +2090,16 @@ describe('the width this sheet is laid out for', () => {
     const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
     expect(
       (field.parentElement as HTMLElement).style.flexWrap,
-      'the damage cell cannot wrap, so below 353 its two 44px children overflow their grid ' +
-        'track backwards and paint over the Proficiency panel',
+      'the damage cell cannot wrap, so below 348 its two 44px children - the field is 44 ' +
+        'wide below the 390 step - overflow their grid track backwards and paint over the ' +
+        'Proficiency panel',
     ).toBe('wrap');
 
     /*
      * And the counter cells do not reflow at all - they shrink, which is what
      * `minmax(0, 1fr)` and `Counter`'s `minWidth: 0` are for, and what clips is
      * label ink inside a target that keeps its declared size. `counters.test`
-     * holds that pair and the 310 it bottoms out at.
+     * holds that pair and the 298 it bottoms out at.
      */
     const grid = buttons()
       .find((b) => b.getAttribute('aria-label') === 'HP plus one')!
@@ -2180,8 +2192,8 @@ describe('the conditions, drawn only when there are any', () => {
      */
     expect(
       (door!.parentElement as HTMLElement).style.flexWrap,
-      'the damage cell cannot wrap, so at any width where 44 + 6 + 44 does not fit it paints ' +
-        'over the number beside it instead',
+      'the damage cell cannot wrap, so at any width where 44 + 6 + `--damage-w` - 114 from ' +
+        'viewport 390 up, 94 below it - does not fit, it paints over the number beside it instead',
     ).toBe('wrap');
   });
 

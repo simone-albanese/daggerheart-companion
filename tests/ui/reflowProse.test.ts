@@ -59,6 +59,16 @@ import { NARROW, PHONE, px as resolve, type Device } from './tokens.ts';
 const COCKPIT: Device = { glass: 1280, coarse: false };
 
 /**
+ * The one-pixel band `--counter-num`'s middle step draws in.
+ *
+ * 380 to 389: above the base size and below the card's own raise, and the only
+ * width where `tokens.css` writes the card's seven terms down at 22. It is a
+ * device here because the sentence that states them has to be held to the same
+ * token as the other two, and not to a number.
+ */
+const STEP380: Device = { glass: 384, coarse: true };
+
+/**
  * A file as one line of prose.
  *
  * Comment furniture and line breaks go, because a docblock re-wraps every time
@@ -135,6 +145,23 @@ const gridGap = (): number =>
   declared('src/ui/player/Vitals.tsx', "gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)'", 'gap');
 /** Two cells and the one gap between the rows. */
 const block = (device: Device): number => 2 * cell(device) + gridGap();
+/**
+ * The defence band's fifth cell, which is exactly what is in it.
+ *
+ * The track is `auto`, both children are `flex: none`, and there are three
+ * terms: the conditions door at `--control`, the row's own gutter off
+ * `Vitals`'s declaration, and the field at `--damage-w`. So the sentences that
+ * say "44 + 6 + `--damage-w`" in four files are held to the three tokens rather
+ * than to each other.
+ */
+const damageCell = (device: Device): number =>
+  resolve('var(--control)', device) +
+  declaredBefore(
+    'src/ui/player/Vitals.tsx',
+    "justifyContent: 'flex-start', minWidth: 0, flexWrap: 'wrap'",
+    'gap',
+  ) +
+  resolve('var(--damage-w)', device);
 
 interface Claim {
   /** What the sentence says, for the failure message. */
@@ -322,6 +349,204 @@ const CLAIMS: Claim[] = [
     is: () =>
       declaredBefore('src/ui/player/DualityRoll.tsx', 'setModifiersOpen(!modifiersOpen)', 'minHeight'),
   },
+  // ------------------------------------------ the defence band's fifth cell
+  //
+  // Four files state this cell's two widths and the field's two widths, in two
+  // idioms between them. Every one of the eight numbers below was wrong in at
+  // least one of the four when the reflow finished, which is why they are held
+  // to `--control`, `--damage-w` and the row's declared gutter rather than to
+  // each other. The first idiom is `**114** from viewport 390 up, where the
+  // field is 64, and **94** below it, where the field is 44`.
+  ...(['src/ui/player/Conditions.tsx', 'src/ui/player/Vitals.tsx'].flatMap((file) => [
+    {
+      says: "the band's fifth cell from viewport 390 up",
+      file,
+      find: /\*\*(\d+)\*\* from viewport 390 up, where the field is/g,
+      is: () => damageCell(PHONE),
+    },
+    {
+      says: 'the incoming-damage field from viewport 390 up',
+      file,
+      find: /from viewport 390 up, where the field is (\d+)/g,
+      is: () => resolve('var(--damage-w)', PHONE),
+    },
+    {
+      says: "the band's fifth cell below viewport 390",
+      file,
+      find: /and \*\*(\d+)\*\* below it, where the field is/g,
+      is: () => damageCell(NARROW),
+    },
+    {
+      says: 'the incoming-damage field below viewport 390',
+      file,
+      find: /below it, where the field is (\d+)/g,
+      is: () => resolve('var(--damage-w)', NARROW),
+    },
+  ]) as Claim[]),
+  // And the second, which is the one the two width budgets are written in:
+  // `a fifth of 44 + 6 + `--damage-w` is 94 below viewport 390 and 114 from
+  // 390 up`.
+  ...(['src/ui/player/Play.tsx', 'src/ui/player/Vitals.tsx', 'tests/ui/playSheet.test.tsx'].flatMap(
+    (file) => [
+      {
+        says: "the band's fifth cell below viewport 390",
+        file,
+        find: /`--damage-w` is (\d+) below viewport 390 and \d+ from 390 up/g,
+        is: () => damageCell(NARROW),
+      },
+      {
+        says: "the band's fifth cell from viewport 390 up",
+        file,
+        find: /`--damage-w` is \d+ below viewport 390 and (\d+) from 390 up/g,
+        is: () => damageCell(PHONE),
+      },
+    ],
+  ) as Claim[]),
+  // The width budget resolves the same token twice and states both values in a
+  // comment over the term, which is the third idiom and the third place it went
+  // stale before.
+  {
+    says: 'the incoming-damage field below viewport 390',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /(\d+) below viewport 390 and \d+ from 390 up\. Resolved NARROW/g,
+    is: () => resolve('var(--damage-w)', NARROW),
+  },
+  {
+    says: 'the incoming-damage field from viewport 390 up',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /below viewport 390 and (\d+) from 390 up\. Resolved NARROW/g,
+    is: () => resolve('var(--damage-w)', PHONE),
+  },
+  {
+    says: 'the incoming-damage field in the vertical budget\'s own table',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /conditions door and a (\d+)x44 field/g,
+    is: () => resolve('var(--damage-w)', PHONE),
+  },
+  // ------------------------------------------- the step, where it is named
+  //
+  // `NARROW_CELLS` is the term the small-phone budget is written around, and
+  // its docblock spelt every one of these out at the pre-card values.
+  {
+    says: 'the counter number the cell steps with',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /the (\d+)px counter value and its \d+px cell/g,
+    is: () => resolve('var(--counter-num)', PHONE),
+  },
+  {
+    says: 'the counter cell from viewport 390 up',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /counter value and its (\d+)px cell/g,
+    is: () => cell(PHONE),
+  },
+  {
+    says: 'the counter cell below viewport 390',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /narrow phones keep the (\d+)px cell/g,
+    is: () => cell(NARROW),
+  },
+  {
+    says: 'what the step is worth over the grid\'s two rows',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /are (\d+)px shorter across the grid's two rows/g,
+    is: () => block(PHONE) - block(NARROW),
+  },
+  {
+    says: 'the counter cell from viewport 390 up',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /counted: (\d+) on this glass/g,
+    is: () => cell(PHONE),
+  },
+  {
+    says: 'the counter cell below viewport 390',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /on this glass, (\d+) below the 390 step/g,
+    is: () => cell(NARROW),
+  },
+  {
+    says: 'the 2x2 block on the owner s phone',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /so this block is (\d+) here and \d+ on a 360px Android/g,
+    is: () => block(PHONE),
+  },
+  {
+    says: 'the 2x2 block on a 360px Android',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /here and (\d+) on a 360px Android/g,
+    is: () => block(NARROW),
+  },
+  {
+    says: 'the 2x2 block on the owner s phone',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /this block is (\d+) on the glass this table is written for/g,
+    is: () => block(PHONE),
+  },
+  {
+    says: 'the 2x2 block on a 360px Android',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /written for and (\d+) on a 360px Android/g,
+    is: () => block(NARROW),
+  },
+  {
+    says: 'the 2x2 block on a 360px Android',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /at 375 the counters are (\d+) and not \d+/g,
+    is: () => block(NARROW),
+  },
+  {
+    says: 'the 2x2 block on the owner s phone',
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /the counters are \d+ and not (\d+)/g,
+    is: () => block(PHONE),
+  },
+  // ------------------------------------------------- the card's seven terms
+  //
+  // The sum that was `7 + 11 + ...` in three files and `= 85` in a fourth. The
+  // number is the only term of it that steps, so it is the one held here.
+  ...(['src/ui/tokens.css', 'tests/ui/counters.test.tsx', 'tests/ui/stylesheets.test.ts'].map(
+    (file) => ({
+      says: "the number in the card's seven terms, from 390 up",
+      file,
+      find: /7 \+ 13 \+ 6 \+ (\d+) \+ 6 \+ 10 \+ 7/g,
+      is: () => resolve('var(--counter-num)', PHONE),
+    }),
+  ) as Claim[]),
+  {
+    says: "the number in the card's seven terms, on a narrow phone",
+    file: 'src/ui/tokens.css',
+    find: /at 360 the card is 3 \+ 13 \+ 2 \+ (\d+) \+ 2 \+ 10 \+ 3/g,
+    is: () => resolve('var(--counter-num)', NARROW),
+  },
+  {
+    says: "the number in the card's seven terms, on a narrow phone",
+    file: 'tests/ui/counters.test.tsx',
+    find: /3 \+ 13 \+ 2 \+ (\d+) \+ 2 \+ 10 \+ 3 is 51/g,
+    is: () => resolve('var(--counter-num)', NARROW),
+  },
+  // And the one-pixel band between 380 and 389, which states the same seven
+  // terms at the middle size and is the reason this claim is not the one above
+  // with a looser regex.
+  {
+    says: "the number in the card's seven terms, in the 380 step",
+    file: 'src/ui/tokens.css',
+    find: /three lines at 3 \+ 13 \+ 2 \+ (\d+) \+ 2 \+ 10 \+ 3/g,
+    is: () => resolve('var(--counter-num)', STEP380),
+  },
+  // And the counterfactual `stylesheets` argues the one query from, which is
+  // the WIDE number inside the NARROW cell - so it is pinned to both tokens
+  // and not to the narrow sum above.
+  {
+    says: 'the number the cell would have to hold if the query split',
+    file: 'tests/ui/stylesheets.test.ts',
+    find: /2 \+ (\d+) \+ 2 \+ 10 \+ 3 is 71 of content/g,
+    is: () => resolve('var(--counter-num)', PHONE),
+  },
+  {
+    says: 'the cell it would overflow',
+    file: 'tests/ui/stylesheets.test.ts',
+    find: /inside a (\d+)px cell - seventeen pixels/g,
+    is: () => cell(NARROW),
+  },
 ];
 
 describe('the prose the reflow left behind', () => {
@@ -359,8 +584,33 @@ describe('the prose the reflow left behind', () => {
     expect(cell(PHONE), '--counter-cell no longer resolves on the phone').toBeGreaterThan(0);
     expect(cell(NARROW), '--counter-cell no longer resolves on a narrow phone').toBeGreaterThan(0);
     expect(cell(PHONE)).not.toBe(cell(NARROW));
-    expect(gridGap(), "the counter grid's gap is no longer declared where this reads it").toBe(6);
-    expect(block(PHONE)).toBe(2 * cell(PHONE) + gridGap());
+    expect(
+      gridGap(),
+      "the counter grid's gap is no longer declared where this reads it",
+    ).toBeGreaterThan(0);
+    /*
+     * AND NOT `toBe(6)`, WHICH IS WHAT STOOD HERE. Six is a number, and a
+     * number written in this file is the second copy this file exists to
+     * prevent - `playSheet`'s «the terms this budget can read, it reads» is
+     * where the gap's value is held, against the DOM. What can be asked here is
+     * that the anchor still finds a gap at all, which is the failure the
+     * paragraph above is about.
+     *
+     * There is no assertion on `block` either. It is DEFINED as
+     * `2 * cell + gridGap()`, so `expect(block(PHONE)).toBe(2 * cell(PHONE) +
+     * gridGap())` was a line that could not go red for any tree - the exact
+     * thing the docblock at the top of this file calls worse than no test. Its
+     * two terms are each checked above, and that is the whole of what there is
+     * to check.
+     */
+    expect(damageCell(PHONE), 'the defence band\'s fifth cell no longer resolves').toBeGreaterThan(
+      resolve('var(--control)', PHONE),
+    );
+    expect(
+      damageCell(PHONE),
+      'the fifth cell stopped stepping with `--damage-w`, so the four files that state both ' +
+        'its widths are being held to one number',
+    ).not.toBe(damageCell(NARROW));
     const mods = declared(
       'src/ui/player/DualityRoll.tsx',
       'setModifiersOpen(!modifiersOpen)',

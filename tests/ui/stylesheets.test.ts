@@ -376,10 +376,16 @@ describe('the pip tokens', () => {
     expect(raising[2]).toMatch(/min-width:\s*1180px/);
     expect(raising[2]).toMatch(/--counter-num:\s*26px/);
     /*
-     * The three raises are in ONE query and it is the same one. A 26px number
-     * in a 44px cell has 1px of margin, and a 26px number beside an 11px
-     * maximum in a cell that did not grow clips its own tail - measured, 68.94
-     * of ink into 65.5 of room. Splitting them is how that ships.
+     * The three raises are in ONE query and it is the same one, because the
+     * number and the box that holds it are a single decision. Split them and
+     * the card draws its seven terms with the narrow padding and gap around the
+     * wide number: 3 + 13 + 2 + 38 + 2 + 10 + 3 is 71 of content, 73 with the
+     * border, inside a 56px cell - seventeen pixels of overflow on each of the
+     * four counters. Splitting them is how that ships. (`a 26px number
+     * in a 44px cell`, `an 11px maximum` and `68.94 of ink into 65.5 of room`
+     * stood here. They are the two-line ROW, which only the cockpit draws now,
+     * and `--counter-max` never reaches 11 on a phone - the assertion twelve
+     * lines below is that it does not step at all.)
      */
     expect(
       raising[1],
@@ -387,8 +393,11 @@ describe('the pip tokens', () => {
     ).toMatch(/--counter-cell:\s*90px/);
     /*
      * And the padding and the gap step with it, because the cell's height is
-     * the sum of all four: 7 + 11 + 6 + 38 + 6 + 10 + 7 = 85 inside 88 of
-     * inner. A number that stepped without them would overflow its own cell.
+     * the sum of all seven terms: 7 + 13 + 6 + 38 + 6 + 10 + 7 = 87 inside 88
+     * of inner. A number that stepped without them would overflow its own cell.
+     * (`7 + 11 + ... = 85` stood here, and in `tokens.css` and `Counter.tsx`
+     * until this pass: the first line is the 13px silhouette and not the 11px
+     * name inside it, and 85 is a sum no card has ever drawn.)
      */
     expect(raising[1], 'the card padding stopped stepping with the number').toMatch(
       /--counter-pad:\s*7px/,

@@ -2596,8 +2596,9 @@ function PlayDesktop({
  * conclusion is now reversed, because its premise moved. Against declared
  * heights at 393x852, every fold shut and nothing armed: the defence band 56 -
  * which carries the incoming-damage field *and* the conditions door as its
- * fifth cell, for nothing, because two 44px controls fit inside a row the
- * numbers hold open at 64 - the four counters **186** as a 2x2 grid of cards,
+ * fifth cell, for nothing, because a 44x44 door and a 64x44 field both fit
+ * inside a row the numbers hold open at that same 56, six pixels of clearance
+ * either side of each - the four counters **186** as a 2x2 grid of cards,
  * the trait row 44, and the roll row 56, a floor rather than the hard 66 it was,
  * with the ten pixels the first of the reflow's savings. ROLL stands beside a
  * MODS control that costs the column nothing, because it is 44 wide inside a
