@@ -3,8 +3,12 @@
  * one QR code, and lose nothing. The size tests print real numbers rather than
  * only asserting a bound, because the number is the design.
  */
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../../shared/types.ts';
+import { stripComments } from '../harness/reachability.ts';
 import {
   CODEC_VERSION,
   READABLE_CODEC_VERSIONS,
@@ -40,6 +44,17 @@ const reseal = (payload: Uint8Array): Uint8Array => {
   out[4] = sum & 0xff;
   return out;
 };
+
+/** Every source file under `src/`, for the copy check on the warning below. */
+const SRC = fileURLToPath(new URL('../../src', import.meta.url));
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return sourceFiles(path);
+    return /\.tsx?$/.test(entry) && !/\.d\.ts$/.test(entry) ? [path] : [];
+  });
+}
 
 const roundTrip = async (c: Character): Promise<Character> => {
   const payload = await encodeCharacter(c, testRegistry);
@@ -209,6 +224,70 @@ describe('size', () => {
     console.log(`  loaded sheet: ${payload.length} bytes, ${framesNeeded(payload.length)} frames`);
     expect(framesNeeded(payload.length)).toBeLessThanOrEqual(15);
     expect(payload.length).toBeGreaterThan(MAX_CHUNK_BYTES / 2);
+  });
+});
+
+describe('the sentence the player reads about a parked reference', () => {
+  /**
+   * This warning is the one string in the codec that a person reads, and for
+   * most of this file's life it ended *"They are kept on the sheet and will
+   * resolve when the missing source is added."* - a repair no code path in
+   * `src/` performs. `resolvePlaceholders` is the only code that turns a
+   * placeholder back into a slug, its callers are the three test files that
+   * import it, and `tests/harness/orphans.test.ts` holds it as a declared,
+   * still-unwired seam. `Transfer.tsx` renders this text verbatim through the
+   * import report, so the promise was made on screen, to the person least able
+   * to check it.
+   *
+   * BACKLOG P1-6's third box says it: until the resolver is wired, this
+   * sentence must not promise a repair that never happens. So these tests pin
+   * the honest half - what the codec does do - and forbid the promise in any
+   * user-visible string anywhere in `src/`, which is the way it would creep
+   * back.
+   */
+  const decodeWithout = async (
+    slug: string,
+  ): Promise<{ warning: string; unresolvedId: number }> => {
+    const payload = await encodeCharacter(wizard(), testRegistry);
+    const { warnings } = await decodeCharacter(payload, registryWithout(slug));
+    expect(warnings).toHaveLength(1);
+    return { warning: warnings[0]!, unresolvedId: testRegistry.idOf(slug)! };
+  };
+
+  it('promises no repair, because nothing in src performs one', async () => {
+    const { warning } = await decodeWithout('book-of-korvax');
+    expect(warning).not.toMatch(/will resolve/i);
+    expect(warning).not.toMatch(/resolves? (?:itself|themselves|when)/i);
+    expect(warning).not.toMatch(/missing (?:source|content) (?:is added|turns up|arrives)/i);
+  });
+
+  it('says what does happen: the ids stay, they travel, and nothing names them', async () => {
+    const { warning, unresolvedId } = await decodeWithout('book-of-korvax');
+    expect(warning).toContain(String(unresolvedId));
+    expect(warning).toMatch(/could not be found/);
+    // Kept, and forwarded - the two properties the tests below actually pin.
+    expect(warning).toMatch(/stay on the sheet/);
+    expect(warning).toMatch(/passed on unchanged/);
+    // And the limits, said out loud: no card is drawn for one, and no later
+    // event repairs it.
+    expect(warning).toMatch(/do not appear as cards/);
+    expect(warning).toMatch(/nothing repairs them later/);
+  });
+
+  it('leaves no user-visible string in src promising a parked ref will heal', () => {
+    // Comments are stripped first: the codec's own comment quotes the old
+    // sentence to say why it is gone, and history is not a promise. Only
+    // strings that can reach a screen count.
+    const promise = /will resolve when|resolves? (?:itself|themselves) when|will (?:heal|repair)/i;
+    const offenders = sourceFiles(SRC)
+      .filter((path) => promise.test(stripComments(readFileSync(path, 'utf8'))))
+      .map((path) => relative(SRC, path).split(sep).join('/'));
+    expect(
+      offenders,
+      'these promise a parked reference will heal, and no code in src heals one:\n' +
+        offenders.map((f) => `  ${f}`).join('\n') +
+        '\n\nWire resolvePlaceholders (BACKLOG P1-6) or keep the copy honest.',
+    ).toEqual([]);
   });
 });
 
