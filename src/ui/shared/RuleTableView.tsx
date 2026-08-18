@@ -18,29 +18,42 @@
  * roll on p.112 - is drawn as a two-column grid, header row included, because
  * that is what it is and it fits.
  *
- * **The width this used to name was wrong, and no replacement is stated here.**
- * It read "393 - 24 of the region's padding - 4 of the row's own = 365px", which
- * omits the row itself: `SessionRow` draws a `.panel` with `padding: 4px 6px`, a
- * 3px `borderLeft` and the class's own 1px border, under a global
- * `box-sizing: border-box`. `SessionRow.tsx:7-15` puts that panel's content box
- * at 353 on a 393px phone, measured in Chrome, and a table reached from a
- * session row sits inside the open block below that again - while `Wizard` and
- * `ReferenceTables` draw this same view where none of those subtractions apply
- * at all. Deriving a fourth number on paper would be the same mistake once
- * more, and this repo takes its measurements from a browser. **Measure it
- * before you write one down.**
+ * **The width this used to name was wrong, and the route it was named for still
+ * has none.** It read "393 - 24 of the region's padding - 4 of the row's own =
+ * 365px", which omits the row itself: `SessionRow` draws a `.panel` with
+ * `padding: 4px 6px`, a 3px `borderLeft` and the class's own 1px border, under a
+ * global `box-sizing: border-box`. `SessionRow.tsx:7-15` puts that panel's
+ * content box at 353 on a 393px phone, measured in Chrome, and a table reached
+ * from a session row sits inside the open block below that again.
  *
- * The conclusion does not depend on the figure, which is why the shapes are safe
- * meanwhile: two `minmax(0, 1fr)` columns at a 10px gap are ~170-177 each on any
- * of the candidate widths. The widest first cell in
- * the shipped dataset is 42 characters at `.t-read` (13px/1.45, about 6.3px a
- * character), which is two lines inside 177; a row is about 38px and the
- * twelve-row table roughly 470, inside a region that already scrolls.
+ * The subtraction that arithmetic got *right* is the one every caller pays.
+ * There are two call sites in the tree - `Wizard.tsx:1584` and
+ * `ReferenceTables.tsx:952` - and the second is not a separate path: it sits
+ * inside `BlockView`, which is what `SessionBody.tsx:540` calls for exactly the
+ * session row above, and which the reference region reaches as well through
+ * `GmMoves` (`ReferenceTables.tsx:845`) and `AdversaryExperiences` (`:899`).
+ * What those reference-region routes and the wizard escape is the `.panel`, not
+ * the region padding: the reference scroller declares
+ * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:130`) and the wizard's
+ * `'14px 12px 20px'` (`Wizard.tsx:358`) - 12px each side either way, the same
+ * 24 - so they draw this view in the 369px column `ReferenceTables.tsx:74`
+ * already names, not across the whole 393. The number still missing is the one
+ * under a session row's panel and inside its open block; deriving that on paper
+ * would be the same mistake once more, and this repo takes its measurements from
+ * a browser. **Measure it before you write one down.**
+ *
+ * The conclusion does not depend on that figure, which is why the shapes are
+ * safe meanwhile: two `minmax(0, 1fr)` columns at a 10px gap are 179.5 each at
+ * 369 and 171.5 at the panel's 353, narrower again inside the open block. The
+ * widest first cell in the shipped dataset is 42 characters at `.t-read`
+ * (13px/1.45, about 6.3px a character) = 265px, which is two lines in any column
+ * down to 133; a row is about 38px and the twelve-row table roughly 470, inside
+ * a region that already scrolls.
  *
  * **More than one** - up to five columns, with cells up to 176 characters -
  * becomes one panel a row: the first cell as its title, every other cell under
- * the header that names it. Five columns across that column would be about 70px
- * each, which is
+ * the header that names it. Five columns across that column would be 70px each
+ * at 353 and 74 at 369, which is
  * about eleven characters a line; that is the same measurement that made
  * `FearGuide` and `DifficultyLadder` stacked panels rather than grids, and it
  * is why neither shape here can push a phone sideways.

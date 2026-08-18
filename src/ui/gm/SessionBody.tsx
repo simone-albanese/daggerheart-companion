@@ -91,7 +91,8 @@
  * are the other candidate and are not one: `RuleTableView` declares no width at
  * all, and its two shapes hold across every candidate width for this row - see
  * `RuleTableView`, which says why the 365 that used to stand here was wrong and
- * why no number replaces it until somebody measures one in a browser.
+ * why this row is the one route to that view whose width nobody has measured in
+ * a browser yet.
  */
 import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
