@@ -405,8 +405,9 @@ describe('where the licence notice went', () => {
     await mountOn('cards', () => text().includes(NOTICE));
     expect(
       container.querySelector('main > footer'),
-      'Cards has gone back to a pinned licence strip, which is ~111px of a 393px phone ' +
-        'spent permanently on something a reader looks at once',
+      'Cards has gone back to a pinned licence strip, which is at least the 126.16px this ' +
+        'notice measures on a 369px column at 393x852 - a pinned one also paints a panel and ' +
+        'its own padding - spent permanently on something a reader looks at once',
     ).toBeNull();
     expect(
       container.querySelector('footer')!.closest('.scroll'),

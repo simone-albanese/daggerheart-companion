@@ -26,8 +26,11 @@
  * What it gets wrong is in its own second sentence: it names the trade that GM
  * takes - a scroll position instead of a band - approves of it, and then does
  * not take it here, on three screens that scroll just as well. So the sibling
- * was a fixed strip costing every one of them ~111px of a 393px phone forever,
- * to say something a reader looks at once. The notice is now the last thing in
+ * was a fixed strip costing every one of them at least the 126.16px the notice
+ * measures on a 369px column at 393x852 - a pinned one paid a panel and its own
+ * padding on top - forever, to say something a reader looks at once. (The
+ * "~111px" that stood here is the estimate the quote above it makes, and it was
+ * short: `LicenceFooter.tsx` carries the measurement.) The notice is now the last thing in
  * each screen's own scrolling content, which is that same trade taken five
  * times instead of once, and Play is not an exception any more: see
  * `LicenceFooter.tsx`, which also now decides on its own who pays

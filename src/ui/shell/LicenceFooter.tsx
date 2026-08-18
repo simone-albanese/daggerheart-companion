@@ -58,11 +58,18 @@
  * ## What it costs now, which is a scroll position and not a band
  *
  * The notice is verbatim: 342 characters that cannot be trimmed. On a 393px
- * phone inside Play's column the text runs 393 − 24 of page padding − 22 for
- * the icon and its gap = 347px wide; Archivo at `.t-dense`, 11.5px/1.38,
- * averages about 5.4px per character, so 342 characters is ~1847px of text -
- * six lines, 95px, plus the 12px rule gap above and 18px below = ~125px. On a
- * 1024px tablet the same text is two lines, ~48px. There is no typographic
+ * phone inside a 369px column the text runs 369 − 22 for the icon and its gap =
+ * 347px wide, and this `<footer>` measures **126.16px** there - 95.16 of text
+ * in six lines, plus the 12px rule gap above, the 18px foot below and the 1px
+ * rule itself. Measured in Chrome at 393x852 inside the GM session list with
+ * the rig in `AUDIT-HANDOFF.md`, and the same 126 is recorded in
+ * `Architecture.md` and `BACKLOG.md`. The estimate that stood here - 5.4px a
+ * character, ~1847px of text, "six lines, 95px [...] = ~125px" - was right
+ * about the text to a fifth of a pixel and short by the border it forgot to
+ * add, which is the whole of the difference. The `marginTop: 18` below is not
+ * in the 126.16 and is what separates the notice from the last thing above it.
+ * On a 1024px tablet the same text is two lines, ~48px - that one is still an
+ * estimate and nobody has measured it. There is no typographic
  * trick that beats this; 9px would fit it in 70px and this project's own type
  * ramp says Archivo never runs at 400 below 11.5px. Every pixel of it is now
  * below the last thing anybody scrolls for.

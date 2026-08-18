@@ -69,24 +69,30 @@
  * shut rows whole, nine with a countdown pinned. Any figure here without one
  * of those two conditions on it is not a figure about this screen.
  *
- * Two numbers in this docblock were measured by nobody and are not vouched for
- * by the pass that produced the rest: the 820px reading maximum above, and the
- * licence notice's ~111px below. They stand as they were written. If either
- * starts carrying weight, measure it.
+ * One number in this docblock is still measured by nobody and is not vouched
+ * for by the pass that produced the rest: the 820px reading maximum above. It
+ * stands as it was written. If it starts carrying weight, measure it. The
+ * licence notice used to be named here beside it; it is measured now, below.
  *
  * ## The licence notice is the last thing in this scroll, and that is the point
  *
  * It used to be a pinned strip above the tab bar on every screen but Play.
- * Verbatim it is 342 characters - six lines and ~111px on a 393px column, an
- * estimate nobody has measured - and pinned here it would take that band out
- * of the band below the shell header, and that band was measured directly
- * rather than subtracted: `main` is 752.00 tall at 393x852 with a 47px top
- * inset. It would sit between the plan and the two verbs a GM presses all
- * evening. The share that stood here, "17% of the 653px that is not shell
- * header", was wrong in both halves: 653 does not follow even from the 99 it
- * was reasoning from, and the band is 752.00. No percentage replaces it,
- * because the ~111 it would divide has never been measured; that one wants the
- * rig before it is quoted again. What the notice must not be is the thing
+ * Verbatim it is 342 characters, and in this scroll at 393x852 the
+ * `LicenceFooter` block measures **126.16px** on this region's 369px column -
+ * six lines of text at 95.16, plus 12 of rule gap above, 18 of foot below and
+ * the 1px rule itself. Measured in Chrome with the rig in `AUDIT-HANDOFF.md`;
+ * `Architecture.md` and `BACKLOG.md` both record the same 126. Pinned here it
+ * would take that band out of the band below the shell header, and that band
+ * was measured directly rather than subtracted: `main` is 752.00 tall at
+ * 393x852 with a 47px top inset. It would sit between the plan and the two
+ * verbs a GM presses all evening. The share that stood here, "17% of the 653px
+ * that is not shell header", was wrong in both halves: 653 does not follow even
+ * from the 99 it was reasoning from, and the band is 752.00. The share is
+ * **16.78%** - 126.16 of 752.00, two measured numbers and nothing else. The
+ * "~111px" that stood in place of the 126.16 for three sentences of this
+ * docblock was an estimate of the *pinned* strip, which painted a panel and its
+ * own horizontal padding; it was never a figure about the block this screen
+ * draws. What the notice must not be is the thing
  * that *leaves*: the DPCGL asks for the notice to be displayed,
  * `Architecture.md` says twice that it is always visible in the footer, and a
  * layout budget is not a reason to drop a licence obligation.
@@ -198,9 +204,12 @@ export function SessionList({
         every list before the GM has written the night, it floated down to sit
         above `GmBar` and looked and cost exactly like the fixed strip the other
         screens had. That is the behaviour the owner objected to. Without it the
-        notice is simply the last block of the list, ~111px below whatever the
-        GM last wrote, and a plan with three rows in it gets those 111px back as
-        list.
+        notice is simply the last block of the list: a 126.16px block 18px below
+        whatever the GM last wrote - `LicenceFooter`'s own `marginTop: 18`, and
+        the only gap between them, because this scroll's stack sets none - so a
+        plan with three rows in it gets 144.16px back as list. Measured in
+        Chrome at 393x852 on this region's 369px column; the "~111px" that stood
+        here twice was an estimate of the pinned strip, which is not this.
 
         The negative side margins went with it. `LicenceFooter` no longer paints
         a panel or sets a horizontal padding of its own, so there is nothing to
