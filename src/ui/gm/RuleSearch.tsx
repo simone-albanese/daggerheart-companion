@@ -67,10 +67,13 @@
  *
  * Measured in Chrome at 393 x 852 with a coarse pointer, not derived: the
  * sheet's inner column is 363px, the field row is 44px tall and sits on the
- * sheet's bottom edge with 14px of padding under it, a group header is 10px,
- * and a shut hit is 44px when the title carried the match, 56.7 or 72.6 when a
- * body line is previewed under it, and 82.6 for the one that also has to say
- * the match is inside a table.
+ * sheet's bottom edge with 14px of padding under it, and a group header is
+ * 10px. A shut hit is 44px whenever what it carries fits inside that floor,
+ * which is every title-only hit, every table hit, and every preview that comes
+ * to a single line; 56.7 at two preview lines and 72.6 at three. The tallest
+ * measured is 82.6, and it is not a preview that did it: `The Witherwild:
+ * Campaign Mechanics` is long enough to wrap its own title in a 363px column,
+ * which puts 10px on the header before the three lines under it.
  *
  * Empty, the sheet is 308.2px - a little over a third of the window. Typing
  * fills it upward: `countdown` finds seven sections and takes it to 632.4px,
@@ -102,10 +105,12 @@
  * carries the title, the page stamp and the matched line: one target, read left
  * to right, pressed anywhere.
  *
- * CLEAR exists because `type="search"` does not draw its own clear button on
- * either mobile browser this app is used in, and the sheet's promise - that
- * emptying the field brings the two doors straight back - is worth one tap
- * rather than twenty backspaces. It appears with the first character: measured,
+ * CLEAR is drawn rather than left to `type="search"`, whose own clear button
+ * is the user agent's to draw or not - this machine's desktop Chrome draws
+ * one; this lane had no phone to find out what the two that matter do - and
+ * the sheet's promise, that emptying the field brings the two doors straight
+ * back, is not a promise to leave to a UA. It is worth one certain tap rather
+ * than twenty backspaces. It appears with the first character: measured,
  * CLEAR is 58 x 44 and the row's gap is 8, so the field goes from 363px to
  * 297px the moment a character lands. That reflow happens once, while the GM is
  * looking at the keyboard rather than at the field, and the alternative is a
