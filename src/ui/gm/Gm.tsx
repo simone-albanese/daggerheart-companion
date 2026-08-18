@@ -325,9 +325,12 @@ export function Gm(): React.JSX.Element {
  * its one control is a decision rather than a reflex. The strip's inner column
  * is 393 − 24 of page margin − 24 of padding = 345px, so the store's longest
  * sentence is four lines at `.t-dense`; with the label and the button the block
- * is about 143px, which takes the session list from 551px (nine rows) to about
- * 400 (six). It is on screen only while writes are actually failing, and six
- * rows of a night the app is losing is the right trade.
+ * is about 143px, which takes the session list from the 548.00 measured in
+ * `SessionList.tsx` to about 405. (551 and its nine rows stood here and both
+ * counted three 1px rules out of existence; 143 was never measured and is
+ * still an estimate, so the row count it implies is not asserted here.) It is
+ * on screen only while writes are actually failing, and a night's plan cut by
+ * a quarter while the app is losing it is the right trade.
  *
  * TRY AGAIN is a chip at `minHeight: var(--control)` - 34px against a precise
  * pointer, 44 on every phone and tablet - and deliberately not the full 345px
@@ -425,7 +428,10 @@ function NotSaved({
  * the 560-820 band a right thumb covers, because it is read rather than
  * answered. The column is 393 − 24 of page margin − 24 of padding = 345px, so
  * the store's sentence is three lines at `.t-dense` and the block is about
- * 100px: the list goes from nine rows to seven while it is up. Its only control
+ * 100px, taken off the 548.00 the list measures. ("Nine rows" stood here and
+ * was never the count - see `SessionList.tsx`, which measures eight whole and
+ * a readable ninth; 100 is an estimate and what it leaves is not asserted.)
+ * Its only control
  * is the ✕ every dismissal in this app uses, `var(--control)` square - 44 on a
  * phone - in the top corner, away from the text it removes.
  */

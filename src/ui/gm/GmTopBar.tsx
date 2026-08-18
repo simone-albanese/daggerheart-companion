@@ -48,7 +48,12 @@
  *                `+` 44 + 3 gaps = 174, and the name takes the remaining 187,
  *                ellipsised, with the whole of it on `title`.
  *
- * With 6 + 6 + 8 of padding and gap that is 108px pinned, 158 with a countdown.
+ * With 6 + 6 + 8 of padding and gap, and this bar's own 1px `border-bottom`,
+ * that is **109.00** pinned and **159.00** with a countdown - both measured in
+ * Chrome at 393x852. The 108 and 158 that stood here dropped the hairline, and
+ * they were not alone in it: `SessionList.tsx` had the same omission three
+ * more times over, and its scroll section is where the whole pattern is
+ * written down.
  * The pips are **off** at this width: twelve diamonds are 210 of the 369, and
  * the GM this screen was described by was explicit that they are not what gets
  * read.

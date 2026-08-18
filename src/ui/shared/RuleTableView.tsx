@@ -37,7 +37,12 @@
  * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:130`) and the wizard's
  * `'14px 12px 20px'` (`Wizard.tsx:358`) - 12px each side either way, the same
  * 24 - so they draw this view in the 369px column `ReferenceTables.tsx:74`
- * already names, not across the whole 393. The number still missing is the one
+ * already names, not across the whole 393. **That 369 is itself 2px too
+ * generous wherever it means the reference region**: `GmSheet`'s panel is
+ * border-box with a 1px border (`GmSheet.tsx:91`), so the measured column at
+ * 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369
+ * inherits it, and none of them has been re-measured. The number still missing
+ * is the one
  * under a session row's panel and inside its open block; deriving that on paper
  * would be the same mistake once more, and this repo takes its measurements from
  * a browser. **Measure it before you write one down.**

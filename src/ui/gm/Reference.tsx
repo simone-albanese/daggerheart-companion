@@ -32,10 +32,21 @@
  *
  * ## Ergonomics, 393 x 852
  *
- * It draws inside `GmSheet size="full"`, which is the window's width less a
- * 44px title row. This region pads `10px 12px 16px` on a phone, so the column
- * is 369px; at 744 and 1024 it pads `14px 20px 18px` for 704 and 984; the sheet
- * caps at 1100, so the widest column is 1060.
+ * It draws inside `GmSheet size="full"`. That panel is `width: 100%` and
+ * border-box with `border: 1px solid var(--line)` (`GmSheet.tsx:91`), so at
+ * 393 its content box is **391.00**, not 393. This region pads `10px 12px
+ * 16px` on a phone, so the column is **367.00** - measured in Chrome, and the
+ * 369 that stood here was 393 − 24 with the sheet's own border spent nowhere.
+ * (The sentence also called the sheet "the window's width less a 44px title
+ * row", which conflates two axes: the title row is a vertical cost and has
+ * nothing to do with how wide this column is.)
+ *
+ * At 744 and 1024 the region pads `14px 20px 18px`, and the sheet caps at
+ * 1100. The same 1px a side takes those three columns from 704 / 984 / 1060 to
+ * **702 / 982 / 1058** - but only the 367.00 was measured. Those three follow
+ * from the rule the 393 case demonstrates and are written here as implied, not
+ * as measured; what is certain about them is only that the old figures are
+ * wrong by the same border. Measure them before anything leans on them.
  *
  * The root is its own scroller. Every sibling tool declares one - `Countdowns`,
  * `Bestiary`, `Scene` and `PartyBoard` are all `scroll stack` at `flex: 1;
@@ -44,11 +55,38 @@
  *
  * ## The topic strip
  *
- * Chips at `var(--tap)` with `padding: 0 12px`. `.t-label` is 10px mono at
- * `0.16em`, so about 7.6px a character: IMPROVISE 92, DIFFICULTY 100, FEAR 54,
- * COUNTDOWNS 100, DISTANCE 85, GM MOVES 85 and EXPERIENCES 108, which with six
- * 6px gaps is 660 against a 369px column - so it wraps to two rows,
- * 44 + 6 + 44 = 94px, paid once at the top of the scroll rather than pinned.
+ * Chips at `var(--tap)` with `padding: 0 12px`, and `--tap` is 44px: every
+ * chip measures exactly 44.00 tall. `.t-label` is 10px mono at `0.16em`, so
+ * about 7.6px a character - 6.00 of advance in IBM Plex Mono plus 1.6px of
+ * letter-spacing - and measured with a `Range` that estimate is exact on all
+ * seven labels.
+ *
+ * Measured widths: IMPROVISE **94.41**, DIFFICULTY **102.00**, FEAR **56.41**,
+ * COUNTDOWNS **102.00**, DISTANCE **86.81**, GM MOVES **86.81**, EXPERIENCES
+ * **109.61**. That is 638.05, and with six 6px gaps 674.05 against the 367.00
+ * column, so it wraps to **three** rows - IMPROVISE/DIFFICULTY/FEAR at 264.82,
+ * COUNTDOWNS/DISTANCE/GM MOVES at 287.62, EXPERIENCES alone at 109.61. `gap:
+ * 6px` applies between wrapped lines as well as along them, so the strip is
+ * 44 + 6 + 44 + 6 + 44 = **144.00px**, paid once at the top of the scroll
+ * rather than pinned.
+ *
+ * The estimate that stood here made it two rows and 94px, and two independent
+ * errors took it there. First, the seven claimed widths were text + 24 of
+ * padding and nothing else: a chip is border-box with `border: 1px solid`, so
+ * every one of them was short by exactly 2.00. Second, the column was taken as
+ * 393 − 24 = 369 rather than the 391 − 24 = 367.00 the sheet's own border
+ * leaves - the same forgotten hairline, one level up.
+ *
+ * The borders are the decisive one, and it is worth being exact about which,
+ * because the two are not interchangeable. On the estimate's own numbers the
+ * first four chips came to 346 + 18 of gap = 364 in a 369 column: 5px of room,
+ * four chips on row one. Measured they are 354.82 + 18 = 372.82 against
+ * 367.00, over by 5.82. Of that 10.82 of swing the four borders are 8.82 and
+ * the column is 2.00 - so the borders would have broken the line even in a 369
+ * column, and the column error on its own would not have broken it at all. It
+ * compounds; it does not decide. That is how an estimate this careful still
+ * landed on the wrong row count: the method was sound - 7.6px a character is
+ * right to the pixel - and the frame around the text was missing.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a

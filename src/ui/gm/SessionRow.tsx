@@ -294,9 +294,31 @@ export function SessionRow({
           {/*
             The type row: what sort of row this is on the left, what is inside
             it on the right. The summary takes the width the kind word leaves
-            and ellipsises into it, with the whole string on `title`. It has to
-            stay one line - a summary that wrapped would grow the 44px header,
-            and the header's height is what makes nine rows fit on a phone.
+            and ellipsises into it, with the whole string on `title`. It stays
+            one line because the height of a shut row has to be a constant, and
+            a summary somebody typed is not.
+
+            Measured in Chrome at 393x852. This inner `span.stack` is 30.00
+            tall - name 18.00, 2px gap, type row 10.00 - inside a 44.00 button
+            whose `min-height: 44px` is what sets that 44, so there are 14.00
+            of slack around the text. Let the summary wrap and the slack
+            absorbs one extra line and no more: at two lines the stack is 40.00
+            and the button and the card do not move (44.00 and 54.00); at three
+            the stack is 50.00, the button 50.00, the card 60.00, and the
+            list's step goes with them. So what this comment used to say - that
+            a wrapped summary would grow the 44px header - is not what the
+            browser does, and the real argument for `whiteSpace: nowrap` is the
+            sentence above it: a summary has no length limit, and a row that is
+            54.00 or 60.00 depending on what was typed into it is not a step at
+            all.
+
+            What the step buys is in `SessionList.tsx`: eight shut rows whole
+            on a 393x852 phone with a 47/34 safe area, a ninth cut by the fold
+            but still legible, ten in bare Chrome with no inset. The "nine
+            rows" that stood here was arithmetic that never counted `.panel`'s
+            horizontal borders - the same 1px that file's own "303 and 353"
+            note caught along the other axis. Change that sentence and this one
+            together; they are one claim said twice.
           */}
           <span className="row" style={{ alignSelf: 'stretch', gap: 8, justifyContent: 'space-between' }}>
             <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
