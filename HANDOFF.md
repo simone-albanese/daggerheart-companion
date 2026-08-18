@@ -1,5 +1,22 @@
 # Handoff — resuming this work with an empty context
 
+> **Superseded. Read `HANDOFF-2026-08-18.md` at the repo root first.**
+> This file is **eight commits behind** as of 2026-08-18 — it predates all five
+> phone-reflow commits and does not describe the current sheet. One thing in it
+> is now dead text rather than merely stale: every paragraph about unpushed
+> commits, since `origin/main == main == 3dff11f`. The newer file also records
+> forty-two decisions the owner took on 2026-08-18, several of which contradict
+> this one on purpose.
+>
+> **What is still true here and was wrongly doubted:** the orphan count of 22.
+> `tests/harness/orphans.test.ts` holds exactly 22 keys in `DELIBERATE` and
+> asserts inclusion in both directions, so the two sets coincide by construction
+> and the file is green. An earlier draft of the newer handoff claimed 24. It was
+> wrong; this file was right.
+>
+> The reading order that holds today is:
+> `HANDOFF-2026-08-18.md` → `docs/handoff/reflow-handoff.md` → `AUDIT-HANDOFF.md` → this file.
+
 > **Read `AUDIT-HANDOFF.md` first.** It is newer than this file and it
 > contradicts it on purpose: it is the state of the resolution audit, which has
 > merged twelve lanes over this file's head and moved most of the numbers in the
