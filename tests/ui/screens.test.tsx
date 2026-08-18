@@ -47,6 +47,7 @@ import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
 
 import { Build } from '../../src/ui/build/Build.tsx';
 import { Edit } from '../../src/ui/build/Edit.tsx';
+import type { Rng } from '../../src/engine/dice.ts';
 import { ArmorPicker, GearSlot, ItemPicker, WeaponPicker } from '../../src/ui/build/GearPicker.tsx';
 import { LevelUp } from '../../src/ui/build/LevelUp.tsx';
 import {
@@ -472,6 +473,15 @@ describe('the shell, on every screen', () => {
 // ---------------------------------------------------------------------------
 
 const noop = (): void => {};
+
+/**
+ * The dice the weapon and armor pickers require, which this registry never
+ * rolls: it draws components, and drawing one must not equip anything. It
+ * throws for the same reason `Rest.tsx`'s preview RNG does.
+ */
+const neverRolls: Rng = () => {
+  throw new Error('drawing a component may not roll for gear');
+};
 /**
  * A session row, open, of the arm with the fewest moving parts.
  *
@@ -503,6 +513,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'build/Edit.tsx::Edit': () => <Edit stats={stats()} onLevelUp={noop} />,
   'build/GearPicker.tsx::WeaponPicker': () => (
     <WeaponPicker
+      rng={neverRolls}
       slot="primary"
       value={null}
       sheet={playedCharacter()}
@@ -512,7 +523,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     />
   ),
   'build/GearPicker.tsx::ArmorPicker': () => (
-    <ArmorPicker value={null} sheet={playedCharacter()} onPick={noop} onClose={noop} />
+    <ArmorPicker rng={neverRolls} value={null} sheet={playedCharacter()} onPick={noop} onClose={noop} />
   ),
   'build/GearPicker.tsx::ItemPicker': () => (
     <ItemPicker carried={new Map()} onAdd={noop} onClose={noop} />

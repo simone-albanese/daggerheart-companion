@@ -44,6 +44,7 @@ import type { Character } from '@shared/types.ts';
 import { deriveStats, newCharacter } from '@engine/character.ts';
 import { newCompanion } from '../../src/engine/companion.ts';
 import { useApp } from '../../src/store/state.ts';
+import type { Rng } from '../../src/engine/dice.ts';
 import { WeaponPicker } from '../../src/ui/build/GearPicker.tsx';
 import { Beastform } from '../../src/ui/player/Beastform.tsx';
 import { CompanionPanel } from '../../src/ui/player/Companion.tsx';
@@ -87,6 +88,16 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
 });
+
+/**
+ * The dice the gear picker requires, which this file never rolls: it walks
+ * focus stops and presses Escape. Throwing keeps a tab order sweep that starts
+ * clicking from equipping a weapon by accident, the way `Rest.tsx`'s preview
+ * RNG does for a render.
+ */
+const neverRolls: Rng = () => {
+  throw new Error('nothing in this file may roll for gear');
+};
 
 function seed(character: Character): void {
   useApp.setState({
@@ -228,6 +239,7 @@ const CASES: Record<string, Case> = {
         <Harness>
           {(close) => (
             <WeaponPicker
+              rng={neverRolls}
               slot="primary"
               value={null}
               sheet={character}

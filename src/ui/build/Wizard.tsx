@@ -26,6 +26,7 @@ import {
   type Trait,
 } from '../../../shared/types.ts';
 import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
+import { cryptoRng } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
@@ -1339,6 +1340,7 @@ function StepEquipment({
 
       {open === 'armor' ? (
         <ArmorPicker
+          rng={cryptoRng}
           value={draft.armor}
           sheet={sheet}
           onPick={(ref) => {
@@ -1350,6 +1352,7 @@ function StepEquipment({
       ) : (
         open !== null && (
           <WeaponPicker
+            rng={cryptoRng}
             slot={open}
             value={open === 'primary' ? draft.primary : draft.secondary}
             sheet={sheet}

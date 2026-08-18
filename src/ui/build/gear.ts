@@ -38,6 +38,27 @@ export type Reach = 'all' | 'usable';
 export const tierNote = (tier: Tier, level: number): string | null =>
   tier <= tierOf(level) ? null : `Tier ${tier} — usable from level ${tierLevel(tier)}`;
 
+/**
+ * Which tiers a control is about to act on, said in words.
+ *
+ * The TIER chips are the tier filter, and the randomiser in the count row
+ * draws from whatever they left standing - so on screen the tier is already
+ * said, twice: by the lit chips and by the count beside the button. It is not
+ * said in the button's own label, which stays one short word so that it and
+ * CLEAR FILTERS both fit beside the count at 320 CSS pixels. A screen reader
+ * gets none of that adjacency, so it gets the sentence instead, and this is
+ * where the sentence is built.
+ *
+ * An empty set is "any tier", the same convention every chip row here uses:
+ * nothing selected means nothing narrowed.
+ */
+export const tierPhrase = (tiers: ReadonlySet<Tier>): string => {
+  const chosen = [...tiers].sort((a, b) => a - b);
+  if (chosen.length === 0) return 'any tier';
+  if (chosen.length === 1) return `tier ${String(chosen[0])}`;
+  return `tiers ${chosen.join(', ')}`;
+};
+
 const row = <T extends { tier: Tier }>(item: T, level: number): GearRow<T> => {
   const reason = tierNote(item.tier, level);
   return { item, eligible: reason === null, reason };
