@@ -140,6 +140,25 @@ function declaredBefore(file: string, anchor: string, property: string): number 
 
 /** What `--counter-cell` is worth where, and therefore what the block is. */
 const cell = (device: Device): number => resolve('var(--counter-cell)', device);
+/**
+ * The defence band's grid template, as `Play.tsx` declares it.
+ *
+ * A string and not a size, so it cannot be a `Claim` - but it went stale in the
+ * same way and in three places at once, so it gets the same treatment one `it`
+ * further down. The anchor is the opening of the template rather than the whole
+ * of it, because the whole of it is what is being checked.
+ */
+const bandTemplate = (): string => {
+  const found = /'(auto repeat\(3,[^']*)'/.exec(source('src/ui/player/Play.tsx'));
+  if (found === null) {
+    throw new Error(
+      '`Play.tsx` no longer declares a grid template starting `auto repeat(3,`, which is the ' +
+        "defence band's own row with the damage box in. Re-point this at whatever draws it now.",
+    );
+  }
+  return found[1]!;
+};
+
 /** The 2x2 grid's own gap, off `Vitals`'s declaration rather than remembered. */
 const gridGap = (): number =>
   declared('src/ui/player/Vitals.tsx', "gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)'", 'gap');
@@ -575,6 +594,32 @@ describe('the prose the reflow left behind', () => {
       }
     });
   }
+
+  /*
+   * The band's template, which four files describe and one declares.
+   *
+   * `auto repeat(3, 1fr) auto` stood in three of the four after the `minmax`
+   * landed - in `tokens.css`, whose whole argument for `--damage-w`'s step is
+   * about which track takes the slack, in `Vitals`'s own note on the field, and
+   * in the heading of the comment on the declaration itself, five paragraphs
+   * above the paragraph explaining why it is `minmax(min-content, 1fr)` and not
+   * `minmax(0, 1fr)`. Backticked, because `Play.tsx`'s prose has to quote the
+   * template rather than merely contain the line that declares it.
+   */
+  it.each([
+    'src/ui/tokens.css',
+    'src/ui/player/Play.tsx',
+    'src/ui/player/Vitals.tsx',
+    'tests/ui/playSheet.test.tsx',
+  ])('%s quotes the defence band template Play.tsx declares', (file) => {
+    expect(
+      prose(file),
+      `${file} no longer quotes \`${bandTemplate()}\`, which is the template the band is drawn ` +
+        'with. Either it says an older one - `auto repeat(3, 1fr) auto` is the one that was ' +
+        'wrong in three files at once - or the wording moved and this list should name a ' +
+        'different file.',
+    ).toContain(`\`${bandTemplate()}\``);
+  });
 
   /*
    * The anchors themselves, so that a claim cannot pass because its anchor

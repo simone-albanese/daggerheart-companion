@@ -1202,8 +1202,9 @@ function Defenses({
         // sentence that replaces them takes both of their cells rather than
         // being squeezed into 80px.
         //
-        // WITH THE DAMAGE BOX IN, THE ROW IS `auto repeat(3, 1fr) auto` AND
-        // THAT IS THE END OF THE HOLE. It used to be `auto auto auto auto 1fr`:
+        // WITH THE DAMAGE BOX IN, THE ROW IS
+        // `auto repeat(3, minmax(min-content, 1fr)) auto` AND THAT IS THE END
+        // OF THE HOLE. It used to be `auto auto auto auto 1fr`:
         // the four readings took their content width - 61.6, 48, 54.8 and 41.2
         // at 393, four different sizes - and the fifth track, being the only
         // flexible one, swallowed all 139.4 of the remainder while holding 94px

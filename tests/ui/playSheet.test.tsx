@@ -2235,7 +2235,7 @@ describe('the conditions, drawn only when there are any', () => {
     ).toBe('flex-start');
     // The other two declarations on the same line, asserted here so that a
     // later edit cannot trade one for another and still pass: the wrap is what
-    // keeps 94px of targets out of the PROF panel below 353, and `min-width: 0`
+    // keeps 94px of targets out of the PROF panel below 348, and `min-width: 0`
     // is the floor under whatever is added to this cell next.
     expect(cell.style.flexWrap, 'the wrap went with the alignment').toBe('wrap');
     expect(cell.style.minWidth, 'the cell can no longer fall under its own content').toBe('0px');

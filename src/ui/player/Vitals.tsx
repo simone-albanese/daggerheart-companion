@@ -616,9 +616,10 @@ export function IncomingDamage({
           ? {
               // `--damage-w`: 44 at the touch floor below viewport 390, and 64
               // from 390 up, where the twenty over the floor are the band's own
-              // spare width rather than anything taken from a neighbour. The row is
-              // `auto repeat(3, 1fr) auto`: EVASION keeps its content width
-              // because its label is the longest of the four, the other three
+              // spare width rather than anything taken from a neighbour. The
+              // row is `auto repeat(3, minmax(min-content, 1fr)) auto`: EVASION
+              // keeps its content width because its label is the longest of
+              // the four, the other three
               // share what is left equally, and this cell is exactly the door
               // plus this field - so nothing is left over to sit as a hole at
               // the right-hand end, which is what it used to do at 45.4px wide.
