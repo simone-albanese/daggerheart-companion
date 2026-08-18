@@ -543,14 +543,17 @@ function Shell(): React.JSX.Element {
           MENU button at the top, which is what the wireframe draws and what the
           owner decided: leaving the section is a rare gesture, and the arc
           belongs to the continuous ones. Two bars stacked would also cost the
-          plan a band it does not have: the tab bar measures **95.00** at
-          393x852 with a 34px home-indicator inset - 60px of tabs over
-          `padding: 0 0 34px`, plus its 1px `border-top` - and the 94 that
-          stood here dropped that hairline, the same one `SessionList.tsx`
-          dropped three more times. What stacking would actually take off the
-          list is less than 95, because `env(safe-area-inset-bottom)` is paid
-          once per screen and `GmBar` is already paying it; that has not been
-          measured, and the argument does not need it.
+          plan a band it does not have, and the 94 that stood here dropped a
+          hairline. `GmBar` - which declares the same three terms this bar
+          does, 60px of buttons over `padding: 0 0 34px` and a 1px `border-top`
+          - measures **95.00** at 393x852 with a 34px home-indicator inset.
+          This bar was not itself measured; it is 95.00 by the same
+          declarations, which is an inference and is written as one. What
+          stacking would actually cost the list is less than either figure
+          anyway, because `env(safe-area-inset-bottom)` is paid once per screen
+          and `GmBar` is already paying it. That has not been measured either,
+          and the argument does not need it: the point is that a second bar
+          costs a band of this order, not that it costs exactly 95.
 
           And no tab bar during onboarding, for a different reason: the flow's
           own pinned nav is the last thing in the window and pays the

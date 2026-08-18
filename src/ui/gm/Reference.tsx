@@ -81,12 +81,17 @@
  * because the two are not interchangeable. On the estimate's own numbers the
  * first four chips came to 346 + 18 of gap = 364 in a 369 column: 5px of room,
  * four chips on row one. Measured they are 354.82 + 18 = 372.82 against
- * 367.00, over by 5.82. Of that 10.82 of swing the four borders are 8.82 and
- * the column is 2.00 - so the borders would have broken the line even in a 369
- * column, and the column error on its own would not have broken it at all. It
- * compounds; it does not decide. That is how an estimate this careful still
- * landed on the wrong row count: the method was sound - 7.6px a character is
- * right to the pixel - and the frame around the text was missing.
+ * 367.00, over by 5.82. That is 10.82 of swing, and it splits three ways: 8.00
+ * of chip border (four chips, 2.00 each), 2.00 of column, and 0.82 the
+ * estimate lost rounding seven character counts to whole pixels.
+ *
+ * Test each cause on its own against the estimate's own row. Add only the
+ * borders and row one is 372 in a 369 column - broken. Take only the column
+ * and it is 364 in 367 - still fits, with 3 to spare. So the borders decide
+ * this and the column error merely compounds them; neither is the other's
+ * spare. That is how an estimate this careful still landed on the wrong row
+ * count: the method was sound - 7.6px a character is right to the pixel - and
+ * the frame around the text was missing.
  *
  * They **wrap** rather than scroll sideways. `Gm.tsx`'s old tab strip earned a
  * sideways scroller because it was paid for on every screen forever; a

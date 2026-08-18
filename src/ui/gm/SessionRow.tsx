@@ -298,19 +298,26 @@ export function SessionRow({
             one line because the height of a shut row has to be a constant, and
             a summary somebody typed is not.
 
-            Measured in Chrome at 393x852. This inner `span.stack` is 30.00
-            tall - name 18.00, 2px gap, type row 10.00 - inside a 44.00 button
-            whose `min-height: 44px` is what sets that 44, so there are 14.00
-            of slack around the text. Let the summary wrap and the slack
-            absorbs one extra line and no more: at two lines the stack is 40.00
-            and the button and the card do not move (44.00 and 54.00); at three
-            the stack is 50.00, the button 50.00, the card 60.00, and the
-            list's step goes with them. So what this comment used to say - that
-            a wrapped summary would grow the 44px header - is not what the
-            browser does, and the real argument for `whiteSpace: nowrap` is the
-            sentence above it: a summary has no length limit, and a row that is
-            54.00 or 60.00 depending on what was typed into it is not a step at
-            all.
+            Measured in Chrome at 393x852, one line: this inner `span.stack`
+            is 30.00 tall - name 18.00, 2px gap, type row 10.00 - inside a
+            44.00 button whose `min-height: 44px` is what sets that 44. So the
+            text does not set this row's height; the floor does, with 14.00 to
+            spare above the text.
+
+            THE WRAPPED CASE WAS NOT MEASURED, and this comment no longer
+            claims it. Only the one-line layout above went through the rig, so
+            how many lines that 14.00 absorbs before the button leaves its
+            floor is not stated here - working it out from the numbers above
+            would be arithmetic on paper wearing a measurement's clothes, which
+            is the whole defect this pass was called in for. Drive the rig
+            before writing a figure for it.
+
+            What survives without it is the argument that actually carries
+            `whiteSpace: nowrap`, and it never needed the row count: a summary
+            is a string a GM typed and has no length limit, so a header whose
+            height follows it is not a constant. The list below steps by a
+            fixed amount per shut row, and a row that is one height or another
+            depending on what was typed into it is not a step at all.
 
             What the step buys is in `SessionList.tsx`: eight shut rows whole
             on a 393x852 phone with a 47/34 safe area, a ninth cut by the fold

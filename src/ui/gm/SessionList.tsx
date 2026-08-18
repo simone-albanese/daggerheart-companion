@@ -52,9 +52,11 @@
  * ends at 273 + 62*i*. **Eight rows are whole on the glass** - the eighth ends
  * at 707.00 - and the ninth is cut by the fold at 757.00, with 42.00 of its
  * 54.00 drawn. What the fold takes is that row's bottom padding and its bottom
- * border. What it does not take is its text: the name ends at 745.00 and the
- * type row at exactly 757.00, so the ninth row is entirely legible while it is
- * not entirely drawn. Eight or nine is therefore a question about what "on
+ * border. What it does not take is its text: the name and the type row were
+ * both wholly visible when this was measured, so the ninth row is entirely
+ * legible while it is not entirely drawn. (Where those two baselines fall
+ * inside the 42.00 was not measured and no figure for it is given here.)
+ * Eight or nine is therefore a question about what "on
  * screen" means, and the pixels do not settle it; they are written out here so
  * the next reader can settle it for whatever they were counting.
  *
@@ -78,11 +80,15 @@
  * It used to be a pinned strip above the tab bar on every screen but Play.
  * Verbatim it is 342 characters - six lines and ~111px on a 393px column, an
  * estimate nobody has measured - and pinned here it would take that band out
- * of the 752.00 `main` measures below the shell header (393x852, 47px top
- * inset), sitting between the plan and the two verbs a GM presses all evening.
- * The share that stood here, "17% of the 653px that is not shell header", was
- * wrong in both halves: 653 does not follow from the 99 it was reasoning from,
- * and the band is 752.00 measured. What the notice must not be is the thing
+ * of what is left below the shell header (393x852, 47px top inset), which is
+ * 852 less the measured 100.00 of header: 752, arithmetic over a measurement
+ * rather than a measurement, and written here as such. It would sit between
+ * the plan and the two verbs a GM presses all evening. The share that stood
+ * here, "17% of the 653px that is not shell header", was wrong in both
+ * halves: 653 does not follow even from the 99 it was reasoning from, and the
+ * band under a correctly counted header is 752. Neither the 111 nor the
+ * percentage it feeds has been measured; both want the rig before either is
+ * quoted again. What the notice must not be is the thing
  * that *leaves*: the DPCGL asks for the notice to be displayed,
  * `Architecture.md` says twice that it is always visible in the footer, and a
  * layout budget is not a reason to drop a licence obligation.
