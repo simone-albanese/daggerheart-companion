@@ -7,9 +7,15 @@
  * anything else - the defect shape this repo keeps shipping is absence, and
  * every one of the arms below is a render path no test had executed.
  *
- * The shut list draws five kinds: the four the wireframe drew - `scene`,
- * `encounter`, `link`, `countdown` - and `unreadable`, which it did not.
- * Two of those five matter more than the other three.
+ * The shut list draws seven kinds - every arm of `describeItem` in
+ * `src/ui/gm/session.ts` - and this file is laid out by where they came from.
+ * Five of them are covered below: the four the wireframe drew - `scene`,
+ * `encounter`, `link`, `countdown`, which are also the four `ADD` mints and
+ * the whole of `SESSION_ITEM_KINDS` - and `unreadable`, which it did not draw.
+ * The other two, `url` and `note`, came with campaign schema 2 and have a
+ * section of their own at the end of this header.
+ *
+ * Two of those first five matter more than the other three.
  * `shared/campaigns.ts` keeps an item this build cannot read, and keeps a link
  * whose target this dataset does not carry, instead of dropping either from a
  * list whose length the GM knows by heart. That decision is only worth anything

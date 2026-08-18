@@ -159,12 +159,15 @@ export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
  * is same-origin, and a session list full of `https://` would quietly end that.
  *
  * **The claim about requests is unchanged and still exact.** A `url` row is a
- * string plus an anchor a GM has to tap. This app never fetches it, never
+ * string, and as this build ships it is only a string: `UrlArm` in
+ * `src/ui/gm/SessionBody.tsx` draws the address as text and builds no anchor,
+ * so there is nothing on it to tap yet. This app never fetches it, never
  * prefetches it, never resolves it, and never puts it in an `<img>`, a
  * `<script>` or an `<iframe>`; the one request the app makes is still the
- * same-origin one, and opening a link is the *browser's* navigation in another
- * tab, not this app's request. So nothing about the offline story, the service
- * worker, or "works on a plane" moved.
+ * same-origin one. The anchor belongs to a later lane, and when it lands,
+ * opening a link is the *browser's* navigation in another tab, not this app's
+ * request. So nothing about the offline story, the service worker, or "works
+ * on a plane" moved.
  *
  * **What did not survive is the conclusion.** "A GM who wants a web page has a
  * browser" was true of a GM sitting at their own desk and false of the one this

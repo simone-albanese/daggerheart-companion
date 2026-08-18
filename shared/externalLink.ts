@@ -60,13 +60,19 @@
  *    and it re-validates the href on the way out - defence in depth for a value
  *    that reached storage before this file existed, or was hand-edited into
  *    IndexedDB afterwards. **"From a stored href" is the whole of the scope,
- *    and it is not the whole app.** There is exactly one `<a>` in `src/`, at
+ *    and it is not the whole app.** `src/` builds three anchors and not one of
+ *    them has a stored href. The only `<a>` written as markup is at
  *    `src/ui/settings/About.tsx`, and its href is the literal
  *    `https://daggerheart.com/buy` written into the source. It is built by hand
  *    and carries `target="_blank" rel="noreferrer noopener"`, without
  *    `nofollow` - correct for it, because `nofollow` is about content this app
- *    did not write and that address is content this app did write. Nothing in
- *    this file governs it. In the other direction, `externalLinkAttrs` has no
+ *    did not write and that address is content this app did write. The other
+ *    two are `document.createElement('a')`, in `src/ui/settings/binaryFiles.ts`
+ *    and in `src/transfer/fileIo.ts`, and they are the same anchor twice: a
+ *    detached element appended, `click()`ed and removed to save a file. Each
+ *    href is a `blob:` URL this app minted a line earlier, and neither
+ *    navigates anywhere, because both carry `download`. Nothing in this file
+ *    governs any of the three. In the other direction, `externalLinkAttrs` has no
  *    production caller at all yet: the URL row draws its address as text and
  *    builds no anchor, so this mitigation protects nothing shipping today and
  *    is here for the lane that builds the row. `noopener` is the load-bearing
