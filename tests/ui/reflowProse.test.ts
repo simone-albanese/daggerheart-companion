@@ -74,6 +74,12 @@ const STEP380: Device = { glass: 384, coarse: true };
  * Comment furniture and line breaks go, because a docblock re-wraps every time
  * a word is added to it and a claim that broke on re-wrapping would be a claim
  * nobody could keep. What is left is the sentence as it reads.
+ *
+ * THE `+` BETWEEN TWO STRING LITERALS GOES TOO, and that is not cosmetic: in
+ * the test files half the prose about a size is in an assertion MESSAGE, which
+ * is a sentence to the person reading a failure and three tokens to anything
+ * parsing it. The literals already carry the space at the break, so joining
+ * them is what makes the message one sentence here as well.
  */
 const cache = new Map<string, string>();
 function prose(file: string): string {
@@ -82,7 +88,8 @@ function prose(file: string): string {
   const flat = readFileSync(file, 'utf8')
     .replace(/^\s*\*\s?/gm, ' ')
     .replace(/^\s*\/\/\s?/gm, ' ')
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, ' ')
+    .replace(/(['"]) \+ (['"])/g, '');
   cache.set(file, flat);
   return flat;
 }
@@ -435,6 +442,19 @@ const CLAIMS: Claim[] = [
     file: 'tests/ui/playSheet.test.tsx',
     find: /below viewport 390 and (\d+) from 390 up\. Resolved NARROW/g,
     is: () => resolve('var(--damage-w)', PHONE),
+  },
+  // A fourth idiom, in the message the wrap assertion fails with.
+  {
+    says: "the band's fifth cell from viewport 390 up",
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /`--damage-w` - (\d+) from viewport 390 up, \d+ below it/g,
+    is: () => damageCell(PHONE),
+  },
+  {
+    says: "the band's fifth cell below viewport 390",
+    file: 'tests/ui/playSheet.test.tsx',
+    find: /from viewport 390 up, (\d+) below it - does not fit/g,
+    is: () => damageCell(NARROW),
   },
   {
     says: 'the incoming-damage field in the vertical budget\'s own table',
