@@ -17,6 +17,16 @@
  * at. Hiding it would answer "what can I use" by pretending the rest of the
  * book does not exist, and a player deciding what to save for needs to see the
  * tier 3 weapon they are saving for.
+ *
+ * TWO OF THE THREE PICKERS CAN ROLL. Weapons and armor carry a tier - all 204
+ * and all 34 of them - so both take an `Rng` and put a RANDOM button in the
+ * count row, which draws from the rows the filters left standing. Loot and
+ * consumables carry no tier at all, so `ItemPicker` takes no dice and offers
+ * no such button: a "randomise by tier" control over 120 items with no tier
+ * would be a filter the dataset cannot honour, which on this screen is the
+ * same defect as implying an absence that is not real. The counts and the
+ * distribution are in `src/engine/randomGear.ts`; the placement, its cost and
+ * its ergonomics are on `RandomButton` below.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
@@ -28,11 +38,12 @@ import {
   type Item,
   type Range,
   type Ref,
-  type Tier,
   type Weapon,
   type WeaponTrait,
 } from '../../../shared/types.ts';
 import { deriveStats, weaponDamage, type DerivedStats } from '../../engine/character.ts';
+import type { Rng } from '../../engine/dice.ts';
+import { randomGear, tiersIn } from '../../engine/randomGear.ts';
 import { useApp } from '../../store/state.ts';
 import { useDialog } from '../shared/useDialog.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -44,6 +55,7 @@ import {
   filterWeapons,
   itemQuery,
   itemQueryChanged,
+  tierPhrase,
   weaponQuery,
   weaponQueryChanged,
   type ArmorQuery,
@@ -51,7 +63,6 @@ import {
   type WeaponQuery,
 } from './gear.ts';
 
-const TIERS: Tier[] = [1, 2, 3, 4];
 const BURDENS = [1, 2] as const;
 const WEAPON_TRAITS: WeaponTrait[] = [...TRAITS, 'spellcast'];
 
@@ -158,7 +169,10 @@ const LIST_FLOOR = 140;
  *    them: it is the only feedback that a filter did anything, and CLEAR
  *    FILTERS is the way back out of an over-filtered list. Scrolled away above
  *    "No weapons match those filters", it strands the player on an empty list
- *    with no visible way to empty the filters.
+ *    with no visible way to empty the filters. The weapon and armor pickers
+ *    put RANDOM here too, for the same reason and at no cost to the 63px - the
+ *    arithmetic for that is on `RandomButton`, which also says which quantity
+ *    would have to move before this number stops being true.
  * 4. **the list** - `flex: 1` with a `LIST_FLOOR` min-height, so it grows into
  *    whatever is spare and never falls under one row.
  * 5. **Unequip and Done** - `flex: none`, 63px, and now always inside the clip.
@@ -661,18 +675,130 @@ const ChipRow = ({
   </div>
 );
 
+/**
+ * Let the dice choose, out of exactly the rows on screen.
+ *
+ * ## Why it is here and not in the filter head
+ *
+ * Band 2 is the band that gives: at 320x568 it draws 226px of a 372px column,
+ * and at 852x393 and 667x375 it draws 51 and 33 of 264 - so a control put at
+ * the bottom of the filters would be off the glass on a landscape phone and
+ * reachable only by scrolling a band with no scrollbar. That is the same
+ * argument `PickerDialog` already makes for pinning the count and CLEAR
+ * FILTERS in band 3, and it applies here for the same reason: a verb you have
+ * to go looking for is a verb that does not exist.
+ *
+ * Band 3 also happens to be where this control's *subject* is written down.
+ * The randomiser draws from the rows the filters left standing, and the row it
+ * sits in says how many those are - `12 OF 204`, an arm's length to its left.
+ * "RANDOM" beside "12 OF 204" reads as "one of these twelve", which is exactly
+ * what it does, and it needs no second copy of the tier that the lit TIER
+ * chips are already showing. The screen reader, which gets no adjacency, gets
+ * the whole sentence in `aria-label` - see `tierPhrase` in `gear.ts`.
+ *
+ * ## What it costs the band, which is nothing
+ *
+ * Band 3's height is `minHeight: var(--control)` on the spread inside it, plus
+ * 8 + 10 of padding and 1 of border: 63px, the number `PickerDialog`'s table
+ * states. The count text is `.t-meta`, `font: 500 10px/1 var(--mono)` with
+ * `letter-spacing: 0.06em`, and IBM Plex Mono is a 600/1000 advance at every
+ * weight this app ships - the claim `Seg` above makes and checks against the
+ * shipped `plexmono-600-latin.woff2`; `.t-meta` draws from the 500 file beside
+ * it, and the family is monospaced across weights by construction. So a
+ * character is 10 x 0.6 + 10 x 0.06 = **6.6px** and a wrapped line is 10px
+ * tall. The band therefore only grows once the count needs a **fifth** line,
+ * and it does not come close: at 320 the band's content box is 320 - 20 of
+ * overlay padding - 2 of border - 24 of band padding = **274px**; the two
+ * buttons take 93.51 + 6 + 49.62 = 149.13 with a filter set, plus the spread's
+ * own `--s3` gap of 8; and the longest count this dialog draws -
+ * `204 OF 204 · DAMAGE AT PROFICIENCY 3`, 36 characters, 237.6px - wraps into
+ * the remaining 116.87px in three lines of 10px. 30px against a 44px floor.
+ * (`RANDOM` is 6 characters of `.chip`'s 9.5px/0.06em, which this file derives
+ * at 6.27px each, plus its own 6px of padding either side: **49.62px**, so the
+ * 44px `min-width` does not bind and the 44px `min-height` does. `.chip` also
+ * carries `white-space: nowrap`, so neither button wraps into a second line
+ * and takes the band with it.)
+ *
+ * This is arithmetic from numbers already in this file, not a fresh Chrome
+ * measurement, and it is written as arithmetic on purpose: it says which
+ * quantity has to move before the 63px in `PickerDialog`'s table stops being
+ * true, which a re-measured 63 would not.
+ *
+ * ## Ergonomics
+ *
+ * **Thumb arc.** Band 3 sits directly above the list, so on a 393x852 phone it
+ * is around the vertical middle of the glass - further from a right thumb's
+ * pivot than Done at y788-832, nearer than the chips at the top of band 2, and
+ * pinned so it is in the same place on every viewport rather than wherever a
+ * scroll left it. **Target size.** 44x49.62 at every coarse pointer and every
+ * width under 1180 (`--control` resolves to `--tap`), declared inline on both
+ * axes because jsdom reads only inline styles and a height off a class
+ * measures 0 in a test. **Read versus touch.** RANDOM is pinned to the right
+ * edge and CLEAR FILTERS appears to its *left* when a filter is set, so the
+ * randomiser never moves under a thumb that is already reaching for it; the
+ * conditional button is the one that shifts, and it shifts a control the
+ * player only wants after they have looked at the row.
+ *
+ * ## Disabled rather than absent
+ *
+ * With no rows there is nothing to draw and the button says so by going dim,
+ * rather than vanishing. A control that disappears when the list empties takes
+ * itself away at the exact moment the player is looking at "No weapons match
+ * those filters" and deciding what to do next, and moves CLEAR FILTERS
+ * sideways while they aim at it.
+ */
+function RandomButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  /** The whole sentence, for a screen reader. The glass gets one word. */
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      className="chip"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      style={{
+        minHeight: 'var(--control)',
+        minWidth: 'var(--control)',
+        color: 'var(--text)',
+        opacity: disabled ? 0.4 : 1,
+        flex: 'none',
+      }}
+    >
+      RANDOM
+    </button>
+  );
+}
+
 function CountRow({
   showing,
   total,
   note,
   filtered,
   onClear,
+  random,
 }: {
   showing: number;
   total: number;
   note?: string;
   filtered: boolean;
   onClear: () => void;
+  /**
+   * The randomiser, where the list has a tier to randomise by.
+   *
+   * Absent for loot and consumables, and absent by omission rather than by a
+   * flag this row could get wrong: `ItemPicker` has no dice to pass in, because
+   * not one of the 60 loot entries or 60 consumables in `data/srd-1.0.json`
+   * carries a tier. See `randomGear.ts` for the counts.
+   */
+  random?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div className="spread" style={{ alignItems: 'center', minHeight: 'var(--control)' }}>
@@ -680,28 +806,31 @@ function CountRow({
         {showing} OF {total}
         {note !== undefined && <span style={{ color: 'var(--dim)' }}> · {note}</span>}
       </span>
-      {filtered && (
-        <button
-          type="button"
-          className="chip"
-          onClick={onClear}
-          // 13 characters at `.chip`'s 6.27px each plus its own 4px/6px
-          // padding is 93.51px, so this one was never near the floor and this
-          // declaration changes not a pixel of it. It is here because "every
-          // button in this dialog states the floor on both axes" is a rule a
-          // later reader can check, and "this label happens to be long enough"
-          // is not - the same reason `Cards.tsx` declares it on its own CLEAR
-          // FILTERS.
-          style={{
-            minHeight: 'var(--control)',
-            minWidth: 'var(--control)',
-            color: 'var(--text)',
-            flex: 'none',
-          }}
-        >
-          CLEAR FILTERS
-        </button>
-      )}
+      <div className="row" style={{ gap: 6, flex: 'none' }}>
+        {filtered && (
+          <button
+            type="button"
+            className="chip"
+            onClick={onClear}
+            // 13 characters at `.chip`'s 6.27px each plus its own 4px/6px
+            // padding is 93.51px, so this one was never near the floor and this
+            // declaration changes not a pixel of it. It is here because "every
+            // button in this dialog states the floor on both axes" is a rule a
+            // later reader can check, and "this label happens to be long enough"
+            // is not - the same reason `Cards.tsx` declares it on its own CLEAR
+            // FILTERS.
+            style={{
+              minHeight: 'var(--control)',
+              minWidth: 'var(--control)',
+              color: 'var(--text)',
+              flex: 'none',
+            }}
+          >
+            CLEAR FILTERS
+          </button>
+        )}
+        {random}
+      </div>
     </div>
   );
 }
@@ -787,6 +916,7 @@ export function WeaponPicker({
   value,
   sheet,
   stats,
+  rng,
   onPick,
   onClose,
 }: {
@@ -794,6 +924,16 @@ export function WeaponPicker({
   value: Ref | null;
   sheet: Character;
   stats: DerivedStats;
+  /**
+   * The dice the RANDOM button rolls.
+   *
+   * Passed in at the call site rather than defaulted, the way `Rest` takes its
+   * own - so the two places this app can equip a weapon by chance are visible
+   * from `Edit.tsx` and `Wizard.tsx` without opening this file, and so a test
+   * can hand it a seeded one and assert that the sword it got is the sword the
+   * seed names.
+   */
+  rng: Rng;
   onPick: (ref: Ref | null) => void;
   onClose: () => void;
 }): React.JSX.Element {
@@ -807,6 +947,24 @@ export function WeaponPicker({
     () => filterWeapons(weapons, { ...q, search }, sheet.level),
     [weapons, q, search, sheet.level],
   );
+
+  // The chips the armoury has, not the chips this file remembers it having.
+  // A TIER 4 chip over a dataset with no tier 4 weapon in it is the same lie
+  // as a list with a weapon missing from it, one indirection earlier.
+  const tiers = useMemo(() => tiersIn(weapons), [weapons]);
+
+  // Exactly what is on screen, so the count beside the button is the size of
+  // the draw. Out-of-reach weapons are in it because they are in the list:
+  // this dialog shows them dimmed on purpose, and a randomiser that silently
+  // skipped them would be the hiding this file refuses to do everywhere else.
+  const pickRandom = (): void => {
+    const chosen = randomGear(
+      rows.map((r) => r.item),
+      q.tiers,
+      rng,
+    );
+    if (chosen !== null) onPick(chosen.id);
+  };
 
   const label = slot === 'primary' ? 'Primary weapon' : 'Secondary weapon';
 
@@ -858,7 +1016,7 @@ export function WeaponPicker({
           <ChipRow>
             <Chips
               label="TIER"
-              values={TIERS}
+              values={tiers}
               text={String}
               selected={q.tiers}
               onToggle={(t) => patch({ tiers: toggled(q.tiers, t) })}
@@ -899,6 +1057,13 @@ export function WeaponPicker({
           note={`DAMAGE AT PROFICIENCY ${stats.proficiency}`}
           filtered={weaponQueryChanged(q, base)}
           onClear={() => setQ(base)}
+          random={
+            <RandomButton
+              label={`Equip a random weapon of ${tierPhrase(q.tiers)}, from the ${String(rows.length)} showing`}
+              disabled={rows.length === 0}
+              onClick={pickRandom}
+            />
+          }
         />
       }
     >
@@ -935,11 +1100,14 @@ export function WeaponPicker({
 export function ArmorPicker({
   value,
   sheet,
+  rng,
   onPick,
   onClose,
 }: {
   value: Ref | null;
   sheet: Character;
+  /** The dice the RANDOM button rolls. See the note on `WeaponPicker`. */
+  rng: Rng;
   onPick: (ref: Ref | null) => void;
   onClose: () => void;
 }): React.JSX.Element {
@@ -955,6 +1123,18 @@ export function ArmorPicker({
     () => filterArmors(armors, { ...q, search }, sheet.level),
     [armors, q, search, sheet.level],
   );
+
+  const pickRandom = (): void => {
+    const chosen = randomGear(
+      rows.map((r) => r.item),
+      q.tiers,
+      rng,
+    );
+    if (chosen !== null) onPick(chosen.id);
+  };
+
+  /** The tiers the armory has. See the note in `WeaponPicker`. */
+  const tiers = useMemo(() => tiersIn(armors), [armors]);
 
   // What each set of armor would actually give *this* character, asked of the
   // engine rather than added up here: thresholds are the armor's base plus the
@@ -997,7 +1177,7 @@ export function ArmorPicker({
             <span style={{ width: 1, height: 22, background: 'var(--line)', flex: 'none' }} />
             <Chips
               label="TIER"
-              values={TIERS}
+              values={tiers}
               text={String}
               selected={q.tiers}
               onToggle={(t) => patch({ tiers: toggled(q.tiers, t) })}
@@ -1012,6 +1192,13 @@ export function ArmorPicker({
           note={`THRESHOLDS AT LEVEL ${sheet.level}`}
           filtered={armorQueryChanged(q, base)}
           onClear={() => setQ(base)}
+          random={
+            <RandomButton
+              label={`Wear a random set of armor of ${tierPhrase(q.tiers)}, from the ${String(rows.length)} showing`}
+              disabled={rows.length === 0}
+              onClick={pickRandom}
+            />
+          }
         />
       }
     >

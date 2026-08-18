@@ -48,8 +48,22 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Character } from '@shared/types.ts';
 import { useApp } from '../../src/store/state.ts';
+import type { Rng } from '../../src/engine/dice.ts';
 import { ArmorPicker, ItemPicker, WeaponPicker } from '../../src/ui/build/GearPicker.tsx';
 import { dataset, index, playedCharacter, playedStats } from './fixture.ts';
+
+/**
+ * The dice the weapon and armor pickers require, which nothing here rolls.
+ *
+ * It throws rather than returning a number, the way `Rest.tsx`'s preview RNG
+ * does. No test in this file taps RANDOM - the floor sweep below reads the
+ * button's declarations and does not press it - so a render or a sweep that
+ * starts rolling has changed behaviour, and should say so by name rather than
+ * quietly equipping something.
+ */
+const neverRolls: Rng = () => {
+  throw new Error('nothing in this file may roll for gear');
+};
 
 declare global {
   // eslint-disable-next-line no-var
@@ -106,6 +120,7 @@ const PICKERS: Record<string, () => ReactElement> = {
     seed(character);
     return (
       <WeaponPicker
+        rng={neverRolls}
         slot="primary"
         value={character.activePrimaryWeapon}
         sheet={character}
@@ -120,6 +135,7 @@ const PICKERS: Record<string, () => ReactElement> = {
     seed(character);
     return (
       <ArmorPicker
+        rng={neverRolls}
         value={character.activeArmor}
         sheet={character}
         onPick={() => {}}

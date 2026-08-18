@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { TRAITS, TRAIT_LABELS, type Character, type Trait } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
+import { cryptoRng } from '../../engine/dice.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { RenameField } from '../shared/RenameField.tsx';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -280,6 +281,7 @@ export function Edit({
 
       {picking === 'armor' ? (
         <ArmorPicker
+          rng={cryptoRng}
           value={character.activeArmor}
           sheet={character}
           onPick={(ref) => {
@@ -293,6 +295,7 @@ export function Edit({
       ) : (
         picking !== null && (
           <WeaponPicker
+            rng={cryptoRng}
             slot={picking}
             value={
               picking === 'primary' ? character.activePrimaryWeapon : character.activeSecondaryWeapon

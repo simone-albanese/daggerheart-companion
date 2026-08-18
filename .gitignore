@@ -14,6 +14,14 @@
 # itself. It was caught before the merge; the slash is why it got that far.
 Manuali
 Manuali/
+# And the same two spellings for the project-local Node toolchain, which the
+# comment above and `env.sh`'s last paragraph both already claim is ignored.
+# It was ignored as a directory only, and in a worktree it is not a directory:
+# `env.sh`'s own setup block symlinks `.tools` back to the main checkout the
+# same way `Manuali` and `node_modules` are symlinked, so `.tools/` did not
+# match it and `git status` in every worktree listed the link as untracked -
+# one `git add -A` away from the failure written up twice on this page.
+.tools
 .tools/
 # Both spellings, and the one without the slash is the load-bearing one. A
 # pattern ending in `/` matches a directory and nothing else, so when work is
