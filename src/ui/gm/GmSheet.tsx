@@ -20,9 +20,12 @@
  * 620px; in a 520px card both of those overflow sideways.
  *
  * `sheet` is for the short question: the bottom sheet a thumb reaches on a
- * phone, a 520px card on anything wider. Nothing uses it yet - the sheets that
- * will (ADD, SHOW, SAVE, MENU) arrive with the bottom bar - and it is here
- * because the size decision belongs to the shell rather than to each of them.
+ * phone, a 520px card on anything wider, and it is the default. All four sheets
+ * it was written for use it - `Gm.tsx` mounts `MenuSheet`, `AddSheet`,
+ * `ShowSheet` and `SaveSheet` inside it from the bottom bar. ("Nothing uses it
+ * yet - the sheets that will (ADD, SHOW, SAVE, MENU) arrive with the bottom
+ * bar" stood here; the bar arrived and the sentence did not move.) The size
+ * decision still belongs to the shell rather than to each of them.
  *
  * ## Ergonomics
  *
@@ -33,6 +36,13 @@
  * across the glass, and the same corner every other dismissal in this app uses.
  * The backdrop is also a target: a tap anywhere outside the panel closes it,
  * which on a phone is 393px of forgiving surface above the panel.
+ *
+ * **The panel's own 1px border is 2px off every column drawn inside it**, and
+ * it is the pixel five docblocks on this screen dropped. At 393 the panel's
+ * content box is 391.00, so a `full` tool padded `10px 12px` has a 367.00px
+ * column (measured, `Reference.tsx`) and a `sheet` padded 14 has 363px
+ * (measured, `ShowSheet.tsx`) - not the "369" and "365" that `393 - 24` and
+ * `393 - 28` give. Anything reading a width off this panel starts from 391.
  *
  * ## z-index 30, deliberately below 40
  *

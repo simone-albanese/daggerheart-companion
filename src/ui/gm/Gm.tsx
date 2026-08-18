@@ -329,7 +329,7 @@ export function Gm(): React.JSX.Element {
  * var(--fear)'` alongside its 12px margin and 12px padding either side, so that
  * sum spends nothing for a pixel on each edge. How much column is left has not
  * been measured, and neither has the "four lines at `.t-dense`" the longest
- * store sentence used to be given here, which was counted against the 345:
+ * store sentence used to be given here, which was counted against the "345":
  * both go to the rig before anything leans on them. The block is about 143px,
  * which takes the session list from the 548.00 measured in `SessionList.tsx`
  * to about 405. ("551px of list" and "nine rows" stood here.
@@ -439,9 +439,9 @@ function NotSaved({
  * `NotSaved` above drops**: this strip declares `borderLeft: '3px solid
  * var(--hope)'` and no other border, so under `box-sizing: border-box` it loses
  * three pixels on one edge where `NotSaved` loses one on each - the two were
- * never the same width and the shared 345 said they were. Neither has been
+ * never the same width and the shared "345" said they were. Neither has been
  * measured, and nor has the "three lines at `.t-dense`" that was counted
- * against the 345. The block is about 100px, taken off the 548.00 the list
+ * against the "345". The block is about 100px, taken off the 548.00 the list
  * measures. ("Nine rows" stood here and
  * was never the count: it dropped the two `.panel` borders every row carries -
  * see `SessionList.tsx`, which measures eight whole and a ninth cut but

@@ -101,7 +101,7 @@
  * the whole page scroll sideways. The SRD tables that arrive with a rule link
  * are the other candidate and are not one: `RuleTableView` declares no width at
  * all, and its two shapes hold across every candidate width for this row - see
- * `RuleTableView`, which says why the 365 that used to stand here was wrong and
+ * `RuleTableView`, which says why the "365" that used to stand here was wrong and
  * why this row is the one route to that view whose width nobody has measured in
  * a browser yet.
  */

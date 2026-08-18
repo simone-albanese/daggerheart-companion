@@ -146,7 +146,7 @@ function regionPadX(file: string, anchor: string): number {
   const src = source(file);
   const at = src.indexOf(anchor);
   if (at === -1) throw new Error(`\`${anchor}\` is gone from ${file}`);
-  const found = /'\d+px (\d+)px \d+px'/.exec(src.slice(at));
+  const found = /'\d+px (\d+)px \d+(?:px)?'/.exec(src.slice(at));
   if (found === null) throw new Error(`no phone padding triple follows \`${anchor}\` in ${file}`);
   return Number.parseInt(found[1]!, 10);
 }
@@ -173,6 +173,35 @@ const chipPadX = (): number => {
 
 const stripGap = (): number =>
   declared('src/ui/gm/Reference.tsx', 'aria-label="What to look up"', 'gap');
+
+/**
+ * The horizontal padding one of the bottom sheets declares on its scroller.
+ *
+ * `AddSheet` draws two of them - the four choices and the form behind them - so
+ * this reads every `padding: N` on a `className="scroll stack"` in the file and
+ * refuses to answer if they disagree, rather than silently taking the first.
+ */
+function sheetPadX(file: string): number {
+  const src = source(file);
+  const found = [
+    ...src.matchAll(/className="scroll stack"[^>]*?padding: (\d+)\s*[,}]/g),
+    ...src.matchAll(/className="scroll stack"[^>]*?padding: '\d+px (\d+)px \d+(?:px)?'/g),
+  ].map((m) => Number.parseInt(m[1]!, 10));
+  if (found.length === 0) {
+    throw new Error(
+      `no \`className="scroll stack"\` with a readable horizontal padding in ${file}, so nothing ` +
+        'here can say what column its docblock is claiming',
+    );
+  }
+  const one = new Set(found);
+  if (one.size !== 1) {
+    throw new Error(
+      `${file} now declares ${[...one].join(' and ')} on its scrollers, so one docblock cannot ` +
+        'state one column for the sheet. Re-measure before rewriting it.',
+    );
+  }
+  return found[0]!;
+}
 
 describe('the GM screen states the geometry its own declarations make', () => {
   /*
@@ -410,6 +439,79 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'src/ui/shell/App.tsx',
       'tests/gm/sessionList.test.tsx',
       'tests/gm/gmShell.test.tsx',
+    ];
+    for (const file of files) {
+      expect(
+        pattern.test(claims(file)),
+        `${file} asserts it again. If the sentence is a record of what used to be wrong, put it ` +
+          'in double quotes - that is the convention this file reads.',
+      ).toBe(false);
+    }
+  });
+
+  /*
+   * The bottom sheets are the `sheet` half of the same panel the reference
+   * region is the `full` half of, and they dropped the identical pixel. All
+   * three stated "393 - 28 of padding = 365px" while `ShowSheet.tsx` - same
+   * directory, same panel, same `padding: 14` - already carried the measured
+   * 363. This holds the three against the terms rather than against 363: the
+   * sheet's border and the scroller's own padding, both declared.
+   */
+  it.each([
+    ['MenuSheet.tsx', 'src/ui/gm/MenuSheet.tsx'],
+    ['AddSheet.tsx', 'src/ui/gm/AddSheet.tsx'],
+    ['SaveSheet.tsx', 'src/ui/gm/SaveSheet.tsx'],
+    ['ShowSheet.tsx', 'src/ui/gm/ShowSheet.tsx'],
+  ])('%s states the column its padding and the sheet border leave', (_name, file) => {
+    const column = PHONE.glass - 2 * sheetBorder() - 2 * sheetPadX(file);
+    expect(
+      stated(file, /inner column is \*\*(\d+)px\*\*/g),
+      `${file} states a sheet column that is no longer the panel's content box less its own ` +
+        'padding. If the padding moved, re-measure; if the border moved, every sheet moved.',
+    ).toEqual([column]);
+  });
+
+  /*
+   * `PartyBoard` was the site nobody swept. It draws in `GmSheet size="full"`
+   * beside `Reference`, at the same 12px, and said 369 where the region says
+   * 367.00 - the same claim, the same container, missed by the pass that
+   * adjudicated every other 369 on this screen.
+   */
+  it('states the same full-tool column in `PartyBoard` as in `Reference`', () => {
+    const column =
+      PHONE.glass - 2 * sheetBorder() - 2 * regionPadX('src/ui/gm/PartyBoard.tsx', 'const pad =');
+    expect(
+      stated('src/ui/gm/PartyBoard.tsx', /wider than the (\d+\.\d\d)px a 393px phone leaves/g),
+      '`PartyBoard.tsx` states a column that is not the sheet\'s content box less its own ' +
+        'padding, which is how it came to say 369 in a 367 region',
+    ).toEqual([column]);
+    expect(
+      column,
+      '`PartyBoard` and `Reference` pad differently now, so they no longer share a column and ' +
+        'this claim has to be re-pointed rather than kept',
+    ).toBe(
+      PHONE.glass - 2 * sheetBorder() - 2 * regionPadX('src/ui/gm/Reference.tsx', 'className="scroll stack"'),
+    );
+  });
+
+  /*
+   * The retired figures, held shut. Every one of these is now written inside
+   * double quotes as a record of what was wrong, so an unquoted one is the
+   * sentence coming back.
+   */
+  it.each([
+    ['a 365px sheet column', /365/],
+    ['a 345px notice column', /345/],
+  ])('no file on this screen has gone back to %s', (_what, pattern) => {
+    const files = [
+      'src/ui/gm/MenuSheet.tsx',
+      'src/ui/gm/AddSheet.tsx',
+      'src/ui/gm/SaveSheet.tsx',
+      'src/ui/gm/ShowSheet.tsx',
+      'src/ui/gm/SessionBody.tsx',
+      'src/ui/gm/GmSheet.tsx',
+      'src/ui/gm/gmStore.ts',
+      'src/ui/gm/Gm.tsx',
     ];
     for (const file of files) {
       expect(

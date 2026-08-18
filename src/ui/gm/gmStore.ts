@@ -719,8 +719,9 @@ export const useGm = create<GmState>((set, get) => {
    * as the window stayed open and was gone on the next reload. `renameCampaign`
    * is the only caller that can reach that branch today, and MENU still offers
    * the field on the open campaign alone - not because the write cannot land
-   * any more, but because a third target on a 365px campaign row costs the name
-   * more width than a rename saves gestures. That reason is on the screen and
+   * any more, but because a third target on a campaign row - already narrower
+   * than the sheet's measured 363px column, and by an amount nobody has
+   * measured - costs the name more width than a rename saves gestures. That reason is on the screen and
    * argued in `MenuSheet.tsx`; this branch exists so that the day it changes,
    * nothing here has to.
    */
