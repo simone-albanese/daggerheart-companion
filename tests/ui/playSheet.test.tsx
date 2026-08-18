@@ -21,6 +21,7 @@ import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Play } from '../../src/ui/player/Play.tsx';
+import { applyDamage } from '../../src/engine/damage.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { useConditions } from '../../src/ui/player/conditionsStore.ts';
@@ -2348,6 +2349,113 @@ describe('the incoming-damage box, where the ladder is', () => {
       band.querySelector('input[aria-label="Incoming damage"]'),
       'the field is back in a band that cannot read a verdict for it',
     ).toBeNull();
+  });
+
+  /*
+   * THE CHIP THAT COUNTED TO THREE WHILE THE ENGINE SPENT ONE.
+   *
+   * `applyDamage` marks one Armor Slot per incoming damage unless an ability or
+   * a domain card says otherwise, and it has clamped to that for as long as the
+   * cap has existed. The chip did not: it cycled `ARM` - `-1` - `-2` - `-3`,
+   * bounded by a literal 3 and by the slots on the track. Nothing threw and the
+   * verdict beside it was right, because the engine quietly refused the extra
+   * two - so the only place the defect was visible was the chip's own face,
+   * which is the number the player reads before they commit.
+   *
+   * These ask the engine what it will spend and then walk the chip's whole
+   * cycle, so the ceiling can never be restated here as a literal either. The
+   * mutation they are written against is the old `n + 1 > available || n >= 3`.
+   */
+  /** The armor chip in the band, wherever the cycle has left it. */
+  const armChip = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').includes('Armor Slot'));
+
+  /** What the chip is offering to spend right now, read off its own face. */
+  const armOffered = (b: HTMLButtonElement): number => {
+    const face = (b.textContent ?? '').trim();
+    return face === 'ARM' ? 0 : Number(face.replace('\u2212', ''));
+  };
+
+  /** Three open slots, so a chip bounded by the track alone would reach three. */
+  const armored = (): Character => seed({ armorSlots: { marked: 0, max: 3 } });
+
+  it('cycles no higher than the one slot the engine will actually spend', () => {
+    const c = armored();
+    play(c);
+    const s = playedStats(c);
+    const amount = s.thresholds[1] + 1;
+    type(damageField()!, String(amount));
+
+    // Asked for with three slots open and three requested: the ceiling that
+    // comes back is the cap, not the track.
+    const spendable = applyDamage(amount, s, 3, { armorSlots: 3 }).armorSlotsSpendable;
+    expect(spendable, 'the engine stopped capping the spend at one slot').toBe(1);
+
+    expect(armChip(), 'a hit over Severe with three slots open offers no armor at all').toBeDefined();
+
+    const reachable = new Set<number>([armOffered(armChip()!)]);
+    for (let i = 0; i < 5; i++) {
+      click(armChip()!);
+      reachable.add(armOffered(armChip()!));
+    }
+    expect(
+      [...reachable].sort((a, b) => a - b),
+      'the chip offers slots the engine refuses: it shows a reduction, marks less than it ' +
+        'showed, and the player commits to a number they never had',
+    ).toEqual([0, spendable]);
+  });
+
+  it('offers no armor at all against a hit armor cannot move', () => {
+    const c = armored();
+    play(c);
+    type(damageField()!, '0');
+    // Nothing to reduce: the ladder is already at the bottom rung, so the cap
+    // is not what runs out first - there is nowhere for a slot to go.
+    expect(applyDamage(0, playedStats(c), 3, { armorSlots: 3 }).armorSlotsSpendable).toBe(0);
+    expect(
+      armChip(),
+      'a chip that cannot move when it is tapped is the same wrong number in a quieter voice',
+    ).toBeUndefined();
+  });
+
+  it('says one slot in the singular, and names the only other state it has', () => {
+    const c = armored();
+    play(c);
+    const s = playedStats(c);
+    type(damageField()!, String(s.thresholds[1] + 1));
+    click(armChip()!);
+    expect(
+      armChip()!.getAttribute('aria-label'),
+      'the band has no visible word for this chip, so the accessible name is the whole label',
+    ).toBe('Marking 1 Armor Slot against this hit - tap to clear');
+  });
+
+  it('marks the one slot it offered, and the HP of the rung below (control)', () => {
+    /*
+     * A CONTROL, and labelled one: it passes against the old chip too, because
+     * `applyDamage` was already clamping the request and the verdict button was
+     * already right. That is exactly why it is here - it pins the half of this
+     * screen that was never wrong, so a future ceiling change cannot be
+     * mistaken for a change to what gets marked.
+     */
+    const c = armored();
+    play(c);
+    const s = playedStats(c);
+    const before = structuredClone(useApp.getState().characters[0]!);
+    type(damageField()!, String(s.thresholds[1] + 1));
+    click(armChip()!);
+
+    const verdict = buttons().find((b) => /·\s*\d+ HP$/.test((b.textContent ?? '').trim()));
+    expect(verdict!.textContent).toContain('MAJOR');
+    click(verdict!);
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.armorSlots.marked, 'the commit spent a number of slots the chip never showed').toBe(
+      before.armorSlots.marked + 1,
+    );
+    expect(after.hp.marked, 'a Severe hit reduced one rung is a Major, which is 2 HP').toBe(
+      before.hp.marked + 2,
+    );
   });
 });
 
