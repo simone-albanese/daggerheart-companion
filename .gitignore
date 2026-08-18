@@ -45,3 +45,14 @@ audit-*.html
 # Both spellings again - `Giorgio*/` matches a directory and not a link to one.
 Giorgio*
 Giorgio*/
+
+# Agent worktrees. The workflow runner checks a full copy of this repository out
+# into each of these, so without this line a `git add -A` commits the tree once
+# per lane - and each copy carries a `node_modules` symlink, which is the trap
+# that has already overwritten the real directory once in this project. No
+# trailing slash, for the same reason `node_modules` has none: a pattern ending
+# in `/` matches directories only and a symlink is not one.
+.claude/worktrees
+
+# Per-user overrides by definition; the shared settings file is not this one.
+.claude/settings.local.json

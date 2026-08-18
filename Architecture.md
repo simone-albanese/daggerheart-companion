@@ -1300,11 +1300,17 @@ Un bottone che non apre niente è peggio di un bottone che non c'è.
   rimuovi dietro due tap — e il blocco «questo dispositivo»: `notices`,
   `quarantined` e lo stato prima che il database abbia risposto, tre campi che
   lo store portava da sempre e che nessuno aveva mai disegnato. Rinominare è
-  offerto **solo** sulla campagna aperta, con la ragione scritta accanto:
+  offerto **solo** sulla campagna aperta — ~~con la ragione scritta accanto:
   `patchCampaign` programma una scrittura solo per l'id attivo e `writeActive`
   raccoglie solo quel record, quindi un rename su un'altra riga sembrerebbe
-  giusto fino al reload. Un nome vuoto è **rifiutato a parole**, non riscritto
-  in silenzio. La lista non si riordina mentre è aperta: la campagna attiva
+  giusto fino al reload.~~ **[corretto il 18 agosto: lo store non ha più quel
+  limite.]** `patchCampaign` manda ogni id non attivo su `scheduleAside`, e
+  `flushGm` scrive quei record prima della lavagna, con test che falliscono
+  senza. Il muro in `MenuSheet` non è più attorno a una scrittura rotta: quel
+  che resta è **quale superficie possieda la rinomina**, che è una voce di
+  backlog con un suo disegno. Se quella voce atterra e la risposta è questa
+  sheet, lo store non è d'ostacolo. Un nome vuoto è **rifiutato a parole**, non
+  riscritto in silenzio. La lista non si riordina mentre è aperta: la campagna attiva
   viene scritta ogni 400 ms, e riordinare per `updatedAt` in render sposterebbe
   in cima proprio quella riga, sotto il pollice.
 
