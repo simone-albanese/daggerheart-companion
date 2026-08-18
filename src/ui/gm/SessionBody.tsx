@@ -21,12 +21,28 @@
  * The rows therefore carry the crossing explicitly, in both directions, built
  * only out of actions the store already has: PUT THIS ON THE BOARD and KEEP
  * WHAT IS ON THE BOARD. What has no verb is stated as a fact with no control:
- * a row's stored `combatants` cannot be put back, because no action in
- * `gmStore` sets the combatant list wholesale, and inventing a button that
- * silently dropped them would be exactly the kind of quiet wrongness the
+ * a row's stored `combatants` cannot be put back with their marks, because no
+ * action in `gmStore` sets the combatant list wholesale, and inventing a button
+ * that silently dropped them would be exactly the kind of quiet wrongness the
  * founding rule is about.
  *
- * ## A card is drawn here, not in the reader
+ * ## OPEN THE FIGHT is a third direction, and it crosses nothing
+ *
+ * An encounter row could be planned and never fought. The only route from a
+ * configured row to the table was PUT THIS ROSTER ON THE BOARD, then OPEN THE
+ * BUILDER, then SEND n TO THE SCENE - three taps through a screen the GM had
+ * already finished with, which is why the playtest GM's note about it reads
+ * "otherwise you effectively cannot use it".
+ *
+ * OPEN THE FIGHT is that route in one tap, and it is deliberately *not* built
+ * on top of PUT THIS ROSTER ON THE BOARD. It calls `spawn` for the row's own
+ * entries and opens the scene; the board's roster and the board's adjustments
+ * are left exactly as they were. Folding the board write into it would have
+ * meant one button quietly overwriting a roster the GM was in the middle of
+ * building, which is the same defect as a button that silently drops a saved
+ * fight - and the row says out loud that it does not do it.
+ *
+ * ## A card is drawn here, not in the reader - and so is a stat block
  *
  * A link row to a domain card renders `DomainCardView` in the row. The obvious
  * alternative - a button calling `setOpenCard`, which is how every other screen
@@ -35,6 +51,13 @@
  * per dialog with no topmost check: one Escape would close both, and every Tab
  * would be fought over by two traps. The card is content here rather than an
  * overlay, so the question does not arise.
+ *
+ * The same argument decides the encounter row's roster preview. Each resolved
+ * entry is a disclosure that draws `AdversaryBlock` under itself, rather than a
+ * button that opens the bestiary or a second dialog over this one. It is
+ * `AdversaryBlock` with no `action`, which renders no button, no input and no
+ * select at all: reading a sheet from the plan cannot change the plan, and that
+ * is a property of the component rather than a promise this file makes.
  *
  * ## Targets
  *
@@ -45,20 +68,30 @@
  * scroller, because a `<pre>` of it at 393px is the one element that could make
  * the whole page scroll sideways.
  */
+import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
-import { paragraphs, ruleBlocks } from '../shared/ruleText.ts';
+import { damageBumpRule, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
 
-/** The engine's own words for the three switches a GM flips, shortened. */
+/**
+ * The name of each switch a GM flips, shortened - and no dice.
+ *
+ * Two of these are the engine's own words for a choice. The third used to be
+ * `+1D4 (OR +2) TO ALL ADVERSARY DAMAGE`, which is not the name of a switch: it
+ * is a rule, transcribed by hand, in a file that is not allowed to hold one.
+ * The chip names the switch now and the rule is quoted underneath from whatever
+ * rules layer is loaded - see `damageBumpRule` - so the dice are said once, in
+ * the book's words, and a layer that changes them changes what this row says.
+ */
 const ADJUSTMENT_LABEL: Record<keyof EncounterAdjustments, string> = {
   easier: 'EASIER OR SHORTER FIGHT',
-  damageBump: '+1D4 (OR +2) TO ALL ADVERSARY DAMAGE',
+  damageBump: 'ADVERSARY DAMAGE BUMP',
   harder: 'HARDER OR LONGER FIGHT',
 };
 
@@ -218,17 +251,34 @@ function EncounterArm({
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const adversaries = useApp((s) => s.dataset.adversaries);
+  const rules = useApp((s) => s.dataset.rules);
+  const partySize = useApp((s) => s.prefs.gmPartySize);
   const patch = useGm((s) => s.patchSessionItem);
   const boardRoster = useGm((s) => s.roster);
   const boardAdjustments = useGm((s) => s.adjustments);
+  const inTheScene = useGm((s) => s.combatants.length);
   const addToRoster = useGm((s) => s.addToRoster);
   const setRosterCount = useGm((s) => s.setRosterCount);
   const clearRoster = useGm((s) => s.clearRoster);
   const toggleAdjustment = useGm((s) => s.toggleAdjustment);
+  const spawn = useGm((s) => s.spawn);
+
+  /** The ref whose stat block is open under it, or none. */
+  const [preview, setPreview] = useState<Ref | null>(null);
 
   const byId = new Map(adversaries.map((a) => [a.id, a]));
   const chosen = ADJUSTMENT_KEYS.filter((key) => item.adjustments[key]);
   const row = sessionName(item);
+  const bump = damageBumpRule(rules);
+
+  /*
+   * What OPEN THE FIGHT can actually put in the scene. A ref this dataset
+   * cannot resolve has no stat block, so `spawn` has nothing to make a
+   * combatant out of and the row already says so on its own line. A roster of
+   * nothing but unresolved refs therefore opens nothing, and the verb is
+   * disabled rather than opening an empty scene and looking like it worked.
+   */
+  const spawnable = item.roster.filter((entry) => byId.has(entry.ref));
 
   /*
    * Built out of the four actions that already exist, in the order they have
@@ -248,6 +298,18 @@ function EncounterArm({
     }
   };
 
+  /*
+   * The row straight to the table, without going through the builder - and
+   * without going through the board either. `spawn` is the same call the
+   * builder's SEND makes, with the same two arguments, so a Minion entry
+   * becomes `count` groups of `partySize` here exactly as it does there.
+   * `putOnBoard` is deliberately not called: see the docblock.
+   */
+  const openFight = (): void => {
+    for (const entry of spawnable) spawn(byId.get(entry.ref)!, partySize, entry.count);
+    onOpenTool('scene');
+  };
+
   return (
     <div className="stack" style={{ gap: 10 }}>
       <span className="t-meta">ROSTER</span>
@@ -257,17 +319,62 @@ function EncounterArm({
         <ul className="stack" style={{ gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
           {item.roster.map((entry) => {
             const adversary = byId.get(entry.ref);
+            /*
+             * A Minion's count is groups, each the size of the party -
+             * `EncounterEntry.count` says so and `ROLE_COST` prices it that
+             * way. `×3` beside a Minion therefore read as three rats where the
+             * budget had been spent on twelve, and the builder had said
+             * "3 GROUPS OF 4" about the same number all along. Same words here,
+             * so the plan and the builder cannot disagree about what is coming.
+             */
+            const count =
+              adversary === undefined
+                ? NOT_HERE
+                : adversary.role === 'Minion'
+                  ? `${String(entry.count)} GROUP${entry.count === 1 ? '' : 'S'} OF ${String(partySize)}`
+                  : `×${String(entry.count)}`;
+            const open = preview === entry.ref;
+
             return (
-              <li key={entry.ref} className="spread" style={{ gap: 10 }}>
-                <span
-                  className="t-dense"
-                  style={{ color: adversary === undefined ? 'var(--dim)' : 'var(--text-2)' }}
-                >
-                  {adversary?.name ?? entry.ref}
-                </span>
-                <span className="t-meta" style={{ flex: 'none' }}>
-                  {adversary === undefined ? NOT_HERE : `×${String(entry.count)}`}
-                </span>
+              <li key={entry.ref} className="stack" style={{ gap: 6 }}>
+                {adversary === undefined ? (
+                  <span className="spread" style={{ gap: 10 }}>
+                    <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                      {entry.ref}
+                    </span>
+                    <span className="t-meta" style={{ flex: 'none' }}>
+                      {count}
+                    </span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="spread"
+                    aria-expanded={open}
+                    // The visible words first, then the row, for the same
+                    // reason `Verb` does it: a night with three encounter rows
+                    // in it draws this button many times over, and the rotor's
+                    // button list is where they have to be told apart.
+                    aria-label={`${adversary.name} — ${count} — ${row}`}
+                    onClick={() => setPreview(open ? null : entry.ref)}
+                    style={{ gap: 10, width: '100%', minHeight: 'var(--tap)', textAlign: 'left' }}
+                  >
+                    <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+                      {adversary.name}
+                    </span>
+                    <span className="t-meta" style={{ flex: 'none' }}>
+                      {count}
+                    </span>
+                  </button>
+                )}
+                {open && adversary !== undefined && (
+                  <div
+                    className="panel"
+                    style={{ padding: 12, borderLeft: '3px solid var(--line)' }}
+                  >
+                    <AdversaryBlock adversary={adversary} />
+                  </div>
+                )}
               </li>
             );
           })}
@@ -285,6 +392,21 @@ function EncounterArm({
       )}
 
       {/*
+        The dice the chip above used to name, said where the roster is read
+        rather than only inside the builder. Nothing in the scene applies the
+        bump - a combatant carries HP, Stress and thresholds, never a damage
+        expression - so the GM adds it by hand, and the row is where they find
+        out that they have to.
+      */}
+      {item.adjustments.damageBump && (
+        <Fact>
+          {bump === null
+            ? 'This row was built with the damage bump on, and no rules layer this device has loaded carries the line that says what it adds. Nothing in the scene rolls it for you either way.'
+            : `This row was built with “${bump}”. Nothing in the scene rolls that for you — it is added at the table, on every adversary attack.`}
+        </Fact>
+      )}
+
+      {/*
         A fact, with no control beside it, because there is no action in the
         store that puts a combatant list back. Saying "3 adversaries mid-fight"
         beside a button that dropped them silently is the failure this app is
@@ -293,14 +415,23 @@ function EncounterArm({
       {item.combatants.length > 0 && (
         <Fact>
           This row was saved with {item.combatants.length} adversar
-          {item.combatants.length === 1 ? 'y' : 'ies'} already in the fight, with their marks. This
-          build can put the plan back on the board but not the fight, so those are kept on the row
-          and nothing here touches them.
+          {item.combatants.length === 1 ? 'y' : 'ies'} already in the fight, with their marks. No
+          control here brings those marks back — OPEN THE FIGHT starts the plan again from full HP
+          — so they are kept on the row and nothing here touches them.
+        </Fact>
+      )}
+
+      {spawnable.length > 0 && inTheScene > 0 && (
+        <Fact>
+          The scene already holds {inTheScene} adversar{inTheScene === 1 ? 'y' : 'ies'}. Opening
+          the fight from here adds this roster to them rather than replacing them; END SCENE, in
+          the scene, is what empties it.
         </Fact>
       )}
 
       <Fact>
-        The encounter builder works on the campaign’s one board, not on this row.
+        The encounter builder works on the campaign’s one board, not on this row. OPEN THE FIGHT
+        goes straight to the scene with this row’s roster and leaves the board’s roster alone.
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -316,7 +447,21 @@ function EncounterArm({
           label="KEEP THE BOARD’S ROSTER HERE"
           row={row}
         />
-        <Verb onClick={() => onOpenTool('encounter')} primary label="OPEN THE BUILDER" row={row} />
+        <Verb onClick={() => onOpenTool('encounter')} label="OPEN THE BUILDER" row={row} />
+        {/*
+          Last and primary, the way OPEN THE SCENE is on a scene row: the verb
+          that leaves the row sits at the end of the wrapped strip, and there is
+          only one of them, because two primaries in one row is none. The
+          builder loses its fill to it - a GM who has finished planning wants the
+          fight, and the builder is now the second choice on a configured row.
+        */}
+        <Verb
+          onClick={openFight}
+          disabled={spawnable.length === 0}
+          primary
+          label="OPEN THE FIGHT"
+          row={row}
+        />
       </div>
     </div>
   );

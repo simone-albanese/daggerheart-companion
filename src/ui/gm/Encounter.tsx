@@ -16,6 +16,7 @@ import {
   type EncounterEntry,
 } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
+import { damageBumpRule } from '../shared/ruleText.ts';
 import { AdversaryRow, FilterBar, NO_FILTER, useFiltered, type Filter } from './AdversaryList.tsx';
 import { useGm } from './gmStore.ts';
 
@@ -350,6 +351,7 @@ function Adjustments({
   adjustments: EncounterAdjustments;
 }): React.JSX.Element {
   const toggle = useGm((s) => s.toggleAdjustment);
+  const bump = damageBumpRule(useApp((s) => s.dataset.rules));
   let chosenIndex = -1;
 
   // The only handle the engine gives us is the order of its non-automatic
@@ -446,9 +448,21 @@ function Adjustments({
           </button>
         );
       })}
+      {/*
+        The dice come out of the dataset, not out of this file. This line used
+        to read "+1d4 (OR +2)", which is a rule transcribed by hand and had
+        already lost the SRD's own "or a *static* +2" - and the session row that
+        plans the same fight had a third transcription of it. `damageBumpRule`
+        is the one read all of them share now, so a rules layer that changes the
+        bump changes every screen that says it, and none of them can drift from
+        another. Uppercased for the register this line is set in; the words are
+        the book's.
+      */}
       <span className="t-meta" style={{ color: 'var(--dim)', lineHeight: 1.5 }}>
         {adjustments.damageBump
-          ? 'ALL ADVERSARIES DEAL +1d4 (OR +2) DAMAGE THIS FIGHT'
+          ? bump === null
+            ? 'THE DAMAGE BUMP IS ON; NO RULES LAYER HERE SAYS WHAT IT ADDS'
+            : `THIS FIGHT: ${bump.toUpperCase()}`
           : 'ROUND CIRCLES ARE DERIVED FROM THE ROSTER AND CANNOT BE TOGGLED'}
       </span>
     </section>
