@@ -23,9 +23,10 @@
  * `tool` is which of them is open over the list, or none - the five, plus the
  * SRD reference MENU opens, which is a tool no session row can hold. Each one is
  * rendered inside a `GmSheet` and **unmounted** when it closes - never hidden.
- * That is not tidiness: `PartyBoard`'s scanner opens the camera in an effect
- * and stops it on unmount, so a sheet kept alive behind `display: none` leaves
- * the camera running on a phone in a dark room. It costs the bestiary its
+ * That is not tidiness: the party board's camera - `PartyScanner.tsx`, which
+ * `PartyBoard` loads lazily - opens the stream in an effect and stops it on
+ * unmount, so a sheet kept alive behind `display: none` leaves the camera
+ * running on a phone in a dark room. It costs the bestiary its
  * filter and the encounter builder its search on every close, which is exactly
  * what switching region cost before, so it is not a regression.
  *
