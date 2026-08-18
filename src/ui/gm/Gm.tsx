@@ -322,11 +322,17 @@ export function Gm(): React.JSX.Element {
  * It sits under the pinned top bar and above the list: y 215 to about 360,
  * which is the top third of the screen and nowhere near the 560-820 band a
  * right thumb covers. That is deliberate twice over - it has to be *read*, and
- * its one control is a decision rather than a reflex. The strip's inner column
- * is 393 − 24 of page margin − 24 of padding = 345px, so the store's longest
- * sentence is four lines at `.t-dense`; with the label and the button the block
- * is about 143px, which takes the session list from the 548.00 measured in
- * `SessionList.tsx` to about 405. ("551px of list" and "nine rows" stood here.
+ * its one control is a decision rather than a reflex. **The inner column is
+ * narrower than the "393 − 24 of page margin − 24 of padding = 345px" that
+ * stood here, and by this alert's own frame.** `base.css:13` puts everything on
+ * `box-sizing: border-box`, and the alert declares `border: '1px solid
+ * var(--fear)'` alongside its 12px margin and 12px padding either side, so that
+ * sum spends nothing for a pixel on each edge. How much column is left has not
+ * been measured, and neither has the "four lines at `.t-dense`" the longest
+ * store sentence used to be given here, which was counted against the 345:
+ * both go to the rig before anything leans on them. The block is about 143px,
+ * which takes the session list from the 548.00 measured in `SessionList.tsx`
+ * to about 405. ("551px of list" and "nine rows" stood here.
  * Both were a 1px rule short, though not of the same rules: 551 missed the
  * three hairlines on the pinned chrome, and nine missed the two `.panel`
  * borders on every row. And 143 was never measured, so the row count it
@@ -335,9 +341,9 @@ export function Gm(): React.JSX.Element {
  * is losing it is the right trade.
  *
  * TRY AGAIN is a chip at `minHeight: var(--control)` - 34px against a precise
- * pointer, 44 on every phone and tablet - and deliberately not the full 345px
- * width: a full-width primary button at the top of a screen is a thing thumbs
- * hit on the way past, and pressing this twice while a write is in flight is
+ * pointer, 44 on every phone and tablet - and deliberately not the full width
+ * of the strip: a full-width primary button at the top of a screen is a thing
+ * thumbs hit on the way past, and pressing this twice while a write is in flight is
  * the one thing it should be hard to do by accident. The disabled state during
  * the retry says TRYING… rather than going grey silently.
  */
@@ -428,9 +434,15 @@ function NotSaved({
  *
  * The same slot as `NotSaved`, under the pinned top bar at y 215 and far above
  * the 560-820 band a right thumb covers, because it is read rather than
- * answered. The column is 393 − 24 of page margin − 24 of padding = 345px, so
- * the store's sentence is three lines at `.t-dense` and the block is about
- * 100px, taken off the 548.00 the list measures. ("Nine rows" stood here and
+ * answered. **The column is narrower than the "393 − 24 of page margin − 24 of
+ * padding = 345px" that stood here, and by a different rule from the one
+ * `NotSaved` above drops**: this strip declares `borderLeft: '3px solid
+ * var(--hope)'` and no other border, so under `box-sizing: border-box` it loses
+ * three pixels on one edge where `NotSaved` loses one on each - the two were
+ * never the same width and the shared 345 said they were. Neither has been
+ * measured, and nor has the "three lines at `.t-dense`" that was counted
+ * against the 345. The block is about 100px, taken off the 548.00 the list
+ * measures. ("Nine rows" stood here and
  * was never the count: it dropped the two `.panel` borders every row carries -
  * see `SessionList.tsx`, which measures eight whole and a ninth cut but
  * legible. 100 is an estimate, so what it leaves is not asserted.) Its only
