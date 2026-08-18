@@ -82,7 +82,9 @@
  * What kept it is the row, and this is the answer the unique-name item settled
  * on rather than a question left open. A campaign row is 365px: a 313px name
  * button and a 44px REMOVE. A third target on it takes the name button under
- * 270px on the screen where the whole point of the row is reading which table
+ * 261px - 313 less the third target's 44 and its 8 of gap, from the same
+ * arithmetic three lines up - on the screen where the whole point of the row is
+ * reading which table
  * it is, and a rename that opens *in* the row would push REMOVE - an armed,
  * destructive control - down the list under a thumb already travelling. One
  * field, on the campaign whose name is already drawn at the top of the screen,

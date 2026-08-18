@@ -294,10 +294,11 @@ export function Gm(): React.JSX.Element {
  *
  * This docblock used to claim that TRY AGAIN "calls `flushGm`, which does
  * something on every path that sets this field". It did not. `flushGm` writes
- * the open campaign when the store is dirty, and two of the four failures left
- * it clean: `createCampaign`'s rejected write, which is fixed in the store
- * because it *should* have been dirty, and a delete that threw, which no flush
- * can undo at all. A third, the read that failed, has no campaign to write and
+ * the open campaign when the store is dirty, and two of the failures it can
+ * report left it clean: `createCampaign`'s rejected write, which is fixed in
+ * the store because it *should* have been dirty, and a delete that threw, which
+ * no flush can undo at all. A third, the read that failed, has no campaign to
+ * write and
  * `writeActive` returns at `base === undefined` - inert forever. So the GM
  * pressed a red button, watched it say TRYING…, and got the same strip back
  * with nothing written.

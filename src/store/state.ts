@@ -540,15 +540,38 @@ export const useApp = create<AppState>((set, get) => ({
      *
      * Taken before the loop, so an arriving character is judged against the
      * device as the person left it rather than against the ones that landed
-     * ahead of it in this same batch.
+     * ahead of it in this same batch. That is what makes a `.dhbackup` holding
+     * two characters called Ilya come back as two characters called Ilya, which
+     * `import.test.ts` pins as a control: a backup that does not return what
+     * was backed up is worse than any collision, and that collision is one the
+     * file already had.
+     *
+     * **THE EXCLUSION IS BY WHAT GETS WRITTEN, NOT BY WHAT ARRIVES, and this is
+     * the correction.** It used to drop every id in the batch. A `keep-local`
+     * decision writes nothing, so that character is still on the device - and
+     * dropping it from `here` meant a genuinely other Ilya arriving in the same
+     * file landed beside it unrenamed and unmentioned, which is the one failure
+     * this door exists to stop. So the decisions are taken first and only the
+     * ids that will actually be written are excluded.
+     *
+     * A consequence worth naming rather than discovering: two arrivals that
+     * share a name AND collide with the device both mint the same free name, so
+     * the pair stays a pair. That is the backup rule applying to a renamed
+     * copy, not a hole in this one - the file's own duplication survives being
+     * moved out of the way, and the alternative is a backup coming back with
+     * two names it never had.
      */
-    const arriving = new Set(incoming.map((c) => c.id));
-    const here = get().characters.filter((c) => !arriving.has(c.id));
-
-    for (const raw of incoming) {
+    const prepared = incoming.map((raw) => {
       const normalized = normalizeIncoming(raw, dataset, index);
       const local = get().characters.find((x) => x.id === normalized.id);
-      const decision = decideImport(normalized, local, mode);
+      return { normalized, local, decision: decideImport(normalized, local, mode) };
+    });
+    const written = new Set(
+      prepared.filter((p) => p.decision !== 'keep-local').map((p) => p.normalized.id),
+    );
+    const here = get().characters.filter((c) => !written.has(c.id));
+
+    for (const { normalized, local, decision } of prepared) {
 
       if (decision === 'keep-local') {
         report.conflicts.push({ incoming: normalized, local: local! });

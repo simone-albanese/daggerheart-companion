@@ -158,8 +158,10 @@ export interface GmState extends GmLive {
    *
    * Set by every path that sets `writeError`, because no screen can work it
    * out: `flushGm` writes the active campaign **if the store is dirty**, which
-   * is true of a write that threw and was false of two of the four failures
-   * below. A TRY AGAIN drawn over one of those is a button that flashes and
+   * is true of a write that threw and is false of three of the six failures
+   * this store can report - a delete that threw, a read that failed, and (until
+   * it was fixed in the store) `createCampaign`'s rejected write, which *should*
+   * have left the store dirty and did not. A TRY AGAIN drawn over one of those is a button that flashes and
    * writes nothing - the founding rule failing on the control offered to
    * repair it. `retryGm` dispatches on this, and the three surfaces that draw
    * the button - the GM strip, SAVE, and the shell block that carries this

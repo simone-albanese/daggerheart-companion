@@ -235,6 +235,39 @@ describe('the store, against a real database', () => {
     expect(report.warnings).toEqual([]);
   });
 
+  it('renames against a character the same file decided to keep', async () => {
+    /*
+     * The hole the batch exclusion had, found by an adversarial read rather
+     * than by a failing test.
+     *
+     * The exclusion used to drop every id that ARRIVED. A `keep-local` decision
+     * writes nothing, so that character is still on the device - and dropping
+     * it meant a genuinely other Ilya in the same file landed beside it under
+     * the same name, with no rename and no sentence. That is precisely the
+     * state this door exists to stop, reached through the one path nobody
+     * looked at.
+     *
+     * Mutation: exclude by `incoming` rather than by what is written, and this
+     * goes red with `['Ilya', 'Ilya']` and no warning.
+     */
+    const local = at('2026-09-01T12:00:00.000Z')(makeCharacter({ id: 'x', name: 'Ilya' }));
+    seed(local);
+
+    const report = await store.useApp.getState().importCharacters([
+      // Older, so it loses and nothing is written for this id.
+      AUGUST({ ...local, level: 4 }),
+      // A different character who happens to share the name.
+      makeCharacter({ id: 'y', name: 'Ilya' }),
+    ]);
+
+    expect(report.conflicts.map((c) => c.incoming.id), 'the older copy was not kept').toEqual(['x']);
+    expect(
+      store.useApp.getState().characters.map((c) => c.name).sort(),
+      'a second Ilya landed on a device that already had one',
+    ).toEqual(['Ilya', 'Ilya (imported)']);
+    expect(report.warnings.join(' ')).toMatch(/already called "Ilya"/);
+  });
+
   it('updates a character this device has an older copy of', async () => {
     const local = at('2026-07-01T12:00:00.000Z')(makeCharacter({ name: 'Ilya', level: 3 }));
     seed(local);

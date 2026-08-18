@@ -202,7 +202,11 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
            * in this app can ever take it back off again. The only person who
            * can is the one reading this, and REMOVE FROM THE BOARD in the row's
            * own drawer is where they do it. So the sentence names the control
-           * rather than gesturing at "settings somewhere".
+           * rather than gesturing at "settings somewhere" - which exists, at
+           * "Erase everything" in Settings, and takes every campaign with it.
+           * That is why the sentence names this control instead of denying the
+           * other one: a GM who wants one sheet gone should not be sent to a
+           * button that empties the device.
            *
            * It used to read "NOTHING HERE SYNCS · EVERY NUMBER IS AS IMPORTED"
            * on a phone, and the drawer below it disproves the second half: mark

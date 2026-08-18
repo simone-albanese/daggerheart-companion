@@ -14,7 +14,13 @@
  * They are the two that undo, which is the half of a control that gets written
  * once and then never exercised again - and they are the two that act on data
  * that does not belong to the person pressing them. `removePartyMember` in
- * particular is the only path in this application by which another player's
+ * particular is the only path by which one player's sheet leaves this device
+ * *while the campaign stays* - which is not the same claim as the one this
+ * docblock used to make, and the difference matters. `party` is a field of the
+ * campaign record, so `removeCampaign` from MENU takes every sheet on that
+ * board with it, and "Erase everything" in Settings empties the store wholesale.
+ * Both are reachable, both are deliberate, and neither is this control. What is
+ * particular to this one is that another player's
  * character sheet leaves this device.
  *
  * The banner is here for the same reason. A board that holds whole copies of
@@ -167,7 +173,7 @@ describe('BACK TO WHAT ARRIVED', () => {
 });
 
 describe('REMOVE FROM THE BOARD', () => {
-  it('is the one way another player’s sheet leaves this device', () => {
+  it('takes the sheet off the board without touching the campaign', () => {
     put(sheet('pc-1', 'Ilya'));
     board();
     openRow();

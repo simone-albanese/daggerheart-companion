@@ -30,9 +30,12 @@
  * A reader of this block is by definition somewhere else - on Play, on Cards,
  * in Settings - so the first thing it has to say is where this came from. What
  * it must *not* do is summarise, and the GM screen's own `NOT ON THIS DEVICE`
- * is the demonstration: one of the five failures the store can report is a
+ * is the demonstration: one of the **six** failures the store can report is a
  * delete that threw, where the campaign is emphatically still on this device
- * and still in the list. The heading here is true of all five, and the sentence
+ * and still in the list. Six, counted rather than remembered - the aside write,
+ * the board write, a read that failed, the first campaign of a device,
+ * `createCampaign` and `removeCampaign`, each with its own sentence. The
+ * heading here is true of all six, and the sentence
  * under it is the store's own words, which already say which one this is.
  *
  * That matters most for the aside failure. `writeAside` names the campaign,

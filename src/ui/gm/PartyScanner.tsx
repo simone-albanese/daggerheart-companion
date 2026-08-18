@@ -7,7 +7,8 @@
  *
  * ## Why this is a module of its own
  *
- * `qr.ts` carries jsQR and `qrcode-generator`: 195 KB raw, 71.5 KB gzip, and
+ * `qr.ts` carries jsQR and `qrcode-generator`: 194.92 KB raw, 71.86 KB gzip -
+ * `vite build` in this tree, and the one place the figure is written down - and
  * `frames.ts` and `codec.ts` behind it. `PartyBoard.tsx` used to import
  * `createQrScanner` at the top of the file, so every one of those bytes was a
  * *static* dependency of the GM chunk - opening the GM screen at all downloaded

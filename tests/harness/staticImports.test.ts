@@ -10,8 +10,10 @@
  * the source: an `import … from` at the top of a file, which is indistinguish-
  * able from a cheap one. `PartyBoard.tsx` carried
  * `import { createQrScanner } from '../../transfer/qr.ts'`, which is jsQR plus
- * `qrcode-generator` plus the frame and payload codecs behind them - 194.9 KB
- * raw, 71.3 KB gzip - as a static dependency of the GM screen, for a camera
+ * `qrcode-generator` plus the frame and payload codecs behind them - see
+ * `PartyScanner.tsx` for the measured size, which is written down once because
+ * a number in two files is a number that disagrees with itself - as a static
+ * dependency of the GM screen, for a camera
  * that is behind a deliberate tap and that most GMs never open.
  *
  * ## Why this reads source and not `dist/`

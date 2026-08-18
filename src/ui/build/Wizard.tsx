@@ -758,7 +758,14 @@ function StepClass({
 
   return (
     <>
-      <Section label="Identity" hint="You can fill these in at any point">
+      {/*
+        The hint used to read "You can fill these in at any point", which stopped
+        being true of half this section the moment Name became a step-1 blocker:
+        on a device holding an unnamed character the wizard refuses Next before
+        anything is typed, while the words above the field said it could wait.
+        Pronouns still can, and the hint now says which is which.
+      */}
+      <Section label="Identity" hint="Pronouns can wait; the name cannot">
         <Columns min={220}>
           {/*
             No `gap` between the field and its refusal: `NameRefusal` is mounted
