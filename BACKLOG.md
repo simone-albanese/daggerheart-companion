@@ -75,7 +75,8 @@ one tap.
       hide: updated in place *unless this device has the newer edit, in which
       case nothing is written over and you are asked.*
 
-### ~~P0-2 · The automatic backup never runs, and Settings says it does~~ — **done, `0589761`, `842ffc1`**
+### ~~P0-2 · The automatic backup never runs, and Settings says it does~~
+      — **done, `0589761`, `842ffc1`**
 `src/store/backup.ts:324` · `src/ui/settings/Settings.tsx:561` · **medium, 4–6 h**
 
 `installBackupHooks`, `backupAtSessionEnd`, `integrityCheck` and `noteSession`
@@ -202,9 +203,12 @@ Anyone whose taps routinely exceed 480 ms — tremor, iOS Touch Accommodations �
 triggers it on ordinary taps. The same applies to the GM's PartyBoard, where it
 zeroes a *player's* HP.
 
-- [ ] Move the four handlers onto the `role="group"` pip row at `Track.tsx:128`,
+- [x] ~~Move the four handlers onto the `role="group"` pip row at `Track.tsx:128`,
       and move `opacity: holding ? 0.75 : 1` with them. `DualityRoll.tsx:557`
-      already does this correctly — copy that shape.
+      already does this correctly — copy that shape.~~
+      — **done, `7aa8965`**, which the heading above already claimed and this box did not.
+      `Track.tsx:208-229`: the four pointer handlers and `opacity: holding ? 0.75 : 1` both sit on
+      the pip row now, so a long press in the header cannot zero the track.
 
 ### ~~P0-5 · Second-tier durability~~ — **done, `2881815`**
 **~4 h total**
@@ -214,16 +218,23 @@ zeroes a *player's* HP.
       asks — and the user who just restored a library onto a fresh origin has the
       most at stake. Once populated by import, `first` is false forever, so a
       later `create()` never asks either. *(trivial)*
-- [x] ~~**The IndexedDB connection is never reopened after the browser kills it.**~~ — **done**, `terminated` plus a reset on rejection.
+- [x] ~~**The IndexedDB connection is never reopened after the browser kills it.**~~
+      — **done**, `terminated` plus a reset on rejection.
       `db.ts:47` is `dbPromise ??= openDB(...)` with no `terminated` callback and
       no reset on rejection: one force-closed connection and every write for the
       life of the tab rejects into P0-3's void. Pass
       `terminated: () => { dbPromise = null; }` and clear on rejection —
       `handleStore` in `backup.ts:132` already uses that pattern. Add
       `blocked`/`blocking` before ever bumping `DB_VERSION`. *(trivial)*
-- [x] ~~**A pending debounced write can resurrect a just-deleted character.**~~ — **done**, and before the database delete rather than after.
+- [x] ~~**A pending debounced write can resurrect a just-deleted character.**~~
+      — **done**, and before the database delete rather than after.
       `remove()` (`state.ts:221`) does not `pending.delete(id)`. *(trivial)*
-- [x] ~~**One malformed record makes the whole library unreadable — usually.**~~ — **done**, by reading database records through the same hardened reader the file path uses. What cannot be read is quarantined by name; what can be repaired is repaired, so a missing `updatedAt` costs a timestamp rather than a character. One clause the item did not anticipate: a record whose `updatedAt` is invented fresh on every launch wins every merge comparison against every backup, forever, so repairs are persisted once.
+- [x] ~~**One malformed record makes the whole library unreadable — usually.**~~
+      — **done**, by reading database records through the same hardened reader the file path uses.
+      What cannot be read is quarantined by name; what can be repaired is repaired, so a missing
+      `updatedAt` costs a timestamp rather than a character. One clause the item did not anticipate:
+      a record whose `updatedAt` is invented fresh on every launch wins every merge comparison
+      against every backup, forever, so repairs are persisted once.
       `db.ts:67` sorts with `b.updatedAt.localeCompare(...)`; a record missing
       that field throws and `listCharacters` fails entirely — surfacing as the
       storage banner claiming everything is probably fine. Filter-and-quarantine
@@ -240,12 +251,18 @@ zeroes a *player's* HP.
       reason. (An adversarial verifier claimed the opposite — that it never
       throws — on the strength of one fixture that happened to put the bad
       record last. Both halves were wrong; the sweep is in the session log.)
-- [x] ~~**A backup is recorded as successful without ever being read back**~~ — **done.** `writeIntoDirectory` reopens the file and compares the whole text; `runBackup` passes a `verify` callback that parses it and counts the characters. The split is deliberate — the writer knows about text and folders, the caller knows what the bytes mean. Both folder fakes in the suite had to learn to be read back, which is itself the point: a fake that cannot be reopened reports every backup as a failure.
+- [x] ~~**A backup is recorded as successful without ever being read back**~~
+      — **done.** `writeIntoDirectory` reopens the file and compares the whole text; `runBackup`
+      passes a `verify` callback that parses it and counts the characters. The split is deliberate —
+      the writer knows about text and folders, the caller knows what the bytes mean. Both folder
+      fakes in the suite had to learn to be read back, which is itself the point: a fake that cannot
+      be reopened reports every backup as a failure.
       (`fileIo.ts:549`), and the download route reports success from a click. An
       unverified backup is not a backup: re-open the handle with `getFile()`,
       parse it, assert the character count, and only then `stamp`. *(small)*
 
-### ~~P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character~~ — **done, `a99c84a`, `8cea63f`**
+### ~~P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character~~
+      — **done, `a99c84a`, `8cea63f`**
 `src/transfer/codec.ts` · **medium, 3–5 h**
 
 Measured, not theorised. 8136 single-bit flips across 15 real sheets, one bit
@@ -319,7 +336,8 @@ feeding bytes in from anywhere else inherited nothing, silently.
       measured against the checksum its own frames declared, always. That was the
       only live exposure this item had, and it was not in the item.
 
-### ~~P0-7 · Imported characters skip the counter sync every other write path runs~~ — **done, `83ee568`**
+### ~~P0-7 · Imported characters skip the counter sync every other write path runs~~
+      — **done, `83ee568`**
 `src/store/state.ts:232-238` · **small, 1–2 h**
 
 `importCharacter` persists a character exactly as it arrived, with no
@@ -349,7 +367,8 @@ no-clobber guard in P0-1, so fix them together.
 
 ---
 
-### ~~P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all~~ — **done, `d0c64f5`..`5c2096c`**
+### ~~P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all~~
+      — **done, `d0c64f5`..`5c2096c`**
 `shared/migrations.ts` · `src/store/db.ts` · `tests/store/{migrations,db}.test.ts` · **medium, 3–5 h**
 
 `SCHEMA_VERSION = 3`, and `checkSchema` throws in **both** directions. The
@@ -449,7 +468,8 @@ P0-3's failure arriving as a side effect of P0-8's fix, caught because
 Nothing here loses data, but each one makes the app confidently wrong about a
 rule at the table, which is how a tool like this loses trust permanently.
 
-### ~~P1-1 · Attack rolls do not lead into damage rolls~~ — **done, `712c4c9`, `21fc308`, `76ede0f`, `38b0b0e`**
+### ~~P1-1 · Attack rolls do not lead into damage rolls~~
+      — **done, `712c4c9`, `21fc308`, `76ede0f`, `38b0b0e`**
 `src/engine/dice.ts:264` · `src/ui/player/DamageRoll.tsx` · `src/ui/player/Play.tsx`
 · **medium, 4–6 h** · *requested directly*
 
@@ -569,11 +589,13 @@ recall cost ≥ 1.
 The shipped SRD `stress` rule: *"A character can't use a move that requires them
 to mark Stress if all of their Stress is marked."*
 
-- [ ] Read `affordable` and require an explicit confirm naming the HP it will
+- [x] ~~Read `affordable` and require an explicit confirm naming the HP it will
       cost. Do **not** hard-block with `allowed: false` — whether a vault recall
       is a "move" under that sentence is a table ruling, and the Recall Cost text
       is not in the shipped rules layer, so the app cannot cite the rule it would
-      be enforcing.
+      be enforcing.~~
+      — **done, `8a87433`**. `Cards.tsx:165` reads it and the button says `MARK n HP?` before the
+      first tap, so the second one is the informed one. Not hard-blocked, as this asked.
 
 ### P1-3 · Proficiency can be taken twice in the same tier
 `src/engine/levelUp.ts:102-110, 271-277` · **trivial, 30 min**
@@ -588,12 +610,15 @@ after the first taking.
 The shipped `leveling-up` rule settles it: *"you must spend two advancements and
 mark BOTH level-up slots in order to take it."*
 
-- [ ] Count `option.slots` against usage per taking when `costsBothPicks`.
-- [ ] Do **not** write two history entries: `deriveStats` computes proficiency as
+- [x] ~~Count `option.slots` against usage per taking when `costsBothPicks`.~~
+      — **done, `0626368`**. `levelUp.ts:206` is `slotsPerTaking`.
+- [x] ~~Do **not** write two history entries: `deriveStats` computes proficiency as
       `baseProficiency(level) + advancementCount(c, 'proficiency')`
-      (`character.ts:145`), so two entries would grant +2.
-- [ ] `LevelUp.tsx:104, 283, 325` recomputes `used` independently and needs the
-      same change, or the button will disagree with the validator.
+      (`character.ts:145`), so two entries would grant +2.~~
+      — **done, `0626368`**. One taking still writes one entry and marks both boxes.
+- [x] ~~`LevelUp.tsx:104, 283, 325` recomputes `used` independently and needs the
+      same change, or the button will disagree with the validator.~~
+      — **done, `d71136c`**. The lines are `LevelUp.tsx:173, 222, 228` now.
 
 ### P1-4 · School of Knowledge's extra card at level-up
 `src/ui/build/cardAllowance.ts` · **small, 1–2 h**
@@ -602,11 +627,18 @@ Creation is fixed (see *Done*), but the same subclass grants an additional domai
 card at **specialization** (*Accomplished*) and **mastery** (*Brilliant*) too. The
 level-up path does not know that yet.
 
-- [ ] Extend the allowance to the level-up flow, reusing the same table so there
-      is one source of truth rather than two.
-- [ ] **Beastbound (Ranger)** mastery: *"Choose two additional level-up options
+- [x] ~~Extend the allowance to the level-up flow, reusing the same table so there
+      is one source of truth rather than two.~~
+      — **done, `d7b0370`**. `levelUpCardGrants` at the foot of `cardAllowance.ts` serves creation
+      and level-up from the one table.
+- [x] ~~**Beastbound (Ranger)** mastery: *"Choose two additional level-up options
       for your companion."* The only other subclass in the SRD that changes a
-      count the app enforces. Same shape, different quantity.
+      count the app enforces. Same shape, different quantity.~~
+      — **settled, and deliberately not built, `d5d56b9`.** This bullet was wrong twice over, and
+      `src/engine/companion.ts:44-62` carries the finding: companion upgrades are not a domain-card
+      grant, so a row for Beastbound in `cardAllowance.ts`'s table would hand a Ranger a domain card
+      the SRD never gave them; and there is no count here to correct, because nothing caps
+      `upgrades`. Do not re-open this as *"same shape, different quantity"*.
 
 ### P1-5 · Rules honesty, second tier
 **~4 h total**
@@ -643,7 +675,8 @@ level-up path does not know that yet.
 - [x] ~~**`src/engine/rest.ts` has zero callers** — 226 lines, 28 passing tests, and
       no rest or downtime anywhere in the UI; `state.ts:29` declares a `'rest'`
       log kind nothing produces. It is fully tree-shaken, so it costs users
-      nothing today. Decide: wire it, or say out loud that rest is not in 1.0.~~ — **decided: it ships.** See P1-7.
+      nothing today. Decide: wire it, or say out loud that rest is not in 1.0.~~
+      — **decided: it ships.** See P1-7.
 - [ ] **`newCharacter` seeds the wrong HP and Stress track for six of nine
       classes.** `character.ts:282` hardcodes `max: 6` for both, but
       `startingHitPoints` is 5 for bard and wizard and 7 for guardian and seraph.
@@ -813,7 +846,8 @@ to the same call while implying the app had seen something it cannot see.
 
 ## P2 — Unusable on a device we support
 
-### ~~P2-1 · The Play screen collapses below 1180 px wide or 700 px tall~~ — **done: phone `91097eb`, tablet and desktop `fbd4884`**
+### ~~P2-1 · The Play screen collapses below 1180 px wide or 700 px tall~~
+      — **done: phone `91097eb`, tablet and desktop `fbd4884`**
 `src/ui/player/DualityRoll.tsx:395` · `src/ui/player/Play.tsx:645, 705` · **medium, 4–6 h**
 
 Measured live in Chrome with a deliberately lean character. In the tablet band
@@ -873,17 +907,42 @@ Recomputed from the real hex values:
 
 `--dim` carries 44 of 61 `.t-label`s, all at 10 px.
 
-- [ ] Lift dark `--dim` to ~`#8b93a3` and darken light `--dim` to ~`#5f6673`.
+- [x] ~~Lift dark `--dim` to ~`#8b93a3` and darken light `--dim` to ~`#5f6673`.
       Keep the old value as a separate `--dim-ui` for dividers and inactive icon
-      fills, so the text token can move without flattening the hierarchy.
-- [ ] Darken light `--hope` to ~`#8a5f06`; keep the current value as
+      fills, so the text token can move without flattening the hierarchy.~~
+      — **done, `83c85ae`**, and the value written is not the one proposed here: every number was
+      recomputed rather than taken on trust, the new boundary colour cleared 3:1 on `--panel` but
+      sat at 2.88 on `--raised`, and the separate pip-rim and field-border tokens turned out to be
+      the same colour. `--dim-ui` and `--hope-fill` do not exist; **`--edge`** is what shipped, and
+      a test computes the ratios from the tokens so this cannot go stale by a nudged hex.
+- [x] ~~Darken light `--hope` to ~`#8a5f06`; keep the current value as
       `--hope-fill` for pips and chips, which only need 3:1. Drop the 0.75/0.8
-      opacity on the verdict sub-lines in favour of a tuned token.
-- [ ] Raise `--empty` to ~`#495062` dark / `#b9b3a4` light — at 1.47:1 you cannot
-      see how big a track is.
+      opacity on the verdict sub-lines in favour of a tuned token.~~
+      — **done, `83c85ae`**, and the value written is not the one proposed here: every number was
+      recomputed rather than taken on trust, the new boundary colour cleared 3:1 on `--panel` but
+      sat at 2.88 on `--raised`, and the separate pip-rim and field-border tokens turned out to be
+      the same colour. `--dim-ui` and `--hope-fill` do not exist; **`--edge`** is what shipped, and
+      a test computes the ratios from the tokens so this cannot go stale by a nudged hex.
+- [x] ~~Raise `--empty` to ~`#495062` dark / `#b9b3a4` light — at 1.47:1 you cannot
+      see how big a track is.~~
+      — **done, `83c85ae`**, and the value written is not the one proposed here: every number was
+      recomputed rather than taken on trust, the new boundary colour cleared 3:1 on `--panel` but
+      sat at 2.88 on `--raised`, and the separate pip-rim and field-border tokens turned out to be
+      the same colour. `--dim-ui` and `--hope-fill` do not exist; **`--edge`** is what shipped, and
+      a test computes the ratios from the tokens so this cannot go stale by a nudged hex.
 
 ### P2-4 · The fixed block leaves a 375px phone almost no scroll
 **a constraint, not yet a defect** · *measured in this pass*
+
+> **Premise expired, 2026-08-18 — not shipped, and not to be ticked.** Every
+> number below was measured against a Play screen that no longer exists. The
+> phone reflow (`8def497`..`3dff11f`, P5-5) rebuilt the sheet, and the rule this
+> entry is built on — that the tokens and the roll are kept *out* of the scroll —
+> was itself overruled: the sheet scrolls. So the 188px, the 88px floor and the
+> "page also scrolls" column are all readings of a superseded layout, and the
+> lever list at the foot names two moves against a fixed block that is gone.
+> **Whoever picks this up re-measures first**, and if the constraint has not
+> survived the rebuild, the entry closes as expired rather than as done.
 
 The phone Play screen keeps two things out of the scroll: the tokens and the
 roll. Measured with a level 8 character:
@@ -951,9 +1010,12 @@ above, and this document is what everything else is tracked against.)*
       outcome, and the verdict renders in an inert div (`:428-452`). On phone the
       verdict is inside the focused button, so it is one gesture away — desktop
       has nothing.
-- [ ] **Five modal dialogs never move, trap or restore focus**
+- [x] ~~**Five modal dialogs never move, trap or restore focus**
       (`DomainCardView.tsx:366` and four others). One ~20-line shared `useDialog`
-      hook covers all of them.
+      hook covers all of them.~~
+      — **done, `948e7fb`**. The shared hook exists and the call sites are **seven**, not five:
+      `DomainCardView`, `GmSheet`, `GearPicker`, `Companion`, `DeathMove`, `Conditions`,
+      `Beastform`.
 - [ ] **`prefers-reduced-motion` is honoured in CSS but not by the JS smooth
       scroll** (`Settings.tsx:64`). *(trivial)*
 
@@ -984,42 +1046,59 @@ PWA — destroys the only copy that exists. Rare per deploy; note that the deplo
 gate is the same suite P3-5 records as failing about one run in five, and there
 is no post-deploy check of any kind.
 
-- [ ] Static text inside `#root` that React overwrites on mount: what the app
+- [x] ~~Static text inside `#root` that React overwrites on mount: what the app
       is, that the character is still in the browser's storage, and what to do —
-      explicitly *not* "clear site data".
-- [ ] Better: an escape that does not need the bundle. A small inline script
+      explicitly *not* "clear site data".~~
+      — **done, `d85420c`**. `index.html:180` onward, and it names the one action that destroys the
+      characters rather than recommending it.
+- [x] ~~Better: an escape that does not need the bundle. A small inline script
       that opens IndexedDB, reads `characters` and offers the JSON turns a
-      broken build into a bad evening rather than a lost character.
-- [ ] Write down the un-ship lever, which today exists only in a code comment:
+      broken build into a bad evening rather than a lost character.~~
+      — **done, `d85420c`**. The inline hatch opens IndexedDB, reads `characters`, and offers the
+      JSON after a 10s wait so it never races a slow first paint.
+- [x] ~~Write down the un-ship lever, which today exists only in a code comment:
       bumping `sw.js:29`'s `VERSION` renames both caches so `takeOver()` sweeps
       them and rebuilds from the network, at the cost of a full re-download for
-      every installed client.
+      every installed client.~~
+      — **done, `d85420c`**. `README.md:234-248`. The line reference here drifted: it is `sw.js:30`,
+      not `:29`.
 
 ## P3 — Fails without telling anyone
 
 ### P3-1 · UI chains with no catch
 **~2 h total**
 
-- [ ] **"Create character" can do nothing after a twelve-step wizard.**
+- [x] ~~**"Create character" can do nothing after a twelve-step wizard.**
       `Wizard.tsx` `finish()` awaits `create()` with no try/catch and is invoked
       as `void finish()`; `create()` awaits `db.putCharacter` before any state
       update. With a rejecting `openDB`, two presses produce only unhandled
       rejections and no navigation. The draft is plain `useState` with no
       persistence. Also: no in-flight disabled state, so a double-tap on a slow
       phone persists two duplicates. `Edit.tsx:426` handles the identical risk
-      correctly for delete — copy it.
-- [ ] **`Recovery.tsx:25` `paste()` has no try/catch or finally** — the button
+      correctly for delete — copy it.~~
+      — **done, `a443ef5`**. `Wizard.tsx:278` settles the promise, navigates on the fulfilled side
+      only, puts the device's own sentence on screen on the other, and a `writing` ref plus
+      `creating` state make the second tap impossible rather than merely unlikely.
+- [x] ~~**`Recovery.tsx:25` `paste()` has no try/catch or finally** — the button
       locks on "Reading…", and a partial import drops the user onto Play with a
-      success-shaped outcome and no count.
-- [ ] **`Settings.tsx:671` paste chain has no `.catch`/`.finally`** — `busy`
-      stays true and greys out the whole backup section until a tab switch.
-- [ ] **`ScreenBoundary`'s "Try again" retries the identical render and loops
+      success-shaped outcome and no count.~~
+      — **done, `83ee568`**. `catch` and `finally` at `:69` and `:73`.
+- [x] ~~**`Settings.tsx:671` paste chain has no `.catch`/`.finally`** — `busy`
+      stays true and greys out the whole backup section until a tab switch.~~
+      — **done, `83ee568`**. The chain carries `.catch` and `.finally`, and the comment beside it
+      names what used to happen.
+- [x] ~~**`ScreenBoundary`'s "Try again" retries the identical render and loops
       forever** (`:65`). After one failed retry, offer "Go to Settings" so the way
-      out points at the export.
-- [ ] **No boundary above the screen level.** `useStats()` runs in App's own
+      out points at the export.~~
+      — **done, `3dc3d82`**, and not the way this asked. `attempts` is counted, and after one failed
+      retry the boundary offers **Save a copy of everything** — it runs `runBackup` from inside the
+      crashed screen rather than pointing at Settings, because Settings is itself behind one of
+      these boundaries and may be the screen that crashed.
+- [x] ~~**No boundary above the screen level.** `useStats()` runs in App's own
       render; Header, TabBar, the storage banner and CardReader sit outside every
       boundary. No reachable throw found today, so this is hardening: wrap `.app`
-      in a boundary whose fallback is an unconditional "Export everything".
+      in a boundary whose fallback is an unconditional "Export everything".~~
+      — **done, `232d8a9`**. `App.tsx:101-103` wraps the shell in `AppBoundary`.
 
 ### P3-6 · The card reader says "tap anywhere to close" and means "tap outside"
 `src/ui/shared/DomainCardView.tsx:613, 531, 518` · **trivial, 20 min** · *reported from a phone*
@@ -1039,12 +1118,16 @@ project's own rule is written against, and it is worse than a missing hint.
 Note the footer text is itself a button and does close, so a tap on those exact
 words works — which is how it survived: whoever tested it tapped the label.
 
-- [ ] Decide which half is the truth and make the other match. Either close on
+- [x] ~~Decide which half is the truth and make the other match. Either close on
       a tap anywhere on the card that is not a scroll or a text selection, or
       change the copy to say what it does — "TAP OUTSIDE TO CLOSE", with the
-      footer button staying as the explicit control.
-- [ ] Whichever way it goes, the Escape handler at `:507` is already correct and
-      undocumented on screen; a keyboard user is told nothing.
+      footer button staying as the explicit control.~~
+      — **done, `4eb636f`**. The copy moved, not the behaviour: the footer names the control instead
+      of promising a gesture the card's own `stopPropagation` cancels.
+- [x] ~~Whichever way it goes, the Escape handler at `:507` is already correct and
+      undocumented on screen; a keyboard user is told nothing.~~
+      — **done, `4eb636f`**. `DomainCardView.tsx:752` carries `aria-keyshortcuts="Escape"`, and
+      `:595` writes down that the three ways out are not equal.
 
 ### P3-5 · One test fails about one run in five, and nothing knows which
 **small, 1–2 h** · *found in this pass, not in the first audit*
@@ -1055,13 +1138,21 @@ full runs: green. So a test in this suite is not deterministic, and the suite
 is the thing this project leans on hardest — a repo that has already caught two
 decorative tests by mutation cannot also afford one that lies at random.
 
-- [ ] Run the suite in a loop until it reproduces, with `--reporter=verbose`,
+- [x] ~~Run the suite in a loop until it reproduces, with `--reporter=verbose`,
       and name the test. The engine tests inject their RNG and the transfer
       tests are hermetic, so the likely candidates are the ones that touch a
       clock or a shared module-level cache: `backup.test.ts` (dates),
       `heldDice`/`conditionsStore` (localStorage across files), or a `sw.js`
-      test racing its own fixture.
-- [ ] Fix the source of the nondeterminism rather than the assertion.
+      test racing its own fixture.~~
+      — **done, `59ec924`**. Named: `tests/engine/randomness.test.ts > the Duality Roll,
+      statistically > "criticals, Hope and Fear land where two d12s put them"`. Reproduced twice in
+      60 runs before anything was touched, both times at an end of the triangle.
+- [x] ~~Fix the source of the nondeterminism rather than the assertion.~~
+      — **done, `59ec924`, `2331edf`**. The engine was not at fault and the assertion was not
+      loosened: the loop asked every total to sit inside one flat 6% band, which is a shrinking
+      amount of evidence as a bucket gets rarer — 2.24 sigma at totals 2 and 24, so a correct engine
+      tripped it about one run in twenty. Each total now gets a band sized by its own evidence, and
+      the sample is seeded.
 
 ### P3-2 · The gear search does not read the axes players type
 `src/ui/build/gear.ts:112` · **small, 1–2 h** · *a decision, not a defect*
@@ -1084,16 +1175,22 @@ the same failure the honesty rule exists to prevent: the screen implying an
 absence that is not real. The tests now pin these numbers, so the behaviour is
 an explicit choice rather than an accident.
 
-- [ ] Either fold range, trait, category, burden and the damage die into the
+- [x] ~~Either fold range, trait, category, burden and the damage die into the
       searched text, or say on screen that the box searches names and features
-      and the chips do the rest.
+      and the chips do the rest.~~
+      — **done, `8af234b`**. `gear.ts:117-121` folds all five in, so `melee` returns the 100 weapons
+      that are Melee.
 
 ### P3-3 · Untrusted input, second tier
-- [ ] **Decoded counter maxima are unbounded and render one DOM node each**
+- [x] ~~**Decoded counter maxima are unbounded and render one DOM node each**
       (`codec.ts:295`). Clamp on the way in: run `syncCounters` inside
       `importCharacter`, or bound the readers to the engine's own ceilings, which
       are already exported. Belt and braces: have `Track` refuse to render more
-      than a sane number of pips. *(small)*
+      than a sane number of pips. *(small)*~~
+      — **done, `234b878`**, and refused rather than clamped: `codec.ts:372-382` rejects a maximum
+      past the rules' ceiling with the number in the message, because a silently clamped `hp.max` is
+      a plausible character read out of a damaged payload. `Track.tsx:99` carries `MAX_PIPS = 40` as
+      the belt and braces this asked for.
 
 ### P3-4 · Offline and weight
 **~6 h total**
@@ -1115,7 +1212,8 @@ an explicit choice rather than an accident.
 
 ---
 
-### ~~P3-7 · The harness cannot see the class of defect this project keeps shipping~~ — **done, `7a3b079`..`817c62d`**
+### ~~P3-7 · The harness cannot see the class of defect this project keeps shipping~~
+      — **done, `7a3b079`..`817c62d`**
 `tests/harness/` · `tests/ui/screens.test.tsx` · `vitest.config.ts` · **small, 2–3 h**
 
 Four defects have now reached users with the same shape — code that exists,
@@ -1214,15 +1312,18 @@ believing an app is installed that is not, and the sheet does not open at all.
 The right pattern already exists one screen away: `Settings.tsx:672-674` renders
 persistence as GRANTED / NOT GRANTED / UNKNOWN.
 
-- [ ] One line beside the persistence indicator: whether a worker controls this
+- [x] ~~One line beside the persistence indicator: whether a worker controls this
       page (`navigator.serviceWorker.controller`, a one-liner) and whether the
       precache is filled — `sw.js:158` already has a message handler that could
-      answer with its cache counts.
+      answer with its cache counts.~~
+      — **done, `2393b48`**. `Settings.tsx:990-992` renders an **Offline** field beside GRANTED /
+      NOT GRANTED / UNKNOWN, with a sentence per answer the probe can give — including the one that
+      says opening this offline right now would give a blank rectangle.
 
 ### P3-9 · Three controls on the phone say the wrong thing, or nothing
 **~1 h total** · *same class as P3-6*
 
-- [ ] **A vault card that will not recall says why only in a `title`.**
+- [x] ~~**A vault card that will not recall says why only in a `title`.**
       `Play.tsx:545` is `title={check.reason ?? …}` and `:555` is
       `opacity: check.allowed ? 1 : 0.55`. For a card in the vault,
       `loadout.ts:37-44` makes `allowed` false for exactly one reachable reason
@@ -1233,15 +1334,19 @@ persistence as GRANTED / NOT GRANTED / UNKNOWN.
       normal state past level 4. `91097eb`'s own commit message fixes this exact
       mechanism one file over: *"An unaffordable chip now says NO HOPE instead of
       fading to 45 % opacity, which… read as absent while hiding the one fact the
-      player needed."* Two surfaces were left. *(trivial)*
-- [ ] **Every USE button in the carried-items list has the same accessible
+      player needed."* Two surfaces were left. *(trivial)*~~
+      — **done, `0e0ab42`**. `shortReason(check.reason)` is drawn on the card, not hidden in a
+      `title` a touchscreen cannot reach.
+- [x] ~~**Every USE button in the carried-items list has the same accessible
       name.** `Play.tsx:459-484` — the button's whole content is the literal
       `USE`, no `aria-label`. The sibling row button carrying the item's name is
       `disabled={entry.note === undefined}` (`:443`), so for any item without a
       note the name is not reachable as a focusable label at all. Five carried
       items announce as five buttons called "USE", and the player spends the
-      wrong consumable mid-scene. `aria-label={`Use ${entry.name}`}`. *(trivial)*
-- [ ] **On a phone the only route to Settings is a button labelled with the name
+      wrong consumable mid-scene. `aria-label={`Use ${entry.name}`}`. *(trivial)*~~
+      — **done, `ebecd1f`**, and with more than this asked for: `aria-label={`Use one ${entry.name},
+      N left`}`, so the listener gets the count as well as the name.
+- [x] ~~**On a phone the only route to Settings is a button labelled with the name
       of the current theme.** `Header.tsx:186` renders
       `{theme === 'light' ? 'LIGHT' : 'MENU'}` inside a button whose `onClick` is
       `setScreen('settings')`. `Header.tsx:49` hides the desktop nav under 720 px
@@ -1252,7 +1357,9 @@ persistence as GRANTED / NOT GRANTED / UNKNOWN.
       on a control that looks like a toggle. `theme: 'system'` renders MENU on a
       light OS too, so the label is not even a reliable indicator of the thing it
       appears to indicate. Shipped in `8c83f78`; `rg -l Header tests/` returns
-      nothing. *(trivial)*
+      nothing. *(trivial)*~~
+      — **done, `411f415`**. The button says SETTINGS. `Header.tsx:592` records that it read `theme
+      === 'light' ? 'LIGHT' : 'MENU'`, and why that was a sentence about the wrong thing.
 - [x] ~~**`USE` is 30.81×44** — the same button's *geometry*, which was never in
       this list.~~ — **done, lane `a3-targets`, `8a35431`.** Same omission class
       as the two filter chips `112cb7f` closed in `Cards.tsx`: a control that
@@ -1288,15 +1395,19 @@ back into the loadout" — and eleven characters to its right the app prints
 card. The same word, twice, in one row, meaning two different things. Nothing
 on screen distinguishes them.
 
-- [ ] Give the action the shape of a control: the chip treatment the rest of
+- [x] ~~Give the action the shape of a control: the chip treatment the rest of
       the app uses, or a border. It already has the height; it needs the
-      affordance.
-- [ ] Separate the two senses of "recall". The cost is a property of the card
+      affordance.~~ — **done, `ebecd1f`**. It carries the chip treatment the rest of the app uses.
+- [x] ~~Separate the two senses of "recall". The cost is a property of the card
       and reads fine as `COST 2`; the action can keep the verb. Whatever is
-      chosen, the same row must not use one word for both.
-- [ ] The disabled state is `'—'`, which says nothing about why a card cannot
+      chosen, the same row must not use one word for both.~~
+      — **done, `ebecd1f`, `8ebe8df`**. The price says `COST n`; the verb keeps RECALL.
+      `Cards.tsx:628` records that the pair used to be RECALL and RECALL 2.
+- [x] ~~The disabled state is `'—'`, which says nothing about why a card cannot
       be taken. `row.reason` already exists and is rendered in the cost slot —
-      check whether it can carry that instead.
+      check whether it can carry that instead.~~
+      — **done, `8ebe8df`**. `row.reason` is rendered in the cost slot, so a card that cannot be
+      taken says why.
 
 ### P3-12 · A die face grid, once opened, can only be closed by answering it — **half done, and the halves have diverged**
 `src/ui/player/DualityRoll.tsx` › `DieKeypad` · `src/ui/player/DamageRoll.tsx:371` ·
@@ -1334,7 +1445,8 @@ So this is one fix in two places, not a divergence.
       belongs to whichever lane owns that file. **Do not strike this entry as a
       whole** — half of it shipped and half of it did not.
 
-### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~ — **done, `54da813`, `e70abba`, `13981ff`; finished by P5-7, `965d419`**
+### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~
+      — **done, `54da813`, `e70abba`, `13981ff`; finished by P5-7, `965d419`**
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
 
 **Struck now, and its three bullets are ticked below with the commits that did
@@ -1418,8 +1530,19 @@ where being wrong stops the project rather than costing a character.
       chose rather than the scaffold's default. **`0.2.0` is deliberate and
       stays.** Nothing this project has shipped is a 1.0, and no document may
       say it is.
-- [ ] Sweep the remaining `TODO`/`FIXME`/`HACK` comments and decide which are
-      real gaps.
+- [ ] ~~Sweep the remaining `TODO`/`FIXME`/`HACK` comments and decide which are
+      real gaps.~~ — **no subject, measured 2026-08-18. Left unticked on purpose;
+      see the note.** There are no such comments to sweep: `TODO`, `FIXME`, `HACK`
+      and `XXX` return **zero** in `src/`, `shared/`, `tests/`, `tools/` and
+      `public/` — zero in any context, not merely zero in comments. Nor is this a
+      sweep somebody finished and forgot to record: `git log -S` over all 381
+      commits finds no commit that ever changed the count of `FIXME` or `HACK` in
+      the tree, and the only occurrences either string has ever had in this
+      history are this line and the handoff quoting it. The item was filed against
+      markers that do not exist and, in the history this branch has, never did.
+      **It is not ticked** because `BACKLOG.md`'s own Done table forbids marking it
+      done, and because "swept" would be a claim about work; "no subject" is a
+      claim about the tree, and that is the one that is true.
 
 ---
 
@@ -1569,7 +1692,8 @@ the choices below are settled and are recorded here as decisions rather than as
 options. Where a decision overrules something written above, the older text is
 marked.
 
-## ~~P5-1 · The Play screen is not the sheet, and on a phone it is not close~~ — **done, `03897ae`, `ed458f2`, `efe0dc5`, `08ec0f9`, `0e0ab42`, `b5d4f35`**
+## ~~P5-1 · The Play screen is not the sheet, and on a phone it is not close~~
+      — **done, `03897ae`, `ed458f2`, `efe0dc5`, `08ec0f9`, `0e0ab42`, `b5d4f35`**
 
 **decided: it becomes the sheet** · `src/ui/player/Play.tsx` · `src/ui/player/Vitals.tsx` ·
 `src/ui/player/DualityRoll.tsx` · **large, 12–16 h**
@@ -1714,7 +1838,8 @@ stops being a fixed-block problem once the page is a document).
 screen. The content is bounded and known"*. It has not been true since
 `91097eb`. It is the founding rule failing inside a comment.
 
-### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~ — **done, `a17f862`, `8cf9f5c`, `440f94f`**
+### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~
+      — **done, `a17f862`, `8cf9f5c`, `440f94f`**
 
 **requested directly** · `src/ui/build/Edit.tsx:113` · `src/store/merge.ts:77` ·
 **small, 2–3 h** · *lands after the rebuild, in the block the rebuild creates*
@@ -1792,7 +1917,8 @@ them becomes silence:
       first in a folder. The picker can now tell those two apart; the file
       system still cannot.
 
-## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `c631809`, `fb7a4e1`, `6947a99`, `5ae3ec5`, `78f503d`, `533575a`**
+## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~
+      — **done, `c631809`, `fb7a4e1`, `6947a99`, `5ae3ec5`, `78f503d`, `533575a`**
 
 **decided: it becomes one composable session, with multiple campaigns** ·
 `src/ui/gm/` · **large, 16–20 h**
@@ -2058,7 +2184,9 @@ silence:**
       top every 400 ms, under the thumb. If a GM ever wants the order refreshed
       it should be a control, not a side effect of the debounce.
 
-## ~~P5-3 · What the GM screen could have at hand, and does not~~ — **done, `e4def92`, `3f2a361`, `51264bd`, `702c72c`, `82fe585`, `674ab9a`, `fe3d788`, `1317299`, `2a9f5dc`**
+## ~~P5-3 · What the GM screen could have at hand, and does not~~
+      — **done, `e4def92`, `3f2a361`, `51264bd`, `702c72c`, `82fe585`, `674ab9a`, `fe3d788`,
+      `1317299`, `2a9f5dc`**
 
 **source: the official GM screen** · `src/ui/gm/Reference.tsx`,
 `src/ui/gm/ReferenceTables.tsx`, `src/ui/shared/srdReference.ts` ·
@@ -2126,14 +2254,35 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       that were **typed by hand into `Wizard.tsx`** beside a paraphrase of the
       SRD's caution. That paraphrase was the defect: it kept one of the rule's
       four worked examples.
-- [ ] ~~**The name and place generators**~~ — **does not ship, and no commit
-      will make it.** The shipped SRD contains no generator of any kind — no
-      name list, no place list, no table to roll on. Building one would mean
-      transcribing it out of `Manuali/`, which is the one thing this item's own
-      preamble forbids. Recorded here rather than left as an absence: an
-      omission written down is a decision, an omission unrecorded is a silence
-      somebody has to rediscover. If the owner wants generators, they are a new
-      item with their own source, and that source cannot be the licensed books.
+- [ ] **The name and place generators** — **REOPENED 2026-08-18 by the owner,
+      and the reasoning below survives intact: it is *why* the reopening costs
+      22 h rather than an afternoon.** What was refused was transcription, and
+      that refusal stands. What is now approved is tables written for this
+      project, with two rules that are different promises and both belong in the
+      module's docblock: **provenance** — the Core Book's four lists (47/43/18/20
+      entries, zero of which are in the SRD) are never decomposed into syllables,
+      which no output can verify; and **collision** — nothing the generator can
+      emit may already be in the shipped dataset, which *is* verifiable and is to
+      be tested exhaustively, by enumerating the whole producible space and
+      asserting the intersection with every `"name"` in `data/srd-1.0.json` is
+      empty. That test is not optional: a first attempt at tables, enumerated in
+      full, produced 268,871 strings of which five were Core Book entries
+      verbatim and five were SRD words already shipped, and a thirty-draw random
+      sample found none of them. So the signature is `(rng, taken) => string`,
+      not `(rng) => string`. Adding `'names'` to `GmRegion` also rewrites
+      `Architecture.md` §6.1, whose heading is *"The one exception, and why it is
+      only one"*. The original refusal, kept because it is the constraint:
+      **does not ship by transcription, and no commit will make it that way.**
+      The shipped SRD contains no generator of any kind — no name list, no place
+      list, no table to roll on. Building one would mean transcribing it out of
+      `Manuali/`, which is the one thing this item's own preamble forbids.
+      Recorded here rather than left as an absence: an omission written down is a
+      decision, an omission unrecorded is a silence somebody has to rediscover.
+      ~~If the owner wants generators, they are a new item with their own source,
+      and that source cannot be the licensed books.~~ **That is what happened**:
+      the owner asked for them, and the source is tables written here. The clause
+      that mattered — *that source cannot be the licensed books* — is the one
+      constraint the reopening does not touch.
 - [x] ~~**GM moves, principles and best practices** as reference the MENU can
       reach~~ — **done, `1317299`.** Five sections, five shut folds, each with
       its own page stamp: `gm-principles` and `gm-practices` (63),
@@ -2231,7 +2380,9 @@ that `0626368` and `d71136c` just made behave.
       diamonds, five Experience lines, the class feature printed in full, and
       inventory weapons carrying primary/secondary checkboxes.
 
-## ~~P5-5 · The whole sheet in one look — the reflow~~ — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`, `b11c423`; verified and corrected in `2802d37`, `959db01`, `d72f8bf`, `bd7bc66`**
+## ~~P5-5 · The whole sheet in one look — the reflow~~
+      — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`,
+      `b11c423`; verified and corrected in `2802d37`, `959db01`, `d72f8bf`, `bd7bc66`**
 
 **Decisions taken by the owner on 2026-08-17**, two of them overruling P5-1
 above, which is why those two bullets are marked SUPERSEDED there rather than
@@ -2382,7 +2533,8 @@ seen, all of them a sentence in the source that the code did not do.
       already is, or have the recall that spends the last Hit Point say so on
       its own row - and neither of the P5-5 commits picks one.
 
-## ~~P5-6 · The three savings, and what they were actually worth~~ — **done, `379a20a`, `899fbeb`, `fcda966`; a defect found by rendering it, `4608328`**
+## ~~P5-6 · The three savings, and what they were actually worth~~
+      — **done, `379a20a`, `899fbeb`, `fcda966`; a defect found by rendering it, `4608328`**
 
 P5-5 shipped the reflow and failed its own stated condition: the folded sheet
 was 899px against 730 of column at 393×852. The owner chose to close it and
@@ -2602,7 +2754,8 @@ the literal appears anywhere in `src/`.
       was changed here; it is written down so the next reader does not
       "fix" it by deleting the copy the other one depends on.
 
-## ~~P5-8 · The last 19px, and three numbers that had stopped being true~~ — **done, `4b3d816`, `039b757`, `93a3e91`**
+## ~~P5-8 · The last 19px, and three numbers that had stopped being true~~
+      — **done, `4b3d816`, `039b757`, `93a3e91`**
 
 An independent verifier measured the built screen in Chrome — not the declared
 heights, the drawn ones — and found four things. All four are closed, and the
@@ -3000,7 +3153,9 @@ against the tree while writing this, so a cold start does not rebuild them:
 | P1-4 School of Knowledge, Beastbound | `d7b0370`, `d5d56b9` | `cardAllowance.ts` carries `Accomplished` and `Brilliant` |
 | P1-5 armour ref, downtime label, one armour slot, seeded HP | `97fd2d9`, `5ed3def`, `af414eb`, `941f312` | `character.ts` carries `unresolvedArmor`; `newCharacter` seeds from the class; `Cards.tsx` branches on the rest, not on the cost |
 | P2-1 the tablet band | `b5d4f35` | every iPad gets the one-column sheet |
+| P2-2 the failing contrasts | `83c85ae` | `--edge` shipped where this table proposed `--dim-ui` and `--hope-fill`; a test computes the ratios from the tokens, so no hex nudge can quietly break it |
 | P2-5 a bundle that will not evaluate | `d85420c` | `index.html` carries an inline IndexedDB hatch |
+| P3-1 UI chains with no catch | `a443ef5`, `83ee568`, `3dc3d82`, `232d8a9` | all five bullets; **this entry had no trace in any of the three Done tables until 2026-08-18**, which is why it was the first re-verified. `Wizard.tsx:278` settles its own promise, `Recovery`/`Settings` carry `catch` and `finally`, `ScreenBoundary` counts `attempts` and offers the export from inside the crashed screen, and `App.tsx:101` wraps the shell in `AppBoundary` |
 | P3-2 the gear search | `8af234b` | |
 | P3-3 unbounded counter maxima | `234b878` | |
 | P3-5 the one-in-five flaky test | `59ec924`, `2331edf` | |
@@ -3024,8 +3179,15 @@ touched.
 
 **Not built in this pass, and not to be marked done by anybody reading this
 table:** P2-3(d) typography in `rem`, P4-6 the TODO sweep, P4-7 the unused-code
-flags and P4-8 the browser floor. All four were re-measured at HEAD and are
-recorded as open in their own entries, with the current numbers.
+flags and P4-8 the browser floor. ~~All four were re-measured at HEAD and are
+recorded as open in their own entries, with the current numbers.~~ **Corrected
+2026-08-18: three of the four were. P4-6's entry carried no number at all**, so
+this sentence claimed a measurement that was not there — and when it was finally
+taken, it did not say what this table assumes. P4-6 has **no subject**: zero
+`TODO`/`FIXME`/`HACK` in five directories, and no commit in 381 that ever changed
+the count. Its entry now carries that measurement. It stays unticked, which is
+what this paragraph asks for, but for the honest reason rather than the assumed
+one.
 
 ---
 
