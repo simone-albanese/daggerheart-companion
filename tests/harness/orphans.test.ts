@@ -67,7 +67,7 @@ const DELIBERATE: Record<string, string> = {
   // --- Features built before they were wired. Each is a backlog item, and
   //     wiring it deletes the line.
   'transfer/codec.ts::resolvePlaceholders':
-    'P1-6: no parked ref ever heals. Transfer.tsx used to promise on screen that one would; the warning it prints now says the opposite, so the copy is honest and the repair is still unbuilt.',
+    'P1-6: no parked ref heals in place on this device. The ghosts are drawn (Play.tsx, Rest.tsx) and another device names them on receipt; what is unbuilt is the resolver, and the transfer warning now says exactly that and no more.',
   'transfer/codec.ts::characterRefs': 'P1-6: reached only by missingSlugs, which is itself unwired.',
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',

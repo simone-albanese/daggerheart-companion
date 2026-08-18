@@ -945,23 +945,42 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   // and `writeBody` forwards both on the next hop untouched - which is what
   // the second half promises and what the chain-of-devices test pins.
   //
-  // What it does NOT do is heal them. `resolvePlaceholders` below is the only
-  // code that turns a placeholder back into a slug and nothing in `src/` calls
-  // it (`tests/harness/orphans.test.ts` holds that as a declared seam), so the
-  // ids stay unnamed here however much content later arrives. Nor is there a
-  // screen that shows one: `resolveCards` filters placeholders out of the
-  // loadout and out of the printed sheet. This used to end "they are kept on
-  // the sheet and will resolve when the missing source is added", which was a
-  // repair no code path could perform - the half of BACKLOG P1-6 that is still
-  // open. Wire the resolver and a display for the ghosts, and this sentence is
-  // the thing to change back.
+  // What it does NOT do is heal them *here*. `resolvePlaceholders` below is the
+  // only code that turns a placeholder back into a slug and nothing in `src/`
+  // calls it (`tests/harness/orphans.test.ts` holds that as a declared seam),
+  // so installing the missing content on this device afterwards changes
+  // nothing: the ids stay unnamed however much arrives later. That is the half
+  // of BACKLOG P1-6 which is still open, and it is the only half.
+  //
+  // Two things this sentence must NOT say, both of which a previous wording got
+  // wrong in opposite directions.
+  //
+  // It must not promise a repair. It used to end "they are kept on the sheet
+  // and will resolve when the missing source is added" - a repair no code path
+  // performs.
+  //
+  // And it must not deny the display. A parked ref IS drawn: it lives on the
+  // record as `?id`, `missingCardRefs` returns it because `?5407` can never be
+  // an index key, and `Play.tsx` and `Rest.tsx` render `GhostRow` for it - a
+  // dashed row reading CARD NOT IN THIS BUILD, naming the ref, with a way to
+  // move it to the vault. Drawing those ghosts is what closed P1-6's *display*
+  // half (`Play.tsx:294-308`), so a sentence claiming they do not appear as
+  // cards disproves shipped code, which is the same defect as the promise it
+  // replaced. What is missing is the **name**, not the row.
+  //
+  // Nor is "nothing repairs them later" true as written. `readBody` above
+  // resolves an incoming `?id` whenever the *receiving* registry knows it, so
+  // sending the sheet to a device that has the content does name the cards.
+  // What no amount of waiting fixes is this device.
   const warnings =
     unresolved.length === 0
       ? []
       : [
           `${unresolved.length} reference${unresolved.length === 1 ? '' : 's'} could not be found in this device's content ` +
-            `(${unresolved.join(', ')}). They stay on the sheet and are passed on unchanged when you send it again, ` +
-            `but this version cannot name them: they do not appear as cards here, and nothing repairs them later.`,
+            `(${unresolved.join(', ')}). They stay on the sheet - drawn as rows marked CARD NOT IN THIS BUILD, ` +
+            `with a way to move them to the vault - and are passed on unchanged when you send it again. ` +
+            `What this build cannot do is name them, and adding the content here later will not: ` +
+            `a device that already has it names them when the sheet arrives there.`,
         ];
   return { character, unresolved, warnings };
 }

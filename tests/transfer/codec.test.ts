@@ -261,7 +261,7 @@ describe('the sentence the player reads about a parked reference', () => {
     expect(warning).not.toMatch(/missing (?:source|content) (?:is added|turns up|arrives)/i);
   });
 
-  it('says what does happen: the ids stay, they travel, and nothing names them', async () => {
+  it('says what does happen: the ids stay, they travel, they are drawn, and this build cannot name them', async () => {
     const { warning, unresolvedId } = await decodeWithout('book-of-korvax');
     expect(warning).toContain(String(unresolvedId));
     expect(warning).toMatch(/could not be found/);
@@ -270,8 +270,16 @@ describe('the sentence the player reads about a parked reference', () => {
     expect(warning).toMatch(/passed on unchanged/);
     // And the limits, said out loud: no card is drawn for one, and no later
     // event repairs it.
-    expect(warning).toMatch(/do not appear as cards/);
-    expect(warning).toMatch(/nothing repairs them later/);
+    // Not "they do not appear as cards", which a draft of this said and which
+    // is false: `Play.tsx` and `Rest.tsx` draw a `GhostRow` for every parked
+    // ref. What is missing is the name, and the sentence has to be about that.
+    expect(warning).toMatch(/CARD NOT IN THIS BUILD/);
+    expect(warning).toMatch(/cannot do is name them/);
+    // Nor "nothing repairs them later" full stop: `readBody` resolves an
+    // incoming `?id` when the receiving registry knows it, so another device
+    // does name them. It is *this* device that waiting does not help.
+    expect(warning).toMatch(/adding the content here later will not/);
+    expect(warning).not.toMatch(/do not appear as cards/);
   });
 
   it('leaves no user-visible string in src promising a parked ref will heal', () => {
