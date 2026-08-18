@@ -604,6 +604,40 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
+   * The two `const COLUMN` guards, which are the same 369-versus-367 question
+   * asked in assertions rather than in prose - and the pair that has to be held
+   * together, because "correcting" the right one is the failure mode.
+   *
+   * `reference.test.tsx` draws inside `GmSheet`'s panel and said 369 with the
+   * comment "393 less the 12px this region pads either side", which is the
+   * exact sentence this file exists to retire: it was 2px slack as a guard as
+   * well as wrong as a comment. `sessionList.test.tsx` is NOT inside the sheet
+   * and its 369 is right. Neither is written here as a number.
+   */
+  it('gives each screen the column its own container leaves, in the guards too', () => {
+    const read = (file: string): number => {
+      const found = /const COLUMN = (\d+);/.exec(source(file));
+      if (found === null) {
+        throw new Error(
+          `${file} no longer declares a \`const COLUMN\`, so nothing here can say what width ` +
+            'it guards against. Re-point this claim at whatever replaced it.',
+        );
+      }
+      return Number.parseInt(found[1]!, 10);
+    };
+    expect(
+      read('tests/gm/reference.test.tsx'),
+      "the reference guard is not the sheet's content box less this region's padding. 369 is " +
+        'the list column, one container out - the sheet spends a pixel on each edge first.',
+    ).toBe(PHONE.glass - 2 * sheetBorder() - 2 * regionPadX('src/ui/gm/Reference.tsx', 'className="scroll stack"'));
+    expect(
+      read('tests/gm/sessionList.test.tsx'),
+      'the session list guard is not this region\'s own padding off the glass. This one is ' +
+        'outside the sheet and 369 is correct for it - do not "fix" it to match the reference.',
+    ).toBe(PHONE.glass - 2 * regionPadX('src/ui/gm/SessionList.tsx', 'className="scroll stack"'));
+  });
+
+  /*
    * The retired figures, held shut. Every one of these is now written inside
    * double quotes as a record of what was wrong, so an unquoted one is the
    * sentence coming back.

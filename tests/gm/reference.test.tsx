@@ -320,8 +320,14 @@ describe('the shape of it on a phone', () => {
 
   it('never forces the column wider than the phone, on any topic', () => {
     openReference();
-    // 393 less the 12px this region pads either side.
-    const COLUMN = 369;
+    // 391 less the 12px this region pads either side, not 393 less it: this
+    // tool draws inside `GmSheet`'s panel, which is border-box with a 1px
+    // border (`GmSheet.tsx`), so a pixel goes on each edge before the padding
+    // does. Measured in Chrome at 393x852 and stated in `Reference.tsx`;
+    // `tests/ui/gmGeometryProse.test.ts` holds the 367 to the sheet border and
+    // the region padding it is made of, so this stays a guard rather than a
+    // second copy of the derivation.
+    const COLUMN = 367;
     eachTopic((topic) => {
       const wide = [...container.querySelectorAll<HTMLElement>('*')]
         .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
