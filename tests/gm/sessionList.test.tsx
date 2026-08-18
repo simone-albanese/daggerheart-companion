@@ -118,11 +118,11 @@ const named = (label: string): HTMLButtonElement => {
 /**
  * The controls the *arm* draws, without the chrome every row has.
  *
- * The disclosure, the drag handle, MOVE UP, MOVE DOWN and DELETE belong to the
- * row rather than to its contents, and counting them would make "this arm
- * offers nothing to do" untestable.
+ * The disclosure, the drag handle, RENAME, MOVE UP, MOVE DOWN and DELETE
+ * belong to the row rather than to its contents, and counting them would make
+ * "this arm offers nothing to do" untestable.
  */
-const ROW_CHROME = /^(Reorder |MOVE UP|MOVE DOWN|DELETE|TAP AGAIN)/;
+const ROW_CHROME = /^(Reorder |RENAME|MOVE UP|MOVE DOWN|DELETE|TAP AGAIN)/;
 const armControls = (): HTMLButtonElement[] =>
   buttons().filter(
     (b) =>
@@ -135,6 +135,26 @@ const click = (el: Element): void => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 };
+
+const press = (el: Element, key: string): void => {
+  act(() => {
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  });
+};
+
+/**
+ * jsdom does not notify React when `input.value` is assigned directly, so this
+ * goes through the native setter and dispatches the event React listens for.
+ * Without it every typing test here would assert against an unchanged field
+ * and pass for the wrong reason - the same note `rename.test.tsx` carries.
+ */
+function type(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  act(() => {
+    setter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
 
 function seed(items: SessionItem[]): void {
   useGm.setState({ session: items, countdowns: countdownsOf(items) });
@@ -260,11 +280,13 @@ describe('the unreadable row, opened', () => {
     expect(pre?.style.overflowX).toBe('auto');
   });
 
-  it('offers nothing to do with it except delete it, and says what that costs', () => {
+  it('offers nothing to do with its bytes except throw them away, and says what that costs', () => {
     seed(unreadable());
     list();
-    // Nothing to edit: the row exists to be looked at and, if the GM decides
-    // so, thrown away.
+    // Nothing here can edit what the row *holds*: it exists to be looked at
+    // and, if the GM decides so, thrown away. RENAME is not a counterexample -
+    // it writes `SessionItemBase.name`, which every row has and this one has
+    // empty, and `raw` is untouched by it. That is asserted below.
     expect(armControls()).toHaveLength(0);
     click(buttons().find((b) => (b.textContent ?? '') === 'DELETE')!);
     expect(text()).toContain('TAP AGAIN TO DELETE THE ONLY COPY');
@@ -819,5 +841,336 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
       .map((el) => `${el.tagName}.${el.className} ${el.style.width}/${el.style.minWidth}`);
     expect(wide, 'these are wider than the column, so the page scrolls sideways').toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Decision 6 of `docs/handoff/DECISIONI-2026-08-18.md`, both halves.
+ *
+ * *Numbers on the type row, not on the name*, and a rename before them. The
+ * header used to reserve 130px on the right for `describeItem`'s line, so the
+ * one string on this screen a GM chose themselves was ellipsised to make room
+ * for "4/6" - and the number sat against the name as though it belonged to it.
+ */
+describe('the type row carries the numbers, and the name has the header to itself', () => {
+  /** The two-line stack inside a row's disclosure: the name, then the type row. */
+  const headerStack = (li: HTMLLIElement): HTMLElement =>
+    li.querySelector<HTMLElement>('button[aria-expanded] > span.stack')!;
+
+  it('draws the name and the type row, and nothing else, beside the marker', () => {
+    seed(oneOfEach());
+    list();
+    const stack = headerStack(rows()[3]!);
+    expect(stack.children, 'the header grew a third line or lost one').toHaveLength(2);
+  });
+
+  it('puts nothing but the name on the name’s line', () => {
+    seed(oneOfEach());
+    list();
+    // The countdown row, because its summary is the shortest number on this
+    // screen and the one most likely to be tucked in beside a name.
+    const stack = headerStack(rows()[3]!);
+    expect(stack.children[0]!.textContent).toBe('The ritual');
+    expect(stack.children[0]!.textContent, 'the number is stuck to the name again').not.toContain(
+      '4/6',
+    );
+  });
+
+  it('puts the number on the type row, opposite the kind word', () => {
+    seed(oneOfEach());
+    list();
+    const typeRow = headerStack(rows()[3]!).children[1]!;
+    expect(typeRow.textContent).toContain('COUNTDOWN');
+    expect(typeRow.textContent, 'the summary left the type row').toContain('4/6');
+  });
+
+  it('holds for every arm, not for the one that was looked at', () => {
+    seed(oneOfEach());
+    list();
+    const expected = [
+      [environment.name.toUpperCase(), 'SCENE'],
+      ['2 PLANNED', 'ENCOUNTER'],
+      [rule.title.toUpperCase(), 'LINK'],
+      ['4/6', 'COUNTDOWN'],
+      ['KEPT, NOT READ', 'UNREADABLE ITEM'],
+    ];
+    rows().forEach((li, i) => {
+      const [summary, kind] = expected[i]!;
+      const stack = headerStack(li);
+      expect(stack.children[1]!.textContent, `row ${String(i)} lost its kind word`).toContain(kind);
+      expect(stack.children[1]!.textContent, `row ${String(i)} lost its summary`).toContain(summary);
+      expect(
+        stack.children[0]!.textContent,
+        `row ${String(i)} has a number stuck to its name`,
+      ).not.toContain(summary);
+    });
+  });
+
+  it('keeps the whole summary reachable when the line ellipsises it', () => {
+    // One line or the 44px header grows, and the header's height is what makes
+    // nine rows fit on a phone - so the string that does not fit is on `title`.
+    seed(oneOfEach());
+    list();
+    const typeRow = headerStack(rows()[0]!).children[1]!;
+    const summary = typeRow.children[1] as HTMLElement;
+    expect(summary.title).toBe(environment.name.toUpperCase());
+    expect(summary.style.whiteSpace).toBe('nowrap');
+    expect(summary.style.textOverflow).toBe('ellipsis');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The other half of decision 6: the name was the one thing on this row that
+ * nothing could change.
+ *
+ * `AddSheet` types it once and the rows a countdown or an unreadable record
+ * mints never had one at all, so a night filled up with rows called "Scene",
+ * "Scene" and "Scene" with no way back to them. The control is `NameField`,
+ * which the character rename in `Edit.tsx` also calls - what is asserted here
+ * is the *door*: which record it writes, which words it uses for an empty
+ * name, and that arming it does not move the row under the thumb.
+ */
+describe('renaming a row', () => {
+  const oneScene = (patch: Partial<SessionItemBase> = {}): void => {
+    seed([
+      {
+        ...base({ id: 's', name: 'Scene one', collapsed: false, ...patch }),
+        kind: 'scene',
+        environmentRef: null,
+      },
+    ]);
+    list();
+  };
+
+  const field = (): HTMLInputElement =>
+    container.querySelector<HTMLInputElement>('input[type="text"]')!;
+  const save = (): HTMLButtonElement =>
+    buttons().find((b) => (b.textContent ?? '').trim() === 'SAVE')!;
+  const cancel = (): HTMLButtonElement =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Leave the name as'))!;
+  const stored = (): string => useGm.getState().session[0]!.name;
+  const footer = (): string[] =>
+    buttons()
+      .map((b) => (b.textContent ?? '').trim())
+      .filter((t) => ['RENAME', 'MOVE UP', 'MOVE DOWN', 'DELETE', 'SAVE'].includes(t));
+
+  it('is a verb in the open row, and says which row it is about', () => {
+    seed(oneOfEach().map((i) => ({ ...i, collapsed: false })));
+    list();
+    const names = buttons()
+      .filter((b) => (b.textContent ?? '').trim() === 'RENAME')
+      .map((b) => b.getAttribute('aria-label'));
+    expect(names).toHaveLength(5);
+    expect(names).toContain('RENAME — Scene one');
+    // The row with no name of its own is named after the word the list draws
+    // for it, because "RENAME — " announces as nothing at all.
+    expect(names).toContain('RENAME — Unreadable item');
+  });
+
+  it('is not offered on a shut row, which has no footer at all', () => {
+    oneScene({ collapsed: true });
+    expect(footer(), 'a shut row grew a footer').toEqual([]);
+  });
+
+  it('replaces the footer rather than opening above it', () => {
+    /*
+     * An open encounter row is taller than a 393px phone, so a field drawn
+     * beside the name would open off the top of the screen for the person who
+     * just tapped for it. It lands where the thumb already is instead, and the
+     * destructive verb leaves the band while a name is being typed.
+     */
+    oneScene();
+    expect(footer()).toEqual(['RENAME', 'MOVE UP', 'MOVE DOWN', 'DELETE']);
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    expect(footer(), 'the footer stayed on the screen beside the field').toEqual(['SAVE']);
+    expect(field().value, 'the field did not start at the stored name').toBe('Scene one');
+  });
+
+  it('declares the touch floor on everything the field draws', () => {
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    // Inline, because jsdom reads only inline styles: a height from a class
+    // measures 0 here.
+    expect(field().style.minHeight).toBe('var(--tap)');
+    expect(save().style.minHeight).toBe('var(--tap)');
+    expect(cancel().style.minHeight).toBe('var(--tap)');
+    expect(cancel().style.minWidth).toBe('var(--tap)');
+  });
+
+  it('writes nothing while the name is being typed, and writes it on SAVE', () => {
+    // `patchSessionItem` goes through `commit`, so a keystroke rename would be
+    // one debounced campaign write per letter.
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    for (const partial of ['T', 'The', 'The gate']) {
+      type(field(), partial);
+      expect(stored(), `the record was written after typing "${partial}"`).toBe('Scene one');
+    }
+    click(save());
+    expect(stored()).toBe('The gate');
+    expect(footer(), 'the footer did not come back after a commit').toContain('RENAME');
+    expect(text()).toContain('The gate');
+  });
+
+  it('trims what it writes, and commits on Enter', () => {
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    type(field(), '  The gate  ');
+    press(field(), 'Enter');
+    expect(stored()).toBe('The gate');
+  });
+
+  it('leaves the name alone on the ✕ and on Escape', () => {
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    type(field(), 'The gate');
+    click(cancel());
+    expect(stored()).toBe('Scene one');
+    expect(footer()).toContain('RENAME');
+
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    // The field is mounted fresh each time, so the draft the ✕ abandoned is
+    // not what the next rename opens on.
+    expect(field().value, 'the abandoned draft came back with the field').toBe('Scene one');
+    type(field(), 'The gate');
+    press(field(), 'Escape');
+    expect(stored()).toBe('Scene one');
+    expect(footer()).toContain('RENAME');
+  });
+
+  it('offers the kind word for an empty name, not the character sheet’s "Unnamed"', () => {
+    /*
+     * `sessionTitle` stands the kind word in for an empty name and marks it as
+     * invented so the row can draw it dimmed and never write it back. The
+     * field has to say the same word, or clearing it would promise a row
+     * reading "Unnamed" - which is what a *character* reads as, and a word
+     * this list never prints.
+     */
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    expect(field().placeholder).toBe('Scene');
+    expect(field().placeholder).not.toBe('Unnamed');
+    expect(cancel().getAttribute('aria-label')).toBe('Leave the name as Scene one');
+
+    type(field(), '  ');
+    expect(save().getAttribute('aria-label')).toBe('Save the name Scene — Scene one');
+    click(save());
+    expect(stored(), 'a word the GM never typed was written onto the record').toBe('');
+    expect(text()).toContain('Scene');
+  });
+
+  it('refuses nothing, because a night is allowed two rows with one name', () => {
+    /*
+     * No `judge` is passed, and this is what that decision looks like from the
+     * outside. `judgeName`'s sentences are about the header's `<select>` of
+     * characters; a GM who wants two rows called "The ambush" is not making a
+     * mistake, and an empty name is how three of the four kinds arrive.
+     */
+    seed([
+      { ...base({ id: 'a', name: 'The ambush', order: 0, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 'b', name: 'The bridge', order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+    ]);
+    list();
+    click(buttons().find((b) => (b.getAttribute('aria-label') ?? '') === 'RENAME — The bridge')!);
+    type(field(), 'The ambush');
+    expect(container.querySelector('[role="status"]'), 'a live region that can never speak').toBeNull();
+    expect(save().disabled).toBe(false);
+    click(save());
+    expect(useGm.getState().session.map((i) => i.name)).toEqual(['The ambush', 'The ambush']);
+  });
+
+  it('leaves the band while DELETE is armed, so the armed target does not move', () => {
+    /*
+     * Measured in Chrome at 393px with the shipped IBM Plex Mono: RENAME 62 +
+     * MOVE UP 69 + MOVE DOWN 83 + DELETE 62 lay out on one 44px line inside the
+     * footer's 349px. DELETE armed is "TAP AGAIN TO DELETE" at 153, and the
+     * four then measure 391 and wrap - which drops the armed button 52px, out
+     * from under the finger that has four seconds to press it again.
+     */
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'DELETE')!);
+    expect(text()).toContain('TAP AGAIN TO DELETE');
+    expect(footer(), 'RENAME stayed and pushed the armed button onto a second line').toEqual([
+      'MOVE UP',
+      'MOVE DOWN',
+    ]);
+  });
+
+  it('abandons a rename when the row is shut, rather than hiding the field', () => {
+    // `armed` clears itself after four seconds; this does not. A row shut
+    // mid-rename and reopened would otherwise come back with a field over its
+    // footer - and `collapsed` is on the record, so it could come back on
+    // another device.
+    oneScene();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    type(field(), 'The gate');
+    click(container.querySelector('button[aria-expanded]')!);
+    click(container.querySelector('button[aria-expanded]')!);
+    expect(footer(), 'the row reopened still renaming').toContain('RENAME');
+    expect(stored()).toBe('Scene one');
+  });
+
+  it('renames both copies of a countdown’s name, because three screens draw them', () => {
+    /*
+     * `addCountdown` writes one typed string into `item.name` and into
+     * `item.countdown.name` - the row's header reads the first, `countdownsOf`
+     * hands the second to the countdowns board, to this arm's own two buttons
+     * and to the pinned line in the top bar. Renaming only the row would leave
+     * one countdown called two things on three screens, which is the exact
+     * defect the store avoids by giving the row and the countdown one id.
+     */
+    seed([
+      {
+        ...base({ id: 'c', name: 'The ritual', collapsed: false }),
+        kind: 'countdown',
+        primary: true,
+        countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' },
+      },
+    ]);
+    list();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    type(field(), 'The gate falls');
+    click(save());
+
+    const item = useGm.getState().session[0]!;
+    expect(item.name).toBe('The gate falls');
+    expect(
+      item.kind === 'countdown' && item.countdown.name,
+      'the countdown the board draws still answers to the old name',
+    ).toBe('The gate falls');
+    // `commit` rederives this from `session`, and it is what the board and the
+    // pinned top-bar line actually read.
+    expect(useGm.getState().countdowns[0]!.name).toBe('The gate falls');
+    expect(
+      buttons().some((b) => (b.getAttribute('aria-label') ?? '').includes('Advance The gate falls')),
+      'the arm’s own advance button still announces the old name',
+    ).toBe(true);
+  });
+
+  it('renames a row this build cannot read without touching its bytes', () => {
+    // The one row in the app whose contents exist nowhere else. `AddSheet` can
+    // never have given it a name, so it is the row that most needs one - and
+    // `patchSessionItem` must not be a way to lose `raw`.
+    seed([
+      {
+        ...base({ id: 'u', name: '', collapsed: false }),
+        kind: 'unreadable',
+        why: 'this version of the app has no "photo" item',
+        raw: '{"kind":"photo","blob":"AAAA"}',
+      },
+    ]);
+    list();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    expect(field().placeholder).toBe('Unreadable item');
+    type(field(), 'The photo Giorgio sent');
+    click(save());
+    const item = useGm.getState().session[0]!;
+    expect(item.name).toBe('The photo Giorgio sent');
+    expect(item.kind).toBe('unreadable');
+    expect(item.kind === 'unreadable' && item.raw).toBe('{"kind":"photo","blob":"AAAA"}');
   });
 });

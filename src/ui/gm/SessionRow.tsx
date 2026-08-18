@@ -4,10 +4,15 @@
  * A *tendina*, the same idea `Disclosure` already carries for the character
  * sheet, with the three rules that made that one honest applied here:
  *
- *   - **the whole header is the target**, not a chevron. 44px tall and 307 of
- *     the 357px the panel has on a 393px phone - the remaining 44 + 6 are the
+ *   - **the whole header is the target**, not a chevron. 44px tall and 303 of
+ *     the 353px the panel has on a 393px phone - the remaining 44 + 6 are the
  *     drag handle beside it - which is still the largest target on this screen
- *     and the only one that can be hit without looking down;
+ *     and the only one that can be hit without looking down. (**303 and 353,
+ *     not the 307 and 357 that stood here.** Both were arithmetic that spent
+ *     the panel's 12px of padding and forgot its border: `.panel` is a 1px box
+ *     and this row overrides the left edge to a 3px stripe, so 369 less 4 less
+ *     12 is 353. Measured in Chrome at 393px, against this file's declared
+ *     padding and gap.);
  *   - **the header says what is inside it while it is shut.** `describeItem`
  *     answers for every arm, including the two that exist because this app
  *     refuses to drop what it cannot read, so a shut row never costs a tap to
@@ -40,24 +45,98 @@
  * whose contents exist nowhere else: the record kept it precisely so it would
  * survive a build that could not read it, and the GM staring at it is the only
  * person who can decide it is no longer wanted.
+ *
+ * ## Renaming
+ *
+ * The name was the one thing on this row nothing could change. `AddSheet`
+ * types it once and every row minted by a countdown or by an unreadable record
+ * never had one at all, so a night's list filled up with rows called "Scene",
+ * "Scene" and "Scene" and there was no way back to them.
+ *
+ * RENAME is a verb in the open row's footer, and the field it arms *replaces*
+ * that footer rather than appearing above it. Three reasons, and the first is
+ * the only one that would matter on its own:
+ *
+ *   - the field lands where the thumb already is. The list is a scroller and
+ *     an open encounter row draws a roster, three adjustment chips, a rule
+ *     quoted out of the dataset and four verbs, so the header is routinely
+ *     scrolled off the top while the footer is under the finger. A field
+ *     beside the name - which is where the name is, and where a rename
+ *     obviously belongs - would open where that person is not looking;
+ *   - it costs no height. The footer is one 44px line and every control the
+ *     field draws declares `var(--tap)`, and with no `judge` there is no
+ *     refusal region under it - so arming the rename moves nothing above or
+ *     below it;
+ *   - DELETE leaves the screen while a name is being typed. The two would live
+ *     in the same 44px band, and the one destructive control on this row is
+ *     worth taking out from under a thumb that is aiming at SAVE.
+ *
+ * RENAME is first in the footer rather than last, which is the least reachable
+ * end of a right-aligned row: appending it would have put a benign verb where
+ * a thumb has learned to find DELETE. Measured in Chrome at 393px, with the
+ * shipped IBM Plex Mono and this file's declared padding and gap, the four
+ * verbs are 62 + 69 + 83 + 62 and lay out on one 44px line inside the 349px
+ * this footer has - 393 less the list's 12px page padding either side, less
+ * the panel's 3px stripe and 1px border and 6px padding either side, less the
+ * open block's 2px.
+ *
+ * **RENAME leaves while DELETE is armed, and that is the measurement's doing.**
+ * "TAP AGAIN TO DELETE" is 153px where DELETE is 62. Today that still fits on
+ * one line: 69 + 83 + 153 = 305 of 349, so arming the row changes nothing
+ * above or below it. Add RENAME and the same row is 391, which wraps - the
+ * armed button drops to a second line 52px lower, out from under the finger
+ * that has four seconds to press it again. So it is not drawn while `armed`,
+ * which puts the armed footer back at exactly today's one 44px line. The
+ * unreadable row's "TAP AGAIN TO DELETE THE ONLY COPY" is 251px and wraps to
+ * 96px either way; that is older than this change and is not made worse by it.
+ *
+ * No rule is passed to the field. A night is *expected* to hold rows with no
+ * name and rows with the same name - `judgeName`'s sentences are about a
+ * `<select>` of characters, not about a list a GM ordered by hand - so
+ * `NameField` is given no `judge` and refuses nothing. `sessionTitle` decides
+ * what an empty name reads as, so the kind word is what the field shows as its
+ * placeholder - and what the cancel target names, on a row that has none.
+ *
+ * ## The numbers are on the type row, not on the name
+ *
+ * `describeItem`'s line used to be a third column, capped at 130px, and the
+ * name took whatever was left of the header. Measured at 393px with that
+ * column at its cap, the name had **145px**; without it the name and the type
+ * row have the header's whole **283px**. So a name was ellipsised to make room
+ * for "4/6", and the number sat against the name as though it were part of it.
+ *
+ * It is on the second line now, opposite the kind word, and the name has the
+ * header to itself. Both halves of that line are `t-meta`: the kind word says
+ * what sort of row this is, the summary says what is in it, and neither is a
+ * name. This is decision 6 of `docs/handoff/DECISIONI-2026-08-18.md` - numbers
+ * on the type row, not on the name - and it costs no height, because the
+ * header was already two lines tall.
  */
 import { useEffect, useState } from 'react';
 import type { SessionItem } from '../../../shared/campaigns.ts';
 import { useApp } from '../../store/state.ts';
+import { NameField } from '../shared/RenameField.tsx';
 import { SessionBody } from './SessionBody.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
 import type { DragHandleProps } from './useSessionDrag.ts';
 import { describeItem, SESSION_KIND_COLOR, SESSION_KIND_LABEL, sessionName, sessionTitle } from './session.ts';
 
-/** MOVE UP / MOVE DOWN: the keyboard's two moves, as targets. */
-function Move({
+/**
+ * The footer's plain verbs: RENAME, MOVE UP, MOVE DOWN.
+ *
+ * DELETE is not one of them and is written out below, because its words and
+ * its colour both change when it is armed and a shared component that took
+ * those as props would be this one plus an `if`.
+ */
+function RowVerb({
   onClick,
-  disabled,
+  disabled = false,
   label,
   children,
 }: {
   onClick: () => void;
-  disabled: boolean;
+  /** Only the two moves can be unavailable; RENAME never is. */
+  disabled?: boolean;
   label: string;
   children: React.ReactNode;
 }): React.JSX.Element {
@@ -118,10 +197,15 @@ export function SessionRow({
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const index = useApp((s) => s.index);
+  // The same number `SessionBody`'s encounter arm and the builder expand a
+  // Minion entry with, so a shut row and the row it opens into cannot disagree
+  // about how many adversaries the plan holds.
+  const partySize = useApp((s) => s.prefs.gmPartySize);
   const patch = useGm((s) => s.patchSessionItem);
   const remove = useGm((s) => s.removeSessionItem);
   const move = useGm((s) => s.moveSessionItem);
   const [armed, setArmed] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   // The same four seconds `Scene.tsx` gives its END SCENE: long enough to be a
   // second deliberate tap, short enough that a row left armed in a pocket is
@@ -134,7 +218,8 @@ export function SessionRow({
 
   const open = !item.collapsed;
   const title = sessionTitle(item);
-  const summary = describeItem(item, dataset, index);
+  const summary = describeItem(item, dataset, index, partySize);
+  const row = sessionName(item);
 
   return (
     <li
@@ -155,7 +240,15 @@ export function SessionRow({
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => patch(item.id, { collapsed: open })}
+        onClick={() => {
+          // Shutting the row abandons a rename in progress rather than hiding
+          // it: `armed` clears itself after four seconds and this does not, so
+          // without this a row shut mid-rename would reopen, days later on
+          // another device's copy of the arrangement, with a field over its
+          // footer and nothing to say why.
+          setRenaming(false);
+          patch(item.id, { collapsed: open });
+        }}
         className="row"
         style={{ flex: 1, minWidth: 0, minHeight: 44, gap: 8, padding: '0 2px', textAlign: 'left' }}
       >
@@ -175,10 +268,13 @@ export function SessionRow({
             clipPath: open ? 'polygon(0 25%,100% 25%,50% 100%)' : 'polygon(25% 0,100% 50%,25% 100%)',
           }}
         />
-        <span
-          className="stack"
-          style={{ flex: 1, minWidth: 0, gap: 2, alignItems: 'flex-start' }}
-        >
+        <span className="stack" style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          {/*
+            The whole header, minus the marker and the handle. It used to be
+            whatever the summary's reserved 130px left over - 145px of the
+            header's 283, measured - which ellipsised the one string on this
+            row a GM chose themselves in order to make room for "4/6".
+          */}
           <span
             title={title.text}
             style={{
@@ -195,30 +291,33 @@ export function SessionRow({
           >
             {title.text}
           </span>
-          <span className="t-meta" style={{ color: 'var(--dim)' }}>
-            {SESSION_KIND_LABEL[item.kind].toUpperCase()}
+          {/*
+            The type row: what sort of row this is on the left, what is inside
+            it on the right. The summary takes the width the kind word leaves
+            and ellipsises into it, with the whole string on `title`. It has to
+            stay one line - a summary that wrapped would grow the 44px header,
+            and the header's height is what makes nine rows fit on a phone.
+          */}
+          <span className="row" style={{ alignSelf: 'stretch', gap: 8, justifyContent: 'space-between' }}>
+            <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+              {SESSION_KIND_LABEL[item.kind].toUpperCase()}
+            </span>
+            <span
+              className="t-meta"
+              title={summary}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                color: 'var(--muted)',
+                textAlign: 'right',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {summary}
+            </span>
           </span>
-        </span>
-        {/*
-          Reserved 130px of the 357px panel width, ellipsised, with the whole
-          string on `title`. It has to be one line: a summary that wraps grows
-          the 44px header, and the header's height is the thing that makes nine
-          rows fit on a phone.
-        */}
-        <span
-          className="t-meta"
-          title={summary}
-          style={{
-            flex: 'none',
-            maxWidth: 130,
-            color: 'var(--muted)',
-            textAlign: 'right',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {summary}
         </span>
       </button>
 
@@ -227,7 +326,7 @@ export function SessionRow({
         phone - which is the easiest horizontal reach for a right thumb across
         the whole column, and where iOS has put this control since it invented
         it. It is a sibling of the disclosure and not inside it, because a
-        button may not contain a button; the header keeps 307 of the 357.
+        button may not contain a button; the header keeps 303 of the 353.
 
         `touch-action: none` is on this square alone, 12% of the row's width,
         so the other 88% still scrolls the list under the same thumb.
@@ -235,7 +334,7 @@ export function SessionRow({
       <button
         type="button"
         {...handle}
-        aria-label={`Reorder ${sessionName(item)}, ${position} of ${total}`}
+        aria-label={`Reorder ${row}, ${position} of ${total}`}
         style={{
           ...handle.style,
           flex: 'none',
@@ -261,54 +360,107 @@ export function SessionRow({
       {open && (
         <div className="stack" style={{ gap: 10, padding: '2px 2px 8px' }}>
           <SessionBody item={item} phone={phone} onOpenTool={onOpenTool} />
-          <div className="row" style={{ gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            {/*
-              The same two moves as the handle, without a pointer and without a
-              hold. An open row is where a GM is already looking when they
-              decide it belongs earlier, and a 44px button is a target a shaking
-              hand can hit where a 250ms hold plus 60px of travel is not.
-            */}
-            <Move
-              onClick={() => move(item.id, position - 2)}
-              disabled={position === 1}
-              label={`MOVE UP — ${sessionName(item)}`}
-            >
-              MOVE UP
-            </Move>
-            <Move
-              onClick={() => move(item.id, position)}
-              disabled={position === total}
-              label={`MOVE DOWN — ${sessionName(item)}`}
-            >
-              MOVE DOWN
-            </Move>
-            <button
-              type="button"
-              onClick={() => {
-                if (!armed) {
-                  setArmed(true);
-                  return;
-                }
-                remove(item.id);
-              }}
-              className="t-meta"
-              // The name says which row, because a list of identical "DELETE"
-              // buttons is a list a screen reader cannot tell apart - and it
-              // begins with the words on the button, so the two agree (WCAG
-              // 2.5.3), including in the armed state where the words change.
-              aria-label={`${armedLabel(item, armed)} — ${sessionName(item)}`}
-              style={{
-                flex: 'none',
-                minHeight: 44,
-                padding: '0 10px',
-                letterSpacing: '0.1em',
-                color: armed ? 'var(--damage)' : 'var(--dim)',
-                fontWeight: armed ? 600 : undefined,
-              }}
-            >
-              {armedLabel(item, armed)}
-            </button>
-          </div>
+          {renaming ? (
+            /*
+              In the footer's place, not above it: see the docblock. The field
+              is mounted fresh each time RENAME is tapped, so its draft starts
+              at the stored name every time rather than at whatever was
+              abandoned last.
+
+              No `judge`, and the kind word for `emptyReads`, because that is
+              what `sessionTitle` already draws for a row with no name - so
+              clearing the field shows the row's own placeholder before
+              anything is written, and SAVE stores `''` rather than the word.
+            */
+            <NameField
+              value={item.name}
+              fieldLabel={`New name for ${row}`}
+              emptyReads={SESSION_KIND_LABEL[item.kind]}
+              subject={row}
+              /*
+                A countdown row carries the name twice and both copies are
+                drawn. `addCountdown` writes one string into `item.name` and
+                into `item.countdown.name` - the row's header reads the first,
+                `countdownsOf` hands the second to the countdowns board, to
+                `SessionBody`'s own two buttons and to the pinned line in
+                `GmTopBar` - so a rename that moved only one of them would
+                leave the same countdown called two things on three screens.
+                This is the only place either can now change, and it changes
+                both. `commit` rederives `countdowns` from `session`, so the
+                board updates with the row.
+              */
+              onCommit={(name) =>
+                patch(
+                  item.id,
+                  item.kind === 'countdown'
+                    ? { name, countdown: { ...item.countdown, name } }
+                    : { name },
+                )
+              }
+              onDone={() => setRenaming(false)}
+            />
+          ) : (
+            <div className="row" style={{ gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {/*
+                First, which is the far end of a right-aligned row: appending it
+                would have put a benign verb where a thumb has learned to find
+                DELETE. And gone while DELETE is armed, because the four verbs
+                fit on one line at 393px only until DELETE grows to "TAP AGAIN
+                TO DELETE" - see the docblock, which has both measurements.
+              */}
+              {!armed && (
+                <RowVerb onClick={() => setRenaming(true)} label={`RENAME — ${row}`}>
+                  RENAME
+                </RowVerb>
+              )}
+              {/*
+                The same two moves as the handle, without a pointer and without a
+                hold. An open row is where a GM is already looking when they
+                decide it belongs earlier, and a 44px button is a target a shaking
+                hand can hit where a 250ms hold plus 60px of travel is not.
+              */}
+              <RowVerb
+                onClick={() => move(item.id, position - 2)}
+                disabled={position === 1}
+                label={`MOVE UP — ${row}`}
+              >
+                MOVE UP
+              </RowVerb>
+              <RowVerb
+                onClick={() => move(item.id, position)}
+                disabled={position === total}
+                label={`MOVE DOWN — ${row}`}
+              >
+                MOVE DOWN
+              </RowVerb>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!armed) {
+                    setArmed(true);
+                    return;
+                  }
+                  remove(item.id);
+                }}
+                className="t-meta"
+                // The name says which row, because a list of identical "DELETE"
+                // buttons is a list a screen reader cannot tell apart - and it
+                // begins with the words on the button, so the two agree (WCAG
+                // 2.5.3), including in the armed state where the words change.
+                aria-label={`${armedLabel(item, armed)} — ${row}`}
+                style={{
+                  flex: 'none',
+                  minHeight: 44,
+                  padding: '0 10px',
+                  letterSpacing: '0.1em',
+                  color: armed ? 'var(--damage)' : 'var(--dim)',
+                  fontWeight: armed ? 600 : undefined,
+                }}
+              >
+                {armedLabel(item, armed)}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </li>
