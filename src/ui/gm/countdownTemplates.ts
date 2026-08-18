@@ -196,9 +196,11 @@ export interface CountdownTemplateShelf {
    * making — the same refusal `NewCountdown`'s submit already makes.
    *
    * Keeping a triple that is already on the shelf returns the id of the one
-   * that is there instead of adding a second identical row. KEEP sits beside
-   * ADD, both are one thumb away from each other, and two rows the GM cannot
-   * tell apart is a choice with no answer.
+   * that is there instead of adding a second identical row: two rows the GM
+   * cannot tell apart is a choice with no answer, and the shelf is drawn under
+   * a thumb between scenes. The screen does not lean on this being silent —
+   * KEEP reads KEPT AS A TEMPLATE and goes inert once the triple is on the
+   * shelf — but it is the store's job to be right whoever calls it.
    */
   keep: (name: string, kind: CountdownKind, start: number) => string | null;
   /** Take a template off the shelf. Clocks already dropped from it stay. */

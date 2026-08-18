@@ -2,19 +2,32 @@
 /**
  * Countdown templates: a template of a countdown, not a countdown with state.
  *
- * The whole design is one sentence and every test here is a clause of it. A
+ * The whole design is one sentence and most of this file is a clause of it. A
  * template has a name, a kind and a starting number and no `value`, so there is
  * nothing on it that can be wrong. Dropping one produces an *instance* — a live
  * clock, a row of the session list — whose `name`, `kind` and `start` come from
  * the template and whose identity does not. Two drops of one template are two
  * independent clocks; forgetting the template leaves both of them running.
  *
- * The half that would be silent if it broke is the identity. A drop that reused
- * the template's id would look completely correct on screen for exactly as long
- * as the GM dropped it once, and would then produce two rows the store treats
- * as one - `advanceCountdown` maps over every matching id, so moving one would
- * move both. So the ids are asserted three ways: different from each other,
- * different from the template's, and the row's equal to the countdown's.
+ * Two halves would be silent if they broke, and they are what the rest of the
+ * file is for.
+ *
+ * The identity. A drop that reused the template's id would look completely
+ * correct on screen for exactly as long as the GM dropped it once, and would
+ * then produce two rows the store treats as one - `advanceCountdown` maps over
+ * every matching id, so moving one would move both. So the ids are asserted
+ * three ways: different from each other, different from the template's, and the
+ * row's equal to the countdown's.
+ *
+ * The disk. A `keep` or a `forget` that set the store without writing it looks
+ * completely correct until the tab is reloaded, and then the template the GM
+ * deleted is back and the one they kept is gone. Both are read back through
+ * `loadTemplates`, which is the call the next launch makes, rather than through
+ * the store that has just been asked.
+ *
+ * The last describe is neither: it is about what the GM is told. KEEP has to
+ * say that it landed, because the row it produces is above a form whose bottom
+ * the button sits at.
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
