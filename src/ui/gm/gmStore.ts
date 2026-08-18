@@ -63,6 +63,7 @@ import { exportCampaign } from '../../transfer/campaignFile.ts';
 import type { SaveOptions, SaveResult } from '../../transfer/fileIo.ts';
 import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaigns.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
+import { CAMPAIGN_NAMES, freeName } from '../../store/names.ts';
 import type { QuarantinedRecord } from '../../store/db.ts';
 import { publishCampaignAlert, type CampaignRetry } from '../shell/campaignAlert.ts';
 import {
@@ -296,8 +297,10 @@ let queue: Promise<void> = Promise.resolve();
  *
  *   - `renameCampaign` on a campaign that is not open. `patchCampaign` changed
  *     the list in memory and scheduled nothing, so the new name sat in the
- *     window looking right and was gone on the next reload. MENU walls the
- *     case off today, which hid it rather than fixing it.
+ *     window looking right and was gone on the next reload. MENU still offers
+ *     the field on the open campaign alone, but that is now an ergonomic
+ *     decision with its reason on the screen rather than a wall around a write
+ *     that could not land - see `MenuSheet.tsx`.
  *   - the records `readCampaigns` repaired on the way in. They were computed,
  *     returned and dropped, so the same repair ran on every launch.
  *
@@ -702,10 +705,12 @@ export const useGm = create<GmState>((set, get) => {
    * gathers the active campaign, so for any other id this used to change the
    * list in memory and schedule nothing: the patch looked applied for as long
    * as the window stayed open and was gone on the next reload. `renameCampaign`
-   * is the only caller that can reach that branch today, and MENU walls it off
-   * rather than exposing it - a wall which was the right call while the store
-   * could not honour the write, and is now about which surface owns renaming
-   * rather than about whether the rename lands.
+   * is the only caller that can reach that branch today, and MENU still offers
+   * the field on the open campaign alone - not because the write cannot land
+   * any more, but because a third target on a 365px campaign row costs the name
+   * more width than a rename saves gestures. That reason is on the screen and
+   * argued in `MenuSheet.tsx`; this branch exists so that the day it changes,
+   * nothing here has to.
    */
   const patchCampaign = (id: string, patch: Partial<Campaign>): void => {
     set((s) => ({
@@ -878,8 +883,22 @@ export const useGm = create<GmState>((set, get) => {
       // the new campaign's turn and the GM would watch the old board reappear.
       await flushGm();
       const at = new Date().toISOString();
+      /*
+       * The name is minted against the list, not taken on trust.
+       *
+       * NEW CAMPAIGN passes nothing, so every campaign made from MENU used to
+       * arrive as `FIRST_CAMPAIGN_NAME` - press it twice and the list holds two
+       * rows reading "My campaign", which is the same failure two characters
+       * called Ilya are in the header's `<select>`: a list you cannot pick out
+       * of. `freeName` counts up instead, so the second is "My campaign (2)".
+       *
+       * A mint and not a refusal, and the difference is who typed it. Nobody
+       * typed this: the door that *does* take a typed name is MENU's rename
+       * field, and that one refuses in words and offers rather than rewriting.
+       * See `names.ts` for the rule both of them read.
+       */
       const campaign = newCampaign(
-        (name ?? '').trim() || FIRST_CAMPAIGN_NAME,
+        freeName((name ?? '').trim() || FIRST_CAMPAIGN_NAME, get().campaigns, CAMPAIGN_NAMES),
         at,
         crypto.randomUUID(),
       );
@@ -938,6 +957,15 @@ export const useGm = create<GmState>((set, get) => {
       set({ activeCampaignId: id, ...spread(target) });
     },
 
+    /**
+     * Write a name the door already judged.
+     *
+     * No uniqueness check here, and that is the same shape `state.update` has
+     * for a character: the rule belongs in front of the person typing, where a
+     * refusal can be a sentence and an offer, and a store that silently
+     * substituted a different name would be the rewrite the door refuses to
+     * make. `MenuSheet`'s field asks `judgeName` before this is reachable.
+     */
     renameCampaign(id, name) {
       patchCampaign(id, { name: name.trim() });
     },

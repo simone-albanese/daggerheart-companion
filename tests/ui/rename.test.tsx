@@ -10,10 +10,17 @@
  * Marek to Ilya produced by hand precisely the state that paragraph prevents
  * when a file arrives.
  *
- * `tests/store/import.test.ts` tests the rule. This tests the door: that
- * nothing is written until SAVE, that a refusal is a sentence rather than a
- * dimmed button, that the offer goes into the field instead of onto the record,
- * and that renaming to nothing stores nothing rather than the word "Unnamed".
+ * `tests/store/names.test.ts` tests the rule, which is `judgeName` in
+ * `src/store/names.ts` and is now shared with the creation wizard and with
+ * MENU's campaign rename. This tests **this** door: that nothing is written
+ * until SAVE, that a refusal is a sentence rather than a dimmed button, that
+ * the offer goes into the field instead of onto the record, and that renaming
+ * to nothing stores nothing rather than the word "Unnamed".
+ *
+ * Every test in this file passed before the rule moved out of `merge.ts` and
+ * passes after, on purpose: this is the door the wording and the shape were
+ * designed at, so it is the control that says the move changed nothing here
+ * while the wizard, the campaign rename and the import path each grew a guard.
  *
  * Two harness notes, because both have bitten this repo before.
  *

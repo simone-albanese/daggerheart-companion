@@ -17,7 +17,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '../../shared/types.ts';
-import { decideImport, duplicateFor, freeName } from '../../src/store/merge.ts';
+import { decideImport, duplicateFor } from '../../src/store/merge.ts';
 import { indexDataset } from '../../src/engine/character.ts';
 import {
   makeArmor,
@@ -112,69 +112,6 @@ describe('keeping both copies', () => {
   });
 });
 
-/**
- * The one rule about two characters with the same name.
- *
- * `merge.ts::duplicateFor` argues for it - *"the character picker
- * in the header is a `<select>` of names, so two characters called 'Ilya' would
- * be indistinguishable at exactly the moment the user most needs to tell them
- * apart"* - and then enforced it on one of its two doors. The other door, a
- * person typing a name on the sheet, had no guard at all.
- *
- * And the comparison it did make was `new Set(taken.map((c) => c.name))`, which
- * cannot see "ilya", cannot see " Ilya", and cannot see two characters both
- * stored as `''` - all three of which the `<select>` draws identically. So the
- * rule is now one function with one definition of "the same name", and these
- * are tests of that definition rather than of either door.
- */
-describe('the one rule about two characters with the same name', () => {
-  it('offers the bare base when the base is free', () => {
-    // The difference between the two sequences, and the reason the rename path
-    // could not simply call `duplicateFor`: a person renaming a character wants
-    // the nearest free name, and the bare one when it is free.
-    expect(freeName('Ilya', [])).toBe('Ilya');
-  });
-
-  it('counts up past every name that is taken', () => {
-    const taken = [makeCharacter({ name: 'Ilya' }), makeCharacter({ name: 'Ilya (2)' })];
-    expect(freeName('Ilya', taken)).toBe('Ilya (3)');
-  });
-
-  it('counts up case-blind, so the offer is not itself a collision', () => {
-    const taken = [makeCharacter({ name: 'ilya' }), makeCharacter({ name: 'ILYA (2)' })];
-    expect(freeName('Ilya', taken)).toBe('Ilya (3)');
-  });
-
-  it('reads leading and trailing space as no difference', () => {
-    expect(freeName(' Ilya ', [makeCharacter({ name: 'Ilya' })])).toBe('Ilya (2)');
-  });
-
-  it('reads a doubled space as no difference, because HTML collapses it', () => {
-    expect(freeName('Il  ya', [makeCharacter({ name: 'Il ya' })])).toBe('Il ya (2)');
-  });
-
-  it('reads an empty name as the word every screen prints for it', () => {
-    // P5-1(b)'s third bullet. Two characters stored as '' both draw "Unnamed",
-    // and the old comparison saw two empty strings colliding with nothing.
-    expect(freeName('', [])).toBe('Unnamed');
-    expect(freeName('', [makeCharacter({ name: '' })])).toBe('Unnamed (2)');
-    expect(freeName('   ', [makeCharacter({ name: 'Unnamed' })])).toBe('Unnamed (2)');
-  });
-
-  it('never offers the bare base to the import path', () => {
-    // The copy's job is to be tellably different from the original, even when
-    // the original is not in `taken` at all.
-    expect(freeName('Ilya', [], { suffix: 'imported' })).toBe('Ilya (imported)');
-  });
-
-  it('leaves the character being renamed out of the count', () => {
-    // Without this, opening rename and pressing SAVE unchanged would offer to
-    // rename Ilya to "Ilya (2)".
-    const c = makeCharacter({ name: 'Ilya' });
-    expect(freeName('Ilya', [c], { except: c.id })).toBe('Ilya');
-  });
-});
-
 describe('the store, against a real database', () => {
   type Store = typeof import('../../src/store/state.ts');
   let store: Store;
@@ -207,6 +144,95 @@ describe('the store, against a real database', () => {
     expect(report.imported.map((c) => c.name)).toEqual(['New']);
     expect(report.conflicts).toEqual([]);
     expect(store.useApp.getState().characters.map((c) => c.name)).toEqual(['New']);
+  });
+
+
+  /*
+   * The name, on the door that compared `id` and nothing else.
+   *
+   * `decideImport` answers "is this the same character", which is a question
+   * about the id. Nothing here ever asked the other question - "is this a
+   * different character with a name I already cannot tell apart" - so a
+   * `.dhchar` for somebody else's Ilya landed beside the local Ilya and the
+   * header's `<select>` grew two identical rows. That is the state `merge.ts`
+   * spends a paragraph preventing on the keep-both path, at the one door it
+   * did not guard.
+   */
+  it('renames an arriving character whose name is already on this device', async () => {
+    seed(makeCharacter({ id: 'local', name: 'Ilya' }));
+
+    const report = await store
+      .useApp.getState()
+      .importCharacters([makeCharacter({ id: 'arrived', name: ' ilya ' })]);
+
+    expect(report.imported.map((c) => c.name)).toEqual(['ilya (imported)']);
+    expect(store.useApp.getState().characters.map((c) => c.name)).toEqual([
+      'ilya (imported)',
+      'Ilya',
+    ]);
+  });
+
+  it('says it did, because a rename nobody is told about is the silent rewrite', async () => {
+    // The rename door refuses and offers; there is nobody at a keyboard to
+    // refuse to here, and dropping somebody's character over a name would be
+    // the worst answer available. So it lands under a new name and the sentence
+    // `describeImport` builds names both.
+    seed(makeCharacter({ id: 'local', name: 'Ilya' }));
+
+    const report = await store
+      .useApp.getState()
+      .importCharacters([makeCharacter({ id: 'arrived', name: 'Ilya' })]);
+
+    expect(report.warnings).toEqual([
+      'Another character was already called "Ilya", so the one that arrived is now "Ilya (imported)".',
+    ]);
+  });
+
+  it('counts the empty name as a name here too', async () => {
+    // Two characters stored as '' both draw "Unnamed" in the picker, which is
+    // the same collision as any other and is spelt the same way by `names.ts`.
+    seed(makeCharacter({ id: 'local', name: '' }));
+
+    await store
+      .useApp.getState()
+      .importCharacters([makeCharacter({ id: 'arrived', name: '   ' })]);
+
+    expect(store.useApp.getState().characters.map((c) => c.name)).toEqual([
+      'Unnamed (imported)',
+      '',
+    ]);
+  });
+
+  it('leaves a name alone when the only holder is the copy being replaced', async () => {
+    // Control. The same id arriving with the same name is an update, not a
+    // second character - a guard that compared against the whole library would
+    // rename every character on every restore of the backup it came from.
+    const local = at('2026-07-01T12:00:00.000Z')(makeCharacter({ id: 'same', name: 'Ilya' }));
+    seed(local);
+
+    const report = await store.useApp.getState().importCharacters([AUGUST({ ...local, level: 4 })]);
+
+    expect(report.replaced.map((c) => c.name)).toEqual(['Ilya']);
+    expect(report.warnings).toEqual([]);
+    expect(store.useApp.getState().characters.map((c) => c.name)).toEqual(['Ilya']);
+  });
+
+  it('restores a backup holding two of the same name as two of the same name', async () => {
+    /*
+     * Control, and the reason the comparison excludes the batch rather than
+     * looking at the whole library. A `.dhbackup` with two characters called
+     * Ilya in it has to come back as two characters called Ilya: a backup that
+     * does not return what was backed up is worse than any collision, and that
+     * collision is one the file already had. What this door stops is an
+     * arriving character colliding with a character *this device* already has.
+     */
+    const report = await store.useApp.getState().importCharacters([
+      makeCharacter({ id: 'a', name: 'Ilya' }),
+      makeCharacter({ id: 'b', name: 'Ilya' }),
+    ]);
+
+    expect(report.imported.map((c) => c.name)).toEqual(['Ilya', 'Ilya']);
+    expect(report.warnings).toEqual([]);
   });
 
   it('updates a character this device has an older copy of', async () => {

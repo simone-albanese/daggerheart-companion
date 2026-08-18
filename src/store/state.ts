@@ -21,6 +21,7 @@ import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
 import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
 import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from './merge.ts';
+import { CHARACTER_NAMES, freeName, nameHolder, spokenName } from './names.ts';
 import { loadPrefs, onboardedByDoing, openingScreen, savePrefs, type Prefs } from './prefs.ts';
 
 export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'settings';
@@ -502,13 +503,17 @@ export const useApp = create<AppState>((set, get) => ({
   /**
    * Take in characters from a file, a QR, or the clipboard.
    *
-   * Two things happen here that used to happen nowhere. The counters are
+   * Three things happen here that used to happen nowhere. The counters are
    * synced against this build's derived maxima, which every other write path
    * has always done through `normalizeActive` and this one skipped - so a
    * sheet arriving from a newer device could carry an `hp.max` the engine
-   * disagrees with, and `validatePlan` would read the stored one. And a
-   * character already on this device with a *newer* edit is not written over:
-   * it comes back as a conflict, with nothing written, for the user to decide.
+   * disagrees with, and `validatePlan` would read the stored one. A character
+   * already on this device with a *newer* edit is not written over: it comes
+   * back as a conflict, with nothing written, for the user to decide. And the
+   * name is looked at at all: this path compared `id` and nothing else, so a
+   * `.dhchar` for a genuinely different Ilya landed beside the local Ilya and
+   * the header's `<select>` grew two identical rows - the exact state
+   * `merge.ts` argues against, at the one door it did not guard.
    */
   async importCharacters(incoming, options = {}) {
     const { dataset, index } = get();
@@ -521,14 +526,59 @@ export const useApp = create<AppState>((set, get) => ({
       warnings: [...(options.warnings ?? [])],
     };
 
+    /*
+     * Which local characters an arriving name may collide with.
+     *
+     * Not the whole library: the ones this very file is bringing back. A
+     * `.dhbackup` holding two characters both called Ilya has to restore as two
+     * characters both called Ilya - a backup that does not give you back what
+     * you backed up is worse than any name collision, and the collision is one
+     * the file already had. What this door exists to stop is different: a
+     * `.dhchar` for a genuinely *other* Ilya landing beside the Ilya on this
+     * device, which is the state `merge.ts` spends a paragraph preventing on
+     * the keep-both path and which this path never once looked at.
+     *
+     * Taken before the loop, so an arriving character is judged against the
+     * device as the person left it rather than against the ones that landed
+     * ahead of it in this same batch.
+     */
+    const arriving = new Set(incoming.map((c) => c.id));
+    const here = get().characters.filter((c) => !arriving.has(c.id));
+
     for (const raw of incoming) {
-      const character = normalizeIncoming(raw, dataset, index);
-      const local = get().characters.find((x) => x.id === character.id);
-      const decision = decideImport(character, local, mode);
+      const normalized = normalizeIncoming(raw, dataset, index);
+      const local = get().characters.find((x) => x.id === normalized.id);
+      const decision = decideImport(normalized, local, mode);
 
       if (decision === 'keep-local') {
-        report.conflicts.push({ incoming: character, local: local! });
+        report.conflicts.push({ incoming: normalized, local: local! });
         continue;
+      }
+
+      /*
+       * The name, against the characters already here.
+       *
+       * A mint rather than a refusal, for the reason `duplicateFor` gives about
+       * its own copy: there is nobody at a keyboard to refuse *to*. A file
+       * either lands or it does not, and dropping somebody's character because
+       * of a name would be the worst answer on the list. So it lands under the
+       * next free name in the imported sequence - the same sequence, from the
+       * same `freeName`, that the keep-both copy uses - and the sentence
+       * `describeImport` builds says so by name, which is what keeps it from
+       * being the silent rewrite the rename door refuses to be.
+       */
+      const holder = nameHolder(normalized.name, here, CHARACTER_NAMES);
+      const character =
+        holder === undefined
+          ? normalized
+          : {
+              ...normalized,
+              name: freeName(normalized.name, here, CHARACTER_NAMES, { suffix: 'imported' }),
+            };
+      if (holder !== undefined) {
+        report.warnings.push(
+          `Another character was already called "${spokenName(holder.name, CHARACTER_NAMES)}", so the one that arrived is now "${character.name}".`,
+        );
       }
 
       const wasEmpty = get().characters.length === 0;

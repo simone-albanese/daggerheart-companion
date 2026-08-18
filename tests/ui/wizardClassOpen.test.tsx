@@ -123,7 +123,11 @@ describe('the description a class card is chosen on', () => {
     // Still step 1 of the wizard, still the class step, still refusing Next
     // for the same reason: opening a description decided nothing.
     expect(container.querySelector('h2')?.textContent).toContain('Name & class');
-    expect(container.querySelector('[role="status"]')?.textContent).toBe('Choose a class.');
+    // The last live region, not the first: this step draws one of its own for
+    // the Name field's refusal, mounted empty. The nav is below every step.
+    expect(
+      [...container.querySelectorAll('[role="status"]')].at(-1)?.textContent,
+    ).toBe('Choose a class.');
   });
 
   it('is a second target beside the choice and never inside it', () => {

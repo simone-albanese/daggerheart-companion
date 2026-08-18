@@ -108,8 +108,16 @@ const complete = (p: Partial<Draft> = {}): Draft => ({
 const classOf = (draft: Draft, d: Dataset): CharClass | undefined =>
   d.classes.find((c) => c.id === draft.classRef);
 
+/**
+ * `review` as the wizard asks it, against an empty library.
+ *
+ * Empty on purpose: every rule this file is about is a rule about the draft,
+ * and the one rule that is about the device - the unique name - is exercised
+ * where its door is, in `wizardCreate.test.tsx`. A library of nobody is the
+ * shape that leaves the name guard silent.
+ */
 const noticesFor = (draft: Draft, d: Dataset = dataset): ReturnType<typeof review> =>
-  review(draft, classOf(draft, d), d);
+  review(draft, classOf(draft, d), d, []);
 
 const blockersFor = (draft: Draft, d: Dataset = dataset): Blocker[] => noticesFor(draft, d).blockers;
 
@@ -549,9 +557,19 @@ const buttonSaying = (html: string, label: string): Rendered => {
 const rail = (html: string): Rendered[] =>
   buttonsIn(html).filter((b) => b.attrs.includes('title='));
 
-/** Whatever the nav is currently saying it is withholding, or null. */
-const refusal = (html: string): string | null =>
-  /role="status"[^>]*>([^<]*)</.exec(html)?.[1] ?? null;
+/**
+ * Whatever the nav is currently saying it is withholding, or null.
+ *
+ * The **last** live region on the screen, not the first. Step 1 draws one of
+ * its own now: the Name field's refusal, which is mounted empty and fills when
+ * the name collides with a character already on this device. The nav is below
+ * every step, so last in the document is the nav's - and a helper that took the
+ * first one silently started reading the empty one the day that field landed.
+ */
+const refusal = (html: string): string | null => {
+  const found = [...html.matchAll(/role="status"[^>]*>([^<]*)</g)];
+  return found.at(-1)?.[1] ?? null;
+};
 
 describe('the gate, on the screen it is wired to', () => {
   const opening = openingScreen();

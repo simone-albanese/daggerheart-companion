@@ -4,7 +4,12 @@
  * This is the wizard's model, kept apart from the wizard's screen, for the same
  * reason src/engine is kept apart from everything: "is this character legal
  * yet" is a rules question, and a rules question belongs in a plain function a
- * test can call. Nothing here imports React or the store.
+ * test can call. Nothing here imports React, and the only thing it takes from
+ * `src/store` is `names.ts` - a module with no state, no React and no database
+ * in it, holding the one definition of "two of these have the same name". That
+ * import is the point rather than a leak: the wizard is one of the doors that
+ * rule has to be enforced at, and a second copy of it here is exactly the
+ * defect the module exists to end.
  *
  * The answer is now read in three places at once - the progress dots in the
  * header, the Next button that refuses to advance, and the final review before
@@ -32,6 +37,7 @@ import {
   type Trait,
 } from '../../../shared/types.ts';
 import { tierOf } from '../../engine/character.ts';
+import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { startingCardAllowance } from './cardAllowance.ts';
 
 export const POTIONS = [
@@ -265,6 +271,14 @@ export function review(
   draft: Draft,
   klass: CharClass | undefined,
   dataset: Dataset,
+  /**
+   * The characters already on this device, for the name guard.
+   *
+   * Required rather than defaulted to `[]`: a default would let a caller turn
+   * the one guard on this screen off by forgetting an argument, and forgetting
+   * it is exactly how creation came to be the door with no guard at all.
+   */
+  taken: readonly Character[],
 ): { blockers: Blocker[]; warnings: Warning[] } {
   const blockers: Blocker[] = [];
   const warnings: Warning[] = [];
@@ -359,7 +373,30 @@ export function review(
     }
   }
 
-  if (draft.name.trim() === '') warn(null, 'No name yet — the sheet will read "Unnamed".');
+  /*
+   * The name, against the library this character is about to join.
+   *
+   * A blocker and not a warning, and it is the one blocker here that is not
+   * about the SRD. Everything else on this list is "the rules say you need one
+   * of these"; this is "the app cannot show you two of these". Two characters
+   * called Ilya are two identical rows in the header's `<select>`, which is the
+   * thing `merge.ts` spends a paragraph preventing when a file arrives - and
+   * until this line the wizard produced that state in two taps.
+   *
+   * The sentence is `judgeName`'s, word for word, so the wizard refuses what
+   * the rename control refuses in the language the rename control uses. It
+   * belongs to the `class` step because that is where the Name field is, and
+   * `StepClass` draws the same sentence again under the field itself with the
+   * offer beside it: this half is the gate, that half is the answer.
+   *
+   * The empty-name warning is not printed on top of it. An empty name is
+   * refused only when somebody else is already reading "Unnamed" - the same
+   * strictness the rename door has - and when it is refused, "the sheet will
+   * read Unnamed" is both redundant and quieter than the truth.
+   */
+  const { refusal } = judgeName(draft.name, taken, CHARACTER_NAMES);
+  if (refusal !== null) block('class', refusal);
+  else if (draft.name.trim() === '') warn(null, 'No name yet — the sheet will read "Unnamed".');
   if (named(draft.experiences) < 2) {
     warn('experiences', 'Both Experiences are worth +2 whether or not you have named them.');
   }

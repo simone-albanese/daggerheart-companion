@@ -15,7 +15,7 @@
  * to a hairline and Back/Next live in the thumb arc, because creation is the
  * one flow long enough that you will do part of it standing up.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   TRAITS,
   TRAIT_LABELS,
@@ -26,11 +26,13 @@ import {
   type Trait,
 } from '../../../shared/types.ts';
 import { deriveStats, newCharacter, syncCounters } from '../../engine/character.ts';
+import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { Fold } from '../shared/Fold.tsx';
 import { RuleTableView } from '../shared/RuleTableView.tsx';
+import { NameRefusal } from '../shared/NameRefusal.tsx';
 import { playerExperiences } from '../shared/srdReference.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
@@ -214,6 +216,8 @@ export function Wizard({
   const index = useApp((s) => s.index);
   const create = useApp((s) => s.create);
   const setScreen = useApp((s) => s.setScreen);
+  /** The library this character is about to join, for the name guard. */
+  const characters = useApp((s) => s.characters);
   const phone = useIsPhone();
 
   const [step, setStep] = useState(0);
@@ -258,7 +262,10 @@ export function Wizard({
   const klass = dataset.classes.find((c) => c.id === draft.classRef);
 
   const done = useMemo(() => stepsDone(draft, klass, dataset), [draft, klass, dataset]);
-  const { blockers, warnings } = useMemo(() => review(draft, klass, dataset), [draft, klass, dataset]);
+  const { blockers, warnings } = useMemo(
+    () => review(draft, klass, dataset, characters),
+    [draft, klass, dataset, characters],
+  );
 
   /*
    * Create the character, or say why there is no character.
@@ -734,18 +741,46 @@ function StepClass({
 }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
   const shapes = useApp((s) => s.prefs.shapeCoding);
+  const characters = useApp((s) => s.characters);
   const klass = dataset.classes.find((c) => c.id === draft.classRef);
+  const refusalId = useId();
+  /*
+   * The same call `review` makes, on the same library, for the same sentence.
+   *
+   * Two readers of one function rather than two opinions: `review` owns whether
+   * Create is allowed, this owns whether the person typing finds out before
+   * they reach step twelve. `except` is deliberately absent - a draft is not in
+   * the library yet, so there is nothing for it to be excused from colliding
+   * with.
+   */
+  const { refusal, offer } = judgeName(draft.name, characters, CHARACTER_NAMES);
 
   return (
     <>
       <Section label="Identity" hint="You can fill these in at any point">
         <Columns min={220}>
-          <LabelledInput
-            label="Name"
-            value={draft.name}
-            onChange={(name) => set({ name })}
-            placeholder="Unnamed"
-          />
+          {/*
+            No `gap` between the field and its refusal: `NameRefusal` is mounted
+            whether or not anything is being refused, and it carries its own
+            6px when it has something in it. Same stack as the rename control's,
+            for the same reason.
+          */}
+          <div className="stack">
+            <LabelledInput
+              label="Name"
+              value={draft.name}
+              onChange={(name) => set({ name })}
+              placeholder="Unnamed"
+              invalid={refusal !== null}
+              describedBy={refusal === null ? undefined : refusalId}
+            />
+            <NameRefusal
+              id={refusalId}
+              refusal={refusal}
+              offer={offer}
+              onTake={(name) => set({ name })}
+            />
+          </div>
           <LabelledInput
             label="Pronouns"
             value={draft.pronouns}

@@ -138,6 +138,7 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { NameRefusal } from '../../src/ui/shared/NameRefusal.tsx';
 import { RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { RuleTableView } from '../../src/ui/shared/RuleTableView.tsx';
 import { ruleSection, type SectionBlock } from '../../src/ui/shared/srdReference.ts';
@@ -802,6 +803,16 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'shared/RenameField.tsx::RenameField': () => <RenameField />,
   // The Average Costs table: two columns, so the grid half of it.
   'shared/RuleTableView.tsx::RuleTableView': () => <RuleTableView table={costsTable()} />,
+  // Refusing, because the empty state of this one is deliberately an empty
+  // live region and a sweep for nameless controls has nothing to look at.
+  'shared/NameRefusal.tsx::NameRefusal': () => (
+    <NameRefusal
+      id="fixture-refusal"
+      refusal={'Another character is already called "Ilya".'}
+      offer="Ilya (2)"
+      onTake={noop}
+    />
+  ),
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),
