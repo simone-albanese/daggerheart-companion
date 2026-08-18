@@ -4,10 +4,14 @@
  *
  * Every assertion here is about `useGm.getState().session`, never about a
  * pixel. jsdom implements no layout - `getBoundingClientRect().height` is 0 for
- * everything - so the hook falls back to `ROW_STEP = 60` and the arithmetic
- * below is written against that number. It is not a fudge for the test: any
- * browser asked before layout answers the same way, and a hook that divided by
- * a measured 0 would move a row to `Infinity`.
+ * everything - which is why nothing below reads one. The hook does not read one
+ * either: `SessionList` passes no `rowStep`, so `ROW_STEP` is what a drag
+ * divides by in Chrome exactly as it is here, and the arithmetic below is
+ * written against that constant rather than against a measurement jsdom cannot
+ * give. `ROW_STEP` is 62 - the 54.00 shut card plus the list's 8px gap, and the
+ * pitch measured between shut rows at 393x852. It was 60 until that
+ * measurement; `tests/ui/gmGeometryProse.test.ts` is what holds it to the
+ * declarations now.
  *
  * jsdom also implements no `PointerEvent`, so one is installed here. It is a
  * `MouseEvent` with a `pointerId`, which is all this hook reads.
@@ -152,8 +156,9 @@ describe('the pointer gesture', () => {
   });
 
   it('puts the halfway point at a number rather than at a feeling', () => {
-    // 29px of a 60px step is not a move; 31 is. The tie at exactly 30 goes
-    // away from zero, in both directions, which is what `steps` is for.
+    // 29px of the 62px step is not a move; 31 is. 31 is the tie exactly, and a
+    // tie goes away from zero in both directions, which is what `steps` is for -
+    // `Math.round` alone would send -31 to -0 and 31 to 1.
     down(handleFor('a'), 100);
     hold();
     moveTo(129);

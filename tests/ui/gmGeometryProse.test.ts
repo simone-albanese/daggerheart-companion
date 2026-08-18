@@ -19,12 +19,31 @@
  *
  * ## What this can hold, and what it cannot
  *
- * IT HOLDS the terms. A shut row is its panel border, its padding, its header's
- * floor and the list's gap, and all four are declared in the tree, so 54.00 and
- * 62.00 are checkable here and go red the moment one of them moves. The same
- * for the topic strip: `--tap`, the chip's padding and border, the strip's gap,
- * the region's padding and the sheet's border are all declared, so 367.00 and
- * 144.00 are arithmetic over declarations rather than remembered numbers.
+ * IT HOLDS the terms, and only the terms each number is actually made of. A
+ * shut row is its panel border, its padding and its header's floor; add the
+ * list's gap and it is the step. All four are declared in the tree, so 54.00
+ * and 62.00 are checkable here - and so is `ROW_STEP`, which divides by that
+ * step in every browser - and all three go red the moment one of them moves.
+ * The topic strip's two numbers are shorter sums than this file used to claim,
+ * and they are stated as what they are: **367.00 is `PHONE.glass` less twice
+ * the sheet's border less twice the region's padding**, and **144.00 is three
+ * `--tap` rows and two of the strip's declared gap**. Nothing else is an
+ * operand of either.
+ *
+ * The chip's own padding and border are NOT in those two sums, and a sentence
+ * here once said they were. They are held anyway, one test lower down, for a
+ * different reason and stated as that reason: the seven chip widths in
+ * `Reference.tsx` - 94.41 through 109.61, their 638.05 sum, the 674.05 and the
+ * three-row wrap - were measured against `padding: '0 12px'` and a 1px
+ * border-box border, and that file's own prose says every earlier estimate was
+ * "short by exactly 2.00" because the border was missed. Change either
+ * declaration and all of that goes stale in silence. So this file asserts that
+ * the docblock still names the padding the chip declares and that the "short by
+ * exactly 2.00" is still twice the border it declares. Both were unheld until
+ * now: `chipPadX` sat here defined and never called, which reads as an anchor
+ * and is dead code, and three mutations against `Reference.tsx` - the padding
+ * to `'0 20px'`, the border to 4px, the border deleted outright - all left this
+ * file green.
  *
  * IT CANNOT HOLD the results. Whether eight rows or nine are on the glass, that
  * the ninth is cut at 757.00 with its type row ending at exactly 757.00, that
@@ -184,11 +203,33 @@ function sheetBorder(): number {
   return Number.parseInt(found[1]!, 10);
 }
 
+/**
+ * The topic chip's horizontal padding.
+ *
+ * Not an operand of 367.00 or of 144.00 - it is the frame the seven chip widths
+ * in `Reference.tsx` were measured inside, which is why that file names it and
+ * why this one holds it.
+ */
 const chipPadX = (): number => {
   const found = /padding: '0 (\d+)px',\n\s*borderRadius: 'var\(--r3\)'/.exec(
     source('src/ui/gm/Reference.tsx'),
   );
   if (found === null) throw new Error('the topic chip no longer declares `padding: 0 Npx`');
+  return Number.parseInt(found[1]!, 10);
+};
+
+/** The chip's own border, read off the same declaration block as its padding. */
+const chipBorder = (): number => {
+  const found = /padding: '0 \d+px',\n\s*borderRadius: 'var\(--r3\)',\n\s*border: `(\d+)px solid/.exec(
+    source('src/ui/gm/Reference.tsx'),
+  );
+  if (found === null) {
+    throw new Error(
+      'the topic chip no longer declares a `border: Npx solid` after its padding. A chip is ' +
+        'border-box, so its border is inside all seven measured widths in `Reference.tsx` - ' +
+        're-measure the strip rather than editing the sentence.',
+    );
+  }
   return Number.parseInt(found[1]!, 10);
 };
 
@@ -228,8 +269,27 @@ describe('the GM screen states the geometry its own declarations make', () => {
   /*
    * The step is the whole of the list's arithmetic, and every term of it is
    * declared. 60px stood in `SessionList.tsx` because 8px of panel padding was
-   * counted and 2px of panel border was not.
+   * counted and 2px of panel border was not - and it outlived that correction
+   * in `useSessionDrag.ts`, where it was not prose but the number every drag
+   * divides by, because `SessionList` passes no `rowStep`. So `ROW_STEP` is
+   * held to the same four declarations as the sentence is.
    */
+  it('gives the drag the same step the row and the list declare', () => {
+    const found = /export const ROW_STEP = (\d+);/.exec(source('src/ui/gm/useSessionDrag.ts'));
+    if (found === null) {
+      throw new Error(
+        '`useSessionDrag.ts` no longer exports a numeric `ROW_STEP`. It is the divisor of every ' +
+          'reorder - `SessionList` passes no `rowStep` - so whatever replaced it needs holding ' +
+          'to the list pitch here.',
+      );
+    }
+    expect(
+      Number.parseInt(found[1]!, 10),
+      '`ROW_STEP` is no longer the shut card plus the list gap, so a drag divides by a pitch ' +
+        'the list does not have. It was 60 against a 62.00 pitch for exactly this reason.',
+    ).toBe(step());
+  });
+
   it('states the shut row and the step the row and the list declare', () => {
     expect(
       stated('src/ui/gm/SessionList.tsx', /A shut row is \*\*(\d+\.\d\d)\*\*/g),
@@ -365,6 +425,31 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
+   * The chip's frame, which is not in either sum above and is what every one of
+   * the seven measured widths was measured inside.
+   *
+   * `Reference.tsx` states 94.41 through 109.61, their 638.05, the 674.05 and
+   * the three-row wrap, and its own prose derives all of it from `padding: 0
+   * 12px` and from a chip being border-box with `border: 1px solid` - "every
+   * one of them was short by exactly 2.00" is that border, twice. Widen the
+   * padding or thicken the border and every one of those numbers is wrong with
+   * nothing to say so. Three mutations proved that: `'0 12px'` to `'0 20px'`,
+   * `1px solid` to `4px solid`, and the border deleted, all green.
+   */
+  it('holds the chip padding and border the seven measured widths were measured inside', () => {
+    expect(
+      stated('src/ui/gm/Reference.tsx', /with `padding: 0 (\d+)px`/g),
+      'the docblock names a chip padding the chip no longer declares, so all seven measured ' +
+        'widths and the 674.05 and the three-row wrap are stale. Re-measure the strip.',
+    ).toEqual([chipPadX()]);
+    expect(
+      stated('src/ui/gm/Reference.tsx', /short by exactly (\d+\.\d\d)/g),
+      'the docblock says the estimate was short by a border the chip no longer declares. A ' +
+        'chip is border-box, so this is its border on both edges - re-measure the seven widths.',
+    ).toEqual([2 * chipBorder()]);
+  });
+
+  /*
    * The seven widths are the browser's and cannot be checked here. What can is
    * that they are still seven, still these seven, and still in this order: a
    * topic added or renamed makes every one of those numbers a lie, and that is
@@ -448,6 +533,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ['551px of list', /551px/],
     ['301 of pinned chrome', /852 − 301|852 - 301/],
     ['a 60px step', /the step is 60px/],
+    ['a 60px drag step', /ROW_STEP = 60\b/],
     ['a two-row topic strip', /wraps to two rows/],
     ['660 against a 369px column', /660 against/],
   ])('no file in `src` has gone back to %s', (_what, pattern) => {
@@ -458,8 +544,10 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'src/ui/gm/Gm.tsx',
       'src/ui/gm/GmTopBar.tsx',
       'src/ui/shell/App.tsx',
+      'src/ui/gm/useSessionDrag.ts',
       'tests/gm/sessionList.test.tsx',
       'tests/gm/gmShell.test.tsx',
+      'tests/gm/sessionDrag.test.tsx',
     ];
     for (const file of files) {
       expect(
