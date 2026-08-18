@@ -430,9 +430,12 @@ describe('the notice, on every surface the app draws', () => {
  *
  * A notice in the DOM is the licence's question. A notice in a *scroll* is the
  * question of whether it will still be in the DOM in six months, and it is not
- * a rhetorical one: the pinned strip cost every screen it was on ~111px of a
- * 393px phone on every frame, so every layout pass since had a reason to argue
- * it away - and one of them won, which is how Play came to have none. Inside
+ * a rhetorical one: the pinned strip cost every screen it was on at least the
+ * 126.16px the notice measures on a 369px column at 393x852 - it painted a
+ * panel and its own horizontal padding on top of that - on every frame, so
+ * every layout pass since had a reason to argue it away, and one of them won,
+ * which is how Play came to have none. ("~111px" stood here; it was the
+ * estimate, and it was short by the border it forgot to add.) Inside
  * the scroll it costs a scroll position, and nobody has ever needed to reclaim
  * one of those.
  */

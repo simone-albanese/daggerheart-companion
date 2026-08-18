@@ -372,8 +372,13 @@ export function Wizard({
             The licence notice, and on a device with nothing on it yet this is
             the very first screen anybody sees - `openingScreen` sends an empty
             library to Build, and Build with an empty library is this wizard. It
-            used to be a fixed strip under the nav below, which took ~111px off
-            every step of a flow whose whole job is fitting choices on a phone.
+            used to be a fixed strip under the nav below, which took at least
+            the 126.16px the notice measures on a 369px column at 393x852 off
+            every step of a flow whose whole job is fitting choices on a phone -
+            a pinned strip painted a panel and its own horizontal padding on top
+            of that. ("~111px" stood here; it was the estimate, and it was short
+            by the border it forgot to add. `LicenceFooter.tsx` carries the
+            measurement and how it was taken.)
 
             `pinnedBelow`: that nav is under this scroll at every width, so it
             is what is last in the window and it pays the home-indicator inset.

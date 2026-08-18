@@ -600,8 +600,12 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
         )}
         {/*
           The notice, at the end of the browser rather than pinned above the tab
-          bar - which is where it was, and where it cost this screen ~111px of a
-          393px phone whether or not anybody was reading it. Here it is 189 cards
+          bar - which is where it was, and where it cost this screen at least
+          the 126.16px the notice measures on a 369px column at 393x852, a
+          pinned one painting a panel and its own horizontal padding on top of
+          that, whether or not anybody was reading it. ("~111px" stood here; it
+          was the estimate, and it was short by the border it forgot to add.
+          `LicenceFooter.tsx` carries the measurement.) Here it is 189 cards
           down, or one filter away.
 
           `gridColumn: '1 / -1'` because this scroll region is the card grid

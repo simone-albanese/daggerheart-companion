@@ -2788,8 +2788,12 @@ function PlayDesktop({
  * AND THE LICENCE NOTICE IS BELOW ALL OF IT, WHICH IS WHY IT COSTS NOTHING.
  * This screen had no notice at all until P5-6 - the only one of the five that
  * did not - and the argument for the exemption was every one of the numbers
- * above: 111px of a 730px column, permanently, on the tightest budget in the
- * app. That argument was about a *pinned* strip, and there is no longer one. As
+ * above: at least the 126.16px the notice measures on a 369px column at
+ * 393x852, taken off a 730px column permanently, on the tightest budget in the
+ * app - and a pinned strip painted a panel and its own horizontal padding on
+ * top of that. ("111px" stood here; it was the estimate the superseded argument
+ * in `LicenceFooter.tsx` makes, and it was short by the border it forgot to
+ * add.) That argument was about a *pinned* strip, and there is no longer one. As
  * the last child of the scroll the notice is below the lineage fold, which is
  * where the 600 ends, so it moves no term of `STACK`, no term of `INDEX` and
  * neither total. It is the one thing on this column a player never has to
@@ -3354,9 +3358,13 @@ function PlayPhone({
        * The licence notice, below every fold, and it costs this budget nothing.
        *
        * Play had no notice at all until P5-6, and the reason was arithmetic: as
-       * a *fixed* strip it was ~111px off the top of a 730px scroll window on a
-       * 393px phone, forever, on the screen with the tightest budget in the
-       * app. `LicenceFooter`'s own docblock still carries that argument, marked
+       * a *fixed* strip it was at least the 126.16px the notice measures on a
+       * 369px column at 393x852 off the top of a 730px scroll window, forever,
+       * on the screen with the tightest budget in the app - and a pinned strip
+       * painted a panel and its own horizontal padding on top of that. ("~111px"
+       * stood here; it was the estimate, and it was short by the border it
+       * forgot to add.)
+       * `LicenceFooter`'s own docblock still carries that argument, marked
        * superseded, because the shape it was arguing against no longer exists.
        *
        * Here it is the last child of the scroll, under the last shut fold. The

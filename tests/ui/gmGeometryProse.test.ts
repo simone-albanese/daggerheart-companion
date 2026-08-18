@@ -62,26 +62,48 @@
  * number - and held precisely so that the next sweep, finding a 369 two files
  * from a 367, does not "correct" the one that was right.
  *
+ * ## How wide the sweep behind this file actually is
+ *
+ * It runs across `src` and `tests` - but only over the file lists written into
+ * it, and the first version of that sentence was a claim about the tree when it
+ * was a claim about eight files in `src/ui/gm`. The licence notice proved it:
+ * `LicenceFooter.tsx` measured the block at 126.16 and five files were
+ * corrected, while six more sites in `src/ui/build`, `src/ui/player` and
+ * `tests/ui` went on stating the retired ~111px estimate of the same strip
+ * unquoted. The tree said 111 and 126.16 about one strip at once - this file's
+ * own named defect, "a corrected number surviving in the second file",
+ * committed one directory over from the pass that wrote it down. Those six are
+ * closed, and the notice now has its own list and its own scan at the end of
+ * this file. A scan is exactly as wide as the array under it; when a figure
+ * crosses a directory, the array has to cross it too.
+ *
  * ## Three sites this lane cannot reach, written down so they are not lost
  *
- * The sweep behind this file ran across `src` and `tests`. Three retired
- * figures are still live in the repo's top-level `.md`, which this lane is
- * forbidden to edit, so they are named here for whoever can:
+ * Three retired figures are still live in the repo's top-level `.md`, which
+ * this lane is forbidden to edit, so they are named here for whoever can:
  *
  *   - `Architecture.md:903` - "~143px dei 551 della lista". 551 is retired:
- *     `SessionList.tsx:34` measures 548.00 of list, and `Gm.tsx` keeps "551px
- *     of list" only as a record of what was wrong. The 143 beside it is the
- *     figure `Gm.tsx` demotes to never measured.
+ *     `SessionList.tsx`'s head docblock measures 548.00 of list, and `Gm.tsx`
+ *     keeps "551px of list" only as a record of what was wrong. The 143 beside
+ *     it is the figure `Gm.tsx` demotes to never measured.
  *   - `HANDOFF.md:350` - "126px of the 653 that is not shell header". 653 is
- *     retired by `SessionList.tsx:85-87`, which says the share was wrong in
- *     both halves and that the band is 752.00. The 126 itself is a measured
+ *     retired under `SessionList.tsx`'s `## The licence notice is the last
+ *     thing in this scroll` heading, which says the share was wrong in both
+ *     halves and that the band is 752.00. The 126 itself is a measured
  *     licence-footer height and is fine.
  *   - `HANDOFF-2026-08-18.md:1038` - costs the row step at 60px and the topic
- *     strip at 94px on two rows. `SessionList.tsx:37` measures the step at
- *     62.00 and `Reference.tsx:70` the strip at 144.00 on three rows.
+ *     strip at 94px on two rows. `SessionList.tsx`'s head docblock measures the
+ *     step at 62.00 and `Reference.tsx`'s at 144.00 on three rows.
  *
- * None of the three is asserted below: a test that goes red on a file nobody
- * in this lane may touch is a test that cannot be made green.
+ * The source pointers in that list name a file and a heading rather than a
+ * line, and that is the lesson of this branch rather than a preference: every
+ * line number it repointed correctly was pushed off its target again by its own
+ * next commit, twice. `README.md` was a fourth entry here, carrying three stale
+ * `CompatibleMark` call-site lines; it turned out to be reachable and is fixed,
+ * by symbol.
+ *
+ * None of the three `.md` sites is asserted below: a test that goes red on a
+ * file nobody in this lane may touch is a test that cannot be made green.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -663,5 +685,65 @@ describe('the GM screen states the geometry its own declarations make', () => {
           'in double quotes - that is the convention this file reads.',
       ).toBe(false);
     }
+  });
+});
+
+/**
+ * THE LICENCE NOTICE'S COST, WHICH IS THE SWEEP THAT STOPPED HALF WAY.
+ *
+ * `LicenceFooter.tsx` measures the block it draws at **126.16px** on a 369px
+ * column at 393x852 and says outright that the "~111px" estimate it replaced
+ * was short by the border it forgot to add. Five files took the correction; six
+ * sites in three other directories did not, and went on costing the same pinned
+ * strip at ~111px unquoted - which by the convention above is a claim about this
+ * build, not a record of what was wrong.
+ *
+ * Its own `describe`, and not the GM one above, because that is the whole
+ * finding: the strip was on five screens and the scan that retired its height
+ * only ever listed one screen's directory.
+ */
+describe('every file that costs the licence notice costs it at the measured height', () => {
+  const NOTICE = [
+    'src/ui/shell/App.tsx',
+    'src/ui/shell/LicenceFooter.tsx',
+    'src/ui/gm/SessionList.tsx',
+    'src/ui/build/Edit.tsx',
+    'src/ui/build/Wizard.tsx',
+    'src/ui/player/Cards.tsx',
+    'src/ui/player/Play.tsx',
+    'tests/ui/attribution.test.tsx',
+    'tests/gm/gmShell.test.tsx',
+  ];
+
+  it.each(NOTICE)('%s has not gone back to the retired ~111px strip', (file) => {
+    expect(
+      /111px/.test(claims(file)),
+      `${file} costs the pinned licence strip at 111px again. It was an estimate and it was ` +
+        'short: `LicenceFooter.tsx` measures the block at 126.16 on a 369px column at 393x852, ' +
+        'and a pinned one painted a panel and its own horizontal padding on top of that. If the ' +
+        'sentence is a record of what used to be wrong, put it in double quotes.',
+    ).toBe(false);
+  });
+
+  /*
+   * One measured height, said the same in every file that says it. This is the
+   * half the ~111px sweep got right in five files and the half it is easiest to
+   * lose again: the next reader who re-measures will change one file.
+   */
+  it.each(NOTICE)('%s states the notice height as the one measured number', (file) => {
+    const said = [...claims(file).matchAll(/\b(12\d(?:\.\d+)?)px\b/g)].map((m) => m[1]!);
+    expect(
+      said,
+      `${file} no longer states the licence notice's measured height anywhere. It is in this ` +
+        'list because it costs the notice; if it has stopped costing it, take it out of `NOTICE` ' +
+        'rather than leaving a file here that can no longer go stale.',
+    ).not.toEqual([]);
+    expect(
+      [...new Set(said)],
+      `${file} states a licence-notice height other than the measured 126.16. Either it was ` +
+        're-measured and every other file in `NOTICE` needs the new figure, or this is a ' +
+        'different 12x-pixel number and this pattern needs narrowing - do not settle it by ' +
+        'deriving one on paper.',
+    ).toEqual(['126.16']);
   });
 });
