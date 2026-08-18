@@ -80,6 +80,7 @@ import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Names } from '../../src/ui/gm/Names.tsx';
+import { PartyScanner } from '../../src/ui/gm/PartyScanner.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import {
   AdversaryExperiences,
@@ -606,6 +607,12 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
   'gm/Names.tsx::Names': () => <Names phone={false} />,
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
+  // The board's camera, which is a module of its own so that jsQR stays out of
+  // the GM chunk - see `tests/harness/staticImports.test.ts`. Same fixture
+  // argument as `Receiver` above it: jsdom has no `navigator.mediaDevices`, so
+  // mounting this exercises the scanner failing to start and the refusal
+  // reaching the panel rather than leaving a black rectangle.
+  'gm/PartyScanner.tsx::PartyScanner': () => <PartyScanner onArrived={noop} />,
   'gm/Reference.tsx::Reference': () => <Reference />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,

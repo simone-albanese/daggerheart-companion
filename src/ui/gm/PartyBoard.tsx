@@ -18,18 +18,36 @@
  * somebody else's device. That is the one fact on this screen which is not
  * about numbers, so it is said at the head of the board rather than left to be
  * inferred from the drawer, and it is said in the same words at every width.
+ *
+ * The camera is a `lazy()` chunk. See `PartyScanner.tsx` for the measurement.
  */
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Character } from '../../../shared/types.ts';
 import { deriveStats, type DerivedStats } from '../../engine/character.ts';
 import { useApp } from '../../store/state.ts';
 import { parseTransferFile, pickFile } from '../../transfer/fileIo.ts';
-import { characterFromPayload } from '../../transfer/frames.ts';
-import { createQrScanner, type TransferProgress } from '../../transfer/qr.ts';
 import { Track } from '../shared/Track.tsx';
 import { useGm, type PartyImportSummary } from './gmStore.ts';
 import { signed } from './StatBlock.tsx';
 import { describeAge, findGaps, type PartyMember } from './party.ts';
+
+/*
+ * The QR decoder is 71.5 KB gzip and it is behind a tap.
+ *
+ * This module used to `import { createQrScanner } from '../../transfer/qr.ts'`
+ * outright, which made the whole decoder a static dependency of the GM chunk:
+ * every GM who opened the screen downloaded jsQR whether or not they ever
+ * scanned anything. The built bundle happened to give `qr` a chunk of its own
+ * anyway - it is shared with Settings - but a chunk boundary the source does
+ * not declare is the bundler's opinion, not a property, and nobody reading
+ * `PartyBoard.tsx` could tell which they were looking at.
+ *
+ * `tests/harness/staticImports.test.ts` derives the GM screen's static import
+ * graph and fails if `transfer/qr.ts` is back inside it.
+ */
+const Scanner = lazy(async () => ({
+  default: (await import('./PartyScanner.tsx')).PartyScanner,
+}));
 
 type Message = { tone: 'ok' | 'warn'; text: string } | null;
 
@@ -115,12 +133,23 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
       </div>
 
       {scanning && (
-        <Scanner
-          onArrived={(sheet, warnings) => {
-            land([sheet], 'code', warnings);
-            setScanning(false);
-          }}
-        />
+        // A sentence rather than a spinner, for the reason `Onboarding.tsx`
+        // gives at its own boundary: what is loading is a camera, and a
+        // rotating disc under CLOSE CAMERA reads as the camera failing.
+        <Suspense
+          fallback={
+            <p className="t-dense" style={{ flex: 'none', margin: 0 }}>
+              Opening the camera…
+            </p>
+          }
+        >
+          <Scanner
+            onArrived={(sheet, warnings) => {
+              land([sheet], 'code', warnings);
+              setScanning(false);
+            }}
+          />
+        </Suspense>
       )}
 
       {message !== null && (
@@ -652,83 +681,6 @@ function Drawer({
         >
           REMOVE FROM THE BOARD
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// The camera
-// ---------------------------------------------------------------------------
-
-/**
- * The receiving half of the animated-QR transfer, pointed at the board instead
- * of at the character store. Every byte of it belongs to `transfer/`; what is
- * here is a preview, a count and where the finished sheet goes.
- */
-function Scanner({
-  onArrived,
-}: {
-  onArrived: (sheet: Character, warnings: string[]) => void;
-}): React.JSX.Element {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [progress, setProgress] = useState<TransferProgress | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Held in a ref, not read as a dependency: the callback is a fresh closure on
-  // every render of the board, and a camera that reopens on every render is a
-  // camera that never gets far enough to read a frame.
-  const arrived = useRef(onArrived);
-  arrived.current = onArrived;
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) return;
-
-    const scanner = createQrScanner({
-      video,
-      onFrame: (result) => setProgress(result.progress),
-      onComplete: (transfer) => {
-        void characterFromPayload(transfer.payload)
-          .then(({ character, warnings }) => arrived.current(character, warnings))
-          .catch((cause: unknown) =>
-            setError(cause instanceof Error ? cause.message : String(cause)),
-          );
-      },
-      onError: (cause) => setError(cause.message),
-    });
-    void scanner.start().catch(() => {});
-
-    // A camera left running after the GM has moved on burns battery and keeps
-    // the indicator light on.
-    return () => scanner.stop();
-  }, []);
-
-  return (
-    <div className="panel row" style={{ flex: 'none', gap: 14, padding: 12, flexWrap: 'wrap' }}>
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        aria-label="Camera preview"
-        style={{
-          width: 200,
-          aspectRatio: '4 / 3',
-          objectFit: 'cover',
-          background: '#000',
-          borderRadius: 'var(--r3)',
-          border: '1px solid var(--line)',
-          flex: 'none',
-        }}
-      />
-      <div className="stack" style={{ gap: 7, flex: 1, minWidth: 180 }}>
-        <span style={{ font: '800 18px/1 var(--sans)' }}>
-          {error !== null ? 'Cannot read' : (progress?.label ?? 'Waiting for a code')}
-        </span>
-        <p className="t-dense" style={{ margin: 0, maxWidth: '52ch' }}>
-          {error ??
-            'Have the player open Transfer on their own device and show the codes. Frames arrive in any order; a missed one comes round again.'}
-        </p>
       </div>
     </div>
   );

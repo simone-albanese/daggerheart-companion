@@ -356,8 +356,9 @@ describe('the tools, over the list', () => {
   });
 
   it('unmounts a tool when it closes rather than hiding it', () => {
-    // PartyBoard's scanner opens the camera in an effect and stops it on
-    // unmount; a sheet kept alive behind `display: none` leaves it running.
+    // The party board's camera - `PartyScanner.tsx`, behind the board's lazy
+    // boundary - opens the stream in an effect and stops it on unmount; a
+    // sheet kept alive behind `display: none` leaves it running.
     gm();
     click(named('SHOW'));
     click(leading('THE PARTY BOARD'));
