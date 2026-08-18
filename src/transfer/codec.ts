@@ -939,12 +939,29 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   if (parked.size > 0) character.unresolvedRefs = [...parked].sort((a, b) => a - b);
 
   const unresolved = [...refs.unresolved].sort((a, b) => a - b);
+  // The sentence a person reads after a transfer, so it says only what this
+  // build does. What it does is keep the ids: they sit on the record as `?id`
+  // placeholders, `unresolvedRefs` carries the ones no field still points at,
+  // and `writeBody` forwards both on the next hop untouched - which is what
+  // the second half promises and what the chain-of-devices test pins.
+  //
+  // What it does NOT do is heal them. `resolvePlaceholders` below is the only
+  // code that turns a placeholder back into a slug and nothing in `src/` calls
+  // it (`tests/harness/orphans.test.ts` holds that as a declared seam), so the
+  // ids stay unnamed here however much content later arrives. Nor is there a
+  // screen that shows one: `resolveCards` filters placeholders out of the
+  // loadout and out of the printed sheet. This used to end "they are kept on
+  // the sheet and will resolve when the missing source is added", which was a
+  // repair no code path could perform - the half of BACKLOG P1-6 that is still
+  // open. Wire the resolver and a display for the ghosts, and this sentence is
+  // the thing to change back.
   const warnings =
     unresolved.length === 0
       ? []
       : [
           `${unresolved.length} reference${unresolved.length === 1 ? '' : 's'} could not be found in this device's content ` +
-            `(${unresolved.join(', ')}). They are kept on the sheet and will resolve when the missing source is added.`,
+            `(${unresolved.join(', ')}). They stay on the sheet and are passed on unchanged when you send it again, ` +
+            `but this version cannot name them: they do not appear as cards here, and nothing repairs them later.`,
         ];
   return { character, unresolved, warnings };
 }
@@ -1196,9 +1213,22 @@ export interface ResolveResult {
 }
 
 /**
- * Re-resolve parked references after new content arrives. Architecture 5.3:
- * "they resolve themselves when the missing source turns up". Call it after a
- * dataset reload; it is a no-op when there is nothing parked.
+ * Turn parked ids back into slugs, for a device that can now name them. A
+ * no-op when there is nothing parked.
+ *
+ * Two things this doc comment used to get wrong, both worth keeping straight.
+ *
+ * It said "call it after a dataset reload". The registry it resolves against
+ * is `data/registry.json`, compiled into the bundle - it does not change when
+ * the dataset reloads. The moment a parked id can become a slug is a build
+ * whose registry has grown, so the trigger would be app startup after an
+ * update, not a reload.
+ *
+ * And it quoted Architecture 5.3 as though the app kept that rule. **Nothing
+ * in `src/` calls this**; the callers are three test files. So a placeholder
+ * on a real sheet never heals, and `readBody`'s warning above no longer says
+ * it will. That is BACKLOG P1-6, still open, and it is why this symbol is in
+ * `tests/harness/orphans.test.ts`'s DELIBERATE list.
  */
 export function resolvePlaceholders(c: Character, registry: Registry): ResolveResult {
   const resolved = new Set<number>();

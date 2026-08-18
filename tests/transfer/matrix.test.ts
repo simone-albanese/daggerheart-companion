@@ -465,6 +465,13 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
      * app last week and one did not. Architecture 5.3 is absolute about it -
      * a reference this device cannot name is parked, never dropped, and the
      * sheet is whole again the moment the missing content turns up.
+     *
+     * Half of that is shipped and half of it is this file's own arrangement.
+     * The parking is real: the codec does it on every decode. The healing is
+     * not - `resolvePlaceholders` is called below by hand, because nothing in
+     * `src/` calls it, so no sheet on a real device has ever been made whole
+     * this way. BACKLOG P1-6 is the item, and the warning the decoder prints
+     * to the player now says so rather than promising the repair.
      */
     it('parks an id this build does not know and loses nothing else, for every character', async () => {
       let tested = 0;
