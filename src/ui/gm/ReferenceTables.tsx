@@ -78,7 +78,13 @@ import { useGm } from './gmStore.ts';
  * sideways.
  *
  * **Flagged, not fixed: that 369 is short by 2, and so is every other 369 in
- * this file that means this region** - `:506`, `:640`, `:814`, `:871`. The
+ * this file that means this region** - the `369, four of 168.5` two lines up,
+ * and the ergonomics paragraphs of `RangeReference`, `DifficultyLadder` (twice:
+ * its column, and the `302 in a 369px column` of the trait chips), `GmMoves`
+ * and `AdversaryExperiences`. Named by symbol rather than by line, because the
+ * four line numbers that stood here were the pre-edit ones: the insertion that
+ * carried them pushed every one of them twelve lines down, and any later edit
+ * to this file would do it again. The
  * premise above, "the panel is the window's width", is the thing that is
  * wrong: `GmSheet`'s panel is `width: 100%` and border-box with a 1px border
  * (`GmSheet.tsx:91`), so at 393 its content box is 391.00 and this column is

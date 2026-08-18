@@ -964,7 +964,7 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   // an index key, and `Play.tsx` and `Rest.tsx` render `GhostRow` for it - a
   // dashed row reading CARD NOT IN THIS BUILD, naming the ref, with a way to
   // move it to the vault. Drawing those ghosts is what closed P1-6's *display*
-  // half (`Play.tsx:294-308`), so a sentence claiming they do not appear as
+  // half (`Play.tsx:296-310`), so a sentence claiming they do not appear as
   // cards disproves shipped code, which is the same defect as the promise it
   // replaced. What is missing is the **name**, not the row.
   //

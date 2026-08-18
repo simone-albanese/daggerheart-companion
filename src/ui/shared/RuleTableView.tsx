@@ -27,17 +27,19 @@
  * from a session row sits inside the open block below that again.
  *
  * The subtraction that arithmetic got *right* is the one every caller pays.
- * There are two call sites in the tree - `Wizard.tsx:1584` and
- * `ReferenceTables.tsx:952` - and the second is not a separate path: it sits
- * inside `BlockView`, which is what `SessionBody.tsx:540` calls for exactly the
- * session row above, and which the reference region reaches as well through
- * `GmMoves` (`ReferenceTables.tsx:845`) and `AdversaryExperiences` (`:899`).
+ * There are two call sites in the tree - `Wizard.tsx:1584` and the one inside
+ * `BlockView` (`ReferenceTables.tsx`) - and the second is not a separate path:
+ * `BlockView` is what `SessionBody.tsx:558` calls for exactly the session row
+ * above, and the reference region reaches it as well through `GmMoves` and
+ * `AdversaryExperiences`, both in `ReferenceTables.tsx`. (Those three are named
+ * by symbol and not by line: the last four line numbers written into that file
+ * were invalidated by the very edit that carried them.)
  * What those reference-region routes and the wizard escape is the `.panel`, not
  * the region padding: the reference scroller declares
- * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:130`) and the wizard's
+ * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:173`) and the wizard's
  * `'14px 12px 20px'` (`Wizard.tsx:358`) - 12px each side either way, the same
- * 24 - so they draw this view in the 369px column `ReferenceTables.tsx:74`
- * already names, not across the whole 393. **That 369 is itself 2px too
+ * 24 - so they draw this view in the 369px column `TierBenchmarks`'s docblock in
+ * `ReferenceTables.tsx` already names, not across the whole 393. **That 369 is itself 2px too
  * generous wherever it means the reference region**: `GmSheet`'s panel is
  * border-box with a 1px border (`GmSheet.tsx:91`), so the measured column at
  * 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369

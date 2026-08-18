@@ -527,7 +527,7 @@ export function hydrateGm(): Promise<void> {
       notices.push(...read.warnings);
       /*
        * Persist what the reader repaired, once, here - the same move
-       * `state.ts:363` makes for characters, and for the same reason.
+       * `state.ts:364` makes for characters, and for the same reason.
        *
        * `readCampaigns` has always returned `repaired`, and nothing has ever
        * read it: a converted or repaired record went back into memory and
