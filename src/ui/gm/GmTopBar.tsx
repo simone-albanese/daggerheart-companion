@@ -49,11 +49,12 @@
  *                ellipsised, with the whole of it on `title`.
  *
  * With 6 + 6 + 8 of padding and gap, and this bar's own 1px `border-bottom`,
- * that is **109.00** pinned, measured in Chrome at 393x852 with a 47px top
- * inset. With a countdown it is 159.00 - not measured directly, but fixed to
- * the pixel by one that was: `SessionList.tsx` measures the scroll region
- * starting at 209.00 without the countdown and 259.00 with it, and this bar is
- * the only thing between them. The 108 and 158 that stood here dropped the
+ * that is **109.00** pinned and **159.00** with a countdown - both measured
+ * in Chrome at 393x852 with a 47px top inset, and both corroborated from the
+ * other side: `SessionList.tsx` measures the scroll region starting at 209.00
+ * without the countdown and 259.00 with it, and this bar is the only thing
+ * between them and the 100.00 shell header. The 108 and 158 that stood here
+ * dropped the
  * hairline, and they were not alone in it: `SessionList.tsx` had the same
  * omission three more times over, and its scroll section is where the whole
  * pattern is written down.

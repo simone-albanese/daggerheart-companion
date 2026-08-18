@@ -304,19 +304,20 @@ export function SessionRow({
             text does not set this row's height; the floor does, with 14.00 to
             spare above the text.
 
-            THE WRAPPED CASE WAS NOT MEASURED, and this comment no longer
-            claims it. Only the one-line layout above went through the rig, so
-            how many lines that 14.00 absorbs before the button leaves its
-            floor is not stated here - working it out from the numbers above
-            would be arithmetic on paper wearing a measurement's clothes, which
-            is the whole defect this pass was called in for. Drive the rig
-            before writing a figure for it.
+            The wrapped case was measured too, in the same run, by lifting
+            `whiteSpace` off this span and giving it strings that wrap. The
+            14.00 absorbs exactly one extra line and no more: at two lines the
+            stack is 40.00 and neither the button nor the card moves (44.00 and
+            54.00); at three the stack is 50.00, the button 50.00, the card
+            60.00, and the list's step goes with them. So what this comment
+            used to say - that a summary that wrapped would grow the 44px
+            header - is not what the browser does. One wrap is free.
 
-            What survives without it is the argument that actually carries
-            `whiteSpace: nowrap`, and it never needed the row count: a summary
+            The argument that actually carries `whiteSpace: nowrap` never
+            needed that claim, or the row count it was propping up: a summary
             is a string a GM typed and has no length limit, so a header whose
             height follows it is not a constant. The list below steps by a
-            fixed amount per shut row, and a row that is one height or another
+            fixed amount per shut row, and a row that is 54.00 or 60.00
             depending on what was typed into it is not a step at all.
 
             What the step buys is in `SessionList.tsx`: eight shut rows whole

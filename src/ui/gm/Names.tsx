@@ -45,15 +45,14 @@
  * **Flagged: everything in that paragraph except the 797 is short by the
  * panel's own frame.** `GmSheet`'s panel is border-box with a 1px border
  * (`GmSheet.tsx:91`), so its content box at 393 is 391.00 and the inner column
- * is **367.00** - the one figure here that was measured, and it was measured
- * in the sibling tool that shares this sheet (`Reference.tsx`). The vertical
- * side is untouched by that pass: 797 and 753 both spend the panel's own
- * border nowhere, and 753 spends the title row's rule nowhere either, so both
- * are wrong by some small number of pixels that NOBODY HAS COUNTED. No
- * replacement is offered for them here, because deriving one on paper is the
- * exact move this pass exists to undo. 704, 984 and 1060 lose 2 apiece by the
- * same border as 369 did, and that much is implied by the measured 367.00
- * without being measured itself. Each number below that starts from 369 - the
+ * is **367.00**, measured in the sibling tool that shares this sheet
+ * (`Reference.tsx`). The vertical side was measured in the same run and in the
+ * same sheet: the panel is **797.00**, so that figure was right, and the
+ * region under the title row is **750.00**, not 753 - the 753 spends neither
+ * the panel's own border, top and bottom, nor the title row's rule. 704, 984
+ * and 1060 lose 2 apiece by the same border as 369 did; those three are
+ * implied by the measured 367.00 rather than measured themselves, and are
+ * written here as implied. Each number below that starts from 369 - the
  * `369 x 64` of DRAW, the `(369 - 12) / 3 = 119` of the three kinds -
  * inherits the error. Measure them before anything leans on them.
  *
