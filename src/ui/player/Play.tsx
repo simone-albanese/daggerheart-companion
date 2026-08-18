@@ -67,6 +67,7 @@ import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure, usePlaySection } from '../shared/Disclosure.tsx';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
+import { feetRange, rangeDistances } from '../shared/srdReference.ts';
 import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
@@ -1337,6 +1338,41 @@ function Defence({
  * attack was made with, so that a successful Duality Roll can offer the damage
  * the SRD says follows it. Tapping the armed weapon again puts it down, because
  * a declaration you cannot withdraw is a trap.
+ *
+ * AND THE REACH SAYS HOW FAR IT REACHES. The meta line has always printed the
+ * range as a bare word - CLOSE, FAR, VERY FAR - which is the one thing on this
+ * row a player cannot work out from the row. Damage is a formula, the trait is
+ * a chip on the same screen, physical-or-magic is two words; a reach is a
+ * distance on p.40 and nothing in this app ever put it in front of the person
+ * declaring the attack. The GM's `RangeReference` had it all along, which made
+ * this the app knowing the answer on the screen that does not need it.
+ *
+ * IT IS THE BOOK'S FIGURE AND NOT THIS APP'S. `rangeDistances` reads the same
+ * bullets `RangeReference` draws, so it is the SRD's own "about 30-100 feet
+ * away" with the prose taken off, and a rules layer that redefines Far moves
+ * this line and that screen together. Feet rather than metres deliberately: the
+ * metric figures on the reference screen are arithmetic this app did, and the
+ * rule everywhere in this codebase is that such a figure is drawn under a
+ * legend naming the multiplication. There is no room for a legend on a 10px
+ * meta line inside a button, so the line carries the unit the book is written
+ * in and quotes rather than converts.
+ *
+ * A RANGE THE BOOK GIVES NO FIGURE FOR GETS NONE HERE. Melee is one - *"close
+ * enough to touch, up to a few feet away"* carries no number to lift - and a
+ * default would be this app inventing a distance the SRD deliberately left to
+ * the fiction. Same rule `rangeEntry` and `RangeReference` already keep.
+ *
+ * WIDTH. The meta line is `.t-meta` - 10px mono - at `letter-spacing: 0.05em`,
+ * so about 6.5px a character, inside a panel that is the column less 22 of
+ * padding. Taken over all 204 shipped weapons the longest line this can now
+ * produce is `ARMED · STRENGTH · VERY CLOSE 5-10 FT · PHYSICAL` - 48 characters
+ * and about 312px, and it is the *shortest* distance that makes it, because
+ * VERY CLOSE is the longest range name. The 393px phone has 347 and the cockpit
+ * more, so it is one line there; at 320 the column is 296 and the panel 274,
+ * and that worst case wraps to a second 10px line. It is allowed to: this block
+ * scrolls, the row's floor is `var(--tap)` and a wrapped meta line grows the
+ * row rather than clipping it, and the alternative was to keep the number off
+ * the screen at every width in order to protect the narrowest one.
  */
 function Equipped({
   stats,
@@ -1350,6 +1386,8 @@ function Equipped({
 }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
+  const rules = useApp((s) => s.dataset.rules);
+  const reaches = useMemo(() => rangeDistances(rules), [rules]);
   if (!character) return null;
 
   const primary = character.activePrimaryWeapon
@@ -1381,6 +1419,15 @@ function Equipped({
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
         const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
+        // The reach, and what the book says it is. Null feet is Melee, which
+        // the SRD gives no figure for, and every range at all if the dataset
+        // carries no range section - in both cases the word stands alone, which
+        // is what this row said before there was anything to add to it.
+        const feet = reaches.get(w.range.toLowerCase())?.feet ?? null;
+        const reach =
+          feet === null
+            ? w.range.toUpperCase()
+            : `${w.range.toUpperCase()} ${feetRange(feet).toUpperCase()}`;
         return (
           <button
             key={w.id}
@@ -1408,7 +1455,7 @@ function Equipped({
             >
               {isArmed ? 'ARMED · ' : ''}
               {(w.trait === 'spellcast' ? 'SPELLCAST' : TRAIT_LABELS[w.trait].toUpperCase())} ·{' '}
-              {w.range.toUpperCase()} · {w.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'}
+              {reach} · {w.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'}
             </span>
           </button>
         );
