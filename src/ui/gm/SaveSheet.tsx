@@ -61,9 +61,10 @@
  * with one verb in it should not make the thumb aim. Everything else here -
  * the stamp, the file name, the two paragraphs - is read and not touched.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SaveResult, SaveRoute } from '../../transfer/fileIo.ts';
 import { campaignFileName } from '../../transfer/campaignFile.ts';
+import { useRetry } from '../shared/useRetry.ts';
 import { describeAge } from './party.ts';
 import { flushGm, retryGm, useGm } from './gmStore.ts';
 
@@ -108,10 +109,14 @@ export function SaveSheet(): React.JSX.Element {
   const exportActive = useGm((s) => s.exportActiveCampaign);
   const [settled, setSettled] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  /** Whether the last retry came back with the failure still on the store. */
-  const [failedAgain, setFailedAgain] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
+  /*
+   * The retry's busy state, its unmount guard and whether the last one landed.
+   * All three used to be written out here; they are `useRetry`'s now, because
+   * this sheet, the GM strip and the shell's block each had a copy and the
+   * guard is the one of the three that is easy to write wrongly.
+   */
+  const { retrying, failedAgain, again } = useRetry(retryGm);
 
   /*
    * Flush first, then speak. `alive` is not ceremony: this sheet is unmounted
@@ -126,29 +131,6 @@ export function SaveSheet(): React.JSX.Element {
     return () => {
       alive = false;
     };
-  }, []);
-
-  /*
-   * The retry outlives its own callback, so its guard is a ref with an effect
-   * rather than a local: this sheet is unmounted the moment it is closed, and
-   * a thumb that presses TRY AGAIN and then ✕ is not doing anything strange.
-   */
-  const open = useRef(true);
-  useEffect(
-    () => () => {
-      open.current = false;
-    },
-    [],
-  );
-
-  const again = useCallback(() => {
-    setFailedAgain(false);
-    setRetrying(true);
-    void retryGm().finally(() => {
-      if (!open.current) return;
-      setRetrying(false);
-      setFailedAgain(useGm.getState().writeError !== null);
-    });
   }, []);
 
   const active = campaigns.find((c) => c.id === activeId) ?? null;

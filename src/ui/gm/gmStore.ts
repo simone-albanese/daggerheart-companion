@@ -64,6 +64,7 @@ import type { SaveOptions, SaveResult } from '../../transfer/fileIo.ts';
 import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaigns.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import type { QuarantinedRecord } from '../../store/db.ts';
+import { publishCampaignAlert, type CampaignRetry } from '../shell/campaignAlert.ts';
 import {
   tracksFromSheet,
   upsertMember,
@@ -85,8 +86,14 @@ export type { RosterEntry } from '../../../shared/types.ts';
  * attempt at reading it. `null` is a failure with no remedy in this store -
  * today that is a delete that threw, where the campaign is untouched and the
  * only retry is the REMOVE control the GM already has.
+ *
+ * The union itself is declared in `ui/shell/campaignAlert.ts` and aliased here,
+ * so that the shell - which must never import this module, because importing it
+ * *is* the campaign read starting - can name the same three answers without a
+ * second hand-written copy to keep in step. The name stays `WriteRetry` because
+ * that is what this store's own field is called.
  */
-export type WriteRetry = 'write' | 'read' | null;
+export type WriteRetry = CampaignRetry;
 
 /** Which sheets landed on the board, and which ones were already on it. */
 export interface PartyImportSummary {
@@ -138,6 +145,10 @@ export interface GmState extends GmLive {
    * The GM screen must never imply a change is saved when it is not - the same
    * rule `state.ts` learned with `writeError`, and the reason a silent `catch`
    * around `localStorage.setItem` was not good enough here.
+   *
+   * It does not stay on the GM screen either. The subscription at the foot of
+   * this file mirrors it into `ui/shell/campaignAlert.ts`, so leaving the
+   * section does not take the sentence with it.
    */
   writeError: string | null;
   /**
@@ -149,8 +160,10 @@ export interface GmState extends GmLive {
    * is true of a write that threw and was false of two of the four failures
    * below. A TRY AGAIN drawn over one of those is a button that flashes and
    * writes nothing - the founding rule failing on the control offered to
-   * repair it. `retryGm` dispatches on this, and the two screens that draw the
-   * button read it to decide whether there is a button to draw.
+   * repair it. `retryGm` dispatches on this, and the three surfaces that draw
+   * the button - the GM strip, SAVE, and the shell block that carries this
+   * failure onto every other screen - read it to decide whether there is a
+   * button to draw.
    */
   writeRetry: WriteRetry;
 
@@ -634,7 +647,8 @@ export function hydrateGm(): Promise<void> {
 /**
  * TRY AGAIN, wherever it is drawn.
  *
- * One function rather than a `flushGm` in each of the two screens, because
+ * One function rather than a `flushGm` in each of the three surfaces that draw
+ * it - the GM strip, SAVE, and the shell block on every other screen - because
  * "what would fix this" is a property of the failure and the store is the only
  * thing that knows which failure it was. The docblock on `NotSaved` used to
  * claim `flushGm` "does something on every path that sets this field"; it does
@@ -642,11 +656,23 @@ export function hydrateGm(): Promise<void> {
  * not one of them - there `activeCampaignId` is null, `writeActive` returns at
  * `base === undefined`, and the only thing that can help is reading again.
  *
- * A `null` retry never reaches here, because neither screen draws the button
- * for one; if one ever does, a flush is the harmless answer.
+ * A `null` retry never reaches here, because no surface draws the button for
+ * one; if one ever does, a flush is the harmless answer.
+ *
+ * ## It answers whether it worked
+ *
+ * `true` means the failure is gone. That used to be each surface's own job -
+ * `retryGm().finally(() => setFailedAgain(useGm.getState().writeError !== null))`,
+ * written out three times - and the third surface cannot do it at all: the
+ * shell has no access to this store and must not acquire one. So the reading is
+ * taken here, on both settlements, which is exactly what `.finally` plus a
+ * re-read amounted to. `hydrateGm` can reject - `migrateLegacyGmState` is
+ * awaited outside its `try` - so the rejected path is a real one and not
+ * ceremony.
  */
-export function retryGm(): Promise<void> {
-  if (useGm.getState().writeRetry !== 'read') return flushGm();
+export function retryGm(): Promise<boolean> {
+  const landed = (): boolean => useGm.getState().writeError === null;
+  if (useGm.getState().writeRetry !== 'read') return flushGm().then(landed, landed);
   /*
    * The memo is dropped here rather than in the failing branch, because this
    * is the one caller that means "again". `hydrateGm` is idempotent so that a
@@ -654,7 +680,7 @@ export function retryGm(): Promise<void> {
    * promise would report the same failure for the life of the tab.
    */
   hydration = null;
-  return hydrateGm();
+  return hydrateGm().then(landed, landed);
 }
 
 // ---------------------------------------------------------------------------
@@ -1028,6 +1054,35 @@ export const useGm = create<GmState>((set, get) => {
 
     removePartyMember: (id) => commit({ party: get().party.filter((m) => m.id !== id) }),
   };
+});
+
+/*
+ * The failure, forwarded to the shell, from one place.
+ *
+ * A subscription rather than a call beside each `setState`, and that is the
+ * whole of the design. Six paths in this file set `writeError` - the aside
+ * write, the board write, the failed read, the first campaign of a device,
+ * `createCampaign` and `removeCampaign` - and four of them clear it again. A
+ * seventh will be written by somebody who has never read this comment, and a
+ * publish they forget is a sentence that reaches the GM screen and no other. So
+ * the mirror hangs off the field instead of off its writers, and cannot be
+ * forgotten.
+ *
+ * Registered before `hydrateGm()` on the last line of this file, because that
+ * call is one of the six.
+ *
+ * `retryGm` is handed over as-is: the dispatch between a flush and a second
+ * read stays in here, where the failure is known, and the shell decides only
+ * whether `retry` is null - which is the difference between a button and the
+ * store's sentence naming the control that does help instead.
+ */
+useGm.subscribe((state, previous) => {
+  if (state.writeError === previous.writeError && state.writeRetry === previous.writeRetry) return;
+  publishCampaignAlert(
+    state.writeError === null
+      ? null
+      : { message: state.writeError, retry: state.writeRetry, tryAgain: retryGm },
+  );
 });
 
 /*

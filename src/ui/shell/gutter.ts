@@ -2,18 +2,18 @@
  * The shell's side gutter, spelled once.
  *
  * Two things paint or sit directly against the left and right edges of the
- * window at every width: this app's `<header>`, and the six shell-chrome blocks
- * `App.tsx` renders inside `<main>` above whichever screen is drawn - the
- * write-failure alert, the storage alert, the integrity alert, the quarantine
- * alert, and `UpdateBanner` and `BackupBanner` through `ShellBanner`. They are
- * meant to share one gutter, and for most of this app's life they did: 20px,
- * hard-coded in both places.
+ * window at every width: this app's `<header>`, and the seven shell-chrome
+ * blocks `App.tsx` renders inside `<main>` above whichever screen is drawn - the
+ * write-failure alert, the campaign-failure alert, the storage alert, the
+ * integrity alert, the quarantine alert, and `UpdateBanner` and `BackupBanner`
+ * through `ShellBanner`. They are meant to share one gutter, and for most of
+ * this app's life they did: 20px, hard-coded in both places.
  *
  * Then the header started paying the display cutout and they stopped agreeing.
  * `Header.tsx` documents the cutout at length; the short version is that a
  * notched or Dynamic-Island iPhone held in landscape reports
  * `env(safe-area-inset-left)` and `-right` at the same non-zero value, and the
- * header now insets its contents past that while the six blocks stayed at a
+ * header now insets its contents past that while the blocks stayed at a
  * flat 20.
  *
  * MEASURED, in Chrome through the audit rig at 852x393 with 59px substituted on

@@ -60,6 +60,8 @@ import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { SHELL_BLOCK_MARGIN } from './gutter.ts';
 import { AppBoundary } from './AppBoundary.tsx';
 import { BackupBanner } from './BackupBanner.tsx';
+import { CampaignNotSaved } from './CampaignNotSaved.tsx';
+import { useCampaignAlert } from './campaignAlert.ts';
 import { Header } from './Header.tsx';
 import { Recovery } from './Recovery.tsx';
 import { ScreenBoundary } from './ScreenBoundary.tsx';
@@ -90,7 +92,7 @@ function Loading(): React.JSX.Element {
  * accident: a boundary only catches what is *below* it, so `<AppBoundary>` had
  * to move above the component that does the work. `Shell` calls `useStats()`,
  * which derives a full sheet in App's own render, and mounts `Header`,
- * `TabBar`, `CardReader`, the licence footer and four alert banners - every one
+ * `TabBar`, `CardReader`, the licence footer and five alert banners - every one
  * of which was outside every boundary in this app until now, because
  * `ScreenBoundary` is mounted *by* the thing that would have thrown. Putting
  * the boundary inside `Shell` would type-check, render identically, and catch
@@ -115,6 +117,15 @@ function Shell(): React.JSX.Element {
   const characters = useApp((s) => s.characters);
   const storageError = useApp((s) => s.storageError);
   const writeError = useApp((s) => s.writeError);
+  /*
+   * The GM store's failure, which this shell reads without importing the GM
+   * store. `campaignAlert.ts` explains the inversion; the short version is that
+   * importing `gmStore` starts a campaign read, and a player who never opens GM
+   * must not pay for one. `gmStore` fills the slot; nothing else ever does, so
+   * on every launch where the disk is behaving this is null and costs a
+   * subscription.
+   */
+  const campaignAlert = useCampaignAlert((s) => s.alert);
   const quarantined = useApp((s) => s.quarantined);
   const stats = useStats();
   const phone = useIsPhone();
@@ -278,11 +289,30 @@ function Shell(): React.JSX.Element {
    */
   const onboarding = needsOnboarding(prefs, characters.length) && !routedByAlert;
 
+  /*
+   * Whether the GM screen is the thing actually on the page.
+   *
+   * Not `screen === 'gm'`. The first-run questions are drawn *instead of* all
+   * five screens, so with the questions up the GM screen is not mounted and its
+   * own copy of the campaign failure is not on the page - which is a state a GM
+   * can reach, by emptying the library mid-session from Settings. The one
+   * consumer is `CampaignNotSaved` below, whose entire job is not to be the
+   * second copy of a sentence that is already on screen.
+   */
+  const gmOnScreen = !onboarding && screen === 'gm';
+
   return (
     <div className="app">
       <Header onboarding={onboarding} />
       <main className="stack" style={{ minHeight: 0, overflow: 'hidden' }}>
         {writeError !== null && <UnsavedWork failure={writeError} />}
+        {/*
+          The GM's campaign, on every screen except the one that already says
+          it. `Gm.tsx` draws the same store field under its own pinned top bar,
+          which is where it belongs while the GM is looking at it; this is what
+          happens when they are not. See `CampaignNotSaved.tsx`.
+        */}
+        {campaignAlert !== null && !gmOnScreen && <CampaignNotSaved alert={campaignAlert} />}
         {storageError !== null && (
           <div
             role="alert"
@@ -305,9 +335,18 @@ function Shell(): React.JSX.Element {
               {/*
                 The rest of that sentence used to be "; nothing has been written in the
                 meantime", which is an invitation to reload. It is only true while every
-                write has succeeded, and the alert above says when they have not.
+                write has succeeded, and the two alerts above say when they have not.
+
+                Both of them, since the GM's campaign started being published here.
+                A campaign that has not reached the disk is lost by a reload exactly
+                as a character is, and reading this clause off the character store
+                alone would have offered a GM the one action that throws the evening
+                away - on the screen where the campaign failure is not even drawn,
+                because the GM screen draws its own.
               */}
-              {writeError === null ? '; nothing has been written in the meantime.' : '.'}
+              {writeError === null && campaignAlert === null
+                ? '; nothing has been written in the meantime.'
+                : '.'}
             </span>
             <button
               type="button"

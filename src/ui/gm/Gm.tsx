@@ -95,6 +95,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/state.ts';
 import { useLayout } from '../shared/useLayout.ts';
+import { useRetry } from '../shared/useRetry.ts';
 import { AddSheet } from './AddSheet.tsx';
 import { Bestiary } from './Bestiary.tsx';
 import { Countdowns } from './Countdowns.tsx';
@@ -270,6 +271,16 @@ export function Gm(): React.JSX.Element {
  * store's own, not a second one invented here, because a failure that already
  * has words does not need paraphrasing.
  *
+ * There is a third surface now, and it is the one this strip could not be:
+ * `shell/CampaignNotSaved.tsx`, at the top of `<main>`, on every screen that is
+ * not this one. The argument above stops at the edge of the GM section - the GM
+ * who taps MENU → PLAY to read a player's sheet takes this strip off the glass
+ * with them, and the tab still closes on the evening. `App.tsx` mounts that
+ * block only while the GM screen is *not* the one rendered, so the two are
+ * never up together: this one is under the pinned top bar and that one is above
+ * it, and 40px apart they would be the app raising its voice rather than saying
+ * anything new.
+ *
  * Not dismissible. A dismissed warning about work that is not saved is exactly
  * the false reassurance this app is not allowed to give, and unlike the backup
  * nag this is usually an event with a remedy.
@@ -320,45 +331,12 @@ function NotSaved({
   retryable: boolean;
   phone: boolean;
 }): React.JSX.Element {
-  const [retrying, setRetrying] = useState(false);
   /*
-   * Whether the last retry came back with the failure still on the store.
-   *
-   * A retry that works unmounts this strip, so this only ever paints on the
-   * one that did not - and painting nothing there was the whole of the old
-   * behaviour: TRYING…, then the same red strip, with no way to tell a retry
-   * that failed from a button that was never wired.
+   * The busy state, the unmount guard and "did that one land either" are all
+   * `useRetry`'s now, because this strip, SAVE and the shell's block had three
+   * copies of them. What is still this file's is the shape they are drawn in.
    */
-  const [failedAgain, setFailedAgain] = useState(false);
-  /*
-   * Whether this strip is still on the page when the retry settles.
-   *
-   * A retry that works clears `writeError`, which unmounts this component -
-   * before `flushGm()` resolves, because the store's `setState` runs inside the
-   * write's own success path. So the flag has to outlive the callback that
-   * reads it and has to be *cleared by the unmount*, which is what makes it a
-   * ref with an effect rather than a local: the first draft declared
-   * `let alive = true` inside `retry`, where nothing could ever set it false,
-   * and the comment beside it described a guard the code did not have.
-   * `SaveSheet` does the same thing correctly for the same reason.
-   */
-  const alive = useRef(true);
-  useEffect(
-    () => () => {
-      alive.current = false;
-    },
-    [],
-  );
-
-  const retry = useCallback(() => {
-    setFailedAgain(false);
-    setRetrying(true);
-    void retryGm().finally(() => {
-      if (!alive.current) return;
-      setRetrying(false);
-      setFailedAgain(useGm.getState().writeError !== null);
-    });
-  }, []);
+  const { retrying, failedAgain, again: retry } = useRetry(retryGm);
 
   return (
     <div
