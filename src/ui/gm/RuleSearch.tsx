@@ -22,10 +22,18 @@
  *
  * That single-open rule is the whole reason `Hit` below is not `Fold`. Its
  * header is otherwise `Fold`'s header, deliberately - same `t-label` title in
- * `--text-2`, same `t-meta` stamp in `--dim`, same `aria-expanded` button, same
- * `gap: open ? 8 : 0` - but `Fold` owns its open state privately, so a list of
- * them can only ever be all-shut or however many the GM has left open. It also
- * has one line in its header, and a hit's header has three.
+ * `--text-2`, same `t-meta` page stamp in `--muted`, same `aria-expanded`
+ * button, same `gap: open ? 8 : 0` - but `Fold` owns its open state privately,
+ * so a list of them can only ever be all-shut or however many the GM has left
+ * open. It also has one line in its header, and a hit's header has three.
+ *
+ * The stamp was `--dim` here while this sentence claimed it was `Fold`'s, which
+ * is a shade darker than `Fold.tsx` draws its summary and so a shade darker
+ * than the five GM-chapter folds this file names as its precedent - the same
+ * `SRD 1.0 - P.n` string, one step back from it, on the same screen. The
+ * sentence is the one that was right: it is `--muted` now, and `t-meta` at
+ * `--dim` is left to the two labels that are not `Fold`'s - the group headers
+ * and the table note - which have no counterpart there to disagree with.
  *
  * ## The organised half of the request: two groups, not a ranking
  *
@@ -261,6 +269,18 @@ export function RuleSearchField({
   );
 }
 
+/**
+ * What the live line says, including when the answer is none.
+ *
+ * The counts are the eye's too - each group header prints its own - so this
+ * says the total rather than repeating them, and it is the only sentence on
+ * this surface a GM who cannot see the list gets for free.
+ */
+const spoken = (count: number): string => {
+  if (count === 0) return 'No section matches';
+  return count === 1 ? '1 section matches' : `${String(count)} sections match`;
+};
+
 /** What the two group headers say, and which hits belong under each. */
 const GROUPS: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
   { label: 'IN THE TITLE', holds: (hit) => hit.where === 'title' },
@@ -282,25 +302,40 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
   const hits = useMemo(() => searchRules(rules, query), [rules, query]);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  if (hits.length === 0) {
-    return (
-      <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
-        No rule in this dataset carries that. The search reads every section’s title and its whole
-        text, so a phrase that is not here is not in the rules the app is holding.
-      </p>
-    );
-  }
-
   return (
     <>
       {/*
-        The one thing on this surface that speaks when it changes. The headers
-        below carry the same counts for an eye, but a header is not live, and a
-        GM using a screen reader would otherwise type into silence.
+        The one thing on this surface that speaks when it changes, and it says
+        the empty answer in the same breath as the counts. It used to sit below
+        the zero-hits guard, inside the branch that draws the groups, so it was
+        absent from the only result a GM reaches by typing one word too many:
+        twenty sections became a sentence an eye could read and a live region
+        could not, which is the silence this exists to prevent. The group
+        headers below carry the same counts for an eye, and a header is not
+        live.
+
+        It is the first child of this fragment and stands ahead of the branch,
+        so going from twenty matches to none changes the text of an element
+        that was already on the page instead of swapping one element for
+        another - the form of the change assistive tech will read. What it
+        still cannot do is carry the *first* answer: nothing here is mounted
+        until the field has a character in it, so the region arrives together
+        with its own first content, which is the case a screen reader most
+        often declines to announce. Curing that would mean a live region living
+        outside these results, in a sheet that deliberately does not run the
+        search - the test that mounts this component alone says why the search
+        belongs to it. jsdom can prove the text and the position; it cannot
+        prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {hits.length === 1 ? '1 section matches' : `${String(hits.length)} sections match`}
+        {spoken(hits.length)}
       </span>
+      {hits.length === 0 && (
+        <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
+          No rule in this dataset carries that. The search reads every section’s title and its
+          whole text, so a phrase that is not here is not in the rules the app is holding.
+        </p>
+      )}
       {GROUPS.map((group) => {
         const inGroup = hits.filter(group.holds);
         if (inGroup.length === 0) return null;
@@ -364,7 +399,7 @@ function Hit({
           <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
             <Marked found={preview(hit.title, query)} />
           </span>
-          <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
             {stamp(hit.page)}
           </span>
         </span>

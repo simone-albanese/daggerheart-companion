@@ -45,8 +45,16 @@
  * for SHOW to exist would falsify the sentence Settings prints about its own
  * bar - *"With both off SHOW has nothing left to open, so it leaves the GM
  * screen's bottom bar"* - and `MenuSheet`'s sentence about where the other
- * tools are, in two files this change does not own. The rules the reference
- * screen curates are behind MENU either way, and MENU is not switchable.
+ * tools are, in two files this change does not own. The subjects `Reference`
+ * curates are behind MENU either way, and MENU is not switchable.
+ *
+ * The sentence stays true because the search opens nothing - it is content on
+ * SHOW's sheet, not a door leading off it - but on its own it no longer says
+ * everything a GM turning both switches off is about to lose. So Settings now
+ * names the search in the same breath: *"The rules search lives on that sheet,
+ * so it goes with it; the reference behind MENU does not."* `GmBar`'s own
+ * docblock carries the other half, which is why the verb is dropped rather
+ * than kept alive by the field.
  *
  * ## Ergonomics, 393 x 852
  *

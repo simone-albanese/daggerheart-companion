@@ -33,14 +33,24 @@
  * search into two and take a quarter of the bar to do it. `BACKLOG.md` carries
  * the absence, and the objection, so both are decisions rather than silences.
  *
- * ## SHOW leaves when there is nothing behind it
+ * ## SHOW leaves when both of its doors are gone
  *
  * Both halves of SHOW's fork are switchable in Settings - the bestiary and the
  * party board are the two tools no session row can open, which is exactly why
  * they are the two that can be switched off without making a row unopenable.
- * With both off, SHOW is not drawn *disabled*: it is not drawn. The same
- * argument as SEARCH above, arrived at from the other direction - a verb that
- * opens a sheet with nothing in it is worse than a verb that is not there.
+ * With both off, SHOW is not drawn *disabled*: it is not drawn.
+ *
+ * **The reason is not that the sheet would be empty, and this paragraph said it
+ * was until the search arrived.** It would not be empty: `ShowSheet` draws the
+ * rules field whichever doors survive, so a SHOW kept alive by the search alone
+ * would open a working search over every section the dataset carries. It is
+ * dropped anyway, and that is the same argument as SEARCH above arrived at from
+ * the other direction. The search *opens* nothing - it answers where it is
+ * asked, in the sheet, and hands the screen back unchanged - so it is content
+ * SHOW carries, never a reason to draw the verb. A SHOW that existed only to
+ * hold it would be the fourth verb this bar refused, wearing the third one's
+ * word. The subjects `Reference` curates stay behind MENU either way, and MENU
+ * is not switchable.
  *
  * ## Ergonomics, 393x852
  *

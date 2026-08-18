@@ -36,6 +36,7 @@ import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { searchRules } from '../../src/ui/shared/srdReference.ts';
 import { preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
@@ -389,6 +390,23 @@ describe('the field, at the foot of SHOW', () => {
     expect(dialog().textContent).toContain('Nothing here ever writes to their characters');
     type('pitfalls');
     expect(hitTitles()).toEqual(['Pitfalls to Avoid']);
+    // And the name the sheet is announced under says so. `Gm.tsx` narrows this
+    // label to whichever fork survives; the field survives both, so it is in
+    // the name here too.
+    expect(dialog().getAttribute('aria-label')).toBe('The party board and rules search');
+  });
+
+  it('is named in the sheet a screen reader hears, not only drawn in it', () => {
+    /*
+     * The dialog's accessible name is the only description of this sheet a GM
+     * who cannot see it gets before they start reading it, and it named two
+     * doors while the sheet held two doors and a search over every section the
+     * dataset carries. A name that undersells its own surface is the same
+     * defect as a docblock that oversells one.
+     */
+    openShow();
+    expect(dialog().getAttribute('aria-label')).toBe('Bestiary, party board and rules search');
+    expect(field().getAttribute('aria-label')).toBe('Search the rules by title and text');
   });
 });
 
@@ -472,6 +490,55 @@ describe('the results', () => {
     expect(hits()).toEqual([]);
     expect(groupHeaders()).toEqual([]);
     expect(dialog().textContent).toContain('No rule in this dataset carries that');
+  });
+
+  it('says the empty answer in the live line that was counting the hits', () => {
+    /*
+     * The live region used to sit inside the branch that draws the groups, so
+     * the one result a GM reaches by typing one word too many was the one
+     * result nothing spoke: twenty sections became a sentence only an eye
+     * could read. It is ahead of the branch now, so this is a text change
+     * inside an element that was already on the page - which is the identity
+     * the second assertion is checking, not just the wording.
+     */
+    openShow();
+    type('fear');
+    const live = dialog().querySelector('.sr-only[role="status"]');
+    expect(live?.textContent).toBe(`${String(searchRules(rules, 'fear').length)} sections match`);
+
+    type('kobolds riding a velocipede');
+    expect(dialog().querySelector('.sr-only[role="status"]')).toBe(live);
+    expect(live?.textContent).toBe('No section matches');
+    expect(dialog().textContent).toContain('No rule in this dataset carries that');
+  });
+
+  it('stamps the page in the same ink every other Fold header in the app uses', () => {
+    /*
+     * A hit's header is `Fold`'s header with the private open state taken out
+     * of it, and it prints the same `SRD 1.0 · P.n` stamp the five GM-chapter
+     * folds print through `Fold` itself. So the value is read off `Fold` here
+     * rather than named twice: the claim in the docblock is *sameness*, and a
+     * test that only asserted a token would still pass while the two drifted.
+     */
+    openShow();
+    type('pitfalls');
+    const stamp = hits()[0]?.querySelector<HTMLElement>('span.row > span.t-meta');
+    expect(stamp?.textContent).toContain('SRD 1.0');
+
+    const aside = document.createElement('div');
+    document.body.append(aside);
+    const asideRoot = createRoot(aside);
+    act(() =>
+      asideRoot.render(
+        createElement(Fold, { label: 'A section', summary: 'SRD 1.0 · P.1', children: null }),
+      ),
+    );
+    const summary = aside.querySelector<HTMLElement>('span.t-meta');
+    expect(summary?.textContent).toBe('SRD 1.0 · P.1');
+    expect(stamp?.style.color).toBe(summary?.style.color);
+    expect(stamp?.style.color).toBe('var(--muted)');
+    act(() => asideRoot.unmount());
+    aside.remove();
   });
 
   it('follows a layer that lands while a hit is already open', () => {

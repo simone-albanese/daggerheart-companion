@@ -433,7 +433,9 @@ describe('the bottom bar', () => {
   it('drops SHOW when both halves of its fork are switched off, and redistributes', () => {
     /*
      * The property the test above could only half state. With the bestiary and
-     * the party board both off, SHOW opens a sheet with nothing in it - so it
+     * the party board both off, SHOW has no door left to open - the rules
+     * search rides on its sheet rather than being a reason to draw the verb,
+     * so a SHOW kept for it alone would be the SEARCH the bar refused - so it
      * is not drawn, and the two verbs that are left take the width: 196px each
      * on a 393px phone where three were 131. A hard-coded `repeat(3, 1fr)`
      * would leave the third column empty and put ADD and SAVE where neither the
@@ -616,10 +618,12 @@ describe('SHOW', () => {
   it('offers only the half that is switched on, and is named for it', () => {
     /*
      * A fork with one arm is still a fork, and the sheet must not be announced
-     * as "Bestiary and party board" while it offers one of the two - that is
-     * the everyday size of the rule this screen is built on. Absent rather than
-     * disabled, for the reason SEARCH is absent from the bar: a choice that
-     * cannot be taken is a row the GM reads for nothing.
+     * as "Bestiary, party board and rules search" while it offers one of the
+     * two - that is the everyday size of the rule this screen is built on.
+     * Absent rather than disabled, for the reason SEARCH is absent from the
+     * bar: a choice that cannot be taken is a row the GM reads for nothing.
+     * The search is in the name whichever half survives, because the field is
+     * drawn under whichever door survives.
      */
     useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
     gm();
@@ -632,7 +636,7 @@ describe('SHOW', () => {
       .filter((label) => label !== '');
     expect(choices).toEqual(['THE PARTY BOARD']);
     expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
-      'The party board',
+      'The party board and rules search',
     );
   });
 });
