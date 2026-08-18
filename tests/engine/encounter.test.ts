@@ -58,8 +58,23 @@ describe('the five adjustments', () => {
 
   it('takes two off for bumping every adversary damage roll', () => {
     const b = computeBudget(4, 2, roster, { ...NO_ADJUSTMENTS, damageBump: true });
-    expect(lineFor(/\+1d4/, b)).toMatchObject({ points: -2, active: true, automatic: false });
+    // Matched on the name of the switch, not on `/\+1d4/`, which is what this
+    // read until the label stopped transcribing the rule. See the label's own
+    // comment: an engine that computes points has no rules layer to read, so it
+    // cannot keep a quotation in step with the two screens that do.
+    expect(lineFor(/extra damage/, b)).toMatchObject({ points: -2, active: true, automatic: false });
     expect(b.budget).toBe(14 - 2);
+  });
+
+  it('quotes no rule in any adjustment label, so none of them can drift', () => {
+    // The guard on the paragraph above. A label carrying dice is a fourth
+    // transcription of a sentence `damageBumpRule` exists to own, and the first
+    // pass at this left one in - which put a stale quotation eleven lines above
+    // a live one on the same screen.
+    const b = computeBudget(4, 2, roster, { ...NO_ADJUSTMENTS, damageBump: true });
+    for (const line of b.adjustments) {
+      expect(line.label, `"${line.label}" transcribes a rule`).not.toMatch(/\dd\d|\+\d/);
+    }
   });
 
   it('takes two off automatically for two or more Solos', () => {

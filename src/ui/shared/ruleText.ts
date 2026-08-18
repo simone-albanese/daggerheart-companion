@@ -237,9 +237,17 @@ export const interruptedRestRule = (rules: RulesSection[]): string | null =>
  * ever drawn it has said what it means by typing the dice into the file -
  * `engine/encounter.ts` for the budget line, `Encounter.tsx` for the note under
  * the toggles, `SessionBody.tsx` for the chip on a planned row. Three
- * transcriptions of one sentence, and they had already drifted: the engine says
+ * transcriptions of one sentence, and they had already drifted: the engine said
  * `+1d4 (or +2)`, the SRD says `+1d4 (or a static +2)`. A dataset layer that
  * changed the bump would have changed none of them.
+ *
+ * **All three are gone, and the third went last and for a sharper reason.** The
+ * two screens quote this selector. The engine's line could not - it computes
+ * points and has no rules layer to read - so it stopped transcribing at all and
+ * names the switch instead: `'Adversaries deal extra damage'`. Leaving it as it
+ * was would have been worse than before the change rather than better, because
+ * a screen that quotes the book eleven lines under a toggle that quotes a stale
+ * copy of it is a contradiction where there had only been an error.
  *
  * So the sentence is read out of whatever rules layer is loaded, and the screen
  * quotes it. Found by what the line says rather than by pinning

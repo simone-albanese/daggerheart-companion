@@ -103,7 +103,22 @@ export function computeBudget(
       active: soloCount >= 2,
     },
     {
-      label: '+1d4 (or +2) to all adversary damage rolls',
+      /*
+       * NAMED, NOT QUOTED, and that is the whole of it.
+       *
+       * This read `'+1d4 (or +2) to all adversary damage rolls'` - a third
+       * hand-typed copy of a sentence the SRD writes as "+1d4 (or a **static**
+       * +2)", and one this module cannot keep in step because it has no rules
+       * layer to read. When the two screens started quoting `damageBumpRule`
+       * this line went from *drifted but consistent* to a flat contradiction:
+       * the toggle said one version and the note eleven lines under it said
+       * another, and a homebrew layer widened the gap to `+2d6 (or a static
+       * +7)` against `+1d4 (or +2)`.
+       *
+       * An engine that computes points has no business transcribing prose. The
+       * label names the switch; the screens quote the book.
+       */
+      label: 'Adversaries deal extra damage',
       points: -2,
       automatic: false,
       active: adjustments.damageBump,
