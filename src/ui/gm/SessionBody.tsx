@@ -1,13 +1,24 @@
 /**
  * What is inside a session row when the GM opens it.
  *
- * Five arms, one per kind of row, and the fifth is the reason this file is
+ * One arm per kind of row, and `unreadable` is the reason this file is
  * written the way it is. `readSessionItem` keeps an item it cannot read rather
  * than dropping it from a list whose length the GM knows by heart, and keeps a
  * link whose target this build has no screen for. That decision only pays off
  * if both of them can be *drawn*, so both are drawn here: the unreadable row
  * shows its own bytes, and a link this dataset cannot resolve says so and shows
  * the ref, instead of rendering nothing and looking like a bug.
+ *
+ * ## Two arms are placeholders, and say so on screen
+ *
+ * `url` and `note` arrived with campaign schema 2 as a *storage* layer - a
+ * type, a reader, a writer and an export - and their screens are two later
+ * lanes. The arms here exist because the union is exhaustive and a row that
+ * rendered nothing would look exactly like the bug this file was written to
+ * prevent. Each draws the value it holds as text and says out loud what it
+ * cannot do yet, which is the honest state of the app: the address is stored,
+ * exported and re-imported intact, and there is no control on it. Both arms
+ * are replaced wholesale by the lanes that build them.
  *
  * ## The plan is not the table, and the row says so
  *
@@ -97,6 +108,8 @@
 import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
+import { displayUrl } from '../../../shared/externalLink.ts';
+import { plainTextOf } from '../../../shared/richText.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
@@ -193,6 +206,10 @@ export function SessionBody({
       return <LinkArm item={item} phone={phone} />;
     case 'countdown':
       return <CountdownArm item={item} onOpenTool={onOpenTool} />;
+    case 'url':
+      return <UrlArm item={item} />;
+    case 'note':
+      return <NoteArm item={item} />;
     case 'unreadable':
       return <UnreadableArm item={item} />;
   }
@@ -713,6 +730,87 @@ function CountdownArm({
           row={row}
         />
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A stored web address, drawn as text and nothing else.
+ *
+ * `displayUrl` and not `item.href`: the host comes first, and it is punycode,
+ * so a homograph domain reads as `xn--pple-43d.com` here exactly as it does on
+ * the shut row. See the six mitigations in `shared/externalLink.ts`.
+ *
+ * There is no anchor, and that is the current state rather than a design: the
+ * lane that builds this row builds it out of `externalLinkAttrs`, which is the
+ * only sanctioned way to make one and carries `target` and `rel` with it.
+ */
+function UrlArm({ item }: { item: Extract<SessionItem, { kind: 'url' }> }): React.JSX.Element {
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {item.href === '' ? (
+        <Fact>
+          This row has no web address on it. If it arrived in a campaign somebody sent you, the
+          address it carried was not one this app will store — the reason was named when the
+          campaign was opened.
+        </Fact>
+      ) : (
+        <>
+          <span className="t-meta" style={{ color: 'var(--dim)' }}>
+            WHERE IT POINTS
+          </span>
+          <p
+            className="t-dense"
+            style={{ margin: 0, color: 'var(--text)', overflowWrap: 'anywhere' }}
+          >
+            {displayUrl(item.href, 2048)}
+          </p>
+          <Fact>
+            This version of the app stores this address, exports it and reads it back, and has no
+            button that opens it. Nothing here ever opens on its own.
+          </Fact>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A note, drawn as plain text.
+ *
+ * `plainTextOf` is the format's own summary function, and it is text by
+ * construction - no markup is built anywhere in this app from a note. The
+ * emphasis, the heading and the centring are stored and exported; drawing them
+ * is the lane that builds the editor.
+ */
+function NoteArm({ item }: { item: Extract<SessionItem, { kind: 'note' }> }): React.JSX.Element {
+  const text = plainTextOf(item.note);
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      {text === '' ? (
+        <Fact>This note is empty.</Fact>
+      ) : (
+        <>
+          <p
+            className="t-dense"
+            style={{
+              margin: 0,
+              color: 'var(--text)',
+              maxWidth: '62ch',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {text}
+          </p>
+          <Fact>
+            Bold, italics, bullets and a centred heading are stored in this note and travel with it
+            when the campaign is exported. This version of the app shows it as plain text.
+          </Fact>
+        </>
+      )}
     </div>
   );
 }

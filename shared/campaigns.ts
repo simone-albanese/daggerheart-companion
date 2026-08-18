@@ -42,11 +42,38 @@
  * same policy around it rather than a second policy. The machinery is the one
  * in `shared/migrations.ts`: same `Migration` shape, same one-step-at-a-time
  * chain, same two refusals at the ends, same test asking what would be missing
- * if the constant went up by one. `CAMPAIGN_MIGRATIONS` is empty today for the
- * same reason `MIGRATIONS` is, and for the same reason that is the correct
- * content rather than an omission: the machinery has to be in place before the
- * first bump, because after it it is too late.
+ * if the constant went up by one.
+ *
+ * ## The first bump, and what it is actually for
+ *
+ * `CAMPAIGN_MIGRATIONS` was empty until 2026-08-18, and its emptiness was
+ * argued here at length: the machinery had to be in place before the first
+ * bump, because after it it is too late. That argument was right and it has
+ * now been cashed. The version is 2, and the chain has one entry in it.
+ *
+ * **The converter changes no field, and that is the point rather than an
+ * embarrassment.** A v1 record is not wrong. Nothing in it needs repairing,
+ * nothing in it is missing, and this build reads every byte of one correctly.
+ * The version moved so that **old builds refuse new records**, which is a thing
+ * only the *number* can do:
+ *
+ * `readSessionItem` wraps a row whose `kind` it does not know as `unreadable` -
+ * on purpose, so the row is kept and named rather than dropped. But `gmStore`
+ * writes the campaign back 400ms later, and what it writes back is the reading.
+ * A build that predates the `url` and `note` rows would therefore open a
+ * campaign written by this one, wrap two good rows as unreadable, and *save
+ * that*. The GM loses a row they can still see on the newer device, and nothing
+ * anywhere says why. Bumping the number turns that path off at the top:
+ * `readCampaigns` quarantines a record stamped above its own build's version
+ * and never reaches the reader, `putCampaign` and `deleteCampaign` throw
+ * `StaleBuildError` rather than writing over one, and the old build says out
+ * loud that it is the old build.
+ *
+ * That is the whole justification, and it is why one bump covers both the URL
+ * row and the note row rather than one bump each: two new kinds create exactly
+ * one hazard, and the hazard is answered once.
  */
+import { readExternalUrl } from './externalLink.ts';
 import {
   applyChain,
   checkReadable,
@@ -54,6 +81,7 @@ import {
   type Migration,
   type MigrationResult,
 } from './migrations.ts';
+import { readNoteDoc, type NoteDoc } from './richText.ts';
 import {
   MAX_FEAR,
   type Countdown,
@@ -68,32 +96,93 @@ import {
   type Tier,
 } from './types.ts';
 
-export const CAMPAIGN_SCHEMA_VERSION = 1;
+export const CAMPAIGN_SCHEMA_VERSION = 2;
 
 /**
  * The lowest campaign schema any build has ever written.
  *
- * One, because this is the first: unlike `OLDEST_READABLE`, which is 3 in
- * order not to invent a history to be compatible with, there is genuinely
- * nothing older here.
+ * One, because that is where this schema started: unlike `OLDEST_READABLE`,
+ * which is 3 in order not to invent a history to be compatible with, there is
+ * genuinely nothing older here.
+ *
+ * It stays 1 across the bump to 2, exactly as `OLDEST_READABLE` stayed 3
+ * across P1-7. Every campaign already in an IndexedDB and every `.dhcampaign`
+ * already on a disk is a schema-1 record, and 1 is precisely the version the
+ * chain below now leaves.
  */
 export const OLDEST_READABLE_CAMPAIGN = 1;
 
-/** Empty, and correct. See the header, and `MIGRATIONS` in `migrations.ts`. */
-export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [];
+/**
+ * The chain, one entry per campaign schema this build has left behind.
+ *
+ * The first and only entry is 2026-08-18's, and it is deliberately empty of
+ * work. See the header: the version moved so that older builds *refuse* a
+ * record carrying a `url` or `note` row, not because anything in a v1 record
+ * is wrong. There is no field to add, no field to rename and no field to drop,
+ * so the honest converter is the one that copies the record and says so.
+ */
+export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
+  {
+    from: 1,
+    note: 'the session list gained a URL row and a note row; no schema-1 field changed',
+    /*
+     * A copy, not the same object, and not a no-op returning its argument.
+     *
+     * `applyChain` hands the result on and `migrateCampaignRecord` spreads a
+     * `schemaVersion` onto it; returning `r` itself would let that spread be
+     * the only thing standing between a caller's record and being restamped in
+     * place. One object allocation is a cheap price for the chain staying pure,
+     * and purity is what `tests/store/campaignSchema.test.ts` can actually
+     * assert - it reads the frozen v1 fixture, walks it forward, and requires
+     * every field to come back identical apart from the stamp.
+     */
+    apply: (r) => ({ ...r }),
+  },
+];
 
 // ---------------------------------------------------------------------------
 // The session list
 // ---------------------------------------------------------------------------
 
 /**
- * What a link may point at.
+ * What a `link` row may point at.
  *
- * Every one of these is *inside the app*. A link is never an external URL, and
- * that is a decision rather than an omission: this app's strongest claim is
- * that it makes exactly one kind of network request and it is same-origin, and
- * a session list full of `https://` would quietly end that. A GM who wants a
- * web page has a browser.
+ * Every one of these is *inside the app*, and that is still true of this list
+ * after 2026-08-18. What changed that day is that it stopped being true of the
+ * session list as a whole: backlog item 12 added a `url` row, which is a
+ * different kind of row and not a fifth entry here.
+ *
+ * ### What this docblock used to say, and which half of it survived
+ *
+ * It said "a link is never an external URL", and argued it: this app's
+ * strongest claim is that it makes exactly one kind of network request and it
+ * is same-origin, and a session list full of `https://` would quietly end that.
+ *
+ * **The claim about requests is unchanged and still exact.** A `url` row is a
+ * string, and as this build ships it is only a string: `UrlArm` in
+ * `src/ui/gm/SessionBody.tsx` draws the address as text and builds no anchor,
+ * so there is nothing on it to tap yet. This app never fetches it, never
+ * prefetches it, never resolves it, and never puts it in an `<img>`, a
+ * `<script>` or an `<iframe>`; the one request the app makes is still the
+ * same-origin one. The anchor belongs to a later lane, and when it lands,
+ * opening a link is the *browser's* navigation in another tab, not this app's
+ * request. So nothing about the offline story, the service worker, or "works
+ * on a plane" moved.
+ *
+ * **What did not survive is the conclusion.** "A GM who wants a web page has a
+ * browser" was true of a GM sitting at their own desk and false of the one this
+ * app is for: the prep is in the app, the phone is on the table, and the
+ * alternative to a stored link was retyping a Discord thread's address by hand
+ * mid-session. The owner approved the row.
+ *
+ * ### What the reader guarantees instead
+ *
+ * The safety that sentence used to buy is now bought by `shared/externalLink.ts`
+ * and bought *in the reader*, where nothing downstream can opt out of it: a
+ * scheme allowlist, a length bound, credentials refused, the parser's own
+ * normalised output stored rather than the sender's bytes, punycode shown
+ * rather than hidden, and one function that owns `target` and `rel`. That file
+ * enumerates all six and says which payload each one stops.
  */
 export const LINK_KINDS = ['adversary', 'environment', 'domainCard', 'rule'] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
@@ -122,6 +211,20 @@ export type LinkTarget =
   /** A kind this build has no screen for. Kept, named, shown. */
   | { kind: 'unknown'; named: string; ref: Ref };
 
+/**
+ * The kinds ADD can mint. **Deliberately not `SessionItem['kind']`.**
+ *
+ * `AddSheet.tsx` builds its choices out of this list, so a kind in it is a
+ * button on a screen and needs a factory, a form and a body to draw. It has
+ * never been the same set as the union below - `unreadable` is a reading, not
+ * a thing a GM can add - and after 2026-08-18 it is three short rather than
+ * one: `url` and `note` are readable, writable and exportable from today and
+ * get their ADD entries when their screens land, in the two lanes that build
+ * them. Widening this list before then would put two buttons on the sheet that
+ * mint nothing.
+ *
+ * `tests/gm/session.test.ts` pins the gap, so it stays a decision.
+ */
 export const SESSION_ITEM_KINDS = ['scene', 'encounter', 'link', 'countdown'] as const;
 export type SessionItemKind = (typeof SESSION_ITEM_KINDS)[number];
 
@@ -137,10 +240,21 @@ export interface SessionItemBase {
 /**
  * One row of the GM's spine for a campaign.
  *
- * The four kinds are the wireframe's. The fifth is the same idea as the
- * `unknown` link target one level down: an item this build cannot read is kept
- * exactly as it arrived, wrapped in something renderable, rather than dropped
- * from a list whose length the GM knows by heart.
+ * The first four kinds are the wireframe's. `unreadable` is the same idea as
+ * the `unknown` link target one level down: an item this build cannot read is
+ * kept exactly as it arrived, wrapped in something renderable, rather than
+ * dropped from a list whose length the GM knows by heart.
+ *
+ * `url` and `note` arrived together on 2026-08-18, with
+ * `CAMPAIGN_SCHEMA_VERSION` 2, and they are the reason it moved. See the header:
+ * two new kinds create exactly one hazard - an older build wrapping them as
+ * `unreadable` and writing that reading back - and the hazard is answered once.
+ *
+ * Both of them carry a value that came out of somebody else's file and is
+ * *acted on* rather than merely displayed, which nothing above them does. So
+ * both are validated and bounded here, on the way in, by a module of their own:
+ * `shared/externalLink.ts` and `shared/richText.ts`. Neither field is ever
+ * trusted as it arrived.
  */
 export type SessionItem =
   | (SessionItemBase & { kind: 'scene'; environmentRef: Ref | null })
@@ -152,6 +266,28 @@ export type SessionItem =
     })
   | (SessionItemBase & { kind: 'link'; target: LinkTarget })
   | (SessionItemBase & { kind: 'countdown'; countdown: Countdown; primary: boolean })
+  /**
+   * A link out of the app. Backlog item 12.
+   *
+   * One field, and `''` when there is no usable address - either because the
+   * GM has not typed one yet or because the one in the file was refused. There
+   * is deliberately no stored `why` beside it: the sentence explaining a
+   * refusal is derived on every read by `readExternalUrl` and handed to the
+   * reader's `warnings`, so it is always this build's sentence about the bytes
+   * in front of it and never a string somebody else's file got to put on
+   * screen. Storing it would also make it stale the moment mitigation 2 threw
+   * the offending bytes away, which is on the very same read.
+   */
+  | (SessionItemBase & { kind: 'url'; href: string })
+  /**
+   * A note the GM typed, with formatting. Backlog item 14.
+   *
+   * A `NoteDoc` - an array of block objects - rather than a string of markup.
+   * `shared/richText.ts` defends that choice at length, and the short version
+   * is that centring has no markdown spelling, so any string format would have
+   * needed a sigil invented here and frozen into every exported file for ever.
+   */
+  | (SessionItemBase & { kind: 'note'; note: NoteDoc })
   | (SessionItemBase & { kind: 'unreadable'; why: string; raw: string });
 
 // ---------------------------------------------------------------------------
@@ -435,8 +571,28 @@ function readPartyMember(v: unknown, warn: (s: string) => void): PartyMember[] {
  *
  * `index` is the fallback order, so a list written without one keeps the order
  * it was stored in rather than collapsing to a single position.
+ *
+ * ## Field by field, and never a spread
+ *
+ * Every arm below names the fields it keeps. That is not style: it is the
+ * clause of mitigation 5 that says the reader hands back data and never an
+ * affordance. `{ ...r }` here would carry a `target`, an `onclick`, a `srcdoc`
+ * or an `autoOpen` straight out of somebody else's JSON, through the store, and
+ * onto whatever a future screen spreads onto an element. Naming the fields is
+ * what makes that impossible rather than unlikely, and
+ * `tests/store/campaignUrlRow.test.ts` mutates this arm into a spread to prove
+ * the difference is real.
+ *
+ * `warn` is how a repair reaches the GM. It is the reader's own list, so a
+ * sentence added here comes out of `readCampaignRecord().warnings` beside the
+ * ones about Fear and duplicate primaries.
  */
-function readSessionItem(v: unknown, index: number, newId: () => string): SessionItem {
+function readSessionItem(
+  v: unknown,
+  index: number,
+  newId: () => string,
+  warn: (s: string) => void,
+): SessionItem {
   const raw = JSON.stringify(v) ?? 'null';
   const r = isRecord(v) ? v : {};
   const base: SessionItemBase = {
@@ -470,6 +626,26 @@ function readSessionItem(v: unknown, index: number, newId: () => string): Sessio
         countdown: readCountdown(r['countdown'], base.id, base.name),
         primary: bool(r['primary']),
       };
+    case 'url': {
+      /*
+       * The one field, and the one sentence.
+       *
+       * A row whose address was refused keeps its name, its order and its
+       * place in the list - the GM added it and would notice it gone - and
+       * loses only the address, which is the thing that was hostile. The
+       * warning fires on a *refusal* and not on an empty row: a row a GM has
+       * just added and not typed into yet has no address either, and warning
+       * about that on every launch is how a real warning stops being read.
+       */
+      const given = r['href'];
+      const { href, why } = readExternalUrl(given);
+      if (href === '' && typeof given === 'string' && given.trim() !== '') {
+        warn(`a web link in the session list was not usable, so its address was left out: ${why}`);
+      }
+      return { ...base, kind: 'url', href };
+    }
+    case 'note':
+      return { ...base, kind: 'note', note: readNoteDoc(r['note'], warn) };
     case 'unreadable':
       // Already wrapped once, by an earlier read. Do not wrap it twice.
       return { ...base, kind: 'unreadable', why: str(r['why']), raw: str(r['raw'], raw) };
@@ -529,7 +705,7 @@ export function readCampaignRecord(
   };
 
   const session = (Array.isArray(record['session']) ? record['session'] : []).map((item, i) =>
-    readSessionItem(item, i, newId),
+    readSessionItem(item, i, newId, warn),
   );
   for (const item of session) {
     if (item.kind === 'unreadable') warn(`one item in the session list could not be read: ${item.why}`);

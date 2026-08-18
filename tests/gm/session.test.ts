@@ -15,11 +15,13 @@
 import { describe, expect, it } from 'vitest';
 import { indexDataset } from '../../src/engine/character.ts';
 import { baseDataset } from '../../src/store/dataset.ts';
+import { SESSION_ITEM_KINDS } from '../../shared/campaigns.ts';
 import type { LinkTarget, SessionItem, SessionItemBase } from '../../shared/campaigns.ts';
 import type { EncounterAdjustments } from '../../shared/types.ts';
 import {
   COUNTDOWN_KIND_COLOR,
   LINK_KIND_LABEL,
+  SESSION_KIND_COLOR,
   SESSION_KIND_LABEL,
   describeItem,
   linkName,
@@ -77,6 +79,8 @@ describe('the name a row draws', () => {
       { ...base({ name: '' }), kind: 'encounter', roster: [], adjustments: { easier: false, harder: false, damageBump: false }, combatants: [] },
       { ...base({ name: '' }), kind: 'link', target: { kind: 'rule', ref: 'x' } },
       { ...base({ name: '' }), kind: 'countdown', primary: false, countdown: { id: 'c', name: '', kind: 'standard', start: 4, value: 4, notes: '' } },
+      { ...base({ name: '' }), kind: 'url', href: 'https://a.example/' },
+      { ...base({ name: '' }), kind: 'note', note: [] },
       { ...base({ name: '' }), kind: 'unreadable', why: 'why', raw: '{}' },
     ];
     for (const item of items) {
@@ -231,6 +235,52 @@ describe('what a shut row says about itself', () => {
     expect(describe_(item)).toBe('KEPT, NOT READ');
     expect(describe_(item)).not.toContain('photo');
   });
+
+  it('shows a web link’s host, in the punycode the parser produced', () => {
+    /*
+     * Mitigation 5 reaching the shut row.
+     *
+     * `https://аpple.com/` here has a Cyrillic а in it - measured in this
+     * Node's URL parser, which turns that host into `xn--pple-43d.com`. The row
+     * has to print what the parser produced, because the whole mitigation for a
+     * homograph is to stop hiding it, and a summary that decoded it back would
+     * be the one place in the app that helpfully lied about a destination.
+     */
+    const item: SessionItem = { ...base(), kind: 'url', href: 'https://xn--pple-43d.com/latest' };
+    expect(describe_(item)).toBe('XN--PPLE-43D.COM/LATEST');
+    expect(describe_(item)).not.toContain('APPLE.COM');
+  });
+
+  it('tells a web link with no address apart from one that has one', () => {
+    // Two different facts. A row the GM has just added and not typed into has
+    // no address; so does a row whose address arrived hostile and was refused.
+    // The row is kept either way, which is why the summary has to say so.
+    expect(describe_({ ...base(), kind: 'url', href: '' })).toBe('NO ADDRESS');
+    expect(describe_({ ...base(), kind: 'url', href: 'https://a.example/' })).toBe('A.EXAMPLE');
+  });
+
+  it('previews a note’s own words rather than counting its characters', () => {
+    const item: SessionItem = {
+      ...base(),
+      kind: 'note',
+      note: [
+        { type: 'heading', align: 'center', spans: [{ text: 'Terms', bold: true, italic: false }] },
+        {
+          type: 'paragraph',
+          align: 'start',
+          spans: [{ text: 'Rhys wants the cargo', bold: false, italic: false }],
+        },
+      ],
+    };
+    // The newline `plainTextOf` puts between blocks is collapsed: a shut row is
+    // one line, and a preview that carried a line break would push the row's
+    // own height around depending on what the GM typed.
+    expect(describe_(item)).toBe('TERMS RHYS WANTS THE CARGO');
+  });
+
+  it('says an empty note is empty', () => {
+    expect(describe_({ ...base(), kind: 'note', note: [] })).toBe('EMPTY NOTE');
+  });
 });
 
 describe('resolving a link against the dataset', () => {
@@ -249,12 +299,35 @@ describe('resolving a link against the dataset', () => {
 
   it('has a label and a colour for every arm of both unions', () => {
     // A `Record<K, string>` typechecks; what it cannot promise is that somebody
-    // did not write '' into one of the cells while adding the fifth arm.
+    // did not write '' into one of the cells while adding an arm.
     for (const value of [...Object.values(SESSION_KIND_LABEL), ...Object.values(LINK_KIND_LABEL), ...Object.values(COUNTDOWN_KIND_COLOR)]) {
       expect(value).not.toBe('');
     }
-    expect(Object.keys(SESSION_KIND_LABEL)).toHaveLength(5);
+    expect(Object.keys(SESSION_KIND_LABEL)).toHaveLength(7);
     expect(Object.keys(LINK_KIND_LABEL)).toHaveLength(5);
+  });
+
+  it('gives no two kinds of row the same stripe', () => {
+    // The stripe's only job is telling one row from another down a scrolling
+    // list, so a shared token is not a smaller version of the feature - it is
+    // the feature switched off for that pair. `url` shipped beside `link` and
+    // the obvious thing to do was give it `--codex` too.
+    const colours = Object.values(SESSION_KIND_COLOR);
+    expect(new Set(colours).size).toBe(colours.length);
+  });
+
+  it('does not offer ADD a kind it has no factory for', () => {
+    /*
+     * `SESSION_ITEM_KINDS` is what the ADD sheet builds its buttons from, and
+     * it has never been `SessionItem['kind']`: `unreadable` is a reading rather
+     * than a thing a GM adds, and `url` and `note` are readable and exportable
+     * from campaign schema 2 but get their screens in two later lanes. A button
+     * that minted nothing would be worse than no button.
+     */
+    expect([...SESSION_ITEM_KINDS]).toEqual(['scene', 'encounter', 'link', 'countdown']);
+    for (const kind of SESSION_ITEM_KINDS) {
+      expect(SESSION_KIND_LABEL[kind]).not.toBe('');
+    }
   });
 });
 

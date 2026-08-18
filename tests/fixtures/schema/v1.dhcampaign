@@ -1,0 +1,161 @@
+{
+  "format": "dhcampaign",
+  "schemaVersion": 1,
+  "app": "0.2.0",
+  "exportedAt": "2026-08-16T09:58:12.000Z",
+  "checksum": 2297802031,
+  "campaign": {
+    "id": "c8f0a6de-1f0b-4f21-9a2b-6b0f9a1c2d3e",
+    "schemaVersion": 1,
+    "name": "The Sablewood Winter",
+    "createdAt": "2026-02-01T19:30:00.000Z",
+    "updatedAt": "2026-08-16T09:58:12.000Z",
+    "fear": 7,
+    "session": [
+      {
+        "id": "item-scene-1",
+        "kind": "scene",
+        "name": "The frozen ford",
+        "order": 0,
+        "collapsed": false,
+        "environmentRef": "raging-river"
+      },
+      {
+        "id": "item-encounter-1",
+        "kind": "encounter",
+        "name": "Ambush at the ford",
+        "order": 1,
+        "collapsed": false,
+        "roster": [
+          {
+            "ref": "acid-burrower",
+            "count": 1
+          },
+          {
+            "ref": "jagged-knife-bandit",
+            "count": 3
+          }
+        ],
+        "adjustments": {
+          "easier": false,
+          "harder": true,
+          "damageBump": false
+        },
+        "combatants": [
+          {
+            "id": "acid-burrower-0",
+            "adversaryRef": "acid-burrower",
+            "name": "Acid Burrower",
+            "hp": {
+              "marked": 3,
+              "max": 8
+            },
+            "stress": {
+              "marked": 1,
+              "max": 3
+            },
+            "thresholds": [
+              8,
+              15
+            ],
+            "difficulty": 14,
+            "spotlighted": true,
+            "notes": "burrowed on the far bank"
+          }
+        ]
+      },
+      {
+        "id": "item-countdown-1",
+        "kind": "countdown",
+        "name": "The ice gives way",
+        "order": 2,
+        "collapsed": false,
+        "primary": true,
+        "countdown": {
+          "id": "item-countdown-1",
+          "name": "The ice gives way",
+          "kind": "standard",
+          "start": 6,
+          "value": 4,
+          "notes": "advance on every failed crossing"
+        }
+      },
+      {
+        "id": "item-link-1",
+        "kind": "link",
+        "name": "How falling works",
+        "order": 3,
+        "collapsed": true,
+        "target": {
+          "kind": "rule",
+          "ref": "falling-and-collision"
+        }
+      },
+      {
+        "id": "item-link-2",
+        "kind": "link",
+        "name": "The bandit chief",
+        "order": 4,
+        "collapsed": true,
+        "target": {
+          "kind": "adversary",
+          "ref": "jagged-knife-lieutenant"
+        }
+      }
+    ],
+    "party": [
+      {
+        "id": "9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8",
+        "importedAt": "2026-07-04T18:02:00.000Z",
+        "source": "file",
+        "markedAt": "2026-07-04T21:40:00.000Z",
+        "tracks": {
+          "hp": 2,
+          "stress": 4,
+          "hope": 3,
+          "armor": 1
+        },
+        "sheet": {
+          "id": "9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8",
+          "schemaVersion": 3,
+          "name": "Ilya of the Ninth",
+          "pronouns": "she/her",
+          "level": 4,
+          "hp": {
+            "marked": 0,
+            "max": 7
+          },
+          "stress": {
+            "marked": 0,
+            "max": 6
+          },
+          "hope": {
+            "marked": 2,
+            "max": 6
+          },
+          "armorSlots": {
+            "marked": 0,
+            "max": 3
+          }
+        }
+      }
+    ],
+    "board": {
+      "region": "scene",
+      "partyTier": 2,
+      "roster": [
+        {
+          "ref": "acid-burrower",
+          "count": 1
+        }
+      ],
+      "adjustments": {
+        "easier": false,
+        "harder": true,
+        "damageBump": false
+      },
+      "combatants": [],
+      "environmentRef": "raging-river"
+    }
+  }
+}

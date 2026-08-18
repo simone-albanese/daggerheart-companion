@@ -477,9 +477,20 @@ describe('the bottom bar', () => {
 // ---------------------------------------------------------------------------
 
 describe('ADD', () => {
-  it('offers exactly the kinds the record has, in the record’s order', () => {
-    // Generated from SESSION_ITEM_KINDS rather than typed out, so a fifth kind
-    // cannot be added to the record and silently missing from this menu.
+  it('offers exactly the kinds it can mint, in the record’s order', () => {
+    /*
+     * Generated from `SESSION_ITEM_KINDS` rather than typed out, so a kind
+     * added to that list cannot be silently missing from this menu.
+     *
+     * The name of this test used to say "the kinds the record has", and that
+     * stopped being true at campaign schema 2. `SESSION_ITEM_KINDS` is not
+     * `SessionItem['kind']` and never was - `unreadable` is a reading rather
+     * than a thing a GM adds - and since the bump it is also short of `url` and
+     * `note`, which are readable, writable and exportable from today and get
+     * their forms in the two lanes building their screens. The gap is pinned in
+     * `tests/gm/session.test.ts`, so this menu staying at four is a decision
+     * rather than the omission this comment was written to catch.
+     */
     gm();
     click(named('ADD'));
     const choices = [...container.querySelectorAll('[role="dialog"] button')]

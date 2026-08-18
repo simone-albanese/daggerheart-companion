@@ -509,14 +509,21 @@ export interface Countdown {
    * That was a gap (`BACKLOG.md` P5-2, «persisted, read, rendered nowhere»)
    * until 2026-08-18, when it became a decision. The prose a GM wants at the
    * table is formatted — bold, bullets, a centred heading — and it belongs to
-   * a scene or a session, not to a clock. It is therefore getting a row of its
-   * own. Drawing a second, plainer note field on the countdown beside it would
-   * put two note surfaces in one list disagreeing about what a note is, which
-   * costs more than the absence does.
+   * a scene or a session, not to a clock. It has a row of its own now: the
+   * `note` kind of `SessionItem`, carrying a `NoteDoc` from
+   * `shared/richText.ts`. Drawing a second, plainer note field on the countdown
+   * beside it would put two note surfaces in one list disagreeing about what a
+   * note is, which costs more than the absence does.
    *
    * The same decision withdrew the «history» that backlog line asked for:
-   * there is no undo here and no dated register, and `CAMPAIGN_MIGRATIONS`
-   * stays empty because of it.
+   * there is no undo here and no dated register.
+   *
+   * `CAMPAIGN_MIGRATIONS` did move that afternoon, and it is worth saying why
+   * that is not this field's doing. The chain gained its first entry because
+   * the `note` row and the `url` row are *new kinds* an older build would wrap
+   * as `unreadable` and then write back over — so the version had to move to
+   * make that build quarantine the record instead. Nothing about `notes`
+   * changed, and the converter changes no field at all.
    *
    * Not deleted, and deleting it is not a cleanup. `readCountdown` rebuilds
    * this object field by field and drops every key it does not name, so a

@@ -25,11 +25,16 @@ export const DB_NAME = 'daggerheart-companion';
 /**
  * The shape of the database, which is a different number from any schema.
  *
- * Two, because the `campaigns` store was added. `SCHEMA_VERSION` did not move
- * with it and neither did `CAMPAIGN_SCHEMA_VERSION`: this number is about
- * which object stores and indexes exist, and Architecture 6.1 lists it as the
- * third of the three things a change may need rather than as a synonym for
- * either of the other two.
+ * Two, because the `campaigns` store was added. Neither `SCHEMA_VERSION` nor
+ * `CAMPAIGN_SCHEMA_VERSION` moved with it: this number is about which object
+ * stores and indexes exist, and Architecture 6.1 lists it as the third of the
+ * three things a change may need rather than as a synonym for either of the
+ * other two.
+ *
+ * The other direction has now happened too, which is what makes the three
+ * genuinely independent rather than merely notionally so:
+ * `CAMPAIGN_SCHEMA_VERSION` moved to 2 on 2026-08-18 for two new session-list
+ * kinds, and this number stayed at 2 because no store and no index changed.
  *
  * The cost of raising it is real and is already handled: a build still on
  * version 1 that meets a version 2 database gets `VersionError` from `openDB`,
