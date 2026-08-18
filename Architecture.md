@@ -517,6 +517,7 @@ Riceverla in un art pack, sì.
 | Personaggi | IndexedDB `characters` | Multi-personaggio |
 | Campagne | IndexedDB `campaigns` | Multi-campagna, e contengono schede altrui |
 | Preferenze | localStorage | Piccole e sincrone |
+| Modelli di countdown | localStorage (`dhc.gm.countdownTemplates.v1`) | Piccoli, sincroni, del dispositivo e non della campagna |
 | I PDF | **mai salvati** | Si ri-importano |
 
 Le campagne stavano in una sola chiave di localStorage, `dhc.gm.v1`, riscritta
@@ -631,7 +632,10 @@ Quello che *non* è separato è la regola. Stessi tre requisiti, stessa
 macchinaria: `CAMPAIGN_MIGRATIONS` usa l'interfaccia `Migration` e le funzioni
 di `shared/migrations.ts` — `versionOf`, `checkReadable`, `applyChain`,
 `missingConverters` prendono i numeri come parametri invece di leggerli inline —
-la fixture committata è `tests/fixtures/schema/v1.campaign.json`, e
+le fixture committate sono `tests/fixtures/schema/v1.campaign.json`,
+`tests/fixtures/schema/v2.campaign.json` e il file `.dhcampaign` intero
+`tests/fixtures/schema/v1.dhcampaign`, il cui checksum viene verificato dal vero
+`parseCampaignFile` invece che da una copia della sua aritmetica, e
 `tests/store/campaignSchema.test.ts` chiede al secondo numero esattamente ciò
 che `tests/store/migrations.test.ts` chiede al primo, compreso il test che
 domanda cosa mancherebbe se la costante salisse di uno.
@@ -672,6 +676,44 @@ dell'argomento, perché il costo di una build vecchia che non riconosce il valor
 è lo stesso — ripiega su `'encounter'` e riscrive quale strumento era aperto.
 Chi aggiunge il terzo non deve chiedersi se «l'eccezione è ancora una»: deve
 chiedersi se sta allargando **questo** campo o un altro.
+
+#### Il primo scalino della catena campagne, e perché il convertitore non fa niente
+
+Il 18 agosto 2026 `CAMPAIGN_SCHEMA_VERSION` è passata **da 1 a 2**: la prima
+volta che la seconda numerazione si muove, dopo essere stata ferma da quando è
+nata. `CAMPAIGN_MIGRATIONS` non è più vuota e ha una voce, `from: 1`.
+
+**Il convertitore non cambia un solo campo, e quello è il punto invece che un
+imbarazzo.** Un record v1 non è sbagliato: non gli manca niente, non c'è niente
+da riparare, e questa build ne legge ogni byte correttamente. Il numero si è
+mosso perché **le build vecchie rifiutino i record nuovi**, che è una cosa che
+solo il *numero* sa fare.
+
+Il meccanismo è quello che questa sezione descrive da sempre, visto dall'altra
+parte. `readSessionItem` avvolge come `unreadable` una riga di cui non conosce
+il `kind` — di proposito, così la riga viene tenuta e nominata invece che persa.
+Ma `gmStore` riscrive la campagna 400 ms dopo, e quello che riscrive **è la
+lettura**. Una build che precede le righe `url` e `note` aprirebbe quindi una
+campagna scritta da questa, avvolgerebbe due righe buone come illeggibili e
+**salverebbe quello**. Il GM perde una riga che sul dispositivo più nuovo vede
+ancora, e da nessuna parte c'è scritto perché. Alzare il numero spegne quel
+percorso in cima: `readCampaigns` mette in quarantena un record marcato sopra la
+versione della propria build e non arriva mai al reader.
+
+È anche la ragione per cui **un solo scalino copre entrambe le funzioni** invece
+di uno ciascuna: due `kind` nuovi creano esattamente un pericolo, e al pericolo
+si risponde una volta.
+
+`OLDEST_READABLE_CAMPAIGN` resta **1**, esattamente come `OLDEST_READABLE` è
+rimasta 3 attraverso P1-7: ogni campagna già in un IndexedDB e ogni
+`.dhcampaign` già su un disco è un record di schema 1, e 1 è precisamente la
+versione che la catena adesso lascia.
+
+**Una nota che vale più di quanto sembri:** in questo scalino `DB_VERSION` è
+rimasta 2. È la prima prova *di fatto* che i tre numeri di questa sezione sono
+indipendenti e non solo indipendenti in linea di principio — nessuno store e
+nessun indice sono cambiati, quindi il numero del database non aveva ragione di
+muoversi.
 
 ### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
 

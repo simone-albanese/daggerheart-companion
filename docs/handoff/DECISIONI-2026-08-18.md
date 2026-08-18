@@ -31,7 +31,7 @@ Dove la risposta cambia il prezzo rispetto a come la domanda era stata posta, è
 | 17 | **Sì** — creazione attiva dopo scrittura fallita, e guardia mancante sulla cancellazione. |
 | 18 | **Sì** — le riparazioni ricalcolate a ogni avvio. |
 | 19 | **Sì** — insets orizzontali: `GmBar`, i cinque overlay, la ✕ di `GmSheet`, più `GmSheet.tsx:77`. *Dipende dalla misura della voce 36.* |
-| 20 | ~~Registro datato~~ → **ANNULLATA. Non fare nulla.** Niente registro, niente annulla, niente storia. `CAMPAIGN_MIGRATIONS` resta vuota, e `Countdown.notes` resta non disegnato. *Conseguenza: la 14 non ha più un bump gratis su cui salire.* |
+| 20 | ~~Registro datato~~ → **ANNULLATA. Non fare nulla.** Niente registro, niente annulla, niente storia. `CAMPAIGN_MIGRATIONS` resta vuota **per quanto riguarda questa voce**, e `Countdown.notes` resta non disegnato. *Conseguenza: la 14 ha dovuto pagarsi il proprio bump — e l'ha fatto il 18/08, `CAMPAIGN_SCHEMA_VERSION` 1→2 con un convertitore che non cambia alcun campo.* |
 | 21 | **Misura** la tastiera prima di spedire il campo di testo. |
 | 22 | **Chiudi** `~2003` e `~2157`. **Apri** CLOSE / FAR / VERY FAR sul foglio giocatore. |
 | 23 | **No a tutte e cinque** *(ma vedi la contraddizione con la richiesta nuova sulla ricerca regole)*. |

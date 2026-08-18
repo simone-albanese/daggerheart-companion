@@ -54,7 +54,14 @@ GitHub Pages deploy, so it still waits to be asked for.
 **Where the numbers that matter stand.** `SCHEMA_VERSION` is **4**, with exactly
 one converter in `MIGRATIONS` (`from: 3`) and `OLDEST_READABLE` still 3, because
 3 is the version of the files already on people's disks. `DB_VERSION` is 2,
-`CODEC_VERSION` is 2, `CAMPAIGN_SCHEMA_VERSION` is 1. `package.json` is
+`CODEC_VERSION` is 2, `CAMPAIGN_SCHEMA_VERSION` is **2** — it moved from 1 on
+2026-08-18, the first time the campaign number has ever moved, so that older
+builds *refuse* a record carrying a `url` or a `note` row instead of wrapping
+those rows as `unreadable` and writing that reading back through the 400 ms
+debounce. `CAMPAIGN_MIGRATIONS` has one entry, `from: 1`, and it changes no
+field: nothing in a v1 record is wrong, and only the number can shut that path.
+`OLDEST_READABLE_CAMPAIGN` stays 1, for the same reason `OLDEST_READABLE` stayed
+3. `package.json` is
 **`0.2.0`** and that is deliberate: nothing here is a 1.0 and no document in this
 repository says it is.
 

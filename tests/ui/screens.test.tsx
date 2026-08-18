@@ -228,7 +228,9 @@ beforeAll(() => {
  * questions this file asserts were correctly not drawn.
  *
  * A fresh shim per case makes the file say the same thing on both, and it is
- * the same one seven other test files install.
+ * the same one ten other test files install — `grep -rln 'class MemoryStorage'
+ * tests/` answers eleven, this file among them. It said "seven" until
+ * 2026-08-18, when the count was checked rather than carried.
  */
 class MemoryStorage {
   private readonly map = new Map<string, string>();
