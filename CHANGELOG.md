@@ -17,9 +17,14 @@ before the one below.
 The first version this project chose. `0.1.0` was the scaffold default and
 described nothing; everything listed here happened under it, unreleased.
 
-**And this one has not been deployed either.** `origin/main` is behind the work
-below and the Pages deploy fires on a push, so no browser has run any of it yet.
-The date is the date the entry was written. **Nothing here is a 1.0** — the
+~~**And this one has not been deployed either.** `origin/main` is behind the work
+below and the Pages deploy fires on a push, so no browser has run any of it yet.~~
+**No longer true, corrected 2026-08-18:** `origin/main == main`, the Pages deploy
+has run green, and everything below is live at
+<https://simone-albanese.github.io/daggerheart-companion/>. The sentence is struck
+rather than deleted because it was the honest state when it was written, and a
+changelog that quietly rewrites its own past is worth less than one that does not.
+The date above is still the date the entry was written. **Nothing here is a 1.0** — the
 version is `0.2.0` on purpose, `BACKLOG.md` still carries the band of items that
 tell a player a wrong number, and no document in this repository may say
 otherwise.
