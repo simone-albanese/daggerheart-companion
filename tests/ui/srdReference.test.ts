@@ -27,9 +27,11 @@ import {
   environmentBenchmarks,
   fearGuidance,
   gmMoves,
+  feetRange,
   metreRange,
   metresFromFeet,
   playerExperiences,
+  rangeDistances,
   rangeReference,
   ruleSection,
   type BlockPart,
@@ -285,6 +287,81 @@ describe('metreRange', () => {
     expect(metreRange([30, 100])).toBe('9-30 m');
     // "3-3 m" is not a range, it is a rounding artefact wearing a dash.
     expect(metreRange([10, 10])).toBe('3 m');
+  });
+});
+
+describe('feetRange', () => {
+  it('prints the two ends, and one end when they are the same', () => {
+    expect(feetRange([30, 100])).toBe('30-100 ft');
+    expect(feetRange([5, 10])).toBe('5-10 ft');
+    // Same rule as `metreRange`: "30-30 ft" is not a range.
+    expect(feetRange([30, 30])).toBe('30 ft');
+  });
+});
+
+describe('rangeDistances', () => {
+  it('answers with the SRD’s own figure for the name a weapon wears', () => {
+    /*
+     * The player sheet prints a weapon's range as a bare word and had nothing
+     * to say what the word meant. These are the five names `shared/types.ts`
+     * calls `Range`, and every one of them has to resolve or a weapon carrying
+     * it loses its distance silently.
+     */
+    const found = rangeDistances(rules);
+    expect([...found.keys()]).toEqual([
+      'melee',
+      'very close',
+      'close',
+      'far',
+      'very far',
+      'out of range',
+    ]);
+    expect(found.get('far')!.feet).toEqual([30, 100]);
+    expect(found.get('very far')!.feet).toEqual([100, 300]);
+    expect(found.get('close')!.feet).toEqual([10, 30]);
+    expect(found.get('very close')!.feet).toEqual([5, 10]);
+  });
+
+  it('carries the two the book gives no figure for, rather than dropping them', () => {
+    // Present with a null figure, not absent: "the book declines to say" and
+    // "this dataset has no range section" are different answers and the caller
+    // has to be able to tell them apart.
+    const found = rangeDistances(rules);
+    expect(found.has('melee')).toBe(true);
+    expect(found.get('melee')!.feet).toBeNull();
+    expect(found.get('out of range')!.feet).toBeNull();
+    expect(rangeDistances([]).size, 'a dataset with no range section invented one').toBe(0);
+  });
+
+  it('reads only the list of ranges, not every bullet in the section', () => {
+    /*
+     * The folds after the opening block are about measuring, moving, area of
+     * effect and cover, and a labelled bullet in one of those is not a
+     * definition of a range. The shipped section cannot show this - none of its
+     * `## ` blocks carries a bullet `ruleBullets` will read - so the section is
+     * built by hand here, which is the same thing `fearGuidance`'s tests do and
+     * the reason these selectors take `RulesSection[]` rather than the store.
+     */
+    const layered: RulesSection[] = [
+      {
+        id: 'maps-range-and-movement',
+        title: 'Maps, Range, and Movement',
+        body: [
+          '- Close: about 10-30 feet away.',
+          '',
+          '## Cover',
+          '',
+          '- Cover: about 3 feet of stone between you and it.',
+        ].join('\n'),
+        sourcePage: 40,
+      },
+    ];
+    const found = rangeDistances(layered);
+    expect([...found.keys()], 'a bullet from outside the range list got in').toEqual(['close']);
+    expect(found.get('close')!.feet).toEqual([10, 30]);
+
+    // And the shipped section is the six the book lists, nothing else.
+    expect([...rangeDistances(rules).keys()]).toHaveLength(6);
   });
 });
 

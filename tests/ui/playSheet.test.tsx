@@ -3687,6 +3687,84 @@ describe('what the attack is made with', () => {
   /** A sheet whose primary weapon rolls with something other than the default. */
   const withBattleaxe = (): Character => seed({ activePrimaryWeapon: 'battleaxe' });
 
+  /**
+   * WHAT A REACH ACTUALLY REACHES.
+   *
+   * The meta line under a weapon has always printed the range as a bare word -
+   * CLOSE, FAR, VERY FAR - and it is the only thing on the row a player cannot
+   * work out from the row: the damage is a formula, the trait is a chip on the
+   * same screen, physical-or-magic is two words, and a reach is a distance on
+   * p.40 of a book that is not open. The GM's `RangeReference` has carried
+   * those distances all along, which made this the app knowing the answer on
+   * the one screen that does not need it.
+   *
+   * The figures are asserted here rather than pinned in `src`, for the reason
+   * this whole suite pins SRD text in tests: a number typed into a component is
+   * the book transcribed into the repository, and it goes stale the moment a
+   * rules layer redefines the range.
+   */
+  const withBow = (id: string): Character => seed({ activePrimaryWeapon: id });
+  const meta = (name: string): string => weaponRow(name).textContent ?? '';
+
+  it('says how far a reach reaches, in the SRD’s own figure', () => {
+    play(withBow('shortbow'));
+    expect(meta('Shortbow'), 'FAR is a word the sheet never explains').toContain(
+      'FAR 30-100 FT',
+    );
+
+    // And the longest of them, which is the width case: VERY FAR is two words
+    // before the figure and the row is a button on a 393px column.
+    play(withBow('longbow'));
+    expect(meta('Longbow')).toContain('VERY FAR 100-300 FT');
+  });
+
+  it('leaves a range the book gives no figure for as the word it is', () => {
+    /*
+     * *"Melee: Close enough to touch, up to a few feet away."* There is no
+     * number in that sentence to lift, and a default here would be this app
+     * inventing a distance the SRD deliberately left to the fiction - the same
+     * rule `rangeEntry` and the GM's range cards already keep.
+     */
+    play(withBattleaxe());
+    const line = meta('Battleaxe');
+    expect(line).toContain('MELEE');
+    expect(line, 'the sheet gave Melee a distance the book does not').not.toMatch(/\d+ FT/);
+  });
+
+  it('takes the distance off the rules layer, not out of a table of its own', () => {
+    /*
+     * The mutation that matters. A component with `Far` and `30-100` typed into
+     * it passes every assertion above and then goes on saying 30-100 when a
+     * homebrew layer redefines the range - which is the app quoting a book the
+     * table is not playing with, under an SRD stamp.
+     */
+    const character = withBow('shortbow');
+    act(() => {
+      useApp.setState({
+        dataset: {
+          ...dataset,
+          rules: dataset.rules.map((section) =>
+            section.id === 'maps-range-and-movement'
+              ? { ...section, body: section.body.replace('about 30-100 feet', 'about 44-55 feet') }
+              : section,
+          ),
+        },
+      });
+    });
+    play(character);
+    expect(meta('Shortbow'), 'the reach ignored the rules layer under it').toContain(
+      'FAR 44-55 FT',
+    );
+    expect(meta('Shortbow')).not.toContain('30-100');
+
+    // Put the shipped dataset back. `seed` writes it on every test that calls
+    // it, so nothing downstream reads this - but a fixture left rewritten is a
+    // trap for the next test added below rather than above.
+    act(() => {
+      useApp.setState({ dataset });
+    });
+  });
+
   it('takes the trait from the weapon, and takes the weapon back when a trait is tapped', () => {
     play(withBattleaxe());
     click(weaponRow('Battleaxe'));

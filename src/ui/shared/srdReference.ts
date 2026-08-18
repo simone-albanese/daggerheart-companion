@@ -467,6 +467,63 @@ export function rangeReference(rules: RulesSection[]): RangeGuidance {
   };
 }
 
+/**
+ * `[30, 100]` -> `'30-100 ft'`, and `[30, 30]` -> `'30 ft'`.
+ *
+ * `metreRange`'s twin for the unit the book is actually written in, and its
+ * rule about a collapsed span is the same one: two ends that print the same
+ * figure are printed once, because "30-30 ft" is not a range.
+ *
+ * Nothing here is arithmetic. Both figures are the SRD's own, lifted whole out
+ * of the sentence that carries them, which is what lets a screen print this
+ * beside an `SRD 1.0` stamp with no legend at all - unlike `metreRange`, whose
+ * output is this app talking and has to say so on the same line as the number.
+ */
+export function feetRange(feet: [number, number]): string {
+  return feet[0] === feet[1]
+    ? `${String(feet[0])} ft`
+    : `${String(feet[0])}-${String(feet[1])} ft`;
+}
+
+/**
+ * What a reach is, keyed by the name a weapon wears - CLOSE, FAR, VERY FAR.
+ *
+ * `rangeReference` returns the whole section for a screen that is reading it.
+ * This is for a screen that is not: the player sheet prints a weapon's range as
+ * a word and nothing on it ever said what the word means, so a table that had
+ * not memorised p.40 had a reach it could not act on. One lookup, off the same
+ * bullets `RangeReference` draws, so a rules layer that redefines Far moves
+ * both at once.
+ *
+ * KEYED CASE-INSENSITIVELY, because the two sides of the lookup come from
+ * different files: the range on a weapon is `shared/types.ts`'s `Range` and the
+ * key is a bullet label parsed out of `rules['maps-range-and-movement']`. They
+ * agree exactly in the shipped SRD - Melee, Very Close, Close, Far, Very Far -
+ * and a layer that writes one of them in a different case is a layer whose
+ * ranges would otherwise silently lose their distances.
+ *
+ * ONLY THE OPENING BLOCK. The list of ranges is the section's lead; the folds
+ * after it are about measuring, moving and cover, and a bullet in one of those
+ * that happened to carry a figure in feet is not a definition of a range. The
+ * first bullet for a label wins for the same reason.
+ *
+ * A range the book gives no figure for is present with `feet: null` rather than
+ * absent - Melee is one, and so is Out of Range - because "the book declines to
+ * say" and "this dataset has no range section at all" are different answers and
+ * a caller has to be able to tell them apart.
+ */
+export function rangeDistances(rules: RulesSection[]): Map<string, RangeEntry> {
+  const out = new Map<string, RangeEntry>();
+  for (const part of rangeReference(rules).opening) {
+    if (part.kind !== 'entries') continue;
+    for (const entry of part.entries) {
+      const key = entry.label.toLowerCase();
+      if (!out.has(key)) out.set(key, entry);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Difficulty
 // ---------------------------------------------------------------------------
