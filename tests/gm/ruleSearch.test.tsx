@@ -313,7 +313,10 @@ describe('preview', () => {
 // ---------------------------------------------------------------------------
 
 describe('the field, at the foot of SHOW', () => {
-  it('is on the sheet the bar opens, under both doors', () => {
+  it('is on the sheet the bar opens, named and counted from the dataset', () => {
+    // Where it sits relative to the doors is the next test's property, not
+    // this one's: this is the field's name and the count in its placeholder,
+    // and the count is `rules.length` rather than a number typed here.
     openShow();
     expect(field().getAttribute('aria-label')).toBe('Search the rules by title and text');
     expect(field().getAttribute('placeholder')).toBe(`Search ${String(rules.length)} rules sections`);
@@ -462,7 +465,7 @@ describe('the results', () => {
     expect(mark?.closest('span')?.className).toBe('t-label');
   });
 
-  it('opens one hit at a time, in place, and draws the section whole', () => {
+  it('opens one hit at a time, in place, and draws the section it came from', () => {
     openShow();
     type('countdown');
     const first = hits()[0]!;
