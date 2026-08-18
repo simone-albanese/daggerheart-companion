@@ -227,7 +227,7 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
            * sheet's own border spent nowhere: this board draws inside
            * `GmSheet size="full"` - `Gm.tsx` mounts it there and `GmSheet`'s
            * own docblock names it in the `full` list - whose panel is border-box
-           * with a 1px border (`GmSheet.tsx:91`), so the content box is 391.00
+           * with a 1px border (`GmSheet.tsx`), so the content box is 391.00
            * and this region's 12px either side leaves 367.00, measured in Chrome
            * in the sibling tool that shares the sheet at the same padding
            * (`Reference.tsx`). Two pixels narrower only makes the wrap surer, so

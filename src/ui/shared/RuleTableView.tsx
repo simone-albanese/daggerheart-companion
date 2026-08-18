@@ -41,7 +41,7 @@
  * 24 - so they draw this view in the 369px column `TierBenchmarks`'s docblock in
  * `ReferenceTables.tsx` already names, not across the whole 393. **That 369 is itself 2px too
  * generous wherever it means the reference region**: `GmSheet`'s panel is
- * border-box with a 1px border (`GmSheet.tsx:91`), so the measured column at
+ * border-box with a 1px border (`GmSheet.tsx`), so the measured column at
  * 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369
  * inherits it, and none of them has been re-measured. The number still missing
  * is the one

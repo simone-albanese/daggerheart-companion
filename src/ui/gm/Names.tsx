@@ -44,7 +44,7 @@
  *
  * **Flagged: everything in that paragraph except the 797 is short by the
  * panel's own frame.** `GmSheet`'s panel is border-box with a 1px border
- * (`GmSheet.tsx:91`), so its content box at 393 is 391.00 and the inner column
+ * (`GmSheet.tsx`), so its content box at 393 is 391.00 and the inner column
  * is **367.00**, measured in the sibling tool that shares this sheet
  * (`Reference.tsx`). The vertical side was measured in the same run and in the
  * same sheet: the panel is **797.00**, so that figure was right, and the

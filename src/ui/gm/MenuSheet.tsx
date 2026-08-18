@@ -110,7 +110,7 @@
  * is the hardest reach on the phone and deliberately so, and answers under the
  * thumb. The inner column is **363px**, not the "365" that `393 - 28 of padding`
  * gives: this sheet draws inside `GmSheet`'s panel - `Gm.tsx` mounts all four
- * sheets there - which is border-box with a 1px border (`GmSheet.tsx:91`), so a
+ * sheets there - which is border-box with a 1px border (`GmSheet.tsx`), so a
  * pixel goes on each edge as well. 363 is measured in Chrome at 393x852 and recorded in
  * `ShowSheet.tsx`, which draws in the same panel at the same `padding: 14`; it
  * is not re-derived here. The three cell widths below are implied by that

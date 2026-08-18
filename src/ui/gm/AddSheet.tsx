@@ -68,7 +68,7 @@
  *
  * The sheet's inner column is **363px**, not the "365" that `393 - 28 of padding`
  * gives: this sheet draws inside `GmSheet`'s panel - `Gm.tsx` mounts all four
- * sheets there - which is border-box with a 1px border (`GmSheet.tsx:91`). 363
+ * sheets there - which is border-box with a 1px border (`GmSheet.tsx`). 363
  * is measured in Chrome at 393x852 and recorded in `ShowSheet.tsx`, the sibling
  * sheet in the same panel at the same `padding: 14`. The four choices are
  * full-width and `minHeight: 56` rather than 44: this is the most-used

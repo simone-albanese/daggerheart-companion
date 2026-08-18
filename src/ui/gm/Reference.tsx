@@ -33,7 +33,7 @@
  * ## Ergonomics, 393 x 852
  *
  * It draws inside `GmSheet size="full"`. That panel is `width: 100%` and
- * border-box with `border: 1px solid var(--line)` (`GmSheet.tsx:91`), so at
+ * border-box with `border: 1px solid var(--line)` (`GmSheet.tsx`), so at
  * 393 its content box is **391.00**, not 393. This region pads `10px 12px
  * 16px` on a phone, so the column is **367.00** - measured in Chrome, and the
  * 369 that stood here was 393 − 24 with the sheet's own border spent nowhere.

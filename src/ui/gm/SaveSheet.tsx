@@ -57,8 +57,8 @@
  * it stays inside the same thumb arc. The inner column is **363px**, not the
  * "365" that `393 - 28 of padding` gives: this sheet draws inside `GmSheet`'s
  * panel - `Gm.tsx` mounts all four sheets there - which is border-box with a
- * 1px border (`GmSheet.tsx:91`). 363 is measured in Chrome at 393x852 and recorded in
- * `ShowSheet.tsx`, the sibling sheet in the same panel at the same
+ * 1px border (`GmSheet.tsx`). 363 is measured in Chrome at 393x852 and
+ * recorded in `ShowSheet.tsx`, the sibling sheet in the same panel at the same
  * `padding: 14`. The two sentences run about 60 characters a line at `.t-body`,
  * inside this repo's 62ch reading maximum. TRY AGAIN and SAVE A COPY are
  * `minHeight: var(--tap)` = 44 and full width of that column, because a sheet

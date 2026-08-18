@@ -38,11 +38,12 @@
  * which on a phone is 393px of forgiving surface above the panel.
  *
  * **The panel's own 1px border is 2px off every column drawn inside it**, and
- * it is the pixel five docblocks on this screen dropped. At 393 the panel's
- * content box is 391.00, so a `full` tool padded `10px 12px` has a 367.00px
- * column (measured, `Reference.tsx`) and a `sheet` padded 14 has 363px
- * (measured, `ShowSheet.tsx`) - not the "369" and "365" that `393 - 24` and
- * `393 - 28` give. Anything reading a width off this panel starts from 391.
+ * it is the pixel every docblock that ever costed a column in here dropped. At
+ * 393 the panel's content box is 391.00, so a `full` tool padding 12px either
+ * side has a 367.00px column (measured, `Reference.tsx`) and a `sheet` padding
+ * 14 has 363px (measured, `ShowSheet.tsx`) - not the "369" and "365" that
+ * `393 - 24` and `393 - 28` give. Anything reading a width off this panel
+ * starts from 391, not from 393.
  *
  * ## z-index 30, deliberately below 40
  *

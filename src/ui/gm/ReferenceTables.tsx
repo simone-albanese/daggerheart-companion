@@ -87,7 +87,7 @@ import { useGm } from './gmStore.ts';
  * to this file would do it again. The
  * premise above, "the panel is the window's width", is the thing that is
  * wrong: `GmSheet`'s panel is `width: 100%` and border-box with a 1px border
- * (`GmSheet.tsx:91`), so at 393 its content box is 391.00 and this column is
+ * (`GmSheet.tsx`), so at 393 its content box is 391.00 and this column is
  * **367.00**, measured in Chrome - see `Reference.tsx`, where the same
  * omission turned a three-row topic strip into a two-row one. Nothing derived
  * from 369 below has been re-measured and none of it is re-derived here;
