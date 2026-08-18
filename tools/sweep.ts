@@ -871,8 +871,16 @@ function formatReport(
 
   shown.forEach((group, i) => {
     out.push(`${String(i + 1).padStart(3)}. ${group.claim.label}  — from ${group.claim.origin}`);
+    if (group.narrowed) {
+      out.push(
+        '     (a common term, narrowed to the lines that also name something else' +
+          ' this diff changed - its other mentions are NOT covered)',
+      );
+    }
     for (const hit of group.hits.slice(0, maxHits)) {
-      const mark = hit.absolute ? ' [exact-count claim]' : '';
+      const mark =
+        (hit.absolute ? ' [exact-count claim]' : '') +
+        (hit.multiplicity > 1 ? ` [${hit.multiplicity} things from this diff]` : '');
       const text = hit.text.length > 110 ? `${hit.text.slice(0, 107)}...` : hit.text;
       out.push(`     ${hit.path}:${hit.line}${mark}`);
       out.push(`       ${text}`);
@@ -958,7 +966,14 @@ function main(): void {
             label: g.claim.label,
             origin: g.claim.origin,
             score: Number(g.score.toFixed(4)),
-            hits: g.hits.map((h) => ({ path: h.path, line: h.line, kind: h.kind, absolute: h.absolute })),
+            narrowed: g.narrowed,
+            hits: g.hits.map((h) => ({
+              path: h.path,
+              line: h.line,
+              kind: h.kind,
+              absolute: h.absolute,
+              multiplicity: h.multiplicity,
+            })),
           })),
         },
         null,
