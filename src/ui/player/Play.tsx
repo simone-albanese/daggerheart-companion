@@ -3063,8 +3063,9 @@ function PlayPhone({
          * out of the stack above it, and every one of those numbers was 150px
          * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
          * shut, at the top of the scroll: the ROLL row spans **y389-445** on the
-         * glass at 393, and y321-377 at 375 and below, where the card is 56 and
-         * not 90. At 393x852 that is **407 to 463px above the bottom bezel** and
+         * glass at 393, and y321-377 at 375 and at 360, where the card is 56 and
+         * not 90. At 344 and 320 it is back down at y407-463, because the
+         * defence band wraps to 94 there and the trait row to two lines. At 393x852 that is **407 to 463px above the bottom bezel** and
          * **346px clear of the tab bar**; at 375x667 it is **290 to 346px above
          * the bezel** and 229px clear.
          *

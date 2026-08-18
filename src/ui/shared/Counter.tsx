@@ -489,7 +489,7 @@ export function Counter({
                   // The maximum drops under the value, and that is what let the
                   // number go to 38: on one line `11 / 11` is 68.92 of 74, so
                   // width and not height was the ceiling. Stacked, the widest
-                  // line is `11` at 47.65.
+                  // line is `11` at 47.64.
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',

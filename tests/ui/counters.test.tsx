@@ -295,11 +295,14 @@ describe('a counter drawn as a number', () => {
 
   /*
    * The number's size is a token, not a literal, and that is decision 4 of the
-   * reflow. What decides it is how wide the grid track is - 85.5 of target at
-   * 393, 76.5 at 375, 69 at 360 - and a component cannot ask a grid track its
-   * width at style time, so the arithmetic and its one breakpoint live in
-   * `tokens.css` where `--control` and `--pip-h` already are. `stylesheets.test`
-   * holds the token's own contract; this holds that the cell reads it.
+   * reflow. What decides it is how wide the grid track is - measured in Chrome,
+   * the card's value target is 91.5 at 393, 82.5 at 375 and 75 at 360 - and a
+   * component cannot ask a grid track its width at style time, so the
+   * arithmetic and its three breakpoints live in `tokens.css` where `--control`
+   * and `--pip-h` already are. `stylesheets.test` holds the token's own
+   * contract; this holds that the cell reads it. (85.5, 76.5 and 69 were the
+   * same three targets with the two 4px gutters the card deleted, and "its one
+   * breakpoint" was true before 390 and 1180 were added.)
    */
   it('draws the value at --counter-num rather than at a size of its own', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);

@@ -212,7 +212,8 @@
    * the maximum sat on the value's own line: measured in Chrome, `11 / 11` is
    * **68.92px** of the 74 the target has, so the WIDTH and not the height was
    * what capped the size. The maximum has its own line now, so the widest thing
-   * the line draws is `11` - 47.65 at 38 - and the ceiling moved with it. Every
+   * the line draws is `11` - 47.64 at 38, re-measured - and the ceiling moved with
+   * it. Every
    * size between 28 and 38 was rendered and measured before this one was picked.
    *
    * THE COCKPIT DOES NOT TAKE THIS STEP, and that is the 1180 query below. Its
