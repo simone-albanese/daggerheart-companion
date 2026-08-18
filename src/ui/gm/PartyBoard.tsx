@@ -13,6 +13,11 @@
  * a GM ticks themselves say so in as many words. The one thing this screen must
  * never do is print a number in a way that implies it came from the phone in
  * the player's hand.
+ *
+ * And a row is not a reading of a character - it is the character, whole, on
+ * somebody else's device. That is the one fact on this screen which is not
+ * about numbers, so it is said at the head of the board rather than left to be
+ * inferred from the drawer, and it is said in the same words at every width.
  */
 import { useEffect, useRef, useState } from 'react';
 import type { Character } from '../../../shared/types.ts';
@@ -158,14 +163,65 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
         <Empty onFile={openFile} onScan={() => setScanning(true)} />
       ) : (
         <>
+          {/*
+           * What the board is holding, said once, at the top, in the same
+           * words at every width.
+           *
+           * These rows are not a summary of somebody's character. They are the
+           * character - name, Experiences, gold, notes, scars - copied whole
+           * onto this device because a player handed it over once, and nothing
+           * in this app can ever take it back off again. The only person who
+           * can is the one reading this, and REMOVE FROM THE BOARD in the row's
+           * own drawer is where they do it. So the sentence names the control
+           * rather than gesturing at "settings somewhere".
+           *
+           * It used to read "NOTHING HERE SYNCS · EVERY NUMBER IS AS IMPORTED"
+           * on a phone, and the drawer below it disproves the second half: mark
+           * one Stress and `markedAt` is stamped, the row restamps itself YOUR
+           * COUNT, and the line above is still telling the GM that every number
+           * came off the file. Per row is where that fact is true and per row
+           * is where it is already said, twice - in `stamp` and in the drawer's
+           * "The four tracks below are yours to keep" - so the board-wide claim
+           * is not reworded, it is gone.
+           *
+           * The two widths used to disagree about the whole subject: the phone
+           * talked about imports, the desktop about Evasion, and neither said
+           * whose sheets these are. One sentence now, at both widths.
+           *
+           * It costs a phone a second line. 107 characters of 10px mono with
+           * 0.07em tracking is wider than the 369px a 393px phone leaves inside
+           * this padding, and `line-height: 1` would set the two lines solid,
+           * so the strip declares 1.45 and is about 29px on a phone instead of
+           * 10. That is the price of not having a phone and a laptop describe
+           * the same board differently, and it is paid out of the list rather
+           * than out of a row.
+           */}
           <span
             className="t-meta"
-            style={{ flex: 'none', color: 'var(--dim)', letterSpacing: '0.07em', marginTop: -2 }}
+            style={{
+              flex: 'none',
+              color: 'var(--dim)',
+              letterSpacing: '0.07em',
+              lineHeight: 1.45,
+              marginTop: -2,
+            }}
           >
-            {phone
-              ? 'NOTHING HERE SYNCS · EVERY NUMBER IS AS IMPORTED'
-              : 'EVASION IS THE DIFFICULTY OF ANY ROLL AGAINST THAT PC · NOTHING HERE SYNCS'}
+            WHOLE COPIES OF OTHER PEOPLE’S SHEETS · NOTHING HERE SYNCS · THEY STAY ON THIS DEVICE
+            UNTIL YOU REMOVE THEM
           </span>
+          {/* The rules gloss keeps its own line, and keeps being desktop-only:
+              on a phone it is the least of the four bands a row already costs.
+              It is a fact about the number, not about the board, and running
+              the two together in one strip is what let the board-wide sentence
+              be missing for as long as it was. */}
+          {!phone && (
+            <span
+              className="t-meta"
+              style={{ flex: 'none', color: 'var(--dim)', letterSpacing: '0.07em' }}
+            >
+              EVASION IS THE DIFFICULTY OF ANY ROLL AGAINST THAT PC
+            </span>
+          )}
           <div
             className="scroll"
             style={{
