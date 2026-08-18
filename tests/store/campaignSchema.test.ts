@@ -28,8 +28,10 @@
  * field on purpose: the number moved so that *older* builds refuse a record
  * carrying a `url` or a `note` row, not because anything in a v1 record is
  * wrong. That claim is only worth making if it is checked, so the last describe
- * here walks the frozen v1 fixture forward and requires every byte of it back
- * apart from the stamp. A converter that quietly dropped a field, or renamed
+ * here walks the frozen v1 fixture forward and requires it back deep-equal
+ * apart from the stamp *and* byte-identical under `JSON.stringify`, which is
+ * the comparison the `.dhcampaign` checksum actually makes. A converter that
+ * quietly dropped a field, or reordered the keys, or renamed
  * one, or normalised a countdown on the way through would fail it - which is
  * the whole point of writing a converter that does nothing and saying so.
  */
@@ -488,8 +490,15 @@ describe('the first bump, and the record it must not touch', () => {
     expect(from).toBe(1);
     expect(applied).toEqual([CAMPAIGN_MIGRATIONS[0]!.note]);
     expect(record).toEqual({ ...fixture, schemaVersion: 2 });
-    // Said separately, because `toEqual` above would also pass if both sides
-    // were 1 and the bump had never happened.
+    // Deep equality is not enough on its own to earn the words "byte for byte":
+    // `toEqual` ignores key order and treats an absent key and an
+    // `undefined`-valued one as the same. The `.dhcampaign` checksum is
+    // computed over `JSON.stringify`, so a converter that reordered keys or
+    // turned a value into `undefined` would pass the line above and still make
+    // the file this app writes fail to verify against the file it reads.
+    expect(JSON.stringify(record)).toBe(JSON.stringify({ ...fixture, schemaVersion: 2 }));
+    // Said separately, because the two assertions above would also pass if both
+    // sides were 1 and the bump had never happened.
     expect(record['schemaVersion']).toBe(2);
   });
 

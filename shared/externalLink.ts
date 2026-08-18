@@ -54,16 +54,26 @@
  *    (percent-encoding, an IDN host becoming punycode). The record is untrusted
  *    input in a store whose whole budget is a few megabytes, and a session list
  *    has no bound of its own.
- * 4. **A link that opens carries `target="_blank"` and
+ * 4. **An anchor built from a *stored* href carries `target="_blank"` and
  *    `rel="noopener noreferrer nofollow"`, and there is one function that says
- *    so.** `externalLinkAttrs` is the only sanctioned way to build the anchor,
+ *    so.** `externalLinkAttrs` is the only sanctioned way to build that anchor,
  *    and it re-validates the href on the way out - defence in depth for a value
  *    that reached storage before this file existed, or was hand-edited into
- *    IndexedDB afterwards. `noopener` is the load-bearing one: without it the
- *    opened page gets `window.opener` and can navigate this tab to a copy of
- *    itself while the GM is looking away from the phone. `noreferrer` keeps the
- *    campaign's URL out of somebody else's logs; `nofollow` is simply honest
- *    about content this app did not write.
+ *    IndexedDB afterwards. **"From a stored href" is the whole of the scope,
+ *    and it is not the whole app.** There is exactly one `<a>` in `src/`, at
+ *    `src/ui/settings/About.tsx`, and its href is the literal
+ *    `https://daggerheart.com/buy` written into the source. It is built by hand
+ *    and carries `target="_blank" rel="noreferrer noopener"`, without
+ *    `nofollow` - correct for it, because `nofollow` is about content this app
+ *    did not write and that address is content this app did write. Nothing in
+ *    this file governs it. In the other direction, `externalLinkAttrs` has no
+ *    production caller at all yet: the URL row draws its address as text and
+ *    builds no anchor, so this mitigation protects nothing shipping today and
+ *    is here for the lane that builds the row. `noopener` is the load-bearing
+ *    part of it: without it the opened page gets `window.opener` and can
+ *    navigate this tab to a copy of itself while the GM is looking away from
+ *    the phone. `noreferrer` keeps the campaign's URL out of somebody else's
+ *    logs; `nofollow` is simply honest about content this app did not write.
  * 5. **Nothing navigates without a tap, and the destination is legible before
  *    it.** Three separate things, and each one is a hole on its own:
  *     - The reader hands back data and never an affordance. It rebuilds the row
@@ -84,7 +94,8 @@
  *    markup, and `tests/store/campaignUrlRow.test.ts` asserts the absence of
  *    every HTML injection sink across `src/` and `shared/` - because with no
  *    CSP possible, that absence is not a nicety, it is the whole defence. The
- *    scan is checked against a module known to contain a sink before it is
+ *    scanner is checked against source written to contain a sink - written in
+ *    the test, because no module here has one - before the scan's "clean" is
  *    believed, for the reason `tests/harness/reachability.ts` gives about
  *    itself: an analysis that answers "clean" to everything is the same defect
  *    as the code it hunts.

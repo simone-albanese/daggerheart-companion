@@ -24,9 +24,11 @@
  *    `frame-ancestors` nor a nonce for the inline boot script.
  *  - **There is not one HTML injection sink in `src/` or `shared/`.** That
  *    absence is mitigation 6, and it is scanned for below rather than trusted -
- *    with the scanner itself checked against a module known to contain one
- *    first, because an analysis that answers "clean" to everything is the same
- *    defect as the code it hunts.
+ *    with the scanner itself checked first against source written here to
+ *    contain one, because an analysis that answers "clean" to everything is the
+ *    same defect as the code it hunts. It has to be source written here: no
+ *    module in this tree contains a sink, which is the very property being
+ *    asserted, so there is nothing real to point the scanner at.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -257,7 +259,12 @@ describe('mitigation 3: a bound on the stored string', () => {
 
   /*
    * Mutation, run: `MAX_URL_LENGTH = Number.POSITIVE_INFINITY`.
-   * Result: red on both payloads - the ten-megabyte href is stored whole.
+   * Result: red, 6 tests, counted by re-running the whole suite against the
+   * mutant rather than by reading this file: the two payload tests below (the
+   * ten-megabyte href and the one that only crosses the bound once
+   * normalised), the "stores one that fits" control beside them, the pin on
+   * 2048 above, the reader's non-empty-exactly-when-no-reason invariant, and
+   * mitigation 4's re-validation on the way out.
    *
    * 2048 is not a browser limit; modern ones go far past it. It is the length
    * past which no honest link is being pasted, and it is a bound on untrusted
@@ -470,10 +477,15 @@ const sourceFiles = (dir: string): string[] =>
   });
 
 describe('mitigation 6: it is never rendered as anything but text', () => {
-  it('finds a sink in a module that has one, so the scan is not vacuous', () => {
+  it('finds every sink it names, in source written to contain one', () => {
     // Checked before it is believed. A scanner that answers "clean" to
     // everything is the same defect as the code it is looking for, and this one
     // has a comment-stripping pass in it that could swallow the whole file.
+    //
+    // The inputs are source strings and not modules on disk, because the
+    // property asserted three tests down is that no module in this tree has a
+    // sink in it - so a positive control has to be written here rather than
+    // found.
     expect(sinksIn('el.innerHTML = payload;\n')).toEqual(['innerHTML']);
     // Its own entry rather than a case of `innerHTML`: React's prop is spelled
     // with a capital I, so a scan for `innerHTML` alone walks straight past it.
@@ -485,6 +497,11 @@ describe('mitigation 6: it is never rendered as anything but text', () => {
       'insertAdjacentHTML',
     ]);
     expect(sinksIn('const f = new Function(payload);')).toEqual(['new Function(']);
+    expect(sinksIn('el.outerHTML = payload;\n')).toEqual(['outerHTML']);
+    expect(sinksIn('eval(payload);')).toEqual(['eval(']);
+    // Every name in `SINKS` has a positive control above, so the list cannot
+    // grow an entry that is never exercised.
+    expect(SINKS).toHaveLength(7);
   });
 
   it('does not read a docblock naming a sink as a module containing one', () => {

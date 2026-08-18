@@ -56,11 +56,16 @@
  * ## What this file does not do
  *
  * It does not render. There is no HTML here, no markup, no string
- * concatenation into a tag. `plainTextOf` exists for the collapsed row's one
- * summary line and for nothing else, and it is text. The component that draws
- * a note is another lane's, and it draws it from spans - which is what makes
- * "it is never rendered as anything but text" a property of the format rather
- * than a promise about a component.
+ * concatenation into a tag. The only text function it exports is
+ * `plainTextOf`, and both of its call sites draw the string it returns as a
+ * text node and nothing else: `describeItem` in `src/ui/gm/session.ts` for the
+ * collapsed row's one summary line, and `NoteArm` in
+ * `src/ui/gm/SessionBody.tsx` for the opened row's body. No component in this
+ * tree reads `spans`, `bold`, `italic` or `align` to draw with; emphasis,
+ * headings and centring are stored and exported but not yet drawn, and the
+ * editor that will draw them is not written. So "it is never rendered as
+ * anything but text" is a property of the format - there is no markup for a
+ * component to build - rather than a promise about any one component.
  */
 
 /** Where a block sits. Two values, because a third has no wireframe. */
@@ -267,7 +272,8 @@ export const noteFromPlainText = (text: string): NoteDoc =>
 // ---------------------------------------------------------------------------
 
 /**
- * The note as plain text: the collapsed row's summary, and nothing else.
+ * The note as plain text: the collapsed row's summary line and the opened
+ * row's body, which are the only two things that read a note at all.
  *
  * Bullets get a `• ` because a list read as a run-on sentence is a different
  * document. No emphasis marks: this is not a serialisation and it is not

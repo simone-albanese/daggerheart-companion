@@ -7,7 +7,9 @@
  * anything else - the defect shape this repo keeps shipping is absence, and
  * every one of the arms below is a render path no test had executed.
  *
- * Two of the five the wireframe drew matter more than the other three.
+ * The shut list draws five kinds: the four the wireframe drew - `scene`,
+ * `encounter`, `link`, `countdown` - and `unreadable`, which it did not.
+ * Two of those five matter more than the other three.
  * `shared/campaigns.ts` keeps an item this build cannot read, and keeps a link
  * whose target this dataset does not carry, instead of dropping either from a
  * list whose length the GM knows by heart. That decision is only worth anything
@@ -215,7 +217,7 @@ describe('what the list says when there is nothing in it', () => {
   });
 });
 
-describe('the five arms the wireframe drew, shut', () => {
+describe('the four arms the wireframe drew and the one it did not, shut', () => {
   it('draws one row per item, in the order the record holds them', () => {
     seed(oneOfEach());
     list();

@@ -139,10 +139,11 @@ describe('the sigils that were rejected, which are now just prose', () => {
 
   it('never emits a sigil of its own, even in the one text function it has', () => {
     /*
-     * `plainTextOf` is the collapsed row's summary and nothing else. It is not
-     * a serialisation and it is not reversible, and putting `**` in it would
-     * create exactly the markup string this format was chosen to avoid - one
-     * that a later reader would be tempted to parse.
+     * `plainTextOf` feeds the collapsed row's summary line and the opened row's
+     * body, which are its two call sites, and both draw what it returns as a
+     * text node. It is not a serialisation and it is not reversible, and
+     * putting `**` in it would create exactly the markup string this format was
+     * chosen to avoid - one that a later reader would be tempted to parse.
      */
     const text = plainTextOf([
       { type: 'heading', align: 'center', spans: [noteSpan('Terms', true)] },
@@ -231,7 +232,10 @@ describe('untrusted, therefore bounded, and bounded in the reader', () => {
 
   /*
    * Mutation, run: `MAX_NOTE_CHARS = Number.POSITIVE_INFINITY`.
-   * Result: red - the whole million characters are stored.
+   * Result: red, 5 tests - the whole million characters are stored. This one,
+   * the cut-inside-a-span test below it, the on-the-way-in test that checks the
+   * store rather than the reader, the pin on the four numbers above, and the
+   * writer test that runs the app's own typing through the same reader.
    */
   it('cuts a note down to its character bound rather than refusing the row', () => {
     // Cut, not refuse. A note is prose somebody typed at a table, and refusing
@@ -253,7 +257,8 @@ describe('untrusted, therefore bounded, and bounded in the reader', () => {
 
   /*
    * Mutation, run: `MAX_NOTE_BLOCKS = Number.POSITIVE_INFINITY`.
-   * Result: red - all 5000 blocks are kept.
+   * Result: red, 2 tests - all 5000 blocks are kept here, and the pin on the
+   * four numbers above stops being true.
    */
   it('bounds the number of blocks, and says it did', () => {
     const many = Array.from({ length: 5000 }, (_, i) => ({
@@ -267,7 +272,8 @@ describe('untrusted, therefore bounded, and bounded in the reader', () => {
 
   /*
    * Mutation, run: `MAX_NOTE_SPANS = Number.POSITIVE_INFINITY`.
-   * Result: red - 5000 spans survive in the one block.
+   * Result: red, 2 tests - 5000 spans survive in the one block here, and the
+   * pin on the four numbers above stops being true.
    *
    * The character bound does not cover this on its own: five thousand spans of
    * one character each is 5000 characters of prose and 5000 objects of shape,
@@ -282,7 +288,8 @@ describe('untrusted, therefore bounded, and bounded in the reader', () => {
 
   /*
    * Mutation, run: `MAX_NOTE_BULLETS = Number.POSITIVE_INFINITY`.
-   * Result: red - all 900 bullets are kept.
+   * Result: red, 2 tests - all 900 bullets are kept here, and the pin on the
+   * four numbers above stops being true.
    */
   it('bounds the number of bullets in a list', () => {
     const doc = readNoteDoc([
