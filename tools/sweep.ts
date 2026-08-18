@@ -94,8 +94,9 @@
  * So the caps are the tool's honesty and also its ceiling. That is a real trade
  * and it is stated here rather than tuned away: a report of 5,000 lines
  * containing 97% of the answer is not a check, it is the tree. If a diff is
- * small, or the stakes are high, `--common 40 --max-places 600` is the setting
- * that trades the reading time back for the recall.
+ * small, or the stakes are high, `--common 100 --max-places 1500` is the
+ * measured trade in the other direction: 23 of 30, 77%, for about ten times
+ * the reading.
  *
  * These figures are one corpus of 48, from one evening, on one repository.
  * They are not a guarantee, they do not transfer, and they will drift as the
