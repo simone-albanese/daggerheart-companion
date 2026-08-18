@@ -5,7 +5,10 @@
  * Two changes land in `App.tsx` with `MenuSheet`, and both are the kind that
  * are easy to make and easy to make wrongly. The tab bar does not render inside
  * the GM section, because `GmBar` is the bottom bar there and two stacked bars
- * would cost the plan 94px it does not have; that is only honest because MENU
+ * would cost the plan a band it does not have - `GmBar` measures 95.00 at
+ * 393x852 with a 34px inset, and the tab bar declares the same three terms, so
+ * the 94 that stood here dropped the 1px `border-top` both of them carry; that
+ * is only honest because MENU
  * carries the way back to Play, Cards and Build, which is why the two arrive in
  * one commit rather than two. And the licence notice does not leave: it moves
  * *into* the session list's scroll, where it costs a scroll position rather

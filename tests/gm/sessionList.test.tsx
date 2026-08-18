@@ -936,8 +936,11 @@ describe('the type row carries the numbers, and the name has the header to itsel
   });
 
   it('keeps the whole summary reachable when the line ellipsises it', () => {
-    // One line or the 44px header grows, and the header's height is what makes
-    // nine rows fit on a phone - so the string that does not fit is on `title`.
+    // One line, because a shut row's height has to be a constant and a summary
+    // a GM typed has no length limit - see `SessionRow.tsx`, which measures the
+    // header's text at 30.00 inside a 44.00 floor. ("Nine rows fit on a phone"
+    // stood here and was never the count; it never spent the two `.panel`
+    // borders every row carries.) So the string that does not fit is on `title`.
     seed(oneOfEach());
     list();
     const typeRow = headerStack(rows()[0]!).children[1]!;
