@@ -1,9 +1,12 @@
 /**
  * The SRD's own tables and sections, drawn.
  *
- * One drawing of each in the app: the reference region composes these, and so
- * do the two controls that get a table folded in beside them. A table rendered
- * twice is a table that goes out of step once.
+ * One drawing of each in the app: the reference region composes these, so do
+ * the two controls that get a table folded in beside them, and so does the
+ * `LINK -> Rule` row of a GM session, through `BlockView` at the foot of this
+ * file. A table rendered twice is a table that goes out of step once - and that
+ * row is where it happened, printing its own bullets and tables out of
+ * `paragraphs()` until the pipes showed up on screen.
  *
  * Each renderer reads the dataset itself through a narrow `useApp` selector
  * inside a `useMemo` keyed on the whole `dataset` object, the way
@@ -34,9 +37,10 @@ import {
   gmMoves,
   rangeReference,
   type BenchmarkTable,
-  type MovesBlock,
   type RangePart,
+  type SectionBlock,
 } from '../shared/srdReference.ts';
+import { RuleTableView } from '../shared/RuleTableView.tsx';
 import { useGm } from './gmStore.ts';
 
 /**
@@ -828,7 +832,7 @@ export function GmMoves(): React.JSX.Element {
           summary={`SRD 1.0${section.page === null ? '' : ` · P.${String(section.page)}`}`}
         >
           {section.blocks.map((block, i) => (
-            <ProseBlock key={`${block.heading ?? ''}-${String(i)}`} block={block} />
+            <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
           ))}
         </Fold>
       ))}
@@ -882,7 +886,7 @@ export function AdversaryExperiences(): React.JSX.Element {
           SRD 1.0{examples.page === null ? '' : ` · P.${String(examples.page)}`}
         </span>
       </div>
-      {examples.lead !== null && <ProseBlock block={examples.lead} />}
+      {examples.lead !== null && <BlockView block={examples.lead} />}
       <div className="row" style={{ flex: 'none', gap: 6, flexWrap: 'wrap' }}>
         {examples.items.map((item) => (
           <span
@@ -904,8 +908,19 @@ export function AdversaryExperiences(): React.JSX.Element {
   );
 }
 
-/** One `## ` block of a rules section: its subhead, its prose and its bullets. */
-function ProseBlock({ block }: { block: MovesBlock }): React.JSX.Element {
+/**
+ * One `## ` block of any rules section: its subhead, its prose, its bullets and
+ * its tables.
+ *
+ * The GM chapter above draws with this, and so does the `LINK -> Rule` row of a
+ * GM session - which is the reason it is exported rather than private to this
+ * file. That row printed a section through `paragraphs()` alone until now, so
+ * every bullet it drew carried a literal `- ` and every table came out as raw
+ * pipes; 38 of the 75 shipped sections are one of those two shapes. A second
+ * renderer beside this one would have been a second thing to keep in step, and
+ * the pipes are what that costs.
+ */
+export function BlockView({ block }: { block: SectionBlock }): React.JSX.Element {
   return (
     <div className="stack" style={{ flex: 'none', gap: 6 }}>
       {block.heading !== null && (
@@ -924,6 +939,7 @@ function ProseBlock({ block }: { block: MovesBlock }): React.JSX.Element {
             </p>
           );
         }
+        if (part.kind === 'table') return <RuleTableView key={key} table={part.table} />;
         return (
           <ul key={key} className="stack" style={{ flex: 'none', gap: 5, margin: 0, paddingLeft: 18 }}>
             {part.items.map((item) => (

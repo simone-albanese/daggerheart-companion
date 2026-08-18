@@ -26,10 +26,14 @@
  * ## A layer can replace any of this
  *
  * `rules` is in `dataset.ts`'s mergeable `COLLECTIONS`, so a homebrew layer can
- * rewrite a section outright. Every function here returns a named empty value
- * on a miss - the `NO_RULES` pattern `Conditions.tsx` uses - so a missing
- * section draws a blank panel instead of throwing. No row count is asserted
- * anywhere in `src`; the counts belong in the tests, against the shipped file.
+ * rewrite a section outright. Every selector that names its own section returns
+ * a named empty value on a miss - the `NO_RULES` pattern `Conditions.tsx` uses
+ * - so a missing section draws a blank panel instead of throwing. `ruleSection`
+ * is the one exception and answers **null**, because its section was named by a
+ * person rather than by this file: the row that asked for it says the link is
+ * unresolved and prints the ref, which is more use than an empty panel where a
+ * rule the GM saved should be. No row count is asserted anywhere in `src`; the
+ * counts belong in the tests, against the shipped file.
  */
 import { TRAITS, type RulesSection, type Tier, type Trait } from '../../../shared/types.ts';
 import {
@@ -39,6 +43,7 @@ import {
   ruleList,
   ruleTables,
   type RuleBullet,
+  type RuleTable,
 } from './ruleText.ts';
 
 // ---------------------------------------------------------------------------
@@ -555,44 +560,90 @@ export function difficultyBenchmarks(rules: RulesSection[]): DifficultyGuidance 
 }
 
 // ---------------------------------------------------------------------------
-// The GM chapter, and the adversary Experiences
+// Any rules section - and the GM chapter and the Experiences, read through it
 // ---------------------------------------------------------------------------
 
-export type ProsePart = { kind: 'text'; text: string } | { kind: 'list'; items: string[] };
+export type BlockPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'list'; items: string[] }
+  | { kind: 'table'; table: RuleTable };
 
 /**
- * A body's paragraphs, each one either a bare bullet list or the prose it is.
+ * A body's paragraphs, each one a pipe table, a bare bullet list, or the prose
+ * it is.
  *
  * The "every line is a bullet" test is the same one `fearGuidance` makes, and
  * for the same reason: a lead sentence and the bullets under it are separate
  * paragraphs in this dataset, and a layer that runs them together must be drawn
- * as the prose it now is rather than have its first line silently vanish.
+ * as the prose it now is rather than have its first line silently vanish. The
+ * table test is that same test on the other shape - every line both begins and
+ * ends with a pipe - so a lead sentence run into the top of a table is prose by
+ * the same rule, rather than a table that has quietly eaten a sentence.
+ *
+ * Measured against `data/srd-1.0.json`: all twelve table paragraphs and all
+ * seventy bullet paragraphs in the shipped file are already pure, so neither
+ * test costs the dataset a thing today. Both are here for the layer that is not
+ * this file.
  *
  * The SRD's own emitted markdown has no nesting - `making-gm-moves` writes a
  * lead bullet and its four sub-bullets at the same depth - so this flattens
  * nothing that was not already flat.
  */
-function proseParts(text: string): ProsePart[] {
+function blockParts(text: string): BlockPart[] {
   return paragraphs(text).map((para) => {
-    const items = ruleList(para);
     const lines = para.split('\n').filter((line) => line.trim() !== '');
+    const pipes = lines.filter((line) => {
+      const trimmed = line.trim();
+      return trimmed.length > 1 && trimmed.startsWith('|') && trimmed.endsWith('|');
+    }).length;
+    const table = ruleTables(para)[0];
+    if (table !== undefined && pipes === lines.length) return { kind: 'table', table };
+    const items = ruleList(para);
     return items.length > 0 && items.length === lines.length
       ? { kind: 'list', items }
       : { kind: 'text', text: para };
   });
 }
 
-export interface MovesBlock {
+export interface SectionBlock {
   /** The `## ` subhead, or null for whatever came before the first one. */
   heading: string | null;
-  parts: ProsePart[];
+  parts: BlockPart[];
 }
 
-export interface MovesSection {
+export interface SectionView {
   id: string;
   title: string;
   page: number | null;
-  blocks: MovesBlock[];
+  blocks: SectionBlock[];
+}
+
+/**
+ * One rules section, whole, in the shapes the book wrote it in. Null when the
+ * dataset does not carry it.
+ *
+ * This is the rule-text pipeline in a single call, and it is what every surface
+ * that prints a section somebody chose has to go through: the reference
+ * region's GM chapter above, and the `ADD -> LINK -> Rule` row of a GM session.
+ *
+ * That row used to call `paragraphs()` by itself, which is the one shape the
+ * dataset is not in. 38 of the 75 shipped sections carry a list or a table - 34
+ * lists, 7 tables, 3 of them both - so 38 of the 75 rules a GM can put on a
+ * session printed their bullets with a literal `- ` in front of every line and
+ * their tables as raw pipes.
+ */
+export function ruleSection(rules: RulesSection[], id: string): SectionView | null {
+  const section = rules.find((r) => r.id === id);
+  if (section === undefined) return null;
+  return {
+    id,
+    title: section.title,
+    page: section.sourcePage ?? null,
+    blocks: ruleBlocks(section.body).map((block) => ({
+      heading: block.heading,
+      parts: blockParts(block.text),
+    })),
+  };
 }
 
 /**
@@ -627,21 +678,10 @@ const MOVE_SECTIONS = [
  * either would lose exactly one pitfall - and the app never gets to decide
  * which of the SRD's warnings is worth reading.
  */
-export function gmMoves(rules: RulesSection[]): MovesSection[] {
+export function gmMoves(rules: RulesSection[]): SectionView[] {
   return MOVE_SECTIONS.flatMap((id) => {
-    const section = rules.find((r) => r.id === id);
-    if (section === undefined) return [];
-    return [
-      {
-        id,
-        title: section.title,
-        page: section.sourcePage ?? null,
-        blocks: ruleBlocks(section.body).map((block) => ({
-          heading: block.heading,
-          parts: proseParts(block.text),
-        })),
-      },
-    ];
+    const section = ruleSection(rules, id);
+    return section === null ? [] : [section];
   });
 }
 
@@ -649,7 +689,7 @@ export interface ExperienceExamples {
   /** The list's own `## ` subhead. */
   title: string;
   /** The block immediately above it: its subhead and its paragraphs. */
-  lead: MovesBlock | null;
+  lead: SectionBlock | null;
   items: string[];
   page: number | null;
 }
@@ -676,7 +716,7 @@ export function adversaryExperiences(rules: RulesSection[]): ExperienceExamples 
 
   const blocks = ruleBlocks(section.body);
   for (const [i, block] of blocks.entries()) {
-    const parts = proseParts(block.text);
+    const parts = blockParts(block.text);
     const only = parts.length === 1 ? parts[0] : undefined;
     if (only?.kind !== 'list') continue;
     const before = blocks[i - 1];
@@ -685,7 +725,7 @@ export function adversaryExperiences(rules: RulesSection[]): ExperienceExamples 
       lead:
         before === undefined
           ? null
-          : { heading: before.heading, parts: proseParts(before.text) },
+          : { heading: before.heading, parts: blockParts(before.text) },
       items: only.items,
       page: section.sourcePage ?? null,
     };
@@ -702,7 +742,7 @@ export interface PlayerExperiences {
    * it, and the wizard had been paraphrasing it - which is how a house rule
    * gets written by accident.
    */
-  lead: MovesBlock | null;
+  lead: SectionBlock | null;
   /** The list's own `## ` subhead. */
   title: string;
   /** `Backgrounds`, `Characteristics`, `Specialties`, `Skills`, `Phrases`. */
@@ -732,7 +772,7 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
 
   const blocks = ruleBlocks(section.body);
   for (const [i, block] of blocks.entries()) {
-    const parts = proseParts(block.text);
+    const parts = blockParts(block.text);
     const only = parts.length === 1 ? parts[0] : undefined;
     if (only?.kind !== 'list') continue;
     const groups = ruleBullets(block.text);
@@ -742,7 +782,7 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
       lead:
         before === undefined
           ? null
-          : { heading: before.heading, parts: proseParts(before.text) },
+          : { heading: before.heading, parts: blockParts(before.text) },
       title: block.heading ?? section.title,
       groups,
       page: section.sourcePage ?? null,

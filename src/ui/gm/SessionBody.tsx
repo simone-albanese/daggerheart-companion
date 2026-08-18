@@ -59,6 +59,18 @@
  * select at all: reading a sheet from the plan cannot change the plan, and that
  * is a property of the component rather than a promise this file makes.
  *
+ * ## A rule is drawn by the reference screen's own renderer
+ *
+ * A link row to a rules section goes through `ruleSection` and `BlockView`, the
+ * pipeline `Reference.tsx` reads the GM chapter with. This arm used to walk the
+ * body itself with `paragraphs()`, which is the one shape the dataset is not
+ * in: 38 of the 75 sections the ADD sheet offers carry a bullet list or a pipe
+ * table, so 38 of them printed a literal `- ` down the left of every list and
+ * every table as raw pipes. The renderer is shared rather than copied, and the
+ * `SRD 1.0 · P.n` stamp comes with it - the licence rule in `ReferenceTables`
+ * is that the stamp sits on the text it belongs to, and the SRD's tables are
+ * now drawn here too.
+ *
  * ## Targets
  *
  * Every control in this file declares 44 or `var(--tap)` inline. The widest
@@ -66,7 +78,9 @@
  * screen - the unreadable row's raw JSON, one unbroken line as
  * `JSON.stringify` produced it - is wrapped and given its own horizontal
  * scroller, because a `<pre>` of it at 393px is the one element that could make
- * the whole page scroll sideways.
+ * the whole page scroll sideways. The SRD tables that arrive with a rule link
+ * are the other candidate and are not one: `RuleTableView` declares no width at
+ * all, and its two shapes are measured against this row's 365px column.
  */
 import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
@@ -75,6 +89,8 @@ import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { damageBumpRule, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
+import { ruleSection } from '../shared/srdReference.ts';
+import { BlockView } from './ReferenceTables.tsx';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
@@ -497,20 +513,20 @@ function LinkArm({
   }
 
   if (target.kind === 'rule') {
-    const section = dataset.rules.find((r) => r.id === target.ref);
-    if (section === undefined) return <Unresolved kind={target.kind} refId={target.ref} />;
+    const section = ruleSection(dataset.rules, target.ref);
+    if (section === null) return <Unresolved kind={target.kind} refId={target.ref} />;
     return (
       <div className="stack" style={{ gap: 8 }}>
-        <span style={{ font: '700 16px/1.2 var(--sans)' }}>{section.title}</span>
-        {ruleBlocks(section.body).map((block, i) => (
-          <div key={`${block.heading ?? ''}-${i}`} className="stack" style={{ gap: 5 }}>
-            {block.heading !== null && <span className="t-label">{block.heading}</span>}
-            {paragraphs(block.text).map((p, j) => (
-              <p key={j} className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
-                {p}
-              </p>
-            ))}
-          </div>
+        <div className="spread">
+          <span style={{ flex: 1, minWidth: 0, font: '700 16px/1.2 var(--sans)' }}>
+            {section.title}
+          </span>
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+            SRD 1.0{section.page === null ? '' : ` · P.${String(section.page)}`}
+          </span>
+        </div>
+        {section.blocks.map((block, i) => (
+          <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
         ))}
       </div>
     );

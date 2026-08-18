@@ -31,9 +31,12 @@ import {
   metresFromFeet,
   playerExperiences,
   rangeReference,
+  ruleSection,
+  type BlockPart,
   type FearScene,
   type RangeEntry,
 } from '../../src/ui/shared/srdReference.ts';
+import type { RuleTable } from '../../src/ui/shared/ruleText.ts';
 
 const dataset = srd as unknown as Dataset;
 const rules = dataset.rules;
@@ -519,6 +522,57 @@ describe('the adjectives that are not in the SRD', () => {
   });
 });
 
+/**
+ * The pipeline every surface that prints a whole section goes through.
+ *
+ * The counts here are the ones the source's own docblocks quote - 38 sections
+ * of 75, 34 lists, 7 tables, 3 with both, 12 tables in all - so a dataset that
+ * changes underneath them turns a comment that is now false into a red test
+ * rather than into a sentence nobody re-read.
+ */
+describe('ruleSection', () => {
+  const parts = (id: string): BlockPart[] =>
+    (ruleSection(rules, id)?.blocks ?? []).flatMap((b) => b.parts);
+  const tables = (id: string): RuleTable[] =>
+    parts(id).flatMap((p) => (p.kind === 'table' ? [p.table] : []));
+
+  it('reads the Average Costs table as a table, not twelve lines of pipes', () => {
+    // BACKLOG item 10, and the one a person reported. `Cost` is a second column
+    // rather than four characters of markup in the middle of a sentence.
+    const table = tables('giving-out-gold-equipment-and-loot')[0]!;
+    expect(table.header).toEqual(['Expense', 'Cost']);
+    expect(table.rows).toHaveLength(12);
+    expect(table.rows[0]).toEqual(['Meals for a party of adventurers per night', '1 Handful']);
+    expect(table.rows[11]).toEqual(['Tier 4 equipment (weapons, armor)', '1-2 Chests']);
+  });
+
+  it('reads a bullet list as a list, with the dash off the front', () => {
+    const list = parts('making-gm-moves').flatMap((p) => (p.kind === 'list' ? p.items : []));
+    expect(list).toContain('Roll with Fear');
+    expect(list.filter((item) => item.startsWith('-'))).toEqual([]);
+  });
+
+  it('leaves a section that is only prose as prose', () => {
+    expect(parts('the-golden-rule').map((p) => p.kind)).toEqual(['text']);
+  });
+
+  it('finds every list and every table the shipped dataset carries', () => {
+    const shapes = rules.map((rule) => {
+      const kinds = new Set((ruleSection(rules, rule.id)?.blocks ?? []).flatMap((b) => b.parts.map((p) => p.kind)));
+      return { list: kinds.has('list'), table: kinds.has('table') };
+    });
+    expect(shapes.filter((s) => s.list).length).toBe(34);
+    expect(shapes.filter((s) => s.table).length).toBe(7);
+    expect(shapes.filter((s) => s.list && s.table).length).toBe(3);
+    expect(shapes.filter((s) => s.list || s.table).length).toBe(38);
+    expect(rules.flatMap((rule) => tables(rule.id))).toHaveLength(12);
+  });
+
+  it('answers null for a section this dataset does not carry', () => {
+    expect(ruleSection(rules, 'no-such-rule')).toBeNull();
+  });
+});
+
 describe('gmMoves', () => {
   const sections = (): ReturnType<typeof gmMoves> => gmMoves(rules);
   const byId = (id: string): ReturnType<typeof gmMoves>[number] =>
@@ -642,7 +696,11 @@ describe('playerExperiences', () => {
     const lead = guide().lead!;
     expect(lead.heading).toBe('STEP 7 Create Your Experiences.');
     const flat = lead.parts
-      .flatMap((p) => (p.kind === 'text' ? [p.text] : p.items))
+      .flatMap((p) => {
+        if (p.kind === 'text') return [p.text];
+        if (p.kind === 'list') return p.items;
+        return [p.table.header, ...p.table.rows].map((row) => row.join(' '));
+      })
       .join('\n');
     expect(flat).toContain('a word or phrase used to encapsulate');
     expect(flat).toContain('two Experiences at character creation, each with a +2 modifier');

@@ -30,6 +30,7 @@ import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { Fold } from '../shared/Fold.tsx';
+import { RuleTableView } from '../shared/RuleTableView.tsx';
 import { playerExperiences } from '../shared/srdReference.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
@@ -1522,12 +1523,22 @@ export function StepExperiences({
 
   return (
     <Section label="Two Experiences, each at +2" hint="Spend a Hope to add one to a roll">
-      {srd.lead?.parts.map((part, i) =>
-        part.kind === 'text' ? (
-          <p key={`t${String(i)}`} className="t-dense" style={{ margin: 0 }}>
-            {part.text}
-          </p>
-        ) : (
+      {srd.lead?.parts.map((part, i) => {
+        if (part.kind === 'text') {
+          return (
+            <p key={`t${String(i)}`} className="t-dense" style={{ margin: 0 }}>
+              {part.text}
+            </p>
+          );
+        }
+        // The lead is prose and bullets in the shipped dataset and carries no
+        // table. A rules layer may write one there, and drawing it with the
+        // app's one table renderer is cheaper than a screen that quietly drops
+        // a paragraph of somebody's homebrew.
+        if (part.kind === 'table') {
+          return <RuleTableView key={`b${String(i)}`} table={part.table} />;
+        }
+        return (
           <ul
             key={`l${String(i)}`}
             className="stack"
@@ -1539,8 +1550,8 @@ export function StepExperiences({
               </li>
             ))}
           </ul>
-        ),
-      )}
+        );
+      })}
       <ExperienceEditor
         value={draft.experiences}
         onChange={(experiences) => set({ experiences })}

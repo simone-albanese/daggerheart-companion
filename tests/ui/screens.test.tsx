@@ -82,6 +82,7 @@ import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import {
   AdversaryExperiences,
+  BlockView,
   CountdownChart,
   DifficultyLadder,
   FearGuide,
@@ -136,6 +137,9 @@ import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/Domain
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { RenameField } from '../../src/ui/shared/RenameField.tsx';
+import { RuleTableView } from '../../src/ui/shared/RuleTableView.tsx';
+import { ruleSection, type SectionBlock } from '../../src/ui/shared/srdReference.ts';
+import type { RuleTable } from '../../src/ui/shared/ruleText.ts';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
@@ -487,6 +491,29 @@ const sceneItem = (): SessionItem => ({
   collapsed: false,
   environmentRef: null,
 });
+/**
+ * A `## ` block of a shipped rules section that carries a pipe table.
+ *
+ * Out of the dataset rather than invented, because the shape under test is the
+ * dataset's own - a hand-built table would have mounted happily while the one a
+ * GM actually opens printed raw pipes, which is the defect these two fixtures
+ * exist for.
+ */
+const blockWithTable = (id: string): SectionBlock => {
+  const section = ruleSection(dataset.rules, id);
+  if (section === null) throw new Error(`the shipped ${id} section is gone`);
+  const block = section.blocks.find((b) => b.parts.some((p) => p.kind === 'table'));
+  if (block === undefined) throw new Error(`the shipped ${id} section carries no table`);
+  return block;
+};
+/** The Average Costs table, p.69: two columns, twelve rows. */
+const costsTable = (): RuleTable => {
+  const part = blockWithTable('giving-out-gold-equipment-and-loot').parts.find(
+    (p) => p.kind === 'table',
+  );
+  if (part?.kind !== 'table') throw new Error('the shipped costs section carries no table');
+  return part.table;
+};
 const adversary = (): Adversary => dataset.adversaries[0]!;
 const environment = (): Environment => dataset.environments[0]!;
 const card = () => dataset.domainCards[0]!;
@@ -587,6 +614,11 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // The metric figures are the app's arithmetic and say so; everything else on
   // it is the SRD's own sentence.
   'gm/ReferenceTables.tsx::RangeReference': () => <RangeReference />,
+  // The block the GM chapter and the session's LINK → Rule row both draw with:
+  // prose, bullets and tables, in the order the book wrote them. The countdown
+  // chart's block is three columns wide, which is the stacked-panel half of
+  // `RuleTableView`; the grid half is its own fixture below.
+  'gm/ReferenceTables.tsx::BlockView': () => <BlockView block={blockWithTable('countdowns')} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (
@@ -758,6 +790,8 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
   'shared/RenameField.tsx::RenameField': () => <RenameField />,
+  // The Average Costs table: two columns, so the grid half of it.
+  'shared/RuleTableView.tsx::RuleTableView': () => <RuleTableView table={costsTable()} />,
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),
