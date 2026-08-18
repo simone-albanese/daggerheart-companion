@@ -32,9 +32,9 @@
  * `searchRules` returns title matches before body matches. That order is
  * invisible in a flat list, so the list is drawn as the two groups the order
  * already is: **IN THE TITLE**, then **IN THE TEXT**, each with its own count.
- * A GM who typed `countdown` sees at a glance that four sections are *about*
- * countdowns and eleven merely mention them, which is the distinction they were
- * going to make by reading the titles anyway.
+ * A GM who typed `countdown` sees at a glance that one section of the shipped
+ * SRD is *about* countdowns and six merely mention them, which is the
+ * distinction they were going to make by reading the titles anyway.
  *
  * It is two groups rather than a relevance score for the reason `searchRules`
  * gives: weighting the SRD's sections would be the app deciding which rule the
@@ -102,15 +102,15 @@
  * number 44, not as `var(--tap)`: jsdom reads only inline styles and does not
  * resolve custom properties, so a floor written as a token is a claim no test
  * in this repo can check. A hit's header is the full width of the column and
- * carries the title, the page stamp and the matched line: one target, read left
- * to right, pressed anywhere.
+ * carries the title and the page stamp on one line, the matched line under it
+ * and, where there is one, the table note under that: one target, read down,
+ * pressed anywhere.
  *
  * CLEAR is drawn rather than left to `type="search"`, whose own clear button
- * is the user agent's to draw or not - this machine's desktop Chrome draws
- * one; this lane had no phone to find out what the two that matter do - and
- * the sheet's promise, that emptying the field brings the two doors straight
- * back, is not a promise to leave to a UA. It is worth one certain tap rather
- * than twenty backspaces. It appears with the first character: measured,
+ * is the user agent's to draw or not and which this lane had no phone to check.
+ * The sheet's promise - that emptying the field brings the two doors straight
+ * back - is not a promise to leave to a UA, and one certain tap beats twenty
+ * backspaces. It appears with the first character: measured,
  * CLEAR is 58 x 44 and the row's gap is 8, so the field goes from 363px to
  * 297px the moment a character lands. That reflow happens once, while the GM is
  * looking at the keyboard rather than at the field, and the alternative is a
@@ -120,9 +120,9 @@
  * ## The preview is windowed, and says where it cut
  *
  * 294 of the 969 non-empty body lines in the shipped SRD are longer than the
- * 150 characters this window keeps, and the longest is 780 - fifteen of those
- * is a list nobody scans. `preview` below takes a window around the match
- * rather than the first N characters, so the words the GM typed are always
+ * 150 characters this window keeps, and the longest is 780. A list of fifteen
+ * of those is a list nobody scans. `preview` below takes a window around the
+ * match rather than the first N characters, so the words the GM typed are always
  * inside it, and marks each cut end with an ellipsis. Nothing is reworded and
  * nothing is summarised; the whole line is one tap away, and the tap draws the
  * section it came from.
@@ -156,9 +156,9 @@ export interface RulePreview {
 /**
  * A long line, cut down to a window that contains the match, and split at it.
  *
- * The cuts land on a space where there is one within a few characters, so the
- * preview does not begin or end mid-word; where there is not, it cuts where it
- * has to. An ellipsis marks each end that was cut, and only an end that was
+ * Each cut lands on the nearest space between it and the match, where there is
+ * one, so the preview does not begin or end mid-word; where there is not - a
+ * 34-character run with no space in it - it cuts where it has to. An ellipsis marks each end that was cut, and only an end that was
  * cut - a line that fits comes back whole, character for character, which is
  * what lets the stamp beside it stay honest.
  */

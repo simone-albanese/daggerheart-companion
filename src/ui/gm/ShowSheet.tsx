@@ -35,7 +35,8 @@
  * the screen to a tool and this sheet closes behind it. A search is answered
  * where it is asked - the GM reads the rule, shuts the sheet, and the table is
  * where they left it - so it is a field and a list, in the sheet, and it opens
- * nothing. `RuleSearch.tsx` holds both, and its header carries the ergonomics.
+ * nothing. `RuleSearch.tsx` holds both, and its docblock carries the
+ * ergonomics of the field and of the list.
  *
  * **The search rides on SHOW; it does not summon it.** `GmBar` drops the SHOW
  * verb when `gmBestiary` and `gmPartyBoard` are both off, and this file is then
