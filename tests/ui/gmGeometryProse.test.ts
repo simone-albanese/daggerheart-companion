@@ -102,8 +102,44 @@
  * `CompatibleMark` call-site lines; it turned out to be reachable and is fixed,
  * by symbol.
  *
- * None of the three `.md` sites is asserted below: a test that goes red on a
- * file nobody in this lane may touch is a test that cannot be made green.
+ * None of the three is asserted below: a test that goes red on a file nobody in
+ * this lane may touch is a test that cannot be made green.
+ *
+ * ## Nine `.md` citations this round's own insertions displaced
+ *
+ * Written down because it is the defect this branch keeps committing, and this
+ * time it is committed *outwards*: correcting prose in `src` lengthened seven
+ * files, and every `.md` line number pointing below an inserted hunk moved with
+ * it. These were all resolved against the branch tip after the last content
+ * edit of the round. The lasting fix for each is the symbol in the right-hand
+ * column, not the new number.
+ *
+ *   - `AUDIT-HANDOFF.md:412` - `Wizard.tsx:402` -> `:407`, inside the style
+ *     block of Build's bottom nav, where its home-indicator inset is argued.
+ *   - `BACKLOG.md:50` - `Edit.tsx:392` -> `:396`. The delete confirmation's
+ *     inventory of what is lost.
+ *   - `BACKLOG.md:700` and `BACKLOG.md:724` - `codec.ts:1047` -> `:1059`, and
+ *     both were already wrong before this round: `:1059` is a `case 'subclass'`
+ *     arm, while the symbol both sentences name, `resolvePlaceholders`, is
+ *     exported at `codec.ts:1264`.
+ *   - `BACKLOG.md:1083` - `Edit.tsx:426` -> `:430`. The armed/unarmed branch of
+ *     the delete control.
+ *   - `BACKLOG.md:1418` - `Cards.tsx:628` -> `:632`. The comment recording that
+ *     the pair used to read RECALL and RECALL 2.
+ *   - `BACKLOG.md:1516` - `CompatibleMark.tsx:54-57` -> `:73-76`, and this one
+ *     was already wrong too: the new range is a blank line, the lockup's
+ *     one-line docblock, `CompatibleLockup`'s signature and its first
+ *     statement. The copy that item means is `ATTRIBUTION`, exported further
+ *     down the same file.
+ *   - `BACKLOG.md:1919` - `Wizard.tsx:583` -> `:588`, and this one is a third
+ *     that was already wrong: `:588` is the `<h2>` of the step heading, and
+ *     nothing at either line sets a draft name. Resolve it by symbol.
+ *
+ * How they were found, because the method is the reusable part: resolve every
+ * `File.tsx:N` in the tree against the branch tip, diff each edited file
+ * against the commit the round started from, map old line to new, and report
+ * every citation whose target moved. It takes a minute and it is the step this
+ * branch skipped twice.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -554,7 +590,12 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ['nine rows', /nine rows/],
     ['551px of list', /551px/],
     ['301 of pinned chrome', /852 − 301|852 - 301/],
-    ['a 60px step', /the step is 60px/],
+    // Four spellings and not one, because the retired sentence was written four
+    // ways - "60 px a step", "the step is 60", "a 60px step", "Row height plus
+    // the list gap [...] = 60" - and the literal that stood here, `the step is
+    // 60px`, matched none of them. A scan pattern narrower than the sentence it
+    // retires is a test that passes because it cannot see.
+    ['a 60px step', /\b60 ?px a step|the step is 60|60px step|step at 60|step of 60/],
     ['a 60px drag step', /ROW_STEP = 60\b/],
     ['a two-row topic strip', /wraps to two rows/],
     ['660 against a 369px column', /660 against/],

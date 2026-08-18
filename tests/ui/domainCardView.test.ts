@@ -320,9 +320,12 @@ describe('the offer to read the rest', () => {
    *
    * It was true and it was pinning dead code. That expression lives in the
    * `footer ??` default, which renders only when no `footer` prop was passed;
-   * both showcase call sites - `Cards.tsx:246` and the cockpit loadout at
-   * `Play.tsx:2078` - always pass one, and the two that omit it are
-   * `variant="reading"`, where `!reading` is false. So no screen in this app
+   * both showcase call sites - the browser grid in `Cards.tsx` and the cockpit
+   * loadout in `Play.tsx` - always pass one, and the two that omit it
+   * (`Wizard.tsx`'s step picker and `SessionBody.tsx`) are `variant="reading"`,
+   * where `!reading` is false. Named by symbol and file rather than by line:
+   * the two numbers that stood here pointed at a docblock table and a `style={{`
+   * eight hundred lines apart from the calls they meant. So no screen in this app
    * could draw those words, while 40 of 42 tiles at 393x852 cut their rules
    * text behind a wordless fade.
    */

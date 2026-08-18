@@ -22,22 +22,27 @@
  * has none.** It read "393 - 24 of the region's padding - 4 of the row's own =
  * 365px", which omits the row itself: `SessionRow` draws a `.panel` with
  * `padding: 4px 6px`, a 3px `borderLeft` and the class's own 1px border, under a
- * global `box-sizing: border-box`. `SessionRow.tsx:7-15` puts that panel's
- * content box at 353 on a 393px phone, measured in Chrome, and a table reached
- * from a session row sits inside the open block below that again.
+ * global `box-sizing: border-box`. `SessionRow.tsx`'s first bullet - "the whole
+ * header is the target" - puts that panel's content box at 353 on a 393px
+ * phone, measured in Chrome, and a table reached from a session row sits inside
+ * the open block below that again.
  *
  * The subtraction that arithmetic got *right* is the one every caller pays.
- * There are two call sites in the tree - `Wizard.tsx:1584` and the one inside
- * `BlockView` (`ReferenceTables.tsx`) - and the second is not a separate path:
- * `BlockView` is what `SessionBody.tsx:558` calls for exactly the session row
+ * There are two call sites in the tree - the one in `StepExperiences`
+ * (`Wizard.tsx`), which draws a `kind === 'table'` part of a step's lead, and
+ * the one inside `BlockView` (`ReferenceTables.tsx`) - and the second is not a
+ * separate path:
+ * `BlockView` is what `SessionBody.tsx` calls for exactly the session row
  * above, and the reference region reaches it as well through `GmMoves` and
- * `AdversaryExperiences`, both in `ReferenceTables.tsx`. (Those three are named
- * by symbol and not by line: the last four line numbers written into that file
- * were invalidated by the very edit that carried them.)
+ * `AdversaryExperiences`, both in `ReferenceTables.tsx`. (Every pointer in this
+ * docblock names a symbol, a heading or a declaration rather than a line. The
+ * four line numbers that once stood in `ReferenceTables.tsx` were invalidated by
+ * the very edit that carried them; the `Wizard.tsx:1584` that stood here went
+ * stale the same way, five lines, in a commit about something else.)
  * What those reference-region routes and the wizard escape is the `.panel`, not
  * the region padding: the reference scroller declares
- * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:173`) and the wizard's
- * `'14px 12px 20px'` (`Wizard.tsx:358`) - 12px each side either way, the same
+ * `padding: phone ? '10px 12px 16px'` (`Reference.tsx`) and the wizard's
+ * `'14px 12px 20px'` (`Wizard.tsx`) - 12px each side either way, the same
  * 24 - so they draw this view in the 369px column `TierBenchmarks`'s docblock
  * in `ReferenceTables.tsx` already names, not across the whole 393. **That 369
  * is itself 2px too generous wherever it means the reference region**:
