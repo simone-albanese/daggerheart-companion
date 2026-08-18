@@ -32,8 +32,18 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const environment = environments.find((e) => e.id === environmentRef);
   const spotlit = combatants.filter((c) => c.spotlighted).length;
 
-  // Ending a scene throws away every HP and Stress mark in it, and this module
-  // exists to keep those. One tap arms it; the next one does it.
+  /*
+   * Ending a scene throws away every HP and Stress mark in it, and this module
+   * exists to keep those. One tap arms it; the next one does it.
+   *
+   * Unconditionally, and that is the whole decision. The narrower version -
+   * arm only while `combatants.length > 0`, because an empty scene has nothing
+   * to lose - was proposed and rejected: it makes END SCENE a control whose
+   * number of taps depends on state the GM is not looking at, so the muscle
+   * memory built at a full table misfires at an empty one and vice versa. The
+   * price is one extra tap at an empty table. It is known and it is accepted;
+   * do not re-add the condition as an optimisation.
+   */
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return undefined;
@@ -53,30 +63,31 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
           <span className="t-meta" style={{ color: spotlit > 0 ? 'var(--hope)' : 'var(--dim)' }}>
             {spotlit} SPOTLIT
           </span>
-          {combatants.length > 0 && (
-            <button
-              type="button"
-              className="t-meta"
-              onClick={() => {
-                if (!armed) {
-                  setArmed(true);
-                  return;
-                }
-                clearScene();
-                setArmed(false);
-              }}
-              style={{
-                letterSpacing: '0.1em',
-                minHeight: 44,
-                padding: '0 var(--s3)',
-                marginRight: -8,
-                color: armed ? 'var(--damage)' : undefined,
-                fontWeight: armed ? 600 : undefined,
-              }}
-            >
-              {armed ? 'TAP AGAIN TO END' : 'END SCENE'}
-            </button>
-          )}
+          <button
+            type="button"
+            className="t-meta"
+            onClick={() => {
+              if (!armed) {
+                setArmed(true);
+                return;
+              }
+              clearScene();
+              setArmed(false);
+            }}
+            style={{
+              letterSpacing: '0.1em',
+              // 44 clears the coarse floor outright, so it clears the 34px fine
+              // one too, and it is inline because that is the only place a test
+              // can read a height from: a class or a stretch measures 0.
+              minHeight: 44,
+              padding: '0 var(--s3)',
+              marginRight: -8,
+              color: armed ? 'var(--damage)' : undefined,
+              fontWeight: armed ? 600 : undefined,
+            }}
+          >
+            {armed ? 'TAP AGAIN TO END' : 'END SCENE'}
+          </button>
         </span>
       </div>
 
