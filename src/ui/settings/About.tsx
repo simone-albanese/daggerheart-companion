@@ -146,16 +146,26 @@ export function About({
   /**
    * Erase everything, and mean everything.
    *
-   * `clearAll` empties IndexedDB and nothing else, so the six localStorage keys
-   * have to go by hand: `dhc.prefs.v1` (store/prefs.ts), `dhc.conditions.v1`
-   * (ui/player/conditionsStore.ts), `dhc.dice.v1` (ui/player/heldDice.ts),
-   * `dhc.backup.v1` (store/backup.ts), and `dhc.gm.v1` with
-   * `dhc.gm.v1.unreadable` (store/campaignMigration.ts).
+   * `clearAll` empties IndexedDB and nothing else, so the seven localStorage
+   * keys have to go by hand: `dhc.prefs.v1` (store/prefs.ts),
+   * `dhc.conditions.v1` (ui/player/conditionsStore.ts), `dhc.dice.v1`
+   * (ui/player/heldDice.ts), `dhc.backup.v1` (store/backup.ts),
+   * `dhc.gm.countdownTemplates.v1` (ui/gm/countdownTemplates.ts), and
+   * `dhc.gm.v1` with `dhc.gm.v1.unreadable` (store/campaignMigration.ts).
    *
    * Swept by prefix rather than by that list, and the list is here to be read
-   * rather than to be iterated: a list written out in code is how the seventh
+   * rather than to be iterated: a list written out in code is how the *next*
    * key survives the button that promises to remove everything - the same
-   * argument `db.ts::clearAll` makes for iterating `STORES`.
+   * argument `db.ts::clearAll` makes for iterating `STORES`. That stopped being
+   * hypothetical the day the countdown template shelf arrived. This paragraph
+   * said "six" and "the seventh key" until then; the seventh key exists now,
+   * this handler has never been told about it, and the only thing that had to
+   * change was the sentence.
+   *
+   * Proved rather than reasoned: `tests/ui/eraseConfirmation.test.tsx` runs
+   * this handler against the real `localStorage` with the new key on it, and
+   * checks that the key is gone and that a key belonging to nobody here is
+   * not - the sweep is a prefix, not a `clear()`.
    *
    * `dhc.backup.v1` is the one that matters: it holds the ids the last session
    * saw, and left behind it makes the next startup's integrity check announce

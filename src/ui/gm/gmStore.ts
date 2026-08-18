@@ -201,6 +201,16 @@ export interface GmState extends GmLive {
    * `setPrimaryCountdown(id)`, and the alternative is reading
    * `session.at(-1)`, which is the caller holding an opinion about how this
    * function appends.
+   *
+   * There are three callers and only that one keeps the id. `AddSheet.tsx`'s
+   * countdown form pins with it when its PIN switch is on; `Countdowns.tsx`'s
+   * ADD button has always discarded it; and the countdown template shelf,
+   * third and newest, discards it too. Dropping a template makes a clock and
+   * pins nothing, because a GM dropping the third clock of the evening has not
+   * asked for the top bar to change. It is otherwise this exact call - a clock
+   * made from a template is indistinguishable from one typed into either form
+   * the moment it exists, which is what `src/ui/gm/countdownTemplates.ts` means
+   * by an instance.
    */
   addCountdown: (name: string, kind: CountdownKind, start: number) => string;
   advanceCountdown: (id: string, delta: number) => void;
