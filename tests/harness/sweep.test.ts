@@ -37,6 +37,7 @@ import {
   parseUnifiedDiff,
   proseOf,
   proseSpans,
+  rangeArg,
   searchable,
   selectForReport,
   sweep,
@@ -275,12 +276,43 @@ describe('sweeping a tree', () => {
   });
 
   it('counts how many of the diff’s things one line names', () => {
-    // `src/panel.ts:8` names both 353 and 393; `HANDOFF.md:2` names only 357.
+    // `docs/cluster.md:1` names three of them - the departed 357, the `393px`
+    // measure, and a five-word window of the changed sentence. `HANDOFF.md:2`
+    // names one, the 357, and `src/panel.ts:8` is not in the answer at all: at
+    // `side: 'base'` it is the lane's own line and is excluded as a self-hit.
+    const cluster = file('docs/cluster.md', 'the panel is 357 of content on a 393px phone');
     const byPlace = new Map(
-      run().groups.flatMap((g) => g.hits.map((h) => [`${h.path}:${h.line}`, h.multiplicity])),
+      sweep(RENAMED_DIFF, [...TREE, cluster], { side: 'base' }).groups.flatMap((g) =>
+        g.hits.map((h) => [`${h.path}:${h.line}`, h.multiplicity] as const),
+      ),
     );
+    expect(byPlace.get('docs/cluster.md:1')).toBe(3);
     expect(byPlace.get('HANDOFF.md:2')).toBe(1);
-    expect(byPlace.get('src/table.ts:2')).toBe(1);
+    expect(byPlace.has('src/panel.ts:8')).toBe(false);
+  });
+
+  it('counts a quoted test name once, and not once per window', () => {
+    // `phrasesOf` slides a five-word window at stride one over the test name
+    // too, so this one name is seven `test-name` claims. A line quoting it
+    // names four things - the test name, the word "four", and the counts
+    // "four number" and "four pixels" - not ten. Before the windows were
+    // collapsed by name this line came back saying `[10 things from this
+    // diff]`, which is over `NARROW_AT` three times over.
+    const renamed = diffOf(
+      'diff --git a/tests/x.test.ts b/tests/x.test.ts',
+      '--- a/tests/x.test.ts',
+      '+++ b/tests/x.test.ts',
+      '@@ -3,1 +3,1 @@',
+      "-  it('the four number cells hold open at sixty four pixels here', () => {",
+      "+  it('the four number cells hold open at forty eight pixels here', () => {",
+    );
+    const quoting = [
+      file('docs/quote.md', 'The suite still says the four number cells hold open at sixty four pixels here.'),
+    ];
+    const names = extractClaims(renamed).filter((c) => c.kind === 'test-name');
+    expect(names.length).toBeGreaterThan(6);
+    const hits = sweep(renamed, quoting, { side: 'base' }).groups.flatMap((g) => g.hits);
+    expect(hits[0]?.multiplicity).toBe(4);
   });
 
   it('does not read the diff’s own edit back to the lane as news', () => {
@@ -385,13 +417,18 @@ describe('which files are searched at all', () => {
     expect(searchable('docs/handoff/DECISIONI.md')).toBe(true);
   });
 
-  it('never reads the four directories that are symlinks or build output', () => {
+  it('never reads any of the seven directories EXCLUDED_DIRS names', () => {
+    // Symlinked (`node_modules`, `.tools`, `Manuali`), generated (`dist`,
+    // `coverage`, `.git`), and the agent worktrees under `.claude`, which are
+    // copies of this tree and would report every sentence twice.
     for (const path of [
       'node_modules/react/index.js',
       'dist/assets/Gm-1.js',
       '.tools/x.ts',
-      'Manuali/srd.pdf',
+      'Manuali/estratto.md',
       '.claude/worktrees/x/src/a.ts',
+      '.git/hooks/pre-commit.sh',
+      'coverage/lcov-report/index.html',
     ]) {
       expect(searchable(path)).toBe(false);
     }
@@ -438,9 +475,12 @@ describe('what the report admits to', () => {
     expect(text).toContain('NOT searched');
   });
 
-  it('says candidates, and never says finding', () => {
+  it('opens on the candidates banner and calls no line wrong, false or stale', () => {
+    // The report does print the word FINDINGS - in the banner that disclaims
+    // them, which is the only place it is allowed to appear.
     const text = formatReport(result(), 'in the test', CAPS);
     expect(text).toContain('CANDIDATES, NOT FINDINGS');
+    expect(text.match(/findings?/gi) ?? []).toEqual(['FINDINGS']);
     expect(text).not.toMatch(/\bis (?:wrong|false|stale)\b/);
   });
 
@@ -457,5 +497,26 @@ describe('what the report admits to', () => {
       { side: 'base' },
     );
     expect(formatReport(empty, 'in the test', CAPS)).toContain('not a clean bill of health');
+  });
+});
+
+describe('reading the command line', () => {
+  it('does not take the value of an option for a diff range', () => {
+    // Every option that swallows the argument after it has to be exempt, not
+    // only `--at`: while it was the only one, the header's own recommended
+    // `--common 100 --max-places 1500` handed `100` to `git diff` as a
+    // revision and the run died with `fatal: ambiguous argument '100'`.
+    expect(rangeArg(['--common', '100', '--max-places', '1500'])).toBeUndefined();
+    expect(rangeArg(['--max-hits', '3'])).toBeUndefined();
+    expect(rangeArg(['--max-claims', '40'])).toBeUndefined();
+    expect(rangeArg(['--at', 'ae2b07c'])).toBeUndefined();
+    expect(rangeArg(['--code', '--json'])).toBeUndefined();
+  });
+
+  it('still finds the range, wherever the options sit around it', () => {
+    expect(rangeArg(['ae2b07c..HEAD', '--common', '100'])).toBe('ae2b07c..HEAD');
+    expect(rangeArg(['--max-places', '20', 'ae2b07c..HEAD', '--at', 'ae2b07c'])).toBe(
+      'ae2b07c..HEAD',
+    );
   });
 });

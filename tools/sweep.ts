@@ -149,9 +149,13 @@
  *    wrong about. A hit on a call site is not.
  *
  * The fourth idea, the persuasive one, was measured and is not here: ranking on
- * how many of the diff's things a line names at once made recall *worse*, 14
- * down to 12. See `placeScore` for why, and for what that number is still used
- * for.
+ * how many of the diff's things a line names at once moves recall by one
+ * finding, and the two replays disagree about the direction. On this section's
+ * rule - the exact cited line - multiplying the score by `1 + log2(multiplicity)`
+ * is 12 up to 13; on the paragraph rule the 47% above uses, it is 14 down to
+ * 13. One finding either way is no case for a second ordering term, so the
+ * argument that settles it is not a number. See `placeScore` for that argument,
+ * and for what multiplicity is still used for.
  *
  * The budget is counted in *places* rather than claims, because places are what
  * a person reads, and every suppression prints its own number. A silent cap
@@ -657,9 +661,12 @@ export interface Hit {
   readonly absolute: boolean;
   /**
    * How many distinct things this diff changed are named on this one line.
-   * A sentence repeating four of your numbers is a copy of the paragraph you
-   * just rewrote; a sentence repeating one of them is a coincidence most of
-   * the time. This is the single strongest signal the tool has.
+   *
+   * The persuasive signal that is deliberately *not* in the ranking. It is
+   * printed beside the line and it is what rescues a line whose term is over
+   * `--common` (see `NARROW_AT`), but `placeScore` never reads it: ablated, it
+   * is worth one finding either way and the two replays disagree about even
+   * the sign. `placeScore`'s docblock has the numbers and the argument.
    */
   multiplicity: number;
 }
@@ -894,14 +901,25 @@ export function sweep(
 
   // One `Hit` object per line is shared by every claim that matched it, so the
   // count of claims per line can be totalled afterwards and read back by all of
-  // them. Overlapping phrase windows would inflate it - "four number cells hold
-  // open" and "number cells hold open at" are one sentence, not two - so they
-  // are counted once per claim kind, by term stem.
+  // them. Both windowed kinds would otherwise inflate it, because `phrasesOf`
+  // slides a five-word window at stride one: "four number cells hold open" and
+  // "number cells hold open at" are one sentence, not two, and the seven
+  // windows of one quoted test name are one test name, not seven. So every
+  // phrase counts once for the line, and a test name counts once per test
+  // name - `claim.label` is the name itself, shared by all its windows. Every
+  // other kind is counted per term, which does mean a line writing `393px`
+  // counts the `measure` and the `number` separately.
   const perLine = new Map<Hit, Set<string>>();
   for (const [claim, hits] of found) {
+    const key =
+      claim.kind === 'phrase'
+        ? 'phrase'
+        : claim.kind === 'test-name'
+          ? `test-name ${claim.label}`
+          : `${claim.kind} ${claim.term}`;
     for (const hit of hits) {
       const set = perLine.get(hit) ?? new Set<string>();
-      set.add(claim.kind === 'phrase' ? 'phrase' : `${claim.kind} ${claim.term}`);
+      set.add(key);
       perLine.set(hit, set);
     }
   }
@@ -1229,6 +1247,23 @@ export function formatReport(
   return out.join('\n');
 }
 
+/**
+ * The options that swallow the argument after them.
+ *
+ * The range is the only positional argument, so it is found by elimination -
+ * and every option that takes a value has to be eliminated, not just `--at`.
+ * While only `--at` was exempt, `npx tsx tools/sweep.ts --common 100` handed
+ * `100` to `git diff` as a revision and the run died with `fatal: ambiguous
+ * argument '100'` and a stack trace out of `main`, which is the invocation the
+ * header recommends for a small diff.
+ */
+const TAKES_VALUE = new Set(['--at', '--common', '--max-places', '--max-claims', '--max-hits']);
+
+/** The `<base>..<head>` argument, or `undefined` for the working tree. */
+export function rangeArg(args: readonly string[]): string | undefined {
+  return args.find((a, i) => !a.startsWith('--') && !TAKES_VALUE.has(args[i - 1] ?? ''));
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const flag = (name: string): string | undefined => {
@@ -1243,7 +1278,7 @@ function main(): void {
   };
 
   const root = execFileSync('git', ['rev-parse', '--show-toplevel']).toString('utf8').trim();
-  const range = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--at');
+  const range = rangeArg(args);
 
   const diffArgs = ['diff', '--no-ext-diff', '--no-color', '-U0'];
   let base: string | undefined;
