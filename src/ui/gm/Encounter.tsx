@@ -72,7 +72,13 @@ export function Encounter({ phone }: { phone: boolean }): React.JSX.Element {
             key={a.id}
             adversary={a}
             onSelect={() => useGm.getState().addToRoster(a.id)}
-            trailing={<AddButton adversary={a} inRoster={roster.find((r) => r.ref === a.id)?.count ?? 0} />}
+            trailing={
+              <AddButton
+                adversary={a}
+                inRoster={roster.find((r) => r.ref === a.id)?.count ?? 0}
+                partySize={partySize}
+              />
+            }
           />
         ))}
       </ul>
@@ -123,19 +129,57 @@ export function Encounter({ phone }: { phone: boolean }): React.JSX.Element {
   );
 }
 
+/**
+ * The 46px cell at the end of a picker row: what one tap costs, and what is
+ * already in the roster.
+ *
+ * IT SAID `IN ×3` ABOUT TWELVE RATS. For a Minion `count` is *groups*, each the
+ * size of the party - `EncounterEntry.count` says so and `ROLE_COST` prices it
+ * that way, "per group of Minions equal to the party size" - so `×3` beside a
+ * Minion read as three where twelve had been paid for. The `Roster` panel this
+ * picker feeds has spelled it out - "3 GROUPS OF 4" - since the first commit,
+ * and `ecf8017` brought the open session row into line with it. This cell was
+ * the last surface still printing the group count where a body count is read,
+ * and it is the one that cannot say the words: at `.t-meta` 9.5px in the
+ * shipped IBM Plex Mono 500, measured in Chrome with a `Range`, "3 GROUPS OF 4"
+ * is 81.52px and this cell's content box is 44px - 46px less its two 1px
+ * borders.
+ *
+ * So it says the same two numbers in the same order, compressed to fit: `3×4`
+ * is three groups of four, which is the panel's sentence with the words taken
+ * out rather than a second way of counting. Measured, same rig: `IN 3×4` is
+ * 37.63px, exactly the width of the `IN ×12` this cell already draws, and seven
+ * glyphs - `IN 12×8`, twelve groups at the largest party the stepper allows -
+ * is 43.89px, inside 44. Eight spill, at 50.16px, and the string that needs
+ * eight is a hundred groups: 100 battle points against a budget of 26, and
+ * `IN ×1000` is the same 50.16px this cell could already be pushed to.
+ *
+ * The `aria-label` says it in full, because a 46px cell is the one place the
+ * compression could be read as the whole fact. It named a cost and never said
+ * that one tap adds a whole group; a listener got the least of anybody.
+ */
 function AddButton({
   adversary,
   inRoster,
+  partySize,
 }: {
   adversary: Adversary;
   inRoster: number;
+  /** Read from `prefs.gmPartySize`: how many adversaries one Minion group is. */
+  partySize: number;
 }): React.JSX.Element {
   const cost = ROLE_COST[adversary.role];
+  const minion = adversary.role === 'Minion';
+  const points = `${String(cost)} battle point${cost === 1 ? '' : 's'}`;
   return (
     <button
       type="button"
       onClick={() => useGm.getState().addToRoster(adversary.id)}
-      aria-label={`Add ${adversary.name} for ${cost} battle point${cost === 1 ? '' : 's'}`}
+      aria-label={
+        minion
+          ? `Add a group of ${String(partySize)} ${adversary.name} for ${points}`
+          : `Add ${adversary.name} for ${points}`
+      }
       className="stack"
       style={{
         flex: 'none',
@@ -152,9 +196,19 @@ function AddButton({
       <span style={{ font: '800 15px/1 var(--sans)', color: 'var(--text)' }}>+{cost}</span>
       <span
         className="t-meta"
-        style={{ fontSize: 9.5, color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)' }}
+        style={{
+          fontSize: 9.5,
+          color: inRoster > 0 ? 'var(--hope)' : 'var(--dim)',
+          // One line or nothing. Wrapped, it would push the picker row taller
+          // than the 46px cell for one adversary out of 129.
+          whiteSpace: 'nowrap',
+        }}
       >
-        {inRoster > 0 ? `IN ×${inRoster}` : 'PTS'}
+        {inRoster === 0
+          ? 'PTS'
+          : minion
+            ? `IN ${String(inRoster)}×${String(partySize)}`
+            : `IN ×${String(inRoster)}`}
       </span>
     </button>
   );

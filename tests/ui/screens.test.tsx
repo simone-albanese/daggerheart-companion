@@ -141,7 +141,7 @@ import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/Domain
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
 import { NameRefusal } from '../../src/ui/shared/NameRefusal.tsx';
-import { RenameField } from '../../src/ui/shared/RenameField.tsx';
+import { NameField, RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { RuleTableView } from '../../src/ui/shared/RuleTableView.tsx';
 import { ruleSection, type SectionBlock } from '../../src/ui/shared/srdReference.ts';
 import type { RuleTable } from '../../src/ui/shared/ruleText.ts';
@@ -820,6 +820,20 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
   'shared/RenameField.tsx::RenameField': () => <RenameField />,
+  // The session row's shape: a cancel target, a subject - which reaches SAVE's
+  // accessible name and only SAVE's, the cancel target naming the stored name
+  // instead - and no `judge`, so no live region is drawn at all, which is the
+  // branch the character door never takes.
+  'shared/RenameField.tsx::NameField': () => (
+    <NameField
+      value="Scene one"
+      fieldLabel="New name for Scene one"
+      emptyReads="Scene"
+      subject="Scene one"
+      onCommit={noop}
+      onDone={noop}
+    />
+  ),
   // The Average Costs table: two columns, so the grid half of it.
   'shared/RuleTableView.tsx::RuleTableView': () => <RuleTableView table={costsTable()} />,
   // Refusing, because the empty state of this one is deliberately an empty

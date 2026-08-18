@@ -126,18 +126,62 @@ export function linkName(
   return namedRecord(found) && found.name !== '' ? found.name : null;
 }
 
-const rosterTotal = (roster: readonly { count: number }[]): number =>
-  roster.reduce((sum, entry) => sum + entry.count, 0);
+/**
+ * Whether the record this ref resolves to is a Minion, without asserting a type.
+ *
+ * `index.byRef` hands back `unknown` - it carries adversaries, environments and
+ * domain cards in one map - so the role is read the same defensive way
+ * `namedRecord` above reads a name. A ref this dataset cannot resolve answers
+ * `false`, which is the arm below counting it as one adversary: there is no
+ * role to read, and guessing that a missing ref was a Minion would multiply a
+ * number nothing on this device can check.
+ */
+const minionRecord = (value: unknown): boolean =>
+  typeof value === 'object' && value !== null && (value as { role?: unknown }).role === 'Minion';
 
 /**
- * The one line a shut row shows on its right.
+ * How many adversaries a roster plans, which is not the sum of its counts.
+ *
+ * For a Minion the count is *groups*, each the size of the party.
+ * `EncounterEntry.count` says so, `ROLE_COST` prices it that way - "per group
+ * of Minions equal to the party size" - and both screens that draw a roster
+ * spell it out: the builder's roster panel and the open encounter row both
+ * read "3 GROUPS OF 4" where every other role reads "×3". So a roster holding
+ * one Minion entry at 3 with a party of four plans twelve adversaries, and 3
+ * is the number of groups.
+ *
+ * The party size is a parameter rather than a read, because this module has
+ * neither React nor a store in it on purpose.
+ */
+const plannedAdversaries = (
+  roster: readonly RosterEntry[],
+  index: DatasetIndex,
+  partySize: number,
+): number =>
+  roster.reduce(
+    (sum, entry) => sum + entry.count * (minionRecord(index.byRef.get(entry.ref)) ? partySize : 1),
+    0,
+  );
+
+/**
+ * The one line a shut row shows under its name, beside the kind word.
  *
  * Every arm answers, including the two that exist only because this app refuses
  * to drop what it cannot read. It is never a count that hides a name: a scene
  * says which environment it is set in, not "1 environment", because the reason
  * a GM scans this list is to find the row they are thinking of.
+ *
+ * `partySize` is here for one arm. An encounter's Minion entries are groups
+ * that size, so the count of adversaries cannot be reached without it - the
+ * caller reads `prefs.gmPartySize`, which is the same number the open arm and
+ * the builder expand those groups with.
  */
-export function describeItem(item: SessionItem, dataset: Dataset, index: DatasetIndex): string {
+export function describeItem(
+  item: SessionItem,
+  dataset: Dataset,
+  index: DatasetIndex,
+  partySize: number,
+): string {
   switch (item.kind) {
     case 'scene': {
       if (item.environmentRef === null) return 'NO ENVIRONMENT';
@@ -145,7 +189,12 @@ export function describeItem(item: SessionItem, dataset: Dataset, index: Dataset
       return namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
     }
     case 'encounter': {
-      const planned = rosterTotal(item.roster);
+      // Adversaries, not roster rows and not the sum of the counts. A Minion
+      // entry at 3 is three *groups*, so a shut row that added the counts up
+      // said "3 PLANNED" about a fight that opens with twelve bodies in it -
+      // the same number saying the same wrong thing that `×3` said beside the
+      // Minion's name on the open row until `ecf8017` corrected that one.
+      const planned = plannedAdversaries(item.roster, index, partySize);
       return planned === 0 ? 'NOTHING PLANNED' : `${String(planned)} PLANNED`;
     }
     case 'link': {

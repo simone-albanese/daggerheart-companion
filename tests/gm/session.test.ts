@@ -42,10 +42,18 @@ const base = (patch: Partial<SessionItemBase> = {}): SessionItemBase => ({
   ...patch,
 });
 
-const describe_ = (item: SessionItem): string => describeItem(item, dataset, index);
+/**
+ * Four at the table unless a test says otherwise, which is the number that
+ * makes a Minion group four adversaries rather than a synonym for one.
+ */
+const PARTY = 4;
+
+const describe_ = (item: SessionItem, partySize = PARTY): string =>
+  describeItem(item, dataset, index, partySize);
 
 const environment = dataset.environments[0]!;
 const adversary = dataset.adversaries[0]!;
+const minion = dataset.adversaries.find((a) => a.role === 'Minion')!;
 const card = dataset.domainCards[0]!;
 const rule = dataset.rules[0]!;
 
@@ -95,6 +103,9 @@ describe('what a shut row says about itself', () => {
   });
 
   it('counts the bodies in an encounter, not the lines in its roster', () => {
+    // Neither adversary here is a Minion - `adversary` is the Acid Burrower, a
+    // Solo, and the second ref resolves to nothing at all - so this is the arm
+    // where one count is one adversary and 3 + 1 is the whole answer.
     const item: SessionItem = {
       ...base(),
       kind: 'encounter',
@@ -105,7 +116,62 @@ describe('what a shut row says about itself', () => {
       adjustments: { easier: false, harder: false, damageBump: false },
       combatants: [],
     };
+    expect(adversary.role, 'the first adversary in the dataset became a Minion').not.toBe('Minion');
     expect(describe_(item)).toBe('4 PLANNED');
+  });
+
+  it('reads a Minion entry as groups the size of the party, not as three rats', () => {
+    /*
+     * The defect this arm had. `EncounterEntry.count` is *groups* for a Minion,
+     * each the size of the party, and `ROLE_COST` charges 1 point per group -
+     * so a row that added the counts up said "3 PLANNED" about a fight the GM
+     * had spent three points and twelve bodies on. The builder's roster panel
+     * has said "3 GROUPS OF 4" since the first commit, `8c83f78`, and `ecf8017`
+     * brought the open encounter row into line with it; this is the shut row
+     * catching up with them both.
+     */
+    const item: SessionItem = {
+      ...base(),
+      kind: 'encounter',
+      roster: [{ ref: minion.id, count: 3 }],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [],
+    };
+    expect(minion.role).toBe('Minion');
+    expect(describe_(item, 4)).toBe('12 PLANNED');
+    // The party size is the multiplier and not a constant folded into it: the
+    // same plan read at a table of six is eighteen.
+    expect(describe_(item, 6)).toBe('18 PLANNED');
+    expect(describe_(item, 1)).toBe('3 PLANNED');
+  });
+
+  it('adds a Minion’s groups to everyone else’s heads in one number', () => {
+    const item: SessionItem = {
+      ...base(),
+      kind: 'encounter',
+      roster: [
+        { ref: minion.id, count: 2 },
+        { ref: adversary.id, count: 1 },
+      ],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [],
+    };
+    expect(describe_(item, 4)).toBe('9 PLANNED');
+  });
+
+  it('counts a ref this dataset cannot resolve as one, rather than guessing a group', () => {
+    // `minionRecord` answers `false` for a ref with no record behind it. The
+    // alternative - assuming the missing one was a Minion - would multiply a
+    // number nothing on this device can check.
+    const item: SessionItem = {
+      ...base(),
+      kind: 'encounter',
+      roster: [{ ref: 'a-layer-not-loaded', count: 2 }],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [],
+    };
+    expect(index.byRef.has('a-layer-not-loaded')).toBe(false);
+    expect(describe_(item, 8)).toBe('2 PLANNED');
   });
 
   it('says an empty encounter is empty', () => {
