@@ -52,28 +52,35 @@
  *
  * ## Two things it refuses, and says why on the screen
  *
- * **A campaign cannot be renamed to nothing.** `renameCampaign` trims, so an
- * empty name would be written straight through, and the list would then hold
- * two rows both reading "Unnamed campaign" with no way to tell them apart -
- * which is the same defect the character rename has open under P5-1(b). The
- * button refuses and the sheet says so in words rather than quietly restoring
- * the old name, because silently rewriting what somebody typed is the other
- * half of that defect.
+ * **A campaign cannot be given a name another campaign already has**, and that
+ * includes no name at all. This field used to hold a rule of its own - every
+ * empty name refused, every duplicate allowed - which was backwards in both
+ * directions: two rows reading "The Sablewood Winter" are exactly as impossible
+ * to tell apart as two reading "Unnamed campaign", and refusing an empty name
+ * on the only campaign on the device refused something that collided with
+ * nothing. It now asks `judgeName` in `store/names.ts`, the one definition of
+ * "the same name" in this app, and prints that function's sentence: the same
+ * words, from the same place, as the control that renames a character. The
+ * button refuses and the sheet says so in words, with the nearest free name
+ * offered in a control you have to press, because silently rewriting what
+ * somebody typed is the other half of the same defect.
  *
- * **Only the open campaign can be renamed here, and the reason has changed.**
- * It used to be that it *could not* be: `patchCampaign` scheduled a write only
- * when the id was the active one and `writeActive` gathered only the active
- * record, so a rename typed against any other row looked right until the next
- * reload and was then gone. The store now honours it - `patchCampaign` sends
- * any other id down `scheduleAside`, and there are tests that fail without it.
+ * **Only the open campaign can be renamed here, and the reason has changed
+ * twice.** It began as a wall around a write that could not land: `patchCampaign`
+ * scheduled a write only when the id was the active one, so a rename typed
+ * against any other row looked right until the next reload and was then gone.
+ * The store honours it now - `patchCampaign` sends any other id down
+ * `scheduleAside` - so that reason is dead.
  *
- * So this is no longer a wall around a broken write. What is left is a question
- * about which surface owns renaming, which is a live backlog item with its own
- * design (the three doors of the unique name), and this sheet is not the place
- * to answer it by quietly growing a second control. The reason is written here
- * rather than left as an absence somebody "fixes" by adding one - but if that
- * item lands and the answer is this sheet, nothing in the store is in the way
- * any more.
+ * What kept it is the row, and this is the answer the unique-name item settled
+ * on rather than a question left open. A campaign row is 365px: a 313px name
+ * button and a 44px REMOVE. A third target on it takes the name button under
+ * 270px on the screen where the whole point of the row is reading which table
+ * it is, and a rename that opens *in* the row would push REMOVE - an armed,
+ * destructive control - down the list under a thumb already travelling. One
+ * field, on the campaign whose name is already drawn at the top of the screen,
+ * one tap from any other campaign in the list above it. The sentence on the
+ * screen says that, and it is the one thing the GM can act on.
  *
  * ## The list is not re-sorted while it is on screen
  *
@@ -100,11 +107,15 @@
  *   the rename field         365 x 44, and it is the only keyboard on the sheet
  *
  * Read, not touched: every notice, every quarantined record, the "this device"
- * block entire, and the sentence explaining why a closed campaign has no rename
- * button. Touched: everything above.
+ * block entire, the refusal sentence, and the sentence explaining why a closed
+ * campaign has no rename button. Touched: everything above, and the offer beside
+ * a refusal - which is a control precisely so that nothing is rewritten without
+ * a tap.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { CAMPAIGN_NAMES, judgeName } from '../../store/names.ts';
 import { useApp, type Screen } from '../../store/state.ts';
+import { NameRefusal } from '../shared/NameRefusal.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
 
 /** Where MENU can go. Settings is deliberately not here - see the docblock. */
@@ -275,7 +286,9 @@ export function MenuSheet({
         Switching closes this sheet today, which makes the key belt and braces -
         and it is the cheap half of the pair.
       */}
-      {active !== null && <Rename key={active.id} id={active.id} name={active.name} />}
+      {active !== null && (
+        <Rename key={active.id} id={active.id} name={active.name} campaigns={campaigns} />
+      )}
 
       <ThisDevice hydrated={hydrated} notices={notices} quarantined={quarantined} />
     </div>
@@ -391,38 +404,63 @@ function Campaigns({
 
 // ---------------------------------------------------------------------------
 
-function Rename({ id, name }: { id: string; name: string }): React.JSX.Element {
+function Rename({
+  id,
+  name,
+  campaigns,
+}: {
+  id: string;
+  name: string;
+  campaigns: ReadonlyArray<{ id: string; name: string }>;
+}): React.JSX.Element {
   const rename = useGm((s) => s.renameCampaign);
   const [draft, setDraft] = useState(name);
+  const refusalId = useId();
   const trimmed = draft.trim();
-  const blank = trimmed === '';
+  /*
+   * The same function the character rename asks, on the same rule.
+   *
+   * This field used to enforce a rule of its own: *any* empty name refused,
+   * *any* duplicate allowed. That is backwards in both directions. Two
+   * campaigns called "The Sablewood Winter" are two rows in the list above that
+   * nobody can tell apart, which is the whole failure; and refusing an empty
+   * name on the only campaign on the device was refusing something that
+   * collides with nothing, in words that did not match what the app says to a
+   * player clearing a character's name three screens away.
+   *
+   * So: an empty name is refused exactly when something else already reads
+   * "Unnamed campaign", and stored as `''` otherwise - never as the word, which
+   * is the app's and not the GM's. `judgeName` writes both sentences.
+   */
+  const { refusal, offer } = judgeName(draft, campaigns, CAMPAIGN_NAMES, id);
+  const held = refusal !== null || trimmed === name;
 
   return (
-    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+    // No `gap`: `NameRefusal` is mounted refusing nothing, and carries its own
+    // 6px when it has something to say. See the rename control on the sheet.
+    <div className="stack" style={{ flex: 'none' }}>
       <label className="stack" style={{ gap: 5 }}>
         <span className="t-meta">NAME OF THE OPEN CAMPAIGN</span>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          aria-invalid={refusal !== null}
+          aria-describedby={refusal === null ? undefined : refusalId}
           style={{ minHeight: 44, padding: '8px 11px', font: '600 14px/1.2 var(--sans)' }}
         />
       </label>
+      <NameRefusal id={refusalId} refusal={refusal} offer={offer} onTake={setDraft} />
       <button
         type="button"
-        disabled={blank || trimmed === name}
+        disabled={held}
         onClick={() => rename(id, trimmed)}
+        aria-label={refusal === null ? undefined : `Cannot rename: ${refusal}`}
         className="btn"
-        style={{ flex: 'none', minHeight: 'var(--tap)', opacity: blank || trimmed === name ? 0.5 : 1 }}
+        style={{ flex: 'none', marginTop: 8, minHeight: 'var(--tap)', opacity: held ? 0.5 : 1 }}
       >
         RENAME
       </button>
-      {blank && (
-        <p role="status" className="t-dense" style={{ margin: 0, color: 'var(--stress)', maxWidth: '62ch' }}>
-          A campaign needs a name. Two called nothing at all are two rows in the list above that you
-          cannot tell apart — so this refuses rather than quietly putting the old name back.
-        </p>
-      )}
-      <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+      <p className="t-dense" style={{ margin: 0, marginTop: 8, color: 'var(--muted)', maxWidth: '62ch' }}>
         Only the open campaign can be renamed here. Open another campaign to rename that one.
       </p>
     </div>

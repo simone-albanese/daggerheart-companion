@@ -135,6 +135,7 @@ import { Attribution, CompatibleIcon, CompatibleLockup } from '../../src/ui/shar
 import { CardReader, CardText, DomainCardView } from '../../src/ui/shared/DomainCardView.tsx';
 import { AppMark, DomainMark } from '../../src/ui/shared/DomainMark.tsx';
 import { ImportConflicts } from '../../src/ui/shared/ImportConflicts.tsx';
+import { NameRefusal } from '../../src/ui/shared/NameRefusal.tsx';
 import { RenameField } from '../../src/ui/shared/RenameField.tsx';
 import { Counter } from '../../src/ui/shared/Counter.tsx';
 import { Disclosure } from '../../src/ui/shared/Disclosure.tsx';
@@ -758,6 +759,16 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
   'shared/RenameField.tsx::RenameField': () => <RenameField />,
+  // Refusing, because the empty state of this one is deliberately an empty
+  // live region and a sweep for nameless controls has nothing to look at.
+  'shared/NameRefusal.tsx::NameRefusal': () => (
+    <NameRefusal
+      id="fixture-refusal"
+      refusal={'Another character is already called "Ilya".'}
+      offer="Ilya (2)"
+      onTake={noop}
+    />
+  ),
   'shared/Track.tsx::Track': () => (
     <Track kind="hp" value={2} max={6} onChange={noop} label="HP" />
   ),

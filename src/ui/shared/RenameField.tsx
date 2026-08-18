@@ -20,10 +20,12 @@
  * is open ninety per cent of the time were judged worth more than taking the
  * rename from four gestures to nought. So the paragraph above is in force
  * again, for every layout: `Edit.tsx`'s Identity section is the only way in.
- * The rule this component enforces is not restated here: `freeName` and
- * `nameHolder` in `src/store/merge.ts` are the single definition of "the same
- * name", and this component's whole job is to put that definition in front of
- * a person before they commit rather than after.
+ * The rule this component enforces is not restated here: `judgeName` in
+ * `src/store/names.ts` is the single definition of "the same name" and the
+ * single source of the words a refusal uses, and this component's whole job is
+ * to put that definition in front of a person before they commit rather than
+ * after. The wizard's name step and MENU's campaign rename ask the same
+ * function and print the same sentence through the same `NameRefusal`.
  *
  * TWO THINGS LOST THEIR PRODUCTION CALLER WITH THAT CHIP AND ONLY ONE WENT WITH
  * IT. `autoFocus` is deleted: Play was its only caller - it existed because a
@@ -59,8 +61,9 @@
  *   emptiness the person asked for rather than a word they did not type.
  */
 import { useId, useState } from 'react';
-import { freeName, nameHolder } from '../../store/merge.ts';
+import { CHARACTER_NAMES, judgeName } from '../../store/names.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { NameRefusal } from './NameRefusal.tsx';
 
 /**
  * The cap on a name a person types.
@@ -127,45 +130,17 @@ export function RenameField({
   if (!character) return null;
 
   const stored = character.name || 'Unnamed';
-  const holder = nameHolder(draft, characters, character.id);
-  const blank = draft.trim() === '';
-  // The refusal is a sentence, not a dimmed button. The `Vault` docblock in
-  // `Play.tsx` writes the rule down as P3-9(a), `RecallButton` in the same file
-  // is where it is spent, and the "says why on the screen when it will not
-  // recall, not in a title" test in `playSheet.test.tsx` pins it: a control
-  // that will not act says why in text a thumb can read, because 45% opacity
-  // announces nothing at all.
+  // The rule, the sentence and the offer, all three from `names.ts`. What is
+  // decided here is only where they go: `NameRefusal` carries the sentence in a
+  // live region the field points at with `aria-describedby`, plus `aria-invalid`
+  // wired the way `settings/parts.tsx:191` wires its hints, so the state and
+  // the reason belong to the control being refused.
   //
-  // Opacity announces nothing to a screen reader either, and putting the reason
-  // into the refused control's own accessible name does not answer that on its
-  // own: SAVE is `disabled`, so Tab from the field steps straight over the
-  // label carrying the reason and lands on the offer - a different name being
-  // suggested, with nothing anywhere having said the typed one was refused. So
-  // the sentence is carried by the two things that are reachable from where the
-  // person actually is, which is the field:
-  //
-  //   `role="status"`, on a region mounted empty and filled when the name
-  //   collides - the pattern the creation wizard's `StepIdentity` uses for its
-  //   blocking reason. Mounted empty rather than mounted with the sentence in
-  //   it, because a live region has to exist before its contents change for the
-  //   change to be spoken.
-  //
-  //   `aria-describedby` from the field to that region, plus `aria-invalid`,
-  //   wired the way `settings/parts.tsx:191` wires its hints. The state and the
-  //   reason then belong to the control being refused, for a reader who arrives
-  //   at the field after the announcement rather than during it.
-  //
-  // SAVE keeps the reason in its accessible name because touch exploration and
-  // a screen reader's browse mode do reach a disabled control. That is a second
-  // copy for the readers who get there, not the mitigation.
-  const refusal =
-    holder === undefined
-      ? null
-      : blank
-        ? 'Another character already reads "Unnamed", so both would read "Unnamed".'
-        : `Another character is already called "${holder.name || 'Unnamed'}".`;
-  const offer =
-    refusal === null ? null : freeName(draft, characters, { except: character.id });
+  // SAVE keeps the reason in its accessible name as well, because touch
+  // exploration and a screen reader's browse mode do reach a disabled control.
+  // That is a second copy for the readers who get there, not the mitigation -
+  // `NameRefusal`'s docblock has the whole argument.
+  const { refusal, offer } = judgeName(draft, characters, CHARACTER_NAMES, character.id);
 
   const commit = (): void => {
     if (refusal !== null) return;
@@ -180,12 +155,10 @@ export function RenameField({
   };
 
   return (
-    // No `gap` on the stack. The refusal region below is mounted whether or not
-    // anything is being refused - that is what makes it a live region rather
-    // than a sentence that appears - so a gap here would cost 6px of the sheet
-    // permanently, on a row whose whole ergonomic argument is that arming the
-    // rename moves nothing. The region carries the 6px itself, when it has
-    // something in it.
+    // No `gap` on the stack: `NameRefusal` is mounted whether or not anything is
+    // being refused, so a gap here would cost 6px of the sheet permanently, on a
+    // row whose whole ergonomic argument is that arming the rename moves
+    // nothing. The region carries the 6px itself, when it has something in it.
     <div className="stack">
       <div className="row" style={{ gap: 6 }}>
         <label className="stack" style={{ flex: 1, minWidth: 0, gap: 4 }}>
@@ -264,42 +237,7 @@ export function RenameField({
           </button>
         )}
       </div>
-      <div
-        className="row"
-        style={{
-          gap: 8,
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          marginTop: refusal === null ? 0 : 6,
-        }}
-      >
-        <p
-          id={refusalId}
-          role="status"
-          className="t-dense"
-          style={{ flex: 1, minWidth: 0, margin: 0 }}
-        >
-          {refusal}
-        </p>
-        {refusal !== null && offer !== null && (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setDraft(offer)}
-            aria-label={`Put ${offer} in the name field`}
-            style={{
-              flex: 'none',
-              minWidth: 104,
-              maxWidth: '100%',
-              minHeight: 'var(--tap)',
-              padding: '6px 10px',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {offer}
-          </button>
-        )}
-      </div>
+      <NameRefusal id={refusalId} refusal={refusal} offer={offer} onTake={setDraft} />
     </div>
   );
 }

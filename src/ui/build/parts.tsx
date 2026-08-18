@@ -452,6 +452,17 @@ export function DatasetEmpty({ what }: { what: string }): React.JSX.Element {
   );
 }
 
+/**
+ * A caption and a field.
+ *
+ * `invalid` and `describedBy` exist for the one field on these forms that can
+ * be *refused* - the wizard's Name, against the unique-name rule in
+ * `store/names.ts`. They are on the single-line input only, because that is
+ * the only shape anything refuses today, and they are two props rather than a
+ * bundled "error" prop because this component does not draw the sentence: the
+ * sentence lives in `NameRefusal`, in one live region shared with the rename
+ * control, and this end of it is only the field pointing at it.
+ */
 export function LabelledInput({
   label,
   value,
@@ -460,6 +471,8 @@ export function LabelledInput({
   hint,
   multiline = false,
   rows,
+  invalid = false,
+  describedBy,
 }: {
   label: string;
   value: string;
@@ -468,6 +481,10 @@ export function LabelledInput({
   hint?: string;
   multiline?: boolean;
   rows?: number;
+  /** The value in this field is being refused. */
+  invalid?: boolean;
+  /** The id of the region carrying the reason it is being refused. */
+  describedBy?: string;
 }): React.JSX.Element {
   return (
     <label className="stack" style={{ gap: 6 }}>
@@ -486,6 +503,8 @@ export function LabelledInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           style={{ width: '100%' }}
         />
       )}

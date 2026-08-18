@@ -30,7 +30,7 @@ import * as db from '../../src/store/db.ts';
 import { useApp } from '../../src/store/state.ts';
 import { STEPS } from '../../src/ui/build/creation.ts';
 import { Wizard } from '../../src/ui/build/Wizard.tsx';
-import { makeClass, makeDataset } from '../fixtures/factories.ts';
+import { makeCharacter, makeClass, makeDataset } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -235,5 +235,141 @@ describe('two taps on a slow phone', () => {
     const button = buttons().find((b) => (b.textContent ?? '').includes('Creating'));
     expect(button, 'the button said nothing about the write it had started').toBeDefined();
     expect(button?.disabled, 'the button was still pressable mid-write').toBe(true);
+  });
+});
+
+/**
+ * The name, against the library this character is about to join.
+ *
+ * Creation was the door with no guard of any kind. `Wizard.tsx` set the draft
+ * name, `creation.ts` warned only when it was empty, and `state.create()`
+ * compared nothing - so making a second Ilya from the wizard took one tap and
+ * the header's `<select>` grew two rows nobody can tell apart. That is the
+ * exact state `merge.ts` spends a paragraph preventing when a *file* arrives.
+ *
+ * What is asserted here is that this door refuses the same things as the rename
+ * control in `rename.test.tsx`, in the same words - both call `judgeName` - and
+ * that it refuses them where the typing is rather than only at step twelve.
+ */
+describe('a name the library already has', () => {
+  const nameField = (): HTMLInputElement => {
+    const label = [...container.querySelectorAll('label')].find(
+      (l) => l.querySelector('span')?.textContent === 'Name',
+    );
+    expect(label, 'the wizard draws no field captioned "Name"').toBeDefined();
+    return label!.querySelector('input')!;
+  };
+
+  /** Through the native setter, or React never hears the change. */
+  const type = (value: string): void => {
+    const input = nameField();
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    act(() => {
+      setter.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  const seed = (...names: string[]): void => {
+    act(() => {
+      useApp.setState({
+        characters: names.map((name, i) => makeCharacter({ id: `sheet-${String(i)}`, name })),
+      });
+    });
+  };
+
+  const open = (): void => {
+    act(() => {
+      root.render(createElement(Wizard));
+    });
+  };
+
+  const next = (): HTMLButtonElement =>
+    buttons().find((b) => (b.textContent ?? '').trim() === 'Next')!;
+
+  it('refuses it in the same words the rename control uses, and holds the step', () => {
+    seed('Ilya');
+    open();
+    press('Test Class');
+    expect(next().disabled, 'the step was already refusing before a name was typed').toBe(false);
+
+    type('  ILYA ');
+    expect(shown()).toContain('Another character is already called "Ilya".');
+    expect(next().disabled, 'Next let a duplicate name past the step it is typed on').toBe(true);
+    expect(nameField().getAttribute('aria-invalid')).toBe('true');
+    const describedBy = nameField().getAttribute('aria-describedby');
+    expect(describedBy, 'the field points at no reason for refusing').not.toBeNull();
+    expect(document.getElementById(describedBy!)?.textContent).toContain('already called "Ilya"');
+  });
+
+  it('takes the refusal back off when the name stops colliding', () => {
+    seed('Ilya');
+    open();
+    press('Test Class');
+    type('Ilya');
+    expect(next().disabled).toBe(true);
+    type('Marek');
+    expect(next().disabled).toBe(false);
+    expect(nameField().getAttribute('aria-invalid')).toBe('false');
+  });
+
+  it('offers the next free name into the field, and writes nothing on its own', () => {
+    seed('Ilya');
+    open();
+    press('Test Class');
+    type('Ilya');
+    pressLabelled('Put Ilya (2) in the name field');
+    expect(nameField().value).toBe('Ilya (2)');
+    expect(useApp.getState().characters, 'the offer created something').toHaveLength(1);
+    expect(next().disabled).toBe(false);
+  });
+
+  it('will not create a second character reading Unnamed, and leaves the first alone', () => {
+    // The same strictness the rename door has, from the same function: an empty
+    // name is a name like any other. Refused when something else already reads
+    // that way, and left alone when nothing does - the app never writes its own
+    // word onto somebody's record.
+    seed('');
+    open();
+    press('Test Class');
+    expect(shown()).toContain('both would read "Unnamed"');
+    expect(next().disabled).toBe(true);
+
+    seed('Ilya');
+    open();
+    press('Test Class');
+    expect(shown(), 'an unnamed draft was refused against a library with no unnamed character in it')
+      .not.toContain('both would read "Unnamed"');
+    expect(next().disabled).toBe(false);
+  });
+
+  it('refuses the last button too, and says which step the name belongs to', () => {
+    /*
+     * Next answers for the step you are standing on; Create answers for every
+     * blocker at once. They are not the same guard and the difference is
+     * reachable: the library can change while the wizard is open - an import
+     * lands, another tab writes - and the person is then on step twelve with a
+     * name that was free when they typed it and is not any more. Nothing on
+     * that screen is the Name field, so the refusal has to name the step.
+     */
+    seed();
+    open();
+    for (let i = 0; i < STEPS.length - 1; i += 1) {
+      const id = STEPS[i]!.id;
+      if (id === 'class') {
+        press('Test Class');
+        type('Ilya');
+      }
+      if (id === 'traits') assignTheArray();
+      press('Next');
+    }
+    seed('Ilya');
+
+    const create = buttons().find((b) => (b.textContent ?? '').includes('Create character'))!;
+    expect(create.disabled, 'Create wrote a character the first step would have refused').toBe(
+      true,
+    );
+    expect(shown()).toContain('Another character is already called "Ilya".');
+    expect(shown(), 'the blocker never named the step it belongs to').toContain('Step 1');
   });
 });

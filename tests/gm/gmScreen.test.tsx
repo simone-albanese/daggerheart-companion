@@ -1085,6 +1085,25 @@ describe('MENU', () => {
     expect(useGm.getState().campaigns).toHaveLength(3);
   });
 
+  it('does not make a second campaign with the first one’s name', async () => {
+    // NEW CAMPAIGN passes no name, so every campaign made here used to arrive
+    // as the same constant: press it twice and the list holds two rows reading
+    // "My campaign", which is a list you cannot pick out of. Nobody typed this
+    // name, so it is minted rather than refused - the door that takes a typed
+    // name is the field below, and that one refuses in words.
+    useGm.setState({ campaigns: [], activeCampaignId: null });
+    openMenu();
+    click(named('NEW CAMPAIGN'));
+    await settle();
+    openMenu();
+    click(named('NEW CAMPAIGN'));
+    await settle();
+    const names = useGm.getState().campaigns.map((c) => c.name);
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size, `two campaigns both called ${names[0]}`).toBe(2);
+    expect(names).toContain('My campaign (2)');
+  });
+
   it('removes nothing on one tap', async () => {
     twoCampaigns();
     openMenu();
@@ -1126,17 +1145,58 @@ describe('MENU', () => {
     expect(activeCampaign().name).toBe('The Long Winter');
   });
 
-  it('refuses a name that is nothing at all, in words', () => {
-    // Two campaigns both reading "Unnamed campaign" are two rows in the list
-    // above that nobody can tell apart - and quietly restoring the old name is
-    // the other half of the same defect.
+  it('refuses a name another campaign already has, in the same words the sheet uses', () => {
+    // The door this item is about. This field used to allow every duplicate and
+    // refuse every empty name; the character rename does neither. Both now ask
+    // `judgeName`, so the sentence here is the sentence there with one noun
+    // changed - and quietly restoring the old name is the other half of the
+    // same defect, which is why the offer is a control rather than a rewrite.
     twoCampaigns();
     openMenu();
-    type(container.querySelector('[role="dialog"] input')!, '   ');
+    type(container.querySelector('[role="dialog"] input')!, '  a ONE-shot ');
+    expect(text()).toContain('Another campaign is already called "A one-shot".');
     expect(named('RENAME').disabled).toBe(true);
     click(named('RENAME'));
     expect(activeCampaign().name).toBe('The Sablewood Winter');
-    expect(text()).toContain('A campaign needs a name');
+  });
+
+  it('offers the next free name and puts it in the field, never on the record', () => {
+    twoCampaigns();
+    openMenu();
+    type(container.querySelector('[role="dialog"] input')!, 'A one-shot');
+    const offer = named('Put A one-shot (2) in the name field');
+    click(offer);
+    expect(container.querySelector<HTMLInputElement>('[role="dialog"] input')!.value).toBe(
+      'A one-shot (2)',
+    );
+    expect(activeCampaign().name, 'the offer wrote itself onto the campaign').toBe(
+      'The Sablewood Winter',
+    );
+    click(named('RENAME'));
+    expect(activeCampaign().name).toBe('A one-shot (2)');
+  });
+
+  it('refuses a name that is nothing at all only when something else reads that way', () => {
+    // Two campaigns both reading "Unnamed campaign" are two rows in the list
+    // above that nobody can tell apart. One campaign reading it is a campaign
+    // the GM chose not to name, and this app does not put its own word onto a
+    // record - the same answer a character gets on the same question.
+    twoCampaigns();
+    openMenu();
+    type(container.querySelector('[role="dialog"] input')!, '   ');
+    expect(named('RENAME').disabled).toBe(false);
+    click(named('RENAME'));
+    expect(activeCampaign().name).toBe('');
+
+    useGm.setState({
+      campaigns: useGm.getState().campaigns.map((c) => (c.id === 'c-other' ? { ...c, name: '' } : c)),
+    });
+    openMenu();
+    type(container.querySelector('[role="dialog"] input')!, '   ');
+    expect(text()).toContain(
+      'Another campaign already reads "Unnamed campaign", so both would read "Unnamed campaign".',
+    );
+    expect(named('RENAME').disabled).toBe(true);
   });
 
   it('names a campaign a newer build wrote, rather than counting it', () => {

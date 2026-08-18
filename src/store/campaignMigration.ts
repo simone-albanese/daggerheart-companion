@@ -64,6 +64,10 @@ const LEGACY_CAMPAIGN_ID = 'campaign-from-gm-v1';
  * Shared with the fresh-install path rather than written twice: a device with
  * nothing to migrate still needs one campaign to exist, and the two arriving
  * at different names would be a difference with no meaning behind it.
+ *
+ * The *first*, and only the first. `createCampaign` runs this through
+ * `freeName`, so the second campaign made from MENU is "My campaign (2)" - two
+ * rows reading the same thing is a list a GM cannot pick a table out of.
  */
 export const FIRST_CAMPAIGN_NAME = 'My campaign';
 

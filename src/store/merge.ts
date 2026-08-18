@@ -21,6 +21,7 @@
  * to the user rather than a decision taken for them.
  */
 import type { Character } from '../../shared/types.ts';
+import { CHARACTER_NAMES, freeName } from './names.ts';
 
 export type MergeMode = 'merge' | 'replace';
 
@@ -61,97 +62,6 @@ export type ImportChoice =
   | 'keep-both';
 
 /**
- * The word every screen in this app already prints where a name is missing.
- *
- * Thirteen display sites do `character.name || 'Unnamed'`, the header's
- * `<select>` among them. So the string is not a placeholder the comparison can
- * ignore: for two characters both stored as `''` it is the name, and it is the
- * same name twice.
- */
-const UNNAMED = 'Unnamed';
-
-/**
- * The name as the app speaks it, rather than the string it happens to store.
- *
- * Trimmed, runs of whitespace collapsed, and empty read as `UNNAMED`. Every
- * one of those three is a difference the *screen* cannot show. The picker is a
- * `<select>` at 13px and `min(150px, 38vw)`; HTML collapses a doubled space
- * before it ever reaches the glass, a leading space is invisible against the
- * option's own padding, and an empty name is drawn as the word above. A rule
- * that compares stored strings therefore lets through exactly the collisions
- * the rule exists to prevent - two rows a person cannot tell apart.
- */
-function spokenName(name: string): string {
-  const collapsed = name.trim().replace(/\s+/g, ' ');
-  return collapsed === '' ? UNNAMED : collapsed;
-}
-
-/**
- * `spokenName`, case-folded. Two characters collide when their keys are equal.
- *
- * This is the single definition of "the same name" in this app, and it stays
- * private on purpose. The defect P5-1(b) is about is one rule enforced at one
- * of its doors; a second definition somewhere else would be the same defect
- * with better manners.
- */
-function nameKey(name: string): string {
-  return spokenName(name).toLowerCase();
-}
-
-/**
- * Who else already answers to this name, or `undefined` when nobody does.
- *
- * It returns the character rather than a boolean because a refusal has to name
- * them. "That name is taken", with no owner, is the app knowing something the
- * person reading the screen cannot - and the character it names may be one
- * they had forgotten they still had.
- *
- * `except` is the character being renamed. Without it every rename would
- * collide with itself and SAVE could never be pressed.
- */
-export function nameHolder(
-  name: string,
-  taken: readonly Character[],
-  except?: string,
-): Character | undefined {
-  const key = nameKey(name);
-  return taken.find((c) => c.id !== except && nameKey(c.name) === key);
-}
-
-/**
- * The first name in this base's sequence that nobody on this device answers to.
- *
- * Two sequences, one counter. With no `suffix` the sequence opens with the base
- * itself - "Ilya", "Ilya (2)", "Ilya (3)" - which is what a person renaming a
- * character wants: the nearest free name, and the bare one when it is free.
- * With a suffix the base is never offered - "Ilya (imported)", "Ilya (imported
- * 2)" - because that caller's job is a copy that provably differs from the
- * original, not the nearest free name. That difference is the reason the
- * rename path cannot simply call `duplicateFor`.
- *
- * `except` is only ever passed by the rename door: `duplicateFor` is minting a
- * character that is not in `taken` yet and never needs it, while a rename that
- * did not exclude the character being renamed would offer "Ilya (2)" to a
- * character already called Ilya.
- */
-export function freeName(
-  base: string,
-  taken: readonly Character[],
-  options: { except?: string; suffix?: string } = {},
-): string {
-  const { except, suffix } = options;
-  const spoken = spokenName(base);
-  const candidate = (n: number): string => {
-    if (suffix === undefined) return n === 1 ? spoken : `${spoken} (${String(n)})`;
-    return n === 1 ? `${spoken} (${suffix})` : `${spoken} (${suffix} ${String(n)})`;
-  };
-  for (let n = 1; ; n += 1) {
-    const name = candidate(n);
-    if (nameHolder(name, taken, except) === undefined) return name;
-  }
-}
-
-/**
  * A copy of an arriving character that cannot collide with the local one.
  *
  * The name changes as well as the id, and that is deliberate rather than
@@ -160,12 +70,13 @@ export function freeName(
  * moment the user most needs to tell them apart. The suffix counts up, so
  * doing this twice does not produce two identical names either.
  *
- * The rule itself is no longer written here. It lives in `freeName`, because
- * this was one of its two doors and the other one - a person typing a new name
- * on the sheet - had no guard at all. What was written here could not have
- * served that door anyway: it compared `new Set(taken.map((c) => c.name))`,
- * raw stored strings, so "ilya", " Ilya" and two characters both stored as `''`
- * were three collisions it could not see.
+ * The rule itself is no longer written here. It lives in `names.ts`, because
+ * this was one of its doors and the others - a person typing a new name on the
+ * sheet, the wizard, MENU's campaign list - had no guard at all or had a
+ * different one. What was written here could not have served them anyway: it
+ * compared `new Set(taken.map((c) => c.name))`, raw stored strings, so "ilya",
+ * " Ilya" and two characters both stored as `''` were three collisions it could
+ * not see.
  *
  * One consequence worth naming, because it is a change to what this function
  * writes and not only to what it compares: the base is now the *spoken* name,
@@ -188,7 +99,7 @@ export function duplicateFor(
   return {
     ...incoming,
     id: crypto.randomUUID(),
-    name: freeName(incoming.name, taken, { suffix: 'imported' }),
+    name: freeName(incoming.name, taken, CHARACTER_NAMES, { suffix: 'imported' }),
     createdAt: now.toISOString(),
   };
 }
