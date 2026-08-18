@@ -12,6 +12,78 @@ before the one below.
 
 ---
 
+## Unreleased — 2026-08-18
+
+Deployed as it was written, so everything here is live. The version has not
+moved: `BACKLOG.md` still carries items in the band that tells a player a wrong
+number, and this stretch closed several of them without emptying the band.
+
+### The GM screen got the two things the table was waiting for
+
+- **A planned encounter can be opened.** A configured row now has a verb that
+  puts its roster straight onto the scene, with the same call the builder's SEND
+  makes. It does not write the board: folding that in would let one tap
+  overwrite a roster somebody is in the middle of assembling, and the row says
+  so. Disabled when nothing in the roster resolves, and when the scene is not
+  empty it says how many are already there before it adds.
+- **A roster entry opens its own stat block, in the row.** Read-only as a
+  property of the component rather than as a promise: it renders no button, no
+  input and no select at all.
+- **`×3` was wrong, not terse.** For a Minion, that count is *groups* the size
+  of the party, and the budget charges a point per group - so `×3` said three
+  where twelve had been paid for, while the builder had printed "3 GROUPS OF 4"
+  for the same number all along. The row says what the builder says.
+- **A name generator**, as a GM tool. 15,325 names, places and regions from
+  tables written for this project - the Core Book's lists are not in this app
+  and are not the source of these. Nothing it can produce collides with anything
+  in the shipped dataset, and the test proves that by enumerating the entire
+  space rather than by sampling it.
+- **ENDING A SCENE always asks.** It used to ask only when the scene was
+  occupied. It costs a tap at an empty table, which is the point.
+
+### The rules on screen are the rules in the book
+
+- **Lists and tables in a linked rule are drawn as lists and tables.** They came
+  out with a literal `- ` down the left and raw pipes, in 38 of the 75 sections
+  the ADD menu offers. The Average Costs table and eleven others arrive with it.
+- **The damage bump says what the book says.** The `+1d4 (or a static +2)` is
+  read out of whatever rules layer is loaded, on both the builder and the
+  planned row, instead of being typed into three files that had already drifted.
+- **How far a reach reaches**, in the figure the book gives it.
+- **The ARM chip offers what the engine will spend.** It cycled to three; one
+  incoming attack marks one Armor Slot.
+
+### Controls that can be reached, and pressed, and got out of
+
+- **The Conditions door on the wide layout drew zero pixels.** It was the last
+  child of a silent horizontal scroller, and with two conditions named it was
+  laid out past the right edge - the only way into that dialog, invisible.
+- **`TO VAULT` was a 56x10 target**, five to a screen, all with the same
+  accessible name.
+- **The damage die grid can be closed without answering it.** The Duality keypad
+  got that months ago; the two halves had diverged.
+- **The stepper you press wears a ring**, drawn inside its own bounds so no
+  target loses a pixel.
+- **A weapon or a set of armour can be rolled for by tier.** Not loot or
+  consumables, which have no tier - offering the filter there would be the app
+  implying an absence that is not real.
+
+### The app says when it has not saved, wherever you are standing
+
+- **A campaign that did not reach the disk is said on every screen**, not only
+  on the GM screen the GM has walked away from - and said once, never twice.
+- **A rename of a campaign that is not open now reaches the disk.** It sat in
+  the window looking right and was gone on the next reload.
+- **A repaired campaign is repaired once**, not again on every launch.
+- **Deleting a campaign refuses a record a newer build wrote**, the way writing
+  over one already did. A campaign holds copies of other people's sheets.
+- **An imported character no longer lands under a name the device already has**
+  when the same file also decided to keep the local copy of another one.
+- **The transfer warning says what happens.** It promised a repair no code
+  performs; a first correction denied a row the sheet actually draws. It now
+  says the three true things: the ids stay and are drawn, they travel unchanged,
+  and this build cannot name them - though a device that has the content will.
+
 ## 0.2.0 — 2026-08-16
 
 The first version this project chose. `0.1.0` was the scaffold default and
