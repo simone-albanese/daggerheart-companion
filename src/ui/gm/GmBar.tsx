@@ -20,14 +20,18 @@
  * ## Where SEARCH went
  *
  * The wireframe draws four: ADD, SHOW, SEARCH, SAVE. SEARCH is **absent** here
- * rather than present and disabled. What it was for - full-text rule search -
- * is deferred to 1.1 by the owner, and the searching a GM actually does at the
- * table already exists behind SHOW: `Bestiary`'s filter searches names,
- * descriptions, motives and feature names. A second, weaker SEARCH beside it
- * would make the bar claim a capability the app has in one place and not in
- * the other, and a button that opens nothing is worse than a button that is
- * not there. `BACKLOG.md` carries its absence so it is a decision rather than
- * a silence.
+ * rather than present and disabled, and it stayed absent after the thing it
+ * was for arrived.
+ *
+ * Full-text rule search is no longer deferred - `RuleSearch.tsx` reads every
+ * title and every body of `dataset.rules` from a field at the foot of the SHOW
+ * sheet. What the owner asked for was that search *inside SHOW*, and the
+ * recorded objection to the fourth verb survives it intact: the searching a GM
+ * actually does at the table already happened behind SHOW, in `Bestiary`'s
+ * filter over names, descriptions, motives and feature names, and the rules
+ * search is behind SHOW as well. A SEARCH verb here would split one place to
+ * search into two and take a quarter of the bar to do it. `BACKLOG.md` carries
+ * the absence, and the objection, so both are decisions rather than silences.
  *
  * ## SHOW leaves when there is nothing behind it
  *

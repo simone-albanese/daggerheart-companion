@@ -461,10 +461,12 @@ describe('the bottom bar', () => {
     ]);
   });
 
-  it('has no SEARCH, because there is nothing behind one', () => {
-    // The wireframe draws four. Full-text rule search is deferred, and the
-    // searching a GM does at the table is Bestiary's filter, behind SHOW. A
-    // button that opens nothing is worse than a button that is not there.
+  it('has no SEARCH, now that there is something behind one', () => {
+    // The wireframe draws four. Full-text rule search is no longer deferred -
+    // `RuleSearch` reads every SRD section from a field at the foot of the SHOW
+    // sheet - and the bar still does not carry the verb, because what the owner
+    // asked for was the search inside SHOW. Bestiary's filter is behind SHOW
+    // too, so a SEARCH here would split one place to search into two.
     gm();
     expect([...bar().querySelectorAll('button')].map((b) => b.textContent)).not.toContain('SEARCH');
   });
