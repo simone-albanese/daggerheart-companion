@@ -164,18 +164,19 @@ export type GmRegion =
   | 'party'
   | 'bestiary'
   | 'countdowns'
-  | 'reference';
+  | 'reference'
+  | 'names';
 
 /**
  * The same list as a value, because `board.region` arrives off a disk.
  *
- * Adding `'reference'` here widens the set of values one ephemeral navigation
- * field accepts, and `CAMPAIGN_SCHEMA_VERSION` deliberately does not move with
- * it. Architecture 6.1 exists to stop a build reading a record it does not
- * understand and writing its own misreading back in place - and that is
- * precisely what an older build does here: `readBoard` below falls back to
- * `'encounter'`, and the 400ms debounce then rewrites the record with the
- * substituted value, uninvited and unquarantined.
+ * Adding a value here widens the set one ephemeral navigation field accepts,
+ * and `CAMPAIGN_SCHEMA_VERSION` deliberately does not move with it. Architecture
+ * 6.1 exists to stop a build reading a record it does not understand and writing
+ * its own misreading back in place - and that is precisely what an older build
+ * does here: `readBoard` below falls back to `'encounter'`, and the 400ms
+ * debounce then rewrites the record with the substituted value, uninvited and
+ * unquarantined.
  *
  * That is acceptable for this one field and for no other. What the older build
  * overwrites is "which tool was open when you closed the app" - a value it was
@@ -183,6 +184,17 @@ export type GmRegion =
  * campaign and no roll. Every other field of the record survives the round trip
  * untouched, and the fallback that makes it survivable is the converter this
  * change would otherwise have had to write.
+ *
+ * **It has now happened twice, and the second time is what makes it a rule
+ * rather than an exception.** P5-3 added `'reference'`; the name generator adds
+ * `'names'`. Architecture §6.1 is titled "The one exception, and why it is only
+ * one" and argues the case as a single admitted breach - that title is no longer
+ * true of this file, and the section needs rewriting into what the argument
+ * always actually was: not "one exception", but a standing licence for *this
+ * field*, granted because the field is ephemeral navigation state and revocable
+ * the moment anything but navigation is stored in it. The rewrite belongs to
+ * whoever owns the docs; this comment is here so the contradiction is not
+ * discovered by someone trusting the title.
  */
 const REGIONS: readonly GmRegion[] = [
   'encounter',
@@ -191,6 +203,7 @@ const REGIONS: readonly GmRegion[] = [
   'bestiary',
   'countdowns',
   'reference',
+  'names',
 ];
 
 /**

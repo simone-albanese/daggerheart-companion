@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The GM screen as a whole: what stays pinned, and how the five tools open.
+ * The GM screen as a whole: what stays pinned, and how its tools open.
  *
  * The thing most worth pinning here is a negative. `emptyBoard()` sets
  * `region: 'encounter'` and every campaign record carries a region, so an
