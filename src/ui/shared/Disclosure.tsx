@@ -37,10 +37,18 @@
  * between a raise and a regression to the very thing the paragraph above
  * describes. See the prop for the arithmetic.
  *
- * The whole header is the target, not the chevron. It is 44px tall and the
- * full width of the column - about 369px on a 393px phone - which is the
- * largest target on the screen and the only one that can be hit without
- * looking.
+ * The whole header is the target, not the chevron. It is 44px tall - `--tap`,
+ * a floor rather than a height - and as wide as the row it is handed, which
+ * since the reflow is two numbers and not one. `Carried` and `Lineage &
+ * domains` get the column whole: 369px on a 393px phone, and there the header
+ * is the largest target on the screen and the only one that can be hit without
+ * looking. The four folds this column pairs two-up get half a cell - 181.5px
+ * at 393 and 165 at 360, measured rather than divided out - which is under
+ * half of that and smaller than ROLL (317x56) on both axes.
+ *
+ * That second number is not a footnote to this rule, it is the reason
+ * `stacked` exists: a header with half the width has to spend the headroom
+ * under its line to go on saying what is inside it. See the prop.
  *
  * And the state is remembered per character, in `prefs`, so the sheet a player
  * arranged is the sheet they come back to. It is deliberately not on the
@@ -65,9 +73,21 @@ interface Props {
    * that headroom was for. It is not free HORIZONTALLY, and exactly one fold
    * proves it: `Carried`'s worst summary, measured in Chrome with the
    * `wizard10` fixture whose purse spans all three denominations, is 257.41px
-   * at 10 with a right edge of 364.61 in a 369px column - 4.39px of slack. At
-   * 11 the same line is ~283 and its right edge lands past 390, so it
-   * ellipsises at the reference width and the gold is the half that goes.
+   * at 10. The row that carries it wants 350.61 of the button's 365px content
+   * box - 8 of marker, 53.2 of `CARRIED`, three 8px gaps and the spacer at its
+   * 8px minimum - so the slack is **14.39px**, and the summary's own right edge
+   * is 379, flush against the column. At 11 the same line is 283.14 and wants
+   * 376.34 of that 365, which would land its right edge at 390.34; it
+   * ellipsises at the reference width instead, and the gold is the half that
+   * goes.
+   *
+   * FOURTEEN AND NOT FOUR, WHICH THIS SAID FOR TWO PASSES. `364.61` - the
+   * number in the paragraph at the top of this file - is where the right edge
+   * fell while the span was still `flex: none`, counted from the left of the
+   * glass, and it already contains the column's 12px of padding and this
+   * button's 2px. Subtracting it from the column's own 369 pays for those 14
+   * pixels twice and reports under a third of the room that is there. The two
+   * are not comparable: one is an offset and the other is a width.
    *
    * That is the one thing this component exists to prevent, so `Carried` opts
    * back down rather than the raise being abandoned for all six. The exception
