@@ -92,7 +92,8 @@
  * same tool at the same caps surfaces 12, 39%. Both runs are of this file at
  * this commit; the spread between them is the matching rule, not the tool.
  *
- * At the default caps, then, it surfaces **14 of the 30: 47%.** Lift the place budget entirely and it is 16 of 30, 53%. Turn
+ * At the default caps, then, it surfaces **14 of the 30: 47%.** Lift the place
+ * budget entirely and it is 16 of 30, 53%. Turn
  * `--common` off as well and it is 29 of 30 - which is the useful thing to know
  * about the misses, and the uncomfortable one: they are nearly all *found* and
  * then *suppressed*, not missed. Of the 16 it does not print by default, 13 are
