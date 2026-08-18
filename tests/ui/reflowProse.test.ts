@@ -612,13 +612,32 @@ describe('the prose the reflow left behind', () => {
     'src/ui/player/Vitals.tsx',
     'tests/ui/playSheet.test.tsx',
   ])('%s quotes the defence band template Play.tsx declares', (file) => {
+    /*
+     * EVERY backticked one, and not just one of them. `toContain` stood here
+     * and a file with two copies passed on the strength of the good one, which
+     * is precisely the shape of defect this file exists for.
+     *
+     * The convention that makes this workable: backticks are the LIVE template.
+     * A paragraph recording a template the band used to have writes it without
+     * them - `tokens.css` and `Play.tsx` both have such a sentence - so the
+     * quoted ones are all claims about what the band is now.
+     */
+    const quoted = [...prose(file).matchAll(/`(auto repeat\(3,[^`]*)`/g)].map((m) => m[1]!);
     expect(
-      prose(file),
-      `${file} no longer quotes \`${bandTemplate()}\`, which is the template the band is drawn ` +
-        'with. Either it says an older one - `auto repeat(3, 1fr) auto` is the one that was ' +
-        'wrong in three files at once - or the wording moved and this list should name a ' +
-        'different file.',
-    ).toContain(`\`${bandTemplate()}\``);
+      quoted.length,
+      `${file} no longer quotes a template starting \`auto repeat(3,\` at all. Either the ` +
+        'wording moved - re-point this list at it - or the sentence went, in which case say ' +
+        'here that it did and why.',
+    ).toBeGreaterThan(0);
+    for (const said of quoted) {
+      expect(
+        said,
+        `${file} quotes the defence band as \`${said}\`. \`Play.tsx\` declares ` +
+          `\`${bandTemplate()}\`. \`auto repeat(3, 1fr) auto\` is the one that was wrong in ` +
+          'three files at once, and a template the band used to have belongs in a sentence ' +
+          'without backticks round it.',
+      ).toBe(bandTemplate());
+    }
   });
 
   /*

@@ -284,9 +284,12 @@
    * taken from a neighbour: the row is `auto repeat(3, minmax(min-content, 1fr))
    * auto`, so the fifth track is exactly this field, the door and the 6px
    * between them, and widening it takes the twenty out of the three shared
-   * tracks instead. (`auto repeat(3, 1fr) auto` stood here - the template
-   * `playSheet.test.tsx` asserts is the `minmax` one, and the `min-content`
-   * floor is what stops MAJOR's cell painting its label over its neighbour.)
+   * tracks instead. (This said auto repeat(3, 1fr) auto, without the minmax and
+   * without the floor - written here without backticks because backticks are
+   * the live template, which is what `reflowProse.test` holds every file that
+   * quotes it to. `playSheet.test.tsx` asserts the declaration, and the
+   * `min-content` floor is what stops MAJOR's cell painting its label over its
+   * neighbour at 320.)
    *
    * IT STEPS BECAUSE 360 CANNOT AFFORD IT. `playSheet.test`'s width budget sums
    * the widest row this sheet draws, and at 64 the band needs a 372.47px
