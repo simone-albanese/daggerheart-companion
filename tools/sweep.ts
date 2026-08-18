@@ -84,9 +84,14 @@
  * classifier does not separate those from the rest because it does not need
  * to: every line of a new file is a changed line, so both are invisible by the
  * same rule that keeps this tool from reading a lane its own edit back. That
- * classifier is one pass, it lives in the harness rather than here, and its
- * whole rule is that a finding is out of scope when every line the reviewer
- * cited is absent from the base tree.
+ * classifier is one pass, it lives in the harness rather than here, and it
+ * decides nine of the seventeen: a finding falls out by rule when every line
+ * the reviewer cited is absent from the base tree. The other eight - the two
+ * test names, the two tests that cannot fail, the mutation kill count, the
+ * ergonomics judgement, the forbidden-area declaration and the control-flow
+ * reading - are declared out by hand, one at a time, each with its own written
+ * reason. So 31 is not a mechanically derived denominator: eight judgements
+ * sit inside it, and the itemised list above is the place to argue with them.
  *
  * That leaves **31 in scope**, and every figure below is out of 31. Two
  * scoring rules are used, and they are named on every figure rather than mixed
@@ -140,12 +145,18 @@
  *
  * So the caps are the tool's honesty and also its ceiling. That is a real
  * trade and it is stated here rather than tuned away: the report that carries
- * all of the answer runs to between 23,000 and 33,000 lines on these five
+ * all of the answer runs to between 33,338 and 41,683 lines on these five
  * diffs, which is not a check, it is the tree. If a diff is small, or the
  * stakes are high, `--common 100 --max-places 1500` buys 18 of 31 on the
- * paragraph rule - 58%, four findings over the default - for about ten times
- * the reading. Lifting `--max-hits` too is what buys the remaining nine, and
- * it is also what makes the report unreadable.
+ * paragraph rule - 58%, four findings over the default - for two and a half to
+ * four times the reading: 552, 515, 499, 548 and 491 lines at the defaults
+ * against 1,330, 1,809, 1,820, 1,369 and 1,973 on the same five. Counted in
+ * places, which is the unit this file argues a budget should be counted in,
+ * that is 150 against 477 to 760 - three to five times - and the point of the
+ * spread is that the recommended run never fills the 1500 it is given, so ten
+ * times the budget is not ten times the reading. Lifting `--max-hits` too is
+ * what buys the remaining nine, and it is also what makes the report
+ * unreadable.
  *
  * These figures are one corpus of 48 findings, from one evening, on one
  * repository, scored by a harness that lives outside it. They are not a
@@ -182,10 +193,13 @@
  *    nothing either way: `--code` surfaces the same 12 of 31 on the exact line
  *    and the same 14 on the paragraph rule. What it changes is the haystack,
  *    and that measurement is worth having in front of you rather than the
- *    intuition: of the 828,258 tokens in the 330 searchable files of this
- *    tree, 591,955 - 71% - already sit inside a prose span, because the tree
- *    is mostly documentation and docblocks. `localStorage` is on 167 lines of
- *    it and 100 of those are prose. So omitting `--code` does not buy a much
+ *    intuition, measured over the tree at `4b59d5a` and pinned to that commit
+ *    on purpose - this file is inside the corpus these numbers count, so
+ *    writing them down moves them, and an undated "this tree" goes stale in
+ *    the commit that trues it: of 829,081 tokens in 330 searchable files,
+ *    592,771 - 71.5% - already sat inside a prose span, because the tree is
+ *    mostly documentation and docblocks. `localStorage` was on 167 lines of
+ *    it and 100 of those were prose. So omitting `--code` does not buy a much
  *    smaller haystack; it buys a different one. A hit in a sentence is a claim
  *    somebody can be wrong about. A hit on a call site is not.
  *
@@ -977,8 +991,13 @@ export function sweep(
   // windows of one quoted test name are one test name, not seven. So every
   // phrase counts once for the line, and a test name counts once per test
   // name - `claim.label` is the name itself, shared by all its windows. Every
-  // other kind is counted per term, which does mean a line writing `393px`
-  // counts the `measure` and the `number` separately.
+  // other kind is counted per term, which does mean one tree line can count
+  // the same digits twice - but only when the diff wrote them twice. A diff
+  // that touches `393px` on one line and a bare `393` on another yields a
+  // `measure 393` and a `number 393`, and a tree line saying `393px` names
+  // both, multiplicity 2. `393px` on its own cannot: `NUMERIC` needs a word
+  // boundary after the digits, so it never fires inside a united measure, and
+  // that line comes back with multiplicity 1.
   const perLine = new Map<Hit, Set<string>>();
   for (const [claim, hits] of found) {
     const key =
@@ -1001,8 +1020,10 @@ export function sweep(
     let kept = hits;
     let narrowed = false;
     if (kept.length > opts.common) {
-      // Not simply dropped. `64` is on 87 lines of this tree and 75 of those
-      // are prose, so as a term of its own it is a word rather than a pointer.
+      // Not simply dropped. `64` was on 84 lines of the tree at `4b59d5a` and
+      // 72 of those were prose - pinned to a commit for the reason the header
+      // gives, since this file is one of the files counted - so as a term of
+      // its own it is a word rather than a pointer.
       // But a line that says it *and* two more of the things this diff changed
       // is a copy of the paragraph being rewritten whatever the term's own
       // frequency. Keep the lines that name at least `NARROW_AT` of the diff's

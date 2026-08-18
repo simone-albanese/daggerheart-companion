@@ -184,6 +184,15 @@ describe('what a diff claims', () => {
     );
   });
 
+  it('takes a mixed-case name out of prose that never puts it in backticks', () => {
+    // The declaration and backtick classes both have their own case above.
+    // This is the third route to an `identifier`: prose that names a symbol
+    // plainly. Without it the branch that mines names out of prose can be
+    // deleted whole and this file stays green - the shouted-word case below
+    // asserts an absence, so it passes when the extractor is gone.
+    expect(termsOf('identifier', '+ * the panelWidth guard is off by one')).toContain('panelwidth');
+  });
+
   it('does not mistake a shouted English word in prose for an identifier', () => {
     expect(termsOf('identifier', '+ * THAT is WHICH and nothing else')).toEqual([]);
   });
