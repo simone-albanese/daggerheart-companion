@@ -42,6 +42,27 @@
  * 369 IS held, but against this region's own padding rather than against a
  * number - and held precisely so that the next sweep, finding a 369 two files
  * from a 367, does not "correct" the one that was right.
+ *
+ * ## Three sites this lane cannot reach, written down so they are not lost
+ *
+ * The sweep behind this file ran across `src` and `tests`. Three retired
+ * figures are still live in the repo's top-level `.md`, which this lane is
+ * forbidden to edit, so they are named here for whoever can:
+ *
+ *   - `Architecture.md:903` - "~143px dei 551 della lista". 551 is retired:
+ *     `SessionList.tsx:34` measures 548.00 of list, and `Gm.tsx` keeps "551px
+ *     of list" only as a record of what was wrong. The 143 beside it is the
+ *     figure `Gm.tsx` demotes to never measured.
+ *   - `HANDOFF.md:350` - "126px of the 653 that is not shell header". 653 is
+ *     retired by `SessionList.tsx:85-87`, which says the share was wrong in
+ *     both halves and that the band is 752.00. The 126 itself is a measured
+ *     licence-footer height and is fine.
+ *   - `HANDOFF-2026-08-18.md:1038` - costs the row step at 60px and the topic
+ *     strip at 94px on two rows. `SessionList.tsx:37` measures the step at
+ *     62.00 and `Reference.tsx:70` the strip at 144.00 on three rows.
+ *
+ * None of the three is asserted below: a test that goes red on a file nobody
+ * in this lane may touch is a test that cannot be made green.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
