@@ -646,7 +646,16 @@ con il suo ramo `oldVersion < 2`. È il primo secondo ramo che questo database
 abbia mai avuto, e il test che lo copre parte da un database di versione 1 con
 un personaggio dentro e verifica che il personaggio ci sia ancora dopo l'upgrade.
 
-**L'unica eccezione, e perché è una sola.** P5-3 ha allargato `GmRegion` con
+**L'eccezione, e perché riguarda un campo e non un conteggio.**
+*[Riscritta il 18 agosto. Il titolo era «l'unica eccezione, e perché è una sola»,
+e il generatore di nomi lo ha reso falso aggiungendo `'names'` a `GmRegion` —
+il secondo allargamento senza bump. **L'argomento sotto non è cambiato di una
+virgola**, ed è la ragione per cui il titolo era la parte sbagliata: non ha mai
+dipeso dall'essere sola. È una licenza permanente per `board.region`, fondata su
+cosa quel campo porta, e vale per il valore numero due esattamente come per il
+numero uno. Un secondo campo, invece, resterebbe vietato.]*
+
+P5-3 ha allargato `GmRegion` con
 `'reference'` senza alzare `CAMPAIGN_SCHEMA_VERSION`. Sulla carta è proprio ciò
 che questa sezione vieta: una build vecchia legge un record che dice
 `region: 'reference'`, `readBoard` non riconosce il valore e ripiega su
@@ -657,7 +666,12 @@ vecchia avrebbe comunque rimpiazzato al primo strumento aperto, che non porta
 sessione, campagna né tiri. Ogni altro campo del record sopravvive intatto, e il
 fallback che lo rende sopravvivibile è esattamente il convertitore che altrimenti
 sarebbe stato obbligatorio. Vale per questo campo e per nessun altro: un campo
-che porta *dati* non può essere allargato così.
+che porta *dati* non può essere allargato così. E vale per **quanti valori
+servono**: `'names'` è arrivato dopo `'reference'` e non cambia niente
+dell'argomento, perché il costo di una build vecchia che non riconosce il valore
+è lo stesso — ripiega su `'encounter'` e riscrive quale strumento era aperto.
+Chi aggiunge il terzo non deve chiedersi se «l'eccezione è ancora una»: deve
+chiedersi se sta allargando **questo** campo o un altro.
 
 ### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
 

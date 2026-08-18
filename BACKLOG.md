@@ -1213,8 +1213,15 @@ an explicit choice rather than an accident.
 - [ ] **The SRD is a static import of the entry chunk**: 909,900 B raw /
       250,348 B gzip on the boot critical path before the app can paint its
       loading mark. Evaluation itself is cheap; the download is not.
-- [ ] **The QR stack** (194 KB raw / 71 KB gzip, 130 KB of it jsQR) is a static
-      import of both Gm and Settings. Load it when the transfer screen opens.
+- [x] ~~**The QR stack** (194 KB raw / 71 KB gzip, 130 KB of it jsQR) is a static
+      import of both Gm and Settings. Load it when the transfer screen opens.~~
+      — **done, `0e7d1a2`**, and the premise needed correcting first: the built
+      bundle already split it, so the entry chunk was never carrying it. What
+      was true is that `PartyBoard.tsx` still imported it **in source**, so the
+      property held by the bundler's choice rather than by construction. The
+      static import is gone, `PartyScanner.tsx` carries the measured size once
+      (194.92 KB raw / 71.86 KB gzip, from `vite build`), and
+      `tests/harness/staticImports.test.ts` fails if either import comes back.
 
 ---
 
@@ -1444,12 +1451,17 @@ So this is one fix in two places, not a divergence.
       focusable of 81. The listener returns early when a `[role="dialog"]` is in
       the document: without that check one Escape closed a loadout card **and**
       the keypad under it (`6c57c01`).
-- [ ] **The damage slots are still one way out.** `DamageRoll.tsx:371` is
+- [x] ~~**The damage slots are still one way out.** `DamageRoll.tsx:371` is
       `{editing === null ? faces : grid}` with no cancel, no backdrop and no
       Escape handler. The two gestures have now diverged, which this entry said
       in as many words they must not; closing it is a `DamageRoll.tsx` change and
       belongs to whichever lane owns that file. **Do not strike this entry as a
-      whole** — half of it shipped and half of it did not.
+      whole** — half of it shipped and half of it did not.~~ — **done, `ed8d2fa`.**
+      The halves match: the grid takes a labelled row with an `×`, carries
+      `aria-keyshortcuts="Escape"`, and the Escape listener is `DamageRow`'s on
+      `window` under the same guard the card reader uses, so one key does not
+      close a card and the keypad under it. **This entry can now be struck as a
+      whole** — the sentence above forbidding that was true until this landed.
 
 ### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~
       — **done, `54da813`, `e70abba`, `13981ff`; finished by P5-7, `965d419`**
