@@ -379,15 +379,27 @@ export function Vitals({
  * OF ITS OWN. Decision 3 of the reflow needs a permanent 44x44 way into
  * `ConditionsDialog` somewhere that costs the column no height, and the identity
  * class row that used to hold it is being deleted. A sixth grid track does not
- * fit - measured, the four auto cells are 210.47 wide and four 6px gaps are 24,
- * so a fifth cell of 44 + 6 + `--damage-w` is 94 below viewport 390 and 114
- * from 390 up, and a sixth of 44 behind a fifth 6px gap takes 398.47 of column
- * against 369 at 393px and 378.47 against 336 at 360 - so the door goes
- * *inside* the fifth cell, and what it replaces is the visible word `TOOK`.
+ * fit - measured, the four number cells come to 210.47 at their content width
+ * and four 6px gaps are 24, so a fifth cell of 44 + 6 + `--damage-w` is 94
+ * below viewport 390 and 114 from 390 up, and a sixth of 44 behind a fifth 6px
+ * gap takes 398.47 of column against 369 at 393px and 378.47 against 336 at
+ * 360 - so the door goes *inside* the fifth cell, and what it replaces is the
+ * visible word `TOOK`.
+ *
+ * CONTENT WIDTH IS THE RIGHT FIGURE FOR THAT SUM AND IS NOT WHAT THE FOUR ARE
+ * DRAWN AT. Under `auto repeat(3, minmax(min-content, 1fr)) auto` only
+ * EVASION's track is `auto`; the middle three are flexible and take a share of
+ * whatever the band has over 210.47, so at 393 they are painted wider than
+ * their contents - which is exactly why PROF's digits land 80 to 348px from
+ * the field in the table below rather than at one fixed offset. 210.47 is the
+ * floor, and the sixth track does not fit even against the floor.
  * (`229.63` and `391.63`
  * stood here, and `Defenses`'s own width budget in `Play.tsx` and
  * `playSheet.test.tsx`'s «the width this sheet is laid out for» have carried
- * 210.47 and 398.47 since the padding came down to 6.)
+ * 210.47 and 398.47 since the padding came down to 6. `the four **auto** cells`
+ * stood here too; it was true of `auto auto auto auto 1fr`, and 3dff11f closed
+ * the band's hole by making the middle three flexible and the fifth `auto`, so
+ * it has been true of EVASION alone since.)
  *
  * WHICH IS A REAL LOSS AND IS THE ONLY ONE. The field's visible identity is now
  * its `14` placeholder and its position beside the thresholds; its accessible

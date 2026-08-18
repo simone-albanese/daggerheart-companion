@@ -1430,9 +1430,12 @@ describe('the budget the pin came off for', () => {
    * `tokens.css` rather than written down.
    *
    * The docblock above lists five ordinary states this table cannot see, and
-   * the dearest of them - typed dice, at +68 - leaves 177. It was six, and the
-   * dearest was pips at +100, until decision 7 took the pip tracks off this
-   * sheet.
+   * the dearest of them - typed dice, at +68 - leaves 153 of the 221 the
+   * assertion below reads. It was six, and the dearest was pips at +100,
+   * leaving 121, until decision 7 took the pip tracks off this sheet. (`177`
+   * stood here against a slack of 245; the slack became 221 in the same pass
+   * that left this line alone, and 245 - 68 is the only reading it was ever
+   * true of.)
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);
@@ -2157,9 +2160,11 @@ describe('the conditions, drawn only when there are any', () => {
      * It stood at the end of the identity's class row until decision 2 deleted
      * that block, and the report's prose asked for "a sixth cell" of the band -
      * which does not fit at any phone width: the four cells and their gaps are
-     * 234.47, a fifth of 44 + 6 + `--damage-w` is 94 below viewport 390 and 114
-     * from 390 up, and a sixth of 44 plus a gap is 50, against 369px of column
-     * at 393. So the assertion is the shape that was
+     * 234.47 at the cells' content width - the least they can take, three of
+     * the four being `minmax(min-content, 1fr)` tracks that grow past it when
+     * the band has slack - a fifth of 44 + 6 + `--damage-w` is 94 below
+     * viewport 390 and 114 from 390 up, and a sixth of 44 plus a gap is 50,
+     * against 369px of column at 393. So the assertion is the shape that was
      * measured: the door's own row is the row holding the incoming-damage
      * field, and that row's parent is the element declaring the band's grid.
      */

@@ -458,8 +458,12 @@ export function ActiveConditions({
  * the 64 that stood here is the cockpit's band, where this control is not drawn.
  *
  * THE WIDTH IS WHAT THAT COSTS, AND IT IS MEASURED RATHER THAN ASSUMED. The four
- * number cells are 210.47 wide at 6px of side padding with the number at 32px,
- * and four 6px gaps are 24, so the four of them and their gaps are 234.47. The
+ * number cells come to 210.47 at their content width - 6px of side padding
+ * round a 32px number, and the same 3dff11f that made the fifth track `auto`
+ * made the middle three `minmax(min-content, 1fr)`, so at 393 they are drawn
+ * wider than that and share the band's slack; 210.47 is the floor this sum
+ * needs, not the width anything is painted at. Four 6px gaps are 24, so the
+ * four of them and their gaps are 234.47 at that floor. The
  * fifth track was `1fr` and therefore the whole remainder of the column until
  * 3dff11f made it `auto`; it is exactly the pair now - this control at 44, a 6px
  * gutter and `--damage-w` - and it measures **114** from viewport 390 up, where
