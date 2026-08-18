@@ -140,8 +140,8 @@
  * 3. **Prose first.** The defect is prose, so comments, string literals and
  *    `.md` are searched and code is not, unless `--code` says otherwise. This
  *    is not the volume filter it sounds like, and the measurement is worth
- *    having in front of you rather than the intuition: of the 827,137 tokens
- *    in the 330 searchable files of this tree, 590,940 - 71% - already sit
+ *    having in front of you rather than the intuition: of the 828,258 tokens
+ *    in the 330 searchable files of this tree, 591,955 - 71% - already sit
  *    inside a prose span, because the tree is mostly documentation and
  *    docblocks. `localStorage` is on 167 lines of it and 100 of those are
  *    prose. So omitting `--code` does not buy a much smaller haystack; it
@@ -931,7 +931,7 @@ export function sweep(
     let kept = hits;
     let narrowed = false;
     if (kept.length > opts.common) {
-      // Not simply dropped. `64` is on 88 lines of this tree and 76 of those
+      // Not simply dropped. `64` is on 87 lines of this tree and 75 of those
       // are prose, so as a term of its own it is a word rather than a pointer.
       // But a line that says it *and* two more of the things this diff changed
       // is a copy of the paragraph being rewritten whatever the term's own
