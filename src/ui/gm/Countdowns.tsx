@@ -19,6 +19,44 @@
  * moves that a hand did not move. The four cells the SRD gives no number for
  * are printed and are not buttons.
  *
+ * ## The shelf makes clocks; it still never moves one
+ *
+ * A template is a countdown the GM set up once — a name, a kind, a starting
+ * number — and drops on the table as many times as the evening needs. Its home,
+ * and why it is not a field on the campaign record, is argued at length in
+ * `countdownTemplates.ts`. What matters on this screen is that dropping one
+ * creates a clock and nothing else: it does not advance one, it does not pin
+ * one, and it does not touch a clock dropped from the same template ten minutes
+ * ago. The paragraph at the top of this file is untouched by it.
+ *
+ * Two gestures, two sizes, on purpose. Both are on a full-width row, so both
+ * are inside the arc of the thumb already holding the phone; what separates
+ * them is how much of that row each one gets. DROP takes all of it but the
+ * corner, because dropping is what the shelf is for and it is aimed at while
+ * somebody is talking. The ✕ that forgets a template is the corner, because a
+ * mis-tap on DROP costs one tap to undo — the new row's own ✕ — and a mis-tap
+ * on forget costs the GM something they typed. It sits at the trailing edge
+ * because that is where every other destructive control on this screen already
+ * sits, and a delete that moves is worse than a delete that is reachable.
+ *
+ * Both declare their height inline: jsdom reads inline styles only, so a floor
+ * set in a class is a floor no test can see. DROP is `--tap`, a flat 44px on
+ * every pointer; the ✕ is `--control`, which `tokens.css` drops to 34px only on
+ * a window at least 1180px wide with a fine pointer, and holds at the 44px
+ * floor everywhere a thumb can reach the glass — width as well as height, since
+ * a 34px-wide target under a thumb is under the floor however tall it is.
+ *
+ * Where it goes, and the gesture that is *not* on it. The shelf shares a column
+ * with NEW COUNTDOWN and sits above it — on a phone that column is under the
+ * running clocks, on a wide window it is the rail beside them. Either way the
+ * clocks keep the top, and that is the ergonomic decision rather than an
+ * accident of the grid: ±1 on a running clock is the gesture of the scene and
+ * must not move, while dropping a template happens between scenes, when a
+ * scroll costs nothing. The shelf draws nothing at all until there is something
+ * on it — an empty shelf would be a permanent panel teaching a feature by
+ * taking height away from the clocks, and KEEP AS TEMPLATE is on the form
+ * below, where the teaching belongs.
+ *
  * ## The four hints below are the app's own words, and stay that way
  *
  * `KINDS` describes what each kind of countdown *is for*, in a sentence short
@@ -36,6 +74,7 @@
 import { useState } from 'react';
 import { type Countdown, type CountdownKind } from '../../engine/encounter.ts';
 import { Fold } from '../shared/Fold.tsx';
+import { useCountdownTemplates, type CountdownTemplate } from './countdownTemplates.ts';
 import { Stepper } from './Encounter.tsx';
 import { FearBoard } from './FearPool.tsx';
 import { useGm } from './gmStore.ts';
@@ -106,21 +145,131 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
             </div>
           )}
         </div>
-        <NewCountdown />
+        <div className="stack" style={{ gap: 10, minWidth: 0 }}>
+          <TemplateShelf />
+          <NewCountdown />
+        </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The shelf, and nothing where the shelf would be when it is empty.
+ *
+ * `null` rather than an empty-state panel: this screen already spends a panel
+ * on "No countdowns", and a second one saying "no templates either" would take
+ * height from the clocks to teach a feature the form below teaches by having a
+ * button on it.
+ */
+function TemplateShelf(): React.JSX.Element | null {
+  const templates = useCountdownTemplates((s) => s.templates);
+  if (templates.length === 0) return null;
+
+  return (
+    <section className="panel stack" style={{ flex: 'none', padding: 12, gap: 9 }}>
+      <div className="spread">
+        <span className="t-label">Templates</span>
+        <span className="t-meta" style={{ color: 'var(--muted)' }}>{templates.length} KEPT</span>
+      </div>
+      <div className="stack" style={{ gap: 7 }}>
+        {templates.map((t) => (
+          <TemplateRow key={t.id} template={t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One template: a wide DROP and a narrow forget.
+ *
+ * The drop calls the same `addCountdown` the ADD button below calls, so a clock
+ * made from a template is a clock, with its own id and its own number, and the
+ * template it came from is not recorded on it.
+ *
+ * It discards the id that action hands back, and so does ADD on this screen —
+ * the one caller in the app that keeps it is `AddSheet.tsx`'s countdown form,
+ * which needs it for `setPrimaryCountdown(id)` when its PIN switch is on.
+ * Nothing here offers that switch, because a GM dropping the third clock of the
+ * evening has not asked for the top bar to change. Pinning stays where it
+ * already is — "PIN IT TO THE TOP BAR" on the session row itself — rather than
+ * becoming a second switch on a shelf whose whole gesture is one tap.
+ *
+ * Heights are inline because a test can only read them there; the two tokens
+ * are argued in this file's header.
+ */
+function TemplateRow({ template }: { template: CountdownTemplate }): React.JSX.Element {
+  const add = useGm((s) => s.addCountdown);
+  const forget = useCountdownTemplates((s) => s.forget);
+  const t = template;
+  const color = COUNTDOWN_KIND_COLOR[t.kind];
+
+  return (
+    <div className="row" style={{ gap: 7 }}>
+      <button
+        type="button"
+        onClick={() => add(t.name, t.kind, t.start)}
+        aria-label={`Drop a countdown from the template ${t.name}`}
+        className="btn"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 'var(--tap)',
+          justifyContent: 'flex-start',
+          gap: 8,
+          padding: '0 10px',
+          borderLeft: `3px solid ${color}`,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            textAlign: 'left',
+            font: '700 14px/1.2 var(--sans)',
+          }}
+        >
+          {t.name}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color }}>
+          {t.kind.toUpperCase()}
+        </span>
+        <span className="t-meta" style={{ flex: 'none' }}>FROM {t.start}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => forget(t.id)}
+        aria-label={`Forget the template ${t.name}`}
+        className="t-meta"
+        style={{
+          flex: 'none',
+          width: 'var(--control)',
+          minHeight: 'var(--control)',
+          color: 'var(--dim)',
+        }}
+      >
+        ✕
+      </button>
     </div>
   );
 }
 
 function NewCountdown(): React.JSX.Element {
   const add = useGm((s) => s.addCountdown);
+  const keep = useCountdownTemplates((s) => s.keep);
+  const templates = useCountdownTemplates((s) => s.templates);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<CountdownKind>('standard');
   const [start, setStart] = useState(4);
+  const trimmed = name.trim();
+  const kept = templates.some((t) => t.name === trimmed && t.kind === kind && t.start === start);
 
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
-    const trimmed = name.trim();
     if (trimmed === '') return;
     add(trimmed, kind, start);
     setName('');
@@ -162,12 +311,43 @@ function NewCountdown(): React.JSX.Element {
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={name.trim() === ''}
+          disabled={trimmed === ''}
           style={{ flex: 1, alignSelf: 'flex-end' }}
         >
           ADD
         </button>
       </div>
+      {/*
+        The three fields above *are* a template — a name, a kind and a starting
+        number — so KEEP is the same form read the other way, and it clears
+        nothing. A GM who wants this clock on the table tonight as well presses
+        ADD next, with the fields still filled.
+
+        The label is the receipt, and it has to be, because the shelf is not.
+        The row a keep produces appears above this whole form, and on a phone
+        that is above the fold this button is at the bottom of - so a shelf row
+        is a confirmation the GM would have to go and look for. Saying it here
+        is the same idiom the session row already uses for "PINNED TO THE TOP
+        BAR" against "PIN IT TO THE TOP BAR": the control states which of the
+        two states it is in rather than only what it does.
+
+        Inert while it says KEPT, rather than enabled and quietly idempotent.
+        `keep` returns the existing id for a triple that is already on the
+        shelf, so a second press does nothing either way - and a button that
+        can be pressed and does nothing is the worse of the two lies.
+
+        `type="button"`, because a `<button>` inside a `<form>` submits by
+        default and this one must not start a countdown.
+      */}
+      <button
+        type="button"
+        onClick={() => keep(name, kind, start)}
+        disabled={trimmed === '' || kept}
+        className="btn"
+        style={{ minHeight: 'var(--tap)' }}
+      >
+        {kept ? 'KEPT AS A TEMPLATE' : 'KEEP AS TEMPLATE'}
+      </button>
     </form>
   );
 }

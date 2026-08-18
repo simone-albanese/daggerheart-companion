@@ -24,6 +24,14 @@
  * A count that undercounts the destruction is the defect being fixed, wearing
  * the fix's clothes. `tests/store/campaignDb.test.ts` pins the store half.
  *
+ * The last describe here is about the other half of the promise: not what the
+ * screen says it will erase, but what the handler erases. About sweeps by
+ * prefix rather than by the list its docblock writes out, and the whole point
+ * of that choice is a key nobody remembered to add - so one case runs the
+ * handler with such a key present. It is the one case in this file that needs
+ * the platform `localStorage` instead of `MemoryStorage`, for the reason it
+ * states.
+ *
  * What jsdom cannot see: none of this is a layout claim. The Note's 313px text
  * column and the 17.25px a wrapped line costs are argued in About.tsx's own
  * comment and were measured in Chrome, not here.
@@ -386,5 +394,88 @@ describe('the list read before the button is armed', () => {
     // the consequence rather than the contents.
     await renderAbout();
     expect(text()).toContain('There is no undo and no copy anywhere else.');
+  });
+});
+
+describe('the sweep the button actually performs', () => {
+  it('takes a `dhc.` key nobody told it about, and leaves the rest of the origin alone', async () => {
+    /*
+     * `reset()`'s docblock lists the localStorage keys and then says the list is
+     * there to be read rather than iterated, because a list written out in code
+     * is how the *next* key survives the button that promises to remove
+     * everything. `dhc.gm.countdownTemplates.v1` is now that next key: it
+     * arrived with the countdown template shelf, it is named nowhere in the
+     * handler, and the docblock claims the prefix sweep took it anyway. That is
+     * a claim about code that runs, so it is proved by running it.
+     *
+     * The real `localStorage` rather than `MemoryStorage`, and this is the one
+     * case in the file that needs it. The sweep iterates `Object.keys(
+     * localStorage)`, which works on the real one because `Storage` exposes its
+     * entries as named properties; on the shim - a private `Map` behind four
+     * methods - `Object.keys` returns *the methods*, so a sweep run against it
+     * would remove nothing and pass anything. A shim standing in for the object
+     * under test is how a proof becomes decoration.
+     *
+     * `location.reload` is the last line of the handler and jsdom refuses to
+     * navigate. The refusal lands after the sweep, in the browser's own
+     * console, and changes nothing that is asserted here.
+     */
+    vi.unstubAllGlobals();
+    expect(
+      typeof globalThis.localStorage,
+      'this case needs the platform Storage rather than the Map shim, because the ' +
+        'sweep it proves reads `Object.keys(localStorage)`',
+    ).toBe('object');
+    localStorage.clear();
+    localStorage.setItem('dhc.gm.countdownTemplates.v1', '[{"id":"t","name":"The tide turns"}]');
+    // The control: a key the docblock does name. If this survived, the sweep
+    // did not run at all and the assertion below would be proving nothing.
+    localStorage.setItem('dhc.gm.v1', '{"fear":3}');
+    // Not ours, and the sweep is a prefix and not a `clear()`: a reset that
+    // emptied the whole origin would take another app's key off this device.
+    localStorage.setItem('unrelated.v1', 'someone else’s');
+
+    await renderAbout();
+    await arm();
+
+    const field = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Type ERASE to confirm"]',
+    )!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setter?.call(field, 'ERASE');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      button('Erase everything').click();
+    });
+    /*
+     * `reset()` is a promise chain over IndexedDB and hands back no handle, so
+     * the wait is on a signal rather than on a count of turns. A fixed number
+     * of turns is what this case had first, and it passed alone and failed in
+     * the full suite: `clearAll` takes as many turns of the loop as a loaded
+     * machine makes it take.
+     *
+     * `dhc.gm.v1` is the signal because it is a key the handler *is* told
+     * about, so it goes the moment the sweep runs at all, however the sweep is
+     * written. Every mutation of the sweep still fails below rather than
+     * spinning here: a handler that iterates the written-out list removes this
+     * key too, and one that calls `clear()` removes everything.
+     */
+    for (let turn = 0; turn < 200 && localStorage.getItem('dhc.gm.v1') !== null; turn += 1) {
+      await settle();
+    }
+
+    expect(
+      localStorage.getItem('dhc.gm.countdownTemplates.v1'),
+      'the reset kept a key it was never told about, which is the failure the prefix sweep exists to prevent',
+    ).toBeNull();
+    expect(localStorage.getItem('dhc.gm.v1')).toBeNull();
+    expect(
+      localStorage.getItem('unrelated.v1'),
+      'the reset emptied the whole origin rather than its own prefix',
+    ).toBe('someone else’s');
+
+    localStorage.clear();
   });
 });
