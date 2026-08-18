@@ -1181,13 +1181,18 @@ describe('the trait row and the roll surface', () => {
  * table's `SHEET_BOTTOM` to the pixel, and 710 at 344 and 320, where the trait
  * row and the damage cell each reflow onto a second line.
  *
- * That measurement is the reflow's BASELINE rather than its result. Four steps
+ * That measurement is the reflow's BASELINE rather than its result. Seven steps
  * have landed against it - ROLL's own height back to its content, eight pixels
- * of padding out of the defence band, the trait chip down to the floor, and the
- * counter number up to 26 - and they net to 24, so the table now sums to 594.
- * The measurement above has not been retaken at 594; it is kept because it is
- * what the arithmetic was calibrated against, and the day somebody re-measures
- * in Chrome this is the line that says what to compare against what.
+ * of padding out of the defence band, the trait chip down to the floor, the
+ * counter number up to 26 and then to 38 in a card, the fold summaries up a
+ * pixel with the companion strip turned into a rule, and four folds paired
+ * two-up - and they net to 8 off the sheet and 8 on for the column's new top
+ * padding, so the table sums to 600 with the padding in it. It HAS been
+ * retaken: measured in Chrome at 393x852, the top of the defence band to the
+ * bottom edge of the lineage header is **592.0**, and 592 + this table's
+ * `TOP_PAD` is the 600 it sums to. 524.0 at 375 and at 360, 610.0 at 344 and
+ * 320. (This paragraph said "four steps" and "594" after the fifth, sixth and
+ * seventh had landed.)
  *
  * THE HORIZONTAL BUDGET IS ITS OWN DESCRIBE, BELOW. This one is written for
  * 393x852 and 375x667 and says nothing about width; «the width this sheet is
@@ -1303,11 +1308,13 @@ describe('the budget the pin came off for', () => {
     { what: 'the gap inside the head of the column', px: HEAD_GAP, from: 'dom' },
     /*
      * The one term the reflow SPENDS, and it is read out of `tokens.css` rather
-     * than written here. `--counter-cell` is 48 from viewport 390 up and 44
-     * below, so this block is 102 on the glass this table is written for and 94
-     * on a 360px Android - and the eight pixels are exactly what the defence
-     * band above returned in the same pass, which is why the counters grow
-     * upward and everything below them stays where it was.
+     * than written here. `--counter-cell` is 90 from viewport 390 up and 56
+     * below, so this block is 186 on the glass this table is written for and
+     * 118 on a 360px Android. That is 92 more than the 94 two 44px rows cost,
+     * and everything below it moves down by that much: the four folds paired
+     * two-up are what pays for it. (It was 48 and 44, 102 and 94, for exactly
+     * one commit - the one where the eight pixels were the ones the defence
+     * band above had just returned and the block grew upward into them.)
      */
     {
       what: 'the four counters, a 2x2 grid, both rows at --counter-cell',
@@ -1325,7 +1332,7 @@ describe('the budget the pin came off for', () => {
     // The roll surface is ROLL and nothing else with nothing armed: the
     // Experience chips are a fold below it now and the modifier row is not
     // drawn. ROLL and MODS share this row, so MODS costs the column nothing -
-    // it is 44 wide inside the 66 ROLL was already holding.
+    // it is 44 wide, and it declares the same 56px floor ROLL does.
     //
     // An armed *Experience* costs the column nothing either, and that is not
     // an omission from this table. It is named on ROLL's own second line,
@@ -1904,11 +1911,15 @@ describe('the budget the pin came off for', () => {
  * commonest Android viewport there has ever been; 320 is an iPhone SE 1st
  * generation and a Z Fold cover screen, and it is a width at which this sheet
  * degrades honestly rather than one it is laid out for. Below 356 the trait row
- * is two lines (+62) and below 353 the damage cell is two lines (+30);
+ * is two lines (+48) and below 348 the damage cell is two lines (+38);
  * `Disclosure` summaries truncate with an ellipsis; the counter cells shrink and
  * clip their own labels. Nothing is clipped off the glass, nothing overlaps and
- * no target goes under 44 at any width down to 310 - verified in Chrome at 320,
- * 344, 356, 360, 368, 375, 393 and 744 with two fixtures.
+ * no target goes under 44 at any width down to **298**, where the counter
+ * card's value target is exactly its declared floor - verified in Chrome at
+ * 297, 298, 310, 320, 344, 347, 348, 360, 375, 380, 384, 390, 393 and 744.
+ * (353 and 310 were this paragraph's crossings before the band's template and
+ * the counter card moved them; the band measures 56 at 348x800 and 94 at
+ * 347x800.)
  */
 describe('the width this sheet is laid out for', () => {
   /** The phone column: the glass less this screen's 12px of padding either side. */
@@ -1988,22 +1999,34 @@ describe('the width this sheet is laid out for', () => {
       'the damage field stopped taking the band spare width from 390 up',
     ).toBe(64);
 
-    // 3. THE COUNTER GRID. Two cells at the floor a `Counter` row can be
-    //    squeezed to - the value target's own declared `minWidth` and two 44px
-    //    steppers - plus the grid's one gap. There are no gutters inside the
-    //    row any more: the card is one bordered object and a gap between its
-    //    parts would draw a second boundary, so the floor is 8px narrower than
-    //    it was.
+    // 3. THE COUNTER GRID. Two cells at the floor a `Counter` card can be
+    //    squeezed to - the value target's own declared `minWidth`, two 44px
+    //    steppers and the card's 1px border either side - plus the grid's one
+    //    gap. There are no gutters inside the row any more: the card is one
+    //    bordered object and a gap between its parts would draw a second
+    //    boundary, so the floor is 6px narrower than it was, not 8.
+    //
+    //    THE BORDER IS A TERM AND WAS MISSING. `box-sizing` is `border-box`
+    //    everywhere in this app, so the two pixels are part of the width the
+    //    track has to give the card, and leaving them out put this floor at
+    //    294 where Chrome measures 298: driven at 298x568 the value target is
+    //    exactly its declared 44, and at 297x568 the card is half a pixel
+    //    wider than its track. It changes no verdict - the band's 352.47 is
+    //    still the widest of the three - and a floor stated two pixels short
+    //    is still a floor stated wrong.
     const value = buttons().find((b) => /tap to type a value$/.test(b.getAttribute('aria-label') ?? ''))!;
     const counterRow = value.parentElement!;
     const grid = counterRow.parentElement as HTMLElement;
     const stepper = buttons().find((b) => b.getAttribute('aria-label') === 'HP plus one')!;
     const gutter = Number.parseFloat(counterRow.style.gap);
     const cellFloor =
-      Number.parseFloat(value.style.minWidth) + 2 * Number.parseFloat(stepper.style.width) + 2 * gutter;
+      Number.parseFloat(value.style.minWidth) +
+      2 * Number.parseFloat(stepper.style.width) +
+      2 * gutter +
+      2 * Number.parseFloat(counterRow.style.border);
     const COUNTERS = 2 * cellFloor + Number.parseFloat(grid.style.gap);
-    expect(cellFloor).toBe(132);
-    expect(COUNTERS).toBe(270);
+    expect(cellFloor).toBe(134);
+    expect(COUNTERS).toBe(274);
 
     /*
      * The floor each of them implies, and the largest of the three is the
@@ -2015,7 +2038,7 @@ describe('the width this sheet is laid out for', () => {
     const floors = { trait: floorFor(TRAIT), band: floorFor(BAND), counters: floorFor(COUNTERS) };
     expect(floors.trait).toBe(356);
     expect(Math.round(floors.band * 100) / 100).toBe(352.47);
-    expect(floors.counters).toBe(294);
+    expect(floors.counters).toBe(298);
 
     const SUPPORTED = 360;
     expect(column(SUPPORTED)).toBe(336);
@@ -2122,8 +2145,9 @@ describe('the conditions, drawn only when there are any', () => {
      * It stood at the end of the identity's class row until decision 2 deleted
      * that block, and the report's prose asked for "a sixth cell" of the band -
      * which does not fit at any phone width: the four cells and their gaps are
-     * 234.47, a fifth of 44 + 6 + 44 is 94 and a sixth of 44 plus a gap is 50,
-     * against 369px of column at 393. So the assertion is the shape that was
+     * 234.47, a fifth of 44 + 6 + `--damage-w` is 94 below viewport 390 and 114
+     * from 390 up, and a sixth of 44 plus a gap is 50, against 369px of column
+     * at 393. So the assertion is the shape that was
      * measured: the door's own row is the row holding the incoming-damage
      * field, and that row's parent is the element declaring the band's grid.
      */
@@ -2162,35 +2186,40 @@ describe('the conditions, drawn only when there are any', () => {
   });
 
   /*
-   * And the pair is packed against the numbers, not against the far edge of a
-   * track that is most of a tablet wide.
+   * The pair is packed against the near edge of its own cell - and that is now
+   * less than it sounds, which is why this comment has been rewritten.
    *
-   * The fifth track is `1fr`, so it is the whole remainder of the column:
-   * `viewport - 24 - 234.47`, which is 134.53 at 393 and **920.53 at 1179**.
+   * The fifth track used to be `1fr`, so it was the whole remainder of the
+   * column: `viewport - 24 - 234.47`, 134.53 at 393 and 920.53 at 1179.
    * `PlayPhone` is not phone-only - `Play.tsx` returns it for
    * `layout !== 'desktop'`, so it draws at every width up to 1179, and the
-   * column declares no `maxWidth`. With `justify-content: flex-end` the 94px
-   * pair sat at the far end of that track, putting `viewport - 352.47` of
-   * nothing between the PROF cell and the conditions door: 40.53px at 393,
-   * 391.53 at 744, 780.53 at 1133, 826.53 at 1179. This file's own budget test
-   * above and `Vitals.tsx`'s opening both say the box is beside the ladder it
-   * is read against; at 744 it was 494.73px from SEVERE's right edge.
+   * column declares no `maxWidth`. With `justify-content: flex-end` the pair
+   * sat at the far end of that track, up to 826.53px of nothing between the
+   * PROF cell and the conditions door, and `flex-start` closed that to 103.20
+   * at every width from 353 up.
    *
-   * `flex-start` makes that 103.20px at every width from 353 up - the 6px gap,
-   * PROF's 41.20 cell, another 6px gap, the 44px door and one 6px gutter - and
-   * the slack moves past the end of the band where nothing is read.
+   * THEN THE BAND CLOSED ITS HOLE AND THE TRACK STOPPED BEING FLEXIBLE. It is
+   * `auto repeat(3, minmax(min-content, 1fr)) auto`, so the fifth track is
+   * exactly the door, the gutter and the field - measured in Chrome at 114 from
+   * viewport 390 up and 94 below, at 393, 744 and 1179 alike - and the slack
+   * went to the three readout tracks instead. `flex-start` still holds the pair
+   * at the left of its own cell and that is all it does; measured, SEVERE's
+   * cell edge to the field is 118.47 at 393, 235.47 at 744 and 380.45 at 1179,
+   * where this comment promised 103.20 everywhere. `Vitals.tsx`'s
+   * `IncomingDamage` docblock carries the reach numbers and what they cost.
    *
    * jsdom lays nothing out, so none of those distances is measurable here. The
-   * declaration is, and it is the whole of the change.
+   * declaration is, and it is what this `it` pins.
    */
-  it('packs the damage box against the ladder rather than the far edge of the column', () => {
+  it('keeps the damage box at the near edge of its own cell, which is what is left of that fix', () => {
     play(seed());
     const field = container.querySelector<HTMLInputElement>('input[aria-label="Incoming damage"]')!;
     const cell = field.parentElement as HTMLElement;
     expect(
       cell.style.justifyContent,
-      'the damage box is pinned to the end of a track that is 920.53px wide at 1179, so the ' +
-        'number you were just told and the ladder you read it against are most of a tablet apart',
+      'the damage box is pinned to the end of its own cell. That cell is 114 wide since the ' +
+        'band closed its hole, so this is worth a few pixels rather than the 826.53 it was ' +
+        'worth under flex-end - and it is still the near edge of the two',
     ).toBe('flex-start');
     // The other two declarations on the same line, asserted here so that a
     // later edit cannot trade one for another and still pass: the wrap is what
@@ -3078,8 +3107,9 @@ describe('the roll modifier row', () => {
     }
     expect(armedStrip(), 'the armed strip is drawn with nothing armed').toBeUndefined();
 
-    // What there is instead: one 44x66 control at the right end of the roll
-    // row, which costs no height because ROLL is already 66 tall.
+    // What there is instead: one 44x56 control at the right end of the roll
+    // row, which costs no height because it declares the floor ROLL declares
+    // and the row stretches both to whatever ROLL draws.
     const mods = modsButton();
     expect(mods.getAttribute('aria-expanded')).toBe('false');
     expect(mods.style.width).toBe('44px');
@@ -3601,10 +3631,13 @@ describe('the tendina', () => {
     expect(expandables.length, 'nothing on the sheet expands').toBeGreaterThan(5);
     for (const b of expandables) {
       /*
-       * `var(--tap)` or a number at or above it. MODS declares `minHeight: 66`
+       * `var(--tap)` or a number at or above it. MODS declares `minHeight: 56`
        * because it stands beside a 56px ROLL, and the rule this sweep is about
-       * is the floor rather than the token: a control that clears 44 by
-       * twenty-two pixels has not weakened it.
+       * is the floor rather than the token: a control that clears 44 by twelve
+       * pixels has not weakened it. (It said 66 and twenty-two, which is what
+       * both buttons declared before `8def497` gave ROLL back the ten pixels
+       * its content does not want - and this file has asserted the 56 in two
+       * places since.)
        */
       const declared = b.style.minHeight;
       const value = declared === 'var(--tap)' ? 44 : Number.parseFloat(declared);
@@ -4442,10 +4475,11 @@ describe('rolling the damage the attack earned', () => {
 
     /*
      * Scoped to the roll surface, and that is a correction rather than a
-     * narrowing. `Counter.tsx`'s stepper declares `height: 44` and there are
-     * eight of them on the sheet, so this assertion has never been true of the
-     * whole screen - it passed because the pinned block did not contain the
-     * counters. What it is really about is that nothing on the roll surface
+     * narrowing. `Counter.tsx`'s stepper declares a height - `var(--counter-cell)`
+     * in the two-line row, and `auto` with a 44px floor inside the phone's card,
+     * where the card is the box - and there are eight of them on the sheet, so
+     * this assertion has never been true of the whole screen: it passed because
+     * the pinned block did not contain the counters. What it is really about is that nothing on the roll surface
      * fixes its height except ROLL, and that is what it now says.
      */
     const fixed = targets.filter((b) => b.style.height !== '');

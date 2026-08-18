@@ -49,7 +49,7 @@ export interface Device {
  * The owner's phone: an iPhone 16 Pro, in a Safari tab or installed.
  *
  * 393 is above `--counter-num`'s 390 step, so this is the device where the
- * counter cell is 48 and not 44, and it is the width `playSheet`'s sweeps name
+ * counter cell is 90 and not 56, and it is the width `playSheet`'s sweeps name
  * in their own describe.
  */
 export const PHONE: Device = { glass: 393, coarse: true };
@@ -60,8 +60,9 @@ export const PHONE: Device = { glass: 393, coarse: true };
  * 320 is the bottom row of `--counter-num`'s own table and the width
  * `Counter`'s docblock argues its base size against. A target that clears 44
  * here clears it everywhere, so this - not `PHONE` - is the device a floor
- * sweep asks about. The two differ on exactly one token, which is the point:
- * `--counter-cell` is 44 here and 48 on the phone, and the floor is the 44.
+ * sweep asks about. `--counter-cell` is 56 here and 90 on the phone, and the
+ * floor is neither: the card's steppers declare their own 44, because a height
+ * that comes from a stretch is one no sweep can read.
  */
 export const NARROW: Device = { glass: 320, coarse: true };
 

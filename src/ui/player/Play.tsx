@@ -2703,16 +2703,19 @@ function PlayDesktop({
  *
  * **THE SMALLEST WIDTH THIS SHEET IS LAID OUT FOR IS 360**, and that is a
  * decision rather than a discovery: 360 is the commonest Android viewport there
- * has ever been. The three sums are 332, 328.47 and 286, whose floors are 356,
- * 352.47 and 310, and `playSheet.test.tsx`'s «the width this sheet is laid out
+ * has ever been. The three sums are 332, 328.47 and 274, whose floors are 356,
+ * 352.47 and 298, and `playSheet.test.tsx`'s «the width this sheet is laid out
  * for» carries them the way «the budget the pin came off for» carries the
  * vertical ones. Everything below 360 reflows and nothing breaks: under 356 the
- * trait row is two 44px lines (+48), under 353 the damage cell is two 44px lines
- * (+30), a `Disclosure` summary that will not fit ends in an ellipsis, and the
- * counter cells shrink and clip their own labels inside targets that keep their
- * declared size. Verified in Chrome at 320, 344, 356, 360, 368, 375, 393 and 744
- * with two fixtures: nothing painted past the clip edge, no overlap, and no
- * target under 44 in either direction at any of them.
+ * trait row is two 44px lines (+48), under 348 the damage cell is two lines and
+ * the band goes 56 -> 94 (+38), a `Disclosure` summary that will not fit ends in
+ * an ellipsis, and the counter cells shrink and clip their own labels inside
+ * targets that keep their declared size. Verified in Chrome at 297, 298, 310,
+ * 320, 344, 347, 348, 360, 375, 380, 384, 390, 393 and 744: nothing painted past
+ * the clip edge, no overlap, and no target under 44 in either direction at any
+ * of them. (286 and 310 were the counter sum and its floor while the card still
+ * had two 4px gutters; 353 and +30 were the band's crossing while its fifth
+ * track was the flexible one.)
  *
  * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
  * always had here. At 344 and 320 the defence band and the trait row each

@@ -343,8 +343,9 @@ describe('a counter drawn as a number', () => {
    * The width the cell has to live in, stated where a change to the grid would
    * fail rather than in a comment. jsdom measures nothing, so these are the
    * declared terms: the column is the glass less this screen's 12px of padding
-   * either side, the grid is two columns with one 6px gap, and the steppers are
-   * two 44s with the row's 4px gutter twice.
+   * either side, the grid is two columns with one 6px gap, and inside the card
+   * the steppers are two 44s with the card's own border either side and no
+   * gutter at all.
    */
   /*
    * THE NARROW END OF THAT SAME TABLE, WHICH NOTHING STATED UNTIL NOW.
@@ -362,7 +363,7 @@ describe('a counter drawn as a number', () => {
    * own; it is here, in the same `it` as the two style assertions that do fail
    * pre-fix, because it is the number that says where the shape stops: 310.
    */
-  it('lets the cell shrink to the column, down to the 310px where the steppers stop fitting', () => {
+  it('lets the cell shrink to the column, down to the 298px where the steppers stop fitting', () => {
     seed();
     render(
       createElement(Vitals, { stats: playedStats(), layout: 'phone', showState: false, bare: true }),
@@ -381,20 +382,34 @@ describe('a counter drawn as a number', () => {
         'and flooring the track achieved nothing',
     ).toBe('0px');
 
-    const width = (glass: number): number => (glass - 24 - 6) / 2;
-    const forTheValue = (glass: number): number => width(glass) - 44 * 2 - 2 * 4;
-    expect(forTheValue(360)).toBe(69);
-    expect(forTheValue(344)).toBe(61);
-    expect(forTheValue(320)).toBe(49);
+    /*
+     * Every term off the DOM except the column's own padding, so that the card
+     * losing its border or a stepper changing width moves this rather than
+     * leaving it true of a shape nothing draws. It was `- 2 * 4` for the two
+     * gutters the card deleted, which put the floor at 310 and the value target
+     * at 49 where Chrome measures 55.
+     */
+    const stepper = named('HP plus one');
+    const cardBorder = Number.parseFloat(cell.style.border);
+    const stepW = Number.parseFloat(stepper.style.width);
+    const gutter = Number.parseFloat(cell.style.gap);
+    expect([cardBorder, stepW, gutter], 'the card\'s own terms moved').toEqual([1, 44, 0]);
+    const width = (glass: number): number => (glass - 24 - Number.parseFloat(grid.style.gap)) / 2;
+    const forTheValue = (glass: number): number =>
+      width(glass) - stepW * 2 - 2 * gutter - 2 * cardBorder;
+    expect(forTheValue(360)).toBe(75);
+    expect(forTheValue(344)).toBe(67);
+    expect(forTheValue(320)).toBe(55);
     expect(
-      forTheValue(310),
-      'the floor of this shape moved. At 310 the value target is exactly the 44 it declares ' +
-        'as its own minWidth, and below it the two steppers start being pushed out of the ' +
-        'cell again - which is the failure this fix exists to close',
+      forTheValue(298),
+      'the floor of this shape moved. At 298 the value target is exactly the 44 it declares ' +
+        'as its own minWidth - measured in Chrome at 298x568, and at 297 the card is half a ' +
+        'pixel wider than its track - and below it the two steppers start being pushed out ' +
+        'of the cell again, which is the failure this fix exists to close',
     ).toBe(44);
   });
 
-  it('leaves 76.5px for the value at 375, which is the widest the token steps down for', () => {
+  it('leaves 102px for the value in the two-line row, and 91.5 in the card', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
     const gutter = Number.parseFloat(row.style.gap);
@@ -412,21 +427,35 @@ describe('a counter drawn as a number', () => {
       2,
     );
 
-    // The column is the glass less this screen's 12px of padding either side;
-    // the grid is two columns and one 6px gap.
-    const cell = (glass: number): number => (glass - 24 - 6) / 2;
-    expect(cell(393)).toBe(181.5);
-    expect(cell(375)).toBe(172.5);
+    /*
+     * THE CELL THIS SHAPE IS DRAWN IN IS THE COCKPIT'S, WHICH IS WHY THE
+     * ARITHMETIC BELOW IS 198 AND NOT A PHONE'S 181.5.
+     *
+     * `Vitals` passes `tall` for the phone and not for the desktop, so the row
+     * with gutters in it - the one this `it` renders - is only ever drawn in a
+     * 198px cockpit cell: 428 of panel less 2 of border and 24 of padding is
+     * 402, less the grid's 6px gap, halved. Measured in Chrome at 1280x800 the
+     * value target is 102x48 there. (This test computed 85.5 and 76.5 from a
+     * 393 and a 375 phone column, which is a width this shape has not been
+     * drawn at since the card - and its name promised the 76.5.)
+     */
+    const forTheValue = (cell: number): number => cell - 44 * 2 - 2 * gutter;
+    expect(forTheValue(198), 'the cockpit cell stopped leaving 102 for the value').toBe(102);
 
-    const forTheValue = (glass: number): number => cell(glass) - 44 * 2 - 2 * gutter;
-    expect(forTheValue(393)).toBe(85.5);
+    // And the card, which is what a phone draws: the same cell arithmetic, with
+    // the two gutters gone and the card's own border in their place.
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    const card = container.firstElementChild as HTMLElement;
+    const border = Number.parseFloat(card.style.border);
+    expect([Number.parseFloat(card.style.gap), border], 'the card grew a gutter').toEqual([0, 1]);
+    const phoneCell = (glass: number): number => (glass - 24 - 6) / 2;
+    expect(phoneCell(393)).toBe(181.5);
+    expect(phoneCell(375)).toBe(172.5);
+    const inTheCard = (glass: number): number => phoneCell(glass) - 44 * 2 - 2 * border;
     expect(
-      forTheValue(375),
-      'the 375px cell no longer leaves the 76.5px the value line was measured against - the ' +
-        'gutter or the steppers moved and the readout was fitted to neither. It is no longer ' +
-        'the narrowest cell either: `lets the cell shrink to the column` has 69 at 360, 61 at ' +
-        '344 and 49 at 320',
-    ).toBe(76.5);
+      [inTheCard(393), inTheCard(375)],
+      'the card no longer leaves the 91.5 and 82.5 measured in Chrome at 393x852 and 375x667',
+    ).toEqual([91.5, 82.5]);
   });
 });
 
@@ -671,10 +700,13 @@ describe('where the numbers are allowed to be', () => {
    * The one thing that would take the saving back without failing anything
    * else: a value line that wraps. The card is `--counter-cell` tall by
    * declaration - 90 on the owner's phone, 56 below 390 - and its three lines
-   * are derived from that rather than discovered: 7 + 11 + 6 + 38 + 6 + 10 + 7
-   * is 85 of content inside 88 of inner, and 3 + 11 + 2 + 22 + 2 + 10 + 3 is 53
-   * inside 54. A FOURTH line fits in neither, and four cells each one line
-   * taller is the saving back.
+   * are MEASURED against that rather than derived. Every box a bounding rect in
+   * Chrome, `wizard10` at full Hit Points: 7 + 13 + 6 + 38 + 6 + 10 + 7 is 87
+   * of content inside 88 of inner at 393, and 3 + 13 + 2 + 18 + 2 + 10 + 3 is
+   * 51 inside 54 at 360. (`7 + 11 + ...` and `3 + 11 + 2 + 22 + ...` stood here
+   * and in `tokens.css`: the first line is the 13px silhouette, not the 11px
+   * name inside it, and below 380 the number is 18.) A FOURTH line fits in
+   * neither, and four cells each one line taller is the saving back.
    */
   /*
    * THE CARD, WHICH IS THE SAME PIXELS DRAWN AS ONE OBJECT.
@@ -742,19 +774,21 @@ describe('where the numbers are allowed to be', () => {
   /*
    * THE RING, AND THE HALF OF DECISION 27 THAT SAYS WHAT NOT TO DO.
    *
-   * The cell leaves 4px between the value target and `−` where the full-width
-   * row left about 105, and there were two ways out: crop the steppers to buy
-   * the cushion back, or tell the player which button they hit. The owner
-   * refused the crop and took the ring, so this test has to pin BOTH halves -
-   * the ring is declared, and not one target got smaller to make room for it.
+   * The card leaves NOTHING between the value target and `−` - they share an
+   * edge - where the full-width row left about 105 and the cockpit's row still
+   * leaves 4. There were two ways out: crop the steppers to buy the cushion
+   * back, or tell the player which button they hit. The owner refused the crop
+   * and took the ring, so this test has to pin BOTH halves - the ring is
+   * declared, and not one target got smaller to make room for it.
    *
    * `outlineOffset` is the whole decision in one property. An outline is not in
    * the box model, so it never moved a hit area whatever its sign; the sign is
-   * about what is drawn. Positive, the ring grows out of the button into the
-   * 4px gutter its neighbour is on the far side of, and the card's
-   * `overflow: hidden` clips the part that escapes. Negative, it is drawn whole
-   * and entirely inside a button that is still 44 wide and `--counter-cell`
-   * tall. Take the property out or turn it positive and this test goes red.
+   * about what is drawn. Positive, the ring grows out of the button and lies
+   * across whatever is beside it - the value target itself inside the card, the
+   * 4px gutter outside it - and the card's `overflow: hidden` clips the part
+   * that escapes. Negative, it is drawn whole and entirely inside a button that
+   * is still 44 wide and `--counter-cell` tall. Take the property out or turn
+   * it positive and this test goes red.
    */
   it('rings the stepper under the finger, two pixels inside it, and takes no hit area', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
