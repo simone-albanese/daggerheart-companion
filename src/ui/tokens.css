@@ -261,12 +261,15 @@
    * to be sensed.
    *
    * `--line` is correctly a whisper: a divider carries no information on its
-   * own and 1.4.11 does not ask it to. Three places are not dividers - the rim
+   * own and 1.4.11 does not ask it to. Four places are not dividers - the rim
    * of an unmarked pip, which is the only thing saying how big a track is; the
    * border of a text field, whose fill is `--app` on an `--app` ground, so the
-   * hairline is the entire boundary; and the inactive tab glyph. Those read
-   * this instead, and it clears 3:1 on `--app`, `--panel` and `--raised`
-   * alike, because all three of them occur.
+   * hairline is the entire boundary; the inactive tab glyph; and the ring a
+   * counter's stepper draws two pixels inside itself while it is being pressed,
+   * which is the whole of what a player gets told in a cell where the value
+   * target and `−` are 4px apart. Those read this instead, and it clears 3:1 on
+   * `--app`, `--panel` and `--raised` alike, because all three of them occur -
+   * the stepper alone draws over two of the three.
    */
   --edge: #67718d;
   --motion: 150ms;

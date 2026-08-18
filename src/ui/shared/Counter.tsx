@@ -31,13 +31,24 @@
  *
  * with two 44x44 steppers and a 4px gutter either side of them. So the value
  * target no longer stands 105px clear of `−`; it stands 4px clear of it. That
- * is stated rather than softened, and it is survivable for one reason: the two
- * mistakes it makes possible are both recoverable and neither is silent. A
- * thumb aimed at `−` that lands on the value opens numeric entry, which writes
- * nothing and closes on one tap; a thumb aimed at `−` that lands on `+` writes
- * +1 into a number that is 20px tall and directly above it. Neither is the
- * failure the old cushion was defending against - a keyboard opening under a
- * finger that was travelling somewhere else and had no way back.
+ * is stated rather than softened, and it is survivable for two reasons. The
+ * first has always been here: the two mistakes it makes possible are both
+ * recoverable and neither is silent. A thumb aimed at `−` that lands on the
+ * value opens numeric entry, which writes nothing and closes on one tap; a
+ * thumb aimed at `−` that lands on `+` writes +1 into a number that is 20px
+ * tall and directly above it. Neither is the failure the old cushion was
+ * defending against - a keyboard opening under a finger that was travelling
+ * somewhere else and had no way back.
+ *
+ * THE SECOND IS THE RING, and it is what the owner chose instead of buying the
+ * cushion back. Cropping the steppers was the other option on the table and it
+ * was refused: nothing in this file goes under the floor to make room. So the
+ * pressed stepper draws a 2px outline two pixels INSIDE its own border box -
+ * `outlineOffset: -2px`, which is the reason the change costs no hit area and
+ * no layout - and a thumb that landed in a cell with no cushion left in it is
+ * told by the control which control it hit, rather than having to work it out
+ * from which way a digit went. See `Step` below for the offset's sign, the
+ * token, and why nothing about it moves.
  *
  * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
  * value line at two digits over two digits, and it is `--counter-num` and
@@ -98,6 +109,25 @@ interface Props {
 
 /** The touch floor. Nothing in this file is ever declared under it. */
 const TAP = 44;
+
+/**
+ * How long the cell answers a press for, in ms - the number's bump and the
+ * stepper's ring alike.
+ *
+ * One constant and not two literals, because they are one gesture. A tap on `+`
+ * lights the ring on the button and steps the number above it, and if the two
+ * settled at different moments the cell would answer twice for one press. When
+ * this moves it moves for both.
+ *
+ * It is a DWELL and not a duration of motion, which is why it is a number here
+ * rather than a token beside `--motion`. Nothing travels for these 130ms: the
+ * ring is on or off and the number is bumped or settled. `--motion` governs how
+ * the number *gets* to its bumped size, and `base.css` zeroes that for both
+ * reduced-motion switches - which makes the bump instant, not absent, and
+ * leaves this dwell exactly as long as it was. A player who asked for less
+ * movement still gets told which button they hit.
+ */
+const ANSWER = 130;
 
 /**
  * The height of a counter cell and the side of a stepper - a token, not a
@@ -197,7 +227,7 @@ export function Counter({
       return undefined;
     }
     setBumped(true);
-    const t = setTimeout(() => setBumped(false), 130);
+    const t = setTimeout(() => setBumped(false), ANSWER);
     return () => clearTimeout(t);
   }, [value]);
   const [typing, setTyping] = useState<string | null>(null);
@@ -534,6 +564,52 @@ export function Counter({
  *
  * The glyph stays at 20. It is a pure target: a finger aims at the button, not
  * at a minus sign.
+ *
+ * ## The ring, and why it is drawn two pixels INSIDE the button
+ *
+ * The cell leaves 4px between the value target and `−`, where the full-width
+ * row it replaced left about 105. The obvious answer was to buy that cushion
+ * back by cropping the steppers; the owner said no to the crop and yes to the
+ * ring, and the two halves of that decision are the same sentence: a target
+ * this project already declares at the floor does not get smaller, so the fix
+ * has to be something that says *which button you hit* without taking a pixel
+ * off any of them.
+ *
+ * An `outline` is what says it. It is not in flow and not in the box model, so
+ * it changes no layout and no hit area whatever its offset, and
+ * `outlineOffset: -2px` puts it inside the border box rather than outside it.
+ * Two reasons for the negative, and the second is the load-bearing one:
+ *
+ *  1. Outward, the ring is drawn on whatever is beside the button rather than
+ *     on the button. Inside the card the gap is 0, so a ring at +2 lies across
+ *     the value target; outside it the gutter is 4, so it covers half the only
+ *     air there is between this control and the next. Either way it stops being
+ *     a statement about the thing that was pressed, which is its whole job.
+ *  2. In the card the row is `overflow: hidden` so the steppers stop at its
+ *     radius, and a ring outside the border box is exactly the part that clip
+ *     eats. Inside it, it is drawn whole.
+ *
+ * `--edge` for the colour, which is the token for a boundary that has to be
+ * *seen* as opposed to sensed, and is documented as clearing 3:1 on both of the
+ * grounds this button draws over - `--app` inside the card, `--raised` outside
+ * it.
+ *
+ * IT IS DECLARED ONLY WHILE THE PRESS IS ANSWERING, and that is not laziness.
+ * An inline `outline` beats `base.css`'s `button:focus-visible` rule, which no
+ * stylesheet can win back, so a ring declared at rest - transparent, waiting to
+ * be transitioned - would silently delete the keyboard focus ring from the
+ * eight most-pressed buttons on the sheet permanently. A fade is not worth
+ * that, so there is no transition and no keyframe: the ring is on or it is
+ * absent. What is left is a keyboard press swapping one ring for the other for
+ * `ANSWER` and then getting its focus ring back, which is a control answering a
+ * press rather than a control losing its focus - and the two are told apart on
+ * sight anyway, at +2 in `--hope` against -2 in `--edge`.
+ *
+ * AND IT OUTLASTS THE FINGER, by `ANSWER`. A 44px button under a thumb is a
+ * 44px button nobody can see, so a ring that died on `pointerup` would be a
+ * ring that was never once looked at on the device this cell was reshaped for.
+ * It lights on the way down and settles the same moment the number above it
+ * does.
  */
 function Step({
   label,
@@ -549,12 +625,51 @@ function Step({
   /** Inside the phone's card: no box of its own, and the card's full height. */
   tall?: boolean;
 }): React.JSX.Element {
+  const [ringed, setRinged] = useState(false);
+  const settling = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // A press that outlives its own cell - the row is unmounted by a rest, or by
+  // the value target opening numeric entry - must not set state afterwards.
+  useEffect(() => () => clearTimeout(settling.current), []);
+
+  /** On, and staying on for as long as the finger is down. */
+  const light = (): void => {
+    // A disabled stepper is not pressed. Browsers suppress its events; jsdom
+    // and a synthetic dispatch do not, and a ring on a button at the end of its
+    // track would be the app saying a tap landed when it wrote nothing.
+    if (disabled) return;
+    clearTimeout(settling.current);
+    setRinged(true);
+  };
+
+  /** Off, one `ANSWER` after the finger lifts or slides away. */
+  const settle = (): void => {
+    clearTimeout(settling.current);
+    settling.current = setTimeout(() => setRinged(false), ANSWER);
+  };
+
   return (
     <button
       type="button"
       aria-label={label}
       disabled={disabled}
-      onClick={onPress}
+      // Pointer events and not `:active`. The ring has to be an inline
+      // declaration - that is the only kind this project can measure, and the
+      // only kind that survives beside the inline width and height above - and
+      // a pseudo-class cannot produce one. `pointerleave` is in the list so a
+      // thumb that slides off mid-press takes the ring with it: that gesture
+      // writes nothing, so it must not look like it wrote something.
+      onPointerDown={light}
+      onPointerUp={settle}
+      onPointerCancel={settle}
+      onPointerLeave={settle}
+      onClick={() => {
+        // The keyboard reaches `onClick` without ever touching the three above,
+        // so the ring is lit here too, for the whole `ANSWER` after the press
+        // rather than the tail of it.
+        light();
+        settle();
+        onPress();
+      }}
       style={{
         // `flex: none` is load-bearing and not tidiness: without it these two
         // are shrinkable, and at 360 the STRESS cell's flex line is 0.5px over
@@ -599,6 +714,26 @@ function Step({
         color: 'var(--text)',
         font: '700 20px/1 var(--sans)',
         opacity: disabled ? 0.35 : 1,
+        /*
+         * The ring. Longhands and not the `outline` shorthand: jsdom serialises
+         * a shorthand back on its own terms and a test that has to read this
+         * would be reading the serialiser rather than the declaration.
+         *
+         * `outlineOffset` is the whole of the decision. Positive, it grows past
+         * the border box into the 4px gutter its neighbour is on the other side
+         * of, and the card's `overflow: hidden` clips it; negative, it is drawn
+         * inside a button whose declared 44px width and `--counter-cell` height
+         * above have not moved by a pixel. An outline never took part in layout
+         * either way - this offset is about what is SEEN, not about the target.
+         */
+        ...(ringed
+          ? {
+              outlineWidth: '2px',
+              outlineStyle: 'solid',
+              outlineColor: 'var(--edge)',
+              outlineOffset: '-2px',
+            }
+          : null),
       }}
     >
       {glyph}

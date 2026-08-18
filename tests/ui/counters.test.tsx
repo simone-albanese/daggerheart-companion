@@ -107,6 +107,27 @@ const click = (el: Element): void => {
 };
 
 /**
+ * A finger going down on a control, and coming off it again.
+ *
+ * `MouseEvent` and not `PointerEvent`: jsdom ships no `PointerEvent`
+ * constructor, and React's delegated listener keys off the event's TYPE rather
+ * than its interface, so a mouse event named `pointerdown` reaches
+ * `onPointerDown` exactly as the real one does. The two halves are separate
+ * because the interesting state is BETWEEN them - a stepper is pressed while
+ * the finger is on it, and this suite is the only place that can look.
+ */
+const pointerDown = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+  });
+};
+const pointerUp = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+  });
+};
+
+/**
  * Type into a controlled input the way a keyboard does.
  *
  * React tracks the last value it wrote on the DOM node itself, so assigning
@@ -716,6 +737,112 @@ describe('where the numbers are allowed to be', () => {
       expect(px(step.style.minHeight), 'a stepper stopped promising the touch floor').toBe(44);
       expect(step.style.width).toBe('44px');
     }
+  });
+
+  /*
+   * THE RING, AND THE HALF OF DECISION 27 THAT SAYS WHAT NOT TO DO.
+   *
+   * The cell leaves 4px between the value target and `−` where the full-width
+   * row left about 105, and there were two ways out: crop the steppers to buy
+   * the cushion back, or tell the player which button they hit. The owner
+   * refused the crop and took the ring, so this test has to pin BOTH halves -
+   * the ring is declared, and not one target got smaller to make room for it.
+   *
+   * `outlineOffset` is the whole decision in one property. An outline is not in
+   * the box model, so it never moved a hit area whatever its sign; the sign is
+   * about what is drawn. Positive, the ring grows out of the button into the
+   * 4px gutter its neighbour is on the far side of, and the card's
+   * `overflow: hidden` clips the part that escapes. Negative, it is drawn whole
+   * and entirely inside a button that is still 44 wide and `--counter-cell`
+   * tall. Take the property out or turn it positive and this test goes red.
+   */
+  it('rings the stepper under the finger, two pixels inside it, and takes no hit area', () => {
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    const minus = named('HP minus one');
+    const plus = named('HP plus one');
+    // What the button promises before anything is pressed. Whatever the ring
+    // does, these two numbers are what it may not touch.
+    const floor = { width: plus.style.width, minHeight: plus.style.minHeight };
+
+    /*
+     * AT REST THERE IS NO INLINE OUTLINE AT ALL, and that is not tidiness. An
+     * inline declaration beats `base.css`'s `button:focus-visible`, which no
+     * stylesheet rule can win back, so a ring parked here transparent - waiting
+     * to be faded in - would delete the keyboard focus ring from the eight
+     * most-pressed buttons on the sheet for good.
+     */
+    expect(
+      plus.style.outlineStyle,
+      'the stepper declares an outline at rest, which overrides `button:focus-visible` in ' +
+        'base.css and leaves these eight buttons with no keyboard focus ring',
+    ).toBe('');
+
+    pointerDown(plus);
+
+    expect(
+      [
+        plus.style.outlineWidth,
+        plus.style.outlineStyle,
+        plus.style.outlineColor,
+        plus.style.outlineOffset,
+      ],
+      'the pressed stepper draws no ring, so a thumb that landed on the wrong one of two ' +
+        'buttons 4px apart is told nothing',
+    ).toEqual(['2px', 'solid', 'var(--edge)', '-2px']);
+    /*
+     * Said twice and on purpose: the string above pins the decision, and the
+     * sign below pins the REASON for it. A ring at a positive offset is drawn
+     * outside the border box - into the neighbour's gutter, and into the part
+     * the card's `overflow: hidden` cuts off.
+     */
+    expect(
+      Number.parseFloat(plus.style.outlineOffset),
+      'the ring is offset outward. At a positive offset it is drawn in the 4px gutter `−` is ' +
+        'on the other side of, and the card clips whatever leaves the row',
+    ).toBeLessThan(0);
+
+    // Nobody pressed minus, so nothing about minus changed.
+    expect(minus.style.outlineStyle, 'both steppers ring, so the ring names neither').toBe('');
+
+    /*
+     * AND NOT A PIXEL. This is the half of the decision that said no. The
+     * declared floor is read again with the ring lit, and it is the same
+     * string it was before the press and still at or above 44 at the narrowest
+     * glass the app is drawn on.
+     */
+    expect(
+      { width: plus.style.width, minHeight: plus.style.minHeight },
+      'the ring moved the stepper. The decision was no to the crop and yes to the ring, so ' +
+        'the target this draws on is the target it had',
+    ).toEqual(floor);
+    expect(plus.style.width).toBe('44px');
+    expect(px(plus.style.minHeight), 'the ringed stepper is under the touch floor').toBe(44);
+
+    /*
+     * NOT A KEYFRAME, for the reason the number's bump is not one either:
+     * `base.css` zeroes `--motion` for the OS preference and for this app's own
+     * switch, but its blanket `animation: none` only covers the OS one. There
+     * is no transition here at all - see `Step` - so the ring is instant, which
+     * is what both switches would have made it anyway.
+     */
+    expect(
+      plus.style.animation,
+      'the ring became a keyframe animation, which `[data-reduce-motion]` cannot turn off',
+    ).toBe('');
+    expect(
+      plus.style.transition === '' || plus.style.transition.includes('var(--motion)'),
+      'the ring transitions on a duration of its own, so the app own reduced-motion switch ' +
+        'does not reach it',
+    ).toBe(true);
+
+    // The finger comes off. The ring outlives it by `ANSWER` - a 44px button
+    // under a thumb is a 44px button nobody can see - so it is still lit here.
+    pointerUp(plus);
+    expect(
+      plus.style.outlineOffset,
+      'the ring died with the press, so on the phone it was drawn only while a thumb was on ' +
+        'top of it',
+    ).toBe('-2px');
   });
 
   /*
