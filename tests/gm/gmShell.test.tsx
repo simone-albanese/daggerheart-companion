@@ -5,8 +5,8 @@
  * Two changes land in `App.tsx` with `MenuSheet`, and both are the kind that
  * are easy to make and easy to make wrongly. The tab bar does not render inside
  * the GM section, because `GmBar` is the bottom bar there and two stacked bars
- * would cost the plan a band it does not have - `GmBar` measures 95.00 at
- * 393x852 with a 34px inset, and the tab bar declares the same three terms, so
+ * would cost the plan a band it does not have - both bars measure 95.00 at
+ * 393x852 with a 34px inset, `GmBar` on the GM screen and this one on Play, and
  * the 94 that stood here dropped the 1px `border-top` both of them carry; that
  * is only honest because MENU
  * carries the way back to Play, Cards and Build, which is why the two arrive in

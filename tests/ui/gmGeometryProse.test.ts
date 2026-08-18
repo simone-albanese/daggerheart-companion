@@ -381,9 +381,17 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
-   * The retired claims, in the whole tree rather than in the three files the
+   * The retired claims, in the whole corner rather than in the three files the
    * measurement pointed at. Every one of these was true of no build and each
    * outlived at least one commit that corrected it somewhere else.
+   *
+   * THE TEST FILES ARE IN THIS LIST ON PURPOSE. When this sweep was first run
+   * over `src` alone it came back clean, and two stale copies were sitting in
+   * `tests/` the whole time: `sessionList.test.tsx` introduced its ellipsis
+   * assertion with "nine rows fit on a phone", and `gmShell.test.tsx` costed a
+   * stacked tab bar at 94px. A comment a test carries is a claim of the same
+   * rank as the code under it, and it is read more often than most docblocks,
+   * because it is what somebody reads while working out why a test failed.
    */
   it.each([
     ['nine rows', /nine rows/],
@@ -400,6 +408,8 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'src/ui/gm/Gm.tsx',
       'src/ui/gm/GmTopBar.tsx',
       'src/ui/shell/App.tsx',
+      'tests/gm/sessionList.test.tsx',
+      'tests/gm/gmShell.test.tsx',
     ];
     for (const file of files) {
       expect(
