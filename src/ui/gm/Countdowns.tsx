@@ -73,10 +73,19 @@
  * in one stack, so the first successful KEEP inserts an entire panel — its own
  * padding, a label row, one template row — above the form, and every KEEP after
  * that inserts another row. The form therefore moves down at the instant KEEP
- * is pressed, and the two controls that move are ADD and KEEP itself: the two
- * things the thumb is already on. Nothing else moves. The clocks are the stack
- * above this one on a phone and the other grid column on a wide window, so the
- * ±1 the paragraph above protects is not affected by this at all.
+ * is pressed, and it is the whole form that moves, by the one distance: the
+ * Countdown-name input, the KIND `<select>`, both buttons of the Starts-at
+ * `Stepper`, ADD, and KEEP itself. They all live inside one `<form>` and the
+ * shelf goes in above all of it, so no control in here moves relative to any
+ * other control in here — the shift is the form's, not a reflow inside it. The
+ * distance, measured from where the form sits with nothing on the shelf, is the
+ * shelf's rendered height plus the 10px gap the column keeps between its two
+ * children; every KEEP after the first adds one more row, and the 7px the
+ * shelf's inner stack puts between rows, to that height. Nothing *outside* the
+ * form moves: `keep` appends, so a later KEEP adds its row under the rows
+ * already on the shelf and leaves those where they were, and the clocks are the
+ * stack above this one on a phone and the other grid column on a wide window,
+ * so the ±1 the paragraph above protects is not affected by this at all.
  *
  * It is left that way, and the reason is where the mis-tap lands rather than
  * whether there is one. KEEP goes inert the moment the triple is on the shelf,
