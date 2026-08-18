@@ -38,11 +38,11 @@
  * the region padding: the reference scroller declares
  * `padding: phone ? '10px 12px 16px'` (`Reference.tsx:173`) and the wizard's
  * `'14px 12px 20px'` (`Wizard.tsx:358`) - 12px each side either way, the same
- * 24 - so they draw this view in the 369px column `TierBenchmarks`'s docblock in
- * `ReferenceTables.tsx` already names, not across the whole 393. **That 369 is itself 2px too
- * generous wherever it means the reference region**: `GmSheet`'s panel is
- * border-box with a 1px border (`GmSheet.tsx`), so the measured column at
- * 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369
+ * 24 - so they draw this view in the 369px column `TierBenchmarks`'s docblock
+ * in `ReferenceTables.tsx` already names, not across the whole 393. **That 369
+ * is itself 2px too generous wherever it means the reference region**:
+ * `GmSheet`'s panel is border-box with a 1px border (`GmSheet.tsx`), so the
+ * measured column at 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369
  * inherits it, and none of them has been re-measured. The number still missing
  * is the one
  * under a session row's panel and inside its open block; deriving that on paper

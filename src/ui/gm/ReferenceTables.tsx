@@ -78,10 +78,10 @@ import { useGm } from './gmStore.ts';
  * sideways.
  *
  * **Flagged, not fixed: that 369 is short by 2, and so is every other 369 in
- * this file that means this region** - the `369, four of 168.5` two lines up,
- * and the ergonomics paragraphs of `RangeReference`, `DifficultyLadder` (twice:
- * its column, and the `302 in a 369px column` of the trait chips), `GmMoves`
- * and `AdversaryExperiences`. Named by symbol rather than by line, because the
+ * this file that means this region** - the `369, four of 168.5` in the
+ * paragraph above, and the ergonomics paragraphs of `RangeReference`,
+ * `DifficultyLadder` (twice: its column, and the `302 in a 369px column` of the
+ * trait chips), `GmMoves` and `AdversaryExperiences`. Named by symbol rather than by line, because the
  * four line numbers that stood here were the pre-edit ones: the insertion that
  * carried them pushed every one of them twelve lines down, and any later edit
  * to this file would do it again. The
