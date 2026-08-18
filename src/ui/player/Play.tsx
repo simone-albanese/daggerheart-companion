@@ -1093,8 +1093,9 @@ function TraitGrid({
  * same fifth cell, in place of the `TOOK` caption. That is decision 3 of the
  * reflow, and it is *inside* the fifth cell rather than beside it as a sixth
  * because a sixth does not fit at any phone width: the four cells and their four
- * gaps are 234.47, a fifth of 44 + 6 + 44 is 94, and a sixth of 44 plus a fifth
- * gap is 50 - 378.47 against 369px of column at 393.
+ * gaps are 234.47 at their content width, a fifth of 44 + 6 + `--damage-w` is 94
+ * below viewport 390 and 114 from 390 up, and a sixth of 44 plus a fifth gap is
+ * 50 - so 398.47 against 369px of column at 393, and 378.47 against 336 at 360.
  *
  * THE COLUMNS STOPPED BEING EQUAL, AND THAT IS THE FIRST COST. Four equal cells
  * plus the box do not fit: `EVASION` at `.t-meta` with this tracking measures
@@ -1107,13 +1108,19 @@ function TraitGrid({
  * DELIBERATELY. Three pixels a side off four readout cells is 24px of column,
  * and it is what stands the door and the field side by side at 360 - the
  * commonest Android width there has ever been - instead of wrapping them onto
- * two lines. Measured in Chrome with the `wizard10` fixture at `8px 6px`: the
- * four cells are 61.61 + 52.84 + 54.81 + 41.20 = 210.47 with the number at 32px,
- * so the fifth track is `column - 234.47` and the 94 it has to hold has 134.53
- * at 393, 116.53 at 375, 101.53 at 360 and 97.53 at 356. At `8px 9px` the same
- * pair had 93.53 at 360 and wrapped. Nothing in these four cells is a target -
- * they are four numbers you read - so the twelve pixels are spent on nothing a
- * finger has to find.
+ * two lines. Measured in Chrome with the `wizard10` fixture at `8px 6px`, the
+ * four cells at their content width are 61.61 + 52.84 + 54.81 + 41.20 = 210.47
+ * with the number at 32px; add four 6px gaps and the fifth cell's own 94 and the
+ * band needs 328.47, which fits the 336 a 360px Android has. At `8px 9px` it is
+ * 352.47 and does not. `playSheet.test.tsx`'s width budget carries both sums as
+ * assertions. Nothing in these four cells is a target - they are four numbers
+ * you read - so the twelve pixels are spent on nothing a finger has to find.
+ *
+ * (The fifth track was `1fr` and therefore `column - 234.47` - 134.53 at 393,
+ * 101.53 at 360 - until the row closed its hole. It is `auto` now, so it is
+ * exactly the pair: measured 114 at 393 and 94 at 360, at 744 and 1179 as well.
+ * `IncomingDamage`'s docblock in `Vitals.tsx` carries what that did to the box's
+ * position, which is more than it did to this arithmetic.)
  *
  * THE BAND'S HEIGHT IS THE FOUR NUMBER CELLS, AND ON A PHONE IT IS 56.
  *
@@ -1195,8 +1202,9 @@ function Defenses({
         // sentence that replaces them takes both of their cells rather than
         // being squeezed into 80px.
         //
-        // WITH THE DAMAGE BOX IN, THE ROW IS `auto repeat(3, 1fr) auto` AND
-        // THAT IS THE END OF THE HOLE. It used to be `auto auto auto auto 1fr`:
+        // WITH THE DAMAGE BOX IN, THE ROW IS
+        // `auto repeat(3, minmax(min-content, 1fr)) auto` AND THAT IS THE END
+        // OF THE HOLE. It used to be `auto auto auto auto 1fr`:
         // the four readings took their content width - 61.6, 48, 54.8 and 41.2
         // at 393, four different sizes - and the fifth track, being the only
         // flexible one, swallowed all 139.4 of the remainder while holding 94px
@@ -2589,13 +2597,14 @@ function PlayDesktop({
  * conclusion is now reversed, because its premise moved. Against declared
  * heights at 393x852, every fold shut and nothing armed: the defence band 56 -
  * which carries the incoming-damage field *and* the conditions door as its
- * fifth cell, for nothing, because two 44px controls fit inside a row the
- * numbers hold open at 64 - the four counters **102** as a 2x2 grid, the trait
- * row
- * 44, and the roll row 56 - a floor rather than the hard 66 it was, and the ten
- * pixels are the first of the reflow's savings - ROLL beside a MODS control that costs the column
- * nothing because it is 44 wide inside a height ROLL was already holding, plus
- * three of this column's 14px gaps and the column's own 8px of top padding.
+ * fifth cell, for nothing, because a 44x44 door and a 64x44 field both fit
+ * inside a row the numbers hold open at that same 56, six pixels of clearance
+ * either side of each - the four counters **186** as a 2x2 grid of cards,
+ * the trait row 44, and the roll row 56, a floor rather than the hard 66 it was,
+ * with the ten pixels the first of the reflow's savings. ROLL stands beside a
+ * MODS control that costs the column nothing, because it is 44 wide inside a
+ * height ROLL was already holding. Plus three of this column's 14px gaps and
+ * its own 8px of top padding.
  * **ROLL's lower edge lands at 392 of a usable 730** (852 less the header's
  * 52+1, the tab bar's 60+1 and this root's own 8px foot), which is 338px of
  * slack.
@@ -2606,8 +2615,11 @@ function PlayDesktop({
  * padding. The maximum moving off the value's line is what let the number grow
  * - beside it, `11 / 11` measured 68.92 of the 74 the target has, so WIDTH and
  * not height was the ceiling, and every size from 28 to 38 was rendered before
- * this one was chosen. Below viewport 390 the card is 56 around a 22px number,
- * so a 360px Android reads 118 here.
+ * this one was chosen. Below viewport 390 the card is 56, around a 22px number
+ * from 380 up and an **18px** one below that - so a 375px iPhone and a 360px
+ * Android both read 118 here, at 18. (`--counter-num` has three steps and only
+ * the top two are this reflow's; 22 lives between 380 and 389, which is a band
+ * no phone this project measures reports.)
  *
  * AT 375x667 THE SAME STACK IS 324 - no 390 step, so the card is 56 - AND IT
  * CLEARS A 545px COLUMN BY 221px, where before the
@@ -2617,7 +2629,7 @@ function PlayDesktop({
  * banner (+52), an armed modifier (+50), and the 34px home-indicator inset. The
  * companion was **58** for two passes and is 50 again, and the difference is
  * the thing the 58 was right to count and the reflow removed. `WhoSwitch`
- * (`Companion.tsx:41-92`) is drawn `compact={!phone}`, so on a phone its
+ * (`Companion.tsx:61-121`) is drawn `compact={!phone}`, so on a phone its
  * buttons are `minHeight: 44`; they used to sit inside `padding: 3` on both
  * edges and a 1px border on both - a **52px** box drawn to hold 44 of target -
  * and it is a child of the `Vitals` panel whose phone `gap` is 6
@@ -2663,8 +2675,10 @@ function PlayDesktop({
  *
  * 360 is below every one of the reflow's steps - `--counter-cell`,
  * `--counter-num`, the card's own padding and gap, and `--damage-w` - so the
- * narrowest phone this app supports keeps a 22px number in a 56px card and a
- * 44px damage field. It pays for the card's third line and for nothing else.
+ * narrowest phone this app supports keeps an **18px** number in a 56px card and
+ * a 44px damage field. It is below the 380 step as well, which is older than
+ * this reflow, so 22 is not what it keeps either. It pays for the card's third
+ * line and for nothing else.
  *
  * P5-8's last 52 came from the conditions and from nowhere else, and the shape
  * of that saving survives this reflow with a different door. Nothing is drawn
@@ -2691,16 +2705,19 @@ function PlayDesktop({
  *
  * **THE SMALLEST WIDTH THIS SHEET IS LAID OUT FOR IS 360**, and that is a
  * decision rather than a discovery: 360 is the commonest Android viewport there
- * has ever been. The three sums are 332, 328.47 and 286, whose floors are 356,
- * 352.47 and 310, and `playSheet.test.tsx`'s «the width this sheet is laid out
+ * has ever been. The three sums are 332, 328.47 and 274, whose floors are 356,
+ * 352.47 and 298, and `playSheet.test.tsx`'s «the width this sheet is laid out
  * for» carries them the way «the budget the pin came off for» carries the
  * vertical ones. Everything below 360 reflows and nothing breaks: under 356 the
- * trait row is two 44px lines (+48), under 353 the damage cell is two 44px lines
- * (+30), a `Disclosure` summary that will not fit ends in an ellipsis, and the
- * counter cells shrink and clip their own labels inside targets that keep their
- * declared size. Verified in Chrome at 320, 344, 356, 360, 368, 375, 393 and 744
- * with two fixtures: nothing painted past the clip edge, no overlap, and no
- * target under 44 in either direction at any of them.
+ * trait row is two 44px lines (+48), under 348 the damage cell is two lines and
+ * the band goes 56 -> 94 (+38), a `Disclosure` summary that will not fit ends in
+ * an ellipsis, and the counter cells shrink and clip their own labels inside
+ * targets that keep their declared size. Verified in Chrome at 297, 298, 310,
+ * 320, 344, 347, 348, 360, 375, 380, 384, 390, 393 and 744: nothing painted past
+ * the clip edge, no overlap, and no target under 44 in either direction at any
+ * of them. (286 and 310 were the counter sum and its floor while the card still
+ * had two 4px gutters; 353 and +30 were the band's crossing while its fifth
+ * track was the flexible one.)
  *
  * 320 IS NOT SUPPORTED AND IS NOT BROKEN, which is the same distinction 375 has
  * always had here. At 344 and 320 the defence band and the trait row each
@@ -3048,8 +3065,9 @@ function PlayPhone({
          * out of the stack above it, and every one of those numbers was 150px
          * stale. Rendered in Chrome, the `playedCharacter` fixture, every fold
          * shut, at the top of the scroll: the ROLL row spans **y389-445** on the
-         * glass at 393, and y321-377 at 375 and below, where the card is 56 and
-         * not 90. At 393x852 that is **407 to 463px above the bottom bezel** and
+         * glass at 393, and y321-377 at 375 and at 360, where the card is 56 and
+         * not 90. At 344 and 320 it is back down at y407-463, because the
+         * defence band wraps to 94 there and the trait row to two lines. At 393x852 that is **407 to 463px above the bottom bezel** and
          * **346px clear of the tab bar**; at 375x667 it is **290 to 346px above
          * the bezel** and 229px clear.
          *
@@ -3342,9 +3360,12 @@ function PlayPhone({
        * superseded, because the shape it was arguing against no longer exists.
        *
        * Here it is the last child of the scroll, under the last shut fold. The
-       * budget in `playSheet.test.tsx` runs from the top of Identity to the
-       * bottom edge of the lineage header - 586px against 730 - and everything
-       * it sums is something a player has to be able to reach. This is not:
+       * budget in `playSheet.test.tsx` runs from the column's own top padding,
+       * above the defence band, to the bottom edge of the lineage header - 600px
+       * against 730, measured 592 from the band's top edge at 393x852 - and
+       * everything it sums is something a player has to be able to reach. The
+       * identity block it used to start at is not on this column at all since
+       * decision 2. This notice is not either:
        * it is read once, by somebody who is not at a table, and there is no
        * state of this sheet in which it needs to be on the glass. So it is
        * outside `STACK` and outside `INDEX` on purpose, and the test says that

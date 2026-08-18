@@ -17,21 +17,23 @@
  * those rows are 4x44 plus three 6px gaps: **194px**, a quarter of the usable
  * column on the owner's phone, spent on four numbers.
  *
- * They are a 2x2 grid now, which is **102px** on the owner's phone and 94 below
- * viewport 390 - two `--counter-cell` rows and one gap - and the
- * hundred pixels that buys is what puts the rest of the sheet on the glass. The
- * price is paid here, in this file, and it is the cushion. Measured in Chrome
- * with the shipped fonts, at the two widths that matter:
+ * They are a 2x2 grid of cards now - **186px** on the owner's phone and **118**
+ * below viewport 390, two `--counter-cell` rows and one 6px gap - so the shape
+ * itself gives back eight of the 194 and then spends 92 of them on the number.
+ * The saving that puts the rest of the sheet on the glass is the four folds
+ * paired two-up in `Play.tsx`; what this file buys is the readout. Measured in
+ * Chrome, `wizard10` at full Hit Points, at every width the rig drives:
  *
- *   viewport 393  ->  column 369  ->  cell 181.5  ->  value target 85.5 wide
- *   viewport 375  ->  column 351  ->  cell 172.5  ->  value target 76.5 wide
- *   viewport 360  ->  column 336  ->  cell 165    ->  value target 69   wide
- *   viewport 344  ->  column 320  ->  cell 157    ->  value target 61   wide
- *   viewport 320  ->  column 296  ->  cell 145    ->  value target 49   wide
+ *   viewport 393  ->  column 369  ->  cell 181.5x90  ->  value target 91.5 wide
+ *   viewport 375  ->  column 351  ->  cell 172.5x56  ->  value target 82.5 wide
+ *   viewport 360  ->  column 336  ->  cell 165x56    ->  value target 75   wide
+ *   viewport 320  ->  column 296  ->  cell 145x56    ->  value target 55   wide
  *
- * with two 44x44 steppers and a 4px gutter either side of them. So the value
- * target no longer stands 105px clear of `−`; it stands 4px clear of it. That
- * is stated rather than softened, and it is survivable for two reasons. The
+ * with two 44px-wide steppers stretched to the card's full height at its two
+ * edges, its own 1px border, and NO gutter anywhere inside it - the value
+ * target is `cell - 90` at all four. So the value target no longer stands 105px
+ * clear of `−`; it shares an edge with it. That is stated rather than softened,
+ * and it is survivable for two reasons. The
  * first has always been here: the two mistakes it makes possible are both
  * recoverable and neither is silent. A thumb aimed at `−` that lands on the
  * value opens numeric entry, which writes nothing and closes on one tap; a
@@ -50,19 +52,21 @@
  * from which way a digit went. See `Step` below for the offset's sign, the
  * token, and why nothing about it moves.
  *
- * WHAT FITS, AND HOW IT IS KNOWN. The widest thing this cell ever draws is the
- * value line at two digits over two digits, and it is `--counter-num` and
- * `--counter-max` that decide how wide that is: measured in Chrome with the
- * `wizard10` fixture at full Hit Points, `11 / 11` is **68.94px at 26 over an
- * 11px maximum**, 60.61 at 22 over 10, 58.09 at 20 and 55.59 at 18.
- * The label line is `13px` of silhouette, a 4px gap and `STRESS` at `.t-label`
- * with the tracking this file sets, which is **57.81px**. The target the grid
- * hands the value is 85.5 at 393, 76.5 at 375, 69 at 360, 61 at 344 and 49 at
- * 320 - unchanged by the reflow, because the steppers grew in height and not in
- * width - less 10px of padding and 2px of border. So the number has 73.5 of
- * room at 393 against 68.94 of ink, 4.56 of slack; 72 at 390 against the same,
- * 3.06; and 64.5 at 375 against 55.59, because both tokens step down below
- * 390. It is `nowrap` and `overflow: hidden` on purpose:
+ * WHAT FITS, AND HOW IT IS KNOWN. In the card the value is TWO lines - the
+ * number, and the maximum under it - so what has to fit the width is one of
+ * them at a time, and that is the whole of why the number could go to 38.
+ * Measured in Chrome with the `wizard10` fixture at full Hit Points, which is
+ * the widest state either line reaches: from 390 up `11` is **47.64px** at 38
+ * and `/ 11` under it is **26.41** at `--counter-max`'s 10; below 380 the
+ * number is 18 and 22.58 wide, and the maximum is the same 26.41 because it
+ * does not step - so on a narrow phone the widest line in the cell is the
+ * maximum. The target the grid hands the value is 91.5 at 393, 82.5 at 375, 75
+ * at 360 and 55 at 320, less 9px of padding either side. So the widest line has
+ * 73.5 of room at 393 against 47.64 of ink, 72 at 390 against the same, and 57
+ * at 360 and 37 at 320 against 26.41. (`68.94 at 26 over an 11px maximum` was
+ * the two-line row's worst line; the cockpit still draws that shape, and its
+ * own line is measured in `Vitals`.) It is `nowrap` and `overflow: hidden` on
+ * purpose:
  * where the room does run out - the label at 360, both lines at 344 and below -
  * the tail clips inside a target that keeps its declared size, and the cell does
  * not wrap onto a second line and take the whole budget with it.
@@ -90,11 +94,12 @@ interface Props {
    *
    * A prop and not a media query, because the two shapes answer two different
    * measurements and both can be on screen at once. The phone's cell is 181.5
-   * wide and 84 tall and is read at arm's length under pressure, so it gets a
-   * 38px number on its own line with the maximum beneath it. The cockpit's is
-   * 198 wide, has a mouse and hands what it saves to `DualityRoll` below, so it
-   * keeps the two-line shape at 26. `tokens.css` steps `--counter-cell` and
-   * `--counter-num` the same way, at 390 up and back again at 1180.
+   * wide and **90** tall at 393 and is read at arm's length under pressure, so
+   * it gets a 38px number on its own line with the maximum beneath it. The
+   * cockpit's is 198x48, has a mouse and hands what it saves to `DualityRoll`
+   * below, so it keeps the two-line shape at 26. `tokens.css` steps
+   * `--counter-cell` and `--counter-num` the same way, at 390 up and back again
+   * at 1180.
    *
    * WHAT THE CARD IS, AND WHY IT COSTS NOTHING. It is the same pixels drawn as
    * one object instead of three: the border, the fill and the radius move from
@@ -130,40 +135,46 @@ const TAP = 44;
 const ANSWER = 130;
 
 /**
- * The height of a counter cell and the side of a stepper - a token, not a
- * number, for the same reason `--counter-num` is one.
+ * The height of a counter cell and the height a stepper stretches to inside it
+ * - a token, not a number, for the same reason `--counter-num` is one.
  *
- * `--counter-cell` is the cell's HEIGHT: 44 - the floor, which is what shipped
- * - and **48 from viewport 390 up**, where `--counter-num` steps to 26. The
- * four pixels are bought rather than taken. The value in this cell is the
- * number the screen exists for during a fight and it was 22px: BELOW the 30px
- * roll total and two pixels above the `+` you press to change it. At 26 the
- * cell's content is a 13px label row, a 2px gap and a 26px line - 41 - which is
- * 1px inside a 44px cell's 42 of inner and 5px inside a 48's 46. One pixel is a
- * coincidence, not a margin, which is the standard `tokens.css` already holds
- * `--counter-num`'s own step to.
+ * `--counter-cell` is the cell's HEIGHT: **56**, and **90 from viewport 390
+ * up**, where `--counter-num` steps to 38. Both are the card's three lines and
+ * nothing else. Measured in Chrome, `wizard10` at full Hit Points: at 393 the
+ * card is 7 of padding, a 13px first line, a 6px gap, the 38px number, another
+ * 6, the 10px maximum and 7 - 87 of content, 89 with its 1px border top and
+ * bottom, in a cell that declares 90. At 360 the same seven terms with the
+ * narrow values are 51, 53 with the border, in 56.
  *
- * HEIGHT AND NOT WIDTH, WHICH IS MEASURED AND IS THE OPPOSITE OF WHAT THE PLAN
- * FOR THIS PASS ASSUMED. Growing the steppers to 48 square takes 8px out of the
- * value target beside them, and that is exactly the room the raise needs:
- * measured with the `wizard10` fixture at full Hit Points, `11 / 11` at 26 over
- * 11 is **68.94px** of ink against **73.5** of room with 44px-wide steppers and
- * **65.5** with 48px ones - so the wider stepper clips the number the wider
- * stepper was supposed to be paying for. The steppers are 44x48: taller, not
- * wider, at the floor in both directions, +9% of area on the eight most-pressed
- * controls on the sheet, and the four value targets go 85.5x44 -> 85.5x48.
+ * IT WAS 44, THEN 48, AND BOTH OF THOSE WERE THE TWO-LINE ROW. That shape put a
+ * 13px label row, a 2px gap and the value on one line beside its maximum; the
+ * cockpit still draws it, at 26 in a 48px cell, and `tokens.css` steps the
+ * tokens back at 1180 to say so. The phone's card is the only reason this
+ * number is 56 and 90, and a docblock that still reads "44 - the floor, which
+ * is what shipped" is describing a cell no phone has drawn since.
  *
- * AND BELOW 390 NOTHING MOVES AT ALL. At 360 the value target is 69 wide, 57 of
- * room, and the same three raises would put 58.91 of ink into it and clip a
- * number a player reads. So the cell is 44 there, the maximum 10 and the number
- * 18, exactly as it shipped - and the arithmetic that decides it lives in
+ * THE STEPPERS TAKE THE HEIGHT AND NOT THE WIDTH, WHICH IS MEASURED AND IS THE
+ * OPPOSITE OF WHAT THE PLAN FOR THIS PASS ASSUMED. Width is the axis the number
+ * is fighting for: measured, `11` at 38 is 47.64 of the 73.5 the value target
+ * has at 393, and every pixel of stepper width is one the line loses twice
+ * over. So the steppers are 44 wide at every width and as tall as the card -
+ * **44x88** at 393 and 44x54 below 390, both measured inside the card's border
+ * - which is the largest they have ever been and costs the number nothing.
+ *
+ * AND BELOW 390 THE CARD IS THE SAME SHAPE, SMALLER. At 360 the value target is
+ * 75 wide with 57 of room, the number is 18 and 22.58 of ink and the maximum
+ * 26.41, so nothing clips. The arithmetic that decides all of it lives in
  * `tokens.css` beside `--control` and `--pip-h` rather than in a breakpoint
  * this file invented.
  *
- * The eight pixels the block costs at 393 are exactly what the defence band
- * above it returned in the same pass, so the counters grow UPWARD into them and
- * their lower edge does not move. That is deliberate: everything below this
- * block is either read (the traits) or aimed at blind (ROLL).
+ * WHAT THE BLOCK COSTS THE COLUMN IS 92 PIXELS AND EVERYTHING BELOW IT MOVES
+ * DOWN. Two 44px rows and a 6px gap were 94; two 90px cards and the same gap
+ * are 186. The eight pixels the 48px cell cost were the ones the defence band
+ * had just returned, and while that was the whole of it this block grew upward
+ * and its lower edge stayed put - which is what stood here. It is not the whole
+ * of it any more: `Play.tsx`'s budget pays for the other 84 out of the four
+ * folds paired two-up, and ROLL is 86px CLOSER to the thumb than before the
+ * reflow rather than 24 further from it.
  *
  * The entry row uses it too, so a cell being typed into is the same height as
  * the three beside it and the grid does not jump under the finger that opened
@@ -173,16 +184,19 @@ const CELL = 'var(--counter-cell)';
 
 /**
  * The gutter between the value target and the first stepper, and between the
- * steppers themselves.
+ * steppers themselves - in the two shapes that still have one.
  *
  * Four rather than six, and the two pixels are not cosmetic: they are the
- * difference between 64.5px of room for the value line at 375 and 60.5px. When
- * that was decided the number was a flat 20px and the widest line was 59.5, so
- * six left one pixel of slack and one pixel is not a margin, it is a
- * coincidence. Since `--counter-num` the line at 375 is 55.59 and the slack is
- * 8.91, so the four is no longer load-bearing *there* - it is load-bearing at
- * 360 and below, where the target is 69 wide and then 61 and then 49, and every
- * gutter pixel is one the label loses.
+ * difference between 64.5px of room for the value line and 60.5px. When that
+ * was decided the number was a flat 20px and the widest line was 59.5, so six
+ * left one pixel of slack, and one pixel is not a margin.
+ *
+ * THE CARD HAS NO GUTTER AT ALL, so on a phone this survives in exactly one
+ * place: the numeric entry row, where a field, a ceiling, SET and `×` are four
+ * boxes that do need holding apart. The cockpit's two-line row is the other,
+ * and there the four is what stands the value target 4px clear of `−` in a
+ * 198px cell. Inside the card the border is the boundary and a gutter would
+ * draw a second one - see the row's own `gap` below.
  */
 const GUTTER = 4;
 
@@ -392,9 +406,13 @@ export function Counter({
        * floor is what `keeps every target at the touch floor in both
        * directions` reads. It stopped being decorative when the grid's tracks
        * were floored at 0 - the cell is 145 at viewport 320, which leaves this
-       * 49, and at viewport 310 it leaves exactly the 44 declared here. That is
-       * the floor of the whole 2x2 shape and it is below every phone that
-       * ships.
+       * **55**, and at viewport **298** it leaves exactly the 44 declared here.
+       * Measured at both, and at 297, where the value target holds its 44 and
+       * the card overflows its track by half a pixel instead. That is the floor
+       * of the whole 2x2 shape and it is below every phone that ships. (310 and
+       * 49 were this sentence's numbers while the two 4px gutters were still in
+       * the cell; the card took them out and moved the floor twelve pixels
+       * down.)
        */}
       <button
         type="button"
@@ -471,7 +489,7 @@ export function Counter({
                   // The maximum drops under the value, and that is what let the
                   // number go to 38: on one line `11 / 11` is 68.92 of 74, so
                   // width and not height was the ceiling. Stacked, the widest
-                  // line is `11` at 47.65.
+                  // line is `11` at 47.64.
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -487,8 +505,8 @@ export function Counter({
             style={{
               // `--counter-num`, not a literal: this size is decided by how wide
               // the grid track is, and the token is where that arithmetic and
-              // its two breakpoints live. 26px at 390 and up, 22 at 380, 18
-              // below.
+              // its three breakpoints live. 38px from 390 up, 22 from 380, 18
+              // below that, and 26 again in the cockpit from 1180.
               font: '800 var(--counter-num)/1 var(--sans)',
               color: shape.color,
               fontVariantNumeric: 'tabular-nums',
@@ -503,15 +521,17 @@ export function Counter({
             {value}
           </span>
           {/*
-           * The maximum, at `--counter-max`: 11 from 390 up, `.t-meta`'s 10
-           * below.
+           * The maximum, at `--counter-max`, which is `.t-meta`'s 10 at every
+           * width and is the one token here that does NOT step.
            *
            * Nobody reads a marked count on its own: `3` means nothing and
            * `3 / 6` means everything, so this half of the value is read exactly
-           * as often as the other half and was drawn at the smallest size on
-           * the sheet. It grows with the number rather than being left behind
-           * by it - and it steps with the number, because the 3.32px it adds is
-           * 3.32px the narrow cell does not have.
+           * as often as the other half. It was raised to 11 from 390 up for one
+           * commit, beside a 26px value; on a line of its own under a 38px one
+           * it is subordinate rather than paired, and not stepping is what let
+           * the number take the width instead. Measured, `/ 11` is 26.41 wide at
+           * 10 - which is the widest line the card draws below 380, where the
+           * number itself is only 22.58.
            */}
           <span
             className="t-meta"
@@ -554,26 +574,30 @@ export function Counter({
  * arrangement where a near miss lands on the opposite control rather than on
  * nothing.
  *
- * 44x48 since the reflow, and the asymmetry is the point: the cell grew taller
- * to carry a 26px number and the stepper takes that height for free, +9% of
- * area on the eight most-pressed targets on the sheet for nothing extra. It
- * does NOT take the matching width. 48 square would read tidier and would cost
- * 8px of the value target beside it - 73.5 of room falling to 65.5 against
- * 68.94 of measured ink - so the button would clip the number it was widened to
- * serve. Tidy loses to measured here.
+ * 44 WIDE BY THE CARD'S OWN HEIGHT since the reflow, and the asymmetry is the
+ * point: the cell grew to carry a 38px number and the stepper takes that height
+ * for free. Measured inside the card's border, it is **44x88** at 393 and 44x54
+ * below viewport 390, against the 44x44 it shipped at - which is twice the area
+ * on the eight most-pressed targets on the sheet for nothing extra. It does NOT
+ * take the matching width. A 48px-wide stepper would read tidier and would cost
+ * 8px of the value target beside it, and width is the axis the number is
+ * fighting for: `11` at 38 measures 47.64 of the 73.5 that target has at 393,
+ * and `/ 11` under it 26.41 of the 57 it has at 360. Tidy loses to measured
+ * here. (44x48 and "+9% of area" were true of the 48px cell, for one commit.)
  *
  * The glyph stays at 20. It is a pure target: a finger aims at the button, not
  * at a minus sign.
  *
  * ## The ring, and why it is drawn two pixels INSIDE the button
  *
- * The cell leaves 4px between the value target and `−`, where the full-width
- * row it replaced left about 105. The obvious answer was to buy that cushion
- * back by cropping the steppers; the owner said no to the crop and yes to the
- * ring, and the two halves of that decision are the same sentence: a target
- * this project already declares at the floor does not get smaller, so the fix
- * has to be something that says *which button you hit* without taking a pixel
- * off any of them.
+ * The card leaves NOTHING between the value target and `−` - they share an
+ * edge - where the full-width row this replaced left about 105 and the
+ * cockpit's row still leaves the 4px gutter. The obvious answer was to buy that
+ * cushion back by cropping the steppers; the owner said no to the crop and yes
+ * to the ring, and the two halves of that decision are the same sentence: a
+ * target this project already declares at the floor does not get smaller, so
+ * the fix has to be something that says *which button you hit* without taking a
+ * pixel off any of them. The card only made that argument harder to refuse.
  *
  * An `outline` is what says it. It is not in flow and not in the box model, so
  * it changes no layout and no hit area whatever its offset, and
@@ -679,12 +703,12 @@ function Step({
         flex: 'none',
         // Width is the FLOOR and height is the cell, and the asymmetry is
         // measured rather than tidy. Four pixels of stepper width is eight
-        // pixels out of the value target beside them, and at 393 that is the
-        // difference between 73.5px of room for `11 / 11` at 26 over 11 - which
-        // measures 68.94 - and 65.5, which clips its tail. So the steppers grow
-        // on the axis the cell has spare and not on the one the number is
-        // fighting for: 44x48 is still square-enough at the floor in both
-        // directions, which is the property this button exists to hold.
+        // pixels out of the value target beside them, and that target is where
+        // `11` at 38 draws 47.64 of 73.5 at 393. So the steppers grow on the
+        // axis the cell has spare and not on the one the number is fighting
+        // for: 44 wide by the card's height - measured 44x88 at 393, 44x54
+        // below 390 - is over the floor in both directions, which is the
+        // property this button exists to hold.
         width: TAP,
         ...(tall
           ? {
@@ -720,11 +744,16 @@ function Step({
          * would be reading the serialiser rather than the declaration.
          *
          * `outlineOffset` is the whole of the decision. Positive, it grows past
-         * the border box into the 4px gutter its neighbour is on the other side
-         * of, and the card's `overflow: hidden` clips it; negative, it is drawn
-         * inside a button whose declared 44px width and `--counter-cell` height
-         * above have not moved by a pixel. An outline never took part in layout
-         * either way - this offset is about what is SEEN, not about the target.
+         * the border box and lies across whatever is beside it - inside the card
+         * that is the value target itself, because the row's `gap` is 0 there
+         * and only the two shapes that kept a gutter have 4px to grow into - and
+         * the card's `overflow: hidden` clips the part that escapes. Negative,
+         * it is drawn inside a button whose declared `width: 44` above has not
+         * moved by a pixel, nor has the height that button promises: `height:
+         * var(--counter-cell)` in the two-line row, and `minHeight: 44` under an
+         * `alignSelf: 'stretch'` that takes it to the card's own
+         * `--counter-cell`. An outline never took part in layout either way -
+         * this offset is about what is SEEN, not about the target.
          */
         ...(ringed
           ? {

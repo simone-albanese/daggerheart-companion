@@ -141,19 +141,24 @@ export function Vitals({
        * draws twelve targets - a value and two steppers per cell - and every
        * one of them is 44x44 or larger, in both directions, for the first time.
        *
-       * THE PHONE MOVES EIGHT PIXELS, AND THEY ARE THE ONLY ONES THE REFLOW
-       * SPENDS. Numbers were already the default: 2x44 plus one 6px gap was
-       * **94px**, against 194 for four full-width rows, and that hundred is
-       * most of what puts the rest of the sheet on the glass. The cell is
-       * `--counter-cell` now - 48 from viewport 390 up, 44 below - so this
-       * block is **102** on the owner's phone and 94 on a 360px Android, and
-       * the eight pixels buy a 26px value where it was 22. They are exactly
-       * what the defence band above returned in the same pass, so the block
-       * grows upward and its lower edge does not move. What is deleted is the reachable 194px shape, which was the
-       * single dearest state the Play budget could not see. A cell is
-       * (glass - 24 - 6) / 2 - 181.5 at 393 and 172.5 at 375 - of which 88 is
-       * the two steppers and 8 the gutters, so the value target is 85.5 and
-       * 76.5 wide. `Counter`'s own docblock carries what the narrow one costs.
+       * THE PHONE'S BLOCK IS 186, AND IT IS THE ONE THING THIS REFLOW BUYS
+       * RATHER THAN SELLS. Numbers were already the default: 2x44 plus one 6px
+       * gap was **94px**, against 194 for four full-width rows. The cell is
+       * `--counter-cell` now - 90 from viewport 390 up, 56 below - so this
+       * block is **186** on the owner's phone and **118** on a 360px Android,
+       * and what the 92 buys is a 38px value where it was 22, on its own line,
+       * with the maximum under it. Everything below this block moves down by
+       * that much, and `Play.tsx`'s budget pays for it out of the four folds it
+       * pairs two-up. (It was 102 and 94 for one commit, when the cell was 48
+       * and the eight pixels were exactly what the defence band above had just
+       * returned; that is where "the block grows upward and its lower edge does
+       * not move" came from, and the card ended it.) What is deleted is the
+       * reachable 194px shape, which was the single dearest state the Play
+       * budget could not see. A cell is (glass - 24 - 6) / 2 - 181.5 at 393 and
+       * 172.5 at 375 - of which 88 is the two steppers and 2 the card's own
+       * border, with no gutter inside it at all, so the value target is 91.5
+       * and 82.5 wide. `Counter`'s own docblock carries what the narrow one
+       * costs.
        *
        * THE COCKPIT IS REDRAWN, AND IT IS THE ONE PLACE PIXELS MOVE. The block
        * was 428x245: `.panel` border 2, padding 12 twice, three 48px track rows
@@ -179,9 +184,14 @@ export function Vitals({
        * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 4 - 4 =
        * **102x48** - the steppers grew in height only, so this width did not
        * move. Less `padding: 0 5px` and 2px of border that is 90px of room for
-       * the **68.94px** value line at `--counter-num`'s 26px over an 11px
-       * maximum, measured in Chrome at 1280x800 with the `wizard10` fixture at
-       * full Hit Points, against the phone's 4.56 of slack at 393. The steppers
+       * a **65.63px** value line: `11 / 11` at `--counter-num`'s 26 over
+       * `--counter-max`'s 10, measured in Chrome at 1280x800 with the
+       * `wizard10` fixture at full Hit Points, so 24.37 of slack. (It was 68.94
+       * over an 11px maximum, and the 11 was the 390 step, which the card gave
+       * up: the cockpit answers `min-width: 390` too, so it was taking a phone's
+       * maximum by accident and now takes the base 10 on purpose. The phone's
+       * own slack is no longer comparable to this one - there the two lines are
+       * stacked, and the widest is 47.64 of 73.5.) The steppers
        * stay at `Counter`'s 44 of width rather than following `--control` down
        * to 34, for the reason `tokens.css` gives beside `--pip-h`: a
        * touchscreen laptop at 1180px and up reports `pointer: fine` with a
@@ -189,9 +199,10 @@ export function Vitals({
        *
        * READ VERSUS TOUCH, AND WHAT THE COCKPIT LOSES. The readout stops being
        * a 32px silhouette read as a shape and becomes two digits at 800
-       * `--counter-num` Archivo - 26px here, because the token's two steps are
-       * `min-width` queries at 380 and 390 and every cockpit width answers both
-       * - with the 13px mark still saying which track it is. Three
+       * `--counter-num` Archivo - 26px here, because `tokens.css` sets the
+       * token back to 26 at 1180 after the phone's steps at 380 and 390, which
+       * a cockpit width also answers and which would otherwise draw it at 38 -
+       * with the 13px mark still saying which track it is. Three
        * things go with the pips and none of them is hidden: a pip row sets any
        * value in one click where a number is one `+` per point or three
        * gestures; the press-and-hold that cleared a track has no `Counter`
@@ -210,10 +221,13 @@ export function Vitals({
        * `minmax(0, 1fr)` AND NOT `1fr`, WHICH IS TWO WORDS AND A DEFECT.
        *
        * A bare `1fr` is `minmax(auto, 1fr)`, and the `auto` minimum is the grid
-       * item's own min-content - which for a `Counter` row is 44 + 4 + 44 + 4 +
-       * the value button's own min-content, and that last term is the label
-       * line: measured in Chrome, `STRESS` behind its 13px silhouette makes the
-       * right-hand track 165.81 and `3 / 11` makes the left one 153.56. So the
+       * item's own min-content - which for a `Counter` card is 44 + 44 of
+       * steppers, 2 of border and the value button's own min-content, and that
+       * last term is the label line: measured in Chrome, `STRESS` behind its
+       * 13px silhouette makes the right-hand track 165.81 and `3 / 11` makes
+       * the left one 153.56. (Those two were measured before the card took the
+       * two 4px gutters out; what they bound is unchanged, and the floor below
+       * is re-measured.) So the
        * grid's minimum was **325.37 whatever the viewport was**, and its right
        * edge sat at a constant x = 337.37 while the column's clip edge came in
        * behind it: 17.4px of the 44px `+` on STRESS and ARMOR was off the glass
@@ -229,10 +243,12 @@ export function Vitals({
        * was given. With both, the shortfall lands on the value button - which
        * already declares `minWidth: 44` and `overflow: hidden` for exactly this
        * - so what is lost is the tail of a label inside a target that keeps its
-       * size, and never a target. Measured after: the grid's right edge is the
-       * column's at every width, the two steppers stay 44x44 and on the glass
-       * down to viewport 310, and the value target is 69 wide at 360, 61 at 344
-       * and 49 at 320.
+       * size, and never a target. Re-measured through the rig against the card:
+       * the grid's right edge is the column's at every width, the two steppers
+       * stay 44 wide and on the glass down to viewport **298**, and the value
+       * target is 75 wide at 360 and 55 at 320. (310, 69 and 49 were the
+       * gutters' arithmetic; the card deleted them and moved the floor twelve
+       * pixels down.)
        */}
       <div
         style={{
@@ -337,29 +353,53 @@ export function Vitals({
  * against are now one glance, and the restatement is deleted rather than
  * duplicated.
  *
- * "One glance" is a distance, and it is a fixed one only since this commit:
- * **103.20px** from SEVERE's right edge to the field's left, at every viewport
- * from 353 up. Before it the distance was `viewport - 249.27` - 143.73 at 393,
- * 469.73 at the top of the phone band, 494.73 at 744, 929.73 at 1179 - so it
- * was fixed at no width at all, a phone included, and 103.20 was a number this
- * band had never once measured. The paragraph below headed WHERE THE BOX SITS
- * has the derivation and what one word changed.
+ * "One glance" is a distance, and it has been three different ones. Under
+ * `flex-end` it was `viewport - 249.27` from SEVERE's right edge to the
+ * field's left - 143.73 at 393, 494.73 at 744, 929.73 at 1179 - so it was fixed
+ * at no width at all. `flex-start` made it 103.20 everywhere from 353 up, and
+ * that lasted until the band closed its own hole: with the three readout tracks
+ * flexible and this one `auto`, the slack is inside the readouts instead.
+ * Measured now, SEVERE's cell edge to the field: **118.47 at 393**, 119.12 at
+ * 375, 112.8 at 360, 235.47 at 744, 380.45 at 1179. On a phone that is one
+ * glance and the sentence holds; on a tablet it is a third of what `flex-end`
+ * left and it is not fixed. The paragraph below headed WHERE THE BOX SITS has
+ * the derivation, what one word changed, and what the template changed back.
  *
- * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. A defence cell
- * is 8 + 10 label + 4 + 32 number + 8 + 2 border = 64px tall. This is a 44px
- * field, vertically centred: 44px in a row whose height is already 64. The band
- * does not grow for it, the counters lose 50, and the whole move is a saving of
- * exactly the row it used to be. Measured in Chrome at both widths, with the shipped
- * fonts, in `Defenses`'s own note.
+ * IT COSTS THE COLUMN NOTHING, WHICH IS THE PART WORTH CHECKING. This is drawn
+ * on a phone only - `Play.tsx` passes `damage` and `tight` in the same tag and
+ * the cockpit's `<Defenses>` has neither - so the row it rides in is the tight
+ * one: 4 + 10 label + 4 + 32 number + 4 + 2 border = **56px** tall, and the 64
+ * this said is what the cockpit's 8s make. This is a 44px field, vertically
+ * centred: 44 in a row whose height is already 56, six real pixels of clearance
+ * top and bottom. The band does not grow for it, the counters lose 50, and the
+ * whole move is a saving of exactly the row it used to be. Measured in Chrome at
+ * both widths, with the shipped fonts, in `Defenses`'s own note.
  *
  * `door` IS THE CONDITIONS, AND IT TOOK THE CAPTION'S PLACE RATHER THAN A CELL
  * OF ITS OWN. Decision 3 of the reflow needs a permanent 44x44 way into
  * `ConditionsDialog` somewhere that costs the column no height, and the identity
  * class row that used to hold it is being deleted. A sixth grid track does not
- * fit - measured, the four auto cells are 229.63 wide and four 6px gaps are 24,
- * so a fifth cell of 44 + 6 + 44 and a sixth of 44 needs 391.63 of column
- * against 369 at 393px - so the door goes *inside* the fifth cell, and what it
- * replaces is the visible word `TOOK`.
+ * fit - measured, the four number cells come to 210.47 at their content width
+ * and four 6px gaps are 24, so a fifth cell of 44 + 6 + `--damage-w` is 94
+ * below viewport 390 and 114 from 390 up, and a sixth of 44 behind a fifth 6px
+ * gap takes 398.47 of column against 369 at 393px and 378.47 against 336 at
+ * 360 - so the door goes *inside* the fifth cell, and what it replaces is the
+ * visible word `TOOK`.
+ *
+ * CONTENT WIDTH IS THE RIGHT FIGURE FOR THAT SUM AND IS NOT WHAT THE FOUR ARE
+ * DRAWN AT. Under `auto repeat(3, minmax(min-content, 1fr)) auto` only
+ * EVASION's track is `auto`; the middle three are flexible and take a share of
+ * whatever the band has over 210.47, so at 393 they are painted wider than
+ * their contents - which is exactly why PROF's digits land 80 to 348px from
+ * the field in the table below rather than at one fixed offset. 210.47 is the
+ * floor, and the sixth track does not fit even against the floor.
+ * (`229.63` and `391.63`
+ * stood here, and `Defenses`'s own width budget in `Play.tsx` and
+ * `playSheet.test.tsx`'s «the width this sheet is laid out for» have carried
+ * 210.47 and 398.47 since the padding came down to 6. `the four **auto** cells`
+ * stood here too; it was true of `auto auto auto auto 1fr`, and 3dff11f closed
+ * the band's hole by making the middle three flexible and the fifth `auto`, so
+ * it has been true of EVASION alone since.)
  *
  * WHICH IS A REAL LOSS AND IS THE ONLY ONE. The field's visible identity is now
  * its `14` placeholder and its position beside the thresholds; its accessible
@@ -369,51 +409,54 @@ export function Vitals({
  * a name.
  *
  * AND THE CELL WRAPS RATHER THAN OVERFLOWING, WHICH IS WHAT MAKES IT SAFE AT
- * 320. Both children are `flex: none` at 44 in a `1fr` track whose width is
- * `column - 234.47` once the number is 32px and the cells are padded at 6:
- * 134.53 at 393, 116.53 at 375, 101.53 at 360, 85.53 at 344, 61.53 at 320. The
- * pair needs 94, so from viewport 353 up they sit side by side and the band is
- * 64; below that the field wraps under the door and the band is 94 for the width
- * of one Android. Without `flexWrap` the row's `justifyContent` and `minWidth: 0`
- * sent the shortfall *leftwards*, out of the cell, across the grid gap and onto
- * the Proficiency number a player reads under pressure - measured at 27.2px of
- * overlap at 320 and 2.8px at 360 before the commit that added the wrap.
+ * 320. Both children are `flex: none` - 44 for the door, `--damage-w` for the
+ * field - in a track that is `auto` since the band closed its hole, so it is
+ * exactly the pair and nothing else. Measured in Chrome, `played` fixture:
+ * **114** from viewport 390 up, where the field is 64, and **94** below it,
+ * where the field is 44 - at 393, 744, 852 and 1179 alike, because an `auto`
+ * track does not grow with the column. At 320 the row has 66.38 to give it, so
+ * the field wraps under the door and the band is 94 tall instead of 56. Without
+ * `flexWrap` the row's `justifyContent` and `minWidth: 0` sent the shortfall
+ * *leftwards*, out of the cell, across the grid gap and onto the Proficiency
+ * number a player reads under pressure - measured at 27.2px of overlap at 320
+ * and 2.8px at 360 before the commit that added the wrap.
  *
- * (The constant said `242.47` and the first two numbers said 126.53 and 108.53
- * until this commit, and they were a third stale term rather than a different
- * measurement: three of the five entries already followed 234.47, as does the
- * `viewport 353` crossing in the same paragraph. `playSheet.test.tsx` reads the
- * four cells off the DOM and asserts 210.47, which with four 6px gaps is
- * 234.47, and `Defenses`' own docblock says 234.47 as well. One paragraph,
- * two constants, and the wrong one was cited first.)
+ * (`a `1fr` track whose width is `column - 234.47`: 134.53 at 393, 116.53 at
+ * 375, 101.53 at 360, 85.53 at 344, 61.53 at 320` stood here, and every number
+ * of it went when the fifth track became `auto`. The paragraph before it had
+ * already been corrected once, from a `242.47` that disagreed with three of its
+ * own five entries. A constant carried in two files is a constant that will
+ * disagree with itself; this one now lives where it is drawn.)
  *
- * WHERE THE BOX SITS INSIDE THAT TRACK, WHICH IS THE PART THAT WAS WRONG AT
- * EVERY WIDTH ABOVE A PHONE. The track is `1fr`, so it takes the whole
- * remainder of the column, and the pair inside it was `justifyContent:
- * 'flex-end'` - pinned to the far edge. `PlayPhone` is not phone-only:
- * `Play.tsx` returns it for `layout !== 'desktop'`, which is every viewport up
- * to 1179, and the column has no `maxWidth`. So the empty space between the
- * PROF cell and the conditions door is `viewport - 352.47`:
+ * WHERE THE BOX SITS INSIDE THE BAND, AND THE ANSWER MOVED AGAIN WITH THE
+ * TEMPLATE. The pair inside this cell was `justifyContent: 'flex-end'` in a
+ * `1fr` track that took the whole remainder of the column, so it was pinned to
+ * the far right edge: `PlayPhone` is not phone-only - `Play.tsx` returns it for
+ * `layout !== 'desktop'`, which is every viewport up to 1179 - and the column
+ * has no `maxWidth`, so at 744 the box sat half a screen from the numbers it is
+ * read against. `flex-start` here fixed that by holding the pair against the
+ * left of its own track, and while the track was the flexible one that put the
+ * box 103.20px past the PROF cell at every width from 353 up.
  *
- *   viewport   fifth track   dead space   SEVERE's right edge to the field
- *   393            134.53        40.53                   143.73
- *   744            485.53       391.53                   494.73
- *   1133           874.53       780.53                   883.73
- *   1179           920.53       826.53                   929.73
+ * THAT IS NO LONGER WHAT HAPPENS, AND IT IS NOT THIS FILE THAT CHANGED. The
+ * band is `auto repeat(3, minmax(min-content, 1fr)) auto` now, so the flexible
+ * tracks are the three readouts and this one is its own content. `flex-start`
+ * still holds the pair at the left of a track that is exactly 114 wide, and the
+ * slack went to MAJOR, SEVERE and PROF, whose numbers are drawn at the LEFT of
+ * their own stretched cells. Measured, `played` fixture, from the right edge of
+ * PROF's digits to the left edge of the field:
  *
- * (the last column is the 6px gap, PROF's 41.20 cell, another 6px gap, the dead
- * space, the 44px door and one 6px gutter.) This file's own opening says the
- * box is beside "the two numbers you read it against", and the commit that
- * moved it here was titled for that claim. It was true at 393 and false by
- * half a screen at 744 - a width this project supports, measures and names by
- * device.
+ *   viewport 360   80.37     viewport 744    203.05
+ *   viewport 375   86.70     viewport 852    239.05
+ *   viewport 393   86.05     viewport 1179   348.05
  *
- * `flex-start` makes it 103.20px at every width from 353 up, and the dead space
- * moves to the right of the field, past the end of the band, where nothing is
- * read. Not a cap on the track and not `auto` in place of the `1fr`: the grid
- * template is `Defenses`' in `Play.tsx` and the four readout cells are sized
- * from it, so changing it there would move four numbers to fix the position of
- * one box. One word here moves the one box.
+ * So the phone is where the fix intended and the tablet is not: 348 of dead
+ * space at 1179 against the 826.53 the flex-end shape had, and against the
+ * 103.20 this paragraph promised at every width. It is a third of the old
+ * defect rather than the end of it, and it is recorded here rather than fixed
+ * here, because the pixels are now in `Defenses`' template in `Play.tsx` and
+ * moving them moves four numbers to place one box - which is the trade the
+ * paragraph above refused. Nothing on a phone moved: at 393 it is 86.05.
  *
  * ERGONOMICS. Derived at four viewports rather than one, because the geometry
  * of this move is not the same in portrait as it is on a rotated phone, and the
@@ -422,70 +465,83 @@ export function Vitals({
  * The reference sweep this project uses is a 95th-percentile right thumb of
  * about **330px** from the bottom-right pivot - `Play.tsx`'s ROLL note is where
  * that number is argued - and the pivot is taken at `(viewport - 20, height -
- * 40)`. Measured in Chrome, the pair is at door x246.47-290.47, field
- * x296.47-340.47, y63-107 at **every** width from 353 up; before this commit it
- * was door `viewport-106` to `viewport-62` and field `viewport-56` to
- * `viewport-12`. Two targets, two numbers each, held apart:
+ * 40)`. The pair was at door x246.47-290.47, field x296.47-340.47 at **every**
+ * width from 353 up, because it sat at the left of the flexible track; before
+ * that it was door `viewport-106` to `viewport-62`. Neither is where it is. The
+ * fifth track is `auto` since the band closed its hole, so the pair sits at the
+ * right-hand end of a band whose three middle tracks now take the slack:
+ * measured in Chrome, door x267 at 393, x618 at 744, x726 at 852 and x1052.98
+ * at 1179, all y67-111. Reach from those rects, pivot as above:
  *
- *                        door before -> after     field before -> after
- *   393x852, one hand     729.8 -> 734.5           727.1 -> 729.0
- *   852x393, two hands    275.5 -> 365.5           268.4 -> 401.1
- *   780x360, two hands    243.6 -> 342.0           235.4 -> 379.9
- *   744x1133, two hands  1010.0 -> 1038.2          1008.1 -> 1051.3
+ *                        door before -> flex-start -> NOW    field now
+ *   393x852, one hand     729.8 ->  734.5 ->  727.9          723.4
+ *   852x393, two hands    275.5 ->  365.5 ->  277.0          265.1
+ *   780x360, two hands    243.6 ->  342.0 ->  245.8          232.2
+ *   744x1133, two hands  1010.0 -> 1038.2 -> 1007.5         1004.3
  *
- * The two-handed rows are the *nearest* thumb of the two, and which thumb that
- * is changes with the move: at 852x393 the right thumb had the door at 275.5
- * and now has it at 624.0, while the left thumb had it at 794.6 and now has it
- * at 365.5. Quoting only the right-hand pivot on a rotated phone overstates the
- * loss by 258.5px, which is why both are here.
+ * The two-handed rows are the *nearest* thumb of the two. The middle column is
+ * the shape this paragraph was written about and it lasted one commit: the band
+ * template took the flexibility out of this track, and every landscape and
+ * tablet number went back to within 2.3px of where flex-end had it.
  *
- * **Thumb arc:** in portrait nothing happens - 4.7px on the door and 1.9 on the
- * field, against a sweep the band is already 2.2x outside in both arrangements,
- * because this row is the first thing in the column. (The 1.9px the old
- * paragraph gave for "the two 44px targets" was the field's alone; the door's
- * is 4.7, and a figure quoted for a pair has to be the worse of the two.) The
- * landscape rows are the real cost and the old paragraph did not have them: on
- * a rotated phone the two-handed grip anchors a thumb at each bottom corner,
- * the *nearest* thumb becomes the left one, and the door goes from 275.5px -
- * inside the 330 sweep - to 365.5, which is 35px outside it. The field goes
- * 268.4 to 401.1. That is a shuffle of the grip where there was none, on one
- * orientation of one class of device, and it is the price of the whole change.
- * At 744x1133 the old sentence claimed a gain: it said the targets move "toward
- * the centre of a 720px column, which on a tablet held in two hands is the
- * difference between the edge and the middle". There is no 720px column -
- * measured, the column runs x0-744 and the grid x12-732 - and a two-handed grip
- * anchors at the *edges*, so the middle is the far end of both arcs, not the
- * near end: nearest-thumb reach goes 1010.0 to 1038.2, 28px worse. Both are
- * three times the sweep either way, so the honest reading is that the tablet
- * case is a reading change and not a reach change at all.
+ * **Thumb arc:** in portrait nothing happens - 1.9px on the door and 3.7 on the
+ * field against the shape before either change, and the band is 2.2x outside
+ * the sweep in all three because this row is the first thing in the column. The
+ * landscape cost this paragraph recorded as "the price of the whole change" is
+ * not being paid any more: at 852x393 the nearest thumb has the door at 277.0
+ * where flex-start put it at 365.5, back inside the 330 sweep it had been
+ * pushed 35px outside of. The tablet is the same story - 1007.5 against
+ * 1038.2 - and both are three times the sweep either way, so the honest reading
+ * there is still that it is a reading change and not a reach change.
  *
- * The trade is taken because the other side of it is 499.53px at 852 and
+ * WHICH MEANS THE ARGUMENT BELOW IS NOW ABOUT A LAYOUT THIS FILE NO LONGER
+ * DECIDES. `flex-start` still holds the pair at the left of its own track and
+ * is still right; what it no longer does is move the box away from the far edge
+ * of the band, because the box's track is exactly the box. Read the paragraph
+ * below as the record of why the word is there, not as a claim about where the
+ * field is drawn at 744.
+ *
+ * The trade was taken because the other side of it was 499.53px at 852 and
  * 826.53px at 1179 of dead space between the last number read and the box the
- * answer goes in, and because both controls here are deliberate rather than
- * habitual - the field opens a numeric keypad over the sheet, the door opens a
+ * answer goes in - it is 239.05 and 348.05 now, measured, because the band's
+ * template took most of that space back into the three readout cells - and
+ * because both controls here are deliberate rather than habitual - the field opens a numeric keypad over the sheet, the door opens a
  * dismissable modal. Neither is the verb a thumb comes back to; that is ROLL,
  * at the bottom, and it does not move. Capping the column, which is the other
  * proposal on the table, does not recover any of the landscape reach: under
  * `flex-start` the pair sits against the PROF cell whatever the column's width
  * is, so a cap only shortens the dead space to the *right* of the field.
  *
- * **Target size:** unchanged - 44x44 door, 44x44 field, in a 64px row, at every
- * width. Nothing shrinks and nothing wraps that did not wrap before, because
- * the wrap threshold is the pair's 94px against the track and `justify-content`
- * does not enter it. **Read versus touch:** the band reads left to right -
+ * **Target size:** the door is 44x44 at every width; the field is 44x44 below
+ * viewport 390 and **64x44** from 390 up, where `--damage-w` takes width the
+ * band's closed hole freed. The row they ride in is **56** on a phone since the
+ * readout cells' padding came down to 4, and 64 in the cockpit. Nothing shrinks
+ * and nothing wraps that did not wrap before: the wrap threshold is the pair's
+ * own width against its track and `justify-content` does not enter it. (This
+ * said "44x44 field, in a 64px row, at every width" for two commits after both
+ * halves of it moved.) **Read versus touch:** the band reads left to right -
  * Evasion, then the two thresholds, then Proficiency - and the box is the one
  * thing in it you touch. Putting it immediately after the numbers is that order
  * without a hole in it; pinning it right put up to 826.53px of nothing between
- * the last number read and the field the answer is typed into.
+ * the last number read and the field the answer is typed into, and the band's
+ * own template has since put 348.05 of it back at 1179 - see the table above,
+ * which is the one place that number lives.
  *
  * WHAT APPEARS WHILE YOU ARE TYPING, AND WHY IT IS A SECOND ROW. `ARM` and the
- * commit chip need about 170px between them and the widest this cell ever gets
- * is 126.53 at 393. So the verdict spans the band underneath, and the band is
- * 120 instead of 64 for exactly as long as there is an unconfirmed number in
- * the box. That is the one state on this screen that moves what is below it,
- * and it is the state where what is below it is not what you are looking at:
- * the field, the ladder and the button you are about to press are all above
- * the line that grew.
+ * commit chip need about 170px between them and this cell is 114 wide at 393 -
+ * it was 126.53 when it was the flexible track, and it has been smaller than
+ * that pair at every width it has ever had. So the verdict spans the band
+ * underneath, and the band grows by the height of that second row for exactly
+ * as long as there is an unconfirmed number in the box. That is the one state
+ * on this screen that moves what is below it, and it is the state where what is
+ * below it is not what you are looking at: the field, the ladder and the button
+ * you are about to press are all above the line that grew.
+ *
+ * (This said "the band is 120 instead of 64". Both terms have moved - the
+ * phone's band is 56 - and the typed state is the one thing in this docblock
+ * the rig has not driven, so it is left unnumbered rather than re-derived on
+ * paper. Somebody with the harness open should type into the box at 393x852 and
+ * write down what the band measures.)
  */
 export function IncomingDamage({
   stats,
@@ -572,9 +628,10 @@ export function IncomingDamage({
           ? {
               // `--damage-w`: 44 at the touch floor below viewport 390, and 64
               // from 390 up, where the twenty over the floor are the band's own
-              // spare width rather than anything taken from a neighbour. The row is
-              // `auto repeat(3, 1fr) auto`: EVASION keeps its content width
-              // because its label is the longest of the four, the other three
+              // spare width rather than anything taken from a neighbour. The
+              // row is `auto repeat(3, minmax(min-content, 1fr)) auto`: EVASION
+              // keeps its content width because its label is the longest of
+              // the four, the other three
               // share what is left equally, and this cell is exactly the door
               // plus this field - so nothing is left over to sit as a hole at
               // the right-hand end, which is what it used to do at 45.4px wide.
@@ -584,8 +641,9 @@ export function IncomingDamage({
               // three digits at 16px IBM Plex Mono are 28.8 plus 8 of padding
               // and 2 of border: 38.8, which fitted 44 and is not why 44 was
               // chosen. It was chosen because the door had to stand beside it
-              // at 360, and it still does - at 360 the fifth cell is 114 of a
-              // 336px row and the three shared tracks are 46 each.
+              // at 360, and it still does - measured at 360x800 the fifth cell
+              // is 94 of a 336px row, exactly the door, the 6px gutter and this
+              // field, and the three shared tracks are 50.78, 54.81 and 50.8.
               flex: 'none',
               width: 'var(--damage-w)',
               minHeight: 'var(--control)',
@@ -707,25 +765,31 @@ export function IncomingDamage({
          * Three declarations, and each one answers a different question. See
          * the docblock above for the arithmetic behind all three.
          *
-         * `flexStart` puts the door and the field against the PROF cell rather
-         * than against the far edge of a track that is 920.53px wide at 1179.
-         * It was `flex-end`, which is what put the box the whole width of a
-         * tablet away from the ladder it is documented to be read beside.
+         * `flexStart` puts the door and the field against the left of their
+         * own track. It was `flex-end` in a track that took the whole remainder
+         * of the column - 920.53px wide at 1179 - which is what put the box the
+         * whole width of a tablet away from the ladder it is documented to be
+         * read beside. The track is `auto` now and measures 114 at 393 and at
+         * 1179 alike, so this declaration decides nothing at the right-hand end
+         * any more; it decides where the pair sits after a wrap.
          *
-         * `flexWrap` is load-bearing and stays: both children are 44 and
-         * `flex: none` inside a track that is 61.53 wide at 320, so without a
-         * wrap the 32.47px that do not fit leave the cell - to the left over
-         * the PROF panel under the old `flex-end`, to the right under the
-         * column's `overflowX: 'hidden'` now. Either way one of two 44px
-         * targets is damaged. With the wrap the field drops under the door and
-         * the band is 94 instead of 64 below viewport 353.
+         * `flexWrap` is load-bearing and stays: both children are `flex: none`
+         * - 44 for the door, `--damage-w` for the field - inside a track that
+         * measures 66.38 at 320, so without a wrap the 27.62px that do not fit
+         * leave the cell, to the left over the PROF panel under the old
+         * `flex-end` and to the right under the column's `overflowX: 'hidden'`
+         * now. Either way one of two 44px targets is damaged. With the wrap the
+         * field drops under the door and the band is 94 instead of 56: measured
+         * at 348x800 it is 56 and at 347x800 it is 94, so the crossing is 348
+         * and not the 353 this said while the fifth track was the flexible one.
          *
          * `minWidth: 0` also stays, and it is doing less than it looks. It is
          * what lets this grid item fall under its own min-content; with the
          * wrap in place that min-content is one 44px item rather than the whole
-         * 94px pair, and the track never goes under 44 above viewport 302.47,
-         * so nothing in the supported range reaches it. It is a floor against
-         * the next child added here, not a live declaration.
+         * pair, and measured the track is 46 wide at 298 and 45.5 at 297 - it
+         * goes under 44 a pixel or two below that, well outside the supported
+         * range. It is a floor against the next child added here, not a live
+         * declaration.
          */}
         <div
           className="row"

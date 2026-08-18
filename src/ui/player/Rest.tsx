@@ -58,7 +58,7 @@
  * `playSheet.test.tsx` sweeps every button carrying that attribute anywhere on
  * Play and demands the 44px floor of all of them, and `width: 100%` of the ones
  * a `<section>` owns. There are exactly two in-row exceptions on this screen -
- * the trait row's verbs control at 44x44 and MODS at 44x66 - and both are named
+ * the trait row's verbs control at 44x44 and MODS at 44x56 - and both are named
  * in that test rather than exempted from it. A third use of the attribute here
  * would be a fourth answer to a question two files have already settled between
  * them. And it never
@@ -89,13 +89,16 @@
  * never forced wider than the phone by construction rather than by
  * measurement.
  *
- * THUMB ARC. The whole column scrolls now, so this fold's own header starts
- * around y=804 unscrolled at 393x852 - below the glass, which ends at 791 -
- * and is reached by scrolling rather than by reaching; a right thumb rests
- * around y=560..730. The kind switch is at the
- * top of the fold, so
- * opening the fold puts it ~300px above that rest and it is chosen with the
- * eyes. COMMIT is last on the surface - it applies everything drawn above it,
+ * THUMB ARC. The whole column scrolls, and since the reflow paired this fold
+ * with `Cards` it is the second of the two paired rows rather than the fifth
+ * fold down: measured in Chrome, `played` fixture, every fold shut, this
+ * header spans **y505-549** at 393x852 and y437-481 at 375x667, on the glass
+ * without scrolling at both. (It said y=804, below a glass that ends at 791,
+ * which was true of the six-row index the pairing replaced.) A right thumb
+ * rests around y=560..730, so a shut header now sits just above the near edge
+ * of that band and is reached rather than scrolled to. The kind switch is at
+ * the top of the fold, so opening it puts the switch about where the header
+ * was and the rest of the surface below, and it is chosen with the eyes. COMMIT is last on the surface - it applies everything drawn above it,
  * including the swaps, so it cannot sit in the middle of what it applies - and
  * on the played fixture that is some 1,100px of content later, three deliberate
  * scrolls rather than two; above it sit a 12px pad and a 1px rule, so a thumb
