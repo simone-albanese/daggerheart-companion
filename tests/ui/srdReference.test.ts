@@ -614,7 +614,8 @@ describe('ruleSection', () => {
     parts(id).flatMap((p) => (p.kind === 'table' ? [p.table] : []));
 
   it('reads the Average Costs table as a table, not twelve lines of pipes', () => {
-    // BACKLOG item 10, and the one a person reported. `Cost` is a second column
+    // `HANDOFF-2026-08-18.md` item 10 - not `BACKLOG.md`, which names no item 10
+    // and no Average Costs table - and the one a person reported. `Cost` is a second column
     // rather than four characters of markup in the middle of a sentence.
     const table = tables('giving-out-gold-equipment-and-loot')[0]!;
     expect(table.header).toEqual(['Expense', 'Cost']);

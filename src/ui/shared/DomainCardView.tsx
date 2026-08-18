@@ -340,7 +340,7 @@ export function DomainCardView({
   /*
    * And whether saying so would be true. The words are "tap", and on a card
    * mounted without `onOpen` there is no overlay button and a tap does
-   * nothing - which is exactly the case `SessionBody.tsx:400` mounts, a
+   * nothing - which is exactly the case `SessionBody`'s `card` link arm mounts, a
    * reading card at `height={200}` in a 420px column with no handler. It was
    * printing MORE - TAP TO READ over a card that could not be opened.
    */

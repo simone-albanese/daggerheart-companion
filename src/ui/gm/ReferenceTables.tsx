@@ -1,12 +1,22 @@
 /**
  * The SRD's own tables and sections, drawn.
  *
- * One drawing of each in the app: the reference region composes these, so do
- * the two controls that get a table folded in beside them, and so does the
- * `LINK -> Rule` row of a GM session, through `BlockView` at the foot of this
- * file. A table rendered twice is a table that goes out of step once - and that
- * row is where it happened, printing its own bullets and tables out of
- * `paragraphs()` until the pipes showed up on screen.
+ * The reference region composes these, so do the two controls that get a table
+ * folded in beside them, and so does the `LINK -> Rule` row of a GM session,
+ * through `BlockView` at the foot of this file. That row is why `BlockView`
+ * exists: it printed its own bullets and tables out of `paragraphs()` until the
+ * pipes showed up on screen.
+ *
+ * **It is not one drawing of each, and this header used to claim it was.** The
+ * `ADD -> LINK -> Rule` door offers all seventy-five sections, so a GM can link
+ * `countdowns`, `using-fear`, `difficulty-benchmarks`,
+ * `adversary-stat-block-benchmarks` or `adapting-environments` and get the
+ * generic `RuleTableView`, while the reference region draws those same tables
+ * with the bespoke renderers below - `CountdownChart` even puts a button on its
+ * numbered cells, and the ladder pivots. Ten SRD tables therefore have two
+ * drawings in this app. `RuleTableView`'s own header says so; this one now says
+ * it too, because the pair going out of step is a real hazard and pretending
+ * there is no pair is how it would happen unnoticed.
  *
  * Each renderer reads the dataset itself through a narrow `useApp` selector
  * inside a `useMemo` keyed on the whole `dataset` object, the way

@@ -61,6 +61,15 @@
  *
  * ## A rule is drawn by the reference screen's own renderer
  *
+ * **This moved the prose from 14.5px to 13px and that was not announced.** The
+ * old arm drew the body at `t-body` (`400 14.5px/1.5`); `BlockView` draws it at
+ * `t-read` (`var(--read-size)`, 13px/1.45), and the contrast rises with it. It
+ * is kept, for one reason: this is the same SRD text the reference region
+ * draws, and two surfaces showing the same paragraph at two sizes is a worse
+ * defect than either size. But the reflow spent a commit *raising* the smallest
+ * type on the sheet, so this is a step the other way on one surface and it
+ * belongs on the list of things to look at on glass rather than in a diff.
+ *
  * A link row to a rules section goes through `ruleSection` and `BlockView`, the
  * pipeline `Reference.tsx` reads the GM chapter with. This arm used to walk the
  * body itself with `paragraphs()`, which is the one shape the dataset is not
@@ -80,7 +89,9 @@
  * scroller, because a `<pre>` of it at 393px is the one element that could make
  * the whole page scroll sideways. The SRD tables that arrive with a rule link
  * are the other candidate and are not one: `RuleTableView` declares no width at
- * all, and its two shapes are measured against this row's 365px column.
+ * all, and its two shapes hold across every candidate width for this row - see
+ * `RuleTableView`, which says why the 365 that used to stand here was wrong and
+ * why no number replaces it until somebody measures one in a browser.
  */
 import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';

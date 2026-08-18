@@ -85,8 +85,10 @@ describe('a rules section linked from a GM session', () => {
   });
 
   it('draws a pipe table as a table, with the pipes gone', async () => {
-    // `giving-out-gold-equipment-and-loot`, p.69 - the Average Costs table, and
-    // the one BACKLOG.md names. Twelve rows, two columns.
+    // `giving-out-gold-equipment-and-loot`, p.69 - the Average Costs table. The
+    // item asking for it is `HANDOFF-2026-08-18.md`'s number 10, not anything in
+    // `BACKLOG.md`, which names neither this table nor an item 10. Twelve rows,
+    // two columns.
     await draw('giving-out-gold-equipment-and-loot');
 
     const text = container.textContent ?? '';
@@ -94,9 +96,11 @@ describe('a rules section linked from a GM session', () => {
     // Both header cells are on the row, each on its own.
     expect(cells('Expense').length).toBeGreaterThan(0);
     expect(cells('Cost').length).toBeGreaterThan(0);
-    // And a row is two cells rather than one string of markup. Read out of the
-    // dataset - the wording is Darrington Press's and is not typed into this
-    // repository - so this pins the drawing, not the words.
+    // And a row is two cells rather than one string of markup. The two strings
+    // below ARE typed in, which `srdReference.ts:29-30` allows for a test - what
+    // this pins is that they arrive as separate cells rather than as one piped
+    // line, and the last assertion is the one carrying that. An earlier comment
+    // here claimed the opposite of the three lines under it.
     const rows = [...container.querySelectorAll('span')].map((el) => (el.textContent ?? '').trim());
     expect(rows).toContain('Luxury inn room per night');
     expect(rows).toContain('1 Bag');

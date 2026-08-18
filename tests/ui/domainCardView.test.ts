@@ -340,7 +340,7 @@ describe('the offer to read the rest', () => {
   });
 
   it('says "tap" only where there is something to tap', () => {
-    // `SessionBody.tsx:400` mounts a reading card with no `onOpen` at all, so
+    // `SessionBody`'s `card` link arm mounts a reading card with no `onOpen`, so
     // the cue there named a gesture the card does not answer.
     const source = readFileSync(SOURCE, 'utf8');
     expect(source).toContain('const opens = onOpen !== undefined;');

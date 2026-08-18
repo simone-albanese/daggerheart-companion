@@ -16,16 +16,28 @@
  *
  * **One value column** - the Average Costs table on p.69 and the objectives
  * roll on p.112 - is drawn as a two-column grid, header row included, because
- * that is what it is and it fits. At 393px the session row's column is
- * 393 - 24 of the region's padding - 4 of the row's own = 365px, so two
- * `minmax(0, 1fr)` columns at a 10px gap are 177 each. The widest first cell in
+ * that is what it is and it fits.
+ *
+ * **The width this used to name was wrong, and no replacement is stated here.**
+ * It read "393 - 24 of the region's padding - 4 of the row's own = 365px", which
+ * omits the row itself: `SessionRow` draws a `.panel` with `padding: 4px 6px`, a
+ * 3px `borderLeft` and the class's own 1px border, under a global
+ * `box-sizing: border-box`. `SessionRow.tsx:8` measures the panel at 357 and the
+ * true content box is under that again. Deriving a fourth number on paper would
+ * be the same mistake once more, and this repo takes its measurements from a
+ * browser. **Measure it before you write one down.**
+ *
+ * The conclusion does not depend on the figure, which is why the shapes are safe
+ * meanwhile: two `minmax(0, 1fr)` columns at a 10px gap are ~170-177 each on any
+ * of the candidate widths. The widest first cell in
  * the shipped dataset is 42 characters at `.t-read` (13px/1.45, about 6.3px a
  * character), which is two lines inside 177; a row is about 38px and the
  * twelve-row table roughly 470, inside a region that already scrolls.
  *
  * **More than one** - up to five columns, with cells up to 176 characters -
  * becomes one panel a row: the first cell as its title, every other cell under
- * the header that names it. Five columns in 365px would be 73px each, which is
+ * the header that names it. Five columns across that column would be about 70px
+ * each, which is
  * about eleven characters a line; that is the same measurement that made
  * `FearGuide` and `DifficultyLadder` stacked panels rather than grids, and it
  * is why neither shape here can push a phone sideways.
