@@ -7,12 +7,14 @@
  *   npx tsx tools/sweep.ts --json                    # the same result as data
  *
  *   --at <ref>          search that tree instead of the working copy
- *   --max-claims <n>    claims printed, best first (default 40)
- *   --max-hits <n>      hits printed per claim (default 8)
- *   --common <n>        a term with more than this many prose hits is dropped
- *                       as noise, and said out loud (default 25)
+ *   --max-places <n>    lines the report may print, best first (default 150)
+ *   --max-claims <n>    claims the report may print (default 150)
+ *   --max-hits <n>      lines printed under one claim (default 8)
+ *   --common <n>        a term mentioned in more than this many places in the
+ *                       tree's prose is a word, not a pointer: dropped, and
+ *                       said out loud (default 6)
  *   --code              also search code, not only prose
- *   --json              machine-readable, nothing suppressed for width
+ *   --json              the same selection as the report, as data
  *
  * ## What this is for
  *
@@ -54,44 +56,80 @@
  * - a test whose name promises more than its body asserts;
  * - anything at all inside the diff's own changed lines: those are excluded on
  *   purpose, because the lane already knows about them. A false sentence you
- *   wrote in this commit is invisible here.
+ *   wrote in this commit is invisible here, and so is every line of a file
+ *   this commit creates.
  *
- * ## MEASURED RECALL
+ * ## MEASURED RECALL, AND WHAT IT COST
  *
- * Calibrated against that corpus of 48 findings, replayed with `--at <base>` on
- * each of the five lane branches - the honest run, because the branches now
- * contain the fixes and searching the tree as it is today finds nothing and
- * flatters the tool enormously.
+ * Calibrated against that corpus of 48, replayed on each of the five lane
+ * branches: the diff is `<base>..<the lane's last commit before its repairs>`
+ * and the tree searched is `--at <base>`. Both halves of that matter. The
+ * branch *tips* carry the repair round, which deleted every stale sentence the
+ * review named, so a diff against a tip hides the entire corpus; and searching
+ * today's tree finds nothing at all and would flatter the tool enormously.
+ * `<base>` is the honest tree, and it is exactly the tree a lane is looking at
+ * when it starts.
  *
- * 33 of the 48 are of the kind this tool could in principle surface: a
- * `file:line` outside the diff's own changed lines. The other 15 are out of
- * scope by construction - a test that cannot fail, a mutation that does not
- * bite, an ergonomics judgement, a test name that overclaims, a false sentence
- * written *by* the diff.
+ * **18 of the 48 are out of scope by construction** and are classified out
+ * rather than quietly dropped from the denominator: a test that cannot fail
+ * (2), a mutation kill count (1), an ergonomics judgement (1), a forbidden-area
+ * declaration (1), a test name that promises more than its body asserts (3),
+ * and a false sentence the diff itself wrote (8). Two more are out for the
+ * uncomfortable reason: their file does not exist in the base tree at all,
+ * because the diff creates it. Every line of a new file is a changed line, so
+ * this tool is blind to both by the same rule that keeps it from reading a
+ * lane its own edit back.
  *
- * Of those 33 it surfaces 25, inside the default caps: **76%**. It misses 8.
- * The misses and their reasons are in `tests/harness/sweep.test.ts`.
+ * That leaves **30 in scope**. At the default caps it surfaces **14 of them:
+ * 47%.** Lift the place budget entirely and it is 16 of 30, 53%. Turn
+ * `--common` off as well and it is 29 of 30 - which is the useful thing to know
+ * about the misses, and the uncomfortable one: they are nearly all *found* and
+ * then *suppressed*, not missed. Of the 16 it does not print by default, 13 are
+ * lost to `--common 6` (the term is mentioned in more than six places in this
+ * tree's prose, so it is treated as a word rather than a pointer), 2 are lost
+ * to the 150-place budget, and exactly 1 is never matched at all:
+ * `Conditions.tsx:256` says "in a row the four number cells hold open at 64",
+ * and the only thing it shares with that diff is the number 64.
  *
- * That figure is one corpus of 48, from one evening, on one repository. It is
- * not a guarantee, it does not transfer, and it will drift as the tree does.
- * Treat 76% as "most, not all": the review that reads the whole tree is still
- * the thing that catches the rest.
+ * So the caps are the tool's honesty and also its ceiling. That is a real trade
+ * and it is stated here rather than tuned away: a report of 5,000 lines
+ * containing 97% of the answer is not a check, it is the tree. If a diff is
+ * small, or the stakes are high, `--common 40 --max-places 600` is the setting
+ * that trades the reading time back for the recall.
+ *
+ * These figures are one corpus of 48, from one evening, on one repository.
+ * They are not a guarantee, they do not transfer, and they will drift as the
+ * tree does. Treat 47% as "about half": the review that reads the whole tree is
+ * still the thing that catches the rest, and this is what it should no longer
+ * have to spend its attention on.
  *
  * ## Signal
  *
  * A tool that returns 3000 hits is a tool nobody runs. Three things buy the
- * signal back:
+ * signal back, and every one of them was ablated against the corpus rather
+ * than argued for:
  *
- * 1. **Prose first.** The defect is prose, so comments, string literals and
+ * 1. **A term that only left the diff.** A number the diff *deleted*, still
+ *    written down somewhere else, is the defect itself; a number the diff
+ *    merely contains is a coincidence. Removing it: 14 of 30 down to 10.
+ * 2. **Rarity.** A term mentioned twice in the tree is a pointer; a term
+ *    mentioned forty times is a word. `--common` drops the words and `1/n`
+ *    orders the rest. Removing it: 14 down to 13, and 10 down to 5 once the
+ *    departure boost is gone too - it is the floor under that boost.
+ * 3. **Prose first.** The defect is prose, so comments, string literals and
  *    `.md` are searched and code is not, unless `--code` says otherwise. This
  *    is what makes broad extraction affordable: `localStorage` has hundreds of
  *    mentions in this tree and four of them are sentences.
- * 2. **Rarity ranks.** A term with two mentions is worth reading; a term with
- *    two hundred is noise. Terms over `--common` are dropped and *counted in
- *    the output*.
- * 3. **Caps are declared.** Every suppression prints its own number. A silent
- *    cap reads as "covered everything" when it did not, which is the same lie
- *    this tool exists to prevent.
+ *
+ * The fourth idea, the persuasive one, was measured and is not here: ranking on
+ * how many of the diff's things a line names at once made recall *worse*, 14
+ * down to 12. See `placeScore` for why, and for what that number is still used
+ * for.
+ *
+ * The budget is counted in *places* rather than claims, because places are what
+ * a person reads, and every suppression prints its own number. A silent cap
+ * reads as "covered everything" when it did not, which is the same lie this
+ * tool exists to prevent.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -313,13 +351,24 @@ export interface Claim {
   readonly label: string;
   /** `path:line +` - where in the diff it came from. */
   readonly origin: string;
+  /**
+   * The term appears on the diff's removed lines and on none of its added
+   * ones: a value or a wording that *went away*. Prose elsewhere still saying
+   * it is the defect this tool exists for, so these rank first. A term the
+   * diff both removed and added has not changed and carries much less.
+   */
+  gone: boolean;
 }
 
 /**
- * Not all evidence is equal. A whole phrase of prose found somewhere else is
- * almost certainly a copy of the sentence you just edited; a bare two-digit
- * number is a coincidence most of the time. The ordering here is the corpus's,
- * not taste: phrases and named symbols were what the 48 findings turned on.
+ * A tie-breaker, and *only* a tie-breaker.
+ *
+ * The intuition that a whole phrase found elsewhere beats a bare number was
+ * worth testing and did not survive the test: ranked on the corpus, kind
+ * weighting made recall worse, because the bare numbers are what the stale
+ * paragraphs actually repeat. What ranks is in `placeScore` below - how rare
+ * the term is, and how many of the diff's things one line names at once. Kind
+ * decides the wording of the label and settles ties, nothing more.
  */
 const KIND_WEIGHT: Record<ClaimKind, number> = {
   phrase: 10,
@@ -405,8 +454,14 @@ const STOP = new Set([
   'default',
 ]);
 
+/**
+ * A declaration, anchored at the start of its line. Unanchored, `\bclass\s+`
+ * and `\btype\s+` fire on ordinary English inside a comment the block-state
+ * scanner did not catch - "a type the parser recognises" declares `the`, and
+ * `the` then reports the whole tree.
+ */
 const DECLARATION =
-  /\b(?:const|let|var|function|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)/g;
+  /^\s*(?:export\s+)?(?:const|let|var|function|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)/gm;
 const TEST_NAME = /\b(?:it|test|describe)(?:\.\w+)?\(\s*(['"`])([^'"`]{8,})\1/g;
 const CUSTOM_PROP = /--[a-z][a-z0-9-]{2,}/g;
 const BACKTICKED = /`([A-Za-z_$][\w$]{3,}(?:\.[A-Za-z_$][\w$]*)?)`/g;
@@ -453,9 +508,14 @@ function phrasesOf(prose: string): string[] {
  */
 export function extractClaims(files: readonly FileDiff[]): Claim[] {
   const claims = new Map<string, Claim>();
+  const arrived = new Set<string>();
+  const departed = new Set<string>();
+  let side: '+' | '-' = '+';
   const add = (kind: ClaimKind, term: string, label: string, origin: string): void => {
+    if (term.length === 0) return;
     const key = `${kind}\u0000${term}`;
-    if (term.length > 0 && !claims.has(key)) claims.set(key, { kind, term, label, origin });
+    (side === '-' ? departed : arrived).add(key);
+    if (!claims.has(key)) claims.set(key, { kind, term, label, origin, gone: false });
   };
 
   for (const file of files) {
@@ -465,6 +525,7 @@ export function extractClaims(files: readonly FileDiff[]): Claim[] {
     const state = { '+': { inBlock: false }, '-': { inBlock: false } };
     for (const change of file.changed) {
       const origin = `${change.path}:${change.line} ${change.side}`;
+      side = change.side;
       // `proseOf` advances the block-comment state; the code view must not, so
       // it takes a copy. Order matters here and only here.
       const code = codeOf(change.text, state[change.side], change.path);
@@ -535,6 +596,7 @@ export function extractClaims(files: readonly FileDiff[]): Claim[] {
       }
     }
   }
+  for (const [key, claim] of claims) claim.gone = departed.has(key) && !arrived.has(key);
   return [...claims.values()];
 }
 
@@ -591,7 +653,7 @@ export interface SweepOptions {
   readonly side?: TreeSide;
 }
 
-const DEFAULTS = { common: 25, includeCode: false, side: 'unknown' as TreeSide };
+const DEFAULTS = { common: 6, includeCode: false, side: 'unknown' as TreeSide };
 
 /**
  * How much is printed. Not `SweepOptions`: `sweep()` computes and returns
@@ -601,13 +663,46 @@ const DEFAULTS = { common: 25, includeCode: false, side: 'unknown' as TreeSide }
  */
 const REPORT_DEFAULTS = { maxClaims: 40, maxHits: 8 };
 
-function hitWeight(hit: Hit): number {
+/**
+ * How worth reading one line is. Every term here was ablated against the corpus
+ * in this configuration, and the numbers are what the run returned, not what
+ * the design expected:
+ *
+ * - **a term that only left the diff** - a value the diff *deleted*, still
+ *   written down elsewhere, is the defect itself, where a value the diff merely
+ *   contains is a coincidence. Removing the boost: 14 of 30 down to 10.
+ * - **rarity** - a term mentioned twice in the tree is a pointer, a term
+ *   mentioned forty times is a word, so `1/mentions`. Worth 1 on its own here
+ *   because `--common` has already thrown the words away; worth 5 with the
+ *   departure boost also gone, so it is the floor under it rather than a
+ *   duplicate of it.
+ * - **where the words are** - markdown and comments over string literals over
+ *   code, doubled for a line making an exact-count claim, because those are the
+ *   sentences an addition falsifies.
+ *
+ * And one term that is deliberately NOT here. Multiplicity - how many separate
+ * things the diff changed one line names at once - is the most persuasive
+ * signal in this whole tool and ranking on it made recall *worse*: 14 of 30
+ * became 12. A paragraph naming six of your numbers is usually the paragraph
+ * you are already rewriting, and it crowds out the single sentence in a file
+ * you have not opened, which is the one this exists to find. So multiplicity is
+ * measured, printed beside every line, and used to rescue a term `--common`
+ * would otherwise drop - and it earns no place in the ordering.
+ */
+function placeScore(hit: Hit, rarest: number): number {
   const base = hit.kind === 'code' ? 0.5 : hit.kind === 'string' ? 2 : 3;
-  return (hit.absolute ? base * 2 : base) * (1 + Math.log2(hit.multiplicity));
+  return (hit.absolute ? base * 2 : base) * rarest;
 }
 
 /** A common term is kept only where the line also names something else. */
 const NARROW_AT = 3;
+
+/**
+ * How much more a term that only *left* the diff is worth. Measured, not
+ * chosen: on the corpus this is the difference between finding the stale copy
+ * of a number and finding every file that happens to contain it.
+ */
+const GONE_BOOST = 20;
 
 /**
  * Which tree is being searched, and therefore which of the diff's two sets of
@@ -773,14 +868,14 @@ export function sweep(
   }
   for (const [hit, set] of perLine) hit.multiplicity = set.size;
 
-  const groups: ClaimGroup[] = [];
+  const surviving: Array<{ claim: Claim; hits: Hit[]; narrowed: boolean }> = [];
   const tooCommon: Array<{ label: string; hits: number }> = [];
   for (const [claim, hits] of found) {
     let kept = hits;
     let narrowed = false;
     if (kept.length > opts.common) {
-      // Not simply dropped. `64` is mentioned two hundred times in this tree
-      // and three of those mentions are the paragraph that also repeats four
+      // Not simply dropped. `64` is mentioned six hundred times in this tree
+      // and a few of those mentions are the paragraph that also repeats four
       // other numbers this diff moved. Keep those, say the term was narrowed,
       // and let the rest go.
       kept = hits.filter((h) => h.multiplicity >= NARROW_AT);
@@ -790,13 +885,46 @@ export function sweep(
         continue;
       }
     }
-    kept.sort((a, b) => hitWeight(b) - hitWeight(a) || a.path.localeCompare(b.path) || a.line - b.line);
-    const rarity = 1 / Math.log2(kept.length + 2);
-    const best = kept[0];
-    const score = best === undefined ? 0 : KIND_WEIGHT[claim.kind] * hitWeight(best) * rarity;
-    groups.push({ claim, hits: kept, score, narrowed });
+    surviving.push({ claim, hits: kept, narrowed });
   }
-  groups.sort((a, b) => b.score - a.score || a.claim.term.localeCompare(b.claim.term));
+
+  // Rarity is a property of the surviving term, so it can only be settled once
+  // every term's hits are known; a line's score is then the best any of the
+  // terms naming it can manage.
+  const rarityOf = new Map<Claim, number>();
+  for (const { claim, hits } of surviving) {
+    rarityOf.set(claim, (claim.gone ? GONE_BOOST : 1) / hits.length);
+  }
+  const bestFor = new Map<Hit, number>();
+  for (const { claim, hits } of surviving) {
+    const rarest = rarityOf.get(claim) ?? 0;
+    for (const hit of hits) {
+      const score = placeScore(hit, rarest);
+      if (score > (bestFor.get(hit) ?? 0)) bestFor.set(hit, score);
+    }
+  }
+
+  const groups: ClaimGroup[] = surviving.map(({ claim, hits, narrowed }) => {
+    hits.sort(
+      (a, b) =>
+        (bestFor.get(b) ?? 0) - (bestFor.get(a) ?? 0) ||
+        a.path.localeCompare(b.path) ||
+        a.line - b.line,
+    );
+    const best = hits[0];
+    return {
+      claim,
+      hits,
+      narrowed,
+      score: best === undefined ? 0 : (bestFor.get(best) ?? 0),
+    };
+  });
+  groups.sort(
+    (a, b) =>
+      b.score - a.score ||
+      KIND_WEIGHT[b.claim.kind] - KIND_WEIGHT[a.claim.kind] ||
+      a.claim.term.localeCompare(b.claim.term),
+  );
   tooCommon.sort((a, b) => b.hits - a.hits);
 
   return {
@@ -822,7 +950,12 @@ const EXCLUDED_DIRS = new Set([
   'coverage',
 ]);
 const SEARCHABLE = /\.(?:ts|tsx|js|jsx|mjs|cjs|css|md|markdown|txt|html|json|yml|yaml|sh)$/i;
-/** Generated or vendored bulk: a hit inside `data/srd-1.0.json` is never prose a lane wrote. */
+/**
+ * Generated or vendored bulk. In this tree exactly one searchable file is over
+ * it - `data/srd-1.0.json`, 578 KB of SRD text nobody hand-writes - and the
+ * report names every file it skipped for this reason rather than leaving the
+ * reader to assume the whole tree was read.
+ */
 const TOO_BIG = 400_000;
 
 export function searchable(path: string): boolean {
@@ -830,8 +963,16 @@ export function searchable(path: string): boolean {
   return !path.split('/').some((part) => EXCLUDED_DIRS.has(part));
 }
 
-function readWorkingTree(root: string): TreeFile[] {
+export interface TreeRead {
+  readonly files: TreeFile[];
+  /** Searchable files skipped for being bigger than `TOO_BIG`, counted so the
+   * report can say so rather than quietly leaving them out. */
+  readonly skipped: string[];
+}
+
+function readWorkingTree(root: string): TreeRead {
   const out: TreeFile[] = [];
+  const skipped: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir)) {
       if (EXCLUDED_DIRS.has(entry)) continue;
@@ -847,15 +988,19 @@ function readWorkingTree(root: string): TreeFile[] {
         continue;
       }
       const path = relative(root, full).split(sep).join('/');
-      if (!searchable(path) || stat.size > TOO_BIG) continue;
+      if (!searchable(path)) continue;
+      if (stat.size > TOO_BIG) {
+        skipped.push(path);
+        continue;
+      }
       out.push({ path, text: readFileSync(full, 'utf8') });
     }
   };
   walk(root);
-  return out;
+  return { files: out, skipped };
 }
 
-function readTreeAt(root: string, ref: string): TreeFile[] {
+function readTreeAt(root: string, ref: string): TreeRead {
   const listing = execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', ref], {
     cwd: root,
     maxBuffer: 64 * 1024 * 1024,
@@ -871,6 +1016,7 @@ function readTreeAt(root: string, ref: string): TreeFile[] {
   });
 
   const out: TreeFile[] = [];
+  const skipped: string[] = [];
   let at = 0;
   for (const path of listing) {
     const nl = batch.indexOf(0x0a, at);
@@ -883,9 +1029,10 @@ function readTreeAt(root: string, ref: string): TreeFile[] {
     const size = Number(header[2]);
     const start = nl + 1;
     if (size <= TOO_BIG) out.push({ path, text: batch.toString('utf8', start, start + size) });
+    else skipped.push(path);
     at = start + size + 1;
   }
-  return out;
+  return { files: out, skipped };
 }
 
 // ---------------------------------------------------------------------------
@@ -902,28 +1049,88 @@ function sameCommit(root: string, a: string, b: string): boolean {
   }
 }
 
-function formatReport(
+export interface Caps {
+  /** Distinct lines the report is allowed to print. The reading budget. */
+  readonly maxPlaces: number;
+  readonly maxClaims: number;
+  readonly maxHits: number;
+}
+
+export const CAPS: Caps = { maxPlaces: 150, maxClaims: 150, maxHits: 8 };
+
+export interface Selection {
+  readonly shown: Array<{ readonly group: ClaimGroup; readonly hits: Hit[] }>;
+  readonly placesShown: number;
+  readonly placesHidden: number;
+  readonly claimsHidden: number;
+  /** Claims skipped because every line they name was already printed above. */
+  readonly claimsRedundant: number;
+}
+
+/**
+ * What the report prints, decided once and shared by the text and the JSON so
+ * they cannot answer "what did sweep cover" two different ways.
+ *
+ * The budget is counted in *places*, not claims, because places are what a
+ * person reads. Two claims pointing at the same line are one line to go and
+ * look at, so the second one prints nothing and is counted as redundant rather
+ * than spending the budget twice.
+ */
+export function selectForReport(result: SweepResult, caps: Caps): Selection {
+  const seen = new Set<string>();
+  const shown: Array<{ group: ClaimGroup; hits: Hit[] }> = [];
+  let redundant = 0;
+  let stopped = 0;
+  for (const group of result.groups) {
+    if (seen.size >= caps.maxPlaces || shown.length >= caps.maxClaims) {
+      stopped += 1;
+      continue;
+    }
+    // The budget is spent line by line, so the last claim printed shows only
+    // as many lines as are left rather than overrunning by a whole claim.
+    const room = Math.min(caps.maxHits, caps.maxPlaces - seen.size);
+    const fresh = group.hits.filter((h) => !seen.has(`${h.path}:${h.line}`)).slice(0, room);
+    if (fresh.length === 0) {
+      redundant += 1;
+      continue;
+    }
+    for (const h of fresh) seen.add(`${h.path}:${h.line}`);
+    shown.push({ group, hits: fresh });
+  }
+  const everywhere = new Set<string>();
+  for (const group of result.groups) {
+    for (const h of group.hits) everywhere.add(`${h.path}:${h.line}`);
+  }
+  return {
+    shown,
+    placesShown: seen.size,
+    placesHidden: everywhere.size - seen.size,
+    claimsHidden: stopped,
+    claimsRedundant: redundant,
+  };
+}
+
+export function formatReport(
   result: SweepResult,
   where: string,
-  maxClaims: number,
-  maxHits: number,
+  caps: Caps,
+  skippedForSize: readonly string[] = [],
 ): string {
   const out: string[] = [];
-  const shown = result.groups.slice(0, maxClaims);
-  const hiddenClaims = result.groups.length - shown.length;
-  const totalHits = result.groups.reduce((n, g) => n + g.hits.length, 0);
+  const selection = selectForReport(result, caps);
+  const everywhere = selection.placesShown + selection.placesHidden;
 
   out.push(
     `sweep: ${result.claimsExtracted} claims from the diff, ` +
-      `${result.groups.length} of them mentioned elsewhere ` +
-      `(${totalHits} places), searching ${result.filesSearched} files ${where}.`,
+      `${result.groups.length} of them mentioned elsewhere, ` +
+      `in ${everywhere} places, searching ${result.filesSearched} files ${where}.`,
   );
   out.push('');
   out.push('CANDIDATES, NOT FINDINGS. Nothing below is claimed to be wrong. Each line');
   out.push('says only: this place mentions something your diff touched. Go and look.');
   out.push('');
 
-  shown.forEach((group, i) => {
+  selection.shown.forEach(({ group, hits }, i) => {
     out.push(`${String(i + 1).padStart(3)}. ${group.claim.label}  — from ${group.claim.origin}`);
     if (group.narrowed) {
       out.push(
@@ -931,7 +1138,7 @@ function formatReport(
           ' this diff changed - its other mentions are NOT covered)',
       );
     }
-    for (const hit of group.hits.slice(0, maxHits)) {
+    for (const hit of hits) {
       const mark =
         (hit.absolute ? ' [exact-count claim]' : '') +
         (hit.multiplicity > 1 ? ` [${hit.multiplicity} things from this diff]` : '');
@@ -939,16 +1146,24 @@ function formatReport(
       out.push(`     ${hit.path}:${hit.line}${mark}`);
       out.push(`       ${text}`);
     }
-    if (group.hits.length > maxHits) {
-      out.push(`     …and ${group.hits.length - maxHits} more, not shown (--max-hits ${maxHits}).`);
+    if (group.hits.length > hits.length) {
+      out.push(
+        `     …and ${group.hits.length - hits.length} more line(s) for this claim, not shown.`,
+      );
     }
     out.push('');
   });
 
-  if (hiddenClaims > 0) {
+  if (selection.placesHidden > 0 || selection.claimsHidden > 0) {
     out.push(
-      `${hiddenClaims} further claim(s) had hits and are NOT shown (--max-claims ${maxClaims}). ` +
-        `This report is not complete.`,
+      `${selection.placesHidden} further place(s) and ${selection.claimsHidden} further ` +
+        `claim(s) are NOT shown (--max-places ${caps.maxPlaces}, --max-claims ${caps.maxClaims}). ` +
+        `THIS REPORT IS NOT COMPLETE.`,
+    );
+  }
+  if (selection.claimsRedundant > 0) {
+    out.push(
+      `${selection.claimsRedundant} claim(s) pointed only at lines already listed above.`,
     );
   }
   if (result.tooCommon.length > 0) {
@@ -958,8 +1173,14 @@ function formatReport(
         `${worst.join(', ')}${result.tooCommon.length > 8 ? ', …' : ''}.`,
     );
   }
+  if (skippedForSize.length > 0) {
+    out.push(
+      `${skippedForSize.length} file(s) were NOT searched, being over the size ceiling: ` +
+        `${skippedForSize.join(', ')}.`,
+    );
+  }
   out.push(`${result.selfHits} hit(s) on lines this diff itself changed were excluded.`);
-  if (shown.length === 0) {
+  if (selection.shown.length === 0) {
     out.push('');
     out.push('Nothing mentioned elsewhere. That is not a clean bill of health: see the');
     out.push('header of tools/sweep.ts for the four things this tool cannot see.');
@@ -1008,7 +1229,7 @@ function main(): void {
   }
 
   const at = flag('--at');
-  const tree = at === undefined ? readWorkingTree(root) : readTreeAt(root, at);
+  const { files: tree, skipped } = at === undefined ? readWorkingTree(root) : readTreeAt(root, at);
   // Which tree is this? No `--at` means the working copy, which is the head.
   // `--at` pointing at the diff's own base means the base. Anything else - a
   // third commit - and neither set of line numbers can be trusted, so both are
@@ -1025,37 +1246,41 @@ function main(): void {
     side,
   });
 
-  const maxClaims = number('--max-claims', REPORT_DEFAULTS.maxClaims);
-  const maxHits = number('--max-hits', REPORT_DEFAULTS.maxHits);
+  const caps: Caps = {
+    maxPlaces: number('--max-places', CAPS.maxPlaces),
+    maxClaims: number('--max-claims', CAPS.maxClaims),
+    maxHits: number('--max-hits', CAPS.maxHits),
+  };
 
   if (has('--json')) {
     // Deliberately the same caps as the text report. An uncapped `--json`
     // beside a capped report would give two different answers to "what does
     // sweep cover", and the machine-readable one is the one a calibration
-    // reads - so it is the one that must not flatter the tool. Raise both
-    // caps explicitly to see everything; the suppressed counts are here
-    // either way.
-    const shown = result.groups.slice(0, maxClaims);
+    // reads - so it is the one that must not flatter the tool. Raise the caps
+    // explicitly to see everything; the suppressed counts are here either way.
+    const selection = selectForReport(result, caps);
     console.log(
       JSON.stringify(
         {
           claimsExtracted: result.claimsExtracted,
           filesSearched: result.filesSearched,
+          filesSkipped: skipped,
           selfHits: result.selfHits,
-          maxClaims,
-          maxHits,
-          claimsHidden: result.groups.length - shown.length,
-          hitsHidden: shown.reduce((n, g) => n + Math.max(0, g.hits.length - maxHits), 0),
+          caps,
+          placesShown: selection.placesShown,
+          placesHidden: selection.placesHidden,
+          claimsHidden: selection.claimsHidden,
+          claimsRedundant: selection.claimsRedundant,
           tooCommon: result.tooCommon,
-          groups: shown.map((g) => ({
+          groups: selection.shown.map(({ group: g, hits }) => ({
             kind: g.claim.kind,
             term: g.claim.term,
             label: g.claim.label,
             origin: g.claim.origin,
             score: Number(g.score.toFixed(4)),
             narrowed: g.narrowed,
-            hitsHidden: Math.max(0, g.hits.length - maxHits),
-            hits: g.hits.slice(0, maxHits).map((h) => ({
+            hitsHidden: g.hits.length - hits.length,
+            hits: hits.map((h) => ({
               path: h.path,
               line: h.line,
               kind: h.kind,
@@ -1072,7 +1297,7 @@ function main(): void {
   }
 
   console.log(
-    formatReport(result, at === undefined ? 'in the working tree' : `as of ${at}`, maxClaims, maxHits),
+    formatReport(result, at === undefined ? 'in the working tree' : `as of ${at}`, caps, skipped),
   );
 }
 
