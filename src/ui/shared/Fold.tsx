@@ -18,8 +18,14 @@
  * appear on screens the same person uses:
  *
  *   - the whole header is the target, 44px tall and the full width of the
- *     column - the largest target on the screen and the only one that can be
- *     hit without looking;
+ *     column. **That is Fold's own shape, not a quotation of Disclosure's any
+ *     more.** This bullet used to read as both, and since the reflow paired
+ *     four of `Disclosure`'s six folds two-up it is true of only two of them:
+ *     the paired headers are 181.5px at 393 and 165 at 360, which is under half
+ *     a column and smaller than ROLL on both axes. `Fold` has no `stacked`, its
+ *     button is `width: '100%'`, and it is drawn one to a row - so the sentence
+ *     survives here and had to be qualified there. Attributing it to
+ *     `Disclosure` whole is the half that went false;
  *   - `summary` is drawn open and closed alike, so opening a section never
  *     changes what its header claimed;
  *   - the marker is a rotated triangle rather than a font glyph, because the

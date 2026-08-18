@@ -626,6 +626,30 @@ export function IncomingDamage({
    * quieter voice. `preview` is null only where nothing draws this anyway; both
    * layouts put it inside their `preview !== null` branch.
    */
+  /*
+   * TWO THINGS A TEST CANNOT SHOW YOU HERE, so they are written down instead.
+   *
+   * **No test in `tests/ui/` can tell this ceiling from a literal `1`.** Not
+   * because the ceiling is one - it is `armorSlotsSpendable` off the outcome and
+   * `damage.ts:58` requires exactly that - but because nothing in `src/` passes
+   * `armorSlotCap`, so no reachable state makes `spendable` anything but the
+   * default of 1. Mutating the cycle below to `n + 1 > 1` leaves this file's
+   * tests green, and that is a gap in what can be proven from the UI rather than
+   * a defect in what ships. The engine side *is* pinned, at caps of 2, 3 and 4
+   * (`tests/engine/damage.test.ts`). What would make the UI side reachable is
+   * the exception the rule itself names - *"unless an ability or domain card
+   * says otherwise"* - which is unbuilt. Build that, and this becomes testable
+   * here; until then, do not "simplify" the expression to the number it happens
+   * to equal.
+   *
+   * **A stranded `useArmor` is possible and is harmless.** Marking armor pips
+   * down to zero while a damage number is typed makes `spendable` 0, which
+   * unmounts the chip and leaves `useArmor` at 1 with no control to clear it.
+   * Nothing wrong reaches the screen: `applyDamage` clamps `used` to
+   * `min(requested, 0)` and the verdict returns to the unreduced rung, and the
+   * field's own `onChange` resets it. Recorded so the next reader does not spend
+   * an afternoon proving it is a bug.
+   */
   const spendable = preview?.armorSlotsSpendable ?? 0;
 
   const armor = spendable > 0 && (

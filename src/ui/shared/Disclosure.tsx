@@ -32,7 +32,12 @@
  * THAT LINE IS 11px SINCE THE REFLOW, AND CARRIED IS WHY IT IS NOT 11 FOR ALL
  * SIX. A summary inside a 44px touch floor has 34px of headroom doing nothing,
  * so the raise is free down the column - but the 257.41 above is measured at
- * 10, and at 11 it is ~283 with its right edge past 390 in a 369px column. So
+ * 10, and at 11 the same line is ~283. Whether that fits is a comparison of two
+ * **widths** - the line against the room the header actually has - and this
+ * sentence used to make it against `390`, which is an offset from the left of
+ * the glass. That is the exact error the `tightSummary` paragraph below exists
+ * to name: subtracting an offset from a width pays for the column's padding
+ * twice. The arithmetic that settles it is there and is not repeated here. So
  * `Carried` passes `tightSummary` and keeps its 10, which is the difference
  * between a raise and a regression to the very thing the paragraph above
  * describes. See the prop for the arithmetic.

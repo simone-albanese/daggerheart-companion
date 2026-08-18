@@ -658,8 +658,14 @@ level-up path does not know that yet.
       `character.ts`'s unarmoured formula and it is not an invention. Do not
       label as a house rule something the rules say.
 
-      The second clause is real and now has a citation. `Vitals.tsx` lets one
-      incoming attack spend **up to three** Armor Slots; the official GM screen
+      The second clause **was** real and now has a citation — and it is now
+      **fixed**, so the present tense below is history. `Vitals.tsx` used to let
+      one incoming attack spend **up to three** Armor Slots; today the ceiling is
+      `preview.armorSlotsSpendable` off the engine's own outcome and never a
+      literal, and the engine derives it from `armorSlotCap`, a parameter whose
+      default is 1 — which is what the parenthesis in the quoted rule requires.
+      The original wording is kept below because it is the citation that settled
+      it. The official GM screen
       states the rule outright: *"You can only mark **ONE** armour slot per
       incoming damage (unless an ability or domain card says otherwise)."* So
       this is not a house rule to label — it is a wrong number the app offers,

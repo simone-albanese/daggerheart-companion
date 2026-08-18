@@ -3031,8 +3031,16 @@ function PlayPhone({
 
         {/*
          * ROLL, in the flow, at the end of everything the rules make you declare
-         * before the dice. 317x56 at 393px and 299x56 at 375px, the largest
-         * target on the screen after a fold header.
+         * before the dice. 317x56 at 393px and 299x56 at 375px.
+         *
+         * This used to end "the largest target on the screen after a fold
+         * header", which stopped being true when the column began pairing four
+         * of its six folds two-up: those headers are 181.5x44 at 393, smaller
+         * than this on **both** axes. Two headers still outrank it - `Carried`
+         * and `Lineage & domains`, which take the column whole at 369x44 - and
+         * they outrank it on width alone: 369x44 is 16,236px against this
+         * button's 17,752. `Disclosure`'s own docblock is the authority on
+         * which fold gets which width; this comment is not a second copy of it.
          *
          * WHERE IT ACTUALLY IS, MEASURED RATHER THAN REMEMBERED. This comment
          * carried `y522-588 … 264 to 330px up from the bottom bezel … 203px clear
@@ -3284,10 +3292,17 @@ function PlayPhone({
         label="Carried"
         summary={`${carried} ${carried === 1 ? 'ITEM' : 'ITEMS'} · ${formatGold(character.gold).toUpperCase()}`}
         /*
-         * The one fold that keeps `.t-meta`'s 10px while the others go to 11.
-         * Same measurement as the paragraph above, one step further: at 11 that
-         * line is ~283 with its right edge past 390 in a 369px column, so it
-         * ellipsises at full width too. See `Disclosure`'s `tightSummary`.
+         * The one fold that keeps `.t-meta`'s 10px while the others go to 11:
+         * at 11 this summary measures ~283 against 257.41 at 10, and it
+         * ellipsises at full width.
+         *
+         * The reason is one subtraction and it is done in exactly one place.
+         * This comment used to do it here as well, and did it wrong - it set
+         * the ~283 against `390`, an offset from the left of the glass, in "a
+         * 369px column", a width. `Disclosure`'s `tightSummary` paragraph now
+         * says in terms why those two are not comparable and what the number
+         * actually is. **Read it there.** A measurement copied to a second site
+         * is a measurement that will disagree with itself.
          */
         tightSummary
       >
