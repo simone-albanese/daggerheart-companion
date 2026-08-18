@@ -84,8 +84,8 @@ import { useApp } from '../../store/state.ts';
  *
  * Declared here rather than in `Gm.tsx` so that a sheet never has to import
  * the screen that mounts it. There is no `'fear'` in it on purpose: the Fear
- * board is `Countdowns`, which is one of the five tools and opens through
- * `GmRegion` like the other four. `'menu'` is in it and is not in the bar -
+ * board is `Countdowns`, which is a tool and opens through `GmRegion` like
+ * every other tool. `'menu'` is in it and is not in the bar -
  * it opens from the top of the screen, because leaving the GM section is the
  * rare gesture and the arc belongs to the continuous ones.
  */

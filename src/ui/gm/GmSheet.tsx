@@ -11,8 +11,9 @@
  *
  * ## Two sizes, and why there are only two
  *
- * `full` is for the five tools. Encounter, Scene, Bestiary, PartyBoard and
- * Countdowns are all built as whole screens - each one is `flex: 1;
+ * `full` is for every tool `GmRegion` names - Encounter, Scene, PartyBoard,
+ * Bestiary, Countdowns, Reference and Names, seven of them now. All seven are
+ * built as whole screens - each one is `flex: 1;
  * min-height: 0` with its own scroll region inside - so anything smaller than
  * the window makes them scroll twice. `Countdowns` at desktop width lays out
  * `1fr minmax(280px, 340px)` and `FearBoard` draws twelve pips across up to

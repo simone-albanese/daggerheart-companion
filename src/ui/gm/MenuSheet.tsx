@@ -9,7 +9,7 @@
  * is only defensible if the door is somewhere. It is here, at the top of the
  * screen, behind the campaign name that was already drawn there.
  *
- * ## Four blocks, in the order a hand reaches them
+ * ## Six blocks, in the order a hand reaches them
  *
  * **Where to go** is first because it is the reason the sheet has to exist at
  * all, and because a GM who opened it by accident wants out. Play, Cards and
@@ -33,15 +33,22 @@
  * rule Settings is kept out by: a second route to a destination that already
  * has one is a door nobody chose to build. The sentence under these two says
  * where those three are, so their absence is an answer rather than a gap.
- * **The rules** are second, and they are here rather than in the bottom bar for
+ * **The rules** are third, and they are here rather than in the bottom bar for
  * the reason `Reference.tsx` gives at length: ADD and SHOW are the continuous
  * gestures of an evening and hold the thumb arc, while looking a rule up stops
  * play, happens once or twice a session, and is read rather than pressed. That
  * is the same kind of act as leaving the section or changing table, which is
- * what this sheet already is. It is the second block and not the last because
- * it is the one of the four a GM reaches for *during* a session.
+ * what this sheet already is. It is near the top and not at the bottom because
+ * it is one of the two blocks a GM reaches for *during* a session.
  *
- * **The campaigns** are third. Switching, making a new one, renaming the open
+ * **A name** is fourth, and it is the other one. It is beside the rules rather
+ * than in the bottom bar for the same argument and one addition of its own: the
+ * generator is a burst - open it, tap DRAW four times, take one, close it - so
+ * what belongs under the thumb is the repeated tap *inside* the tool, not the
+ * door to it. `Names.tsx` puts DRAW at the bottom of its own panel for exactly
+ * that reason.
+ *
+ * **The campaigns** are fifth. Switching, making a new one, renaming the open
  * one, and removing one behind two taps.
  *
  * **This device** is last, and is the block nothing had ever drawn. `useGm`
@@ -94,6 +101,9 @@
  *                            same height as the row above them because they are
  *                            the same gesture: one tap, and the sheet is gone
  *   THE RULES AT HAND        full width, 365 x 44
+ *   A NAME, NOW              full width, 365 x 44, the same as the rules above
+ *                            it because it is the same gesture: one tap, and
+ *                            the work happens inside the tool that opens
  *   a campaign row           the name is the target, 365 - 44 - 8 = 313 x 44,
  *                            with REMOVE beside it as a 44px word
  *   RENAME / NEW CAMPAIGN    full-width, minHeight var(--tap) = 44
@@ -115,7 +125,12 @@ const WAYS_OUT: Array<{ id: Screen; label: string }> = [
 ];
 
 /**
- * The tools nothing else on this screen can open.
+ * The row-backed tools nothing else on this screen can open.
+ *
+ * "Row-backed" is what separates this list from the two blocks under it: the
+ * reference and the name generator are also only reachable from here, and
+ * neither of them is ever the content of a session row, so neither belongs in
+ * a pair whose whole argument is "these two are a row and nothing else".
  *
  * Not all five, and the three that are missing from the list are missing on
  * purpose: Fear and the countdowns is behind the readout that is always in the
@@ -253,6 +268,24 @@ export function MenuSheet({
         <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           The tables you would otherwise be turning pages for, read out of the SRD this app ships
           rather than retyped from it — so a rules layer that changes one changes what you see.
+        </p>
+      </div>
+
+      <div className="stack" style={{ flex: 'none', gap: 8 }}>
+        <span className="t-label">A NAME, NOW</span>
+        <button
+          type="button"
+          onClick={() => onOpenTool('names')}
+          aria-haspopup="dialog"
+          className="btn"
+          style={{ flex: 'none', minHeight: 'var(--tap)' }}
+        >
+          OPEN THE NAME GENERATOR
+        </button>
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          People, places and regions, for the moment the players walk up to someone you had not
+          planned. It knows what is already on the board and in tonight&apos;s list, so it will not
+          hand you a name that is taken.
         </p>
       </div>
 
