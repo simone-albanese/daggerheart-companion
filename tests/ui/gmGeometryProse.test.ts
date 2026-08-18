@@ -105,41 +105,134 @@
  * None of the three is asserted below: a test that goes red on a file nobody in
  * this lane may touch is a test that cannot be made green.
  *
- * ## Nine `.md` citations this round's own insertions displaced
+ * ## The forty-nine `.md` line references this round's own insertions displaced
  *
  * Written down because it is the defect this branch keeps committing, and this
- * time it is committed *outwards*: correcting prose in `src` lengthened seven
- * files, and every `.md` line number pointing below an inserted hunk moved with
- * it. These were all resolved against the branch tip after the last content
- * edit of the round. The lasting fix for each is the symbol in the right-hand
- * column, not the new number.
+ * time it is committed *outwards*: correcting prose in `src` lengthened the
+ * edited files, and every `.md` line number pointing below an inserted hunk
+ * moved with it. Forty-nine references at thirty-one citation sites. The
+ * lasting fix for each is the symbol named beside it, not the new number.
  *
- *   - `AUDIT-HANDOFF.md:412` - `Wizard.tsx:402` -> `:407`, inside the style
- *     block of Build's bottom nav, where its home-indicator inset is argued.
- *   - `BACKLOG.md:50` - `Edit.tsx:392` -> `:396`. The delete confirmation's
- *     inventory of what is lost.
- *   - `BACKLOG.md:700` and `BACKLOG.md:724` - `codec.ts:1047` -> `:1059`, and
- *     both were already wrong before this round: `:1059` is a `case 'subclass'`
- *     arm, while the symbol both sentences name, `resolvePlaceholders`, is
- *     exported at `codec.ts:1264`.
- *   - `BACKLOG.md:1083` - `Edit.tsx:426` -> `:430`. The armed/unarmed branch of
- *     the delete control.
- *   - `BACKLOG.md:1418` - `Cards.tsx:628` -> `:632`. The comment recording that
- *     the pair used to read RECALL and RECALL 2.
- *   - `BACKLOG.md:1516` - `CompatibleMark.tsx:54-57` -> `:73-76`, and this one
- *     was already wrong too: the new range is a blank line, the lockup's
- *     one-line docblock, `CompatibleLockup`'s signature and its first
- *     statement. The copy that item means is `ATTRIBUTION`, exported further
- *     down the same file.
- *   - `BACKLOG.md:1919` - `Wizard.tsx:583` -> `:588`, and this one is a third
- *     that was already wrong: `:588` is the `<h2>` of the step heading, and
- *     nothing at either line sets a draft name. Resolve it by symbol.
+ * Two counts under this heading were wrong before, and both for reasons worth
+ * keeping. It said "nine" over a list of eight - the count of a list is not a
+ * thing to write from memory. And the eight themselves came from a sweep that
+ * diffed against `b26ca4b`, this branch's own fourth-from-tip commit, rather
+ * than against the commit the round started from; eight is the true count of
+ * what the last four commits displaced, which is not what a reader of these
+ * documents needs, because they are reading against `main`. Twenty-nine of the
+ * forty-nine are whole `File.ext:N` citations against `9a18f46`. The other
+ * twenty are the bare `:N` continuations and comma lists that hang off the
+ * same sentences - `App.tsx:294, :329, :405, :573` is four references, not one
+ * - and a scanner that only matches a filename followed by a colon cannot see
+ * any of them. That is the third form of the same defect: a sweep that stops
+ * early, a sweep from the wrong base, and a sweep whose pattern is narrower
+ * than the thing it is sweeping for.
  *
- * How they were found, because the method is the reusable part: resolve every
- * `File.tsx:N` in the tree against the branch tip, diff each edited file
- * against the commit the round started from, map old line to new, and report
- * every citation whose target moved. It takes a minute and it is the step this
- * branch skipped twice.
+ * `Architecture.md`
+ *
+ *   - `:169` - `App.tsx:612` -> `:624`, and already wrong before this round:
+ *     `:624` is the `}, []);` closing an effect inside `UnsavedWork`, while the
+ *     `<Recovery />` the sentence is about is rendered by `EmptyState`, behind
+ *     its `needsPasteboardBridge()` guard. Anchor: `EmptyState` in `App.tsx`.
+ *
+ * `AUDIT-HANDOFF.md`
+ *
+ *   - `:109` - `App.tsx:294, :329, :405, :573` -> `:297`, `:332`, `:408`,
+ *     `:585`, and the first was already wrong: `:297` is inside the docblock
+ *     over `gmOnScreen`, not at a banner. Anchor: the banners are `UnsavedWork`
+ *     and the `storageError`, `integrity` and `quarantined` blocks of `Shell`.
+ *   - `:228` - `App.tsx:293`, `:328`, `:404`, `:572` -> `:296`, `:331`, `:407`,
+ *     `:584`. Same enumeration, same already-wrong first number, same anchor.
+ *   - `:412` - `Wizard.tsx:402` -> `:407`, inside the style block of Build's
+ *     bottom nav, where its home-indicator inset is argued.
+ *   - `:413` - `LicenceFooter.tsx:166` -> `:177`, the
+ *     `paddingBottom: paysTheInset ? ... : 18` declaration. Anchor:
+ *     `paysTheInset` in `LicenceFooter.tsx`.
+ *   - `:423` - `LicenceFooter.tsx:155` -> `:166`, where `paysTheInset` is
+ *     computed. Same anchor, and the sentence already names it.
+ *   - `:521` - `App.tsx:506` -> `:509`, the `<>` opening the screen switch.
+ *     What the sentence is about is one line of that switch, the
+ *     `phone && !onboarding && screen !== 'gm'` guard on `<TabBar />`. Anchor:
+ *     that guard.
+ *
+ * `BACKLOG.md`
+ *
+ *   - `:50` - `Edit.tsx:392` -> `:396`. The delete confirmation's inventory of
+ *     what is lost. Anchor: `DeleteCharacter`'s docblock in `Edit.tsx`.
+ *   - `:410` - `App.tsx:152` -> `:155`, and already wrong: both are a blank
+ *     line. The advice it quotes is the "Close the other tabs and reload"
+ *     button inside `Shell`'s `storageError` block.
+ *   - `:700` and `:724` - `codec.ts:1047` -> `:1062`, and both were already
+ *     wrong before this round: that line is a `case 'subclass'` arm, while the
+ *     symbol both sentences name, `resolvePlaceholders`, is exported further
+ *     down the same file. Anchor: `resolvePlaceholders`.
+ *   - `:1083` - `Edit.tsx:426` -> `:430`. The armed/unarmed branch of the
+ *     delete control. Anchor: `armed` in `DeleteCharacter`.
+ *   - `:1107` - `App.tsx:101-103` -> `:104-106`, and `:3374` - `App.tsx:101` ->
+ *     `:104`. Anchor: `App` itself, the three-line function that wraps `Shell`
+ *     in `AppBoundary`.
+ *   - `:1311` - `App.tsx:72` -> `:75`, the comment arguing which screens are
+ *     `lazy`. Anchor: the `lazy` imports of `Build`, `Gm` and `Settings`.
+ *   - `:1418` - `Cards.tsx:628` -> `:632`. The comment recording that the pair
+ *     used to read RECALL and RECALL 2.
+ *   - `:1468` - `App.tsx:170, 175, 237` -> `:173`, `:178`, `:240`, and `:1494`
+ *     - `App.tsx:170` and `:175` -> `:173` and `:178`. Already wrong at both
+ *     sites: `:173` opens the comment over the weekly integrity check and
+ *     `:178` is four lines inside it, while the claim at `:1494` is about where
+ *     `EmptyState` is rendered - which is the `needsCharacter` ternary on the
+ *     Play and Cards branches of the screen switch. Anchor: `needsCharacter`.
+ *   - `:1516` - `CompatibleMark.tsx:54-57` -> `:73-76`, and this one was
+ *     already wrong too: the new range is a blank line, the lockup's one-line
+ *     docblock, `CompatibleLockup`'s signature and its first statement. The
+ *     copy that item means is `ATTRIBUTION`, exported further down the file.
+ *   - `:1919` - `Wizard.tsx:583` -> `:588`, and this one is a third that was
+ *     already wrong: `:588` is the `<h2>` of the step heading, and nothing at
+ *     either line sets a draft name. Resolve it by symbol.
+ *   - `:2730` - `App.tsx:408` -> `:411`, and already wrong twice over: `:411`
+ *     closes a comment inside `Shell`, and the fixed licence strip the row
+ *     describes is not rendered from this file at all any more. Anchor:
+ *     `App.tsx`'s head docblock, under its `## SUPERSEDED` heading, which is
+ *     where that strip's removal is argued.
+ *   - `:2731` - `SessionList.tsx:146-150` -> `:204`, and the end of that range
+ *     no longer resolves at all: old `:150` is a line this round rewrote, so
+ *     there is no new line to point at. Anchor: `SessionList.tsx`'s
+ *     `## The licence notice is the last thing in this scroll` heading, which
+ *     is where the retired `marginTop: 'auto'` is recorded.
+ *   - `:3257` - `App.tsx:293`, `:328`, `:404`, `:572` -> `:296`, `:331`,
+ *     `:407`, `:584`, a second copy of `AUDIT-HANDOFF.md:228`'s enumeration.
+ *
+ * `HANDOFF-2026-08-18.md`
+ *
+ *   - `:370` - `gmStore.ts:755` -> `:758`, the `setRegion` action. The
+ *     `:539-546` beside it did not move.
+ *   - `:371` - `gmStore.ts:704-744` -> end of range `:747`, inside the factory
+ *     that returns the empty live state.
+ *   - `:373`, `:624` and `:633` - `GmSheet.tsx:77` -> `:88`, the `padding:`
+ *     shorthand whose jsdom visibility those three rows argue about. `:633`
+ *     calls it "il vero `GmSheet.tsx:77`", so the number is load-bearing there
+ *     and the anchor is the shorthand itself, not the line.
+ *   - `:641` - `LicenceFooter.tsx:124` -> `:135`, the `calc(0px + env(...))`
+ *     paragraph of that file's head docblock. Anchor: that paragraph.
+ *
+ * `HANDOFF.md`
+ *
+ *   - `:728` - `App.tsx:293`, `:328`, `:404`, `:572` -> `:296`, `:331`,
+ *     `:407`, `:584`, a third copy of the same enumeration.
+ *
+ * `docs/handoff/DECISIONI-2026-08-18.md`
+ *
+ *   - `:33` - `GmSheet.tsx:77` -> `:88`, the same shorthand as the three rows
+ *     above, cited from item 19's decision row.
+ *
+ * How they were found, because the method is the reusable part: take every
+ * `Name.ext:N` in every tracked `.md` *and* every bare `:N` or `, N` that
+ * continues one, bind each to the file its chain names, diff that file against
+ * `9a18f46` - the commit on `main` the round started from, and not a commit of
+ * this branch's own - map old line to new through the unchanged hunks, and
+ * report every reference whose target moved or vanished. It takes a minute, and
+ * it is the step this branch got wrong twice by not running it at all and a
+ * third time by running it from the wrong base with a pattern that could see
+ * only three references in five.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -599,7 +692,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ['a 60px drag step', /ROW_STEP = 60\b/],
     ['a two-row topic strip', /wraps to two rows/],
     ['660 against a 369px column', /660 against/],
-  ])('no file in `src` has gone back to %s', (_what, pattern) => {
+  ])('no file in `src` or `tests` has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/SessionList.tsx',
       'src/ui/gm/SessionRow.tsx',
