@@ -5,14 +5,24 @@
  * The record has carried a `session: SessionItem[]` since campaigns were built
  * and nothing had ever drawn it. So these are presence tests before they are
  * anything else - the defect shape this repo keeps shipping is absence, and
- * every one of the five arms below is a render path no test had executed.
+ * every one of the arms below is a render path no test had executed.
  *
- * Two of them matter more than the other three. `shared/campaigns.ts` keeps an
- * item this build cannot read, and keeps a link whose target this dataset does
- * not carry, instead of dropping either from a list whose length the GM knows
- * by heart. That decision is only worth anything if both can be drawn, so both
- * are drawn here, and both are asserted by their content rather than by a count
- * of rows.
+ * Two of the five the wireframe drew matter more than the other three.
+ * `shared/campaigns.ts` keeps an item this build cannot read, and keeps a link
+ * whose target this dataset does not carry, instead of dropping either from a
+ * list whose length the GM knows by heart. That decision is only worth anything
+ * if both can be drawn, so both are drawn here, and both are asserted by their
+ * content rather than by a count of rows.
+ *
+ * ## And the two campaign schema 2 added
+ *
+ * `url` and `note` landed as a storage layer - a type, a reader, a writer and
+ * an export - with their screens left to two later lanes, so what
+ * `SessionBody` draws for them today is a placeholder that says so. That is
+ * exactly the shape this file exists to catch, because "the arm renders
+ * nothing" and "the arm is not built yet" look identical from the outside. The
+ * last describe here asserts they draw the value they hold and that neither is
+ * silently empty; it is expected to be rewritten by the lanes that build them.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement, type ReactElement } from 'react';
@@ -205,7 +215,7 @@ describe('what the list says when there is nothing in it', () => {
   });
 });
 
-describe('the five arms, shut', () => {
+describe('the five arms the wireframe drew, shut', () => {
   it('draws one row per item, in the order the record holds them', () => {
     seed(oneOfEach());
     list();
@@ -819,5 +829,55 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       .filter((el) => px(el.style.width) > COLUMN || px(el.style.minWidth) > COLUMN)
       .map((el) => `${el.tagName}.${el.className} ${el.style.width}/${el.style.minWidth}`);
     expect(wide, 'these are wider than the column, so the page scrolls sideways').toEqual([]);
+  });
+});
+
+describe('the two rows campaign schema 2 added', () => {
+  const newRows = (): SessionItem[] => [
+    { ...base({ id: 'u', name: 'The map board', order: 0, collapsed: false }), kind: 'url', href: 'https://xn--pple-43d.com/board' },
+    { ...base({ id: 'n', name: 'If they parley', order: 1, collapsed: false }), kind: 'note', note: [
+      { type: 'heading', align: 'center', spans: [{ text: 'Terms', bold: true, italic: false }] },
+      { type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo.', bold: false, italic: false }] },
+    ] },
+  ];
+
+  it('draws a row for each of them rather than an empty one', () => {
+    seed(newRows());
+    list();
+    expect(rows()).toHaveLength(2);
+    expect(text()).toContain('The map board');
+    expect(text()).toContain('If they parley');
+  });
+
+  it('shows the address in the punycode the parser produced, opened and shut', () => {
+    // Mitigation 5 reaching glass. `xn--pple-43d.com` is what `аpple.com` with
+    // a Cyrillic а normalises to, and the whole defence against a homograph is
+    // that no surface decodes it back.
+    seed(newRows());
+    list();
+    expect(text()).toContain('xn--pple-43d.com/board');
+    expect(text()).not.toContain('аpple.com');
+  });
+
+  it('offers no anchor yet, and says so rather than looking broken', () => {
+    /*
+     * The honest state of this build: the address is stored, exported and read
+     * back, and there is nothing to tap. An arm that drew the address with no
+     * sentence beside it would read as a control that does not work.
+     */
+    seed(newRows());
+    list();
+    expect(container.querySelector('a')).toBeNull();
+    expect(text()).toContain('has no button that opens it');
+  });
+
+  it('draws the note as text, with its blocks kept apart', () => {
+    seed(newRows());
+    list();
+    // `plainTextOf`, which is text by construction: no markup is built from a
+    // note anywhere in this app, and that absence is the whole defence.
+    expect(text()).toContain('Terms');
+    expect(text()).toContain('Rhys wants the cargo.');
+    expect(text()).not.toContain('**Terms**');
   });
 });

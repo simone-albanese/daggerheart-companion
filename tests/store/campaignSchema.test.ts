@@ -52,7 +52,12 @@ import {
   type Campaign,
   type SessionItem,
 } from '../../shared/campaigns.ts';
-import { missingConverters, readableVersions, SchemaError } from '../../shared/migrations.ts';
+import {
+  applyChain,
+  missingConverters,
+  readableVersions,
+  SchemaError,
+} from '../../shared/migrations.ts';
 import { MAX_FEAR, SCHEMA_VERSION } from '../../shared/types.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
@@ -283,7 +288,15 @@ describe('a session item this build cannot read', () => {
   });
 });
 
-describe('a link, which never leaves the app', () => {
+/*
+ * A `link` row, which is still the in-app one.
+ *
+ * Campaign schema 2 added a `url` row beside it - a different kind, with its own
+ * reader and its own six mitigations, exercised in
+ * `tests/store/campaignUrlRow.test.ts`. `LINK_KINDS` did not gain a fifth
+ * entry, and this describe is about the four that were always there.
+ */
+describe('a link row, which still never leaves the app', () => {
   const target = (t: unknown): SessionItem =>
     readCampaignRecord(bare({ session: [{ id: 'i1', kind: 'link', name: 'n', target: t }] }))
       .campaign.session[0]!;
@@ -480,13 +493,24 @@ describe('the first bump, and the record it must not touch', () => {
     expect(record['schemaVersion']).toBe(2);
   });
 
-  it('hands the chain a copy, so a caller’s record is not restamped under it', () => {
-    // `applyChain` passes its result on and `migrateCampaignRecord` spreads the
-    // stamp onto it. An `apply` returning its argument would make that spread
-    // the only thing between the caller's own object and being mutated.
-    const fixture = readFixture(1);
-    migrateCampaignRecord(fixture);
-    expect(fixture['schemaVersion']).toBe(1);
+  it('hands the chain a copy rather than the record it was given', () => {
+    /*
+     * Asserted against `applyChain` and not against `migrateCampaignRecord`,
+     * because the wrapper spreads a `schemaVersion` onto whatever comes back
+     * and that spread allocates an object either way - so a test one level up
+     * passes whether the converter copies or returns its argument, which is a
+     * test that cannot fail.
+     *
+     * This one can: `apply: (r) => r` turns the first assertion red. It matters
+     * because the chain is the one part of the schema policy that is pure, and
+     * a converter handing back its input makes every later step free to mutate
+     * a caller's record in place.
+     */
+    const input: Record<string, unknown> = { schemaVersion: 1, id: 'c-1' };
+    const { record, applied } = applyChain(input, 1, 2, CAMPAIGN_MIGRATIONS);
+    expect(record).not.toBe(input);
+    expect(record).toEqual(input);
+    expect(applied).toHaveLength(1);
   });
 
   it('reads a v1 record into a campaign with nothing missing and nothing invented', () => {

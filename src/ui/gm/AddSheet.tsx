@@ -9,11 +9,19 @@
  * ## Two steps, and the first one is generated
  *
  * The four choices are `SESSION_ITEM_KINDS.map(...)`, in the record's own
- * order, rather than four buttons typed out here. A fifth kind added to
- * `shared/campaigns.ts` would then appear in this menu unbuilt and obviously
- * broken instead of silently missing - which is the failure mode this repo has
- * shipped four times, and the one the `unreadable` arm one level down exists
- * to make visible.
+ * order, rather than four buttons typed out here. A kind added to that list
+ * appears in this menu unbuilt and obviously broken instead of silently
+ * missing - which is the failure mode this repo has shipped four times, and the
+ * one the `unreadable` arm one level down exists to make visible.
+ *
+ * **`SESSION_ITEM_KINDS` is not `SessionItem['kind']`, and the gap is on
+ * purpose.** It has never held `unreadable`, which is a reading rather than a
+ * thing a GM adds; since campaign schema 2 it also does not hold `url` or
+ * `note`, which are readable, writable and exportable from today and get their
+ * forms in the two lanes that build their screens. Widening the list before
+ * then would put two buttons on this sheet that mint nothing, which is worse
+ * than a button that is not there yet. `tests/gm/session.test.ts` pins the gap
+ * so it stays a decision rather than becoming an oversight.
  *
  * ## What each form can honestly promise
  *
@@ -28,9 +36,13 @@
  * number nothing could ever change again.
  *
  * A **link** points at something already inside this app - an adversary, an
- * environment, a card, a rule. Never a URL: this app's strongest claim is that
- * it makes exactly one kind of network request, and `shared/campaigns.ts` says
- * so where `LinkTarget` is declared.
+ * environment, a card, a rule. Still never a URL, and that is now a fact about
+ * this row rather than about the session list: campaign schema 2 added a `url`
+ * row beside it, which is a different kind with its own reader and its own six
+ * mitigations in `shared/externalLink.ts`. The claim underneath both is
+ * unchanged - the app still makes exactly one kind of network request and it is
+ * same-origin, because a `url` row is a string plus an anchor a GM taps, never
+ * a fetch. `LINK_KINDS` in `shared/campaigns.ts` says which half moved.
  *
  * A **countdown** goes through `addCountdown` rather than through a factory,
  * because the row and the countdown inside it deliberately share one id and
