@@ -388,3 +388,196 @@ describe('typing the dice in, for a table that rolls its own', () => {
     expect(useApp.getState().characters[0], 'typing damage wrote to the character').toEqual(before);
   });
 });
+
+/**
+ * THE WAY OUT OF THE FACE GRID — BACKLOG P3-12's other half.
+ *
+ * A slot turns into a grid of faces when it is tapped, and the grid used to
+ * have exactly one way out: pick a number. No cancel, no backdrop, no Escape,
+ * and no second tap on the slot, because the slot row is unmounted while the
+ * grid is open. A thumb that brushed a slot on a scrolling screen had to enter
+ * a value it had not rolled, and then re-open the die and enter the right one -
+ * which in this row means two log lines for one attack, the second silently
+ * replacing a number the first already announced, on a phone where `RecentLog`
+ * is not drawn and nothing on screen contradicts it.
+ *
+ * `4c99b84` gave the Duality faces their exit and left these without one, so
+ * the two die grids on the same screen answered a stray thumb differently.
+ * These assertions are deliberately the ones `cockpitRoll.test.tsx` makes of
+ * `DieKeypad`, restated against this grid, because the fix is a shared pattern
+ * and not a second invention of one: a `var(--tap)` column at the head of the
+ * row, Escape on `window` with a `[role="dialog"]` guard over it, focus taken
+ * on open and handed back on close.
+ *
+ * jsdom lays nothing out, so the widths are arithmetic over declared terms read
+ * back off the DOM, and the rest are declaration and behaviour reads.
+ */
+describe('the way out of a face grid that was opened by accident', () => {
+  const typing = rollAffordance(true, true);
+  const COLUMNS = 5;
+  /** Grid outer width -> key width, from the declared padding, gap and border. */
+  const key = (outer: number): number => (outer - 2 - 12 - 3 * (COLUMNS - 1)) / COLUMNS;
+
+  const slots = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Damage die '));
+  const grid = (): HTMLElement | null =>
+    container.querySelector<HTMLElement>('div[style*="repeat(5, 1fr)"]');
+  const exit = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Stop typing damage die'));
+  const slot = (index: number): HTMLButtonElement => {
+    const found = slots().find((b) =>
+      (b.getAttribute('aria-label') ?? '').startsWith(`Damage die ${String(index + 1)} of `),
+    );
+    if (found === undefined) throw new Error(`no slot ${String(index + 1)}`);
+    return found;
+  };
+  const escape = (): void => {
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+  };
+  const d10 = (): void => {
+    mount(attack({ source: weapon({ count: 3, sides: 10, modifier: 3 }) }), typing);
+  };
+
+  it('has a cancel, and it says which die it is cancelling', () => {
+    d10();
+    expect(grid(), 'the grid is open before anything was tapped').toBeNull();
+
+    click(slot(1));
+    expect(grid(), 'tapping a slot opened no grid').not.toBeNull();
+    expect(slots(), 'the slot row is still drawn beside the grid').toHaveLength(0);
+
+    const out = exit();
+    expect(out, 'the damage grid still has no cancel: BACKLOG P3-12').toBeDefined();
+    // It carries the label the unmounted slot row was carrying, so it says
+    // which die is being typed as well as how to stop.
+    expect(out!.textContent).toContain('DIE 2');
+    expect(out!.getAttribute('aria-label')).toBe('Stop typing damage die 2 of 3');
+    expect(out!.getAttribute('aria-keyshortcuts')).toBe('Escape');
+    // Both floors, declared inline: the height arrives from `align-items:
+    // stretch` and would measure zero without this.
+    expect(out!.style.width).toBe('var(--tap)');
+    expect(out!.style.minWidth).toBe('var(--tap)');
+    expect(out!.style.minHeight).toBe('var(--tap)');
+
+    // And it is where the keyboard already is. Opening the grid unmounts the
+    // slot that had focus, so without this focus falls to `<body>` and the way
+    // out is however many tabs deep the roll block happens to be.
+    expect(document.activeElement, 'the grid opens with focus on nothing').toBe(out);
+
+    click(out!);
+    expect(grid(), 'the cancel did not shut the grid').toBeNull();
+    expect(useApp.getState().log, 'cancelling wrote a damage roll').toHaveLength(0);
+    expect(
+      slot(1).getAttribute('aria-label'),
+      'the cancel entered a value the player never rolled',
+    ).toBe('Damage die 2 of 3, not entered');
+    expect(document.activeElement, 'the way out fired the keyboard into nothing').toBe(slot(1));
+  });
+
+  it('closes on Escape, and commits nothing when it does', () => {
+    d10();
+    click(slot(0));
+    expect(grid()).not.toBeNull();
+    escape();
+    expect(grid(), 'Escape does nothing, which was half of P3-12').toBeNull();
+    expect(slot(0).getAttribute('aria-label')).toBe('Damage die 1 of 3, not entered');
+    expect(useApp.getState().log).toHaveLength(0);
+    expect(document.activeElement, 'Escape left focus on the body').toBe(slot(0));
+  });
+
+  it('leaves Escape to whatever is on top of it', () => {
+    /*
+     * `useDialog` registers its own unconditional window keydown per dialog and
+     * does not `stopPropagation`, so without a topmost check one Escape closes
+     * the dialog AND this grid underneath it - and the player comes back to a
+     * roll surface that silently reverted. `6c57c01` is that bug on the Duality
+     * keypad; this listener is the same listener and needs the same guard.
+     */
+    d10();
+    click(slot(2));
+    expect(grid()).not.toBeNull();
+
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    document.body.append(dialog);
+    escape();
+    expect(grid(), 'one Escape closed a dialog and the grid under it').not.toBeNull();
+
+    dialog.remove();
+    escape();
+    expect(grid(), 'the guard swallowed the key for good').toBeNull();
+  });
+
+  it('still commits a face, and still hands focus back when it does', () => {
+    // The control: picking a number was the only way out before this and it is
+    // still a way out, so this passes in both directions on everything but the
+    // focus read on the last line.
+    d10();
+    click(slot(1));
+    click(buttons().find((b) => b.textContent === '7')!);
+    expect(grid()).toBeNull();
+    expect(slot(1).getAttribute('aria-label')).toBe('Damage die 2 of 3, showing 7');
+    expect(document.activeElement, 'committing a face left focus on the body').toBe(slot(1));
+  });
+
+  it('puts every key over the floor at every width in the sweep', () => {
+    /*
+     * The grid is `flex: 1` where the slot row was, less the 44px exit column
+     * and the gap that separates it - and that gap is 4 rather than
+     * `DieKeypad`'s 8, because five columns eat a gutter harder than four do.
+     * The 4 is not a new number: it is the gap the slot row above already puts
+     * between its own 44px targets.
+     *
+     * Phone: the column is the viewport less 24 of region padding.
+     * Cockpit: the roll panel's content box is 402.
+     */
+    d10();
+    click(slot(0));
+    const row = grid()!.parentElement!;
+    expect(row.style.gap, 'the gap the arithmetic below is over').toBe('4px');
+    expect(row.style.alignItems, 'the exit no longer stretches to the grid').toBe('stretch');
+    expect(exit()!.style.width).toBe('var(--tap)');
+
+    const EXIT = 44 + 4;
+    const phone = (vw: number): number => key(vw - 24 - EXIT);
+    for (const [vw, want] of [
+      [320, 44.4],
+      [360, 52.4],
+      [375, 55.4],
+      [393, 59],
+    ] as Array<[number, number]>) {
+      expect(phone(vw), `a key at ${String(vw)}px`).toBeCloseTo(want, 2);
+      expect(
+        phone(vw),
+        `a key at ${String(vw)}px is under the 44px coarse floor`,
+      ).toBeGreaterThanOrEqual(44);
+    }
+
+    expect(key(402 - EXIT)).toBeCloseTo(65.6, 2);
+    // The cockpit panel scrolls and an open grid is a state that can overflow
+    // it, so `scrollbar-gutter: stable` reserves a bar that `.scroll` bounds at
+    // 8px. Worst case is still over both floors.
+    expect(key(402 - 8 - EXIT)).toBeCloseTo(64, 2);
+
+    // And what `DieKeypad`'s 8px gutter would have cost at the narrow end: a
+    // quarter of a pixel under the coarse floor, which is why it is 4 here.
+    expect(key(320 - 24 - 44 - 8)).toBeCloseTo(43.6, 2);
+  });
+
+  // CONTROL. Every term here was already declared before the exit column
+  // existed and is unchanged by it; it passes in both directions on purpose,
+  // and it is here so that the arithmetic above cannot quietly go stale.
+  it('still declares the terms that arithmetic is derived from', () => {
+    d10();
+    click(slot(0));
+    const open = grid()!;
+    expect(open.style.gridTemplateColumns).toBe('repeat(5, 1fr)');
+    expect(open.style.gap).toBe('3px');
+    expect(open.style.padding).toBe('6px');
+    for (const k of [...open.querySelectorAll<HTMLElement>('button')]) {
+      expect(k.style.minHeight, `key ${k.textContent ?? '?'} lost its floor`).toBe('var(--control)');
+    }
+  });
+});

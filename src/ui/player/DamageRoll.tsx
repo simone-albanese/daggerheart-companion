@@ -30,7 +30,7 @@
  * `update` nor `engine/damage.ts`, and the character record is untouched by
  * every path through it.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatDamage, rollDamage, type DamageResult } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
 import {
@@ -74,12 +74,16 @@ interface DamageRowProps {
  * it from here would move a number that is load-bearing somewhere else.
  *
  * The parity that is kept is the one that matters at the table: a slot opens
- * into a grid of faces and closes by picking one, exactly as the Hope and Fear
- * dice do, so a table entering physical dice learns one gesture and not two.
- * The parity that is kept and is not ideal is that there is no way out of an
- * accidentally opened grid except picking a value - which is `Die`'s behaviour
- * too, and inventing a cancel here and not there would be worse than the
- * shortcoming. It is written down in BACKLOG.md rather than diverging quietly.
+ * into a grid of faces, closes by picking one, and closes just as readily
+ * without picking one - exactly as the Hope and Fear dice do, so a table
+ * entering physical dice learns one gesture and not two. That last clause used
+ * to read the other way: there was no way out of an accidentally opened grid
+ * except committing a value, here and on the Duality dice both, and this
+ * docblock argued that inventing a cancel for one and not the other would be
+ * worse than the shortcoming. `4c99b84` then gave the Duality keypad its exit,
+ * which made the argument true of nothing and this file the divergent half. The
+ * exit is `FaceKeypad`'s, and it is `DieKeypad`'s pattern rather than a second
+ * one.
  */
 function FaceSlot({
   index,
@@ -114,6 +118,157 @@ function FaceSlot({
     >
       {value ?? '—'}
     </button>
+  );
+}
+
+/**
+ * The faces of one damage die, and the way out of them. BACKLOG P3-12's other
+ * half.
+ *
+ * `DieKeypad`'s shape, not a second invention of it. That is the whole point of
+ * this component existing: the Duality faces got an exit at `4c99b84` and these
+ * did not, so for one release the two die grids on the same screen answered a
+ * stray thumb differently - one handed it back, the other made the player type
+ * a number they had not rolled. In the damage row that costs two log lines for
+ * one attack, the second silently replacing a total the first already announced
+ * and the player already read aloud, on a phone where `RecentLog` is not drawn
+ * and nothing on screen contradicts it.
+ *
+ * WHAT IS COPIED, exactly: a full-height `var(--tap)` column at the head of the
+ * row carrying the label and an `×`; `aria-keyshortcuts="Escape"` on it; focus
+ * taken on mount, because the tap that opens this unmounts the slot that had
+ * it; and focus handed back to that slot by `DamageRow` however this closes.
+ * The Escape listener itself is `DamageRow`'s, on `window` and with the same
+ * `[role="dialog"]` guard, for the reasons written over it there.
+ *
+ * WHAT IS NOT COPIED IS THE 8px GAP, AND FIVE COLUMNS IS WHY. A key is
+ * `(G - 26) / 5` for a grid of outer width G - 2 of border at dpr 1, 12 of
+ * padding, four 3px gutters - and an exit column takes `var(--tap)` plus the
+ * gap out of G before that division, which five columns feel harder than four.
+ * At `DieKeypad`'s 8 the narrowest phone this app draws for is 320 - 24 of
+ * region padding = 296 of column, so G = 244 and a key is **43.6**: a quarter
+ * under the 44px coarse floor, for the sake of a gutter. At 4 - which is the
+ * gap the slot row above already puts between its own 44px targets, so it is
+ * this row's own number rather than a new one - G is 248 and the key is
+ * **44.4**. It clears from there up: 52.4 at 360, 55.4 at 375, 59.0 at 393, and
+ * 65.6 on the cockpit's 402px panel (64.0 with the 8px scrollbar that `.scroll`
+ * bounds and `scrollbar-gutter: stable` reserves).
+ *
+ * IT COSTS THE ROW NO HEIGHT. The exit stretches to the grid rather than
+ * sitting over it, so the block is the same 197px for a d20 that five across
+ * was chosen for; a 44px row above the grid would have taken it to 241 and
+ * handed back almost all of the 47 that choice bought. `minHeight: var(--tap)`
+ * is declared on it anyway and inline, because a height that arrives from
+ * `align-items: stretch` measures zero in jsdom, and a floor no test can read
+ * is a floor that comes off in the next layout pass.
+ *
+ * ERGONOMICS. TARGET SIZE: four to twenty keys - the pool's own die, and
+ * `FaceSlot`'s docblock lists the six it can be - at `var(--control)` tall by
+ * 44.4 to 65.6 wide, and one 44px-wide exit as tall as the grid beside it.
+ * THUMB ARC: the exit is at the LEFT edge, away from where a right thumb rests,
+ * for `DieKeypad`'s reason - the resting corner should hold the consequential
+ * press, and here that is a digit. READ VERSUS TOUCH: the slot row this
+ * replaces is what said which die is which, and it is gone while the grid is
+ * open, so the exit carries `DIE n` and is the one thing on the row you read
+ * rather than press.
+ */
+function FaceKeypad({
+  index,
+  count,
+  sides,
+  value,
+  onSet,
+  onCancel,
+}: {
+  index: number;
+  count: number;
+  sides: number;
+  value: number | null;
+  onSet: (value: number) => void;
+  onCancel: () => void;
+}): React.JSX.Element {
+  /*
+   * The keyboard's way in, beside the pointer's.
+   *
+   * Opening this unmounts the slot that had focus, so focus falls to `<body>`
+   * and the exit is however many tabs deep the roll block happens to be. The
+   * exit takes it instead, which puts the way out where the keyboard already is
+   * and the faces one Tab further on. `useDialog`'s pattern minus the Tab trap:
+   * this is not an overlay, nothing behind it is inert, and tabbing straight
+   * out of it is allowed.
+   */
+  const exit = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    exit.current?.focus();
+  }, []);
+
+  return (
+    <div className="row" style={{ gap: 4, alignItems: 'stretch' }}>
+      <button
+        ref={exit}
+        type="button"
+        onClick={onCancel}
+        aria-keyshortcuts="Escape"
+        aria-label={`Stop typing damage die ${index + 1} of ${count}`}
+        title="Back to the dice"
+        style={{
+          flex: 'none',
+          width: 'var(--tap)',
+          minWidth: 'var(--tap)',
+          minHeight: 'var(--tap)',
+          background: 'var(--app)',
+          border: '1.5px solid var(--damage)',
+          borderRadius: 'var(--r4)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+        }}
+      >
+        <span className="t-meta" style={{ color: 'var(--damage)', letterSpacing: '0.1em' }}>
+          DIE {index + 1}
+        </span>
+        <span aria-hidden="true" style={{ font: '600 15px/1 var(--sans)', color: 'var(--damage)' }}>
+          ×
+        </span>
+      </button>
+      {/*
+       * The faces of one die, in `Die`'s own grid at five across instead of
+       * four - twenty of them is four rows this way and five the other, and
+       * four rows is 197px of the phone's roll block rather than 244.
+       */}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          gap: 3,
+          padding: 6,
+          borderRadius: 'var(--r4)',
+          background: 'var(--app)',
+          border: '1.5px solid var(--damage)',
+        }}
+      >
+        {Array.from({ length: sides }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onSet(n)}
+            style={{
+              minHeight: 'var(--control)',
+              borderRadius: 'var(--r1)',
+              background: n === value ? 'var(--damage)' : 'var(--raised)',
+              color: n === value ? 'var(--app)' : 'var(--text)',
+              font: '600 12px/1 var(--mono)',
+            }}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -158,6 +313,61 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
    */
   const [faces, setFaces] = useState<(number | null)[]>([]);
   const [editing, setEditing] = useState<number | null>(null);
+  /*
+   * The keyboard's way out of the face grid, and why it is on `window`.
+   *
+   * `DualityRoll` argues all of this over its own listener and this is the same
+   * listener for the same reason, on the other half of BACKLOG P3-12: it cannot
+   * be an `onKeyDown` on the grid, because the tap that opens the grid unmounts
+   * the slot that had focus, so until something is tabbed to there is nothing
+   * inside it for a bubbling handler to catch.
+   *
+   * AND IT CHECKS WHAT IS ON TOP OF IT. `useDialog` registers an unconditional
+   * window keydown per dialog and does not `stopPropagation`, so two handlers
+   * fire on one key: without this guard a single Escape closed a loadout card
+   * AND the grid underneath it, and the player came back to a roll surface that
+   * had silently reverted (`6c57c01`). If anything in the document is a
+   * `role="dialog"`, that surface owns the key and this one does nothing. A
+   * `capture` listener plus `stopPropagation` is the other shape and it is
+   * worse - it would make this the surface that wins over a dialog, which is
+   * backwards.
+   */
+  useEffect(() => {
+    if (editing === null) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"]') !== null) return;
+      setEditing(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [editing]);
+  /*
+   * And the way back to where you were, when the grid closes.
+   *
+   * `FaceKeypad` takes focus on open because the tap that opens it unmounts the
+   * slot that had it. Closing is the same thing in reverse - the exit, or the
+   * key that was pressed, is unmounted by its own click - so without this focus
+   * falls to `<body>` and Escape fires the keyboard into nothing. `wasEditing`
+   * is a ref rather than state because it exists only to be read once in the
+   * effect that follows the change, and it starts null so a fresh mount focuses
+   * nothing.
+   */
+  const wasEditing = useRef<number | null>(null);
+  useEffect(() => {
+    if (editing !== null) {
+      wasEditing.current = editing;
+      return;
+    }
+    const which = wasEditing.current;
+    if (which === null) return;
+    wasEditing.current = null;
+    document
+      .querySelector<HTMLElement>(`button[aria-label^="Damage die ${String(which + 1)} of "]`)
+      ?.focus();
+  }, [editing]);
 
   if (attack === null) return null;
 
@@ -389,39 +599,14 @@ export function DamageRow({ attack, affordance, layout }: DamageRowProps): React
           ))}
         </div>
       ) : (
-        /*
-         * The faces of one die, in `Die`'s own grid at five across instead of
-         * four - twenty of them is four rows this way and five the other, and
-         * four rows is 197px of the phone's roll block rather than 244.
-         */
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: 3,
-            padding: 6,
-            borderRadius: 'var(--r4)',
-            background: 'var(--app)',
-            border: '1.5px solid var(--damage)',
-          }}
-        >
-          {Array.from({ length: pool.sides }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setFace(editing, n)}
-              style={{
-                minHeight: 'var(--control)',
-                borderRadius: 'var(--r1)',
-                background: n === slots[editing] ? 'var(--damage)' : 'var(--raised)',
-                color: n === slots[editing] ? 'var(--app)' : 'var(--text)',
-                font: '600 12px/1 var(--mono)',
-              }}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+        <FaceKeypad
+          index={editing}
+          count={slots.length}
+          sides={pool.sides}
+          value={slots[editing] ?? null}
+          onSet={(n) => setFace(editing, n)}
+          onCancel={() => setEditing(null)}
+        />
       )}
       {button}
     </div>
