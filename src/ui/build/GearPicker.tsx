@@ -558,7 +558,19 @@ function Chips<T extends string | number>({
   text: (v: T) => string;
   selected: ReadonlySet<T>;
   onToggle: (v: T) => void;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
+  /*
+   * A LABEL WITH NOTHING AFTER IT IS WORSE THAN NO ROW.
+   *
+   * Every other chip row on this screen draws from a module constant and is
+   * never empty. TIER is derived - `tiersIn(weapons)` - and returns `[]` on a
+   * device where the dataset has not been built, a state this same file writes
+   * explicit copy for three times over. Before this guard that state drew a
+   * bare "TIER" with no chips beside HANDS, TRAIT and RANGE rows that had
+   * populated, which reads as a filter that lost its options rather than as a
+   * catalogue that has not arrived.
+   */
+  if (values.length === 0) return null;
   return (
     <>
       <span className="t-meta" style={{ flex: 'none', alignSelf: 'center', color: 'var(--dim)' }}>

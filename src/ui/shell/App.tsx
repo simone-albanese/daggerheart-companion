@@ -311,6 +311,15 @@ function Shell(): React.JSX.Element {
           it. `Gm.tsx` draws the same store field under its own pinned top bar,
           which is where it belongs while the GM is looking at it; this is what
           happens when they are not. See `CampaignNotSaved.tsx`.
+
+          "Never lost" is narrower than it sounds and the gap is deliberate:
+          `screen === 'gm'` suppresses this block whether or not the GM screen
+          has actually painted, so the sentence is on neither surface while the
+          lazy chunk is still in `<Suspense>`, after `ScreenBoundary` catches,
+          and under a full-screen `GmSheet` tool. Widening it would mean
+          teaching the shell when the GM screen is really drawing, which is a
+          second source of truth for a fact that screen already owns - worse
+          than three moments where the strip is a moment late.
         */}
         {campaignAlert !== null && !gmOnScreen && <CampaignNotSaved alert={campaignAlert} />}
         {storageError !== null && (

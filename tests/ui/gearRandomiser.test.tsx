@@ -434,6 +434,31 @@ describe('the tiers the chips offer', () => {
     mount('armor');
     expect(chipsIn(), 'the armor TIER chips').toEqual(tiersIn(armors));
   });
+
+  it('draws no TIER row at all on a device whose catalogue is empty', () => {
+    /*
+     * The cost of deriving the chips instead of typing them, and the one state
+     * that pays it. Every other row here - HANDS, TRAIT, RANGE - comes from a
+     * module constant and is never empty; TIER comes from `tiersIn(weapons)`
+     * and is `[]` before the dataset is built, a state this picker writes
+     * explicit copy for three times over.
+     *
+     * Without the guard the screen drew a bare "TIER" with nothing after it,
+     * beside three rows that had populated: a filter that lost its options
+     * rather than a catalogue that has not arrived. Mutation: delete the
+     * `values.length === 0` return in `Chips` and this goes red.
+     */
+    // Emptied AFTER the mount, because the fixture's own `seed` puts the full
+    // dataset back on its way in.
+    mount('weapons');
+    expect(panel().textContent ?? '', 'the fixture stopped drawing TIER at all').toContain('TIER');
+    act(() => {
+      useApp.setState({ dataset: { ...dataset, weapons: [], armors: [] } });
+    });
+    expect(panel().textContent ?? '').not.toContain('TIER');
+    // The control: the rows that do not derive their values are still there.
+    expect(panel().textContent ?? '').toContain('HANDS');
+  });
 });
 
 describe('the chip filters, unchanged', () => {

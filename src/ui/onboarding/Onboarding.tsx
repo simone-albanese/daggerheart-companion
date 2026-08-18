@@ -108,9 +108,13 @@
  * in `Header.tsx` exists to prevent.
  *
  * The alert banners are still above this - a write that did not land, a library
- * that vanished between sessions, a character this build will not read. A device
- * whose characters have gone missing must be told so, and must not instead be
- * quietly asked who it belongs to.
+ * that vanished between sessions, a character this build will not read, and a
+ * **campaign that did not reach the disk**, which is the newest of the four and
+ * is here for a reason worth stating: the GM screen is not mounted while these
+ * questions are up, so its own copy of that sentence is not on the page, and a
+ * GM can reach this state by emptying the library from Settings mid-session.
+ * A device whose characters have gone missing must be told so, and must not
+ * instead be quietly asked who it belongs to.
  *
  * One control in those banners outranks this screen, and it is the only thing
  * that does: the integrity alert's RESTORE FROM A BACKUP chip takes the gate

@@ -279,6 +279,38 @@ describe('a campaign that did not reach the disk, off the GM screen', () => {
     );
   });
 
+  it('is on the shell during the first-run questions, where the GM screen is not mounted', async () => {
+    /*
+     * The `!onboarding` half of `gmOnScreen`, which nothing tested.
+     *
+     * The first-run questions are drawn *instead of* all five screens, so with
+     * them up the GM screen is not on the page and its own copy of this
+     * sentence is not either - while `screen` can perfectly well still be
+     * `'gm'`, because that is a store field and not a claim about what painted.
+     * A GM reaches this by emptying the library from Settings mid-session.
+     *
+     * MUTATION: rewrite it as `const gmOnScreen = screen === 'gm';` and this
+     * goes red - the shell suppresses the only copy there is, and the failure
+     * is on no surface at all.
+     */
+    await boot();
+    await act(async () => {
+      useApp.getState().setScreen('gm');
+    });
+    // Empty the library and un-answer the question, which is what Settings'
+    // "Erase everything" does to a device mid-session.
+    act(() => {
+      useApp.setState({ characters: [], activeId: null, prefs: { ...DEFAULT_PREFS } });
+    });
+    await settle(() => text().includes('THE GM TOOLS') || !text().includes('Nothing planned yet'));
+    fail(FAILED, 'write');
+
+    expect(useApp.getState().screen, 'the fixture stopped exercising the branch').toBe('gm');
+    expect(text(), 'the shell suppressed the only copy of the failure there was').toContain(
+      SHELL_HEADING,
+    );
+  });
+
   it('says nothing at all while the disk is behaving', async () => {
     // CONTROL. It passes against the pre-fix code as well; it is here because
     // an alert that is always up is the same defect as one that never is.

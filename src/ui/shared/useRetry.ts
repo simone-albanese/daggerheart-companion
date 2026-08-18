@@ -52,6 +52,23 @@ export function useRetry(attempt: () => Promise<boolean>): Retry {
   const [retrying, setRetrying] = useState(false);
   const [failedAgain, setFailedAgain] = useState(false);
 
+  /*
+   * The re-arm is for StrictMode, and no test covers it - both halves said out
+   * loud rather than left to be discovered.
+   *
+   * React 18's StrictMode mounts, unmounts and remounts on the first render, so
+   * the cleanup below runs once before the component is really alive; without
+   * the assignment the ref would stay false for the rest of its life and every
+   * retry would silently discard its own result. That is **development only**:
+   * `main.tsx` wraps the tree in StrictMode and StrictMode's double-invoke does
+   * not happen in a production build, so nothing a user runs depends on this
+   * line.
+   *
+   * Deleting it leaves the whole suite green, which is the honest state of it:
+   * jsdom does not reproduce the double mount here, and writing a test that
+   * fakes one would pin the fake rather than the behaviour. It stays because
+   * the cost is one assignment and the failure it prevents is invisible.
+   */
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
