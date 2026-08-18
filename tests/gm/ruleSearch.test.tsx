@@ -11,10 +11,14 @@
  * section would let a search that quietly rewrote what it found pass, and
  * rewriting the SRD is the one thing this repo forbids outright.
  *
- * **The door exists.** Every test that renders goes in through the bottom bar's
- * SHOW verb, the way a GM does, rather than mounting `RuleSearch` on its own.
- * The defect class this repo keeps shipping is code that works and is never
- * reached, and a search field behind no button would be the purest example.
+ * **The door exists.** Every test that renders the sheet goes in through the
+ * bottom bar's SHOW verb, the way a GM does. The defect class this repo keeps
+ * shipping is code that works and is never reached, and a search field behind
+ * no button would be the purest example. Exactly one test below mounts the
+ * results on their own, and it says in its own body why: through the sheet, the
+ * results follow a homebrew layer whether or not they subscribe to the store,
+ * because `ShowSheet` subscribes for the placeholder's count and re-renders
+ * them either way. Alone, they have to follow it themselves.
  *
  * **The floor is inline.** jsdom reads only inline styles and does not resolve
  * custom properties, so `minHeight: 'var(--tap)'` measures as the literal
@@ -31,7 +35,7 @@ import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { searchRules } from '../../src/ui/shared/srdReference.ts';
-import { preview } from '../../src/ui/gm/RuleSearch.tsx';
+import { preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
@@ -468,6 +472,58 @@ describe('the results', () => {
     expect(hits()).toEqual([]);
     expect(groupHeaders()).toEqual([]);
     expect(dialog().textContent).toContain('No rule in this dataset carries that');
+  });
+
+  it('follows a layer that lands while a hit is already open', () => {
+    // The narrow case the section's `useMemo` deps exist for: the GM has a
+    // section open, a homebrew layer arrives, and what is on the glass is the
+    // body the layer replaced rather than the body it wrote.
+    openShow();
+    type('pitfalls');
+    click(hits()[0]!);
+    expect(dialog().textContent).not.toContain('Do not talk over the quiet player.');
+
+    act(() => {
+      useApp.setState({
+        dataset: {
+          ...dataset,
+          rules: dataset.rules.map((r) =>
+            r.id === 'pitfalls-to-avoid'
+              ? { ...r, body: 'Do not talk over the quiet player.' }
+              : r,
+          ),
+        },
+      });
+    });
+
+    expect(hits()[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(dialog().textContent).toContain('Do not talk over the quiet player.');
+  });
+
+  it('subscribes to the dataset on its own, not through whatever mounted it', () => {
+    /*
+     * Mounted alone, deliberately. Inside the sheet this property is invisible:
+     * `ShowSheet` reads `dataset.rules` for its placeholder's count, so it
+     * re-renders the results on any layer whether they subscribe or not, and a
+     * `useApp.getState()` read here would pass every test above. Take the sheet
+     * away and only a real subscription answers.
+     */
+    act(() => root.render(createElement(RuleSearchResults, { query: 'velocipede' })));
+    expect(container.textContent).toContain('No rule in this dataset carries that');
+
+    act(() => {
+      useApp.setState({
+        dataset: {
+          ...dataset,
+          rules: dataset.rules.map((r) =>
+            r.id === 'countdowns' ? { ...r, body: `${r.body}\nA velocipede is Close range.` } : r,
+          ),
+        },
+      });
+    });
+
+    expect(container.textContent).toContain('Countdowns');
+    expect(container.textContent).toContain('IN THE TEXT · 1');
   });
 
   it('reads the dataset rather than a copy, so a layer changes what is found', () => {
