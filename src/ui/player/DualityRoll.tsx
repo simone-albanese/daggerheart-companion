@@ -1121,8 +1121,9 @@ export function DualityRoll({
          *
          * So neither answer. Nothing is drawn here at all while nothing is
          * armed; the controls are one tap away on MODS, at the right end of
-         * the roll row, where they cost no height because ROLL is already 66
-         * tall. And the moment anything is armed - ADV, DIS, REACTION, a
+         * the roll row, where they cost no height because MODS declares the
+         * same 56px floor ROLL does and the row stretches both to whatever ROLL
+         * draws. And the moment anything is armed - ADV, DIS, REACTION, a
          * Difficulty, a held die, SPELLCAST - this strip appears and names it,
          * because `advantage` and `reaction` are deliberately not cleared when
          * a roll resolves, so a DIS armed three rolls ago is still armed and a
