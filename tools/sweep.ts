@@ -123,15 +123,19 @@
  *
  * A tool that returns 3000 hits is a tool nobody runs. Three things buy the
  * signal back, and every one of them was ablated against the corpus rather
- * than argued for:
+ * than argued for. The ablation figures in this section and below are scored
+ * on the exact cited line, out of the 12 of 31 that run surfaces - not on the
+ * paragraph rule the 47% above uses, because a term's contribution is easier
+ * to read against the stricter of the two:
  *
  * 1. **A term that only left the diff.** A number the diff *deleted*, still
  *    written down somewhere else, is the defect itself; a number the diff
- *    merely contains is a coincidence. Removing it: 14 of 30 down to 10.
+ *    merely contains is a coincidence. Removing it: 12 down to 7.
  * 2. **Rarity.** A term mentioned twice in the tree is a pointer; a term
  *    mentioned forty times is a word. `--common` drops the words and `1/n`
- *    orders the rest. Removing it: 14 down to 13, and 10 down to 5 once the
- *    departure boost is gone too - it is the floor under that boost.
+ *    orders the rest. Removing it changes nothing while the departure boost is
+ *    there - 12 either way - and removing both takes 7 down to 4, so rarity is
+ *    the floor under that boost rather than a duplicate of it.
  * 3. **Prose first.** The defect is prose, so comments, string literals and
  *    `.md` are searched and code is not, unless `--code` says otherwise. This
  *    is not the volume filter it sounds like, and the measurement is worth
@@ -696,24 +700,28 @@ const DEFAULTS = { common: 6, includeCode: false, side: 'unknown' as TreeSide };
  *
  * - **a term that only left the diff** - a value the diff *deleted*, still
  *   written down elsewhere, is the defect itself, where a value the diff merely
- *   contains is a coincidence. Removing the boost: 14 of 30 down to 10.
+ *   contains is a coincidence. Setting `GONE_BOOST` to 1: 12 of 31 down to 7.
  * - **rarity** - a term mentioned twice in the tree is a pointer, a term
- *   mentioned forty times is a word, so `1/mentions`. Worth 1 on its own here
- *   because `--common` has already thrown the words away; worth 5 with the
- *   departure boost also gone, so it is the floor under it rather than a
- *   duplicate of it.
+ *   mentioned forty times is a word, so `1/mentions`. Worth nothing on its own
+ *   here - 12 either way - because `--common` has already thrown the words
+ *   away; worth 3 once the departure boost is gone too, 7 down to 4, so it is
+ *   the floor under that boost rather than a duplicate of it.
  * - **where the words are** - markdown and comments over string literals over
  *   code, doubled for a line making an exact-count claim, because those are the
  *   sentences an addition falsifies.
  *
  * And one term that is deliberately NOT here. Multiplicity - how many separate
  * things the diff changed one line names at once - is the most persuasive
- * signal in this whole tool and ranking on it made recall *worse*: 14 of 30
- * became 12. A paragraph naming six of your numbers is usually the paragraph
- * you are already rewriting, and it crowds out the single sentence in a file
- * you have not opened, which is the one this exists to find. So multiplicity is
- * measured, printed beside every line, and used to rescue a term `--common`
- * would otherwise drop - and it earns no place in the ordering.
+ * signal in this whole tool, and the two replays disagree about even the sign
+ * of what it buys: multiplying the score by `1 + log2(multiplicity)` costs one
+ * finding on the paragraph scoring, 14 down to 13, and gains one on the exact
+ * line, 12 up to 13. One finding either way is not a case for a second
+ * ordering term, and the argument that decides it is not a number: a paragraph
+ * naming six of your numbers is usually the paragraph you are already
+ * rewriting, and it crowds out the single sentence in a file you have not
+ * opened, which is the one this exists to find. So multiplicity is measured,
+ * printed beside every line, and used to rescue a term `--common` would
+ * otherwise drop - and it earns no place in the ordering.
  */
 function placeScore(hit: Hit, rarest: number): number {
   const base = hit.kind === 'code' ? 0.5 : hit.kind === 'string' ? 2 : 3;
@@ -726,7 +734,11 @@ const NARROW_AT = 3;
 /**
  * How much more a term that only *left* the diff is worth. Measured, not
  * chosen: on the corpus this is the difference between finding the stale copy
- * of a number and finding every file that happens to contain it.
+ * of a number and finding every file that happens to contain it - 12 of 31
+ * with it, 7 without. The 20 itself is not tuned to a decimal; what it has to
+ * do is put every departed term above every surviving one, which any value
+ * over about 6 does once `--common` has capped a term at six places: 8 and
+ * 1000 both score 12 as well.
  */
 const GONE_BOOST = 20;
 
