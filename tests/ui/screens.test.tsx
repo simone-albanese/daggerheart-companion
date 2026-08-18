@@ -143,6 +143,7 @@ import { Track } from '../../src/ui/shared/Track.tsx';
 import { App } from '../../src/ui/shell/App.tsx';
 import { AppBoundary } from '../../src/ui/shell/AppBoundary.tsx';
 import { BackupBanner } from '../../src/ui/shell/BackupBanner.tsx';
+import { CampaignNotSaved } from '../../src/ui/shell/CampaignNotSaved.tsx';
 import { Header } from '../../src/ui/shell/Header.tsx';
 import { LicenceFooter } from '../../src/ui/shell/LicenceFooter.tsx';
 import { Recovery } from '../../src/ui/shell/Recovery.tsx';
@@ -781,6 +782,19 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <AppBoundary>inside the app boundary</AppBoundary>
   ),
   'shell/BackupBanner.tsx::BackupBanner': () => <BackupBanner />,
+  // A `'write'` failure, so the retry chip is in the tree and the nameless-
+  // control sweep below actually sees it. The message is the store's, quoted
+  // rather than paraphrased, which is the rule the component is built on.
+  'shell/CampaignNotSaved.tsx::CampaignNotSaved': () => (
+    <CampaignNotSaved
+      alert={{
+        message:
+          'This device is out of space. What is on this screen is only in this tab, so closing it now loses it.',
+        retry: 'write',
+        tryAgain: () => Promise.resolve(false),
+      }}
+    />
+  ),
   'shell/Header.tsx::Header': () => <Header onboarding={false} />,
   'shell/LicenceFooter.tsx::LicenceFooter': () => <LicenceFooter />,
   'shell/Recovery.tsx::Recovery': () => <Recovery />,

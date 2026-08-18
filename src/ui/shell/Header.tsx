@@ -97,11 +97,13 @@
  * WHAT `<main>` OWNS, said correctly this time. This used to read "`main` is
  * transparent and owns no content of its own, so the screens inside it are
  * their own files' half of this", and the second half of that is wrong.
- * `App.tsx` renders six blocks directly inside `<main>`, above every screen and
- * below this bar: `UnsavedWork` (App.tsx:499), the storage-error alert (:260),
- * the integrity alert (:295), the quarantined-characters alert (:360), and
- * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx`. None is a screen;
- * all six are shell chrome, and all six were hard-coded to
+ * `App.tsx` renders seven blocks directly inside `<main>`, above every screen
+ * and below this bar: `UnsavedWork`, `CampaignNotSaved`, the storage-error
+ * alert, the integrity alert, the quarantined-characters alert, and
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner.tsx`. (The line numbers
+ * that used to be written beside the first four were wrong within two commits
+ * of being typed; the names are searchable and do not rot.) None is a screen;
+ * all seven are shell chrome, and six of them were hard-coded to
  * `margin: '8px 20px 0'`. Measured at 852x393 with 59 on both sides,
  * `BackupBanner` rendered at [20, 832] and its box was identical with the insets
  * at 0 - it did not move, so its first 39px sat inside the left strip while this
@@ -364,7 +366,7 @@ export function Header({
          * ordinary 20s down with it in every test.
          *
          * The two horizontal values come from `gutter.ts` rather than being
-         * written out here, and the six shell-chrome blocks inside `<main>` take
+         * written out here, and the seven shell-chrome blocks inside `<main>` take
          * their margins from the same file. They are one gutter and they had
          * drifted 59px apart under a cutout; a shared constant is the only
          * version of "identical" that cannot be broken by a typo.

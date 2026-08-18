@@ -318,10 +318,10 @@ describe('the precondition, and the grep that found this', () => {
  * THE GUTTER THE HEADER INSETS AND THE BLOCKS UNDER IT DID NOT.
  *
  * The cutout fix moved this bar's side padding to `calc(20px + env(...))`. The
- * six shell-chrome blocks `App.tsx` draws inside `<main>` directly beneath it -
- * the write-failure, storage, integrity and quarantine alerts, and `UpdateBanner`
- * and `BackupBanner` through `ShellBanner` - stayed at a flat `margin: '8px 20px
- * 0'`, so under a cutout the two stopped lining up.
+ * shell-chrome blocks `App.tsx` draws inside `<main>` directly beneath it - the
+ * write-failure, campaign-failure, storage, integrity and quarantine alerts, and
+ * `UpdateBanner` and `BackupBanner` through `ShellBanner` - stayed at a flat
+ * `margin: '8px 20px 0'`, so under a cutout the two stopped lining up.
  *
  * Measured in Chrome through the audit rig at 852x393 with 59px substituted on
  * both sides: the header's content ran [79, 773] and the banner's box [20, 832],
@@ -386,7 +386,13 @@ describe('the header and the blocks beneath it share one gutter', () => {
   it('leaves no hard-coded copy of the old gutter in the shell', () => {
     // The five call sites this replaced, guarded as a source sweep because the
     // sixth one will be written by somebody who never read `gutter.ts`.
-    for (const file of ['src/ui/shell/App.tsx', 'src/ui/shell/ShellBanner.tsx']) {
+    // `CampaignNotSaved.tsx` is that sixth one; it read the file and is in the
+    // sweep so that the seventh is caught the same way.
+    for (const file of [
+      'src/ui/shell/App.tsx',
+      'src/ui/shell/ShellBanner.tsx',
+      'src/ui/shell/CampaignNotSaved.tsx',
+    ]) {
       expect(
         readFileSync(file, 'utf8'),
         `${file} declares a flat 20px shell gutter again, which is the gutter ` +
