@@ -2951,6 +2951,155 @@ table and the shell's three constants, so they cannot go 150px stale again.
       an observation. It belongs beside the counter cell's 4px cushion in
       *Needs a human*: both are questions about a real hand at a real table.
 
+## P5-9 · The six things asked for after the triage, and the forty-two answers behind them
+
+On 2026-08-18 every open item in this file and in the handoffs was re-verified against the source and
+put to the owner one at a time. Forty-two answers came back; the faithful register is
+`docs/handoff/DECISIONI-2026-08-18.md` and the cold-start state is `HANDOFF-2026-08-18.md`, both in
+the repo. **This section exists because six requests arrived that had no home in this file at all** —
+they are not defects, so no P-band fits them, and leaving them in a chat is the failure §3 of the
+handoff names.
+
+Prices are the owner's, from the triage. **≈189–195 h is a ceiling, not a commitment**: it includes
+③ and the large half of ①, neither of which is approved.
+
+### The gate, before any of it
+
+**Nothing here that touches a horizontal safe-area inset can be started.** H-9 — reading
+`env(safe-area-inset-left/right)` on real glass in landscape — has not been done, and until it is,
+item 19, slice 0 of ① below, the Cards rails, the overlays and the `--control` token are either worth
+nothing or are the largest open ergonomic defect, and nobody knows which. That is not caution, it is
+the absence of a number. The eleven drills are in *Needs a human* below.
+
+### ① A better shape for the whole GM side — **3 h for slice 0 only**
+
+The large restructuring **re-opens three boxes already ticked** (the two clusters around the switchable
+GM tools and the reference's place among them) and contradicts `Reference.tsx:8-16`. So it is not
+approved as a whole.
+
+**Slice 0 is, and it decides nothing:** the SCENE chip drawn unconditionally, the empty-state copy,
+and the cluster of docblocks that say "five" over a list of four — `Gm.tsx:17`, `Gm.tsx:23`,
+`GmBar.tsx:87`, `GmSheet.tsx:14`. Those four are already defects by this project's own rule and can be
+fixed today.
+
+- [ ] Slice 0, minus the insets: SCENE chip, empty state, the four "five over four" docblocks.
+- [ ] The two horizontal insets on `GmBar` — **blocked on H-9**, and they are *part* of item 19 rather
+      than its closure. Doing slice 0 before the measurement means doing three quarters of it.
+
+### ② Something comprehensible in place of SHOW — **4.8 h**
+
+SHOW is a transitive verb with no object on screen, defined by negation: *"SHOW: the two tools no row
+can open"*. **LOOK UP is already spent** — `Reference.tsx:2` and `:12` use it as the written reason the
+reference is not on the bar, so renaming to it would make that paragraph incoherent.
+
+The cost is not the label. It is **114 occurrences** to read by hand: 47 in `src`, 39 in tests, 28 in
+documentation.
+
+- [ ] Choose a name that is not LOOK UP and that says what is behind it.
+- [ ] All 114 occurrences, read rather than sed'd — several are prose that argues about the word.
+
+### ③ Tips in English on the rules and on the app — **11.6 h, and NOT approved**
+
+**Its premise was false and the correction is worth keeping.** The claim was that the SRD sections are
+unreachable. They are not: `ADD → LINK → Rule` offers all seventy-five and the row prints the whole
+text. *("Reachable" has two senses here — from the ADD menu, all 75; as the Reference screen's own
+subject, 18. Request ④ below uses the second.)*
+
+**One slice of it is a live defect and is approved on its own, 1.2 h:** the door that prints those
+sections renders with `paragraphs()` alone, so every list prints a literal `- ` and every table comes
+out as pipes — in **38 of the 75 sections**: 34 with lists, 7 with tables, 3 with both.
+
+- [ ] The 1.2 h slice. It is a slice *inside* the 11.6, not extra work, and it very likely closes item
+      10 (*Average Costs*) and eleven other tables with it.
+- [ ] The remaining 10.4 h: **needs a decision**, and has not had one.
+
+### ④ The two GM-screen PDFs as panels on the DM's home — **8 h, surface not content**
+
+`Manuali/GM Screen Daggerheart - Landscape 3 Panel.pdf` and `- Portrait_BN_con_metri.pdf`.
+**Almost all of it is already in the data** — the *Average Costs* table on p69 matches the RESOURCE
+EXAMPLES panel row for row, all twelve.
+
+Two things are not, and only one of them should be:
+- the four name lists → request ⑥;
+- the **metric column** of the Range & Distance table, which the PDF converted by itself. Putting it in
+  the app would be the app writing a rule. Leave it.
+
+**One discrepancy has to be arbitrated against the SRD before either panel ships:** the two PDFs
+disagree on the Difficulty scale — Landscape has 5 = Easy, Portrait has 5 = Very Easy.
+
+**A defect found while checking this:** `src/engine/rest.ts:35-99` has the downtime move text **typed
+into the repo**, while `rules['downtime']` (p41) carries all of it. That is a rule in the source, which
+this project forbids.
+
+- [ ] Arbitrate the Difficulty scale against the SRD, and record which PDF was wrong.
+- [ ] The panels themselves. **Layout is undecided and needs pixels:** panels and the session list want
+      the same space, so either they coexist collapsible or the home becomes tabbed.
+- [ ] `rest.ts:35-99` reads its text from `rules['downtime']` instead of carrying a copy.
+
+### ⑤ Rules search and an organised index inside SHOW — **9 h, and there is no index to build**
+
+The seventy-five sections weigh ~45 KB gzip inside a chunk `index.html` already preloads, and a full
+scan of every title and body runs in **~0.11 ms**. Titles alone are ~0.0015 ms. Four orders of
+magnitude under anything a person can feel, so **no index, no worker, no precomputation** — the search
+reads the sections directly.
+
+**This contradicts decision 23 on purpose.** The owner said no to `~1980` (a generic SEARCH on the bar)
+and then asked for rules search inside SHOW. The second wins, and they are not the same thing: the
+recorded objection to `~1980` was that what a GM actually hunts at the table is already the Bestiary
+filter — true of adversaries, false of rules.
+
+- [ ] Search over titles and bodies, no index.
+- [ ] Navigation through the results that does not become a second Reference screen.
+
+### ⑥ A random generator of names, surnames, regions and places — **22 h**
+
+Reopens the entry above that closed itself with *"if the owner wants generators, they are a new item
+with their own source, and that source cannot be the licensed books"*. The owner wants them; the source
+is tables written here. See that entry — the constraints are written out there in full, with the
+evidence for why the collision rule must be tested by enumeration rather than by sampling.
+
+**A cost not counted anywhere else:** adding `'names'` to `GmRegion` touches `Architecture.md:649-660`,
+a section titled *"The one exception, and why it is only one"*. A second exception forces §6.1 to be
+rewritten.
+
+### The note block — **16 h, and it is no longer the 2 h stopgap**
+
+Formatted text — bold, italic, bullets, centring — exportable and importable, on a row of its own.
+Three constraints that are not negotiable:
+
+- **No `contentEditable`.** There is not one `dangerouslySetInnerHTML` or `innerHTML` in all of `src/`,
+  and there is no CSP — GitHub Pages cannot send one. The absence of both is the whole defence.
+- **Do not extend `ruleText.ts`.** It sits on the SRD read path.
+- **Centring does not exist in markdown**, so the syntax has to be invented, and whatever is invented
+  ends up inside the exported file for ever.
+
+- [ ] The block itself.
+- [ ] **The schema bump 1→2, which it shares with the URL row.** See below — decide them together.
+
+### The one schema bump, and why two items have to be decided together
+
+The dated register was **cancelled**, so it no longer pays for a bump. But the **URL row** (a fifth
+`SessionItem` kind with an `href` field — *not* a sixth `LINK_KIND`; there are four today) and the
+**note row** each add a new kind, and a build that reads a kind it does not know wraps it as
+`unreadable` — and the 400 ms debounce then **writes that reading back**. So the 1→2 bump is needed and
+is needed **once, for both**.
+
+- [ ] Decide the URL row and the note row together, or pay for two migrations.
+- [ ] The URL row rewrites the docblock at `shared/campaigns.ts:89-98`, which currently forbids external
+      URLs outright.
+- [ ] All six security mitigations go **in the reader**, inside the URL row's 16 h.
+
+### Still open, and no amount of reading settles them
+
+- [ ] **Is a "scene" a place or a fight?** In the code a scene has an `environmentRef` and an encounter
+      has a `roster` — two different things — and Giorgio has written both versions.
+      **The next action is to ask Giorgio, not to read more code.** It blocks the nesting question and
+      anything built on it.
+- [ ] **If it nests, nesting is a real preference** — both renderings, both reorder models, and a
+      campaign written nested must be correct when read back flat. Decided, but parked behind the
+      question above: if a scene contains nothing, there is nothing to set.
+
+
 ## Needs a human, two devices and a dim room
 
 None of this can be proved by any test in this repo. Run it after P0 and P2
