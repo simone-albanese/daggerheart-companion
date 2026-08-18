@@ -603,7 +603,32 @@ export function IncomingDamage({
     />
   );
 
-  const armor = available > 0 && (
+  /*
+   * HOW HIGH THIS CHIP MAY COUNT, AND WHY THE NUMBER IS NOT ITS OWN.
+   *
+   * It used to cycle 0-1-2-3, stopping at `available` or at a literal 3, and
+   * the engine has never spent more than one slot on one incoming damage. So a
+   * player who tapped to `-3` read `-3` on the chip, read a verdict two rungs
+   * lower than the one they were about to get, and marked one slot when they
+   * committed - the screen offering a number the engine would refuse, on the
+   * control that is reached for at the worst moment of a fight.
+   *
+   * The ceiling is `armorSlotsSpendable` off the outcome and nothing else,
+   * which is what `damage.ts` asks every armor control to be built from: it is
+   * already the cap in force, the slots left on the track and the rungs the
+   * ladder can still fall, whichever runs out first. Reading it here means a
+   * raised cap - Brace, Iron Will, I Am Your Shield - reaches this chip the day
+   * the engine is told about it, with no second ceiling to remember.
+   *
+   * It is also why the chip is drawn from `spendable` and not from `available`:
+   * armor the ladder gives nowhere to spend - a hit already at `none` - is not
+   * an offer, and a chip that will not move when tapped is the same lie in a
+   * quieter voice. `preview` is null only where nothing draws this anyway; both
+   * layouts put it inside their `preview !== null` branch.
+   */
+  const spendable = preview?.armorSlotsSpendable ?? 0;
+
+  const armor = spendable > 0 && (
     <button
       type="button"
       className="chip"
@@ -612,15 +637,21 @@ export function IncomingDamage({
        * `ARM` and `−1` are the whole visible label there, and neither is a
        * sentence. The desktop keeps `USE ARMOR` as both, because it always has
        * and the cockpit is not what this pass is changing.
+       *
+       * The count carries its own plural and the verb is the one the tap really
+       * does. It said "Marking 1 Armor Slots ... tap to change" - a plural for
+       * a number that is one, and a choice for a chip whose only other state,
+       * at a cap of one, is off.
        */
       aria-label={
         layout === 'desktop'
           ? undefined
           : useArmor > 0
-            ? `Marking ${String(useArmor)} Armor Slots against this hit - tap to change`
+            ? `Marking ${String(useArmor)} Armor Slot${useArmor === 1 ? '' : 's'} against ` +
+              `this hit - tap to ${spendable > useArmor ? 'change' : 'clear'}`
             : 'Mark an Armor Slot against this hit'
       }
-      onClick={() => setUseArmor((n) => (n + 1 > available || n >= 3 ? 0 : n + 1))}
+      onClick={() => setUseArmor((n) => (n + 1 > spendable ? 0 : n + 1))}
       style={{
         flex: 'none',
         minHeight: 'var(--control)',
