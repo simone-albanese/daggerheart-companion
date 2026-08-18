@@ -185,10 +185,17 @@ describe('what a diff claims', () => {
     );
   });
 
-  it('takes overlapping windows of a sentence, so a copy one word apart still matches', () => {
-    const phrases = termsOf('phrase', '+ * the four number cells already hold open at 64');
-    expect(phrases).toContain('four number cells already hold');
-    expect(phrases).toContain('number cells already hold open');
+  it('shares a window between two copies of a sentence three words out of phase', () => {
+    // The real pair, from the reflow lane's base tree: the line the diff took
+    // away and the copy of it left standing 500 lines below. Only a window at
+    // every offset survives the three words inserted between them.
+    const removed = termsOf(
+      'phrase',
+      '- * `--counter-cell` is 48 from viewport 390 up and 44 below, so this block is 102 on the glass',
+    );
+    const standing = termsOf('phrase', '+ // below the 390 step, so this block is 102 here and 94.');
+    expect(removed).toContain('so this block is 102');
+    expect(standing).toContain('so this block is 102');
   });
 
   it('marks a term that only left the diff, and not one that stayed', () => {

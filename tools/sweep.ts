@@ -10,9 +10,12 @@
  *   --max-places <n>    lines the report may print, best first (default 150)
  *   --max-claims <n>    claims the report may print (default 150)
  *   --max-hits <n>      lines printed under one claim (default 8)
- *   --common <n>        a term mentioned in more than this many places in the
- *                       tree's prose is a word, not a pointer: dropped, and
- *                       said out loud (default 6)
+ *   --common <n>        a term mentioned in more places than this in the tree's
+ *                       prose is a word, not a pointer. It is not simply
+ *                       dropped: it is first narrowed to the lines that also
+ *                       name at least three of the diff's things, and dropped
+ *                       only if that leaves nothing or still leaves too much.
+ *                       Narrowed or dropped, the report says which (default 6)
  *   --code              also search code, not only prose
  *   --json              the same selection as the report, as data
  *
@@ -87,9 +90,13 @@
  * then *suppressed*, not missed. Of the 16 it does not print by default, 13 are
  * lost to `--common 6` (the term is mentioned in more than six places in this
  * tree's prose, so it is treated as a word rather than a pointer), 2 are lost
- * to the 150-place budget, and exactly 1 is never matched at all:
- * `Conditions.tsx:256` says "in a row the four number cells hold open at 64",
- * and the only thing it shares with that diff is the number 64.
+ * to the 150-place budget, and exactly 1 is never matched at all: in
+ * the reflow lane's base tree `ae2b07c`, `Conditions.tsx:256` said "in a row
+ * the four number cells hold open at 64" and the only thing it shared with
+ * that diff was the number 64. (That line reads 56 on `main` today, and the
+ * paragraph now says in terms that the 64 belonged to the cockpit's band. The
+ * corpus is replayed against the base trees, which is why the sentence is in
+ * the past tense.)
  *
  * So the caps are the tool's honesty and also its ceiling. That is a real trade
  * and it is stated here rather than tuned away: a report of 5,000 lines
@@ -119,8 +126,14 @@
  *    departure boost is gone too - it is the floor under that boost.
  * 3. **Prose first.** The defect is prose, so comments, string literals and
  *    `.md` are searched and code is not, unless `--code` says otherwise. This
- *    is what makes broad extraction affordable: `localStorage` has hundreds of
- *    mentions in this tree and four of them are sentences.
+ *    is not the volume filter it sounds like, and the measurement is worth
+ *    having in front of you rather than the intuition: of the 827,137 tokens
+ *    in the 330 searchable files of this tree, 590,940 - 71% - already sit
+ *    inside a prose span, because the tree is mostly documentation and
+ *    docblocks. `localStorage` is on 167 lines of it and 100 of those are
+ *    prose. So omitting `--code` does not buy a much smaller haystack; it
+ *    buys a different one. A hit in a sentence is a claim somebody can be
+ *    wrong about. A hit on a call site is not.
  *
  * The fourth idea, the persuasive one, was measured and is not here: ranking on
  * how many of the diff's things a line names at once made recall *worse*, 14
@@ -474,12 +487,21 @@ const WORD_ID = /\b([A-Za-z_$][\w$]{3,})\b/g;
 /**
  * A window of prose long enough to be somebody else's copy of it.
  *
- * Five words at every offset, not a longer window at a stride. The corpus is
- * why: `Conditions.tsx` says "the four number cells hold open at 64" and the
- * sentence the lane was editing said "the four number cells *already* hold
- * open" - one word apart and half a window out of phase. A seven-word window
- * on a stride of four found neither of them. Five words at stride one finds
- * "four number cells hold open" in both.
+ * Five words at every offset, not a longer window at a stride, because two
+ * copies of a sentence drift out of phase with each other. The corpus has the
+ * worked example. In the reflow lane's base tree the line the diff removed,
+ * `tests/ui/playSheet.test.tsx:1307`, read "...44 below, so this block is 102
+ * on the glass this table is written for..."; the copy still standing at
+ * `:1805` read "...44 below the 390 step, so this block is 102 here and 94 on
+ * a 360px Android." Three words are inserted between them, so no window of a
+ * stride-four walk over the second lands where the first's windows land. At
+ * stride one both yield "so this block is 102" and the copy is found.
+ *
+ * Ablated on the corpus, the two settings tie at 12 findings surfaced: five at
+ * stride one finds that line and misses one that seven at stride four finds.
+ * The tie is why the argument above, which is about the algorithm rather than
+ * about this corpus, is the one that decides it. Dropping phrase claims
+ * altogether costs 3 of the 12.
  */
 const PHRASE_WORDS = 5;
 const PHRASES_PER_LINE = 60;
@@ -655,14 +677,6 @@ export interface SweepOptions {
 }
 
 const DEFAULTS = { common: 6, includeCode: false, side: 'unknown' as TreeSide };
-
-/**
- * How much is printed. Not `SweepOptions`: `sweep()` computes and returns
- * everything it found, and these two only decide how much of it reaches a
- * screen. The recall figure in the header is measured with these values,
- * because they are what a lane actually reads.
- */
-const REPORT_DEFAULTS = { maxClaims: 40, maxHits: 8 };
 
 /**
  * How worth reading one line is. Every term here was ablated against the corpus
@@ -875,10 +889,12 @@ export function sweep(
     let kept = hits;
     let narrowed = false;
     if (kept.length > opts.common) {
-      // Not simply dropped. `64` is mentioned six hundred times in this tree
-      // and a few of those mentions are the paragraph that also repeats four
-      // other numbers this diff moved. Keep those, say the term was narrowed,
-      // and let the rest go.
+      // Not simply dropped. `64` is on 88 lines of this tree and 76 of those
+      // are prose, so as a term of its own it is a word rather than a pointer.
+      // But a line that says it *and* two more of the things this diff changed
+      // is a copy of the paragraph being rewritten whatever the term's own
+      // frequency. Keep the lines that name at least `NARROW_AT` of the diff's
+      // things, say the term was narrowed, and let the rest go.
       kept = hits.filter((h) => h.multiplicity >= NARROW_AT);
       narrowed = true;
       if (kept.length === 0 || kept.length > opts.common) {
