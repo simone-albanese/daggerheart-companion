@@ -635,3 +635,133 @@ describe('a write that did not happen', () => {
     expect((await freshStore.readCampaigns()).campaigns).toHaveLength(1);
   });
 });
+
+/**
+ * The campaigns nobody is looking at.
+ *
+ * `writeActive` gathers `activeCampaignId` and nothing else, which is right for
+ * a board and was the whole story for everything else too. Two things needed
+ * writing that were not the open campaign, and neither one reached the disk:
+ * a rename of another campaign, and the records the reader repaired on the way
+ * in. Both sat in memory looking correct until the next reload.
+ *
+ * Every test below fails against the store as it was. The mutation that kills
+ * the first four is deleting `else scheduleAside(id)` from `patchCampaign`; the
+ * one that kills the last two is deleting the `for (const c of read.repaired)`
+ * line from `hydrateGm`.
+ */
+describe('a campaign that is not the one on screen', () => {
+  it('writes a rename of a campaign that is not open', async () => {
+    const s = () => gm.useGm.getState();
+    const first = s().campaigns[0]!;
+    await s().createCampaign('Second table');
+    expect(s().activeCampaignId, 'the fixture stopped exercising the branch').not.toBe(first.id);
+
+    s().renameCampaign(first.id, 'The Sablewood Winter');
+    await gm.flushGm();
+
+    const onDisk = (await store.readCampaigns()).campaigns.find((c) => c.id === first.id);
+    expect(onDisk?.name, 'the rename never left this tab').toBe('The Sablewood Winter');
+  });
+
+  it('still writes a rename of the campaign that is open', async () => {
+    // The control. A change that sent every patch down the aside path would
+    // satisfy the test above and write the stored record over a live board.
+    const s = () => gm.useGm.getState();
+    const open = s().campaigns.find((c) => c.id === s().activeCampaignId)!;
+    s().setFear(5);
+    s().renameCampaign(open.id, 'Renamed in place');
+    await gm.flushGm();
+
+    const onDisk = await store.getCampaign(open.id);
+    expect(onDisk?.name).toBe('Renamed in place');
+    expect(onDisk?.fear, 'the stored record was written over the live board').toBe(5);
+  });
+
+  it('names the campaign that would not write, because it is not the one on screen', async () => {
+    const s = () => gm.useGm.getState();
+    const first = s().campaigns[0]!;
+    await s().createCampaign('Second table');
+
+    const spy = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    s().renameCampaign(first.id, 'Ashfall');
+    await gm.flushGm();
+
+    expect(s().writeError).toMatch(/Ashfall/);
+    expect(s().writeError).toMatch(/not the campaign open here/);
+    // The board's own sentence would be false here: what is on the screen is
+    // fine, and pointing the GM at it sends them to the wrong table.
+    expect(s().writeError).not.toMatch(/on this screen is only in this tab/);
+
+    // And left in the set, so the next flush is a real retry.
+    spy.mockRestore();
+    await gm.flushGm();
+    expect((await store.getCampaign(first.id))?.name).toBe('Ashfall');
+    expect(s().writeError).toBeNull();
+  });
+
+  it('does not let a board write that worked wipe the sentence about one that did not', async () => {
+    /*
+     * The ordering, pinned. `writeActive` clears `writeError` when it lands,
+     * so an aside failure reported before it is erased by a board write that
+     * has nothing to do with it - the GM sees a clean screen and a rename that
+     * is not on the disk.
+     */
+    const s = () => gm.useGm.getState();
+    const first = s().campaigns[0]!;
+    await s().createCampaign('Second table');
+
+    const realPut = store.putCampaign;
+    const spy = vi.spyOn(store, 'putCampaign').mockImplementation(async (c) => {
+      if (c.id === first.id) throw new Error('The quota has been exceeded.');
+      await realPut(c);
+    });
+
+    s().renameCampaign(first.id, 'Ashfall');
+    s().setFear(3);
+    await gm.flushGm();
+
+    expect(s().writeError, 'the board write cleared it').toMatch(/Ashfall/);
+    expect(s().writeRetry).toBe('write');
+    expect((await store.getCampaign(s().activeCampaignId!))?.fear, 'the board write was lost').toBe(
+      3,
+    );
+    spy.mockRestore();
+  });
+
+  it('writes back what the reader repaired, instead of repairing it again every launch', async () => {
+    const seeded = gm.useGm.getState().campaigns[0]!;
+    // Past the pool's ceiling, which the reader clamps and reports. The value
+    // matters less than that `readCampaigns` hands the record back as repaired.
+    await store.putCampaign({ ...seeded, fear: 40 });
+    expect((await store.readCampaigns()).repaired.map((c) => c.id)).toEqual([seeded.id]);
+
+    vi.resetModules();
+    const store2 = await import('../../src/store/campaigns.ts');
+    const gm2 = await import('../../src/ui/gm/gmStore.ts');
+    await gm2.hydrateGm();
+    await gm2.flushGm();
+
+    const after = await store2.readCampaigns();
+    expect(after.repaired, 'the same repair runs on every launch, for ever').toEqual([]);
+    expect(after.campaigns.find((c) => c.id === seeded.id)?.fear).toBe(12);
+  });
+
+  it('writes nothing back when the reader repaired nothing', async () => {
+    // The control on that one: a change that wrote every campaign on every
+    // hydration would satisfy the test above and turn each launch into a full
+    // rewrite of every board on the device.
+    await gm.flushGm();
+
+    vi.resetModules();
+    const store2 = await import('../../src/store/campaigns.ts');
+    const spy = vi.spyOn(store2, 'putCampaign');
+    const gm2 = await import('../../src/ui/gm/gmStore.ts');
+    await gm2.hydrateGm();
+    await gm2.flushGm();
+
+    expect(spy, 'every launch rewrites every campaign').not.toHaveBeenCalled();
+  });
+});

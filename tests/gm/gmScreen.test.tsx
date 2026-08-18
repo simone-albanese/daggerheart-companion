@@ -1099,10 +1099,15 @@ describe('MENU', () => {
 
   it('offers the rename on the open campaign alone, and says why', () => {
     /*
-     * `patchCampaign` schedules a write only when the id is the active one and
-     * `writeActive` gathers only the active record, so a rename typed against
-     * any other row would look right until the next reload and then be gone.
-     * The fix is in the store; until it is made, the control is not offered.
+     * One control, and the sentence beside it says what to do instead.
+     *
+     * This used to be a wall around a broken write - `patchCampaign` scheduled
+     * nothing for an id that was not the active one - and the copy on screen
+     * said so, in those words. The store honours it now (`scheduleAside`), so
+     * that sentence would be a promise of a defect that no longer exists, on a
+     * screen whose whole argument is that it does not say untrue things. The
+     * copy is now the one thing the user can act on: open the other campaign.
+     * Where renaming finally lives is a design question with its own item.
      */
     twoCampaigns();
     openMenu();

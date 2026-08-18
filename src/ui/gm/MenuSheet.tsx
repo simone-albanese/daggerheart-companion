@@ -60,13 +60,20 @@
  * the old name, because silently rewriting what somebody typed is the other
  * half of that defect.
  *
- * **Only the open campaign can be renamed here.** `patchCampaign` updates the
- * list in memory and schedules a write *only when the id is the active one*,
- * and `writeActive` gathers only the active record - so a rename typed against
- * any other row would look right until the next reload and then be gone. The
- * fix is in the store, not in this sheet, and until it is made the control is
- * not offered. The reason is written beside the list rather than left as an
- * absence somebody later "fixes" by adding the control.
+ * **Only the open campaign can be renamed here, and the reason has changed.**
+ * It used to be that it *could not* be: `patchCampaign` scheduled a write only
+ * when the id was the active one and `writeActive` gathered only the active
+ * record, so a rename typed against any other row looked right until the next
+ * reload and was then gone. The store now honours it - `patchCampaign` sends
+ * any other id down `scheduleAside`, and there are tests that fail without it.
+ *
+ * So this is no longer a wall around a broken write. What is left is a question
+ * about which surface owns renaming, which is a live backlog item with its own
+ * design (the three doors of the unique name), and this sheet is not the place
+ * to answer it by quietly growing a second control. The reason is written here
+ * rather than left as an absence somebody "fixes" by adding one - but if that
+ * item lands and the answer is this sheet, nothing in the store is in the way
+ * any more.
  *
  * ## The list is not re-sorted while it is on screen
  *
@@ -416,9 +423,7 @@ function Rename({ id, name }: { id: string; name: string }): React.JSX.Element {
         </p>
       )}
       <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-        Only the open campaign can be renamed here. A rename typed against any other row would sit
-        in this window looking right and never reach the disk, because the store schedules a write
-        for the open campaign alone — that is a bug to fix in the store, not a control to add here.
+        Only the open campaign can be renamed here. Open another campaign to rename that one.
       </p>
     </div>
   );

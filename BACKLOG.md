@@ -2154,13 +2154,28 @@ silence:**
       board.** That is the same split the open scene row already draws — the row
       is the plan, `GmBoard` is the table — and the row carries the two verbs
       that cross it. Worth revisiting only if a GM reports expecting otherwise.
-- [ ] **`renameCampaign` on a campaign that is not the open one never reaches
+- [x] ~~**`renameCampaign` on a campaign that is not the open one never reaches
       the disk.** `patchCampaign` schedules a write only when the id is the
       active one and `writeActive` gathers only the active record, so the rename
       would sit in the window looking right and be gone on the next reload. MENU
       therefore offers the control on the open campaign alone, with the reason
       beside it. Fixing it is a store change — gather and write the one record
-      that was patched — and nothing covers it today.
+      that was patched — and nothing covers it today.~~ — **done.** `gmStore.ts`
+      keeps an `aside` set of campaigns that are not the open one and differ
+      from the disk; `patchCampaign` sends any non-active id to it, and
+      `flushGm` writes them before the board. Four tests, all of which fail if
+      `else scheduleAside(id)` is deleted, and a control that fails if *every*
+      patch is sent down the aside path — that would write the stored record
+      over a live board. **Two things this changed elsewhere, both of which were
+      defects the moment the store started honouring the write:** MENU's
+      docblock said the fix was in the store and until it was made the control
+      was not offered, and the sentence *on screen* told the user a rename would
+      "never reach the disk, because the store schedules a write for the open
+      campaign alone — that is a bug to fix in the store". Both were true when
+      written and false the moment this landed. The visible copy is now the one
+      thing a user can act on: *open another campaign to rename that one*. Where
+      renaming finally lives stays open under the three doors of the unique
+      name; nothing in the store is in the way of it any more.
 - [ ] **`createCampaign` sets the new campaign active even when `putCampaign`
       rejected,** and `removeCampaign` has no stale-build guard where
       `putCampaign` has one. MENU's NEW CAMPAIGN and its armed REMOVE both sit
@@ -2170,8 +2185,38 @@ silence:**
       draws the sentence under the top bar with no sheet open. What is still
       open is that the campaign is made active either way. The second is a store
       asymmetry this work does not touch.
-- [ ] **`readCampaigns().repaired` is computed, tested and consumed by nobody,**
-      so a repaired campaign is repaired again on every launch. The notices it
+      **Second half done.** `deleteCampaign` now carries the same stale-build
+      guard `putCampaign` has: it reads the stored record inside the transaction
+      and refuses when the schema is newer than this build's, letting the
+      transaction close rather than aborting it into an unheld `tx.done`. The
+      argument is stronger here than on the write path — a refused write leaves
+      the newer record alone, where an unguarded delete destroys it, and a
+      campaign holds whole copies of sheets belonging to people who are not in
+      the room. Five tests; four fail against the one-line `delete` this
+      replaced, and the fifth is the control that pins `clearAll` still taking
+      quarantined records, since the reset button must not leave other people's
+      sheets on a wiped device.
+      **First half still open, and re-examine the premise before building it.**
+      `createCampaign` making the campaign active on a failed write is defended
+      in the code, and the defence was load-bearing: without it `dirty` stayed
+      false, so TRY AGAIN wrote nothing. That is no longer the only route —
+      `aside` can now write a campaign nobody is looking at — so *for the first
+      time* leaving the GM on the old board is buildable. Whether it is right is
+      a different question: a GM who tapped NEW CAMPAIGN and is put back on the
+      old one may read that as the tap having failed. **Needs a decision, not an
+      implementation.**
+- [x] ~~**`readCampaigns().repaired` is computed, tested and consumed by nobody,**
+      so a repaired campaign is repaired again on every launch.~~ — **done.**
+      `hydrateGm` sends every repaired record to `scheduleAside`, which is the
+      same move `state.ts:363` makes for characters and by the same argument:
+      through the debounce rather than a bare `void putCampaign(c)`, so a
+      rejection reaches the sentence on screen instead of being swallowed, and
+      not awaited into hydration so a slow write cannot hold up the first paint.
+      Two tests: one that fails if the line is deleted, and a control that fails
+      if hydration writes campaigns it did not have to — that would turn every
+      launch into a full rewrite of every board on the device. The rest of this
+      bullet, on why the notices live in MENU rather than in a banner, stays
+      true and stays the reason they are worded as they are. The notices it
       produces are in MENU rather than in a banner precisely because they recur.
       One is the exception and is on the screen as well: the one saying the disk
       replaced something the GM had already changed. That one is about a tap

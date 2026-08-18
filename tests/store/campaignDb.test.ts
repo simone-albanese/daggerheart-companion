@@ -288,6 +288,79 @@ describe('writing a campaign', () => {
   it('hands back nothing for a campaign that is not there', async () => {
     expect(await store.getCampaign('nobody')).toBeNull();
   });
+
+  /*
+   * The guard `putCampaign` had and this did not.
+   *
+   * Refusing to *overwrite* a newer build's record and then deleting it on
+   * request is not a policy, it is an oversight with a sharp edge: the write
+   * path protects other people's sheets and the delete path destroys them,
+   * for the same record, in the same session. Every assertion below fails
+   * against the one-line `await (await db()).delete('campaigns', id)` this
+   * replaced - it deleted whatever was asked for and returned.
+   */
+  it('refuses to delete a record a newer build saved', async () => {
+    const c = make({ name: 'Mine' });
+    await writeRaw({ ...c, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1, name: 'Theirs' });
+
+    await expect(store.deleteCampaign(c.id)).rejects.toBeInstanceOf(db.StaleBuildError);
+
+    const stored = (await (await db.db()).get('campaigns', c.id)) as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(stored, 'the record was destroyed anyway').not.toBeUndefined();
+    expect(stored['name']).toBe('Theirs');
+  });
+
+  it('refuses to delete when the stored version cannot be read at all', async () => {
+    const c = make({ name: 'Mine' });
+    await writeRaw({ ...c, schemaVersion: {} });
+    await expect(store.deleteCampaign(c.id)).rejects.toBeInstanceOf(db.StaleBuildError);
+    expect(await (await db.db()).get('campaigns', c.id)).not.toBeUndefined();
+  });
+
+  it('names the campaign in the delete refusal too', async () => {
+    const c = make({ name: 'The Sablewood Winter' });
+    await writeRaw({ ...c, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1 });
+    await expect(store.deleteCampaign(c.id)).rejects.toThrow(/The Sablewood Winter/);
+  });
+
+  it('emits no unhandled rejection when the delete refuses', async () => {
+    // The same AbortError trap the write path fell into: `tx.abort()` on a
+    // refusal rejects `tx.done` into nobody's hands.
+    const unhandled: unknown[] = [];
+    const onUnhandled = (e: PromiseRejectionEvent | { reason?: unknown }): void => {
+      unhandled.push(e);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const c = make({ name: 'Mine' });
+      await writeRaw({ ...c, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1 });
+      await expect(store.deleteCampaign(c.id)).rejects.toBeInstanceOf(db.StaleBuildError);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  /*
+   * The control, and the reason the guard is safe to add.
+   *
+   * `clearAll` is the one path that must still take a quarantined record - a
+   * device somebody has just wiped must not keep copies of other people's
+   * character sheets because this build could not parse the wrapper. It does
+   * not come through `deleteCampaign`, and this pins that: if somebody ever
+   * routes it through here, this fails rather than the promise quietly
+   * narrowing.
+   */
+  it('does not stand between the reset button and a quarantined record', async () => {
+    const c = make({ name: 'Theirs' });
+    await writeRaw({ ...c, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1 });
+    await db.clearAll();
+    expect(await (await db.db()).get('campaigns', c.id)).toBeUndefined();
+  });
 });
 
 describe('the reset button, which promises to remove everything', () => {

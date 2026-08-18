@@ -165,8 +165,49 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
   }
 }
 
+/**
+ * Delete a campaign, unless what is there was written by a newer build.
+ *
+ * The same guard `putCampaign` carries, and it was missing here - an asymmetry
+ * with a sharp edge on it. `putCampaign` refuses to *overwrite* a record from a
+ * newer build because a campaign holds copies of sheets belonging to people who
+ * are not in the room; a delete does not overwrite that record, it destroys it,
+ * which is strictly worse than the case the guard was written for.
+ *
+ * Nothing in the UI can reach this today: `readCampaigns` keeps such a record
+ * out of the list (:96-105), so MENU cannot offer REMOVE on one. That is an
+ * argument for the guard, not against it. The one path that *must* still take
+ * these records is `clearAll`, which erases the object store wholesale in
+ * `db.ts` and does not come through here - see `countCampaigns`, whose whole
+ * job is to count the records `clearAll` will destroy including this kind.
+ */
 export async function deleteCampaign(id: string): Promise<void> {
-  await (await db()).delete('campaigns', id);
+  const database = await db();
+  const tx = hold(database.transaction('campaigns', 'readwrite'));
+  const existing = (await tx.store.get(id)) as unknown as Record<string, unknown> | undefined;
+
+  if (existing !== undefined) {
+    let stored: number;
+    try {
+      stored = versionOf(existing, CAMPAIGN_SCHEMA_VERSION);
+    } catch {
+      // A stored version this build cannot even parse is not one to destroy.
+      stored = Number.POSITIVE_INFINITY;
+    }
+    if (stored > CAMPAIGN_SCHEMA_VERSION) {
+      // Let the transaction close rather than aborting it, as `putCampaign`
+      // does: nothing has been deleted, and `tx.abort()` would reject `tx.done`
+      // into nobody's hands.
+      await tx.done;
+      const name = typeof existing['name'] === 'string' ? existing['name'] : '';
+      throw new StaleBuildError(
+        `"${name || 'This campaign'}" was last saved by a newer version of the app (campaign schema ${String(stored)}), so this one has not deleted it. Close every tab of this app and open it again to load the newer version.`,
+      );
+    }
+  }
+
+  await tx.store.delete(id);
+  await tx.done;
 }
 
 /**

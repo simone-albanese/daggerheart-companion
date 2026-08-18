@@ -274,6 +274,33 @@ let dirty = false;
 let queue: Promise<void> = Promise.resolve();
 
 /**
+ * Campaigns that are **not** the open one and differ from what is on the disk.
+ *
+ * `dirty` answers that question for the board, and the board is only ever the
+ * active campaign - `writeActive` gathers `activeCampaignId` and nothing else.
+ * So until this set existed there was no way to write a record the GM was not
+ * looking at, and two callers needed one:
+ *
+ *   - `renameCampaign` on a campaign that is not open. `patchCampaign` changed
+ *     the list in memory and scheduled nothing, so the new name sat in the
+ *     window looking right and was gone on the next reload. MENU walls the
+ *     case off today, which hid it rather than fixing it.
+ *   - the records `readCampaigns` repaired on the way in. They were computed,
+ *     returned and dropped, so the same repair ran on every launch.
+ *
+ * Ids rather than records, so the write takes whatever the list holds when the
+ * flush runs instead of a snapshot taken 400 ms earlier.
+ */
+const aside = new Set<string>();
+
+function armFlush(): void {
+  if (flushTimer !== null) clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => {
+    void flushGm();
+  }, 400);
+}
+
+/**
  * One batch at a time, in order.
  *
  * Chained rather than fired in parallel for the reason `state.ts` gives: a
@@ -286,8 +313,88 @@ export function flushGm(): Promise<void> {
     clearTimeout(flushTimer);
     flushTimer = null;
   }
-  queue = queue.then(writeActive, writeActive);
+  queue = queue.then(writeAll, writeAll);
   return queue;
+}
+
+/**
+ * The records nobody is looking at first, then the board.
+ *
+ * That order is not arbitrary. `writeAside` can hand a repaired record back to
+ * the board's own writer by setting `dirty` - a repaired *active* campaign has
+ * to go through `gather`, or the write would put back the record as it was
+ * read and lose whatever the GM has done since. And `writeActive` clears
+ * `writeError` when it succeeds, so an aside failure has to be reported after
+ * it or a successful board write would wipe the sentence off the screen.
+ */
+async function writeAll(): Promise<void> {
+  const hadAside = aside.size > 0;
+  const asideError = await writeAside();
+  await writeActive();
+
+  if (asideError !== null) {
+    useGm.setState({ writeError: asideError, writeRetry: 'write' });
+    return;
+  }
+  /*
+   * Clear it here too, or the retry works and the screen keeps the sentence.
+   *
+   * `writeActive` is what normally takes the strip down, and it only does so
+   * when *it* writes something. An aside failure can happen with a board that
+   * is perfectly clean - a rename of another campaign is not a change to this
+   * one - so the next flush would land the rename and leave "could not be
+   * written" on screen for the rest of the evening. A sentence the code has
+   * already disproved is the defect this app is written against.
+   *
+   * `!dirty` because a board write that just failed has set its own sentence
+   * and must keep it; `writeRetry === 'write'` because a read failure is not
+   * ours to clear - there `retryGm` reads again, and a flush cannot help.
+   */
+  if (hadAside && !dirty && useGm.getState().writeRetry === 'write') {
+    useGm.setState({ writeError: null, writeRetry: null });
+  }
+}
+
+/**
+ * Write the campaigns that are not open, and say so if one will not go.
+ *
+ * Left in the set on failure, exactly as `dirty` is left true: the next change
+ * or the next `pagehide` tries again. The sentence has to say which campaign,
+ * because this is the one write whose subject is not on the screen - "what is
+ * on this screen is only in this tab" would be false and, worse, would point
+ * the GM at the wrong board.
+ */
+async function writeAside(): Promise<string | null> {
+  if (aside.size === 0) return null;
+  const state = useGm.getState();
+  let failure: string | null = null;
+
+  for (const id of [...aside]) {
+    if (id === state.activeCampaignId) {
+      // The board's writer owns this one; a bare `put` here would write the
+      // record as stored over a live board that has moved on.
+      aside.delete(id);
+      dirty = true;
+      continue;
+    }
+    const record = state.campaigns.find((c) => c.id === id);
+    if (record === undefined) {
+      // Removed while it was waiting. Nothing to write and nothing wrong.
+      aside.delete(id);
+      continue;
+    }
+    try {
+      await putCampaign(record);
+      aside.delete(id);
+    } catch (error) {
+      failure =
+        `"${record.name || 'A campaign'}" could not be written to this device's storage` +
+        (error instanceof Error ? ` (${error.message})` : '') +
+        '. It is not the campaign open here, so nothing on this screen shows it: the change is ' +
+        'only in this tab.';
+    }
+  }
+  return failure;
 }
 
 async function writeActive(): Promise<void> {
@@ -324,10 +431,20 @@ async function writeActive(): Promise<void> {
 function schedule(): void {
   dirty = true;
   if (useGm.getState().activeCampaignId === null) return;
-  if (flushTimer !== null) clearTimeout(flushTimer);
-  flushTimer = setTimeout(() => {
-    void flushGm();
-  }, 400);
+  armFlush();
+}
+
+/**
+ * Queue a campaign that is not the open one.
+ *
+ * No `activeCampaignId === null` guard, which `schedule` has and needs: this
+ * write does not go through `gather` and does not care whether a board is
+ * open, so a device with nothing open must still be able to write a repaired
+ * record back.
+ */
+function scheduleAside(id: string): void {
+  aside.add(id);
+  armFlush();
 }
 
 if (typeof window !== 'undefined') {
@@ -380,6 +497,23 @@ export function hydrateGm(): Promise<void> {
       campaigns = read.campaigns;
       quarantined = read.quarantined;
       notices.push(...read.warnings);
+      /*
+       * Persist what the reader repaired, once, here - the same move
+       * `state.ts:363` makes for characters, and for the same reason.
+       *
+       * `readCampaigns` has always returned `repaired`, and nothing has ever
+       * read it: a converted or repaired record went back into memory and
+       * never onto the disk, so the identical repair ran again on the next
+       * launch, and every launch after that. The notices it produces are in
+       * MENU rather than in a banner *because* they recur, which is a
+       * workaround dressed as a design.
+       *
+       * Through the debounce rather than a bare `void putCampaign(c)`, again
+       * as `state.ts` does: a rejection on a bare call is swallowed, and this
+       * one has a sentence to reach. Not awaited into hydration - a slow write
+       * must not hold up the first paint of the GM screen.
+       */
+      for (const c of read.repaired) scheduleAside(c.id);
     } catch (error) {
       /*
        * The board still works in memory; it just will not be written. Saying
@@ -535,12 +669,24 @@ export const useGm = create<GmState>((set, get) => {
     schedule();
   };
 
-  /** Patch the campaign list and, when it is the active one, the board too. */
+  /**
+   * Patch the campaign list, and get the patch onto the disk either way.
+   *
+   * The `else` is the fix. `schedule` marks the *board* dirty and `writeActive`
+   * gathers the active campaign, so for any other id this used to change the
+   * list in memory and schedule nothing: the patch looked applied for as long
+   * as the window stayed open and was gone on the next reload. `renameCampaign`
+   * is the only caller that can reach that branch today, and MENU walls it off
+   * rather than exposing it - a wall which was the right call while the store
+   * could not honour the write, and is now about which surface owns renaming
+   * rather than about whether the rename lands.
+   */
   const patchCampaign = (id: string, patch: Partial<Campaign>): void => {
     set((s) => ({
       campaigns: s.campaigns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
     }));
     if (get().activeCampaignId === id) schedule();
+    else scheduleAside(id);
   };
 
   const withCountdown = (id: string, f: (c: Countdown) => Countdown): SessionItem[] =>
@@ -790,6 +936,10 @@ export const useGm = create<GmState>((set, get) => {
       await flushGm();
       try {
         await deleteCampaign(id);
+        // Nothing waiting can be about a record that is gone. `writeAside`
+        // drops an id whose record has left the list anyway; this is the
+        // cheaper half of the same statement, made where the delete succeeds.
+        aside.delete(id);
       } catch (error) {
         /*
          * No retry, and the sentence says what to do instead.
