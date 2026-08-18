@@ -21,6 +21,17 @@
  * because a character has no list of heterogeneous rows in it: an item this
  * build cannot read is kept rather than dropped, and a link that points at
  * something unrecognised is still a link.
+ *
+ * ## And, since 2026-08-18, the first bump
+ *
+ * `CAMPAIGN_SCHEMA_VERSION` moved to 2, and the converter for it changes no
+ * field on purpose: the number moved so that *older* builds refuse a record
+ * carrying a `url` or a `note` row, not because anything in a v1 record is
+ * wrong. That claim is only worth making if it is checked, so the last describe
+ * here walks the frozen v1 fixture forward and requires every byte of it back
+ * apart from the stamp. A converter that quietly dropped a field, or renamed
+ * one, or normalised a countdown on the way through would fail it - which is
+ * the whole point of writing a converter that does nothing and saying so.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -133,8 +144,20 @@ describe('the committed fixtures', () => {
       // Not just "it parsed". These are the things a GM would notice missing.
       expect(campaign.name).toBe('The Sablewood Winter');
       expect(campaign.fear).toBe(7);
-      expect(campaign.session).toHaveLength(5);
-      expect(campaign.session.map((i) => i.kind)).toEqual([
+      /*
+       * The five rows every fixture has carried since v1, in the order they
+       * were written, at the front of the list.
+       *
+       * `slice` rather than the whole array because a later fixture is the
+       * same table with the rows that schema added on the end - v2 has a `url`
+       * and a `note` after these - and pinning the whole list would mean the
+       * bump rewriting this assertion, which is the one thing a frozen fixture
+       * exists to stop. It is still exact about these five: a fixture that lost
+       * one, reordered two, or read a `link` as `unreadable` fails here, because
+       * `slice(0, 5)` of a shorter list is shorter and `toEqual` is not a
+       * prefix match.
+       */
+      expect(campaign.session.slice(0, 5).map((i) => i.kind)).toEqual([
         'scene',
         'encounter',
         'countdown',
@@ -421,5 +444,107 @@ describe('walking a campaign record forward', () => {
       expect(error).toBeInstanceOf(SchemaError);
       expect((error as SchemaError).version).toBe(CAMPAIGN_SCHEMA_VERSION + 4);
     }
+  });
+});
+
+describe('the first bump, and the record it must not touch', () => {
+  /*
+   * The whole justification for schema 2, restated as an assertion.
+   *
+   * The version moved so that an *older* build refuses a record carrying a
+   * `url` or a `note` row. Without the bump, `readSessionItem` in the old build
+   * wraps both as `unreadable` - on purpose, so the row is kept and named - and
+   * `gmStore`'s 400ms debounce then writes that reading back, so the GM's row
+   * is destroyed on the older device and nothing anywhere says why.
+   *
+   * Nothing in a v1 record is wrong, so the converter changes no field.
+   */
+  it('carries exactly one converter, and it is the one leaving 1', () => {
+    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1]);
+    expect(CAMPAIGN_SCHEMA_VERSION).toBe(2);
+  });
+
+  it('gives a v1 record back byte for byte, apart from the stamp', () => {
+    // Deep equality against the fixture itself rather than against a list of
+    // fields somebody remembered to check: an `apply` that dropped `party`,
+    // renamed `board.partyTier`, or normalised a countdown on the way through
+    // fails here without anyone having to have predicted which field it was.
+    const fixture = readFixture(1);
+    const { record, from, applied } = migrateCampaignRecord(fixture);
+
+    expect(from).toBe(1);
+    expect(applied).toEqual([CAMPAIGN_MIGRATIONS[0]!.note]);
+    expect(record).toEqual({ ...fixture, schemaVersion: 2 });
+    // Said separately, because `toEqual` above would also pass if both sides
+    // were 1 and the bump had never happened.
+    expect(record['schemaVersion']).toBe(2);
+  });
+
+  it('hands the chain a copy, so a caller’s record is not restamped under it', () => {
+    // `applyChain` passes its result on and `migrateCampaignRecord` spreads the
+    // stamp onto it. An `apply` returning its argument would make that spread
+    // the only thing between the caller's own object and being mutated.
+    const fixture = readFixture(1);
+    migrateCampaignRecord(fixture);
+    expect(fixture['schemaVersion']).toBe(1);
+  });
+
+  it('reads a v1 record into a campaign with nothing missing and nothing invented', () => {
+    const { campaign, warnings } = readCampaignRecord(readFixture(1));
+    expect(warnings).toEqual([]);
+    // A v1 record has neither of the two new kinds in it, and this build must
+    // not conjure one - an empty `url` row appearing here would mean the reader
+    // was inventing rows rather than reading them.
+    expect(campaign.session.map((i) => i.kind)).not.toContain('url');
+    expect(campaign.session.map((i) => i.kind)).not.toContain('note');
+    expect(campaign.session).toHaveLength(5);
+  });
+});
+
+describe('the v2 fixture, which is the first one with the new rows in it', () => {
+  const v2 = (): Campaign => readCampaignRecord(readFixture(2)).campaign;
+
+  it('is seven rows, the five from v1 and the two the bump is for', () => {
+    expect(v2().session.map((i) => i.kind)).toEqual([
+      'scene',
+      'encounter',
+      'countdown',
+      'link',
+      'link',
+      'url',
+      'note',
+    ]);
+  });
+
+  it('keeps the web address exactly as the parser normalises it', () => {
+    const row = v2().session.find((i) => i.kind === 'url');
+    expect(row?.kind === 'url' && row.href).toBe(
+      'https://maps.example.org/sablewood/ford?layer=winter',
+    );
+    expect(row?.name).toBe("The table's map board");
+  });
+
+  it('keeps the note’s centred heading, its emphasis and its bullets', () => {
+    // Every one of the four things the format exists to carry, in one fixture,
+    // because a fixture that only proves paragraphs survive proves the easy
+    // half of a format whose hard half is centring.
+    const row = v2().session.find((i) => i.kind === 'note');
+    expect(row?.kind === 'note').toBe(true);
+    if (row?.kind !== 'note') return;
+
+    const heading = row.note[0]!;
+    expect(heading.type).toBe('heading');
+    expect(heading.type !== 'bullets' && heading.align).toBe('center');
+    expect(heading.type !== 'bullets' && heading.spans[0]!.bold).toBe(true);
+
+    const paragraph = row.note[1]!;
+    expect(paragraph.type !== 'bullets' && paragraph.spans.map((s) => s.text).join('')).toBe(
+      'Rhys wants the cargo, not the fight. She will say so only if someone asks her name.',
+    );
+    expect(paragraph.type !== 'bullets' && paragraph.spans.some((s) => s.italic)).toBe(true);
+
+    const bullets = row.note[2]!;
+    expect(bullets.type).toBe('bullets');
+    expect(bullets.type === 'bullets' && bullets.items).toHaveLength(3);
   });
 });

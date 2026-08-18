@@ -30,12 +30,18 @@ import type {
 import type { CountdownKind } from '../../engine/encounter.ts';
 import type { DatasetIndex } from '../../engine/character.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
+import { displayUrl } from '../../../shared/externalLink.ts';
+import { plainTextOf } from '../../../shared/richText.ts';
 
 export const SESSION_KIND_LABEL: Record<SessionItem['kind'], string> = {
   scene: 'Scene',
   encounter: 'Encounter',
   link: 'Link',
   countdown: 'Countdown',
+  // "Link" is already taken by the four in-app ones, and two rows both reading
+  // LINK with different behaviour is the worst of both. "Web link" says which.
+  url: 'Web link',
+  note: 'Note',
   unreadable: 'Unreadable item',
 };
 
@@ -45,12 +51,20 @@ export const SESSION_KIND_LABEL: Record<SessionItem['kind'], string> = {
  * `unreadable` gets `--stress` rather than `--damage`: nothing is wrong with
  * the record, this build simply has no screen for it, and painting it the same
  * colour as a defeated adversary would say the opposite.
+ *
+ * No two kinds share a token, and `tests/gm/session.test.ts` pins that. The
+ * stripe's only job is to let a GM tell one row from another down a scrolling
+ * list, so a duplicate is not a smaller version of the feature, it is the
+ * feature switched off for that pair - which is why `url` did not simply take
+ * `--codex` from `link` when it arrived.
  */
 export const SESSION_KIND_COLOR: Record<SessionItem['kind'], string> = {
   scene: 'var(--sage)',
   encounter: 'var(--damage)',
   link: 'var(--codex)',
   countdown: 'var(--muted)',
+  url: 'var(--grace)',
+  note: 'var(--bone)',
   unreadable: 'var(--stress)',
 };
 
@@ -164,6 +178,19 @@ export function describeItem(item: SessionItem, dataset: Dataset, index: Dataset
       return item.countdown.value === 0
         ? 'SPENT'
         : `${String(item.countdown.value)}/${String(item.countdown.start)}`;
+    case 'url':
+      // The host, not the whole address, and never the raw stored string:
+      // `displayUrl` prints the parsed hostname, which is punycode, so a
+      // homograph domain reads as `xn--pple-43d.com` on the shut row exactly
+      // as it does on the open one. See mitigation 5 in `shared/externalLink.ts`.
+      return item.href === '' ? 'NO ADDRESS' : displayUrl(item.href, 32).toUpperCase();
+    case 'note': {
+      // The note's own first words rather than a character count. A GM scans
+      // this list to find the row they are thinking of, and "412 CHARACTERS"
+      // is true of every note they have ever written.
+      const text = plainTextOf(item.note).replace(/\s+/g, ' ').trim();
+      return text === '' ? 'EMPTY NOTE' : text.slice(0, 40).toUpperCase();
+    }
     case 'unreadable':
       // Deliberately says nothing about `raw`. The bytes are shown in full when
       // the row is opened; a summary that tried to preview them would be the
