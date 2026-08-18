@@ -22,10 +22,13 @@
  * It read "393 - 24 of the region's padding - 4 of the row's own = 365px", which
  * omits the row itself: `SessionRow` draws a `.panel` with `padding: 4px 6px`, a
  * 3px `borderLeft` and the class's own 1px border, under a global
- * `box-sizing: border-box`. `SessionRow.tsx:8` measures the panel at 357 and the
- * true content box is under that again. Deriving a fourth number on paper would
- * be the same mistake once more, and this repo takes its measurements from a
- * browser. **Measure it before you write one down.**
+ * `box-sizing: border-box`. `SessionRow.tsx:7-15` puts that panel's content box
+ * at 353 on a 393px phone, measured in Chrome, and a table reached from a
+ * session row sits inside the open block below that again - while `Wizard` and
+ * `ReferenceTables` draw this same view where none of those subtractions apply
+ * at all. Deriving a fourth number on paper would be the same mistake once
+ * more, and this repo takes its measurements from a browser. **Measure it
+ * before you write one down.**
  *
  * The conclusion does not depend on the figure, which is why the shapes are safe
  * meanwhile: two `minmax(0, 1fr)` columns at a 10px gap are ~170-177 each on any

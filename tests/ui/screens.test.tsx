@@ -812,9 +812,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   // No `onDone`, which is Build's shape: a field and a SAVE, no cancel target.
   'shared/RenameField.tsx::RenameField': () => <RenameField />,
-  // The session row's shape: a cancel target, a subject on both verbs, and no
-  // `judge` - so no live region is drawn at all, which is the branch the
-  // character door never takes.
+  // The session row's shape: a cancel target, a subject - which reaches SAVE's
+  // accessible name and only SAVE's, the cancel target naming the stored name
+  // instead - and no `judge`, so no live region is drawn at all, which is the
+  // branch the character door never takes.
   'shared/RenameField.tsx::NameField': () => (
     <NameField
       value="Scene one"

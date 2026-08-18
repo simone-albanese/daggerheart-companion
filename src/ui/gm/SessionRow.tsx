@@ -322,11 +322,12 @@ export function SessionRow({
       </button>
 
       {/*
-        The handle is at the right edge of every row - x 313-357 on a 393px
+        The handle is at the right edge of every row - x 309-353 on a 393px
         phone - which is the easiest horizontal reach for a right thumb across
         the whole column, and where iOS has put this control since it invented
         it. It is a sibling of the disclosure and not inside it, because a
-        button may not contain a button; the header keeps 303 of the 353.
+        button may not contain a button; of the panel's 353px content box the
+        header keeps 303, the gap takes 6, and these last 44 are the handle.
 
         `touch-action: none` is on this square alone, 12% of the row's width,
         so the other 88% still scrolls the list under the same thumb.

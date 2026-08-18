@@ -73,9 +73,13 @@
  *   already produce out of an empty name; for a session row it reads as the
  *   kind word, dimmed, which is `sessionTitle`'s whole promise. Which word an
  *   empty name reads as is therefore the caller's to say - `emptyReads` - and
- *   the control only has to be able to say it, on the placeholder and on the
- *   cancel target, so that clearing the field shows what the record will read
- *   as before anything is committed.
+ *   the control has to be able to say it in three places: the placeholder,
+ *   SAVE's accessible name once the field is empty, and the cancel target on a
+ *   record that had no name to start with. Clearing the field moves the first
+ *   two, which is how a person sees what the record will read as before
+ *   anything is committed. It does not move the third and must not: the cancel
+ *   target names `value`, because what leaving the field alone leaves is the
+ *   name already stored, not the draft being abandoned.
  *
  * `judge` is optional, and its absence is a decision each door makes rather
  * than a default nobody looked at. The character door passes `judgeName`,
@@ -126,9 +130,11 @@ export interface NameFieldProps {
    * What an empty name reads as on screen once it is stored.
    *
    * "Unnamed" for a character, the kind word for a session row. It is the
-   * placeholder and it is what the cancel target names, so a person who has
-   * just cleared the field can see what the record will read as before they
-   * commit it.
+   * placeholder, and it is what SAVE names once the field is empty - so a
+   * person who has just cleared it can see what the record will read as before
+   * they commit it. The cancel target says it too, but only for a record that
+   * arrived with no name: that label is built from `value` and never from the
+   * draft, because leaving the name alone leaves the stored one.
    */
   emptyReads: string;
   /** Called with the trimmed name, only when it differs from `value`. */
@@ -150,9 +156,20 @@ export interface NameFieldProps {
    *
    * The session list draws one row per item and every row can arm its own
    * rename, so two open at once would otherwise offer a screen reader two
-   * buttons called "Save the name Marek" - the defect `sessionList.test.tsx`
-   * calls "a screen made of similar rows". Build draws exactly one and passes
-   * nothing.
+   * buttons called "Save the name Marek" with nothing to say which row either
+   * would write it to - the defect `sessionList.test.tsx` calls "a screen made
+   * of similar rows". With it they read "Save the name Marek — The bridge" and
+   * "Save the name Marek — The ford": the name about to be stored, then the row
+   * it lands on. Build draws exactly one field and passes nothing.
+   *
+   * **It tells two rows apart only as far as their own names already do.** The
+   * session row passes `sessionName(item)`, which for a row nobody ever named
+   * is the kind word - so two nameless scenes renaming at once both say "Save
+   * the name Scene — Scene", and a night of rows called "Scene", "Scene" and
+   * "Scene" is precisely the list `SessionRow.tsx:51-54` is about. This prop
+   * names the row; it does not invent a name for a row that has none, and
+   * nothing in this control does. A row's position is announced - the drag
+   * handle says "2 of 5" - but it is on the handle, not here.
    *
    * The cancel target does not take it and does not need it: "Leave the name
    * as Scene one" is followed by the name the list already draws for that row,

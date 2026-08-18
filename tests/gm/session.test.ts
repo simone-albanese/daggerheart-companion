@@ -126,8 +126,9 @@ describe('what a shut row says about itself', () => {
      * each the size of the party, and `ROLE_COST` charges 1 point per group -
      * so a row that added the counts up said "3 PLANNED" about a fight the GM
      * had spent three points and twelve bodies on. The builder's roster panel
-     * and the open encounter row have said "3 GROUPS OF 4" since `ecf8017`;
-     * this is the shut row catching up with them.
+     * has said "3 GROUPS OF 4" since the first commit, `8c83f78`, and `ecf8017`
+     * brought the open encounter row into line with it; this is the shut row
+     * catching up with them both.
      */
     const item: SessionItem = {
       ...base(),

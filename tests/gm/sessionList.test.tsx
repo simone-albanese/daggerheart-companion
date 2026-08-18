@@ -862,6 +862,15 @@ describe('the type row carries the numbers, and the name has the header to itsel
   it('draws the name and the type row, and nothing else, beside the marker', () => {
     seed(oneOfEach());
     list();
+    const header = rows()[3]!.querySelector<HTMLElement>('button[aria-expanded]')!;
+    // Both halves of "nothing else". The summary used to be a third column of
+    // the header, a *sibling* of the stack - so a test that only counts the
+    // stack's children cannot see it come back. The header holds the marker and
+    // the stack and nothing more; the stack holds the name and the type row.
+    expect(header.children, 'the header grew a column beside the stack').toHaveLength(2);
+    expect(header.children[1], 'the stack is no longer the marker’s only sibling').toBe(
+      headerStack(rows()[3]!),
+    );
     const stack = headerStack(rows()[3]!);
     expect(stack.children, 'the header grew a third line or lost one').toHaveLength(2);
   });
@@ -1058,9 +1067,77 @@ describe('renaming a row', () => {
 
     type(field(), '  ');
     expect(save().getAttribute('aria-label')).toBe('Save the name Scene — Scene one');
+    // Clearing the field moves the placeholder and SAVE and nothing else. The
+    // cancel target is built from the *stored* name, not from the draft,
+    // because what leaving the field alone leaves is the name already on the
+    // record - so it still says "Scene one" with an empty field under it.
+    expect(field().placeholder).toBe('Scene');
+    expect(
+      cancel().getAttribute('aria-label'),
+      'the cancel target followed the draft instead of the record',
+    ).toBe('Leave the name as Scene one');
     click(save());
     expect(stored(), 'a word the GM never typed was written onto the record').toBe('');
     expect(text()).toContain('Scene');
+  });
+
+  it('names the kind word on the cancel target only when the row has no name', () => {
+    /*
+     * `emptyReads` reaches three places and they are not the same place. The
+     * placeholder and SAVE follow the draft; the cancel target follows the
+     * record, because "leave the name as" is about what is stored. On a row
+     * that never had a name the two coincide - the record's name *is* the kind
+     * word - and that coincidence is what makes the docblock easy to misread.
+     */
+    oneScene({ name: '' });
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'RENAME')!);
+    expect(field().value, 'the field opened on the invented word').toBe('');
+    expect(field().placeholder).toBe('Scene');
+    expect(cancel().getAttribute('aria-label')).toBe('Leave the name as Scene');
+    expect(save().getAttribute('aria-label')).toBe('Save the name Scene — Scene');
+    // And it still follows the record once something is typed: the cancel
+    // target is the way back to the nameless row, not a preview of the draft.
+    type(field(), 'The gate');
+    expect(cancel().getAttribute('aria-label')).toBe('Leave the name as Scene');
+    expect(save().getAttribute('aria-label')).toBe('Save the name The gate — Scene');
+  });
+
+  /*
+   * What `subject` is and is not, in the two tests below.
+   *
+   * It appends the row's drawn name to SAVE, so two rows renaming at once say
+   * which record each of them would write to. For a row nobody named, that
+   * drawn name is the kind word - so two nameless scenes offer a screen reader
+   * the same sentence twice, which is exactly the "Scene", "Scene" and "Scene"
+   * list `SessionRow` is about. Both halves are pinned so the prop's docblock
+   * cannot quietly claim more than the second one allows again.
+   */
+  const twoScenes = (a: string, b: string): void => {
+    seed([
+      { ...base({ id: 'a', name: a, order: 0, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 'b', name: b, order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+    ]);
+    list();
+    for (const button of buttons().filter((x) => (x.textContent ?? '').trim() === 'RENAME')) {
+      click(button);
+    }
+  };
+  const saveNames = (): (string | null)[] =>
+    buttons()
+      .filter((b) => (b.textContent ?? '').trim() === 'SAVE')
+      .map((b) => b.getAttribute('aria-label'));
+
+  it('says which row each open SAVE would write to', () => {
+    twoScenes('The bridge', 'The ford');
+    expect(saveNames()).toEqual([
+      'Save the name The bridge — The bridge',
+      'Save the name The ford — The ford',
+    ]);
+  });
+
+  it('cannot tell two renaming rows apart when neither has a name', () => {
+    twoScenes('', '');
+    expect(saveNames()).toEqual(['Save the name Scene — Scene', 'Save the name Scene — Scene']);
   });
 
   it('refuses nothing, because a night is allowed two rows with one name', () => {
