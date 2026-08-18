@@ -124,10 +124,19 @@ afterEach(() => {
 /**
  * The `dhc.` keys, in memory.
  *
- * This file's jsdom build does not provide `localStorage`, and the legacy-GM
- * cases below need one: `hasUncountedLegacyCampaign` reads two keys the
- * `campaigns` object store cannot see. The same shim seven other test files
- * install, for the same reason.
+ * Not a stand-in for a `localStorage` that is missing: this jsdom build has
+ * one, and the last case in the file asserts that in so many words before it
+ * uses it. The shim is here for isolation. `hasUncountedLegacyCampaign` reads
+ * two keys the `campaigns` object store cannot see, and a fresh `Map` per case
+ * is how a key one case writes stops deciding the sentence another case gets -
+ * which is exactly the contamination those cases exist to reason about.
+ *
+ * It is also what keeps this file portable to a build where the platform
+ * object really is absent: a Node whose jsdom hides `localStorage` still runs
+ * every case here but the last, and that one states its precondition as an
+ * assertion, so it fails saying why rather than passing against nothing.
+ *
+ * The same shim ten other test files install.
  */
 class MemoryStorage {
   private readonly map = new Map<string, string>();

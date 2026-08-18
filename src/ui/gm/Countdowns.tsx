@@ -46,6 +46,17 @@
  * floor everywhere a thumb can reach the glass — width as well as height, since
  * a 34px-wide target under a thumb is under the floor however tall it is.
  *
+ * That last clause is the project's floor and not this control's taste, and two
+ * ✕s older than this shelf do not meet it: `CountdownRow`'s delete lower down
+ * in this file, and the one that takes an adversary out of the scene in
+ * `Scene.tsx`, both write `width: 34` as a literal beside a `--control` height,
+ * so on a phone both are 34px wide under a thumb. Said out loud here rather
+ * than left for the next reader to notice that the sentence above condemns the
+ * neighbours. Not changed with them, and deliberately: widening a *destructive*
+ * target that sits beside RESET is an ergonomic decision of its own, this lane
+ * measured nothing in a browser, and the literal is an idiom shared by two
+ * files rather than one slip in this one.
+ *
  * Where it goes, and the gesture that is *not* on it. The shelf shares a column
  * with NEW COUNTDOWN and sits above it — on a phone that column is under the
  * running clocks, on a wide window it is the rail beside them. Either way the
@@ -56,6 +67,28 @@
  * on it — an empty shelf would be a permanent panel teaching a feature by
  * taking height away from the clocks, and KEEP AS TEMPLATE is on the form
  * below, where the teaching belongs.
+ *
+ * What moves when the shelf grows, which is the part of that decision the
+ * paragraph above does not cover. The shelf is NEW COUNTDOWN's previous sibling
+ * in one stack, so the first successful KEEP inserts an entire panel — its own
+ * padding, a label row, one template row — above the form, and every KEEP after
+ * that inserts another row. The form therefore moves down at the instant KEEP
+ * is pressed, and the two controls that move are ADD and KEEP itself: the two
+ * things the thumb is already on. Nothing else moves. The clocks are the stack
+ * above this one on a phone and the other grid column on a wide window, so the
+ * ±1 the paragraph above protects is not affected by this at all.
+ *
+ * It is left that way, and the reason is where the mis-tap lands rather than
+ * whether there is one. KEEP goes inert the moment the triple is on the shelf,
+ * so a second press at the coordinates KEEP just vacated cannot keep twice;
+ * what it can land on is the row that shift brings down to it, which is Starts
+ * at and ADD. A countdown nobody asked for costs one tap on the new clock's own
+ * ✕ to undo — which is the same line this file already draws between DROP and
+ * forget, and the shift puts nothing that costs the GM something they typed
+ * under the thumb: both ✕s are outside the form and neither one moves into it.
+ * Reversing the order would buy the stillness back and charge a scroll past the
+ * whole form for every drop, and the drop is the one-tap gesture aimed at while
+ * somebody is still talking.
  *
  * ## The four hints below are the app's own words, and stay that way
  *

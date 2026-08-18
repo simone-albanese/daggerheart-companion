@@ -9,8 +9,8 @@
  * the template and whose identity does not. Two drops of one template are two
  * independent clocks; forgetting the template leaves both of them running.
  *
- * Two halves would be silent if they broke, and they are what the rest of the
- * file is for.
+ * Two halves would be silent if they broke, and they are what the first four
+ * describes are for.
  *
  * The identity. A drop that reused the template's id would look completely
  * correct on screen for exactly as long as the GM dropped it once, and would
@@ -25,9 +25,13 @@
  * `loadTemplates`, which is the call the next launch makes, rather than through
  * the store that has just been asked.
  *
- * The last describe is neither: it is about what the GM is told. KEEP has to
- * say that it landed, because the row it produces is above a form whose bottom
- * the button sits at.
+ * The last two describes are neither of them. `the shelf on screen` is layout:
+ * that there is nothing where the shelf would be until something is on it, and
+ * which of the two size tokens each of its controls declares - inline, because
+ * a size set in a class measures 0 here and a floor nothing can read is not a
+ * floor. `KEEP AS TEMPLATE` is what the GM is told: KEEP has to say that it
+ * landed, because the row it produces is above a form whose bottom the button
+ * sits at.
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -209,12 +213,24 @@ describe('a template is a template, not a clock', () => {
     expect(loadTemplates()).toEqual([]);
   });
 
-  it('has nothing to migrate: a device that has never kept one starts empty', () => {
-    // There are no templates a GM already has - this is the first build with
-    // the idea, and no build has ever written this key. The absence is the
-    // whole migration story and it is asserted rather than assumed.
+  it('has nothing to migrate, and reading the absence does not end it', () => {
+    /*
+     * There are no templates a GM already has - this is the first build with
+     * the idea and no build has ever written this key - so the empty result on
+     * its own asserts only what `beforeEach` already did, and the branch it
+     * looks like it covers survives being deleted (`JSON.parse(null)` is
+     * `null`, and `readTemplates(null)` is `[]` by the `reads a shelf that is
+     * not an array` case above). What is actually at stake is the third line.
+     * `loadTemplates` runs at module load of the GM chunk on every launch, so
+     * a converter that seeded the key - the obvious shape for the migration
+     * that is missing here to take - would put a record on the disk of every
+     * device that never opened the shelf, and About's erase, the backup and
+     * the quota would all carry it from then on. The read stays a read, and
+     * the assertion that it does is the one thing here that can fail.
+     */
     expect(localStorage.getItem(COUNTDOWN_TEMPLATES_KEY)).toBeNull();
     expect(loadTemplates()).toEqual([]);
+    expect(localStorage.getItem(COUNTDOWN_TEMPLATES_KEY)).toBeNull();
   });
 });
 
@@ -365,9 +381,13 @@ describe('the shelf on screen', () => {
 
   it('declares both of its heights inline, where a test can read them', () => {
     // A height set in a class measures 0 in jsdom, so a floor declared there is
-    // a floor nothing can check. `--tap` is 44px on every pointer; `--control`
-    // is 44px wherever a thumb can reach the glass and 34px where a mouse
-    // cannot miss.
+    // a floor nothing can check. `--tap` is 44px on every pointer. `--control`
+    // is 34px only where both halves of one condition hold - a window at least
+    // 1180px wide *and* a fine pointer - because `tokens.css` declares the 34px
+    // base and then hands the token back to `--tap` under
+    // `@media (max-width: 1179px), (pointer: coarse)`. A narrow window with a
+    // mouse gets 44px too, which is the part a "34px for a mouse" gloss gets
+    // wrong.
     put(RITUAL);
     board();
     const drop = named('Drop a countdown from the template The ritual completes');
@@ -376,7 +396,9 @@ describe('the shelf on screen', () => {
     const forget = named('Forget the template The ritual completes');
     expect(forget.style.minHeight).toBe('var(--control)');
     // Both axes on the forget: a 34px-wide target under a thumb is under this
-    // project's own floor even when it is 44px tall.
+    // project's own floor even when it is 44px tall. The token carries the
+    // condition, so declaring it on the width is how the width gets the same
+    // 44px the height already has everywhere a finger can land.
     expect(forget.style.width).toBe('var(--control)');
   });
 
