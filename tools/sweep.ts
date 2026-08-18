@@ -83,8 +83,16 @@
  * this tool is blind to both by the same rule that keeps it from reading a
  * lane its own edit back.
  *
- * That leaves **30 in scope**. At the default caps it surfaces **14 of them:
- * 47%.** Lift the place budget entirely and it is 16 of 30, 53%. Turn
+ * That leaves **30 in scope**. A finding counts as surfaced when a line the
+ * report printed falls within two lines of the sentence the reviewer cited -
+ * the same paragraph, which is what a lane sent to a line actually reads. That
+ * rule is doing work and is stated rather than buried: replayed a second time
+ * on the same five diffs and scored on the exact cited line instead, with the
+ * classifier reading the same corpus a shade more strictly (31 in scope), the
+ * same tool at the same caps surfaces 12, 39%. Both runs are of this file at
+ * this commit; the spread between them is the matching rule, not the tool.
+ *
+ * At the default caps, then, it surfaces **14 of the 30: 47%.** Lift the place budget entirely and it is 16 of 30, 53%. Turn
  * `--common` off as well and it is 29 of 30 - which is the useful thing to know
  * about the misses, and the uncomfortable one: they are nearly all *found* and
  * then *suppressed*, not missed. Of the 16 it does not print by default, 13 are
@@ -378,11 +386,14 @@ export interface Claim {
  * A tie-breaker, and *only* a tie-breaker.
  *
  * The intuition that a whole phrase found elsewhere beats a bare number was
- * worth testing and did not survive the test: ranked on the corpus, kind
- * weighting made recall worse, because the bare numbers are what the stale
- * paragraphs actually repeat. What ranks is in `placeScore` below - how rare
- * the term is, and how many of the diff's things one line names at once. Kind
- * decides the wording of the label and settles ties, nothing more.
+ * worth testing and did not survive it. Multiplying a line's score by these
+ * weights was ablated on the corpus and surfaced exactly the same findings as
+ * leaving them out - 12 of 31 either way, on the exact-line scoring - which is
+ * not a case for carrying a second ordering: the bare numbers are what the
+ * stale paragraphs repeat, and `--common` and the departure boost have already
+ * decided the order by the time kind could speak. What ranks is in `placeScore`
+ * below, and multiplicity is deliberately not part of it. Kind decides the
+ * wording of the label and settles ties, nothing more.
  */
 const KIND_WEIGHT: Record<ClaimKind, number> = {
   phrase: 10,
