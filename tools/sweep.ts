@@ -204,6 +204,15 @@ export function proseSpans(line: string, state: { inBlock: boolean }, path: stri
   if (MARKDOWN.test(path)) return line.trim() === '' ? [] : [{ start: 0, end: line.length, kind: 'markdown' }];
   const spans: Span[] = [];
   let i = 0;
+  // A line that begins with `*` is a docblock continuation, and this repository
+  // writes almost all of its prose that way. Recognising it on its own shape
+  // matters because a diff is not contiguous: with `-U0` the `/**` that opened
+  // the block is usually not in the hunk, so a stateful scanner alone reads
+  // half the argued paragraphs in this tree as code and loses them.
+  if (!state.inBlock && /^\s*\*(?!\/)/.test(line)) {
+    const star = line.indexOf('*');
+    return [{ start: star + 1, end: line.length, kind: 'comment' }];
+  }
   if (state.inBlock) {
     const close = line.indexOf('*/');
     if (close < 0) return [{ start: 0, end: line.length, kind: 'comment' }];
@@ -403,6 +412,7 @@ const CUSTOM_PROP = /--[a-z][a-z0-9-]{2,}/g;
 const BACKTICKED = /`([A-Za-z_$][\w$]{3,}(?:\.[A-Za-z_$][\w$]*)?)`/g;
 const UNITED = /\b(\d+(?:\.\d+)?)\s*(px|ms|rem|em|vh|vw|pt|%|s)\b/g;
 const NUMERIC = /\b(\d{2,}(?:\.\d+)?|\d+\.\d+)\b/g;
+const DECIMAL = /\b\d+\.\d+\b/g;
 const WORD_ID = /\b([A-Za-z_$][\w$]{3,})\b/g;
 
 /**
@@ -444,7 +454,7 @@ function phrasesOf(prose: string): string[] {
 export function extractClaims(files: readonly FileDiff[]): Claim[] {
   const claims = new Map<string, Claim>();
   const add = (kind: ClaimKind, term: string, label: string, origin: string): void => {
-    const key = `${kind} ${term}`;
+    const key = `${kind}\u0000${term}`;
     if (term.length > 0 && !claims.has(key)) claims.set(key, { kind, term, label, origin });
   };
 
@@ -481,6 +491,12 @@ export function extractClaims(files: readonly FileDiff[]): Claim[] {
         if (digits !== undefined) {
           add('measure', digits, `the number ${digits} (written \`${digits}${unit ?? ''}\`)`, origin);
         }
+      }
+      // A decimal in code is a measurement somebody wrote down: `734.5` is a
+      // reach, `62.6` is a step. Whole numbers in code are mostly indices and
+      // are left to the prose classes, where they have a noun beside them.
+      for (const m of code.matchAll(DECIMAL)) {
+        if (m[0] !== undefined) add('measure', m[0], `the measurement ${m[0]}`, origin);
       }
 
       if (prose === '') continue;
@@ -571,9 +587,19 @@ export interface SweepResult {
 export interface SweepOptions {
   readonly common?: number;
   readonly includeCode?: boolean;
+  /** Which side of the diff the searched tree is. See `TreeSide`. */
+  readonly side?: TreeSide;
 }
 
-const DEFAULTS = { common: 25, includeCode: false };
+const DEFAULTS = { common: 25, includeCode: false, side: 'unknown' as TreeSide };
+
+/**
+ * How much is printed. Not `SweepOptions`: `sweep()` computes and returns
+ * everything it found, and these two only decide how much of it reaches a
+ * screen. The recall figure in the header is measured with these values,
+ * because they are what a lane actually reads.
+ */
+const REPORT_DEFAULTS = { maxClaims: 40, maxHits: 8 };
 
 function hitWeight(hit: Hit): number {
   const base = hit.kind === 'code' ? 0.5 : hit.kind === 'string' ? 2 : 3;
@@ -584,29 +610,47 @@ function hitWeight(hit: Hit): number {
 const NARROW_AT = 3;
 
 /**
+ * Which tree is being searched, and therefore which of the diff's two sets of
+ * line numbers mean anything in it.
+ *
+ * This is not a detail. A `+` line number is a position in the head tree and a
+ * `-` line number is a position in the base tree, and they are wildly different
+ * once a file has grown by two hundred lines. Excluding both sets from one tree
+ * blanks out hundreds of untouched lines that happen to sit where the *other*
+ * tree's edits landed - which is how the first version of this tool scored 0 on
+ * the corpus while finding everything: it found the sentences and then threw
+ * them away as its own.
+ */
+export type TreeSide = 'head' | 'base' | 'unknown';
+
+/**
  * The exclusion that keeps the report about the rest of the tree.
  *
- * Positions alone are not enough: with `--at <base>` the searched tree is the
- * base, so the diff's `+` line numbers point at nothing, and its `-` lines
- * would each match themselves where they still stand. So a line is excluded
- * when the diff changed that position in that file, *or* when its text is
- * exactly a line the diff added or removed in that same file. The second half
- * can over-exclude - an untouched line whose text is character-identical to a
- * changed one, in the same file, is dropped - and that is the trade this makes
- * knowingly: a candidate lost is cheaper than the lane's own edit read back to
- * it as news.
+ * A line is excluded when the diff changed that position in that file *on the
+ * side being searched*, or when its text is exactly a line the diff added or
+ * removed in that same file. The second half is what catches a `-` line still
+ * standing in the base tree at a position the hunk headers no longer describe.
+ * It can over-exclude - an untouched line whose text is character-identical to
+ * a changed one, in the same file, is dropped - and that is the trade this
+ * makes knowingly: a candidate lost is cheaper than the lane's own edit read
+ * back to it as news.
  */
-function exclusions(files: readonly FileDiff[]): Map<string, { lines: Set<number>; texts: Set<string> }> {
+function exclusions(
+  files: readonly FileDiff[],
+  side: TreeSide,
+): Map<string, { lines: Set<number>; texts: Set<string> }> {
   const map = new Map<string, { lines: Set<number>; texts: Set<string> }>();
   for (const file of files) {
     for (const path of new Set([file.path, file.oldPath])) {
       if (!map.has(path)) map.set(path, { lines: new Set(), texts: new Set() });
     }
     for (const change of file.changed) {
+      const counts =
+        side === 'unknown' || (side === 'head' ? change.side === '+' : change.side === '-');
       for (const path of [file.path, file.oldPath]) {
         const entry = map.get(path);
         if (entry === undefined) continue;
-        if (path === change.path) entry.lines.add(change.line);
+        if (counts && path === change.path) entry.lines.add(change.line);
         const trimmed = change.text.trim();
         if (trimmed.length >= 4) entry.texts.add(trimmed);
       }
@@ -622,7 +666,7 @@ export function sweep(
 ): SweepResult {
   const opts = { ...DEFAULTS, ...options };
   const claims = extractClaims(diff);
-  const skip = exclusions(diff);
+  const skip = exclusions(diff, opts.side);
 
   const byToken = new Map<string, Claim[]>();
   const phrases: Claim[] = [];
@@ -848,6 +892,16 @@ function readTreeAt(root: string, ref: string): TreeFile[] {
 // The script
 // ---------------------------------------------------------------------------
 
+function sameCommit(root: string, a: string, b: string): boolean {
+  try {
+    const one = execFileSync('git', ['rev-parse', `${a}^{commit}`], { cwd: root }).toString().trim();
+    const two = execFileSync('git', ['rev-parse', `${b}^{commit}`], { cwd: root }).toString().trim();
+    return one === two;
+  } catch {
+    return false;
+  }
+}
+
 function formatReport(
   result: SweepResult,
   where: string,
@@ -930,10 +984,18 @@ function main(): void {
   const range = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--at');
 
   const diffArgs = ['diff', '--no-ext-diff', '--no-color', '-U0'];
+  let base: string | undefined;
   if (range !== undefined) {
-    const [base, head] = range.split('..');
-    diffArgs.push(base ?? 'HEAD', head === undefined || head === '' ? 'HEAD' : head);
+    const [from, to] = range.split('..');
+    if (from === undefined || from === '') {
+      console.error(`sweep: "${range}" has no base. Write it as <base>..<head>.`);
+      process.exitCode = 1;
+      return;
+    }
+    base = from;
+    diffArgs.push(from, to === undefined || to === '' ? 'HEAD' : to);
   } else {
+    base = 'HEAD';
     diffArgs.push('HEAD');
   }
   const diffText = execFileSync('git', diffArgs, { cwd: root, maxBuffer: 256 * 1024 * 1024 }).toString(
@@ -947,27 +1009,53 @@ function main(): void {
 
   const at = flag('--at');
   const tree = at === undefined ? readWorkingTree(root) : readTreeAt(root, at);
+  // Which tree is this? No `--at` means the working copy, which is the head.
+  // `--at` pointing at the diff's own base means the base. Anything else - a
+  // third commit - and neither set of line numbers can be trusted, so both are
+  // excluded and some candidates are lost. Say which, rather than guess.
+  const side: TreeSide =
+    at === undefined
+      ? 'head'
+      : base !== undefined && sameCommit(root, at, base)
+        ? 'base'
+        : 'unknown';
   const result = sweep(diff, tree, {
     common: number('--common', DEFAULTS.common),
     includeCode: has('--code'),
+    side,
   });
 
+  const maxClaims = number('--max-claims', REPORT_DEFAULTS.maxClaims);
+  const maxHits = number('--max-hits', REPORT_DEFAULTS.maxHits);
+
   if (has('--json')) {
+    // Deliberately the same caps as the text report. An uncapped `--json`
+    // beside a capped report would give two different answers to "what does
+    // sweep cover", and the machine-readable one is the one a calibration
+    // reads - so it is the one that must not flatter the tool. Raise both
+    // caps explicitly to see everything; the suppressed counts are here
+    // either way.
+    const shown = result.groups.slice(0, maxClaims);
     console.log(
       JSON.stringify(
         {
           claimsExtracted: result.claimsExtracted,
           filesSearched: result.filesSearched,
           selfHits: result.selfHits,
+          maxClaims,
+          maxHits,
+          claimsHidden: result.groups.length - shown.length,
+          hitsHidden: shown.reduce((n, g) => n + Math.max(0, g.hits.length - maxHits), 0),
           tooCommon: result.tooCommon,
-          groups: result.groups.map((g) => ({
+          groups: shown.map((g) => ({
             kind: g.claim.kind,
             term: g.claim.term,
             label: g.claim.label,
             origin: g.claim.origin,
             score: Number(g.score.toFixed(4)),
             narrowed: g.narrowed,
-            hits: g.hits.map((h) => ({
+            hitsHidden: Math.max(0, g.hits.length - maxHits),
+            hits: g.hits.slice(0, maxHits).map((h) => ({
               path: h.path,
               line: h.line,
               kind: h.kind,
@@ -984,12 +1072,7 @@ function main(): void {
   }
 
   console.log(
-    formatReport(
-      result,
-      at === undefined ? 'in the working tree' : `as of ${at}`,
-      number('--max-claims', 40),
-      number('--max-hits', 8),
-    ),
+    formatReport(result, at === undefined ? 'in the working tree' : `as of ${at}`, maxClaims, maxHits),
   );
 }
 
