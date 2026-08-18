@@ -68,91 +68,132 @@
  * branches: the diff is `<base>..<the lane's last commit before its repairs>`
  * and the tree searched is `--at <base>`. Both halves of that matter. The
  * branch *tips* carry the repair round, which deleted every stale sentence the
- * review named, so a diff against a tip hides the entire corpus; and searching
- * today's tree finds nothing at all and would flatter the tool enormously.
- * `<base>` is the honest tree, and it is exactly the tree a lane is looking at
- * when it starts.
+ * review named, so a diff against a tip hides the entire corpus and scores a
+ * fake near-zero; and searching today's tree finds nothing at all and would
+ * flatter the tool enormously. `<base>` is the honest tree, and it is exactly
+ * the tree a lane is looking at when it starts. The five diffs replayed are
+ * `167d2c6..d3b2683`, `167d2c6..ea695a6`, `ae2b07c..b756225`,
+ * `167d2c6..aacb2e6` and `167d2c6..7dc67eb`.
  *
- * **18 of the 48 are out of scope by construction** and are classified out
- * rather than quietly dropped from the denominator: a test that cannot fail
- * (2), a mutation kill count (1), an ergonomics judgement (1), a forbidden-area
- * declaration (1), a test name that promises more than its body asserts (3),
- * and a false sentence the diff itself wrote (8). Two more are out for the
- * uncomfortable reason: their file does not exist in the base tree at all,
- * because the diff creates it. Every line of a new file is a changed line, so
- * this tool is blind to both by the same rule that keeps it from reading a
- * lane its own edit back.
+ * **17 of the 48 are out of scope by construction** and are classified out
+ * rather than quietly dropped from the denominator: a false sentence the diff
+ * itself wrote (9), a test name that promises more than its body asserts (2),
+ * a test that cannot fail (2), a mutation kill count (1), an ergonomics
+ * judgement (1), a forbidden-area declaration (1), and a control-flow reading
+ * of new code (1). Five of the nine cite a file the diff creates, and the
+ * classifier does not separate those from the rest because it does not need
+ * to: every line of a new file is a changed line, so both are invisible by the
+ * same rule that keeps this tool from reading a lane its own edit back. That
+ * classifier is one pass, it lives in the harness rather than here, and its
+ * whole rule is that a finding is out of scope when every line the reviewer
+ * cited is absent from the base tree.
  *
- * That leaves **30 in scope**. A finding counts as surfaced when a line the
- * report printed falls within two lines of the sentence the reviewer cited -
- * the same paragraph, which is what a lane sent to a line actually reads. That
- * rule is doing work and is stated rather than buried: replayed a second time
- * on the same five diffs and scored on the exact cited line instead, with the
- * classifier reading the same corpus a shade more strictly (31 in scope), the
- * same tool at the same caps surfaces 12, 39%. Both runs are of this file at
- * this commit; the spread between them is the matching rule, not the tool.
+ * That leaves **31 in scope**, and every figure below is out of 31. Two
+ * scoring rules are used, and they are named on every figure rather than mixed
+ * inside one fraction:
  *
- * At the default caps, then, it surfaces **14 of the 30: 47%.** Lift the place
- * budget entirely and it is 16 of 30, 53%. Turn
- * `--common` off as well and it is 29 of 30 - which is the useful thing to know
- * about the misses, and the uncomfortable one: they are nearly all *found* and
- * then *suppressed*, not missed. Of the 16 it does not print by default, 13 are
- * lost to `--common 6` (the term is mentioned in more than six places in this
- * tree's prose, so it is treated as a word rather than a pointer), 2 are lost
- * to the 150-place budget, and exactly 1 is never matched at all: in
- * the reflow lane's base tree `ae2b07c`, `Conditions.tsx:256` said "in a row
- * the four number cells hold open at 64" and the only thing it shared with
- * that diff was the number 64. (That line reads 56 on `main` today, and the
- * paragraph now says in terms that the 64 belonged to the cockpit's band. The
- * corpus is replayed against the base trees, which is why the sentence is in
- * the past tense.)
+ * - **paragraph** - a line the report printed falls within two lines of the
+ *   sentence the reviewer cited, which is what a lane sent to a line reads;
+ * - **exact line** - a line the report printed *is* the cited line.
  *
- * So the caps are the tool's honesty and also its ceiling. That is a real trade
- * and it is stated here rather than tuned away: a report of 5,000 lines
- * containing 97% of the answer is not a check, it is the tree. If a diff is
- * small, or the stakes are high, `--common 100 --max-places 1500` is the
- * measured trade in the other direction: 23 of 30, 77%, for about ten times
- * the reading.
+ * At the caps a lane actually gets, and with each knob lifted off them:
  *
- * These figures are one corpus of 48, from one evening, on one repository.
- * They are not a guarantee, they do not transfer, and they will drift as the
- * tree does. Treat 47% as "about half": the review that reads the whole tree is
+ *   setting                               paragraph    exact line
+ *   the defaults                          14  45%      12  39%
+ *   --max-places lifted                   14  45%      13  42%
+ *   --max-places and --max-claims lifted  16  52%      14  45%
+ *     and --common lifted as well         22  71%      18  58%
+ *     and --max-hits lifted as well       31  100%     29  94%
+ *   --common 100 --max-places 1500        18  58%      15  48%
+ *   --common lifted, budgets left alone   12  39%       9  29%
+ *
+ * So at the default caps it surfaces **14 of the 31 on the paragraph rule:
+ * 45%**, and 12 of 31, 39%, on the exact line.
+ *
+ * The misses are nearly all *found* and then *suppressed*, which is the useful
+ * thing to know about them, and the uncomfortable one. Taking the paragraph
+ * rule and lifting the knobs in the order of that table, of the 17 the
+ * defaults do not print: 2 come back when the place and claim budgets go, 6
+ * more when `--common 6` goes (the term is mentioned in more than six places
+ * in this tree's prose, so it is treated as a word rather than a pointer), and
+ * the last 9 when `--max-hits 8` goes - the per-claim line cap, which on this
+ * path accounts for more than the other two together and which no paragraph of
+ * this header named as a suppressor at all until it was measured. Nothing is
+ * left over: on this corpus there is no finding the search never matches at
+ * all. On the exact line two survive uncapped, and both are places where the
+ * report prints a neighbouring line rather than the cited one.
+ *
+ * That decomposition is one path through the settings and not an additive
+ * split, because the knobs interact: turn `--common` off while the place
+ * budget is still 150 and recall gets *worse*, 14 down to 12, because the
+ * common terms flood the budget before the rare ones are reached; and lifting
+ * `--max-hits` on its own, with everything else at its default, buys nothing
+ * at all, 14 and 12 unchanged. Each of the three is only worth what it is
+ * worth after the one before it.
+ *
+ * The `--max-hits lifted as well` row is the extraction ceiling, and it was
+ * measured by calling `sweep()` directly with `side: 'base'` and no budget at
+ * all rather than through the CLI: `--max-claims` and `--max-hits` do not lift
+ * the total-place budget, and a `sweep()` call that leaves `side` at its
+ * default over-excludes and scores the tool below what it is. Done both ways
+ * correctly the two agree exactly.
+ *
+ * So the caps are the tool's honesty and also its ceiling. That is a real
+ * trade and it is stated here rather than tuned away: the report that carries
+ * all of the answer runs to between 23,000 and 33,000 lines on these five
+ * diffs, which is not a check, it is the tree. If a diff is small, or the
+ * stakes are high, `--common 100 --max-places 1500` buys 18 of 31 on the
+ * paragraph rule - 58%, four findings over the default - for about ten times
+ * the reading. Lifting `--max-hits` too is what buys the remaining nine, and
+ * it is also what makes the report unreadable.
+ *
+ * These figures are one corpus of 48 findings, from one evening, on one
+ * repository, scored by a harness that lives outside it. They are not a
+ * guarantee, they do not transfer to another tree, and they will drift as this
+ * one does. Treat 45% as "under half": the review that reads the whole tree is
  * still the thing that catches the rest, and this is what it should no longer
  * have to spend its attention on.
  *
  * ## Signal
  *
- * A tool that returns 3000 hits is a tool nobody runs. Three things buy the
- * signal back, and every one of them was ablated against the corpus rather
- * than argued for. The ablation figures in this section and below are scored
- * on the exact cited line, out of the 12 of 31 that run surfaces - not on the
- * paragraph rule the 47% above uses, because a term's contribution is easier
- * to read against the stricter of the two:
+ * A tool that returns 3000 hits is a tool nobody runs. Two ranking terms buy
+ * the signal back and both were ablated against the corpus; the third thing
+ * below is a scope choice rather than a ranking term, and it is labelled as
+ * such because it was measured a different way. The ablation figures in this
+ * section and below are scored on the exact cited line, out of the 12 of 31
+ * the default run surfaces there - not on the paragraph rule the 45% above
+ * uses, because a term's contribution is easier to read against the stricter
+ * of the two. The paragraph figure is given in brackets wherever the two rules
+ * disagree:
  *
  * 1. **A term that only left the diff.** A number the diff *deleted*, still
  *    written down somewhere else, is the defect itself; a number the diff
- *    merely contains is a coincidence. Removing it: 12 down to 7.
+ *    merely contains is a coincidence. Removing it: 12 down to 7 (paragraph,
+ *    14 down to 10).
  * 2. **Rarity.** A term mentioned twice in the tree is a pointer; a term
  *    mentioned forty times is a word. `--common` drops the words and `1/n`
  *    orders the rest. Removing it changes nothing while the departure boost is
- *    there - 12 either way - and removing both takes 7 down to 4, so rarity is
- *    the floor under that boost rather than a duplicate of it.
+ *    there - 12 either way (paragraph, 14 down to 13) - and removing both
+ *    takes 7 down to 4 (paragraph, 14 down to 5), so rarity is the floor under
+ *    that boost rather than a duplicate of it.
  * 3. **Prose first.** The defect is prose, so comments, string literals and
  *    `.md` are searched and code is not, unless `--code` says otherwise. This
- *    is not the volume filter it sounds like, and the measurement is worth
- *    having in front of you rather than the intuition: of the 828,258 tokens
- *    in the 330 searchable files of this tree, 591,955 - 71% - already sit
- *    inside a prose span, because the tree is mostly documentation and
- *    docblocks. `localStorage` is on 167 lines of it and 100 of those are
- *    prose. So omitting `--code` does not buy a much smaller haystack; it
- *    buys a different one. A hit in a sentence is a claim somebody can be
- *    wrong about. A hit on a call site is not.
+ *    is a scope choice, not a ranking term, and on this corpus it is worth
+ *    nothing either way: `--code` surfaces the same 12 of 31 on the exact line
+ *    and the same 14 on the paragraph rule. What it changes is the haystack,
+ *    and that measurement is worth having in front of you rather than the
+ *    intuition: of the 828,258 tokens in the 330 searchable files of this
+ *    tree, 591,955 - 71% - already sit inside a prose span, because the tree
+ *    is mostly documentation and docblocks. `localStorage` is on 167 lines of
+ *    it and 100 of those are prose. So omitting `--code` does not buy a much
+ *    smaller haystack; it buys a different one. A hit in a sentence is a claim
+ *    somebody can be wrong about. A hit on a call site is not.
  *
- * The fourth idea, the persuasive one, was measured and is not here: ranking on
- * how many of the diff's things a line names at once moves recall by one
- * finding, and the two replays disagree about the direction. On this section's
+ * The fourth idea, the persuasive one, was measured and is not here: ranking
+ * on how many of the diff's things a line names at once moves recall by one
+ * finding, and the two rules disagree about the direction. On this section's
  * rule - the exact cited line - multiplying the score by
- * `1 + log2(multiplicity)` is 12 up to 13; on the paragraph rule the 47% above
+ * `1 + log2(multiplicity)` is 12 up to 13; on the paragraph rule the 45% above
  * uses, it is 14 down to 13. One finding either way is no case for a second
  * ordering term, so the argument that settles it is not a number. See
  * `placeScore` for that argument, and for what multiplicity is still used for.
@@ -264,10 +305,22 @@ const MARKDOWN = /\.(?:md|markdown|txt)$/i;
  * not a comment and `"` inside a comment is not a string, and both shapes are
  * everywhere in this tree.
  *
- * `state.inBlock` carries `/* … *\/` across lines and must be threaded through
- * a file in order. An unterminated quote is treated as ending at the newline:
- * a template literal spanning lines gives up its tail, which costs a few
- * candidates and never invents one.
+ * `state.inBlock` carries `/* … *\/` across lines and must be threaded
+ * through a file in order. An unterminated quote is *not* treated as ending at
+ * the newline. No span is pushed at all, so the head of a multi-line template
+ * literal is dropped from the prose **and left standing in the code view**,
+ * where `DECIMAL` mines it. The line `const t = \`holding 3.5 of them, which
+ * is` yields the claim `measure 3.5`; the same line closed on itself yields
+ * the prose claim `number 3.5` and two phrases instead. So this costs
+ * candidates and can change one as well - which is the opposite of what this
+ * docblock said until the branch ran it.
+ *
+ * 98 lines of this tree take that branch: 59 in `.ts`, 33 in `.tsx`, 3 in
+ * `.yml`, 2 in `.html` and 1 in `.sh`. Almost all of them are multi-line
+ * template literals and regexes holding a quote character, and a handful are
+ * an apostrophe in an ordinary English `#` comment. The behaviour is left as
+ * it is on purpose: every recall figure in this file's header is measured
+ * against it, and changing the scanner would retire all of them at once.
  */
 export function proseSpans(line: string, state: { inBlock: boolean }, path: string): Span[] {
   if (MARKDOWN.test(path)) return line.trim() === '' ? [] : [{ start: 0, end: line.length, kind: 'markdown' }];
@@ -319,7 +372,12 @@ export function proseSpans(line: string, state: { inBlock: boolean }, path: stri
   return spans;
 }
 
-/** The code of a line, with every comment and string literal blanked out. */
+/**
+ * The code of a line, with every comment and string literal blanked out - with
+ * the one exception `proseSpans` documents. A literal whose quote never closes
+ * on this line gets no span, so nothing is blanked and its text stays here
+ * verbatim, for the claim extractor to read as code.
+ */
 export function codeOf(line: string, state: { inBlock: boolean }, path: string): string {
   const spans = proseSpans(line, { ...state }, path);
   let out = line;
@@ -396,9 +454,10 @@ export interface Claim {
  *
  * The intuition that a whole phrase found elsewhere beats a bare number was
  * worth testing and did not survive it. Multiplying a line's score by these
- * weights was ablated on the corpus and surfaced exactly the same findings as
- * leaving them out - 12 of 31 either way, on the exact-line scoring - which is
- * not a case for carrying a second ordering: the bare numbers are what the
+ * weights was ablated on the corpus and surfaced the same findings as leaving
+ * them out on the exact-line scoring - 12 of 31 either way - and one fewer on
+ * the paragraph rule, 14 down to 13. Neither is a case for carrying a second
+ * ordering: the bare numbers are what the
  * stale paragraphs repeat, and `--common` and the departure boost have already
  * decided the order by the time kind could speak. What ranks is in `placeScore`
  * below, and multiplicity is deliberately not part of it. Kind decides the
@@ -509,19 +568,22 @@ const WORD_ID = /\b([A-Za-z_$][\w$]{3,})\b/g;
  *
  * Five words at every offset, not a longer window at a stride, because two
  * copies of a sentence drift out of phase with each other. The corpus has the
- * worked example. In the reflow lane's base tree the line the diff removed,
- * `tests/ui/playSheet.test.tsx:1307`, read "...44 below, so this block is 102
- * on the glass this table is written for..."; the copy still standing at
- * `:1805` read "...44 below the 390 step, so this block is 102 here and 94 on
- * a 360px Android." Three words are inserted between them, so no window of a
- * stride-four walk over the second lands where the first's windows land. At
- * stride one both yield "so this block is 102" and the copy is found.
+ * worked example, and it is quoted from commit `ae2b07c` rather than from a
+ * branch, so it stays resolvable after the lane branches go. There, the lines
+ * the reflow diff removed at `tests/ui/playSheet.test.tsx:1306-1307` read
+ * "...44 below, so this block is 102 on the glass this table is written
+ * for..."; the copy still standing at `:1804-1805` read "...44 below the 390
+ * step, so this block is 102 here and 94 on a 360px Android." Three words are
+ * inserted between them, so no window of a stride-four walk over the second
+ * lands where the first's windows land. At stride one both yield "so this
+ * block is 102" and the copy is found.
  *
- * Ablated on the corpus, the two settings tie at 12 findings surfaced: five at
- * stride one finds that line and misses one that seven at stride four finds.
- * The tie is why the argument above, which is about the algorithm rather than
- * about this corpus, is the one that decides it. Dropping phrase claims
- * altogether costs 3 of the 12.
+ * Ablated on the corpus, the two settings tie at 12 findings surfaced on the
+ * exact line and 14 on the paragraph rule: five at stride one finds that very
+ * line and misses one that seven at stride four finds, and the trade is one
+ * for one. The tie is why the argument above, which is about the algorithm
+ * rather than about this corpus, is the one that decides it. Dropping phrase
+ * claims altogether costs 3 of the 12, down to 9.
  */
 const PHRASE_WORDS = 5;
 const PHRASES_PER_LINE = 60;
@@ -665,8 +727,8 @@ export interface Hit {
    * The persuasive signal that is deliberately *not* in the ranking. It is
    * printed beside the line and it is what rescues a line whose term is over
    * `--common` (see `NARROW_AT`), but `placeScore` never reads it: ablated, it
-   * is worth one finding either way and the two replays disagree about even
-   * the sign. `placeScore`'s docblock has the numbers and the argument.
+   * is worth one finding either way and the two scoring rules disagree about
+   * even the sign. `placeScore`'s docblock has the numbers and the argument.
    */
   multiplicity: number;
 }
@@ -704,7 +766,7 @@ const DEFAULTS = { common: 6, includeCode: false, side: 'unknown' as TreeSide };
 /**
  * How worth reading one line is. Every term here was ablated against the corpus
  * in this configuration, and the numbers are what the run returned, not what
- * the design expected:
+ * the design expected - including the one term that returned nothing:
  *
  * - **a term that only left the diff** - a value the diff *deleted*, still
  *   written down elsewhere, is the defect itself, where a value the diff merely
@@ -716,14 +778,22 @@ const DEFAULTS = { common: 6, includeCode: false, side: 'unknown' as TreeSide };
  *   the floor under that boost rather than a duplicate of it.
  * - **where the words are** - markdown and comments over string literals over
  *   code, doubled for a line making an exact-count claim, because those are the
- *   sentences an addition falsifies.
+ *   sentences an addition falsifies. This one is ablated too, and it is worth
+ *   nothing on this corpus: flatten every kind to 1 and the run still surfaces
+ *   12 of 31 on the exact line and 14 on the paragraph rule; drop the
+ *   exact-count doubling instead and it is the same again; drop both and it is
+ *   the same a third time. It is kept on the argument rather than on the
+ *   measurement - `--common` and the departure boost have decided the order by
+ *   the time kind could speak - and it is named here as reasoned rather than
+ *   measured, because a header whose subject is unearned numbers must not
+ *   quietly carry one.
  *
  * And one term that is deliberately NOT here. Multiplicity - how many separate
  * things the diff changed one line names at once - is the most persuasive
- * signal in this whole tool, and the two replays disagree about even the sign
- * of what it buys: multiplying the score by `1 + log2(multiplicity)` costs one
- * finding on the paragraph scoring, 14 down to 13, and gains one on the exact
- * line, 12 up to 13. One finding either way is not a case for a second
+ * signal in this whole tool, and the two scoring rules disagree about even the
+ * sign of what it buys: multiplying the score by `1 + log2(multiplicity)`
+ * costs one finding on the paragraph rule, 14 down to 13, and gains one on the
+ * exact line, 12 up to 13. One finding either way is not a case for a second
  * ordering term, and the argument that decides it is not a number: a paragraph
  * naming six of your numbers is usually the paragraph you are already
  * rewriting, and it crowds out the single sentence in a file you have not

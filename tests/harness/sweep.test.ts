@@ -82,17 +82,28 @@ describe('reading a diff', () => {
     expect(only?.path).toBe('src/new.ts');
   });
 
-  it('counts context lines on both sides, so the second hunk is not off by one', () => {
+  // Both counters have to move on a context line, and the two are only
+  // distinguishable when the hunk starts them at different numbers: with
+  // `@@ -10 +40 @@` and two context lines, the removal is line 12 in the base
+  // tree and the addition is line 42 in the head. Asserting only the addition
+  // reads `newNo` alone, and dropping `oldNo += 1` from the context branch
+  // then leaves this file green - which it did until this fixture grew its
+  // `-` line.
+  it('counts a context line on both sides, so neither tree is off by one', () => {
     const [only] = diffOf(
       'diff --git a/a.ts b/a.ts',
       '--- a/a.ts',
       '+++ b/a.ts',
-      '@@ -10,3 +10,3 @@',
+      '@@ -10,3 +40,3 @@',
       ' unchanged',
       ' unchanged',
+      '-removed',
       '+added',
     );
-    expect(only?.changed[0]?.line).toBe(12);
+    expect(only?.changed).toEqual([
+      { path: 'a.ts', line: 12, text: 'removed', side: '-' },
+      { path: 'a.ts', line: 42, text: 'added', side: '+' },
+    ]);
   });
 });
 
