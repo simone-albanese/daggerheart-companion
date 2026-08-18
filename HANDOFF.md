@@ -294,21 +294,21 @@ one session of it — which is also the span the next push publishes in one go.
 
 ## What is open
 
-**P5-2, the DM screen, is finished.** Six commits, in this order: `eab26d8` made
-the session list the GM screen and the five tools what a row opens; `f6e264d`
-gave the rows a drag, a keyboard path and two buttons; `7b27e57` added `GmBar` —
-ADD, SHOW, SAVE — with the three sheets behind it; `68c8cc7` gave MENU the way
-out and the campaigns, and took the tab bar off the GM screen; `63a2558` made
+**P5-2, the DM screen, is finished.** Six commits, in this order: `c631809` made
+the session list the GM screen and the five tools what a row opens; `fb7a4e1`
+gave the rows a drag, a keyboard path and two buttons; `6947a99` added `GmBar` —
+ADD, SHOW, SAVE — with the three sheets behind it; `5ae3ec5` gave MENU the way
+out and the campaigns, and took the tab bar off the GM screen; `78f503d` made
 the section and its two browse tools switchable from Settings, with the bar
-redistributing; `8e0d02f` put the store's `writeError` on the screen it happens
+redistributing; `533575a` put the store's `writeError` on the screen it happens
 on. Nothing on this item is left to build. `BACKLOG.md` P5-2 is struck through
 with those hashes, and its *Left open* list is what these commits decided **not**
 to do, with the reason beside each — read it before adding anything to this
 screen.
 
 **Then an independent pass read the diff back and found five defects a green
-suite had not**, and they are fixed in `1025e08`, `e4505ec`, `0b5326c`,
-`af5f235` and `87b2278`. Worth knowing what they were, because four of the five
+suite had not**, and they are fixed in `767f6d1`, `54867c7`, `d7b45fb`,
+`2084cb9` and `36a772b`. Worth knowing what they were, because four of the five
 are the same shape — a sentence in the source that was further along than the
 code:
 
@@ -339,7 +339,7 @@ checking whether the code did it.
 Four things that were carried across on the way, so nobody looks for them again.
 `hydrateGm`'s silent `catch` around the first `putCampaign` is **fixed**: it sets
 `writeError` and leaves the write dirty, which is what makes TRY AGAIN do
-something — as does every other failure that offers one, since `0b5326c`. BESTIARY and PARTY have left the top bar for SHOW. The licence notice
+something — as does every other failure that offers one, since `d7b45fb`. BESTIARY and PARTY have left the top bar for SHOW. The licence notice
 moved **into** the GM scroll rather than off the screen — 126px of the 653 that
 is not shell header, and `tests/ui/attribution.test.tsx` is the gate that says it
 may not simply go while `tests/gm/gmShell.test.tsx` says *where* it went. (That
@@ -361,9 +361,9 @@ resolves a control by its accessible name and the desktop section nav carries
 each section's *title* as a button, so a switch sharing its section's name
 resolves to the nav button and the row fails for the wrong reason.
 
-**~~P5-3 — what the GM screen could have at hand.~~ Done** — `65de51a`,
-`119816f`, `1f9afcc`, `7f19d78`, `81c1df2`, `246f84b`, `32af6b2`, `ce14170`,
-`33cffaa`. MENU → OPEN THE REFERENCE, seven topics, every word read out of
+**~~P5-3 — what the GM screen could have at hand.~~ Done** — `e4def92`,
+`3f2a361`, `51264bd`, `702c72c`, `82fe585`, `674ab9a`, `fe3d788`, `1317299`,
+`2a9f5dc`. MENU → OPEN THE REFERENCE, seven topics, every word read out of
 `data/srd-1.0.json` at render time with the page stamped beside the table it
 came from. The Fear guidance and the countdown chart are also folded into the
 two controls they belong to. Three things the item asked for were not in the
@@ -380,8 +380,8 @@ with its reason: the ladder is not attached to `DualityRoll.tsx`'s DIFF box,
 which is the only place a human sets a Difficulty and is on the player's side.
 
 **Then a verifier read P5-3's diff back and found five sentences the code could
-not honour, and they are fixed in `fd799f3`, `4701e9f`, `dbfda63`, `caebbc8` and
-`2d19292`.** Worth knowing, because four of the five are one shape and it is a
+not honour, and they are fixed in `9711a7d`, `f676812`, `a7c1cce`, `1094158` and
+`9c372ef`.** Worth knowing, because four of the five are one shape and it is a
 shape this repo will keep producing: **a component drawn behind two doors
 describing the door it did not come through.** `ReferenceTables.tsx` renders
 three tables in both the reference screen and a fold beside the control they
@@ -760,7 +760,7 @@ causing: it is the only reader of the outcome table that knows a reaction roll
 pays nothing, and both roll surfaces were indexing the raw table and announcing
 a Hope the app then did not hand over. The thirteenth,
 `TIER_BENCHMARKS`, came off the other way: P5-3 **deleted** it
-(`1f9afcc`) rather than wiring it, because the same table ships in
+(`51264bd`) rather than wiring it, because the same table ships in
 `data/srd-1.0.json` and the typed copy had already lost the `+` from `+1` and
 split `Major 7/Severe 12`. Two copies under one SRD stamp is one copy too many.
 

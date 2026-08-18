@@ -34,7 +34,7 @@ There is no server and no second copy. Everything in this section ends with
 someone's months of play gone and nothing to restore from. This is the only
 section where being wrong cannot be fixed afterwards.
 
-### ~~P0-1 · Importing a file silently overwrites a newer character~~ — **done, `2c176c5`**
+### ~~P0-1 · Importing a file silently overwrites a newer character~~ — **done, `83ee568`**
 `src/store/merge.ts` · `src/ui/shared/ImportConflicts.tsx` · **medium, 2–4 h**
 
 `importCharacter` is an unconditional `db.putCharacter(c)`. IndexedDB `put` is
@@ -75,7 +75,7 @@ one tap.
       hide: updated in place *unless this device has the newer edit, in which
       case nothing is written over and you are asked.*
 
-### ~~P0-2 · The automatic backup never runs, and Settings says it does~~ — **done, `79632b3`, `fb84a36`**
+### ~~P0-2 · The automatic backup never runs, and Settings says it does~~ — **done, `0589761`, `842ffc1`**
 `src/store/backup.ts:324` · `src/ui/settings/Settings.tsx:561` · **medium, 4–6 h**
 
 `installBackupHooks`, `backupAtSessionEnd`, `integrityCheck` and `noteSession`
@@ -136,7 +136,7 @@ Three defects compound, which is why they are one work item:
       session note was recorded, and that the seven-day check reaches the screen.
       `backupSeam.test.ts` keeps the cheap structural guard beside it.
 
-### ~~P0-3 · A failed character write is swallowed with no signal~~ — **done, `fc11442`**
+### ~~P0-3 · A failed character write is swallowed with no signal~~ — **done, `e146a85`**
 `src/store/state.ts:79-103` · **small, 2–3 h**
 
 `flush()` clears `pending` at line 85 **before** awaiting the writes at line 86,
@@ -206,7 +206,7 @@ zeroes a *player's* HP.
       and move `opacity: holding ? 0.75 : 1` with them. `DualityRoll.tsx:557`
       already does this correctly — copy that shape.
 
-### ~~P0-5 · Second-tier durability~~ — **done, `d8e222a`**
+### ~~P0-5 · Second-tier durability~~ — **done, `2881815`**
 **~4 h total**
 
 - [x] ~~**Persistent storage is never requested on an import path.**~~ — **done.** `create()`
@@ -245,7 +245,7 @@ zeroes a *player's* HP.
       unverified backup is not a backup: re-open the handle with `getFile()`,
       parse it, assert the character count, and only then `stamp`. *(small)*
 
-### ~~P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character~~ — **done, `4f2ada4`, `57f6cb2`**
+### ~~P0-6 · The codec has no integrity check: a corrupted payload decodes into a different character~~ — **done, `a99c84a`, `8cea63f`**
 `src/transfer/codec.ts` · **medium, 3–5 h**
 
 Measured, not theorised. 8136 single-bit flips across 15 real sheets, one bit
@@ -319,7 +319,7 @@ feeding bytes in from anywhere else inherited nothing, silently.
       measured against the checksum its own frames declared, always. That was the
       only live exposure this item had, and it was not in the item.
 
-### ~~P0-7 · Imported characters skip the counter sync every other write path runs~~ — **done, `2c176c5`**
+### ~~P0-7 · Imported characters skip the counter sync every other write path runs~~ — **done, `83ee568`**
 `src/store/state.ts:232-238` · **small, 1–2 h**
 
 `importCharacter` persists a character exactly as it arrived, with no
@@ -349,7 +349,7 @@ no-clobber guard in P0-1, so fix them together.
 
 ---
 
-### ~~P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all~~ — **done, `b514cbc`..`d442ebb`**
+### ~~P0-8 · The first schema bump makes every backup unreadable, and the database path never checks at all~~ — **done, `d0c64f5`..`5c2096c`**
 `shared/migrations.ts` · `src/store/db.ts` · `tests/store/{migrations,db}.test.ts` · **medium, 3–5 h**
 
 `SCHEMA_VERSION = 3`, and `checkSchema` throws in **both** directions. The
@@ -398,7 +398,7 @@ would currently make a maintainer notice is a `tsc` error, because
 `character.ts:270` hardcodes the literal `3` against a `typeof SCHEMA_VERSION`
 field. That error points at the wrong file.
 
-- [x] ~~A converter chain keyed by version~~ — **done, `b514cbc`**. A chain and
+- [x] ~~A converter chain keyed by version~~ — **done, `d0c64f5`**. A chain and
       not a jump table: each converter reads one version and produces exactly
       that version plus one, so the cost of a bump stays one function forever.
       Converters take a plain record rather than a `Character`, because a v2
@@ -411,7 +411,7 @@ field. That error points at the wrong file.
       machine and `OLDEST_READABLE` is 3. Writing converters for them would be
       inventing a history to be compatible with. What had to exist *before* the
       first bump is the machinery, the policy and the test.
-- [x] ~~Applied on read rather than rejected~~ — **done, `0f6db68`**.
+- [x] ~~Applied on read rather than rejected~~ — **done, `f5e4fcd`**.
       `readCharacter` converts before it reads, which is the whole change:
       everything below that line reads fields by name. When a converter runs the
       user is told which schema the file came from and what each converter did —
@@ -419,7 +419,7 @@ field. That error points at the wrong file.
       Two refusals survive and they are the only two that can: a file from the
       future, and a version below `OLDEST_READABLE`.
 - [x] ~~Read `schemaVersion` in `listCharacters`, quarantine anything newer~~ —
-      **done, `23a626e`**, as `readLibrary()`. Quarantined records are named to
+      **done, `dd4c5e5`**, as `readLibrary()`. Quarantined records are named to
       the user one by one rather than counted: *"some characters could not be
       read"* is the sentence that makes a person open every sheet looking for
       the missing one. `putCharacter` reads before it writes and refuses to
@@ -427,7 +427,7 @@ field. That error points at the wrong file.
       debounced write, in exchange for an old bundle being unable to flatten a
       newer one's work.
 - [x] ~~Give `db()` an `oldVersion` branch and a `VersionError` message~~ —
-      **done, `23a626e`**, plus `blocked`/`blocking`. Without the branch the
+      **done, `dd4c5e5`**, plus `blocked`/`blocking`. Without the branch the
       first `DB_VERSION` bump throws `ConstraintError` on every device that
       already has a database, which is every device with a character on it.
 - [x] ~~A stated policy, and `fake-indexeddb` so a test can prove it~~ —
@@ -449,7 +449,7 @@ P0-3's failure arriving as a side effect of P0-8's fix, caught because
 Nothing here loses data, but each one makes the app confidently wrong about a
 rule at the table, which is how a tool like this loses trust permanently.
 
-### ~~P1-1 · Attack rolls do not lead into damage rolls~~ — **done, `9b4053a`, `d708b38`, `5c18104`, `42c4bfa`**
+### ~~P1-1 · Attack rolls do not lead into damage rolls~~ — **done, `712c4c9`, `21fc308`, `76ede0f`, `38b0b0e`**
 `src/engine/dice.ts:264` · `src/ui/player/DamageRoll.tsx` · `src/ui/player/Play.tsx`
 · **medium, 4–6 h** · *requested directly*
 
@@ -458,7 +458,7 @@ after them name what was deliberately left out: extra damage **dice**, and the
 `companion` attack source. Neither is this item, and both are written down where
 a reader will meet them — the dice in `Architecture.md` §3.2, the companion in
 the paragraph below. The verification pass that read the diff back afterwards is
-`886fc00`, `c30e51c`, `106445b`, `35d64f9`, `c2962fa`, `5d7737e` and `3041d6f`.
+`62b804f`, `b6789f6`, `e21f68c`, `2bafea2`, `281a3ec`, `9f92121` and `7abdefd`.
 
 The SRD is explicit (`data/srd-1.0.json`, rule `attacking`, p. 39): *"On a
 successful attack, roll damage."* Attack first, then — only on a hit — damage.
@@ -485,7 +485,7 @@ is gone in favour of `weaponDamage`. **What is still missing is the last link:
 nothing calls `rollDamage` yet.** A successful roll does not offer the damage
 step, so `rollDamage` still has zero callers outside tests.
 
-**[corrected again, `9b4053a`..] The last link is built.** `rollDamage` has a
+**[corrected again, `712c4c9`..] The last link is built.** `rollDamage` has a
 caller: `src/ui/player/DamageRoll.tsx`, mounted last in the phone's roll block
 and between ROLL and the log on desktop. `DualityRoll` snapshots the attack out
 of the `DualityResult` that produced it and hands it over; the row asks
@@ -505,7 +505,7 @@ needs a second armed slot on Play and a decision about whose Proficiency and
 whose roll it is.
 
 - [x] ~~Carry the resolved attack — including `critical` — into a damage roll
-      offered on success. Offer, never auto-apply~~ — **done, `9b4053a`**. The
+      offered on success. Offer, never auto-apply~~ — **done, `712c4c9`**. The
       row is `src/ui/player/DamageRoll.tsx`, in its own file so that it cannot
       reach for `succeeded` instead of asking `damageOffer`, and so that
       `rollAffordance.test.ts`'s counts over `DualityRoll.tsx` still mean what
@@ -533,7 +533,7 @@ whose roll it is.
       time an effect says to deal damage using your Spellcast trait, you roll a
       number of dice equal to your Spellcast trait"*, and at +0 or lower you roll
       nothing. 77 of the 189 domain cards mention Spellcast and 43 carry a dice
-      formula; none is rollable today.~~ — **done, the commit after `d708b38`**;
+      formula; none is rollable today.~~ — **done, the commit after `21fc308`**;
       the house form names a sha and a commit cannot name its own. A panel in
       `Equipped`, drawn only for a character who has a Spellcast trait at all.
       The app supplies the one number that is on the sheet — the die count, which
@@ -546,7 +546,7 @@ whose roll it is.
       own sentence stands where the dice would be, in quotation marks because it
       is the book's and not ours.
 - [x] ~~**Unarmed attacks** (`[Proficiency]d4`) do not exist in the code — zero
-      hits for "unarmed" in `src/`.~~ — **done, the commit after `9b4053a`**;
+      hits for "unarmed" in `src/`.~~ — **done, the commit after `712c4c9`**;
       the house form names a sha and a commit cannot name its own. A row after
       the weapons in `Equipped`, drawn even when nothing is equipped, and
       arming it moves no trait chip: *"Unarmed attack rolls use either Strength
@@ -718,7 +718,7 @@ import time, which assumes the ref stays parked forever and fixes the counter
 disagreement instead. The backlog cannot accept the scenario as real there and
 treat it as hypothetical here.
 
-### ~~P1-7 · Rests and downtime, wired to a screen~~ — **done, `d88289c` · `adeaae4` · `851d04c`**
+### ~~P1-7 · Rests and downtime, wired to a screen~~ — **done, `18265c5` · `cdb4f29` · `5ed3def`**
 `src/engine/rest.ts` · `src/ui/player/Rest.tsx` · `shared/types.ts` · **medium, 6–8 h** · *requested directly*
 
 P1-5 left this as a question — wire the rest engine or say out loud that rest
@@ -761,18 +761,18 @@ a pixel from the tokens or the roll path, which is what P2-4 measures the cost
 of. It is also the one place a player looks after a fight ends.
 
 - [x] ~~Persist the consecutive-short-rest count on `Character`.~~ — **done**,
-      `d88289c`, and it is the first real `SCHEMA_VERSION` bump this repository
+      `18265c5`, and it is the first real `SCHEMA_VERSION` bump this repository
       has taken: 3 → 4, one converter writing `0` (a schema-3 build never
       counted, so the app does not know and will not guess), two new committed
       fixtures, and `tests/fixtures/schema/v3.*` left byte-identical, because
       those are the evidence and regenerating them would only prove the new
       code can read its own output. `DB_VERSION` and `CODEC_VERSION` did not
       move; Architecture 6.1 records what that cost. The write itself is
-      `adeaae4`, and it lives in `takeRest` rather than on the screen because
+      `cdb4f29`, and it lives in `takeRest` rather than on the screen because
       `mustTakeLongRest` reads the number eight lines below it — a screen that
       forgot to increment would leave the refusal permanently unreachable,
       which is the state this field was added out of.
-- [x] ~~A rest surface in the Play scroll.~~ — **done**, `851d04c`,
+- [x] ~~A rest surface in the Play scroll.~~ — **done**, `5ed3def`,
       `src/ui/player/Rest.tsx`, between the vault and the carried items. It
       proposes by calling `takeRest` itself with every `fixedRoll` pinned to 1
       and then to 4 and an `Rng` that **throws**, so the bracket on screen and
@@ -1115,7 +1115,7 @@ an explicit choice rather than an accident.
 
 ---
 
-### ~~P3-7 · The harness cannot see the class of defect this project keeps shipping~~ — **done, `c226a09`..`03de58b`**
+### ~~P3-7 · The harness cannot see the class of defect this project keeps shipping~~ — **done, `7a3b079`..`817c62d`**
 `tests/harness/` · `tests/ui/screens.test.tsx` · `vitest.config.ts` · **small, 2–3 h**
 
 Four defects have now reached users with the same shape — code that exists,
@@ -1156,7 +1156,7 @@ files today, so nothing is skipped right now — but `tests/ui/play.test.tsx`, t
 obvious filename for the first real component test, is collected by nothing,
 reported by nothing, and exits green.
 
-- [x] ~~Lift `REGISTER` out and walk all of `src/`~~ — **done, `7416ab4`**, and
+- [x] ~~Lift `REGISTER` out and walk all of `src/`~~ — **done, `73547e1`**, and
       further than proposed. It reaches through the *call graph* rather than
       stopping at the module boundary, which is the clause that catches
       `restoreFromText`: called by `restoreFromPicker`, called by nothing, in a
@@ -1167,10 +1167,10 @@ reported by nothing, and exits green.
       alive. The analysis is its own module with ten tests of its own.
       **42 symbols**, each allowlisted with the reason and the item that
       deletes the line; a second test fails when an entry outlives its reason.
-- [x] ~~Add `.tsx` to `include` **first**~~ — **done, `c226a09`**, with a guard
+- [x] ~~Add `.tsx` to `include` **first**~~ — **done, `7a3b079`**, with a guard
       that walks the disk rather than restating the config: every `*.test.ts`
       and `*.test.tsx` present must be matched by some include pattern.
-- [x] ~~One parameterised smoke mount~~ — **done, `4047a39` + `03de58b`**. All
+- [x] ~~One parameterised smoke mount~~ — **done, `54a8132` + `817c62d`**. All
       **76** exported components, in jsdom, under `act()`, against a level-3
       Bard built from the shipped SRD rather than a synthetic dataset. Three
       questions each: it mounts, it draws something (or is written down as
@@ -1334,7 +1334,7 @@ So this is one fix in two places, not a divergence.
       belongs to whichever lane owns that file. **Do not strike this entry as a
       whole** — half of it shipped and half of it did not.
 
-### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~ — **done, `905a23c`, `17b4f1c`, `d413e35`; finished by P5-7, `965d419`**
+### ~~P3-10 · The licence notice is on screen only for a user who has no characters~~ — **done, `54da813`, `e70abba`, `13981ff`; finished by P5-7, `965d419`**
 `src/ui/shell/App.tsx:170, 175, 237` · `Architecture.md:163, 629` · **small, 1–2 h**
 
 **Struck now, and its three bullets are ticked below with the commits that did
@@ -1345,9 +1345,9 @@ of this document and nowhere else.**
 The history is worth keeping in one place, because the same defect came back in
 a second shape and neither shape was an accident:
 
-1. **The notice was only on the empty state** (this entry). `905a23c` gave the
+1. **The notice was only on the empty state** (this entry). `54da813` gave the
    shell a real `<footer>` and put the notice in it, so it survived having a
-   character; `17b4f1c` deleted the second literal in `About.tsx`; `d413e35`
+   character; `e70abba` deleted the second literal in `About.tsx`; `13981ff`
    made the compatibility mark survive going offline.
 2. **That footer was a fixed strip, and a fixed strip costs a band on every
    frame** — 126px of a 393px phone, measured. Which means every layout pass
@@ -1381,7 +1381,7 @@ where being wrong stops the project rather than costing a character.
 
 - [x] Put the attribution somewhere that survives having a character. A footer on
       Settings and About is the minimum; `Architecture.md` asks for the shell.
-      — `905a23c`. The shell got its first real `<footer>`; P5-7 (`965d419`)
+      — `54da813`. The shell got its first real `<footer>`; P5-7 (`965d419`)
       moved it out of the pinned strip and onto all five screens.
 - [x] Delete `About.tsx:18-22` and import the copy at `CompatibleMark.tsx:54-57`.
       They are two independent literals that both normalise to the same 342
@@ -1389,12 +1389,12 @@ where being wrong stops the project rather than costing a character.
       already on the P4 work list, so the next refactor drops the notice with CI
       green. The repo learned this exact lesson for a lower-stakes duplicate:
       *"the two duplicated light palettes are now pinned to each other."*
-      — `17b4f1c`. One literal, and `attribution.test.tsx` fails if a second
+      — `e70abba`. One literal, and `attribution.test.tsx` fails if a second
       one is ever declared anywhere in `src/`.
 - [x] A render test asserting the string reaches the DOM on the screens that must
       carry it. Across 50 test files the only assertion is
       `printSheet.test.ts:236`, which covers the paper sheet.
-      — `905a23c`, then strengthened by P5-7: it asks **every** screen rather
+      — `54da813`, then strengthened by P5-7: it asks **every** screen rather
       than the ones that must, because "must" turned out to be the negotiable
       word.
 
@@ -1412,7 +1412,7 @@ where being wrong stops the project rather than costing a character.
 - [ ] **`env.sh` explains that the toolchain exists because Homebrew Node is
       broken.** That was repaired this session; the rationale is now stale.
 - [x] ~~Changelog and a release process. Version is still `0.1.0`.~~ — **done,
-      `8afc144`**. `CHANGELOG.md` exists and `package.json` is `0.2.0`. The
+      `6898a57`**. `CHANGELOG.md` exists and `package.json` is `0.2.0`. The
       release process itself is not written down anywhere and is not claimed to
       be; what this bullet asked for was the file and a version the project
       chose rather than the scaffold's default. **`0.2.0` is deliberate and
@@ -1569,25 +1569,25 @@ the choices below are settled and are recorded here as decisions rather than as
 options. Where a decision overrules something written above, the older text is
 marked.
 
-## ~~P5-1 · The Play screen is not the sheet, and on a phone it is not close~~ — **done, `e2670ba`, `a0a389e`, `5be7384`, `52da38c`, `d80bb51`, `9035b2b`**
+## ~~P5-1 · The Play screen is not the sheet, and on a phone it is not close~~ — **done, `03897ae`, `ed458f2`, `efe0dc5`, `08ec0f9`, `0e0ab42`, `b5d4f35`**
 
 **decided: it becomes the sheet** · `src/ui/player/Play.tsx` · `src/ui/player/Vitals.tsx` ·
 `src/ui/player/DualityRoll.tsx` · **large, 12–16 h**
 
 The boxes below were never ticked one by one; they were all answered, and the
-tree says so. `e2670ba` put the whole sheet on a phone in the paper's order —
+tree says so. `03897ae` put the whole sheet on a phone in the paper's order —
 Evasion, thresholds, Proficiency, class/subclass/ancestry/community and gold are
-on a phone for the first time; `d80bb51` added the vault and made a card that
-will not recall say why; `a0a389e` gave it five `Disclosure` folds that each
-character remembers; `5be7384` made the counters numbers with a keypad behind
+on a phone for the first time; `0e0ab42` added the vault and made a card that
+will not recall say why; `ed458f2` gave it five `Disclosure` folds that each
+character remembers; `efe0dc5` made the counters numbers with a keypad behind
 `prefs.counterStyle`, defaulting to numbers, on phone and tablet only — **and
 decision 7 has since reversed the preference half of that**: `bfd6e4e` drew the
 desktop cockpit's four counters as numbers too and `0719e4e` deleted
 `prefs.counterStyle` and its Settings switch, so the pip tracks are off the
 player's own sheet on every layout and survive only on the party board, the live
-scene and the companion; `52da38c`
+scene and the companion; `08ec0f9`
 put the trait verbs on the tiles, read out of the SRD rather than typed in; and
-`9035b2b` carried the same stack to every iPad, which is P2-1's tablet half.
+`b5d4f35` carried the same stack to every iPad, which is P2-1's tablet half.
 
 **Superseded, and left below as the record of what was measured.** The
 `[corrected]` note at the foot of this item says `Play.tsx`'s docblock still
@@ -1714,7 +1714,7 @@ stops being a fixed-block problem once the page is a document).
 screen. The content is bounded and known"*. It has not been true since
 `91097eb`. It is the founding rule failing inside a comment.
 
-### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~ — **done, `14c4118`, `077c5e5`, `aa21391`**
+### ~~P5-1(b) · Renaming a character exists, is unreachable, and is unguarded~~ — **done, `a17f862`, `8cf9f5c`, `440f94f`**
 
 **requested directly** · `src/ui/build/Edit.tsx:113` · `src/store/merge.ts:77` ·
 **small, 2–3 h** · *lands after the rebuild, in the block the rebuild creates*
@@ -1741,7 +1741,7 @@ paragraph preventing when a file arrives.
 One defect wearing two hats: a real capability nobody can reach, and a written
 invariant defended at one of its two doors.
 
-- [x] ~~Put rename where the name is.~~ — **done, `077c5e5`.** The Identity
+- [x] ~~Put rename where the name is.~~ — **done, `8cf9f5c`.** The Identity
       block, on a 72×44 RENAME chip on the class/subclass row, 51 px clear of
       the header's SETTINGS button (95 px centre to centre, against a ~38–40 px
       fingertip). The name line itself is still a `<div>` with no role, no
@@ -1750,14 +1750,14 @@ invariant defended at one of its two doors.
       another inside the same wrapper, so nothing above it moves; the block
       grows 25 px against a 457 px scroll window, once, permanently.
 - [x] ~~Enforce uniqueness on the rename path *through* `duplicateFor`'s
-      logic.~~ — **done, `14c4118`.** The rule left `duplicateFor`'s body and
+      logic.~~ — **done, `a17f862`.** The rule left `duplicateFor`'s body and
       became `freeName`/`nameHolder`, over one private `nameKey`. The
       comparison also changed: it was `new Set(taken.map((c) => c.name))`,
       which could not see "ilya", " Ilya", or two characters both stored as
       `''`. Nothing is silently rewritten — the refusal names who holds the
       name and offers the next free one in a control you have to press.
 - [x] ~~Renaming *to* empty must not produce two characters both displaying
-      `Unnamed`.~~ — **done, `14c4118`, `077c5e5`.** `spokenName` reads `''` as
+      `Unnamed`.~~ — **done, `a17f862`, `8cf9f5c`.** `spokenName` reads `''` as
       `Unnamed`, so the empty case is the same collision as any other and is
       refused with "both would read \"Unnamed\"". Clearing the field on a lone
       character still stores `''` and never the word.
@@ -1792,7 +1792,7 @@ them becomes silence:
       first in a folder. The picker can now tell those two apart; the file
       system still cannot.
 
-## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `eab26d8`, `f6e264d`, `7b27e57`, `68c8cc7`, `63a2558`, `8e0d02f`**
+## ~~P5-2 · The GM screen is five menus, and a session is not a menu~~ — **done, `c631809`, `fb7a4e1`, `6947a99`, `5ae3ec5`, `78f503d`, `533575a`**
 
 **decided: it becomes one composable session, with multiple campaigns** ·
 `src/ui/gm/` · **large, 16–20 h**
@@ -2058,7 +2058,7 @@ silence:**
       top every 400 ms, under the thumb. If a GM ever wants the order refreshed
       it should be a control, not a side effect of the debounce.
 
-## ~~P5-3 · What the GM screen could have at hand, and does not~~ — **done, `65de51a`, `119816f`, `1f9afcc`, `7f19d78`, `81c1df2`, `246f84b`, `32af6b2`, `ce14170`, `33cffaa`**
+## ~~P5-3 · What the GM screen could have at hand, and does not~~ — **done, `e4def92`, `3f2a361`, `51264bd`, `702c72c`, `82fe585`, `674ab9a`, `fe3d788`, `1317299`, `2a9f5dc`**
 
 **source: the official GM screen** · `src/ui/gm/Reference.tsx`,
 `src/ui/gm/ReferenceTables.tsx`, `src/ui/shared/srdReference.ts` ·
@@ -2080,18 +2080,18 @@ record that preserves the error is a record the next builder copies.
 
 The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
 
-- [x] ~~**The improvised-adversary table by tier**~~ — **done, `119816f`.**
+- [x] ~~**The improvised-adversary table by tier**~~ — **done, `3f2a361`.**
       Attack modifier, damage dice, difficulty, damage thresholds, read out of
       `rules['adversary-stat-block-benchmarks']` (p.73) with the environment
       table from p.102 beside it, and the campaign's own tier drawn first and
       marked. `engine/encounter.ts::TIER_BENCHMARKS` was the same table typed
-      by hand and was **deleted** rather than wired (`1f9afcc`): it had already
+      by hand and was **deleted** rather than wired (`51264bd`): it had already
       dropped the `+` from `+1` and split `Major 7/Severe 12`, so a screen built
       on it would have carried an `SRD 1.0 · P.73` stamp over text that is not
       the dataset's.
 - [x] ~~**Difficulty as a labelled ladder** (5 · 10 · 15 · 20 · 25 · 30, Very
       Easy to Very Hard) wherever a difficulty is set~~ — **corrected, then
-      done, `32af6b2`.** The five adjectives are on the printed GM screen and
+      done, `fe3d788`.** The five adjectives are on the printed GM screen and
       occur **zero times** in `data/srd-1.0.json`, so shipping them would mean
       typing Darrington Press's wording into this repository. The SRD gives
       something better and the app now prints it: for each of the eighteen trait
@@ -2100,19 +2100,19 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       `tests/ui/srdReference.test.ts` pins that neither adjective is in the
       dataset and sweeps `src/` for both.
 - [x] ~~**Fear per scene type** — incidental 1–2~~ — **corrected, then done,
-      `7f19d78`.** The dataset says **0–1 Fear** for an incidental scene, not
+      `702c72c`.** The dataset says **0–1 Fear** for an incidental scene, not
       1–2; the rest (1–3, 2–4, 4–8, 6–12) was right. A builder copying this
       bullet would have shipped the wrong number under an SRD stamp. The whole
       of `rules['using-fear']` (p.65) is drawn, and a shut fold under the Fear
       board's twelve targets carries it beside the control it is about.
-- [x] ~~**Dynamic countdown advancement**~~ — **done, `81c1df2`.** The five-row
+- [x] ~~**Dynamic countdown advancement**~~ — **done, `82fe585`.** The five-row
       chart from `rules['countdowns']` (p.69), read-only on the reference and
       pressable on a dynamic countdown's own row: six of the ten advancement
       cells carry a number and become buttons, and the four reading *No
       advancement* are printed and are not. The app never decides that a trigger
       fired — the GM presses the outcome that happened.
 - [x] ~~**Range and distance in squares, feet *and metres*.**~~ — **corrected,
-      then done, `246f84b`.** The SRD carries feet and the optional 1-inch-grid
+      then done, `674ab9a`.** The SRD carries feet and the optional 1-inch-grid
       squares and **no metric column at all**, so the metres are not text to
       quote — they are arithmetic the app does. Feet × 0.3048, rounded to the
       nearest half metre below ten and the nearest whole metre above, drawn in
@@ -2120,7 +2120,7 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       a legend stating the multiplication and the rounding. The two ranges the
       SRD gives no number for get no figure here.
 - [x] ~~**the Experience examples** — the improvising GM's other half~~ —
-      **done, `ce14170`, `33cffaa`.** Both halves. The GM's eighteen from
+      **done, `1317299`, `2a9f5dc`.** Both halves. The GM's eighteen from
       `rules['using-adversaries']` (p.71) are a reference topic; the player's
       seventy-nine from `rules['character-creation']` (p.4) replace the five
       that were **typed by hand into `Wizard.tsx`** beside a paraphrase of the
@@ -2135,7 +2135,7 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       somebody has to rediscover. If the owner wants generators, they are a new
       item with their own source, and that source cannot be the licensed books.
 - [x] ~~**GM moves, principles and best practices** as reference the MENU can
-      reach~~ — **done, `ce14170`.** Five sections, five shut folds, each with
+      reach~~ — **done, `1317299`.** Five sections, five shut folds, each with
       its own page stamp: `gm-principles` and `gm-practices` (63),
       `making-gm-moves` (64), `gm-moves-and-adversary-actions` (37) and
       `pitfalls-to-avoid` (64). All of it is in the shipped SRD; nothing was
@@ -2163,7 +2163,7 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
 
 **Then a verifier read the diff back and found five sentences the code could not
 honour**, all of them in the half of P5-3 that is drawn twice. They are fixed in
-`fd799f3`, `4701e9f`, `dbfda63`, `caebbc8` and `2d19292`, and they are worth
+`9711a7d`, `f676812`, `a7c1cce`, `1094158` and `9c372ef`, and they are worth
 keeping because four of the five are one shape — *a component behind two doors
 describing the door it did not come through*:
 
@@ -2190,7 +2190,7 @@ describing the door it did not come through*:
   only one topic" over a guard that cannot fire on a seven-element const, and a
   chip row computed at 284px that is 302.
 
-## ~~P5-4 · The printed sheet against the official one~~ — **done, `8680f1b`**
+## ~~P5-4 · The printed sheet against the official one~~ — **done, `b64a52e`**
 
 **source: the official character sheet** · `src/ui/print/` · **medium, 4–6 h**
 
@@ -2214,7 +2214,7 @@ sheet must not imply there is), and `MAX_CHESTS` left at 1.
 The comparison the owner asked for, and it is favourable: `Gold` is already
 `{ handfuls, bags, chests }`, exactly the paper model, and the level-up tier
 boxes in `LevelUp.tsx` already mirror the guide page — including the black box
-that `33a7d92` and `0fb3365` just made behave.
+that `0626368` and `d71136c` just made behave.
 
 - [ ] Compare `src/ui/print/CharacterSheet.tsx` field by field against the
       official sheet and list what is missing, what is named differently, and
@@ -2957,7 +2957,7 @@ Verified, and listed so effort goes where it is needed.
   the chunk graph from what Vite actually emitted rather than trusting a
   manifest, and **refuses to adopt an `index.html` whose bundle it could not
   fetch** — the classic half-update PWA breakage, explicitly and testably
-  prevented. ~~Fix the `brand/` gap in P3-3~~ — **done, `d413e35`..`c313d60`**
+  prevented. ~~Fix the `brand/` gap in P3-3~~ — **done, `13981ff`..`38372ae`**
   (the reference was to P3-4, not P3-3). `brand/` is precached and routed, the
   precache test now derives its expectation from what Vite emitted rather than
   from three guesses, and the importer chunk is refetched before it is pruned.
@@ -2995,30 +2995,30 @@ against the tree while writing this, so a cold start does not rebuild them:
 
 | item | shipped in | check |
 |---|---|---|
-| P1-2 recall pays in HP | `1a7ba19` | `Play.tsx` and `Cards.tsx` both read `check.affordable` |
-| P1-3 Proficiency twice in a tier | `33a7d92`, `0fb3365` | `levelUp.ts:206` charges `option.slots` |
-| P1-4 School of Knowledge, Beastbound | `1ae3ca1`, `7af6392` | `cardAllowance.ts` carries `Accomplished` and `Brilliant` |
-| P1-5 armour ref, downtime label, one armour slot, seeded HP | `29d9c7f`, `851d04c`, `37c46e3`, `8f187d4` | `character.ts` carries `unresolvedArmor`; `newCharacter` seeds from the class; `Cards.tsx` branches on the rest, not on the cost |
-| P2-1 the tablet band | `9035b2b` | every iPad gets the one-column sheet |
-| P2-5 a bundle that will not evaluate | `8f9751a` | `index.html` carries an inline IndexedDB hatch |
-| P3-2 the gear search | `9722e26` | |
-| P3-3 unbounded counter maxima | `8908b46` | |
-| P3-5 the one-in-five flaky test | `57023b1`, `ac7177e` | |
-| P3-6 the card reader's footer | `9857e03` | |
-| P3-8 offline readiness in Settings | `aa37467` | |
-| P3-9 three controls that said the wrong thing | `d80bb51`, `ac8a92c`, `962fbee` | |
-| P3-10 the licence notice | `905a23c`, `17b4f1c`, `d413e35` | now struck at its own entry, with what P5-7 (`965d419`) finished |
-| P3-11 the card's action, and RECALL the price | `ac8a92c`, `e434605` | |
-| P4-1 to P4-5, P4-9 to P4-13 | `51cc7ea`, `894e1a2`, `21d9e64`, `2ccbc08`, `8afc144`, `4626a0c`, `da5e4dd`, `8914da6`, `15456c9` | |
+| P1-2 recall pays in HP | `8a87433` | `Play.tsx` and `Cards.tsx` both read `check.affordable` |
+| P1-3 Proficiency twice in a tier | `0626368`, `d71136c` | `levelUp.ts:206` charges `option.slots` |
+| P1-4 School of Knowledge, Beastbound | `d7b0370`, `d5d56b9` | `cardAllowance.ts` carries `Accomplished` and `Brilliant` |
+| P1-5 armour ref, downtime label, one armour slot, seeded HP | `97fd2d9`, `5ed3def`, `af414eb`, `941f312` | `character.ts` carries `unresolvedArmor`; `newCharacter` seeds from the class; `Cards.tsx` branches on the rest, not on the cost |
+| P2-1 the tablet band | `b5d4f35` | every iPad gets the one-column sheet |
+| P2-5 a bundle that will not evaluate | `d85420c` | `index.html` carries an inline IndexedDB hatch |
+| P3-2 the gear search | `8af234b` | |
+| P3-3 unbounded counter maxima | `234b878` | |
+| P3-5 the one-in-five flaky test | `59ec924`, `2331edf` | |
+| P3-6 the card reader's footer | `4eb636f` | |
+| P3-8 offline readiness in Settings | `2393b48` | |
+| P3-9 three controls that said the wrong thing | `0e0ab42`, `ebecd1f`, `411f415` | |
+| P3-10 the licence notice | `54da813`, `e70abba`, `13981ff` | now struck at its own entry, with what P5-7 (`965d419`) finished |
+| P3-11 the card's action, and RECALL the price | `ebecd1f`, `8ebe8df` | |
+| P4-1 to P4-5, P4-9 to P4-13 | `298f8fe`, `daaea3f`, `9fe630b`, `a58938c`, `6898a57`, `ac54a8d`, `3342089`, `d24702c`, `f19876f` | |
 
 **Part-done, so the entry stays open and this is which half.** P1-6's *display*
-half shipped (`e9f150b`, `4a99811`) and its *healing* half did not:
+half shipped (`cd39976`, `b92dc09`) and its *healing* half did not:
 `resolvePlaceholders` still has no caller in `src/`, and `Transfer.tsx` still
 prints a promise no code performs — it is in `tests/harness/orphans.test.ts`'s
 `DELIBERATE` list naming this item. P2-6's dialogs and reduced-motion halves
-shipped (`8428ddc`, `79a4e54`); the desktop roll result is still announced by
+shipped (`948e7fb`, `05e3e4e`); the desktop roll result is still announced by
 nothing, since `aria-live` appears nowhere in `src/ui/player/`. P3-4's brand
-assets are precached and routed (`d413e35`, and `sw.js`'s `STATIC_DIRS` now
+assets are precached and routed (`13981ff`, and `sw.js`'s `STATIC_DIRS` now
 holds `brand/`); the SRD's weight on the boot path and the QR stack's are not
 touched.
 

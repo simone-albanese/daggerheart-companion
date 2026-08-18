@@ -1191,7 +1191,7 @@ Il canale di trasferimento (§ 5) serve quindi soprattutto a **spostare il tuo
 personaggio fra i tuoi dispositivi**: costruito su desktop, giocato su telefono,
 consultato su tablet. In secondo piano, passare un pregenerato a un giocatore nuovo.
 
-**La casa del GM è la lista della serata** (P5-2). Fino a `eab26d8` questa
+**La casa del GM è la lista della serata** (P5-2). Fino a `c631809` questa
 schermata era una striscia di cinque tab — encounter, scene, party, bestiary,
 countdown — e ognuna funzionava; quello che nessuna era è *la serata*. Il record
 della campagna porta una `session: SessionItem[]` da quando esistono le
