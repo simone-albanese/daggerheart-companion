@@ -130,21 +130,29 @@ const TOOL_LABEL: Record<GmRegion, string> = {
 const SHEET_LABEL: Record<GmSheetId, string> = {
   menu: 'Menu and campaigns',
   add: 'Add to the night',
-  show: 'Bestiary and party board',
+  show: 'Bestiary, party board and rules search',
   save: 'Where this campaign is kept',
 };
 
 /**
  * SHOW's name, which has to say what is behind it *today*.
  *
- * Both halves of the fork are switchable, so the fixed label above is only true
- * while both are on. A dialog announced as "Bestiary and party board" that
- * offers one of the two is the small, everyday version of the rule this project
- * keeps: the screen does not get to claim something that is not there.
+ * Both halves of the fork are switchable, so a fixed label is only true while
+ * both are on. A dialog announced as "Bestiary and party board" that offers one
+ * of the two is the small, everyday version of the rule this project keeps: the
+ * screen does not get to claim something that is not there.
+ *
+ * The rule cuts the other way as well, and this function only did half of it
+ * until the search arrived. `ShowSheet` now draws the rules field under the
+ * doors in **every** state it can be in - both forks, either fork alone - so
+ * the search is the one part of this name that never varies, and a name that
+ * left it out described the sheet a GM heard announced less well than the one
+ * they could see. The fork is what the branch below is for; the search is in
+ * all three answers because it is behind SHOW in all three.
  */
 function showLabel(bestiary: boolean, partyBoard: boolean): string {
   if (bestiary && partyBoard) return SHEET_LABEL.show;
-  return bestiary ? 'Bestiary' : 'The party board';
+  return bestiary ? 'Bestiary and rules search' : 'The party board and rules search';
 }
 
 export function Gm(): React.JSX.Element {

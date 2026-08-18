@@ -530,7 +530,7 @@ function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
           >
             {off
               ? 'The GM section is off, so these two decide nothing until it is back on. They are remembered in the meantime.'
-              : 'With both off SHOW has nothing left to open, so it leaves the GM screen’s bottom bar and ADD and SAVE take the width. Everything else on that screen is unchanged.'}
+              : 'With both off SHOW has nothing left to open, so it leaves the GM screen’s bottom bar and ADD and SAVE take the width. The rules search lives on that sheet, so it goes with it; the reference behind MENU does not. Everything else on that screen is unchanged.'}
           </div>
         )}
       </Rows>

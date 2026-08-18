@@ -83,6 +83,7 @@ import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Names } from '../../src/ui/gm/Names.tsx';
 import { PartyScanner } from '../../src/ui/gm/PartyScanner.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
+import { RuleSearchField, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
 import {
   AdversaryExperiences,
   BlockView,
@@ -626,6 +627,13 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // reaching the panel rather than leaving a black rectangle.
   'gm/PartyScanner.tsx::PartyScanner': () => <PartyScanner onArrived={noop} />,
   'gm/Reference.tsx::Reference': () => <Reference />,
+  // A query already typed, because the field draws its CLEAR only once there
+  // is something to clear and the results only once there is something to
+  // find - both of which are render paths, and the empty one is the sheet's.
+  'gm/RuleSearch.tsx::RuleSearchField': () => (
+    <RuleSearchField value="fear" onChange={noop} total={dataset.rules.length} />
+  ),
+  'gm/RuleSearch.tsx::RuleSearchResults': () => <RuleSearchResults query="fear" />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,

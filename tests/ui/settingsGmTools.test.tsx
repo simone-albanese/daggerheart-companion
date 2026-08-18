@@ -157,6 +157,10 @@ describe('the GM tools section', () => {
     // evening and the other two verbs take the width.
     await mount({ gmBestiary: false, gmPartyBoard: false });
     expect(text()).toContain('SHOW has nothing left to open');
+    // And the rules search is on that sheet, so this has to say that it goes
+    // with it: a GM who reads only this row would otherwise switch two tools
+    // off and lose a third thing nobody mentioned.
+    expect(text()).toContain('The rules search lives on that sheet, so it goes with it');
 
     await mount({ gmBestiary: false });
     expect(text()).not.toContain('SHOW has nothing left to open');
