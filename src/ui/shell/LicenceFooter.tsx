@@ -20,8 +20,12 @@
  * P3-10 fixed the absence and left three behaviours behind it:
  *
  *   Cards, Build, Settings   a `flex: 'none'` sibling of the screen inside
- *                            `<main>` - a fixed strip above the tab bar, ~111px
- *                            of a 393px phone, permanently
+ *                            `<main>` - a fixed strip above the tab bar,
+ *                            permanently, and at least the 126.16px this
+ *                            notice measures on a 369px column at 393x852: a
+ *                            pinned one also painted a panel and its own
+ *                            horizontal padding. ("~111px" stood here, and it
+ *                            was the estimate below, before it was measured)
  *   GM                       inside the session list's scroll but pushed down
  *                            with `marginTop: 'auto'`, which on a short list
  *                            looks and costs exactly like the fixed strip
@@ -47,8 +51,8 @@
  *   > trade and it is the one thing here worth arguing with."
  *
  * It was argued with, and it loses on its own terms. Every number in it is
- * about a *fixed* strip: 111px taken off the top of the scroll window, forever,
- * on the one screen with the tightest budget in the app. Below the last fold of
+ * about a *fixed* strip - its "111px" taken off the top of the scroll window,
+ * forever, on the one screen with the tightest budget in the app. Below the last fold of
  * a scrolling sheet it takes none of that - `PlayPhone`'s budget runs to the
  * bottom edge of the lineage fold and the notice is below it, so it costs the
  * sheet nothing that the sheet was ever counting. The trade the paragraph
