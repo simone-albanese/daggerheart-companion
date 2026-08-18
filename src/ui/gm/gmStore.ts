@@ -883,6 +883,20 @@ export const useGm = create<GmState>((set, get) => {
        * line the next flush returns at `if (!dirty)`, so the retry the strip
        * offers writes nothing, `pagehide` writes nothing, and the campaign
        * survives only because some later unrelated change happens to carry it.
+       *
+       * AND IT IS MADE ACTIVE EVEN THOUGH THE WRITE FAILED, which the backlog
+       * filed as a defect and which is a decision, re-examined on 2026-08-18
+       * and kept. It used to be forced: leaving the GM on the old board left
+       * the new campaign unwritable, because nothing could write a campaign
+       * that was not open. `aside` can now, so for the first time the other
+       * behaviour is buildable - and it is still not the better one. The tap
+       * said NEW CAMPAIGN and a board arrives; the failure is a sentence on
+       * that board rather than a screen that did not change, which reads as
+       * the tap having been ignored. Nothing is at risk either way: the
+       * campaign being left lands first, on the `flushGm` at the top of this
+       * function, so the only thing the failure can cost is a campaign that
+       * has nothing in it yet. Do not re-open this as "the campaign is made
+       * active either way" - that is true, and it is the answer.
        */
       if (failed) dirty = true;
       return campaign;

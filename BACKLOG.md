@@ -2196,15 +2196,19 @@ silence:**
       replaced, and the fifth is the control that pins `clearAll` still taking
       quarantined records, since the reset button must not leave other people's
       sheets on a wiped device.
-      **First half still open, and re-examine the premise before building it.**
-      `createCampaign` making the campaign active on a failed write is defended
-      in the code, and the defence was load-bearing: without it `dirty` stayed
-      false, so TRY AGAIN wrote nothing. That is no longer the only route —
-      `aside` can now write a campaign nobody is looking at — so *for the first
-      time* leaving the GM on the old board is buildable. Whether it is right is
-      a different question: a GM who tapped NEW CAMPAIGN and is put back on the
-      old one may read that as the tap having failed. **Needs a decision, not an
-      implementation.**
+      **First half decided, and kept — it is not an open defect.** The premise was
+      re-examined once `aside` existed, because until then the behaviour was
+      forced rather than chosen: leaving the GM on the old board left the new
+      campaign unwritable, since nothing could write a campaign that was not
+      open. `aside` can, so the alternative became buildable for the first time,
+      and it is still not the better one. The tap said NEW CAMPAIGN and a board
+      arrives; the failure is a sentence on that board, where a screen that did
+      not change reads as the tap having been ignored. Nothing is at risk either
+      way — the campaign being left lands first, on the `flushGm` at the head of
+      `createCampaign` — so the worst case is an empty campaign that has to be
+      made again. The reasoning is in the code beside the line it is about, and
+      it says not to re-open this as *"the campaign is made active either way"*:
+      that is true, and it is the answer rather than the complaint.
 - [x] ~~**`readCampaigns().repaired` is computed, tested and consumed by nobody,**
       so a repaired campaign is repaired again on every launch.~~ — **done.**
       `hydrateGm` sends every repaired record to `scheduleAside`, which is the
