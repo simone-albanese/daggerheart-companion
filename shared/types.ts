@@ -497,6 +497,33 @@ export interface Countdown {
   kind: CountdownKind;
   start: number;
   value: number;
+  /**
+   * Persisted, read back, written back, and drawn by nothing. On purpose.
+   *
+   * `addCountdown` seeds it `''` (`src/ui/gm/gmStore.ts`), `readCountdown`
+   * carries it through every load (`shared/campaigns.ts`), and the frozen v1
+   * fixture holds a non-empty one — so the bytes survive, and a campaign
+   * written by a build that *did* draw the field would keep it. What no screen
+   * does is show it, and `grep -rn 'countdown.notes' src/` is empty.
+   *
+   * That was a gap (`BACKLOG.md` P5-2, «persisted, read, rendered nowhere»)
+   * until 2026-08-18, when it became a decision. The prose a GM wants at the
+   * table is formatted — bold, bullets, a centred heading — and it belongs to
+   * a scene or a session, not to a clock. It is therefore getting a row of its
+   * own. Drawing a second, plainer note field on the countdown beside it would
+   * put two note surfaces in one list disagreeing about what a note is, which
+   * costs more than the absence does.
+   *
+   * The same decision withdrew the «history» that backlog line asked for:
+   * there is no undo here and no dated register, and `CAMPAIGN_MIGRATIONS`
+   * stays empty because of it.
+   *
+   * Not deleted, and deleting it is not a cleanup. `readCountdown` rebuilds
+   * this object field by field and drops every key it does not name, so a
+   * build without `notes` would erase it from every stored campaign on the
+   * next 400ms write — a schema change wearing a tidy-up's clothes. If it is
+   * ever really to go, it goes through the migration chain like anything else.
+   */
   notes: string;
 }
 
