@@ -557,10 +557,14 @@ describe('the whole sheet, at 393x852', () => {
    * of headroom doing nothing. So they are 11, and it costs the column zero.
    *
    * `Carried` is the exception and it is measured rather than guessed: its worst
-   * summary is 257.41px at 10 with a right edge of 364.61 in a 369px column, so
-   * 4.39px of slack, and at 11 the same line runs past 390 and ellipsises - the
-   * gold being the half that goes. That is the failure `Disclosure` exists to
-   * prevent, so `Carried` passes `tightSummary` and keeps its 10.
+   * summary is 257.41px at 10 in a row that wants 350.61 of the button's 365px
+   * content box, so 14.39px of slack - not the 4.39 this and `Disclosure` both
+   * said, which took a right edge counted from the left of the glass off the
+   * column's own width and so paid for the 12px of page padding and the 2px of
+   * button padding twice. At 11 the line is 283.14, wants 376.34, and
+   * ellipsises - the gold being the half that goes. That is the failure
+   * `Disclosure` exists to prevent, so `Carried` passes `tightSummary` and
+   * keeps its 10.
    *
    * This asserts the split rather than the raise, because a raise applied to all
    * six would pass any assertion that only counted 11s.
@@ -595,6 +599,123 @@ describe('the whole sheet, at 393x852', () => {
       'the summaries went back to 10px, so the smallest type on the sheet is small again ' +
         'for no reason - the room it needs is headroom nothing else was using',
     ).toBeGreaterThanOrEqual(3);
+  });
+
+  /*
+   * THE TWO PLACES `Disclosure`'s OWN PROSE HAD DRIFTED OFF ITS CODE.
+   *
+   * Both are numbers, both were checked one at a time against a Chrome rig that
+   * draws the real header inside the real column - `.stack.scroll`, `padding:
+   * 8px 12px`, `overflow-x: hidden` - with `tokens.css` and `base.css` loaded
+   * and `IBM Plex Mono` actually resolved. Every other figure in that docblock
+   * reproduced exactly, which is why only these two moved: 257.41 at 10, 283.14
+   * at 11, a `flex: none` right edge of 364.61 that does not move with the
+   * viewport, and 4.61 / 20.61 / 44.61 of it gone at 360 / 344 / 320.
+   *
+   *   1. «the full width of the column - about 369px on a 393px phone - which
+   *      is the largest target on the screen». True of two folds. The other
+   *      four are paired two-up by the test below this one and get 181.5px at
+   *      393 and 165 at 360 - under half, and smaller than ROLL's 317x56 on
+   *      both axes.
+   *
+   *   2. «a right edge of 364.61 in a 369px column - 4.39px of slack». 364.61
+   *      is an offset from the left of the glass and 369 is a width, so the
+   *      subtraction pays for the column's 12px of padding and the button's 2px
+   *      twice. The row wants 350.61 of a 365px content box: 14.39.
+   *
+   * Source-text assertions, with precedent in `domainCardView.test.ts` and in
+   * this file's own «does not put a fade back on the column». jsdom measures no
+   * text, so the arithmetic is derived here from constants read off the two
+   * source files and the docblock is required to carry the answer.
+   */
+  describe('the prose on Disclosure', () => {
+    const source = (): string => readFileSync('src/ui/shared/Disclosure.tsx', 'utf8');
+
+    /** The docblock immediately above a named prop, without its `*` gutter. */
+    const propDoc = (src: string, prop: string): string => {
+      const at = src.indexOf(`${prop}?: `);
+      expect(at, `there is no \`${prop}\` prop any more`).toBeGreaterThan(-1);
+      const opened = src.lastIndexOf('/**', at);
+      return src.slice(opened, at).replace(/^\s*\*+ ?/gm, '');
+    };
+
+    it('does not tell the reader that every fold header is the column whole', () => {
+      const play = readFileSync('src/ui/player/Play.tsx', 'utf8');
+      // The column's own padding and the pair's own gutter, off the elements
+      // rather than retyped: this is the arithmetic the docblock has to agree
+      // with, and it moves when they move.
+      const pad = Number(/padding: '8px (\d+)px 8px'/.exec(play)?.[1]);
+      const gutter = Number(/gap: anyOpen \? 8 : (\d+),/.exec(play)?.[1]);
+      expect([pad, gutter], 'the phone column or the pair gutter has been rewritten').toEqual([
+        12, 6,
+      ]);
+
+      const column = 393 - 2 * pad;
+      const half = (393 - 2 * pad - gutter) / 2;
+      expect([column, half]).toEqual([369, 181.5]);
+
+      const src = source();
+      expect(
+        src,
+        'the header no longer has a half-width case, so the paragraph below may be right again',
+      ).toContain('stacked?: boolean');
+
+      const rule = /The whole header is the target[\s\S]*?\n \*\n/.exec(src)?.[0] ?? '';
+      expect(rule, 'the rule about the header being the target has gone').not.toBe('');
+      expect(
+        rule,
+        'the rule still says the header is the full width of the column and the largest ' +
+          `target on the screen, full stop. Four of the six get ${String(half)}px, which is ` +
+          'under half of it and smaller than ROLL on both axes',
+      ).toContain(String(half));
+      expect(rule).toContain(String(column));
+    });
+
+    it('says how much room Carried actually has, not the column minus an offset', () => {
+      const src = source();
+      // The parts of the shut header, at `.t-meta`'s 10px, measured in Chrome.
+      const MARKER = 8;
+      const GAP = 8;
+      const LABEL = 53.2; // `CARRIED`, .t-label, 7 chars of mono + 0.16em
+      const SPACER_MIN = 8;
+      const SUMMARY = 257.41; // `4 ITEMS · 1 CHEST · 3 BAGS · 7 HANDFULS`
+      const PAGE_PAD = 12;
+
+      // `padding: '0 2px'` on the header button, read off the component.
+      const btnPad = Number(/padding: '0 (\d+)px'/.exec(src)?.[1]);
+      expect(btnPad, "the header button's own padding has moved").toBe(2);
+
+      const content = 369 - 2 * btnPad;
+      const needed = MARKER + GAP + LABEL + GAP + SPACER_MIN + GAP + SUMMARY;
+      const slack = Number((content - needed).toFixed(2));
+      expect([content, Number(needed.toFixed(2)), slack]).toEqual([365, 350.61, 14.39]);
+
+      // The wrong answer, kept here so the test says what it is guarding
+      // against: it is 369 - 364.61, and 364.61 is an offset from the left of
+      // the glass that already contains PAGE_PAD and btnPad.
+      const wrong = Number((369 - (PAGE_PAD + btnPad + needed)).toFixed(2));
+      expect(wrong).toBe(4.39);
+
+      const doc = propDoc(src, 'tightSummary');
+      expect(
+        doc,
+        `\`tightSummary\` still reports ${String(wrong)}px of slack. That is the column's ` +
+          'width less a right edge counted from the left of the glass, which pays for the ' +
+          `${String(PAGE_PAD)}px of page padding and the ${String(btnPad)}px of button ` +
+          `padding twice; the row wants ${String(needed.toFixed(2))} of ${String(content)}`,
+      ).toContain(String(slack));
+      expect(
+        // 14.39 contains 4.39, so the guard has to be anchored.
+        /(?<![\d.])4\.39/.test(doc),
+        'the four-pixel figure is back in the `tightSummary` docblock',
+      ).toBe(false);
+      // Where the edge really is once the span is `0 1 auto` against a spacer
+      // that grows: flush at the column, not at the 364.61 it had while the
+      // span could not shrink.
+      expect(doc, 'the docblock does not say where the right edge actually lands').toContain(
+        String(393 - PAGE_PAD - btnPad),
+      );
+    });
   });
 
   /*
