@@ -32,8 +32,8 @@
  *
  * The chip's own padding and border are NOT in those two sums, and a sentence
  * here once said they were. They are held anyway, one test lower down, for a
- * different reason and stated as that reason: the seven chip widths in
- * `Reference.tsx` - 94.41 through 109.61, their 638.05 sum, the 674.05 and the
+ * different reason and stated as that reason: the eight chip widths in
+ * `Reference.tsx` - 56.41 through 109.61, their 702.05 sum, the 744.05 and the
  * three-row wrap - were measured against `padding: '0 12px'` and a 1px
  * border-box border, and that file's own prose says every earlier estimate was
  * "short by exactly 2.00" because the border was missed. Change either
@@ -47,7 +47,8 @@
  *
  * IT CANNOT HOLD the results. Whether eight rows or nine are on the glass, that
  * the ninth is cut at 757.00 with its type row ending at exactly 757.00, that
- * the chips measure 94.41 and 109.61, that the strip breaks after FEAR: those
+ * the chips measure 56.41 and 109.61, that the strip breaks after COUNTDOWNS
+ * and again after COSTS: those
  * came out of Chrome at 393x852 with a named safe area, jsdom has no layout
  * engine, and an assertion pretending otherwise would be checking this file's
  * own arithmetic. They live in the docblocks with the viewport and the inset
@@ -610,9 +611,9 @@ describe('the GM screen states the geometry its own declarations make', () => {
 
   /*
    * The chip's frame, which is not in either sum above and is what every one of
-   * the seven measured widths was measured inside.
+   * the measured widths was measured inside.
    *
-   * `Reference.tsx` states 94.41 through 109.61, their 638.05, the 674.05 and
+   * `Reference.tsx` states 56.41 through 109.61, their 702.05, the 744.05 and
    * the three-row wrap, and its own prose derives all of it from `padding: 0
    * 12px` and from a chip being border-box with `border: 1px solid` - "every
    * one of them was short by exactly 2.00" is that border, twice. Widen the
@@ -620,24 +621,26 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * nothing to say so. Three mutations proved that: `'0 12px'` to `'0 20px'`,
    * `1px solid` to `4px solid`, and the border deleted, all green.
    */
-  it('holds the chip padding and border the seven measured widths were measured inside', () => {
+  it('holds the chip padding and border every measured width was measured inside', () => {
     expect(
       stated('src/ui/gm/Reference.tsx', /with `padding: 0 (\d+)px`/g),
-      'the docblock names a chip padding the chip no longer declares, so all seven measured ' +
-        'widths and the 674.05 and the three-row wrap are stale. Re-measure the strip.',
+      'the docblock names a chip padding the chip no longer declares, so every measured ' +
+        'width and the 744.05 and the three-row wrap are stale. Re-measure the strip.',
     ).toEqual([chipPadX()]);
     expect(
       stated('src/ui/gm/Reference.tsx', /short by exactly (\d+\.\d\d)/g),
       'the docblock says the estimate was short by a border the chip no longer declares. A ' +
-        'chip is border-box, so this is its border on both edges - re-measure the seven widths.',
+        'chip is border-box, so this is its border on both edges - re-measure every width.',
     ).toEqual([2 * chipBorder()]);
   });
 
   /*
-   * The seven widths are the browser's and cannot be checked here. What can is
-   * that they are still seven, still these seven, and still in this order: a
-   * topic added or renamed makes every one of those numbers a lie, and that is
-   * an edit somebody will make without opening Chrome.
+   * The widths are the browser's and cannot be checked here. What can is that
+   * they are still these labels and still in this order: a topic added or
+   * renamed makes every one of those numbers a lie, and that is an edit
+   * somebody will make without opening Chrome. Since the strip was sorted by
+   * width the order half of that bites twice - the array IS the packing, so a
+   * row moved by hand is a layout changed by hand.
    */
   it('names the topics `REFERENCE_TOPICS` holds, in order, beside their widths', () => {
     const said = [
@@ -654,12 +657,17 @@ describe('the GM screen states the geometry its own declarations make', () => {
         'width in that sentence was measured against one of these labels, so a renamed or added ' +
         'topic makes all of them stale - re-measure the strip.',
     ).toEqual(REFERENCE_TOPICS.map((t) => t.short));
-    expect(
-      stated('src/ui/gm/Reference.tsx', /with six (\d+)px gaps/g),
-      'the strip states a gap it no longer declares',
-    ).toEqual([stripGap()]);
-    const NUMERAL = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
-    const gaps = /with (\w+) \d+px gaps/.exec(prose('src/ui/gm/Reference.tsx'));
+    /*
+     * Both halves of the gap sentence come out of ONE match, and that is the
+     * repair the eighth topic forced. The count was read by a literal `with
+     * six (\d+)px gaps` while the assertion two lines under it derived the
+     * numeral from `REFERENCE_TOPICS.length` - so the file held the count
+     * against the array and against the word "six" at the same time, and no
+     * eighth topic could ever make both green. A test that cannot pass on a
+     * legal edit is the same defect as one that cannot fail on an illegal one.
+     */
+    const NUMERAL = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const gaps = /with (\w+) (\d+)px gaps/.exec(prose('src/ui/gm/Reference.tsx'));
     expect(gaps, '`Reference.tsx` no longer counts the gaps between the chips').not.toBeNull();
     expect(
       gaps![1],
@@ -668,6 +676,10 @@ describe('the GM screen states the geometry its own declarations make', () => {
         `"${NUMERAL[REFERENCE_TOPICS.length - 1]}" - and every width in the sentence above wants ` +
         're-measuring with the topic that changed.',
     ).toBe(NUMERAL[REFERENCE_TOPICS.length - 1]);
+    expect(
+      Number.parseInt(gaps![2]!, 10),
+      'the strip states a gap it no longer declares',
+    ).toBe(stripGap());
   });
 
   /*

@@ -4,14 +4,15 @@
  * ## What this is not
  *
  * It is not a second reference screen, and the shape it takes is the argument.
- * `Reference.tsx` is seven chosen subjects drawn by seven bespoke renderers -
- * the Difficulty ladder pivots, the countdown chart puts a button on its cells
+ * `Reference.tsx` is eight chosen subjects with a renderer apiece - the
+ * Difficulty ladder pivots, the countdown chart puts a button on its cells
  * when there is a countdown for a button to move. Those are the questions a GM
  * knows they have. This is the other kind: a phrase off a page, half
  * remembered, wanted now. It covers every section `dataset.rules` carries -
  * seventy-five in the shipped SRD - and draws every one of them through
  * `BlockView`, which is already this app's single drawing of a section
- * somebody chose: the GM chapter's five folds use it, and so does the
+ * somebody chose: the GM chapter's five folds use it, the costs topic beside
+ * them draws its whole section through it, and so does the
  * `ADD -> LINK -> Rule` row. So there is no second renderer here to fall out of
  * step with the first, and nothing about a section is decided twice.
  *

@@ -91,6 +91,7 @@ import {
   DifficultyLadder,
   FearGuide,
   GmMoves,
+  GoldAndLoot,
   RangeReference,
   TierBenchmarks,
 } from '../../src/ui/gm/ReferenceTables.tsx';
@@ -641,6 +642,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide besidePool={false} />,
   'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
+  // The eighth reference topic. Its section is four paragraphs and one
+  // two-column table, so this is also the only fixture in the file that mounts
+  // `RuleTableView`'s narrow shape by the route a GM actually reaches it on.
+  'gm/ReferenceTables.tsx::GoldAndLoot': () => <GoldAndLoot />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
   // The metric figures are the app's arithmetic and say so; everything else on

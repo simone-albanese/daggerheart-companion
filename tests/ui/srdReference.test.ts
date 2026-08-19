@@ -27,6 +27,7 @@ import {
   environmentBenchmarks,
   fearGuidance,
   gmMoves,
+  goldAndLoot,
   feetRange,
   metreRange,
   metresFromFeet,
@@ -740,6 +741,57 @@ describe('adversaryExperiences', () => {
 
   it('answers with nothing when the section is gone', () => {
     expect(adversaryExperiences([])).toEqual({ title: '', lead: null, items: [], page: null });
+  });
+});
+
+describe('goldAndLoot', () => {
+  const section = (): NonNullable<ReturnType<typeof goldAndLoot>> => goldAndLoot(rules)!;
+
+  it('reads the whole section, with the Average Costs table inside it', () => {
+    expect(section().id).toBe('giving-out-gold-equipment-and-loot');
+    expect(section().title).toBe('Giving Out Gold, Equipment, and Loot');
+    expect(section().page).toBe(69);
+    // The SRD writes this section with no `## ` subhead at all, so it is one
+    // block: four paragraphs of prose and the table, in the book's order.
+    expect(section().blocks).toHaveLength(1);
+    expect(section().blocks[0]!.heading).toBeNull();
+    expect(section().blocks[0]!.parts.map((p) => p.kind)).toEqual([
+      'text',
+      'text',
+      'text',
+      'text',
+      'table',
+    ]);
+  });
+
+  /*
+   * The values, pinned here and nowhere in `src`. The app stamps SRD 1.0 · P.69
+   * beside this table, and that stamp is only honest if what reaches the glass
+   * is byte-for-byte the shipped file - which is the same reason `Handful`,
+   * `Bag` and `Chest` appear in this repository only inside an assertion that
+   * read them back out of `data/srd-1.0.json`.
+   */
+  it('keeps the twelve prices as the book wrote them, ranges included', () => {
+    const table = section().blocks[0]!.parts.find((p) => p.kind === 'table')!;
+    expect(table.table.header).toEqual(['Expense', 'Cost']);
+    expect(table.table.rows).toHaveLength(12);
+    expect(table.table.rows[0]).toEqual([
+      'Meals for a party of adventurers per night',
+      '1 Handful',
+    ]);
+    expect(table.table.rows[8]).toEqual(['Tier 1 equipment (weapons, armor)', '1-5 Handfuls']);
+    expect(table.table.rows[11]).toEqual(['Tier 4 equipment (weapons, armor)', '1-2 Chests']);
+  });
+
+  it('carries the sentence that makes the table a suggestion rather than a price list', () => {
+    const lead = section().blocks[0]!.parts[3]!;
+    expect(lead.kind === 'text' ? lead.text : '').toContain(
+      'adjusting the entries in the Average Costs table',
+    );
+  });
+
+  it('answers null when the dataset does not carry the section', () => {
+    expect(goldAndLoot([])).toBeNull();
   });
 });
 

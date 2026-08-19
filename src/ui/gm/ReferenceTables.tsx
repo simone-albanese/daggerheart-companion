@@ -18,6 +18,14 @@
  * it too, because the pair going out of step is a real hazard and pretending
  * there is no pair is how it would happen unnoticed.
  *
+ * The eleventh table is deliberately not an eleventh pair.
+ * `giving-out-gold-equipment-and-loot` carries the Average Costs table and is
+ * now reachable both ways - the same `LINK -> Rule` row and the costs topic
+ * `GoldAndLoot` adds below - but both doors end in the same `BlockView` and so
+ * in the same `RuleTableView`. Two doors, one drawing, nothing to keep in step.
+ * That is what a bespoke renderer has to earn, and a price list has nothing for
+ * one to do.
+ *
  * Each renderer reads the dataset itself through a narrow `useApp` selector
  * inside a `useMemo` keyed on the whole `dataset` object, the way
  * `Conditions.tsx` does - so a homebrew layer that rewrites a rules section
@@ -45,6 +53,7 @@ import {
   environmentBenchmarks,
   fearGuidance,
   gmMoves,
+  goldAndLoot,
   rangeReference,
   type BenchmarkTable,
   type RangePart,
@@ -936,11 +945,72 @@ export function AdversaryExperiences(): React.JSX.Element {
   );
 }
 
+// ---------------------------------------------------------------------------
+
+/**
+ * What a night at an inn costs, and the SRD's own permission to change it.
+ *
+ * The Average Costs table is the reason this topic exists - it is the one
+ * lookup on this screen that stops play mid-sentence, because a player has
+ * just asked what a horse costs - but the table alone would be a lie by
+ * omission. The SRD prints it under a paragraph that tells the GM to adjust
+ * every entry to their campaign, and a screen showing twelve prices with that
+ * sentence stripped off would be presenting a suggestion as a price list. So
+ * the section is drawn whole, through the same `BlockView` the GM chapter and
+ * the `LINK -> Rule` row already draw a chosen section with, and its one pipe
+ * table lands in `RuleTableView`'s two-column shape - the `Expense | Cost` pair
+ * that view's own docblock already names as its narrow case.
+ *
+ * Nothing here is a target, and that is not an omission either. This app has no
+ * purse, no inventory prices and no shop; a tap on `1 Handful` would have
+ * nothing to spend it on. The GM reads the number and says it out loud.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * `RuleTableView` splits the region's column into two `minmax(0, 1fr)` cells at
+ * a 10px gap. The widest first cell the shipped table carries is
+ * `Meals for a party of adventurers per night` at 42 characters, which is the
+ * 42 that view's docblock costs its two-line case on - so the table's left
+ * column runs to two lines and its right stays on one, all the way down.
+ * Nothing declares a width, so a rules layer that writes a longer expense wraps
+ * instead of pushing the phone sideways.
+ */
+export function GoldAndLoot(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const section = useMemo(() => goldAndLoot(dataset.rules), [dataset]);
+
+  if (section === null) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no costs for gold, equipment or loot. What to charge was always
+        yours to set; what is missing is the SRD&rsquo;s starting point for it.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {section.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{section.page === null ? '' : ` · P.${String(section.page)}`}
+        </span>
+      </div>
+      {section.blocks.map((block, i) => (
+        <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
+      ))}
+    </>
+  );
+}
+
 /**
  * One `## ` block of any rules section: its subhead, its prose, its bullets and
  * its tables.
  *
- * The GM chapter above draws with this, and so does the `LINK -> Rule` row of a
+ * The GM chapter above draws with this, so does the costs topic above it, and
+ * so does the `LINK -> Rule` row of a
  * GM session - which is the reason it is exported rather than private to this
  * file. That row printed a section through `paragraphs()` alone until now, so
  * every bullet it drew carried a literal `- ` and every table came out as raw
