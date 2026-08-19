@@ -1,12 +1,23 @@
 # Handoff — resuming this work with an empty context
 
-> **Superseded. Read `HANDOFF-2026-08-18.md` at the repo root first.**
-> This file is **eight commits behind** as of 2026-08-18 — it predates all five
-> phone-reflow commits and does not describe the current sheet. One thing in it
-> is now dead text rather than merely stale: every paragraph about unpushed
-> commits, since `origin/main == main == 3dff11f`. The newer file also records
-> forty-two decisions the owner took on 2026-08-18, several of which contradict
-> this one on purpose.
+> **Superseded. Read `HANDOFF-2026-08-19.md` at the repo root first**, then
+> `HANDOFF-2026-08-18.md` for how it got there.
+> This file describes the tree at **`cea8c01`**. It is **168 commits behind** as
+> of 2026-08-19 — measure it rather than trust this number, which only grows:
+> `git rev-list --count cea8c01..main`. It predates all five phone-reflow
+> commits and does not describe the current sheet. Every paragraph about
+> unpushed commits is dead text rather than merely stale: it was written when
+> `origin/main == main == 3dff11f`, and `origin/main` has since moved to
+> `ae2b07c` while `main` ran a long way past it. The newer files also record
+> the forty-two decisions the owner took on 2026-08-18 and four more on the
+> 19th, several of which contradict this one on purpose.
+>
+> **Only this banner is maintained.** The sentences below are left as they were
+> written, deliberately: three of them are now false about SHOW's doors and the
+> reference's topic count. Correcting sentences inside a superseded document
+> makes it look maintained, which is the more expensive error — a reader who
+> believes one paragraph believes the next. The banner is what makes the whole
+> file honest in one edit.
 >
 > **What is still true here and was wrongly doubted:** the orphan count of 22.
 > `tests/harness/orphans.test.ts` holds exactly 22 keys in `DELIBERATE` and

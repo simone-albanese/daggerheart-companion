@@ -198,3 +198,66 @@ fuori la colonna metrica.
 
 **Conseguenza per la richiesta ④**, se i pannelli si costruiranno mai: il pannello DIFFICULTY va costruito
 da `rules['difficulty-benchmarks']` e **non deve portare aggettivi da nessuno dei due PDF**.
+
+---
+
+## Le quattro decisioni del 19 agosto
+
+Prese a onda 2 chiusa, sulle misure fatte la notte prima. Come sopra: dove la risposta cambia il
+prezzo rispetto a come la domanda era stata posta, è segnato **[COSTO CAMBIATO]**.
+
+### 1 · La home del DM è il **Layout B**
+
+A schede — THE NIGHT / REFERENCE. **Scelto, non costruito**: nessuna riga di codice esiste ancora.
+
+L'argomento decisivo non è stato prodotto per la domanda, era già scritto in `Reference.tsx:10-14`:
+i tre verbi di `GmBar` sono i gesti continui di una serata — ADD, SHOW, SAVE — e tengono la fascia
+**560-820px** che il pollice destro copre su un telefono da **393×852**. Cercare una regola è l'atto
+opposto: capita una o due volte a sera e **«is read rather than pressed»**. Un contenuto che si legge
+non compete per la banda che serve a quello che si preme.
+
+### 2 · ④ *Average Costs* → ottavo chip di `REFERENCE_TOPICS`, e striscia ordinata per larghezza
+
+Chiude la voce **10** della tabella A, che aveva scelto «(b) rendere la tabella *Average Costs*
+dell'SRD».
+
+Misurato in Chrome, non stimato:
+
+| striscia | righe | altezza |
+|---|---|---|
+| sette chip, ordine semantico | 3 | 144.00px |
+| sette chip, ordinati per larghezza | 2 | 94.00px |
+| **otto chip, ordinati per larghezza** | **3** | **144.00px** |
+
+Cioè: **l'ottavo tema costa in altezza esattamente quello che oggi costano sette.** È gratis perché
+il riordino paga per lui.
+
+**[COSTO CAMBIATO]** — il prezzo non è in pixel, è in prevedibilità: **l'ordine dei chip smette di
+essere semantico**. Un GM che cerca un tema lo scorre invece di prevederne la posizione. Accettato
+sapendolo.
+
+### 3 · SHOW a una voce sola: **si lascia com'è**
+
+Con una sola preferenza accesa, SHOW è un menu con una voce sola — due tap per una destinazione.
+Difetto **noto e accettato**, nessun codice. Non diventa una voce di backlog: resta scritto qui.
+
+### 4 · La voce 9 (il mercante) è la **terza porta di SHOW**, spegnibile
+
+Chiude la voce **9** della tabella A («strumento GM, non riga salvata»). Spegnibile come
+`gmBestiary` e `gmPartyBoard`, e per la stessa ragione che rende spegnibili quelle due: **nessuna
+riga di sessione apre nessuna delle tre**, quindi un interruttore che ne nasconde una non può
+rendere inapribile una riga che il GM ha già scritto. Accesa di default.
+
+**Conseguenza accettata, sapendola:** gli stati a una porta sola passano da **due** a **tre**
+(due porte danno 2²−1 = 3 stati vivi, due dei quali a una porta; tre porte ne danno 2³−1 = 7, tre
+dei quali a una porta). Il difetto della decisione 3 **si allarga invece di restringersi**, ed è
+stato deciso in questi termini, non nonostante essi.
+
+*Precisazione dovuta, perché la si ricalcola e sembra il contrario:* la **quota** scende, da due su
+tre a tre su sette. Non è quella la quantità su cui si decide — le preferenze di un GM non sono
+distribuite uniformemente su un'enumerazione. Ogni porta in più è una cosa in più che un GM può
+decidere di non usare (il tavolo che non fa mai spese spegne il mercante, la partita in solitaria
+spegne la party board), quindi «ne uso esattamente una» descrive un GM reale **più** spesso di
+prima. L'argomento per esteso è in `ShowSheet.tsx`, sotto *«Seven live states, and the one the owner
+accepted rather than fixed»*, scritto lì apposta perché chi ricalcola la quota non concluda che il
+paragrafo si sia sbagliato.

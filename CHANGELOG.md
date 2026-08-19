@@ -12,11 +12,14 @@ before the one below.
 
 ---
 
-## Unreleased — 2026-08-18
+## 0.3.0 — 2026-08-19
 
-Deployed as it was written, so everything here is live. The version has not
-moved: `BACKLOG.md` still carries items in the band that tells a player a wrong
-number, and this stretch closed several of them without emptying the band.
+Deployed as it was written, so everything here was live before it was numbered.
+**The band is still not empty** — `BACKLOG.md` carries items that tell a player
+a wrong number, and this stretch closed several more without clearing them. The
+version moved anyway, by the owner's decision once the waves were closed, and
+that is the honest reason rather than a claim that the reason from 18 August
+went away.
 
 ### The GM screen got the two things the table was waiting for
 
@@ -83,6 +86,46 @@ number, and this stretch closed several of them without emptying the band.
   performs; a first correction denied a row the sheet actually draws. It now
   says the three true things: the ids stay and are drawn, they travel unchanged,
   and this build cannot name them - though a device that has the content will.
+
+### The reference got an eighth topic, and the chips got shorter
+
+- **Gold, equipment and loot is a topic of its own.** The SRD's table of what
+  things cost was reachable only through a session row's `LINK → Rule` before;
+  it is the eighth entry of the reference now, opened from MENU like the other
+  seven, with every word still read out of `data/srd-1.0.json` at render time
+  and the page stamped beside the table rather than above the topic.
+- **The chip strip is ordered by width now, not by meaning.** That is a real
+  cost and it is the reason the eighth chip fits at all: seven chips in semantic
+  order took three rows and 144.00px, and eight sorted by width take the same
+  three rows and the same 144.00px. The eighth topic is free in height and paid
+  for in order — a GM looking for a topic scans rather than predicts.
+
+### SHOW has a third door: a merchant
+
+- **A stall to draw stock for**, over the SRD's own table of what things cost.
+  It never spends anybody's gold: nothing in it writes to a character sheet,
+  switched on or off.
+- **Switchable, like the bestiary and the party board**, and for the same reason
+  those two are — no session row opens any of the three, so a switch that hides
+  one cannot make a row the GM has already written unopenable. On by default,
+  because a tool that ships switched off is a tool nobody discovers.
+- **SHOW leaves the bar only when all three doors are off.** Two off is no
+  longer enough, and the bar redistributes to two verbs when it happens. The
+  test proves the property rather than the instance: it is titled for *every*
+  door being off, and it covers each door being the last one left.
+- **The list of doors is one array now.** Five files used to name the bestiary
+  and the party board by hand — the sheet, the bar, the dialog's announced name,
+  the menu, and Settings — and four of the five would have failed *quietly* on a
+  missed edit: a bar that hides SHOW from a GM whose only live tool is the new
+  one, a dialog announcing a sheet that is not there, a menu sending the GM
+  after a door the sheet does not offer, a notice that simply never prints. A
+  fourth door is one row in that array.
+
+**What this does not fix:** with only one door switched on, SHOW is still a menu
+with a single entry — two taps for one destination. That was a known defect
+before the merchant, and the merchant makes it *more* frequent rather than less:
+one-door states go from two to three. It is recorded, deliberately, rather than
+quietly widened.
 
 ## 0.2.0 — 2026-08-16
 
