@@ -31,7 +31,11 @@
  * held is the one length this component declares for its own repeated control -
  * the 56px draw, full width - because that is an inline style and jsdom reads
  * inline styles; and the `var(--tap)` floor on the guidance fold, which `Fold`
- * declares on its own header button and this screen inherits.
+ * declares on its own header button and this screen inherits; and the 367.00
+ * column, which is not a measurement either - `describe('the column
+ * Merchant.tsx states')` re-derives it from the 1px border `GmSheet.tsx`
+ * declares and the 12px padding this component declares, so moving either
+ * reddens the sentence instead of leaving a reader with a stale figure.
  */
 import 'fake-indexeddb/auto';
 import { readFileSync } from 'node:fs';
@@ -521,7 +525,8 @@ describe('drawing stock', () => {
 });
 
 /**
- * The one geometry claim this file can hold, and it is not a measurement.
+ * The one figure out of `## The numbers` this file can hold, and it is not a
+ * measurement.
  *
  * `Merchant.tsx` states its column as 367.00, and that number is the panel's
  * content box less this region's own padding. jsdom cannot measure either, but

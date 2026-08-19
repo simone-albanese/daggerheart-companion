@@ -229,7 +229,7 @@ const COUNTED: readonly string[] = ['one', 'two', 'three', 'four', 'five'];
  * **It was three hardcoded sentences for the four states two doors can be
  * switched into, and three doors can be switched into eight.** Unlike the name
  * `Gm.tsx` gives the dialog, this sentence is asked for in the all-off state
- * too - MENU is always on the bar - so its states are 2³ and not the 2³ − 1
+ * too - MENU is always in the top bar - so its states are 2³ and not the 2³ − 1
  * live ones, and `merchant.test.tsx` enumerates all eight against this
  * function. The count in the opening clause, the list of what is behind SHOW,
  * the list of what is switched off and the verb agreeing with each of them all

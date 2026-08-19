@@ -49,14 +49,19 @@
  *
  * THE STALL is first because it is the only thing on the screen that changes.
  * A stall is six panels drawn at random out of two 60-item tables, so it has no
- * one height: over 80 redraws the counter measured 496.02 to 654.61 against a
- * 682.00 scroller, and it begins 28.00 down that scroll, so from the top of the
- * scroll a fresh counter was on the glass whole in 77 of those 80 - and the
- * three that were not overhung the fold by 0.61 apiece. The price table sits
- * under it; put the stall under the table instead and the tap that drew it
- * would produce nothing the GM could see. The two reference blocks never
- * change, so scrolling to them costs nothing, and they are in the order a shop
- * scene needs them - what things cost, then what the coins are.
+ * one height: in one sample of 80 redraws the counter measured 496.02 to
+ * 654.61 against a 682.00 scroller, and it begins 28.00 down that scroll, so
+ * from the top of the scroll a fresh counter was on the glass whole in 77 of
+ * that sample's 80 - and the three that were not overhung the fold by 0.61
+ * apiece. Those are one sample's ends and not the screen's bound: the panel
+ * quantisation below puts a counter at no more than 6 x 136.80 + 5 x 8 =
+ * 860.80, which is 178.80 past the scroller, so a fresh stall can overhang the
+ * fold by far more than that sample's worst and a sample this size is no
+ * evidence that none does. The price table sits under it; put the stall under
+ * the table instead and the tap that drew it would produce nothing the GM
+ * could see. The two reference blocks never change, so scrolling to them costs
+ * nothing, and they are in the order a shop scene needs them - what things
+ * cost, then what the coins are.
  *
  * Redrawing does **not** scroll the region back to the top, and that is a
  * decision rather than an omission: a GM who has scrolled down to a price and
@@ -177,10 +182,13 @@
  *                            121.16 section, the rest of which is the 10px
  *                            label, two 8px gaps and the provenance line, which
  *                            is three lines as well
- *   a stocked counter        496.02 to 654.61 over 80 draws, 591.17 in the
- *                            first of them: six panels with 8px between them.
- *                            It was **never** taller than the 682.00 scroller
- *                            in any of the 80
+ *   a stocked counter        496.02 to 654.61 over the 80 draws sampled,
+ *                            591.17 in the first of them: six panels with 8px
+ *                            between them. Nothing in that sample was taller
+ *                            than the 682.00 scroller - but the quantisation
+ *                            above bounds a counter at 860.80, so that is the
+ *                            largest counter seen in one sample of 80 and not
+ *                            a ceiling
  *   its whole section        569.59 to 728.19 over the same 80, 664.75 in that
  *                            first draw - the counter plus a 10px label, two
  *                            8px gaps and a 47.58 provenance line, 73.58 of

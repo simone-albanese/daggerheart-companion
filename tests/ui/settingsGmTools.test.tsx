@@ -4,11 +4,13 @@
  * that costs?
  *
  * Four preferences belong to the GM screen - the section itself and the three
- * doors behind SHOW, three of them there since the screen was and the
- * merchant's since the merchant - and a preference nothing can change is the
- * same defect as a feature nothing calls: it typechecks, it has a default, and
- * no person in the world can reach it. So the first question here is the dull
- * one, asked of all four: does the control on the screen write the field.
+ * doors behind SHOW. None of them is as old as the screen: the GM screen
+ * shipped with no switch at all, three of the four arrived a day later with the
+ * section switch that this file arrived with, and the merchant's arrived with
+ * the merchant. A preference nothing can change is the same defect as a feature
+ * nothing calls: it typechecks, it has a default, and no person in the world
+ * can reach it. So the first question here is the dull one, asked of all four:
+ * does the control on the screen write the field.
  *
  * The second is about the three that depend on the first. With the section off,
  * the bestiary, the party board and the merchant decide nothing at all, and a
