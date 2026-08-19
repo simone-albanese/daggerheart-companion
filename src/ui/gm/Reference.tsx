@@ -60,10 +60,12 @@
  * Chips at `var(--tap)` with `padding: 0 12px`, and `--tap` is 44px: every
  * chip measures exactly 44.00 tall. `.t-label` is 10px mono at `0.16em`, so
  * about 7.6px a character - 6.00 of advance in IBM Plex Mono plus 1.6px of
- * letter-spacing - and measured with a `Range` that estimate is right to the
- * pixel on all eight labels: 7.6 a character plus the chip's own 24 of padding
- * and 2.00 of border lands within 0.01 of every measured width below, COSTS
- * included, and 0.01 is the rect's rounding rather than the model's error.
+ * letter-spacing - and measured with a `Range` it predicts all eight labels to
+ * within 0.01: 7.6 a character plus the chip's own 24 of padding and 2.00 of
+ * border is exact on DIFFICULTY, COUNTDOWNS and COSTS and 0.01 short on the
+ * other five. Where that hundredth comes from is not established here. Near
+ * enough to catch a mistyped label, never near enough to write a width down
+ * from - every figure below came out of Chrome.
  *
  * Measured widths: EXPERIENCES **109.61**, DIFFICULTY **102.00**, COUNTDOWNS
  * **102.00**, IMPROVISE **94.41**, DISTANCE **86.81**, GM MOVES **86.81**,
@@ -108,8 +110,8 @@
  * rather than converted, the strip is 144.00 sorted and 94.00 semantic at 400,
  * 412, 414, 428 and 430 across the glass. A Pixel and every Plus and Pro Max
  * iPhone pays 50px of this scroll for the sort. **393 is not in that band,
- * which is exactly why the one frame this file measures in shows the trade as
- * free when it is not.**
+ * which is exactly why the one frame the decision was taken in shows the trade
+ * as free when it is not.**
  *
  * That is measured and not acted on: the order is the owner's to choose and
  * the measurement is this file's to publish. Undoing it is the array below,
