@@ -1533,14 +1533,36 @@ where being wrong stops the project rather than costing a character.
 - [ ] **No version or build id anywhere in the UI.** A user on a stale cached
       build has no way to say which one, and no way for us to ask. Put the app
       version and the SRD revision on the About screen.
-- [ ] **README describes features that do not exist**: the automatic export and
-      the seven-day integrity check (P0-2). Either wire them or delete the
-      claims — shipping a README that overpromises is its own bug.
-- [ ] **Node version drift**: CI pins `24`, `package.json` says `>=22`, `env.sh`
-      documents a project-local `24.19.0`, and the dev machine now runs `26.7.0`.
-      Pick one and say so.
-- [ ] **`env.sh` explains that the toolchain exists because Homebrew Node is
-      broken.** That was repaired this session; the rationale is now stale.
+- [x] ~~**README describes features that do not exist**: the automatic export and
+      the seven-day integrity check (P0-2).~~ — **the premise is false, verified
+      19 August 2026 against the tree.** Both exist. The directory export is
+      `canChooseDirectory` / `showDirectoryPicker` in `src/transfer/fileIo.ts`,
+      and the launch check is `integrityCheck` + `noteSession`
+      (`src/store/backupDeps.ts`, with the RESTORE FROM A BACKUP route at
+      `src/store/state.ts`), held by `tests/ui/appWiring.test.tsx` and
+      `tests/store/backup.test.ts`. The README does not overpromise either: it
+      states the **precondition** in bold — choose a folder once, and *"until
+      you do, nothing is exported automatically"* — and names the
+      `showDirectoryPicker` fallback. This bullet described a README that has
+      since been rewritten, and stayed open across the rewrite.
+- [x] ~~**Node version drift**: CI pins `24`, `package.json` says `>=22`, `env.sh`
+      documents a project-local `24.19.0`~~ — **closed, and three of the four
+      readings had already moved when this was measured on 19 August 2026.**
+      `package.json` now says `>=24`, not `>=22`; `env.sh` names **no** version
+      at all and says why — *"No version is written down here on purpose:
+      `.nvmrc` is the only place this repo names one"*; and both workflows read
+      `node-version-file: '.nvmrc'` rather than a literal. So the repo names the
+      version once. **The dev machine running `26.7.0` is not drift** — it is
+      the reason `env.sh` and `.tools/node` exist, and the reason a suite that
+      is green under the system Node is weaker than CI's, because Node 26 hides
+      `localStorage` from jsdom.
+- [x] ~~**`env.sh` explains that the toolchain exists because Homebrew Node is
+      broken.**~~ — **done, and this bullet outlived the fix.** `env.sh` now
+      states the opposite in the past tense, deliberately: *"It does NOT exist
+      because Homebrew's Node is broken. It did once - a dangling libllhttp link
+      after an upgrade - and that was repaired. The old reason is recorded here
+      in the past tense only so that nobody restores it from an older checkout
+      and starts believing it again."*
 - [x] ~~Changelog and a release process. Version is still `0.1.0`.~~ — **done,
       `6898a57`**. `CHANGELOG.md` exists and `package.json` carries a version the
       project chose rather than the scaffold's default - `0.2.0` when this was

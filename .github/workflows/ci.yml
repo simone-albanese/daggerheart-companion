@@ -16,6 +16,10 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # Bounded because it was not: on 19 August two consecutive runs sat on
+    # `apt-get update` for over ten minutes each with no timeout, and the
+    # default is six hours. A hang should cost minutes and say so.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -28,21 +32,13 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
-      # pdftotext and pdftohtml, for tools/loadSrd.ts. Installed unconditionally
-      # so that the moment a runner does have the SRD PDF, extraction works
-      # rather than failing on a missing binary.
-      - name: Install poppler-utils
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends poppler-utils
-          pdftotext -v
-
-      - run: npm ci
-
       # The SRD PDF is not in the repo and never will be - `.gitignore` opens
       # with `*.pdf`. Everything downstream that needs it is gated on this, so a
       # stock runner skips those steps instead of failing four steps later with
       # something that looks like a parser bug.
+      #
+      # This probe runs FIRST because the poppler install below is gated on it.
+      # It only tests for two files, so it needs neither `npm ci` nor poppler.
       - name: Look for the SRD PDF
         id: srd
         run: |
@@ -53,6 +49,24 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=SRD PDF absent::Re-extraction is skipped. The app builds against the committed data/srd-1.0.json; parser tests that need the PDF skip themselves."
           fi
+
+      # pdftotext and pdftohtml, for tools/loadSrd.ts. This used to run
+      # unconditionally, "so that the moment a runner does have the SRD PDF,
+      # extraction works rather than failing on a missing binary" - and the
+      # condition for that moment is exactly the probe above, so the intent is
+      # kept and the cost is not. No runner has the PDF, so every run was paying
+      # an `apt-get update` for the one step it enables, which is itself gated
+      # on the same output and therefore always skipped. On 19 August that
+      # unconditional apt hung twice in a row and blocked the only workflow that
+      # typechecks.
+      - name: Install poppler-utils
+        if: steps.srd.outputs.present == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils
+          pdftotext -v
+
+      - run: npm ci
 
       # That JSON, unlike the PDF, is a committed build artifact: without it the
       # app has no rules at all, and tsc would only say "cannot find module".
