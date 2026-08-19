@@ -391,9 +391,10 @@ function sheetBorder(): number {
 /**
  * The topic chip's horizontal padding.
  *
- * Not an operand of 367.00 or of 144.00 - it is the frame the seven chip widths
- * in `Reference.tsx` were measured inside, which is why that file names it and
- * why this one holds it.
+ * Not an operand of 367.00 or of 144.00 - it is the frame every chip width in
+ * `Reference.tsx` was measured inside, which is why that file names it and why
+ * this one holds it. Written without a count on purpose: the count moved from
+ * seven to eight and this sentence was one of the two that did not notice.
  */
 const chipPadX = (): number => {
   const found = /padding: '0 (\d+)px',\n\s*borderRadius: 'var\(--r3\)'/.exec(
@@ -411,7 +412,7 @@ const chipBorder = (): number => {
   if (found === null) {
     throw new Error(
       'the topic chip no longer declares a `border: Npx solid` after its padding. A chip is ' +
-        'border-box, so its border is inside all seven measured widths in `Reference.tsx` - ' +
+        'border-box, so its border is inside every measured width in `Reference.tsx` - ' +
         're-measure the strip rather than editing the sentence.',
     );
   }

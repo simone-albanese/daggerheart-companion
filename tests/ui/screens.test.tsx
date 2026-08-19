@@ -642,9 +642,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide besidePool={false} />,
   'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
-  // The eighth reference topic. Its section is four paragraphs and one
-  // two-column table, so this is also the only fixture in the file that mounts
-  // `RuleTableView`'s narrow shape by the route a GM actually reaches it on.
+  // The eighth reference topic: four paragraphs and the Average Costs table.
+  // `RuleTableView`'s own fixture below mounts that same table directly; this
+  // one mounts it by the route the screen takes to it, through `BlockView`.
   'gm/ReferenceTables.tsx::GoldAndLoot': () => <GoldAndLoot />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
