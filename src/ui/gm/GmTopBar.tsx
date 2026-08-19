@@ -74,8 +74,11 @@
  * without the bar there was no route to either and quietly dropping two working
  * tools while rebuilding the screen around them would have been a regression
  * dressed as a refactor. SHOW is that route now, which is where the wireframe
- * put them and where "SHOW forks in two" decided they go. Keeping them here as
- * well would be a second door nobody chose to build - and 134px of row A that
+ * put them and where the decision recorded as "SHOW forks in two" sent them.
+ * That phrasing is kept as the name of the decision and is no longer a
+ * description of the sheet: SHOW has three doors since the merchant, and
+ * `showDoors.ts` is where the list lives. Keeping either chip here as well
+ * would be a second door nobody chose to build - and 134px of row A that
  * the campaign name wants.
  */
 import type { Layout } from '../shared/useLayout.ts';

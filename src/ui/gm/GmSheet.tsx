@@ -12,8 +12,10 @@
  * ## Two sizes, and why there are only two
  *
  * `full` is for every tool `GmRegion` names - Encounter, Scene, PartyBoard,
- * Bestiary, Countdowns, Reference and Names, seven of them now. All seven are
- * built as whole screens - each one is `flex: 1;
+ * Bestiary, Countdowns, Reference, Names and Merchant, eight of them now.
+ * ("Seven of them now" stood here, and before that five; the count in this
+ * sentence has been wrong twice, which is a sentence asking to be written
+ * without one.) All eight are built as whole screens - each one is `flex: 1;
  * min-height: 0` with its own scroll region inside - so anything smaller than
  * the window makes them scroll twice. `Countdowns` at desktop width lays out
  * `1fr minmax(280px, 340px)` and `FearBoard` draws twelve pips across up to

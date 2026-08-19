@@ -341,14 +341,22 @@ export type GmRegion =
  * navigation is stored in this field - is untouched by it, and stays live for
  * whoever widens this a fourth time.
  *
- * Architecture §6.1 is titled "The one exception, and why it is only
- * one" and argues the case as a single admitted breach - that title is no longer
- * true of this file, and the section needs rewriting into what the argument
- * always actually was: not "one exception", but a standing licence for *this
- * field*, granted because the field is ephemeral navigation state and revocable
- * the moment anything but navigation is stored in it. The rewrite belongs to
- * whoever owns the docs; this comment is here so the contradiction is not
- * discovered by someone trusting the title.
+ * **The rewrite this comment used to ask for has happened, and the request
+ * outlived it.** What stood here said Architecture §6.1 was titled "The one
+ * exception, and why it is only one", that the title was no longer true of this
+ * file, and that the section needed rewriting into a standing licence for *this
+ * field*. All three were true when they were written and none of them is now.
+ * The section was rewritten on 18 August, is titled «L'eccezione, e perché
+ * riguarda un campo e non un conteggio», and ends on the sentence this change
+ * is the first to be governed by: whoever adds the third value must not ask
+ * whether the exception is still a single one, but whether they are widening
+ * **this** field or a different one.
+ *
+ * This widening is this field, which is the answer that section asks for. No
+ * part of §6.1 is falsified by it. The one thing left for whoever owns the docs
+ * is the courtesy of naming `'merchant'` beside `'reference'` and `'names'` in
+ * the list of what has actually been added - and that is a completion, not a
+ * contradiction.
  *
  * ## The compiler holds the list against the union now, and could not before
  *
