@@ -54,6 +54,99 @@ under what it leaves out.
 
 ---
 
+## The five screens, and what is on each
+
+A guide to what is actually built. Anything this section claims is in the app
+today; where a thing is half-built or deliberately absent it says so here
+rather than in a footnote, because a feature list that quietly omits its own
+limits is how a README starts lying.
+
+### Play — the sheet
+
+The character, in one column that scrolls. HP, Stress and the damage
+thresholds are at the top with the counters that mark them; below them sit
+Evasion, Proficiency, the six traits, Experiences, weapons and armour, gold,
+and the loadout.
+
+- **The Duality Roll**: outcome, Hope and Fear, and the critical on matching
+  dice.
+- **Held dice**: a dozen features grant a die — a Rally Die, a Prayer Die, a
+  Slayer Die, the d6 an ally hands you for Help an Ally — in sizes and numbers
+  that depend on subclass, level and what happened this scene. The app holds
+  the ones you have rather than asking you to remember them.
+- **Damage**, offered rather than applied. A successful attack roll proposes
+  the damage roll that follows; the total is read out, not written onto
+  anybody's sheet.
+- **Incoming damage** → HP marked, including the step an Armour Slot saves.
+- **Conditions**, with the SRD's own text.
+- **Death moves**, when it comes to that.
+- **Rest and downtime**: short rest, long rest, and the downtime moves, with
+  the arithmetic the SRD leaves to the table — `1d4 + Tier` across three
+  tracks, twice, plus the GM's Fear — proposed and then applied on your word.
+- **Beastform** and an **animal companion**, where the class has them.
+
+### Cards — the 189 domain cards
+
+Every domain card in the SRD, filterable and searchable, with the filter bar
+inside the grid's scroll rather than fixed above it. The loadout is five, and
+swapping a card in charges the **Recall Cost** in Stress; the Vault holds the
+rest.
+
+### Build — making a character, and levelling one
+
+A step-by-step wizard for a new character, and free editing afterwards. Level
+up offers **only the advancements the tier actually has**, and tracks how many
+slots each one has left. Gear is picked from the shipped lists.
+
+### GM — the evening
+
+The session list *is* the screen: rows open where they sit, and can be
+reordered by thumb or by keyboard (`ArrowUp` / `ArrowDown` / `Home` / `End`). Three verbs sit on the bar.
+
+- **ADD** writes a row — a *scene* with its environment, an *encounter* with a
+  roster you can put on the board when you reach it, a *link* to something
+  already in the app, a *web link*, a *countdown*, or a *note*.
+- **SHOW** opens the three tools no row opens: the **bestiary** (read-only),
+  the **party board**, and the **merchant**. Each of the three can be switched
+  off in Settings, and SHOW leaves the bar when all three are off.
+- **SAVE** is not what saves. The campaign is already written 400 ms after the
+  last change; the sheet flushes and then tells you *when* the last write
+  actually reached the disk.
+
+From **MENU**: your campaigns, the encounter builder, the live scene, the
+countdowns, a **name generator** (15,325 names, places and regions written for
+this project — the Core Book's lists are not in this app), and the reference.
+
+- **The reference**: eight topics — improvising an adversary, setting a
+  Difficulty, Fear, advancing a countdown, range and distance, GM moves and
+  principles, adversary Experiences, and gold/equipment/loot — plus a
+  **full-text search across all 75 SRD sections**. Every word is read out of
+  the shipped dataset at render time, with the page number stamped beside the
+  table it came from.
+- **The encounter builder**: battle points at `(3 × PCs) + 2`, every cost and
+  every adjustment.
+- **The Fear pool** and a **primary countdown**, both pinned to the top bar.
+- **The party board** reads the players' sheets, including by **QR camera**.
+
+### Settings
+
+Export and import, printing, the rulebook, and the switches for the GM tools
+and the GM section as a whole.
+
+---
+
+## Getting a character onto another device
+
+Three ways, and none of them needs a server or an account.
+
+| | |
+|---|---|
+| **Files** | `.dhchar` one character · `.dhbackup` everything · `.dhcampaign` one campaign |
+| **Animated QR** | one phone paints a loop of QR codes, the other watches. No handshake, no pairing, no channel — the phone holding the camera never has to talk back, which is what makes it work between two devices that have never met |
+| **Print** | the character sheet onto paper |
+
+---
+
 ## Getting started
 
 **Node 24**, which is what `.nvmrc` says and what CI and the deploy both read
