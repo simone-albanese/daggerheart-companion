@@ -5,9 +5,12 @@
  * so a homograph domain reads as `xn--pple-43d.com` here exactly as it does on
  * the shut row. See the six mitigations in `shared/externalLink.ts`.
  *
- * There is no anchor, and that is the current state rather than a design: the
- * lane that builds this row builds it out of `externalLinkAttrs`, which is the
- * only sanctioned way to make one and carries `target` and `rel` with it.
+ * The anchor is built out of `externalLinkAttrs`, which is the only sanctioned
+ * way to make one: it re-reads the stored value rather than trusting it - a
+ * record written before that reader existed is still on somebody's phone - and
+ * it carries `target` and `rel` with it. It returns `null` rather than an
+ * anchor with no `href`, and this arm prints the reader's warning in that case,
+ * because a dead `<a>` is a control that looks tappable and is not.
  *
  * ## Why this arm has a file and the scene, encounter, link, countdown and
  * ## unreadable arms do not
@@ -22,13 +25,14 @@
  * `SessionBody.tsx`'s header keeps the argument they are the subject of.
  */
 import type { SessionItem } from '../../../shared/campaigns.ts';
-import { displayUrl } from '../../../shared/externalLink.ts';
+import { displayUrl, externalLinkAttrs } from '../../../shared/externalLink.ts';
 import { Fact } from './Fact.tsx';
 
 export function UrlArm({ item }: { item: Extract<SessionItem, { kind: 'url' }> }): React.JSX.Element {
+  const attrs = externalLinkAttrs(item.href);
   return (
     <div className="stack" style={{ gap: 8 }}>
-      {item.href === '' ? (
+      {attrs === null ? (
         <Fact>
           This row has no web address on it. If it arrived in a campaign somebody sent you, the
           address it carried was not one this app will store — the reason was named when the
@@ -45,9 +49,12 @@ export function UrlArm({ item }: { item: Extract<SessionItem, { kind: 'url' }> }
           >
             {displayUrl(item.href, 2048)}
           </p>
+          <a {...attrs} className="btn" style={{ alignSelf: 'flex-start', minHeight: 44 }}>
+            OPEN IN A NEW TAB
+          </a>
           <Fact>
-            This version of the app stores this address, exports it and reads it back, and has no
-            button that opens it. Nothing here ever opens on its own.
+            Nothing here opens on its own: this is the only control that leaves the app, it needs a
+            tap, and it opens in a new tab so tonight&rsquo;s list is still behind it.
           </Fact>
         </>
       )}

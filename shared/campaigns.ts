@@ -235,7 +235,7 @@ export const SESSION_ITEM_KINDS = [
   'scene',
   'encounter',
   'link',
-  // Item 12's `url` joins here, beside the in-app link it is the outward half of.
+  'url',
   'countdown',
   //
   // One kind per line, and the two seats deliberately apart. Item 12 and item
@@ -243,7 +243,7 @@ export const SESSION_ITEM_KINDS = [
   // of them have to widen - two insertions at one point in it is the merge
   // conflict the shape exists to avoid.
   //
-  // Item 14's `note` joins here, at the end.
+  'note',
 ] as const;
 export type SessionItemKind = (typeof SESSION_ITEM_KINDS)[number];
 

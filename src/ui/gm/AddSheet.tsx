@@ -23,22 +23,30 @@
  *
  * **`SESSION_ITEM_KINDS` is not `SessionItem['kind']`, and the gap is on
  * purpose.** It has never held `unreadable`, which is a reading rather than a
- * thing a GM adds. Since campaign schema 2 it is also short of every kind whose
- * form has not been built: those join it in the lane that builds their screen,
- * because widening the list first would put a button on this sheet that mints
- * nothing, which is worse than a button that is not there yet.
- * `tests/gm/session.test.ts` pins the gap - the menu is exactly the kinds with
- * a form, and `unreadable` is never one of them - so it stays a decision rather
- * than becoming an oversight, and it follows a widening with no second edit.
+ * thing a GM adds, and that is the whole of the gap now.
  *
- * ## Two lanes are going to add a kind to this file, and they are marked apart
+ * It used to be wider, and the reason it closed is worth keeping: from campaign
+ * schema 2 the list was also short of every kind whose form had not been built,
+ * because widening it first would have put a button on this sheet that minted
+ * nothing - worse than a button that is not there yet. `url` and `note` were
+ * the two, and they joined on 19 August 2026 in the same change that gave them
+ * forms, which is exactly the order that rule asked for. **The rule is not
+ * spent**: the next kind to reach the record without a screen waits here the
+ * same way. `tests/gm/session.test.ts` pins the gap - the menu is exactly the
+ * kinds with a form, and `unreadable` is never one of them - so it stays a
+ * decision rather than becoming an oversight.
  *
- * The web link's form and the note's form are two separate lanes. Both of them
- * add the same three things here - a factory to the import below, a row to
- * `ADD_FORMS`, and a form at the foot of the file - so all three places carry
- * a marked seat for each, and the two seats are always several lines apart. A
- * pair of insertions at one point is a merge conflict; a pair at two points is
- * a merge. It is said here once rather than three times at the seats.
+ * ## The two seats that were held apart here, and what they were for
+ *
+ * The web link's form and the note's form were planned as two separate lanes,
+ * and all three places either of them had to touch - a factory in the import
+ * below, a row in `ADD_FORMS`, and a form at the foot of the file - carried a
+ * marked seat for each, several lines apart, because a pair of insertions at
+ * one point is a merge conflict and a pair at two points is a merge. In the
+ * end one change made both, so the shape was never tested by the thing it was
+ * built for. The seats are gone now that they are filled; the ordering they
+ * imposed is why `url` sits beside `link` and `note` sits at the end, which is
+ * worth knowing before somebody sorts this list.
  *
  * ## What each form can honestly promise
  *
@@ -102,6 +110,8 @@ import {
   type LinkKind,
   type SessionItemKind,
 } from '../../../shared/campaigns.ts';
+import { displayUrl, readExternalUrl } from '../../../shared/externalLink.ts';
+import { MAX_NOTE_CHARS } from '../../../shared/richText.ts';
 import type { Ref } from '../../../shared/types.ts';
 import type { CountdownKind } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
@@ -112,11 +122,10 @@ import {
   SESSION_KIND_LABEL,
   newEncounter,
   newLink,
-  // Item 12's `newUrl` joins here, beside the link it is the outward half of.
+  newUrl,
   newScene,
   //
-  // Item 14's `newNote` joins here, at the end - three lines below the other
-  // seat rather than beside it, for the reason the header gives.
+  newNote,
 } from './session.ts';
 
 /** A choice on the first screen: what it mints, and what it says it is. */
@@ -156,12 +165,18 @@ export const ADD_FORMS: Record<SessionItemKind, AddChoice> = {
     form: LinkForm,
     what: 'Something already inside this app you will want open — an adversary, an environment, a card, or a rule.',
   },
-  // Item 12's `url` row joins here, beside the link.
+  url: {
+    form: UrlForm,
+    what: 'A page outside this app. The row stores the address and opens it in a new tab; nothing here ever opens on its own.',
+  },
   countdown: {
     form: CountdownForm,
     what: 'A clock nothing advances but your hand. It can be pinned to the top bar all evening.',
   },
-  // Item 14's `note` row joins here, at the end.
+  note: {
+    form: NoteForm,
+    what: 'Something you wrote for tonight. It travels with the campaign when you export it.',
+  },
 };
 
 /** The four countdown kinds, in the words the countdowns board uses. */
@@ -418,6 +433,117 @@ function useLinkOptions(kind: LinkKind): Array<{ id: Ref; name: string }> {
       // exception for the same reason, and both are checked in session.test.
       return dataset.rules.map((rule) => ({ id: rule.id, name: rule.title }));
   }
+}
+
+/**
+ * A web link row.
+ *
+ * The address is read on every keystroke rather than on submit, because the
+ * reason a URL is refused is the one thing this form has to say before the GM
+ * presses anything - `readExternalUrl` returns the sentence, and it is printed
+ * where it was typed. SUBMIT is disabled while it is refused, so the sheet
+ * cannot mint the empty-href row that `UrlArm` has a warning for; that state
+ * exists for records this build did not write.
+ */
+function UrlForm({ onDone }: { onDone: () => void }): React.JSX.Element {
+  const add = useGm((s) => s.addSessionItem);
+  const [name, setName] = useState('');
+  const [raw, setRaw] = useState('');
+  const read = readExternalUrl(raw);
+  const refused = raw.trim() !== '' && read.href === '';
+
+  return (
+    <Form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (read.href === '') return;
+        add(newUrl(name, raw));
+        onDone();
+      }}
+    >
+      <Field label="NAME">
+        <input
+          value={name}
+          placeholder="What you will call it in the list"
+          onChange={(e) => setName(e.target.value)}
+          style={INPUT}
+        />
+      </Field>
+      <Field label="ADDRESS">
+        <input
+          value={raw}
+          inputMode="url"
+          placeholder="https://…"
+          onChange={(e) => setRaw(e.target.value)}
+          style={INPUT}
+        />
+      </Field>
+      {refused && (
+        <p className="t-dense" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          Not stored: {read.why}.
+        </p>
+      )}
+      {read.href !== '' && (
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', overflowWrap: 'anywhere' }}>
+          Goes to {displayUrl(read.href, 2048)}
+        </p>
+      )}
+      <Submit disabled={read.href === ''} />
+    </Form>
+  );
+}
+
+/**
+ * A note row.
+ *
+ * A textarea and not an editor. The stored format carries bold, italics,
+ * bullets and a centred heading, and `NoteArm` draws all four - but nothing in
+ * this build *types* them, so this mints paragraphs through
+ * `noteFromPlainText` and says so rather than offering controls that would
+ * mint a shape it cannot then edit. A note that arrives with emphasis from an
+ * imported campaign keeps it; this form does not strip it, because it never
+ * touches an existing note.
+ */
+function NoteForm({ onDone }: { onDone: () => void }): React.JSX.Element {
+  const add = useGm((s) => s.addSessionItem);
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const over = text.length > MAX_NOTE_CHARS;
+
+  return (
+    <Form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (over) return;
+        add(newNote(name, text));
+        onDone();
+      }}
+    >
+      <Field label="NAME">
+        <input
+          value={name}
+          placeholder="What you will call it in the list"
+          onChange={(e) => setName(e.target.value)}
+          style={INPUT}
+        />
+      </Field>
+      <Field label="NOTE">
+        <textarea
+          value={text}
+          rows={6}
+          placeholder="One paragraph per line."
+          onChange={(e) => setText(e.target.value)}
+          style={{ ...INPUT, minHeight: 120, resize: 'vertical' }}
+        />
+      </Field>
+      {over && (
+        <p className="t-dense" role="status" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          That is {String(text.length)} characters, and a note holds at most {String(MAX_NOTE_CHARS)}.
+        </p>
+      )}
+      <Submit disabled={over} />
+    </Form>
+  );
 }
 
 function LinkForm({ onDone }: { onDone: () => void }): React.JSX.Element {

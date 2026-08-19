@@ -32,8 +32,8 @@ import type {
 import type { CountdownKind } from '../../engine/encounter.ts';
 import type { DatasetIndex } from '../../engine/character.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
-import { displayUrl } from '../../../shared/externalLink.ts';
-import { plainTextOf } from '../../../shared/richText.ts';
+import { displayUrl, readExternalUrl } from '../../../shared/externalLink.ts';
+import { noteFromPlainText, plainTextOf } from '../../../shared/richText.ts';
 
 export const SESSION_KIND_LABEL: Record<SessionItem['kind'], string> = {
   scene: 'Scene',
@@ -316,7 +316,26 @@ export function newLink(
   return { id, kind: 'link', name: name.trim(), order: 0, collapsed: true, target };
 }
 
-// Item 12's `newUrl` goes here, beside the form that calls it.
+/**
+ * A row pointing outside the app.
+ *
+ * The href is stored as `readExternalUrl` normalised it and never as the bytes
+ * that were typed: the row, the export and the anchor all read the same string,
+ * so there is no second spelling for a later reader to disagree about. A value
+ * the reader refuses becomes `''`, which is the state `UrlArm` prints the
+ * warning for - `readExternalUrl`'s invariant is that `href` is non-empty
+ * exactly when `why` is empty, so storing `''` loses nothing a row can show.
+ */
+export function newUrl(name: string, raw: string, id: string = crypto.randomUUID()): SessionItem {
+  return {
+    id,
+    kind: 'url',
+    name: name.trim(),
+    order: 0,
+    collapsed: true,
+    href: readExternalUrl(raw).href,
+  };
+}
 
 /*
  * The two seats above and below are apart on purpose.
@@ -329,4 +348,15 @@ export function newLink(
  * sheet's header says it once for all of them.
  */
 
-// Item 14's `newNote` goes here, at the end.
+/**
+ * A note row.
+ *
+ * `noteFromPlainText` and not a hand-built `NoteDoc`: it runs the text through
+ * `readNoteDoc`, which is the same gate an imported campaign passes, so a note
+ * this build writes and a note it reads back cannot be two different shapes.
+ * The emphasis, headings and bullets the format carries are not typed here -
+ * this mints paragraphs, and `NoteArm` draws whatever a stored note holds.
+ */
+export function newNote(name: string, text: string, id: string = crypto.randomUUID()): SessionItem {
+  return { id, kind: 'note', name: name.trim(), order: 0, collapsed: true, note: noteFromPlainText(text) };
+}

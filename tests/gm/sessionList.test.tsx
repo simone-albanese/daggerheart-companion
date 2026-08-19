@@ -1308,16 +1308,39 @@ describe('the web link row campaign schema 2 added', () => {
     expect(text()).not.toContain('аpple.com');
   });
 
-  it('offers no anchor yet, and says so rather than looking broken', () => {
+  it('opens the address in a new tab, and carries the rel that makes that safe', () => {
     /*
-     * The honest state of this build: the address is stored, exported and read
-     * back, and there is nothing to tap. An arm that drew the address with no
-     * sentence beside it would read as a control that does not work.
+     * This replaces 'offers no anchor yet, and says so rather than looking
+     * broken', which pinned the interim state deliberately: the address was
+     * stored, exported and read back, and nothing tapped. The anchor exists
+     * now, so the assertion moves to the properties that make it safe rather
+     * than being deleted with the sentence it was holding.
+     *
+     * `target` and `rel` are asserted together and by value. They are what
+     * `externalLinkAttrs` carries, and a `_blank` without `noopener` hands the
+     * opened page a live `window.opener` back into this app.
      */
     seed(urlRow());
     list();
+    const anchor = container.querySelector('a');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.getAttribute('target')).toBe('_blank');
+    expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer nofollow');
+    expect(text()).toContain('Nothing here opens on its own');
+  });
+
+  it('draws no anchor for a row whose address the reader refused', () => {
+    /*
+     * The empty-href state is not reachable from the ADD sheet - SUBMIT is
+     * disabled while the address is refused - but it is reachable from a
+     * campaign somebody sent, which is the case this row exists to survive.
+     * A dead `<a>` is a control that looks tappable and is not, so there must
+     * be none, and the reader's sentence stands in its place.
+     */
+    seed([{ ...urlRow()[0]!, kind: 'url', href: '' }]);
+    list();
     expect(container.querySelector('a')).toBeNull();
-    expect(text()).toContain('has no button that opens it');
+    expect(text()).toContain('no web address on it');
   });
 });
 
