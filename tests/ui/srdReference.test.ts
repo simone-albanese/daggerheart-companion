@@ -767,9 +767,15 @@ describe('goldAndLoot', () => {
   /*
    * The values, pinned here and nowhere in `src`. The app stamps SRD 1.0 · P.69
    * beside this table, and that stamp is only honest if what reaches the glass
-   * is byte-for-byte the shipped file - which is the same reason `Handful`,
-   * `Bag` and `Chest` appear in this repository only inside an assertion that
-   * read them back out of `data/srd-1.0.json`.
+   * is byte-for-byte the shipped file - which is the same reason no SRD row
+   * string reaches a shipped one. `1-5 Handfuls` and `1-2 Chests` are typed
+   * only in assertions like this one; `1 Handful` and
+   * `Meals for a party of adventurers per night` only in those and in
+   * `GoldAndLoot`'s docblock, which quotes them rather than drawing them. The
+   * bare denominations are a different matter and never were the licence line:
+   * `Handfuls`, `Bags` and `Chests` are this app's own purse vocabulary, typed
+   * in `GoldEditor` (`ui/build/parts.tsx`), the print sheet and
+   * `engine/gold.ts` since long before this table had a screen.
    */
   it('keeps the twelve prices as the book wrote them, ranges included', () => {
     const table = section().blocks[0]!.parts.find((p) => p.kind === 'table')!;

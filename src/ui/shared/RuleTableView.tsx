@@ -35,9 +35,9 @@
  * `BlockView` is what `SessionBody.tsx` calls for exactly the session row
  * above, and the reference region reaches it as well through `GmMoves`,
  * `AdversaryExperiences` and `GoldAndLoot`, all three in `ReferenceTables.tsx`.
- * The last of those is why the Average Costs table is named at the top of this
- * docblock as the one-value-column case and is no longer only reachable from a
- * session row: the costs topic draws that same section, so the narrow shape
+ * The last of those is why the Average Costs table named at the top of this
+ * docblock is no longer only reachable from a session row: the costs topic
+ * draws that same section, so the narrow shape
  * below is now on the reference screen as well. (Every pointer in this
  * docblock names a symbol, a heading or a declaration rather than a line. The
  * four line numbers that once stood in `ReferenceTables.tsx` were invalidated by

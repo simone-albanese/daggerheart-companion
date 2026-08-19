@@ -961,17 +961,26 @@ export function AdversaryExperiences(): React.JSX.Element {
  * table lands in `RuleTableView`'s two-column shape - the `Expense | Cost` pair
  * that view's own docblock already names as its narrow case.
  *
- * Nothing here is a target, and that is not an omission either. This app has no
- * purse, no inventory prices and no shop; a tap on `1 Handful` would have
- * nothing to spend it on. The GM reads the number and says it out loud.
+ * Nothing here is a target, and that is not an omission either. The app does
+ * carry a purse - `engine/gold.ts` holds `gain`, `spend` and `MAX_CHESTS`, and
+ * `GoldEditor` on BUILD is three steppers over it - but it is a *character's*,
+ * and this screen reads no character and has no write path to one, so a tap on
+ * `1 Handful` would have nothing to spend it from. There are no inventory
+ * prices and no shop anywhere in the app either. The GM reads the number and
+ * says it out loud.
  *
  * ## Ergonomics, 393 x 852
  *
  * `RuleTableView` splits the region's column into two `minmax(0, 1fr)` cells at
  * a 10px gap. The widest first cell the shipped table carries is
  * `Meals for a party of adventurers per night` at 42 characters, which is the
- * 42 that view's docblock costs its two-line case on - so the table's left
- * column runs to two lines and its right stays on one, all the way down.
+ * 42 that view's docblock costs its two-line case on - so five of the twelve
+ * left cells run to two lines, that Meals row and the four
+ * `Tier N equipment (weapons, armor)` rows, and the right column stays on one
+ * throughout. Measured in Chrome at 393 x 852, device-scale-factor 1, on this
+ * branch's own build: the grid resolves to `178.5px 178.5px` at the 10px
+ * column gap, a one-line `.t-read` cell is 18.84 tall and a two-line one
+ * 37.69, and the whole grid is 390.34.
  * Nothing declares a width, so a rules layer that writes a longer expense wraps
  * instead of pushing the phone sideways.
  */

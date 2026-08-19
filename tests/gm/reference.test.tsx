@@ -876,8 +876,10 @@ describe('the costs, which are the eighth topic', () => {
    * The table is the reason the topic exists, and the paragraph above it is the
    * reason the table is not a price list. Both are asserted, and the row values
    * are pinned here rather than in `src` - that is this repo's licence line:
-   * `1 Handful` is the SRD's wording and appears in this repository only in a
-   * test that reads it back out of `data/srd-1.0.json`.
+   * `1 Handful` is the SRD's wording, and no shipped string types it. Outside
+   * `data/srd-1.0.json` it appears only in assertions like these, which read it
+   * back out of that file, and once in `GoldAndLoot`'s docblock, which quotes it
+   * as an illustration rather than drawing it.
    */
   it('draws the SRD’s twelve prices under the sentence that says to change them', () => {
     costs();
@@ -891,6 +893,14 @@ describe('the costs, which are the eighth topic', () => {
     expect(text()).toContain('1 Handful');
     expect(text()).toContain('Tier 4 equipment (weapons, armor)');
     expect(text()).toContain('1-2 Chests');
+    // Both ends are not twelve. `srdReference.test.ts` pins the count at the
+    // selector; without this the view could drop nine rows on the way to the
+    // glass and every case in this file would stay green. `RuleTableView`
+    // draws each cell as a `span.t-read` - the four `p.t-read` paragraphs of
+    // the section's prose are the reason the tag is named - so twelve rows of
+    // two cells is 24.
+    const cells = [...container.querySelectorAll('[role="dialog"] span.t-read')];
+    expect(cells).toHaveLength(24);
   });
 
   /*
@@ -906,7 +916,7 @@ describe('the costs, which are the eighth topic', () => {
     expect(inside.textContent ?? '').not.toContain('---');
   });
 
-  it('offers nothing to press, because this app has no purse to spend it from', () => {
+  it('offers nothing to press, because the GM screen cannot reach anybody’s purse', () => {
     costs();
     const inside = container.querySelector('[role="dialog"]')!;
     const strip = inside.querySelector('[aria-label="What to look up"]')!;

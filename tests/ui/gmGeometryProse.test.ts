@@ -753,7 +753,10 @@ describe('the GM screen states the geometry its own declarations make', () => {
       /\b60 ?px a step|the step is 60|60px step|step at 60|step of 60|60 ?px of (accurate )?travel/,
     ],
     ['a 60px drag step', /ROW_STEP = 60\b/],
-    ['a two-row topic strip', /wraps to two rows/],
+    // `Reference.tsx` now says the strip "takes **three** rows" where it once
+    // said it "wraps to" them, so the literal that retired the two-row claim
+    // could no longer see the regression it was written for. Both spellings.
+    ['a two-row topic strip', /wraps to two rows|takes \*\*two\*\* rows/],
     ['660 against a 369px column', /660 against/],
   ])('no file this scan lists has gone back to %s', (_what, pattern) => {
     const files = [

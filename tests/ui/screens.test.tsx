@@ -651,7 +651,8 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // The metric figures are the app's arithmetic and say so; everything else on
   // it is the SRD's own sentence.
   'gm/ReferenceTables.tsx::RangeReference': () => <RangeReference />,
-  // The block the GM chapter and the session's LINK → Rule row both draw with:
+  // The block the GM chapter, the costs topic above and the session's LINK →
+  // Rule row all draw with:
   // prose, bullets and tables, in the order the book wrote them. The countdown
   // chart's block is three columns wide, which is the stacked-panel half of
   // `RuleTableView`; the grid half is its own fixture below.
