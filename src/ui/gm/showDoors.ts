@@ -13,8 +13,8 @@
  * modules into the chunk the two screens both import instead. `npx vite build`,
  * one import changed and nothing else: the shared chunk goes from **13.76 kB to
  * 26.53 kB** (5.44 to 9.66 gzipped) and `Gm` drops from 142.87 to 130.04,
- * because `ShowSheet` and `RuleSearch` leave the GM chunk to sit in the one
- * Settings has to load. A settings screen would pay about 12.8 kB - 4.2
+ * because `ShowSheet.tsx` and `RuleSearch.tsx` leave the GM chunk to sit in the
+ * one Settings has to load. A settings screen would pay about 12.8 kB - 4.2
  * gzipped - of a GM bottom sheet it never renders, to answer a question about
  * three booleans. Splitting the list off costs nothing: this module imports
  * only types, so it compiles to no runtime imports at all.

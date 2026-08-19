@@ -3,11 +3,12 @@
  * Can a player actually switch the GM section off, and does the screen say what
  * that costs?
  *
- * Four preferences arrived with the GM screen - the section itself and the
- * three doors behind SHOW - and a preference nothing can change is the same
- * defect as a feature nothing calls: it typechecks, it has a default, and no
- * person in the world can reach it. So the first question here is the dull one,
- * asked of all four: does the control on the screen write the field.
+ * Four preferences belong to the GM screen - the section itself and the three
+ * doors behind SHOW, three of them there since the screen was and the
+ * merchant's since the merchant - and a preference nothing can change is the
+ * same defect as a feature nothing calls: it typechecks, it has a default, and
+ * no person in the world can reach it. So the first question here is the dull
+ * one, asked of all four: does the control on the screen write the field.
  *
  * The second is about the three that depend on the first. With the section off,
  * the bestiary, the party board and the merchant decide nothing at all, and a
