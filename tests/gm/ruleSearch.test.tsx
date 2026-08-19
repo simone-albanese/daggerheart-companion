@@ -367,48 +367,57 @@ describe('the field, at the foot of SHOW', () => {
     expect(buttons().some((b) => b.getAttribute('aria-label') === 'Clear the search')).toBe(false);
   });
 
-  it('takes the two doors away while a question is being asked, and gives them back', () => {
+  it('takes all three doors away while a question is being asked, and gives them back', () => {
     // A GM typing has asked something the doors do not answer, and a phone with
     // a keyboard up has no room to keep offering them. Nothing is dismissed:
-    // emptying the field brings them straight back.
+    // emptying the field brings them straight back. Every door is named: this
+    // named two while the sheet held three, so the merchant could have stayed
+    // drawn beside the hits and nothing here would have gone red.
     openShow();
     const doorText = (): string => dialog().textContent ?? '';
     expect(doorText()).toContain('without adding any of them');
     expect(doorText()).toContain('Nothing here ever writes to their characters');
+    expect(doorText()).toContain('never spends anybody’s gold');
 
     type('fear');
     expect(doorText()).not.toContain('without adding any of them');
     expect(doorText()).not.toContain('Nothing here ever writes to their characters');
+    expect(doorText()).not.toContain('never spends anybody’s gold');
 
     type('');
     expect(doorText()).toContain('without adding any of them');
     expect(doorText()).toContain('Nothing here ever writes to their characters');
+    expect(doorText()).toContain('never spends anybody’s gold');
   });
 
-  it('is still there when only one half of SHOW’s fork is switched on', () => {
-    // The search rides on SHOW rather than being a third door, so it must not
-    // depend on either door being drawn.
-    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
+  it('is still there when only one of SHOW’s doors is switched on', () => {
+    // The search rides on SHOW rather than being a door of its own, so it must
+    // not depend on any door being drawn.
+    useApp.setState({
+      prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmMerchant: false },
+    });
     openShow();
     expect(dialog().textContent).toContain('Nothing here ever writes to their characters');
     type('pitfalls');
     expect(hitTitles()).toEqual(['Pitfalls to Avoid']);
     // And the name the sheet is announced under says so. `Gm.tsx` narrows this
-    // label to whichever fork survives; the field survives both, so it is in
-    // the name here too.
+    // label to whichever doors survive; the field survives all of them, so it
+    // is in the name here too.
     expect(dialog().getAttribute('aria-label')).toBe('The party board and rules search');
   });
 
   it('is named in the sheet a screen reader hears, not only drawn in it', () => {
     /*
      * The dialog's accessible name is the only description of this sheet a GM
-     * who cannot see it gets before they start reading it, and it named two
-     * doors while the sheet held two doors and a search over every section the
-     * dataset carries. A name that undersells its own surface is the same
+     * who cannot see it gets before they start reading it, and it used to name
+     * two doors while the sheet held two doors and a search over every section
+     * the dataset carries. A name that undersells its own surface is the same
      * defect as a docblock that oversells one.
      */
     openShow();
-    expect(dialog().getAttribute('aria-label')).toBe('Bestiary, party board and rules search');
+    expect(dialog().getAttribute('aria-label')).toBe(
+      'The bestiary, the party board, the merchant and rules search',
+    );
     expect(field().getAttribute('aria-label')).toBe('Search the rules by title and text');
   });
 });

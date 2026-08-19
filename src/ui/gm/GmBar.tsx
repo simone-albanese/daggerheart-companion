@@ -33,16 +33,29 @@
  * search into two and take a quarter of the bar to do it. `BACKLOG.md` carries
  * the absence, and the objection, so both are decisions rather than silences.
  *
- * ## SHOW leaves when both of its doors are gone
+ * ## SHOW leaves when all of its doors are gone
  *
- * Both halves of SHOW's fork are switchable in Settings - the bestiary and the
- * party board are the two tools no session row can open, which is exactly why
- * they are the two that can be switched off without making a row unopenable.
- * With both off, SHOW is not drawn *disabled*: it is not drawn.
+ * Every door behind SHOW is switchable in Settings - the bestiary, the party
+ * board and the merchant are the tools SHOW is the only door to, which is
+ * exactly why they are the ones that can be switched off without making a row
+ * unopenable. ("The tools no session row can open" stood here; that is true of
+ * the SRD reference and the name generator as well, and both are behind MENU,
+ * which has no switches. `ShowSheet.tsx` carries the correction at length.)
+ * With all of them off, SHOW is not drawn *disabled*: it is not drawn.
+ *
+ * **The condition is asked of `SHOW_DOORS` rather than of two named
+ * preferences, and that is the whole of this file's part in the third door.**
+ * It used to read `bestiary || partyBoard`, which is a copy of the door list
+ * living in the file least likely to be edited when the list grows: a build
+ * that added a door and missed this line would take SHOW off the bar for a GM
+ * whose only live tool was the new one, and every test of the two old doors
+ * would have stayed green through it. Asking the list means a fourth door
+ * arrives here for free, and means this bar cannot disagree with the sheet it
+ * opens about whether there is anything behind it.
  *
  * **The reason is not that the sheet would be empty, and this paragraph said it
  * was until the search arrived.** It would not be empty: `ShowSheet` draws the
- * rules field whichever doors survive, so a SHOW kept alive by the search alone
+ * rules field whether or not any door survives, so a SHOW kept alive by the search alone
  * would open a working search over every section the dataset carries. It is
  * dropped anyway, and that is the same argument as SEARCH above arrived at from
  * the other direction. The search *opens* nothing - it answers where it is
@@ -92,6 +105,7 @@
  * Nothing here is read-only: the whole bar is target.
  */
 import { useApp } from '../../store/state.ts';
+import { liveDoors } from './showDoors.ts';
 
 /**
  * Which sheet is over the list.
@@ -121,11 +135,14 @@ export function GmBar({
   onOpenSheet: (sheet: GmSheetId) => void;
 }): React.JSX.Element {
   // Read here rather than taken as a prop: which verbs exist is this bar's own
-  // business, and threading two booleans through `Gm.tsx` would put the
-  // decision in the file that only mounts it.
-  const bestiary = useApp((s) => s.prefs.gmBestiary);
-  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
-  const verbs = VERBS.filter((verb) => verb.id !== 'show' || bestiary || partyBoard);
+  // business, and threading the switches through `Gm.tsx` would put the
+  // decision in the file that only mounts it. The whole record rather than a
+  // field at a time, because the question asked of it - "is any door live" -
+  // belongs to `SHOW_DOORS`, and a selector per door would be the hardcoded
+  // pair back in a longer spelling.
+  const prefs = useApp((s) => s.prefs);
+  const doors = liveDoors(prefs).length;
+  const verbs = VERBS.filter((verb) => verb.id !== 'show' || doors > 0);
 
   return (
     <nav

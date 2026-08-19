@@ -80,6 +80,7 @@ import { GmBar } from '../../src/ui/gm/GmBar.tsx';
 import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
+import { Merchant } from '../../src/ui/gm/Merchant.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Names } from '../../src/ui/gm/Names.tsx';
 import { NoteArm } from '../../src/ui/gm/NoteArm.tsx';
@@ -627,6 +628,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <GmTopBar layout="tablet" onOpenMenu={noop} onOpenTool={noop} />
   ),
   'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
+  'gm/Merchant.tsx::Merchant': () => <Merchant phone={false} />,
   'gm/Names.tsx::Names': () => <Names phone={false} />,
   // The note arm, with a note in it: the empty branch draws one sentence and
   // the branch worth mounting is the one that walks the stored blocks.

@@ -320,7 +320,8 @@ export type GmRegion =
   | 'bestiary'
   | 'countdowns'
   | 'reference'
-  | 'names';
+  | 'names'
+  | 'merchant';
 
 /**
  * The same list as a value, because `board.region` arrives off a disk.
@@ -340,26 +341,72 @@ export type GmRegion =
  * untouched, and the fallback that makes it survivable is the converter this
  * change would otherwise have had to write.
  *
- * **It has now happened twice, and the second time is what makes it a rule
- * rather than an exception.** P5-3 added `'reference'`; the name generator adds
- * `'names'`. Architecture §6.1 is titled "The one exception, and why it is only
- * one" and argues the case as a single admitted breach - that title is no longer
- * true of this file, and the section needs rewriting into what the argument
- * always actually was: not "one exception", but a standing licence for *this
- * field*, granted because the field is ephemeral navigation state and revocable
- * the moment anything but navigation is stored in it. The rewrite belongs to
- * whoever owns the docs; this comment is here so the contradiction is not
- * discovered by someone trusting the title.
+ * **It has now happened three times, and the second time is what made it a rule
+ * rather than an exception.** P5-3 added `'reference'`; the name generator added
+ * `'names'`; the merchant adds `'merchant'`. ("It has now happened twice"
+ * stood here, true when it was written and false the moment a third value was
+ * added under it.)
+ *
+ * The third widening is the first to arrive *under* that rule rather than to
+ * build it, so what being covered by it costs is said here instead of being
+ * left for a reader to assume the rule covers everything. It covers this
+ * because the test the rule states is still met: the widened field holds which
+ * tool was open and nothing else, so an older build that meets `'merchant'`
+ * substitutes `'encounter'`, writes that back, and has destroyed exactly one
+ * thing - the memory of a sheet the GM was going to reopen by hand anyway. The
+ * merchant stores nothing else anywhere: its stall is component state that does
+ * not survive the sheet closing, deliberately, and `Merchant.tsx` argues why.
+ * The clause below that revokes the licence - the moment anything but
+ * navigation is stored in this field - is untouched by it, and stays live for
+ * whoever widens this a fourth time.
+ *
+ * **The rewrite this comment used to ask for has happened, and the request
+ * outlived it.** What stood here said Architecture §6.1 was titled "The one
+ * exception, and why it is only one", that the title was no longer true of this
+ * file, and that the section needed rewriting into a standing licence for *this
+ * field*. All three were true when they were written and none of them is now.
+ * The section was rewritten on 18 August, is titled «L'eccezione, e perché
+ * riguarda un campo e non un conteggio», and ends on the sentence this change
+ * is the first to be governed by: whoever adds the third value must not ask
+ * whether the exception is still a single one, but whether they are widening
+ * **this** field or a different one.
+ *
+ * This widening is this field, which is the answer that section asks for. No
+ * part of §6.1 is falsified by it. The one thing left for whoever owns the docs
+ * is the courtesy of naming `'merchant'` beside `'reference'` and `'names'` in
+ * the list of what has actually been added - and that is a completion, not a
+ * contradiction.
+ *
+ * ## The compiler holds the list against the union now, and could not before
+ *
+ * `const REGIONS: readonly GmRegion[]` stood here, and it is an annotation that
+ * checks exactly one direction: every entry has to be a region, and a region
+ * with no entry is nothing at all. So widening the union and forgetting the
+ * list typechecked perfectly and lost the new tool on every reload - silently,
+ * because the fallback is a real region and the screen simply opened the
+ * encounter builder instead. `campaignSchema.test.ts` named that hazard in a
+ * comment and could not hold it: a test that loops the list cannot notice a
+ * region that never reached the list.
+ *
+ * Keying a `Record<GmRegion, true>` and taking its keys checks both directions.
+ * A region missing from the record is a missing property; a key that is not a
+ * region is an excess one. The cast on `Object.keys` is the one unchecked step
+ * and it is safe by construction: the keys of a `Record<GmRegion, …>` written
+ * as a literal are exactly `GmRegion`.
  */
-const REGIONS: readonly GmRegion[] = [
-  'encounter',
-  'scene',
-  'party',
-  'bestiary',
-  'countdowns',
-  'reference',
-  'names',
-];
+const REGION_KEYS: Record<GmRegion, true> = {
+  encounter: true,
+  scene: true,
+  party: true,
+  bestiary: true,
+  countdowns: true,
+  reference: true,
+  names: true,
+  merchant: true,
+};
+
+/** Every region this build knows, in the order they are declared above. */
+export const GM_REGIONS = Object.keys(REGION_KEYS) as readonly GmRegion[];
 
 /**
  * The live table: what is in front of the GM right now, in this campaign.
@@ -772,7 +819,7 @@ export function readCampaignRecord(
       readPartyMember(m, warn),
     ),
     board: {
-      region: REGIONS.includes(region as GmRegion) ? (region as GmRegion) : 'encounter',
+      region: GM_REGIONS.includes(region as GmRegion) ? (region as GmRegion) : 'encounter',
       partyTier: (tier >= 1 && tier <= 4 ? tier : 1) as Tier,
       roster: readRoster(board['roster']),
       adjustments: readAdjustments(board['adjustments']),

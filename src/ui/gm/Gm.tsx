@@ -22,7 +22,8 @@
  *
  * `tool` is which of them is open over the list, or none - the five, plus the
  * two MENU opens: the SRD reference and the name generator, neither of which is
- * a thing a session row can hold. Each one is
+ * a thing a session row can hold, plus the merchant, which SHOW opens beside
+ * the bestiary and the party board and which no row can hold either. Each one is
  * rendered inside a `GmSheet` and **unmounted** when it closes - never hidden.
  * That is not tidiness: the party board's camera - `PartyScanner.tsx`, which
  * `PartyBoard` loads lazily - opens the stream in an effect and stops it on
@@ -65,7 +66,7 @@
  * tidiness either - `useDialog` registers one unconditional window keydown
  * listener per dialog with no topmost check, so two live at once means one
  * Escape closing both and two Tab handlers fighting over the focus. Opening
- * either closes the other, and SHOW's two choices go through `openTool`, which
+ * either closes the other, and SHOW's choices all go through `openTool`, which
  * is what makes the sheet hand the screen over rather than stack on it.
  *
  * ## The tab bar is not on this screen, and MENU is why
@@ -95,6 +96,7 @@
  * their hand*, and the only notice in this store that is.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Prefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
 import { useLayout } from '../shared/useLayout.ts';
 import { useRetry } from '../shared/useRetry.ts';
@@ -107,6 +109,7 @@ import { GmSheet } from './GmSheet.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
 import { REPLACED_ON_LOAD, retryGm, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
+import { Merchant } from './Merchant.tsx';
 import { Names } from './Names.tsx';
 import { PartyBoard } from './PartyBoard.tsx';
 import { Reference } from './Reference.tsx';
@@ -114,6 +117,7 @@ import { SaveSheet } from './SaveSheet.tsx';
 import { Scene } from './Scene.tsx';
 import { SessionList } from './SessionList.tsx';
 import { ShowSheet } from './ShowSheet.tsx';
+import { andList, liveDoors, sentenceCase, SHOW_DOORS } from './showDoors.ts';
 
 /** The dialog's accessible name, one per tool. */
 const TOOL_LABEL: Record<GmRegion, string> = {
@@ -124,42 +128,67 @@ const TOOL_LABEL: Record<GmRegion, string> = {
   countdowns: 'Fear and countdowns',
   reference: 'The rules at hand',
   names: 'Names and places',
+  merchant: 'The merchant',
 };
 
-/** The same, one per sheet. A dialog with no name is a dialog nobody can find. */
-const SHEET_LABEL: Record<GmSheetId, string> = {
+/**
+ * The same, one per sheet - **except SHOW, which has no fixed name to keep.**
+ *
+ * A dialog with no name is a dialog nobody can find, so all four are named; the
+ * type excludes `'show'` rather than carrying a string nothing reads, because
+ * SHOW's name is computed from the doors that are live and a constant beside
+ * `showLabel` would be a second, staler answer to the same question. It used to
+ * be one: `show: 'Bestiary, party board and rules search'` sat here and was
+ * returned verbatim by the both-on branch, which is exactly how a name and the
+ * sheet it names come apart.
+ */
+const SHEET_LABEL: Record<Exclude<GmSheetId, 'show'>, string> = {
   menu: 'Menu and campaigns',
   add: 'Add to the night',
-  show: 'Bestiary, party board and rules search',
   save: 'Where this campaign is kept',
 };
 
 /**
  * SHOW's name, which has to say what is behind it *today*.
  *
- * Both halves of the fork are switchable, so a fixed label is only true while
- * both are on. A dialog announced as "Bestiary and party board" that offers one
- * of the two is the small, everyday version of the rule this project keeps: the
- * screen does not get to claim something that is not there.
+ * Every door is switchable, so a fixed label is only true while all of them are
+ * on. A dialog announced as "the bestiary, the party board and the merchant"
+ * that offers one of the three is the small, everyday version of the rule this
+ * project keeps: the screen does not get to claim something that is not there.
  *
  * The rule cuts the other way as well, and this function only did half of it
- * until the search arrived. `ShowSheet` now draws the rules field under the
- * doors in **every** state it can be in - both forks, either fork alone - so
- * the search is the one part of this name that never varies, and a name that
- * left it out described the sheet a GM heard announced less well than the one
- * they could see. The fork is what the branch below is for; the search is in
- * all three answers because it is behind SHOW in all three.
+ * until the search arrived. `ShowSheet` draws the rules field under the doors
+ * in **every** state it can be in, so the search is the one part of this name
+ * that never varies, and a name that left it out described the sheet a GM heard
+ * announced less well than the one they could see.
+ *
+ * ## Why this is built rather than enumerated
+ *
+ * It used to be three hardcoded strings for two doors, and three doors would
+ * have made it **seven**. Seven literals is not a table of names; it is seven
+ * chances to write down a sheet that is not there, in a function whose entire
+ * job is to stop the screen doing that - and six of the seven would be
+ * unreachable in any state a reviewer happens to be looking at. So the name is
+ * assembled from `SHOW_DOORS` filtered by the same preferences `ShowSheet`
+ * filters by, plus the search, which is why it cannot disagree with the sheet:
+ * both read one array.
+ *
+ * All seven read as English, which is the property a join like this can lose
+ * silently, so all seven are enumerated in `merchant.test.tsx` against this
+ * function rather than left to the two states a screenshot would show.
  */
-function showLabel(bestiary: boolean, partyBoard: boolean): string {
-  if (bestiary && partyBoard) return SHEET_LABEL.show;
-  return bestiary ? 'Bestiary and rules search' : 'The party board and rules search';
+function showLabel(prefs: Prefs): string {
+  return sentenceCase(andList([...liveDoors(prefs).map((door) => door.name), 'rules search']));
 }
 
 export function Gm(): React.JSX.Element {
   const layout = useLayout();
   const phone = layout === 'phone';
-  const bestiary = useApp((s) => s.prefs.gmBestiary);
-  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
+  // The whole record rather than a field per door, for `GmBar`'s reason: the
+  // two questions this screen asks of it - what to call SHOW, and whether a
+  // region names a tool this build offers - are both questions about
+  // `SHOW_DOORS`, and a selector per door is the list copied out by hand.
+  const prefs = useApp((s) => s.prefs);
   const writeError = useGm((s) => s.writeError);
   const writeRetry = useGm((s) => s.writeRetry);
   const replacedOnLoad = useGm((s) => s.replacedOnLoad);
@@ -171,11 +200,20 @@ export function Gm(): React.JSX.Element {
   const [tool, setTool] = useState<GmRegion | null>(null);
   const [sheet, setSheet] = useState<GmSheetId | null>(null);
 
-  /** Whether this build is prepared to open that tool at all. */
+  /**
+   * Whether this build is prepared to open that tool at all.
+   *
+   * Only a door behind SHOW can be switched off; every other region is the
+   * content of a session row and is always offered, which is why an unlisted
+   * region answers `true` rather than falling through to a default nobody
+   * argued for.
+   */
   const offered = useCallback(
-    (next: GmRegion): boolean =>
-      next === 'bestiary' ? bestiary : next === 'party' ? partyBoard : true,
-    [bestiary, partyBoard],
+    (next: GmRegion): boolean => {
+      const door = SHOW_DOORS.find((entry) => entry.tool === next);
+      return door === undefined || prefs[door.pref] === true;
+    },
+    [prefs],
   );
 
   /*
@@ -246,12 +284,13 @@ export function Gm(): React.JSX.Element {
           {tool === 'countdowns' && <Countdowns phone={phone} />}
           {tool === 'reference' && <Reference />}
           {tool === 'names' && <Names phone={phone} />}
+          {tool === 'merchant' && <Merchant phone={phone} />}
         </GmSheet>
       )}
 
       {sheet !== null && (
         <GmSheet
-          label={sheet === 'show' ? showLabel(bestiary, partyBoard) : SHEET_LABEL[sheet]}
+          label={sheet === 'show' ? showLabel(prefs) : SHEET_LABEL[sheet]}
           onClose={closeSheet}
         >
           {sheet === 'menu' && <MenuSheet onClose={closeSheet} onOpenTool={openTool} />}

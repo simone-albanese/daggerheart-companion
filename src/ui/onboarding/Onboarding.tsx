@@ -23,13 +23,16 @@
  *
  * ## The six questions that are not here
  *
- * Every preference in `prefs.ts` was a candidate and six were dropped, each for
- * a reason rather than for brevity. Shapes on the domain marks and the massive
- * damage rule arrive correct by default; reduced motion is declared by the
- * operating system and read from there, so asking would be the app requesting
- * information it already has; the screen stays awake, which is right for a
- * table; the theme is dark, because this is played in dim rooms; and both GM
- * browse tools are on. What is left is the set the app genuinely cannot answer
+ * Every preference in `prefs.ts` was a candidate and six *questions* were
+ * dropped - questions, not preferences, because the last of the six covers
+ * every GM browse tool at once and there are three of those now. Each was
+ * dropped for a reason rather than for brevity. Shapes on the domain marks and
+ * the massive damage rule arrive correct by default; reduced motion is declared
+ * by the operating system and read from there, so asking would be the app
+ * requesting information it already has; the screen stays awake, which is right
+ * for a table; the theme is dark, because this is played in dim rooms; and all
+ * three GM browse tools - `gmBestiary`, `gmPartyBoard` and `gmMerchant` - are
+ * on. What is left is the set the app genuinely cannot answer
  * for itself: who you are, how your table rolls, and - only for a GM - how many
  * of you there are, because that number is arithmetic rather than taste.
  *
