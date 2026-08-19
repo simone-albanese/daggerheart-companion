@@ -37,6 +37,7 @@ import {
   type OfflineStatus,
 } from '../../pwa/register.ts';
 import { copyLibrary, isStandalone, pasteLibrary } from '../../transfer/pasteboard.ts';
+import { liveDoors } from '../gm/showDoors.ts';
 import { DomainMark } from '../shared/DomainMark.tsx';
 import { usePrintSheet } from '../print/usePrintSheet.tsx';
 import { ImportConflicts, useImportFlow } from '../shared/ImportConflicts.tsx';
@@ -431,7 +432,7 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
 // ---------------------------------------------------------------------------
 
 /**
- * Three switches, and the reason there are three rather than six.
+ * Four switches, and the reason there are four rather than eight.
  *
  * The master switch is the one most people will touch: this app is used by
  * players far more often than by the one person running the table, and the GM
@@ -440,16 +441,17 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
  * behind them - `allowedScreen` and `openingScreen` in `prefs.ts` are those two
  * rules, so nothing here can leave a door to a room the shell refuses to draw.
  *
- * The other two are the two halves SHOW forks into, and they are switchable
- * precisely because nothing else reaches them: the encounter builder and the
- * scene runner are the *content of a session row*, so a switch that hid either
- * would make rows the GM has already written unopenable, and Fear and the
- * countdowns sit behind the Fear readout, which is not optional at a
- * Daggerheart table - a GM cannot be given a pool they can spend and no board
- * to set it on. `BACKLOG.md` carries that reduction as a decision rather than
- * as a silence.
+ * The other three are the doors behind SHOW, and they are switchable precisely
+ * because nothing else reaches them: the encounter builder and the scene runner
+ * are the *content of a session row*, so a switch that hid either would make
+ * rows the GM has already written unopenable, and Fear and the countdowns sit
+ * behind the Fear readout, which is not optional at a Daggerheart table - a GM
+ * cannot be given a pool they can spend and no board to set it on. `BACKLOG.md`
+ * carries that reduction as a decision rather than as a silence. ("The two
+ * halves SHOW forks into" stood here; the merchant made it three doors, and a
+ * fork with three arms is not a fork.)
  *
- * Off, the two sub-switches are disabled rather than hidden. A live control
+ * Off, the three sub-switches are disabled rather than hidden. A live control
  * that decides nothing is the same defect as a sentence the code cannot honour;
  * a disabled one with the sentence beside it says what it is waiting for.
  *
@@ -458,7 +460,7 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
  * than the graphic. On a 393px phone the settings column is 393 − 24 = 369, the
  * control block spends 78 (22 of ON/OFF + 10 + 46) and the label and its
  * sentence take the remaining 277 at `.t-dense` - about 44 characters a line,
- * inside the 62ch maximum this screen reads at. All three rows are read before
+ * inside the 62ch maximum this screen reads at. All four rows are read before
  * they are touched, which is why the sentence gets the width and the switch
  * keeps a fixed 78.
  */
@@ -510,14 +512,34 @@ function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
           />
         </Field>
 
+        <Field
+          label="The merchant"
+          hint="The third door behind SHOW: a stall to draw stock for, over the SRD’s own table of what things cost. Off, SHOW stops offering it. It never spends anybody’s gold — nothing in it writes to a character sheet, on or off."
+        >
+          <Switch
+            label="The merchant"
+            checked={prefs.gmMerchant}
+            disabled={off}
+            onChange={(gmMerchant) => setPrefs({ gmMerchant })}
+          />
+        </Field>
+
         {/*
-          The same idiom as the two dice switches: the honest case where both of
-          a pair are off is stated rather than quietly prevented. Here it is
+          The same idiom as the two dice switches: the honest case where every
+          one of a set is off is stated rather than quietly prevented. Here it is
           worth stating because the consequence is visible - the bar the GM
           presses all evening loses a third of itself and the other two verbs
           grow into the space.
+
+          The condition asks `SHOW_DOORS` rather than naming the preferences,
+          which is the same argument `GmBar` makes about the same question: a
+          hand-written `!a && !b` is a copy of the door list, and the copy is
+          what stops agreeing the day a door is added. This one would have gone
+          quiet rather than red - the notice simply would not appear for a GM who
+          had switched all three off - which is the kind of defect a test has to
+          be written for on purpose.
         */}
-        {(off || (!prefs.gmBestiary && !prefs.gmPartyBoard)) && (
+        {(off || liveDoors(prefs).length === 0) && (
           <div
             className="t-dense"
             style={{
@@ -529,8 +551,8 @@ function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
             }}
           >
             {off
-              ? 'The GM section is off, so these two decide nothing until it is back on. They are remembered in the meantime.'
-              : 'With both off SHOW has nothing left to open, so it leaves the GM screen’s bottom bar and ADD and SAVE take the width. The rules search lives on that sheet, so it goes with it; the reference behind MENU does not. Everything else on that screen is unchanged.'}
+              ? 'The GM section is off, so these three decide nothing until it is back on. They are remembered in the meantime.'
+              : 'With all three off SHOW has nothing left to open, so it leaves the GM screen’s bottom bar and ADD and SAVE take the width. The rules search lives on that sheet, so it goes with it; the reference behind MENU does not. Everything else on that screen is unchanged.'}
           </div>
         )}
       </Rows>

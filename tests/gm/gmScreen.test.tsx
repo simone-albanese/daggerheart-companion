@@ -430,18 +430,20 @@ describe('the bottom bar', () => {
     expect(bar().style.gridTemplateColumns).toBe('repeat(3, 1fr)');
   });
 
-  it('drops SHOW when both halves of its fork are switched off, and redistributes', () => {
+  it('drops SHOW when every one of its doors is switched off, and redistributes', () => {
     /*
-     * The property the test above could only half state. With the bestiary and
-     * the party board both off, SHOW has no door left to open - the rules
-     * search rides on its sheet rather than being a reason to draw the verb,
-     * so a SHOW kept for it alone would be the SEARCH the bar refused - so it
-     * is not drawn, and the two verbs that are left take the width: 196px each
-     * on a 393px phone where three were 131. A hard-coded `repeat(3, 1fr)`
+     * The property the test above could only half state. With the bestiary, the
+     * party board and the merchant all off, SHOW has no door left to open - the
+     * rules search rides on its sheet rather than being a reason to draw the
+     * verb, so a SHOW kept for it alone would be the SEARCH the bar refused -
+     * so it is not drawn, and the two verbs that are left take the width: 196px
+     * each on a 393px phone where three were 131. A hard-coded `repeat(3, 1fr)`
      * would leave the third column empty and put ADD and SAVE where neither the
      * eye nor the thumb expects them.
      */
-    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false } });
+    useApp.setState({
+      prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false, gmMerchant: false },
+    });
     gm();
 
     const verbs = [...bar().querySelectorAll('button')];
@@ -451,16 +453,31 @@ describe('the bottom bar', () => {
     for (const verb of verbs) expect(verb.style.minHeight).toBe('60px');
   });
 
-  it('keeps SHOW while either half is still there', () => {
-    // Half a fork is still something to open, so the verb stays and the bar
-    // keeps its three columns. The sheet is what narrows.
-    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartyBoard: false } });
-    gm();
-    expect([...bar().querySelectorAll('button')].map((b) => (b.textContent ?? '').trim())).toEqual([
-      'ADD',
-      'SHOW',
-      'SAVE',
-    ]);
+  it('keeps SHOW while any one door is still there', () => {
+    /*
+     * One door is still something to open, so the verb stays and the bar keeps
+     * its three columns. The sheet is what narrows.
+     *
+     * Each door on its own, because the bar used to ask `bestiary ||
+     * partyBoard` and a build that adds a third to that pair without touching
+     * the condition takes SHOW off the bar for the GM whose only live tool is
+     * the new one - green under both of the old doors, and invisible.
+     */
+    for (const only of ['gmBestiary', 'gmPartyBoard', 'gmMerchant'] as const) {
+      useApp.setState({
+        prefs: {
+          ...DEFAULT_PREFS,
+          gmBestiary: only === 'gmBestiary',
+          gmPartyBoard: only === 'gmPartyBoard',
+          gmMerchant: only === 'gmMerchant',
+        },
+      });
+      act(() => root.render(createElement(Gm)));
+      expect(
+        [...bar().querySelectorAll('button')].map((b) => (b.textContent ?? '').trim()),
+        `SHOW left the bar with ${only} still on`,
+      ).toEqual(['ADD', 'SHOW', 'SAVE']);
+    }
   });
 
   it('has no SEARCH, now that there is something behind one', () => {
@@ -626,15 +643,15 @@ describe('SHOW', () => {
     expect(openTool()).toBe('Bestiary');
   });
 
-  it('offers only the half that is switched on, and is named for it', () => {
+  it('offers only the doors that are switched on, and is named for them', () => {
     /*
-     * A fork with one arm is still a fork, and the sheet must not be announced
-     * as "Bestiary, party board and rules search" while it offers one of the
-     * two - that is the everyday size of the rule this screen is built on.
-     * Absent rather than disabled, for the reason SEARCH is absent from the
-     * bar: a choice that cannot be taken is a row the GM reads for nothing.
-     * The search is in the name whichever half survives, because the field is
-     * drawn under whichever door survives.
+     * The sheet must not be announced as all three doors while it offers one or
+     * two of them - that is the everyday size of the rule this screen is built
+     * on. Absent rather than disabled, for the reason SEARCH is absent from the
+     * bar: a choice that cannot be taken is a row the GM reads for nothing. The
+     * search is in the name whichever doors survive, because the field is drawn
+     * under whichever doors survive. All seven live states are enumerated in
+     * `merchant.test.tsx`; this is the one a GM most often lands in.
      */
     useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
     gm();
@@ -645,9 +662,9 @@ describe('SHOW', () => {
       // heading and its second is the sentence under it.
       .map((b) => (b.querySelector('span')?.textContent ?? '').trim())
       .filter((label) => label !== '');
-    expect(choices).toEqual(['THE PARTY BOARD']);
+    expect(choices).toEqual(['THE PARTY BOARD', 'THE MERCHANT']);
     expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
-      'The party board and rules search',
+      'The party board, the merchant and rules search',
     );
   });
 });
@@ -1050,28 +1067,44 @@ describe('MENU', () => {
   const sheetText = (): string =>
     container.querySelector('[role="dialog"]')?.textContent ?? '';
 
-  it('names all three doors while both halves of SHOW are switched on', () => {
+  it('names all four doors while every door of SHOW is switched on', () => {
     openMenu();
-    expect(sheetText()).toContain('The other three already have a way in');
-    expect(sheetText()).toContain('the bestiary and the party board are behind SHOW');
+    expect(sheetText()).toContain('The other four already have a way in');
+    expect(sheetText()).toContain(
+      'the bestiary, the party board and the merchant are behind SHOW',
+    );
   });
 
-  it('names only the half of SHOW that is still on the screen', () => {
+  it('names only the doors of SHOW that are still on the screen', () => {
     useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartyBoard: false } });
     openMenu();
-    expect(sheetText()).toContain('The other two already have a way in');
-    expect(sheetText()).toContain('the bestiary is behind SHOW');
+    expect(sheetText()).toContain('The other three already have a way in');
+    expect(sheetText()).toContain('the bestiary and the merchant are behind SHOW');
     expect(
       sheetText(),
       'the sheet sent the GM to SHOW for a tool this build does not offer',
-    ).not.toContain('the party board are behind SHOW');
+    ).not.toContain('the party board and the merchant are behind SHOW');
     // And the tool that is gone is accounted for, so its absence is an answer
     // rather than a gap - the same rule the sentence exists to keep.
     expect(sheetText()).toContain('The party board is switched off in Settings');
   });
 
-  it('does not point at SHOW when SHOW is not on the bar', () => {
+  it('agrees with its own verb about the count when two doors are gone', () => {
+    // The count in the opening clause is the live doors plus the Fear board,
+    // and it is the number this sentence used to hardcode. Two off leaves two.
     useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false } });
+    openMenu();
+    expect(sheetText()).toContain('The other two already have a way in');
+    expect(sheetText()).toContain('the merchant is behind SHOW');
+    expect(sheetText()).toContain('The bestiary and the party board are switched off in Settings');
+    // Still on the bar, so this must not say it has gone.
+    expect(sheetText()).not.toContain('SHOW is not on the bottom bar at all');
+  });
+
+  it('does not point at SHOW when SHOW is not on the bar', () => {
+    useApp.setState({
+      prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmPartyBoard: false, gmMerchant: false },
+    });
     openMenu();
     expect(
       sheetText(),

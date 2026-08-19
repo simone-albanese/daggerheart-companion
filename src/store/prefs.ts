@@ -47,18 +47,34 @@ export interface Prefs {
    */
   gmSection: boolean;
   /**
-   * SHOW's first fork: reading the adversaries and environments this dataset
+   * SHOW's first door: reading the adversaries and environments this dataset
    * carries without adding any of them to tonight.
    *
    * Switchable where the encounter builder and the scene runner are not, and
    * the difference is not arbitrary - those two are the *content of a session
    * row*, so a switch that hid them would make rows the GM has already written
-   * unopenable. This one and the party board are the two halves SHOW forks
-   * into, and neither is reachable from a row at all.
+   * unopenable. This one, the party board and the merchant are the three doors
+   * SHOW opens onto, and none of them is reachable from a row at all.
+   *
+   * ("The two halves SHOW forks into" stood here and in the party board's line
+   * below. A fork has two arms; there are three doors now, so the word went
+   * with the count.)
    */
   gmBestiary: boolean;
-  /** SHOW's other half: the party board, and the sheets the players sent. */
+  /** SHOW's second door: the party board, and the sheets the players sent. */
   gmPartyBoard: boolean;
+  /**
+   * SHOW's third door: the merchant, for the evening the party goes shopping.
+   *
+   * The same argument as the two above, which is why it is a switch rather than
+   * something always there: no session row opens it, so nothing the GM has
+   * written becomes unopenable when it goes. On by default, like its two
+   * neighbours - a tool that ships switched off is a tool nobody discovers -
+   * and `loadPrefs` spreads a stored record over `DEFAULT_PREFS`, so a device
+   * that has never seen this key gets the `true` rather than a `false` it never
+   * chose.
+   */
+  gmMerchant: boolean;
   /**
    * Which collapsible sections of the Play screen are open, per character.
    *
@@ -130,6 +146,7 @@ export const DEFAULT_PREFS: Prefs = {
   gmSection: true,
   gmBestiary: true,
   gmPartyBoard: true,
+  gmMerchant: true,
   playSections: {},
   onboarded: false,
 };

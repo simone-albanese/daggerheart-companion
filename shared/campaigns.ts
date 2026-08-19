@@ -301,7 +301,8 @@ export type GmRegion =
   | 'bestiary'
   | 'countdowns'
   | 'reference'
-  | 'names';
+  | 'names'
+  | 'merchant';
 
 /**
  * The same list as a value, because `board.region` arrives off a disk.
@@ -321,9 +322,26 @@ export type GmRegion =
  * untouched, and the fallback that makes it survivable is the converter this
  * change would otherwise have had to write.
  *
- * **It has now happened twice, and the second time is what makes it a rule
- * rather than an exception.** P5-3 added `'reference'`; the name generator adds
- * `'names'`. Architecture §6.1 is titled "The one exception, and why it is only
+ * **It has now happened three times, and the second time is what made it a rule
+ * rather than an exception.** P5-3 added `'reference'`; the name generator added
+ * `'names'`; the merchant adds `'merchant'`. ("It has now happened twice"
+ * stood here, true when it was written and false the moment a third value was
+ * added under it.)
+ *
+ * The third widening is the first to arrive *under* that rule rather than to
+ * build it, so what being covered by it costs is said here instead of being
+ * left for a reader to assume the rule covers everything. It covers this
+ * because the test the rule states is still met: the widened field holds which
+ * tool was open and nothing else, so an older build that meets `'merchant'`
+ * substitutes `'encounter'`, writes that back, and has destroyed exactly one
+ * thing - the memory of a sheet the GM was going to reopen by hand anyway. The
+ * merchant stores nothing else anywhere: its stall is component state that does
+ * not survive the sheet closing, deliberately, and `Merchant.tsx` argues why.
+ * The clause below that revokes the licence - the moment anything but
+ * navigation is stored in this field - is untouched by it, and stays live for
+ * whoever widens this a fourth time.
+ *
+ * Architecture §6.1 is titled "The one exception, and why it is only
  * one" and argues the case as a single admitted breach - that title is no longer
  * true of this file, and the section needs rewriting into what the argument
  * always actually was: not "one exception", but a standing licence for *this
@@ -340,6 +358,7 @@ const REGIONS: readonly GmRegion[] = [
   'countdowns',
   'reference',
   'names',
+  'merchant',
 ];
 
 /**

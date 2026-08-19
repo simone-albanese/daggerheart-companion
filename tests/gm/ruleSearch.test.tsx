@@ -385,17 +385,19 @@ describe('the field, at the foot of SHOW', () => {
     expect(doorText()).toContain('Nothing here ever writes to their characters');
   });
 
-  it('is still there when only one half of SHOW’s fork is switched on', () => {
-    // The search rides on SHOW rather than being a third door, so it must not
-    // depend on either door being drawn.
-    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmBestiary: false } });
+  it('is still there when only one of SHOW’s doors is switched on', () => {
+    // The search rides on SHOW rather than being a door of its own, so it must
+    // not depend on any door being drawn.
+    useApp.setState({
+      prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmMerchant: false },
+    });
     openShow();
     expect(dialog().textContent).toContain('Nothing here ever writes to their characters');
     type('pitfalls');
     expect(hitTitles()).toEqual(['Pitfalls to Avoid']);
     // And the name the sheet is announced under says so. `Gm.tsx` narrows this
-    // label to whichever fork survives; the field survives both, so it is in
-    // the name here too.
+    // label to whichever doors survive; the field survives all of them, so it
+    // is in the name here too.
     expect(dialog().getAttribute('aria-label')).toBe('The party board and rules search');
   });
 
@@ -408,7 +410,9 @@ describe('the field, at the foot of SHOW', () => {
      * defect as a docblock that oversells one.
      */
     openShow();
-    expect(dialog().getAttribute('aria-label')).toBe('Bestiary, party board and rules search');
+    expect(dialog().getAttribute('aria-label')).toBe(
+      'The bestiary, the party board, the merchant and rules search',
+    );
     expect(field().getAttribute('aria-label')).toBe('Search the rules by title and text');
   });
 });

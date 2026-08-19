@@ -22,17 +22,20 @@
  * the content of a session row now, which is the whole point of the rebuild -
  * but three of them have a fixed control as well and two did not. Fear and the
  * countdowns are behind the Fear readout, which is always drawn; the bestiary
- * and the party board are behind SHOW, for as long as Settings leaves either of
- * them switched on - see `whereTheOthersAre`. The encounter builder had nothing, and
+ * and the party board are behind SHOW, for as long as Settings leaves any door
+ * switched on - see `whereTheOthersAre`. The encounter builder had nothing, and
  * the live scene had only a chip that exists while adversaries are on the
  * board - so a GM improvising a fight had to ADD an encounter row, name it,
  * submit it, open it and press OPEN THE BUILDER, creating a plan row they may
  * not have wanted, where the old screen had a tab.
  *
- * The other three are deliberately *not* repeated here, and that is the same
+ * The others are deliberately *not* repeated here, and that is the same
  * rule Settings is kept out by: a second route to a destination that already
  * has one is a door nobody chose to build. The sentence under these two says
- * where those three are, so their absence is an answer rather than a gap.
+ * where the rest are, so their absence is an answer rather than a gap. It said
+ * "the other three" and counted them itself, which is one more place for the
+ * count to go stale the day a door is added - and a door was added: the
+ * merchant is a fourth.
  * **The rules** are third, and they are here rather than in the bottom bar for
  * the reason `Reference.tsx` gives at length: ADD and SHOW are the continuous
  * gestures of an evening and hold the thumb arc, while looking a rule up stops
@@ -159,7 +162,9 @@ import { useEffect, useId, useState } from 'react';
 import { CAMPAIGN_NAMES, judgeName } from '../../store/names.ts';
 import { useApp, type Screen } from '../../store/state.ts';
 import { NameRefusal } from '../shared/NameRefusal.tsx';
+import type { Prefs } from '../../store/prefs.ts';
 import { useGm, type GmRegion } from './gmStore.ts';
+import { andList, liveDoors, sentenceCase, SHOW_DOORS } from './showDoors.ts';
 
 /** Where MENU can go. Settings is deliberately not here - see the docblock. */
 const WAYS_OUT: Array<{ id: Screen; label: string }> = [
@@ -176,14 +181,14 @@ const WAYS_OUT: Array<{ id: Screen; label: string }> = [
  * neither of them is ever the content of a session row, so neither belongs in
  * a pair whose whole argument is "these two are a row and nothing else".
  *
- * Not all five, and the three that are missing from the list are missing on
+ * Not all of them, and the four that are missing from the list are missing on
  * purpose: Fear and the countdowns is behind the readout that is always in the
- * top bar, and the bestiary and the party board are behind SHOW. These two are
- * the content of a row and nothing else, which was fine until a GM wanted one
- * without a row.
+ * top bar, and the bestiary, the party board and the merchant are behind SHOW.
+ * These two are the content of a row and nothing else, which was fine until a
+ * GM wanted one without a row.
  *
- * The list itself is fixed; the *sentence* under it is not, because two of the
- * three doors it names are switchable. See `whereTheOthersAre`.
+ * The list itself is fixed; the *sentence* under it is not, because every door
+ * it names but the Fear one is switchable. See `whereTheOthersAre`.
  */
 const TOOLS: Array<{ id: GmRegion; label: string }> = [
   { id: 'encounter', label: 'THE ENCOUNTER BUILDER' },
@@ -191,37 +196,67 @@ const TOOLS: Array<{ id: GmRegion; label: string }> = [
 ];
 
 /**
- * Where the three tools this sheet does not repeat are, in whichever build the
- * GM is actually holding.
+ * The words for a count this sentence has to say out loud.
+ *
+ * Indexed by the number itself less one, and long enough for a door more than
+ * `SHOW_DOORS` carries. Past the end it falls back to the digit rather than to
+ * `undefined`: a sentence reading "The other 5" is worse prose and a perfectly
+ * true one, which is the right way round for a fallback nobody has hit.
+ */
+const COUNTED: readonly string[] = ['one', 'two', 'three', 'four', 'five'];
+
+/**
+ * Where the tools this sheet does not repeat are, in whichever build the GM is
+ * actually holding.
  *
  * This sentence named SHOW unconditionally, and SHOW is not unconditional.
- * `GmBar` filters the verb out when `gmBestiary` and `gmPartyBoard` are both
- * off, and `ShowSheet` opens only the surviving half when one is - so with both
- * switched off the sheet was pointing at a control the GM can look down at the
- * bar and not find, and with one off it was promising two things behind a verb
- * that offers one. Settings has said the first half of this out loud since it
- * was written - "With both off SHOW has nothing left to open, so it leaves the
- * GM screen's bottom bar" - which made this the app contradicting itself about
- * its own bar, two settings apart, with each half tested and neither read
- * against the other.
+ * `GmBar` filters the verb out when every door behind it is switched off, and
+ * `ShowSheet` draws only the doors that survive - so with all of them off the
+ * sheet was pointing at a control the GM can look down at the bar and not find,
+ * and with some off it was promising things behind a verb that does not offer
+ * them. Settings has said the first half of this out loud since it was written
+ * - "With all three off SHOW has nothing left to open, so it leaves the GM
+ * screen's bottom bar" - which made this the app contradicting itself about its
+ * own bar, two settings apart, with each half tested and neither read against
+ * the other.
  *
  * A switched-off tool is named as switched off rather than as somewhere to go:
  * it drops out of the count as well as out of the route, and the reader is sent
  * to Settings, which is where it went, instead of to a verb that is not there.
  * Read here rather than taken as a prop for the same reason `GmBar` reads it -
  * what this sheet says is this sheet's business.
+ *
+ * **It was three hardcoded sentences for two doors and would have been seven
+ * for three.** The count in the opening clause, the list of what is behind
+ * SHOW, the list of what is switched off and the verb agreeing with each of
+ * them all move together, so they are all derived from one filter over
+ * `SHOW_DOORS` - the same filter `ShowSheet` draws with and `Gm.tsx` names the
+ * dialog with. The one thing that is *not* derived is the Fear clause, because
+ * Fear and the countdowns is not a door and is not switchable: it is why the
+ * count is the live doors plus one rather than the live doors.
  */
-function whereTheOthersAre(bestiary: boolean, partyBoard: boolean): string {
+function whereTheOthersAre(prefs: Prefs): string {
   const fear = 'Fear and the countdowns are behind the Fear number at the top';
-  if (bestiary && partyBoard) {
-    return `The other three already have a way in and are not repeated here: ${fear}, the bestiary and the party board are behind SHOW.`;
-  }
-  if (bestiary || partyBoard) {
-    const there = bestiary ? 'the bestiary is' : 'the party board is';
-    const gone = bestiary ? 'The party board is' : 'The bestiary is';
-    return `The other two already have a way in and are not repeated here: ${fear}, and ${there} behind SHOW. ${gone} switched off in Settings.`;
-  }
-  return `The one that is left already has a way in and is not repeated here: ${fear}. The bestiary and the party board are both switched off in Settings, so SHOW is not on the bottom bar at all.`;
+  const live = liveDoors(prefs);
+  const gone = SHOW_DOORS.filter((door) => prefs[door.pref] !== true);
+  const total = live.length + 1;
+
+  const opening =
+    total === 1
+      ? `The one that is left already has a way in and is not repeated here: ${fear}`
+      : `The other ${COUNTED[total - 1] ?? String(total)} already have a way in and are not repeated here: ${fear}`;
+
+  const behind =
+    live.length === 0
+      ? '.'
+      : `, and ${andList(live.map((door) => door.name))} ${live.length === 1 ? 'is' : 'are'} behind SHOW.`;
+
+  if (gone.length === 0) return `${opening}${behind}`;
+
+  const names = sentenceCase(andList(gone.map((door) => door.name)));
+  const verb = gone.length === 1 ? 'is' : 'are';
+  const bar = live.length === 0 ? ', so SHOW is not on the bottom bar at all' : '';
+  return `${opening}${behind} ${names} ${verb} switched off in Settings${bar}.`;
 }
 
 export function MenuSheet({
@@ -237,8 +272,10 @@ export function MenuSheet({
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const setScreen = useApp((s) => s.setScreen);
-  const bestiary = useApp((s) => s.prefs.gmBestiary);
-  const partyBoard = useApp((s) => s.prefs.gmPartyBoard);
+  // The record rather than a field per door: what this sentence has to say is a
+  // question about `SHOW_DOORS`, and a selector per door would be that list
+  // copied out here by hand - the copy that goes stale when a door is added.
+  const prefs = useApp((s) => s.prefs);
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
   const hydrated = useGm((s) => s.hydrated);
@@ -294,7 +331,7 @@ export function MenuSheet({
         </div>
         <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
           These two are otherwise the content of a session row, so improvising a fight meant
-          writing a row for it first. {whereTheOthersAre(bestiary, partyBoard)}
+          writing a row for it first. {whereTheOthersAre(prefs)}
         </p>
       </div>
 
