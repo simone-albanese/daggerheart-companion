@@ -780,13 +780,24 @@ describe('goldAndLoot', () => {
   it('keeps the twelve prices as the book wrote them, ranges included', () => {
     const table = section().blocks[0]!.parts.find((p) => p.kind === 'table')!;
     expect(table.table.header).toEqual(['Expense', 'Cost']);
-    expect(table.table.rows).toHaveLength(12);
-    expect(table.table.rows[0]).toEqual([
-      'Meals for a party of adventurers per night',
-      '1 Handful',
+    // All twelve, not the ends and a count. The name of this case claims every
+    // price, so every price is here: with rows 0, 8 and 11 pinned and the rest
+    // left to `toHaveLength(12)`, editing `3 Handfuls` to `900 Chests` in
+    // `data/srd-1.0.json` left the whole suite green.
+    expect(table.table.rows).toEqual([
+      ['Meals for a party of adventurers per night', '1 Handful'],
+      ['Standard inn room per night', '1 Handful'],
+      ['Luxury inn room per night', '1 Bag'],
+      ['Carriage ride', '2 Handfuls'],
+      ['Mount (horse, mule, etc.)', '3 Bags'],
+      ['Specialized tools', '3 Handfuls'],
+      ['Fine clothing', '3 Handfuls'],
+      ['Luxury clothing', '1 Bag'],
+      ['Tier 1 equipment (weapons, armor)', '1-5 Handfuls'],
+      ['Tier 2 equipment (weapons, armor)', '1-2 Bags'],
+      ['Tier 3 equipment (weapons, armor)', '5-10 Bags'],
+      ['Tier 4 equipment (weapons, armor)', '1-2 Chests'],
     ]);
-    expect(table.table.rows[8]).toEqual(['Tier 1 equipment (weapons, armor)', '1-5 Handfuls']);
-    expect(table.table.rows[11]).toEqual(['Tier 4 equipment (weapons, armor)', '1-2 Chests']);
   });
 
   it('carries the sentence that makes the table a suggestion rather than a price list', () => {

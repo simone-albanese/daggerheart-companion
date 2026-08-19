@@ -43,12 +43,14 @@
  *
  * At 744 and 1024 the region pads `14px 20px 18px`, and the sheet caps at
  * 1100. The same 1px a side takes those three columns from 704 / 984 / 1060 to
- * **702 / 982 / 1058**. Two of those three are no longer implied: 702.00 at 744
- * and 982.00 at 1024 were read off this region's own content box in Chrome, in
- * the same pass that counted the strip below, and both are exactly what the
- * border predicts. The 1058 is still implied and still unmeasured - it is the
- * case where `GmSheet` reaches its 1100 cap, which needs a window past 1102 and
- * has never been opened. Measure that one before anything leans on it.
+ * **702 / 982 / 1058**, and none of the three is implied any more: 702.00 at
+ * 744, 982.00 at 1024 and 1058.00 at the cap were each read off this region's
+ * own content box in Chrome, and each is exactly what the border predicts.
+ * Reaching the cap needs no exotic window either - `GmSheet`'s `full` overlay
+ * pads `calc(env(safe-area-inset-top) + 8px) 0 0`, zero a side, so the panel is
+ * the window until 1100 - and the column stops there: 1058.00 at 1100 and
+ * identically 1058.00 at 1102, 1200 and 1400, against 982.00 at 1024 for
+ * contrast, i.e. still uncapped there.
  *
  * The root is its own scroller. Every sibling tool declares one - `Countdowns`,
  * `Bestiary`, `Scene` and `PartyBoard` are all `scroll stack` at `flex: 1;
@@ -217,8 +219,8 @@ export type ReferenceTopic =
  * own is not a question anybody asked.
  *
  * The order is the strip's packing order and nothing else - see the head
- * docblock's `## The topic strip`, where the trade it makes is argued and the
- * measurement that bought it is written down. It is deliberately NOT the order
+ * docblock's `## The topic strip` for the measurement and `## Why the order is
+ * widest-first, and what that actually bought` for the trade it makes. It is deliberately NOT the order
  * a GM would rank these subjects in, and it is deliberately not what the region
  * opens on either: `Reference` names `improvise` for that, because which chip
  * happens to be widest is no reason to change the answer the screen gives

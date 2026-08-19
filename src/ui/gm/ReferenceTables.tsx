@@ -20,9 +20,10 @@
  *
  * The eleventh table is deliberately not an eleventh pair.
  * `giving-out-gold-equipment-and-loot` carries the Average Costs table and is
- * now reachable both ways - the same `LINK -> Rule` row and the costs topic
- * `GoldAndLoot` adds below - but both doors end in the same `BlockView` and so
- * in the same `RuleTableView`. Two doors, one drawing, nothing to keep in step.
+ * reachable three ways - the `LINK -> Rule` row, SHOW's rule search, and the
+ * costs topic `GoldAndLoot` adds below - and all three end in the same
+ * `BlockView` and so in the same `RuleTableView`. Three doors, one drawing,
+ * nothing to keep in step.
  * That is what a bespoke renderer has to earn, and a price list has nothing for
  * one to do.
  *
@@ -1018,10 +1019,11 @@ export function GoldAndLoot(): React.JSX.Element {
  * One `## ` block of any rules section: its subhead, its prose, its bullets and
  * its tables.
  *
- * The GM chapter above draws with this, so does the costs topic above it, and
- * so does the `LINK -> Rule` row of a
- * GM session - which is the reason it is exported rather than private to this
- * file. That row printed a section through `paragraphs()` alone until now, so
+ * The GM chapter above draws with this, so do the adversary Experiences and the
+ * costs topic above it, and outside this file so do the `LINK -> Rule` row of a
+ * GM session and SHOW's rule search (`RuleSearch.tsx`) - those last two are the
+ * reason it is exported rather than private to this file. That row printed a
+ * section through `paragraphs()` alone until now, so
  * every bullet it drew carried a literal `- ` and every table came out as raw
  * pipes; 38 of the 75 shipped sections are one of those two shapes. A second
  * renderer beside this one would have been a second thing to keep in step, and

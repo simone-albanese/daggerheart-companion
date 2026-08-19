@@ -33,12 +33,13 @@
  * the one inside `BlockView` (`ReferenceTables.tsx`) - and the second is not a
  * separate path:
  * `BlockView` is what `SessionBody.tsx` calls for exactly the session row
- * above, and the reference region reaches it as well through `GmMoves`,
+ * above, what `RuleSearch.tsx` calls for every hit SHOW's rule search opens -
+ * `searchRules` indexes table bodies, so a search for `Handful` lands in this
+ * view - and what the reference region reaches through `GmMoves`,
  * `AdversaryExperiences` and `GoldAndLoot`, all three in `ReferenceTables.tsx`.
- * The last of those is why the Average Costs table named at the top of this
- * docblock is no longer only reachable from a session row: the costs topic
- * draws that same section, so the narrow shape
- * below is now on the reference screen as well. (Every pointer in this
+ * The last of those puts that table on the reference screen: it was already
+ * reachable from a session row's `LINK -> Rule` and from SHOW's rule search,
+ * and the costs topic is the third door onto the same drawing. (Every pointer in this
  * docblock names a symbol, a heading or a declaration rather than a line. The
  * four line numbers that once stood in `ReferenceTables.tsx` were invalidated by
  * the very edit that carried them; the `Wizard.tsx:1584` that stood here went
