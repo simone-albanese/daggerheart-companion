@@ -1542,12 +1542,13 @@ where being wrong stops the project rather than costing a character.
 - [ ] **`env.sh` explains that the toolchain exists because Homebrew Node is
       broken.** That was repaired this session; the rationale is now stale.
 - [x] ~~Changelog and a release process. Version is still `0.1.0`.~~ — **done,
-      `6898a57`**. `CHANGELOG.md` exists and `package.json` is `0.2.0`. The
-      release process itself is not written down anywhere and is not claimed to
-      be; what this bullet asked for was the file and a version the project
-      chose rather than the scaffold's default. **`0.2.0` is deliberate and
-      stays.** Nothing this project has shipped is a 1.0, and no document may
-      say it is.
+      `6898a57`**. `CHANGELOG.md` exists and `package.json` carries a version the
+      project chose rather than the scaffold's default - `0.2.0` when this was
+      written, `0.3.0` since 19 August 2026. The release process itself is not
+      written down anywhere and is not claimed to be; what this bullet asked for
+      was the file and the chosen version. **Staying below 1.0 is the deliberate
+      part, not the particular number.** Nothing this project has shipped is a
+      1.0, and no document may say it is.
 - [ ] ~~Sweep the remaining `TODO`/`FIXME`/`HACK` comments and decide which are
       real gaps.~~ — **no subject, measured 2026-08-18. Left unticked on purpose;
       see the note.** There are no such comments to sweep: `TODO`, `FIXME`, `HACK`
