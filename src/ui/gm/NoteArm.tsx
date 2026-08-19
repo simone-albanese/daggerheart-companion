@@ -9,7 +9,7 @@
  * It has a file of its own for the same reason `UrlArm` does, which is stated
  * there: these two arms are the two a separate lane each replaces wholesale,
  * and they were the only pair in `SessionBody.tsx` sharing one region. The
- * other four arms stayed where they are.
+ * other five arms stayed where they are.
  */
 import type { SessionItem } from '../../../shared/campaigns.ts';
 import { plainTextOf } from '../../../shared/richText.ts';

@@ -19,15 +19,15 @@
  * what it cannot do yet, which is the honest state of the app: the address is
  * stored, exported and re-imported intact, and there is no control on it.
  *
- * **Those two arms are files and the other four are not, and that is about the
+ * **Those two arms are files and the other five are not, and that is about the
  * schedule rather than about the code.** Both are replaced wholesale, by two
  * *separate* lanes; in here they were one region with no section rule between
  * them, so those two lanes would have been rewriting adjacent halves of one
  * region of one file with nothing else in common. A file each is a merge. The
- * scene, encounter, link and countdown arms are not being replaced by anybody,
- * so moving them too would have been churn dressed up as symmetry - and they
- * are the arms the rest of this header is about, which is the second reason
- * they stayed. What is left here is the dispatch: the switch below still
+ * scene, encounter, link, countdown and unreadable arms are not being replaced
+ * by anybody, so moving them too would have been churn dressed up as symmetry -
+ * and they are the arms the rest of this header is about, which is the second
+ * reason they stayed. What is left here is the dispatch: the switch below still
  * answers every kind, and the two `case` lines now name imports.
  *
  * ## The plan is not the table, and the row says so

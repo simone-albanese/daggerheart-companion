@@ -1,5 +1,6 @@
 /**
- * The one paragraph shape every open session row uses: dim, dense, 62ch.
+ * The one paragraph shape every session-row arm but the countdown uses:
+ * muted, dense, 62ch.
  *
  * It is a sentence with no control beside it, which is the whole point of
  * having a name for it. `SessionBody.tsx` argues the rule at length - what has

@@ -9,15 +9,15 @@
  * lane that builds this row builds it out of `externalLinkAttrs`, which is the
  * only sanctioned way to make one and carries `target` and `rel` with it.
  *
- * ## Why this arm has a file and the scene, encounter, link and countdown arms
- * ## do not
+ * ## Why this arm has a file and the scene, encounter, link, countdown and
+ * ## unreadable arms do not
  *
  * Nothing about it is more complicated than theirs - it is the shortest arm in
  * the set. It is here because it and `NoteArm` are the two arms two *separate*
  * lanes are about to replace wholesale, and in `SessionBody.tsx` they sat in
  * one region with no section rule between them. Two lanes rewriting one region
  * of one file is a conflict in work that has nothing else in common; two lanes
- * rewriting a file each is not. The other four arms are not being replaced by
+ * rewriting a file each is not. The other five arms are not being replaced by
  * anybody, so moving them would have been churn dressed up as symmetry, and
  * `SessionBody.tsx`'s header keeps the argument they are the subject of.
  */
