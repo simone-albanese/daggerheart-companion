@@ -2,10 +2,10 @@
  * The SRD's own tables and sections, drawn.
  *
  * The reference region composes these, so do the two controls that get a table
- * folded in beside them, and so does the `LINK -> Rule` row of a GM session,
- * through `BlockView` at the foot of this file. That row is why `BlockView`
- * exists: it printed its own bullets and tables out of `paragraphs()` until the
- * pipes showed up on screen.
+ * folded in beside them, and so do the hits SHOW's rule search opens and the
+ * `LINK -> Rule` row of a GM session, both through `BlockView` at the foot of
+ * this file. That row is why `BlockView` exists: it printed its own bullets
+ * and tables out of `paragraphs()` until the pipes showed up on screen.
  *
  * **It is not one drawing of each, and this header used to claim it was.** The
  * `ADD -> LINK -> Rule` door offers all seventy-five sections, so a GM can link
@@ -17,6 +17,15 @@
  * drawings in this app. `RuleTableView`'s own header says so; this one now says
  * it too, because the pair going out of step is a real hazard and pretending
  * there is no pair is how it would happen unnoticed.
+ *
+ * The eleventh table is deliberately not an eleventh pair.
+ * `giving-out-gold-equipment-and-loot` carries the Average Costs table and is
+ * reachable three ways - the `LINK -> Rule` row, SHOW's rule search, and the
+ * costs topic `GoldAndLoot` adds below - and all three end in the same
+ * `BlockView` and so in the same `RuleTableView`. Three doors, one drawing,
+ * nothing to keep in step.
+ * That is what a bespoke renderer has to earn, and a price list has nothing for
+ * one to do.
  *
  * Each renderer reads the dataset itself through a narrow `useApp` selector
  * inside a `useMemo` keyed on the whole `dataset` object, the way
@@ -45,6 +54,7 @@ import {
   environmentBenchmarks,
   fearGuidance,
   gmMoves,
+  goldAndLoot,
   rangeReference,
   type BenchmarkTable,
   type RangePart,
@@ -936,13 +946,84 @@ export function AdversaryExperiences(): React.JSX.Element {
   );
 }
 
+// ---------------------------------------------------------------------------
+
+/**
+ * What a night at an inn costs, and the SRD's own permission to change it.
+ *
+ * The Average Costs table is the reason this topic exists - it is the one
+ * lookup on this screen that stops play mid-sentence, because a player has
+ * just asked what a horse costs - but the table alone would be a lie by
+ * omission. The SRD prints it under a paragraph that tells the GM to adjust
+ * every entry to their campaign, and a screen showing twelve prices with that
+ * sentence stripped off would be presenting a suggestion as a price list. So
+ * the section is drawn whole, through the same `BlockView` the GM chapter and
+ * the `LINK -> Rule` row already draw a chosen section with, and its one pipe
+ * table lands in `RuleTableView`'s two-column shape - the `Expense | Cost` pair
+ * that view's own docblock already names as its narrow case.
+ *
+ * Nothing here is a target, and that is not an omission either. The app does
+ * carry a purse - `engine/gold.ts` holds `gain`, `spend` and `MAX_CHESTS`, and
+ * `GoldEditor` on BUILD is three steppers over it - but it is a *character's*,
+ * and this screen reads no character and has no write path to one, so a tap on
+ * `1 Handful` would have nothing to spend it from. There are no inventory
+ * prices and no shop anywhere in the app either. The GM reads the number and
+ * says it out loud.
+ *
+ * ## Ergonomics, 393 x 852
+ *
+ * `RuleTableView` splits the region's column into two `minmax(0, 1fr)` cells at
+ * a 10px gap. The widest first cell the shipped table carries is
+ * `Meals for a party of adventurers per night` at 42 characters, which is the
+ * 42 that view's docblock costs its two-line case on - so five of the twelve
+ * left cells run to two lines, that Meals row and the four
+ * `Tier N equipment (weapons, armor)` rows, and the right column stays on one
+ * throughout. Measured in Chrome at 393 x 852, device-scale-factor 1, on this
+ * branch's own build: the grid resolves to `178.5px 178.5px` at the 10px
+ * column gap, a one-line `.t-read` cell is 18.84 tall and a two-line one
+ * 37.69, and the whole grid is 390.34.
+ * Nothing declares a width, so a rules layer that writes a longer expense wraps
+ * instead of pushing the phone sideways.
+ */
+export function GoldAndLoot(): React.JSX.Element {
+  const dataset = useApp((s) => s.dataset);
+  const section = useMemo(() => goldAndLoot(dataset.rules), [dataset]);
+
+  if (section === null) {
+    return (
+      <p className="t-body" style={{ margin: 0, maxWidth: '62ch' }}>
+        This dataset carries no costs for gold, equipment or loot. What to charge was always
+        yours to set; what is missing is the SRD&rsquo;s starting point for it.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="spread">
+        <span className="t-label" style={{ color: 'var(--text-2)' }}>
+          {section.title}
+        </span>
+        <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+          SRD 1.0{section.page === null ? '' : ` · P.${String(section.page)}`}
+        </span>
+      </div>
+      {section.blocks.map((block, i) => (
+        <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
+      ))}
+    </>
+  );
+}
+
 /**
  * One `## ` block of any rules section: its subhead, its prose, its bullets and
  * its tables.
  *
- * The GM chapter above draws with this, and so does the `LINK -> Rule` row of a
- * GM session - which is the reason it is exported rather than private to this
- * file. That row printed a section through `paragraphs()` alone until now, so
+ * The GM chapter above draws with this, so do the adversary Experiences and the
+ * costs topic above it, and outside this file so do the `LINK -> Rule` row of a
+ * GM session and SHOW's rule search (`RuleSearch.tsx`) - those last two are the
+ * reason it is exported rather than private to this file. That row printed a
+ * section through `paragraphs()` alone until now, so
  * every bullet it drew carried a literal `- ` and every table came out as raw
  * pipes; 38 of the 75 shipped sections are one of those two shapes. A second
  * renderer beside this one would have been a second thing to keep in step, and

@@ -32,8 +32,8 @@
  *
  * The chip's own padding and border are NOT in those two sums, and a sentence
  * here once said they were. They are held anyway, one test lower down, for a
- * different reason and stated as that reason: the seven chip widths in
- * `Reference.tsx` - 94.41 through 109.61, their 638.05 sum, the 674.05 and the
+ * different reason and stated as that reason: the eight chip widths in
+ * `Reference.tsx` - 56.41 through 109.61, their 702.05 sum, the 744.05 and the
  * three-row wrap - were measured against `padding: '0 12px'` and a 1px
  * border-box border, and that file's own prose says every earlier estimate was
  * "short by exactly 2.00" because the border was missed. Change either
@@ -47,7 +47,8 @@
  *
  * IT CANNOT HOLD the results. Whether eight rows or nine are on the glass, that
  * the ninth is cut at 757.00 with its type row ending at exactly 757.00, that
- * the chips measure 94.41 and 109.61, that the strip breaks after FEAR: those
+ * the chips measure 56.41 and 109.61, that the strip breaks after COUNTDOWNS
+ * and again after COSTS: those
  * came out of Chrome at 393x852 with a named safe area, jsdom has no layout
  * engine, and an assertion pretending otherwise would be checking this file's
  * own arithmetic. They live in the docblocks with the viewport and the inset
@@ -390,9 +391,10 @@ function sheetBorder(): number {
 /**
  * The topic chip's horizontal padding.
  *
- * Not an operand of 367.00 or of 144.00 - it is the frame the seven chip widths
- * in `Reference.tsx` were measured inside, which is why that file names it and
- * why this one holds it.
+ * Not an operand of 367.00 or of 144.00 - it is the frame every chip width in
+ * `Reference.tsx` was measured inside, which is why that file names it and why
+ * this one holds it. Written without a count on purpose: the count moved from
+ * seven to eight and this sentence was one of the two that did not notice.
  */
 const chipPadX = (): number => {
   const found = /padding: '0 (\d+)px',\n\s*borderRadius: 'var\(--r3\)'/.exec(
@@ -410,7 +412,7 @@ const chipBorder = (): number => {
   if (found === null) {
     throw new Error(
       'the topic chip no longer declares a `border: Npx solid` after its padding. A chip is ' +
-        'border-box, so its border is inside all seven measured widths in `Reference.tsx` - ' +
+        'border-box, so its border is inside every measured width in `Reference.tsx` - ' +
         're-measure the strip rather than editing the sentence.',
     );
   }
@@ -610,9 +612,9 @@ describe('the GM screen states the geometry its own declarations make', () => {
 
   /*
    * The chip's frame, which is not in either sum above and is what every one of
-   * the seven measured widths was measured inside.
+   * the measured widths was measured inside.
    *
-   * `Reference.tsx` states 94.41 through 109.61, their 638.05, the 674.05 and
+   * `Reference.tsx` states 56.41 through 109.61, their 702.05, the 744.05 and
    * the three-row wrap, and its own prose derives all of it from `padding: 0
    * 12px` and from a chip being border-box with `border: 1px solid` - "every
    * one of them was short by exactly 2.00" is that border, twice. Widen the
@@ -620,24 +622,26 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * nothing to say so. Three mutations proved that: `'0 12px'` to `'0 20px'`,
    * `1px solid` to `4px solid`, and the border deleted, all green.
    */
-  it('holds the chip padding and border the seven measured widths were measured inside', () => {
+  it('holds the chip padding and border every measured width was measured inside', () => {
     expect(
       stated('src/ui/gm/Reference.tsx', /with `padding: 0 (\d+)px`/g),
-      'the docblock names a chip padding the chip no longer declares, so all seven measured ' +
-        'widths and the 674.05 and the three-row wrap are stale. Re-measure the strip.',
+      'the docblock names a chip padding the chip no longer declares, so every measured ' +
+        'width and the 744.05 and the three-row wrap are stale. Re-measure the strip.',
     ).toEqual([chipPadX()]);
     expect(
       stated('src/ui/gm/Reference.tsx', /short by exactly (\d+\.\d\d)/g),
       'the docblock says the estimate was short by a border the chip no longer declares. A ' +
-        'chip is border-box, so this is its border on both edges - re-measure the seven widths.',
+        'chip is border-box, so this is its border on both edges - re-measure every width.',
     ).toEqual([2 * chipBorder()]);
   });
 
   /*
-   * The seven widths are the browser's and cannot be checked here. What can is
-   * that they are still seven, still these seven, and still in this order: a
-   * topic added or renamed makes every one of those numbers a lie, and that is
-   * an edit somebody will make without opening Chrome.
+   * The widths are the browser's and cannot be checked here. What can is that
+   * they are still these labels and still in this order: a topic added or
+   * renamed makes every one of those numbers a lie, and that is an edit
+   * somebody will make without opening Chrome. Since the strip was sorted by
+   * width the order half of that bites twice - the array IS the packing, so a
+   * row moved by hand is a layout changed by hand.
    */
   it('names the topics `REFERENCE_TOPICS` holds, in order, beside their widths', () => {
     const said = [
@@ -654,12 +658,17 @@ describe('the GM screen states the geometry its own declarations make', () => {
         'width in that sentence was measured against one of these labels, so a renamed or added ' +
         'topic makes all of them stale - re-measure the strip.',
     ).toEqual(REFERENCE_TOPICS.map((t) => t.short));
-    expect(
-      stated('src/ui/gm/Reference.tsx', /with six (\d+)px gaps/g),
-      'the strip states a gap it no longer declares',
-    ).toEqual([stripGap()]);
-    const NUMERAL = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
-    const gaps = /with (\w+) \d+px gaps/.exec(prose('src/ui/gm/Reference.tsx'));
+    /*
+     * Both halves of the gap sentence come out of ONE match, and that is the
+     * repair the eighth topic forced. The count was read by a literal `with
+     * six (\d+)px gaps` while the assertion two lines under it derived the
+     * numeral from `REFERENCE_TOPICS.length` - so the file held the count
+     * against the array and against the word "six" at the same time, and no
+     * eighth topic could ever make both green. A test that cannot pass on a
+     * legal edit is the same defect as one that cannot fail on an illegal one.
+     */
+    const NUMERAL = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const gaps = /with (\w+) (\d+)px gaps/.exec(prose('src/ui/gm/Reference.tsx'));
     expect(gaps, '`Reference.tsx` no longer counts the gaps between the chips').not.toBeNull();
     expect(
       gaps![1],
@@ -668,6 +677,10 @@ describe('the GM screen states the geometry its own declarations make', () => {
         `"${NUMERAL[REFERENCE_TOPICS.length - 1]}" - and every width in the sentence above wants ` +
         're-measuring with the topic that changed.',
     ).toBe(NUMERAL[REFERENCE_TOPICS.length - 1]);
+    expect(
+      Number.parseInt(gaps![2]!, 10),
+      'the strip states a gap it no longer declares',
+    ).toBe(stripGap());
   });
 
   /*
@@ -722,9 +735,40 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * behind these alerts" and "every file that costs the licence notice".
    */
   it.each([
-    ['nine rows', /nine rows/],
-    ['551px of list', /551px/],
-    ['301 of pinned chrome', /852 − 301|852 - 301/],
+    // Emphasis and the optional `shut`, because that is how this corner writes
+    // a row count: `SessionList.tsx` states `**Eight rows are whole on the
+    // glass**` and `**ten** shut rows whole`, so a regression is likelier to
+    // read `**nine** shut rows` than the bare `nine rows` the literal saw -
+    // planted, it walked straight past. Same shape as the eight/nine/ten
+    // agreement check above, deliberately. It stays bound to the noun:
+    // `SessionList.tsx` also says `nine with a countdown pinned` and `it is
+    // not nine minus one`, both correct and both unquoted, and a scan for a
+    // bare `nine` would retire two right sentences.
+    ['nine rows', /\*{0,2}nine\*{0,2} (?:shut )?rows/i],
+    // These three are retired MEASUREMENTS, so the figure is most of the claim
+    // and the words around it are costume: `551px of list`, `551 px`, `551.00`
+    // and `852 − 301 = 551` are one sentence four ways, and the two literals
+    // here saw one apiece. Planted, `551 px of list` and a plain `301 of pinned
+    // chrome` both came back green.
+    //
+    // 301 and 660 are therefore scanned bare, which is as wide as a pattern
+    // gets: neither figure occurs anywhere in these ten files, so any unquoted
+    // one is the regression. 551 is NOT, and the difference is measured rather
+    // than assumed - the bare `\b551(?!\d)` was tried and goes red on `Gm.tsx`,
+    // which records the retired figure a second time outside its own quotes
+    // ("551 missed the three hairlines on the pinned chrome"). That sentence is
+    // right, and rewriting a right sentence to make a scan green is a defect of
+    // its own, so this row holds the spellings that state 551 AS A LENGTH and
+    // lets the record stand. 60 could never be bare either - it is live here,
+    // `GmBar` is 60px of buttons - which is what the six spellings below are
+    // for; nor could the 369 in the last row's name, because `Reference.tsx`
+    // says `the column was taken as 393 − 24 = 369 rather than the 391 − 24 =
+    // 367.00`, unquoted and rightly.
+    //
+    // `(?!\d)` and not `\b`: there is no word boundary between `1` and `p`, so
+    // `\b551\b` would miss `551px`, the one spelling this row began with.
+    ['551px of list', /\b551 ?px|\b551\.00|\b551 of list|(?:=|is) 551(?!\d)/],
+    ['301 of pinned chrome', /\b301(?!\d)/],
     // Six spellings and not one, because the retired sentence was written six
     // ways - "60 px a step", "the step is 60", "a 60px step", "Row height plus
     // the list gap [...] = 60", and, where the step is costed as a gesture
@@ -739,9 +783,35 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'a 60px step',
       /\b60 ?px a step|the step is 60|60px step|step at 60|step of 60|60 ?px of (accurate )?travel/,
     ],
-    ['a 60px drag step', /ROW_STEP = 60\b/],
-    ['a two-row topic strip', /wraps to two rows/],
-    ['660 against a 369px column', /660 against/],
+    // The declaration and the two prose forms of the same claim. `ROW_STEP =
+    // 60` is only how `useSessionDrag.ts` would say it; `sessionDrag.test.tsx`
+    // says `` `ROW_STEP` is 62 `` in prose, and `SessionRow.tsx` names the
+    // symbol rather than the number ("half a `ROW_STEP` of accurate travel"),
+    // so the regression those two would carry reads `` `ROW_STEP` is 60 `` or
+    // `expect(ROW_STEP).toBe(60)`. Planted, the literal saw neither.
+    ['a 60px drag step', /ROW_STEP`?(?: is| =|:) ?60(?!\d)|ROW_STEP\)\.toBe\(60(?!\d)/],
+    // `Reference.tsx` now says the strip "takes **three** rows" where it once
+    // said it "wraps to" them, and the pair of literals that replaced the first
+    // literal was the same mistake one size up: it saw those two exact
+    // spellings and nothing else. Rewriting the guarded sentence to `takes two
+    // rows`, to `wraps to **two** rows` or to `the strip is two rows` each left
+    // this file at 48 passed - dropping two asterisks was enough to walk past
+    // it. A verb alternation with the emphasis optional is the width the
+    // sentence class actually has, and it is the `a 60px step` row above taken
+    // as precedent rather than a new idea.
+    //
+    // The digit spelling is deliberately NOT here. `Reference.tsx`'s four-
+    // orders table states measured alternatives as `2 rows, 94.00`, unquoted
+    // and correct, and so does the prose that reads it; a pattern that saw `2
+    // rows` would retire a measurement rather than a claim. `at two rows` is
+    // out for the same reason: `costed the seven that then shipped at two rows
+    // and 94px` is that file's record of the estimate it disproved, and `at` is
+    // not one of the verbs below.
+    ['a two-row topic strip', /(wraps to|takes|is|becomes|breaks into) \*{0,2}two\*{0,2} rows/],
+    // Bare, for the reason given above the 551: `660px against` walked past
+    // `/660 against/` when it was planted, and the 369 in this row's name is
+    // deliberately not part of the pattern.
+    ['660 against a 369px column', /\b660(?!\d)/],
   ])('no file this scan lists has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/SessionList.tsx',
@@ -928,9 +998,20 @@ describe('every file that costs the licence notice costs it at the measured heig
     'tests/gm/gmShell.test.tsx',
   ];
 
+  /*
+   * The space is in the pattern for the reason the `a 60px step` row above
+   * gives: this repo writes `60 px a step` as readily as `60px`, and `/111px/`
+   * could not see the spaced one. `at 111` and `is 111` are here because the
+   * estimate is quotable without its unit. Bare is not an option, unlike the
+   * 329 in the alert scan above: after `claims()` the nine files still hold
+   * three honest 111s - `Wizard.tsx`'s `111-285 on each of the eighteen
+   * ancestries` and its `+111 over nine`, and `Cards.tsx`'s
+   * `elementFromPoint(111, 303)` - so a bare figure would retire three
+   * sentences that were never about this strip.
+   */
   it.each(NOTICE)('%s has not gone back to the retired ~111px strip', (file) => {
     expect(
-      /111px/.test(claims(file)),
+      /111 ?px|(?:at|is) 111(?!\d)/.test(claims(file)),
       `${file} costs the pinned licence strip at 111px again. It was an estimate and it was ` +
         'short: `LicenceFooter.tsx` measures the block at 126.16 on a 369px column at 393x852, ' +
         'and a pinned one painted a panel and its own horizontal padding on top of that. If the ' +

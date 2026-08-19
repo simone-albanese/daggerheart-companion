@@ -93,6 +93,7 @@ import {
   DifficultyLadder,
   FearGuide,
   GmMoves,
+  GoldAndLoot,
   RangeReference,
   TierBenchmarks,
 } from '../../src/ui/gm/ReferenceTables.tsx';
@@ -663,12 +664,17 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
   'gm/ReferenceTables.tsx::FearGuide': () => <FearGuide besidePool={false} />,
   'gm/ReferenceTables.tsx::GmMoves': () => <GmMoves />,
+  // The eighth reference topic: four paragraphs and the Average Costs table.
+  // `RuleTableView`'s own fixture below mounts that same table directly; this
+  // one mounts it by the route the screen takes to it, through `BlockView`.
+  'gm/ReferenceTables.tsx::GoldAndLoot': () => <GoldAndLoot />,
   // Read-only: with no countdown to act on, not one cell is a button.
   'gm/ReferenceTables.tsx::CountdownChart': () => <CountdownChart countdown={null} />,
   // The metric figures are the app's arithmetic and say so; everything else on
   // it is the SRD's own sentence.
   'gm/ReferenceTables.tsx::RangeReference': () => <RangeReference />,
-  // The block the GM chapter and the session's LINK → Rule row both draw with:
+  // The block the GM chapter, the adversary Experiences, the costs topic
+  // above, SHOW's rule search and the session's LINK → Rule row all draw with:
   // prose, bullets and tables, in the order the book wrote them. The countdown
   // chart's block is three columns wide, which is the stacked-panel half of
   // `RuleTableView`; the grid half is its own fixture below.

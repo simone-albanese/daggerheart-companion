@@ -33,8 +33,13 @@
  * the one inside `BlockView` (`ReferenceTables.tsx`) - and the second is not a
  * separate path:
  * `BlockView` is what `SessionBody.tsx` calls for exactly the session row
- * above, and the reference region reaches it as well through `GmMoves` and
- * `AdversaryExperiences`, both in `ReferenceTables.tsx`. (Every pointer in this
+ * above, what `RuleSearch.tsx` calls for every hit SHOW's rule search opens -
+ * `searchRules` indexes table bodies, so a search for `Handful` lands in this
+ * view - and what the reference region reaches through `GmMoves`,
+ * `AdversaryExperiences` and `GoldAndLoot`, all three in `ReferenceTables.tsx`.
+ * The last of those puts that table on the reference screen: it was already
+ * reachable from a session row's `LINK -> Rule` and from SHOW's rule search,
+ * and the costs topic is the third door onto the same drawing. (Every pointer in this
  * docblock names a symbol, a heading or a declaration rather than a line. The
  * four line numbers that once stood in `ReferenceTables.tsx` were invalidated by
  * the very edit that carried them; the `Wizard.tsx:1584` that stood here went
@@ -59,8 +64,15 @@
  * 369 and 171.5 at the panel's 353, narrower again inside the open block. The
  * widest first cell in the shipped dataset is 42 characters at `.t-read`
  * (13px/1.45, about 6.3px a character) = 265px, which is two lines in any column
- * down to 133; a row is about 38px and the twelve-row table roughly 470, inside
- * a region that already scrolls.
+ * down to 133. That is one cell, not every cell: `GoldAndLoot`
+ * (`ReferenceTables.tsx`) measured this same grid in Chrome at 393 x 852 - the
+ * Average Costs table, whose `Meals for a party of adventurers per night` is the
+ * 42 above - and found only five of its twelve left cells on two lines, a
+ * one-line `.t-read` cell 18.84 tall against a two-line 37.69, and the whole
+ * twelve-row table 390.34. This paragraph used to end "a row is about 38px and
+ * the twelve-row table roughly 470", which charges every row the two-line
+ * height and so runs some 80px over the browser's own figure for the very table
+ * it names. Either way it sits inside a region that already scrolls.
  *
  * **More than one** - up to five columns, with cells up to 176 characters -
  * becomes one panel a row: the first cell as its title, every other cell under

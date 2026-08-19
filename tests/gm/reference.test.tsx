@@ -439,23 +439,46 @@ describe('the Fear guidance, beside the Fear counter', () => {
 });
 
 describe('the topic strip', () => {
-  it('names every subject and presses exactly one', () => {
+  it('names every subject, widest chip first, and presses exactly one', () => {
     openReference();
     const strip = container.querySelector('[aria-label="What to look up"]')!;
     const chips = [...strip.querySelectorAll('button')];
+    // Descending measured chip width, which is the order `Reference.tsx`
+    // argues for and measures: 109.61, 102.00, 102.00, 94.41, 86.81, 86.81,
+    // 64.00, 56.41 at 393x852. The two pairs that tie hold the order they had.
     expect(chips.map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Improvise an adversary',
+      'Adversary Experiences',
       'Set a Difficulty',
-      'Fear',
       'Advancing a countdown',
+      'Improvise an adversary',
       'Range and distance',
       'GM moves and principles',
-      'Adversary Experiences',
+      'Gold, equipment, and loot',
+      'Fear',
     ]);
     expect(chips.filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
-    expect(chips[0]!.getAttribute('aria-pressed')).toBe('true');
     click(chips[2]!);
     expect(chips.filter((b) => b.getAttribute('aria-pressed') === 'true')).toEqual([chips[2]]);
+  });
+
+  /*
+   * The subject the region opens on is IMPROVISE, and it is the fourth chip.
+   *
+   * Worth its own case because the two used to be the same fact: the opening
+   * topic was `REFERENCE_TOPICS[0]` while that array was in the order a GM
+   * would rank these subjects in. Sorting the strip by chip width separated
+   * them, and `Reference` names `improvise` outright so that a chip's pixel
+   * width cannot decide what a GM reads first. Press nothing and the answer on
+   * the glass is still the improvise benchmarks.
+   */
+  it('opens on the subject a GM reaches for first, wherever its chip landed', () => {
+    openReference();
+    const strip = container.querySelector('[aria-label="What to look up"]')!;
+    const chips = [...strip.querySelectorAll('button')];
+    const pressed = chips.filter((b) => b.getAttribute('aria-pressed') === 'true');
+    expect(pressed.map((b) => b.getAttribute('aria-label'))).toEqual(['Improvise an adversary']);
+    expect(chips.indexOf(pressed[0]!)).toBe(3);
+    expect(text()).toContain('Attack Modifier');
   });
 
   it('shows one subject at a time, so the other is gone rather than below', () => {
@@ -840,5 +863,73 @@ describe('the adversary Experiences', () => {
       (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
     );
     expect(pressable.map((b) => b.textContent)).toEqual([]);
+  });
+});
+
+describe('the costs, which are the eighth topic', () => {
+  const costs = (): void => {
+    openReference();
+    click(named('Gold, equipment, and loot'));
+  };
+
+  /*
+   * The table is the reason the topic exists, and the paragraph above it is the
+   * reason the table is not a price list. Both are asserted, and the row values
+   * are pinned here rather than in `src` - that is this repo's licence line:
+   * `1 Handful` is the SRD's wording, and no shipped string types it. Outside
+   * `data/srd-1.0.json` it appears only in assertions like these, which read it
+   * back out of that file, and once in `GoldAndLoot`'s docblock, which quotes it
+   * as an illustration rather than drawing it.
+   */
+  it('draws the SRD’s twelve prices under the sentence that says to change them', () => {
+    costs();
+    expect(text()).toContain('Giving Out Gold, Equipment, and Loot');
+    expect(text()).toContain('SRD 1.0 · P.69');
+    expect(text()).toContain('adjusting the entries in the Average Costs table');
+    // Both columns, both ends of the table, and the header the book wrote.
+    expect(text()).toContain('Expense');
+    expect(text()).toContain('Cost');
+    expect(text()).toContain('Meals for a party of adventurers per night');
+    expect(text()).toContain('1 Handful');
+    expect(text()).toContain('Tier 4 equipment (weapons, armor)');
+    expect(text()).toContain('1-2 Chests');
+    // Both ends are not twelve. `srdReference.test.ts` pins the count at the
+    // selector; without this the view could drop nine rows on the way to the
+    // glass and every case in this file would stay green. `RuleTableView`
+    // draws each cell as a `span.t-read` - the four `p.t-read` paragraphs of
+    // the section's prose are the reason the tag is named - so twelve rows of
+    // two cells is 24.
+    const cells = [...container.querySelectorAll('[role="dialog"] span.t-read')];
+    expect(cells).toHaveLength(24);
+  });
+
+  /*
+   * The pipes are the defect this topic would have shipped without
+   * `RuleTableView`: twelve rows of `| Expense | Cost |` printed as prose. The
+   * assertion is on the raw text of the panel, because that is where a pipe
+   * would show up.
+   */
+  it('draws the pipes as a table rather than as twelve lines of markup', () => {
+    costs();
+    const inside = container.querySelector('[role="dialog"]')!;
+    expect(inside.textContent ?? '').not.toContain('|');
+    expect(inside.textContent ?? '').not.toContain('---');
+  });
+
+  it('offers nothing to press, because the GM screen cannot reach anybody’s purse', () => {
+    costs();
+    const inside = container.querySelector('[role="dialog"]')!;
+    const strip = inside.querySelector('[aria-label="What to look up"]')!;
+    const pressable = [...inside.querySelectorAll('button')].filter(
+      (b) => b.getAttribute('aria-label') !== 'Close The rules at hand' && !strip.contains(b),
+    );
+    expect(pressable.map((b) => b.textContent)).toEqual([]);
+  });
+
+  it('says the section is missing rather than drawing an empty panel', () => {
+    without('giving-out-gold-equipment-and-loot');
+    costs();
+    expect(text()).toContain('This dataset carries no costs for gold, equipment or loot');
+    expect(text()).not.toContain('1 Handful');
   });
 });

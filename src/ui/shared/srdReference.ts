@@ -796,6 +796,32 @@ export function adversaryExperiences(rules: RulesSection[]): ExperienceExamples 
   return NO_EXAMPLES;
 }
 
+/**
+ * `rules['giving-out-gold-equipment-and-loot']` - the Average Costs table and
+ * the four paragraphs the SRD wraps it in.
+ *
+ * A thin call onto `ruleSection`, and thin on purpose: the section is already
+ * in exactly the shape the screen wants, its one pipe table included, so a
+ * selector that picked the table out of it would be a second parse of a body
+ * `ruleSection` has already parsed. What this function is actually for is the
+ * id. Every section id in this app is written here and nowhere else, because
+ * `ReferenceTables.tsx` asking the dataset for a string it typed itself is how
+ * a renderer starts carrying a copy of the book.
+ *
+ * The whole section, not the table alone. The twelve prices are worth nothing
+ * without the sentence above them that says to adjust them to the campaign -
+ * a GM who reads only the table reads it as a price list the rules impose,
+ * which is the opposite of what the SRD says it is. That is the same argument
+ * `gmMoves` makes about drawing a chapter whole, and `adversaryExperiences`
+ * about carrying the rule above its list.
+ *
+ * Null when the dataset does not carry the section, so the screen can say so
+ * rather than draw an empty panel.
+ */
+export function goldAndLoot(rules: RulesSection[]): SectionView | null {
+  return ruleSection(rules, 'giving-out-gold-equipment-and-loot');
+}
+
 export interface PlayerExperiences {
   /**
    * The block above the list: what an Experience is, how many you get, and the

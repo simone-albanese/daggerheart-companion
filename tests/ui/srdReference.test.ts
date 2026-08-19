@@ -27,6 +27,7 @@ import {
   environmentBenchmarks,
   fearGuidance,
   gmMoves,
+  goldAndLoot,
   feetRange,
   metreRange,
   metresFromFeet,
@@ -740,6 +741,74 @@ describe('adversaryExperiences', () => {
 
   it('answers with nothing when the section is gone', () => {
     expect(adversaryExperiences([])).toEqual({ title: '', lead: null, items: [], page: null });
+  });
+});
+
+describe('goldAndLoot', () => {
+  const section = (): NonNullable<ReturnType<typeof goldAndLoot>> => goldAndLoot(rules)!;
+
+  it('reads the whole section, with the Average Costs table inside it', () => {
+    expect(section().id).toBe('giving-out-gold-equipment-and-loot');
+    expect(section().title).toBe('Giving Out Gold, Equipment, and Loot');
+    expect(section().page).toBe(69);
+    // The SRD writes this section with no `## ` subhead at all, so it is one
+    // block: four paragraphs of prose and the table, in the book's order.
+    expect(section().blocks).toHaveLength(1);
+    expect(section().blocks[0]!.heading).toBeNull();
+    expect(section().blocks[0]!.parts.map((p) => p.kind)).toEqual([
+      'text',
+      'text',
+      'text',
+      'text',
+      'table',
+    ]);
+  });
+
+  /*
+   * The values, pinned here and nowhere in `src`. The app stamps SRD 1.0 · P.69
+   * beside this table, and that stamp is only honest if what reaches the glass
+   * is byte-for-byte the shipped file - which is the same reason no SRD row
+   * string reaches a shipped one. `1-5 Handfuls` and `1-2 Chests` are typed
+   * only in assertions like this one; `1 Handful` and
+   * `Meals for a party of adventurers per night` only in those and in
+   * `GoldAndLoot`'s docblock, which quotes them rather than drawing them. The
+   * bare denominations are a different matter and never were the licence line:
+   * `Handfuls`, `Bags` and `Chests` are this app's own purse vocabulary, typed
+   * in `GoldEditor` (`ui/build/parts.tsx`), the print sheet and
+   * `engine/gold.ts` since long before this table had a screen.
+   */
+  it('keeps the twelve prices as the book wrote them, ranges included', () => {
+    const table = section().blocks[0]!.parts.find((p) => p.kind === 'table')!;
+    expect(table.table.header).toEqual(['Expense', 'Cost']);
+    // All twelve, not the ends and a count. The name of this case claims every
+    // price, so every price is here: with rows 0, 8 and 11 pinned and the rest
+    // left to `toHaveLength(12)`, editing `3 Handfuls` to `900 Chests` in
+    // `data/srd-1.0.json` left the whole suite green.
+    expect(table.table.rows).toEqual([
+      ['Meals for a party of adventurers per night', '1 Handful'],
+      ['Standard inn room per night', '1 Handful'],
+      ['Luxury inn room per night', '1 Bag'],
+      ['Carriage ride', '2 Handfuls'],
+      ['Mount (horse, mule, etc.)', '3 Bags'],
+      ['Specialized tools', '3 Handfuls'],
+      ['Fine clothing', '3 Handfuls'],
+      ['Luxury clothing', '1 Bag'],
+      ['Tier 1 equipment (weapons, armor)', '1-5 Handfuls'],
+      ['Tier 2 equipment (weapons, armor)', '1-2 Bags'],
+      ['Tier 3 equipment (weapons, armor)', '5-10 Bags'],
+      ['Tier 4 equipment (weapons, armor)', '1-2 Chests'],
+    ]);
+  });
+
+  it('carries the sentence that makes the table a suggestion rather than a price list', () => {
+    const lead = section().blocks[0]!.parts[3]!;
+    expect(lead.kind === 'text' ? lead.text : '').toContain(
+      'adjusting the entries in the Average Costs table',
+    );
+  });
+
+  it('answers null when the dataset does not carry the section', () => {
+    expect(goldAndLoot([])).toBeNull();
   });
 });
 
