@@ -47,12 +47,15 @@
  * ## What is drawn, and in what order
  *
  * THE STALL is first because it is the only thing on the screen that changes.
- * Six panels measure 638.75 against a 682.00 scroller, so from the top of the
- * scroll a fresh counter is on the glass whole, with the price table below it;
- * put it under the table instead and the tap that drew it would produce nothing
- * the GM could see. The two reference blocks never change, so scrolling to them
- * costs nothing, and they are in the order a shop scene needs them - what
- * things cost, then what the coins are.
+ * A stall is six panels drawn at random out of two 60-item tables, so it has no
+ * one height: over 80 redraws the counter measured 496.02 to 654.61 against a
+ * 682.00 scroller, and it begins 28.00 down that scroll, so from the top of the
+ * scroll a fresh counter was on the glass whole in 77 of those 80 - and the
+ * three that were not overhung the fold by 0.61 apiece. The price table sits
+ * under it; put the stall under the table instead and the tap that drew it
+ * would produce nothing the GM could see. The two reference blocks never
+ * change, so scrolling to them costs nothing, and they are in the order a shop
+ * scene needs them - what things cost, then what the coins are.
  *
  * Redrawing does **not** scroll the region back to the top, and that is a
  * decision rather than an omission: a GM who has scrolled down to a price and
@@ -74,10 +77,17 @@
  * The SRD's own guidance around that table is behind a `Fold`, shut. It is four
  * paragraphs about how much weight to give money in a campaign, which is a
  * session-zero decision rather than a mid-scene one, and this screen is opened
- * mid-scene. The gold block under it is the section's **first paragraph only**:
- * the rest of `gold` is about marking and clearing slots, which happens on the
- * player's sheet on the player's screen, and reprinting it here would be the GM
- * screen explaining a track it cannot touch.
+ * mid-scene. The gold block under it is the section's **first paragraph only**,
+ * which is the three denominations and the rule for carrying between them. What
+ * is left out is the two worked examples of that carry, the one-chest cap, and
+ * `## Optional Rule: Gold Coins`, which adds a fourth denomination `Gold` in
+ * `shared/types.ts` does not carry. All three are about slots on a sheet this
+ * tool cannot write - the player's screen's business - and reprinting them
+ * here would be the GM screen explaining a track it cannot touch. ("The rest
+ * of `gold` is about marking and clearing slots" stood here and was wrong from
+ * both ends: the paragraph that *is* printed is itself half a marking rule -
+ * it says what to do when a category fills - and the tail that is dropped ends
+ * on a denomination, which is the subject the printed half is here for.)
  *
  * ## Ergonomics, 393 x 852
  *
@@ -141,6 +151,15 @@
  * which matters because the first draft of this list was arithmetic and six of
  * its eight numbers were wrong.
  *
+ * **Everything downstream of the counter is a range, not a figure.** Six items
+ * are drawn at random from two 60-item tables and each panel quantises by line
+ * count to one of 73.36 / 89.22 / 105.08 / 120.94 / 136.80, so a reader who
+ * re-measures gets a different total nearly every time. The ranges below are
+ * **80 consecutive redraws** in one session, and the single run quoted beside
+ * them is the first of those 80; a second sample of the same size will move
+ * both ends. The fixed numbers - the panel, the region, the scroller, the
+ * draw, the two reference blocks - do not move at all.
+ *
  *   the panel                y 55.00 to 852.00, 797.00 tall - `GmSheet`'s own
  *                            figure, re-measured here rather than quoted
  *   the title row            45.00, not the 44 the CLOSE square declares: the
@@ -157,12 +176,20 @@
  *                            121.16 section, the rest of which is the 10px
  *                            label, two 8px gaps and the provenance line, which
  *                            is three lines as well
- *   a stocked counter        638.75: six panels between 73.36 and 120.94 with
- *                            8px between them. **The counter alone is taller
- *                            than the 682.00 scroller**, which is why it is
- *                            first and why the draw is outside the scroll
+ *   a stocked counter        496.02 to 654.61 over 80 draws, 591.17 in the
+ *                            first of them: six panels with 8px between them.
+ *                            It was **never** taller than the 682.00 scroller
+ *                            in any of the 80
+ *   its whole section        569.59 to 728.19 over the same 80, 664.75 in that
+ *                            first draw - the counter plus a 10px label, two
+ *                            8px gaps and a 47.58 provenance line, 73.58 of
+ *                            fixed furniture. **That section outgrew the
+ *                            682.00 scroller in 16 of the 80**, which is why
+ *                            the stall is first and why the draw is outside
+ *                            the scroll
  *   what things cost         460.34, and the gold paragraph 131.06
- *   the whole scroll         767.00 empty, 1358.00 stocked - so this region
+ *   the whole scroll         767.00 empty; stocked, 1215.00 to 1374.00 over the
+ *                            80 and 1310.00 in the first - so this region
  *                            scrolls even with nothing on the counter
  */
 import { useCallback, useMemo, useState } from 'react';
@@ -250,8 +277,9 @@ export function Merchant({
   const costParts = useMemo(() => costs?.blocks.flatMap((b) => b.parts) ?? [], [costs]);
   const costTables = costParts.flatMap((part) => (part.kind === 'table' ? [part.table] : []));
   const costProse = proseOf(costParts);
-  // The first paragraph, which is the denominations. See the head docblock for
-  // why the rest of that section is the player's screen's business.
+  // The first paragraph: the three denominations and the rule for carrying
+  // between them. See the head docblock for what the rest of that section is
+  // and why it is the player's screen's business.
   const denominations = proseOf(gold?.blocks[0]?.parts ?? [])[0] ?? null;
 
   const draw = useCallback(() => {

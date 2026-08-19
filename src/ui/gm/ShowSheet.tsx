@@ -1,15 +1,27 @@
 /**
- * SHOW: the three tools no row can open, and the rules, searched.
+ * SHOW: the three tools only it can open, and the rules, searched.
  *
- * Every other GM tool is the content of a session row - a scene row opens the
- * scene runner, an encounter row opens the builder, a countdown row opens the
- * Fear board. Three are not. Browsing the bestiary is what a GM does when the
- * plan has just been abandoned, the party board is about the people at the
- * table rather than about tonight, and a shop is a thing the party walks into
- * between two rows rather than a row of its own. None of the three belongs to
- * a row, so the first two were chips on loan in `GmTopBar` until this sheet
- * existed and left it rather than becoming a second route nobody meant to
- * keep; the merchant was born here and has never had another door.
+ * Every other GM tool is either the content of a session row - a scene row
+ * opens the scene runner, an encounter row opens the builder, a countdown row
+ * opens the Fear board - or behind MENU, which is where the SRD reference and
+ * the name generator are. Three are behind neither. Browsing the bestiary is
+ * what a GM does when the plan has just been abandoned, the party board is
+ * about the people at the table rather than about tonight, and a shop is a
+ * thing the party walks into between two rows rather than a row of its own.
+ * None of the three belongs to a row, so the first two were chips on loan in
+ * `GmTopBar` until this sheet existed and left it rather than becoming a
+ * second route nobody meant to keep; the merchant was born here and has never
+ * had another door.
+ *
+ * ("The three tools no session row can open" stood here, and the same claim
+ * stood in `GmBar.tsx`. It is not what separates these three: `SessionBody`
+ * calls `onOpenTool` with `scene`, `encounter` and `countdowns` and nothing
+ * else, so of the eight tools `GmRegion` names, **five** are not row content -
+ * the SRD reference and the name generator are as rowless as these are, and
+ * `MenuSheet.tsx` says so in its own words. The property that picks out these
+ * three, and the one the switchability argument actually rests on, is that
+ * SHOW is their *only* door. MENU is not switchable, so the other two keep a
+ * way in whatever a GM turns off.)
  *
  * The first two came from a fork the backlog had already drawn: *consulta* -
  * read the adversaries and environments without adding any of them - and

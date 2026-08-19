@@ -36,10 +36,12 @@
  * ## SHOW leaves when all of its doors are gone
  *
  * Every door behind SHOW is switchable in Settings - the bestiary, the party
- * board and the merchant are the tools no session row can open, which is
+ * board and the merchant are the tools SHOW is the only door to, which is
  * exactly why they are the ones that can be switched off without making a row
- * unopenable. With all of them off, SHOW is not drawn *disabled*: it is not
- * drawn.
+ * unopenable. ("The tools no session row can open" stood here; that is true of
+ * the SRD reference and the name generator as well, and both are behind MENU,
+ * which has no switches. `ShowSheet.tsx` carries the correction at length.)
+ * With all of them off, SHOW is not drawn *disabled*: it is not drawn.
  *
  * **The condition is asked of `SHOW_DOORS` rather than of two named
  * preferences, and that is the whole of this file's part in the third door.**

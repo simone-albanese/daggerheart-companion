@@ -629,11 +629,15 @@ describe('ADD', () => {
 // ---------------------------------------------------------------------------
 
 describe('SHOW', () => {
-  it('forks in two, and each side says what it is not', () => {
+  it('offers three doors, and each says what it is not', () => {
+    // One clause per door, so deleting any `body` from `showDoors.ts` goes red
+    // here. Two of the three were asserted while there were three doors, and
+    // the merchant's was the missing one.
     gm();
     click(named('SHOW'));
     expect(text()).toContain('without adding any of them');
     expect(text()).toContain('Nothing here ever writes to their characters');
+    expect(text()).toContain('it never spends anybody’s gold');
   });
 
   it('opens the bestiary, which no row can', () => {
@@ -1040,14 +1044,17 @@ describe('MENU', () => {
     expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1);
   });
 
-  it('leaves the three that already have a door where they are', () => {
+  it('leaves the four that already have a door where they are', () => {
     // The rule that keeps Settings out of this sheet: a second route to a
     // destination that already has one is a door nobody chose to build. The
     // sentence says where they are, so the absence is an answer, not a gap.
+    // The merchant is checked as well: without it, a MERCHANT button added to
+    // `MenuSheet`'s TOOLS list would have passed here.
     openMenu();
     const labels = buttons().map((b) => (b.textContent ?? '').trim());
     expect(labels).not.toContain('BESTIARY');
     expect(labels).not.toContain('THE PARTY BOARD');
+    expect(labels).not.toContain('THE MERCHANT');
     expect(labels).not.toContain('FEAR AND COUNTDOWNS');
     expect(text()).toContain('behind the Fear number at the top');
     expect(text()).toContain('behind SHOW');
@@ -1056,13 +1063,19 @@ describe('MENU', () => {
   /*
    * The same sentence, in the two preference states it used to be false in.
    *
-   * `GmBar` opens SHOW only while one half of its fork is switched on and drops
-   * the verb entirely when both are off, and Settings already says so in words:
-   * "With both off SHOW has nothing left to open, so it leaves the GM screen's
-   * bottom bar". This sheet named SHOW unconditionally, so with the bestiary
-   * and the party board switched off it sent the GM to a control that was not
-   * on the screen - the app contradicting itself about its own bar, two
-   * settings apart.
+   * `GmBar` opens SHOW only while at least one of its doors is switched on and
+   * drops the verb entirely when all of them are off, and Settings already says
+   * so in words: "With all three off SHOW has nothing left to open, so it
+   * leaves the GM screen's bottom bar". This sheet named SHOW unconditionally,
+   * so with the bestiary, the party board and the merchant switched off it sent
+   * the GM to a control that was not on the screen - the app contradicting
+   * itself about its own bar, two settings apart.
+   *
+   * ("One half of its fork" and the two-door quotation stood here after the
+   * cases below had already been rewritten to set three preferences.
+   * `MenuSheet.tsx` carries the same quotation and was updated; this copy was
+   * missed. The quoted sentence is `Settings.tsx`'s, and the app can only print
+   * the "all three" wording.)
    */
   const sheetText = (): string =>
     container.querySelector('[role="dialog"]')?.textContent ?? '';

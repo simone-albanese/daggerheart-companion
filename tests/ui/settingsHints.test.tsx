@@ -235,7 +235,8 @@ describe('the settings screen', () => {
     ['Type your own dice', 'Tap either die on the Play screen'],
     ['Massive Damage rule', 'twice your Severe threshold'],
     /*
-     * The three GM switches. Their names are deliberately not the words on the
+     * The four GM switches - the section and the three doors behind SHOW. Their
+     * names are deliberately not the words on the
      * section heading: `control()` below takes the first match in DOM order and
      * the desktop section nav - which this file renders, because its
      * `matchMedia` answers false to every query - carries each section's title
@@ -247,6 +248,7 @@ describe('the settings screen', () => {
     ['The GM section', 'Nothing is deleted'],
     ['Bestiary', 'without adding any of them to tonight'],
     ['The party board', 'the player sheets sent to this device'],
+    ['The merchant', 'never spends anybody’s gold'],
     ['Choose a file', 'A .dhchar or a .dhbackup'],
     ['Ask the browser', 'Browsers reclaim storage from sites'],
     ['Paste from clipboard', 'Copying from here is the first half'],

@@ -16,7 +16,10 @@
  * than leaving a person to work out why nothing happened.
  *
  * `tests/ui/settingsHints.test.tsx` covers the sentence-to-control wiring for
- * the same rows; this file is about what the switches do.
+ * the same four rows; this file is about what the switches do. ("The same
+ * three rows" was true and was widened to "the same rows" when the merchant
+ * arrived without being added there, which made it false; the row is there
+ * now, so the count is back and it is four.)
  */
 import 'fake-indexeddb/auto';
 import { act } from 'react';

@@ -408,12 +408,39 @@ describe('the merchant', () => {
     expect(first).not.toBe('');
     merchant();
     expect(text()).toContain(first);
-    // And only that paragraph: marking and clearing slots is the player's
-    // screen's business, and reprinting it here would be the GM screen
-    // explaining a track it cannot touch.
-    const optional = (gold?.body ?? '').includes('Optional Rule: Gold Coins');
-    expect(optional, 'the fixture no longer carries the paragraph this excludes').toBe(true);
-    expect(text()).not.toContain('Optional Rule: Gold Coins');
+    /*
+     * And only that paragraph. The rest of the section is the two worked
+     * examples, the one-chest cap and an optional coin denomination - slots on
+     * a sheet this screen cannot write - and reprinting any of it would be the
+     * GM screen explaining a track it cannot touch.
+     *
+     * The guard is a sentence out of a paragraph the component would have to
+     * *print* to fail it, and both excluded paragraphs are named. `not
+     * .toContain('Optional Rule: Gold Coins')` stood here and could not fire:
+     * that string is a `## ` subhead, so `ruleBlocks` lifts it into
+     * `block.heading` and strips it from the text, and `proseOf` returns only
+     * `part.kind === 'text'` - no path through this component can print it.
+     * Both mutations the comment forbids were run against it and both stayed
+     * green: `proseOf(gold?.blocks[0]?.parts ?? []).join(' ')`, which prints
+     * the whole intro block, and `proseOf(gold?.blocks.flatMap((b) => b.parts)
+     * ?? []).join(' ')`, which prints the optional rule as well. Both go red
+     * against the two lines below.
+     */
+    const rest = (gold?.body ?? '').split('\n\n').slice(1).join('\n\n');
+    expect(rest, 'the fixture no longer carries the paragraphs this excludes').toContain(
+      'For example, if you have 9 handfuls',
+    );
+    expect(rest, 'the fixture no longer carries the optional rule this excludes').toContain(
+      '10 coins equal 1 handful',
+    );
+    expect(text()).not.toContain('For example, if you have 9 handfuls');
+    expect(text()).not.toContain('10 coins equal 1 handful');
+    // And exactly one paragraph under that heading, so a second one added by
+    // any route at all is caught even if its wording is not named above.
+    const section = [...container.querySelectorAll('section')].find((s) =>
+      (s.textContent ?? '').includes(first),
+    );
+    expect(section?.querySelectorAll('p')).toHaveLength(1);
   });
 
   it('draws no heading at all when the dataset carries no such section', () => {
