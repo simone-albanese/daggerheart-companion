@@ -226,10 +226,14 @@ const COUNTED: readonly string[] = ['one', 'two', 'three', 'four', 'five'];
  * Read here rather than taken as a prop for the same reason `GmBar` reads it -
  * what this sheet says is this sheet's business.
  *
- * **It was three hardcoded sentences for two doors and would have been seven
- * for three.** The count in the opening clause, the list of what is behind
- * SHOW, the list of what is switched off and the verb agreeing with each of
- * them all move together, so they are all derived from one filter over
+ * **It was three hardcoded sentences for the four states two doors can be
+ * switched into, and three doors can be switched into eight.** Unlike the name
+ * `Gm.tsx` gives the dialog, this sentence is asked for in the all-off state
+ * too - MENU is always on the bar - so its states are 2³ and not the 2³ − 1
+ * live ones, and `merchant.test.tsx` enumerates all eight against this
+ * function. The count in the opening clause, the list of what is behind SHOW,
+ * the list of what is switched off and the verb agreeing with each of them all
+ * move together, so they are all derived from one filter over
  * `SHOW_DOORS` - the same filter `ShowSheet` draws with and `Gm.tsx` names the
  * dialog with. The one thing that is *not* derived is the Fear clause, because
  * Fear and the countdowns is not a door and is not switchable: it is why the
