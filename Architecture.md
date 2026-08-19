@@ -901,7 +901,7 @@ daggerheart-companion/
 | **Cards** | **Nella griglia, filtri compresi: la barra dei filtri è la prima riga della griglia** | 189 carte, ovvio — ma «nella griglia» era falso finché i filtri stavano fuori dallo scroll. Il blocco filtri è 278px su qualunque telefono in verticale, 226 a 640×360, 170 dove la prima riga sta su una riga sola, contro una colonna di H−130 sul telefono e H−87 sul tablet: a 320×568 restavano 148px alla griglia contro una carta di 268, e a 640×360 la griglia finiva con un content box di **0px** disegnato dentro la tab bar, cioè uno scroll che non esisteva. Ora lo scrollport è tutta la colonna — 438 a 320×568, 722 a 393×852, 230 a 640×360 — e i filtri scorrono via con le carte che filtrano. E dove non c'è spazio (telefono per larghezza **o** finestra bassa, `useIsShort()`, ≤520px) il blocco è due righe invece di quattro: ricerca, la porta FILTERS e il conteggio, **62px**, col resto dietro la porta e mandato a capo. Misurato in Chrome: le carte visibili senza scorrere passano da 148 a 364 a 320×568, da 432 a 648 a 393×852, da 124 a 232 a 852×393, da 0 a 156 a 640×360. Nessuna riga di filtri scorre più in orizzontale a nessuna larghezza: le due rail nascondevano 484px e 447px a 393 senza dirlo, e mandarle a capo costa 100px alla banda larga a 744×1133 (170→270 di 1046) e zero da 890 in su |
 | **Build** | Nel pannello del passo | Wizard a step, intestazione fissa |
 | **GM** | **Nella lista della serata** | Fisse la barra in alto — MENU col nome della campagna, Fear, countdown primario — e `GmBar` in basso, ADD/SHOW/SAVE al posto della tab bar. Scorre la lista; una riga si apre in posto. Finché una scrittura sta fallendo è fisso anche l'avviso che lo dice, fra le due barre: ~143px dei 551 della lista, e c'è solo mentre è vero |
-| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU e non da una riga |
+| **Strumenti GM** (Encounter, Scene, Bestiary, Party, Countdown, Mercante, Riferimento) | Nel corpo | Non sono più regioni di primo livello: si aprono *sopra* la lista, a tutta finestra, e ognuno tiene lo scroll che aveva — il Riferimento incluso, che è l'unico ad arrivare da MENU — Bestiary, Party e Mercante arrivano da SHOW, e solo Encounter, Scene e Countdown da una riga |
 
 **In fondo a ognuno di quei cinque scroll c'è l'avviso di licenza, e non c'è
 niente dopo** (P5-6). Non è chrome: è l'ultimo blocco del contenuto, un filetto
@@ -1254,8 +1254,9 @@ della campagna porta una `session: SessionItem[]` da quando esistono le
 campagne e nessuno l'aveva mai disegnata. Ora la lista **è** la schermata: le
 righe si aprono in posto, e i primi cinque strumenti qui sotto sono ciò che apre
 una riga (o, per Fear e countdown, il numero in cima), sopra la lista, dentro
-`GmSheet`. Il sesto, il Riferimento, è l'unico che nessuna riga può contenere e
-arriva da MENU. Uno strumento chiuso è **smontato**, mai nascosto: lo scanner
+`GmSheet`. Il sesto, il Riferimento, è l'unico che arriva da MENU. Non è il solo che
+nessuna riga può contenere — Bestiary, party board e mercante non lo sono
+altrettanto, ma quelli arrivano da SHOW. Uno strumento chiuso è **smontato**, mai nascosto: lo scanner
 della PartyBoard apre la fotocamera in un effetto e la chiude allo smontaggio.
 
 `board.region` resta nel record e cambia significato: non più «quale tab era
@@ -1276,10 +1277,14 @@ menù che P5-2 elimina.
 - **Countdown**: standard, dinamici, loop, long-term. Si fanno scorrere a mano.
   Uno può essere **primario** e allora sta nella barra in alto.
 - **Ambienti**: le feature dell'ambiente attivo affiancate agli avversari.
-- **Riferimento** (P5-3): le tabelle che il GM cerca a mano, in sette temi —
+- **Riferimento** (P5-3): le tabelle che il GM cerca a mano, in otto temi —
   benchmark per tier (avversari e ambienti), benchmark di Difficoltà, Fear per
   tipo di scena, avanzamento dei countdown dinamici, distanze, mosse e principi
-  del GM, Experience per gli avversari. **Ogni parola è letta da
+  del GM, Experience per gli avversari, e oro, equipaggiamento e bottino.
+  L'elenco qui sopra è in ordine semantico; `REFERENCE_TOPICS` non lo è più,
+  perché la striscia dei chip è ordinata per larghezza — otto chip così stanno
+  in 3 righe / 144.00px, esattamente quello che ne costavano sette in ordine
+  semantico. **Ogni parola è letta da
   `data/srd-1.0.json` al momento del disegno** e il timbro `SRD 1.0 · P.NN` sta
   accanto alla singola tabella, mai in cima al tema: il tema *improvvisa* mette
   insieme p.73 e p.102, e un timbro solo stamperebbe un numero di pagina sopra
@@ -1343,8 +1348,8 @@ Un bottone che non apre niente è peggio di un bottone che non c'è.
   prendere il roster che è sul tavolo adesso, mai i combattenti), link a
   qualcosa già dentro l'app, countdown (pinnabile subito). Ogni riga nasce
   chiusa e in fondo alla lista, e la sheet lo dice.
-- **SHOW** biforca nei due strumenti che nessuna riga apre: Bestiary in sola
-  consultazione e la party board. Erano due chip in cima finché la barra non
+- **SHOW** apre le tre porte che nessuna riga apre: Bestiary in sola
+  consultazione, la party board e il mercante. Erano due chip in cima finché la barra non
   esisteva; se ne sono andati con questa.
 - **SAVE** non è il bottone che salva. La campagna è già scritta 400 ms dopo
   l'ultima modifica e di nuovo su `pagehide`; la sheet fa un flush, poi dice
@@ -1370,8 +1375,9 @@ Un bottone che non apre niente è peggio di un bottone che non c'è.
   viene scritta ogni 400 ms, e riordinare per `updatedAt` in render sposterebbe
   in cima proprio quella riga, sotto il pollice.
 
-**La sezione intera si spegne da Settings, e con lei i due strumenti che nessuna
-riga apre.** `gmSection`, `gmBestiary` e `gmPartyBoard` stanno su `Prefs`,
+**La sezione intera si spegne da Settings, e con lei i tre strumenti che nessuna
+riga apre.** `gmSection`, `gmBestiary`, `gmPartyBoard` e `gmMerchant` stanno su
+`Prefs`,
 quindi in `localStorage`: sono fatti su *questo dispositivo*, non sul record,
 nessuno schema si muove e §6.1 non viene toccata. La parte che conta non è
 l'interruttore ma cosa resta dietro, e la regola è una funzione sola —
@@ -1395,7 +1401,7 @@ l'unico posto dove lo si imposta di netto invece che un punto per volta. Il
 Riferimento è l'SRD che l'app già spedisce e già cita sulle schermate del
 giocatore, dietro un menù che non ha interruttori: `gmSection` porta via tutto
 insieme a lui.
-`BACKLOG.md` porta entrambe le ragioni. Con i due strumenti spenti **SHOW esce
+`BACKLOG.md` porta entrambe le ragioni. Con i tre strumenti spenti **SHOW esce
 dalla barra** e i 131px per verbo diventano 196 su un telefono da 393; con uno
 solo, la sheet si riduce a quella metà e il dialog prende il *suo* nome invece
 di annunciarsi come entrambi; e la scena vuota smette di offrire il bestiary —

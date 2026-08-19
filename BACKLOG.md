@@ -2002,8 +2002,9 @@ Decisions taken:
       polite live region for the whole list: assertive interrupts itself five
       times across a four-row drag.
 - [x] ~~**SHOW** forks in two: **Consulta** and **Gruppo**.~~ — **done.** The
-      two tools no row can open, and the only two, which is why they are the
-      fork. Each choice says what it is *not*: the bestiary adds nothing to
+      two tools no row can open — and at the time the only two, which is why
+      they were the fork. The merchant made a third, and the word went with
+      the count. Each choice says what it is *not*: the bestiary adds nothing to
       tonight, the party board never writes to anyone's character. The chips
       that carried them in the top bar are gone with it.
 - [x] ~~**SAVE** writes the campaign: the list, Fear, the countdowns, and the
@@ -2050,14 +2051,14 @@ Decisions taken:
 - [x] ~~**Each tool is switchable in Settings**, plus one master switch that
       hides the GM section entirely — most people using this app are players. A
       tool that is off leaves the bar, and the bar redistributes across what is
-      left rather than leaving a hole.~~ — **done as three switches rather than
+      left rather than leaving a hole.~~ — **done as four switches rather than
       six, and the reduction is written down below.** The master switch takes
       the GM tab off the phone's bar, the entry off the desktop header, and the
       screen out of the app: `openingScreen` refuses to *open* on a stored
       `'gm'` with the section off, and `allowedScreen` refuses to *draw* one, so
       neither a boot nor a stray `setScreen` can leave a header over an empty
-      `<main>`. The two tool switches are the bestiary and the party board; with
-      both off SHOW leaves the bar and ADD and SAVE go from 131 px each to 196
+      `<main>`. The three tool switches are the bestiary, the party board and the
+      merchant; with all three off SHOW leaves the bar and ADD and SAVE go from 131 px each to 196
       on a 393 px phone. Nothing anywhere still offers a tool that is off — the
       SHOW sheet narrows to one choice and is renamed for it, and the scene
       runner's empty state drops both its bestiary button and the clause naming
@@ -2130,9 +2131,9 @@ silence:**
       `GmBar`'s array when there is an index behind it.
 - [x] ~~**The bar cannot yet be made to redistribute.**~~ — **it can now, and
       the test proves the property rather than the instance.** Switching the
-      bestiary and the party board both off drops SHOW and leaves
+      bestiary, the party board and the merchant all off drops SHOW and leaves
       `repeat(2, 1fr)`; a grid hard-coded at three fails that case.
-- [ ] **Three tools of five are not switchable, where the item asked for
+- [ ] **Three tools of six are not switchable, where the item asked for
       "each".** The encounter builder and the scene runner are the *content of a
       session row*, and a switch that hid either would make a row the GM has
       already written unopenable — a preference that breaks the list is not the
@@ -2273,7 +2274,7 @@ that it is the app's. **Three of the bullets below asked for something the
 shipped SRD does not carry, and they are corrected before they are struck** — a
 record that preserves the error is a record the next builder copies.
 
-The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
+The whole reference opens from MENU → OPEN THE REFERENCE, as eight topics.
 
 - [x] ~~**The improvised-adversary table by tier**~~ — **done, `3f2a361`.**
       Attack modifier, damage dice, difficulty, damage thresholds, read out of
@@ -2370,9 +2371,9 @@ The whole reference opens from MENU → OPEN THE REFERENCE, as seven topics.
       SRD's answer for the case it covers. This narrows the bullet's original
       "wherever a difficulty is set", so it is left ticked open for the owner
       rather than struck.
-- [ ] **The reference is not one of the switchable GM tools.** The bestiary and
-      the party board are switchable because they are the two forks of SHOW and
-      a GM may genuinely have no use for either. This is the SRD the app already
+- [ ] **The reference is not one of the switchable GM tools.** The bestiary,
+      the party board and the merchant are switchable because they are the three
+      doors of SHOW and a GM may genuinely have no use for any of them. This is the SRD the app already
       ships and already quotes on the player's screens, reached from a menu that
       has no switches in it at all. `prefs.gmSection` still takes the whole
       section away.

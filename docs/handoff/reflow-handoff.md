@@ -183,8 +183,8 @@ Six items, none started. My read on each is the italic line.
   about the character store and has never known about campaigns.
   *This is a data-loss-adjacent silence and I would rank it first of the six.*
 
-- **~2157 · The reference is not one of the switchable GM tools.** The bestiary and party board are
-  switchable because they are the two forks of SHOW; the reference is the SRD the app already
+- **~2157 · The reference is not one of the switchable GM tools.** The bestiary, the party board and the merchant are
+  switchable because they are the three doors of SHOW; the reference is the SRD the app already
   ships. `prefs.gmSection` still takes the whole section away.
   *A product call, not a bug.*
 
