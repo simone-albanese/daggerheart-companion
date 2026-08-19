@@ -21,7 +21,7 @@
  *
  * **Those two arms are files and the other four are not, and that is about the
  * schedule rather than about the code.** Both are replaced wholesale, by two
- * *separate* lanes; in here they were one region with one section rule between
+ * *separate* lanes; in here they were one region with no section rule between
  * them, so those two lanes would have been rewriting adjacent halves of one
  * region of one file with nothing else in common. A file each is a merge. The
  * scene, encounter, link and countdown arms are not being replaced by anybody,

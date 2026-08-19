@@ -15,7 +15,7 @@
  * Nothing about it is more complicated than theirs - it is the shortest arm in
  * the set. It is here because it and `NoteArm` are the two arms two *separate*
  * lanes are about to replace wholesale, and in `SessionBody.tsx` they sat in
- * one region with one section rule between them. Two lanes rewriting one region
+ * one region with no section rule between them. Two lanes rewriting one region
  * of one file is a conflict in work that has nothing else in common; two lanes
  * rewriting a file each is not. The other four arms are not being replaced by
  * anybody, so moving them would have been churn dressed up as symmetry, and

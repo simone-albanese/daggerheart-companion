@@ -423,7 +423,7 @@ const stripGap = (): number =>
 /**
  * The horizontal padding one of the bottom sheets declares on its scroller.
  *
- * `AddSheet` draws two of them - the four choices and the form behind them - so
+ * `AddSheet` draws two of them - the choices and the form behind them - so
  * this reads every `padding: N` on a `className="scroll stack"` in the file and
  * refuses to answer if they disagree, rather than silently taking the first.
  */

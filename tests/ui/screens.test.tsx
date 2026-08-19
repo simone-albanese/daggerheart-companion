@@ -709,8 +709,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
     <EnvironmentBlock environment={environment()} active onToggle={noop} />
   ),
   // With an address on it. The empty branch is one sentence; the branch worth
-  // mounting is the one that hands a stored string to `displayUrl`, which is
-  // where a row that arrived with something unparseable would throw.
+  // mounting is the one that hands a stored string to `displayUrl`, which
+  // returns '' for anything `new URL` refuses - so a malformed href draws a
+  // labelled blank line rather than throwing.
   'gm/UrlArm.tsx::UrlArm': () => (
     <UrlArm
       item={{
