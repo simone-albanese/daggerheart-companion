@@ -208,9 +208,12 @@
  *   - `:371` - `gmStore.ts:704-744` -> end of range `:747`, inside the factory
  *     that returns the empty live state.
  *   - `:373`, `:624` and `:633` - `GmSheet.tsx:77` -> `:88`, the `padding:`
- *     shorthand whose jsdom visibility those three rows argue about. `:633`
- *     calls it "il vero `GmSheet.tsx:77`", so the number is load-bearing there
- *     and the anchor is the shorthand itself, not the line.
+ *     shorthand whose jsdom visibility those three rows argue about. It is
+ *     `:624`, the table row, that calls it "il vero `GmSheet.tsx:77`" - the one
+ *     hit for that phrase in the file - so the number is load-bearing there and
+ *     the anchor is the shorthand itself, not the line. `:633` is the paragraph
+ *     that concludes «`GmSheet.tsx:77` non è un sito nascosto», nine lines
+ *     below.
  *   - `:641` - `LicenceFooter.tsx:124` -> `:135`, the `calc(0px + env(...))`
  *     paragraph of that file's head docblock. Anchor: that paragraph.
  *
@@ -683,12 +686,20 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ['nine rows', /nine rows/],
     ['551px of list', /551px/],
     ['301 of pinned chrome', /852 − 301|852 - 301/],
-    // Four spellings and not one, because the retired sentence was written four
+    // Six spellings and not one, because the retired sentence was written six
     // ways - "60 px a step", "the step is 60", "a 60px step", "Row height plus
-    // the list gap [...] = 60" - and the literal that stood here, `the step is
-    // 60px`, matched none of them. A scan pattern narrower than the sentence it
-    // retires is a test that passes because it cannot see.
-    ['a 60px step', /\b60 ?px a step|the step is 60|60px step|step at 60|step of 60/],
+    // the list gap [...] = 60", and, where the step is costed as a gesture
+    // rather than as a pitch, "60px of travel" and "60px of accurate travel" -
+    // and the literal that stood here, `the step is 60px`, matched none of
+    // them. The last two are here because the pattern that replaced it still
+    // could not see them: it ran over `SessionRow.tsx` and
+    // `sessionDrag.test.tsx` while both spelt the gesture that way, and came
+    // back green. A scan pattern narrower than the sentence it retires is a
+    // test that passes because it cannot see.
+    [
+      'a 60px step',
+      /\b60 ?px a step|the step is 60|60px step|step at 60|step of 60|60 ?px of (accurate )?travel/,
+    ],
     ['a 60px drag step', /ROW_STEP = 60\b/],
     ['a two-row topic strip', /wraps to two rows/],
     ['660 against a 369px column', /660 against/],
@@ -797,11 +808,22 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * The retired figures, held shut. Every one of these is now written inside
    * double quotes as a record of what was wrong, so an unquoted one is the
    * sentence coming back.
+   *
+   * `src/ui/shell/CampaignNotSaved.tsx` IS IN THIS LIST, and it is not on the
+   * GM screen. There are three alerts that do the same border-box arithmetic on
+   * the same kind of block, and two of them are in `src/ui/gm`: when the "345"
+   * was retired from those two the third went on asserting its own version of
+   * it - "393 − 40 of gutter − 24 of padding = 329px", the same missing
+   * hairline - because the sweep was scoped to a directory rather than to the
+   * claim. Its figure is 329 rather than 345 because its gutter and its border
+   * differ, which is exactly why a scan over one pattern in one directory could
+   * not see it.
    */
   it.each([
     ['a 365px sheet column', /365/],
     ['a 345px notice column', /345/],
-  ])('no file on this screen has gone back to %s', (_what, pattern) => {
+    ['a 329px alert column', /\b329\b/],
+  ])('no file behind these alerts has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/MenuSheet.tsx',
       'src/ui/gm/AddSheet.tsx',
@@ -811,6 +833,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'src/ui/gm/GmSheet.tsx',
       'src/ui/gm/gmStore.ts',
       'src/ui/gm/Gm.tsx',
+      'src/ui/shell/CampaignNotSaved.tsx',
     ];
     for (const file of files) {
       expect(

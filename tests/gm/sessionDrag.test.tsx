@@ -292,7 +292,7 @@ describe('the keyboard path', () => {
 });
 
 describe('the buttons in an open row', () => {
-  it('moves a row without a hold and without 60px of accurate travel', () => {
+  it('moves a row without a hold and without a step of accurate travel', () => {
     act(() => {
       useGm.setState({ session: four().map((i) => ({ ...i, collapsed: false })) });
     });

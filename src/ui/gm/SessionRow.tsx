@@ -34,9 +34,12 @@
  * Two ways, and the second one is not a fallback. The handle at the right edge
  * carries the pointer gesture (`useSessionDrag`), and the open row's footer
  * carries MOVE UP and MOVE DOWN as plain 44px buttons. A hold of 250 ms
- * followed by 60px of accurate travel is a gesture a shaking hand, a trackpad
- * user and anybody driving this from a keyboard cannot perform; two buttons in
- * the row they already have open cost 88px of a footer that had room.
+ * followed by half a `ROW_STEP` of accurate travel for every place moved is a
+ * gesture a shaking hand, a trackpad user and anybody driving this from a
+ * keyboard cannot perform; two buttons in the row they already have open cost
+ * 88px of a footer that had room. (The step is named rather than costed here on
+ * purpose: it stood at "60px of accurate travel" while `ROW_STEP` was 62, and
+ * a pitch this sentence copies is a pitch this sentence can get wrong again.)
  *
  * ## Deleting
  *
@@ -448,7 +451,8 @@ export function SessionRow({
                 The same two moves as the handle, without a pointer and without a
                 hold. An open row is where a GM is already looking when they
                 decide it belongs earlier, and a 44px button is a target a shaking
-                hand can hit where a 250ms hold plus 60px of travel is not.
+                hand can hit where a 250ms hold plus half a `ROW_STEP` of travel
+                per place is not.
               */}
               <RowVerb
                 onClick={() => move(item.id, position - 2)}
