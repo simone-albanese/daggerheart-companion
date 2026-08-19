@@ -671,11 +671,14 @@ sessione, campagna né tiri. Ogni altro campo del record sopravvive intatto, e i
 fallback che lo rende sopravvivibile è esattamente il convertitore che altrimenti
 sarebbe stato obbligatorio. Vale per questo campo e per nessun altro: un campo
 che porta *dati* non può essere allargato così. E vale per **quanti valori
-servono**: `'names'` è arrivato dopo `'reference'` e non cambia niente
-dell'argomento, perché il costo di una build vecchia che non riconosce il valore
-è lo stesso — ripiega su `'encounter'` e riscrive quale strumento era aperto.
-Chi aggiunge il terzo non deve chiedersi se «l'eccezione è ancora una»: deve
-chiedersi se sta allargando **questo** campo o un altro.
+servono**: `'names'` è arrivato dopo `'reference'`, e `'merchant'` dopo tutti e
+due. Nessuno dei due cambia niente dell'argomento, perché il costo di una build
+vecchia che non riconosce il valore è lo stesso — ripiega su `'encounter'` e
+riscrive quale strumento era aperto. Chi aggiunge il terzo non deve chiedersi
+se «l'eccezione è ancora una»: deve chiedersi se sta allargando **questo**
+campo o un altro. Il terzo è arrivato il 19 agosto 2026 — il mercante — ed è il
+primo ad essere **governato** da questa regola invece di averla costruita: la
+domanda se l'è posta, e la risposta è che allarga questo campo.
 
 #### Il primo scalino della catena campagne, e perché il convertitore non fa niente
 

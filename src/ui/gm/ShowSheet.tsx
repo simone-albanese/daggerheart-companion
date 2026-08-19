@@ -1,5 +1,6 @@
 /**
- * SHOW: the three tools only it can open, and the rules, searched.
+ * SHOW: the three tools no row opens and MENU does not carry, and the rules,
+ * searched.
  *
  * Every other GM tool is either the content of a session row - a scene row
  * opens the scene runner, an encounter row opens the builder, a countdown row
@@ -19,9 +20,13 @@
  * else, so of the eight tools `GmRegion` names, **five** are not row content -
  * the SRD reference and the name generator are as rowless as these are, and
  * `MenuSheet.tsx` says so in its own words. The property that picks out these
- * three, and the one the switchability argument actually rests on, is that
- * SHOW is their *only* door. MENU is not switchable, so the other two keep a
- * way in whatever a GM turns off.)
+ * three, and the one the switchability argument actually rests on, is that no
+ * session row opens them and MENU does not carry them either. SHOW is their
+ * door on the bar - not quite their only door, because an empty scene offers
+ * the bestiary as well (`Scene.tsx`, the button gated on `prefs.gmBestiary`).
+ * That gate is why the exception costs the argument nothing: the second way
+ * in goes when the switch does, so nothing is stranded. MENU is not
+ * switchable, so the other two keep a way in whatever a GM turns off.)
  *
  * The first two came from a fork the backlog had already drawn: *consulta* -
  * read the adversaries and environments without adding any of them - and

@@ -769,9 +769,10 @@ describe('goldAndLoot', () => {
    * beside this table, and that stamp is only honest if what reaches the glass
    * is byte-for-byte the shipped file - which is the same reason no SRD row
    * string reaches a shipped one. `1-5 Handfuls` and `1-2 Chests` are typed
-   * only in assertions like this one; `1 Handful` and
-   * `Meals for a party of adventurers per night` only in those and in
-   * `GoldAndLoot`'s docblock, which quotes them rather than drawing them. The
+   * only in assertions like this one; `1 Handful` only in those and in
+   * `GoldAndLoot`'s docblock; and `Meals for a party of adventurers per night`
+   * in those and in **two** docblocks, `GoldAndLoot`’s and
+   * `RuleTableView`'s. All of them quote the string rather than drawing it. The
    * bare denominations are a different matter and never were the licence line:
    * `Handfuls`, `Bags` and `Chests` are this app's own purse vocabulary, typed
    * in `GoldEditor` (`ui/build/parts.tsx`), the print sheet and

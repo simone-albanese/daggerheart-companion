@@ -53,7 +53,13 @@
  * is itself 2px too generous wherever it means the reference region**:
  * `GmSheet`'s panel is border-box with a 1px border (`GmSheet.tsx`), so the
  * measured column at 393 is 367.00 - see `Reference.tsx`. Every figure below that starts from 369
- * inherits it, and none of them has been re-measured. The number still missing
+ * inherits it. One of them has since been measured rather than derived:
+ * `GoldAndLoot` (`ReferenceTables.tsx`) records this same grid resolving to
+ * `178.5px 178.5px` at the 10px gap in Chrome, which is the 367.00 column
+ * halved. The 369s below are left standing and flagged rather than corrected,
+ * exactly as `ReferenceTables.tsx` leaves its own - 369 outside the panel and
+ * 367.00 inside it are both right, and a sweep that "corrects" the wrong one
+ * is the failure this repo has already paid for once. The number still missing
  * is the one
  * under a session row's panel and inside its open block; deriving that on paper
  * would be the same mistake once more, and this repo takes its measurements from

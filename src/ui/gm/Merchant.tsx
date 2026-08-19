@@ -153,7 +153,9 @@
  *
  * Chrome at 393x852, device-scale-factor 1, safe area top 47 / bottom 34 - the
  * rig in `AUDIT-HANDOFF.md`, driven against this build's `dist`. **Every figure
- * below came out of `getBoundingClientRect`; not one of them is arithmetic**,
+ * below came out of `getBoundingClientRect`**, and the two figures that are
+ * arithmetic on those measurements say so where they stand - the 860.80
+ * counter bound and the 73.58 of fixed furniture,
  * which matters because the first draft of this list was arithmetic and six of
  * its eight numbers were wrong.
  *

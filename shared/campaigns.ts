@@ -365,17 +365,19 @@ export type GmRegion =
  * exception, and why it is only one", that the title was no longer true of this
  * file, and that the section needed rewriting into a standing licence for *this
  * field*. All three were true when they were written and none of them is now.
- * The section was rewritten on 18 August, is titled «L'eccezione, e perché
- * riguarda un campo e non un conteggio», and ends on the sentence this change
+ * The passage was rewritten on 18 August and is headed «L'eccezione, e perché
+ * riguarda un campo e non un conteggio» - it sits inside §6.1, whose own
+ * heading is «Regola dello schema: nessuno schema parte senza il suo
+ * convertitore» - and it ends on the sentence this change
  * is the first to be governed by: whoever adds the third value must not ask
  * whether the exception is still a single one, but whether they are widening
  * **this** field or a different one.
  *
  * This widening is this field, which is the answer that section asks for. No
- * part of §6.1 is falsified by it. The one thing left for whoever owns the docs
- * is the courtesy of naming `'merchant'` beside `'reference'` and `'names'` in
- * the list of what has actually been added - and that is a completion, not a
- * contradiction.
+ * part of §6.1 is falsified by it. The courtesy that was left for whoever owns
+ * the docs - naming `'merchant'` beside `'reference'` and `'names'` in the list
+ * of what has actually been added - has been done, in the same change as this
+ * one.
  *
  * ## The compiler holds the list against the union now, and could not before
  *

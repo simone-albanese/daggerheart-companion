@@ -335,7 +335,7 @@ describe('what MENU says about where the other tools are', () => {
   });
 
   for (const state of EIGHT) {
-    it(`counts, lists and conjugates correctly with ${state.on.length} door(s) on`, () => {
+    it(`counts, lists and conjugates correctly with ${state.on.length} door(s) on${state.on.length ? `: ${state.on.join(', ')}` : ''}`, () => {
       useApp.setState({ prefs: only(...state.on) });
       openMenu();
       expect(sheet()).toContain(state.says);

@@ -36,7 +36,7 @@
  * ## SHOW leaves when all of its doors are gone
  *
  * Every door behind SHOW is switchable in Settings - the bestiary, the party
- * board and the merchant are the tools SHOW is the only door to, which is
+ * board and the merchant are the tools SHOW carries and MENU does not, which is
  * exactly why they are the ones that can be switched off without making a row
  * unopenable. ("The tools no session row can open" stood here; that is true of
  * the SRD reference and the name generator as well, and both are behind MENU,
