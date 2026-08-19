@@ -486,20 +486,32 @@ describe('ADD', () => {
      * The name of this test used to say "the kinds the record has", and that
      * stopped being true at campaign schema 2. `SESSION_ITEM_KINDS` is not
      * `SessionItem['kind']` and never was - `unreadable` is a reading rather
-     * than a thing a GM adds - and since the bump it is also short of `url` and
-     * `note`, which are readable, writable and exportable from today and get
-     * their forms in the two lanes building their screens. The gap is pinned in
-     * `tests/gm/session.test.ts`, so this menu staying at four is a decision
+     * than a thing a GM adds - and since the bump it is also short of every
+     * kind whose form has not been built. The gap is pinned in
+     * `tests/gm/session.test.ts`, so the width of this menu is a decision
      * rather than the omission this comment was written to catch.
+     *
+     * **It goes through `SESSION_KIND_LABEL`, and that is not decoration.**
+     * This used to lowercase each button's label and keep the ones that were
+     * in `SESSION_ITEM_KINDS`, which reads as derived and is not: it works
+     * only because 'Scene', 'Encounter', 'Link' and 'Countdown' happen to
+     * lowercase into their own kind ids. `url`'s label is 'Web link' - chosen
+     * deliberately, because two rows both reading LINK is worse than either -
+     * so the first kind to join this menu would have been filtered out of
+     * `choices` and this test would have failed claiming the sheet had lost a
+     * button it was in fact drawing. Measured: with `url` and `note` in the
+     * list and forms behind them, the old form of this test went red and this
+     * one stayed green.
      */
     gm();
     click(named('ADD'));
+    const labels = SESSION_ITEM_KINDS.map((kind) => SESSION_KIND_LABEL[kind].toUpperCase());
     const choices = [...container.querySelectorAll('[role="dialog"] button')]
       // The label is the choice's first span; the second is the sentence
       // saying what the kind is for, and `textContent` runs the two together.
-      .map((b) => (b.querySelector('span')?.textContent ?? '').trim().toLowerCase())
-      .filter((t) => (SESSION_ITEM_KINDS as readonly string[]).includes(t));
-    expect(choices).toEqual([...SESSION_ITEM_KINDS]);
+      .map((b) => (b.querySelector('span')?.textContent ?? '').trim())
+      .filter((t) => labels.includes(t));
+    expect(choices).toEqual(labels);
   });
 
   it('writes a scene row, closed, at the end of the night', () => {
