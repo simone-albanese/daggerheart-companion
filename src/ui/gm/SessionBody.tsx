@@ -121,7 +121,7 @@ import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
-import { damageBumpRule, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
+import { damageBumpRule } from '../shared/ruleText.ts';
 import { ruleSection } from '../shared/srdReference.ts';
 import { Fact } from './Fact.tsx';
 import { NoteArm } from './NoteArm.tsx';
