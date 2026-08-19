@@ -319,20 +319,25 @@ export function Gm(): React.JSX.Element {
  *
  * ## Ergonomics, 393x852
  *
- * It sits under the pinned top bar and above the list: y 215 to about 360,
+ * It sits under the pinned top bar and above the list: y 217.00 to about 360,
  * which is the top third of the screen and nowhere near the 560-820 band a
- * right thumb covers. That is deliberate twice over - it has to be *read*, and
- * its one control is a decision rather than a reflex. **The inner column is
- * narrower than the "393 − 24 of page margin − 24 of padding = 345px" that
- * stood here, and by this alert's own frame.** `base.css:13` puts everything on
- * `box-sizing: border-box`, and the alert declares `border: '1px solid
- * var(--fear)'` alongside its 12px margin and 12px padding either side, so that
- * sum spends nothing for a pixel on each edge. How much column is left has not
- * been measured, and neither has the "four lines at `.t-dense`" the longest
- * store sentence used to be given here, which was counted against the "345":
- * both go to the rig before anything leans on them. The block is about 143px,
- * which takes the session list from the 548.00 measured in `SessionList.tsx`
- * to about 405. ("551px of list" and "nine rows" stood here.
+ * right thumb covers. The 217.00 is the 100.00 shell header plus the 109.00
+ * `GmTopBar` - both measured under those files' own headings - plus this
+ * block's own 8px top margin, with nothing else between them: `Gm` renders
+ * this strip as the next sibling after `<GmTopBar>` inside a `.stack`, and
+ * `.stack` declares no gap. ("y 215" stood here, off by the two 1px rules the
+ * corrected 100.00 and 109.00 added.) That is deliberate twice over - it has
+ * to be *read*, and its one control is a decision rather than a reflex. **The
+ * inner column is narrower than the "393 − 24 of page margin − 24 of padding =
+ * 345px" that stood here, and by this alert's own frame.** `base.css:13` puts
+ * everything on `box-sizing: border-box`, and the alert declares `border: '1px
+ * solid var(--fear)'` alongside its 12px margin and 12px padding either side,
+ * so that sum spends nothing for a pixel on each edge. How much column is left
+ * has not been measured, and neither has the "four lines at `.t-dense`" the
+ * longest store sentence used to be given here, which was counted against the
+ * "345": both go to the rig before anything leans on them. The block is about
+ * 143px, which takes the session list from the 548.00 measured in
+ * `SessionList.tsx` to about 405. ("551px of list" and "nine rows" stood here.
  * Both were a 1px rule short, though not of the same rules: 551 missed the
  * three hairlines on the pinned chrome, and nine missed the two `.panel`
  * borders on every row. And 143 was never measured, so the row count it
@@ -432,8 +437,8 @@ function NotSaved({
  *
  * ## Ergonomics, 393x852
  *
- * The same slot as `NotSaved`, under the pinned top bar at y 215 and far above
- * the 560-820 band a right thumb covers, because it is read rather than
+ * The same slot as `NotSaved`, under the pinned top bar at y 217.00 and far
+ * above the 560-820 band a right thumb covers, because it is read rather than
  * answered. **The column is narrower than the "393 − 24 of page margin − 24 of
  * padding = 345px" that stood here, and by a different rule from the one
  * `NotSaved` above drops**: this strip declares `borderLeft: '3px solid

@@ -77,9 +77,9 @@
  * this file. A scan is exactly as wide as the array under it; when a figure
  * crosses a directory, the array has to cross it too.
  *
- * ## Three sites this lane cannot reach, written down so they are not lost
+ * ## Five sites this lane cannot reach, written down so they are not lost
  *
- * Three retired figures are still live in the repo's top-level `.md`, which
+ * Five retired figures are still live in the repo's top-level `.md`, which
  * this lane is forbidden to edit, so they are named here for whoever can:
  *
  *   - `Architecture.md:903` - "~143px dei 551 della lista". 551 is retired:
@@ -94,39 +94,69 @@
  *   - `HANDOFF-2026-08-18.md:1038` - costs the row step at 60px and the topic
  *     strip at 94px on two rows. `SessionList.tsx`'s head docblock measures the
  *     step at 62.00 and `Reference.tsx`'s at 144.00 on three rows.
+ *   - `BACKLOG.md:1995` - "then a step per 60 px", in the done row for the
+ *     drag reorder. `ROW_STEP` in `useSessionDrag.ts` is 62.
+ *   - `BACKLOG.md:2001` - "a 250 ms hold plus 60 px of accurate travel is not
+ *     a gesture everybody has", the same `ROW_STEP` costed the same way. It
+ *     carries the exact phrase `5967f13` retired from three sites at once -
+ *     "60px of accurate travel" in `SessionRow.tsx`'s `## Moving` section, the
+ *     JSX comment over MOVE UP / MOVE DOWN, and the name of the
+ *     `sessionDrag.test.tsx` case that exercises them - one space wider.
+ *     Anchor for both: `ROW_STEP` in `useSessionDrag.ts`.
  *
- * The source pointers in that list name a file and a heading rather than a
- * line, and that is the lesson of this branch rather than a preference: every
- * line number it repointed correctly was pushed off its target again by its own
- * next commit, twice. `README.md` was a fourth entry here, carrying three stale
- * `CompatibleMark` call-site lines; it turned out to be reachable and is fixed,
- * by symbol.
+ * The last two are the same figure as the entry above them, and they are here
+ * because the sweep that wrote that entry read one file and stopped - this
+ * branch's own named recurring defect, "a sweep that stops early", committed
+ * inside the paragraph that names it. Nothing below can hold them: the retired-
+ * figure scan at the end of this file reads only the files in the array under
+ * it, and `.md` cannot be in that array, because nothing in this lane may make
+ * those files green. Of the two, only `:2001` would even be seen if it could -
+ * the `/60 ?px of (accurate )?travel/` alternative matches it, while `:1995`'s
+ * "a step per 60 px" is a seventh spelling none of the six patterns covers.
  *
- * None of the three is asserted below: a test that goes red on a file nobody in
+ * The source pointers in that list name a file and a heading, or a symbol,
+ * rather than a line, and that is the lesson of this branch rather than a
+ * preference: every line number it repointed correctly was pushed off its
+ * target again by its own next commit, twice. `README.md` stood in this list
+ * too, carrying three stale `CompatibleMark` call-site lines; it turned out to
+ * be reachable and is fixed, by symbol.
+ *
+ * None of the five is asserted below: a test that goes red on a file nobody in
  * this lane may touch is a test that cannot be made green.
  *
- * ## The forty-nine `.md` line references this round's own insertions displaced
+ * ## The forty-six `.md` line references this round's own insertions displaced
  *
  * Written down because it is the defect this branch keeps committing, and this
  * time it is committed *outwards*: correcting prose in `src` lengthened the
  * edited files, and every `.md` line number pointing below an inserted hunk
- * moved with it. Forty-nine references at thirty-one citation sites. The
+ * moved with it. Forty-six references at thirty-one citation sites. The
  * lasting fix for each is the symbol named beside it, not the new number.
  *
- * Two counts under this heading were wrong before, and both for reasons worth
- * keeping. It said "nine" over a list of eight - the count of a list is not a
- * thing to write from memory. And the eight themselves came from a sweep that
- * diffed against `b26ca4b`, this branch's own fourth-from-tip commit, rather
- * than against the commit the round started from; eight is the true count of
- * what the last four commits displaced, which is not what a reader of these
- * documents needs, because they are reading against `main`. Twenty-nine of the
- * forty-nine are whole `File.ext:N` citations against `9a18f46`. The other
- * twenty are the bare `:N` continuations and comma lists that hang off the
- * same sentences - `App.tsx:294, :329, :405, :573` is four references, not one
- * - and a scanner that only matches a filename followed by a colon cannot see
- * any of them. That is the third form of the same defect: a sweep that stops
- * early, a sweep from the wrong base, and a sweep whose pattern is narrower
- * than the thing it is sweeping for.
+ * Three counts under this heading were wrong before, and all three for reasons
+ * worth keeping. It said "nine" over a list of eight - the count of a list is
+ * not a thing to write from memory. And the eight themselves came from a sweep
+ * that diffed against `b26ca4b`, this branch's own fourth-from-tip commit,
+ * rather than against the commit the round started from; eight is the true
+ * count of what the last four commits displaced, which is not what a reader of
+ * these documents needs, because they are reading against `main`. Then it said
+ * "forty-nine" over a list of forty-six, and split that into "twenty-nine"
+ * whole and "twenty" bare - three numbers none of which the list under it
+ * carries. The same defect as the "nine", one heading later and three times
+ * over: the count of a list is not a thing to write from memory.
+ *
+ * Counted off the list, entry by entry: Architecture 1, AUDIT-HANDOFF 12,
+ * BACKLOG 22, HANDOFF-2026-08-18 6, HANDOFF 4, DECISIONI 1 - forty-six, at
+ * thirty-one sites. Thirty of the forty-six are whole `File.ext:N` citations
+ * against `9a18f46`. The other sixteen are the bare `:N` continuations and
+ * comma lists that hang off the same sentences - `App.tsx:294, :329, :405,
+ * :573` is four references, not one - and a scanner that only matches a
+ * filename followed by a colon cannot see any of them. Thirty rather than
+ * thirty-one because one site's whole citation is not among the displaced:
+ * `HANDOFF-2026-08-18.md:370` heads its chain with `gmStore.ts:539-546`, which
+ * did not move, and it is the bare `:755` after it that did. That is the third
+ * form of the same defect: a sweep that stops early, a sweep from the wrong
+ * base, and a sweep whose pattern is narrower than the thing it is sweeping
+ * for.
  *
  * `Architecture.md`
  *
