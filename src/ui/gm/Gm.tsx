@@ -321,9 +321,11 @@ export function Gm(): React.JSX.Element {
  *
  * It sits under the pinned top bar and above the list: y 217.00 to about 360,
  * which is the top third of the screen and nowhere near the 560-820 band a
- * right thumb covers. The 217.00 is the 100.00 shell header plus the 109.00
- * `GmTopBar` - both measured under those files' own headings - plus this
- * block's own 8px top margin, with nothing else between them: `Gm` renders
+ * right thumb covers. The 217.00 is the 100.00 shell header, measured under
+ * `SessionList.tsx`'s `## Scroll` heading alongside the 548.00 below, plus the
+ * 109.00 `GmTopBar`, measured under that file's `## The phone, in numbers
+ * (393 x 852)` heading - plus this block's own 8px top margin, with nothing
+ * else between them: `Gm` renders
  * this strip as the next sibling after `<GmTopBar>` inside a `.stack`, and
  * `.stack` declares no gap. ("y 215" stood here, off by the two 1px rules the
  * corrected 100.00 and 109.00 added.) That is deliberate twice over - it has
