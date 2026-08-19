@@ -109,7 +109,7 @@
  * "SHOW opens the tool directly" would make the same verb mean two different
  * things depending on a setting the GM last touched months ago, and it would
  * take the rules search - which is behind SHOW in all seven states and is the
- * reason several GMs open the sheet - out of reach in four of them. The sheet
+ * reason several GMs open the sheet - out of reach in three of them. The sheet
  * that is one tap too many is the honest version; the shortcut that sometimes
  * skips a screen is not.
  *

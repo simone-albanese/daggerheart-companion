@@ -42,7 +42,8 @@
  * survives a reload. `board.region` is widened by this change and is the one
  * field exempt from that rule, precisely because it holds navigation and
  * nothing else; putting a stall in it would spend the exemption the moment it
- * was granted a third time. See the `REGIONS` docblock in `shared/campaigns.ts`.
+ * was granted a third time. See the `REGION_KEYS` docblock in
+ * `shared/campaigns.ts`.
  *
  * ## What is drawn, and in what order
  *
@@ -187,7 +188,11 @@
  *                            682.00 scroller in 16 of the 80**, which is why
  *                            the stall is first and why the draw is outside
  *                            the scroll
- *   what things cost         460.34, and the gold paragraph 131.06
+ *   what things cost         460.34, that whole section: the 10px label, the
+ *                            one 390.34 table and the shut guidance fold at
+ *                            44.00, with an 8px gap either side of the table
+ *   the gold section         131.06 - a 10px label, an 8px gap and the
+ *                            denominations paragraph, which is 113.06
  *   the whole scroll         767.00 empty; stocked, 1215.00 to 1374.00 over the
  *                            80 and 1310.00 in the first - so this region
  *                            scrolls even with nothing on the counter

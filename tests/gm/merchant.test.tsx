@@ -8,8 +8,12 @@
  * door, the bar has to keep the verb alive for it, the dialog has to be
  * *announced* as holding it, MENU has to say where it is, and Settings has to
  * stop claiming SHOW has left the bar while it is still there. Two doors made
- * three live states and every one of those five was hand-written per state.
- * Three doors make **seven**, and seven hand-written strings is not a table of
+ * three live states, and every one of those five named `gmBestiary` and
+ * `gmPartyBoard` by hand - five copies of a two-item list in five files. Two of
+ * the five wrote a string per state as well: `showLabel` had three and three
+ * doors make **seven**, and `whereTheOthersAre` had three sentences for the
+ * four states two doors can be switched into - the `EIGHT` table below is what
+ * three doors make of that one. Seven hand-written strings is not a table of
  * names - it is seven chances to describe a screen that is not on the glass, in
  * the functions whose whole job is to stop that happening.
  *
@@ -24,8 +28,10 @@
  * `## The numbers` heading came out of Chrome at 393x852 with a named safe
  * area; jsdom has no layout engine, and an assertion on a measured height here
  * would be checking this file's arithmetic rather than the browser's. What IS
- * held is every length the component *declares* - the 56px draw, the `--tap`
- * fold - because those are inline styles and jsdom reads inline styles.
+ * held is the one length this component declares for its own repeated control -
+ * the 56px draw, full width - because that is an inline style and jsdom reads
+ * inline styles; and the `var(--tap)` floor on the guidance fold, which `Fold`
+ * declares on its own header button and this screen inherits.
  */
 import 'fake-indexeddb/auto';
 import { readFileSync } from 'node:fs';
