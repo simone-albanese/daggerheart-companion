@@ -28,6 +28,7 @@
  * fold - because those are inline styles and jsdom reads inline styles.
  */
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -41,6 +42,7 @@ import { drawStock, EMPTY_STALL, Merchant } from '../../src/ui/gm/Merchant.tsx';
 import { andList, liveDoors, sentenceCase, SHOW_DOORS } from '../../src/ui/gm/showDoors.ts';
 import { ruleTables } from '../../src/ui/shared/ruleText.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { PHONE } from '../ui/tokens.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -482,6 +484,38 @@ describe('drawing stock', () => {
     expect(drawStock(three, 6, seededRng(1))).toHaveLength(3);
     expect(drawStock([], 6, seededRng(1))).toHaveLength(0);
     expect(drawStock(pool, 0, seededRng(1))).toHaveLength(0);
+  });
+});
+
+/**
+ * The one geometry claim this file can hold, and it is not a measurement.
+ *
+ * `Merchant.tsx` states its column as 367.00, and that number is the panel's
+ * content box less this region's own padding. jsdom cannot measure either, but
+ * both are *declared* in source that can be read - so what is held here is that
+ * the sentence still names the subtraction the two files still make. Change the
+ * padding from 12 to 14 and this goes red, which is the moment somebody has to
+ * go back to the rig rather than the moment a reader is misled.
+ *
+ * `tests/ui/gmGeometryProse.test.ts` does this for eight other files and would
+ * be the natural home; it is not extended here because another lane is editing
+ * it, and a lane that edits a file it does not own is how two branches spend an
+ * hour on one merge.
+ */
+describe('the column Merchant.tsx states', () => {
+  const src = (file: string): string => readFileSync(file, 'utf8');
+
+  it('is still what its own padding and the sheet border leave', () => {
+    const sheet = /border: '(\d+)px solid var\(--line\)'/.exec(src('src/ui/gm/GmSheet.tsx'));
+    expect(sheet, 'GmSheet no longer paints the border the 367 is short by').not.toBeNull();
+    const merchant = src('src/ui/gm/Merchant.tsx');
+    const pad = /padding: phone \? '\d+px (\d+)px \d+px'/.exec(merchant);
+    expect(pad, 'the merchant region no longer declares a phone padding triple').not.toBeNull();
+
+    const column = PHONE.glass - 2 * Number(sheet?.[1]) - 2 * Number(pad?.[1]);
+    const stated = /the column\s+\*?\*?(\d+\.\d\d)/.exec(merchant.replace(/\n \* /g, ' '));
+    expect(stated, 'the docblock no longer states a column at all').not.toBeNull();
+    expect(Number(stated?.[1])).toBe(column);
   });
 });
 

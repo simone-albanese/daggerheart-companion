@@ -111,11 +111,20 @@
  * The rest of this paragraph used to be arithmetic and is now a measurement,
  * and the arithmetic was wrong. The inner column is **363px**, not the "365"
  * that `393 - 28 of padding` gives, because the panel also carries a 1px border on
- * each side. Neither choice comes near its 56px floor at that width: each draws
- * **84.6px**, which is 2 of border, 20 of padding, the 10px label, a 5px gap
+ * each side. No choice comes near its 56px floor at that width: each draws
+ * **84.58**, which is 2 of border, 20 of padding, the 10px label, a 5px gap
  * and its sentence on **three** lines rather than the two this said. The
- * sentence is read rather than touched either way. With both switched on and
- * the field empty the whole sheet is 308.2px.
+ * sentence is read rather than touched either way.
+ *
+ * **The third door was measured, not assumed to match.** Its sentence is the
+ * longest of the three and it still wraps to three lines, so all three choices
+ * measure 84.58 exactly and the sheet grows by one choice and one 10px gap:
+ * with every door on and the field empty the panel is **402.73** - y 449.27 to
+ * 852.00, a little under half the window. ("308.2px" stood here and is retired:
+ * it was true of two doors, which is a state this sheet still has and is no
+ * longer the state it is usually in.) The field is 363.00 x 44.00 at y 793.00.
+ * All of it measured in Chrome at 393x852, device-scale-factor 1, safe area
+ * top 47 / bottom 34.
  *
  * The **field is the last element**, on the bottom edge of a bottom-anchored
  * sheet, where the thumb that pressed SHOW already is and where a keyboard will

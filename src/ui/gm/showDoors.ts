@@ -4,10 +4,20 @@
  * `ShowSheet.tsx` draws these as the sheet's choices and is where the argument
  * for the sheet itself lives. What is here is only the list and the two joins
  * that turn it into English, and it is a module of its own for a reason that is
- * not tidiness: **`Settings.tsx` is one of the four readers**, and a settings
- * screen that had to `import` a GM bottom sheet to ask how many doors there are
- * would drag `ShowSheet`, `RuleSearch` and the rules index into its own
- * `lazy()` chunk to answer a question about three booleans.
+ * not tidiness: **`Settings.tsx` is one of the four readers**, and `Settings`
+ * and `Gm` are separate `lazy()` chunks (`App.tsx`).
+ *
+ * That cost was measured rather than assumed, because the obvious version of
+ * the sentence is wrong. Pointing Settings at `ShowSheet.tsx` for this does
+ * *not* put the rules search into the Settings chunk - Rollup moves the shared
+ * modules into the chunk the two screens both import instead. `npx vite build`,
+ * one import changed and nothing else: the shared chunk goes from **13.76 kB to
+ * 26.53 kB** (5.44 to 9.66 gzipped) and `Gm` drops from 142.87 to 130.04,
+ * because `ShowSheet` and `RuleSearch` leave the GM chunk to sit in the one
+ * Settings has to load. A settings screen would pay about 12.8 kB - 4.2
+ * gzipped - of a GM bottom sheet it never renders, to answer a question about
+ * three booleans. Splitting the list off costs nothing: this module imports
+ * only types, so it compiles to no runtime imports at all.
  *
  * The four, and what each asks:
  *

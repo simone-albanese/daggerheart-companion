@@ -46,12 +46,21 @@
  *
  * ## What is drawn, and in what order
  *
- * THE STALL is first because it is the only thing on the screen that changes,
- * and the control that changes it is at the bottom of the panel: a result that
- * appears below the fold on the tap that produced it is a result the GM has to
- * go looking for. The two reference blocks under it never change, so scrolling
- * to them costs nothing and they are read in the order a shop scene needs them
- * - what things cost, then what the coins are.
+ * THE STALL is first because it is the only thing on the screen that changes.
+ * Six panels measure 638.75 against a 682.00 scroller, so from the top of the
+ * scroll a fresh counter is on the glass whole, with the price table below it;
+ * put it under the table instead and the tap that drew it would produce nothing
+ * the GM could see. The two reference blocks never change, so scrolling to them
+ * costs nothing, and they are in the order a shop scene needs them - what
+ * things cost, then what the coins are.
+ *
+ * Redrawing does **not** scroll the region back to the top, and that is a
+ * decision rather than an omission: a GM who has scrolled down to a price and
+ * taps the pinned control has not asked the page to move, and a surface that
+ * jumps under a reader is the defect this would be trading for. What answers
+ * that case is the live region - the counter is announced, not silently
+ * swapped - and the fact that the control that did it is under the thumb that
+ * pressed it.
  *
  * The Average Costs table is drawn with `RuleTableView`, the shared drawing for
  * a pipe table nobody chose in advance, which puts a two-column table on a
@@ -82,15 +91,31 @@
  * Everything else in the sheet scrolls past it.
  *
  * **The draw is full width at the bottom, `minHeight: 56`.** It is the only
- * control that is pressed more than once here, so it holds the 560-820 band a
- * right thumb covers on this phone without the hand moving - the same band
- * `GmBar`'s three verbs hold on the screen underneath. It is 56 and not
- * `Names.tsx`'s 64 because the gestures are different: DRAW there is a burst,
- * tapped four or five times in ten seconds while the GM reads names, and a
- * burst target buys its extra height back immediately. A stall is drawn once
- * for a scene and occasionally replaced, so it takes the 56 the sheets use for
- * a one-tap answer - still well over the 44px coarse floor, and declared inline
- * because jsdom reads only inline styles.
+ * control that is pressed more than once here, so it takes the bottom of the
+ * panel and the lower end of the 560-820 band a right thumb covers on this
+ * phone. It is 56 and not `Names.tsx`'s 64 because the gestures are different:
+ * DRAW there is a burst, tapped four or five times in ten seconds while the GM
+ * reads names, and a burst target buys its extra height back immediately. A
+ * stall is drawn once for a scene and occasionally replaced, so it takes the 56
+ * the sheets use for a one-tap answer - still well over the 44px coarse floor,
+ * and declared inline because jsdom reads only inline styles.
+ *
+ * **It sits partly in the home-indicator band, and so does every other `full`
+ * GM tool.** `GmSheet` pays `env(safe-area-inset-top)` and nothing at the
+ * bottom, so a `full` panel runs to y 852.00 - the window's own edge - and this
+ * region's 12px of bottom padding is all that is under the draw. Measured, in
+ * one run: the draw is y 783.00 to 839.00, `Names.tsx`'s DRAW is 775.00 to
+ * 839.00, and the rules search field on SHOW's sheet is 793.00 to 837.00. With
+ * a 34px inset the indicator owns everything below 818.00, so all three end
+ * about 21px inside it.
+ *
+ * That is **not this tool's to fix and deliberately is not fixed here**: overlay
+ * insets are gated on a measurement this lane does not have, and a second payer
+ * inside a panel that already ends at the window's edge is exactly how 34px of
+ * empty panel appears - the defect `GmBar`'s docblock describes from the other
+ * side. It is measured and written down so that whoever does own it starts from
+ * three numbers instead of from the assumption that a full-screen sheet pays
+ * what `GmBar` pays. Nothing here is placed as though the band were free.
  *
  * **The SRD guidance fold is the only other target**, at `var(--tap)` - 44 on
  * every phone and tablet - and it is up in the scroll rather than near the
@@ -110,29 +135,35 @@
  *
  * ## The numbers
  *
- * Measured in Chrome at 393x852, device-scale-factor 1, with the safe area
- * named - the rig in `AUDIT-HANDOFF.md` - against this build:
+ * Chrome at 393x852, device-scale-factor 1, safe area top 47 / bottom 34 - the
+ * rig in `AUDIT-HANDOFF.md`, driven against this build's `dist`. **Every figure
+ * below came out of `getBoundingClientRect`; not one of them is arithmetic**,
+ * which matters because the first draft of this list was arithmetic and six of
+ * its eight numbers were wrong.
  *
- *   the panel                797.00 tall, `GmSheet`'s own measurement, less a
- *                            44px title row for 750.00 of tool
- *   the column               367.00, which is the 391.00 content box of a
- *                            border-box panel with a 1px border, less this
- *                            region's 12px of padding either side. It is
- *                            `Reference.tsx`'s measured figure and this region
- *                            declares the same padding; it is stated as shared
- *                            rather than re-measured
- *   the draw                 367.00 x 56.00, from y 736.00 to 792.00 with the
- *                            34px home-indicator inset below it
- *   the scroller             from y 149.00 to 736.00 = 587.00 of reading
- *   an empty stall           97.19 of it - a label, a sentence and the gap
- *   a stocked stall          six panels; the shortest measures 68.19 and the
- *                            tallest 106.38, so the block runs about 543 and
- *                            the counter alone fills the scroller
- *
- * Every one of those is a browser measurement rather than arithmetic. The two
- * that are *not* measured here and are marked as inherited are the 797.00 and
- * the 367.00, both of which are `GmSheet.tsx` and `Reference.tsx`'s figures for
- * declarations this file does not make.
+ *   the panel                y 55.00 to 852.00, 797.00 tall - `GmSheet`'s own
+ *                            figure, re-measured here rather than quoted
+ *   the title row            45.00, not the 44 the CLOSE square declares: the
+ *                            row carries a 1px rule under it as well
+ *   this region              y 101.00 to 851.00, 750.00 - the panel less its
+ *                            two 1px borders and that 45.00
+ *   the column               367.00, measured here: the panel's 391.00 content
+ *                            box less this region's 12px of padding a side.
+ *                            `Reference.tsx` measured the same number off the
+ *                            same two declarations
+ *   the scroller             y 101.00 to 783.00, 682.00 of reading
+ *   the draw                 367.00 x 56.00, y 783.00 to 839.00
+ *   an empty counter         47.58 - one sentence over three lines - inside a
+ *                            121.16 section, the rest of which is the 10px
+ *                            label, two 8px gaps and the provenance line, which
+ *                            is three lines as well
+ *   a stocked counter        638.75: six panels between 73.36 and 120.94 with
+ *                            8px between them. **The counter alone is taller
+ *                            than the 682.00 scroller**, which is why it is
+ *                            first and why the draw is outside the scroll
+ *   what things cost         460.34, and the gold paragraph 131.06
+ *   the whole scroll         767.00 empty, 1358.00 stocked - so this region
+ *                            scrolls even with nothing on the counter
  */
 import { useCallback, useMemo, useState } from 'react';
 import type { Item } from '../../../shared/types.ts';
