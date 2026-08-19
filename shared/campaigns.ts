@@ -349,17 +349,37 @@ export type GmRegion =
  * the moment anything but navigation is stored in it. The rewrite belongs to
  * whoever owns the docs; this comment is here so the contradiction is not
  * discovered by someone trusting the title.
+ *
+ * ## The compiler holds the list against the union now, and could not before
+ *
+ * `const REGIONS: readonly GmRegion[]` stood here, and it is an annotation that
+ * checks exactly one direction: every entry has to be a region, and a region
+ * with no entry is nothing at all. So widening the union and forgetting the
+ * list typechecked perfectly and lost the new tool on every reload - silently,
+ * because the fallback is a real region and the screen simply opened the
+ * encounter builder instead. `campaignSchema.test.ts` named that hazard in a
+ * comment and could not hold it: a test that loops the list cannot notice a
+ * region that never reached the list.
+ *
+ * Keying a `Record<GmRegion, true>` and taking its keys checks both directions.
+ * A region missing from the record is a missing property; a key that is not a
+ * region is an excess one. The cast on `Object.keys` is the one unchecked step
+ * and it is safe by construction: the keys of a `Record<GmRegion, …>` written
+ * as a literal are exactly `GmRegion`.
  */
-const REGIONS: readonly GmRegion[] = [
-  'encounter',
-  'scene',
-  'party',
-  'bestiary',
-  'countdowns',
-  'reference',
-  'names',
-  'merchant',
-];
+const REGION_KEYS: Record<GmRegion, true> = {
+  encounter: true,
+  scene: true,
+  party: true,
+  bestiary: true,
+  countdowns: true,
+  reference: true,
+  names: true,
+  merchant: true,
+};
+
+/** Every region this build knows, in the order they are declared above. */
+export const GM_REGIONS = Object.keys(REGION_KEYS) as readonly GmRegion[];
 
 /**
  * The live table: what is in front of the GM right now, in this campaign.
@@ -772,7 +792,7 @@ export function readCampaignRecord(
       readPartyMember(m, warn),
     ),
     board: {
-      region: REGIONS.includes(region as GmRegion) ? (region as GmRegion) : 'encounter',
+      region: GM_REGIONS.includes(region as GmRegion) ? (region as GmRegion) : 'encounter',
       partyTier: (tier >= 1 && tier <= 4 ? tier : 1) as Tier,
       roster: readRoster(board['roster']),
       adjustments: readAdjustments(board['adjustments']),

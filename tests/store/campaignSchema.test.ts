@@ -48,6 +48,7 @@ import {
   migrateCampaignRecord,
   newCampaign,
   OLDEST_READABLE_CAMPAIGN,
+  GM_REGIONS,
   primaryCountdownOf,
   readCampaignRecord,
   withPrimaryCountdown,
@@ -236,12 +237,23 @@ describe('the two refusals, and nothing else', () => {
   /*
    * `board.region` is a union in the type and a list in the reader, and only
    * the list is load-bearing on the way in from a disk. Widening one and
-   * forgetting the other typechecks perfectly and loses the new tool on every
-   * single reload - silently, because the fallback is a real region.
+   * forgetting the other used to typecheck perfectly and lose the new tool on
+   * every single reload - silently, because the fallback is a real region.
+   *
+   * That hole is closed in the source rather than here: `GM_REGIONS` is the
+   * keys of a `Record<GmRegion, true>`, so a region with no entry is a missing
+   * property and an entry that is not a region is an excess one. This case can
+   * only ever loop the list it is given, which is exactly why it could not hold
+   * the hazard its own comment described - it named `'reference'` as "the one
+   * added last" and stayed green through two more regions being added after it.
    */
-  it('keeps a region this build knows, including the one added last', () => {
-    const { campaign } = readCampaignRecord(bare({ board: { region: 'reference' } }));
-    expect(campaign.board.region).toBe('reference');
+  it('keeps every region this build knows, one at a time', () => {
+    for (const region of GM_REGIONS) {
+      const { campaign } = readCampaignRecord(bare({ board: { region } }));
+      expect(campaign.board.region, `${region} did not survive a read`).toBe(region);
+    }
+    // Not vacuous: an empty list would pass the loop above in silence.
+    expect(GM_REGIONS.length).toBeGreaterThan(1);
   });
 
   it('falls back for a region no build knows, which is what makes widening safe', () => {
