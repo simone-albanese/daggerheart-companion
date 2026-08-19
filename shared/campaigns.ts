@@ -160,7 +160,7 @@ export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
  *
  * **The claim about requests is unchanged and still exact.** A `url` row is a
  * string, and as this build ships it is only a string: `UrlArm` in
- * `src/ui/gm/SessionBody.tsx` draws the address as text and builds no anchor,
+ * `src/ui/gm/UrlArm.tsx` draws the address as text and builds no anchor,
  * so there is nothing on it to tap yet. This app never fetches it, never
  * prefetches it, never resolves it, and never puts it in an `<img>`, a
  * `<script>` or an `<iframe>`; the one request the app makes is still the

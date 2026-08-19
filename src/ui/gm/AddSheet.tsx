@@ -59,7 +59,7 @@
  * mitigations in `shared/externalLink.ts`. The claim underneath both is
  * unchanged - the app still makes exactly one kind of network request and it is
  * same-origin, because a `url` row is a string this app never fetches. Today it
- * is a string and nothing more: `UrlArm` in `SessionBody.tsx` draws the address
+ * is a string and nothing more: `UrlArm` in `UrlArm.tsx` draws the address
  * as text and builds no anchor, and `externalLinkAttrs` - the only sanctioned
  * way to build one - has no production caller yet. The lane that adds the
  * anchor adds a tap that hands the address to the browser, which is the

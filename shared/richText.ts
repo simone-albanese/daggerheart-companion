@@ -60,7 +60,7 @@
  * `plainTextOf`, and both of its call sites draw the string it returns as a
  * text node and nothing else: `describeItem` in `src/ui/gm/session.ts` for the
  * collapsed row's one summary line, and `NoteArm` in
- * `src/ui/gm/SessionBody.tsx` for the opened row's body. No component in this
+ * `src/ui/gm/NoteArm.tsx` for the opened row's body. No component in this
  * tree reads `spans`, `bold`, `italic` or `align` to draw with; emphasis,
  * headings and centring are stored and exported but not yet drawn, and the
  * editor that will draw them is not written. So "it is never rendered as
