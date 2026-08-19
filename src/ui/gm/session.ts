@@ -15,11 +15,13 @@
  * screens now draw a countdown - the countdowns board and a session row - and
  * two copies of "dynamic is orange" is how one of them ends up green.
  *
- * The three factories at the foot are the other half of the same argument.
- * They were deliberately absent while nothing could add a row, because an
- * exported factory with no caller is what `tests/harness/orphans.test.ts`
- * reports as a feature shipped switched off; `AddSheet.tsx` is the caller, and
- * they arrive with it.
+ * The factories at the foot are the other half of the same argument. They were
+ * deliberately absent while nothing could add a row, because an exported
+ * factory with no caller is what `tests/harness/orphans.test.ts` reports as a
+ * feature shipped switched off; `AddSheet.tsx` is the caller, and they arrive
+ * with it. There is one per kind ADD offers except the countdown, whose row
+ * shares an id with the countdown inside it and is therefore minted in the
+ * store - so the count here is never the count of arms `describeItem` answers.
  */
 import type {
   Dataset,
@@ -249,12 +251,12 @@ export function describeItem(
 }
 
 // ---------------------------------------------------------------------------
-// The three rows ADD mints
+// The rows ADD mints through a factory
 // ---------------------------------------------------------------------------
 
 /*
- * Three things are the same in all three, and each is a decision rather than a
- * default.
+ * Three things are the same in every one of them, and each is a decision rather
+ * than a default.
  *
  * `order` stays 0. `addSessionItem` stamps `session.length` as the row goes in,
  * and a factory that also guessed would be a second opinion about a number only
@@ -264,8 +266,8 @@ export function describeItem(
  * `collapsed` is true. A row that arrived open would push the rest of the night
  * off a 393px phone at the moment it is added, and the GM has just typed
  * everything the open row would show them. `addCountdown` mints its row the
- * same way for the same reason, so the four kinds ADD offers cannot disagree
- * about it.
+ * same way for the same reason, so no two kinds ADD offers can disagree about
+ * it.
  *
  * `id` is last with a `crypto.randomUUID()` default - `upsertMember`'s shape -
  * so a test can pin an id and the app never has to.
@@ -313,3 +315,18 @@ export function newLink(
 ): SessionItem {
   return { id, kind: 'link', name: name.trim(), order: 0, collapsed: true, target };
 }
+
+// Item 12's `newUrl` goes here, beside the form that calls it.
+
+/*
+ * The two seats above and below are apart on purpose.
+ *
+ * Item 12 and item 14 are separate lanes; the two functions they add have
+ * nothing to do with each other and are an additive change to this file either
+ * way. What is not additive is both of them appending at one point, which is a
+ * conflict in the last file either lane would expect to have one in. The same
+ * shape is marked in `AddSheet.tsx` and in `SESSION_ITEM_KINDS`, and the ADD
+ * sheet's header says it once for all of them.
+ */
+
+// Item 14's `newNote` goes here, at the end.

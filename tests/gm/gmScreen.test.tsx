@@ -22,6 +22,7 @@ import { useApp } from '../../src/store/state.ts';
 import type { SaveResult } from '../../src/transfer/fileIo.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { flushGm, hydrateGm, REPLACED_ON_LOAD, useGm } from '../../src/ui/gm/gmStore.ts';
+import { SESSION_KIND_LABEL } from '../../src/ui/gm/session.ts';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
@@ -1271,13 +1272,24 @@ describe('the sheets, at 393x852', () => {
     expect(undersized(), 'MENU has a target under 44px').toEqual([]);
   });
 
-  it('puts no target under the touch floor in any of ADD’s four forms', () => {
+  it('puts no target under the touch floor in any of ADD’s forms', () => {
+    /*
+     * Every form, generated, and the way back selected by the arrow it starts
+     * with rather than by the number it ends with.
+     *
+     * Both halves used to be typed out: a list of four labels, and
+     * `named('← THE FOUR KINDS')`. That is a test that selects a control by a
+     * count, so it breaks the day the menu is five - which is a day two lanes
+     * are already scheduled for - and it breaks in the shape that reads like
+     * the sheet is broken rather than like the test is stale.
+     */
     gm();
     click(named('ADD'));
-    for (const kind of ['SCENE', 'ENCOUNTER', 'LINK', 'COUNTDOWN']) {
-      click(leading(kind));
-      expect(undersized(), `ADD → ${kind} has a target under 44px`).toEqual([]);
-      click(named('← THE FOUR KINDS'));
+    for (const kind of SESSION_ITEM_KINDS) {
+      const label = SESSION_KIND_LABEL[kind].toUpperCase();
+      click(leading(label));
+      expect(undersized(), `ADD → ${label} has a target under 44px`).toEqual([]);
+      click(leading('←'));
     }
   });
 });

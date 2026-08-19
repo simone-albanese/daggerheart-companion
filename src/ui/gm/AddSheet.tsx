@@ -8,20 +8,37 @@
  *
  * ## Two steps, and the first one is generated
  *
- * The four choices are `SESSION_ITEM_KINDS.map(...)`, in the record's own
- * order, rather than four buttons typed out here. A kind added to that list
- * appears in this menu unbuilt and obviously broken instead of silently
- * missing - which is the failure mode this repo has shipped four times, and the
- * one the `unreadable` arm one level down exists to make visible.
+ * The choices are `SESSION_ITEM_KINDS.map(...)`, in the record's own order,
+ * rather than a button per kind typed out here, and the count in the back
+ * button's label is read off the same list rather than spelled into it. A kind
+ * added to that list cannot be silently missing from this menu, which is the
+ * failure mode this repo has shipped four times - built, tested, unreachable -
+ * and the one the `unreadable` arm one level down exists to make visible.
+ *
+ * It cannot be half-added either. `ADD_FORMS` below is
+ * `Record<SessionItemKind, …>`, so the same addition that puts a button here
+ * is the one `tsc` refuses until the button has a form and a sentence behind
+ * it: the menu and the forms are one list, checked by the compiler, not two
+ * that can drift.
  *
  * **`SESSION_ITEM_KINDS` is not `SessionItem['kind']`, and the gap is on
  * purpose.** It has never held `unreadable`, which is a reading rather than a
- * thing a GM adds; since campaign schema 2 it also does not hold `url` or
- * `note`, which are readable, writable and exportable from today and get their
- * forms in the two lanes that build their screens. Widening the list before
- * then would put two buttons on this sheet that mint nothing, which is worse
- * than a button that is not there yet. `tests/gm/session.test.ts` pins the gap
- * so it stays a decision rather than becoming an oversight.
+ * thing a GM adds. Since campaign schema 2 it is also short of every kind whose
+ * form has not been built: those join it in the lane that builds their screen,
+ * because widening the list first would put a button on this sheet that mints
+ * nothing, which is worse than a button that is not there yet.
+ * `tests/gm/session.test.ts` pins the gap - the menu is exactly the kinds with
+ * a form, and `unreadable` is never one of them - so it stays a decision rather
+ * than becoming an oversight, and it follows a widening with no second edit.
+ *
+ * ## Two lanes are going to add a kind to this file, and they are marked apart
+ *
+ * The web link's form and the note's form are two separate lanes. Both of them
+ * add the same three things here - a factory to the import below, a row to
+ * `ADD_FORMS`, and a form at the foot of the file - so all three places carry
+ * a marked seat for each, and the two seats are always several lines apart. A
+ * pair of insertions at one point is a merge conflict; a pair at two points is
+ * a merge. It is said here once rather than three times at the seats.
  *
  * ## What each form can honestly promise
  *
@@ -51,7 +68,7 @@
  *
  * A **countdown** goes through `addCountdown` rather than through a factory,
  * because the row and the countdown inside it deliberately share one id and
- * that id is minted in the store. It is the only one of the four that refuses
+ * that id is minted in the store. It is the only kind ADD offers that refuses
  * an empty name, and the reason is on screen beside the field: the primary
  * countdown's name is what the top bar prints and what its `−` button is
  * called, so a nameless one produces a control a screen reader announces as
@@ -59,7 +76,7 @@
  *
  * ## Where the row goes, said out loud
  *
- * Every one of the four appends. On a night with twelve rows the new one is
+ * Every one of them appends. On a night with twelve rows the new one is
  * off the bottom of the screen, and a sheet that closed with no word about it
  * would look like nothing happened - so the button says where the row lands
  * and the line under it says how to move it.
@@ -70,7 +87,7 @@
  * gives: this sheet draws inside `GmSheet`'s panel - `Gm.tsx` mounts all four
  * sheets there - which is border-box with a 1px border (`GmSheet.tsx`). 363
  * is measured in Chrome at 393x852 and recorded in `ShowSheet.tsx`, the sibling
- * sheet in the same panel at the same `padding: 14`. The four choices are
+ * sheet in the same panel at the same `padding: 14`. The choices are
  * full-width and `minHeight: 56` rather than 44: this is the most-used
  * sheet on the screen, it opens directly above the thumb that pressed ADD, and
  * 56 is what lets the second tap land without the eye leaving the bar. Inside
@@ -90,14 +107,61 @@ import type { CountdownKind } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Stepper } from './Encounter.tsx';
 import { useGm } from './gmStore.ts';
-import { LINK_KIND_LABEL, SESSION_KIND_LABEL, newEncounter, newLink, newScene } from './session.ts';
+import {
+  LINK_KIND_LABEL,
+  SESSION_KIND_LABEL,
+  newEncounter,
+  newLink,
+  // Item 12's `newUrl` joins here, beside the link it is the outward half of.
+  newScene,
+  //
+  // Item 14's `newNote` joins here, at the end - three lines below the other
+  // seat rather than beside it, for the reason the header gives.
+} from './session.ts';
 
-const WHAT_IT_IS: Record<SessionItemKind, string> = {
-  scene: 'A place tonight goes through. It remembers an environment, and opens the scene runner.',
-  encounter:
-    'A fight you have planned. It carries a roster you can put back on the board when you reach it.',
-  link: 'Something already inside this app you will want open — an adversary, an environment, a card, or a rule.',
-  countdown: 'A clock nothing advances but your hand. It can be pinned to the top bar all evening.',
+/** A choice on the first screen: what it mints, and what it says it is. */
+interface AddChoice {
+  form: (props: { onDone: () => void }) => React.JSX.Element;
+  /** The line under the label. Never a rule; what the row is for. */
+  what: string;
+}
+
+/**
+ * Every kind ADD can mint, one row each, in the order the menu draws them.
+ *
+ * This replaced a lookup of sentences beside four `kind === '…' && <Form/>`
+ * lines. The form and the sentence are one row now for the ordinary reason -
+ * two tables keyed the same way are two tables that can disagree - and for a
+ * scheduling one: adding a kind is adding a row here, so two lanes adding two
+ * kinds add two rows rather than editing one line each other way.
+ *
+ * `Record<SessionItemKind, AddChoice>` is the whole check. `SessionItemKind` is
+ * `SESSION_ITEM_KINDS[number]`, so a kind in the menu with no row here does not
+ * compile, and a row here for a kind not in the menu does not compile either -
+ * the second list cannot drift from the first because it is not a second list.
+ * `tests/gm/session.test.ts` asserts it again at runtime, in order, because a
+ * cast gets past the type and not past that - which is why this is exported
+ * into a test rather than kept private to the sheet.
+ */
+export const ADD_FORMS: Record<SessionItemKind, AddChoice> = {
+  scene: {
+    form: SceneForm,
+    what: 'A place tonight goes through. It remembers an environment, and opens the scene runner.',
+  },
+  encounter: {
+    form: EncounterForm,
+    what: 'A fight you have planned. It carries a roster you can put back on the board when you reach it.',
+  },
+  link: {
+    form: LinkForm,
+    what: 'Something already inside this app you will want open — an adversary, an environment, a card, or a rule.',
+  },
+  // Item 12's `url` row joins here, beside the link.
+  countdown: {
+    form: CountdownForm,
+    what: 'A clock nothing advances but your hand. It can be pinned to the top bar all evening.',
+  },
+  // Item 14's `note` row joins here, at the end.
 };
 
 /** The four countdown kinds, in the words the countdowns board uses. */
@@ -133,13 +197,15 @@ export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Elemen
               {SESSION_KIND_LABEL[id].toUpperCase()}
             </span>
             <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
-              {WHAT_IT_IS[id]}
+              {ADD_FORMS[id].what}
             </span>
           </button>
         ))}
       </div>
     );
   }
+
+  const Chosen = ADD_FORMS[kind].form;
 
   return (
     <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 12, padding: 14 }}>
@@ -156,13 +222,19 @@ export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Elemen
           color: 'var(--muted)',
         }}
       >
-        ← THE FOUR KINDS
+        {/*
+          The count is read off the list, so it cannot say FOUR beside five
+          buttons - it is the same defect as a stale docblock, on glass. It is
+          a digit rather than the word this label used to spell, because
+          spelling it needs a second table of number words, and a second table
+          keyed by a length is the exact thing the rest of this file just
+          stopped doing. The register is already here: the encounter form two
+          screens down says TAKE THE 3 ON THE BOARD NOW.
+        */}
+        {`← THE ${String(SESSION_ITEM_KINDS.length)} KINDS`}
       </button>
 
-      {kind === 'scene' && <SceneForm onDone={onClose} />}
-      {kind === 'encounter' && <EncounterForm onDone={onClose} />}
-      {kind === 'link' && <LinkForm onDone={onClose} />}
-      {kind === 'countdown' && <CountdownForm onDone={onClose} />}
+      <Chosen onDone={onClose} />
 
       <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         A new row goes at the end of the night. Drag it by the handle at its right edge, or open
@@ -406,6 +478,9 @@ function LinkForm({ onDone }: { onDone: () => void }): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// Item 12's `UrlForm` goes here, under a rule of its own like the four around
+// it, beside the in-app link it is the outward half of.
+// ---------------------------------------------------------------------------
 
 function CountdownForm({ onDone }: { onDone: () => void }): React.JSX.Element {
   const addCountdown = useGm((s) => s.addCountdown);
@@ -475,3 +550,8 @@ function CountdownForm({ onDone }: { onDone: () => void }): React.JSX.Element {
     </Form>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Item 14's `NoteForm` goes here, at the end - a long way below the other seat
+// rather than beside it, for the reason the header gives.
+// ---------------------------------------------------------------------------

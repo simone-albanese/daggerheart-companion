@@ -217,15 +217,34 @@ export type LinkTarget =
  * `AddSheet.tsx` builds its choices out of this list, so a kind in it is a
  * button on a screen and needs a factory, a form and a body to draw. It has
  * never been the same set as the union below - `unreadable` is a reading, not
- * a thing a GM can add - and after 2026-08-18 it is three short rather than
- * one: `url` and `note` are readable, writable and exportable from today and
- * get their ADD entries when their screens land, in the two lanes that build
- * them. Widening this list before then would put two buttons on the sheet that
- * mint nothing.
+ * a thing a GM can add - and since 2026-08-18 it is also short of every kind
+ * whose form has not been built. Each of those joins this list in the lane
+ * that builds its form, and not before: a kind here with nothing to mint is a
+ * button on the sheet that does nothing, which is worse than a button that is
+ * not there yet.
  *
- * `tests/gm/session.test.ts` pins the gap, so it stays a decision.
+ * The gap is not a spelling anybody has to keep in step. `ADD_FORMS` in
+ * `AddSheet.tsx` is a `Record<SessionItemKind, …>`, so a kind added here with
+ * no form does not compile and a form with no kind here does not compile
+ * either; `tests/gm/session.test.ts` asserts the same thing at runtime, and
+ * asserts the half of the gap that never closes - `unreadable` is never in
+ * here. So it stays a decision rather than becoming an oversight, and it needs
+ * no second edit when it narrows.
  */
-export const SESSION_ITEM_KINDS = ['scene', 'encounter', 'link', 'countdown'] as const;
+export const SESSION_ITEM_KINDS = [
+  'scene',
+  'encounter',
+  'link',
+  // Item 12's `url` joins here, beside the in-app link it is the outward half of.
+  'countdown',
+  //
+  // One kind per line, and the two seats deliberately apart. Item 12 and item
+  // 14 are separate lanes, and this literal is the one line in this file both
+  // of them have to widen - two insertions at one point in it is the merge
+  // conflict the shape exists to avoid.
+  //
+  // Item 14's `note` joins here, at the end.
+] as const;
 export type SessionItemKind = (typeof SESSION_ITEM_KINDS)[number];
 
 export interface SessionItemBase {

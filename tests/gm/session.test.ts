@@ -10,7 +10,10 @@
  * all of that is undone one level up by a summary that renders them as an empty
  * string. So each arm is asked directly.
  *
- * Node, not jsdom: nothing here touches the DOM or the store.
+ * Node, not jsdom: nothing here renders anything or reads a store. The one
+ * import that reaches a component file is `ADD_FORMS`, and it is reached for
+ * its keys - the ADD menu is exactly the kinds that table has a row for, which
+ * is a fact about two lists and needs no screen to ask about.
  */
 import { describe, expect, it } from 'vitest';
 import { indexDataset } from '../../src/engine/character.ts';
@@ -18,6 +21,7 @@ import { baseDataset } from '../../src/store/dataset.ts';
 import { SESSION_ITEM_KINDS } from '../../shared/campaigns.ts';
 import type { LinkTarget, SessionItem, SessionItemBase } from '../../shared/campaigns.ts';
 import type { EncounterAdjustments } from '../../shared/types.ts';
+import { ADD_FORMS } from '../../src/ui/gm/AddSheet.tsx';
 import {
   COUNTDOWN_KIND_COLOR,
   LINK_KIND_LABEL,
@@ -316,22 +320,49 @@ describe('resolving a link against the dataset', () => {
     expect(new Set(colours).size).toBe(colours.length);
   });
 
-  it('does not offer ADD a kind it has no factory for', () => {
+  it('offers exactly the kinds it has a form for, and never `unreadable`', () => {
     /*
-     * `SESSION_ITEM_KINDS` is what the ADD sheet builds its buttons from, and
-     * it has never been `SessionItem['kind']`: `unreadable` is a reading rather
-     * than a thing a GM adds, and `url` and `note` are readable and exportable
-     * from campaign schema 2 but get their screens in two later lanes. A button
-     * that minted nothing would be worse than no button.
+     * The gap between `SESSION_ITEM_KINDS` and `SessionItem['kind']`, asserted
+     * as a gap rather than as a list of names.
+     *
+     * What the menu is, exactly, is the kinds `ADD_FORMS` has a row for.
+     * `AddSheet.tsx` types that record as `Record<SessionItemKind, …>`, so the
+     * compiler already refuses a button with no form and a form with no button;
+     * this is the same property at runtime and in the menu's own order, which
+     * is what a cast or a record assembled by hand would get past.
+     *
+     * The old version spelled the four names out, and that is the defect it is
+     * worth writing down. Two lanes are about to close half the gap each -
+     * item 12's web link form and item 14's note editor - and whichever of them
+     * merged second would have inherited a suite that was green and asserting a
+     * list that was no longer true. This one follows a widening with no second
+     * edit, because it never held the list in the first place.
+     *
+     * `unreadable` is the half of the gap that never closes: it is this build's
+     * reading of bytes it could not parse, not a thing a GM adds, so a row for
+     * it in `ADD_FORMS` would be a button offering to mint an unreadable item.
+     * That is the one name still written here, and it is written as a name
+     * because it is a permanent decision rather than a stage.
      */
-    expect([...SESSION_ITEM_KINDS]).toEqual(['scene', 'encounter', 'link', 'countdown']);
+    expect(Object.keys(ADD_FORMS)).toEqual([...SESSION_ITEM_KINDS]);
+
+    // `SESSION_KIND_LABEL` is `Record<SessionItem['kind'], string>`, so its
+    // keys are the union - the test above pins that it has all seven of them.
+    const noForm = Object.keys(SESSION_KIND_LABEL).filter(
+      (kind) => !(SESSION_ITEM_KINDS as readonly string[]).includes(kind),
+    );
+    expect(noForm).toContain('unreadable');
+
     for (const kind of SESSION_ITEM_KINDS) {
       expect(SESSION_KIND_LABEL[kind]).not.toBe('');
+      // A row whose sentence is '' typechecks, and draws a choice with a label
+      // and a blank line under it where the reason to press it should be.
+      expect(ADD_FORMS[kind].what).not.toBe('');
     }
   });
 });
 
-describe('the three rows ADD mints', () => {
+describe('the rows ADD mints through a factory', () => {
   it('leaves the order to the store, which is the only thing that knows it', () => {
     // `addSessionItem` stamps `session.length`. A factory that also guessed
     // would be a second opinion about a number, and two rows at position 4.
