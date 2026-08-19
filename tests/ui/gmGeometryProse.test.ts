@@ -1003,10 +1003,11 @@ describe('every file that costs the licence notice costs it at the measured heig
    * gives: this repo writes `60 px a step` as readily as `60px`, and `/111px/`
    * could not see the spaced one. `at 111` and `is 111` are here because the
    * estimate is quotable without its unit. Bare is not an option, unlike the
-   * 329 two scans up: after `claims()` the nine files still hold three honest
-   * 111s - `Wizard.tsx`'s `111-285 on each of the eighteen ancestries` and its
-   * `+111 over nine`, and `Cards.tsx`'s `elementFromPoint(111, 303)` - so a
-   * bare figure would retire three sentences that were never about this strip.
+   * 329 in the alert scan above: after `claims()` the nine files still hold
+   * three honest 111s - `Wizard.tsx`'s `111-285 on each of the eighteen
+   * ancestries` and its `+111 over nine`, and `Cards.tsx`'s
+   * `elementFromPoint(111, 303)` - so a bare figure would retire three
+   * sentences that were never about this strip.
    */
   it.each(NOTICE)('%s has not gone back to the retired ~111px strip', (file) => {
     expect(

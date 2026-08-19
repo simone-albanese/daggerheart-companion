@@ -2,10 +2,10 @@
  * The SRD's own tables and sections, drawn.
  *
  * The reference region composes these, so do the two controls that get a table
- * folded in beside them, and so does the `LINK -> Rule` row of a GM session,
- * through `BlockView` at the foot of this file. That row is why `BlockView`
- * exists: it printed its own bullets and tables out of `paragraphs()` until the
- * pipes showed up on screen.
+ * folded in beside them, and so do the hits SHOW's rule search opens and the
+ * `LINK -> Rule` row of a GM session, both through `BlockView` at the foot of
+ * this file. That row is why `BlockView` exists: it printed its own bullets
+ * and tables out of `paragraphs()` until the pipes showed up on screen.
  *
  * **It is not one drawing of each, and this header used to claim it was.** The
  * `ADD -> LINK -> Rule` door offers all seventy-five sections, so a GM can link
