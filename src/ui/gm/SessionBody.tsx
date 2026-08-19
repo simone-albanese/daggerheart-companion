@@ -9,16 +9,26 @@
  * shows its own bytes, and a link this dataset cannot resolve says so and shows
  * the ref, instead of rendering nothing and looking like a bug.
  *
- * ## Two arms are placeholders, and say so on screen
+ * ## Two arms are placeholders, say so on screen, and live in their own files
  *
  * `url` and `note` arrived with campaign schema 2 as a *storage* layer - a
  * type, a reader, a writer and an export - and their screens are two later
- * lanes. The arms here exist because the union is exhaustive and a row that
- * rendered nothing would look exactly like the bug this file was written to
- * prevent. Each draws the value it holds as text and says out loud what it
- * cannot do yet, which is the honest state of the app: the address is stored,
- * exported and re-imported intact, and there is no control on it. Both arms
- * are replaced wholesale by the lanes that build them.
+ * lanes. `UrlArm.tsx` and `NoteArm.tsx` exist because the union is exhaustive
+ * and a row that rendered nothing would look exactly like the bug this file was
+ * written to prevent. Each draws the value it holds as text and says out loud
+ * what it cannot do yet, which is the honest state of the app: the address is
+ * stored, exported and re-imported intact, and there is no control on it.
+ *
+ * **Those two arms are files and the other four are not, and that is about the
+ * schedule rather than about the code.** Both are replaced wholesale, by two
+ * *separate* lanes; in here they were one region with one section rule between
+ * them, so those two lanes would have been rewriting adjacent halves of one
+ * region of one file with nothing else in common. A file each is a merge. The
+ * scene, encounter, link and countdown arms are not being replaced by anybody,
+ * so moving them too would have been churn dressed up as symmetry - and they
+ * are the arms the rest of this header is about, which is the second reason
+ * they stayed. What is left here is the dispatch: the switch below still
+ * answers every kind, and the two `case` lines now name imports.
  *
  * ## The plan is not the table, and the row says so
  *
@@ -108,15 +118,16 @@
 import { useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
-import { displayUrl } from '../../../shared/externalLink.ts';
-import { plainTextOf } from '../../../shared/richText.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
 import { damageBumpRule, paragraphs, ruleBlocks } from '../shared/ruleText.ts';
 import { ruleSection } from '../shared/srdReference.ts';
+import { Fact } from './Fact.tsx';
+import { NoteArm } from './NoteArm.tsx';
 import { BlockView } from './ReferenceTables.tsx';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
+import { UrlArm } from './UrlArm.tsx';
 import { useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
 
@@ -181,12 +192,6 @@ function Verb({
     </button>
   );
 }
-
-const Fact = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
-  <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-    {children}
-  </p>
-);
 
 export function SessionBody({
   item,
@@ -730,87 +735,6 @@ function CountdownArm({
           row={row}
         />
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-/**
- * A stored web address, drawn as text and nothing else.
- *
- * `displayUrl` and not `item.href`: the host comes first, and it is punycode,
- * so a homograph domain reads as `xn--pple-43d.com` here exactly as it does on
- * the shut row. See the six mitigations in `shared/externalLink.ts`.
- *
- * There is no anchor, and that is the current state rather than a design: the
- * lane that builds this row builds it out of `externalLinkAttrs`, which is the
- * only sanctioned way to make one and carries `target` and `rel` with it.
- */
-function UrlArm({ item }: { item: Extract<SessionItem, { kind: 'url' }> }): React.JSX.Element {
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      {item.href === '' ? (
-        <Fact>
-          This row has no web address on it. If it arrived in a campaign somebody sent you, the
-          address it carried was not one this app will store — the reason was named when the
-          campaign was opened.
-        </Fact>
-      ) : (
-        <>
-          <span className="t-meta" style={{ color: 'var(--dim)' }}>
-            WHERE IT POINTS
-          </span>
-          <p
-            className="t-dense"
-            style={{ margin: 0, color: 'var(--text)', overflowWrap: 'anywhere' }}
-          >
-            {displayUrl(item.href, 2048)}
-          </p>
-          <Fact>
-            This version of the app stores this address, exports it and reads it back, and has no
-            button that opens it. Nothing here ever opens on its own.
-          </Fact>
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * A note, drawn as plain text.
- *
- * `plainTextOf` is the format's own summary function, and it is text by
- * construction - no markup is built anywhere in this app from a note. The
- * emphasis, the heading and the centring are stored and exported; drawing them
- * is the lane that builds the editor.
- */
-function NoteArm({ item }: { item: Extract<SessionItem, { kind: 'note' }> }): React.JSX.Element {
-  const text = plainTextOf(item.note);
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      {text === '' ? (
-        <Fact>This note is empty.</Fact>
-      ) : (
-        <>
-          <p
-            className="t-dense"
-            style={{
-              margin: 0,
-              color: 'var(--text)',
-              maxWidth: '62ch',
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {text}
-          </p>
-          <Fact>
-            Bold, italics, bullets and a centred heading are stored in this note and travel with it
-            when the campaign is exported. This version of the app shows it as plain text.
-          </Fact>
-        </>
-      )}
     </div>
   );
 }

@@ -10,10 +10,9 @@
  * The shut list draws seven kinds - every arm of `describeItem` in
  * `src/ui/gm/session.ts` - and this file is laid out by where they came from.
  * Five of them are covered below: the four the wireframe drew - `scene`,
- * `encounter`, `link`, `countdown`, which are also the four `ADD` mints and
- * the whole of `SESSION_ITEM_KINDS` - and `unreadable`, which it did not draw.
- * The other two, `url` and `note`, came with campaign schema 2 and have a
- * section of their own at the end of this header.
+ * `encounter`, `link` and `countdown` - and `unreadable`, which it did not
+ * draw. The other two, `url` and `note`, came with campaign schema 2 and have
+ * a section of their own at the end of this header.
  *
  * Two of those first five matter more than the other three.
  * `shared/campaigns.ts` keeps an item this build cannot read, and keeps a link
@@ -25,12 +24,15 @@
  * ## And the two campaign schema 2 added
  *
  * `url` and `note` landed as a storage layer - a type, a reader, a writer and
- * an export - with their screens left to two later lanes, so what
- * `SessionBody` draws for them today is a placeholder that says so. That is
+ * an export - with their screens left to two later lanes, so what `UrlArm.tsx`
+ * and `NoteArm.tsx` draw for them today is a placeholder that says so. That is
  * exactly the shape this file exists to catch, because "the arm renders
- * nothing" and "the arm is not built yet" look identical from the outside. The
- * last describe here asserts they draw the value they hold and that neither is
- * silently empty; it is expected to be rewritten by the lanes that build them.
+ * nothing" and "the arm is not built yet" look identical from the outside.
+ *
+ * The last two describes assert that each draws the value it holds and that
+ * neither is silently empty. There are two of them, one per kind, with a
+ * fixture each, because each is expected to be rewritten by the lane that
+ * builds its screen and those are two different lanes.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement, type ReactElement } from 'react';
@@ -1273,28 +1275,34 @@ describe('renaming a row', () => {
   });
 });
 
-describe('the two rows campaign schema 2 added', () => {
-  const newRows = (): SessionItem[] => [
+/*
+ * The last two describes in this file, one per kind, and they are two rather
+ * than one on purpose.
+ *
+ * They were one - `the two rows campaign schema 2 added` - over a fixture that
+ * built a `url` row and a `note` row together. The two screens are two separate
+ * lanes, so that shape had both lanes rewriting one describe over one shared
+ * fixture, in work that has nothing else in common. A describe and a fixture
+ * each is a merge.
+ */
+
+describe('the web link row campaign schema 2 added', () => {
+  const urlRow = (): SessionItem[] => [
     { ...base({ id: 'u', name: 'The map board', order: 0, collapsed: false }), kind: 'url', href: 'https://xn--pple-43d.com/board' },
-    { ...base({ id: 'n', name: 'If they parley', order: 1, collapsed: false }), kind: 'note', note: [
-      { type: 'heading', align: 'center', spans: [{ text: 'Terms', bold: true, italic: false }] },
-      { type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo.', bold: false, italic: false }] },
-    ] },
   ];
 
-  it('draws a row for each of them rather than an empty one', () => {
-    seed(newRows());
+  it('draws a row rather than an empty one', () => {
+    seed(urlRow());
     list();
-    expect(rows()).toHaveLength(2);
+    expect(rows()).toHaveLength(1);
     expect(text()).toContain('The map board');
-    expect(text()).toContain('If they parley');
   });
 
   it('shows the address in the punycode the parser produced, opened and shut', () => {
     // Mitigation 5 reaching glass. `xn--pple-43d.com` is what `аpple.com` with
     // a Cyrillic а normalises to, and the whole defence against a homograph is
     // that no surface decodes it back.
-    seed(newRows());
+    seed(urlRow());
     list();
     expect(text()).toContain('xn--pple-43d.com/board');
     expect(text()).not.toContain('аpple.com');
@@ -1306,14 +1314,30 @@ describe('the two rows campaign schema 2 added', () => {
      * back, and there is nothing to tap. An arm that drew the address with no
      * sentence beside it would read as a control that does not work.
      */
-    seed(newRows());
+    seed(urlRow());
     list();
     expect(container.querySelector('a')).toBeNull();
     expect(text()).toContain('has no button that opens it');
   });
+});
+
+describe('the note row campaign schema 2 added', () => {
+  const noteRow = (): SessionItem[] => [
+    { ...base({ id: 'n', name: 'If they parley', order: 0, collapsed: false }), kind: 'note', note: [
+      { type: 'heading', align: 'center', spans: [{ text: 'Terms', bold: true, italic: false }] },
+      { type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo.', bold: false, italic: false }] },
+    ] },
+  ];
+
+  it('draws a row rather than an empty one', () => {
+    seed(noteRow());
+    list();
+    expect(rows()).toHaveLength(1);
+    expect(text()).toContain('If they parley');
+  });
 
   it('draws the note as text, with its blocks kept apart', () => {
-    seed(newRows());
+    seed(noteRow());
     list();
     // `plainTextOf`, which is text by construction: no markup is built from a
     // note anywhere in this app, and that absence is the whole defence.

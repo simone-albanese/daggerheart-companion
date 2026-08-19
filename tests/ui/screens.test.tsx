@@ -75,12 +75,14 @@ import { Countdowns } from '../../src/ui/gm/Countdowns.tsx';
 import { Encounter, Stepper as EncounterStepper } from '../../src/ui/gm/Encounter.tsx';
 import { FearBar, FearBoard } from '../../src/ui/gm/FearPool.tsx';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
+import { Fact } from '../../src/ui/gm/Fact.tsx';
 import { GmBar } from '../../src/ui/gm/GmBar.tsx';
 import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { Names } from '../../src/ui/gm/Names.tsx';
+import { NoteArm } from '../../src/ui/gm/NoteArm.tsx';
 import { PartyScanner } from '../../src/ui/gm/PartyScanner.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import { RuleSearchField, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
@@ -100,6 +102,7 @@ import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { SessionRow } from '../../src/ui/gm/SessionRow.tsx';
 import { ShowSheet } from '../../src/ui/gm/ShowSheet.tsx';
+import { UrlArm } from '../../src/ui/gm/UrlArm.tsx';
 import {
   AdversaryBlock,
   EnvironmentBand,
@@ -607,6 +610,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/Countdowns.tsx::Countdowns': () => <Countdowns phone={false} />,
   'gm/Encounter.tsx::Encounter': () => <Encounter phone={false} />,
   'gm/Encounter.tsx::Stepper': () => <EncounterStepper label="Fear" value={2} onChange={noop} />,
+  // The sentence shape every open row's arms state a fact in, which is a file
+  // rather than a const because two of those arms are files - see `Fact.tsx`.
+  'gm/Fact.tsx::Fact': () => <Fact>Nothing here ever opens on its own.</Fact>,
   'gm/FearPool.tsx::FearBar': () => <FearBar />,
   'gm/FearPool.tsx::FearBoard': () => <FearBoard phone={false} />,
   'gm/Gm.tsx::Gm': () => <Gm />,
@@ -621,6 +627,22 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   ),
   'gm/MenuSheet.tsx::MenuSheet': () => <MenuSheet onClose={noop} onOpenTool={noop} />,
   'gm/Names.tsx::Names': () => <Names phone={false} />,
+  // The note arm, with a note in it: the empty branch draws one sentence and
+  // the branch worth mounting is the one that walks the stored blocks.
+  'gm/NoteArm.tsx::NoteArm': () => (
+    <NoteArm
+      item={{
+        id: 'n1',
+        kind: 'note',
+        name: 'If they parley',
+        order: 0,
+        collapsed: false,
+        note: [
+          { type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo.', bold: false, italic: false }] },
+        ],
+      }}
+    />
+  ),
   'gm/PartyBoard.tsx::PartyBoard': () => <PartyBoard phone={false} />,
   // The board's camera, which is a module of its own so that jsQR stays out of
   // the GM chunk - see `tests/harness/staticImports.test.ts`. Same fixture
@@ -685,6 +707,21 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/StatBlock.tsx::EnvironmentBand': () => <EnvironmentBand environment={environment()} />,
   'gm/StatBlock.tsx::EnvironmentBlock': () => (
     <EnvironmentBlock environment={environment()} active onToggle={noop} />
+  ),
+  // With an address on it. The empty branch is one sentence; the branch worth
+  // mounting is the one that hands a stored string to `displayUrl`, which is
+  // where a row that arrived with something unparseable would throw.
+  'gm/UrlArm.tsx::UrlArm': () => (
+    <UrlArm
+      item={{
+        id: 'u1',
+        kind: 'url',
+        name: 'The map board',
+        order: 0,
+        collapsed: false,
+        href: 'https://xn--pple-43d.com/board',
+      }}
+    />
   ),
 
   'player/Beastform.tsx::Beastform': () => <Beastform stats={stats()} layout="desktop" />,
