@@ -24,11 +24,11 @@
  * countdown's row the chart's cells are buttons that move *that* countdown,
  * and here there is no countdown for them to act on, so here they are print.
  *
- * It is not one of the switchable GM tools. The bestiary, the party board and
- * the merchant are switchable because they are the doors behind SHOW and a GM
- * may genuinely have no use for them; this is the SRD the app already ships and
- * already quotes on the player's screens, reached from a menu that has no
- * switches in it at all. `prefs.gmSection` still takes the whole section away.
+ * It is not one of the switchable GM tools. The bestiary and the party board
+ * are switchable because they are the two forks of SHOW and a GM may genuinely
+ * have no use for either; this is the SRD the app already ships and already
+ * quotes on the player's screens, reached from a menu that has no switches in
+ * it at all. `prefs.gmSection` still takes the whole section away.
  *
  * ## Ergonomics, 393 x 852
  *

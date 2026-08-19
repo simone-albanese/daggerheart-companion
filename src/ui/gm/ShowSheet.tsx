@@ -58,9 +58,10 @@
  * why this is not a re-litigation of the bar. Nothing is added to `GmBar`.
  *
  * It is not a `SHOW_DOORS` row either - the doors themselves are in
- * `showDoors.ts`, as data, because `GmBar`, `Gm.tsx` and `Settings.tsx` all
- * have to agree with this file about how many there are. Those rows are doors: each hands the
- * screen to a tool and this sheet closes behind it. A search is answered where
+ * `showDoors.ts`, as data, because `GmBar`, `Gm.tsx`, `MenuSheet.tsx` and
+ * `Settings.tsx` all have to agree with this file about how many there are.
+ * Those rows are doors: each hands the screen to a tool and this sheet closes
+ * behind it. A search is answered where
  * it is asked - the GM reads the rule, shuts the sheet, and the table is where
  * they left it - so it is a field and a list, in the sheet, and it opens
  * nothing. `RuleSearch.tsx` holds both, and its docblock carries the

@@ -432,7 +432,7 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
 // ---------------------------------------------------------------------------
 
 /**
- * Four switches, and the reason there are four rather than eight.
+ * Four switches, and the reason there are four rather than seven.
  *
  * The master switch is the one most people will touch: this app is used by
  * players far more often than by the one person running the table, and the GM

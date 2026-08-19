@@ -367,22 +367,27 @@ describe('the field, at the foot of SHOW', () => {
     expect(buttons().some((b) => b.getAttribute('aria-label') === 'Clear the search')).toBe(false);
   });
 
-  it('takes the two doors away while a question is being asked, and gives them back', () => {
+  it('takes all three doors away while a question is being asked, and gives them back', () => {
     // A GM typing has asked something the doors do not answer, and a phone with
     // a keyboard up has no room to keep offering them. Nothing is dismissed:
-    // emptying the field brings them straight back.
+    // emptying the field brings them straight back. Every door is named: this
+    // named two while the sheet held three, so the merchant could have stayed
+    // drawn beside the hits and nothing here would have gone red.
     openShow();
     const doorText = (): string => dialog().textContent ?? '';
     expect(doorText()).toContain('without adding any of them');
     expect(doorText()).toContain('Nothing here ever writes to their characters');
+    expect(doorText()).toContain('never spends anybody’s gold');
 
     type('fear');
     expect(doorText()).not.toContain('without adding any of them');
     expect(doorText()).not.toContain('Nothing here ever writes to their characters');
+    expect(doorText()).not.toContain('never spends anybody’s gold');
 
     type('');
     expect(doorText()).toContain('without adding any of them');
     expect(doorText()).toContain('Nothing here ever writes to their characters');
+    expect(doorText()).toContain('never spends anybody’s gold');
   });
 
   it('is still there when only one of SHOW’s doors is switched on', () => {
@@ -404,9 +409,9 @@ describe('the field, at the foot of SHOW', () => {
   it('is named in the sheet a screen reader hears, not only drawn in it', () => {
     /*
      * The dialog's accessible name is the only description of this sheet a GM
-     * who cannot see it gets before they start reading it, and it named two
-     * doors while the sheet held two doors and a search over every section the
-     * dataset carries. A name that undersells its own surface is the same
+     * who cannot see it gets before they start reading it, and it used to name
+     * two doors while the sheet held two doors and a search over every section
+     * the dataset carries. A name that undersells its own surface is the same
      * defect as a docblock that oversells one.
      */
     openShow();

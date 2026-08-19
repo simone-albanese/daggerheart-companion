@@ -1,10 +1,10 @@
 /**
- * The doors behind SHOW, as data, because four files have to agree about them.
+ * The doors behind SHOW, as data, because five files have to agree about them.
  *
  * `ShowSheet.tsx` draws these as the sheet's choices and is where the argument
  * for the sheet itself lives. What is here is only the list and the two joins
  * that turn it into English, and it is a module of its own for a reason that is
- * not tidiness: **`Settings.tsx` is one of the four readers**, and `Settings`
+ * not tidiness: **`Settings.tsx` is one of the five readers**, and `Settings`
  * and `Gm` are separate `lazy()` chunks (`App.tsx`).
  *
  * That cost was measured rather than assumed, because the obvious version of
@@ -19,22 +19,24 @@
  * three booleans. Splitting the list off costs nothing: this module imports
  * only types, so it compiles to no runtime imports at all.
  *
- * The four, and what each asks:
+ * The five, and what each asks:
  *
  *   - `ShowSheet.tsx`  which choices to draw
  *   - `GmBar.tsx`      whether the SHOW verb exists at all
  *   - `Gm.tsx`         what to call the dialog a screen reader announces
+ *   - `MenuSheet.tsx`  where the tools it does not repeat are
  *   - `Settings.tsx`   whether to print the "SHOW leaves the bar" notice
  *
- * Every one of those four used to name `gmBestiary` and `gmPartyBoard` for
+ * Every one of those five used to name `gmBestiary` and `gmPartyBoard` for
  * itself, and that held for exactly as long as there were two doors. Adding a
- * third to four hand-written pairs is four edits in four files with nothing but
+ * third to five hand-written pairs is five edits in five files with nothing but
  * a reviewer between a missed one and a screen claiming a tool it does not
- * offer - and three of the four would have failed *quietly*: a missed `GmBar`
+ * offer - and four of the five would have failed *quietly*: a missed `GmBar`
  * hides SHOW from a GM whose only live tool is the new one, a missed `Gm.tsx`
- * announces a sheet that is not there, and a missed `Settings.tsx` simply never
- * prints a notice. Only `ShowSheet` itself would have been obvious. A fourth
- * door is now one row in this array.
+ * announces a sheet that is not there, a missed `MenuSheet.tsx` sends the GM
+ * after a door the sheet behind SHOW does not offer, and a missed
+ * `Settings.tsx` simply never prints a notice. Only `ShowSheet` itself would
+ * have been obvious. A fourth door is now one row in this array.
  */
 import type { Prefs } from '../../store/prefs.ts';
 import type { GmRegion } from './gmStore.ts';

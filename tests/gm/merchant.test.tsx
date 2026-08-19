@@ -524,10 +524,10 @@ describe('drawing stock', () => {
  * padding from 12 to 14 and this goes red, which is the moment somebody has to
  * go back to the rig rather than the moment a reader is misled.
  *
- * `tests/ui/gmGeometryProse.test.ts` does this for eight other files and would
- * be the natural home; it is not extended here because another lane is editing
- * it, and a lane that edits a file it does not own is how two branches spend an
- * hour on one merge.
+ * `tests/ui/gmGeometryProse.test.ts` does this for the rest of the GM screen
+ * and would be the natural home; it is not extended here because another lane
+ * is editing it, and a lane that edits a file it does not own is how two
+ * branches spend an hour on one merge.
  */
 describe('the column Merchant.tsx states', () => {
   const src = (file: string): string => readFileSync(file, 'utf8');
