@@ -274,7 +274,11 @@ export function Edit({
           342-character paragraph running the full width of a desktop monitor
           under a column that does not is the one place a footer looks like a
           mistake. It used to be a fixed strip above the tab bar, costing this
-          screen ~111px of a 393px phone whether anybody read it or not.
+          screen at least the 126.16px the notice measures on a 369px column at
+          393x852 - a pinned one painted a panel and its own horizontal padding
+          on top of that - whether anybody read it or not. ("~111px" stood here;
+          it was the estimate, and it was short by the border it forgot to add.
+          `LicenceFooter.tsx` carries the measurement and how it was taken.)
         */}
         <LicenceFooter />
       </div>

@@ -5,7 +5,10 @@
  * Two changes land in `App.tsx` with `MenuSheet`, and both are the kind that
  * are easy to make and easy to make wrongly. The tab bar does not render inside
  * the GM section, because `GmBar` is the bottom bar there and two stacked bars
- * would cost the plan 94px it does not have; that is only honest because MENU
+ * would cost the plan a band it does not have - both bars measure 95.00 at
+ * 393x852 with a 34px inset, `GmBar` on the GM screen and this one on Play, and
+ * the 94 that stood here dropped the 1px `border-top` both of them carry; that
+ * is only honest because MENU
  * carries the way back to Play, Cards and Build, which is why the two arrive in
  * one commit rather than two. And the licence notice does not leave: it moves
  * *into* the session list's scroll, where it costs a scroll position rather
@@ -402,8 +405,9 @@ describe('where the licence notice went', () => {
     await mountOn('cards', () => text().includes(NOTICE));
     expect(
       container.querySelector('main > footer'),
-      'Cards has gone back to a pinned licence strip, which is ~111px of a 393px phone ' +
-        'spent permanently on something a reader looks at once',
+      'Cards has gone back to a pinned licence strip, which is at least the 126.16px this ' +
+        'notice measures on a 369px column at 393x852 - a pinned one also paints a panel and ' +
+        'its own padding - spent permanently on something a reader looks at once',
     ).toBeNull();
     expect(
       container.querySelector('footer')!.closest('.scroll'),

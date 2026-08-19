@@ -19,10 +19,31 @@
  * `touch-action: none` goes on the handle alone - 44px of a 369px column, about
  * 12% - and not on the row.
  *
- * **60 px a step.** The row height plus the list gap. It is a fallback as much
- * as a constant: jsdom reports every height as 0, and so does any browser
- * asked before layout, and a hook that divided by a measured 0 would move a row
- * to `Infinity`.
+ * **62 px a step, and it is not a fallback.** `rowStep` defaults to `ROW_STEP`
+ * and `SessionList.tsx` passes no override, so this number is what every drag
+ * divides by in every browser - nothing here measures a row, and the sentence
+ * that called it "a fallback as much as a constant" was describing a
+ * measurement this hook has never taken.
+ *
+ * It is the shut row plus the list gap, and both are declared: `.panel`'s two
+ * borders, `SessionRow`'s two 4px paddings and its header's 44px floor make a
+ * **54.00** card, and the `<ol>` sets `gap: 8`. Measured in Chrome at 393x852
+ * with the rig in `AUDIT-HANDOFF.md`, four shut rows sit at 222 / 284 / 346 /
+ * 408, which is 62.00 between them, and `SessionList.tsx` states the same 54.00
+ * and 62.00 from the same declarations.
+ *
+ * It stood at **60** until that measurement, because 8px of panel padding was
+ * counted and 2px of panel border was not - the same missing hairline that this
+ * corner has now been corrected for in four files. 60 was never felt: to be one
+ * place out, `steps` has to round 62n/60 past n + 0.5, which first happens at
+ * n = 15, and this region holds eight to ten shut rows. It is corrected because
+ * a constant two pixels off the pitch it is named after is a claim the code
+ * contradicts, not because a GM could see it.
+ *
+ * One number cannot be the pitch of an *open* list, and it does not pretend to
+ * be: opening the first scene row measures it at 384.72, so the row below it
+ * moves 392.72. The drag is a shut-list gesture - it is how a plan written in
+ * advance gets reordered - and 62.00 is the shut list's pitch.
  *
  * ## Why window listeners and not `setPointerCapture`
  *
@@ -71,8 +92,12 @@ export interface SessionDrag {
 
 export const LIFT_MS = 250;
 export const SLOP_PX = 8;
-/** Row height plus the list gap, used when layout is unavailable. */
-export const ROW_STEP = 60;
+/**
+ * The shut row (54.00) plus the list gap (8), which is the pitch measured
+ * between shut rows at 393x852. Nothing measures it at runtime: this is the
+ * step, not a fallback for one. See the docblock above.
+ */
+export const ROW_STEP = 62;
 
 export const KEY_SHORTCUTS = 'ArrowUp ArrowDown Home End';
 

@@ -53,9 +53,17 @@
  * makes for the same slot, and the block is the same 10px/12px padding on the
  * same gutter, so the two stack without a seam when both are up.
  *
- * The inner column is 393 − 40 of gutter − 24 of padding = 329px, where the
- * store's longest sentence - the aside failure, which carries a campaign name -
- * runs to five lines at `.t-dense`; with the heading on two lines and the chip
+ * **The inner column is narrower than the "393 − 40 of gutter − 24 of padding =
+ * 329px" that stood here, and by this block's own frame** - the same missing
+ * hairline the two GM alerts in `Gm.tsx` have already dropped. `base.css` puts
+ * everything on `box-sizing: border-box`, this block declares `border: '1px
+ * solid var(--fear)'` alongside `SHELL_BLOCK_MARGIN` (`calc(20px + env(...))` a
+ * side, so 20 each without a cutout) and its 12px of padding either side, so
+ * that sum spends nothing for a pixel on each edge. How much column is left has
+ * not been measured, and neither has the "five lines at `.t-dense`" the store's
+ * longest sentence - the aside failure, which carries a campaign name - used to
+ * be given here, because that count was made against the "329": both go to the
+ * rig before anything leans on them. With the heading on two lines and the chip
  * the block is about 160px, and it is on screen only while the disk is
  * refusing. TRY AGAIN is a chip declaring `minHeight`/`minWidth` of
  * `var(--control)` inline, which is 44px under `(max-width: 1179px), (pointer:

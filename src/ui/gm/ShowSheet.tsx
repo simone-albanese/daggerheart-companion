@@ -65,8 +65,8 @@
  * from where the first one was.
  *
  * The rest of this paragraph used to be arithmetic and is now a measurement,
- * and the arithmetic was wrong. The inner column is **363px**, not the 365 that
- * `393 - 28 of padding` gives, because the panel also carries a 1px border on
+ * and the arithmetic was wrong. The inner column is **363px**, not the "365"
+ * that `393 - 28 of padding` gives, because the panel also carries a 1px border on
  * each side. Neither choice comes near its 56px floor at that width: each draws
  * **84.6px**, which is 2 of border, 20 of padding, the 10px label, a 5px gap
  * and its sentence on **three** lines rather than the two this said. The

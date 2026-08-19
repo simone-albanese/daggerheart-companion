@@ -290,10 +290,13 @@ The one piece of official artwork here is Darrington Press's "Daggerheart
 Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
 use. The full lockup sits under the attribution on the empty-library screen and
 nowhere else — `<Attribution>` is the only thing that mounts `CompatibleLockup`,
-and `App.tsx:631` holds the one `<Attribution>` in `src/`. The dagger-and-flame
-icon alone is what appears everywhere else: `CompatibleIcon size={18}` in the
-header on every screen (`Header.tsx:588`), and `size={14}` at the foot of every
-screen's own scroll, beside the attribution text, in `LicenceFooter.tsx:171`.
+and `EmptyState` in `App.tsx` holds the one `<Attribution>` in `src/`. The
+dagger-and-flame icon alone is what appears everywhere else: `CompatibleIcon
+size={18}` in the header on every screen (inside `Header`, in `Header.tsx`), and
+`size={14}` at the foot of every screen's own scroll, beside the attribution
+text, inside `LicenceFooter`. Named by symbol rather than by line: the three
+line numbers that stood here were correct when written and were pushed off their
+targets by later edits to those same three files.
 *(This paragraph used to say the lockup was at the foot of every scroll too —
 **superseded**: `LicenceFooter` has never rendered it, and the distinction is
 worth keeping because a 220px lockup below every page is a different licensing

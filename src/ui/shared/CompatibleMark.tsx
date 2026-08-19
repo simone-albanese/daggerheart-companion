@@ -14,15 +14,37 @@
  * relationship to the game". Today that is three places, and this list is the
  * one to keep true:
  *
- *   - `CompatibleIcon` at 18px in the header (`Header.tsx:588`), on every
- *     screen, beside the door to Settings.
+ *   - `CompatibleIcon` at 18px in the header - the one `<CompatibleIcon
+ *     size={18} />` inside `Header` (`Header.tsx`), on every screen, beside the
+ *     door to Settings.
  *   - `CompatibleLockup` at 168px, inside `Attribution`, on the empty-library
- *     screen and there only: `App.tsx:631` is the whole of it.
- *   - `CompatibleIcon` again, at 14px, in the shell's licence footer
- *     (`LicenceFooter.tsx:171`) - the icon and not the lockup.
+ *     screen and there only: the `<Attribution compact />` in `EmptyState`
+ *     (`App.tsx`) is the whole of it.
+ *   - `CompatibleIcon` again, at 14px, in the shell's licence footer - the
+ *     `<CompatibleIcon size={14} />` inside `LicenceFooter`
+ *     (`LicenceFooter.tsx`) - the icon and not the lockup.
  *   - The About panel carries the notice as words, without the mark: it sits
  *     inside a settings screen that is already dense, and the lockup is
  *     eighteen inches from the reader there rather than a badge on a shelf.
+ *
+ * Named by symbol and not by line, and that is a correction rather than a
+ * style. Those three bullets carried `Header.tsx:588`, `App.tsx:631` and
+ * `LicenceFooter.tsx:171`. `53020fe` repointed the two that had gone stale -
+ * 588 to 590 and 631 to 688 - and left `:171` alone, because it still landed.
+ * Then this branch displaced two of the three itself: `01a0a8a` added lines
+ * above `App.tsx:688`, now `:691`, and above `LicenceFooter.tsx:171`, which
+ * `b26ca4b` pushed on to `:182`. `Header.tsx:590` still resolves, and only
+ * because no commit on this branch ever opened that file.
+ *
+ * ~~"the next commit on this same branch added lines *above* all three targets,
+ * and every repointed number went stale again"~~ - superseded, and too strong
+ * in both halves. Two of the three went stale, not three; and the next commit
+ * was `b6abdec`, which touched `Gm.tsx` alone, while the two that displaced
+ * anything are the seventh and tenth after `53020fe`. What the sentence
+ * concluded is what is worth keeping: a symbol survives an insertion above it
+ * and a line number does not, and this branch invalidated two of its own
+ * corrections without meaning to. When a line is genuinely wanted, the grep
+ * below prints all three and is correct by construction.
  *
  * ~~"`CompatibleLockup`, under `Attribution`, on the first-run screen and in
  * the shell's footer."~~ - **superseded, and both halves were false.** The
@@ -31,12 +53,18 @@
  * gone empty, and those are not the same arrival - it is the difference between
  * a new user and somebody who has just lost their characters. The footer draws
  * `CompatibleIcon` at 14, not the lockup, which is the deliberate trade
- * `LicenceFooter.tsx` argues out at :41-47. It is the same false claim the
- * audit took out of `README.md`, one file further in, and it survived because a
- * docblock that says "this list is the one to keep true" is exactly the kind a
- * reader trusts without checking. Checked now:
+ * `LicenceFooter.tsx` argues out under its own `## SUPERSEDED: the argument for
+ * keeping Play out of it` heading - the block quote ending "That is a
+ * deliberate trade and it is the one thing here worth arguing with." (A heading
+ * for the same reason as the bullets: the `:40-47` that stood here was a range
+ * a later insertion in that file pushed four lines down.) It is the same false
+ * claim the audit took out of `README.md`, one file further in, and it survived
+ * because a docblock that says "this list is the one to keep true" is exactly
+ * the kind a reader trusts without checking. Checked now:
  * `grep -rn 'CompatibleLockup\|<Attribution\|CompatibleIcon' src/` returns the
- * three call sites above and nothing else.
+ * three call sites above and no fourth - the rest of its output is this file's
+ * own declarations, the two imports its pattern catches, and two sentences of
+ * prose that name the icon without drawing it.
  *
  * It is deliberately never used as the PWA icon. An app whose home-screen icon
  * is the official logo reads as an official app, which this is not.

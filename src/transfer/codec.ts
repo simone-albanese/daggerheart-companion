@@ -961,12 +961,27 @@ function readBody(bytes: Uint8Array, registry: Registry): DecodeResult {
   //
   // And it must not deny the display. A parked ref IS drawn: it lives on the
   // record as `?id`, `missingCardRefs` returns it because `?5407` can never be
-  // an index key, and `Play.tsx` and `Rest.tsx` render `GhostRow` for it - a
-  // dashed row reading CARD NOT IN THIS BUILD, naming the ref, with a way to
-  // move it to the vault. Drawing those ghosts is what closed P1-6's *display*
-  // half (`Play.tsx:294-308`), so a sentence claiming they do not appear as
-  // cards disproves shipped code, which is the same defect as the promise it
-  // replaced. What is missing is the **name**, not the row.
+  // an index key, and both surfaces that list cards draw a row for it. Play
+  // draws `GhostRow` - a dashed row reading CARD NOT IN THIS BUILD and naming
+  // the ref, with TO VAULT beside it in the loadout and nothing beside it in
+  // the vault, because a vault ghost has nowhere to be moved to - and
+  // `PlayDesktop` draws the cockpit's own copy of the same cell. Rest draws
+  // `SwapRow`, the row every readable card gets there, named by the raw ref,
+  // and it splits the same way Play does: a loadout ghost carries TO VAULT
+  // because it fills a slot the recall gate is counting, while a vault ghost
+  // gets `act={null}` - a row with no control, because nothing here knows what
+  // it is. Drawing those ghosts is what closed P1-6's *display* half, so a
+  // sentence claiming they do not appear as cards disproves shipped code,
+  // which is the same defect as the promise it replaced. What is missing is
+  // the **name**, not the row.
+  //
+  // Two corrections behind that sentence, both of the same kind. It said
+  // `Rest.tsx` renders `GhostRow`; `GhostRow` is local to `Play.tsx` and Rest
+  // has never imported it. And it cited `Play.tsx:294-308`, repointed once to
+  // `:296-310`: both ranges are the `useLoadout` docblock, the hook that
+  // COMPUTES the missing refs, and neither reaches anything that draws one.
+  // Named by symbol instead - a line number into a four-thousand-line file is
+  // stale by the next commit that touches it.
   //
   // Nor is "nothing repairs them later" true as written. `readBody` above
   // resolves an incoming `?id` whenever the *receiving* registry knows it, so

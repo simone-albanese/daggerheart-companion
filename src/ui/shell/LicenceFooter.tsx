@@ -20,8 +20,12 @@
  * P3-10 fixed the absence and left three behaviours behind it:
  *
  *   Cards, Build, Settings   a `flex: 'none'` sibling of the screen inside
- *                            `<main>` - a fixed strip above the tab bar, ~111px
- *                            of a 393px phone, permanently
+ *                            `<main>` - a fixed strip above the tab bar,
+ *                            permanently, and at least the 126.16px this
+ *                            notice measures on a 369px column at 393x852: a
+ *                            pinned one also painted a panel and its own
+ *                            horizontal padding. ("~111px" stood here, and it
+ *                            was the estimate below, before it was measured)
  *   GM                       inside the session list's scroll but pushed down
  *                            with `marginTop: 'auto'`, which on a short list
  *                            looks and costs exactly like the fixed strip
@@ -47,8 +51,8 @@
  *   > trade and it is the one thing here worth arguing with."
  *
  * It was argued with, and it loses on its own terms. Every number in it is
- * about a *fixed* strip: 111px taken off the top of the scroll window, forever,
- * on the one screen with the tightest budget in the app. Below the last fold of
+ * about a *fixed* strip - its "111px" taken off the top of the scroll window,
+ * forever, on the one screen with the tightest budget in the app. Below the last fold of
  * a scrolling sheet it takes none of that - `PlayPhone`'s budget runs to the
  * bottom edge of the lineage fold and the notice is below it, so it costs the
  * sheet nothing that the sheet was ever counting. The trade the paragraph
@@ -58,11 +62,18 @@
  * ## What it costs now, which is a scroll position and not a band
  *
  * The notice is verbatim: 342 characters that cannot be trimmed. On a 393px
- * phone inside Play's column the text runs 393 − 24 of page padding − 22 for
- * the icon and its gap = 347px wide; Archivo at `.t-dense`, 11.5px/1.38,
- * averages about 5.4px per character, so 342 characters is ~1847px of text -
- * six lines, 95px, plus the 12px rule gap above and 18px below = ~125px. On a
- * 1024px tablet the same text is two lines, ~48px. There is no typographic
+ * phone inside a 369px column the text runs 369 − 22 for the icon and its gap =
+ * 347px wide, and this `<footer>` measures **126.16px** there - 95.16 of text
+ * in six lines, plus the 12px rule gap above, the 18px foot below and the 1px
+ * rule itself. Measured in Chrome at 393x852 inside the GM session list with
+ * the rig in `AUDIT-HANDOFF.md`, and the same 126 is recorded in
+ * `Architecture.md` and `BACKLOG.md`. The estimate that stood here - 5.4px a
+ * character, ~1847px of text, "six lines, 95px [...] = ~125px" - was right
+ * about the text to a fifth of a pixel and short by the border it forgot to
+ * add, which is the whole of the difference. The `marginTop: 18` below is not
+ * in the 126.16 and is what separates the notice from the last thing above it.
+ * On a 1024px tablet the same text is two lines, ~48px - that one is still an
+ * estimate and nobody has measured it. There is no typographic
  * trick that beats this; 9px would fit it in 70px and this project's own type
  * ramp says Archivo never runs at 400 below 11.5px. Every pixel of it is now
  * below the last thing anybody scrolls for.

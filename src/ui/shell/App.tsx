@@ -26,8 +26,11 @@
  * What it gets wrong is in its own second sentence: it names the trade that GM
  * takes - a scroll position instead of a band - approves of it, and then does
  * not take it here, on three screens that scroll just as well. So the sibling
- * was a fixed strip costing every one of them ~111px of a 393px phone forever,
- * to say something a reader looks at once. The notice is now the last thing in
+ * was a fixed strip costing every one of them at least the 126.16px the notice
+ * measures on a 369px column at 393x852 - a pinned one paid a panel and its own
+ * padding on top - forever, to say something a reader looks at once. (The
+ * "~111px" that stood here is the estimate the quote above it makes, and it was
+ * short: `LicenceFooter.tsx` carries the measurement.) The notice is now the last thing in
  * each screen's own scrolling content, which is that same trade taken five
  * times instead of once, and Play is not an exception any more: see
  * `LicenceFooter.tsx`, which also now decides on its own who pays
@@ -543,7 +546,16 @@ function Shell(): React.JSX.Element {
           MENU button at the top, which is what the wireframe draws and what the
           owner decided: leaving the section is a rare gesture, and the arc
           belongs to the continuous ones. Two bars stacked would also cost the
-          plan 94px it does not have.
+          plan a band it does not have, and the 94 that stood here dropped a
+          hairline. This bar measures **95.00** at 393x852 with a 34px
+          home-indicator inset - measured on Play, not inferred - which is 60px
+          of tabs over `padding: 0 0 34px` plus its own 1px `border-top`;
+          `GmBar` declares the same three terms and measures the same 95.00.
+          What stacking would actually cost the list is less than that, because
+          `env(safe-area-inset-bottom)` is paid once per screen and `GmBar` is
+          already paying it. That part has not been measured, and the argument
+          does not need it: the point is that a second bar costs a band of this
+          order, not that it costs exactly 95.
 
           And no tab bar during onboarding, for a different reason: the flow's
           own pinned nav is the last thing in the window and pays the

@@ -600,8 +600,12 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
         )}
         {/*
           The notice, at the end of the browser rather than pinned above the tab
-          bar - which is where it was, and where it cost this screen ~111px of a
-          393px phone whether or not anybody was reading it. Here it is 189 cards
+          bar - which is where it was, and where it cost this screen at least
+          the 126.16px the notice measures on a 369px column at 393x852, a
+          pinned one painting a panel and its own horizontal padding on top of
+          that, whether or not anybody was reading it. ("~111px" stood here; it
+          was the estimate, and it was short by the border it forgot to add.
+          `LicenceFooter.tsx` carries the measurement.) Here it is 189 cards
           down, or one filter away.
 
           `gridColumn: '1 / -1'` because this scroll region is the card grid
@@ -781,10 +785,14 @@ function Segmented<T extends string>({
              * declared one of them.
              *
              * `--tap` is not what it was missing: `--control` already resolves
-             * to `var(--tap)` = 44 at every width below 1180 and under any
-             * coarse pointer (tokens.css:174-178), and the height was 44
-             * everywhere it mattered. The width came from `.chip`'s
-             * `padding: 4px 6px` around the label, and IBM Plex Mono at 9.5px
+             * to `var(--tap)` = 44 at every width below 1180 and wherever the
+             * PRIMARY pointer is coarse - `tokens.css`'s `@media (max-width:
+             * 1179px), (pointer: coarse)` block - and the height was 44
+             * everywhere it mattered. (`tokens.css:174-178` stood here and is
+             * five lines of hit-point cell arithmetic; and "any coarse pointer"
+             * was the wrong query - `any-pointer` is what `--pip-h` answers,
+             * and that distinction is the whole of its docblock.) The width
+             * came from `.chip`'s `padding: 4px 6px` around the label, and IBM Plex Mono at 9.5px
              * with 0.06em tracking is 6.27px a character - so `All` and `Any`
              * were 3 x 6.27 + 20 = **38.81px**, measured 38.8x44 at 320x568,
              * 375x667, 393x852 and 744x1133 with a computed `min-width: auto`.

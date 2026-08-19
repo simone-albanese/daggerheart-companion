@@ -166,9 +166,12 @@ export interface NameFieldProps {
    * session row passes `sessionName(item)`, which for a row nobody ever named
    * is the kind word - so two nameless scenes renaming at once both say "Save
    * the name Scene — Scene", and a night of rows called "Scene", "Scene" and
-   * "Scene" is precisely the list `SessionRow.tsx:51-54` is about. This prop
-   * names the row; it does not invent a name for a row that has none, and
-   * nothing in this control does. A row's position is announced - the drag
+   * "Scene" is precisely the list the "## Renaming" section of
+   * `SessionRow.tsx`'s head docblock is about. (It was cited here as
+   * `SessionRow.tsx:51-54`, which that file's own docblock has since pushed
+   * three lines down; a heading does not move when a paragraph above it grows.)
+   * This prop names the row; it does not invent a name for a row that has
+   * none, and nothing in this control does. A row's position is announced - the drag
    * handle says "2 of 5" - but it is on the handle, not here.
    *
    * The cancel target does not take it and does not need it: "Leave the name

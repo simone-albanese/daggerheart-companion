@@ -222,9 +222,17 @@ export function PartyBoard({ phone }: { phone: boolean }): React.JSX.Element {
            * whose sheets these are. One sentence now, at both widths.
            *
            * It costs a phone a second line. 107 characters of 10px mono with
-           * 0.07em tracking is wider than the 369px a 393px phone leaves inside
-           * this padding, and `line-height: 1` would set the two lines solid,
-           * so the strip declares 1.45 and is about 29px on a phone instead of
+           * 0.07em tracking is wider than the 367.00px a 393px phone leaves
+           * inside this padding - "369" stood here, which is 393 - 24 with the
+           * sheet's own border spent nowhere: this board draws inside
+           * `GmSheet size="full"` - `Gm.tsx` mounts it there and `GmSheet`'s
+           * own docblock names it in the `full` list - whose panel is border-box
+           * with a 1px border (`GmSheet.tsx`), so the content box is 391.00
+           * and this region's 12px either side leaves 367.00, measured in Chrome
+           * in the sibling tool that shares the sheet at the same padding
+           * (`Reference.tsx`). Two pixels narrower only makes the wrap surer, so
+           * the conclusion below is unchanged. `line-height: 1` would set the
+           * two lines solid, so the strip declares 1.45 and is about 29px on a phone instead of
            * 10. That is the price of not having a phone and a laptop describe
            * the same board differently, and it is paid out of the list rather
            * than out of a row.

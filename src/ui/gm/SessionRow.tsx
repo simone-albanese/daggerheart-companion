@@ -34,9 +34,12 @@
  * Two ways, and the second one is not a fallback. The handle at the right edge
  * carries the pointer gesture (`useSessionDrag`), and the open row's footer
  * carries MOVE UP and MOVE DOWN as plain 44px buttons. A hold of 250 ms
- * followed by 60px of accurate travel is a gesture a shaking hand, a trackpad
- * user and anybody driving this from a keyboard cannot perform; two buttons in
- * the row they already have open cost 88px of a footer that had room.
+ * followed by half a `ROW_STEP` of accurate travel for every place moved is a
+ * gesture a shaking hand, a trackpad user and anybody driving this from a
+ * keyboard cannot perform; two buttons in the row they already have open cost
+ * 88px of a footer that had room. (The step is named rather than costed here on
+ * purpose: it stood at "60px of accurate travel" while `ROW_STEP` was 62, and
+ * a pitch this sentence copies is a pitch this sentence can get wrong again.)
  *
  * ## Deleting
  *
@@ -294,9 +297,39 @@ export function SessionRow({
           {/*
             The type row: what sort of row this is on the left, what is inside
             it on the right. The summary takes the width the kind word leaves
-            and ellipsises into it, with the whole string on `title`. It has to
-            stay one line - a summary that wrapped would grow the 44px header,
-            and the header's height is what makes nine rows fit on a phone.
+            and ellipsises into it, with the whole string on `title`. It stays
+            one line because the height of a shut row has to be a constant, and
+            a summary somebody typed is not.
+
+            Measured in Chrome at 393x852, one line: this inner `span.stack`
+            is 30.00 tall - name 18.00, 2px gap, type row 10.00 - inside a
+            44.00 button whose `min-height: 44px` is what sets that 44. So the
+            text does not set this row's height; the floor does, with 14.00 to
+            spare above the text.
+
+            The wrapped case was measured too, in the same run, by lifting
+            `whiteSpace` off this span and giving it strings that wrap. The
+            14.00 absorbs exactly one extra line and no more: at two lines the
+            stack is 40.00 and neither the button nor the card moves (44.00 and
+            54.00); at three the stack is 50.00, the button 50.00, the card
+            60.00, and the list's step goes with them. So what this comment
+            used to say - that a summary that wrapped would grow the 44px
+            header - is not what the browser does. One wrap is free.
+
+            The argument that actually carries `whiteSpace: nowrap` never
+            needed that claim, or the row count it was propping up: a summary
+            is a string a GM typed and has no length limit, so a header whose
+            height follows it is not a constant. The list below steps by a
+            fixed amount per shut row, and a row that is 54.00 or 60.00
+            depending on what was typed into it is not a step at all.
+
+            What the step buys is in `SessionList.tsx`: eight shut rows whole
+            on a 393x852 phone with a 47/34 safe area, a ninth cut by the fold
+            but still legible, ten in bare Chrome with no inset. The "nine
+            rows" that stood here was arithmetic that never counted `.panel`'s
+            horizontal borders - the same 1px that file's own "303 and 353"
+            note caught along the other axis. Change that sentence and this one
+            together; they are one claim said twice.
           */}
           <span className="row" style={{ alignSelf: 'stretch', gap: 8, justifyContent: 'space-between' }}>
             <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
@@ -418,7 +451,8 @@ export function SessionRow({
                 The same two moves as the handle, without a pointer and without a
                 hold. An open row is where a GM is already looking when they
                 decide it belongs earlier, and a 44px button is a target a shaking
-                hand can hit where a 250ms hold plus 60px of travel is not.
+                hand can hit where a 250ms hold plus half a `ROW_STEP` of travel
+                per place is not.
               */}
               <RowVerb
                 onClick={() => move(item.id, position - 2)}

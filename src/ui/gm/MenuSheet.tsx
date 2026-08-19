@@ -80,16 +80,31 @@
  * `scheduleAside` - so that reason is dead.
  *
  * What kept it is the row, and this is the answer the unique-name item settled
- * on rather than a question left open. A campaign row is 365px: a 313px name
- * button and a 44px REMOVE. A third target on it takes the name button under
- * 261px - 313 less the third target's 44 and its 8 of gap, from the same
- * arithmetic three lines up - on the screen where the whole point of the row is
- * reading which table
- * it is, and a rename that opens *in* the row would push REMOVE - an armed,
- * destructive control - down the list under a thumb already travelling. One
- * field, on the campaign whose name is already drawn at the top of the screen,
- * one tap from any other campaign in the list above it. The sentence on the
- * screen says that, and it is the one thing the GM can act on.
+ * on rather than a question left open. **A campaign row is exactly the sheet's
+ * 363px column wide, and it is the 277px inside it that has no room to spare.**
+ * The row is a `.panel` and `.panel` is border-box, so the `.stack` above it
+ * stretches it to the full 363.00 and its own 1px border and
+ * `padding: '2px 4px 2px 10px'` come out of its content box rather than off its
+ * outer edge: 363 - 2 of border - 14 of padding = 347.00 of content, less the
+ * 8px gap, leaves **339.00 for the two controls**. REMOVE is `flex: 'none'` at
+ * `padding: '0 10px'`, so the word sets its width - **62.00** - and the 44 it
+ * declares is a floor on its *height*; the name button is `flex: 1` and takes
+ * what is left, **277.00**. 363.00 / 277.00 / 62.00 are measured in Chrome at
+ * 393x852 with the rig in `AUDIT-HANDOFF.md`, on the one seeded campaign; the
+ * row measures 50.00 tall there, which is the 44px floor plus 2+2 of padding
+ * and 2 of border. (Two sentences have stood here and both were wrong. "A 365px
+ * row: a 313px name button and a 44px REMOVE" missed the sheet's own border,
+ * the row panel's border and padding, and read a height as a width; the
+ * correction that replaced it - "narrower than the column and nobody has
+ * measured by how much" - was wrong in the other direction and in the wrong
+ * axis, because a border-box row spends its border inwards.) A third target on
+ * that row comes out of those 277 and takes a gap with it, on the screen where
+ * the whole point of the row is reading which table it is, and a rename that
+ * opens *in* the row would push REMOVE - an armed, destructive control - down
+ * the list under a thumb already travelling. One field, on the campaign whose
+ * name is already drawn at the top of the screen, one tap from any other
+ * campaign in the list above it. The sentence on the screen says that, and it
+ * is the one thing the GM can act on.
  *
  * ## The list is not re-sorted while it is on screen
  *
@@ -103,20 +118,36 @@
  *
  * A bottom sheet: it opens from the MENU button at the top of the screen, which
  * is the hardest reach on the phone and deliberately so, and answers under the
- * thumb. The inner column is 393 - 28 = 365px.
+ * thumb. The inner column is **363px**, not the "365" that `393 - 28 of padding`
+ * gives: this sheet draws inside `GmSheet`'s panel - `Gm.tsx` mounts all four
+ * sheets there - which is border-box with a 1px border (`GmSheet.tsx`), so a
+ * pixel goes on each edge as well. 363 is measured in Chrome at 393x852 and recorded in
+ * `ShowSheet.tsx`, which draws in the same panel at the same `padding: 14`; it
+ * is not re-derived here - and it is confirmed here, because OPEN THE REFERENCE
+ * measures 363.00 in the same pass that measured the campaign row. The two
+ * derived cell widths below - the 115.67 and the 177.5 - are implied by that
+ * column rather than measured, and are written as implied; the campaign row's
+ * figures below them were measured directly and say so.
  *
- *   the three destinations   three across at (365 - 16) / 3 = 116 x 56 each
- *   the two tools            two across at (365 - 8) / 2 = 178 x 56 each, the
+ *   the three destinations   three across at (363 - 16) / 3 = 115.67 x 56 each
+ *   the two tools            two across at (363 - 8) / 2 = 177.5 x 56 each, the
  *                            same height as the row above them because they are
  *                            the same gesture: one tap, and the sheet is gone
- *   THE RULES AT HAND        full width, 365 x 44
- *   A NAME, NOW              full width, 365 x 44, the same as the rules above
+ *   THE RULES AT HAND        full width, 363 x 44
+ *   A NAME, NOW              full width, 363 x 44, the same as the rules above
  *                            it because it is the same gesture: one tap, and
  *                            the work happens inside the tool that opens
- *   a campaign row           the name is the target, 365 - 44 - 8 = 313 x 44,
- *                            with REMOVE beside it as a 44px word
+ *   a campaign row           363 x 50, measured: the row is a border-box
+ *                            `.panel` stretched to the full column, so its own
+ *                            border and `padding: '2px 4px 2px 10px'` are spent
+ *                            inside it. 363 - 2 - 14 - 8 of gap = 339 shared by
+ *                            a 277.00 name button and a 62.00 REMOVE, and the
+ *                            50 is the 44px floor plus that padding and border.
+ *                            "365 - 44 - 8 = 313 x 44" stood here and none of
+ *                            it held; "narrower than the column, NOT MEASURED"
+ *                            replaced it and was wrong the other way
  *   RENAME / NEW CAMPAIGN    full-width, minHeight var(--tap) = 44
- *   the rename field         365 x 44, and it is the only keyboard on the sheet
+ *   the rename field         363 x 44, and it is the only keyboard on the sheet
  *
  * Read, not touched: every notice, every quarantined record, the "this device"
  * block entire, the refusal sentence, and the sentence explaining why a closed

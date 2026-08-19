@@ -66,8 +66,12 @@
  *
  * ## Ergonomics, 393x852
  *
- * The sheet's inner column is 393 - 28 of padding = 365px. The four choices
- * are full-width and `minHeight: 56` rather than 44: this is the most-used
+ * The sheet's inner column is **363px**, not the "365" that `393 - 28 of padding`
+ * gives: this sheet draws inside `GmSheet`'s panel - `Gm.tsx` mounts all four
+ * sheets there - which is border-box with a 1px border (`GmSheet.tsx`). 363
+ * is measured in Chrome at 393x852 and recorded in `ShowSheet.tsx`, the sibling
+ * sheet in the same panel at the same `padding: 14`. The four choices are
+ * full-width and `minHeight: 56` rather than 44: this is the most-used
  * sheet on the screen, it opens directly above the thumb that pressed ADD, and
  * 56 is what lets the second tap land without the eye leaving the bar. Inside
  * a form every input, select and button is at least 44, the stepper's two

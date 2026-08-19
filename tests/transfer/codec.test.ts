@@ -268,11 +268,13 @@ describe('the sentence the player reads about a parked reference', () => {
     // Kept, and forwarded - the two properties the tests below actually pin.
     expect(warning).toMatch(/stay on the sheet/);
     expect(warning).toMatch(/passed on unchanged/);
-    // And the limits, said out loud: no card is drawn for one, and no later
-    // event repairs it.
+    // And the limits, said out loud: the row that is drawn cannot be named,
+    // and no later event repairs it.
     // Not "they do not appear as cards", which a draft of this said and which
-    // is false: `Play.tsx` and `Rest.tsx` draw a `GhostRow` for every parked
-    // ref. What is missing is the name, and the sentence has to be about that.
+    // is false: every parked ref gets a row on both surfaces that list cards -
+    // `GhostRow` on Play (and the cockpit's own copy of it in `PlayDesktop`),
+    // `SwapRow` on Rest, which has never imported `GhostRow`. What is missing
+    // is the name, and the sentence has to be about that.
     expect(warning).toMatch(/CARD NOT IN THIS BUILD/);
     expect(warning).toMatch(/cannot do is name them/);
     // Nor "nothing repairs them later" full stop: `readBody` resolves an
