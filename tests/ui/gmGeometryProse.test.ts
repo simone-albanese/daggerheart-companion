@@ -181,7 +181,7 @@
  *     `:178` is four lines inside it, while the claim at `:1494` is about where
  *     `EmptyState` is rendered - which is the `needsCharacter` ternary on the
  *     Play and Cards branches of the screen switch. Anchor: `needsCharacter`.
- *   - `:1516` - `CompatibleMark.tsx:54-57` -> `:73-76`, and this one was
+ *   - `:1516` - `CompatibleMark.tsx:54-57` -> `:82-85`, and this one was
  *     already wrong too: the new range is a blank line, the lockup's one-line
  *     docblock, `CompatibleLockup`'s signature and its first statement. The
  *     copy that item means is `ATTRIBUTION`, exported further down the file.
@@ -681,6 +681,15 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * stacked tab bar at 94px. A comment a test carries is a claim of the same
    * rank as the code under it, and it is read more often than most docblocks,
    * because it is what somebody reads while working out why a test failed.
+   *
+   * The name over this scan is scoped to the array under it. It read "no file
+   * in `src` or `tests` has gone back to ..." and the array is ten named files,
+   * which is the same overstatement the header of this file already retired
+   * under "How wide the sweep behind this file actually is" - a claim about the
+   * tree standing in for a claim about a list. It was repaired in the prose and
+   * left in the test name, which is the half a reader actually sees, because it
+   * is what vitest prints. The two sibling scans were already honest: "no file
+   * behind these alerts" and "every file that costs the licence notice".
    */
   it.each([
     ['nine rows', /nine rows/],
@@ -703,7 +712,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ['a 60px drag step', /ROW_STEP = 60\b/],
     ['a two-row topic strip', /wraps to two rows/],
     ['660 against a 369px column', /660 against/],
-  ])('no file in `src` or `tests` has gone back to %s', (_what, pattern) => {
+  ])('no file this scan lists has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/SessionList.tsx',
       'src/ui/gm/SessionRow.tsx',
@@ -780,8 +789,15 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * exact sentence this file exists to retire: it was 2px slack as a guard as
    * well as wrong as a comment. `sessionList.test.tsx` is NOT inside the sheet
    * and its 369 is right. Neither is written here as a number.
+   *
+   * Named for the two guards it reads and not for "each screen", which is what
+   * stood here and was the same shape as the scan name above it:
+   * `tests/ui/playSheet.test.tsx` declares a third `const COLUMN`, at 369 for
+   * the player sheet, and this test has never opened it. That one is outside
+   * this describe's remit - the GM screen - which is a reason to scope the name
+   * rather than to widen the scan.
    */
-  it('gives each screen the column its own container leaves, in the guards too', () => {
+  it('gives the reference and session-list guards the column each container leaves', () => {
     const read = (file: string): number => {
       const found = /const COLUMN = (\d+);/.exec(source(file));
       if (found === null) {
@@ -818,11 +834,21 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * claim. Its figure is 329 rather than 345 because its gutter and its border
    * differ, which is exactly why a scan over one pattern in one directory could
    * not see it.
+   *
+   * The 329 row is a bare number and not the `/\b329\b/` that stood here,
+   * which could not match the sentence it guards: `9` and `p` are both word
+   * characters, so `\b` never asserts between them and `329px` slipped
+   * through. It was blind to the one wording the retired claim actually has -
+   * it saw only the bare `"329"` two sentences further down the same docblock.
+   * Established rather than argued: the retired sentence was restored unquoted
+   * into `CampaignNotSaved.tsx` and this file ran 48/48 green, and after the
+   * boundaries came off the same edit turned this row red. Its two siblings
+   * never carried a boundary, which is why they bite.
    */
   it.each([
     ['a 365px sheet column', /365/],
     ['a 345px notice column', /345/],
-    ['a 329px alert column', /\b329\b/],
+    ['a 329px alert column', /329/],
   ])('no file behind these alerts has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/MenuSheet.tsx',

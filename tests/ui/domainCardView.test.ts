@@ -324,10 +324,14 @@ describe('the offer to read the rest', () => {
    * loadout in `Play.tsx` - always pass one, and the two that omit it
    * (`Wizard.tsx`'s step picker and `SessionBody.tsx`) are `variant="reading"`,
    * where `!reading` is false. Named by symbol and file rather than by line:
-   * the two numbers that stood here pointed at a docblock table and a `style={{`
-   * eight hundred lines apart from the calls they meant. So no screen in this app
-   * could draw those words, while 40 of 42 tiles at 393x852 cut their rules
-   * text behind a wordless fade.
+   * the two numbers that stood here, `Cards.tsx:246` and `Play.tsx:2078`,
+   * landed on a blank line inside a docblock table and on a `style={{` for an
+   * unrelated span - 276 and 326 lines above the calls they meant. Both
+   * distances were counted against the tree; the "eight hundred lines apart"
+   * that stood in this sentence was not, and the two sum to 602. Neither region
+   * is touched by this branch, so `main` and the tip give the same pair. So no
+   * screen in this app could draw those words, while 40 of 42 tiles at 393x852
+   * cut their rules text behind a wordless fade.
    */
   it('reaches the showcase card, where the words were three lines away and dead', () => {
     const source = readFileSync(SOURCE, 'utf8');

@@ -29,13 +29,22 @@
  *
  * Named by symbol and not by line, and that is a correction rather than a
  * style. Those three bullets carried `Header.tsx:588`, `App.tsx:631` and
- * `LicenceFooter.tsx:171`, and all three were correct on the day they were
- * written. Repointing them to the then-current lines fixed them for exactly one
- * commit: the next commit on this same branch added lines *above* all three
- * targets, and every repointed number went stale again - the branch invalidated
- * its own corrections. A symbol survives an insertion above it and a line
- * number cannot. When a line is genuinely wanted, the grep below prints all
- * three and is correct by construction.
+ * `LicenceFooter.tsx:171`. `53020fe` repointed the two that had gone stale -
+ * 588 to 590 and 631 to 688 - and left `:171` alone, because it still landed.
+ * Then this branch displaced two of the three itself: `01a0a8a` added lines
+ * above `App.tsx:688`, now `:691`, and above `LicenceFooter.tsx:171`, which
+ * `b26ca4b` pushed on to `:182`. `Header.tsx:590` still resolves, and only
+ * because no commit on this branch ever opened that file.
+ *
+ * ~~"the next commit on this same branch added lines *above* all three targets,
+ * and every repointed number went stale again"~~ - superseded, and too strong
+ * in both halves. Two of the three went stale, not three; and the next commit
+ * was `b6abdec`, which touched `Gm.tsx` alone, while the two that displaced
+ * anything are the seventh and tenth after `53020fe`. What the sentence
+ * concluded is what is worth keeping: a symbol survives an insertion above it
+ * and a line number does not, and this branch invalidated two of its own
+ * corrections without meaning to. When a line is genuinely wanted, the grep
+ * below prints all three and is correct by construction.
  *
  * ~~"`CompatibleLockup`, under `Attribution`, on the first-run screen and in
  * the shell's footer."~~ - **superseded, and both halves were false.** The
