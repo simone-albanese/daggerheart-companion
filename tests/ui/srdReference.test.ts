@@ -603,8 +603,8 @@ describe('the adjectives that are not in the SRD', () => {
 /**
  * The pipeline every surface that prints a whole section goes through.
  *
- * The counts here are the ones the source's own docblocks quote - 38 sections
- * of 75, 34 lists, 7 tables, 3 with both, 12 tables in all - so a dataset that
+ * The counts here are the ones the source's own docblocks quote - 42 sections
+ * of 80, 38 lists, 7 tables, 3 with both, 12 tables in all - so a dataset that
  * changes underneath them turns a comment that is now false into a red test
  * rather than into a sentence nobody re-read.
  */
@@ -640,10 +640,10 @@ describe('ruleSection', () => {
       const kinds = new Set((ruleSection(rules, rule.id)?.blocks ?? []).flatMap((b) => b.parts.map((p) => p.kind)));
       return { list: kinds.has('list'), table: kinds.has('table') };
     });
-    expect(shapes.filter((s) => s.list).length).toBe(34);
+    expect(shapes.filter((s) => s.list).length).toBe(38);
     expect(shapes.filter((s) => s.table).length).toBe(7);
     expect(shapes.filter((s) => s.list && s.table).length).toBe(3);
-    expect(shapes.filter((s) => s.list || s.table).length).toBe(38);
+    expect(shapes.filter((s) => s.list || s.table).length).toBe(42);
     expect(rules.flatMap((rule) => tables(rule.id))).toHaveLength(12);
   });
 
@@ -859,5 +859,97 @@ describe('playerExperiences', () => {
 
   it('answers with nothing when the section is gone', () => {
     expect(playerExperiences([])).toEqual({ lead: null, title: '', groups: [], page: null });
+  });
+});
+
+/**
+ * The two class-chapter folios the rules stream reaches for, and nothing else.
+ *
+ * Folio 12 and folio 18 are prose sitting inside a chapter of stat blocks, so
+ * `parseRules` walks two pages whose neighbours belong to other parsers. Both
+ * risks are one-sided and both are pinned here: a range that reaches too far
+ * pulls the Beastform stat cards or the Rogue into a rules section, and a
+ * manifest that names the wrong heading drops the sentence the engine was
+ * written against. Neither failure raises anything on its own - `parseRules`
+ * only throws for a heading it cannot find, and merged prose is silent.
+ *
+ * The sentences asserted below are the ones `src/engine/` now depends on. They
+ * are quoted rather than summarised for the reason the file's own docblock
+ * gives: the app stamps `SRD 1.0 · P.n` beside them.
+ */
+describe('the Beastform and companion folios', () => {
+  const body = (id: string): string => rules.find((r) => r.id === id)?.body ?? '';
+
+  it('carries the Beastform preamble, from the folio the stat cards are on', () => {
+    const section = rules.find((r) => r.id === 'beastform-options');
+    expect(section?.sourcePage).toBe(12);
+    // The sentence `beastformSource` applies Proficiency on the strength of.
+    expect(section?.body).toContain(
+      'you use the creature’s listed range, trait, and damage dice, but you use your Proficiency',
+    );
+  });
+
+  it('stops before the stat cards, which are parseBeastforms’ and not prose', () => {
+    // `TIER 1` opens the cards. Without the drop spec every card on folio 12
+    // lands in the section above, which reads as a longer rule and not as an
+    // error.
+    expect(body('beastform-options')).not.toContain('AGILE SCOUT');
+    expect(body('beastform-options')).not.toContain('Gain advantage on');
+  });
+
+  it('carries the companion sheet, both columns of folio 18, in reading order', () => {
+    expect(rules.find((r) => r.id === 'ranger-companion')?.sourcePage).toBe(18);
+    // Column one: the four steps. Step 4 is the one the sheet had no field for.
+    expect(body('ranger-companion')).toContain('Choose whether they deal physical or magic damage');
+    expect(body('ranger-companion')).toContain('Whenever you gain a new Experience, your companion also gains one');
+    // Column two: the two boxes, which no module had a copy of at all.
+    expect(body('companion-taking-damage')).toContain(
+      'When you choose a downtime move that clears Stress on yourself, your companion clears an equal number of Stress',
+    );
+    expect(body('companion-taking-damage')).toContain('they return with 1 Stress cleared');
+  });
+
+  it('carries the roll the companion’s attack is made with', () => {
+    // The two sentences that answered BACKLOG P1-1's open question about whose
+    // roll and whose Proficiency a companion attack uses.
+    expect(body('working-with-your-companion')).toContain(
+      'Make a Spellcast Roll to connect with your companion',
+    );
+    expect(body('working-with-your-companion')).toContain(
+      'Spend a Hope to add an applicable Companion Experience to the roll',
+    );
+    expect(body('working-with-your-companion')).toContain(
+      'their damage roll uses your Proficiency and their damage die',
+    );
+  });
+
+  it('leaves folio 19 out: it is the Rogue, and no companion text is on it', () => {
+    const companionSections = [
+      'ranger-companion',
+      'working-with-your-companion',
+      'companion-taking-damage',
+      'leveling-up-your-companion',
+    ];
+    for (const id of companionSections) {
+      expect(rules.find((r) => r.id === id)?.sourcePage).toBe(18);
+      expect(body(id)).not.toContain('Rogues are scoundrels');
+      expect(body(id)).not.toContain('Cloaked');
+    }
+  });
+
+  it('carries all eight level-up options, which the engine held a copy of', () => {
+    const options = body('leveling-up-your-companion');
+    for (const name of [
+      'Intelligent',
+      'Light in the Dark',
+      'Creature Comfort',
+      'Armored',
+      'Vicious',
+      'Resilient',
+      'Bonded',
+      'Aware',
+    ]) {
+      expect(options).toContain(`- ${name}:`);
+    }
   });
 });

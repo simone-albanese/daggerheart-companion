@@ -690,8 +690,8 @@ export interface SectionView {
  * region's GM chapter above, and the `ADD -> LINK -> Rule` row of a GM session.
  *
  * That row used to call `paragraphs()` by itself, which is the one shape the
- * dataset is not in. 38 of the 75 shipped sections carry a list or a table - 34
- * lists, 7 tables, 3 of them both - so 38 of the 75 rules a GM can put on a
+ * dataset is not in. 42 of the 80 shipped sections carry a list or a table - 38
+ * lists, 7 tables, 3 of them both - so 42 of the 80 rules a GM can put on a
  * session printed their bullets with a literal `- ` in front of every line and
  * their tables as raw pipes.
  */

@@ -1025,7 +1025,7 @@ export function GoldAndLoot(): React.JSX.Element {
  * reason it is exported rather than private to this file. That row printed a
  * section through `paragraphs()` alone until now, so
  * every bullet it drew carried a literal `- ` and every table came out as raw
- * pipes; 38 of the 75 shipped sections are one of those two shapes. A second
+ * pipes; 42 of the 80 shipped sections are one of those two shapes. A second
  * renderer beside this one would have been a second thing to keep in step, and
  * the pipes are what that costs.
  */
