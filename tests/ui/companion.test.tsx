@@ -133,3 +133,42 @@ describe('the level-up options reach the sheet from the dataset', () => {
     expect(marked.some((t) => t.includes('Bonded'))).toBe(true);
   });
 });
+
+/**
+ * A full Stress track means two different things on the two sheets.
+ *
+ * On the player's own it means Vulnerable. On the companion's it means the
+ * animal has gone: *"they drop out of the scene (by hiding, fleeing, or a
+ * similar action). They remain unavailable until the start of your next long
+ * rest."* Leaving a player to tell those apart by looking at a row of filled
+ * pips is the app knowing something and not saying it.
+ */
+describe('a companion out of the scene', () => {
+  const withStress = (marked: number, max = 3): void => {
+    mountPanel({ ...newCompanion('Sable', 'A grey wolf'), stress: { marked, max } });
+  };
+
+  it('says so, and says when they are back', () => {
+    withStress(3);
+    expect(text()).toContain('OUT OF THE SCENE');
+    expect(text()).toContain('BACK AT YOUR NEXT LONG REST, WITH 1 STRESS CLEARED');
+  });
+
+  it('says nothing while they still have a slot open', () => {
+    withStress(2);
+    expect(text()).not.toContain('OUT OF THE SCENE');
+  });
+
+  it('goes away again the moment a Stress is cleared', () => {
+    withStress(3);
+    expect(text()).toContain('OUT OF THE SCENE');
+    // Through the track, which is the control a player uses.
+    act(() => {
+      useApp.getState().update((c) => ({
+        ...c,
+        companion: c.companion === null ? null : { ...c.companion, stress: { marked: 2, max: 3 } },
+      }));
+    });
+    expect(text()).not.toContain('OUT OF THE SCENE');
+  });
+});

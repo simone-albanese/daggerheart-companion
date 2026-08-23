@@ -5,9 +5,15 @@
  * twice. The moves that clear a track are pure arithmetic, so the app rolls
  * and applies them; "Work on a Project" is narrative, so it only nudges a
  * countdown the GM already made.
+ *
+ * A rest is not only the character's. A Beastbound Ranger's companion clears
+ * Stress alongside them - folio 18 - and until that was written here, a Ranger
+ * who rested in this app came back with a companion still carrying every mark
+ * they had taken.
  */
 import type { Character } from '../../shared/types.ts';
 import type { DerivedStats } from './character.ts';
+import { clearCompanionStress, companionIsAway } from './companion.ts';
 import { cryptoRng, type Rng } from './dice.ts';
 
 export type RestKind = 'short' | 'long';
@@ -120,6 +126,29 @@ export interface RestOutcome {
 }
 
 /**
+ * The Beastbound's other creature, on the two moves that clear Stress.
+ *
+ * *"When you choose a downtime move that clears Stress on yourself, your
+ * companion clears an equal number of Stress."* This is the join, and it is
+ * here rather than in `engine/companion.ts` only because the log line is the
+ * rest's: `clearCompanionStress` owns the rule and this owns the sentence the
+ * player reads afterwards.
+ *
+ * The companion is named in that line when they have a name, because "your
+ * companion cleared 2 Stress" is a line about somebody the player calls
+ * Ashfoot.
+ */
+function alsoTheCompanion(c: Character, amount: number, log: string[]): Character {
+  const { character, cleared } = clearCompanionStress(c, amount);
+  if (cleared === 0) return character;
+  const name = c.companion?.name ?? '';
+  log.push(
+    `${name === '' ? 'Your companion' : name}: cleared ${cleared} Stress alongside you`,
+  );
+  return character;
+}
+
+/**
  * Apply a rest.
  *
  * `choices` is at most two moves. Card swaps between loadout and vault are
@@ -135,6 +164,26 @@ export function takeRest(
 ): RestOutcome {
   let next = { ...c };
   const log: string[] = [];
+
+  /*
+   * The companion comes back first.
+   *
+   * *"They remain unavailable until the start of your next long rest, where
+   * they return with 1 Stress cleared."* At the START, and the order is the
+   * rule rather than tidiness: a long rest that also clears Stress finds a
+   * companion who is already back, so the move's own clear lands on them too
+   * instead of being spent putting them on their feet.
+   */
+  if (rest === 'long' && next.companion !== null && companionIsAway(next.companion)) {
+    const back = clearCompanionStress(next, 1);
+    if (back.cleared > 0) {
+      const name = next.companion.name;
+      log.push(
+        `${name === '' ? 'Your companion' : name}: returns to the scene with 1 Stress cleared`,
+      );
+      next = back.character;
+    }
+  }
 
   for (const choice of choices.slice(0, 2)) {
     // The SRD prints a separate list of moves per rest, and the long-rest ones
@@ -163,6 +212,7 @@ export function takeRest(
         const cleared = Math.min(amount, next.stress.marked);
         next = { ...next, stress: { ...next.stress, marked: next.stress.marked - cleared } };
         log.push(`Clear Stress: cleared ${cleared} Stress (d4 ${die} + tier ${stats.tier})`);
+        next = alsoTheCompanion(next, cleared, log);
         break;
       }
       case 'repair-armor': {
@@ -182,8 +232,10 @@ export function takeRest(
         break;
       }
       case 'clear-all-stress': {
-        log.push(`Clear All Stress: cleared ${next.stress.marked} Stress`);
+        const cleared = next.stress.marked;
+        log.push(`Clear All Stress: cleared ${cleared} Stress`);
         next = { ...next, stress: { ...next.stress, marked: 0 } };
+        next = alsoTheCompanion(next, cleared, log);
         break;
       }
       case 'repair-all-armor': {

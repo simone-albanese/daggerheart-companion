@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { deriveStats, indexDataset } from '@engine/character.ts';
 import {
   COMPANION_START,
+  clearCompanionStress,
   companionDamage,
+  companionIsAway,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
 } from '@engine/companion.ts';
-import type { Dataset } from '@shared/types.ts';
+import type { Character, Dataset } from '@shared/types.ts';
 import { feature, makeCharacter, makeDataset, makeSubclass } from '../fixtures/factories.ts';
 
 const BEASTBOUND = makeSubclass({
@@ -103,5 +105,69 @@ describe('withCompanion', () => {
   it('is a no-op when there is no companion to patch', () => {
     const c = makeCharacter();
     expect(withCompanion(c, { evasion: 12 })).toBe(c);
+  });
+});
+
+/**
+ * The box on folio 18 that no module had a copy of, because `parseRules` did
+ * not reach the folio: *"When your companion would take any amount of damage,
+ * they mark a Stress. When they mark their last Stress, they drop out of the
+ * scene... They remain unavailable until the start of your next long rest,
+ * where they return with 1 Stress cleared."*
+ */
+describe('a companion out of the scene', () => {
+  const at = (marked: number, max = 3) => ({
+    ...newCompanion('Ashfoot', ''),
+    stress: { marked, max },
+  });
+
+  it('is away exactly when the last Stress slot is marked', () => {
+    expect(companionIsAway(at(2))).toBe(false);
+    expect(companionIsAway(at(3))).toBe(true);
+  });
+
+  it('is away on a track that arrived over-marked, not just exactly full', () => {
+    // A file or a QR can carry one. `>=` and not `===`, so a companion at 4 of
+    // 3 is out of the scene rather than quietly still in it.
+    expect(companionIsAway(at(4))).toBe(true);
+  });
+
+  it('is not away for a companion with no Stress slots at all', () => {
+    // Not a sheet `newCompanion` can make, but one a hand-written file can.
+    // `0 >= 0` would strand them permanently out of a scene they never entered.
+    expect(companionIsAway(at(0, 0))).toBe(false);
+  });
+});
+
+describe('clearCompanionStress', () => {
+  const withCompanionAt = (marked: number, max = 3): Character =>
+    makeCharacter({ companion: { ...newCompanion('Ashfoot', ''), stress: { marked, max } } });
+
+  it('clears the number asked for', () => {
+    const out = clearCompanionStress(withCompanionAt(3), 2);
+    expect(out.cleared).toBe(2);
+    expect(out.character.companion?.stress.marked).toBe(1);
+  });
+
+  it('never clears more than they have marked', () => {
+    const out = clearCompanionStress(withCompanionAt(1), 5);
+    expect(out.cleared).toBe(1);
+    expect(out.character.companion?.stress.marked).toBe(0);
+  });
+
+  it('does nothing, and reports nothing, with no companion', () => {
+    const c = makeCharacter();
+    const out = clearCompanionStress(c, 3);
+    expect(out).toEqual({ character: c, cleared: 0 });
+  });
+
+  it('does nothing at zero, so no line is written claiming it did', () => {
+    const c = withCompanionAt(2);
+    expect(clearCompanionStress(c, 0)).toEqual({ character: c, cleared: 0 });
+  });
+
+  it('does nothing for a companion with nothing marked', () => {
+    const c = withCompanionAt(0);
+    expect(clearCompanionStress(c, 3)).toEqual({ character: c, cleared: 0 });
   });
 });

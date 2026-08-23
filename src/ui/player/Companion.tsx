@@ -18,6 +18,7 @@ import type { DerivedStats } from '../../engine/character.ts';
 import {
   COMPANION_START,
   companionDamage,
+  companionIsAway,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
@@ -199,6 +200,7 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
 
   const attack = companionDamage(companion, stats.proficiency);
   const named = companion.experiences.filter((e) => e.name !== '');
+  const away = companionIsAway(companion);
 
   return (
     <div className="stack" style={{ gap: phone ? 8 : 12, minHeight: 0 }}>
@@ -239,6 +241,32 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
         readout={`${companion.stress.marked} / ${companion.stress.max} MARKED`}
         compact={!phone}
       />
+
+      {/*
+       * Out of the scene, which the track alone does not say.
+       *
+       * A full Stress track on the player's own sheet means Vulnerable; on this
+       * one it means the animal has gone - *"they drop out of the scene (by
+       * hiding, fleeing, or a similar action)"* - and the two are different
+       * enough that leaving a player to infer it from a row of filled pips
+       * would be the app knowing something and not saying it. It also says when
+       * they are back, because that is the half a player has to plan around.
+       */}
+      {away && (
+        <div
+          className="t-meta"
+          style={{
+            padding: '9px 11px',
+            borderRadius: 'var(--r3)',
+            background: 'var(--app)',
+            border: '1px solid var(--damage)',
+            color: 'var(--damage)',
+            lineHeight: 1.5,
+          }}
+        >
+          OUT OF THE SCENE · BACK AT YOUR NEXT LONG REST, WITH 1 STRESS CLEARED
+        </div>
+      )}
 
       {/* The damage die is free text, so it can be something no one can roll.
           When it is, the panel says so rather than printing the unmultiplied
