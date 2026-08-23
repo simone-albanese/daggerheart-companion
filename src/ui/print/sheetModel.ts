@@ -37,11 +37,13 @@ import {
   type DatasetIndex,
   type DerivedStats,
 } from '../../engine/character.ts';
+import { companionDamage, companionUpgradeAllowance } from '../../engine/companion.ts';
 import { characterFeatures } from '../../engine/features.ts';
 import { SEVERITY_HP, SEVERITY_LABEL, type Severity } from '../../engine/damage.ts';
 import { formatGold, MAX_CHESTS, PER_STEP } from '../../engine/gold.ts';
 import { tierAchievementFor } from '../../engine/levelUp.ts';
 import { resolveCards } from '../../engine/loadout.ts';
+import { companionUpgrades } from '../shared/srdReference.ts';
 import type { TrackKind } from '../shared/Track.tsx';
 
 export interface SheetTrait {
@@ -163,6 +165,41 @@ export interface PrintSheet {
   gold: SheetGold;
   inventory: InventoryEntry[];
   features: SheetFeature[];
+  /** The Ranger Companion sheet, for the one subclass that has one. */
+  companion: SheetCompanion | null;
+}
+
+/**
+ * The companion, as a page.
+ *
+ * The SRD prints this as a sheet of its own that a player tucks under the right
+ * side of theirs, and this app printed it nowhere at all: a Beastbound Ranger
+ * took a printout to the table with a whole creature missing from it.
+ *
+ * IT IS NOT DROPPED THE WAY A BEASTFORM IS, and the difference is the one
+ * `buildSheet` opens with. A Beastform is a state - a Druid would come back to
+ * a page saying their Evasion is 14 because they were a bear on Tuesday - so
+ * the printout is the character at rest. A companion is not a state; it is the
+ * other half of the sheet, and it is as true in a folder a month from now as it
+ * is mid-scene.
+ *
+ * The damage is printed with Proficiency applied, because that is the number
+ * rolled: *"their damage roll uses your Proficiency and their damage die."*
+ */
+export interface SheetCompanion {
+  name: string;
+  description: string;
+  evasion: number;
+  stressSlots: number;
+  /** With the character's Proficiency in it, as it will be rolled. */
+  damage: string;
+  range: string;
+  damageType: 'phy' | 'mag';
+  experiences: Experience[];
+  /** Every option the dataset carries, with the ones this sheet has marked. */
+  upgrades: Array<{ id: string; name: string; text: string; marked: boolean }>;
+  /** Boxes earned so far. A readout on paper as much as on glass. */
+  allowance: number;
 }
 
 export interface SheetOptions {
@@ -204,6 +241,42 @@ const EXPERIENCE_LINES: number =
  * constant is what the printed rows stop being.
  */
 const WEAPON_LINES = 3;
+
+/**
+ * The companion's page, or null for the sheets that have no animal.
+ *
+ * Built off `resting` like everything else on this page - the Proficiency a
+ * companion's damage uses is the character's, and a Beastform does not change
+ * it, but taking it from the same stats the rest of the page is derived from is
+ * what keeps one printout internally consistent.
+ */
+function printedCompanion(
+  character: Character,
+  dataset: Dataset,
+  index: DatasetIndex,
+  stats: DerivedStats,
+): SheetCompanion | null {
+  const companion = character.companion;
+  if (companion === null) return null;
+  const rolled = companionDamage(companion, stats.proficiency);
+  return {
+    name: companion.name,
+    description: companion.description,
+    evasion: companion.evasion,
+    stressSlots: companion.stress.max,
+    // The unmultiplied string when it will not parse, rather than a blank: the
+    // sheet says what the player typed and lets them see it is wrong.
+    damage: rolled?.spec ?? companion.damage,
+    range: companion.range,
+    damageType: companion.damageType,
+    experiences: companion.experiences,
+    upgrades: companionUpgrades(dataset.rules).map((u) => ({
+      ...u,
+      marked: companion.upgrades.includes(u.id),
+    })),
+    allowance: companionUpgradeAllowance(character, index),
+  };
+}
 
 export function buildSheet(
   character: Character,
@@ -362,6 +435,7 @@ export function buildSheet(
     // over whole: `HeldFeature` also carries a `site` and a `ref`, which the
     // Play screen groups by and a sheet of paper has no use for.
     features: held.features.map((f) => ({ source: f.source, name: f.name, text: f.text })),
+    companion: printedCompanion(character, dataset, index, stats),
   };
 }
 

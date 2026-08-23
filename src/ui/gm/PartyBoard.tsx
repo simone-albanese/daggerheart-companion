@@ -24,6 +24,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Character } from '../../../shared/types.ts';
 import { deriveStats, type DerivedStats } from '../../engine/character.ts';
+import { companionDamage, companionIsAway } from '../../engine/companion.ts';
 import { useApp } from '../../store/state.ts';
 import { parseTransferFile, pickFile } from '../../transfer/fileIo.ts';
 import { Track } from '../shared/Track.tsx';
@@ -406,6 +407,7 @@ function Row({
         <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{stats.proficiency}</span>
       </span>
       <Experiences sheet={sheet} />
+      <CompanionLine sheet={sheet} proficiency={stats.proficiency} />
     </span>
   );
 
@@ -480,6 +482,58 @@ function Row({
 }
 
 /** One of the three numbers the row exists for. */
+/**
+ * The second creature, which this board could not see.
+ *
+ * A Beastbound Ranger is two things to target and the board drew one of them.
+ * The data was already here - `party.ts` keeps the sheet whole, so
+ * `sheet.companion` arrived with everything else and was simply never drawn -
+ * which is why this is a few lines rather than a transfer change.
+ *
+ * READ-ONLY, and that is the board's own rule rather than a shortcut. A PC here
+ * is a sighting: every number is derived from the sheet as it arrived and dated
+ * by when it did. The four tracks above are editable because a GM marks damage
+ * they are dealing; a companion's Stress is marked by the player operating the
+ * companion, and a second set of numbers the GM could edit would be a second
+ * answer to what the animal has taken.
+ *
+ * Evasion leads because it is what the GM needs: it is the number an attack is
+ * rolled against, and it is not the Ranger's.
+ */
+function CompanionLine({
+  sheet,
+  proficiency,
+}: {
+  sheet: Character;
+  proficiency: number;
+}): React.JSX.Element | null {
+  const companion = sheet.companion;
+  if (companion === null) return null;
+  const attack = companionDamage(companion, proficiency);
+  const away = companionIsAway(companion);
+  return (
+    <span
+      className="t-meta"
+      style={{
+        letterSpacing: '0.07em',
+        color: away ? 'var(--stress)' : 'var(--muted)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {(companion.name === '' ? 'COMPANION' : companion.name.toUpperCase())} · EVASION{' '}
+      <span style={{ color: away ? 'var(--stress)' : 'var(--text-2)', fontWeight: 600 }}>
+        {companion.evasion}
+      </span>{' '}
+      · {attack === null ? 'NO DIE' : attack.spec} {companion.range.toUpperCase()}{' '}
+      {companion.damageType.toUpperCase()} · STRESS {companion.stress.marked}/
+      {companion.stress.max}
+      {away && ' · OUT OF THE SCENE'}
+    </span>
+  );
+}
+
 function Figure({
   label,
   value,

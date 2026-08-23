@@ -32,7 +32,8 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Character } from '../../shared/types.ts';
+import type { Character, CompanionState } from '../../shared/types.ts';
+import { newCompanion } from '../../src/engine/companion.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
@@ -209,5 +210,65 @@ describe('REMOVE FROM THE BOARD', () => {
     for (const label of ['BACK TO WHAT ARRIVED', 'REMOVE FROM THE BOARD']) {
       expect(named(label).style.minHeight).toBe('var(--control)');
     }
+  });
+});
+
+/**
+ * The second creature, which this board could not see.
+ *
+ * A Beastbound Ranger is two things to target and the board drew one of them.
+ * The data was here all along - `party.ts` keeps the sheet whole, so
+ * `sheet.companion` arrived with everything else and was simply never drawn.
+ *
+ * Evasion leads, because that is the number an attack is rolled against and it
+ * is not the Ranger's.
+ */
+describe('a companion on the board', () => {
+  const withCompanion = (over: Partial<CompanionState> = {}): Character => ({
+    ...sheet('ranger', 'Wren'),
+    companion: {
+      ...newCompanion('Ashfoot', 'A grey wolf'),
+      evasion: 12,
+      damage: 'd6+2',
+      range: 'Close',
+      ...over,
+    },
+  });
+
+  it('draws nothing for a sheet with no companion', () => {
+    put(sheet('a', 'Marek'));
+    board();
+    expect(text()).not.toContain('EVASION 1');
+    expect(text()).not.toContain('ASHFOOT');
+  });
+
+  it('names them, with their own Evasion and the pool that will be rolled', () => {
+    put(withCompanion());
+    board();
+    expect(text()).toContain('ASHFOOT');
+    expect(text()).toContain('EVASION');
+    // Proficiency applied, because that is the roll: their die, the Ranger's
+    // Proficiency. The fixture is level 3, so Proficiency is 2.
+    expect(text()).toContain('2d6+2');
+    expect(text()).toContain('CLOSE');
+  });
+
+  it('says which damage type, since the sheet now records one', () => {
+    put(withCompanion({ damageType: 'mag' }));
+    board();
+    expect(text()).toContain('MAG');
+  });
+
+  it('says when the animal has left the scene', () => {
+    put(withCompanion({ stress: { marked: 3, max: 3 } }));
+    board();
+    expect(text()).toContain('OUT OF THE SCENE');
+  });
+
+  it('says nothing of the kind while they still have a slot', () => {
+    put(withCompanion({ stress: { marked: 2, max: 3 } }));
+    board();
+    expect(text()).toContain('STRESS 2/3');
+    expect(text()).not.toContain('OUT OF THE SCENE');
   });
 });
