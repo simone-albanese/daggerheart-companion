@@ -172,3 +172,42 @@ describe('a companion out of the scene', () => {
     expect(text()).not.toContain('OUT OF THE SCENE');
   });
 });
+
+/**
+ * Step 4's other half, which the sheet had no field for.
+ *
+ * *"Choose whether they deal physical or magic damage."* The app answered
+ * physical for every companion there has ever been, under a comment in
+ * `attack.ts` calling it the SRD's default - true of an unarmed attack and
+ * never true of this sheet, where the book asks outright.
+ */
+describe('a companion’s damage type', () => {
+  const byLabel = (label: string): HTMLElement => {
+    const el = container.querySelector<HTMLElement>(`[aria-label="${label}"]`);
+    if (el === null) throw new Error(`nothing is labelled "${label}"`);
+    return el;
+  };
+
+  it('starts physical, and the panel says which it is', () => {
+    mountPanel();
+    expect(text()).toContain('PHYSICAL');
+    expect(useApp.getState().characters[0]?.companion?.damageType).toBe('phy');
+  });
+
+  it('is a choice, and the panel follows it', () => {
+    mountPanel();
+    openSheet();
+    click(byLabel('Magic damage'));
+    expect(useApp.getState().characters[0]?.companion?.damageType).toBe('mag');
+    expect(byLabel('Magic damage').getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('MAGIC');
+    expect(text()).not.toContain('· PHYSICAL ·');
+  });
+
+  it('goes back, because a choice you cannot undo is a trap', () => {
+    mountPanel({ ...newCompanion('Sable', ''), damageType: 'mag' });
+    openSheet();
+    click(byLabel('Physical damage'));
+    expect(useApp.getState().characters[0]?.companion?.damageType).toBe('phy');
+  });
+});

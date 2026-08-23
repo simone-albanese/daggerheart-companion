@@ -287,7 +287,7 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
             ATTACK
           </span>
           <span className="t-meta" style={{ marginTop: 5, color: 'var(--muted)' }}>
-            {companion.range.toUpperCase()} ·{' '}
+            {companion.range.toUpperCase()} · {companion.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'} ·{' '}
             {attack === null
               ? 'SET A DAMAGE DIE IN THE SHEET'
               : `${companion.damage} × PROF ${stats.proficiency}`}
@@ -495,6 +495,40 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                 style={{ width: 84, textAlign: 'center', font: '600 14px/1 var(--mono)' }}
               />
             </label>
+            {/*
+             * Step 4's other half: *"Choose whether they deal physical or magic
+             * damage."* The app answered `phy` for every companion until the
+             * sheet had somewhere to put the answer, which was wrong for a
+             * raven at every table that ever used it - the wrong resistances
+             * at the GM's end and PHY in the log.
+             */}
+            <div className="row" style={{ gap: 6 }}>
+              <span className="t-meta">TYPE</span>
+              {(
+                [
+                  ['phy', 'PHY'],
+                  ['mag', 'MAG'],
+                ] as Array<['phy' | 'mag', string]>
+              ).map(([id, text]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="chip"
+                  aria-pressed={companion.damageType === id}
+                  aria-label={id === 'phy' ? 'Physical damage' : 'Magic damage'}
+                  onClick={() => set({ damageType: id })}
+                  style={{
+                    minWidth: 52,
+                    minHeight: 44,
+                    fontSize: 13,
+                    background: companion.damageType === id ? 'var(--hope)' : 'var(--raised)',
+                    color: companion.damageType === id ? 'var(--app)' : 'var(--muted)',
+                  }}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
             <div className="row" style={{ gap: 6 }}>
               <span className="t-meta">RANGE</span>
               <button

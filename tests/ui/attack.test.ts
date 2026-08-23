@@ -282,14 +282,19 @@ describe('which of the two damage types', () => {
     expect(damageTypeOf(spellSource(3, 8, 3)!)).toBe('mag');
   });
 
-  it('gives an unarmed attack and a companion the default', () => {
+  it('gives an unarmed attack the default the sentence above states', () => {
     expect(damageTypeOf(unarmedSource(makeStats({ proficiency: 2 })))).toBe('phy');
-    // The companion variant carries no damageType of its own. A total function
-    // over the union has to answer for it, and the answer is the SRD's default
-    // rather than a crash on a shape the type system already allows.
-    expect(
-      damageTypeOf({ kind: 'companion', name: 'Wolf', damage: { count: 1, sides: 6, modifier: 0 } }),
-    ).toBe('phy');
+  });
+
+  it('reads a companion’s own answer, which the sheet now asks for', () => {
+    // This branch used to return `phy` for every companion under a comment
+    // calling it the SRD's default. It is not: folio 18 asks the player to
+    // "choose whether they deal physical or magic damage", and a raven who
+    // deals magic damage was being reduced by the wrong resistances at the
+    // table and printing PHY in the log.
+    const wolf = { kind: 'companion' as const, name: 'Wolf', damage: { count: 1, sides: 6, modifier: 0 } };
+    expect(damageTypeOf({ ...wolf, damageType: 'phy' })).toBe('phy');
+    expect(damageTypeOf({ ...wolf, damageType: 'mag' })).toBe('mag');
   });
 });
 

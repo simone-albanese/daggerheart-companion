@@ -416,3 +416,51 @@ describe('writing into a chosen folder', () => {
     expect(choice.reason).toMatch(/cannot pick a folder/);
   });
 });
+
+/**
+ * The other half of the fourth deliberate loss.
+ *
+ * The codec drops a companion's damage type and says so; the file paths carry
+ * it exactly, and that is the whole reason the loss was acceptable. A test on
+ * one side without a test on the other proves only that something is missing.
+ */
+describe('a companion’s damage type, in a file', () => {
+  const raven = (damageType: 'phy' | 'mag'): Character => ({
+    ...wizard(),
+    companion: {
+      name: 'Ash',
+      description: 'A one-eyed raven',
+      evasion: 12,
+      stress: { marked: 1, max: 3 },
+      damage: 'd6+2',
+      range: 'Close',
+      damageType,
+      experiences: [],
+      upgrades: [],
+    },
+  });
+
+  it('survives a .dhchar round trip when it is magic', () => {
+    const back = parseCharacterFile(serializeCharacter(raven('mag')));
+    expect(back.companion?.damageType).toBe('mag');
+  });
+
+  it('survives a .dhbackup round trip when it is magic', () => {
+    const file = parseTransferFile(serializeBackup([raven('mag')]));
+    expect(file.characters[0]?.companion?.damageType).toBe('mag');
+  });
+
+  it('reads a companion written before the field existed as physical', () => {
+    // The schema-4 shape, arriving through the file path rather than the
+    // converter's own test: a companion object with no `damageType` at all.
+    const text = serializeCharacter(raven('mag'));
+    const parsed = JSON.parse(text) as { character: Record<string, unknown>; schemaVersion: number };
+    const companion = parsed.character['companion'] as Record<string, unknown>;
+    delete companion['damageType'];
+    parsed.schemaVersion = 4;
+    parsed.character['schemaVersion'] = 4;
+
+    const back = parseCharacterFile(JSON.stringify(parsed));
+    expect(back.companion?.damageType).toBe('phy');
+  });
+});

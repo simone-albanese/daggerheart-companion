@@ -142,8 +142,12 @@ describe('the committed fixtures', () => {
     const migrated = migrateCharacterRecord(record);
 
     expect(migrated.from).toBe(3);
+    // Both steps, in order: a schema-3 record walks the whole chain forward one
+    // version at a time, which is the property that keeps the cost of a bump at
+    // one function rather than one function per version behind.
     expect(migrated.applied).toEqual([
       'a count of consecutive short rests was added, starting at zero',
+      'a companion records whether their damage is physical or magic, starting physical',
     ]);
     expect(migrated.record['consecutiveShortRests']).toBe(0);
     expect(migrated.record['schemaVersion']).toBe(SCHEMA_VERSION);
@@ -151,6 +155,39 @@ describe('the committed fixtures', () => {
     // there afterwards, byte for byte.
     expect(migrated.record['name']).toBe('Fixture');
     expect(migrated.record['scars']).toEqual(['A ledger of names']);
+  });
+
+  /**
+   * The second converter, which the committed fixtures cannot reach.
+   *
+   * Neither `v3.dhchar` nor `v4.dhchar` carries a companion - they are a Bard -
+   * so the branch that matters runs against records built here. That is worth
+   * saying out loud rather than leaving the coverage to look complete: the
+   * fixtures prove the chain walks, and these prove what its second step does.
+   */
+  it('gives a schema 4 companion the damage type they were already dealing', () => {
+    const record = {
+      schemaVersion: 4,
+      name: 'Ranger',
+      companion: { name: 'Ash', damage: 'd6', range: 'Close' },
+    };
+    const migrated = migrateCharacterRecord(record);
+    expect(migrated.record['companion']).toEqual({
+      name: 'Ash',
+      damage: 'd6',
+      range: 'Close',
+      damageType: 'phy',
+    });
+  });
+
+  it('does not hand an animal to a character who has none', () => {
+    const record = { schemaVersion: 4, name: 'Wizard', companion: null };
+    expect(migrateCharacterRecord(record).record['companion']).toBeNull();
+  });
+
+  it('leaves a sheet that never mentioned a companion alone', () => {
+    const record = { schemaVersion: 4, name: 'Wizard' };
+    expect(migrateCharacterRecord(record).record['companion']).toBeUndefined();
   });
 
   it('keeps the fixture at the version its name claims', () => {

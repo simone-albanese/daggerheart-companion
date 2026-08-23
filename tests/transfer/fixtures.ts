@@ -207,6 +207,11 @@ export function loadedWizard(): Character {
       stress: { marked: 1, max: 3 },
       damage: 'd6+2',
       range: 'Close',
+      // Physical, and deliberately so: the codec does not carry this field, so
+      // a 'mag' here would make every round-trip assertion in the matrix fail
+      // for a reason that has nothing to do with what it is testing. The loss
+      // itself is pinned on its own, in codec.test.ts.
+      damageType: 'phy',
       experiences: [{ id: 'c0ffee00-1111-4222-8333-444455556666', name: 'Sharp eyes', bonus: 2 }],
       upgrades: ['intelligent', 'light-in-the-dark'],
     },

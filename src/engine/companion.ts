@@ -30,6 +30,8 @@ export const COMPANION_START = {
   stressSlots: 3,
   damage: 'd6',
   range: 'Melee' as Range,
+  /** Step 4 asks, and physical is where the sheet starts rather than a guess. */
+  damageType: 'phy' as const,
   experiences: 2,
   experienceBonus: 2,
 } as const;
@@ -59,6 +61,7 @@ export function newCompanion(name: string, description: string): CompanionState 
     stress: { marked: 0, max: COMPANION_START.stressSlots },
     damage: COMPANION_START.damage,
     range: COMPANION_START.range,
+    damageType: COMPANION_START.damageType,
     experiences: Array.from({ length: COMPANION_START.experiences }, () => ({
       id: crypto.randomUUID(),
       name: '',

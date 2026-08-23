@@ -31,8 +31,9 @@
  * A format whose own bytes say whether they arrived intact cannot be adopted
  * wrongly.
  *
- * THREE DELIBERATE LOSSES. The first two are of local handles rather than of
- * content; the third is of a count, and it is the only one a player can notice:
+ * FOUR DELIBERATE LOSSES. The first two are of local handles rather than of
+ * content; the last two are of a choice and a count, and are the ones a player
+ * can notice:
  *
  *   - `Experience.id` is not carried. It is a React key, meaningless off this
  *     device, and three of them would cost 48 bytes - a third of the whole
@@ -42,6 +43,13 @@
  *   - a level-up's trait pair is stored in the order it was picked, but the
  *     rules treat it as a set; anything the compact encoding cannot express
  *     exactly escapes to JSON instead of being approximated.
+ *   - a companion's `damageType` is not carried, and decodes as `phy`. Folio
+ *     18 asks the player to "choose whether they deal physical or magic
+ *     damage", and one bit of that answer is what a QR loses. It is the same
+ *     trade as the rest count below and it is made the same way: the format
+ *     number this would need is 4, for the reason set out there, and a phone
+ *     that has not updated would stop being able to receive ANY sheet - not
+ *     just a Ranger's - in exchange for one bit about one subclass.
  *   - `consecutiveShortRests` is not carried, and decodes as 0. It is one
  *     varint in 0..3 and its cost is not the byte: putting it on the wire
  *     needs a new format number, and the next one is 3. `adversarial.test.ts`
@@ -55,9 +63,10 @@
  *
  * What that costs, said plainly rather than left to be discovered: a sheet
  * handed over by QR arrives having counted no rests, so the receiving device
- * may offer a short rest the sending table already spent. The `.dhchar` and
- * `.dhbackup` paths carry it exactly, and any screen that shows the count owes
- * the reader the difference between "none counted" and "none taken".
+ * may offer a short rest the sending table already spent, and a companion who
+ * dealt magic damage arrives dealing physical. The `.dhchar` and `.dhbackup`
+ * paths carry both exactly, and any screen that shows the count owes the reader
+ * the difference between "none counted" and "none taken".
  *
  * Everything else round-trips exactly, including `unresolvedRefs`: a device
  * that could not name a card still forwards its id intact, so passing a sheet
@@ -596,6 +605,14 @@ function writeBody(c: Character, registry: Registry, options: EncodeOptions): Ui
   return w.done();
 }
 
+/**
+ * A companion, minus one bit. See the fourth deliberate loss at the top.
+ *
+ * `damageType` is not written and decodes as `phy`. Carrying it needs a new
+ * format number, and the note above says which one that would have to be and
+ * what it would cost; a single bit is not worth new phones becoming unreadable
+ * by old ones. The `.dhchar` and `.dhbackup` paths carry it exactly.
+ */
 function writeCompanion(w: Writer, companion: CompanionState): void {
   w.str(companion.name);
   w.str(companion.description);
@@ -626,7 +643,19 @@ function readCompanion(r: Reader): CompanionState {
   }
   const upgrades: string[] = [];
   for (let n = r.varint(); n > 0; n--) upgrades.push(r.str());
-  return { name, description, evasion, stress, damage, range, experiences, upgrades };
+  // Physical, because nothing on the wire says otherwise and physical is what
+  // every companion in this app dealt before the field existed.
+  return {
+    name,
+    description,
+    evasion,
+    stress,
+    damage,
+    range,
+    damageType: 'phy',
+    experiences,
+    upgrades,
+  };
 }
 
 /**

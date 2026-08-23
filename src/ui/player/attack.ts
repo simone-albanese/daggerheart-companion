@@ -70,7 +70,13 @@ export type AttackSource =
       trait: Trait;
       damage: DamageDice;
     }
-  | { kind: 'companion'; name: string; damage: DamageDice };
+  | {
+      kind: 'companion';
+      name: string;
+      damage: DamageDice;
+      /** Their own, from the sheet: folio 18 asks the player to choose it. */
+      damageType: 'phy' | 'mag';
+    };
 
 /**
  * What the next attack is declared with, before the dice.
@@ -426,17 +432,25 @@ export const sourceName = (source: AttackSource): string =>
  * A weapon carries its own answer and it is read rather than guessed: 70 of the
  * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
  * than a third of the time. A spell is the sentence's other half and is magic.
- * The rest take the default, and only one of them is a guess. An unarmed attack
- * is physical by the sentence above. A Beastform's is physical because the
- * dataset cannot hold anything else: `shared/parsers/beastforms.ts` refuses a
- * form whose attack line reads `mag` outright - *"magic beastform attack has
- * nowhere to go in Beastform"* - so `phy` here is guarded upstream rather than
- * assumed. A companion's is the Ranger's beast biting something, and that one
- * IS a guess: folio 18 asks the player to *"choose whether they deal physical
- * or magic damage"* and the sheet has no field for the answer yet.
+ * A companion carries its own answer too, and that one used to be a guess. This
+ * branch returned `phy` for every companion under a comment calling it the
+ * SRD's default - true of an unarmed attack, and never true of this sheet,
+ * where folio 18 asks the player outright to *"choose whether they deal
+ * physical or magic damage"*. The sheet has the field now and it is read.
+ *
+ * The two that state nothing take the default and only one of them could have
+ * been wrong. An unarmed attack is physical by the sentence above. A
+ * Beastform's is physical because the dataset cannot hold anything else:
+ * `shared/parsers/beastforms.ts` refuses a form whose attack line reads `mag`
+ * outright - *"magic beastform attack has nowhere to go in Beastform"* - so
+ * `phy` there is guarded upstream rather than assumed.
  */
 export const damageTypeOf = (source: AttackSource): 'phy' | 'mag' =>
-  source.kind === 'weapon' ? source.damageType : source.kind === 'spellcast' ? 'mag' : 'phy';
+  source.kind === 'weapon' || source.kind === 'companion'
+    ? source.damageType
+    : source.kind === 'spellcast'
+      ? 'mag'
+      : 'phy';
 
 /**
  * Every number that went into the total, in the order it was added.

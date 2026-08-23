@@ -71,6 +71,9 @@ export const OLDEST_READABLE = 3;
  * dull: the policy is proved by a converter existing on the day of the bump,
  * committed beside `tests/fixtures/schema/v3.dhchar` - bytes written by the
  * schema-3 build, never regenerated - not by the converter being clever.
+ *
+ * The second is duller still, and that is the point twice over: both of them
+ * seed a field with the value the older build already behaved as if it had.
  */
 export const MIGRATIONS: readonly Migration[] = [
   {
@@ -87,6 +90,30 @@ export const MIGRATIONS: readonly Migration[] = [
      * hand-edited file gets to decide what the schema means.
      */
     apply: (r) => ({ ...r, consecutiveShortRests: 0 }),
+  },
+  {
+    from: 4,
+    note: 'a companion records whether their damage is physical or magic, starting physical',
+    /*
+     * Physical, because that is what every schema-4 sheet already meant.
+     *
+     * `damageTypeOf` answered `phy` for every companion there has ever been,
+     * so a schema-4 companion has been dealing physical damage at every table
+     * that used this app. Seeding anything else here would be inventing a
+     * choice the player never made and changing a number they had already read
+     * off the screen.
+     *
+     * It reaches into `companion` rather than adding a top-level key, and it
+     * leaves a sheet with no companion exactly as it found it - a Wizard does
+     * not acquire an empty animal by being read.
+     */
+    apply: (r) => {
+      const companion = r['companion'];
+      if (companion === null || typeof companion !== 'object' || Array.isArray(companion)) {
+        return r;
+      }
+      return { ...r, companion: { ...(companion as Record<string, unknown>), damageType: 'phy' } };
+    },
   },
 ];
 
