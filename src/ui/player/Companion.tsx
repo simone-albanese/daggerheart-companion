@@ -283,8 +283,12 @@ export function CompanionPanel({ stats, layout, arming }: PanelProps): React.JSX
        * do the first, which is the shape `BACKLOG.md` P1-1 left open.
        *
        * It stays a `<div>` where no roll is mounted rather than becoming a
-       * disabled button: the GM's board and the print preview show a companion
-       * as a fact, and a dead control is worse than none.
+       * disabled button, because a dead control is worse than none. In `src/`
+       * that case does not arise today - `Vitals` is the only thing that draws
+       * this and it always has a roll behind it - so what the branch is really
+       * for is the tests that mount this panel alone. Said plainly rather than
+       * dressed up: an earlier version of this note named the GM's board and
+       * the print preview, and neither of them mounts this component.
        *
        * The damage die is free text, so it can be something no one can roll.
        * When it is, the panel says so rather than printing the unmultiplied

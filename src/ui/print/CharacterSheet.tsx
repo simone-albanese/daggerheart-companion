@@ -379,9 +379,11 @@ export function CharacterSheet({
             </li>
             <li>
               <span>Stress</span>
-              <span className="dhc-block-name">
-                {'☐'.repeat(Math.max(0, sheet.companion.stressSlots))}
-              </span>
+              {/* `TickRow`, like every other track on this page: an SVG of
+                  outlined boxes. A row of `☐` would depend on the print font
+                  covering U+2610 and would print as tofu where it does not -
+                  and this page is the one artefact nobody can tap to check. */}
+              <TickRow kind="stress" count={Math.max(0, sheet.companion.stressSlots)} />
             </li>
           </ul>
 
@@ -393,7 +395,7 @@ export function CharacterSheet({
                 <span className="dhc-block-name">{modifier(e.bonus)}</span>
               </li>
             ))}
-            {blanks(Math.max(0, 2 - sheet.companion.experiences.length), (i) => (
+            {blanks(sheet.companion.experienceLines - sheet.companion.experiences.length, (i) => (
               <li className="dhc-write" key={`companion-blank-${i}`}>
                 <span className="dhc-rule" />
                 <span className="dhc-box" />
@@ -412,10 +414,13 @@ export function CharacterSheet({
           <div className="dhc-two">
             {sheet.companion.upgrades.map((u) => (
               <div className="dhc-block" key={u.id}>
+                {/* Name on the left, state on the right - the Features section's
+                    own shape, two sections down. A `☑` would be a filled glyph
+                    on a page whose stylesheet opens by saying it draws outlines
+                    and never fills, and it would depend on the print font. */}
                 <div className="dhc-block-head">
-                  <span className="dhc-block-name">
-                    {u.marked ? '☑' : '☐'} {u.name}
-                  </span>
+                  <span className="dhc-block-name">{u.name}</span>
+                  {u.marked && <span className="dhc-meta">Taken</span>}
                 </div>
                 <div className="dhc-text">{u.text}</div>
               </div>

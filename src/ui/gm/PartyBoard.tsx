@@ -499,6 +499,22 @@ function Row({
  *
  * Evasion leads because it is what the GM needs: it is the number an attack is
  * rolled against, and it is not the Ranger's.
+ *
+ * NOTHING HERE MAY ASSUME A FIELD IS PRESENT, AND THAT IS NOT DEFENSIVENESS -
+ * IT IS WHERE THESE SHEETS COME FROM. A campaign record holds whole copies of
+ * the players' sheets, and `readPartyMember` in `shared/campaigns.ts` casts the
+ * stored object straight to `Character`: the character migration chain never
+ * runs on it. So a board saved before a schema bump hands this component a
+ * sheet from the *previous* schema, with whatever that schema did not have
+ * missing. `damageType` arrived in schema 5 and `companion.damageType
+ * .toUpperCase()` threw on every such row - taking the whole board down on
+ * first render, which is the one failure `readPartyMember`'s own docblock
+ * exists to prevent.
+ *
+ * So this reads by comparison and never by method call, the way
+ * `CompanionPanel` already does. The general problem is bigger than this line
+ * and is written up in the audit: every future character-schema field has the
+ * same hazard here.
  */
 function CompanionLine({
   sheet,
@@ -526,8 +542,8 @@ function CompanionLine({
       <span style={{ color: away ? 'var(--stress)' : 'var(--text-2)', fontWeight: 600 }}>
         {companion.evasion}
       </span>{' '}
-      · {attack === null ? 'NO DIE' : attack.spec} {companion.range.toUpperCase()}{' '}
-      {companion.damageType.toUpperCase()} · STRESS {companion.stress.marked}/
+      · {attack === null ? 'NO DIE' : attack.spec} {String(companion.range).toUpperCase()}{' '}
+      {companion.damageType === 'mag' ? 'MAG' : 'PHY'} · STRESS {companion.stress.marked}/
       {companion.stress.max}
       {away && ' · OUT OF THE SCENE'}
     </span>

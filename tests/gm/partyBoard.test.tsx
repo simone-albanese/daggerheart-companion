@@ -238,7 +238,10 @@ describe('a companion on the board', () => {
   it('draws nothing for a sheet with no companion', () => {
     put(sheet('a', 'Marek'));
     board();
-    expect(text()).not.toContain('EVASION 1');
+    // The companion line is the only thing on this board that writes STRESS as
+    // `n/n`; the character's own Stress is a `Pill`. Asserting on the absence
+    // of a name would pass for a sheet whose companion simply had none.
+    expect(text()).not.toMatch(/STRESS \d+\/\d+/);
     expect(text()).not.toContain('ASHFOOT');
   });
 
@@ -270,5 +273,39 @@ describe('a companion on the board', () => {
     board();
     expect(text()).toContain('STRESS 2/3');
     expect(text()).not.toContain('OUT OF THE SCENE');
+  });
+});
+
+/**
+ * A sheet from the schema before this one, which is what a saved board holds.
+ *
+ * `readPartyMember` casts the stored object straight to `Character` - the
+ * character migration chain never runs on a campaign's copies - so a board
+ * saved before a field existed hands this screen a sheet without it. When
+ * `damageType` arrived in schema 5 the board called `.toUpperCase()` on it and
+ * every GM with a Beastbound Ranger already on the board lost the whole board
+ * on first render, which is the exact failure `readPartyMember`'s own docblock
+ * is written to prevent.
+ */
+describe('a party row saved by an older schema', () => {
+  const legacy = (): Character => {
+    const companion = { ...newCompanion('Ashfoot', 'A grey wolf') } as Record<string, unknown>;
+    // Precisely what schema 4 wrote: everything else, and no damage type.
+    delete companion['damageType'];
+    return { ...sheet('legacy', 'Wren'), companion } as unknown as Character;
+  };
+
+  it('draws the row instead of taking the board down', () => {
+    put(legacy());
+    board();
+    expect(text()).toContain('Wren');
+    expect(text()).toContain('ASHFOOT');
+  });
+
+  it('reads the missing type as physical, the way every older sheet behaved', () => {
+    put(legacy());
+    board();
+    expect(text()).toContain('PHY');
+    expect(text()).not.toContain('MAG');
   });
 });

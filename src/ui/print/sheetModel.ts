@@ -196,6 +196,16 @@ export interface SheetCompanion {
   range: string;
   damageType: 'phy' | 'mag';
   experiences: Experience[];
+  /**
+   * Ruled lines to draw for them, held ones plus blanks.
+   *
+   * The same number as the character's, and derived rather than typed for the
+   * same reason `EXPERIENCE_LINES` is: *"whenever you gain a new Experience,
+   * your companion also gains one"*, so the two lists grow together and a rules
+   * change has to move both. This was a literal `2` for one commit, which is
+   * precisely what the note over `EXPERIENCE_LINES` says not to write.
+   */
+  experienceLines: number;
   /** Every option the dataset carries, with the ones this sheet has marked. */
   upgrades: Array<{ id: string; name: string; text: string; marked: boolean }>;
   /** Boxes earned so far. A readout on paper as much as on glass. */
@@ -270,6 +280,7 @@ function printedCompanion(
     range: companion.range,
     damageType: companion.damageType,
     experiences: companion.experiences,
+    experienceLines: Math.max(EXPERIENCE_LINES, companion.experiences.length),
     upgrades: companionUpgrades(dataset.rules).map((u) => ({
       ...u,
       marked: companion.upgrades.includes(u.id),

@@ -56,8 +56,13 @@ interface Props {
    * from `Equipped`, and that is the point of threading it this far: the player
    * switched to COMPANION because they are operating the animal, and sending
    * them to another section to arm its bite would split one action across two
-   * places. Optional, because the GM's board and the print preview mount this
-   * component with no roll behind it.
+   * places.
+   *
+   * Optional because the tests mount this component and `CompanionPanel` on
+   * their own, and for no better reason than that. Every place in `src/` that
+   * draws it - both of them, in `Play.tsx` - passes it. The first version of
+   * this note claimed the GM's board and the print preview mount it without a
+   * roll; neither mounts it at all.
    */
   arming?: Arming;
 }

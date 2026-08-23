@@ -275,3 +275,28 @@ describe('dropping out on the last Hit Point', () => {
     expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
   });
 });
+
+/**
+ * The edge is the mark, and not the gap closing.
+ *
+ * `syncCounters` writes `hp.max` from the derived maximum and clamps `marked`
+ * to it, so a maximum that falls onto a mark already there makes the track full
+ * without anybody having marked anything. The first version of this rule asked
+ * whether the track had *become* full and fired on exactly that.
+ */
+describe('a maximum that drops is not a Hit Point being marked', () => {
+  const worn = { ref: 'nimble-grazer', activatedAt: '2026-08-23T00:00:00.000Z' };
+
+  it('keeps the form when hp.max falls onto the marks, marking nothing', () => {
+    const before = druid({ hp: { marked: 5, max: 8 }, beastform: worn });
+    // What `syncCounters` would write if the derived maximum became 5.
+    const after = { ...before, hp: { marked: 5, max: 5 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
+  });
+
+  it('still drops it when a mark is what filled the track', () => {
+    const before = druid({ hp: { marked: 4, max: 5 }, beastform: worn });
+    const after = { ...before, hp: { marked: 5, max: 5 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toBeNull();
+  });
+});

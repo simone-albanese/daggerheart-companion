@@ -533,15 +533,40 @@ describe('the companion page', () => {
     expect(companion.allowance).toBe(4);
   });
 
-  it('reaches the page, with the marked box ticked and the others not', () => {
+  it('reaches the page, saying which options were taken', () => {
     const html = renderToStaticMarkup(
       createElement(CharacterSheet, { sheet: printed() }),
     );
     expect(html).toContain('Ashfoot');
     expect(html).toContain('A grey wolf');
     expect(html).toContain('Nobody left behind');
-    expect(html).toContain('☑ Vicious');
-    expect(html).toContain('☐ Bonded');
+    expect(html).toContain('Vicious');
+    expect(html).toContain('Bonded');
+  });
+
+  it('marks the taken option in the page’s own shape, not with a glyph', () => {
+    // `☑`/`☐` were the first version and are wrong twice: the stylesheet opens
+    // by saying it draws outlines and never fills, and a ballot glyph prints as
+    // tofu wherever the print font does not carry U+2610. The Features section
+    // two blocks down already puts a name on the left and a `dhc-meta` on the
+    // right, so that is the shape.
+    const html = renderToStaticMarkup(createElement(CharacterSheet, { sheet: printed() }));
+    expect(html).not.toContain('☑');
+    expect(html).not.toContain('☐');
+    // `Vicious` is the marked one; `Bonded` is not.
+    const vicious = html.slice(html.indexOf('>Vicious<'));
+    expect(vicious.slice(0, 200)).toContain('Taken');
+    const bonded = html.slice(html.indexOf('>Bonded<'));
+    expect(bonded.slice(0, 200)).not.toContain('Taken');
+  });
+
+  it('rules as many Experience lines as the companion can ever have', () => {
+    // Not a literal 2. They gain one at every tier achievement, exactly as the
+    // character does, so the number is the same derivation - which is what the
+    // note over `EXPERIENCE_LINES` asks for.
+    const sheet = printed();
+    expect(sheet.companion?.experienceLines).toBe(sheet.experienceLines);
+    expect(sheet.companion?.experienceLines).toBeGreaterThan(2);
   });
 
   it('is on the page even for a Druid mid-transformation, unlike the Beastform', () => {

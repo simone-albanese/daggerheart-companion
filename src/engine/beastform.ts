@@ -138,6 +138,17 @@ export function leaveBeastform(c: Character): Character {
  * a level-triggered version of this would strip the form off them on the next
  * write and never say why. So it needs both sides, and takes them.
  *
+ * AND THE EDGE IS THE MARK, NOT THE GAP CLOSING. The first version asked
+ * whether the track had *become* full - `before.marked < before.max &&
+ * after.marked >= after.max` - which is true of a mark and also true of a
+ * maximum that dropped onto a mark already there. `syncCounters` writes
+ * `hp.max` from the derived maximum and clamps `marked` to it, so a dataset
+ * reload that lowers a class's starting Hit Points would have dropped a Druid
+ * out of their form and written "Last Hit Point marked" into the log, which
+ * would have been a false sentence about something nobody did. Asking whether
+ * `marked` went UP covers every real route - the damage calculator, the pips,
+ * a Stress that overflowed - and covers no other.
+ *
  * Every route that marks Hit Points goes through the store's one `update`: the
  * damage calculator, the pips on the track, and a Stress mark that overflowed -
  * including the Stress that paid for the transformation itself, which is how a
@@ -145,6 +156,7 @@ export function leaveBeastform(c: Character): Character {
  */
 export function dropFormOnLastHitPoint(before: Character, after: Character): Character {
   if (after.beastform === null) return after;
-  const fell = before.hp.marked < before.hp.max && after.hp.marked >= after.hp.max;
+  const marked = after.hp.marked > before.hp.marked;
+  const fell = marked && after.hp.marked >= after.hp.max;
   return fell ? leaveBeastform(after) : after;
 }

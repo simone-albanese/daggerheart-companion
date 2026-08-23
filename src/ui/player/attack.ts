@@ -375,6 +375,17 @@ export function companionSource(
 }
 
 /**
+ * A stable empty list, so a sheet with nobody to spend Hope on does not hand
+ * its readers a new array on every render.
+ *
+ * `DualityRoll` memoises the armed subset on `[experiences, armedExperiences]`,
+ * and a fresh `[]` from each call makes that memo recompute forever. The
+ * constant used to live there, guarding `character?.experiences ?? []`; the
+ * nullish branches are here now, so it is.
+ */
+const NO_EXPERIENCES: Experience[] = [];
+
+/**
  * Whose Experiences a roll is declared with.
  *
  * *"Make a Spellcast Roll to connect with your companion and command them to
@@ -396,9 +407,9 @@ export function experiencesFor(
   character: Character | null,
   source: AttackSource | null,
 ): Experience[] {
-  if (character === null) return [];
+  if (character === null) return NO_EXPERIENCES;
   return source?.kind === 'companion'
-    ? (character.companion?.experiences ?? [])
+    ? (character.companion?.experiences ?? NO_EXPERIENCES)
     : character.experiences;
 }
 
