@@ -15,10 +15,10 @@ scritto niente nel repo, per costruzione.
 |---|---|---|
 | `whwey9un7` | `wf_226cd659-47e` | verifica avversariale dell'audit del branch |
 | `w8d0fulms` | `wf_6a80a4c1-7a8` | **FINITO** — le quattro voci di §6. Piano in `docs/handoff/BACKLOG-PLAN-2026-08-23.md` |
-| `wzcrewqda` | `wf_d5464f24-a49` | Core Book, scene, sezione regole, domanda locale |
+| `wzcrewqda` | `wf_d5464f24-a49` | **FINITO** — progetto in `docs/handoff/PROGETTO-GM-2026-08-23.md`, con 9 domande in coda |
 
-`w8d0fulms` è atterrato prima della fine della sessione: 24 agenti, 0 errori, il suo piano è
-committato nel repo e non va recuperato. Gli altri due sì.
+Due dei tre sono atterrati e i loro risultati sono **committati nel repo**, non da recuperare:
+`w8d0fulms` (24 agenti) e `wzcrewqda` (13 agenti). Resta `whwey9un7`.
 
 ### NON SI POSSONO RIPRENDERE. SI POSSONO SOLO LEGGERE.
 
