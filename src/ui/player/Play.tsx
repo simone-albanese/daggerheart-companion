@@ -84,6 +84,7 @@ import {
   type Declaration,
 } from './attack.ts';
 import { Beastform } from './Beastform.tsx';
+import { DicePools, usePoolsFor } from './DicePools.tsx';
 import { ActiveConditions, ConditionsControl } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 import { DualityRoll, ExperienceRow, type RollTrait } from './DualityRoll.tsx';
@@ -2667,6 +2668,16 @@ function PlayDesktop({
           <div className="t-label">Features</div>
           <FeatureList stats={stats} />
         </div>
+        {/*
+         * The dice pools, for the three archetypes that have one.
+         *
+         * Renders nothing at all for everyone else - a Ranger has no pool and
+         * must not be charged a heading for a Seraph's dice. In this column
+         * rather than the middle one because it is read and pressed between
+         * rolls rather than during one, and because this is the column that
+         * scrolls.
+         */}
+        <DicePools stats={stats} />
         {/* Last, and in this column rather than one of the other two, because
             this column is the one that scrolls: a fold measuring about 990px
             open costs the cockpit nothing here and would cost it everything
@@ -3240,6 +3251,13 @@ function PlayPhone({
   const [experiencesOpen] = usePlaySection(folded, 'experiences');
   const [cardsOpen] = usePlaySection(folded, 'cards');
   const [restOpen] = usePlaySection(folded, 'rest');
+  /*
+   * Whether this character has a dice pool at all, read here because it is a
+   * hook and this is above the `!character` guard. It is the gate on a fold
+   * that is drawn for three archetypes and nobody else - see the note beside
+   * the fold itself for what it costs the column when it IS drawn.
+   */
+  const pools = usePoolsFor(stats);
 
   if (!character) return <div />;
 
@@ -3690,6 +3708,35 @@ function PlayPhone({
        * do is go quiet about one.
        */}
       <ActiveConditions onlyWhenOn />
+
+      {/*
+       * THE DICE POOLS, AND THEY ARE THE SECOND FOLD IN THIS COLUMN THAT IS
+       * DRAWN ONLY WHEN THERE IS SOMETHING IN IT.
+       *
+       * The conditions are the precedent and the arithmetic is theirs: a fold
+       * is a 44px header plus this column's 8px gap, so this costs **52px** to
+       * the three archetypes that have a pool - a Bard, a Seraph, a Warrior who
+       * took Call of the Slayer - and **nothing at all** to everybody else,
+       * because `DicePools` returns null and this block is not rendered.
+       *
+       * The 52 matters and is stated rather than absorbed. `playSheet.test.tsx`
+       * holds the whole folded sheet to 532px against 545 of column at 375x667,
+       * which is thirteen pixels of slack: a Bard on a small phone is 39px over
+       * it and scrolls for the last fold. That is a real cost of the feature and
+       * it lands on a screen that already scrolls, which is why it is affordable
+       * where a 52px charge on EVERY sheet would not have been. The fold index
+       * in that file carries the same note.
+       */}
+      {pools.length > 0 && (
+        <Disclosure
+          id="pools"
+          characterId={character.id}
+          label="Dice pools"
+          summary={pools.map((p) => `${p.name.toUpperCase()} d${String(p.sides)}`).join(' · ')}
+        >
+          <DicePools stats={stats} />
+        </Disclosure>
+      )}
 
       <Disclosure
         id="lineage"

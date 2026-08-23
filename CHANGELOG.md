@@ -12,6 +12,57 @@ before the one below.
 
 ---
 
+## 0.5.0 — 2026-08-23
+
+### Rally, Prayer and Slayer Dice are a pool now, not a guess
+
+The app had a tray: pick a die size by hand, hold it, arm it into a Duality
+Roll. Its own docblock said it was deliberately not an inventory — "knowing
+which feature gives which die is reading the feature text" — and for a die
+somebody hands you that is still exactly right, so the tray is unchanged. What
+it could not do is hold a **pool**, and three features in the book hand one out.
+
+- **It knows how many.** A Seraph's Prayer Dice are *"a number of d4s equal to
+  your subclass's Spellcast trait"*; a Slayer's cap is their Proficiency. Both
+  come off the sheet instead of being counted by the player.
+- **It knows how big.** A Rally Die is a d6, **a d8 from level 5**, and **a d10**
+  for a Wordsmith holding *Epic Poetry* — gated on the mastery card actually
+  being taken, not on the level.
+- **It can hold a face**, which is the one Prayer Dice cannot do without: they
+  are rolled at the start of a session and sit on the sheet showing what they
+  came up, and you spend a die whose number you already know.
+- **Both roads to that face.** The app rolls it, or you type what your own dice
+  showed — a table that rolls physical dice is not a table that wants an app to
+  roll for it. A d6 refuses a 9.
+- **Divine Wielder's *Devout* is applied**: *"roll an additional die and discard
+  the lowest result"* is arithmetic, so the app does it when the app rolls.
+- **The end of a session finally exists.** All three features say to clear the
+  unspent dice and nothing in this app had ever done it. The Slayer's pays for
+  it — *"gain a Hope per die cleared"* — and the button says how much before it
+  is pressed.
+
+**It asks whose sheet it is about before it writes anything.** Prayer Dice are
+spent *"to aid yourself **or an ally within Far range**"*, so *"gain Hope equal
+to the result"* is only sometimes about the character this device is holding. An
+app that added the Hope to the sheet in front of it would be writing the wrong
+one every time the die was for somebody else, silently. So the spend sheet asks
+first, and the ally branch applies **nothing** — it shows the number to read out
+loud. A Rally Die and a Slayer Die are yours by the rules and are not asked
+about.
+
+The section is drawn **only for a character who has a pool**: a Ranger is not
+charged a fold for a Seraph's dice. When it is drawn it costs the phone column
+52px, which takes a Bard on a 375×667 phone 39px past the whole-sheet fit — a
+scroll on a screen that already scrolls, paid only by the three archetypes that
+have the feature. `playSheet.test.tsx` states both halves rather than absorbing
+either.
+
+As with the modifier register, nothing here reads a feature's text: the pools
+are a hand-authored register keyed on ref and feature name, and a test walks the
+dataset against it in both directions.
+
+---
+
 ## 0.4.0 — 2026-08-23
 
 Deployed as it was written, like 0.3.0 before it. The version moved for one

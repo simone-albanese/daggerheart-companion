@@ -16,9 +16,11 @@
  * two characters on one device do not share a Rally Die.
  */
 import { create } from 'zustand';
+import { DIE_SIZES, type DieSize } from '../../engine/dice.ts';
 
-export const DIE_SIZES = [4, 6, 8, 10, 12] as const;
-export type DieSize = (typeof DIE_SIZES)[number];
+// Re-exported rather than redeclared: the tray offers exactly the sizes the
+// rules use, and `engine/dice.ts` is where that list lives now.
+export { DIE_SIZES, type DieSize };
 
 export interface HeldDie {
   id: string;

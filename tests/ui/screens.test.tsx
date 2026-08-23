@@ -113,6 +113,7 @@ import {
   Stat,
 } from '../../src/ui/gm/StatBlock.tsx';
 import { Beastform } from '../../src/ui/player/Beastform.tsx';
+import { DicePools } from '../../src/ui/player/DicePools.tsx';
 import { Cards } from '../../src/ui/player/Cards.tsx';
 import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions, ConditionsControl } from '../../src/ui/player/Conditions.tsx';
@@ -784,6 +785,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'player/Play.tsx::Play': () => <Play stats={stats()} />,
   // The real dice, as `Play.tsx` passes them: this fixture only draws the
   // closed fold, and a rest that has not been committed never asks for one.
+  'player/DicePools.tsx::DicePools': () => <DicePools stats={stats()} />,
   'player/Rest.tsx::Rest': () => <Rest stats={stats()} rng={cryptoRng} />,
   'player/Vitals.tsx::Vitals': () => <Vitals stats={stats()} layout="desktop" />,
   // The desktop row, because the `band` variant is two children of a grid

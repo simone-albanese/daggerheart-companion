@@ -7,6 +7,18 @@
 /** Returns an integer in [1, sides]. */
 export type Rng = (sides: number) => number;
 
+/**
+ * The faces a die in this game has, and the only sizes anything may hold.
+ *
+ * It lives here rather than beside either of its two readers because there are
+ * two: `ui/player/heldDice.ts`, the tray a player hand-picks a die into, and
+ * `engine/dicePools.ts`, which reads the size a feature actually grants. One
+ * list, so a Rally Die that grows to a d10 and a tray that offers a d10 cannot
+ * disagree about what sizes exist.
+ */
+export const DIE_SIZES = [4, 6, 8, 10, 12] as const;
+export type DieSize = (typeof DIE_SIZES)[number];
+
 export const cryptoRng: Rng = (sides) => {
   // Rejection sampling keeps the distribution flat; a plain modulo would bias
   // low faces for sides that do not divide 2^32.
