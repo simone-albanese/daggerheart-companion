@@ -16,7 +16,14 @@ si possono riprendere ma solo leggere. Poi §2 (stato misurato), §6 (il pericol
 
 Le sei cose da sapere subito:
 
-1. **TRE WORKFLOW SONO STATI LASCIATI GIRARE, E NON SI POSSONO RIPRENDERE.** `resumeFromRunId`
+0. **UNO DEI TRE WORKFLOW È GIÀ ATTERRATO E IL SUO RISULTATO È NEL REPO.**
+   `wf_6a80a4c1-7a8` (handoff §6) ha finito: 24 agenti, 0 errori. Il piano completo è
+   **`docs/handoff/BACKLOG-PLAN-2026-08-23.md`**, committato. Il giro di confutazione che
+   mancava alle 10 voci `[NON verificato]` **è stato fatto**: 7 giudicate spuntabili, 3 restano
+   aperte, e **nessuno dei 30 verdetti `[retto]` è scaduto**. Non serve leggerne il journal se
+   non per i dettagli per-agente. Gli altri due restano da recuperare come al punto 1.
+
+1. **GLI ALTRI DUE WORKFLOW NON SI POSSONO RIPRENDERE.** `resumeFromRunId`
    vale solo nella stessa sessione. Quello che resta è su disco, ed è quasi tutto: in
    `~/.claude/projects/-Users-simonealbanese-Documents-Daggerheart-Companion/b9563823-72a2-4816-be80-b8e823d1a7e4/subagents/workflows/<runId>/`
    c'è **`journal.jsonl`**, che registra il valore di ritorno di ogni agente, e le trascrizioni
