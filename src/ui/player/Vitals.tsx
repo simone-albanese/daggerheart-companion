@@ -164,38 +164,53 @@ export function Vitals({
        * was 428x245: `.panel` border 2, padding 12 twice, three 48px track rows
        * (a 10px `.t-label`, its 6px margin, a 32px pip row), three 10px panel
        * gaps, and 45 for the damage box below (1px hairline, 10px of padding,
-       * `--control` at 34). It is **428x183** - 2 + 24 + 48 + 6 + 48 + 10 + 45,
-       * measured in Chrome at 1280x800 - so **62px go back** to `DualityRoll`,
-       * the only other child of that column, which is `flex: 1, minHeight: 0,
-       * overflow: hidden` and is the panel this repo has already measured
-       * crushed to 45px at 744x1133.
+       * `--control` at 34). It is **428x211** - 2 + 24 + 62 + 6 + 62 + 10 + 45 -
+       * so **34px go back** to `DualityRoll`, the only other child of that
+       * column, which is `flex: 1, minHeight: 0, overflow: hidden` and is the
+       * panel this repo has already measured crushed to 45px at 744x1133.
        *
-       * (It was 175, and the eight pixels are `--counter-cell`'s step at 390,
-       * which every cockpit width answers. `Counter`'s cell height is one
-       * constant for both layouts and the desktop follows it: a height prop
-       * here would leave the cockpit clipping a 26px number by a pixel, and
-       * taking 8 out of the 70 this block already gave away is the smaller
-       * lie.)
+       * (It was 428x183 and 62px back for one pass, while the cockpit still
+       * drew the two-line row in a 48px cell. The card takes 28 of those 62
+       * and the reason is the next paragraph.)
+       *
+       * ONE SHAPE NOW, AND THE 28 IS WHAT IT COST. The owner asked for the two
+       * layouts to agree - «va uniformato con lo stile del mobile per coerenza»
+       * - and named the thing they were rejecting: «non con più e meno affianco
+       * alla statistica», which is exactly what the two-line row was. So there
+       * is no `tall` prop and no second branch in `Counter`; what is left of the
+       * difference lives entirely in `tokens.css`, which steps `--counter-cell`
+       * to 62 and `--counter-num` to 26 at 1180.
+       *
+       * THE PHONE'S OWN 90 WAS THE OTHER OPTION AND IT WAS REFUSED, WITH THE
+       * ARITHMETIC. At `--counter-cell: 90` the block is 186 against 102 and the
+       * panel 428x267, so **84** come out of `DualityRoll` rather than 28.
+       * Against the panel clients recorded at `DualityRoll.tsx:2100` that puts
+       * ROLL at painted 0 of 54 at 1180x695 and 1366x768 in both banner states,
+       * and at 1280x800 with the backup banner up - a default state of a fresh
+       * install. It is a scroll rather than P2-1's unreachable ROLL, because the
+       * panel is `.scroll` now; but that scroll was argued as the floor beneath
+       * a fit, not as budget. The owner asked for the mobile STYLE, and the
+       * style is the shape - the card, the steppers at the outer edges, the
+       * number on a line of its own - not the height a thumb at arm's length
+       * needs and a mouse at desk distance does not.
        *
        * WHAT A COCKPIT CELL IS. The middle column is `minmax(360px, 428px)` and
        * takes its 428 at every width the cockpit is drawn at: 1180 less 40 of
        * root padding and 36 of gaps is 1104, less column one's 336, leaves 340
        * for the `1fr`. Inner width is 428 - 2 - 24 = 402, so a cell is
-       * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 4 - 4 =
-       * **102x48** - the steppers grew in height only, so this width did not
-       * move. Less `padding: 0 5px` and 2px of border that is 90px of room for
-       * a **65.63px** value line: `11 / 11` at `--counter-num`'s 26 over
-       * `--counter-max`'s 10, measured in Chrome at 1280x800 with the
-       * `wizard10` fixture at full Hit Points, so 24.37 of slack. (It was 68.94
-       * over an 11px maximum, and the 11 was the 390 step, which the card gave
-       * up: the cockpit answers `min-width: 390` too, so it was taking a phone's
-       * maximum by accident and now takes the base 10 on purpose. The phone's
-       * own slack is no longer comparable to this one - there the two lines are
-       * stacked, and the widest is 47.64 of 73.5.) The steppers
-       * stay at `Counter`'s 44 of width rather than following `--control` down
-       * to 34, for the reason `tokens.css` gives beside `--pip-h`: a
-       * touchscreen laptop at 1180px and up reports `pointer: fine` with a
-       * finger on the glass.
+       * (402 - 6) / 2 = **198** and the value target is 198 - 44 - 44 - 2 =
+       * **108x62** - the card deleted the two 4px gutters and put its own 1px
+       * border in their place, so the number gained six pixels of width in the
+       * same cell. Less `padding: var(--counter-pad) 9px` that is 90px of room,
+       * the same 90 the two-line row had, against a widest stacked line of `11`
+       * at `--counter-num`'s 26. The three lines are 3 + 13 + 2 + 26 + 2 + 10 + 3
+       * = 59, 61 with the border, in the 62 the token declares. (`65.63` for
+       * `11 / 11` on one line was the retired row's measurement at 1280x800 with
+       * the `wizard10` fixture; stacked, the widest line is shorter and the
+       * height is what is tight instead.) The steppers stay at `Counter`'s 44 of
+       * width rather than following `--control` down to 34, for the reason
+       * `tokens.css` gives beside `--pip-h`: a touchscreen laptop at 1180px and
+       * up reports `pointer: fine` with a finger on the glass.
        *
        * READ VERSUS TOUCH, AND WHAT THE COCKPIT LOSES. The readout stops being
        * a 32px silhouette read as a shape and becomes two digits at 800
@@ -305,14 +320,6 @@ export function Vitals({
                 value={counter.marked}
                 max={counter.max}
                 onChange={write}
-                /*
-                 * The card, on the phone only. The cockpit's cell is 198 wide
-                 * against 181.5, has a mouse, and hands what it saves to
-                 * `DualityRoll` below it, so it keeps the compact two-line
-                 * shape - and `tokens.css` steps `--counter-cell` and
-                 * `--counter-num` back at 1180 to match.
-                 */
-                tall={phone}
               />
             );
           })

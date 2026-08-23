@@ -270,22 +270,35 @@ describe('a counter drawn as a number', () => {
    * every pixel the grid hands this cell over the 88 the steppers take lands on
    * the target you read rather than on empty space.
    */
-  it('gives the cell to the value target, with the steppers at the far edge', () => {
+  it('gives the cell to the value target, with the steppers at the two outer edges', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
     const kids = [...row.children] as HTMLElement[];
 
+    /*
+     * `[−][value][+]`, AND THIS ORDER IS THE OWNER'S INSTRUCTION IN THE DOM.
+     *
+     * The order it replaced was `[value][−][+]` - the readout on the left with
+     * both glyphs pinned after it - and that is the shape the owner named when
+     * they asked for the two layouts to agree: «non con più e meno affianco
+     * alla statistica». There is no prop that draws it any longer, so this
+     * assertion is the whole of what stops it coming back. Minus first also
+     * makes the pair read low to high across the card, with the two glyphs at
+     * the two edges a thumb reaches without aiming.
+     */
     expect(
       kids.map((el) => el.getAttribute('aria-label')),
-      'the cell is not [value][−][+] any more - the full-width row had a mark, a ' +
-        'label and a growing spacer as well, and none of those fit in 172.5px',
-    ).toEqual(['HP 2 of 6 - tap to type a value', 'HP minus one', 'HP plus one']);
+      'the cell is not [−][value][+] any more, which is the shape that puts plus and ' +
+        'minus back beside the statistic',
+    ).toEqual(['HP minus one', 'HP 2 of 6 - tap to type a value', 'HP plus one']);
 
-    // The gutter is the row's own gap now, and it is 4 rather than 6 for a
-    // measured reason: `Counter`'s docblock has the ink against the room at
-    // every width, and six left one pixel at 375 when the number was a flat 20.
-    // Since `--counter-num` the four is load-bearing at 360 and below instead.
-    expect(row.style.gap, 'the cell gutter moved and the fit was computed on 4').toBe('4px');
+    // No gutter at all: the card's border is the boundary, and a gap inside it
+    // would draw a second one. The 4px the retired two-line row carried between
+    // the value and its steppers is 8px the number keeps instead.
+    expect(row.style.gap, 'a gutter came back inside the card').toBe('0px');
+    expect(row.style.border, 'the card stopped being one bordered object').toBe(
+      '1px solid var(--line-soft)',
+    );
 
     const grows = kids.filter((el) => el.style.flex.startsWith('1 1'));
     expect(
@@ -307,7 +320,10 @@ describe('a counter drawn as a number', () => {
    */
   it('draws the value at --counter-num rather than at a size of its own', () => {
     render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
-    const target = container.querySelector<HTMLButtonElement>('button')!;
+    // By name, not by position: the first `<button>` in the card is the minus
+    // stepper now, and a positional query here would silently read a control
+    // that holds no number and pass on `undefined`.
+    const target = named('HP 2 of 6 - tap to type a value');
     const value = [...target.querySelectorAll('span')].find((el) =>
       (el.getAttribute('style') ?? '').includes('var(--sans)'),
     );
@@ -325,20 +341,39 @@ describe('a counter drawn as a number', () => {
      * rather than a margin. So the height is the token too, and the two ends
      * of it are read out of the stylesheet rather than repeated here.
      */
+    /*
+     * THE HEIGHT IS THE CARD'S AND THE FLOOR IS THE BUTTON'S, and the split is
+     * the reason this reads two elements instead of one. Declaring the cell on
+     * the value button as well made the row `CELL + 2` - its minimum plus the
+     * card's border - so the block drew two pixels taller than the token said at
+     * every width. The button promises only the 44px touch floor and stretches;
+     * the row is what steps with the number.
+     */
+    const row = container.firstElementChild as HTMLElement;
     expect(
-      target.style.minHeight,
-      'the value target is back to a literal height, so it cannot step with the number it holds',
+      row.style.minHeight,
+      'the cell is back to a literal height, so it cannot step with the number it holds',
     ).toBe('var(--counter-cell)');
     expect(
-      resolve(target.style.minHeight, NARROW),
+      resolve(row.style.minHeight, NARROW),
       'the narrow cell moved. It is 56 and not 44 because the card draws three ' +
         'lines at every width - 3 + 11 + 2 + 22 + 2 + 10 + 3 - and 56 is that sum plus its ' +
         'border. The touch floor is what the button declares, not what the card is.',
     ).toBe(56);
     expect(
-      resolve(target.style.minHeight, PHONE),
+      resolve(row.style.minHeight, PHONE),
       'the cell stopped growing for the 38px number and the three lines around it',
     ).toBe(90);
+    expect(
+      resolve(row.style.minHeight, { glass: 1280, coarse: false }),
+      'the cockpit cell moved. It is 62 because the card draws the same three lines at ' +
+        'desk size - 3 + 13 + 2 + 26 + 2 + 10 + 3 is 59, 61 with the border - and it is ' +
+        'not the phone`s 90 because those 84 extra pixels come out of DualityRoll',
+    ).toBe(62);
+    // The button keeps the touch floor and nothing else.
+    expect(target.style.minHeight, 'the value target stopped declaring the touch floor').toBe(
+      '44px',
+    );
     // Width did not move, and that is deliberate: see `Step`.
     expect(target.style.minWidth).toBe('44px');
   });
@@ -416,51 +451,61 @@ describe('a counter drawn as a number', () => {
     ).toBe(44);
   });
 
-  it('leaves 102px for the value in the two-line row, and 91.5 in the card', () => {
-    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
-    const row = container.firstElementChild as HTMLElement;
-    const gutter = Number.parseFloat(row.style.gap);
-    // 44 WIDE and `--counter-cell` tall. The width is the floor and it is what
-    // the arithmetic below stands on; the height is the cell, because the
-    // stepper takes the room the 26px number bought for nothing. A stepper
-    // that grew in width as well would take 8px out of the value target and
-    // clip the very number it was widened for - see `Counter`'s note on `Step`.
-    const steppers = [...row.children].filter(
-      (el) =>
-        (el as HTMLElement).style.width === '44px' &&
-        (el as HTMLElement).style.height === 'var(--counter-cell)',
-    );
-    expect(steppers, 'the cell no longer holds two steppers at the 44px width floor').toHaveLength(
-      2,
-    );
-
+  it('leaves 108px for the value in the cockpit card, and 91.5 on the phone', () => {
     /*
-     * THE CELL THIS SHAPE IS DRAWN IN IS THE COCKPIT'S, WHICH IS WHY THE
-     * ARITHMETIC BELOW IS 198 AND NOT A PHONE'S 181.5.
+     * ONE SHAPE, TWO CELLS, AND THE ARITHMETIC IS THE SAME ONE TWICE.
      *
-     * `Vitals` passes `tall` for the phone and not for the desktop, so the row
-     * with gutters in it - the one this `it` renders - is only ever drawn in a
-     * 198px cockpit cell: 428 of panel less 2 of border and 24 of padding is
-     * 402, less the grid's 6px gap, halved. Measured in Chrome at 1280x800 the
-     * value target is 102x48 there. (This test computed 85.5 and 76.5 from a
-     * 393 and a 375 phone column, which is a width this shape has not been
-     * drawn at since the card - and its name promised the 76.5.)
+     * There is no `tall` any more. The two-line row this `it` used to render
+     * first - value on the left, both steppers pinned after it - is deleted,
+     * because it is precisely the shape the owner rejected: «non con più e meno
+     * affianco alla statistica». What differs between a phone and a cockpit is
+     * now only what `tokens.css` says `--counter-cell` and `--counter-num` are
+     * at that width, and neither is a term of the width arithmetic below.
+     *
+     * (The retired row's own number was 102 for the value in a 198px cell: two
+     * 44px steppers and two 4px gutters. The card spends those eight pixels of
+     * gutter on the number instead and gives back two for its own border, so
+     * the same cell leaves 108. Both are measured, and only one is drawn.)
      */
-    const forTheValue = (cell: number): number => cell - 44 * 2 - 2 * gutter;
-    expect(forTheValue(198), 'the cockpit cell stopped leaving 102 for the value').toBe(102);
-
-    // And the card, which is what a phone draws: the same cell arithmetic, with
-    // the two gutters gone and the card's own border in their place.
-    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const card = container.firstElementChild as HTMLElement;
     const border = Number.parseFloat(card.style.border);
     expect([Number.parseFloat(card.style.gap), border], 'the card grew a gutter').toEqual([0, 1]);
+
+    /*
+     * 44 WIDE, and the height is the card's rather than the cell's.
+     *
+     * The width is the floor and it is what the arithmetic below stands on. The
+     * height is `alignSelf: stretch` over a declared 44px floor - see the note
+     * on `Step`, which is about why a stretched height is a height no test can
+     * read and why the promise is declared rather than computed. A stepper that
+     * grew in WIDTH would take 8px out of the value target and clip the very
+     * number it was widened for.
+     */
+    const steppers = [...card.children].filter(
+      (el) =>
+        (el as HTMLElement).style.width === '44px' &&
+        (el as HTMLElement).style.minHeight === '44px' &&
+        (el as HTMLElement).style.alignSelf === 'stretch',
+    );
+    expect(steppers, 'the card no longer holds two steppers at the 44px width floor').toHaveLength(
+      2,
+    );
+
+    const forTheValue = (cell: number): number => cell - 44 * 2 - 2 * border;
+
+    /*
+     * THE COCKPIT CELL IS 198: 428 of panel less 2 of border and 24 of padding
+     * is 402, less the grid's 6px gap, halved. Measured in Chrome at 1280x800.
+     */
+    expect(forTheValue(198), 'the cockpit cell stopped leaving 108 for the value').toBe(108);
+
+    // And the phone's, which is the same card in a narrower track.
     const phoneCell = (glass: number): number => (glass - 24 - 6) / 2;
     expect(phoneCell(393)).toBe(181.5);
     expect(phoneCell(375)).toBe(172.5);
-    const inTheCard = (glass: number): number => phoneCell(glass) - 44 * 2 - 2 * border;
     expect(
-      [inTheCard(393), inTheCard(375)],
+      [forTheValue(phoneCell(393)), forTheValue(phoneCell(375))],
       'the card no longer leaves the 91.5 and 82.5 measured in Chrome at 393x852 and 375x667',
     ).toEqual([91.5, 82.5]);
   });
@@ -663,18 +708,23 @@ describe('where the numbers are allowed to be', () => {
     expect(2 * resolve('var(--counter-cell)', NARROW) + 6).toBe(118);
 
     /*
-     * The cockpit, where this is a redraw rather than a no-op. It was three
-     * 48px track rows - a 10px `.t-label`, its 6px margin, a 32px pip row -
-     * inside a 428x245 panel; it is 102px of grid inside a 428x183 one, and 62
-     * of the original 70 still go to `DualityRoll` below it. The eight that
-     * stayed behind are the step to a 48px cell, which the cockpit still takes.
+     * The cockpit, which draws THE SAME CARD at its own size.
      *
-     * It does NOT take the phone's 90px card. `tokens.css` puts
-     * `--counter-cell` and `--counter-num` back to 48 and 26 at 1180, and
-     * `Vitals` passes `tall` only for the phone, so the two shapes are one
-     * decision expressed twice rather than a media query fighting a prop.
-     * A cockpit cell is (402 - 6) / 2 = 198 wide, so the value target is
-     * 102x48 against the phone's 91.5x90 at 393.
+     * It was three 48px track rows - a 10px `.t-label`, its 6px margin, a 32px
+     * pip row - inside a 428x245 panel; then 102px of grid inside a 428x183 one,
+     * which handed 62 of the original 70 to `DualityRoll` below it. It is 130px
+     * of grid inside a 428x211 panel now: two 62px cards and their 6px gap. The
+     * card costs 28 of the 62 back, and 34 stay with the roll panel.
+     *
+     * IT DOES NOT TAKE THE PHONE'S 90px CARD, and the 28-against-84 is the whole
+     * reason. At 90 the block is 186, the panel 428x267, and all 84 come out of
+     * `DualityRoll` - which puts ROLL at painted 0 of 54 at 1180x695 and
+     * 1366x768 in both banner states and at 1280x800 with the backup banner up.
+     * `tokens.css` steps `--counter-cell` and `--counter-num` to 62 and 26 at
+     * 1180 instead, so there is ONE shape and one arithmetic with two sets of
+     * terms - a width query, not a prop fighting a media query. A cockpit cell
+     * is (402 - 6) / 2 = 198 wide, so the value target is 108x62 against the
+     * phone's 91.5x90 at 393.
      */
     seed();
     render(createElement(Vitals, { stats: playedStats(), layout: 'desktop', showState: false }));
@@ -691,15 +741,16 @@ describe('where the numbers are allowed to be', () => {
     );
     for (const c of [...deskGrid.children] as HTMLElement[]) {
       // The cockpit is drawn at 1180 and up, so it answers `--counter-cell`'s
-      // 390 step as well and its cells are 48. That is what the token being a
+      // 390 step as well and its cells are 62. That is what the token being a
       // width query buys over a phone branch: one arithmetic, both layouts.
       expect(
-        // 48 and not the phone's 90: the cockpit takes `--counter-cell` back at
+        // 62 and not the phone's 90: the cockpit takes `--counter-cell` back at
         // 1180, because its track is 198 wide, it has a mouse, and it hands
-        // what it saves to `DualityRoll` under it.
+        // what it saves to `DualityRoll` under it. 3 + 13 + 2 + 26 + 2 + 10 + 3
+        // is 59, 61 with the card's border, in 62.
         resolve(c.style.minHeight, { glass: 1280, coarse: false }),
         'the cockpit followed the phone up instead of keeping its own cell',
-      ).toBe(48);
+      ).toBe(62);
     }
   });
 
@@ -731,7 +782,7 @@ describe('where the numbers are allowed to be', () => {
    * and draws a second rectangle inside the card.
    */
   it('draws the phone track as one card, with the steppers at its edges', () => {
-    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const row = container.firstElementChild as HTMLElement;
 
     expect(row.style.border, 'the card lost the boundary the three boxes gave up').toBe(
@@ -798,7 +849,7 @@ describe('where the numbers are allowed to be', () => {
    * it positive and this test goes red.
    */
   it('rings the stepper under the finger, two pixels inside it, and takes no hit area', () => {
-    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} tall />);
+    render(<Counter kind="hp" label="HP" value={2} max={6} onChange={() => {}} />);
     const minus = named('HP minus one');
     const plus = named('HP plus one');
     // What the button promises before anything is pressed. Whatever the ring
@@ -901,7 +952,7 @@ describe('where the numbers are allowed to be', () => {
    * turned the app's switch off.
    */
   it('answers a press with a transition, so both reduced-motion switches reach it', () => {
-    render(<Counter kind="stress" label="STRESS" value={3} max={6} onChange={() => {}} tall />);
+    render(<Counter kind="stress" label="STRESS" value={3} max={6} onChange={() => {}} />);
     const value = named('STRESS 3 of 6 - tap to type a value');
     const digits = [...value.querySelectorAll('span')].find((s) =>
       (s.getAttribute('style') ?? '').includes('var(--sans)'),

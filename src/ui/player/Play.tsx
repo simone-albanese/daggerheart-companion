@@ -54,6 +54,8 @@ import {
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatDamage } from '../../engine/dice.ts';
+import { characterFeatures, type HeldFeature } from '../../engine/features.ts';
+import type { Contribution, Ledger, LedgerStat } from '../../engine/modifiers.ts';
 import { formatGold } from '../../engine/gold.ts';
 import { cryptoRng } from '../../engine/dice.ts';
 import {
@@ -612,6 +614,168 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
       <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--text-2)' }}>
         {lineage === '' ? 'No ancestry or community on this sheet.' : lineage}
       </div>
+
+      {/*
+       * AND WHAT ALL OF THAT ACTUALLY GIVES YOU, which is the half this fold
+       * was missing.
+       *
+       * It named the ancestry, the community, the class and the subclass and
+       * then stopped, so the fold answered "who am I" and never "what do I
+       * have". The features go here rather than in a seventh fold of their own
+       * for a measured reason: `playSheet.test.tsx` holds the whole folded
+       * sheet to 532px against 545 of column at 375x667 - THIRTEEN pixels of
+       * slack - and one more full-width `Disclosure` is 44 plus this column's
+       * 8px gap. A fold that cost 52 to add would have taken the small phone
+       * out of the fit that four folds were paired two-up to buy.
+       *
+       * Inside a fold that is already here it costs the resting column NOTHING,
+       * and the pairing is not a compromise: a feature is what an ancestry, a
+       * community, a class and a subclass ARE, and this is the fold that names
+       * all four. The header says so, so nobody has to guess.
+       */}
+      <div className="t-label" style={{ marginTop: 4 }}>
+        Features
+      </div>
+      <FeatureList stats={stats} />
+    </div>
+  );
+}
+
+/**
+ * What each stat is a sum OF, in the sheet's own words.
+ *
+ * `STAT_WORD` is the label a contribution is printed under, and it is the only
+ * place a `LedgerStat` becomes English. Kept beside `FeatureList` rather than
+ * inside it because `Defence` names the same stats in the band above.
+ */
+const STAT_WORD: Record<LedgerStat, string> = {
+  evasion: 'EVASION',
+  armorScore: 'ARMOR',
+  major: 'MAJOR',
+  severe: 'SEVERE',
+  maxHp: 'HP',
+  maxStress: 'STRESS',
+  agility: 'AGILITY',
+  strength: 'STRENGTH',
+  finesse: 'FINESSE',
+  instinct: 'INSTINCT',
+  presence: 'PRESENCE',
+  knowledge: 'KNOWLEDGE',
+};
+
+const LEDGER_STATS = Object.keys(STAT_WORD) as LedgerStat[];
+
+/** `+1 EVASION`, with the minus sign the rest of the app uses. */
+function effectChips(ledger: Ledger, ref: Ref, feature: string): string[] {
+  const out: string[] = [];
+  for (const stat of LEDGER_STATS) {
+    for (const row of ledger[stat]) {
+      if (row.ref !== ref || row.feature !== feature) continue;
+      out.push(`${row.amount >= 0 ? '+' : '−'}${Math.abs(row.amount)} ${STAT_WORD[stat]}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * One feature, verbatim, with what it does to a number beside it when it does
+ * anything to a number.
+ *
+ * THE CHIP IS THE HALF THAT IS NOT DECORATION. Before this section existed the
+ * app added a Simiah's +1 to nothing at all, and the reason nobody caught it
+ * for as long as nobody did is that Evasion was a bare integer with no
+ * derivation anywhere on the screen. A feature that says «+1 EVASION» beside
+ * its own text is a claim a player can check against the number in the band, so
+ * the next time the two disagree somebody sees it. It is drawn from the same
+ * `stats.modifiers` ledger the number itself was summed from - not a second
+ * list - so the two cannot drift.
+ *
+ * A feature with no chip is not a feature that does nothing: Rogue's Dodge,
+ * Faerie's Wings and every other spend are here in full, and they carry no chip
+ * because their number is not true of the sheet at rest. `modifiers.ts` carries
+ * the admission rule that decides which is which.
+ */
+function FeatureRow({ feature, chips }: { feature: HeldFeature; chips: string[] }): React.JSX.Element {
+  return (
+    <div
+      className="stack"
+      style={{
+        flex: 'none',
+        gap: 5,
+        padding: '9px 10px',
+        borderRadius: 'var(--r3)',
+        background: 'var(--panel)',
+        border: '1px solid var(--line-soft)',
+        borderLeft: `3px solid ${chips.length > 0 ? 'var(--hope)' : 'var(--line)'}`,
+      }}
+    >
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ font: '700 13px/1.2 var(--sans)', color: 'var(--text)' }}>
+          {feature.name}
+        </span>
+        {chips.map((c) => (
+          <span key={c} className="chip" style={{ color: 'var(--hope)' }}>
+            {c}
+          </span>
+        ))}
+      </div>
+      <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.05em' }}>
+        {feature.source.toUpperCase()}
+      </span>
+      <span className="t-dense" style={{ whiteSpace: 'pre-line', color: 'var(--text-2)' }}>
+        {feature.text}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Every feature this character actually has, on the screen that is open while
+ * they play.
+ *
+ * «La pagina di play deve avere tutte le caratteristiche di origine e classe.
+ * Abilità, abilità che usano hope ecc.» - and before this component the answer
+ * was none of them. Not one word of class, subclass, ancestry or community
+ * feature text was reachable from Play: `Identity` and `Lineage` printed NAMES,
+ * `Equipped` printed a weapon's dice and deliberately not its `feature`, and
+ * the only way a player could reread their own Hope feature after character
+ * creation was to print the sheet.
+ *
+ * THE HOPE FEATURE LEADS, and it is the one thing here that is not in source
+ * order. `characterFeatures` hands it over separately because the printed sheet
+ * puts it beside the Hope track; a screen has no Hope track next to this list,
+ * and the feature that spends the resource the whole game is built on is the
+ * one a player looks up most. So it is first, and it says so.
+ *
+ * The list is the engine's, not this file's. `characterFeatures` is what the
+ * printed sheet uses too, so the two surfaces cannot disagree about which of a
+ * mixed ancestry's two slots granted what - which matters more than it sounds,
+ * because `modifiers.ts` gates Simiah's +1 Evasion on exactly that slot.
+ */
+function FeatureList({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
+  const character = useActive();
+  const index = useApp((s) => s.index);
+  if (!character) return null;
+  const held = characterFeatures(character, index);
+  const all = held.hopeFeature === null ? held.features : [held.hopeFeature, ...held.features];
+
+  if (all.length === 0) {
+    return (
+      <div className="panel t-dense" style={{ padding: '12px 11px', color: 'var(--dim)' }}>
+        No features — this sheet has no class, ancestry or community the app can read.
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 8 }}>
+      {all.map((f) => (
+        <FeatureRow
+          key={`${f.site}:${f.ref}:${f.name}`}
+          feature={f}
+          chips={effectChips(stats.modifiers, f.ref, f.name)}
+        />
+      ))}
     </div>
   );
 }
@@ -1249,6 +1413,7 @@ function Defenses({
         tight={tight}
         tone={worn ? 'var(--sage)' : undefined}
         under={worn ? String(worn.baseEvasion) : undefined}
+        terms={derivationOf(stats.evasion, stats.modifiers.evasion)}
       />
       {unknownThresholds ? (
         <div className="panel stack" style={{ padding: tight ? '4px 6px' : '8px 6px', gap: 3, minWidth: 0 }}>
@@ -1261,8 +1426,20 @@ function Defenses({
         </div>
       ) : (
         <>
-          <Defence label="MAJOR" value={stats.thresholds[0]} tight={tight} tone="var(--stress)" />
-          <Defence label="SEVERE" value={stats.thresholds[1]} tight={tight} tone="var(--damage)" />
+          <Defence
+            label="MAJOR"
+            value={stats.thresholds[0]}
+            tight={tight}
+            tone="var(--stress)"
+            terms={derivationOf(stats.thresholds[0], stats.modifiers.major)}
+          />
+          <Defence
+            label="SEVERE"
+            value={stats.thresholds[1]}
+            tight={tight}
+            tone="var(--damage)"
+            terms={derivationOf(stats.thresholds[1], stats.modifiers.severe)}
+          />
         </>
       )}
       <Defence label="PROF" value={stats.proficiency} tight={tight} />
@@ -1287,6 +1464,7 @@ function Defence({
   value,
   tone,
   under,
+  terms,
   tight = false,
 }: {
   label: string;
@@ -1295,6 +1473,44 @@ function Defence({
   tone?: string;
   /** The number this one replaced, struck through. */
   under?: string;
+  /**
+   * The sum this number is, when it is a sum of more than one thing: `12+1+1`.
+   *
+   * THE CHEAPEST HONEST FIX FOR THE THING THAT LET THE BUG LIVE. A Simiah in a
+   * Gambeson read 12 for as long as they did partly because the arithmetic was
+   * missing and partly because a bare integer cannot be checked: there was
+   * nowhere on the sheet that said what the 12 was made of, so nobody could see
+   * that two terms were absent. `12+1+1` under the number is a claim a player
+   * checks by looking, and it is one 10px line - no target, no gesture, and
+   * nothing when the sum has one term, which is most sheets.
+   *
+   * It shares the slot with `under`, which is the Beastform's struck-through
+   * previous Evasion, and `under` wins: a worn form REPLACES the number, so
+   * "what it used to be" is the more urgent of the two and printing both would
+   * put three lines in a 56px cell that holds two.
+   *
+   * AND IT IS DROPPED ENTIRELY WHEN `tight` IS SET, WHICH MEANS ON THE PHONE.
+   * This is a third line, and the phone's band is measured to the pixel: 4 + 10
+   * + 4 + 32 + 4 + 2 = 56, and a 10px line with its own 4px gap makes it 70.
+   * `playSheet.test.tsx` holds the whole folded sheet to 532 against 545 of
+   * column at 375x667 - THIRTEEN pixels - so fourteen more would take the small
+   * phone out of a fit that this repo spent a reflow buying, and jsdom measures
+   * nothing, so no test here would have said so.
+   *
+   * The phone does not lose the derivation; it reads it somewhere with room.
+   * Every contributing feature carries its own `+1 EVASION` chip in the
+   * `Lineage, domains & features` fold, and every piece of gear carries one on
+   * its row in `Equipped` - both drawn from the same `stats.modifiers` ledger
+   * this line is drawn from. What the phone gives up is seeing the sum and the
+   * total at the same instant, which is worth less than the fit.
+   *
+   * (`under` is NOT gated the same way, and the asymmetry is deliberate: a
+   * Beastform is a state a player has just entered on purpose, so the band
+   * growing while it is worn is the screen answering an action. A worn form is
+   * also the one case where the number in the band is not the number on the
+   * sheet, which is worth a line at any price.)
+   */
+  terms?: string;
   /** 4px of vertical padding instead of 8: the phone's 56px band. */
   tight?: boolean;
 }): React.JSX.Element {
@@ -1325,12 +1541,44 @@ function Defence({
       >
         {value}
       </span>
-      {under !== undefined && (
+      {under !== undefined ? (
         <s className="t-meta" style={{ color: 'var(--dim)' }}>
           {under}
         </s>
+      ) : (
+        terms !== undefined &&
+        !tight && (
+          <span
+            className="t-meta"
+            style={{
+              color: 'var(--dim)',
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {terms}
+          </span>
+        )
       )}
     </div>
+  );
+}
+
+/**
+ * `12+1+1`, or nothing at all when the number has one term.
+ *
+ * The base is what the sheet would read with an empty ledger, so it is derived
+ * by subtraction rather than recomputed: whatever `deriveStats` did to reach
+ * the total, the terms under it always add back up to it. A cell whose sum is
+ * just the base draws no line, because `12` under `12` is noise.
+ */
+function derivationOf(total: number, rows: readonly Contribution[]): string | undefined {
+  if (rows.length === 0) return undefined;
+  const base = total - rows.reduce((n, r) => n + r.amount, 0);
+  return [String(base), ...rows.map((r) => `${r.amount >= 0 ? '+' : '−'}${Math.abs(r.amount)}`)].join(
+    '',
   );
 }
 
@@ -1382,6 +1630,38 @@ function Defence({
  * row rather than clipping it, and the alternative was to keep the number off
  * the screen at every width in order to protect the narrowest one.
  */
+/**
+ * What a piece of gear is worth to the numbers, taken from the sum itself.
+ *
+ * It reads `stats.modifiers` - the ledger `deriveStats` built the totals out of
+ * - rather than the register directly, so a chip here and the number in the
+ * defence band cannot disagree: they are the same rows. A ref with no rows
+ * draws nothing at all, which is the honest answer for a Broadsword, whose
+ * *Reliable: +1 to attack rolls* is a roll and not a sheet number.
+ *
+ * `ref_` because `ref` is React's own prop name on a DOM element and shadowing
+ * it in a component's props is how somebody later spends an afternoon.
+ */
+function GearEffects({ stats, ref_ }: { stats: DerivedStats; ref_: Ref }): React.JSX.Element | null {
+  const chips: string[] = [];
+  for (const stat of LEDGER_STATS) {
+    for (const row of stats.modifiers[stat]) {
+      if (row.ref !== ref_) continue;
+      chips.push(`${row.amount >= 0 ? '+' : '−'}${Math.abs(row.amount)} ${STAT_WORD[stat]}`);
+    }
+  }
+  if (chips.length === 0) return null;
+  return (
+    <span className="row" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+      {chips.map((c) => (
+        <span key={c} className="chip" style={{ color: 'var(--hope)' }}>
+          {c}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Equipped({
   stats,
   arming,
@@ -1465,6 +1745,28 @@ function Equipped({
               {(w.trait === 'spellcast' ? 'SPELLCAST' : TRAIT_LABELS[w.trait].toUpperCase())} ·{' '}
               {reach} · {w.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'}
             </span>
+            {/*
+             * THE WEAPON'S OWN FEATURE, WHICH THIS ROW HAS NEVER DRAWN.
+             *
+             * A Greatsword said `2d10+3` and nothing else, so *"Massive: -1 to
+             * Evasion; on a successful attack, roll an additional damage die and
+             * discard the lowest result"* - a sentence that changes both a number
+             * in the band above and how every attack is rolled - existed for this
+             * player only in the Build screen they last saw at character
+             * creation. Half of it is arithmetic the engine now does and half of
+             * it is a rule only a person can apply, and neither half was here.
+             *
+             * A `<span>` and not a `<div>`: this row's root is a `<button>`, and
+             * a button may only contain phrasing content. React does not police
+             * that one, so the browser is left to guess - the same note stands
+             * over `FeatureBlock` in `build/parts.tsx`.
+             */}
+            {w.feature !== '' && (
+              <span className="t-dense" style={{ display: 'block', marginTop: 5, color: 'var(--text-2)' }}>
+                {w.feature}
+              </span>
+            )}
+            <GearEffects stats={stats} ref_={w.id} />
           </button>
         );
       })}
@@ -1520,6 +1822,15 @@ function Equipped({
           <div className="t-meta" style={{ marginTop: 5, letterSpacing: '0.05em' }}>
             BASE THRESHOLDS {armor.baseThresholds[0]} / {armor.baseThresholds[1]}
           </div>
+          {/* And what the armour DOES, which this row printed no word of - so a
+              Gambeson's «Flexible: +1 to Evasion» was invisible on the one
+              screen where the Evasion it changes is drawn. */}
+          {armor.feature !== '' && (
+            <div className="t-dense" style={{ marginTop: 5, color: 'var(--text-2)' }}>
+              {armor.feature}
+            </div>
+          )}
+          <GearEffects stats={stats} ref_={armor.id} />
         </div>
       )}
     </div>
@@ -2336,6 +2647,26 @@ function PlayDesktop({
         <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
         <Equipped stats={stats} arming={arming} />
+        {/*
+         * The features, in the cockpit's own column and NOT behind a fold.
+         *
+         * The phone puts them inside the `Lineage, domains & features` fold
+         * because its column has thirteen pixels of slack at 375x667 and a
+         * seventh full-width fold costs fifty-two. This column has no such
+         * budget: it is `.stack scroll`, it already carries `Rest` - a fold
+         * this repo measures at about 990px open - and it is the one column on
+         * the cockpit with an end a reader is meant to reach. So the list is
+         * open, under a heading, where a mouse can wheel to it.
+         *
+         * Above `Rest` rather than below it: a feature is read mid-scene and a
+         * rest is taken between scenes, and `Rest` open is the tallest thing on
+         * this screen. Putting the features after it would put them a thousand
+         * pixels down whenever a player left the rest fold open.
+         */}
+        <div className="stack" style={{ flex: 'none', gap: 8 }}>
+          <div className="t-label">Features</div>
+          <FeatureList stats={stats} />
+        </div>
         {/* Last, and in this column rather than one of the other two, because
             this column is the one that scrolls: a fold measuring about 990px
             open costs the cockpit nothing here and would cost it everything
@@ -2918,6 +3249,16 @@ function PlayPhone({
     character.activeArmor,
   ].filter((r) => r !== null && index.byRef.has(r)).length;
   const carried = character.inventory.length;
+  /*
+   * How many features are behind the lineage fold, so a shut fold says what is
+   * in it. Counted off the engine's own collector rather than added up here:
+   * the Hope feature is handed over separately and a count that forgot it would
+   * be one short of the list it advertises.
+   */
+  const featureCount = (() => {
+    const held = characterFeatures(character, index);
+    return held.features.length + (held.hopeFeature === null ? 0 : 1);
+  })();
   // Filtered through the character rather than counted off the armed list: an
   // Experience deleted in Build must not go on being counted on a header.
   const armedCount = character.experiences.filter((e) =>
@@ -3350,7 +3691,12 @@ function PlayPhone({
        */}
       <ActiveConditions onlyWhenOn />
 
-      <Disclosure id="lineage" characterId={character.id} label="Lineage & domains">
+      <Disclosure
+        id="lineage"
+        characterId={character.id}
+        label="Lineage, domains & features"
+        summary={`${String(featureCount)} FEATURES`}
+      >
         <Lineage stats={stats} />
       </Disclosure>
 

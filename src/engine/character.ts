@@ -21,6 +21,7 @@ import type {
   Weapon,
 } from '../../shared/types.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
+import { collectModifiers, sumOf, traitDeltas, type Ledger } from './modifiers.ts';
 
 export const MAX_HP = 12;
 export const MAX_STRESS = 12;
@@ -195,6 +196,20 @@ export interface DerivedStats {
   maxHp: number;
   maxStress: number;
   maxHope: number;
+  /**
+   * Every static bonus this sheet's own contents granted, with its provenance.
+   *
+   * The totals are already IN the numbers above; this is what they were made
+   * of. It rides out with the stats rather than being recomputed by whoever
+   * wants to print a derivation, for the reason `deriveStats` exists at all:
+   * two routes to one number is two numbers eventually.
+   *
+   * It is also the answer to how this defect went unnoticed for as long as it
+   * did. An Evasion of 12 with nothing on screen saying where the 12 came from
+   * is a number nobody can check; the same 12 shown as `10 + 1 + 1` is one a
+   * player checks by looking. See `src/engine/modifiers.ts`.
+   */
+  modifiers: Ledger;
   /** Which trait a Spellcast Roll uses, from the subclass. Null if none. */
   spellcastTrait: Trait | null;
   /** Domains this character may draw cards from. */
@@ -220,6 +235,17 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
   // Each "increase Proficiency" advancement costs two slots but adds one.
   const proficiency = baseProficiency(c.level) + advancementCount(c, 'proficiency');
 
+  /*
+   * What the sheet's own contents add, before anything below reads a total.
+   *
+   * FIRST, because Proficiency is a term in one of the rows - Galapa's *Shell*
+   * is "a bonus to your damage thresholds equal to your Proficiency" - and last
+   * would mean working Proficiency out twice. Nothing here interprets a
+   * feature's text; `modifiers.ts` holds a hand-authored register keyed on ref
+   * and a test walks the dataset against it in both directions.
+   */
+  const modifiers = collectModifiers(c, ix, proficiency);
+
   // A ref this dataset does not hold is not the same fact as an empty slot, and
   // taking the same branch for both is how a Guardian in improved chainmail
   // reads 5/10 at level 5 instead of 16/29 with nothing on screen saying the
@@ -236,8 +262,8 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     ? [armor.baseThresholds[0], armor.baseThresholds[1]]
     : [0, c.level];
   const thresholds: [number, number] = c.thresholdOverride ?? [
-    baseThresholds[0] + c.level,
-    baseThresholds[1] + c.level,
+    baseThresholds[0] + c.level + sumOf(modifiers, 'major'),
+    baseThresholds[1] + c.level + sumOf(modifiers, 'severe'),
   ];
 
   /*
@@ -249,38 +275,122 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
    * through this build. The slot maximum the sheet already carries was written
    * by a build that *could* name the armor, so it is kept rather than replaced.
    */
-  const baseScore =
-    armor?.baseScore ?? (unresolvedArmor === null ? 0 : Math.max(0, c.armorSlots.max));
-  const armorScore = Math.min(MAX_ARMOR_SCORE, baseScore);
+  /*
+   * AND THE SHIELD'S BONUS GOES ON THE FIRST BRANCH ONLY. THIS IS THE ONE
+   * DERIVED NUMBER THAT WRITES ITSELF BACK, AND ADDING TO BOTH BRANCHES IS A
+   * FEEDBACK LOOP THAT INFLATES A SHEET EVERY TIME IT IS SAVED.
+   *
+   * `syncCounters` below writes `armorSlots.max = stats.armorScore`, and
+   * `store/state.ts` calls it on every level-up, armour change and death move -
+   * so this number leaves the engine, lands in persisted state, and goes out in
+   * `.dhchar`, `.dhbackup` and the QR payload. The second branch then reads it
+   * BACK as its base. So a sheet wearing armour this build cannot name, with a
+   * Tower Shield in the off-hand, would go 5 -> 7 -> 9 -> 11 -> 12, two points
+   * per save, until it hit the ceiling. Nothing would have failed and the
+   * numbers would all have looked plausible on the way up.
+   *
+   * The fix is the same sentence the branch was written for. A carried
+   * `armorSlots.max` is a FINISHED Armor Score, written by a build that could
+   * name the armour, which means the shield it was worn with is already in it.
+   * Re-adding is double-counting even on the first save. So gear adds to a base
+   * this engine worked out itself, and never to one it inherited.
+   */
+  const gearArmor = sumOf(modifiers, 'armorScore');
+  const armorScore =
+    unresolvedArmor === null
+      ? Math.min(MAX_ARMOR_SCORE, Math.max(0, (armor?.baseScore ?? 0) + gearArmor))
+      : Math.min(MAX_ARMOR_SCORE, Math.max(0, c.armorSlots.max));
 
+  /*
+   * THE MODIFIERS GO INSIDE THE `??` AND THE OVERRIDE STAYS OUTSIDE IT, WHICH
+   * IS THE WHOLE OF THE PRECEDENCE QUESTION AND IS EASY TO GET BACKWARDS.
+   *
+   * An override is the sheet asserting a finished number about itself - the
+   * print sheet captions it "Set by hand on this sheet" - and it can only
+   * arrive here from a file this device imported, because nothing in `src/`
+   * writes one. A sheet that says 14 was written by a build that had already
+   * counted its own armour, so adding Gambeson's +1 on top would move a
+   * hand-stated 14 to 15 in precisely the population this fix exists for.
+   *
+   * So the override replaces the entire computed value, modifiers included, and
+   * the Beastform still stacks ON TOP of whichever of the two won - which is
+   * the asymmetry that was already here and is deliberate: a form is a state,
+   * an override is a fact. `tests/engine/character.test.ts` and
+   * `tests/engine/beastform.test.ts` pin both halves and neither changed for
+   * this commit, which is how the precedence is known to have stayed put.
+   */
   const baseEvasion =
     c.evasionOverride ??
-    (klass?.startingEvasion ?? 10) + advancementCount(c, 'evasion');
+    (klass?.startingEvasion ?? 10) + advancementCount(c, 'evasion') + sumOf(modifiers, 'evasion');
+
+  /*
+   * The traits in play, gear first and the form on top.
+   *
+   * `geared` is the character's own numbers plus everything worn and carried:
+   * Full Plate's -1 Agility, savior chainmail's -1 to all six, a Halberd's -1
+   * Finesse, a Relic's +1. It is the sheet's real number, and it is what a roll
+   * uses when no form is worn.
+   */
+  const gearedTraits = traitDeltas(modifiers);
+  const geared = Object.fromEntries(
+    TRAITS.map((t) => [t, c.traits[t] + gearedTraits[t]]),
+  ) as Record<Trait, number>;
 
   // A Beastform is a state, not a fact about the character. It is layered here,
   // at read time, and never written back - a Druid who drops out of a form must
   // find their own numbers untouched. An unresolvable ref simply means no form.
   const form = c.beastform ? (ix.beastforms.get(c.beastform.ref) ?? null) : null;
   const traits = form
-    ? Object.fromEntries(
-        TRAITS.map((t) => [t, c.traits[t] + (form.traitBonus[t] ?? 0)]),
-      ) as Record<Trait, number>
-    : c.traits;
+    ? (Object.fromEntries(
+        TRAITS.map((t) => [t, geared[t] + (form.traitBonus[t] ?? 0)]),
+      ) as Record<Trait, number>)
+    : geared;
   const evasion = baseEvasion + (form?.evasionBonus ?? 0);
   const beastform: BeastformInPlay | null = form
     ? {
         form,
         baseEvasion,
+        /*
+         * `from` IS THE GEARED NUMBER AND NOT THE RAW ONE, and the difference
+         * is a struck-through lie on screen.
+         *
+         * `Beastform.tsx` prints `from` beside `to` as "what this replaced".
+         * Reading it off `c.traits` while `to` comes from `traits` - which now
+         * carries Full Plate's -1 Agility, a Halberd's -1 Finesse, a Relic's +1
+         * - would print a "before" that was never on any sheet: a wizard in
+         * full plate with Agility 1 would read `1 -> 3` where their sheet says
+         * 0 and the form gives 2. Both ends come off the same layer.
+         */
         raised: TRAITS.filter((t) => (form.traitBonus[t] ?? 0) !== 0).map((t) => ({
           trait: t,
-          from: c.traits[t],
+          from: geared[t],
           to: traits[t],
         })),
       }
     : null;
 
-  const maxHp = Math.min(MAX_HP, startingHitPoints(klass) + advancementCount(c, 'hitPoint'));
-  const maxStress = Math.min(MAX_STRESS, BASE_STRESS + advancementCount(c, 'stress'));
+  /*
+   * The two tracks that grow, and the four features that grow them.
+   *
+   * Giant's *Endurance* and School of War's *Battlemage* each say "Gain an
+   * additional Hit Point slot"; Human's *High Stamina* and Vengeance's *At
+   * Ease* say the same of Stress. None of the four carries a digit, which is
+   * the second reason `modifiers.ts` is a hand-authored register rather than a
+   * scan: no regex over the SRD's own words finds any of them.
+   *
+   * Clamped at the rules' ceiling exactly as before. These flow into
+   * `syncCounters` and become the track's `max`, so a character who loses the
+   * feature loses the slot - which is right, and is the same thing that already
+   * happened when an advancement was un-taken.
+   */
+  const maxHp = Math.min(
+    MAX_HP,
+    startingHitPoints(klass) + advancementCount(c, 'hitPoint') + sumOf(modifiers, 'maxHp'),
+  );
+  const maxStress = Math.min(
+    MAX_STRESS,
+    BASE_STRESS + advancementCount(c, 'stress') + sumOf(modifiers, 'maxStress'),
+  );
   // A scar permanently crosses out a Hope slot.
   const maxHope = Math.max(0, BASE_HOPE - c.scars.length);
 
@@ -312,6 +422,7 @@ export function deriveStats(c: Character, ds: Dataset, index?: DatasetIndex): De
     maxHp,
     maxStress,
     maxHope,
+    modifiers,
     spellcastTrait,
     domains,
     cardLevelCap,

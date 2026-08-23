@@ -22,6 +22,7 @@ import type {
   Weapon,
 } from '@shared/types.ts';
 import { MAX_LOADOUT, newCharacter, type DerivedStats } from '@engine/character.ts';
+import { emptyLedger } from '@engine/modifiers.ts';
 import type { Rng } from '@engine/dice.ts';
 
 export const feature = (name = 'A Feature'): Feature => ({ name, text: `${name} does a thing.` });
@@ -178,6 +179,10 @@ export const makeStats = (p: Partial<DerivedStats> = {}): DerivedStats => {
     maxHp: 6,
     maxStress: 6,
     maxHope: 6,
+    // No gear, no heritage, no carried relic: the fixture is arithmetic and not a
+    // sheet, so its ledger is the empty one `collectModifiers` returns for a
+    // character whose every lane is unset.
+    modifiers: emptyLedger(),
     spellcastTrait: null,
     domains: ['blade', 'valor'],
     cardLevelCap: () => 1,

@@ -329,7 +329,7 @@ describe('what a phone shows of the character sheet', () => {
    * how a character sheet leads, because by the time you are playing the
    * ancestry is the thing you already know and the domain is the thing you look
    * up. Read off the fold's own contents rather than off the page: the header
-   * itself says "Lineage & domains", so a whole-page search would find the word
+   * itself says "Lineage, domains & features", so a whole-page search would find the word
    * before either subject.
    */
   it('reads domains first, then the ancestry and the community', () => {
@@ -416,7 +416,7 @@ describe('what a phone shows of the character sheet', () => {
       // touch.
       'Rest & downtime',
       'Carried',
-      'Lineage & domains',
+      'Lineage, domains & features',
     ].map(at);
     expect(
       order,
@@ -731,7 +731,7 @@ describe('the whole sheet, at 393x852', () => {
    * Chrome at 393, 375 and 360 with the `wizard10` fixture, `scrollWidth`
    * against `clientWidth` on every span, and nothing clips: the worst of them is
    * `Cards` at 131px of summary in a 161px cell at 360. `Carried` fails that
-   * test at 257.41px and `Lineage & domains` stays on this column by the
+   * test at 257.41px and `Lineage, domains & features` stays on this column by the
    * owner's decision, so those two keep whole rows.
    *
    * THE OPENING RULE IS THE HALF THAT IS EASY TO GET WRONG. The member you
@@ -783,7 +783,7 @@ describe('the whole sheet, at 393x852', () => {
         .filter((b) => b.className === 'row')
         .map(upTo),
       'the two folds that cannot take half a cell are no longer the two on whole rows',
-    ).toEqual(['Carried', 'Lineage & domains']);
+    ).toEqual(['Carried', 'Lineage, domains & features']);
 
     /*
      * And the opening rule, asserted on the SECOND member, because the first
@@ -1289,7 +1289,7 @@ describe('the budget the pin came off for', () => {
      * name and `CLASS / MULTICLASS · LVn` on every screen, so three of the four
      * facts are still on the glass and 53px higher up; the pronouns and the
      * subclass, which the header has never carried, moved into the shut
-     * `Lineage & domains` fold, where they cost this table nothing. `names the
+     * `Lineage, domains & features` fold, where they cost this table nothing. `names the
      * class, the subclass, the pronouns and the level, one fold away` asserts
      * that half, so the saving cannot quietly become a deletion.
      */
@@ -1358,7 +1358,7 @@ describe('the budget the pin came off for', () => {
    * measurement and not by taste - a member needs a short name AND a short
    * summary at 360, which is where they were measured in Chrome - and two folds
    * fail that test. `Carried`'s worst summary is 257.41px against a 181.5px
-   * half cell, and `Lineage & domains` stays on this column by the owner's
+   * half cell, and `Lineage, domains & features` stays on this column by the owner's
    * decision when the plan had it leaving. So they are the last two full-width
    * rows, and there are two pairs rather than three.
    */
@@ -1389,7 +1389,7 @@ describe('the budget the pin came off for', () => {
      * with a clear sheet, and 52px back in it - naming what is on - the moment
      * anything is.
      */
-    { what: 'Lineage & domains', px: 44 },
+    { what: 'Lineage, domains & features', px: 44 },
   ];
 
   const total = (items: Array<{ px: number }>): number =>
@@ -1724,7 +1724,7 @@ describe('the budget the pin came off for', () => {
      * reflow grouped things: the head of the column (one child holding the
      * defence band, the counters, the trait row and the roll surface at 14px
      * apart), the two
-     * fold pairs, `Carried`, `Lineage & domains` and - since P5-7 - the licence
+     * fold pairs, `Carried`, `Lineage, domains & features` and - since P5-7 - the licence
      * notice. Five of those are `STACK` and `INDEX`; ten sections are drawn
      * inside them.
      *
@@ -1886,7 +1886,7 @@ describe('the budget the pin came off for', () => {
       'Cards',
       'Rest & downtime',
       'Carried',
-      'Lineage & domains',
+      'Lineage, domains & features',
     ];
     expect(
       headers.map((h, i) => ((h.textContent ?? '').startsWith(LABELS[i] ?? '\u0000') ? LABELS[i] : h.textContent)),

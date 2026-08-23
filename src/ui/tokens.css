@@ -383,15 +383,33 @@
 }
 
 /*
- * And the cockpit takes it back, because a cockpit cell is a different
- * measurement and always has been.
+ * And the cockpit takes the SIZES back, but no longer the SHAPE.
  *
- * 198px of track rather than 181.5, a mouse rather than a thumb, and no
- * scrolling: the desktop panel hands every pixel this block saves to
- * `DualityRoll` below it, which is the panel this repo has measured crushed to
- * 45px. So the cockpit keeps the two-line shape at 26 in a 48px cell - exactly
- * what it drew before the phone reflow - and `Counter` draws the three-line
- * card only when `Vitals` asks for it by layout.
+ * There is one counter shape in this app now - the card, with the two steppers
+ * at its outer edges and the number on a line of its own - and this block is
+ * what makes it fit a desk instead of a thumb. 198px of track rather than
+ * 181.5, a mouse rather than a finger, and a column whose other child is
+ * `DualityRoll`: the cell is **62** here against the phone's 90, and the number
+ * 26 against 38. Three lines at 3 + 13 + 2 + 26 + 2 + 10 + 3 is 59, 61 with the
+ * card's own border, in a 62px cell - one spare pixel, which is the same margin
+ * the phone's 87-in-90 leaves.
+ *
+ * WHY NOT THE PHONE'S 90, WHICH IS WHAT «uniformato con lo stile del mobile»
+ * COULD HAVE MEANT. The owner asked for the mobile STYLE and named what they
+ * were rejecting - «non con più e meno affianco alla statistica» - and both of
+ * those are properties of the shape, not of its height. The sizes are the
+ * expensive half: a 90px cell makes the 2x2 block 186 against 102, and all
+ * **84** of the difference come out of `DualityRoll`, the only other child of
+ * the middle column. Measured against the panel clients recorded at
+ * `DualityRoll.tsx:2100`, that puts ROLL at painted 0 of 54 at 1180x695 and
+ * 1366x768 in both banner states and at 1280x800 with the backup banner up -
+ * a default state of a fresh install. The 62px cell costs **28** and ROLL stays
+ * painted at every width the cockpit is drawn at. So the shape is unified and
+ * the arithmetic is not: this block is the whole of the difference.
+ *
+ * `--counter-pad` and `--counter-gap` are LIVE here now. They used to be set
+ * back for hygiene with a comment saying the cockpit is not a card; it is one,
+ * and these two are terms of the height above.
  *
  * A `min-width` and not a pointer query, for the reason the 380 above gives:
  * this is a question about how wide a grid track is.
@@ -399,10 +417,7 @@
 @media (min-width: 1180px) {
   :root {
     --counter-num: 26px;
-    --counter-cell: 48px;
-    /* Unused there - the cockpit is not a card - and set back for the same
-       reason the two above are: nothing at this width should inherit a phone's
-       arithmetic. */
+    --counter-cell: 62px;
     --counter-pad: 3px;
     --counter-gap: 2px;
     --damage-w: 44px;

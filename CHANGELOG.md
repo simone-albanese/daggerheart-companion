@@ -12,6 +12,105 @@ before the one below.
 
 ---
 
+## 0.4.0 — 2026-08-23
+
+Deployed as it was written, like 0.3.0 before it. The version moved for one
+reason and it is worth stating plainly: **this release changes a number on
+every sheet that already exists.** A Simiah's Evasion, a character in a
+Gambeson, a Guardian behind a Tower Shield, a Human's Stress track — all of
+them read differently after this than before, and all of the new readings are
+the right ones. The version is stamped into every exported `.dhchar` and
+`.dhbackup` and is what a bug report quotes back, so a file written before this
+and a file written after it must not claim to be the same build.
+
+### The numbers on the sheet now include the things that change them
+
+The engine computed Evasion as the class's starting value plus the advancements
+that raise it, **and nothing else**. Of the static effects the shipped dataset
+carries, it applied the Beastform's and no others. The owner reported it in the
+shortest possible form: «Il simiah che prende evasion e il gamberson che da
+evasione. Il conteggio non sale. Resta fermo alla base di classe.»
+
+- **Ancestry.** Simiah's *Nimble* (+1 Evasion), Giant's *Endurance* (a Hit Point
+  slot), Human's *High Stamina* (a Stress slot), Galapa's *Shell* (both damage
+  thresholds, by your Proficiency). All four honour the SRD's mixed-ancestry
+  rule: *Nimble* is the second feature slot, so a mixed character who took
+  Simiah **first** does not have it — and the sheet that prints the feature and
+  the engine that counts it now read that from one place.
+- **Subclass**, gated on the card actually taken rather than on the level.
+  Nightwalker's *Fleeting Shadow*, School of War's *Battlemage*, Vengeance's
+  *At Ease*, Winged Sentinel's *Ascendant*, and Stalwart's three — which
+  **stack**: a Stalwart holding the mastery card is at +6 to both thresholds,
+  not +3.
+- **Armour.** Gambeson +1 Evasion, Chainmail −1, Full Plate −2 and −1 Agility,
+  Bellamoi Fine Armor +1 Presence, Savior Chainmail −1 to Evasion and all six
+  traits — every tier of each.
+- **Weapons, in both slots.** Greatsword, Warhammer and the Heavy-Frame
+  Wheelchair take Evasion off; Halberd and Longbow take Finesse; the Sledge Axe
+  takes Agility; the Bravesword takes Evasion and gives Severe. The shields are
+  secondary weapons and raise the Armor Score: Round, Tower, Spiked, and the
+  Labrys Axe from the primary slot.
+- **Carried items.** The six Relics give their trait, once per relic however
+  many are in the stack. A hand-typed "Stride Relic" carries no dataset
+  reference and correctly gives nothing: this app does not read item names.
+
+What is deliberately **not** counted is anything whose number is not true of the
+sheet at rest — Rogue's Dodge, a Buckler's mark, Faerie's Wings, School of War's
+*Conjure Shield* (no cost and exact arithmetic, but gated on a Hope counter that
+moves several times a scene), every potion. They are all on the screen in full;
+what they are not is a term in a total.
+
+Nothing here reads a feature's text. The arithmetic is a hand-authored register
+keyed on dataset reference, and a test walks the whole dataset against it in
+**both** directions — every row must still match the sentence it was priced
+from, and every sentence that looks like a static bonus must have a row or a
+written reason for not having one. That second direction is the check that did
+not exist while a Simiah's +1 was missing.
+
+### The Play screen shows what a character actually has
+
+Not one word of class, subclass, ancestry or community feature text was
+reachable from Play. After character creation the only way to reread your own
+Hope feature was to print the sheet.
+
+- **Every feature, on the screen that is open while you play** — on the phone
+  inside the fold that names them, now `Lineage, domains & features` with the
+  count on its shut header; in the desktop cockpit, open, in the column that
+  scrolls. The class Hope feature leads, because it is the one you look up most.
+- **A feature that changes a number says so**, with a chip drawn from the same
+  ledger the total was summed from — so `+1 EVASION` beside *Nimble* is a claim
+  you can check against the band by looking. A bare integer with no derivation
+  anywhere is how the defect above survived as long as it did.
+- **Equipped gear prints its own feature at last.** A Greatsword said `2d10+3`
+  and nothing else; a Gambeson said its score and its thresholds and never
+  *Flexible: +1 to Evasion* — on the one screen that draws the Evasion it
+  changes.
+- **The cockpit's defence band shows the sum**: `11+1` under a 12. The phone
+  does not, and that is measured rather than forgotten — its band is 56px and
+  the small phone has thirteen pixels of slack in the whole column.
+
+### One counter shape instead of two
+
+The player's four tracks were a three-line card on a phone and a two-line row in
+the cockpit, with the value on the left and both steppers pinned after it. The
+owner asked for one shape and named what they were rejecting: «va uniformato con
+lo stile del mobile per coerenza e non con più e meno affianco alla statistica».
+
+- **The card is the only shape now.** `[−] value [+]`, steppers at the two outer
+  edges, the number on a line of its own with its maximum beneath. The rejected
+  row is deleted rather than left behind a flag, and the test that pins the
+  order carries the reason.
+- **Sized for the surface it is on, not copied across.** The cockpit's cell is
+  **62px** against the phone's 90: three lines at 3 + 13 + 2 + 26 + 2 + 10 + 3
+  is 59, 61 with the border. The phone's own 90 was the other option and it was
+  refused with the arithmetic — it costs 84px of `DualityRoll` against 28, which
+  measured in Chrome takes ROLL off the glass at 1180×695 and 1366×768. At 62px
+  ROLL stays painted at every cockpit height from 650px up with the shell
+  banners down; with both banners up it needs 762, where before this it needed
+  734.
+
+---
+
 ## 0.3.0 — 2026-08-19
 
 Deployed as it was written, so everything here was live before it was numbered.

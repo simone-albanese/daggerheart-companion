@@ -37,6 +37,7 @@ import {
   type DatasetIndex,
   type DerivedStats,
 } from '../../engine/character.ts';
+import { characterFeatures } from '../../engine/features.ts';
 import { SEVERITY_HP, SEVERITY_LABEL, type Severity } from '../../engine/damage.ts';
 import { formatGold, MAX_CHESTS, PER_STEP } from '../../engine/gold.ts';
 import { tierAchievementFor } from '../../engine/levelUp.ts';
@@ -220,6 +221,7 @@ export function buildSheet(
   const resting: Character = { ...character, beastform: null };
   const stats: DerivedStats = deriveStats(resting, dataset, index);
 
+  const held = characterFeatures(character, index);
   const klass = index.classes.get(character.classRef);
   const multiclass = character.multiclassRef ? index.classes.get(character.multiclassRef) : undefined;
   const subclasses = character.subclassRefs
@@ -356,7 +358,10 @@ export function buildSheet(
       summary: formatGold(character.gold),
     },
     inventory: character.inventory,
-    features: collectFeatures(character, index, klass, multiclass, subclasses),
+    // Mapped down to the three fields the page prints, rather than handed
+    // over whole: `HeldFeature` also carries a `site` and a `ref`, which the
+    // Play screen groups by and a sheet of paper has no use for.
+    features: held.features.map((f) => ({ source: f.source, name: f.name, text: f.text })),
   };
 }
 
@@ -409,63 +414,6 @@ const describeArmor = (armor: Armor): SheetArmor => ({
   baseThresholds: armor.baseThresholds,
   feature: armor.feature,
 });
-
-/**
- * Every feature the character actually has, in the order they were acquired.
- *
- * Which subclass cards are held is read out of `levelUpHistory` rather than
- * inferred from the level: the advancement that takes a specialization is a
- * choice, and a character who spent those two slots elsewhere does not have
- * the card. A mixed ancestry takes the first feature of the first ancestry and
- * the second of the second, which is the SRD's own wording for it.
- */
-function collectFeatures(
-  c: Character,
-  index: DatasetIndex,
-  klass: CharClass | undefined,
-  multiclass: CharClass | undefined,
-  subclasses: Subclass[],
-): SheetFeature[] {
-  const out: SheetFeature[] = [];
-  const push = (source: string, list: Array<{ name: string; text: string }>): void => {
-    for (const f of list) out.push({ source, name: f.name, text: f.text });
-  };
-
-  // The Hope feature is deliberately absent: `buildSheet` hands it out as
-  // `hopeFeature` so it can be printed under the Hope track, where the paper
-  // sheet puts it and where it is actually read. Printing it in both places
-  // would be the same feature twice on a page that is already tight.
-  if (klass) push(klass.name, klass.classFeatures);
-  // Multiclassing grants the second class's class feature, not its Hope one.
-  if (multiclass) push(`${multiclass.name} · Multiclass`, multiclass.classFeatures);
-
-  for (const sub of subclasses) {
-    const cards = new Set(
-      c.levelUpHistory
-        .filter((h) => h.kind === 'subclass' && h.detail['subclassRef'] === sub.id)
-        .map((h) => String(h.detail['card'] ?? '')),
-    );
-    push(`${sub.name} · Foundation`, sub.foundationFeatures);
-    if (cards.has('specialization')) push(`${sub.name} · Specialization`, sub.specializationFeatures);
-    if (cards.has('mastery')) push(`${sub.name} · Mastery`, sub.masteryFeatures);
-  }
-
-  const ancestries = c.ancestryRefs
-    .map((r) => index.byRef.get(r) as Ancestry | undefined)
-    .filter((a): a is Ancestry => a !== undefined);
-  if (ancestries.length === 1) {
-    push(ancestries[0]!.name, ancestries[0]!.features);
-  } else if (ancestries.length > 1) {
-    const [top, bottom] = ancestries;
-    if (top?.features[0]) push(`${top.name} · Mixed`, [top.features[0]]);
-    if (bottom?.features[1]) push(`${bottom.name} · Mixed`, [bottom.features[1]]);
-  }
-
-  const community = index.byRef.get(c.communityRef ?? '') as Community | undefined;
-  if (community) push(community.name, [community.feature]);
-
-  return out;
-}
 
 /** `+2` / `−1`, with the minus sign the rest of the app uses. */
 export const modifier = sign;

@@ -51,6 +51,7 @@ import {
 } from '../../src/engine/character.ts';
 import { availableOptions } from '../../src/engine/levelUp.ts';
 import { addScar } from '../../src/engine/death.ts';
+import { sumOf } from '../../src/engine/modifiers.ts';
 import { characterRefs } from '../../src/transfer/codec.ts';
 import {
   FULL_MATRIX_SIZE,
@@ -643,15 +644,31 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
         if (row.stats.unresolvedArmor !== null) {
           wrong.push(`${row.label}: stats report armor ${row.stats.unresolvedArmor} as unresolvable`);
         }
-        // The rule, spelled out rather than borrowed: an armored character's
-        // thresholds are the armor's own plus their level; an unarmored one's
-        // are their level and twice their level, because the base is [0, level]
-        // and level is added to both halves. A manual override replaces both.
+        /*
+         * The rule, spelled out rather than borrowed: an armored character's
+         * thresholds are the armor's own plus their level; an unarmored one's
+         * are their level and twice their level, because the base is [0, level]
+         * and level is added to both halves. A manual override replaces both.
+         *
+         * AND THE LEDGER IS THE THIRD TERM, which is what this `it` was missing
+         * until Simiah's Evasion got fixed and every other static bonus came
+         * with it. Four things in the shipped dataset move a threshold and this
+         * matrix reaches all four: Galapa's `Shell` (+Proficiency to both),
+         * Stalwart's `Unwavering`, `Unrelenting` and `Undaunted` (+1, +2 and +3
+         * to both, and they STACK), Winged Sentinel's `Ascendant` (+4 to Severe
+         * alone) and a Bravesword's `Brave` (+3 to Severe alone). It is summed off
+         * `row.stats.modifiers` rather than recomputed here on purpose: this
+         * test is about the ARITHMETIC deriveStats does with the terms, and a
+         * second hand-rolled register in a test file is the second answer this
+         * repo keeps warning about. What it does check independently is that
+         * the ledger's terms are the only difference - a bonus that appeared
+         * from nowhere would still fail here.
+         */
         const base: [number, number] =
           armor === undefined ? [0, c.level] : [armor.baseThresholds[0], armor.baseThresholds[1]];
         const expected: [number, number] = c.thresholdOverride ?? [
-          base[0] + c.level,
-          base[1] + c.level,
+          base[0] + c.level + sumOf(row.stats.modifiers, 'major'),
+          base[1] + c.level + sumOf(row.stats.modifiers, 'severe'),
         ];
         if (c.thresholdOverride !== null) overridden += 1;
         else if (armor === undefined) unarmored += 1;
@@ -681,15 +698,40 @@ describe.skipIf(!hasDataset())('every character the game can make', () => {
       expect(armored).toBeGreaterThan(0);
       expect(overridden).toBeGreaterThan(0);
 
-      // And, said once more in the shape the rule is usually quoted in.
+      /*
+       * And, said once more in the shape the rule is usually quoted in - with
+       * the one qualifier the quote leaves out.
+       *
+       * "Unarmored is level and twice level" was written as a bare equality and
+       * it stopped being true the day the ledger started reaching the
+       * thresholds. 28 of the 3240 rows break it and every one of them is
+       * right to: a Galapa's `Shell` adds their Proficiency to both halves
+       * whether or not they are wearing anything, a Stalwart's three features
+       * stack to +6, a Winged Sentinel's `Ascendant` puts +4 on Severe, and a
+       * Bravesword adds +3 to Severe from the primary weapon slot - none of
+       * which is armour, and none of which the old sentence had a term for.
+       *
+       * So the quoted rule is what a sheet with an EMPTY LEDGER reads, and that
+       * is what is asserted. Splitting the population this way is worth more
+       * than widening the sum would be: `bareLedger` proves the unarmored base
+       * is untouched, and the rows with terms in them were already proved
+       * against those terms above.
+       */
       const bare = rows.filter(
         (r) => r.character.activeArmor === null && r.character.thresholdOverride === null,
       );
-      const bareWrong = bare.filter(
+      const bareLedger = bare.filter(
+        (r) => sumOf(r.stats.modifiers, 'major') === 0 && sumOf(r.stats.modifiers, 'severe') === 0,
+      );
+      const bareWrong = bareLedger.filter(
         (r) => r.stats.thresholds[0] !== r.level || r.stats.thresholds[1] !== r.level * 2,
       );
       nothingWrong(bareWrong.map((r) => `${r.label}: [${r.stats.thresholds.join(', ')}]`));
       expect(bare.length).toBe(unarmored);
+      // The split has to be a split and not a way of asserting nothing: both
+      // sides must be populated, or this `it` quietly stops proving the rule.
+      expect(bareLedger.length).toBeGreaterThan(0);
+      expect(bare.length - bareLedger.length).toBeGreaterThan(0);
     });
 
     it('never lets a maximum in the game be exceeded', () => {

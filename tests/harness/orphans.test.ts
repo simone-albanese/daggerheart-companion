@@ -72,6 +72,9 @@ const DELIBERATE: Record<string, string> = {
   'transfer/codec.ts::missingSlugs': 'P1-6: the "will this fit in a QR" pre-flight nothing runs.',
   'engine/loadout.ts::reorderLoadout': 'P1-5: nothing can reorder a loadout; there is no control.',
 
+  'engine/modifiers.ts::REGISTERS':
+    'The register, exposed for its auditor and for nothing else. `collectModifiers` reads the six maps directly and is what the app calls; this handle exists so `tests/engine/modifiers.test.ts` can walk every lane against `data/srd-1.0.json` in BOTH directions - every row still matching the sentence it was priced from, and every sentence that carries a static bonus still having a row. Wiring it into `src/` would mean the app reading its own register generically, which is the text-scanning this file exists to avoid.',
+
   // --- Consumed outside the shipped bundle. Not dead, just not the app's.
   'store/state.ts::flushPending':
     'Awaited by the store tests. Inside the app `flush` is reached by the debounce, by pagehide and by remove(); runBackup reads the store rather than the disk, so it needs no flush of its own.',

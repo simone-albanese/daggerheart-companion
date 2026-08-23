@@ -239,7 +239,7 @@ describe('where it sits on the Play screen', () => {
 
     const roll = all.find((b) => b.style.minHeight === '56px' && (b.textContent ?? '').length > 4);
     expect(roll, 'there is no roll control to place it against').toBeDefined();
-    const lineage = all.find((b) => (b.textContent ?? '').startsWith('Lineage & domains'));
+    const lineage = all.find((b) => (b.textContent ?? '').startsWith('Lineage, domains & features'));
     expect(lineage, 'there is no lineage fold to place it against').toBeDefined();
 
     // Node.DOCUMENT_POSITION_FOLLOWING, spelled as its bit.
