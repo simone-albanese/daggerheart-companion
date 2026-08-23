@@ -74,6 +74,7 @@ import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   DAMAGE_SIDES,
+  beastformSource,
   sourceFromWeapon,
   sourceName,
   spellcastDamage,
@@ -177,6 +178,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     if (declared.kind === 'spellcast') {
       return spellcastSource(stats, declared.sides, spellModifier);
     }
+    // Re-derived from the worn form every render, like the spell's count above:
+    // DROP resolves this to null and the damage offer goes with it, rather than
+    // leaving a bear's dice armed on a sheet that is a person again.
+    if (declared.kind === 'beastform') return beastformSource(stats);
     if (character === null) return null;
     const held =
       declared.ref === character.activePrimaryWeapon ||
@@ -211,6 +216,14 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     // through it would be put down by the same tap that armed it.
     if (declaration.kind === 'spellcast') {
       setTrait('spellcast');
+      return;
+    }
+    // A form specifies its trait the way a weapon does, and the sentence is the
+    // same one: *"you use the creature's listed range, trait, and damage
+    // dice"*. So arming a bear moves the chip to Strength.
+    if (declaration.kind === 'beastform') {
+      const trait = stats.beastform?.form.attack.trait;
+      if (trait !== undefined) setTrait(trait);
       return;
     }
     const weapon = index.weapons.get(declaration.ref);
@@ -1679,6 +1692,22 @@ function Equipped({
   const reaches = useMemo(() => rangeDistances(rules), [rules]);
   if (!character) return null;
 
+  /*
+   * The reach, and what the book says it is - worded once, because the weapon
+   * rows and the Beastform row below both print it and two spellings of one
+   * range is two ranges eventually.
+   *
+   * Null feet is Melee, which the SRD gives no figure for, and every range at
+   * all if the dataset carries no range section. In both cases the word stands
+   * alone, which is what these rows said before there was anything to add.
+   */
+  const reachOf = (range: string): string => {
+    const feet = reaches.get(range.toLowerCase())?.feet ?? null;
+    return feet === null
+      ? range.toUpperCase()
+      : `${range.toUpperCase()} ${feetRange(feet).toUpperCase()}`;
+  };
+
   const primary = character.activePrimaryWeapon
     ? index.weapons.get(character.activePrimaryWeapon)
     : undefined;
@@ -1687,6 +1716,9 @@ function Equipped({
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
   const unarmed = arming.declared?.kind === 'unarmed';
+  const worn = stats.beastform;
+  const beast = beastformSource(stats);
+  const armedBeast = arming.declared?.kind === 'beastform';
 
   return (
     // flex: none, because this lives inside a scrolling flex column and a flex
@@ -1699,6 +1731,47 @@ function Equipped({
           Nothing equipped — choose gear in Build.
         </div>
       )}
+      {/*
+       * THE FORM'S OWN ATTACK, WHICH THIS SCREEN COULD NOT ROLL.
+       *
+       * It sits above the weapons because while it is here the weapons are the
+       * two things the rule takes away, and a player reaching for an attack
+       * should meet the one they have first. `Beastform.tsx` prints the same
+       * dice up in the identity strip, unmultiplied, as part of the form's
+       * stat line; this is the same attack as something you can declare, with
+       * Proficiency applied - `d12+10` there and `4d12+10` here, which is the
+       * difference between reading a stat block and rolling it.
+       */}
+      {worn !== null && beast !== null && beast.kind === 'beastform' && (
+        <button
+          type="button"
+          aria-pressed={armedBeast}
+          onClick={() => arming.arm(armedBeast ? null : { kind: 'beastform' })}
+          className="panel"
+          style={{
+            borderLeft: `3px solid ${armedBeast ? 'var(--hope)' : 'var(--sage)'}`,
+            background: armedBeast ? 'var(--hope-wash)' : undefined,
+            padding: '10px 11px',
+            textAlign: 'left',
+            minHeight: 'var(--tap)',
+          }}
+        >
+          <span className="spread">
+            <span style={{ font: '700 14px/1.15 var(--sans)' }}>{worn.form.name}</span>
+            <span className="t-num" style={{ color: 'var(--hope)' }}>
+              {formatDamage(beast.damage)}
+            </span>
+          </span>
+          <span
+            className="t-meta"
+            style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}
+          >
+            {armedBeast ? 'ARMED · ' : ''}
+            {TRAIT_LABELS[beast.trait].toUpperCase()} · {reachOf(worn.form.attack.range)} ·
+            PHYSICAL
+          </span>
+        </button>
+      )}
       {[primary, secondary].filter(Boolean).map((w) => {
         if (!w) return null;
         // weaponDamage, not a regex. The inline `replace(/^(\d*)d/, ...)` that
@@ -1708,15 +1781,7 @@ function Equipped({
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
         const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
-        // The reach, and what the book says it is. Null feet is Melee, which
-        // the SRD gives no figure for, and every range at all if the dataset
-        // carries no range section - in both cases the word stands alone, which
-        // is what this row said before there was anything to add to it.
-        const feet = reaches.get(w.range.toLowerCase())?.feet ?? null;
-        const reach =
-          feet === null
-            ? w.range.toUpperCase()
-            : `${w.range.toUpperCase()} ${feetRange(feet).toUpperCase()}`;
+        const reach = reachOf(w.range);
         return (
           <button
             key={w.id}

@@ -3,12 +3,14 @@
  *
  * Everything the form changes - Evasion, one trait, the attack you make - is
  * layered over the character by `deriveStats` and never written into the sheet.
- * This module is only the two costs the rules state as numbers and the level
- * filter on the list; the form's features are text, shown and never executed.
+ * This module is the two costs the rules state as numbers, the level filter on
+ * the list, and the one line of arithmetic the attack needs; the form's
+ * features are text, shown and never executed.
  */
 import type { Beastform, Character, Dataset, Feature, Ref } from '../../shared/types.ts';
 import { tierOf, type DatasetIndex } from './character.ts';
 import { markStress } from './damage.ts';
+import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
 
 /** "Mark a Stress to magically transform into a creature of your tier or lower." */
 export const BEASTFORM_STRESS_COST = 1;
@@ -47,6 +49,30 @@ export function hasBeastform(c: Character, ix: DatasetIndex): boolean {
 export function evolutionFeature(c: Character, ix: DatasetIndex): Feature | null {
   const hope = ix.classes.get(c.classRef)?.hopeFeature;
   return hope !== undefined && /beastform/i.test(hope.text) ? hope : null;
+}
+
+/**
+ * The damage a worn form's attack rolls, with Proficiency applied.
+ *
+ * *"When you make an attack while transformed, you use the creature's listed
+ * range, trait, and damage dice, but you use your Proficiency"* - folio 12,
+ * which the dataset carries as `beastform-options`. So a form's printed
+ * `d12+10` is a die and a flat bonus exactly the way a weapon's is, and it goes
+ * through the same two calls a weapon does. That is deliberate: `weaponDamage`
+ * and `companionDamage` are these two calls as well, and a third route to one
+ * number is how the three stop agreeing.
+ *
+ * Null for a damage string that will not parse, which the SRD's own forms never
+ * produce but a layer's can.
+ */
+export function beastformDamage(
+  form: Beastform,
+  proficiency: number,
+): { spec: string; count: number; sides: number; modifier: number } | null {
+  const parsed = parseDamage(form.attack.damage);
+  if (!parsed) return null;
+  const scaled = applyProficiency(parsed, proficiency);
+  return { spec: formatDamage(scaled), ...scaled };
 }
 
 export interface TransformOutcome {

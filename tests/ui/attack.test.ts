@@ -23,9 +23,11 @@
  * as perfectly plausible at the table, which is the worst kind.
  */
 import { describe, expect, it } from 'vitest';
+import type { Beastform } from '../../shared/types.ts';
 import type { DerivedStats } from '../../src/engine/character.ts';
 import { formatDamage, rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
+  beastformSource,
   damageArithmetic,
   damageLogEntry,
   damageOffer,
@@ -341,5 +343,77 @@ describe('the line the damage roll writes', () => {
   it('drops a modifier of zero rather than printing +0', () => {
     const result = rolled({ count: 2, sides: 4, modifier: 0 }, false, [3, 1]);
     expect(damageArithmetic(result)).toBe('3 + 1 = 4');
+  });
+});
+
+/**
+ * The Beastform's own attack, which this screen printed and could not roll.
+ *
+ * The strip at the top of Play has always shown `ATTACK d12+10 · MELEE ·
+ * STRENGTH`, and there was no `Declaration` that could arm it - so a Druid in a
+ * bear could roll the greatsword the rule had just taken away, and not the
+ * bear. The rule is folio 12's: *"you use the creature's listed range, trait,
+ * and damage dice, but you use your Proficiency."*
+ */
+describe('the attack a worn Beastform makes', () => {
+  const bear: Beastform = {
+    id: 'great-predator',
+    name: 'Great Predator',
+    tier: 3,
+    category: 'Great Predator',
+    examples: ['Bear'],
+    traitBonus: { strength: 2 },
+    evasionBonus: 2,
+    attack: { name: 'Great Predator', range: 'Melee', damage: 'd12+8', trait: 'strength' },
+    advantageOn: ['attack'],
+    features: [],
+  };
+
+  const wearing = (form: Beastform, proficiency: number): DerivedStats =>
+    makeStats({
+      proficiency,
+      beastform: { form, baseEvasion: 10, raised: [{ trait: 'strength', from: 1, to: 3 }] },
+    });
+
+  it('is nothing at all when no form is worn', () => {
+    expect(beastformSource(makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('rolls the form’s dice at the character’s Proficiency', () => {
+    const source = beastformSource(wearing(bear, 3));
+    expect(source).toMatchObject({
+      kind: 'beastform',
+      name: 'Great Predator',
+      trait: 'strength',
+      damage: { count: 3, sides: 12, modifier: 8 },
+    });
+  });
+
+  it('carries the trait the form specifies, which is what arms the chip', () => {
+    // Not the character's own best trait and not the one the form *raises* -
+    // the one its attack line names. On this form they happen to agree; the
+    // Winged Beast raises Finesse and attacks with it too, but a layer's need
+    // not, and the row must follow the attack line.
+    const winged = { ...bear, attack: { ...bear.attack, trait: 'finesse' as const } };
+    expect(beastformSource(wearing(winged, 2))?.kind).toBe('beastform');
+    expect(
+      beastformSource(wearing(winged, 2)) as Extract<AttackSource, { kind: 'beastform' }>,
+    ).toMatchObject({ trait: 'finesse' });
+  });
+
+  it('is physical, and that is guarded by the parser rather than assumed', () => {
+    // `shared/parsers/beastforms.ts` refuses a form whose attack line reads
+    // `mag` - "magic beastform attack has nowhere to go in Beastform" - so no
+    // dataset can carry one for this branch to get wrong.
+    expect(damageTypeOf(beastformSource(wearing(bear, 3))!)).toBe('phy');
+  });
+
+  it('is named by the form, so the log line matches the strip', () => {
+    expect(sourceName(beastformSource(wearing(bear, 3))!)).toBe('Great Predator');
+  });
+
+  it('refuses a damage line that will not parse rather than arming a bad pool', () => {
+    const odd = { ...bear, attack: { ...bear.attack, damage: 'a mauling' } };
+    expect(beastformSource(wearing(odd, 3))).toBeNull();
   });
 });

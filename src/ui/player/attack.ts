@@ -33,6 +33,7 @@
  * and belong to the sheet in front of you.
  */
 import type { Trait, Weapon } from '../../../shared/types.ts';
+import { beastformDamage } from '../../engine/beastform.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
 import {
@@ -61,6 +62,14 @@ export type AttackSource =
       trait: Trait;
       damage: DamageDice;
     }
+  | {
+      kind: 'beastform';
+      /** The form's name: what the log line and the armed chip say. */
+      name: string;
+      /** The trait the form's attack rolls with, so the row can arm it. */
+      trait: Trait;
+      damage: DamageDice;
+    }
   | { kind: 'companion'; name: string; damage: DamageDice };
 
 /**
@@ -81,6 +90,13 @@ export type AttackSource =
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
  *
+ * `beastform` carries nothing either, and here that is load-bearing rather than
+ * incidental. The worn form is on the character, so the pool is re-derived from
+ * it every render - and the moment a player taps DROP the declaration resolves
+ * to null and the offer goes with it, which is exactly the sentence at the top
+ * of this block. A `{ ref }` stored at the tap would leave a bear's `4d12+10`
+ * sitting armed on a sheet that is a person again.
+ *
  * `spellcast` carries the die and only the die. The count is the Spellcast
  * trait, which is on the sheet and moves with a level-up or a Beastform, and
  * the modifier is typed beside the chips - so what is remembered here is the
@@ -90,7 +106,8 @@ export type AttackSource =
 export type Declaration =
   | { kind: 'weapon'; ref: string }
   | { kind: 'unarmed' }
-  | { kind: 'spellcast'; sides: number };
+  | { kind: 'spellcast'; sides: number }
+  | { kind: 'beastform' };
 
 /**
  * The declaration, what it resolves to, and the one way to change it.
@@ -281,6 +298,34 @@ export function spellcastSource(
   };
 }
 
+/**
+ * The attack a worn Beastform makes, or null when no form is worn.
+ *
+ * *"While transformed, you can't use weapons or cast spells from domain cards"*
+ * and *"you use the creature's listed range, trait, and damage dice, but you
+ * use your Proficiency"*. Both halves of that had nowhere to go: the strip
+ * printed `ATTACK d12+10 · MELEE · STRENGTH` as text, and the only things this
+ * screen would actually roll were the two the rule takes away.
+ *
+ * It reads `stats.beastform` rather than the character's own `beastform` ref
+ * for the reason the whole override exists - a ref this dataset cannot resolve
+ * is not a form, and `deriveStats` has already decided that. So an import from
+ * a device with a layer we do not have offers no attack, rather than offering
+ * one built out of a name.
+ */
+export function beastformSource(stats: DerivedStats): AttackSource | null {
+  const worn = stats.beastform;
+  if (worn === null) return null;
+  const damage = beastformDamage(worn.form, stats.proficiency);
+  if (damage === null) return null;
+  return {
+    kind: 'beastform',
+    name: worn.form.name,
+    trait: worn.form.attack.trait,
+    damage: { count: damage.count, sides: damage.sides, modifier: damage.modifier },
+  };
+}
+
 /** A damage pool that can actually be rolled. */
 export const isRollableDamage = (d: DamageDice): boolean =>
   d.count >= 1 && d.sides >= 2 && Number.isFinite(d.modifier);
@@ -362,6 +407,11 @@ export function damageOffer(attack: ArmedAttack): DamageOffer {
  * and a modifier typed off whatever the player is holding, so naming a card
  * here would be the app claiming to know which one - and being wrong the first
  * time somebody rolls the same d8+3 for a different spell.
+ *
+ * A Beastform and a companion both fall through to `source.name`, and both mean
+ * it: the form and the animal have names the table uses, and a log line reading
+ * `Great Predator 4d12+8` is the one a player can check against the strip above
+ * it.
  */
 export const sourceName = (source: AttackSource): string =>
   source.kind === 'unarmed' ? 'Unarmed' : source.kind === 'spellcast' ? 'Spellcast' : source.name;
@@ -376,9 +426,14 @@ export const sourceName = (source: AttackSource): string =>
  * A weapon carries its own answer and it is read rather than guessed: 70 of the
  * 204 shipped weapons are `mag`, so "weapon means physical" would be wrong more
  * than a third of the time. A spell is the sentence's other half and is magic.
- * The two that state nothing take the default: an unarmed attack is physical by
- * the sentence above, and a companion's attack is the Ranger's beast biting
- * something.
+ * The rest take the default, and only one of them is a guess. An unarmed attack
+ * is physical by the sentence above. A Beastform's is physical because the
+ * dataset cannot hold anything else: `shared/parsers/beastforms.ts` refuses a
+ * form whose attack line reads `mag` outright - *"magic beastform attack has
+ * nowhere to go in Beastform"* - so `phy` here is guarded upstream rather than
+ * assumed. A companion's is the Ranger's beast biting something, and that one
+ * IS a guess: folio 18 asks the player to *"choose whether they deal physical
+ * or magic damage"* and the sheet has no field for the answer yet.
  */
 export const damageTypeOf = (source: AttackSource): 'phy' | 'mag' =>
   source.kind === 'weapon' ? source.damageType : source.kind === 'spellcast' ? 'mag' : 'phy';

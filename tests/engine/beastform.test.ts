@@ -3,6 +3,7 @@ import { deriveStats, indexDataset, rollModifier } from '@engine/character.ts';
 import {
   BEASTFORM_STRESS_COST,
   EVOLUTION_HOPE_COST,
+  beastformDamage,
   beastformOptions,
   enterBeastform,
   evolutionFeature,
@@ -174,5 +175,46 @@ describe('entering and leaving', () => {
     expect(after.beastform).toBeNull();
     expect(stats(after).evasion).toBe(stats(before).evasion);
     expect(stats(after).traits).toEqual(stats(before).traits);
+  });
+});
+
+/**
+ * *"When you make an attack while transformed, you use the creature's listed
+ * range, trait, and damage dice, but you use your Proficiency."* Folio 12,
+ * which the dataset now carries as `beastform-options`.
+ *
+ * The rule is the same shape as a weapon's and a companion's, so the arithmetic
+ * is the same two calls; what is pinned here is that it IS the same, because
+ * the alternative - a `d12+10` rolled flat - looks entirely plausible on a
+ * screen and is wrong by three dice at tier 4.
+ */
+describe('beastformDamage', () => {
+  it.each([
+    [1, '1d6'],
+    [2, '2d6'],
+    [3, '3d6'],
+    [4, '4d6'],
+  ])('rolls Proficiency %i dice of the form’s die', (proficiency, spec) => {
+    expect(beastformDamage(form(), proficiency)?.spec).toBe(spec);
+  });
+
+  it('multiplies the dice and not the flat bonus', () => {
+    // The tier-4 shape: `d12+10` at Proficiency 4 is 4d12+10, never 4d12+40.
+    const terrible = form({ attack: { name: 'x', range: 'Melee', damage: 'd12+10', trait: 'strength' } });
+    expect(beastformDamage(terrible, 4)).toMatchObject({
+      spec: '4d12+10',
+      count: 4,
+      sides: 12,
+      modifier: 10,
+    });
+  });
+
+  it('never rolls no dice, whatever Proficiency says', () => {
+    expect(beastformDamage(form(), 0)?.count).toBe(1);
+  });
+
+  it('is null for a damage string that will not parse', () => {
+    const broken = form({ attack: { name: 'x', range: 'Melee', damage: 'a bite', trait: 'agility' } });
+    expect(beastformDamage(broken, 3)).toBeNull();
   });
 });
