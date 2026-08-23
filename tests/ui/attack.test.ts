@@ -23,12 +23,14 @@
  * as perfectly plausible at the table, which is the worst kind.
  */
 import { describe, expect, it } from 'vitest';
-import type { Beastform } from '../../shared/types.ts';
+import type { Beastform, CompanionState } from '../../shared/types.ts';
 import type { DerivedStats } from '../../src/engine/character.ts';
 import { formatDamage, rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
   beastformSource,
+  companionSource,
   damageArithmetic,
+  experiencesFor,
   damageLogEntry,
   damageOffer,
   damageTypeOf,
@@ -41,7 +43,7 @@ import {
   type ArmedAttack,
   type AttackSource,
 } from '../../src/ui/player/attack.ts';
-import { makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
+import { makeCharacter, makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
 
 const weaponSource = (damage: string, proficiency: number): AttackSource => {
   const source = sourceFromWeapon(
@@ -420,5 +422,112 @@ describe('the attack a worn Beastform makes', () => {
   it('refuses a damage line that will not parse rather than arming a bad pool', () => {
     const odd = { ...bear, attack: { ...bear.attack, damage: 'a mauling' } };
     expect(beastformSource(wearing(odd, 3))).toBeNull();
+  });
+});
+
+/**
+ * The companion's attack, and the two sentences that unblocked it.
+ *
+ * `BACKLOG.md` P1-1 left this out because it could not answer "whose
+ * Proficiency and whose roll". Folio 19 answers both - *"Make a Spellcast Roll
+ * to connect with your companion"*, *"their damage roll uses your Proficiency
+ * and their damage die"* - and it was unreachable prose until `parseRules`
+ * reached the folio.
+ */
+describe('the attack the companion makes', () => {
+  const ash = (over: Partial<CompanionState> = {}): CompanionState => ({
+    name: 'Ash',
+    description: 'A one-eyed raven',
+    evasion: 12,
+    stress: { marked: 0, max: 3 },
+    damage: 'd6+2',
+    range: 'Close',
+    damageType: 'phy',
+    experiences: [{ id: 'ce-1', name: 'Sharp eyes', bonus: 2 }],
+    upgrades: [],
+    ...over,
+  });
+
+  it('is nothing at all without a companion', () => {
+    expect(companionSource(null, makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('rolls their die at your Proficiency, and leaves their bonus alone', () => {
+    expect(companionSource(ash(), makeStats({ proficiency: 3 }))).toMatchObject({
+      kind: 'companion',
+      name: 'Ash',
+      damage: { count: 3, sides: 6, modifier: 2 },
+      damageType: 'phy',
+    });
+  });
+
+  it('carries their own damage type rather than the old assumption', () => {
+    const magic = companionSource(ash({ damageType: 'mag' }), makeStats({ proficiency: 2 }));
+    expect(damageTypeOf(magic!)).toBe('mag');
+  });
+
+  it('has no attack while they are out of the scene', () => {
+    // "They remain unavailable until the start of your next long rest." An
+    // armed pool over an animal who has fled is the app offering a roll the
+    // rule has taken away - the same defect the Beastform seal is about.
+    expect(companionSource(ash({ stress: { marked: 3, max: 3 } }), makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('refuses a die nobody can roll rather than arming it', () => {
+    expect(companionSource(ash({ damage: 'a peck' }), makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('is named for the animal, and says so when they have no name', () => {
+    expect(sourceName(companionSource(ash(), makeStats({ proficiency: 1 }))!)).toBe('Ash');
+    expect(sourceName(companionSource(ash({ name: '' }), makeStats({ proficiency: 1 }))!)).toBe(
+      'Your companion',
+    );
+  });
+});
+
+/**
+ * *"Spend a Hope to add an applicable **Companion** Experience to the roll."*
+ *
+ * The word that matters is Companion. Their Experiences are on their sheet, and
+ * a roll commanding them is not a roll where "Grew Up on the Streets" applies.
+ */
+describe('whose Experiences a roll is declared with', () => {
+  const character = makeCharacter({
+    experiences: [{ id: 'mine', name: 'Grew up on the streets', bonus: 2 }],
+    companion: {
+      name: 'Ash',
+      description: '',
+      evasion: 10,
+      stress: { marked: 0, max: 3 },
+      damage: 'd6',
+      range: 'Melee',
+      damageType: 'phy',
+      experiences: [{ id: 'theirs', name: 'Sharp eyes', bonus: 2 }],
+      upgrades: [],
+    },
+  });
+
+  it('is the character’s, for every attack that is not the companion', () => {
+    expect(experiencesFor(character, null).map((e) => e.id)).toEqual(['mine']);
+    expect(experiencesFor(character, weaponSource('d8', 2)).map((e) => e.id)).toEqual(['mine']);
+  });
+
+  it('is the companion’s when the companion is armed', () => {
+    const source = companionSource(character.companion, makeStats({ proficiency: 2 }));
+    expect(experiencesFor(character, source).map((e) => e.id)).toEqual(['theirs']);
+  });
+
+  it('reads the source and not the declaration, so a lost companion takes the chips back', () => {
+    // A companion who walks out of the scene resolves to no source at all. The
+    // chips must go back to the character in the same render the offer does,
+    // rather than leaving a roll declared against a sheet that is not there.
+    const gone = { ...character, companion: { ...character.companion!, stress: { marked: 3, max: 3 } } };
+    const source = companionSource(gone.companion, makeStats({ proficiency: 2 }));
+    expect(source).toBeNull();
+    expect(experiencesFor(gone, source).map((e) => e.id)).toEqual(['mine']);
+  });
+
+  it('answers with nothing for no character at all', () => {
+    expect(experiencesFor(null, null)).toEqual([]);
   });
 });

@@ -75,6 +75,8 @@ import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   DAMAGE_SIDES,
   beastformSource,
+  companionSource,
+  experiencesFor,
   sourceFromWeapon,
   sourceName,
   spellcastDamage,
@@ -183,6 +185,10 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     // leaving a bear's dice armed on a sheet that is a person again.
     if (declared.kind === 'beastform') return beastformSource(stats);
     if (character === null) return null;
+    // Re-derived like the two above, and for one reason more: a companion who
+    // marks their last Stress walks out of the scene, and `companionSource`
+    // answers null for them - so the offer goes at the moment they do.
+    if (declared.kind === 'companion') return companionSource(character.companion, stats);
     const held =
       declared.ref === character.activePrimaryWeapon ||
       declared.ref === character.activeSecondaryWeapon;
@@ -190,6 +196,22 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     const weapon = index.weapons.get(declared.ref);
     return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
   }, [character, declared, index, spellModifier, stats]);
+
+  /*
+   * The chips change owner with the armed attack, so the armed ones are let go.
+   *
+   * A companion roll spends Hope on *their* Experiences, so `experiencesFor`
+   * hands the row a different list the moment one is armed. Ids from the other
+   * list simply would not match and would cost nothing - but they would come
+   * back the instant the player disarmed, re-arming chips nobody pressed and
+   * putting a Hope cost back on the roll bar out of nowhere. One clearing rule,
+   * the same as the one below for a change of sheet.
+   */
+  const companionArmed = source?.kind === 'companion';
+  useEffect(() => {
+    setArmedExperiences([]);
+  }, [companionArmed]);
+
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:
@@ -224,6 +246,19 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     if (declaration.kind === 'beastform') {
       const trait = stats.beastform?.form.attack.trait;
       if (trait !== undefined) setTrait(trait);
+      return;
+    }
+    /*
+     * Commanding the companion is a Spellcast Roll, so arming them arms that
+     * slot - the same half-sentence a weapon arms its own trait by.
+     *
+     * *"Make a Spellcast Roll to connect with your companion and command them
+     * to take action."* This is the one attack in the app whose roll belongs to
+     * one creature and whose damage belongs to another, and the trait chip is
+     * where a player would otherwise have to know that.
+     */
+    if (declaration.kind === 'companion') {
+      setTrait('spellcast');
       return;
     }
     const weapon = index.weapons.get(declaration.ref);
@@ -2819,7 +2854,7 @@ function PlayDesktop({
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
-        <Vitals stats={stats} layout="desktop" />
+        <Vitals stats={stats} layout="desktop" arming={arming} />
         <DualityRoll
           stats={stats}
           trait={trait}
@@ -3386,11 +3421,12 @@ function PlayPhone({
     const held = characterFeatures(character, index);
     return held.features.length + (held.hopeFeature === null ? 0 : 1);
   })();
-  // Filtered through the character rather than counted off the armed list: an
-  // Experience deleted in Build must not go on being counted on a header.
-  const armedCount = character.experiences.filter((e) =>
-    armedExperiences.includes(e.id),
-  ).length;
+  // Filtered through the list the armed attack names rather than counted off
+  // the armed ids: an Experience deleted in Build must not go on being counted
+  // on a header, and neither must one belonging to whichever of the two sheets
+  // is not being rolled.
+  const rollExperiences = experiencesFor(character, arming.source);
+  const armedCount = rollExperiences.filter((e) => armedExperiences.includes(e.id)).length;
 
   /*
    * Whether each pair is drawing two-line headers, which is true exactly while
@@ -3509,7 +3545,7 @@ function PlayPhone({
 
         {/* The four counters, two across. `bare`, because a box drawn around
             four silhouettes costs 18px and distinguishes nothing. */}
-        <Vitals stats={stats} layout="phone" showState={false} bare />
+        <Vitals stats={stats} layout="phone" showState={false} bare arming={arming} />
 
         <TraitRow
           stats={stats}
@@ -3676,13 +3712,13 @@ function PlayPhone({
               label="Experiences"
               summary={
                 armedCount === 0
-                  ? `${character.experiences.length}`
-                  : `${character.experiences.length} · ${armedCount} ARMED`
+                  ? `${rollExperiences.length}`
+                  : `${rollExperiences.length} · ${armedCount} ARMED`
               }
               stacked={stackedA}
             >
               <ExperienceRow
-                experiences={character.experiences}
+                experiences={rollExperiences}
                 armedExperiences={armedExperiences}
                 hopeAvailable={character.hope.marked}
                 toggleExperience={(id) =>

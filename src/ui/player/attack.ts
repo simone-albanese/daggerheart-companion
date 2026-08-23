@@ -32,8 +32,15 @@
  * Roll's own Hope and Stress, which are applied because they are unambiguous
  * and belong to the sheet in front of you.
  */
-import type { Trait, Weapon } from '../../../shared/types.ts';
+import type {
+  Character,
+  CompanionState,
+  Experience,
+  Trait,
+  Weapon,
+} from '../../../shared/types.ts';
 import { beastformDamage } from '../../engine/beastform.ts';
+import { companionDamage, companionIsAway } from '../../engine/companion.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { weaponDamage } from '../../engine/character.ts';
 import {
@@ -96,6 +103,10 @@ export type AttackSource =
  * `unarmed` carries nothing at all, because there is nothing to carry: the pool
  * is the character's own Proficiency and the trait is the GM's to pick.
  *
+ * `companion` carries nothing for the same reason as `beastform`: there is one
+ * companion on a sheet, their die is on their own sheet, and a Proficiency that
+ * moves at a level-up must move the pool with it.
+ *
  * `beastform` carries nothing either, and here that is load-bearing rather than
  * incidental. The worn form is on the character, so the pool is re-derived from
  * it every render - and the moment a player taps DROP the declaration resolves
@@ -113,7 +124,8 @@ export type Declaration =
   | { kind: 'weapon'; ref: string }
   | { kind: 'unarmed' }
   | { kind: 'spellcast'; sides: number }
-  | { kind: 'beastform' };
+  | { kind: 'beastform' }
+  | { kind: 'companion' };
 
 /**
  * The declaration, what it resolves to, and the one way to change it.
@@ -330,6 +342,64 @@ export function beastformSource(stats: DerivedStats): AttackSource | null {
     trait: worn.form.attack.trait,
     damage: { count: damage.count, sides: damage.sides, modifier: damage.modifier },
   };
+}
+
+/**
+ * The attack the companion makes, or null when there is no companion.
+ *
+ * *"On a success, their damage roll uses your Proficiency and their damage
+ * die."* Folio 19. `companionDamage` has computed exactly that since the sheet
+ * was built and `CompanionPanel` has printed it; what was missing was any way
+ * to declare it, which `BACKLOG.md` P1-1 left out because it could not answer
+ * "whose Proficiency and whose roll". The folio answers both, and the dataset
+ * carries the folio now.
+ *
+ * A companion who is out of the scene has no attack. *"When they mark their
+ * last Stress, they drop out of the scene... They remain unavailable"* - so the
+ * pool is not built, and the row that offers it goes with it rather than
+ * standing armed over an animal who is not there.
+ */
+export function companionSource(
+  companion: CompanionState | null,
+  stats: DerivedStats,
+): AttackSource | null {
+  if (companion === null || companionIsAway(companion)) return null;
+  const damage = companionDamage(companion, stats.proficiency);
+  if (damage === null) return null;
+  return {
+    kind: 'companion',
+    name: companion.name === '' ? 'Your companion' : companion.name,
+    damage: { count: damage.count, sides: damage.sides, modifier: damage.modifier },
+    damageType: companion.damageType,
+  };
+}
+
+/**
+ * Whose Experiences a roll is declared with.
+ *
+ * *"Make a Spellcast Roll to connect with your companion and command them to
+ * take action. Spend a Hope to add an applicable **Companion** Experience to
+ * the roll."* When the companion is what is armed, the roll is about them, and
+ * the chips are theirs.
+ *
+ * It is derived from `source` rather than from the declaration so that it
+ * cannot disagree with the pool: a declaration that resolves to nothing - a
+ * companion who has walked out of the scene - is not a companion roll, and the
+ * chips go back to the character in the same render the offer does.
+ *
+ * One rule, one function, two callers: the row that draws the chips is in
+ * `Play` and the resolver that spends the Hope is in `DualityRoll`, and two
+ * copies of this would be the two of them eventually disagreeing about who is
+ * paying.
+ */
+export function experiencesFor(
+  character: Character | null,
+  source: AttackSource | null,
+): Experience[] {
+  if (character === null) return [];
+  return source?.kind === 'companion'
+    ? (character.companion?.experiences ?? [])
+    : character.experiences;
 }
 
 /** A damage pool that can actually be rolled. */

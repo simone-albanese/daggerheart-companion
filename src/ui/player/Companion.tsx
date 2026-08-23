@@ -24,6 +24,7 @@ import {
   withCompanion,
 } from '../../engine/companion.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import type { Arming } from './attack.ts';
 import { companionUpgrades, type CompanionUpgrade } from '../shared/srdReference.ts';
 import { Track } from '../shared/Track.tsx';
 import { useDialog } from '../shared/useDialog.ts';
@@ -184,9 +185,11 @@ function Stepper({
 interface PanelProps {
   stats: DerivedStats;
   layout: 'desktop' | 'phone';
+  /** Absent on the surfaces that show a companion without a roll behind them. */
+  arming?: Arming;
 }
 
-export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element | null {
+export function CompanionPanel({ stats, layout, arming }: PanelProps): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
   const upgrades = useCompanionUpgrades();
@@ -268,38 +271,82 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
         </div>
       )}
 
-      {/* The damage die is free text, so it can be something no one can roll.
-          When it is, the panel says so rather than printing the unmultiplied
-          string under a label promising it had Proficiency applied. */}
-      <div
-        className="spread"
-        style={{
-          alignItems: 'center',
+      {/*
+       * The attack, and - when there is a roll behind this panel - the control
+       * that declares it.
+       *
+       * *"Make a Spellcast Roll to connect with your companion and command them
+       * to take action... On a success, their damage roll uses your Proficiency
+       * and their damage die."* This box printed the second half and could not
+       * do the first, which is the shape `BACKLOG.md` P1-1 left open.
+       *
+       * It stays a `<div>` where no roll is mounted rather than becoming a
+       * disabled button: the GM's board and the print preview show a companion
+       * as a fact, and a dead control is worse than none.
+       *
+       * The damage die is free text, so it can be something no one can roll.
+       * When it is, the panel says so rather than printing the unmultiplied
+       * string under a label promising it had Proficiency applied - and it does
+       * not offer to arm a pool it has just refused.
+       */}
+      {(() => {
+        const armed = arming?.source?.kind === 'companion';
+        const armable = arming !== undefined && attack !== null && !away;
+        const body = (
+          <>
+            <span className="stack">
+              <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
+                ATTACK
+              </span>
+              <span className="t-meta" style={{ marginTop: 5, color: 'var(--muted)' }}>
+                {armed ? 'ARMED · ' : ''}
+                {companion.range.toUpperCase()} ·{' '}
+                {companion.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'} ·{' '}
+                {attack === null
+                  ? 'SET A DAMAGE DIE IN THE SHEET'
+                  : away
+                    ? 'NOT WHILE THEY ARE OUT OF THE SCENE'
+                    : `${companion.damage} × PROF ${stats.proficiency}`}
+              </span>
+            </span>
+            <span
+              className="t-num"
+              style={{ color: attack === null ? 'var(--damage)' : 'var(--hope)', fontSize: 17 }}
+            >
+              {attack === null ? 'NO DIE' : attack.spec}
+            </span>
+          </>
+        );
+        const box = {
+          alignItems: 'center' as const,
           padding: '9px 11px',
+          minHeight: 'var(--tap)',
+          textAlign: 'left' as const,
+          width: '100%',
           borderRadius: 'var(--r3)',
-          background: 'var(--app)',
+          background: armed ? 'var(--hope-wash)' : 'var(--app)',
           border: '1px solid var(--line-soft)',
           borderLeft: `3px solid ${attack === null ? 'var(--damage)' : 'var(--hope)'}`,
-        }}
-      >
-        <span className="stack">
-          <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            ATTACK
-          </span>
-          <span className="t-meta" style={{ marginTop: 5, color: 'var(--muted)' }}>
-            {companion.range.toUpperCase()} · {companion.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'} ·{' '}
-            {attack === null
-              ? 'SET A DAMAGE DIE IN THE SHEET'
-              : `${companion.damage} × PROF ${stats.proficiency}`}
-          </span>
-        </span>
-        <span
-          className="t-num"
-          style={{ color: attack === null ? 'var(--damage)' : 'var(--hope)', fontSize: 17 }}
-        >
-          {attack === null ? 'NO DIE' : attack.spec}
-        </span>
-      </div>
+        };
+        return armable ? (
+          <button
+            type="button"
+            className="spread"
+            aria-pressed={armed}
+            aria-label={`${armed ? 'Stop commanding' : 'Command'} ${
+              companion.name === '' ? 'your companion' : companion.name
+            } to attack — a Spellcast Roll, ${attack.spec} damage`}
+            onClick={() => arming.arm(armed ? null : { kind: 'companion' })}
+            style={box}
+          >
+            {body}
+          </button>
+        ) : (
+          <div className="spread" style={box}>
+            {body}
+          </div>
+        );
+      })()}
 
       <div className="spread" style={{ alignItems: 'center' }}>
         <span
