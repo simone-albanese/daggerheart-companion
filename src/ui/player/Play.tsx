@@ -495,7 +495,34 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * true of this block: the column `Identity` is drawn in is `.stack scroll`,
  * which is the whole argument `Rest` and the licence notice are placed on.)
  */
-function Identity(): React.JSX.Element | null {
+/**
+ * The Spellcast trait, on the line that says what class you are.
+ *
+ * It is a property of the subclass - the SRD prints "SPELLCAST TRAIT" on every
+ * subclass page - and until now the only place on Play that said so was the
+ * hint under the trait grid, which a player reads while choosing a trait rather
+ * than while asking what their character is.
+ *
+ * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Four of the
+ * eighteen shipped subclasses carry no Spellcast trait at all - both Guardian
+ * subclasses and both Warrior ones - and for those characters the whole
+ * Spellcast row is simply absent from `Equipped`. An absence explains nothing;
+ * a line saying the class has none explains the absence.
+ *
+ * `deriveStats` takes the first subclass that declares one, so a multiclass
+ * shows the trait its rolls will actually use rather than both.
+ */
+function SpellcastLine({ stats }: { stats: DerivedStats }): React.JSX.Element {
+  return (
+    <div className="t-meta" style={{ color: 'var(--muted)', letterSpacing: '0.09em' }}>
+      {stats.spellcastTrait === null
+        ? 'NO SPELLCAST TRAIT'
+        : `SPELLCAST · ${TRAIT_LABELS[stats.spellcastTrait].toUpperCase()}`}
+    </div>
+  );
+}
+
+function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   if (!character) return null;
@@ -557,6 +584,7 @@ function Identity(): React.JSX.Element | null {
           {subclass !== '' && ` — ${subclass}`}
         </div>
       </div>
+      <SpellcastLine stats={stats} />
       {lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
       )}
@@ -631,6 +659,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
         {klass === '' ? 'No class' : klass}
         {subclass !== '' && ` — ${subclass}`}
       </div>
+      <SpellcastLine stats={stats} />
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {stats.domains.map((domain) => (
           <span
@@ -2788,7 +2817,7 @@ function PlayDesktop({
     >
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
-        <Identity />
+        <Identity stats={stats} />
         <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
         <Equipped stats={stats} arming={arming} />
