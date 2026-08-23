@@ -436,3 +436,69 @@ describe('whose Experience chips the roll offers', () => {
     expect(chips()).not.toContain('SHARP EYES');
   });
 });
+
+/**
+ * The name, which creation demands and the sheet used to let you take back.
+ *
+ * `CreateForm` disables TAKE THE COMPANION SHEET until a name is typed - the
+ * SRD asks for one - and then the sheet's own field let you clear it, after
+ * which the panel read "Unnamed companion" and the switch went back to saying
+ * COMPANION with nothing having said it would.
+ */
+describe('a companion’s name', () => {
+  const nameField = (): HTMLInputElement => {
+    const el = container.querySelector<HTMLInputElement>('input[aria-describedby="companion-name-note"]');
+    if (el === null) throw new Error('the sheet has no name field');
+    return el;
+  };
+  const note = (): string =>
+    container.querySelector('#companion-name-note')?.textContent ?? '';
+
+  const type = (value: string): void => {
+    act(() => {
+      const input = nameField();
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  it('says nothing while they have one', () => {
+    mountPanel();
+    openSheet();
+    expect(note()).toBe('');
+  });
+
+  it('says what the sheet will read as once it is cleared', () => {
+    mountPanel();
+    openSheet();
+    type('');
+    expect(note()).toContain('Unnamed companion');
+    expect(note()).toContain('COMPANION');
+  });
+
+  it('keeps writing rather than refusing, like every other field here', () => {
+    // Said, not refused: a draft-and-SAVE control for one field would be a
+    // second interaction model on a dialog where everything else commits live.
+    mountPanel();
+    openSheet();
+    type('');
+    expect(useApp.getState().characters[0]?.companion?.name).toBe('');
+    type('Ash');
+    expect(useApp.getState().characters[0]?.companion?.name).toBe('Ash');
+    expect(note()).toBe('');
+  });
+
+  it('is announced by a region the field points at', () => {
+    // A live region has to be mounted before its contents change for the change
+    // to be spoken, which is why it is there when there is nothing to say.
+    mountPanel();
+    openSheet();
+    const region = container.querySelector('#companion-name-note');
+    expect(region?.getAttribute('role')).toBe('status');
+    expect(nameField().getAttribute('aria-describedby')).toBe('companion-name-note');
+  });
+});

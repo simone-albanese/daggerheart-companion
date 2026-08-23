@@ -26,6 +26,7 @@ import {
 import { useActive, useApp } from '../../store/state.ts';
 import type { Arming } from './attack.ts';
 import { companionUpgrades, type CompanionUpgrade } from '../shared/srdReference.ts';
+import { NameRefusal } from '../shared/NameRefusal.tsx';
 import { Track } from '../shared/Track.tsx';
 import { useDialog } from '../shared/useDialog.ts';
 
@@ -504,10 +505,48 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
         </div>
 
         <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 14, padding: '0 16px' }}>
+          {/*
+           * The name, and the one thing this sheet used to let you take back.
+           *
+           * Creation refuses an empty name - the SRD asks for one, "give them a
+           * name and add a picture of them" - and then this field let you clear
+           * it again, after which the panel read "Unnamed companion" and the
+           * YOU|COMPANION switch went back to saying COMPANION. Nobody was told
+           * that would happen.
+           *
+           * Said, not refused. Every other field on this sheet commits as you
+           * type, and a draft-and-SAVE control here for one field would be a
+           * second interaction model on one dialog. So the field keeps writing
+           * and the region below says what the sheet will read as - which is
+           * `NameRefusal`'s whole job, and the reason it is a component rather
+           * than a fourth hand-rolled sentence.
+           *
+           * No offer, because there is no rule here to offer around: a
+           * companion's name collides with nothing. `judgeName` guards
+           * characters, whose names have to tell two rows of a `<select>`
+           * apart; two Rangers may both call their wolf Ash.
+           */}
           <label className="stack" style={{ gap: 5, flex: 'none' }}>
             <span className="t-label">Name</span>
-            <input value={companion.name} onChange={(e) => set({ name: e.target.value })} />
+            <input
+              value={companion.name}
+              aria-describedby="companion-name-note"
+              onChange={(e) => set({ name: e.target.value })}
+            />
           </label>
+          <NameRefusal
+            id="companion-name-note"
+            refusal={
+              companion.name.trim() === ''
+                ? 'With no name they read as “Unnamed companion”, and the switch above goes back to saying COMPANION.'
+                : null
+            }
+            offer={null}
+            onTake={() => {
+              // Unreachable: the button only exists beside an offer, and this
+              // door never has one.
+            }}
+          />
           <label className="stack" style={{ gap: 5, flex: 'none' }}>
             <span className="t-label">What they are</span>
             <input
