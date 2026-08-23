@@ -12,22 +12,33 @@
  * the eight level-up options, the numbers you set once - opens in a sheet over
  * the top, because a fight never needs them.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { RANGES, type Range } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import {
   COMPANION_START,
-  COMPANION_UPGRADES,
   companionDamage,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
 } from '../../engine/companion.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { companionUpgrades, type CompanionUpgrade } from '../shared/srdReference.ts';
 import { Track } from '../shared/Track.tsx';
 import { useDialog } from '../shared/useDialog.ts';
 
 export type Who = 'you' | 'companion';
+
+/**
+ * The eight boxes, out of whatever dataset this device is running.
+ *
+ * Read here rather than passed down because both the panel and the sheet want
+ * the count, and a prop threaded through one of them is the pair drifting.
+ */
+function useCompanionUpgrades(): CompanionUpgrade[] {
+  const rules = useApp((s) => s.dataset.rules);
+  return useMemo(() => companionUpgrades(rules), [rules]);
+}
 
 /** True when this character is owed a companion sheet, or already has one. */
 export function useHasCompanion(): boolean {
@@ -177,6 +188,7 @@ interface PanelProps {
 export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
+  const upgrades = useCompanionUpgrades();
   const [sheet, setSheet] = useState(false);
   if (!character) return null;
 
@@ -283,7 +295,7 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
           onClick={() => setSheet(true)}
           style={{ minHeight: 44, padding: '0 12px', flex: 'none' }}
         >
-          SHEET · {companion.upgrades.length}/{COMPANION_UPGRADES.length}
+          SHEET · {companion.upgrades.length}/{upgrades.length}
         </button>
       </div>
 
@@ -354,6 +366,7 @@ function CreateForm(): React.JSX.Element {
 function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element {
   const character = useActive();
   const update = useApp((s) => s.update);
+  const upgrades = useCompanionUpgrades();
 
   const companion = character?.companion ?? null;
   const dialog = useDialog(
@@ -411,7 +424,7 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
         <div className="spread" style={{ padding: '14px 16px 10px', flex: 'none' }}>
           <span className="t-label">Companion sheet</span>
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {companion.upgrades.length} OF {COMPANION_UPGRADES.length} OPTIONS MARKED
+            {companion.upgrades.length} OF {upgrades.length} OPTIONS MARKED
           </span>
         </div>
 
@@ -555,7 +568,19 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                 ONE PER LEVEL-UP · TRAINING GRANTS MORE
               </span>
             </div>
-            {COMPANION_UPGRADES.map((up) => {
+            {/* A dataset with no such section draws nothing here, and nothing
+                is indistinguishable from eight boxes none of which are marked.
+                So it says which of the two it is - the same refusal the
+                Beastform picker makes when its list comes back empty. */}
+            {upgrades.length === 0 && (
+              <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                This dataset carries no companion level-up options.
+                {companion.upgrades.length > 0
+                  ? ` ${String(companion.upgrades.length)} already marked on this sheet cannot be shown.`
+                  : ''}
+              </span>
+            )}
+            {upgrades.map((up) => {
               const on = companion.upgrades.includes(up.id);
               return (
                 <button

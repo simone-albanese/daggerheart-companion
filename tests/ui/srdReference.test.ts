@@ -22,6 +22,7 @@ import type { Dataset, RulesSection } from '@shared/types.ts';
 import {
   adversaryBenchmarks,
   adversaryExperiences,
+  companionUpgrades,
   countdownAdvancement,
   difficultyBenchmarks,
   environmentBenchmarks,
@@ -951,5 +952,54 @@ describe('the Beastform and companion folios', () => {
     ]) {
       expect(options).toContain(`- ${name}:`);
     }
+  });
+});
+
+/**
+ * The eight boxes on the companion sheet, read out of the dataset.
+ *
+ * They were eight string literals in `src/engine/companion.ts` - licensed text
+ * typed into `src/`, drawn with no `SRD 1.0 · P.n` stamp on it and unreachable
+ * by a layer that rewrites the sheet. The ids are the load-bearing half: they
+ * are what `companion.upgrades` persists and what the transfer codec puts on
+ * the wire as plain strings, so a derivation that produced different slugs
+ * would silently unmark every companion already saved on a device.
+ */
+describe('companionUpgrades', () => {
+  const upgrades = (): ReturnType<typeof companionUpgrades> => companionUpgrades(rules);
+
+  it('finds the eight the book prints, each with a name and its text', () => {
+    expect(upgrades()).toHaveLength(8);
+    expect(upgrades().every((u) => u.name !== '' && u.text !== '')).toBe(true);
+    expect(new Set(upgrades().map((u) => u.id)).size).toBe(8);
+  });
+
+  it('keeps the exact ids the hand-written list used, so saved sheets survive', () => {
+    expect(upgrades().map((u) => u.id)).toEqual([
+      'intelligent',
+      'light-in-the-dark',
+      'creature-comfort',
+      'armored',
+      'vicious',
+      'resilient',
+      'bonded',
+      'aware',
+    ]);
+  });
+
+  it('carries the text whole, not the name it was split on', () => {
+    const vicious = upgrades().find((u) => u.id === 'vicious')!;
+    expect(vicious.name).toBe('Vicious');
+    expect(vicious.text).toBe(
+      'Increase your companion’s damage dice or range by one step (d6 to d8, Close to Far, etc.).',
+    );
+    // The longest one, and the only place a second colon appears mid-sentence.
+    expect(upgrades().find((u) => u.id === 'bonded')!.text).toContain(
+      'Clear your last Hit Point and return to the scene.',
+    );
+  });
+
+  it('answers with nothing when the dataset has no such section', () => {
+    expect(companionUpgrades([])).toEqual([]);
   });
 });

@@ -41,6 +41,7 @@
  * rule the GM saved should be. No row count is asserted anywhere in `src`; the
  * counts belong in the tests, against the shipped file.
  */
+import { slugify } from '../../../shared/slugify.ts';
 import { TRAITS, type Ref, type RulesSection, type Tier, type Trait } from '../../../shared/types.ts';
 import {
   paragraphs,
@@ -707,6 +708,68 @@ export function ruleSection(rules: RulesSection[], id: string): SectionView | nu
       parts: blockParts(block.text),
     })),
   };
+}
+
+/** One of the eight boxes on the Ranger Companion sheet. */
+export interface CompanionUpgrade {
+  /**
+   * Slug of the option's name, and the value persisted in `companion.upgrades`.
+   *
+   * `slugify` of the book's own name, which is what the hand-written list this
+   * replaced already used - `light-in-the-dark`, `creature-comfort` - so every
+   * sheet already saved, and every one already on a QR, marks the same boxes it
+   * did before. A different derivation here silently unmarks them.
+   */
+  id: string;
+  name: string;
+  text: string;
+}
+
+/**
+ * The eight level-up options for a companion, from folio 18.
+ *
+ * These were eight string literals in `src/engine/companion.ts` until the rules
+ * stream reached the folio they are printed on. Licensed text typed into `src/`
+ * is the thing this file exists to stop: the app stamps `SRD 1.0 · P.18` beside
+ * what it draws, and that stamp is only honest about text it read out of
+ * `data/srd-1.0.json`. It also means a layer that rewrites the sheet is now
+ * obeyed rather than ignored.
+ *
+ * BEASTBOUND'S EXPERT TRAINING AND ADVANCED TRAINING
+ * --------------------------------------------------
+ * They are the two SRD features that change how many of these a player may
+ * mark: the specialization's Expert Training reads "Choose an additional
+ * level-up option for your companion" and the mastery's Advanced Training
+ * "Choose two additional level-up options for your companion".
+ *
+ * They were once filed beside School of Knowledge's extra domain card, as the
+ * other subclass "that changes a count the app enforces". That is wrong, and
+ * the difference matters enough to keep written down rather than leave for
+ * somebody to rediscover: they are not a domain-card grant.
+ * `src/ui/build/cardAllowance.ts` counts cards a character draws from their
+ * domains; these count boxes on the companion sheet, which is a different
+ * sheet, a different resource and a different eight-item list. The table there
+ * is keyed by subclass and tier and would happily hold a row for Beastbound,
+ * and every reader of it would then hand a Ranger a domain card the SRD never
+ * gave them. `tests/ui/cardAllowance.test.ts` holds the two mechanisms apart.
+ *
+ * Empty when the dataset has no such section, which the sheet says out loud
+ * rather than drawing zero boxes as though the player had marked none.
+ */
+export function companionUpgrades(rules: RulesSection[]): CompanionUpgrade[] {
+  const section = ruleSection(rules, 'leveling-up-your-companion');
+  if (section === null) return [];
+  return section.blocks
+    .flatMap((block) => block.parts)
+    .flatMap((part) => (part.kind === 'list' ? part.items : []))
+    .flatMap((item) => {
+      // "Name: text". An item the book sets without one is not an option, and
+      // is dropped rather than shown as a box with no name on it.
+      const at = item.indexOf(': ');
+      if (at <= 0) return [];
+      const name = item.slice(0, at);
+      return [{ id: slugify(name), name, text: item.slice(at + 2) }];
+    });
 }
 
 /**

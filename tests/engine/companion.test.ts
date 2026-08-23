@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { deriveStats, indexDataset } from '@engine/character.ts';
 import {
   COMPANION_START,
-  COMPANION_UPGRADES,
   companionDamage,
   hasCompanionFeature,
   newCompanion,
@@ -89,14 +88,6 @@ describe('companionDamage', () => {
   it('reads the character Proficiency, which is where the rule points', () => {
     const character = makeCharacter({ level: 5 });
     expect(companionDamage(c, deriveStats(character, ds, ix).proficiency)?.spec).toBe('3d6');
-  });
-});
-
-describe('the level-up options', () => {
-  it('are the eight from the sheet, each with a distinct slug', () => {
-    expect(COMPANION_UPGRADES).toHaveLength(8);
-    expect(new Set(COMPANION_UPGRADES.map((u) => u.id)).size).toBe(8);
-    expect(COMPANION_UPGRADES.every((u) => u.text.length > 0)).toBe(true);
   });
 });
 
