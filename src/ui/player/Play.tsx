@@ -1676,6 +1676,46 @@ function GearEffects({ stats, ref_ }: { stats: DerivedStats; ref_: Ref }): React
   );
 }
 
+/**
+ * What a Beastform takes away, said on the row it takes it from.
+ *
+ * *"While transformed, you can't use weapons or cast spells from domain cards,
+ * but you can still use other features or abilities you have access to."*
+ *
+ * MARKED AND NOT REFUSED, which is a decision and not an oversight. The rows
+ * stay armable. This app has one house rule about rules it cannot enforce -
+ * show what changed, never take the control away - and the Beastform strip is
+ * where it is clearest: it prints the Evasion the form replaced, struck
+ * through, rather than hiding the number. A greyed-out weapon would be the app
+ * refusing a thing a GM may well have allowed, and the same question was
+ * already answered this way once, for the companion's level-up boxes.
+ *
+ * THE SECOND HALF OF THE SENTENCE IS WHY THERE ARE TWO WORDINGS. A weapon is
+ * simply out. Spellcast is not: the rule removes spells *from domain cards*,
+ * and a Spellcast Roll a subclass feature asks for - Nightwalker's "Dark
+ * Cloud", the Beastbound's own command to their companion - is one of the
+ * "other features or abilities" the same sentence protects. A single
+ * UNAVAILABLE across both would be the app inventing a stricter rule than the
+ * book's and printing it in the book's voice.
+ *
+ * The loadout rows are deliberately not marked. A 46px row on a 393px phone
+ * already carries domain, level, type and Recall cost under a name that
+ * ellipsises, and the only mark that would fit is a colour - which this
+ * codebase does not accept as a sole signal, `shapeCoding` being the standing
+ * proof. The rows that declare an attack are marked, and that is where an
+ * attack is declared.
+ */
+function BeastformSeal({ what }: { what: string }): React.JSX.Element {
+  return (
+    <span
+      className="t-meta"
+      style={{ display: 'block', marginTop: 5, color: 'var(--sage)', letterSpacing: '0.05em' }}
+    >
+      {what}
+    </span>
+  );
+}
+
 function Equipped({
   stats,
   arming,
@@ -1832,6 +1872,7 @@ function Equipped({
                 {w.feature}
               </span>
             )}
+            {worn !== null && <BeastformSeal what="UNAVAILABLE WHILE TRANSFORMED" />}
             <GearEffects stats={stats} ref_={w.id} />
           </button>
         );
@@ -1999,6 +2040,9 @@ function SpellcastPanel({
         {Math.abs(value)} · {spell.rollable ? `${spell.count} ${spell.count === 1 ? 'DIE' : 'DICE'} · ` : ''}
         MAGIC
       </span>
+      {stats.beastform !== null && (
+        <BeastformSeal what="NO DOMAIN SPELLS WHILE TRANSFORMED · OTHER FEATURES STILL WORK" />
+      )}
       {spell.rollable ? (
         <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
           {DAMAGE_SIDES.map((sides) => {

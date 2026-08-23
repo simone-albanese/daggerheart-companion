@@ -230,3 +230,59 @@ describe('the attack a worn form makes', () => {
     expect(useApp.getState().characters[0]?.beastform).toBeNull();
   });
 });
+
+/**
+ * What the form takes away, and the two different sentences it takes it with.
+ *
+ * The rule is one line: *"While transformed, you can't use weapons or cast
+ * spells from domain cards, but you can still use other features or abilities
+ * you have access to."* Until now the app printed a summary of it in the
+ * Beastform picker and then let the player arm a greatsword with nothing on
+ * screen disagreeing.
+ */
+describe('the weapons and spells a form seals', () => {
+  const withForm = (): void => {
+    const form = bigForm();
+    seed({ beastform: { ref: form.id, activatedAt: '2026-08-23T00:00:00.000Z' } });
+    play();
+    openGearFold();
+  };
+
+  it('says so on the weapon rows, once a form is worn', () => {
+    withForm();
+    expect(text()).toContain('UNAVAILABLE WHILE TRANSFORMED');
+  });
+
+  it('says nothing of the kind when the Druid is a person', () => {
+    seed({ beastform: null });
+    play();
+    openGearFold();
+    expect(text()).not.toContain('UNAVAILABLE WHILE TRANSFORMED');
+    expect(text()).not.toContain('WHILE TRANSFORMED');
+  });
+
+  it('marks the weapon without refusing it, which is the decision', () => {
+    // The house rule: show what changed, never take the control away. The
+    // Beastform strip prints the Evasion it replaced struck through rather than
+    // hiding it, and a greyed weapon would be the app overruling a GM.
+    withForm();
+    const weaponRow = buttons().find(
+      (b) =>
+        b.getAttribute('aria-pressed') !== null &&
+        (b.textContent ?? '').includes('UNAVAILABLE WHILE TRANSFORMED'),
+    );
+    expect(weaponRow, 'no weapon row carries the mark').toBeDefined();
+    expect(weaponRow?.disabled).toBe(false);
+    click(weaponRow!);
+    expect(weaponRow?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('tells the truth about Spellcast, which the rule only half removes', () => {
+    // "spells from domain cards" is what goes. A Spellcast Roll a subclass
+    // feature asks for is one of the "other features or abilities" the same
+    // sentence keeps, so this row must not carry the weapons' flat wording.
+    withForm();
+    expect(text()).toContain('NO DOMAIN SPELLS WHILE TRANSFORMED');
+    expect(text()).toContain('OTHER FEATURES STILL WORK');
+  });
+});
