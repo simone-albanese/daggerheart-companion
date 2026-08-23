@@ -21,6 +21,7 @@
  */
 import type { Character, CompanionState, Range, Ref } from '../../shared/types.ts';
 import type { DatasetIndex } from './character.ts';
+import { characterFeatures } from './features.ts';
 import { applyProficiency, formatDamage, parseDamage } from './dice.ts';
 
 /** Folio 18, steps 2-4: what a companion starts with. */
@@ -83,6 +84,45 @@ export function companionDamage(
   if (!parsed) return null;
   const scaled = applyProficiency(parsed, proficiency);
   return { spec: formatDamage(scaled), ...scaled };
+}
+
+/**
+ * How many of the eight boxes this character has earned.
+ *
+ * *"When your character levels up, choose one available option for your
+ * companion"* - so one per level-up, which is `level - 1` - plus whatever the
+ * Beastbound's two training features grant: Expert Training reads *"Choose an
+ * additional level-up option for your companion"* and Advanced Training
+ * *"Choose two additional level-up options for your companion"*.
+ *
+ * A READOUT AND NOT A GATE. Nothing here refuses a box, and `CompanionSheet`
+ * still lets every one of the eight be toggled. That was already the decision
+ * when the count did not exist at all - the app does not overrule a GM who
+ * allowed something - and this changes only the other half of it: the app was
+ * silent about a number it could work out, and a player had no way to know
+ * whether they had marked more than they were owed.
+ *
+ * IT SCANS RATHER THAN NAMING THE TWO FEATURES. A table keyed on `beastbound`
+ * would be right today and wrong the first time a layer adds a subclass that
+ * grants one, and the count comes out of the feature's own words so a third
+ * one is caught by the same regex. The number word is read too: "an additional"
+ * is one and "two additional" is two, and a feature that says neither is
+ * counted as one rather than as none, because it plainly grants something.
+ *
+ * It reads `characterFeatures`, which gates specialization and mastery on the
+ * level-up history - so a tier-2 Beastbound is not credited with the Advanced
+ * Training they have not taken yet.
+ */
+const ADDITIONAL_OPTIONS = /(\w+)\s+additional\s+level-up\s+options?/i;
+const COUNT_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4 };
+
+export function companionUpgradeAllowance(c: Character, ix: DatasetIndex): number {
+  let extra = 0;
+  for (const held of characterFeatures(c, ix).features) {
+    const match = ADDITIONAL_OPTIONS.exec(held.text);
+    if (match) extra += COUNT_WORDS[match[1]!.toLowerCase()] ?? 1;
+  }
+  return Math.max(0, c.level - 1) + extra;
 }
 
 /**

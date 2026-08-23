@@ -19,6 +19,7 @@ import {
   COMPANION_START,
   companionDamage,
   companionIsAway,
+  companionUpgradeAllowance,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
@@ -441,6 +442,7 @@ function CreateForm(): React.JSX.Element {
 /** The whole sheet: the numbers you set once, and the eight level-up options. */
 function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element {
   const character = useActive();
+  const index = useApp((s) => s.index);
   const update = useApp((s) => s.update);
   const upgrades = useCompanionUpgrades();
 
@@ -449,7 +451,12 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
     companion === null ? 'Companion sheet' : `${companion.name} — companion sheet`,
     onClose,
   );
-  if (companion === null) return <div />;
+  if (companion === null || character === null) return <div />;
+
+  // After the guard, and not a hook: the allowance needs a character, and
+  // faking one to keep the call above the early return would be inventing a
+  // level and a subclass to count.
+  const allowance = companionUpgradeAllowance(character, index);
 
   const set = (patch: Parameters<typeof withCompanion>[1]): void => {
     update((c) => withCompanion(c, patch));
@@ -499,8 +506,14 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
       >
         <div className="spread" style={{ padding: '14px 16px 10px', flex: 'none' }}>
           <span className="t-label">Companion sheet</span>
+          {/*
+           * Marked, and earned. The second number is a readout and not a gate -
+           * every box below stays toggleable - which is the decision this sheet
+           * has always made; what changes is that the app stops being silent
+           * about a number it can work out. See `companionUpgradeAllowance`.
+           */}
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {companion.upgrades.length} OF {upgrades.length} OPTIONS MARKED
+            {companion.upgrades.length} OF {upgrades.length} MARKED · {allowance} EARNED
           </span>
         </div>
 

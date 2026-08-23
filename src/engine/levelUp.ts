@@ -16,6 +16,7 @@
  */
 import type { AdvancementKind, Character, LevelUpChoice, Tier, Trait } from '../../shared/types.ts';
 import { MAX_HP, MAX_LEVEL, MAX_STRESS, TIER_LEVELS, tierOf } from './character.ts';
+import { COMPANION_START } from './companion.ts';
 
 export interface AdvancementOption {
   kind: AdvancementKind;
@@ -482,6 +483,32 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
         { id: crypto.randomUUID(), name, bonus: 2 },
       ],
     };
+    /*
+     * *"Whenever you gain a new Experience, your companion also gains one. All
+     * new Experiences start at +2."* Folio 18.
+     *
+     * Applied rather than offered, because the sentence offers nothing: it is
+     * the same shape as the Stress a transformation costs. What the player
+     * chooses is the words, and those are theirs - it arrives unnamed and is
+     * named on the companion sheet, the way an achievement Experience with no
+     * name typed arrives unnamed here.
+     *
+     * A tier achievement is the only place a character gains a *new*
+     * Experience; the `experience` advancement above raises two they already
+     * have, which is not what the sentence is about.
+     */
+    if (next.companion !== null) {
+      next = {
+        ...next,
+        companion: {
+          ...next.companion,
+          experiences: [
+            ...next.companion.experiences,
+            { id: crypto.randomUUID(), name: '', bonus: COMPANION_START.experienceBonus },
+          ],
+        },
+      };
+    }
   }
 
   if (plan.newCardRef) next = { ...next, vault: [...next.vault, plan.newCardRef] };

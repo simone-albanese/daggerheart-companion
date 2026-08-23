@@ -159,14 +159,14 @@ describe('the level-up options reach the sheet from the dataset', () => {
   it('counts the boxes against the dataset, not against a literal 8', () => {
     mountPanel();
     openSheet();
-    expect(text()).toContain('0 OF 8 OPTIONS MARKED');
+    expect(text()).toContain('0 OF 8 MARKED');
   });
 
   it('marks a box, and the chip on the panel counts it', () => {
     mountPanel();
     openSheet();
     click(byText('Vicious'));
-    expect(text()).toContain('1 OF 8 OPTIONS MARKED');
+    expect(text()).toContain('1 OF 8 MARKED');
     expect(useApp.getState().characters[0]?.companion?.upgrades).toEqual(['vicious']);
   });
 
@@ -175,7 +175,7 @@ describe('the level-up options reach the sheet from the dataset', () => {
     // options moved into the dataset marks its boxes by these strings.
     mountPanel({ ...newCompanion('Sable', ''), upgrades: ['light-in-the-dark', 'bonded'] });
     openSheet();
-    expect(text()).toContain('2 OF 8 OPTIONS MARKED');
+    expect(text()).toContain('2 OF 8 MARKED');
     const marked = [...container.querySelectorAll('button[aria-pressed="true"]')].map(
       (b) => b.textContent ?? '',
     );
@@ -500,5 +500,48 @@ describe('a companion’s name', () => {
     const region = container.querySelector('#companion-name-note');
     expect(region?.getAttribute('role')).toBe('status');
     expect(nameField().getAttribute('aria-describedby')).toBe('companion-name-note');
+  });
+});
+
+/**
+ * How many of the eight this character has earned.
+ *
+ * *"When your character levels up, choose one available option for your
+ * companion"*, plus the Beastbound's two training features. The app had the
+ * numbers to work this out and said nothing, so a player had no way to tell
+ * whether they had marked more boxes than they were owed.
+ *
+ * A READOUT AND NOT A GATE, which is the decision that was already made when
+ * the count did not exist: every box stays toggleable, and the app does not
+ * overrule a GM who allowed something.
+ */
+describe('the level-up allowance', () => {
+  const atLevel = (level: number): void => {
+    const character = { ...playedCharacter(), level, companion: newCompanion('Sable', '') };
+    seed(character);
+    act(() => {
+      root.render(<CompanionPanel stats={playedStats(character)} layout="desktop" />);
+    });
+    openSheet();
+  };
+
+  it('is one per level-up, so a level 1 companion has earned none', () => {
+    atLevel(1);
+    expect(text()).toContain('0 OF 8 MARKED · 0 EARNED');
+  });
+
+  it('counts a level-up for every level after the first', () => {
+    atLevel(5);
+    expect(text()).toContain('4 EARNED');
+  });
+
+  it('refuses nothing, whatever the count says', () => {
+    // Six boxes marked against one earned is a state the GM may have allowed,
+    // and the sheet still lets it be marked. The number is information.
+    atLevel(2);
+    click(byText('Vicious'));
+    click(byText('Bonded'));
+    expect(text()).toContain('2 OF 8 MARKED · 1 EARNED');
+    expect(useApp.getState().characters[0]?.companion?.upgrades).toEqual(['vicious', 'bonded']);
   });
 });

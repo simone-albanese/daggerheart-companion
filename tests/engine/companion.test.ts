@@ -5,6 +5,7 @@ import {
   clearCompanionStress,
   companionDamage,
   companionIsAway,
+  companionUpgradeAllowance,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
@@ -169,5 +170,80 @@ describe('clearCompanionStress', () => {
   it('does nothing for a companion with nothing marked', () => {
     const c = withCompanionAt(0);
     expect(clearCompanionStress(c, 3)).toEqual({ character: c, cleared: 0 });
+  });
+});
+
+/**
+ * How many of the eight boxes are owed.
+ *
+ * One per level-up - *"when your character levels up, choose one available
+ * option for your companion"* - plus the Beastbound's two training features.
+ * The formula was written down in a docblock long before anything computed it;
+ * what is new here is that it is read out of the features' own words rather
+ * than out of a table keyed on `beastbound`, so the next subclass to grant one
+ * is caught by the same regex.
+ */
+describe('companionUpgradeAllowance', () => {
+  const TRAINED = makeSubclass({
+    id: 'beastbound',
+    name: 'Beastbound',
+    foundationFeatures: [feature('Companion')],
+    specializationFeatures: [
+      { name: 'Expert Training', text: 'Choose an additional level-up option for your companion.' },
+    ],
+    masteryFeatures: [
+      { name: 'Advanced Training', text: 'Choose two additional level-up options for your companion.' },
+    ],
+  });
+  const trainedIx = indexDataset(makeDataset({ subclasses: [TRAINED, WAYFINDER] }));
+
+  const took = (card: 'specialization' | 'mastery') => ({
+    level: 5,
+    kind: 'subclass' as const,
+    slot: 0,
+    detail: { subclassRef: 'beastbound', card },
+  });
+
+  it.each([
+    [1, 0],
+    [2, 1],
+    [5, 4],
+    [10, 9],
+  ])('gives one per level-up: level %i earns %i', (level, expected) => {
+    expect(companionUpgradeAllowance(makeCharacter({ level }), ix)).toBe(expected);
+  });
+
+  it('adds one for Expert Training, once it has been taken', () => {
+    const before = makeCharacter({ level: 5, subclassRefs: ['beastbound'] });
+    expect(companionUpgradeAllowance(before, trainedIx)).toBe(4);
+
+    const after = { ...before, levelUpHistory: [took('specialization')] };
+    expect(companionUpgradeAllowance(after, trainedIx)).toBe(5);
+  });
+
+  it('adds two for Advanced Training, reading the number out of the sentence', () => {
+    const c = makeCharacter({
+      level: 8,
+      subclassRefs: ['beastbound'],
+      levelUpHistory: [took('specialization'), took('mastery')],
+    });
+    // 7 level-ups + 1 + 2.
+    expect(companionUpgradeAllowance(c, trainedIx)).toBe(10);
+  });
+
+  it('does not credit training a Ranger has not taken yet', () => {
+    // The trap a naive scan falls into: the feature is on the subclass whether
+    // or not the character has advanced into it.
+    const c = makeCharacter({ level: 8, subclassRefs: ['beastbound'] });
+    expect(companionUpgradeAllowance(c, trainedIx)).toBe(7);
+  });
+
+  it('gives a subclass with no such feature nothing extra', () => {
+    const c = makeCharacter({ level: 5, subclassRefs: ['wayfinder'] });
+    expect(companionUpgradeAllowance(c, trainedIx)).toBe(4);
+  });
+
+  it('never goes below zero on a sheet claiming level 0', () => {
+    expect(companionUpgradeAllowance(makeCharacter({ level: 0 }), ix)).toBe(0);
   });
 });

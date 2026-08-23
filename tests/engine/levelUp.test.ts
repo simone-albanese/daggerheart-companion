@@ -23,6 +23,7 @@ import {
   type LevelUpPlan,
 } from '@engine/levelUp.ts';
 import { advancement, makeCharacter, makeDataset, traits } from '../fixtures/factories.ts';
+import { newCompanion } from '@engine/companion.ts';
 
 const ds = makeDataset();
 
@@ -840,5 +841,74 @@ describe('validatePlan: a black-boxed option marks both of its boxes', () => {
       ],
     });
     expect(deriveStats(c, ds).proficiency).toBe(baseAt(10) + 2);
+  });
+});
+
+/**
+ * *"Whenever you gain a new Experience, your companion also gains one. All new
+ * Experiences start at +2."* Folio 18.
+ *
+ * A tier achievement is the only place a character gains a *new* Experience -
+ * the `experience` advancement raises two they already have, which is not what
+ * the sentence is about - so this is the one moment the rule fires.
+ *
+ * Applied rather than offered, because the sentence offers nothing. What the
+ * player chooses is the words, and those are theirs: it arrives unnamed and is
+ * named on the companion sheet, exactly as the character's own does when
+ * nothing was typed.
+ */
+describe('a tier achievement, for the companion too', () => {
+  const withCompanion = (level: number) =>
+    at(level, { companion: newCompanion('Ashfoot', 'A grey wolf') });
+
+  it('gives the companion an Experience at +2, unnamed', () => {
+    const next = applyLevelUp(
+      withCompanion(2),
+      plan(2, [
+        pick('evasion', 2, { achievementExperience: 'Walked out of Bloodstone alive' }),
+        pick('experience', 2),
+      ]),
+    );
+    expect(next.companion?.experiences).toHaveLength(3);
+    const gained = next.companion!.experiences[2]!;
+    expect(gained.name).toBe('');
+    expect(gained.bonus).toBe(2);
+  });
+
+  it('does it at every achievement level and nowhere else', () => {
+    for (const level of [2, 5, 8] as const) {
+      const grown = applyLevelUp(
+        withCompanion(level),
+        plan(level, [
+          pick('evasion', tierOf(level), { achievementExperience: `Learned at ${level}` }),
+          pick('experience', tierOf(level)),
+        ]),
+      );
+      expect(grown.companion?.experiences, `level ${level}`).toHaveLength(3);
+    }
+
+    // Level 3 is not an achievement level: nobody gains a new Experience, so
+    // neither does the animal.
+    const quiet = applyLevelUp(
+      withCompanion(3),
+      plan(3, [pick('evasion', 2), pick('experience', 2)]),
+    );
+    expect(quiet.companion?.experiences).toHaveLength(2);
+  });
+
+  it('leaves a character with no companion exactly as it found them', () => {
+    const next = applyLevelUp(
+      at(2),
+      plan(2, [pick('evasion', 2, { achievementExperience: 'x' }), pick('experience', 2)]),
+    );
+    expect(next.companion).toBeNull();
+  });
+
+  it('gives them one each time, rather than one ever', () => {
+    let c = withCompanion(2);
+    c = applyLevelUp(c, plan(2, [pick('evasion', 2, { achievementExperience: 'a' }), pick('experience', 2)]));
+    c = { ...c, level: 4 };
+    c = applyLevelUp(c, plan(5, [pick('evasion', 3, { achievementExperience: 'b' }), pick('experience', 3)]));
+    expect(c.companion?.experiences).toHaveLength(4);
   });
 });
