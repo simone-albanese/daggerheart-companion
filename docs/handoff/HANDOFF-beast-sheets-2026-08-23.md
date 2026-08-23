@@ -47,7 +47,7 @@ I workflow di verifica presuppongono che l'albero sia **esattamente com'era**: s
 
 ## 2. Stato, misurato
 
-- Branch **`beast-sheets`**, **13 commit** sopra `main` (= `f0c23f1`), **albero pulito**.
+- Branch **`beast-sheets`**, **15 commit** sopra `main` (= `f0c23f1`), **albero pulito**.
 - **3273 test su 134 file**, verdi. `tsc --noEmit` pulito. `npm run build` verde.
 - Node **v24.19.0** via `. ./env.sh`. Il Node di sistema è 26 e **nasconde `localStorage` a
   jsdom**: una suite verde sotto quello è più debole di quella di CI.

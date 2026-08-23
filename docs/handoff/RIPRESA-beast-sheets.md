@@ -32,7 +32,7 @@ Le sei cose da sapere subito:
    regole, domanda locale). **Leggi i journal prima di concludere che manchi qualcosa**, e se una
    lane non era arrivata in fondo rilancia *solo quella*, non lo script intero.
 
-2. **IL BRANCH È COMPLETO E VERIFICATO, MA NON UNITO.** 13 commit, **3273 test su 134 file** verdi,
+2. **IL BRANCH È COMPLETO E VERIFICATO, MA NON UNITO.** 15 commit, **3273 test su 134 file** verdi,
    `tsc --noEmit` pulito, build verde, albero pulito, su Node **v24.19.0** via `. ./env.sh`. Il
    Node di sistema è 26 e nasconde `localStorage` a jsdom: una suite verde sotto quello è **più
    debole** di quella di CI. Decidere cosa farne — merge, PR, o lasciarlo — è la prima domanda.
