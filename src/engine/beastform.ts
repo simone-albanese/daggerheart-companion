@@ -123,3 +123,28 @@ export function enterBeastform(
 export function leaveBeastform(c: Character): Character {
   return { ...c, beastform: null };
 }
+
+/**
+ * *"If you mark your last Hit Point, you automatically drop out of this form."*
+ *
+ * The last clause of the Beastform feature, and the only part of it that is the
+ * app's to do: no choice is being made and no number is being guessed, which is
+ * the same bar `enterBeastform` pays a Stress on.
+ *
+ * IT IS EDGE-TRIGGERED, AND THAT IS THE RULE AND NOT AN OPTIMISATION. The
+ * sentence is about the moment of marking, not about a standing condition. A
+ * character who is already on their last Hit Point and lives - a death move
+ * they walked away from, an ally who cleared it back - may transform again, and
+ * a level-triggered version of this would strip the form off them on the next
+ * write and never say why. So it needs both sides, and takes them.
+ *
+ * Every route that marks Hit Points goes through the store's one `update`: the
+ * damage calculator, the pips on the track, and a Stress mark that overflowed -
+ * including the Stress that paid for the transformation itself, which is how a
+ * Druid can enter a form and fall out of it in a single tap.
+ */
+export function dropFormOnLastHitPoint(before: Character, after: Character): Character {
+  if (after.beastform === null) return after;
+  const fell = before.hp.marked < before.hp.max && after.hp.marked >= after.hp.max;
+  return fell ? leaveBeastform(after) : after;
+}

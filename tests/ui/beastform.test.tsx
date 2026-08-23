@@ -286,3 +286,70 @@ describe('the weapons and spells a form seals', () => {
     expect(text()).toContain('OTHER FEATURES STILL WORK');
   });
 });
+
+/**
+ * *"If you mark your last Hit Point, you automatically drop out of this form."*
+ *
+ * The engine tests own the edge-trigger; what this proves is that the rule is
+ * actually reached from the control a player uses, and that the app says it
+ * happened. A form that vanished silently would read as a bug in the app rather
+ * than as a rule in the book.
+ */
+describe('falling out of the form on the last Hit Point', () => {
+  const stepper = (label: string): HTMLButtonElement => {
+    const found = buttons().find((b) => b.getAttribute('aria-label') === label);
+    if (found === undefined) throw new Error(`no control labelled "${label}"`);
+    return found;
+  };
+
+  const markHpToMax = (): void => {
+    for (let i = 0; i < 20; i++) {
+      const c = useApp.getState().characters[0]!;
+      if (c.hp.marked >= c.hp.max) return;
+      click(stepper('HP plus one'));
+    }
+    throw new Error('the HP track never filled');
+  };
+
+  it('drops the form when the pips reach the end of the track', () => {
+    const form = bigForm();
+    seed({
+      beastform: { ref: form.id, activatedAt: '2026-08-23T00:00:00.000Z' },
+      hp: { marked: 0, max: 5 },
+    });
+    play();
+
+    expect(text()).toContain(form.name);
+    markHpToMax();
+
+    expect(useApp.getState().characters[0]?.beastform).toBeNull();
+    expect(text()).not.toContain(`BEASTFORM: ${form.name}`);
+  });
+
+  it('says why, in the log, rather than letting the form just vanish', () => {
+    const form = bigForm();
+    seed({
+      beastform: { ref: form.id, activatedAt: '2026-08-23T00:00:00.000Z' },
+      hp: { marked: 0, max: 5 },
+    });
+    play();
+    markHpToMax();
+
+    const entry = useApp.getState().log.find((e) => e.label === 'Dropped out of Beastform');
+    expect(entry, 'nothing in the log explains where the form went').toBeDefined();
+    expect(entry?.detail).toBe('Last Hit Point marked');
+  });
+
+  it('leaves the form alone on any other mark', () => {
+    const form = bigForm();
+    seed({
+      beastform: { ref: form.id, activatedAt: '2026-08-23T00:00:00.000Z' },
+      hp: { marked: 0, max: 5 },
+    });
+    play();
+    click(stepper('HP plus one'));
+
+    expect(useApp.getState().characters[0]?.beastform).not.toBeNull();
+    expect(text()).toContain(`BEASTFORM: ${form.name}`);
+  });
+});

@@ -5,6 +5,7 @@ import {
   EVOLUTION_HOPE_COST,
   beastformDamage,
   beastformOptions,
+  dropFormOnLastHitPoint,
   enterBeastform,
   evolutionFeature,
   hasBeastform,
@@ -216,5 +217,61 @@ describe('beastformDamage', () => {
   it('is null for a damage string that will not parse', () => {
     const broken = form({ attack: { name: 'x', range: 'Melee', damage: 'a bite', trait: 'agility' } });
     expect(beastformDamage(broken, 3)).toBeNull();
+  });
+});
+
+/**
+ * *"If you mark your last Hit Point, you automatically drop out of this form."*
+ *
+ * The whole of what is asserted here is that it is EDGE-triggered. A level
+ * check - "is this character on their last Hit Point?" - passes every test that
+ * only ever marks damage, and then quietly forbids a Druid who survived their
+ * last Hit Point from ever transforming again, stripping the form on the next
+ * write with nothing on screen to explain it.
+ */
+describe('dropping out on the last Hit Point', () => {
+  const worn = { ref: 'nimble-grazer', activatedAt: '2026-08-23T00:00:00.000Z' };
+  const at = (marked: number, max = 6): Pick<Character, 'hp'> => ({ hp: { marked, max } });
+
+  it('drops the form when the last Hit Point is newly marked', () => {
+    const before = druid({ ...at(4), beastform: worn });
+    const after = { ...before, ...at(6) };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toBeNull();
+  });
+
+  it('drops it when a Stress that overflowed did the marking', () => {
+    // The route that makes this reachable in one tap: entering a form marks a
+    // Stress, and a full Stress track spends a Hit Point instead.
+    const before = druid({ ...at(5), stress: { marked: 6, max: 6 }, beastform: null });
+    const entered = enterBeastform(before, 'nimble-grazer', 'stress');
+    expect(entered.hpMarked).toBe(1);
+    expect(dropFormOnLastHitPoint(before, entered.character).beastform).toBeNull();
+  });
+
+  it('leaves a form alone when the character was ALREADY on their last one', () => {
+    // Not a hypothetical: a death move can be walked away from, and an ally can
+    // clear a Hit Point back. The sentence is about marking, and nothing was
+    // marked here.
+    const before = druid({ ...at(6), beastform: worn });
+    const after = { ...before, stress: { marked: 1, max: 6 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
+  });
+
+  it('lets a character on their last Hit Point transform', () => {
+    const before = druid({ ...at(6), beastform: null });
+    const after = enterBeastform(before, 'nimble-grazer', 'evolution').character;
+    expect(dropFormOnLastHitPoint(before, after).beastform).not.toBeNull();
+  });
+
+  it('does nothing at all to a character wearing no form', () => {
+    const before = druid({ ...at(4), beastform: null });
+    const after = { ...before, ...at(6) };
+    expect(dropFormOnLastHitPoint(before, after)).toBe(after);
+  });
+
+  it('does nothing when Hit Points are cleared rather than marked', () => {
+    const before = druid({ ...at(6), beastform: worn });
+    const after = { ...before, ...at(2) };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
   });
 });
