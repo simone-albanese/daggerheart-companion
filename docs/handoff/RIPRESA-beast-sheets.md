@@ -1,102 +1,119 @@
 # Messaggio di ripresa — branch `beast-sheets`
 
-Da incollare in una sessione nuova. Aggiornato il **24 agosto 2026**, dopo che tutti e tre i
-workflow del 23 sono stati svuotati nel repo e le nove domande hanno avuto risposta.
+Da incollare in una sessione nuova. Aggiornato il **24 agosto 2026**, dopo che il cancello
+pre-merge è stato eseguito per intero e il branch è finito su una PR.
 
 ---
 
 Riprendiamo il Daggerheart Companion, sul branch **`beast-sheets`**.
 
-Leggi `docs/handoff/HANDOFF-beast-sheets-2026-08-24.md`. È l'autorità su questo branch;
-`HANDOFF-beast-sheets-2026-08-23.md` porta un cartello e **non** va riscritto. `HANDOFF-2026-08-23.md`
-nella radice resta l'autorità su `main`, che è fermo a `f0c23f1` / `0.5.0`, pubblicata e verificata.
-Il branch **non è unito e non è pushato**.
+**PRIMA COSA, PRIMA DI QUALUNQUE ALTRA: unisci la PR #1 e pusha `main`.** È già stato deciso,
+e non serve rileggere niente per farlo. Poi si parte da **A** e **B** qui sotto.
 
-Le sette cose da sapere subito.
+Leggi, in quest'ordine: `docs/handoff/CANCELLO-MERGE-2026-08-24.md` (è il documento vivo, e il
+suo **§8 è il briefing su A e B**), poi `docs/handoff/HANDOFF-beast-sheets-2026-08-24.md`, che
+porta un cartello: il suo §7 è **eseguito**, i suoi §2 e §4 sono invecchiati per nome nel
+cartello, e i suoi **§5, §6, §8 e §9 reggono e sono la cosa più utile lì dentro**. Non riscrivere
+né quel file né `HANDOFF-beast-sheets-2026-08-23.md`, che porta il suo cartello a sua volta.
+`HANDOFF-2026-08-23.md` nella radice resta l'autorità su `main`.
 
-**1. NON DEVI RECUPERARE NIENTE DA NESSUN JOURNAL.** Tutti e tre i workflow del 23 agosto sono
-atterrati nel repo. `wf_6a80a4c1-7a8` → `BACKLOG-PLAN-2026-08-23.md`. `wf_d5464f24-a49` →
-`PROGETTO-GM-2026-08-23.md`. `wf_226cd659-47e` **era stato ucciso a metà e non aveva scritto niente**:
-il suo rapporto è stato ricostruito dal disco in **`VERIFICA-BRANCH-2026-08-23.md`**. Ciò che resta
-nei journal è solo dettaglio non riprodotto, ed è indicizzato in `RECUPERO-JOURNAL-2026-08-24.md`.
-*(Gli script di quei workflow sono nella cartella di sessione, **non** in `workflows/scripts/` dentro
-il repo: quel percorso non è mai esistito, e i due handoff precedenti ci mandavano per errore.)*
+---
 
-**2. IL BRANCH È COMPLETO, MA LA SUA VERIFICA È APERTA — E QUESTA È LA PRIMA COSA DA LEGGERE.**
-3273 test su 134 file verdi, `tsc` pulito, build verde, albero pulito, Node **v24.19.0** via
-`. ./env.sh` (il Node di sistema è 26 e nasconde `localStorage` a jsdom: una suite verde sotto
-quello è più debole di quella di CI). **Ma i cancelli verdi non sono la verifica.** Leggi
-`VERIFICA-BRANCH-2026-08-23.md` **prima** di qualunque decisione di merge:
+## 1. Il gesto di apertura, e cosa fa davvero
 
-- **sei delle sette correzioni di `c88bd21` sono incomplete**, e la **#4 è una regressione** — ha
-  tolto la casella di spunta dalla stampa e non ha messo niente al suo posto per le opzioni non
-  marcate, sotto un'intestazione che continua a contarle;
-- **le due regole per cui il branch esiste non sono trattenute da nessun test**: invertendo
-  `Play.tsx:248` e `Play.tsx:261` la suite resta **134/134 e 3273/3273 verde**. Misurato due volte,
-  da agenti indipendenti, eseguendo. In tutto **cinque test dimostrati vacui**;
-- **quel run è però a sua volta incompleto** — Critic e Synthesis mai partite — quindi i suoi rilievi
-  non hanno passato il vaglio che il suo disegno prevedeva. Le **nove prove per mutazione** sono
-  elencate in §38 col colore atteso, e **non sono mai state eseguite**.
+`gh pr merge 1` e poi `git push origin main`.
 
-**3. NON CONTARE I COMMIT LEGGENDOLI IN UN DOCUMENTO.** Usa `git rev-list --count main..HEAD`.
-Quel numero è già andato stantio due volte, e c'è un commit (`e69cf17`) che esiste solo per averlo
-corretto una volta.
+- **`deploy.yml` gira solo su push a `main`.** Quindi unire la PR non pubblica niente: **è il
+  push di `main` che pubblica 0.6.0** su GitHub Pages. Sono due gesti e due conseguenze diverse.
+- `ci.yml` gira su `pull_request` e su push a `main`. L'ultimo giro sulla PR è stato **verde in
+  2m6s** su Node `.nvmrc` = 24.
+- Al momento in cui è stato scritto questo file: `origin/main == main == f0c23f1`, PR `MERGEABLE`
+  e `CLEAN`, branch a 30 commit. **Rimisura**: `git rev-list --count main..HEAD` e
+  `gh pr view 1 --json state,mergeable`. Non fidarti di questi numeri, che è la regola che questo
+  repo ha imparato pagandola.
 
-**4. LE NOVE DOMANDE HANNO AVUTO RISPOSTA, E NESSUNA È STATA ESEGUITA.**
-`DECISIONI-2026-08-23.md`. La conseguenza che conta: le decisioni **1, 6 e 8** finiscono tutte e tre
-in `Campaign` e devono condividere **un solo bump** di `CAMPAIGN_SCHEMA_VERSION` (2→3). Farle
-separate significa tre convertitori, tre giri di fixture e tre passate sui test di trasferimento.
-E attenzione: **`:3136` è chiusa sulla carta e non in `BACKLOG.md`** — `:3136` e `:3140` sono ancora
-`- [ ]` sotto «Still open», e `:3138` dice ancora «ask Giorgio».
+## 2. Node 24, sempre
 
-**5. IL PERICOLO STRUTTURALE È PEGGIO DI COME ERA SCRITTO, ED È STATO MISURATO.** Le schede
-conservate dentro una campagna **non passano mai dalla catena di migrazione dei personaggi**:
-`readPartyMember` (`shared/campaigns.ts:628`) guarda due campi e poi fa il cast. **Otto modi di far
-cadere il party board sono stati riprodotti eseguendo** — fra cui `levelUpHistory`, che esplode in
-`deriveStats` **prima che si disegni qualsiasi cosa**, e i quattro contatori in `gmStore.ts:1093`,
-che esplodono dentro un'azione di store, cioè **fuori dal confine d'errore di React**. Il controllo
-che dice tutto: **un compagno senza `damageType` si disegna benissimo** — l'unico campo con un test
-di regressione è l'unico che non esplode. La regola va allargata a *«né passarlo a una funzione che
-lo fa»*, ed è violata in `PartyBoard.tsx` a `:528 :541 :629 :663 :664`, più `attack.ts:373`/`:578` e
-`print/CharacterSheet.tsx:377` **fuori** da `src/ui/gm/`. La correzione strutturale va decisa dentro
-il bump 2→3, che è stato dimensionato: **ventiquattro punti**, non tre suite di test.
+`. ./env.sh` prima di ogni cosa. Il Node di sistema è **26** e **nasconde `localStorage` a
+jsdom**: una suite verde sotto quello è **più debole** di quella di CI, non uguale. Ogni numero
+in ogni documento è stato preso sotto il 24. Riferimento attuale: **134 file / 3283 test**,
+`tsc` pulito, `npm run build` verde, `npm run build:srd -- --check` allineato a 80 sezioni.
 
-**6. TRE SCOSTAMENTI DALLE DECISIONI, TUTTI ARGOMENTATI E TUTTI ANCORA VALIDI.** Folio 19 escluso
-(è il ROGUE); **codec al formato 2** (il numero libero è 4, non 3 — ri-derivato in modo
-indipendente), col bump di *schema* fatto; Esperienza del compagno **applicata, non offerta**.
-Ma il bump si è fermato prima del suo precedente: `Architecture.md:461` dice ancora «tre voci
-esatte» dove `codec.ts:34` ne dichiara **quattro**, e questo branch **non ha toccato nessun `.md`**.
+## 3. Cos'è successo il 24 agosto, in una riga per punto
 
-**7. jsdom NON MISURA NIENTE.** Le superfici cambiate e mai misurate sono **sei**, non due — e una
-di esse (`CompanionLine` sul party board) non è un pixel non misurato ma una possibile violazione di
-`shapeCoding`: `· OUT OF THE SCENE` è l'ultima cosa sotto `nowrap`/`ellipsis`, e a troncarsi resta il
-solo colore. Il rig di misura in Chrome **esiste già: riusalo, non ricostruirlo.**
+Il branch era **completo e la sua verifica era aperta**: la suite restava verde anche invertendo
+le due frasi per cui il branch esiste. Nove commit dopo:
 
-## Cosa fare, in ordine
+- le **due regole di punta sono trattenute** — sette asserzioni rifatte, non cinque;
+- la **regressione di stampa** è disfatta, i **due crash vivi** sono chiusi, il **tratto
+  Beastform** segue la forma e non sopravvive al DROP;
+- il **debito 4→5** è pagato: prosa, fixture, e il generatore da 3240 schede che era **cieco** a
+  `damageType`;
+- le **nove prove per mutazione** sono state eseguite e scritte (`CANCELLO` §4);
+- il **difetto 8** è chiuso come **deviazione dichiarata** (opzione A), e la versione fedele —
+  un campo `away` esplicito — resta aperta perché costa uno schema;
+- `CHANGELOG.md` ha la sua sezione e la versione è **0.6.0**, con `APP_VERSION` accanto.
 
-**Prima del merge, e vale circa una giornata:** trattieni le due regole di punta con test che
-diventano rossi; disfa la regressione di stampa (`.dhc-tick` è già nel file); chiudi i due crash
-vivi; sistema il tratto Beastform stantio; paga il debito `.md` e di fixture del bump 4→5 insieme
-alle sei affermazioni false che nessuna mutazione può prendere; **poi** esegui le nove prove per
-mutazione — **una alla volta, mai in parallelo**, in una directory dal nome unico, col mutante
-verificato presente prima e dopo.
+Il criterio, ogni volta: **il test rosso prima**, e ogni mutazione eseguita davvero.
 
-**Poi**, e solo poi, la decisione su `beast-sheets`. `main` è fermo, quindi aspettare non costa
-niente, e decidere adesso vuol dire decidere su prove che non hai ancora letto.
+## 4. A e B — il lavoro che parte subito dopo il push
 
-**Dopo il merge**, nell'ordine: la sezione Legal del README; il passaggio su `BACKLOG.md` in un
-commit solo, usando gli **undici blocchi già scritti** di `RECUPERO-JOURNAL-2026-08-24.md` §1 invece
-di riderivarli; Witherwild fuori e la rinomina; **il bump unico 2→3** con dentro la decisione su
-`readPartyMember`; `PROGETTO-GM` §6 step 1; **Layout B** col vincolo duro che **THE NIGHT è una
-scheda, non un modale** (oggi ogni strumento DM copre il Fear e lo rende irraggiungibile da
-tastiera); il tiro dei danni che legge le riserve; e infine **un solo passaggio di misura in Chrome,
-tutto insieme**.
+Sono indipendenti fra loro. Il briefing completo è in `CANCELLO` §8; qui c'è solo quanto basta a
+non partire nella direzione sbagliata.
 
-## Cosa non toccare, e sono decisioni
+**A1 — sezione Legal del README** *(1-2 h)*. `DECISIONI-2026-08-23.md` §3. L'obiezione **va
+scritta**, è il punto della decisione: metà dell'app è Adaptive Content ai sensi di §1.7, §2.1(b)
+lo consente solo nei Permitted Formats, e §1.9 non elenca le app web. Dichiara la lettura **e**
+il rischio accettato.
 
-Il **cancello H-9 resta chiuso** (inset orizzontali, rail dei Cards, overlay, `--control`, voci 7, 8
-e 19). Le sezioni rilasciate di `CHANGELOG.md`. Di `HANDOFF.md` si mantiene **solo il cartello**.
-**Mai `git add -A`.** **Niente si spunta in `BACKLOG.md` su un «probabilmente»** — il giro di
-confutazione è stato fatto e dà **cinque spunte, uno split, un reword, tre che restano aperte**.
-**`:1653` va spezzata, non spuntata.** E **`SESSION_ITEM_KINDS` che omette `url` e `note` è
-deliberato**, pinnato da un test: allargarlo è una mossa già respinta, non una svista.
+**A2 — `BACKLOG.md`, in un commit solo** *(90 min)*. **Usa gli undici blocchi già scritti** in
+`RECUPERO-JOURNAL-2026-08-24.md` §1: cinque spunte, uno split chiuso, un reword, quattro che
+restano aperte. **`:1653` va spezzata, non spuntata** — `AppBoundary.tsx:60-62` porta ancora il
+difetto identico. **`:2117` va riscritta, non spuntata**: la decisione 8 la supera. **`:3136` è
+chiusa sulla carta e non nel file.** Nello stesso commit apri le voci nuove di `CANCELLO` §5.
+
+**B — Witherwild fuori, e la rinomina** (`DECISIONI` §4 e §5). Due avvertenze misurate:
+
+- **Sono 11 sezioni, non 12.** `DECISIONI` §4 dice 12 e 28.549 caratteri; sul dataset di questo
+  branch sono **11** (id `witherwild*`, pagine 113-118) e **27.679** caratteri di body. La quota
+  regge: 21,7 %. Rimisura tu.
+- **Il raggio d'esplosione è già mappato** in `CANCELLO` §8: `rules` va **80 → 69**, i
+  paragrafi-lista **74 → 64**, e sei posti fra prosa e test portano quei numeri. Uno di quei test
+  — `toHaveLength(74)` in `srdReference.test.ts` — **diventerà rosso apposta**: esiste perché la
+  stessa frase era invecchiata in silenzio quando il dataset è andato 75 → 80.
+
+`npm run build:srd -- --check` è il cancello vero della rimozione. E la rinomina del **repo**
+cambia l'URL del remoto: `origin` va ripuntato.
+
+## 5. Poi, in ordine — non cominciare da qui
+
+**Il bump unico `CAMPAIGN_SCHEMA_VERSION` 2→3** che porta le decisioni **1+6+8 insieme**
+(ventiquattro punti, non tre suite di test), ed è **lì che si decide `readPartyMember`** — la
+prova (f) ha stabilito eseguendo che **nessun test lo trattiene in nessuna delle due direzioni**.
+In parallelo può correre **`PROGETTO-GM` §6 step 1** (verità sul vetro), che non aspetta niente.
+Poi **Layout B**, col vincolo duro che **THE NIGHT è una scheda, non un modale** — oggi ogni
+strumento DM monta a `inset: 0` con `useDialog` che intrappola il Tab, quindi mentre la scena è
+aperta il Fear è coperto e irraggiungibile da tastiera. Poi il **tiro dei danni che legge le
+riserve**, e nello stesso passaggio i due difetti recuperati (`DualityRoll.tsx:791` non ha
+`bonus` nel tipo di `fixed`, `DicePools.tsx:191` chiama `cryptoRng` senza leggere nessuna
+preferenza). Infine **un solo passaggio di misura in Chrome**, sei superfici insieme: **il rig
+esiste già, riusalo**. Una di quelle sei non è un pixel ma una possibile violazione di
+`shapeCoding` — `· OUT OF THE SCENE` è l'ultima cosa sotto `ellipsis` sul party board, e a
+troncarsi resta il solo colore.
+
+## 6. Cosa non toccare, e sono decisioni
+
+- **Il cancello H-9 resta chiuso**: inset orizzontali, rail dei Cards, overlay, `--control`,
+  voci 7, 8 e 19.
+- **Le sezioni rilasciate di `CHANGELOG.md`.** La 0.6.0 è appena stata scritta: aggiungerne una
+  nuova sopra è normale, riscrivere quelle sotto no.
+- **Di `HANDOFF.md` si mantiene solo il cartello**, e lo stesso vale ora per i due handoff di
+  branch. Correggere le frasi dentro un documento superato lo fa sembrare mantenuto.
+- **Mai `git add -A`.** `node_modules`, `.tools` e `Manuali` sono directory vere nella radice e
+  symlink solo dentro le copie.
+- **Niente si spunta in `BACKLOG.md` su un «probabilmente».**
+- **`SESSION_ITEM_KINDS` che omette `url` e `note` è deliberato**, pinnato da un test: allargarlo
+  è una mossa già respinta, non una svista.
+- **Le prove per mutazione si eseguono in una copia isolata**, una alla volta, col mutante
+  verificato presente prima e dopo. Il metodo sta in `CANCELLO` §3 e ha già evitato una volta di
+  lasciare l'albero mutato.

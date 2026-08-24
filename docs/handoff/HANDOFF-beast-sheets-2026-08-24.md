@@ -1,8 +1,21 @@
 # Handoff — branch `beast-sheets`, 24 agosto 2026
 
-> **I punti 1-6 di §7 sono stati eseguiti**, e le nove prove per mutazione con loro. Il
-> risultato sta in `CANCELLO-MERGE-2026-08-24.md`: leggilo **dopo** questo file e **prima** di
-> decidere sul merge. Il punto 7 — la decisione — non è stato preso.
+> **§7 È STATO ESEGUITO PER INTERO, il 24 agosto.** I punti 1-6, le nove prove per mutazione, e
+> anche il punto 7: il proprietario ha deciso, e il branch è su **PR #1**, aperta e verde.
+> `docs/handoff/CANCELLO-MERGE-2026-08-24.md` è il seguito di questo file e va letto dopo.
+>
+> **Da qui in giù solo il cartello è mantenuto**, per la stessa ragione che `HANDOFF.md` porta
+> scritta: correggere le frasi dentro un documento superato lo fa sembrare mantenuto, che è
+> l'errore più caro. Cosa è invecchiato, per nome:
+>
+> - **§2** dice 3273 test e `0.5.0`. Sono **3283** test e **0.6.0** — la versione si è mossa
+>   perché era timbrata dentro ogni export e diceva di essere una build senza compagni.
+> - **§4** dice «tre scostamenti». Sono **quattro**: il quarto è che un riposo breve non riporta
+>   in scena un compagno che ne è uscito. Deviazione dichiarata, non applicazione della regola.
+> - **§5** e **§6** reggono. La classe di difetto di `readPartyMember` è **ancora aperta** ed è
+>   ancora dimensionata a ventiquattro punti; quello che è cambiato è che adesso si sa che
+>   **nessun test la trattiene in nessuna delle due direzioni** (prova f).
+> - **§7** è fatto. **§8 e §9 reggono** e restano la cosa più utile qui dentro.
 
 > **Sostituisce `HANDOFF-beast-sheets-2026-08-23.md`**, che porta un cartello e non è stato
 > riscritto: era accurato per il suo momento, e i suoi §3 e §4 sono stati ri-verificati uno per uno

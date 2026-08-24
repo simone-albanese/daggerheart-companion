@@ -1,18 +1,22 @@
 # Il cancello prima del merge — `beast-sheets`, 24 agosto 2026
 
-> Esegue i punti **1–6** di `HANDOFF-beast-sheets-2026-08-24.md` §7. Il punto **7** — la
-> decisione su cosa fare del branch — **non è stato preso**: è del proprietario, e ora ha
-> sotto le prove che gli mancavano.
+> Esegue **tutto** il §7 di `HANDOFF-beast-sheets-2026-08-24.md`: i punti 1-6 e le nove prove
+> per mutazione (§1-§6 qui sotto), e poi il punto 7 — le due decisioni del proprietario, in §7.
+> **§8 è il briefing per quello che viene dopo.**
 >
-> `main` è ancora `f0c23f1` / `0.5.0`. Il branch **non è unito e non è pushato**.
-> Conta i commit con `git rev-list --count main..HEAD` — non fidarti di un numero scritto.
+> `main` è ancora `f0c23f1`. Il branch è **pushato** e sta su **PR #1**, aperta e verde; non è
+> unito. Conta i commit con `git rev-list --count main..HEAD` — non fidarti di un numero scritto.
+>
+> **§6 è la fotografia del momento in cui la decisione era ancora aperta**, e resta com'era
+> scritta perché è l'argomento su cui è stata presa. §7 dice come è andata.
 
 ---
 
 ## 0. Dove sta la verità adesso
 
-- **Cancelli**: 134 file / **3281** test verdi, `tsc --noEmit` pulito, `npm run build` verde,
-  tutto sotto Node **v24.19.0** via `. ./env.sh`.
+- **Cancelli**: 134 file / **3283** test verdi, `tsc --noEmit` pulito, `npm run build` verde,
+  tutto sotto Node **v24.19.0** via `. ./env.sh`. *(3281 al momento in cui §1-§6 sono stati
+  scritti; i due in più sono i test del difetto 8, §7 punto 1.)*
 - **Ma i cancelli verdi non sono la verifica** — è la frase che il handoff precedente ha dovuto
   correggere, e resta vera. Quello che è cambiato è che **le due regole di punta ora sono
   trattenute**: invertire `Play.tsx:248` o `:261` fa diventare rosso qualcosa. Misurato,
@@ -196,7 +200,7 @@ Non è arretrato scoperto adesso: è arretrato **misurato adesso**, che è diver
 
 ---
 
-## 6. La decisione, che non è stata presa
+## 6. La decisione, com'era quando era ancora da prendere
 
 `main` è fermo a `f0c23f1` con 0.5.0 pubblicata: **aspettare non costa niente**. Quello che è
 cambiato è che adesso la domanda si può rispondere su prove lette invece che su cancelli verdi.
@@ -233,5 +237,83 @@ Quindi, in ordine e già fatti:
    `beast-sheets` **non pubblica niente**. `ci.yml` gira su `pull_request`, quindi la PR
    esegue i cancelli su Node `.nvmrc` = 24, che è lo stesso major usato qui.
 
+**PR #1** — https://github.com/simone-albanese/daggerheart-companion/pull/1 — aperta,
+`MERGEABLE`, `CLEAN`, **CI verde in 2m6s** su Node `.nvmrc` = 24. Base `main` = `f0c23f1`, che è
+esattamente il commit da cui il branch è stato tagliato: `origin/main == main`.
+
 Resta non fatto, e resta del proprietario: **unire la PR**, e poi **pushare `main`** — che è
 il momento in cui 0.6.0 viene davvero pubblicata.
+
+---
+
+## 8. Il briefing per il prossimo passo — A e B
+
+Dopo il merge e il push si parte da **A** e **B**. Sono indipendenti fra loro. Quello che segue
+esiste per non farli riderivare.
+
+### A1 — La sezione Legal del README *(1-2 h)*
+
+`DECISIONI-2026-08-23.md` §3. È l'unica decisione senza codice, senza dataset e senza schema.
+La lettura accettata è §2.1(a) DPCGL — *«reproduce and Share the Public Game Content in whole or
+in part»*, senza limiti di formato dichiarati.
+
+**L'obiezione va scritta, non omessa**: è il punto della decisione. Metà dell'app è Adaptive
+Content ai sensi di §1.7 — il dataset è il PDF *riordinato*, `deriveStats` *trasforma* — §2.1(b)
+consente l'Adaptive Content **solo nei Permitted Formats**, e §1.9 elenca stampa, streaming,
+podcast e VTT, chiudendo con l'esclusione di *«any other audiovisual medium not expressly
+permitted»*. **Un'app web non è in quell'elenco.** §1.9.1 nomina il rimedio: approvazione scritta
+di DRP. La sezione dichiara la lettura **e** il rischio accettato.
+
+### A2 — Il passaggio su `BACKLOG.md`, in un commit solo *(90 min)*
+
+**Usa gli undici blocchi già scritti** in `RECUPERO-JOURNAL-2026-08-24.md` §1 invece di
+riderivarli. Contati riga per riga, sono: **cinque spunte** (`:651`, `:975`, `:686`, `:654`,
+`:751`), **uno split già chiuso** (`:2459`), **un reword** (`:2840`), e **quattro che restano
+aperte** — `:646`, `:2462`, `:2467` e `:1653`.
+
+Le trappole, tutte già pagate una volta:
+
+- **`:1653` va spezzata, non spuntata.** `AppBoundary.tsx:60-62` porta ancora il difetto identico.
+- **`:2117` va riscritta, non spuntata.** La decisione 8 la **supera esplicitamente**.
+- **`:3136` è chiusa sulla carta e non nel file.** `:3136` e `:3140` sono ancora `- [ ]` sotto
+  *«Still open»*, e `:3138` dice ancora «ask Giorgio».
+- **Niente si spunta su un «probabilmente».**
+
+Nello stesso commit vanno **aperte** le voci nuove di questa sessione, che sono §5 qui sopra:
+il cast di `readPartyMember`; `CompanionLine` che non obbedisce al proprio docblock;
+`EXPERIENCE_LINES` giusto per coincidenza; `NO_EXPERIENCES` da congelare (`Object.freeze` e tipo
+di ritorno `readonly`); il test del party board che passa da `importParty` e quindi salta il
+lettore; il campo `away` esplicito, che è la versione fedele del difetto 8 e costa uno schema;
+le sei superfici mai misurate.
+
+### B — Witherwild fuori, e la rinomina *(`DECISIONI` §4 e §5)*
+
+**Un numero da correggere prima di cominciare.** `DECISIONI` §4 dice «12 sezioni, 28.549
+caratteri». Misurato sul dataset di questo branch: **11 sezioni**, tutte con id che comincia per
+`witherwild` (pagine 113-118), **27.679 caratteri di body**. La quota regge: **21,7 %**, che è
+il «22 %» della decisione. Verifica tu, non fidarti di questo paragrafo più che dell'altro.
+
+**Il raggio d'esplosione, misurato.** Togliendole, `rules` va **80 → 69**, il JSON delle regole
+137.082 → **107.884 byte** (gzip 46.795 → **35.936**), i paragrafi-lista puri 74 → **64**, i
+paragrafi-tabella restano **12**. Quindi si muovono, e vanno mossi insieme al dataset:
+
+| dove | cosa dice oggi |
+|---|---|
+| `src/ui/shared/srdReference.ts` (docblock di `blockParts`) | «seventy-four bullet paragraphs» → 64 |
+| `src/ui/shared/srdReference.ts` (docblock della ricerca) | «eighty sections», 137.082 byte, 46.795 gzip |
+| `src/ui/gm/ReferenceTables.tsx` | «all eighty sections» |
+| `src/ui/gm/RuleSearch.tsx` | «eighty in the shipped SRD» |
+| `tests/gm/ruleSearch.test.tsx` | «all eighty sections» |
+| `tests/ui/srdReference.test.ts` | il censimento 38/7/3/42/12 **e** `toHaveLength(74)` |
+
+Quel `74` **diventerà rosso, ed è per questo che l'ho messo**: era «seventy» scritto in lettere,
+è invecchiato in silenzio quando il dataset è andato 75 → 80, ed è sfuggito alla passata che
+aveva mosso le cifre. Adesso il prossimo che muove il dataset lo scopre dal test.
+
+E `npm run build:srd -- --check` è il cancello vero della rimozione: se `shared/parsers/rules.ts`
+e `data/srd-1.0.json` non dicono la stessa cosa, dice «out of date».
+
+**La rinomina** tocca nome, repo e URL del deploy. §2.5(a) e (b) vietano il marchio nel titolo e
+in copertina; (c) esige «Compatible» adiacente nel testo descrittivo. Oggi `manifest.short_name`
+è la parola nuda. Nota che la rinomina del **repo** cambia l'URL del remoto: se si fa dopo il
+merge, `origin` va ripuntato.
