@@ -25,14 +25,27 @@
  *
  * `url` and `note` landed as a storage layer - a type, a reader, a writer and
  * an export - with their screens left to two later lanes, so what `UrlArm.tsx`
- * and `NoteArm.tsx` draw for them today is a placeholder that says so. That is
+ * and `NoteArm.tsx` drew for them was a placeholder that said so. That is
  * exactly the shape this file exists to catch, because "the arm renders
  * nothing" and "the arm is not built yet" look identical from the outside.
  *
- * The last two describes assert that each draws the value it holds and that
- * neither is silently empty. There are two of them, one per kind, with a
- * fixture each, because each is expected to be rewritten by the lane that
- * builds its screen and those are two different lanes.
+ * Both lanes have since landed and both describes were rewritten by them, as
+ * that paragraph expected: `UrlArm.tsx` draws the punycode address and an
+ * anchor that opens it, `NoteArm.tsx` walks the block format. The last two
+ * describes assert that each draws the value it holds and that neither is
+ * silently empty. There are two of them, one per kind, with a fixture each,
+ * because they were two lanes and the split is what kept them from rewriting
+ * one describe over one shared fixture.
+ *
+ * The anchor is also why the whole-screen sweep further up seeds a `url` row.
+ * It is *not* the only control on this screen that is not a `<button>`, which
+ * is what stood here and was false: `SessionBody`'s `SceneArm` draws a
+ * `<select>` for the row's environment with a `minHeight: 'var(--tap)'` of its
+ * own, `oneOfEach` has seeded a scene row since this file was written, and the
+ * `button, a` selector that sentence justified could not see it either. The
+ * sweep no longer takes a sentence's word for the set: it reads the declared
+ * floors off the DOM and asserts, by exact list, which of them its selector
+ * does not reach.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement, type ReactElement } from 'react';
@@ -720,6 +733,28 @@ describe('the countdown arm', () => {
     expect(item.kind === 'countdown' && item.countdown.value).toBe(3);
   });
 
+  it('carries the SRD’s advancement chart on a dynamic clock, and not on a loop', () => {
+    /*
+     * Presence, which is what this file is for. `countdownArm.test.tsx` holds
+     * the rest of it - the six pressable cells, the four printed ones, which
+     * clock a cell moves and which way - and the reason the assertion here is
+     * a fold rather than a table is that the fold is the whole gesture: the
+     * chart is five `--tap` rows and a column header behind one shut
+     * disclosure, on a row that is already inside a scroller.
+     */
+    seed([
+      ...countdown(),
+      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+    ]);
+    list();
+    const chart = buttons().filter((b) => (b.textContent ?? '').trim().startsWith('ADVANCE BY A ROLL'));
+    expect(chart).toHaveLength(1);
+    expect(chart[0]!.getAttribute('aria-expanded')).toBe('false');
+    expect(text(), 'the chart is drawn shut, not drawn open').not.toContain('Tick down 3');
+    click(chart[0]!);
+    expect(text()).toContain('Tick down 3');
+  });
+
   it('pins exactly one countdown to the top bar', () => {
     seed([
       ...countdown(),
@@ -792,8 +827,15 @@ describe('opening and deleting a row', () => {
       { ...base({ id: 'e2', name: 'The bridge', order: 3, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 1 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
       { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
-      { ...base({ id: 'l1', name: 'The grove', order: 6, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
-      { ...base({ id: 'l2', name: 'The other grove', order: 7, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: dataset.environments[1]!.id } },
+      // A *second* dynamic clock, and it is here rather than in the pair
+      // above because the pair above cannot see the defect: the advancement
+      // chart is offered on a dynamic row and on no other, so one dynamic and
+      // one loop draw one ADVANCE BY A ROLL header between them and any two
+      // identical headers stay hidden. `Fold` names its button with the words
+      // it draws, and both of these draw the same three words.
+      { ...base({ id: 'c3', name: 'The flood', order: 6, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c3', name: 'The flood', kind: 'dynamic', start: 6, value: 5, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'l1', name: 'The grove', order: 7, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
+      { ...base({ id: 'l2', name: 'The other grove', order: 8, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: dataset.environments[1]!.id } },
     ]);
     list();
 
@@ -827,6 +869,48 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
     return Number.isFinite(n) ? n : 0;
   }
 
+  /**
+   * Everything a finger lands on, which is not the set `buttons()` returns.
+   *
+   * The floor sweep below asked `querySelectorAll('button')`, then
+   * `'button, a'`, and both were one file's guess at a set nobody had read off
+   * the DOM. `UrlArm`'s OPEN IN A NEW TAB is an `<a className="btn">` carrying
+   * a `minHeight: 44` of its own, and it was invisible twice over: `oneOfEach`
+   * drew no `url` row either, so the anchor was never on the swept screen. The
+   * widening that fixed it was justified by calling that anchor the only
+   * non-`<button>` control on this screen, and it was not - `SceneArm`'s
+   * environment `<select>` declares `var(--tap)`, and the scene row that draws
+   * it has been in `oneOfEach` from the beginning.
+   *
+   * So the selector names every tag that can carry a control, and
+   * `floorsOutsideTheSweep` below closes the loop from the other end.
+   */
+  const targets = (): HTMLElement[] => [
+    ...container.querySelectorAll<HTMLElement>('button, a, select, input, textarea, summary'),
+  ];
+
+  /**
+   * Every element declaring a minimum height that `targets()` cannot reach.
+   *
+   * The counterpart to widening the selector, and the reason the next
+   * non-`<button>` control cannot hide the way the select did: this reads the
+   * declared floors off the rendered screen rather than off a sentence, so a
+   * control added in any file turns up here whatever tag it is drawn with.
+   *
+   * Asserted as an exact list rather than as empty, because one element on this
+   * screen declares a minimum height and is legitimately not a target.
+   * `DomainCardView` gives a card being read a floor so that a row of cards
+   * ends level, and the `card` link arm draws it with no `onOpen`, so it
+   * carries no button at all. Anything else that appears in this list is a
+   * control the floor sweep is not looking at.
+   */
+  const floorsOutsideTheSweep = (): string[] => {
+    const swept = new Set(targets());
+    return [...container.querySelectorAll<HTMLElement>('*')]
+      .filter((el) => px(el.style.minHeight) > 0 && !swept.has(el))
+      .map((el) => `${el.tagName} ${el.style.minHeight}`);
+  };
+
   const openEverything = (): void => {
     seed([
       // The countdown is pinned, so the top bar draws its third row too: the
@@ -835,14 +919,76 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       { ...base({ id: 'l2', name: 'The burrower', collapsed: false }), kind: 'link', target: { kind: 'adversary', ref: adversary.id } },
       { ...base({ id: 'l3', name: 'The grove', collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
       { ...base({ id: 'l4', name: 'A card', collapsed: false }), kind: 'link', target: { kind: 'domainCard', ref: card.id } },
+      // The row that puts the borrowed anchor on the screen. Not the only
+      // non-`<button>` control here - `SceneArm`'s environment select is the
+      // other, and it needs no row of its own, because the scene row in
+      // `oneOfEach` above has always drawn one.
+      { ...base({ id: 'u1', name: 'The map board', collapsed: false }), kind: 'url', href: 'https://example.com/board' },
     ]);
     useGm.setState({ combatants: [] });
     render(createElement(Gm));
+    /*
+     * The one thing on this screen that is open and still not in the DOM. The
+     * countdown arm's advancement chart is behind a `Fold` that starts shut,
+     * so with every row open its six cells are still unrendered - and a sweep
+     * that never sees them is a sweep that would have gone green on a chart
+     * whose cells declared nothing at all. Opened here so both rules below
+     * cover it: the cells are targets, and the chart's grid declares no width
+     * of its own, which is the second rule's whole question.
+     */
+    const charts = buttons().filter((b) =>
+      (b.textContent ?? '').trim().startsWith('ADVANCE BY A ROLL'),
+    );
+    expect(charts, 'no advancement chart on the screen for the sweep to open').toHaveLength(1);
+    for (const fold of charts) click(fold);
+    /*
+     * And the cells actually arrived. Both rules below are a filter down to
+     * the violators followed by an assertion that the list is empty, which is
+     * a shape that passes over an empty population just as well as over a
+     * clean one - so the population is asserted here, once, for both of them.
+     * Without this the loop above could open nothing and both sweeps would
+     * stay green.
+     */
+    expect(
+      buttons().filter((b) => (b.getAttribute('aria-label') ?? '').includes(' — advance by ')),
+      'the fold opened but no chart cell reached the DOM',
+    ).toHaveLength(6);
+    /*
+     * And the borrowed anchor arrived, asserted for the same reason and not
+     * folded into the count above: `url` is the one kind whose control this
+     * fixture has to carry deliberately, and a fixture that stopped drawing it
+     * would take the anchor out of both sweeps without either going red.
+     */
+    expect(
+      [...container.querySelectorAll('a')],
+      'no anchor on the screen for the floor sweep to cover',
+    ).toHaveLength(1);
+    /*
+     * And the select, asserted separately again for the same reason. It is the
+     * other control here that is not a `<button>`, it arrives on the scene row
+     * `oneOfEach` seeds rather than on a row added for it, and a fixture that
+     * stopped seeding a scene would take it out of both sweeps without either
+     * going red.
+     */
+    expect(
+      [...container.querySelectorAll('select')],
+      'no select on the screen for the floor sweep to cover',
+    ).toHaveLength(1);
   };
 
   it('has no target under the touch floor', () => {
     openEverything();
-    const small = buttons()
+    /*
+     * The selector before the floors. A control declaring a minimum height
+     * that this sweep cannot reach is a control it cannot hold, and shrinking
+     * one leaves the assertion below green - which is exactly what the
+     * environment select did under `button, a`.
+     */
+    expect(
+      floorsOutsideTheSweep(),
+      'these declare a minimum height and the sweep does not reach them',
+    ).toEqual(['DIV 200px']);
+    const small = targets()
       .map((b) => ({
         name: b.getAttribute('aria-label') ?? (b.textContent ?? '').trim().slice(0, 40),
         h: Math.max(px(b.style.height), px(b.style.minHeight)),
