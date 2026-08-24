@@ -1,7 +1,27 @@
 # Messaggio di ripresa — branch `beast-sheets`
 
-Da incollare in una sessione nuova. Aggiornato il **24 agosto 2026**, dopo che il cancello
-pre-merge è stato eseguito per intero e il branch è finito su una PR.
+> **QUESTO MESSAGGIO È STATO CONSUMATO, il 24 agosto.** È stato incollato, e tutto quello che
+> ordinava è stato fatto: PR #1 unita (`a115f2d`), 0.6.0 pubblicata, **A** e **B** eseguiti e
+> aperti come PR #2 e PR #3. Non va incollato una seconda volta. Il punto di ripresa vivo è
+> `CANCELLO-MERGE-2026-08-24.md`, che porta il suo cartello.
+>
+> **Da qui in giù solo il cartello è mantenuto**, per la ragione che `HANDOFF.md` porta scritta:
+> correggere le frasi dentro un documento superato lo fa sembrare mantenuto. Cosa è falso, per
+> nome:
+>
+> - **§1 sbaglia il meccanismo, ed è la frase più importante del file.** Dice *«unire la PR non
+>   pubblica niente: è il push di `main` che pubblica 0.6.0»*. È il contrario. `gh pr merge`
+>   scrive il commit di merge su `main` **lato GitHub**, e quello *è* un push event: è il merge
+>   che ha fatto partire il deploy. Misurato — merge alle 09:52:44, deploy `32713871427` partito
+>   alle 09:52:47 sul commit di merge, e il `git push origin main` successivo ha risposto
+>   `Everything up-to-date`. Quello che resta vero è la metà che riguarda i branch: pushare un
+>   branch che non sia `main` non pubblica niente.
+> - **§1 dice «branch a 30 commit»**. Erano **31**, contati con `git rev-list --count main..HEAD`,
+>   che è esattamente ciò che quel paragrafo dice di fare invece di fidarsi del numero scritto.
+> - **§4 e §5 sono eseguiti.** A1, A2, Witherwild e la rinomina sono fatti; l'app si chiama
+>   **Duality Companion**. Le avvertenze misurate in §4 si sono rivelate esatte tutte, tranne il
+>   conteggio dei posti da muovere: erano **sette**, non sei.
+> - **§2, §3 e §6 reggono.** Node 24, cosa ha fatto il cancello, e cosa non si tocca.
 
 ---
 

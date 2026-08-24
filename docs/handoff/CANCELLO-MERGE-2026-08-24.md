@@ -4,8 +4,11 @@
 > per mutazione (§1-§6 qui sotto), e poi il punto 7 — le due decisioni del proprietario, in §7.
 > **§8 è il briefing per quello che viene dopo.**
 >
-> `main` è ancora `f0c23f1`. Il branch è **pushato** e sta su **PR #1**, aperta e verde; non è
-> unito. Conta i commit con `git rev-list --count main..HEAD` — non fidarti di un numero scritto.
+> ~~`main` è ancora `f0c23f1`. Il branch è **pushato** e sta su **PR #1**, aperta e verde; non è
+> unito.~~ **Superato il 24 agosto: PR #1 è UNITA (`a115f2d`) e 0.6.0 è pubblicata.** Erano 31
+> commit, non 30 come diceva `RIPRESA`. Conta i commit con `git rev-list --count main..HEAD` —
+> non fidarti di un numero scritto, che è la regola che questo file ha già dovuto imparare due
+> volte.
 >
 > **§6 è la fotografia del momento in cui la decisione era ancora aperta**, e resta com'era
 > scritta perché è l'argomento su cui è stata presa. §7 dice come è andata.
@@ -241,12 +244,49 @@ Quindi, in ordine e già fatti:
 `MERGEABLE`, `CLEAN`, **CI verde in 2m6s** su Node `.nvmrc` = 24. Base `main` = `f0c23f1`, che è
 esattamente il commit da cui il branch è stato tagliato: `origin/main == main`.
 
-Resta non fatto, e resta del proprietario: **unire la PR**, e poi **pushare `main`** — che è
-il momento in cui 0.6.0 viene davvero pubblicata.
+~~Resta non fatto, e resta del proprietario: **unire la PR**, e poi **pushare `main`** — che è
+il momento in cui 0.6.0 viene davvero pubblicata.~~
+
+**Fatto il 24 agosto, e la seconda metà di quella frase era sbagliata.** PR #1 è unita in
+`a115f2d` e **0.6.0 è pubblicata** — deploy `32713871427`, `success`.
+
+*Correzione al meccanismo, misurata invece che dedotta.* Non è il push di `main` a pubblicare:
+**è il merge**. `gh pr merge` scrive il commit di merge su `main` lato GitHub, e quello *è* un
+push event, quindi `deploy.yml` parte lì. Merge alle 09:52:44, deploy partito alle 09:52:47 sul
+commit di merge, e il `git push origin main` eseguito subito dopo ha risposto `Everything
+up-to-date` perché non restava niente da spingere. La metà che resta vera, e che vale ancora
+per ogni branch futuro: pushare un branch che non sia `main` non pubblica niente, ed è il motivo
+per cui PR #2 e PR #3 possono stare aperte e verdi senza pubblicare.
+
+**Conseguenza pratica per chi legge questo file dopo:** non esiste un ordine dei gesti che
+unisca senza pubblicare. Se un merge non deve pubblicare, va deciso **prima** — tenendo la PR
+chiusa, o mettendo un cancello su `deploy.yml`.
 
 ---
 
 ## 8. Il briefing per il prossimo passo — A e B
+
+> **ESEGUITO il 24 agosto.** **A** sta su **PR #2** (`legal-and-backlog`), **B** su **PR #3**
+> (`witherwild-out`); entrambe verdi, `MERGEABLE`/`CLEAN`, e unirle resta del proprietario —
+> ricordando, adesso che si sa, che ogni merge pubblica.
+>
+> Il briefing qui sotto è lasciato **com'era scritto**, perché è l'argomento su cui il lavoro è
+> stato fatto e perché le sue misure si sono rivelate esatte. Tre cose che ha sbagliato, per nome:
+>
+> - **I posti da muovere erano sette, non sei.** La tabella di §8 ne elenca sei. `RuleSearch.tsx`
+>   ne porta altri due che nessun test avrebbe preso: la misura *«il più alto è 82.6»* aveva come
+>   soggetto **proprio** `The Witherwild: Campaign Mechanics`, e *«`adversary` ne trova
+>   ventidue»* adesso ne trova **venti**.
+> - **§2.5(a) è più stretto di come la rinomina è descritta qui e in `DECISIONI` §5.** Non
+>   «un titolo che non si apre col Name Mark»: *«Name Marks cannot be used in the title of a
+>   work»*, punto. Il marchio esce dal titolo del tutto. L'app è **Duality Companion**.
+> - **Manca la trappola più cara della rinomina:** `DB_NAME` vale `'daggerheart-companion'` in
+>   **due** posti (`store/db.ts` e `index.html`) e **non va mosso**. IndexedDB è per origine, non
+>   per percorso: le schede sopravvivono a una rinomina solo finché quella costante non la segue.
+>
+> E una cosa che il briefing non poteva sapere: **§4.1(e) della DPCGL non è rispettato** —
+> nessuna superficie dell'app dichiara che il contenuto è modificato, mentre (a)–(d) ci sono
+> tutte. Aperta in `BACKLOG.md`, non chiusa in corsa.
 
 Dopo il merge e il push si parte da **A** e **B**. Sono indipendenti fra loro. Quello che segue
 esiste per non farli riderivare.
