@@ -35,26 +35,37 @@
  *
  * ## Ergonomics, 393 x 852
  *
- * `GmSheet size="full"` starts at the top safe area plus 8 and runs to the
- * bottom of the window: 852 - 47 - 8 = 797px of panel, less a 44px title row,
- * so this region gets 753px. It pads `10px
+ * `GmSheet size="full"` fills the stage `Gm.tsx` puts between `GmTopBar` and
+ * `GmBar`, less a 44px title row. It pads `10px
  * 12px 16px` on a phone, so the inner column is 393 - 24 = 369px; at 744 and
  * 1024 it pads `14px 20px 18px` for 704 and 984, and the sheet caps at 1100
  * for a widest column of 1060.
  *
- * **Flagged: everything in that paragraph except the 797 is short by the
- * panel's own frame.** `GmSheet`'s panel is border-box with a 1px border
- * (`GmSheet.tsx`), so its content box at 393 is 391.00 and the inner column
- * is **367.00**, measured in the sibling tool that shares this sheet
- * (`Reference.tsx`). The vertical side was measured in the same run and in the
- * same sheet: the panel is **797.00**, so that figure was right, and the
- * region under the title row is **750.00**, not 753 - the 753 spends neither
- * the panel's own border, top and bottom, nor the title row's rule. 704, 984
- * and 1060 lose 2 apiece by the same border as 369 did; those three are
- * implied by the measured 367.00 rather than measured themselves, and are
- * written here as implied. Each number below that starts from 369 - the
- * `369 x 64` of DRAW, the `(369 - 12) / 3 = 119` of the three kinds -
- * inherits the error. Measure them before anything leans on them.
+ * **Flagged: every one of those widths is short by the panel's own frame.**
+ * `GmSheet`'s panel is border-box with a 1px border (`GmSheet.tsx`), so its
+ * content box at 393 is 391.00 and the inner column is **367.00**, measured in
+ * the sibling tool that shares this sheet (`Reference.tsx`). 704, 984 and 1060
+ * lose 2 apiece by the same border as 369 did; those three are implied by the
+ * measured 367.00 rather than measured themselves, and are written here as
+ * implied. Each number below that starts from 369 - the `369 x 64` of DRAW, the
+ * `(369 - 12) / 3 = 119` of the three kinds - inherits the error. Measure them
+ * before anything leans on them.
+ *
+ * **The vertical figures that stood here are retired, and the paragraph they
+ * were in described a panel this tool no longer opens in.** It said the sheet
+ * "starts at the top safe area plus 8 and runs to the bottom of the window:
+ * 852 - 47 - 8 = 797px of panel", giving "753px" for this region and corrected
+ * to a measured "797.00" and "750.00". All four were true of a `position:
+ * fixed` overlay over the whole window, which is exactly the thing that took
+ * the Fear pool off the glass; the panel is drawn against the stage now. The
+ * stage is **548.00** at 393x852 with a 47px top inset - measured, in
+ * `SessionList.tsx`, as the band that is left after the shell header's 100.00,
+ * `GmTopBar`'s 109.00 and `GmBar`'s 95.00 - and 498.00 with a countdown
+ * pinned. **So this region is about 501.00, and that is arithmetic rather than
+ * a measurement**: the 548.00 less the 47.00 that the old pair's own difference
+ * names - the panel's two 1px borders and the 45.00 title row with its rule.
+ * Nobody has put this tool in front of `getBoundingClientRect` since it moved.
+ * `GmSheet.tsx` states what the move cost every full tool.
  *
  * **DRAW is at the bottom and is not in the scroller.** It is the only control
  * on this screen that is pressed more than once, and it is pressed several

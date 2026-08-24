@@ -675,6 +675,253 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
+   * THE STAGE, WHICH IS THE ONE NUMBER ON THIS SCREEN THAT USED TO BE A WINDOW.
+   *
+   * Every GM tool was a `position: fixed; inset: 0` overlay, so a `full` panel
+   * was the window less the top inset and 8px: 797.00 at 393x852. It is drawn
+   * against the band between `GmTopBar` and `GmBar` now - the owner's decision
+   * that the night is a sheet and the bar stays on the glass under it - which
+   * is the same band `SessionList.tsx` has always measured. So `GmSheet.tsx`
+   * does not get its own measurement here and must not have one: it states the
+   * list's, and this holds the two files to each other. The moment somebody
+   * re-measures the chrome in `SessionList.tsx`, `GmSheet.tsx` goes red.
+   *
+   * The price is held rather than stated freely because it is the figure a GM
+   * actually pays - 249px of tool, every tool - and a docblock is where a
+   * reader meets it. It is arithmetic on two figures in the same paragraph, so
+   * what this checks is that the subtraction is still right and that the
+   * percentage beside it is still that subtraction over the panel that is gone.
+   *
+   * Nothing here is a measurement of the new panel. NOBODY HAS PUT THE MOVED
+   * TOOL IN FRONT OF A BROWSER; the stage is measured, the loss is arithmetic
+   * on it, and every file that carried a vertical figure inside a `full` tool
+   * now says which of the two it is holding.
+   */
+  it('states a stage that is the band `SessionList.tsx` measures, not a window', () => {
+    expect(
+      stated('src/ui/gm/GmSheet.tsx', /session list runs, which `SessionList.tsx` measures at \*\*(\d+\.\d\d)\*\*/g),
+      '`GmSheet` states a stage that is not the band `SessionList.tsx` measures between the two ' +
+        'bars. One of the two files has re-measured the pinned chrome without the other.',
+    ).toEqual(stated('src/ui/gm/SessionList.tsx', /= \*\*(\d+\.\d\d) of list\*\*/g));
+
+    const pinned = says(
+      'src/ui/gm/SessionList.tsx',
+      /countdown pinned `GmTopBar` is [\d.]+, the region is (\d+\.\d\d) to (\d+\.\d\d)/g,
+      'the region a pinned countdown leaves',
+    );
+    expect(
+      stated('src/ui/gm/GmSheet.tsx', /the stage is (\d+\.\d\d) \(region/g),
+      '`GmSheet` states a with-a-countdown stage that is not the region `SessionList.tsx` ' +
+        'measures for the same case',
+    ).toEqual([pinned[1]! - pinned[0]!]);
+  });
+
+  it('costs every full tool the difference between the window it had and that stage', () => {
+    const panel = stated('src/ui/gm/GmSheet.tsx', /\*\*(\d+\.\d\d)\*\* of panel/g)[0]!;
+    const stage = stated('src/ui/gm/GmSheet.tsx', /measures at \*\*(\d+\.\d\d)\*\*/g)[0]!;
+    const pinnedStage = stated('src/ui/gm/GmSheet.tsx', /the stage is (\d+\.\d\d) \(region/g)[0]!;
+    const pct = (lost: number): number => Math.round((lost / panel) * 10_000) / 100;
+
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /loses \*\*(\d+\.\d\d)px\*\*, which is \*\*(\d+\.\d\d)%\*\* of what it had/g,
+        'the height a full tool loses',
+      ),
+      '`GmSheet` states a price that is not the panel it had less the stage it has. That number ' +
+        'is what a GM pays at a table, so it is held rather than left to drift.',
+    ).toEqual([panel - stage, pct(panel - stage)]);
+
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /the loss is\s+\*\*(\d+\.\d\d)px\*\* - \*\*(\d+\.\d\d)%\*\*/g,
+        'the height a full tool loses with a countdown pinned',
+      ),
+      '`GmSheet` states a with-a-countdown price that is not the same subtraction',
+    ).toEqual([panel - pinnedStage, pct(panel - pinnedStage)]);
+  });
+
+  /*
+   * The `sheet` half of the same move. The cap is declared, so the four figures
+   * around it are that percentage of the two stages and the two edges those
+   * leave - including the 174.55 that put a bottom sheet's top edge inside the
+   * Fear row, which is the half of this defect that was never about `full`.
+   */
+  it('states a bottom sheet capped at the fraction the panel declares', () => {
+    const cap =
+      Number.parseInt(
+        /maxHeight: full \? undefined : '(\d+)%'/.exec(code('src/ui/gm/GmSheet.tsx'))?.[1] ??
+          (() => {
+            throw new Error('`GmSheet` no longer caps a `sheet` panel at a percentage');
+          })(),
+        10,
+      ) / 100;
+    const panel = stated('src/ui/gm/GmSheet.tsx', /\*\*(\d+\.\d\d)\*\* of panel/g)[0]!;
+    const stage = stated('src/ui/gm/GmSheet.tsx', /measures at \*\*(\d+\.\d\d)\*\*/g)[0]!;
+    const foot = says(
+      'src/ui/gm/SessionList.tsx',
+      /region (\d+\.\d\d) to (\d+\.\d\d)\. A/g,
+      'the band the list runs',
+    )[1]!;
+    // The window, taken from the one sentence that subtracts the chrome from
+    // it rather than from a constant here: `tokens.ts` gives `PHONE` a width
+    // and deliberately no height, and this file does not get to invent one.
+    const window = says(
+      'src/ui/gm/SessionList.tsx',
+      /and (\d+) − [\d.]+ = \*\*[\d.]+ of list\*\*/g,
+      'the window the chrome is subtracted from',
+    )[0]!;
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /is (\d+\.\d\d) against the old (\d+\.\d\d), and its top edge moves from (\d+\.\d\d) - inside the Fear\s+row - down to (\d+\.\d\d)/g,
+        'what a bottom sheet caps at',
+      ),
+      '`GmSheet` states bottom-sheet heights that are no longer its declared cap over the two ' +
+        'stages. The 174.55 is the one that mattered: it is where the old cap put the top edge, ' +
+        'which was inside the Fear row.',
+    ).toEqual(
+      // To the hundredth the docblock writes them at. `0.85 * 797` is
+      // 677.4499999999999 in binary floating point and the sentence says
+      // 677.45; a comparison that failed on that would be this file testing
+      // IEEE 754 rather than the prose.
+      [cap * stage, cap * panel, window - cap * panel, foot - cap * stage].map(
+        (n) => Math.round(n * 100) / 100,
+      ),
+    );
+  });
+
+  /*
+   * The Fear row's own band, which is what a bottom sheet used to cut into and
+   * is the only vertical claim `GmSheet.tsx` makes about another component. Its
+   * terms are the shell header `SessionList.tsx` measures and the padding, gap
+   * and row height `GmTopBar` declares - the same four `GmTopBar`'s own 109.00
+   * is made of, one row short.
+   */
+  it('puts the Fear row where `GmTopBar`\'s own declarations put it', () => {
+    const header = says(
+      'src/ui/gm/SessionList.tsx',
+      /the shell header at (\d+\.\d\d) \(/g,
+      'the shell header',
+    )[0]!;
+    const found = /gap: (\d+),\n\s*padding: phone \? '(\d+)px/.exec(source('src/ui/gm/GmTopBar.tsx'));
+    if (found === null) throw new Error('`GmTopBar` no longer declares a gap and a phone padding');
+    const [gap, top] = found.slice(1).map((n) => Number.parseInt(n, 10));
+    const row = declared('src/ui/gm/GmTopBar.tsx', 'onClick={onOpenMenu}', 'minHeight');
+    const startsAt = header + top! + row + gap!;
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /put at y (\d+\.\d\d) to (\d+\.\d\d)/g,
+        'the band the Fear row occupies',
+      ),
+      '`GmSheet` states a Fear-row band that is no longer the shell header plus `GmTopBar`\'s ' +
+        'declared padding, first row and gap. That band is the thing a bottom sheet used to cut ' +
+        'into, so it is held to the declarations rather than to a remembered pair of numbers.',
+    ).toEqual([startsAt, startsAt + row]);
+  });
+
+  /*
+   * The overlay pays no top inset any more, and three other files quote the
+   * declaration to establish that it pays nothing a side either. It is the same
+   * string in four places, which is four chances for one of them to keep
+   * describing an overlay that ran the window.
+   */
+  it('quotes the overlay padding those columns are measured inside', () => {
+    const declaration = /padding: full \|\| phone \? 0 : 24/;
+    expect(
+      declaration.test(code('src/ui/gm/GmSheet.tsx')),
+      '`GmSheet`\'s overlay no longer declares this padding. If it pays a top inset again it is ' +
+        'a fixed overlay over the window again; if it pays anything a side, every column ' +
+        'measured inside this panel is stale.',
+    ).toBe(true);
+    for (const file of [
+      'src/ui/gm/GmSheet.tsx',
+      'src/ui/gm/Reference.tsx',
+      'src/ui/gm/Scene.tsx',
+      'src/ui/gm/StatBlock.tsx',
+    ]) {
+      expect(
+        declaration.test(prose(file).replace(/\s+/g, ' ')) || file === 'src/ui/gm/GmSheet.tsx',
+        `${file} quotes an overlay padding \`GmSheet\` no longer declares, and the column it ` +
+          'subtracts from is measured inside it.',
+      ).toBe(true);
+    }
+  });
+
+  /*
+   * THE BACKDROP A `full` TOOL DOES NOT LEAVE ON A PHONE.
+   *
+   * Not arithmetic. A decision, whose price is a gesture rather than a number -
+   * and that is the kind of claim the docblocks on this screen have got wrong
+   * before, by asserting the comfortable half of it. `GmSheet.tsx` said the
+   * backdrop was "also a target" and that the surface was "smaller than it
+   * was". For the eight `full` tools on a phone it is not smaller. Three
+   * declarations together leave none of it:
+   *
+   *   - the overlay pays `padding: full || phone ? 0 : 24`, so nothing above it
+   *     and nothing either side;
+   *   - the panel is `flex: full ? 1 : 'none'`, so under `full` it takes the
+   *     whole stage rather than its own content height;
+   *   - and `width: '100%'`, so it takes the whole of it across as well.
+   *
+   * Move any one of the three and the paragraph describes a screen that is no
+   * longer there - in the direction that makes it too pessimistic, which is the
+   * harmless direction and is still a docblock stating something false. So all
+   * three are anchors here.
+   *
+   * And the sentence that says what is left - CLOSE, alone, because a phone has
+   * no Escape key - is held to the size the button actually declares. On those
+   * eight, on that width, that 44x44 is the whole of the way out; a target that
+   * shrank would be the exit shrinking, not a control shrinking.
+   *
+   * What this cannot say is whether a thumb reaches it. NOBODY HAS PUT THIS IN
+   * FRONT OF A BROWSER, and reach is not a declaration - the placement argument
+   * in `GmSheet.tsx` is an argument, and the 393x852 screenshot the handoff asks
+   * for is still owed.
+   */
+  it('leaves a `full` tool on a phone no backdrop, and says CLOSE is what is left', () => {
+    const src = code('src/ui/gm/GmSheet.tsx');
+    expect(
+      /padding: full \|\| phone \? 0 : 24/.test(src),
+      "`GmSheet`'s overlay no longer pays zero padding under `full` or on a phone. If it pays " +
+        'anything, there is a backdrop again and the Ergonomics paragraph is describing a ' +
+        'screen that is not there.',
+    ).toBe(true);
+    expect(
+      /flex: full \? 1 : 'none'/.test(src),
+      '`GmSheet`\'s panel no longer fills the stage under `full`. A panel at its content ' +
+        'height leaves the rest of the band as backdrop, which is the target the Ergonomics ' +
+        'paragraph says a phone does not get.',
+    ).toBe(true);
+    expect(
+      /width: '100%'/.test(src),
+      '`GmSheet`\'s panel no longer spans its overlay, so there is backdrop either side of it ' +
+        'and the paragraph that says there is none is stale.',
+    ).toBe(true);
+    expect(
+      decl('src/ui/gm/GmSheet.tsx', /width: (\d+), height: (\d+)/g, 'the CLOSE square'),
+      'the CLOSE square is no longer 44x44. On a phone under `full` it is the only dismissal ' +
+        'this panel has - no backdrop and no Escape key - so it is the one target on this ' +
+        'screen that cannot go under the floor.',
+    ).toEqual([44, 44]);
+
+    const said = prose('src/ui/gm/GmSheet.tsx');
+    for (const sentence of [
+      '**On a phone a `full` tool has no backdrop at all.** Not a smaller one: none.',
+      'So on a phone it is CLOSE, alone.',
+    ]) {
+      expect(
+        said.includes(sentence),
+        `\`GmSheet.tsx\` no longer says "${sentence}". That paragraph is the record of a ` +
+          'decision - the tap-outside a phone gives up, and what it is given up for - so if ' +
+          'the decision changed, re-take it here rather than deleting the sentence.',
+      ).toBe(true);
+    }
+  });
+
+  /*
    * The reference column, which is the same forgotten border one level up: the
    * sheet's panel is border-box, so the region divides 391 and not 393.
    */

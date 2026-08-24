@@ -50,14 +50,21 @@
  * THE STALL is first because it is the only thing on the screen that changes.
  * A stall is six panels drawn at random out of two 60-item tables, so it has no
  * one height: in one sample of 80 redraws the counter measured 496.02 to
- * 654.61 against a 682.00 scroller, and it begins 28.00 down that scroll, so
- * from the top of the scroll a fresh counter was on the glass whole in 77 of
- * that sample's 80 - and the three that were not overhung the fold by 0.61
- * apiece. Those are one sample's ends and not the screen's bound: the panel
- * quantisation below puts a counter at no more than 6 x 136.80 + 5 x 8 =
- * 860.80, which is 178.80 past the scroller, so a fresh stall can overhang the
- * fold by far more than that sample's worst and a sample this size is no
- * evidence that none does. The price table sits under it; put the stall under
+ * 654.61. **What that used to be measured against is gone.** It read "against a
+ * 682.00 scroller, and it begins 28.00 down that scroll, so from the top of the
+ * scroll a fresh counter was on the glass whole in 77 of that sample's 80 - and
+ * the three that were not overhung the fold by 0.61 apiece". The scroller was
+ * that tall because a `full` tool ran the whole window; it runs the stage
+ * between the two bars now, which the table below derives at 433.00, and 77 of
+ * 80 becomes none of them - every counter in the sample is taller than the
+ * scroller less the 28.00 it starts down. The counter heights are content and
+ * hold; the fraction was never a fact about the stall, only about the frame,
+ * and the replacement is arithmetic on a derived number rather than a measured
+ * one. The conclusion the fraction was supporting is unharmed and is now
+ * stronger: a fresh stall overhangs the fold, so the stall goes first and the
+ * draw stays out of the scroll. The panel quantisation below still puts a
+ * counter at no more than 6 x 136.80 + 5 x 8 = 860.80. The price table sits
+ * under it; put the stall under
  * the table instead and the tap that drew it would produce nothing the GM
  * could see. The two reference blocks never change, so scrolling to them costs
  * nothing, and they are in the order a shop scene needs them - what things
@@ -116,22 +123,27 @@
  * the sheets use for a one-tap answer - still well over the 44px coarse floor,
  * and declared inline because jsdom reads only inline styles.
  *
- * **It sits partly in the home-indicator band, and so does every other `full`
- * GM tool.** `GmSheet` pays `env(safe-area-inset-top)` and nothing at the
- * bottom, so a `full` panel runs to y 852.00 - the window's own edge - and this
- * region's 12px of bottom padding is all that is under the draw. Measured, in
- * one run: the draw is y 783.00 to 839.00, `Names.tsx`'s DRAW is 775.00 to
- * 839.00, and the rules search field on SHOW's sheet is 793.00 to 837.00. With
- * a 34px inset the indicator owns everything below 818.00, so all three end
- * about 21px inside it.
+ * **It used to sit partly in the home-indicator band, along with every other
+ * `full` GM tool, and it does not any more.** That paragraph said `GmSheet`
+ * "pays `env(safe-area-inset-top)` and nothing at the bottom, so a `full` panel
+ * runs to y 852.00 - the window's own edge", and measured three controls ending
+ * about 21px inside an indicator that owns everything below 818.00: the draw
+ * here at "y 783.00 to 839.00", `Names.tsx`'s DRAW at "775.00 to 839.00", the
+ * rules search field on SHOW's sheet at "793.00 to 837.00". It then said the
+ * fix was "not this tool's to fix", because "overlay insets are gated on a
+ * measurement this lane does not have".
  *
- * That is **not this tool's to fix and deliberately is not fixed here**: overlay
- * insets are gated on a measurement this lane does not have, and a second payer
- * inside a panel that already ends at the window's edge is exactly how 34px of
- * empty panel appears - the defect `GmBar`'s docblock describes from the other
- * side. It is measured and written down so that whoever does own it starts from
- * three numbers instead of from the assumption that a full-screen sheet pays
- * what `GmBar` pays. Nothing here is placed as though the band were free.
+ * The inset arrived, and from the other direction: `GmSheet` is `position:
+ * absolute` inside the stage `Gm.tsx` puts between the two bars, so a `full`
+ * panel stops at the top of `GmBar` - which is the one thing on this screen
+ * that pays `env(safe-area-inset-bottom)`, and pays it once. Nothing inside a
+ * tool is in the indicator's band. The three measurements above are kept as a
+ * record of what was true, and every one of them is stale as a figure: all
+ * three controls moved up by the height of the bar they now sit above, and
+ * nobody has re-measured any of them.
+ *
+ * The 56 above still clears the 44px coarse floor, which is the only property
+ * of it that this paragraph ever depended on.
  *
  * **The SRD guidance fold is the only other target**, at `var(--tap)` - 44 on
  * every phone and tablet - and it is up in the scroll rather than near the
@@ -168,36 +180,66 @@
  * both ends. The fixed numbers - the panel, the region, the scroller, the
  * draw, the two reference blocks - do not move at all.
  *
- *   the panel                y 55.00 to 852.00, 797.00 tall - `GmSheet`'s own
- *                            figure, re-measured here rather than quoted
+ * **EVERY VERTICAL FIGURE BELOW WAS MEASURED AGAINST A PANEL THAT RAN THE
+ * WINDOW, AND THIS TOOL NO LONGER OPENS IN ONE.** `GmSheet` draws against the
+ * stage between the two bars now. The horizontal figures are untouched - the
+ * panel's border and this region's padding did not move, and neither did the
+ * column - and the item panels' own heights are content and did not move
+ * either. What moved is the frame around them, and the replacements marked
+ * *derived* are arithmetic on the 548.00 `SessionList.tsx` measures for that
+ * band; nobody has re-run the rig on this tool since. Anything that leans on a
+ * vertical number here goes to Chrome first.
+ *
+ *   the panel                "y 55.00 to 852.00, 797.00 tall" - retired.
+ *                            **548.00**, derived: the stage, and 498.00 with a
+ *                            countdown pinned
  *   the title row            45.00, not the 44 the CLOSE square declares: the
- *                            row carries a 1px rule under it as well
- *   this region              y 101.00 to 851.00, 750.00 - the panel less its
- *                            two 1px borders and that 45.00
+ *                            row carries a 1px rule under it as well.
+ *                            Unchanged - it is the panel's own furniture
+ *   this region              "y 101.00 to 851.00, 750.00" - retired.
+ *                            **501.00**, derived the same way the 750.00 was:
+ *                            the panel less its two 1px borders and that 45.00
  *   the column               367.00, measured here: the panel's 391.00 content
  *                            box less this region's 12px of padding a side.
  *                            `Reference.tsx` measured the same number off the
- *                            same two declarations
- *   the scroller             y 101.00 to 783.00, 682.00 of reading
- *   the draw                 367.00 x 56.00, y 783.00 to 839.00
+ *                            same two declarations. **Unchanged**: the stage
+ *                            cost height and no width at all
+ *   the scroller             "y 101.00 to 783.00, 682.00 of reading" - retired.
+ *                            **433.00**, derived: the region less the 68.00
+ *                            that the draw and its bottom padding take, which
+ *                            is the same subtraction the retired pair made
+ *   the draw                 367.00 x 56.00, "y 783.00 to 839.00" - the size is
+ *                            declared and holds; the band is retired, and it is
+ *                            the change that took this control out of the
+ *                            home-indicator band
  *   an empty counter         47.58 - one sentence over three lines - inside a
  *                            121.16 section, the rest of which is the 10px
  *                            label, two 8px gaps and the provenance line, which
  *                            is three lines as well
  *   a stocked counter        496.02 to 654.61 over the 80 draws sampled,
  *                            591.17 in the first of them: six panels with 8px
- *                            between them. Nothing in that sample was taller
- *                            than the 682.00 scroller - but the quantisation
+ *                            between them. "Nothing in that sample was taller
+ *                            than the 682.00 scroller" - retired with the
+ *                            scroller: against the derived 433.00 every draw
+ *                            in the sample is taller than it. The quantisation
  *                            above bounds a counter at 860.80, so that is the
  *                            largest counter seen in one sample of 80 and not
  *                            a ceiling
  *   its whole section        569.59 to 728.19 over the same 80, 664.75 in that
  *                            first draw - the counter plus a 10px label, two
  *                            8px gaps and a 47.58 provenance line, 73.58 of
- *                            fixed furniture. **That section outgrew the
- *                            682.00 scroller in 16 of the 80**, which is why
- *                            the stall is first and why the draw is outside
- *                            the scroll
+ *                            fixed furniture. The section heights are content
+ *                            and stand. What it outgrows does not: **"that
+ *                            section outgrew the 682.00 scroller in 16 of the
+ *                            80"** was the reason given here for putting the
+ *                            stall first and the draw outside the scroll, and
+ *                            against a 433.00 scroller the count is higher -
+ *                            every one of the 80 sampled at 569.59 or more
+ *                            clears it, so on that sample it is all 80. That
+ *                            arithmetic is over a derived scroller and a
+ *                            sample, so it is written as what it is: the
+ *                            decision is more right than it was, and the
+ *                            fraction is not a measured figure
  *   what things cost         460.34, that whole section: the 10px label, the
  *                            one 390.34 table and the shut guidance fold at
  *                            44.00, with an 8px gap either side of the table

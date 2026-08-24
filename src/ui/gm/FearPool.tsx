@@ -6,6 +6,44 @@
  * feature you are reading in the bestiary. Two views of one number - the bar,
  * which is where you add and spend one at a time, and the board, where you can
  * set the pool outright when someone says "you had seven".
+ *
+ * ## That paragraph was false in half, and this is what made it true again
+ *
+ * *"It sits in the GM bar"* never stopped being true - `GmTopBar` mounts
+ * `FearBar` unconditionally. *"and stays there whichever region is open"* was
+ * false from the commit that turned the five regions into tools drawn over a
+ * session list - *"Make the GM screen the night the GM planned, not five menus
+ * to navigate between"* - which landed the day after this paragraph was
+ * written, and the clause after it named the two regions where the control was
+ * gone. ("was false for over a year" stood here. Nothing in this repository has
+ * been anything for over a year: `git log --reverse` puts its first commit nine
+ * days before the repair. A duration was never what the sentence needed, so it
+ * names the commit instead - that is checkable, and it does not age.) Every GM tool mounted as a `position: fixed; inset: 0`
+ * overlay with `useDialog`'s Tab trap on it, so with the live scene open this
+ * bar was under an opaque panel and, for a keyboard, outside the only focus
+ * scope on the screen. The bestiary was the same. So was every other tool, and
+ * so were all four bottom sheets, which capped at 85% of the window and cut
+ * this row in half from below.
+ *
+ * The sentence was written before the tools became dialogs and was not moved
+ * when they did, which is how a docblock comes to state the opposite of the
+ * build it is standing in. What repaired it is `Gm.tsx`'s stage and
+ * `GmSheet.tsx`'s absolute overlay inside it: a tool now fills the band between
+ * the two bars rather than the window, so this row is on the glass and in the
+ * tab order with any of the twelve open. `GmSheet.tsx` carries what that cost.
+ *
+ * **`tests/gm/fearOnTheGlass.test.tsx` is the test that would have caught it**,
+ * and it is written against the property rather than the pixel: for all twelve
+ * mount sites it asserts these controls are present, are not inside the open
+ * dialog, are not inside anything `inert` or `aria-hidden`, can take focus, and
+ * are not pulled back by a Tab handler. Presence alone would have stayed green
+ * through the whole of the defect - the controls were always in the document.
+ *
+ * One tool always had a Fear control of its own and still does: `Countdowns`
+ * renders `FearBoard` below, so the pool is settable from inside it. That is
+ * the board, not this bar - the two `−`/`+` buttons here were absent from all
+ * twelve, `countdowns` included - so it is an exception to "every tool covers
+ * the pool" and never was one to "every tool covers this bar".
  */
 import { MAX_FEAR } from '../../engine/encounter.ts';
 import { Fold } from '../shared/Fold.tsx';

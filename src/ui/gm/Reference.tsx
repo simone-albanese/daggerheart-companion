@@ -47,10 +47,18 @@
  * 744, 982.00 at 1024 and 1058.00 at the cap were each read off this region's
  * own content box in Chrome, and each is exactly what the border predicts.
  * Reaching the cap needs no exotic window either - `GmSheet`'s `full` overlay
- * pads `calc(env(safe-area-inset-top) + 8px) 0 0`, zero a side, so the panel is
- * the window until 1100 - and the column stops there: 1058.00 at 1100 and
+ * declares `padding: full || phone ? 0 : 24`, which spends nothing a side, so
+ * the panel is as wide as what it is drawn against until 1100 - and the column
+ * stops there: 1058.00 at 1100 and
  * identically 1058.00 at 1102, 1200 and 1400, against 982.00 at 1024 for
  * contrast, i.e. still uncapped there.
+ *
+ * (That overlay used to pay `calc(env(safe-area-inset-top) + 8px) 0 0`, and
+ * every width above was measured under it. The change is vertical only: it is
+ * `position: absolute` inside the stage `Gm.tsx` puts between the two bars now,
+ * which starts below the shell header and pays no inset of its own. Nothing on
+ * this line moved - the zero a side is the same zero - and `GmSheet.tsx` states
+ * what the height cost.)
  *
  * The root is its own scroller. Every sibling tool declares one - `Countdowns`,
  * `Bestiary`, `Scene` and `PartyBoard` are all `scroll stack` at `flex: 1;

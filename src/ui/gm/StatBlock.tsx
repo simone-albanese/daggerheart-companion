@@ -243,13 +243,15 @@ export function AdversaryBlock({
  * inner column at 393 is 339px, and the arithmetic takes three subtractions
  * rather than the two that were written here:
  *
- * 1. The sheet. `Scene.tsx` draws this band, and `Scene` is mounted only at
- *    `Gm.tsx:281` inside a `size="full"` `GmSheet`, whose overlay pads
- *    `calc(env(safe-area-inset-top) + 8px) 0 0` - zero horizontally - around a
- *    panel at `width: '100%'` with `border: 1px solid var(--line)`
- *    (`GmSheet.tsx:95-104`). Under `base.css:13`'s `box-sizing: border-box`
- *    the panel's content box at 393 is 391.00, which `GmSheet.tsx` states and
- *    `Reference.tsx:37-39` measured in Chrome.
+ * 1. The sheet. `Scene.tsx` draws this band, and `Scene` has one mount point:
+ *    `Gm.tsx` renders it inside the `size="full"` `GmSheet`, whose overlay
+ *    declares `padding: full || phone ? 0 : 24` - zero horizontally - around a
+ *    panel at `width: '100%'` with `border: '1px solid var(--line)'`. Under
+ *    `base.css`'s `box-sizing: border-box` the panel's content box at 393 is
+ *    391.00, which `GmSheet.tsx` states and `Reference.tsx` measured in Chrome.
+ *    (The overlay paid `calc(env(safe-area-inset-top) + 8px) 0 0` when this was
+ *    written. It is `position: absolute` inside `Gm.tsx`'s stage now and pays
+ *    nothing; the horizontal zero this subtraction reads is unchanged.)
  * 2. The scene region's 24px of padding, which leaves 367.00 - the same column
  *    `Reference.tsx` states for the other `full` tool that pads 12 a side.
  * 3. This band's four pixels of border and the 24 its own rows pad by

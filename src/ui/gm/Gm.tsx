@@ -83,6 +83,34 @@
  * them - into the session list's scroll, not off the screen. See
  * `LicenceFooter.tsx`.
  *
+ * ## The stage, which is what keeps the bar on the glass
+ *
+ * Between `<GmTopBar>` and `<GmBar>` there is one `position: relative` box, and
+ * both `GmSheet` mounts are `position: absolute; inset: 0` inside it. That box
+ * is the *stage*: a tool or a sheet fills it exactly, and the two bars are
+ * outside it by construction rather than by an offset somebody has to keep in
+ * step. Before it, every tool was a fixed overlay over the whole window with
+ * `useDialog`'s Tab trap on it, so the Fear pool, the pinned countdown, MENU
+ * and the bar's three verbs were covered and keyboard-unreachable for as long
+ * as any of the twelve was open - while `FearPool.tsx` went on giving "spent
+ * from every one of them" as the reason the control exists. The owner's second
+ * recorded decision for this screen is that the night is a sheet, not a modal,
+ * and the bar stays under it. `GmSheet.tsx` costs the height that buys.
+ *
+ * The stage is what is left of `<main>` after the pinned chrome, so the two
+ * alerts below take their band off a tool exactly as they already took it off
+ * the list: they are outside the stage, above it, and stay readable and
+ * answerable with a tool open. That is the right way round - they are about
+ * work being lost while the GM is doing something else.
+ *
+ * **The list inside it is `inert` while anything is open**, and that is the
+ * half of the Tab trap worth keeping. Under a `full` tool the list is not
+ * visible at all and under a `sheet` it is behind a 55% wash where a tap closes
+ * the sheet rather than reaching a row; either way it is not a place a keyboard
+ * should be able to go, and `inert` says so to the focus order and to the
+ * accessibility tree at once. What it does not do is what the trap did - reach
+ * outside the stage and take the bars with it.
+ *
  * ## The two things here that are not navigation
  *
  * `NotSaved`, at the foot of this file, is mounted between the top bar and the
@@ -272,33 +300,37 @@ export function Gm(): React.JSX.Element {
         <NotSaved message={writeError} retryable={writeRetry !== null} phone={phone} />
       )}
       {replacedOnLoad && <ReplacedOnLoad phone={phone} onDismiss={dismissReplaced} />}
-      <SessionList phone={phone} onOpenTool={openTool} />
+      <div className="stack" style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+        <div className="stack" style={{ flex: 1, minHeight: 0 }} inert={tool !== null || sheet !== null}>
+          <SessionList phone={phone} onOpenTool={openTool} />
+        </div>
+
+        {tool !== null && (
+          <GmSheet label={TOOL_LABEL[tool]} size="full" onClose={() => setTool(null)}>
+            {tool === 'encounter' && <Encounter phone={phone} />}
+            {tool === 'scene' && <Scene phone={phone} />}
+            {tool === 'party' && <PartyBoard phone={phone} />}
+            {tool === 'bestiary' && <Bestiary phone={phone} />}
+            {tool === 'countdowns' && <Countdowns phone={phone} />}
+            {tool === 'reference' && <Reference />}
+            {tool === 'names' && <Names phone={phone} />}
+            {tool === 'merchant' && <Merchant phone={phone} />}
+          </GmSheet>
+        )}
+
+        {sheet !== null && (
+          <GmSheet
+            label={sheet === 'show' ? showLabel(prefs) : SHEET_LABEL[sheet]}
+            onClose={closeSheet}
+          >
+            {sheet === 'menu' && <MenuSheet onClose={closeSheet} onOpenTool={openTool} />}
+            {sheet === 'add' && <AddSheet onClose={closeSheet} />}
+            {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
+            {sheet === 'save' && <SaveSheet />}
+          </GmSheet>
+        )}
+      </div>
       <GmBar open={sheet} onOpenSheet={openSheet} />
-
-      {tool !== null && (
-        <GmSheet label={TOOL_LABEL[tool]} size="full" onClose={() => setTool(null)}>
-          {tool === 'encounter' && <Encounter phone={phone} />}
-          {tool === 'scene' && <Scene phone={phone} />}
-          {tool === 'party' && <PartyBoard phone={phone} />}
-          {tool === 'bestiary' && <Bestiary phone={phone} />}
-          {tool === 'countdowns' && <Countdowns phone={phone} />}
-          {tool === 'reference' && <Reference />}
-          {tool === 'names' && <Names phone={phone} />}
-          {tool === 'merchant' && <Merchant phone={phone} />}
-        </GmSheet>
-      )}
-
-      {sheet !== null && (
-        <GmSheet
-          label={sheet === 'show' ? showLabel(prefs) : SHEET_LABEL[sheet]}
-          onClose={closeSheet}
-        >
-          {sheet === 'menu' && <MenuSheet onClose={closeSheet} onOpenTool={openTool} />}
-          {sheet === 'add' && <AddSheet onClose={closeSheet} />}
-          {sheet === 'show' && <ShowSheet onOpenTool={openTool} />}
-          {sheet === 'save' && <SaveSheet />}
-        </GmSheet>
-      )}
     </div>
   );
 }
