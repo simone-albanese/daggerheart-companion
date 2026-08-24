@@ -8,7 +8,7 @@
  * and tables out of `paragraphs()` until the pipes showed up on screen.
  *
  * **It is not one drawing of each, and this header used to claim it was.** The
- * `ADD -> LINK -> Rule` door offers all seventy-five sections, so a GM can link
+ * `ADD -> LINK -> Rule` door offers all eighty sections, so a GM can link
  * `countdowns`, `using-fear`, `difficulty-benchmarks`,
  * `adversary-stat-block-benchmarks` or `adapting-environments` and get the
  * generic `RuleTableView`, while the reference region draws those same tables

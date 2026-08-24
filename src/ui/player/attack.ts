@@ -348,7 +348,11 @@ export function beastformSource(stats: DerivedStats): AttackSource | null {
  * The attack the companion makes, or null when there is no companion.
  *
  * *"On a success, their damage roll uses your Proficiency and their damage
- * die."* Folio 19. `companionDamage` has computed exactly that since the sheet
+ * die."* Folio 18 - not 19, which is the Rogue and which `parseRules` refuses
+ * on purpose (`shared/parsers/rules.ts`, pinned by `srdReference.test.ts`). All
+ * four companion sections in the dataset carry `sourcePage: 18`, so a comment
+ * citing 19 was pointing at a page this build deliberately never reads.
+ * `companionDamage` has computed exactly that since the sheet
  * was built and `CompanionPanel` has printed it; what was missing was any way
  * to declare it, which `BACKLOG.md` P1-1 left out because it could not answer
  * "whose Proficiency and whose roll". The folio answers both, and the dataset

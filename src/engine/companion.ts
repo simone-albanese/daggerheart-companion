@@ -12,12 +12,15 @@
  * `companionUpgrades` in `src/ui/shared/srdReference.ts` and the constant that
  * held them is gone, as the note that stood here asked.
  *
- * What stays is arithmetic. `COMPANION_START` is four numbers the app needs in
- * order to seed a sheet, and the book states them inside English sentences
- * ("Fill in their Evasion, which starts at 10"). Reading them back out of prose
- * is the move this codebase refuses everywhere else - see `spellcastSource` -
- * so they are written down, and the sentences they came from are one tap away
- * in the Rulebook now that the section exists.
+ * What stays is arithmetic. `COMPANION_START` is the seven values the app needs
+ * in order to seed a sheet - four numbers, a die, a range and a damage type -
+ * and the book states them inside English sentences ("Fill in their Evasion,
+ * which starts at 10"). Reading them back out of prose is the move this
+ * codebase refuses everywhere else - see `spellcastSource` - so they are
+ * written down, and the sentences they came from are one tap away in the
+ * Rulebook now that the section exists. It said "four numbers" while carrying
+ * seven fields, which is the sort of count that is right when it is written and
+ * silently wrong two commits later.
  */
 import type { Character, CompanionState, Range, Ref } from '../../shared/types.ts';
 import type { DatasetIndex } from './character.ts';

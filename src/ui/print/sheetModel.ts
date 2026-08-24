@@ -52,7 +52,15 @@ export interface SheetTrait {
   value: number;
   /** The SRD's three verbs, joined. "Sprint · Leap · Maneuver". */
   verbs: string;
-  /** Marked for this tier's advancement. Printed as a box, ticked or not. */
+  /**
+   * Marked for this tier's advancement.
+   *
+   * Carried and, on paper, deliberately not drawn: `CharacterSheet` prints an
+   * empty `.dhc-tick` beside every trait whatever this says, because a printed
+   * track owes the player room rather than a snapshot - the rule `TickRow`
+   * states and the whole page follows. This used to read "printed as a box,
+   * ticked or not", which described a box that has never been ticked.
+   */
   marked: boolean;
   spellcast: boolean;
 }
@@ -199,11 +207,21 @@ export interface SheetCompanion {
   /**
    * Ruled lines to draw for them, held ones plus blanks.
    *
-   * The same number as the character's, and derived rather than typed for the
-   * same reason `EXPERIENCE_LINES` is: *"whenever you gain a new Experience,
-   * your companion also gains one"*, so the two lists grow together and a rules
-   * change has to move both. This was a literal `2` for one commit, which is
-   * precisely what the note over `EXPERIENCE_LINES` says not to write.
+   * The same FLOOR as the character's, not the same number: both are
+   * `Math.max(EXPERIENCE_LINES, ownList.length)`, so they agree up to five and
+   * diverge above it, and the assertion that says otherwise passes only because
+   * the fixture sits under the floor. The floor is derived rather than typed
+   * for the reason `EXPERIENCE_LINES` gives: *"whenever you gain a new
+   * Experience, your companion also gains one"*, so the two lists grow together
+   * and a rules change has to move both. It was a literal `2` for one commit,
+   * which is precisely what the note over `EXPERIENCE_LINES` says not to write.
+   *
+   * The derivation is nevertheless the CHARACTER's, and it is right for a
+   * companion by coincidence: `EXPERIENCE_LINES` counts up from
+   * `STARTING_EXPERIENCES`, a literal 2 whose own docblock is entirely about
+   * the character, and `COMPANION_START.experiences` is a different 2 that
+   * nothing here reads. Move that one and the sheet silently rules a line too
+   * few, with the whole print suite green.
    */
   experienceLines: number;
   /** Every option the dataset carries, with the ones this sheet has marked. */

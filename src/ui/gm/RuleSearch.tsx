@@ -9,7 +9,7 @@
  * when there is a countdown for a button to move. Those are the questions a GM
  * knows they have. This is the other kind: a phrase off a page, half
  * remembered, wanted now. It covers every section `dataset.rules` carries -
- * seventy-five in the shipped SRD - and draws every one of them through
+ * eighty in the shipped SRD - and draws every one of them through
  * `BlockView`, which is already this app's single drawing of a section
  * somebody chose: the GM chapter's five folds use it, the adversary
  * Experiences put their lead block through it, the costs topic beside them

@@ -493,9 +493,17 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
      * named on the companion sheet, the way an achievement Experience with no
      * name typed arrives unnamed here.
      *
-     * A tier achievement is the only place a character gains a *new*
-     * Experience; the `experience` advancement above raises two they already
-     * have, which is not what the sentence is about.
+     * The `experience` advancement above raises two Experiences the character
+     * already has, which is not what the sentence is about - so it correctly
+     * gives the companion nothing.
+     *
+     * IT IS NOT THE ONLY PLACE A CHARACTER GAINS A NEW ONE, and this comment
+     * used to say it was. `ExperienceEditor` has an "Add an Experience" button
+     * (`src/ui/build/parts.tsx`), reachable from Build and from the wizard, and
+     * folio 18's *"whenever"* covers that route too. Nothing there hands the
+     * companion anything, so a hand-added Experience quietly leaves the animal
+     * one behind. That is a real gap in the rule and not a decision; it is
+     * written down here because the false sentence was hiding it.
      */
     if (next.companion !== null) {
       next = {

@@ -429,7 +429,7 @@ describe('the attack a worn Beastform makes', () => {
  * The companion's attack, and the two sentences that unblocked it.
  *
  * `BACKLOG.md` P1-1 left this out because it could not answer "whose
- * Proficiency and whose roll". Folio 19 answers both - *"Make a Spellcast Roll
+ * Proficiency and whose roll". Folio 18 answers both - *"Make a Spellcast Roll
  * to connect with your companion"*, *"their damage roll uses your Proficiency
  * and their damage die"* - and it was unreachable prose until `parseRules`
  * reached the folio.

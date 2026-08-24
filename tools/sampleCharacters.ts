@@ -675,6 +675,23 @@ function decorate(
         stress: { marked: n % 3, max: 3 + (n % 2) },
         damage: pick(['d6', 'd8', 'd6+2'], n),
         range: pick(['Melee', 'Very Close', 'Close', 'Far'] as const, n),
+        /*
+         * Half of them magic, and that half is the whole reason this line is
+         * here.
+         *
+         * The generator produced `phy` for every companion it has ever made -
+         * which is also what the 4->5 converter seeds and what the QR reader
+         * invents when the field is not on the wire - so the matrix could not
+         * tell "carried exactly" from "dropped and defaulted back". A sweep of
+         * 3240 sheets that cannot distinguish those two is blind to the field
+         * it is sweeping. The previous bump did exactly this work for
+         * `consecutiveShortRests`, four lines up.
+         *
+         * The `.dhchar` path must return this untouched; the QR path
+         * deliberately does not carry it, and `normalizeHandles` is where that
+         * loss is stated rather than absorbed.
+         */
+        damageType: n % 2 === 0 ? 'mag' : 'phy',
         experiences: companion.experiences.map((e, i) => ({
           ...e,
           name: pick(['Tracks by scent', 'Fearless', '影に強い'], n + i),
@@ -683,7 +700,7 @@ function decorate(
         upgrades: COMPANION_UPGRADE_IDS.slice(0, 1 + (n % 4)),
       },
     };
-    exercises.push('companion');
+    exercises.push(n % 2 === 0 ? 'companion (magic)' : 'companion');
   }
 
   const transforms =

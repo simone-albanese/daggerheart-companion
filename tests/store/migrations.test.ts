@@ -180,6 +180,41 @@ describe('the committed fixtures', () => {
     });
   });
 
+  /**
+   * The `v5` fixture's companion, which nothing read.
+   *
+   * It carries `damageType: "mag"` and the only thing that ever touched it was
+   * the generic loop above, which checks name, level, loadout, Experiences and
+   * HP and never goes inside `companion`. Deleting the key from both `v5` files
+   * left the whole suite green, so the field the whole 4->5 step exists for was
+   * committed as decoration.
+   *
+   * A note on what this fixture is, because it is not quite what `v3` and `v4`
+   * are. Those are the output of the build they are named for. `v5` is the
+   * output of THIS build fed `v4.dhchar` - which is a Troubadour Bard, so the
+   * conversion could only ever produce a Bard with no companion, and no real
+   * export could add one either: `hasCompanionFeature` wants Beastbound. The
+   * animal was put in by hand so the step's own field would be represented at
+   * all. That is a reasonable thing to have done and an unreasonable thing to
+   * leave unsaid, since a reader would otherwise take it for a build's output.
+   */
+  it('reads the v5 fixture’s companion, magic damage and all', () => {
+    for (const name of ['v5.dhchar', 'v5.dhbackup']) {
+      const raw = rawFixture(name);
+      const records = (raw['characters'] ?? [raw['character']]) as Array<Record<string, unknown>>;
+      const stored = records[0]?.['companion'] as Record<string, unknown> | null | undefined;
+      expect(stored?.['damageType'], `${name} carries no companion damage type`).toBe('mag');
+
+      const file = parseTransferFile(readFileSync(join(FIXTURES, name), 'utf8'));
+      const companion = file.characters[0]?.companion;
+      expect(companion?.name, name).toBe('Ash');
+      // The point of the whole step: a choice the player made survives the
+      // round trip through a file, rather than arriving as the default the
+      // converter seeds.
+      expect(companion?.damageType, name).toBe('mag');
+    }
+  });
+
   it('does not hand an animal to a character who has none', () => {
     const record = { schemaVersion: 4, name: 'Wizard', companion: null };
     expect(migrateCharacterRecord(record).record['companion']).toBeNull();

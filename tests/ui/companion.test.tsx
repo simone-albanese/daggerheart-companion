@@ -306,7 +306,7 @@ describe('a companion’s damage type', () => {
  *
  * `BACKLOG.md` P1-1 shipped without this and said why: arming a companion
  * "needs a second armed slot on Play and a decision about whose Proficiency and
- * whose roll it is". Folio 19 makes both decisions, and it was prose no build
+ * whose roll it is". Folio 18 makes both decisions, and it was prose no build
  * could reach until `parseRules` was pointed at it.
  *
  * The control is on the companion's own panel and not in `Equipped`, because a
@@ -418,7 +418,7 @@ describe('declaring the companion’s attack from Play', () => {
 /**
  * *"Spend a Hope to add an applicable **Companion** Experience to the roll."*
  *
- * The chips are the half of folio 19 that is easy to leave out, because the
+ * The chips are the half of folio 18 that is easy to leave out, because the
  * roll works without them. It would just be the wrong roll: "Ran with the
  * wolves" is not a thing the raven did.
  */

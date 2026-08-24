@@ -190,7 +190,7 @@ const groupHeaders = (): string[] =>
 describe('searchRules, over the shipped SRD', () => {
   it('answers an empty query with nothing rather than with everything', () => {
     // `''` is a substring of every string alive. Without the guard this is not
-    // an empty result, it is all seventy-five sections - which is what a GM
+    // an empty result, it is all eighty sections - which is what a GM
     // would see the instant the sheet opened.
     expect(searchRules(rules, '')).toEqual([]);
     expect(searchRules(rules, '   ')).toEqual([]);

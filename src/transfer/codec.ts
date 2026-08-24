@@ -53,10 +53,14 @@
  *   - `consecutiveShortRests` is not carried, and decodes as 0. It is one
  *     varint in 0..3 and its cost is not the byte: putting it on the wire
  *     needs a new format number, and the next one is 3. `adversarial.test.ts`
- *     pins that no single-bit flip of the version nibble can land on another
- *     readable format - from 2 the four flips give 3, 0, 6 and 10 - and from
- *     3 they give 2 and 1, both readable and one of them the format that
- *     carries no checksum. A count of rests is not worth trading that
+ *     pins the property for the payloads THIS BUILD WRITES, which is the whole
+ *     of what it can flip: from 2 the four nibble flips give 3, 0, 6 and 10,
+ *     none of them readable. It is not the general claim, and the difference is
+ *     worth keeping straight - 5 and 9 are each one bit from 1, so a payload
+ *     stamped with a format this app has never written could still be demoted
+ *     into the checksum-less one by a single flip. That is inbound traffic from
+ *     a future build, not from this one. From 3 the flips give 2 and 1, both
+ *     readable and one of them the format that carries no checksum. A count of rests is not worth trading that
  *     property, nor worth breaking receipt by every phone that has not
  *     updated yet, which is the direction this vector exists for. If a later
  *     item does want it on the wire, the format number to take is 4.

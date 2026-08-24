@@ -646,6 +646,19 @@ describe('ruleSection', () => {
     expect(shapes.filter((s) => s.list && s.table).length).toBe(3);
     expect(shapes.filter((s) => s.list || s.table).length).toBe(42);
     expect(rules.flatMap((rule) => tables(rule.id))).toHaveLength(12);
+
+    /*
+     * The paragraph census `blockParts`' own docblock quotes, pinned so it
+     * cannot age in silence again. It said "seventy" - true of the
+     * seventy-five-section dataset, and four short after folios 12 and 18
+     * arrived - and nothing here noticed, because every figure above counts
+     * SECTIONS and the docblock counts PARAGRAPHS.
+     */
+    const bullets = rules
+      .flatMap((rule) => ruleSection(rules, rule.id)?.blocks ?? [])
+      .flatMap((block) => block.parts)
+      .filter((part) => part.kind === 'list');
+    expect(bullets).toHaveLength(74);
   });
 
   it('answers null for a section this dataset does not carry', () => {

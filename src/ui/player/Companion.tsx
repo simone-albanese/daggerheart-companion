@@ -187,7 +187,17 @@ function Stepper({
 interface PanelProps {
   stats: DerivedStats;
   layout: 'desktop' | 'phone';
-  /** Absent on the surfaces that show a companion without a roll behind them. */
+  /**
+   * Optional only because tests mount the panel on its own.
+   *
+   * There is no surface in `src/` that draws this without a roll behind it:
+   * `Vitals` is the only mount and it always forwards one, and the party board
+   * and the printed sheet draw their own companion lines from
+   * `companionDamage` rather than from this component. The sentence that used
+   * to stand here named surfaces the body docblock ninety lines below already
+   * said do not exist - the audit that rewrote that one landed a docblock
+   * short of this one.
+   */
   arming?: Arming;
 }
 

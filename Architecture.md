@@ -458,20 +458,39 @@ Contro i limiti fisici della scansione schermo-fotocamera (riflessi, moiré fra 
 griglie di pixel, autofocus ravvicinato): massima luminosità automatica sul mittente,
 quiet zone generosa, correzione M anziché L.
 
-**Cosa il QR non porta, per scelta.** Tre perdite, tutte documentate nell'header
-di `src/transfer/codec.ts` — un elenco che deve restare di tre voci esatte,
-perché una quarta non scritta da nessuna parte è il modo in cui un formato
-smette di essere affidabile. Le prime due sono handle locali e nessuno le può
-osservare: `Experience.id`, che è una chiave React e costerebbe 16 byte l'una su
-un payload di 147, e l'ordine della coppia di tratti di un avanzamento, che le
-regole trattano come insieme. La terza si vede: `consecutiveShortRests` arriva a
-zero. Non è il byte — è un varint in 0..3 — è il numero di formato: portarlo
-richiederebbe il formato 3, e da 3 un singolo bit ribaltato nel nibble di
-versione dà 2 e 1, entrambi leggibili e uno dei due privo di checksum, mentre da
-2 dà 3, 0, 6 e 10. Quella proprietà vale più di un conteggio di riposi. Il
-file `.dhchar` lo porta esatto: la conseguenza è che una scheda passata via QR
-arriva senza aver contato nulla, e nessuna schermata può presentare quel numero
-come la storia del tavolo.
+**Cosa il QR non porta, per scelta.** **Quattro** perdite, tutte documentate
+nell'header di `src/transfer/codec.ts` — un elenco che deve restare di quattro
+voci esatte, perché una quinta non scritta da nessuna parte è il modo in cui un
+formato smette di essere affidabile. Questa frase diceva **tre**, ed era scritta
+in questa forma proprio perché il bump successivo fosse costretto a passare di
+qui: lo schema 5 ha aggiunto `companion.damageType` il 23 agosto 2026 e non ha
+toccato nessun `.md`. Il meccanismo ha funzionato con un giro di ritardo.
+
+Le prime due sono handle locali e nessuno le può osservare: `Experience.id`, che
+è una chiave React e costerebbe 16 byte l'una su un payload di 147, e l'ordine
+della coppia di tratti di un avanzamento, che le regole trattano come insieme.
+
+Le altre due si vedono, e sono la stessa decisione presa due volte.
+`consecutiveShortRests` arriva a zero; `companion.damageType` arriva `phy`,
+mentre il folio 18 chiede al giocatore *«choose whether they deal physical or
+magic damage»* e quel bit è esattamente ciò che il QR lascia indietro. In
+nessuno dei due casi il costo è il byte — il primo è un varint in 0..3, il
+secondo è un bit — ma il **numero di formato**. Il 3 è escluso: da 3 un singolo
+bit ribaltato nel nibble di versione dà 2 e 1, entrambi leggibili e uno dei due
+privo di checksum, mentre da 2 dà 3, 0, 6 e 10. **Il numero libero è quindi 4,
+non 3**: dista 2 da entrambi i formati leggibili, e i suoi ribaltamenti danno 5,
+6, 0 e 12, nessuno dei quali questa build legge. Adottarlo però vuol dire che un
+telefono non aggiornato smette di ricevere *qualsiasi* scheda, non solo quella
+di un Ranger. Quella proprietà vale più di un conteggio di riposi e più di un
+bit su una sottoclasse.
+
+Il file `.dhchar` li porta esatti entrambi. La conseguenza è che una scheda
+passata via QR arriva senza aver contato nulla e con un compagno che colpisce
+fisico, e nessuna schermata può presentare quei due valori come la storia del
+tavolo. Le perdite sono asserite su **tutte e due** le strade — quella che
+perde (`tests/transfer/codec.test.ts`) e quella che conserva
+(`tests/transfer/fileIo.test.ts`) — perché una perdita provata solo dove
+avviene è una perdita che nessuno accorge quando smette di essere deliberata.
 
 **Import degradato, sempre.** Se il ricevente non riconosce alcuni ID, importa lo stesso
 e segnala. I riferimenti ignoti restano nella scheda come `unresolvedRefs` e si
@@ -582,8 +601,10 @@ scriverci sopra.
 `OLDEST_READABLE` è 3 e non 1 perché gli schemi 1 e 2 non sono mai esistiti fuori
 dallo sviluppo: `SCHEMA_VERSION` è valso 3 dal primo commit fino a P1-7.
 Scrivere convertitori per loro significherebbe inventarsi una storia con cui
-essere compatibili. Resta 3 anche dopo il passaggio a 4, perché 3 è esattamente
-la versione dei file che sono già sui dischi delle persone.
+essere compatibili. Resta 3 anche dopo i passaggi a 4 e a 5, perché 3 è ancora
+la versione dei file più vecchi che sono sui dischi delle persone — e resterà 3
+finché qualcuno non decide che quei file non si leggono più, che è una decisione
+diversa dall'alzare `SCHEMA_VERSION` e va presa a parte.
 
 #### Il primo scalino vero, e quanto è costato
 
@@ -618,6 +639,53 @@ riprogramma attraverso il debounce di 400 ms, quindi l'intera libreria viene
 riscritta una volta. Questo sposta anche l'impronta `count:maxUpdatedAt` di
 `runBackup`, che produce un `.dhbackup` fresco. Innocuo, ma vuol dire che
 l'avvio che non deve fallire è proprio il primo dopo il passaggio.
+
+#### Il secondo scalino, e le tre cose che si è portato dietro tardi
+
+Il ramo `beast-sheets` ha portato `SCHEMA_VERSION` da **4 a 5** aggiungendo
+`companion.damageType`, che è il primo campo di questa app a nascere *dentro* un
+oggetto annidato invece che in cima al `Character`. Il conto, nella forma dello
+scalino precedente:
+
+- **un convertitore**, `from: 4`, che scrive `damageType: 'phy'` dentro
+  `companion` e lascia intatta una scheda senza compagno — un Mago non acquista
+  un animale vuoto per il fatto di essere letto. `phy` e non una scelta: fino a
+  quel campo `damageTypeOf` rispondeva `phy` per ogni compagno che sia mai
+  esistito, quindi ogni scheda a schema 4 *significava già* fisico, e seminare
+  altro sarebbe inventare una decisione che il giocatore non ha preso;
+- **due fixture nuove**, `v5.dhchar` e `v5.dhbackup`, prodotte facendo passare
+  la `v4.dhchar` committata attraverso questa build. `v3` e `v4` non sono state
+  toccate;
+- **`DB_VERSION` fermo a 2** e **`CODEC_VERSION` fermo a 2**: il campo resta
+  fuori dal QR ed è la quarta perdita deliberata di §5.3;
+- **lo stamp del dataset** portato a 5.
+
+Le tre cose che *non* erano state fatte al momento del bump, e che valgono più
+del resto dell'elenco perché sono il modo in cui uno scalino sembra chiuso
+senza esserlo:
+
+1. **`tools/sampleCharacters.ts` non era stato esteso.** La matrice da 3240
+   schede genera ogni personaggio che il gioco sa fare e le fa passare per
+   entrambe le strade di trasferimento — ed era **cieca** a `damageType`, perché
+   ogni scheda generata era `phy`, che è anche ciò che il convertitore semina e
+   ciò che il lettore del QR inventa. Una matrice che non sa distinguere
+   «portato esatto» da «perso e ridefault-ato» non prova la cosa per cui esiste.
+   Lo scalino precedente aveva fatto esattamente questo lavoro per
+   `consecutiveShortRests`;
+2. **la fixture `v5` era inerte.** `damageType: "mag"` c'era, e nessun test lo
+   leggeva: il ciclo generico di `tests/store/migrations.test.ts` controlla
+   nome, livello, loadout, Esperienze e HP, e non scende mai dentro `companion`.
+   Cancellare la chiave da entrambe le fixture lasciava la suite verde, cioè la
+   fixture non era una prova di niente;
+3. **nessun `.md` era stato toccato**, ed è per questo che la frase di §5.3
+   sulle «tre voci esatte» esisteva.
+
+La lezione che vale per il prossimo bump, e in particolare per il passaggio
+`CAMPAIGN_SCHEMA_VERSION` 2→3 che le decisioni del 23 agosto impongono: i tre
+requisiti in cima a questa sezione sono ciò che `tests/store/migrations.test.ts`
+sa controllare, non l'elenco completo di ciò che uno scalino costa. Le fixture,
+il generatore della matrice e la prosa che afferma un numero stanno fuori da
+quel controllo, e sono i tre posti in cui un bump resta aperto in silenzio.
 
 #### Una regola sola, due numerazioni
 
@@ -776,7 +844,7 @@ guarda quando si è nel panico.
 type Ref = string;  // slug: "arcana-rune-ward"
 
 interface Dataset {
-  schemaVersion: 4;
+  schemaVersion: 5;
   layers: Layer[];
   domains: Domain[]; domainCards: DomainCard[];
   classes: CharClass[]; subclasses: Subclass[]; beastforms: Beastform[];
@@ -806,7 +874,7 @@ interface Adversary {
 }
 
 interface Character {
-  id: string; schemaVersion: 4;
+  id: string; schemaVersion: 5;
   name: string; pronouns: string;
   classRef: Ref; subclassRefs: Ref[]; ancestryRefs: Ref[]; communityRef: Ref;
   level: number; proficiency: number;

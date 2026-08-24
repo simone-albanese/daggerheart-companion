@@ -534,10 +534,13 @@ function lineageOf(character: Character, index: DatasetIndex): string {
 /**
  * The Spellcast trait, on the line that says what class you are.
  *
- * It is a property of the subclass - the SRD prints "SPELLCAST TRAIT" on every
- * subclass page - and until now the only place on Play that said so was the
- * hint under the trait grid, which a player reads while choosing a trait rather
- * than while asking what their character is.
+ * It is a property of the subclass - the SRD prints "SPELLCAST TRAIT" wherever
+ * a subclass has one - and until now the only place on Play that said so was
+ * the hint under the trait grid, which a player reads while choosing a trait
+ * rather than while asking what their character is. (It said "on every subclass
+ * page", which the next paragraph contradicts and which the book contradicts
+ * too: the heading is printed fourteen times against eighteen subclasses, and
+ * the four without it run straight from the blurb into FOUNDATION FEATURES.)
  *
  * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Four of the
  * eighteen shipped subclasses carry no Spellcast trait at all - both Guardian

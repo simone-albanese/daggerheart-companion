@@ -500,7 +500,7 @@ function Row({
  * Evasion leads because it is what the GM needs: it is the number an attack is
  * rolled against, and it is not the Ranger's.
  *
- * NOTHING HERE MAY ASSUME A FIELD IS PRESENT, AND THAT IS NOT DEFENSIVENESS -
+ * NOTHING HERE SHOULD ASSUME A FIELD IS PRESENT, AND THAT IS NOT DEFENSIVENESS -
  * IT IS WHERE THESE SHEETS COME FROM. A campaign record holds whole copies of
  * the players' sheets, and `readPartyMember` in `shared/campaigns.ts` casts the
  * stored object straight to `Character`: the character migration chain never
@@ -511,10 +511,37 @@ function Row({
  * first render, which is the one failure `readPartyMember`'s own docblock
  * exists to prevent.
  *
- * So this reads by comparison and never by method call, the way
- * `CompanionPanel` already does. The general problem is bigger than this line
- * and is written up in the audit: every future character-schema field has the
- * same hazard here.
+ * AND THIS FUNCTION DOES NOT YET OBEY IT. The paragraph above used to end "so
+ * this reads by comparison and never by method call, the way `CompanionPanel`
+ * already does", and both halves of that sentence were false when they were
+ * written. Measured by rendering a row with each field deleted in turn:
+ *
+ *   - `companion.name.toUpperCase()` throws on a missing name, and the `=== ''`
+ *     beside it covers neither an absent one nor a numeric one;
+ *   - `companion.stress.marked` / `.max` throw on a missing track;
+ *   - `companionDamage` hands `companion.damage` to `parseDamage`, which is
+ *     total for a junk string - `parseDamage('nonsense')` is null and the board
+ *     prints NO DIE - and fatal for an absent one, because its only guard is
+ *     one line too late;
+ *   - `CompanionPanel` calls `.toUpperCase()` on the name, the description and
+ *     the range, so it is not the example to follow.
+ *
+ * Two lines here are genuinely total and are not on that list: `:545` wraps the
+ * range in `String()`, and the `damageType` comparison is the schema-5 fix.
+ * `String()` is not free either - it turns a crash into the literal word
+ * UNDEFINED printed to a GM - but a board you can read and disbelieve beats a
+ * board that is gone.
+ *
+ * The reason it stays as it is: the file reader was tightened instead
+ * (`checkShapes` now refuses half an animal), which closes every route a
+ * CHARACTER arrives by - and closes none of the routes a party copy does,
+ * because `readPartyMember` is the cast this paragraph opens with. The rule
+ * that would close it is broader than "no method calls here": nothing in
+ * `src/ui/gm/` may call a method on a field of `PartyMember.sheet`, NOR PASS IT
+ * TO A FUNCTION THAT DOES. Doing that properly means deciding whether
+ * `readPartyMember` repairs or quarantines, which is a design decision and is
+ * scheduled for the `CAMPAIGN_SCHEMA_VERSION` bump that has to open that file
+ * anyway. Until then this docblock states the debt rather than a wish.
  */
 function CompanionLine({
   sheet,

@@ -19,6 +19,18 @@
 > believes one paragraph believes the next. The banner is what makes the whole
 > file honest in one edit.
 >
+> **And a fourth, added here on 2026-08-24 rather than fixed below, because
+> that is what the paragraph above commits this file to.** *"Where the numbers
+> that matter stand"* is now wrong in two places: `SCHEMA_VERSION` is **5**,
+> not 4, with **two** converters (`from: 3` and `from: 4`), and `package.json`
+> is **0.5.0**, not 0.2.0. `beast-sheets` took the schema to 5 by adding
+> `companion.damageType`. Everything else in that paragraph — `DB_VERSION` 2,
+> `CODEC_VERSION` 2, `CAMPAIGN_SCHEMA_VERSION` 2, `OLDEST_READABLE` 3,
+> `OLDEST_READABLE_CAMPAIGN` 1 — is still true, which is exactly what makes the
+> paragraph dangerous to leave unannotated: five true numbers around two false
+> ones read as a maintained list. **`Architecture.md` §6.1 is the maintained
+> account of the schema chain; read it and not this.**
+>
 > **What is still true here and was wrongly doubted:** the orphan count of 22.
 > `tests/harness/orphans.test.ts` holds exactly 22 keys in `DELIBERATE` and
 > asserts inclusion in both directions, so the two sets coincide by construction
