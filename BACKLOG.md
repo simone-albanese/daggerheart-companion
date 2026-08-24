@@ -3525,7 +3525,7 @@ two-device tests.
    overwrite of a newer copy (P0-1).
 2. **iOS Add to Home Screen and the pasteboard bridge** (5 min).
    `beforeinstallprompt` does not exist on iOS and cannot be simulated. *Pass:*
-   the icon is labelled "Daggerheart", not the full document title; the installed
+   the icon is labelled "Duality", not the full document title; the installed
    app offers the paste route and reports a count; the persistence request
    appears, or the app says honestly that it did not.
 3. **Offline, cold** (5 min). Load once online, airplane mode, force-quit,
