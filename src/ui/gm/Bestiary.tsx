@@ -44,7 +44,14 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
           e.name.toLowerCase().includes(needle) ||
           e.description.toLowerCase().includes(needle) ||
           e.impulses.toLowerCase().includes(needle) ||
-          e.features.some((f) => f.name.toLowerCase().includes(needle))),
+          // `f.text` as well as `f.name`, because the words a GM searches for
+          // are almost never in a feature's title. A feature called "Tangling
+          // Roots" is what imposes *Restrained*, and the only place that word
+          // appears is the sentence underneath.
+          e.features.some(
+            (f) =>
+              f.name.toLowerCase().includes(needle) || f.text.toLowerCase().includes(needle),
+          )),
     );
   }, [environments, envQuery, envTier]);
 

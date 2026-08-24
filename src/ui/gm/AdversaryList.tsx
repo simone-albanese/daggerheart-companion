@@ -32,12 +32,19 @@ export function useFiltered(list: Adversary[], filter: Filter): Adversary[] {
       if (filter.tier !== 'all' && a.tier !== filter.tier) return false;
       if (filter.role !== 'all' && a.role !== filter.role) return false;
       if (needle === '') return true;
-      // Search the text a GM would remember: name, motives, feature names.
+      // Search the text a GM would remember: name, motives, and both halves
+      // of a feature.
       return (
         a.name.toLowerCase().includes(needle) ||
         a.description.toLowerCase().includes(needle) ||
         a.motives.some((m) => m.toLowerCase().includes(needle)) ||
-        a.features.some((f) => f.name.toLowerCase().includes(needle))
+        // `f.text` as well as `f.name`. What a GM at the table is looking for
+        // is an adversary that *does* something - "restrained", "spotlight",
+        // "minion" - and a feature's name almost never says it; the sentence
+        // under the name is where the mechanic is written.
+        a.features.some(
+          (f) => f.name.toLowerCase().includes(needle) || f.text.toLowerCase().includes(needle),
+        )
       );
     });
   }, [list, filter.text, filter.tier, filter.role]);

@@ -122,11 +122,41 @@ export function CompatibleIcon({ size = 20 }: { size?: number }): React.JSX.Elem
  *
  * Two elements rather than one paragraph because two surfaces set them as two
  * blocks; `ATTRIBUTION.join(' ')` is the one-paragraph form and is exactly what
- * the deleted constant said.
+ * the deleted constant said. It is three elements since 2026-08-24, for the
+ * reason below.
+ *
+ * ## The third line, and the clause that was missing until it
+ *
+ * §4.1 lists five things that must accompany Shared content. Four were here
+ * from the start; **§4.1(e) was not** - *"a statement indicating whether you
+ * have modified the Public Game Content and whether there were any previous
+ * modifications by you or others"* - and its absence was awkward in a specific
+ * way: the README's own Legal section argues at length that this app **does**
+ * modify, which is the premise of the licensing objection it records. Claiming
+ * that in a README while not saying it where the content is Shared is the one
+ * combination that cannot be defended.
+ *
+ * The second half of the sentence is DRP's own wording. §4.3's combined
+ * template - the one the licence supplies so nobody has to compose this -
+ * closes with *"There are no previous modifications by others."*, and the first
+ * line here is that template minus exactly that sentence. So it was not a
+ * judgement call that went the wrong way; it was a copy that stopped one
+ * sentence short.
+ *
+ * The first half is this project's own, because the template cannot know it:
+ * `data/srd-1.0.json` is the book **rearranged** by `tools/build-srd.ts`, and
+ * `deriveStats` **computes** figures the book prints for nobody. Those are
+ * §1.7's own verbs, which is why they are the ones used.
+ *
+ * The licence URL closes §4.1(d), which the first line satisfied only by naming
+ * the licence. The full text ships at `src/legal/dpcgl-2025-07-30.txt` and
+ * Settings › About prints it, so the app is not relying on a network it
+ * promises never to need.
  */
 export const ATTRIBUTION = [
   'This product includes materials from the Daggerheart System Reference Document 1.0, © Critical Role, LLC, under the terms of the Darrington Press Community Gaming License. More information at www.daggerheart.com.',
   'Daggerheart Compatible. Independent community content, not affiliated with or endorsed by Critical Role, LLC or Darrington Press.',
+  'This app has modified that material: it is reorganised for the screen, and some numbers are computed from it. There are no previous modifications by others. The licence text ships in this app, and is at darringtonpress.com/license.',
 ] as const;
 
 export function Attribution({ compact = false }: { compact?: boolean }): React.JSX.Element {
