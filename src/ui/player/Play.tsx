@@ -212,6 +212,42 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     setArmedExperiences([]);
   }, [companionArmed]);
 
+  /*
+   * A Beastform declaration is form-agnostic on purpose, so the trait has to be
+   * re-derived the way the pool is.
+   *
+   * `arm` writes the trait once, at the tap, and stores `{kind:'beastform'}`
+   * with no ref in it - which is what lets `source` follow a change of shape
+   * without anything re-arming. The trait did not follow: arm a bear under
+   * Strength, open the picker, become a raven, and the row read `ARMED ·
+   * FINESSE` while the chip and the ROLL bar still said STRENGTH and the
+   * modifier was genuinely the wrong one. The picker cannot fix it from its own
+   * side - `enterBeastform` knows nothing about what is armed - so it is fixed
+   * here, where both halves are in view.
+   *
+   * The null branch is the half nobody had seen, and it is the one an ordinary
+   * table hits. DROP resolves `source` to null and takes the row away, but the
+   * declaration behind it survived, so the next transform came back with an
+   * attack armed that nobody tapped, under the trait of a shape the character
+   * had stopped wearing. That includes this branch's own automatic drop at the
+   * last Hit Point, which only nulls `character.beastform`.
+   *
+   * Keyed on the ref as well as the trait: two forms can arm the same trait,
+   * and a swap between them still changes which dice are rolled.
+   */
+  const wornForm = stats.beastform?.form ?? null;
+  const wornFormRef = wornForm?.id ?? null;
+  const wornFormTrait = wornForm?.attack.trait ?? null;
+  const beastformDeclared = declared?.kind === 'beastform';
+  useEffect(() => {
+    if (!beastformDeclared) return;
+    if (wornFormTrait === null) {
+      setDeclared(null);
+      return;
+    }
+    setTrait(wornFormTrait);
+  }, [beastformDeclared, wornFormRef, wornFormTrait]);
+
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:

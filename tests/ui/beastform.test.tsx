@@ -88,6 +88,22 @@ const bigForm = (): (typeof dataset.beastforms)[number] => {
   return form;
 };
 
+/**
+ * The highest-tier form that arms a DIFFERENT trait from `bigForm`'s.
+ *
+ * Two shapes whose attacks disagree about the trait are the whole subject of
+ * the swap tests below: with two that agree, an app that never re-syncs looks
+ * exactly like one that does.
+ */
+const otherForm = (): (typeof dataset.beastforms)[number] => {
+  const from = bigForm();
+  const form = [...dataset.beastforms]
+    .sort((a, b) => b.tier - a.tier)
+    .find((f) => f.attack.trait !== from.attack.trait);
+  if (form === undefined) throw new Error('every form in this dataset arms the same trait');
+  return form;
+};
+
 function seed(patch: Partial<Character> = {}): Character {
   const klass = druidClass();
   const subclass = dataset.subclasses.find((s) => s.classRef === klass.id);
@@ -176,13 +192,32 @@ function rollBarTrait(): string {
 }
 
 /** The row in Equipped that declares the worn form's attack. */
-function attackRow(): HTMLButtonElement | undefined {
+function attackRow(form: (typeof dataset.beastforms)[number] = bigForm()): HTMLButtonElement | undefined {
   return buttons().find(
     (b) =>
       b.getAttribute('aria-pressed') !== null &&
-      (b.textContent ?? '').includes(bigForm().name) &&
+      (b.textContent ?? '').includes(form.name) &&
       (b.textContent ?? '').includes('PHYSICAL'),
   );
+}
+
+/**
+ * Change shape the way a player does: the chip on the phone, then a row in the
+ * picker. Not `enterBeastform` through the store - the defect this covers is
+ * that the picker calls it with no idea an attack is armed, and a test that
+ * skipped the picker would be agreeing with it.
+ */
+function changeForm(form: (typeof dataset.beastforms)[number]): void {
+  const chip = buttons().find((b) =>
+    /tap to (change form|transform)/.test(b.getAttribute('aria-label') ?? ''),
+  );
+  if (chip === undefined) throw new Error('no Beastform chip on this screen');
+  click(chip);
+  const row = buttons().find((b) =>
+    (b.getAttribute('aria-label') ?? '').startsWith(`${form.name}, tier `),
+  );
+  if (row === undefined) throw new Error(`the picker does not offer ${form.name}`);
+  click(row);
 }
 
 describe('the attack a worn form makes', () => {
@@ -237,6 +272,63 @@ describe('the attack a worn form makes', () => {
     // assertion is green whatever `arm` does with it - which is how the
     // assertion this replaces stayed green through `setTrait('knowledge')`.
     expect(rollBarTrait()).toBe(TRAIT_LABELS[form.attack.trait].toUpperCase());
+  });
+
+  it('moves the trait with the shape when the form changes under an armed attack', () => {
+    /*
+     * `arm` writes the trait ONCE, at the tap, and what it stores is the
+     * form-agnostic `{kind:'beastform'}`. The pool is re-derived from the worn
+     * form every render - which is what makes the row follow a shape change -
+     * and nothing re-derived the trait, so a bear armed under Strength became
+     * a raven still rolling Strength, with the pressed chip and the ROLL bar
+     * both saying so and the modifier genuinely wrong.
+     */
+    const from = bigForm();
+    const to = otherForm();
+    seed({ beastform: { ref: from.id, activatedAt: '2026-08-23T00:00:00.000Z' } });
+    play();
+    openGearFold();
+
+    click(attackRow(from)!);
+    expect(rollBarTrait()).toBe(TRAIT_LABELS[from.attack.trait].toUpperCase());
+
+    changeForm(to);
+    openGearFold();
+
+    const row = attackRow(to);
+    expect(row, 'the armed row did not follow the new shape').toBeDefined();
+    expect(row?.textContent ?? '').toContain('ARMED');
+    expect(rollBarTrait()).toBe(TRAIT_LABELS[to.attack.trait].toUpperCase());
+  });
+
+  it('does not re-arm the next shape you take after a drop', () => {
+    /*
+     * The half nobody had seen, and the one an ordinary table hits: DROP
+     * resolves the pool to null and the row goes, but the declaration behind
+     * it survived. So the next transform - or the branch's own automatic drop
+     * at the last Hit Point, followed by transforming again - came back with
+     * an attack armed that nobody had tapped, under the trait of a shape the
+     * character no longer wore.
+     */
+    const from = bigForm();
+    const to = otherForm();
+    seed({ beastform: { ref: from.id, activatedAt: '2026-08-23T00:00:00.000Z' } });
+    play();
+    openGearFold();
+    click(attackRow(from)!);
+    expect(text()).toContain('ARMED');
+
+    const drop = buttons().find((b) => (b.textContent ?? '').trim() === 'DROP');
+    click(drop!);
+    expect(attackRow(from)).toBeUndefined();
+
+    changeForm(to);
+    openGearFold();
+
+    const row = attackRow(to);
+    expect(row, 'the new shape offers no attack row at all').toBeDefined();
+    expect(row?.getAttribute('aria-pressed')).toBe('false');
+    expect(row?.textContent ?? '').not.toContain('ARMED');
   });
 
   it('takes the offer with it when the form is dropped', () => {
