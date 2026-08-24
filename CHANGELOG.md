@@ -12,6 +12,35 @@ before the one below.
 
 ---
 
+## Unreleased
+
+Two decisions taken on 23 August, both of them about what this app is allowed to
+be rather than about what it does.
+
+### The app is called Duality Companion
+
+- **The Name Mark is out of the title.** DPCGL §2.5(a) — *"Name Marks cannot be
+  used in the title of a work or a chapter title"* — is flatter than "not first",
+  so `Daggerheart` leaves the title outright. `Duality` is this app's own word
+  for the roll the whole sheet is built around, and it is not on the Name Mark
+  List, which is three entries long.
+- **The home-screen label was the actual violation.** `short_name` was the bare
+  word `Daggerheart`; it is now `Duality`. The full name is `Duality Companion`.
+- **Both descriptions now open with "Daggerheart Compatible"**, which is what
+  §2.5(c) asks for in descriptive text. They carried the bare mark before.
+- **Nothing you have saved moves.** The repository, the published URL and the
+  IndexedDB name are all untouched, so an installed app keeps working and every
+  character stays where it is.
+
+### The Witherwild campaign frame is no longer shipped
+
+- **Eleven sections leave the rules text**, 27,679 characters — 21.7% of the
+  corpus. The reference screen and rule search go from 80 sections to **69**, and
+  the rules JSON from 137,082 bytes to **107,884** (35,936 gzipped, down from
+  46,795). Everything else in the dataset is byte-identical.
+- **Nothing else was lost with it.** The Campaign Frames section stays: it
+  describes what a campaign frame *is* and never named this one.
+
 ## 0.6.0 — 2026-08-24
 
 The version moved for the same reason 0.4.0's did, and it is worth stating
