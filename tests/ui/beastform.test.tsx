@@ -15,7 +15,7 @@ import 'fake-indexeddb/auto';
 import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Character } from '@shared/types.ts';
+import { TRAIT_LABELS, type Character } from '@shared/types.ts';
 import { deriveStats } from '../../src/engine/character.ts';
 import { beastformDamage } from '../../src/engine/beastform.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
@@ -155,6 +155,26 @@ function openGearFold(): void {
   if (fold !== undefined) click(fold);
 }
 
+/**
+ * The trait the ROLL bar says the next roll will use.
+ *
+ * `DualityRoll` prints `2d12 ±n · TRAIT` on the ROLL control itself, and that
+ * string is built from the roll's own trait state - the one `arm` sets. It is
+ * read from the control and not from `text()` on purpose: the Equipped row
+ * prints `ARMED · STRENGTH` straight out of `form.attack.trait`, so a search
+ * over the whole screen finds the form's trait whether or not the roll ever
+ * received it.
+ */
+function rollBarTrait(): string {
+  const roll = buttons().find((b) => (b.textContent ?? '').trim().startsWith('ROLL'));
+  if (roll === undefined) throw new Error('the ROLL bar is not on screen');
+  const named = / · ([A-Z ]+)/.exec(roll.textContent ?? '')?.[1];
+  if (named === undefined) {
+    throw new Error(`the ROLL bar names no trait: ${JSON.stringify(roll.textContent)}`);
+  }
+  return named.trim();
+}
+
 /** The row in Equipped that declares the worn form's attack. */
 function attackRow(): HTMLButtonElement | undefined {
   return buttons().find(
@@ -195,20 +215,28 @@ describe('the attack a worn form makes', () => {
 
   it('arms, and says so, and the trait it arms is the form’s own', () => {
     const form = bigForm();
+    // The whole test rests on these two being different: a form whose trait is
+    // the one `Play` starts on could not tell arming from doing nothing.
+    expect(form.attack.trait, 'the biggest form arms the default trait, so this proves nothing').not.toBe(
+      'agility',
+    );
     seed({ beastform: { ref: form.id, activatedAt: '2026-08-23T00:00:00.000Z' } });
     play();
     openGearFold();
+
+    expect(rollBarTrait(), 'the roll bar does not start on the trait Play defaults to').toBe(
+      TRAIT_LABELS.agility.toUpperCase(),
+    );
 
     click(attackRow()!);
     expect(attackRow()?.getAttribute('aria-pressed')).toBe('true');
     expect(attackRow()?.textContent ?? '').toContain('ARMED');
 
-    // The chip the roll will use. `arm` sets it from `form.attack.trait`, the
-    // same sentence a weapon arms its own trait by.
-    const armedTrait = buttons().find(
-      (b) => b.getAttribute('aria-pressed') === 'true' && /^[A-Z]{3}$/.test((b.textContent ?? '').trim().slice(0, 3)),
-    );
-    expect(armedTrait, 'nothing carries the armed trait').toBeDefined();
+    // The trait the ROLL bar will actually use, read off the bar and not off
+    // the row. The row prints `form.attack.trait` itself, so a row-side
+    // assertion is green whatever `arm` does with it - which is how the
+    // assertion this replaces stayed green through `setTrait('knowledge')`.
+    expect(rollBarTrait()).toBe(TRAIT_LABELS[form.attack.trait].toUpperCase());
   });
 
   it('takes the offer with it when the form is dropped', () => {

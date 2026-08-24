@@ -530,4 +530,29 @@ describe('whose Experiences a roll is declared with', () => {
   it('answers with nothing for no character at all', () => {
     expect(experiencesFor(null, null)).toEqual([]);
   });
+
+  it('hands back the same empty list every time, and not a fresh one', () => {
+    /*
+     * The half of the contract `toEqual([])` cannot see, and the whole reason
+     * `NO_EXPERIENCES` is a module constant rather than a literal at each
+     * return. `DualityRoll` memoises the armed subset on `[experiences,
+     * armedExperiences]`; a new `[]` per call makes that memo recompute on
+     * every render for ever, and nothing in the suite noticed when the
+     * constant was reverted to two literals.
+     */
+    expect(experiencesFor(null, null)).toBe(experiencesFor(null, null));
+
+    /*
+     * The other branch the constant guards: a companion source standing over a
+     * sheet that carries no companion. `companionSource` cannot produce that
+     * pair - it answers null when the companion is null - so this is the only
+     * place it can be held, and it has to be the SAME array as the first
+     * branch or the memo is back where it started for half its inputs.
+     */
+    const source = companionSource(character.companion, makeStats({ proficiency: 2 }));
+    expect(source?.kind).toBe('companion');
+    const orphan = { ...character, companion: null };
+    expect(experiencesFor(orphan, source)).toBe(experiencesFor(orphan, source));
+    expect(experiencesFor(orphan, source)).toBe(experiencesFor(null, null));
+  });
 });

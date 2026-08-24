@@ -15,7 +15,7 @@ import 'fake-indexeddb/auto';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Character } from '@shared/types.ts';
+import { TRAIT_LABELS, type Character, type Dataset } from '@shared/types.ts';
 import { newCompanion } from '../../src/engine/companion.ts';
 import { useApp, useStats } from '../../src/store/state.ts';
 import { CompanionPanel } from '../../src/ui/player/Companion.tsx';
@@ -58,11 +58,11 @@ afterEach(() => {
   container.remove();
 });
 
-function seed(character: Character): void {
+function seed(character: Character, over: Dataset = dataset): void {
   useApp.setState({
     ready: true,
     storageError: null,
-    dataset,
+    dataset: over,
     index,
     characters: [character],
     activeId: character.id,
@@ -120,10 +120,35 @@ const byText = (needle: string): HTMLElement => {
   return el;
 };
 
+/**
+ * The shipped dataset with one of folio 18's level-up options taken out.
+ *
+ * `companionUpgrades` reads the options out of the `- Name: text` bullets of
+ * one rules section, so a shorter list is a shorter body and nothing else. It
+ * stands in for the case the move out of `src/` was made for: a layer that
+ * rewrites the folio.
+ */
+function datasetWithFewerCompanionOptions(): Dataset {
+  const bullet = /^- [^:\n]+: /;
+  return {
+    ...dataset,
+    rules: dataset.rules.map((section) => {
+      if (section.id !== 'leveling-up-your-companion') return section;
+      const lines = section.body.split('\n');
+      const last = lines.map((l) => bullet.test(l)).lastIndexOf(true);
+      if (last === -1) throw new Error('the companion section carries no options to drop');
+      return { ...section, body: [...lines.slice(0, last), ...lines.slice(last + 1)].join('\n') };
+    }),
+  };
+}
+
 /** A companion panel on a played character, with the sheet dialog shut. */
-function mountPanel(companion = newCompanion('Sable', 'A grey wolf')): Character {
+function mountPanel(
+  companion = newCompanion('Sable', 'A grey wolf'),
+  over: Dataset = dataset,
+): Character {
   const character = { ...playedCharacter(), companion };
-  seed(character);
+  seed(character, over);
   act(() => {
     root.render(<CompanionPanel stats={playedStats(character)} layout="desktop" />);
   });
@@ -157,9 +182,23 @@ describe('the level-up options reach the sheet from the dataset', () => {
   });
 
   it('counts the boxes against the dataset, not against a literal 8', () => {
-    mountPanel();
+    /*
+     * Against a dataset that carries a different number, because against the
+     * shipped one `0 OF 8 MARKED` is what a hard-coded 8 prints too. That is
+     * not a hypothetical: `Companion.tsx`'s `{upgrades.length}` was replaced
+     * with the literal `8` and this file stayed 24/24 green.
+     *
+     * A layer that rewrites folio 18 is the case this is really about - it is
+     * the whole reason the options were moved out of `src/` and into the rules
+     * stream - and a sheet that kept saying 8 would be counting the book the
+     * app is no longer drawing.
+     */
+    const short = datasetWithFewerCompanionOptions();
+    expect(companionUpgrades(short.rules)).toHaveLength(7);
+    mountPanel(undefined, short);
     openSheet();
-    expect(text()).toContain('0 OF 8 MARKED');
+    expect(text()).toContain('0 OF 7 MARKED');
+    expect(text()).not.toContain('0 OF 8 MARKED');
   });
 
   it('marks a box, and the chip on the panel counts it', () => {
@@ -306,6 +345,22 @@ describe('declaring the companion’s attack from Play', () => {
     return character;
   };
 
+  /**
+   * The trait the roll bar says the next roll will use - the box beside the two
+   * Duality dice, which reads `SPELLCAST · AGILITY` for a Spellcast Roll and
+   * the trait's own name for everything else.
+   *
+   * Scoped to that box by walking out of the HOPE die, because the same string
+   * is printed a second time by `SpellcastLine` under the class name. Reading
+   * the whole screen instead is what made the old assertion vacuous.
+   */
+  const rollBarTrait = (): string => {
+    const hope = container.querySelector('button[aria-label^="HOPE die"]');
+    const box = hope?.parentElement?.lastElementChild;
+    if (box == null || box === hope) throw new Error('the roll bar’s trait box is not on screen');
+    return (box.firstElementChild?.textContent ?? '').trim();
+  };
+
   const attackBox = (): HTMLButtonElement | undefined =>
     buttons().find((b) => (b.getAttribute('aria-label') ?? '').includes('to attack'));
 
@@ -318,13 +373,25 @@ describe('declaring the companion’s attack from Play', () => {
   });
 
   it('arms a Spellcast Roll, because that is the roll the rule names', () => {
-    showCompanion();
+    const c = showCompanion();
+    const spellcast = deriveStats(c, dataset, index).spellcastTrait;
+    expect(spellcast, 'a Beastbound Ranger with no Spellcast trait proves nothing here').not.toBeNull();
+
+    // Before: the bar names a trait, and it is not a Spellcast Roll.
+    expect(rollBarTrait()).toBe(TRAIT_LABELS[spellcast!].toUpperCase());
+
     click(attackBox()!);
     expect(attackBox()?.getAttribute('aria-pressed')).toBe('true');
     expect(text()).toContain('ARMED');
     // The trait slot the roll will use. "Make a Spellcast Roll to connect with
     // your companion and command them to take action."
-    expect(text()).toContain('SPELLCAST');
+    //
+    // Read off the roll bar and not off `text()`. `SpellcastLine` prints the
+    // identical string at the top of the sheet for every character whose
+    // subclass declares a Spellcast trait, so an unscoped search for it was
+    // green before anything was armed - which is how the assertion this
+    // replaces survived `setTrait('agility')` on the whole suite.
+    expect(rollBarTrait()).toBe(`SPELLCAST · ${TRAIT_LABELS[spellcast!].toUpperCase()}`);
   });
 
   it('offers no attack while they are out of the scene', () => {

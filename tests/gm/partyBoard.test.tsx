@@ -33,6 +33,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Character, CompanionState } from '../../shared/types.ts';
+import { deriveStats } from '../../src/engine/character.ts';
 import { newCompanion } from '../../src/engine/companion.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
@@ -236,20 +237,43 @@ describe('a companion on the board', () => {
   });
 
   it('draws nothing for a sheet with no companion', () => {
-    put(sheet('a', 'Marek'));
+    /*
+     * Both rows on the board at once, and exactly one companion line between
+     * them.
+     *
+     * An absence on its own is what stood here - `not.toMatch(/STRESS \d+\/\d+/)`,
+     * under a note claiming the companion line is the only thing on this board
+     * that writes STRESS as `n/n`. It is not: `Pill` writes the character's own
+     * the same way and only the missing space keeps the pattern off it, so the
+     * assertion was one whitespace change away from passing for the wrong
+     * reason - which is verbatim the flaw it was written to correct. Counting
+     * the matches on a board that carries one row of each kind cannot go quiet
+     * that way: a needle that stops finding the companion line fails here
+     * rather than passing everywhere.
+     */
+    put(sheet('a', 'Marek'), withCompanion());
     board();
-    // The companion line is the only thing on this board that writes STRESS as
-    // `n/n`; the character's own Stress is a `Pill`. Asserting on the absence
-    // of a name would pass for a sheet whose companion simply had none.
-    expect(text()).not.toMatch(/STRESS \d+\/\d+/);
-    expect(text()).not.toContain('ASHFOOT');
+    expect(text().match(/ · EVASION \d+ · /g) ?? []).toHaveLength(1);
+    expect(text()).toContain('ASHFOOT');
   });
 
   it('names them, with their own Evasion and the pool that will be rolled', () => {
-    put(withCompanion());
+    const character = withCompanion();
+    put(character);
     board();
     expect(text()).toContain('ASHFOOT');
-    expect(text()).toContain('EVASION');
+    /*
+     * THEIR Evasion, with the number attached to the word.
+     *
+     * `expect(text()).toContain('EVASION')` was what stood here, and the row
+     * above this line already prints EVASION for the Ranger: deleting the
+     * companion's own figure outright left that assertion green, which is the
+     * whole reason the line was added. The fixture's own Evasion is asserted
+     * beside it so the two can never quietly become the same number.
+     */
+    const own = deriveStats(character, dataset, index).evasion;
+    expect(own, 'the companion shares the Ranger’s Evasion, so this proves nothing').not.toBe(12);
+    expect(text()).toContain('EVASION 12');
     // Proficiency applied, because that is the roll: their die, the Ranger's
     // Proficiency. The fixture is level 3, so Proficiency is 2.
     expect(text()).toContain('2d6+2');
@@ -260,6 +284,20 @@ describe('a companion on the board', () => {
     put(withCompanion({ damageType: 'mag' }));
     board();
     expect(text()).toContain('MAG');
+  });
+
+  it('says physical when that is what the sheet records, and not by default', () => {
+    /*
+     * The direction nothing held. With only the `mag` case above and the
+     * legacy row below - where the field is absent - the whole line could be
+     * inverted to `damageType === undefined ? 'PHY' : 'MAG'` and this file
+     * stayed 14/14 green. A companion who was *chosen* to be physical is the
+     * one shape neither of those covers, and it is the commonest one there is.
+     */
+    put(withCompanion({ damageType: 'phy' }));
+    board();
+    expect(text()).toContain('PHY');
+    expect(text()).not.toContain('MAG');
   });
 
   it('says when the animal has left the scene', () => {
