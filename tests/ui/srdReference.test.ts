@@ -641,10 +641,10 @@ describe('ruleSection', () => {
       const kinds = new Set((ruleSection(rules, rule.id)?.blocks ?? []).flatMap((b) => b.parts.map((p) => p.kind)));
       return { list: kinds.has('list'), table: kinds.has('table') };
     });
-    expect(shapes.filter((s) => s.list).length).toBe(38);
+    expect(shapes.filter((s) => s.list).length).toBe(35);
     expect(shapes.filter((s) => s.table).length).toBe(7);
     expect(shapes.filter((s) => s.list && s.table).length).toBe(3);
-    expect(shapes.filter((s) => s.list || s.table).length).toBe(42);
+    expect(shapes.filter((s) => s.list || s.table).length).toBe(39);
     expect(rules.flatMap((rule) => tables(rule.id))).toHaveLength(12);
 
     /*
@@ -653,12 +653,17 @@ describe('ruleSection', () => {
      * seventy-five-section dataset, and four short after folios 12 and 18
      * arrived - and nothing here noticed, because every figure above counts
      * SECTIONS and the docblock counts PARAGRAPHS.
+     *
+     * It has now done the job it was written for. Dropping the Witherwild
+     * frame took the dataset 80 -> 69 sections and this line 74 -> 64, and it
+     * was the assertion that reddened rather than a sentence that quietly
+     * stopped being true.
      */
     const bullets = rules
       .flatMap((rule) => ruleSection(rules, rule.id)?.blocks ?? [])
       .flatMap((block) => block.parts)
       .filter((part) => part.kind === 'list');
-    expect(bullets).toHaveLength(74);
+    expect(bullets).toHaveLength(64);
   });
 
   it('answers null for a section this dataset does not carry', () => {

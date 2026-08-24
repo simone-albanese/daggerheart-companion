@@ -645,14 +645,16 @@ export type BlockPart =
  * the same rule, rather than a table that has quietly eaten a sentence.
  *
  * Measured against `data/srd-1.0.json`: all twelve table paragraphs and all
- * seventy-four bullet paragraphs in the shipped file are already pure, so
+ * sixty-four bullet paragraphs in the shipped file are already pure, so
  * neither test costs the dataset a thing today. Both are here for the layer
  * that is not this file. (It read "seventy" while the dataset carried
  * seventy-five sections, and was right then; folios 12 and 18 added four more
  * pure bullet paragraphs - beastform options, the companion's STEP 3, taking
  * damage as Stress, and levelling up - and the spelled-out number escaped the
- * sweep that moved the digits. `srdReference.test.ts` pins the figure now, so
- * the next dataset that moves it reddens instead of ageing.)
+ * sweep that moved the digits. `srdReference.test.ts` pins the figure now, and
+ * it earned that on the first dataset change after it was written: dropping the
+ * Witherwild frame took the count 74 -> 64, and the test went red on purpose
+ * instead of the sentence ageing in silence a second time.)
  *
  * The SRD's own emitted markdown has no nesting - `making-gm-moves` writes a
  * lead bullet and its four sub-bullets at the same depth - so this flattens
@@ -996,13 +998,16 @@ export interface RuleHit {
  * worst of six queries including one that matches nothing: **0.172 ms** for the
  * whole of what this function does, **0.116 ms** for the reject pass on its own
  * and **0.0016 ms** for the titles alone, taken against the seventy-five-section
- * dataset this app shipped 0.5.0 with. The dataset is **eighty** sections now -
- * **137,082** bytes of JSON, **46,795** of it gzipped at zlib's default level -
- * inside a chunk `index.html` already preloads. The sizes are re-measured; the
+ * dataset this app shipped 0.5.0 with. The dataset is **sixty-nine** sections
+ * now - **107,884** bytes of JSON, **35,936** of it gzipped at zlib's default
+ * level - inside a chunk `index.html` already preloads, the Witherwild frame
+ * having been dropped. The sizes are re-measured; the
  * timings are not, because they were taken on a particular machine and a fresh
  * number from a different one would read as a correction rather than as what it
  * is. Four percent more bytes to walk does not move an argument with three
- * orders of magnitude in it. A phone's engine is slower than this machine's
+ * orders of magnitude in it, and neither does the twenty-one percent *fewer*
+ * this file walks now - a move in the direction that was already the safe one.
+ * A phone's engine is slower than this machine's
  * by a single-digit factor, and that still leaves three orders of magnitude
  * between a keystroke and anything a person can feel.
  *

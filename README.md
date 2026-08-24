@@ -1,7 +1,7 @@
-# Daggerheart Companion
+# Duality Companion
 
-A digital character sheet and GM toolkit for **Daggerheart**. Local-first,
-offline, no account, no server, no telemetry.
+**Daggerheart Compatible.** A digital character sheet and GM toolkit.
+Local-first, offline, no account, no server, no telemetry.
 
 The app ships with the whole SRD already in it — 189 domain cards, 129
 adversaries, 19 environments, nine classes and every table — so nothing has to

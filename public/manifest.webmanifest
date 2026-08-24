@@ -1,7 +1,7 @@
 {
-  "name": "Daggerheart Companion",
-  "short_name": "Daggerheart",
-  "description": "Offline character sheet and GM tools for Daggerheart. No account, no network.",
+  "name": "Duality Companion",
+  "short_name": "Duality",
+  "description": "Daggerheart Compatible. Offline character sheet and GM tools. No account, no network.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
