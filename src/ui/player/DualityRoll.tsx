@@ -8,8 +8,15 @@
  *
  * Two ways in, and only one of them is on by default. Tap ROLL and the app
  * rolls. A table that rolls real dice turns on "Type your own dice" in
- * settings, and then either face can be tapped and typed into - the app still
- * resolves the outcome, the Hope/Fear economy and the critical.
+ * settings, and then every die of the roll can be tapped and typed into - the
+ * app still resolves the outcome, the Hope/Fear economy and the critical.
+ *
+ * EVERY die, which it did not use to mean. The two faces were typed and the
+ * advantage d6 and the bonus dice were rolled by `cryptoRng` underneath them,
+ * and the sum was presented as the player's roll - the app inventing a number
+ * at a table that had switched it off. The armed dice have slots of their own
+ * now, `ExtraSlot` carries the argument, and a roll with a die still blank does
+ * not resolve at all rather than resolving on a number nobody rolled.
  *
  * Typing used to be unconditional, and it cost more than it looked. The two
  * faces hold the best band on a phone, directly above ROLL and directly under
@@ -451,6 +458,371 @@ function Die({ label, color, value, onEdit, size, editable }: DieProps): React.J
   );
 }
 
+/**
+ * Which die a typed face belongs to. Hope and Fear are the pair `Die` draws;
+ * the rest are one advantage d6 and one entry per held die armed into the
+ * roll, keyed by the tray id so arming and disarming cannot shuffle the faces
+ * already typed onto the dice beside them.
+ */
+type TypedKey = 'hope' | 'fear' | 'advantage' | `bonus:${string}`;
+
+/** One die on the roll that is neither Hope nor Fear, as the slot row draws it. */
+interface ExtraDie {
+  key: TypedKey;
+  /** ADV, DIS or +D6: the same word the control that armed it wears. */
+  label: string;
+  sides: number;
+  color: string;
+  value: number | null;
+}
+
+/**
+ * The extra-dice row of one roll, built in one place because it is built at two
+ * moments: from the live declaration while a roll is being assembled, and from
+ * the declaration a roll HAD at the instant it resolved - which `resolve` then
+ * freezes, because it clears that declaration in the same breath.
+ *
+ * The labels and the colours are the ones the controls that armed them wear:
+ * ADV is `--ok` and DIS is `--damage` in the advantage group, a held die is
+ * `+d6` on its chip. Two identical d6 slots are otherwise indistinguishable,
+ * and typing the Rally die into the advantage slot is a wrong total that
+ * nothing on the screen would contradict.
+ */
+function extraSlots(
+  sign: 0 | 1 | -1,
+  dice: readonly HeldDie[],
+  faces: { advantage: number | null; bonus: Record<string, number> },
+): ExtraDie[] {
+  return [
+    ...(sign === 0
+      ? []
+      : [
+          {
+            key: 'advantage' as const,
+            label: sign === 1 ? 'ADV' : 'DIS',
+            sides: 6,
+            color: sign === 1 ? 'var(--ok)' : 'var(--damage)',
+            value: faces.advantage,
+          },
+        ]),
+    ...dice.map((d) => ({
+      key: `bonus:${d.id}` as const,
+      label: `+D${String(d.sides)}`,
+      sides: d.sides,
+      color: 'var(--text)',
+      value: faces.bonus[d.id] ?? null,
+    })),
+  ];
+}
+
+/**
+ * The instruction line, from the dice a roll is still waiting for.
+ *
+ * Exported and pure so its worst case can be counted rather than asserted: it
+ * names EVERY outstanding die, and `rollAffordance.test.ts` builds the longest
+ * one the surface can be MADE to draw out of `MAX_HELD`, the tray's own sizes
+ * and the `started` gate that decides whether the line is drawn at all. The
+ * docblock over `rollLine` derives what that line costs the phone bar, and a
+ * derivation nothing drives is how that docblock came to claim 38 characters
+ * for a line that reaches 110 - and then, correcting itself, 116 for a line the
+ * code cannot reach.
+ */
+export function stillToTypeLine(outstanding: readonly string[]): string | null {
+  return outstanding.length === 0 ? null : `STILL TO TYPE: ${outstanding.join(' · ')}`;
+}
+
+/**
+ * THE FACES OF ONE ROLL, AND WHETHER THAT ROLL IS OVER.
+ *
+ * THE CONTRACT, WHICH IS THE WHOLE OF THIS TYPE: a total the surface presents
+ * is composed only of faces entered for that roll - every one of them, and
+ * nothing else.
+ *
+ * Holding that took a second field, because the first version held the faces
+ * and nothing about which roll they belonged to. `resolve` clears the
+ * declaration - the SRD makes you declare before you roll, so an Experience or
+ * a Rally die left standing would inflate the next roll silently - and the
+ * faces stayed behind it with no owner. Re-arm the same tray die and its slot
+ * arrived holding the previous roll's face, and a roll made of it resolved on a
+ * number rolled for a different roll; type one face after an app-made roll and
+ * the app's advantage die went into the player's total, which is the defect
+ * this whole file was rewritten for, one roll later.
+ *
+ * So `resolved` is the owner. Null while a roll is being assembled: the live
+ * declaration says what the roll is made of, and a face may be typed into it.
+ * Non-null once it has resolved: it is the row that roll was made of, frozen at
+ * that instant so the dice behind the total stay on the glass after the
+ * declaration that named them is gone - and the panel is now a RECORD. The next
+ * face typed starts a new roll from `BLANK` rather than being added to it, and
+ * `stillToType` names every die that roll now wants, including the ones showing
+ * a number a moment ago.
+ *
+ * WHAT ELSE CLEARS IT, WHERE ANYBODY CAN TYPE: arming or disarming a held die,
+ * and changing the advantage sign. Both change what the roll is made of, which
+ * makes it a different roll - and while one is still being assembled, disarming
+ * a die takes its face with it, so a face lives exactly as long as the die it
+ * was typed for stays armed. A character switch clears it too, in the effect
+ * that clears the rest of the declaration.
+ *
+ * WITH TYPING OFF, NONE OF THAT IS TRUE AND NONE OF IT IS NEEDED. `resolve` is
+ * then the only writer: no face is an input, `extraDice` is empty, and every
+ * field here is a readout of the last roll the app made. A declaration changed
+ * afterwards is a statement about the NEXT roll and leaves this alone -
+ * `redeclare` returns before it touches anything. See the two clauses on
+ * `redeclare`.
+ *
+ * NOTHING ELSE MAY WRITE IT. In particular the correcting tap is gone: an
+ * edited face used to re-resolve against whatever else was left in here, which
+ * is indistinguishable from the second roll of a session and was being used as
+ * both.
+ */
+interface Manual {
+  hope: number | null;
+  fear: number | null;
+  advantage: number | null;
+  /** Keyed by tray id and never by position: see `TypedKey`. */
+  bonus: Record<string, number>;
+  /** The row this roll resolved with, or null while it is still open. */
+  resolved: ExtraDie[] | null;
+}
+
+/** A panel with no roll in it. Spread, never mutated. */
+const BLANK: Manual = { hope: null, fear: null, advantage: null, bonus: {}, resolved: null };
+
+/**
+ * A ROLL THAT HAS BEEN MADE, AND EVERY PART OF ITS TOTAL THE PANEL GOES ON
+ * PRINTING.
+ *
+ * `Manual.resolved` freezes the ROW, on `DamageRow`'s rule that "a row of dice
+ * a player has just read aloud is never sitting beside a total that does not
+ * come from it". The dice are not the whole of a total. `rollDuality` adds the
+ * trait modifier to them, and the cockpit prints that modifier's NAME in the
+ * same 132px box as the total, on the line directly above it - so a frozen
+ * total beside a live label read `AGILITY / 10` for a 10 that a different
+ * trait produced, and the three figures that box and its neighbours show at
+ * once (HOPE 1, FEAR 8, TOTAL 10) stopped adding up on their own faces. The
+ * row was bought and the addend beside it was not.
+ *
+ * THE CHOICE WAS TO FREEZE THE LABEL OR TO DROP THE TOTAL when the trait
+ * moves, and dropping it is this round's other defect in a second costume:
+ * with the roller on and typing off, that total is the only record of the roll
+ * anywhere on the screen. So the label is frozen WITH the result, in one state
+ * rather than two that can disagree - which is the argument `Manual` makes for
+ * itself one paragraph up.
+ *
+ * WHAT IS DELIBERATELY NOT IN HERE. `modSign` on the ROLL control is the
+ * arithmetic of the NEXT roll and has to stay live; the Difficulty is not an
+ * addend of the total at all; and the Experiences are cleared by the roll that
+ * spent them, so anything armed after it is drawn under `NEXT:` already.
+ */
+interface Rolled {
+  result: DualityResult;
+  /** The trait this total was made with, in the words the panel prints. */
+  traitLabel: string;
+}
+
+/**
+ * THE DICE THE APP USED TO ROLL FOR A TABLE THAT HAD SAID IT DOES NOT WANT
+ * THAT.
+ *
+ * `rollDuality` takes `fixed` for four things - hope, fear, the advantage d6
+ * and every bonus die - and this surface only ever handed it two. So a player
+ * who types their own dice typed a Hope and a Fear, and the app rolled the
+ * advantage die and the Rally die with `cryptoRng`, added them, and printed the
+ * sum as the number the player had just rolled. On a roll with ADV and a d6
+ * armed that is 2 to 12 of a total the app invented at a table that switched
+ * the roller off. It is the failure this file's `rollAffordance` docblock is
+ * written against, one indirection further in: not a control claiming a
+ * capability it lacks, but a control quietly using one it was told not to.
+ *
+ * SO EVERY DIE THAT COUNTS GETS A TARGET, AND NOTHING RESOLVES UNTIL THEY ALL
+ * HAVE A FACE. The refusal is the honest half: the roll is held back rather
+ * than a blank filled in, and the bar says which die it is still waiting for.
+ * Nobody is made to type a die they do not have either - a slot exists only for
+ * a die the player armed themselves, so the row is empty on the ordinary roll
+ * and never asks for a d6 nobody picked up.
+ *
+ * WHY A SLOT AND NOT ANOTHER `Die`. `Die` is 62px tall at `size={26}` and is
+ * half of a two-up row; four of them would be two more 62px bands on a phone,
+ * for dice that are armed on maybe one roll in five. This is `FaceSlot`'s
+ * idiom from `DamageRoll.tsx` instead - one `var(--tap)` box, a label and a
+ * number - and it is a copy rather than an import because that component is not
+ * exported and that file is not this lane's to change. What is copied is the
+ * gesture, which is the part the table learns: a slot opens a grid of faces,
+ * and picking one closes it.
+ *
+ * ERGONOMICS. TARGET SIZE: `flex: '1 1 44px'` with `minWidth`/`minHeight` of
+ * `var(--tap)` declared inline, so a slot is never under 44 in either direction
+ * on any layout - two on a 393px phone are (369 - 6) / 2 = 181.5 wide, four are
+ * 87.75, and the row wraps at eight rather than shrinking a ninth, because
+ * 8 * 44 + 7 * 6 = 394 is over the 369 that column has. The cockpit's 402 holds
+ * those same eight. THUMB ARC: this row goes ABOVE the Hope and Fear faces,
+ * which keeps the two big faces and ROLL in the band directly under the thumb
+ * that this file's own docblock calls the best on the screen. It is also the
+ * reading order the ARMED strip sets up: the strip names ADV and +D6, and the
+ * dice for exactly those things are the next thing down. READ VERSUS TOUCH: the
+ * label is read - it is the only thing telling two identical d6 slots apart -
+ * and the number beside it is read back afterwards; what is touched is the
+ * whole 44px box.
+ */
+function ExtraSlot({
+  die,
+  done,
+  open,
+  onToggle,
+}: {
+  die: ExtraDie;
+  /**
+   * The roll these dice were typed for has resolved, so the slot is the record
+   * of it rather than a way into it - see `Manual`. It says so in its own name
+   * and it does not open: a keypad here would be an offer to edit one die of a
+   * finished roll, and committing a face is what starts the next one.
+   *
+   * `disabled` is only half of that, and it was the only half for a while. The
+   * grid is drawn from `typing`, not from the slot, so a keypad already open
+   * when the app rolled stayed open over the frozen row - the exact offer this
+   * paragraph says cannot be made. `resolve` shuts it; the note there says what
+   * pressing a key in it did.
+   */
+  done: boolean;
+  open: boolean;
+  onToggle: () => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      data-die={die.key}
+      {...(done ? {} : { 'aria-expanded': open })}
+      disabled={done}
+      aria-label={`${die.label} d${die.sides}${
+        die.value === null ? ', not entered' : `: ${die.value}`
+      } - ${
+        done
+          ? 'the roll it was typed for is done'
+          : `tap to ${open ? 'stop typing it' : 'enter what it showed'}`
+      }`}
+      onClick={onToggle}
+      style={{
+        // `1 1 44px`, so a slot grows into the row it is given and wraps to a
+        // second row rather than going under the floor. `FaceSlot`'s number.
+        flex: '1 1 44px',
+        minWidth: 'var(--tap)',
+        minHeight: 'var(--tap)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        padding: '0 10px',
+        borderRadius: 'var(--r3)',
+        background: open ? 'var(--raised)' : 'var(--app)',
+        border: `1px solid ${die.value === null ? 'var(--line-soft)' : die.color}`,
+      }}
+    >
+      <span className="t-meta" style={{ color: die.color, letterSpacing: '0.14em' }}>
+        {die.label}
+      </span>
+      <span
+        style={{
+          font: '800 15px/1 var(--sans)',
+          color: die.value === null ? 'var(--dim)' : 'var(--text)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {die.value ?? '—'}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The faces of one armed die, under the slot it was opened from.
+ *
+ * FIVE COLUMNS, WHICH IS `FaceKeypad`'S NUMBER AND NOT `DieKeypad`'S FOUR. A
+ * Duality die is always a d12; this one draws the advantage d6 or one of the
+ * tray's own sizes, which `DIE_SIZES` fixes at d4, d6, d8, d10 and d12 - so
+ * twelve keys are three rows at five across against three rows at four. A key
+ * is `(G - 26) / 5` for a grid of outer width G - 2 of border at dpr 1, 12 of
+ * padding and four 3px gutters - and G here is the whole row, because there is
+ * no exit column taking `var(--tap)` and a gap out of it first. So a key is
+ * **54.0** at a 320px viewport, **68.6** at 393, and **75.2** on the cockpit's
+ * 402px panel - 73.6 with the 8px bar that `.scroll` bounds and
+ * `scrollbar-gutter: stable` reserves. Over the 44px coarse floor in width at
+ * every width this app draws for, and the height is `minHeight: var(--control)`,
+ * which is 44 below 1180 and 34 on a fine-pointer cockpit, exactly as it is for
+ * the other two keypads on this screen.
+ *
+ * IT OPENS UNDER ITS SLOT RATHER THAN OVER IT, WHICH IS THE ONE PLACE THIS
+ * DIVERGES FROM THE OTHER TWO. `DieKeypad` takes the whole face row and has a
+ * readback column bolted to it for the sibling face it displaced - its docblock
+ * argues that at length, because taking the row took the number you had just
+ * typed off the glass. Here there can be up to thirteen dice - one advantage
+ * die and `MAX_HELD` - so a displaced row is up to thirteen numbers with
+ * nowhere to go, and no column holds that.
+ * Leaving the slots standing solves it outright: everything already typed stays
+ * exactly where it was, the open slot is the way out - it is `aria-expanded`
+ * and a second tap closes it - and focus never leaves the document, because
+ * nothing is unmounted.
+ *
+ * WHAT IT COSTS, AND WHO PAYS. Rows are `ceil(sides / 5)` against the five
+ * columns declared below, so the grid is `rows * var(--control) + (rows - 1) * 3
+ * + 14` of padding and border. Over `DIE_SIZES` and the advantage d6 that is
+ * one row for the d4, two for the d6, d8 and d10, and three for the d12 alone -
+ * so **105** on a phone and **85** on the cockpit for everything up to the d10,
+ * and **152** and **122** for the d12. This paragraph called the d10 and the
+ * d12 "both three rows" and put the d10 in the worst case with it; `ceil(10 / 5)`
+ * is 2, so a d10 costs exactly what the d6 it was being contrasted with costs.
+ * The two three-row numbers are the ones `DieKeypad`'s docblock derives for its
+ * own three rows, which is the cross-check that this arithmetic is the house
+ * one, and `declares the floors the slot row and its keys are read at` counts
+ * the rows off `DIE_SIZES` so this cannot go stale again.
+ *
+ * That is real height on a 393x852 phone and it is paid by the scroll: the Play
+ * screen scrolls deliberately, and it is paid only while a keypad is open, by a
+ * player who is looking at the thing they are typing into and is not reaching
+ * for ROLL - which comes back up the moment the last face lands, because the
+ * last face resolves the roll and shuts the grid.
+ */
+function ExtraKeypad({
+  die,
+  onSet,
+}: {
+  die: ExtraDie;
+  onSet: (value: number) => void;
+}): React.JSX.Element {
+  return (
+    <div
+      role="group"
+      aria-label={`The faces of the ${die.label} d${die.sides}`}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: 3,
+        padding: 6,
+        borderRadius: 'var(--r4)',
+        background: 'var(--app)',
+        border: `1.5px solid ${die.color}`,
+      }}
+    >
+      {Array.from({ length: die.sides }, (_, i) => i + 1).map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onSet(n)}
+          style={{
+            minHeight: 'var(--control)',
+            borderRadius: 'var(--r1)',
+            background: n === die.value ? die.color : 'var(--raised)',
+            color: n === die.value ? 'var(--app)' : 'var(--text)',
+            font: '600 12px/1 var(--mono)',
+          }}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   stats: DerivedStats;
   trait: RollTrait;
@@ -581,25 +953,62 @@ export function DualityRoll({
   const update = useApp((s) => s.update);
   const digitalDice = useApp((s) => s.prefs.digitalDice);
   const manualDice = useApp((s) => s.prefs.manualDice);
+  /*
+   * What the two switches leave this surface able to do, read once and read
+   * here - above every piece of state, because `redeclare` is one of the
+   * things that has to ask.
+   *
+   * It used to be derived three hundred lines down, beside the first thing
+   * that drew something with it, and that was fine while the only questions
+   * were what to draw. It is not a drawing question any more: whether a
+   * change to the declaration REOPENS a roll or leaves a record standing is
+   * `canType`'s answer, and `redeclare` is above every layout.
+   */
+  const affordance = rollAffordance(digitalDice, manualDice);
+  const { canRoll, canType } = affordance;
+  const idleLabel = affordance.label;
 
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [advantage, setAdvantage] = useState<0 | 1 | -1>(0);
   const [reaction, setReaction] = useState(false);
-  const [result, setResult] = useState<DualityResult | null>(null);
-  const [manual, setManual] = useState<{ hope: number | null; fear: number | null }>({
-    hope: null,
-    fear: null,
-  });
   /*
-   * Which face the keypad is open on, and why it is not `Die`'s own state.
+   * The roll that has been made, or none - and `result` as every reader of it
+   * has always spelled it. One state and not two: see `Rolled`.
+   */
+  const [roll, setRoll] = useState<Rolled | null>(null);
+  const result = roll?.result ?? null;
+  /*
+   * Every die of this roll that a player can type, in one state, with the
+   * contract and the lifecycle written on `Manual` itself.
+   *
+   * It was `{ hope, fear }`, which is exactly as far as the typed roll went:
+   * the advantage d6 and the bonus dice were rolled by the app underneath a
+   * total the player was told was theirs. The bonus faces are keyed by tray id
+   * rather than by position, because the armed set is a filter over a tray that
+   * the same control row can add to and discard from mid-declaration - by
+   * index, discarding the first of two held dice would slide the second one's
+   * typed face onto a die it was never rolled for.
+   *
+   * One object and not four `useState`s, so there is one place that clears it
+   * and one place that fills it. Four of those could disagree, and this is the
+   * state the screen presents as what the physical dice showed.
+   */
+  const [manual, setManual] = useState<Manual>(BLANK);
+  /*
+   * Which die is being typed, and why it is not `Die`'s own state.
    *
    * The keypad needs the whole face row to hold twelve targets at the floor -
    * inside one face it was 24px wide on the cockpit, and the arithmetic is
    * over `DieKeypad`. A component that replaces both of its siblings cannot be
    * one of them, so the surface that draws the row owns the answer to "which
    * die is being typed" and both layouts read it.
+   *
+   * It answers for the armed dice too, and that is deliberate: one open keypad
+   * at a time on this surface, whichever row it belongs to, so Escape and the
+   * character-switch reset have one thing to shut rather than two that can be
+   * open at once over different halves of the same roll.
    */
-  const [typing, setTyping] = useState<'hope' | 'fear' | null>(null);
+  const [typing, setTyping] = useState<TypedKey | null>(null);
   /* The cockpit panel's fold, and whether it has anything under it. Declared
      here rather than in the desktop branch because that branch is a `return`
      past a phone one, and a hook cannot live behind a `return`. */
@@ -661,7 +1070,7 @@ export function DualityRoll({
    * exists only to be read once in the effect that follows the change, and it
    * starts null so a fresh mount focuses nothing.
    */
-  const wasTyping = useRef<'hope' | 'fear' | null>(null);
+  const wasTyping = useRef<TypedKey | null>(null);
   useEffect(() => {
     if (typing !== null) {
       wasTyping.current = typing;
@@ -670,9 +1079,33 @@ export function DualityRoll({
     const which = wasTyping.current;
     if (which === null) return;
     wasTyping.current = null;
-    document
-      .querySelector<HTMLElement>(`button[aria-label^="${which === 'hope' ? 'HOPE' : 'FEAR'} die"]`)
-      ?.focus();
+    /*
+     * Two selectors, because there are two kinds of target and only one of
+     * them is unmounted by opening its keypad. A `Die` is found by the
+     * accessible name it has always had; an `ExtraSlot` carries `data-die`,
+     * because its name holds the face it is showing and the word for the state
+     * it is in, and neither of those is a stable prefix to match on.
+     */
+    const back = document.querySelector<HTMLButtonElement>(
+      which === 'hope' || which === 'fear'
+        ? `button[aria-label^="${which === 'hope' ? 'HOPE' : 'FEAR'} die"]`
+        : `button[data-die="${which}"]`,
+    );
+    /*
+     * AND SOMEWHERE TO GO WHEN THAT SLOT NO LONGER TAKES FOCUS. The face that
+     * completes a roll resolves it, and an extra die's slot is `disabled` from
+     * that instant - it is the record of a finished roll, not a way into one -
+     * so the keyboard came back out of the keypad onto `<body>`, which is the
+     * whole failure this effect exists for. The two faces are where the next
+     * roll is typed, so the HOPE face takes it; with typing off there is no
+     * face to take it and nothing here matches, which is the state that has no
+     * keypad to come back from either.
+     */
+    if (back !== null && !back.disabled) {
+      back.focus();
+      return;
+    }
+    document.querySelector<HTMLElement>('button[aria-label^="HOPE die"]')?.focus();
   }, [typing]);
   const [armedDice, setArmedDice] = useState<string[]>([]);
   /*
@@ -742,8 +1175,8 @@ export function DualityRoll({
      * there is something to name - and the docblock on `armedMods` is where
      * that is argued.
      */
-    setResult(null);
-    setManual({ hope: null, fear: null });
+    setRoll(null);
+    setManual(BLANK);
     // And the keypad shuts with them. It is opened on a face, the face it was
     // opened on has just been cleared, and a keypad standing over an arriving
     // sheet is this component's oldest bug in its newest control.
@@ -766,10 +1199,18 @@ export function DualityRoll({
     () => experiences.filter((e) => armedExperiences.includes(e.id)),
     [experiences, armedExperiences],
   );
-  const bonusDice = useMemo(
-    () => held.filter((d) => armedDice.includes(d.id)).map((d) => d.sides),
+  /*
+   * The armed dice themselves and then their sizes, rather than the sizes
+   * alone. `rollDuality` only ever needed the sizes, and that is all this used
+   * to derive - but a typed roll has to put a face back on the die it was
+   * typed for, and a `number[]` of sides has nothing to key that on. The tray
+   * ids come from here.
+   */
+  const armedHeld = useMemo(
+    () => held.filter((d) => armedDice.includes(d.id)),
     [held, armedDice],
   );
+  const bonusDice = useMemo(() => armedHeld.map((d) => d.sides), [armedHeld]);
   const experienceBonus = armedList.reduce((sum, e) => sum + e.bonus, 0);
   /*
    * One Hope per Experience.
@@ -787,20 +1228,122 @@ export function DualityRoll({
     [character, stats, trait],
   );
 
+  /*
+   * The trait in words, and the modifier in the sign the bar prints - declared
+   * here rather than beside the boxes that draw them, because `resolve` needs
+   * the label at the instant it freezes a total.
+   */
+  const modSign = `${modifier.value >= 0 ? '+' : '−'}${Math.abs(modifier.value)}`;
+  const traitLabel =
+    trait === 'spellcast'
+      ? stats.spellcastTrait
+        ? `SPELLCAST · ${TRAIT_LABELS[stats.spellcastTrait].toUpperCase()}`
+        : 'SPELLCAST'
+      : TRAIT_LABELS[trait].toUpperCase();
+
+  /*
+   * A roll made of dice the player read off the table, in the engine's own
+   * shape.
+   *
+   * Every field `rollDuality` honours is here, which is the whole of the fix:
+   * the parameter used to be `{ hope, fear }`, so `input.fixed?.advantage` and
+   * `input.fixed?.bonus?.[i]` fell through to `rng` on a roll the app had been
+   * told it may not make. `bonus` is positional because the engine's is - it
+   * maps over `bonusDice` by index - so the array is built from `armedHeld` in
+   * that same order and nowhere else.
+   *
+   * AND THE DECLARATION IS A PARAMETER, NOT A CLOSURE, FOR THE ONE GESTURE THAT
+   * CHANGES IT AND RESOLVES IN THE SAME BREATH. Dropping ADV, disarming a die
+   * or discarding one can complete a roll - the die it was waiting for stops
+   * being part of the roll - and at that instant `advantage` and `armedHeld`
+   * still hold the declaration the player has just left. Resolving off them
+   * would roll the die that was dropped. `decl` defaults to the closure, which
+   * is what ROLL and a typed face both want, and the three events that move it
+   * pass what they moved it to. See `redeclare`.
+   */
   const resolve = useCallback(
-    (fixed?: { hope: number; fear: number }) => {
+    (
+      fixed?: { hope: number; fear: number; advantage?: number; bonus: number[] },
+      decl: { sign: 0 | 1 | -1; dice: readonly HeldDie[] } = {
+        sign: advantage,
+        dice: armedHeld,
+      },
+    ) => {
+      const sides = decl.dice.map((d) => d.sides);
       const r = rollDuality({
         modifier: modifier.value,
         difficulty,
-        advantage: advantage === 1,
-        disadvantage: advantage === -1,
+        advantage: decl.sign === 1,
+        disadvantage: decl.sign === -1,
         reaction,
         experienceBonus,
-        bonusDice,
+        bonusDice: sides,
         ...(fixed ? { fixed } : {}),
       });
-      setResult(r);
-      setManual({ hope: r.hope, fear: r.fear });
+      // The trait goes into the total and is frozen with it: see `Rolled`.
+      setRoll({ result: r, traitLabel });
+      /*
+       * AND THE KEYPAD SHUTS, WHICHEVER ONE IS OPEN.
+       *
+       * `ExtraSlot`'s `done` says a spent slot "is the record of it rather than
+       * a way into it ... and it does not open: a keypad here would be an offer
+       * to edit one die of a finished roll". The slot itself is `disabled` from
+       * this instant, but the grid is drawn from `typing`, not from the slot -
+       * so pressing ROLL with an extra keypad standing left exactly that offer
+       * on the screen, over a row that had just frozen. Pressing a key in it
+       * ran `setDie` over a resolved panel, which starts a new roll: the face
+       * landed on a die no longer armed, no slot came back for it, and the
+       * record of the roll that had just been made was wiped off the glass.
+       *
+       * It belongs here rather than at the ROLL button because `resolve` is
+       * what makes the panel a record, and it has three call sites.
+       */
+      setTyping(null);
+      /*
+       * The whole roll on the glass, and not just the two faces - AND THE ROW
+       * IT WAS MADE OF, FROZEN WITH THEM.
+       *
+       * The slots are the readout as well as the input, so a roll leaves what
+       * every one of its dice showed standing beside its total: the rule
+       * `DamageRow` states as "a row of dice a player has just read aloud is
+       * never sitting beside a total that does not come from it". The freeze is
+       * what makes that true rather than nearly true. `setArmedDice([])` is
+       * three lines below, in this same body, so by the next render there is no
+       * armed die left for a live row to be built from - a d6 whose 4 is in the
+       * total had its slot unmounted at the instant the total appeared, and the
+       * only way back to that 4 was to re-arm the die, which handed it to the
+       * NEXT roll. `resolved` holds the row instead.
+       *
+       * And it is what says the panel is now a record. Every face here was
+       * entered for THIS roll, by the player or by `rollDuality`; the next face
+       * typed starts a new one from `BLANK`, so neither an app-rolled advantage
+       * die nor a face from the roll before it can reach a later total.
+       *
+       * THE OTHER HALF OF THAT RULE IS `redeclare`'S - where anybody can type,
+       * which is the qualification that half needs and did not have - because
+       * this function only ever sets the pair - it never unsets it. `DamageRow`'s
+       * rule is symmetrical: a row of dice is never sitting beside a total that
+       * does not come from it, which forbids a stale ROW under a fresh total AND
+       * a stale TOTAL beside a fresh row. Freezing the row buys the first. The
+       * total is 46px here and 30px on the phone, the largest type on either
+       * layout, and it stood over the next roll's faces until whatever reopens
+       * the panel started clearing it too.
+       */
+      const faces = {
+        advantage: r.advantageDie,
+        bonus: Object.fromEntries(
+          decl.dice.flatMap((d, i) => {
+            const face = r.bonusDice[i];
+            return face === undefined ? [] : [[d.id, face] as const];
+          }),
+        ),
+      };
+      setManual({
+        hope: r.hope,
+        fear: r.fear,
+        ...faces,
+        resolved: extraSlots(decl.sign, decl.dice, faces),
+      });
       // Declared for this roll and this roll only.
       onArmedExperiencesChange([]);
       setArmedDice([]);
@@ -841,12 +1384,38 @@ export function DualityRoll({
         });
       }
 
-      const sign = modifier.value >= 0 ? '+' : '−';
-      const parts = [`${r.hope} / ${r.fear}`, `${sign}${Math.abs(modifier.value)}`];
-      if (hopeCost > 0) parts.push(`+${r.experienceBonus} exp (−${hopeCost} Hope)`);
+      /*
+       * EVERY ADDEND OF THE TOTAL, SIGNED, SO THE LINE THE TABLE CHECKS ADDS UP.
+       *
+       * This list is a sum with an `=` on the end of it, and a table that reads
+       * the log at all reads it by doing that sum. So the standard it is held to
+       * is not "does it mention the interesting dice" but "does it close".
+       *
+       * It did not. The advantage/disadvantage die was never in here, while
+       * `rollDuality` puts `advantageDie * advantageSign` into the total - so a
+       * typed 5/8 with +1 and an ADV 3 printed `5 / 8 +1 = 17` against named
+       * addends summing to 14, and with a DIS 6 it printed `5 / 8 +1 = 8`,
+       * wrong by 6 on its own face. That is worse than an omission, because the
+       * omission is invisible and the arithmetic error is not.
+       *
+       * `signed` is here for the same reason and catches the second case: an
+       * Experience may carry a negative modifier - `armSummary` signs it, so
+       * the surface already admits they exist - and `+${bonus} exp` printed
+       * `+-2 exp`. Every term now wears its own sign, in the engine's own order:
+       * the pair, the trait modifier, the Experiences, the advantage die, then
+       * each held die.
+       */
+      const signed = (n: number): string => `${n >= 0 ? '+' : '−'}${Math.abs(n)}`;
+      const parts = [`${r.hope} / ${r.fear}`, signed(modifier.value)];
+      if (hopeCost > 0) parts.push(`${signed(r.experienceBonus)} exp (−${hopeCost} Hope)`);
+      if (r.advantageDie !== null) {
+        parts.push(
+          `${signed(r.advantageDie * r.advantageSign)} (${r.advantageSign === 1 ? 'ADV' : 'DIS'} d6)`,
+        );
+      }
       // Each held die prints what it rolled, so a table checking the app
       // against its own dice can see every number that went into the total.
-      r.bonusDice.forEach((value, i) => parts.push(`+${value} (d${bonusDice[i]})`));
+      r.bonusDice.forEach((value, i) => parts.push(`${signed(value)} (d${sides[i]})`));
       pushLog({
         kind: 'duality',
         label: OUTCOME_LABEL[r.outcome],
@@ -856,13 +1425,20 @@ export function DualityRoll({
       });
     },
     [
+      // The two the default `decl` is read from, and nothing else derived from
+      // them: the sides the engine rolls and the row the faces are written back
+      // onto both come off `decl.dice` inside the body now, so a caller that
+      // passes its own declaration is not silently resolving against this one.
       advantage,
-      bonusDice,
+      armedHeld,
       character,
       difficulty,
       experienceBonus,
       hopeCost,
       modifier.value,
+      // Frozen into `Rolled` at the instant the total is made, so a trait
+      // changed afterwards relabels the next roll and not this one.
+      traitLabel,
       // In the array for the reason the two below are: this is a prop now, and
       // a callback left out of it runs the first render's closure. `Play`
       // passes the `useState` setter itself, so the identity is stable and
@@ -880,24 +1456,231 @@ export function DualityRoll({
     ],
   );
 
-  const setDie = (which: 'hope' | 'fear') => (value: number | null) => {
-    const next = { ...manual, [which]: value };
+  /*
+   * The dice this roll is made of that the player has to supply, and whether
+   * they have supplied all of them.
+   *
+   * Null until the last one lands, and that is the refusal: with a die still
+   * blank there is no honest total to present, so the roll does not resolve and
+   * `stillToType` below says which die it is waiting for. The alternative was
+   * to roll the blank one and mark the number as the app's, and that is worse
+   * on the surface this is - a total read across a table is read as a total,
+   * whatever a 10px label beside it says.
+   *
+   * The advantage die is only asked for when a sign is armed, because that is
+   * the only time `rollDuality` rolls one: `advantageSign` cancels ADV against
+   * DIS, and a die that is not in the total must not hold the roll up.
+   *
+   * THE SIGN AND THE DICE ARE ARGUMENTS FOR THE SAME REASON THEY ARE ARGUMENTS
+   * TO `resolve`: the question "is this roll complete" is asked about a
+   * declaration, and three of the four events that ask it are the events that
+   * just changed one. Read off the closure they would be asked about the
+   * declaration the player has left behind.
+   */
+  const typedRoll = (
+    m: Manual,
+    sign: 0 | 1 | -1,
+    dice: readonly HeldDie[],
+  ): { hope: number; fear: number; advantage?: number; bonus: number[] } | null => {
+    if (m.hope === null || m.fear === null) return null;
+    let advantageFace: number | undefined;
+    if (sign !== 0) {
+      if (m.advantage === null) return null;
+      advantageFace = m.advantage;
+    }
+    const bonus: number[] = [];
+    for (const d of dice) {
+      const face = m.bonus[d.id];
+      if (face === undefined) return null;
+      bonus.push(face);
+    }
+    return { hope: m.hope, fear: m.fear, ...(advantageFace === undefined ? {} : { advantage: advantageFace }), bonus };
+  };
+
+  /*
+   * THE ONE ROUTE FROM A CHANGE IN THE DECLARATION TO WHAT IS ON THE GLASS.
+   *
+   * Round 2 gave `Manual` a lifecycle - one roll's faces, plus `resolved`
+   * saying which roll and whether it is over - and then taught it to three
+   * different handlers, each of which knew a different amount about it. Three
+   * events INVALIDATE a roll (`setDie` on a resolved panel, `toggleDie`,
+   * `armAdvantage`) and only `setDie` ever asked whether the roll it left
+   * behind is now COMPLETE. That asymmetry is a defect in both directions and
+   * this function is both halves of it, so there is nowhere left to put one.
+   *
+   * COMPLETION. What a roll requires is `{ hope, fear, the advantage die if a
+   * sign is armed, one face per armed die }` - so dropping ADV, disarming a die
+   * or discarding one can complete a roll without a face being typed. Reproduced
+   * before this landed: type HOPE 5 and FEAR 8 with ADV armed, then press `—`.
+   * The roll is complete, and the panel showed TOTAL `—`, no log entry, and a
+   * bar reading `PICK A TRAIT · TYPE YOUR DICE` at a player who had just typed
+   * their dice - with no way forward but to retype one of them.
+   *
+   * INVALIDATION, AND IT IS ONLY INVALIDATION WHERE THERE IS SOMETHING TO
+   * INVALIDATE. `resolve` clears nothing about `result`, so a panel that went
+   * back to being open kept the previous roll's total standing in the largest
+   * type on the screen - 46px in the cockpit, 30px on the phone - beside the
+   * new roll's faces. Worst case, both switches on: the app rolls 26, you type
+   * HOPE 5 and FEAR 8, and the glass reads 5, 8, ADV `not entered` and TOTAL
+   * 26, a number containing none of the four figures on the panel, under the
+   * words ROLLED WITH HOPE and its wash. `resolve`'s own docblock forbids that
+   * in as many words - "a row of dice a player has just read aloud is never
+   * sitting beside a total that does not come from it" - so the total goes when
+   * the row does.
+   *
+   * THAT IS A RULE ABOUT A ROLL BEING ASSEMBLED, AND IT WAS APPLIED WHERE NO
+   * ROLL IS EVER ASSEMBLED. `canType` is `manualDice`, which is OFF on a
+   * default install - and with it off nothing on this surface types anything:
+   * `manual` is written by `resolve` alone, no face is an input, `extraDice` is
+   * empty and `stillToType` is null. There is no half-assembled roll for a
+   * stale total to be inconsistent with. What arming ADV or a held die means
+   * there is only "the NEXT roll will have this in it", which the bar already
+   * says in as many words - it labels the declaration `NEXT:` for exactly this
+   * state - and clearing the pair took the verdict, the outcome line, the two
+   * raw faces and the total off the glass at the touch of a control that made
+   * no roll. Driven at `{digitalDice:true, manualDice:false}`, phone: after
+   * ROLL the bar reads `Rolled with Fear`, `9 / 10 · The GM gains a Fear · the
+   * GM sets the Difficulty`, `20`; open MODS, tap ADV, and it reads `ROLL`,
+   * `2d12 +1 · AGILITY`, `—`. On a phone that bar is the only record of the
+   * roll anywhere on the screen: there is no log surface and, with typing off,
+   * no face row either. So with typing off this function does nothing at all.
+   *
+   * WHAT IT BUYS IS ONE INVARIANT IN TWO CLAUSES, AND IT IS THE ONE THE ROLL
+   * SURFACE IS READ BY.
+   *
+   * **`result` is non-null exactly when `manual.resolved` is** - in all four
+   * preference combinations. Every writer of either is here, in `resolve`, or
+   * in the `[characterId]` effect; `resolve` and the effect set them together,
+   * and this function either clears both or touches neither.
+   *
+   * **WHICH EVENTS MAY MAKE THEM NULL DEPENDS ON `canType`, AND ON NOTHING
+   * ELSE.** With typing ON (`manualDice`), every change to the declaration
+   * reopens the roll and clears the pair, because the faces are inputs and the
+   * next one typed starts a new roll. With typing OFF the panel is a RECORD and
+   * only a new roll or a character switch clears it. The single-clause version
+   * of this sentence is what hid the paragraph above: it is true of the two
+   * configurations somebody types in, and it over-applies to the two nobody
+   * types in.
+   *
+   * So a total on the glass always has the row that made it beside it, a row
+   * with a die still outstanding never has a total beside it at all, and a
+   * table that only reads this surface keeps its last roll until it makes
+   * another one.
+   *
+   * The attack is deliberately NOT cleared with the verdict. It is damage the
+   * roll earned and has not been rolled yet; starting to type the next Duality
+   * roll is not a reason to take it away.
+   */
+  const redeclare = (next: Manual, sign: 0 | 1 | -1, dice: readonly HeldDie[]): void => {
+    /*
+     * Nothing on this surface can type a die, so nothing here is a roll being
+     * assembled and there is nothing to invalidate: the declaration the caller
+     * has already moved is the whole of what changed. Leaving `manual` alone as
+     * well as `result` is what keeps the invariant above a biconditional in
+     * this configuration rather than a pair that has come apart - and it is
+     * what makes turning `manualDice` on mid-session show the frozen record of
+     * the last roll rather than an empty live row beside its total.
+     */
+    if (!canType) return;
     setManual(next);
+    setRoll(null);
+    const typed = typedRoll(next, sign, dice);
+    // `resolve` writes both of them back, after these two and in the same
+    // batch, so the roll it makes is what the render ends on.
+    if (typed !== null) resolve(typed, { sign, dice });
+  };
+
+  const setDie = (which: TypedKey) => (value: number) => {
+    /*
+     * A RESOLVED PANEL IS A RECORD, SO THE FIRST FACE TYPED AFTER ONE STARTS
+     * OVER. This is the whole of the second-roll rule and it is one line.
+     *
+     * It used to add to whatever was standing, and that is the same gesture as
+     * correcting a mistyped face - the app cannot tell them apart, and it was
+     * being used as both. So the second roll of a session resolved against the
+     * first one's advantage die the instant its HOPE landed, with `stillToType`
+     * naming nothing, because nothing was outstanding: roll one had filled it
+     * in. The same door let an app-rolled die into a typed total.
+     *
+     * The price is the correcting tap, and it is paid openly rather than
+     * silently: everything the new roll wants is named on the bar, including
+     * the faces that were showing a number a moment ago. `Manual`'s docblock is
+     * where that trade is argued.
+     */
+    const base = manual.resolved === null ? manual : BLANK;
+    const next: Manual =
+      which === 'hope' || which === 'fear' || which === 'advantage'
+        ? { ...base, [which]: value }
+        : { ...base, bonus: { ...base.bonus, [which.slice('bonus:'.length)]: value } };
     // Committing a face shuts the keypad, which is what it always did - it is
     // just no longer the ONLY thing that shuts it. See `DieKeypad`.
     setTyping(null);
-    if (next.hope !== null && next.fear !== null) {
-      resolve({ hope: next.hope, fear: next.fear });
-    }
+    // The declaration is untouched by typing a face, so this is the one caller
+    // of `redeclare` that hands it the closure's own sign and dice.
+    redeclare(next, advantage, armedHeld);
   };
 
-  const modSign = `${modifier.value >= 0 ? '+' : '−'}${Math.abs(modifier.value)}`;
-  const traitLabel =
-    trait === 'spellcast'
-      ? stats.spellcastTrait
-        ? `SPELLCAST · ${TRAIT_LABELS[stats.spellcastTrait].toUpperCase()}`
-        : 'SPELLCAST'
-      : TRAIT_LABELS[trait].toUpperCase();
+  /*
+   * Arming a die, and the face that goes with it.
+   *
+   * `setArmedDice` alone was the whole of this, and it left `manual.bonus`
+   * keyed by a tray id that outlives every roll: disarm a d6 whose 4 you have
+   * typed and re-arm it, and the slot came back reading 4 - for a die nobody
+   * had rolled since. So a face lives exactly as long as the die it was typed
+   * for stays armed, and touching the declaration of a roll that has already
+   * resolved starts a new one rather than editing the record of the old.
+   */
+  const armDice = (ids: string[], dropped: string): void => {
+    setArmedDice(ids);
+    // `held` is this render's tray, which still holds a die being discarded -
+    // so the new row is filtered out of it by the new id list rather than read
+    // off a store that has not re-rendered yet.
+    const base = manual.resolved === null ? manual : BLANK;
+    const bonus = { ...base.bonus };
+    delete bonus[dropped];
+    redeclare(
+      { ...base, bonus },
+      advantage,
+      held.filter((d) => ids.includes(d.id)),
+    );
+  };
+
+  const toggleDie = (id: string): void => {
+    armDice(armedDice.includes(id) ? armedDice.filter((x) => x !== id) : [...armedDice, id], id);
+  };
+
+  /*
+   * And discarding an armed die is disarming it, plus the tray.
+   *
+   * Press-and-hold on a chip takes the die out of `held` entirely, and `held`
+   * is one of the two lists `armedHeld` is derived from - so this changes what
+   * the roll requires exactly as `toggleDie` does, silently and from a control
+   * on the other side of the row. It goes through the same route: the face
+   * leaves with the die, and if that die was the last one outstanding the roll
+   * completes rather than being stranded.
+   */
+  const dropDie = (id: string): void => {
+    if (characterId === null) return;
+    discardDie(characterId, id);
+    if (armedDice.includes(id)) armDice(armedDice.filter((x) => x !== id), id);
+  };
+
+  /*
+   * The advantage sign, and the same rule for the one die it arms.
+   *
+   * ADV, DIS and neither are three different rolls - `advantageSign` cancels
+   * ADV against DIS, and a d6 typed under one sign is not the d6 the other
+   * wants - so changing it drops the face. Unlike the held dice this is NOT
+   * cleared when a roll resolves, which is what made it the leak: the sign
+   * stood, the slot stood, and roll two's HOPE resolved against roll one's
+   * advantage die without ever asking for a new one.
+   */
+  const armAdvantage = (sign: 0 | 1 | -1): void => {
+    if (sign === advantage) return;
+    setAdvantage(sign);
+    const base = manual.resolved === null ? manual : BLANK;
+    redeclare({ ...base, advantage: null }, sign, armedHeld);
+  };
 
   /*
    * What is armed, in words, on the ROLL bar - and the Experiences by name.
@@ -923,9 +1706,53 @@ export function DualityRoll({
     ...bonusDice.map((sides) => `+D${sides}`),
   ].join(' · ');
 
-  const affordance = rollAffordance(digitalDice, manualDice);
-  const { canRoll, canType } = affordance;
-  const idleLabel = affordance.label;
+  /*
+   * The dice this roll has beyond the pair, offered for typing - and only when
+   * typing is what the switches turned on.
+   *
+   * `canType` is the gate here for the reason it is the gate on the faces: the
+   * answer to "what may this surface offer" is `rollAffordance`'s and nothing
+   * else's, and a fourth notion of what mode we are in is how the phone and the
+   * cockpit came to disagree the first time. With typing off this list is
+   * empty, no row is drawn, and the app rolls these dice the way it always did
+   * - which is what a table with the roller on asked it to do.
+   *
+   * TWO SOURCES, AND WHICH ONE IS AUTHORITATIVE IS `manual.resolved`'S ANSWER.
+   * While a roll is being assembled the live declaration is the roll, so the
+   * row is built from it. Once one has resolved, the row it resolved with is
+   * frozen in `manual.resolved` and that is what is drawn - because `resolve`
+   * clears the declaration, so a live row would have nothing in it and the dice
+   * behind the total would leave the screen at the moment the total arrived.
+   * `extraSlots` builds both, so the two cannot drift apart.
+   */
+  const rolled = manual.resolved !== null;
+  const extraDice: ExtraDie[] = !canType
+    ? []
+    : (manual.resolved ?? extraSlots(advantage, armedHeld, manual));
+
+  /*
+   * What the roll is still waiting for, in the one line both layouts print.
+   *
+   * This is the visible half of the refusal. Without it the typed roll simply
+   * does not resolve when a die is blank, and a surface that does nothing when
+   * you press it is the same silence the app was already being blamed for -
+   * only quieter. It names every outstanding die, Hope and Fear included: it
+   * used to be that typing one face and not the other left nothing on the
+   * screen saying why no verdict had appeared either.
+   *
+   * It is drawn only once the player has typed SOMETHING. A fresh sheet with
+   * two blank faces is not waiting for anything, it is idle, and the idle line
+   * is the arithmetic of the next roll.
+   */
+  const untyped = [
+    ...(canType && manual.hope === null ? ['HOPE'] : []),
+    ...(canType && manual.fear === null ? ['FEAR'] : []),
+    ...extraDice.filter((d) => d.value === null).map((d) => d.label),
+  ];
+  const started =
+    canType &&
+    (manual.hope !== null || manual.fear !== null || extraDice.some((d) => d.value !== null));
+  const stillToType = started ? stillToTypeLine(untyped) : null;
   // The phone's second line normally carries the arithmetic of the next roll.
   // When there is nothing to roll with, the arithmetic is beside the point.
   const idleDetail = affordance.blocked ? affordance.prompt : `2d12 ${modSign} · ${traitLabel}`;
@@ -1003,14 +1830,87 @@ export function DualityRoll({
    * so the bar grows to hold it instead of sawing it off. Measured after the
    * change: idle 56, armed-and-resolved 56, three lines 71.
    */
+  /*
+   * AND `stillToType` TAKES THIS LINE WHEN THERE IS A DIE OUTSTANDING, IN BOTH
+   * BRANCHES - the phone's `rollLine` here and the cockpit strip's own `??`,
+   * both pinned, because a green suite with this `??` deleted was how the phone
+   * branch turned out to be unpinned.
+   *
+   * WHAT IT WINS OVER IS THE IDLE ARITHMETIC AND THE DECLARATION, AND THAT IS
+   * THE WHOLE LIST. Both are statements about the roll being assembled - `2d12
+   * +1 · AGILITY`, or `+D6 · RAN WITH THE WOLVES +2` - and while a die is
+   * outstanding the thing the player has to act on is the die, not the sum it
+   * will go into.
+   *
+   * IT CANNOT WIN OVER A STANDING VERDICT, BECAUSE THE TWO CANNOT BE ON THE BAR
+   * TOGETHER. `stillToType` is drawn only where `started` is, which is only
+   * where `canType` is - and that is the half of the four configurations in
+   * which `redeclare` clears `result` and `manual.resolved` together. So a die
+   * outstanding means `manual.resolved` is null means `result` is null, and the
+   * `result !== null` branch below is unreachable from here. In the other half
+   * nothing is ever outstanding, because nothing is ever typed. This paragraph used to argue the opposite and name the state it
+   * won in: "arming a held die after a roll leaves a resolved verdict on the bar
+   * and a blank d6 in the row above it". It never did. `toggleDie` blanks every
+   * face over a resolved panel, so `started` is false in exactly that state and
+   * `stillToType` is null; the verdict now goes with the faces. The state does
+   * not exist, so neither does the argument, and `the roll after the roll` has a
+   * case that drives every way back into an open roll and asserts it.
+   *
+   * WHAT IT COSTS, COUNTED OFF THE CONSTANTS RATHER THAN OFF ONE EXAMPLE. This
+   * docblock used to call `STILL TO TYPE: HOPE · FEAR · ADV · +D6` - 38
+   * characters - "the longest of these on a phone" and conclude that the line
+   * costs the bar no height. The first half is an ordinary case, not the
+   * longest: `untyped` names HOPE, FEAR and ONE LABEL PER ARMED DIE, and the
+   * armed set is capped by `MAX_HELD`, not by two.
+   *
+   * The pool it is drawn from is arithmetic over three declared things -
+   * `MAX_HELD` is 12 (`heldDice.ts`), the tray's sizes are `DIE_SIZES`, whose
+   * widest label is the four characters of `+D12`, and `stillToTypeLine` joins
+   * with ` · ` under a 15-character prefix. Fifteen items could be outstanding:
+   * HOPE 4, FEAR 4, ADV 3, twelve at 4.
+   *
+   * AND FIFTEEN IS THE CASE THE CODE CANNOT REACH, WHICH IS THE FAILURE THIS
+   * PARAGRAPH WAS WRITTEN TO REPLACE, COMMITTED AGAIN ONE VERSION LATER. It
+   * counted the pool and called it the line, and the line has a fourth
+   * constraint the pool does not: `started`. `stillToType` is `started ?
+   * stillToTypeLine(untyped) : null`, and `started` is true only once a face
+   * has been ENTERED - `manual.hope !== null || manual.fear !== null ||
+   * extraDice.some((d) => d.value !== null)`. A fresh sheet is idle, not
+   * waiting. So at least one of the fifteen is always filled, and a filled die
+   * is not in `untyped`: the line names AT MOST FOURTEEN.
+   *
+   * Fourteen of those fifteen, choosing which to give up to lose the least: the
+   * shortest, which is ADV at 3 - and it costs its separator with it, so 116
+   * less 6. Fourteen items: HOPE 4, FEAR 4, twelve at 4 = 56, plus thirteen
+   * separators at 3 = 39, plus the prefix = **110 characters**. Reachable, and
+   * driven rather than derived: twelve d12 in the tray, ADV armed, all twelve
+   * armed, type the advantage die - which is the one gesture that turns
+   * `started` on without shortening the list by more than 6 - and the cockpit
+   * strip draws exactly that string. Every other choice is shorter: giving up
+   * HOPE or FEAR instead costs 7, and dropping the sign entirely costs the ADV
+   * slot AND leaves a bonus die to be typed, at 103.
+   * `rollAffordance.test.ts` builds the 110 from those same constants and
+   * `the roll after the roll` drives the surface to it.
+   *
+   * At the 30 characters a line this docblock derives for 393px that is four
+   * lines, and at the 28 for 375px it is four as well (110/28 = 3.93) - so the
+   * content is 17 + 4 + 60 = 81 at both, and the bar is **83 tall at 393 and 83
+   * at 375** against the 56 it declares. So it DOES cost height, and the cost is
+   * paid by the same two properties the three-line case is paid by: `minHeight`
+   * rather than `height`, so the bar grows to hold the line instead of sawing it
+   * off, and a Play screen that scrolls. Nothing here is measured - jsdom lays
+   * nothing out and the 30 and 28 come from the 245px and 227px boxes measured
+   * in Chrome for the paragraph above, in the session it names.
+   */
   const rollLine =
-    result === null
+    stillToType ??
+    (result === null
       ? armSummary === ''
         ? idleDetail
         : declaration
       : `${canType ? '' : `${result.hope} / ${result.fear} · `}${
           armSummary === '' ? outcomeDetail(result) : declaration
-        }`;
+        }`);
 
   /*
    * Everything the modifier row is holding, in words.
@@ -1052,18 +1952,53 @@ export function DualityRoll({
    * every way in, so it has to be the gate on the way already taken.
    */
   const typingDie = canType ? typing : null;
+  const typingFace = typingDie === 'hope' || typingDie === 'fear' ? typingDie : null;
   const keypad =
-    typingDie === null ? null : (
+    typingFace === null ? null : (
       <DieKeypad
-        label={typingDie === 'hope' ? 'HOPE' : 'FEAR'}
-        color={typingDie === 'hope' ? 'var(--hope)' : 'var(--fear)'}
-        value={manual[typingDie]}
-        onSet={setDie(typingDie)}
+        label={typingFace === 'hope' ? 'HOPE' : 'FEAR'}
+        color={typingFace === 'hope' ? 'var(--hope)' : 'var(--fear)'}
+        /* Blank over a resolved panel, both of them: the key that lands here
+           starts a new roll, so offering the last roll's HOPE as the selected
+           key and its FEAR in the readback column would be the panel promising
+           an arithmetic it is about to throw away. */
+        value={rolled ? null : manual[typingFace]}
+        onSet={setDie(typingFace)}
         onCancel={() => setTyping(null)}
-        otherLabel={typingDie === 'hope' ? 'FEAR' : 'HOPE'}
-        otherColor={typingDie === 'hope' ? 'var(--fear)' : 'var(--hope)'}
-        otherValue={manual[typingDie === 'hope' ? 'fear' : 'hope']}
+        otherLabel={typingFace === 'hope' ? 'FEAR' : 'HOPE'}
+        otherColor={typingFace === 'hope' ? 'var(--fear)' : 'var(--hope)'}
+        otherValue={rolled ? null : manual[typingFace === 'hope' ? 'fear' : 'hope']}
       />
+    );
+
+  /*
+   * The armed dice, as a row of slots with at most one grid open under it -
+   * one element read by both layouts, for the reason `keypad` and `control`
+   * are. A phone and a cockpit disagreeing about which dice a roll is made of
+   * would be a worse version of the bug `rollAffordance` exists for.
+   *
+   * `flex: 'none'` on the wrapper is load-bearing on the cockpit: that panel's
+   * one `flex: 1` child is the log, which is what makes the log the first thing
+   * to give height up and the last thing the fold takes, and a second flexible
+   * child would take that back out of it.
+   */
+  const openExtra = extraDice.find((d) => d.key === typingDie) ?? null;
+  const extras =
+    extraDice.length === 0 ? null : (
+      <div className="stack" style={{ flex: 'none', gap: 6 }}>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {extraDice.map((d) => (
+            <ExtraSlot
+              key={d.key}
+              die={d}
+              done={rolled}
+              open={d.key === typingDie}
+              onToggle={() => setTyping(d.key === typingDie ? null : d.key)}
+            />
+          ))}
+        </div>
+        {openExtra !== null && <ExtraKeypad die={openExtra} onSet={setDie(openExtra.key)} />}
+      </div>
     );
 
   const control = (
@@ -1071,7 +2006,7 @@ export function DualityRoll({
       difficulty={difficulty}
       setDifficulty={setDifficulty}
       advantage={advantage}
-      setAdvantage={setAdvantage}
+      setAdvantage={armAdvantage}
       onTraitChange={onTraitChange}
       trait={trait}
       stats={stats}
@@ -1085,11 +2020,9 @@ export function DualityRoll({
       hopeAvailable={hopeAvailable}
       held={held}
       armedDice={armedDice}
-      toggleDie={(id) =>
-        setArmedDice((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
-      }
+      toggleDie={toggleDie}
       addDie={(sides) => characterId !== null && addDie(characterId, sides)}
-      discardDie={(id) => characterId !== null && discardDie(characterId, id)}
+      discardDie={dropDie}
     />
   );
 
@@ -1174,6 +2107,22 @@ export function DualityRoll({
             </span>
           </button>
         )}
+        {/*
+         * The armed dice, above the pair and below the strip that named them.
+         *
+         * It goes here rather than under the faces because the two faces and
+         * ROLL are the band this file spends its argument on: they stay
+         * adjacent and stay lowest, and the row that appears when you arm a d6
+         * pushes the ARMED strip up instead of pushing ROLL down. It is also
+         * the order the strip sets up - `ADV · +D6` in words, then the dice for
+         * exactly those - and the order the SRD asks for, since everything on
+         * this row was declared before the dice.
+         *
+         * It costs the column 50px when there is one die to type (44 and the
+         * stack's 6px gap) and nothing at all otherwise, which is every roll
+         * nobody armed anything for.
+         */}
+        {extras}
         {/*
          * The faces only take a row when they are inputs.
          *
@@ -1528,6 +2477,14 @@ export function DualityRoll({
     >
       {control}
 
+      {/* The armed dice, between what declared them and the pair they are added
+          to - the phone's order, on the layout that has the room for it. It is
+          drawn only when something is armed AND typing is on, so the panel's
+          idle budget is the same five children and the same 426.2 it has always
+          been; what it adds when it appears comes out of the panel's scroll,
+          which is the term that exists to absorb exactly this. */}
+      {extras}
+
       <div className="row" style={{ gap: 12, alignItems: 'stretch' }}>
         {/* The keypad takes the two faces' share of the row and leaves the
             trait box standing. An earlier version of this comment called that
@@ -1555,8 +2512,13 @@ export function DualityRoll({
             justifyContent: 'space-between',
           }}
         >
+          {/* The trait the total was made with, and not the one armed for the
+              next roll: this box prints an addend's NAME directly above the
+              46px total, so a live label here is the panel contradicting its
+              own arithmetic. `Rolled` carries the freeze; `traitLabel` is what
+              it says while there is no total to be wrong about. */}
           <span className="t-meta" style={{ letterSpacing: '0.14em' }}>
-            {traitLabel}
+            {roll?.traitLabel ?? traitLabel}
           </span>
           <span
             style={{
@@ -1592,11 +2554,18 @@ export function DualityRoll({
             : OUTCOME_LABEL[result.outcome].toUpperCase()}
         </span>
         <span className="t-meta" style={{ color: verdictColor(result), opacity: 0.8 }}>
-          {armSummary !== ''
-            ? declaration
-            : result === null
-              ? affordance.prompt
-              : outcomeDetail(result).toUpperCase()}
+          {/* `stillToType` first here for the reason it is first on the phone
+              bar: one instruction line on this screen, and whichever readout a
+              layout has, it shows that one. The desktop strip keeping its own
+              copy of the idle wording is the bug `rollAffordance`'s docblock
+              records; keeping its own answer to "why has nothing resolved"
+              would be the same bug on a newer state. */}
+          {stillToType ??
+            (armSummary !== ''
+              ? declaration
+              : result === null
+                ? affordance.prompt
+                : outcomeDetail(result).toUpperCase())}
         </span>
       </div>
 
