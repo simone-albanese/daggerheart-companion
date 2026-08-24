@@ -370,7 +370,22 @@ export function companionSource(
     kind: 'companion',
     name: companion.name === '' ? 'Your companion' : companion.name,
     damage: { count: damage.count, sides: damage.sides, modifier: damage.modifier },
-    damageType: companion.damageType,
+    /*
+     * Narrowed, not carried through, exactly as `sourceFromWeapon` narrows a
+     * weapon's fifty lines above.
+     *
+     * The trust levels used to run backwards here. A weapon comes out of the
+     * shipped dataset and is coerced; a companion comes out of whatever file
+     * the user was handed and went through raw - and `damageTypeOf(...)
+     * .toUpperCase()` is one call downstream. `checkShapes` asserts only that
+     * `companion` is an object, and the 4->5 converter fills a MISSING
+     * `damageType` without touching a bad one, so `damageType: 42` in a
+     * hand-edited `.dhchar` imported in silence and threw on the first damage
+     * roll. Physical is the fallback because it is what every sheet written
+     * before schema 5 behaved as, what `readCompanion` invents, and what the
+     * migration seeds.
+     */
+    damageType: companion.damageType === 'mag' ? 'mag' : 'phy',
   };
 }
 

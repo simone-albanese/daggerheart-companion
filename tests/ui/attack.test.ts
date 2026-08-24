@@ -483,6 +483,33 @@ describe('the attack the companion makes', () => {
       'Your companion',
     );
   });
+
+  it('coerces a damage type that is not one of the two, the way the weapon branch does', () => {
+    /*
+     * A LIVE CRASH, and the same class the branch has already fixed once on
+     * the GM's board.
+     *
+     * `readCharacterRecord` spreads a file's `companion` wholesale, `checkShapes`
+     * asserts only that it is an object, and the 4->5 converter fills a MISSING
+     * `damageType` without coercing a bad one. So a hand-edited `.dhchar`
+     * carrying `damageType: 42` imports in silence and then throws on the first
+     * companion damage roll, at `damageTypeOf(...).toUpperCase()`.
+     *
+     * The asymmetry is the defect: fifty lines above, `sourceFromWeapon`
+     * narrows the MORE trustworthy value - a weapon out of the shipped dataset
+     * - with `=== 'mag' ? 'mag' : 'phy'`, while the value that arrives from a
+     * stranger's file went through raw. The trust levels were backwards.
+     *
+     * Physical and not magic, because that is what every older sheet behaved
+     * as, what `readCompanion` invents, and what the migration seeds.
+     */
+    const wrong = ash({ damageType: 42 as unknown as 'phy' });
+    const source = companionSource(wrong, makeStats({ proficiency: 2 }))!;
+    expect(source.kind).toBe('companion');
+    expect(damageTypeOf(source)).toBe('phy');
+    const result = rollDamage({ count: 2, sides: 6, modifier: 2 }, { critical: false }, seededRng(7));
+    expect(damageLogEntry(attack({ source }), result).label).toBe(`${String(result.total)} PHY`);
+  });
 });
 
 /**

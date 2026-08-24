@@ -242,6 +242,57 @@ describe('refusing a file it does not understand', () => {
   });
 
   /**
+   * The door `companion: 'yes'` above only half closed.
+   *
+   * `companion` was checked for object-ness and for nothing else - not `name`,
+   * `damage`, `range`, `stress`, `evasion`, `damageType`, `experiences` or
+   * `upgrades` - so `companion: {}` was accepted and came out the other side
+   * identical. Nothing downstream is defensive about it: `PartyBoard`'s
+   * companion line calls `.toUpperCase()` on the name, reads `.marked`/`.max`
+   * off the stress track and hands `damage` to `parseDamage`, which is total
+   * for a junk string and fatal for an absent one; the printed sheet calls
+   * `.toLowerCase()` on the range; and `damageTypeOf(...)` is `.toUpperCase()`d
+   * on the first damage roll.
+   *
+   * An animal is whole or it is not there. There is no blank fallback for a
+   * field inside `companion` the way there is for `scars`, because
+   * `readCharacterRecord` spreads the object wholesale.
+   */
+  it('refuses half an animal, since nothing downstream is ready for one', () => {
+    const damaged = (companion: unknown): (() => Character) =>
+      () => parseCharacterFile(JSON.stringify({ ...wizard(), companion }));
+    const whole = {
+      name: 'Ashfoot',
+      description: 'A grey wolf',
+      evasion: 10,
+      stress: { marked: 0, max: 3 },
+      damage: 'd6+2',
+      range: 'Close',
+      damageType: 'phy',
+      experiences: [{ id: 'ce-1', name: 'Sharp eyes', bonus: 2 }],
+      upgrades: ['vicious'],
+    };
+    expect(damaged(whole)).not.toThrow();
+    expect(damaged({})).toThrow(/damaged "companion.name" field/);
+
+    for (const key of Object.keys(whole)) {
+      const { [key]: _dropped, ...missing } = whole as Record<string, unknown>;
+      expect(damaged(missing), `a companion with no ${key} was accepted`).toThrow(
+        new RegExp(`damaged "companion\\.${key}" field`),
+      );
+    }
+
+    expect(damaged({ ...whole, damageType: 42 })).toThrow(/damaged "companion.damageType"/);
+    expect(damaged({ ...whole, damageType: 'radiant' })).toThrow(/damaged "companion.damageType"/);
+    expect(damaged({ ...whole, stress: { marked: 0 } })).toThrow(/damaged "companion.stress"/);
+    expect(damaged({ ...whole, damage: null })).toThrow(/damaged "companion.damage"/);
+    expect(damaged({ ...whole, upgrades: [7] })).toThrow(/damaged "companion.upgrades"/);
+    expect(damaged({ ...whole, experiences: [{ name: 'Sharp eyes' }] })).toThrow(
+      /damaged "companion.experiences"/,
+    );
+  });
+
+  /**
    * Checked harder than the other numbers on the sheet, because it is the only
    * one read to decide a refusal. A count of 2.5 or -1 would have
    * `mustTakeLongRest` answering about a number of rests that cannot have
