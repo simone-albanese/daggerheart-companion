@@ -1,6 +1,6 @@
 {
   "name": "daggerheart-companion",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Offline-first digital character sheet and GM tools for Daggerheart. Local-first, no accounts, no network.",
