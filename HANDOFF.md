@@ -415,7 +415,9 @@ resolves to the nav button and the row fails for the wrong reason.
 `2a9f5dc`. MENU → OPEN THE REFERENCE, seven topics, every word read out of
 `data/srd-1.0.json` at render time with the page stamped beside the table it
 came from. The Fear guidance and the countdown chart are also folded into the
-two controls they belong to. Three things the item asked for were not in the
+controls they belong to — one drawing each, never a second copy. The guidance
+has two doors; the chart has three, since it went onto a dynamic countdown's
+session row as well. Three things the item asked for were not in the
 shipped SRD and are corrected in `BACKLOG.md` rather than left to be copied
 again: the Difficulty ladder ships as the SRD's own worked example at each
 number and **not** as the printed screen's five adjectives, which occur zero

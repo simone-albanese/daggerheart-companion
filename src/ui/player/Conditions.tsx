@@ -685,10 +685,12 @@ export function ConditionsControl(): React.JSX.Element | null {
  * vertical-only.)
  *
  * Each of the three terms taken off the 393 is named by its declaration rather
- * than by a line, and that is a correction rather than a style. This paragraph
- * first cited `:749`, `:761` and `:961`, and the insertion that wrote them
- * pushed all three off their targets inside the same commit - onto a `zIndex`,
- * a `width` and a `</div>`. `gmGeometryProse.test.ts` holds the column against
+ * than by a line, and that is a correction rather than a style: a line number
+ * into a file still being edited is wrong by the time it is read, and the three
+ * this paragraph could have carried would all have landed on the wrong
+ * declaration by the end of the same sitting. Nothing in git shows that, which
+ * is the point - the damage lands inside one commit and leaves no trace to
+ * check. `gmGeometryProse.test.ts` holds the column against
  * those three declarations and against the measured rect above, so moving any
  * of them turns this sentence red.
  *

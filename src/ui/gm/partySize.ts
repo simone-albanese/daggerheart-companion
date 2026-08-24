@@ -48,8 +48,11 @@
  *
  * ## Wiring the third site
  *
- * `SessionBody`'s encounter arm reads the same preference at `:305` and prints
- * `n GROUPS OF 4` at `:384`, and it is not wired here yet. Doing it is one
+ * `SessionBody`'s `EncounterArm` reads the same preference and prints
+ * `n GROUPS OF 4` beside a Minion entry, and it is not wired there yet. (Named
+ * rather than cited by line, and this paragraph is why: it said `:305` and
+ * `:384`, and the lane that rewrote `SessionBody` in the same wave moved both
+ * before either could be read.) Doing it is one
  * import and one element, with no argument to re-litigate and no shape to
  * agree on:
  *

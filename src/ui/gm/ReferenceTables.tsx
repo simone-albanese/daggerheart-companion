@@ -481,7 +481,9 @@ export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.El
  * **The 256 is still in circulation, in a document this lane does not own.**
  * `docs/handoff/PROGETTO-GM-2026-08-23.md` §7 item 8 asks whether *"the 256px
  * advancement chart"* is reachable one-handed once it moves onto a session
- * countdown row - `grep -rn "256px"` returns that line and nothing else. The
+ * countdown row. That figure is superseded here and the handoff item still
+ * carries it, so the string now has three homes: the item, and the two
+ * sentences in this file that retire it. The
  * question it asks is genuinely owed and no browser here has answered it; the
  * figure inside it is the one this paragraph just superseded, and nothing in
  * this file should be read as the document having agreed.
