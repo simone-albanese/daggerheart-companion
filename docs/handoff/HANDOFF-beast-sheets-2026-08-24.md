@@ -1,5 +1,9 @@
 # Handoff — branch `beast-sheets`, 24 agosto 2026
 
+> **I punti 1-6 di §7 sono stati eseguiti**, e le nove prove per mutazione con loro. Il
+> risultato sta in `CANCELLO-MERGE-2026-08-24.md`: leggilo **dopo** questo file e **prima** di
+> decidere sul merge. Il punto 7 — la decisione — non è stato preso.
+
 > **Sostituisce `HANDOFF-beast-sheets-2026-08-23.md`**, che porta un cartello e non è stato
 > riscritto: era accurato per il suo momento, e i suoi §3 e §4 sono stati ri-verificati uno per uno
 > e reggono. Quello che è cambiato sta fuori dalla sua vista — la verifica del branch è morta a
