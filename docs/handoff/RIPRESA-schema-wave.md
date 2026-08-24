@@ -1,5 +1,12 @@
 # Messaggio di ripresa — branch `schema-wave-v3`
 
+> **CONSUMATO. Sostituito da `WAVE3-2026-08-24.md`.** Questo file è stato letto e
+> eseguito: i quattro punti rimasti del suo §4 sono fatti, e la decisione aperta del suo
+> §3 — la ricerca multi-termine — è stata presa, in forma **AND di riga**, rispondendo
+> all'obiezione invece di cancellarla. **Non è stato riscritto**: le sue misure erano vere
+> il 24 agosto e riscriverle falsificherebbe il registro. Dove è superato, lo dice il
+> file nuovo.
+
 Da incollare in una sessione nuova. Scritto il **24 agosto 2026**, mettendo in pausa a metà
 dello step 3 del piano di `PROGETTO-GM` §6.
 
