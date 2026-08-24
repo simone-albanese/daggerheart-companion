@@ -457,12 +457,40 @@ function Dice({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): Rea
  *
  * Ergonomics. Every `Switch` is `minHeight: var(--tap)` = 44 and its pill is
  * 46x26 inside that box, so the target is the row's full-height button rather
- * than the graphic. On a 393px phone the settings column is 393 − 24 = 369, the
- * control block spends 78 (22 of ON/OFF + 10 + 46) and the label and its
- * sentence take the remaining 277 at `.t-dense` - about 44 characters a line,
- * inside the 62ch maximum this screen reads at. All four rows are read before
- * they are touched, which is why the sentence gets the width and the switch
- * keeps a fixed 78.
+ * than the graphic. On a 393px phone the settings column is 393 − 24 = 369 -
+ * the 12px either side of this file's own scroller, whose phone padding is
+ * `'12px 12px 28px'` - and the field's content box is that less the 1px either
+ * side of `Rows`' `border: '1px solid var(--line-soft)'` and the 14px either
+ * side of `Field`'s `padding: '13px 14px'`, = 339. The control block spends 88:
+ * `Switch`'s own `padding: '0 2px 0 8px'` and `gap: 10` around its `width: 22`
+ * ON/OFF span and its `width: 46` pill, with no border of its own - `base.css`
+ * zeroes a button's border - so 8 + 22 + 10 + 46 + 2. The label and its
+ * sentence take the remaining 237, across the `gap: 14` of the flex line
+ * `Field` draws. It stays one line: the text block's `flex: '1 1 180px'` basis
+ * plus 14 plus 88 is 282, inside 339. All four rows are read before they are
+ * touched, which is why the sentence gets the width and the switch keeps a
+ * fixed 88.
+ *
+ * (**88 and 237, not the 78 and 277 that stood here.** 369 was and is right -
+ * it is the settings column - but the old sentence then spent it as though the
+ * flex line were 369 too, skipping `Rows`' border and `Field`'s padding; the 78
+ * also dropped the switch button's own 10px of horizontal padding. The
+ * clause that followed them, "about 44 characters a line, inside the 62ch
+ * maximum this screen reads at", is deleted rather than re-derived at 237: a
+ * character count is a browser result and nothing here can measure one. What
+ * this file can cite is the cap itself, `maxWidth: '62ch'` on the hint `Field`
+ * draws, which is a declaration and not a claim about how much text reaches it,
+ * and `gmGeometryProse.test.ts` holds the docblock to it and to every term of
+ * the 339, the 88, the 237 and the 282.)
+ *
+ * Every one of those terms is named by its declaration. The first draft of this
+ * paragraph cited seven of them as `parts.tsx:87`, `:121`, `:127`, `:138`,
+ * `:228-244`, `base.css:46` and `Settings.tsx:213`: all seven resolved when
+ * they were written, and none of them is in a file this docblock can keep in
+ * step. A line number in a file under edit is a claim with a half-life of a
+ * commit: three citations this same round added to `Conditions.tsx` were
+ * pushed off their targets by that round's own insertion, and were wrong in
+ * the commit that wrote them.
  */
 function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): React.JSX.Element {
   const prefs = useApp((s) => s.prefs);
