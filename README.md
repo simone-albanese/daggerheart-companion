@@ -403,3 +403,98 @@ Fonts: Archivo and IBM Plex Mono, both SIL Open Font License 1.1, self-hosted
 so the app works with the radio off (`public/fonts/`).
 
 Code: MIT.
+
+### The reading this project runs on, and the objection to it
+
+Written down because a licensing position nobody has stated is
+indistinguishable from one nobody has examined. This is the examination, not
+legal advice, and nobody here is a lawyer. The licence text quoted here is the
+copy this app ships, `src/legal/dpcgl-2025-07-30.txt`, which Settings › About
+prints in full beside the URL it came from and its SHA-256.
+
+**The reading this project runs on.** §2.1(a) grants the right to *"reproduce
+and Share the Public Game Content in whole or in part"* and attaches no format
+limit of any kind. The format limit in the licence lives in §2.1(b), and it is
+attached to Adaptive Content, not to this clause. On that reading, an app that
+reproduces SRD text and hands it back to a player is inside the grant.
+
+**The objection to it, which is not a weak one.** About half of what this app
+does is Adaptive Content as §1.7 defines it, and §1.7's own verbs are the ones
+that fit. It covers content in which the Public Game Content is *"translated,
+altered, rearranged, transformed, or otherwise modified"*.
+
+- `data/srd-1.0.json` is the book **rearranged**. `tools/build-srd.ts` pulls
+  the text out of the PDF with `pdfjs-dist` and restructures it into typed
+  records — which is the entire reason that file is generated and not written
+  by hand.
+- `deriveStats` **transforms**. It reads the SRD's own numbers and returns
+  Proficiency, damage thresholds and Evasion for one particular character —
+  figures the book prints for nobody.
+
+Neither of those is reproduction, and §2.1(b) permits Adaptive Content *"solely
+in the Permitted Formats"*. §1.9 enumerates what those are: print and digital
+print *"in the form of supplements, manuals, books, stories, novels, and
+cards"*; live-streaming and video; podcasts; and virtual tabletops expressly
+approved by DRP and listed in §1.9.1. **A web app is not one of the four.** It
+is not print, it is not a broadcast, and it is not on the VTT whitelist.
+
+Stating the objection honestly means saying which half of it carries the
+weight. §1.9 closes by excluding *"film, television, video games, and any other
+audiovisual medium not expressly permitted"*, and that closing clause is the
+weaker half: its enumerated exclusions are all audiovisual media, and a
+character sheet that adds up Armor Slots is a strained fit for the phrase. The
+objection does not need it. It stands on the enumeration — the list *is* what a
+Permitted Format is, and this is not on the list.
+
+**What the exposure actually attaches to.** §1.8 puts *"private, non-commercial
+play among friends, family, or gaming groups in a personal setting"* outside
+Sharing altogether. Running this app on your own phone for your own table is
+not Sharing and does not engage §2.1(b) at all. What creates the exposure is
+publishing the build to a public URL — which is what `deploy.yml` does on every
+push to `main` — and not anybody using it.
+
+**The remedy the licence names, scoped accurately.** §1.9.1 says *"Sharing on
+any other VTT is prohibited unless separately approved in writing by DRP"*, and
+reserves DRP's right to add and remove platforms at any time. That sentence is
+about VTT platforms specifically; it is not a general waiver of the format
+limit. So the route it actually describes for something shaped like this app is
+to be approved onto that list, not to be granted a blanket exception. §1.9.1
+also requires whitelisted-VTT sharing to be non-commercial and unmonetized,
+which this project already is: nothing is sold, there is no subscription, no
+paywall and no donation tied to access.
+
+**The one output of this app that is unambiguously a Permitted Format is the
+paper.** §1.9(a) covers digital print *"in the form of supplements, manuals,
+books, stories, novels, and cards"*, and the printed character sheet is exactly
+that — which is why `CharacterSheet.tsx` carries `ATTRIBUTION` of its own
+rather than inheriting the shell's footer. The contested surface is the
+interactive app, not what it prints.
+
+**One obligation this app does not currently meet, and it is the one the
+objection makes pointed.** §4.1 lists five things that must accompany Shared
+content. Four are here: the copyright notice and the attribution statement are
+in `ATTRIBUTION` (`CompatibleMark.tsx`), which is rendered at the foot of every
+screen by `LicenceFooter`, in Settings › About, on the empty-library screen,
+and on the printed sheet; the URL is in that same paragraph; and the licence
+itself ships in full rather than as a link. The fifth, §4.1(e) — *"a statement
+indicating whether you have modified the Public Game Content and whether there
+were any previous modifications by you or others"* — **is not written anywhere
+in the app.** The two paragraphs of
+`ATTRIBUTION` do not say it, and no other surface does. That is awkward
+precisely because the paragraphs above argue at length that this app *does*
+modify: the licence asks for that admission at the point of Sharing, and the
+app does not make it. Filed rather than fixed in passing, because `ATTRIBUTION`
+is a licence-critical constant pinned by `tests/ui/attribution.test.tsx` and its
+wording is the owner's call, not a drive-by edit.
+
+**The position.** The risk is accepted knowingly, with the objection above read
+and not dismissed. What sits on the other side of the ledger are mitigations,
+and they are named as mitigations rather than as an answer: the app is free and
+unmonetized; it ships SRD content only and never the Core Rulebook, which stays
+on the owner's device; it carries the attribution on every screen; it keeps the
+Name Marks out of its own title and off its home-screen icon; and it holds no
+Prohibited Content. If DRP reads §2.1(b) the way this section concedes they
+might, there are two answers and both stay available: ask for written approval,
+or stop publishing. The second costs almost nothing, because nothing about the
+app depends on being hosted — deleting `deploy.yml` and turning Pages off
+leaves a thing that still runs on the devices it is already on.
