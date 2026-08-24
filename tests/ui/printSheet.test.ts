@@ -544,15 +544,42 @@ describe('the companion page', () => {
     expect(html).toContain('Bonded');
   });
 
-  it('marks the taken option in the page’s own shape, not with a glyph', () => {
-    // `☑`/`☐` were the first version and are wrong twice: the stylesheet opens
-    // by saying it draws outlines and never fills, and a ballot glyph prints as
-    // tofu wherever the print font does not carry U+2610. The Features section
-    // two blocks down already puts a name on the left and a `dhc-meta` on the
-    // right, so that is the shape.
+  it('gives every option a box to mark, and no ballot glyph', () => {
+    /*
+     * The regression this pins. `☑`/`☐` were the first version and were wrong
+     * for one good reason - a ballot glyph prints as tofu wherever the print
+     * font does not carry U+2610 - and taking them out took the checkbox with
+     * them, so the seven unmarked options printed as a bare name under a
+     * heading reading "1 marked · 4 earned". Folio 18 says "mark it on your
+     * sheet", and there was nowhere left to make the mark.
+     *
+     * `.dhc-tick` is the page's own checkbox and was already in the stylesheet,
+     * unused by this section and used twice by others.
+     */
     const html = renderToStaticMarkup(createElement(CharacterSheet, { sheet: printed() }));
     expect(html).not.toContain('☑');
     expect(html).not.toContain('☐');
+
+    const opensAt = html.indexOf('Level-up options');
+    expect(opensAt).toBeGreaterThan(-1);
+    // Bounded at the end of the companion section, so a checkbox anywhere else
+    // on the page cannot make up the count.
+    const section = html.slice(opensAt, html.indexOf('</section>', opensAt));
+    const options = printed().companion!.upgrades;
+    expect(options).toHaveLength(8);
+    expect(options.filter((u) => u.marked)).toHaveLength(1);
+    // One box per option, marked or not - seven of these are the ones that
+    // went missing.
+    expect(section.split('dhc-tick').length - 1).toBe(options.length);
+    for (const option of options) {
+      const at = section.indexOf(`${option.name}<`);
+      expect(at, `${option.name} is not on the page`).toBeGreaterThan(-1);
+      expect(section.slice(Math.max(0, at - 120), at)).toContain('dhc-tick');
+    }
+  });
+
+  it('says beside the name which options are already taken', () => {
+    const html = renderToStaticMarkup(createElement(CharacterSheet, { sheet: printed() }));
     // `Vicious` is the marked one; `Bonded` is not.
     const vicious = html.slice(html.indexOf('>Vicious<'));
     expect(vicious.slice(0, 200)).toContain('Taken');

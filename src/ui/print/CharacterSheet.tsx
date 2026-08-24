@@ -414,12 +414,30 @@ export function CharacterSheet({
           <div className="dhc-two">
             {sheet.companion.upgrades.map((u) => (
               <div className="dhc-block" key={u.id}>
-                {/* Name on the left, state on the right - the Features section's
-                    own shape, two sections down. A `☑` would be a filled glyph
-                    on a page whose stylesheet opens by saying it draws outlines
-                    and never fills, and it would depend on the print font. */}
+                {/*
+                 * A box on every one of the eight, and the state beside the
+                 * name rather than inside the box.
+                 *
+                 * `☑`/`☐` were the first version and depended on the print font
+                 * carrying U+2610; dropping them was right. Dropping the box
+                 * with them was not: folio 18 says "mark it on your sheet", and
+                 * seven options printed as a bare name under a heading that
+                 * counts marks is a list you cannot mark. `.dhc-tick` is this
+                 * page's own checkbox - a border, which prints where a
+                 * background does not - and it already draws the trait row's
+                 * `marked` box and the two weapon slots.
+                 *
+                 * It prints empty whether or not the app has the option marked,
+                 * which is the same choice `TickRow` makes and states: a
+                 * printed sheet is played with a pencil, so it owes the player
+                 * room rather than a snapshot. `Taken` beside the name is what
+                 * carries the snapshot, for the reader who wants one.
+                 */}
                 <div className="dhc-block-head">
-                  <span className="dhc-block-name">{u.name}</span>
+                  <span className="dhc-block-name">
+                    <span className="dhc-tick" />
+                    {u.name}
+                  </span>
                   {u.marked && <span className="dhc-meta">Taken</span>}
                 </div>
                 <div className="dhc-text">{u.text}</div>
