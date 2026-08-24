@@ -121,21 +121,25 @@
  * at 757.00, `GmBar` below it pays `env(safe-area-inset-bottom)`, and nothing
  * inside a tool is in the indicator's band any more.
  *
- * ## Ergonomics, and the dismiss target a phone does not get
+ * ## Ergonomics, and the dismiss target a `full` tool does not get
  *
  * The title row is 44px and CLOSE is a 44x44 square at its right edge - the
  * corner a right thumb reaches by sliding up the edge rather than across the
  * glass, and the same corner every other dismissal in this app uses.
  *
- * **On a phone a `full` tool has no backdrop at all.** Not a smaller one: none.
- * The overlay declares `padding: full || phone ? 0 : 24` and the panel inside
- * it is `flex: 1` with `width: '100%'`, so on the width where all eight of them
- * are `full` the panel IS the stage and there is no strip of `rgb(0 0 0 /
- * 0.55)` left to tap. Tap-outside-to-close is gone there, and what is left is
- * CLOSE and - for a keyboard - Escape. A phone has no Escape key. So on a phone
- * it is CLOSE, alone. ("The backdrop is also a target: a tap outside the panel
- * closes it. That surface is smaller than it was" stood here, and for those
- * eight it was describing a target of zero.)
+ * **A `full` tool has no backdrop at all below 1100.** Not a smaller one: none,
+ * and not only on a phone. The overlay declares `padding: full || phone ? 0 : 24`
+ * - the `full` arm answers first, so the padding is 0 at every width - and the
+ * panel inside is `flex: 1` with `width: '100%'` under `maxWidth: full ? 1100`.
+ * That cap is the only thing that can expose a strip of `rgb(0 0 0 / 0.55)`, and
+ * it does not bind until 1100. So there is nothing to tap at any width from a
+ * phone up through the whole tablet band. Tap-outside-to-close is gone there,
+ * and what is left is CLOSE and - for a keyboard - Escape. A phone has no
+ * Escape key, so on a phone it is CLOSE, alone. ("The backdrop is also a
+ * target: a tap outside the panel closes it. That surface is smaller than it
+ * was" stood here, and for those eight it was describing a target of zero. This
+ * paragraph then said "on a phone" for a whole revision, which was the same
+ * mistake one scope wider: `phone` is `PHONE_MAX` 719 and the cap is 1100.)
  *
  * That is accepted rather than repaired, and the reason is the section above:
  * a dismissable margin can only come off the same band, and a margin thin
@@ -153,10 +157,10 @@
  * leaves both bars live, so Fear, ADD, SHOW and SAVE are all reachable without
  * dismissing anything, which is the whole reason the stage exists.
  *
- * The other cases keep a backdrop and keep the tap. A `sheet` on a phone caps
- * at 85% of the stage and leaves the band above it exposed; off a phone the
- * overlay pads 24 round a 520 card; a `full` tool off a phone fills the band
- * vertically and leaves whatever its 1100 cap leaves either side. What none of
+ * The cases that keep a backdrop keep the tap. A `sheet` on a phone caps at 85%
+ * of the stage and leaves the band above it exposed; off a phone the overlay
+ * pads 24 round a 520 card; and a `full` tool gets one only above 1100, where
+ * the cap finally leaves something either side. What none of
  * them has any more is the surface the fixed overlay had, and that one was not
  * a loss: it ran over BOTH BARS, so a thumb aimed at Fear `+` or at ADD closed
  * the tool instead of pressing the button under it.

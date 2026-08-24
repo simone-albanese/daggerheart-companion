@@ -118,7 +118,7 @@ const FOCUSABLE = [
 
 /**
  * Spread onto the overlay element - the one that is `inset: 0` over whatever it
- * is drawn against. Five of the seven call sites make that `position: fixed`
+ * is drawn against. Six of the seven call sites make that `position: fixed`
  * against the window; `GmSheet` makes it `position: absolute` against the band
  * between the GM screen's two bars, which is the whole of how those bars stay
  * on the glass.

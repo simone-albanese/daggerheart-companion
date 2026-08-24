@@ -893,7 +893,7 @@ describe('the GM screen states the geometry its own declarations make', () => {
       /flex: full \? 1 : 'none'/.test(src),
       '`GmSheet`\'s panel no longer fills the stage under `full`. A panel at its content ' +
         'height leaves the rest of the band as backdrop, which is the target the Ergonomics ' +
-        'paragraph says a phone does not get.',
+        'paragraph says a `full` tool does not get below 1100.',
     ).toBe(true);
     expect(
       /width: '100%'/.test(src),
@@ -902,15 +902,15 @@ describe('the GM screen states the geometry its own declarations make', () => {
     ).toBe(true);
     expect(
       decl('src/ui/gm/GmSheet.tsx', /width: (\d+), height: (\d+)/g, 'the CLOSE square'),
-      'the CLOSE square is no longer 44x44. On a phone under `full` it is the only dismissal ' +
-        'this panel has - no backdrop and no Escape key - so it is the one target on this ' +
-        'screen that cannot go under the floor.',
+      'the CLOSE square is no longer 44x44. Under `full` below 1100 it is the only dismissal ' +
+        'this panel has - no backdrop at all - and on a phone there is no Escape key either, ' +
+        'so it is the one target on this screen that cannot go under the floor.',
     ).toEqual([44, 44]);
 
     const said = prose('src/ui/gm/GmSheet.tsx');
     for (const sentence of [
-      '**On a phone a `full` tool has no backdrop at all.** Not a smaller one: none.',
-      'So on a phone it is CLOSE, alone.',
+      '**A `full` tool has no backdrop at all below 1100.** Not a smaller one: none,',
+      'Escape key, so on a phone it is CLOSE, alone.',
     ]) {
       expect(
         said.includes(sentence),
