@@ -29,6 +29,24 @@
  *     `aria-modal` had been promising.
  *   - Escape closes it and focus goes back to the control that opened it, still
  *     on screen, rather than to the top of the document.
+ *   - and it still SAYS `aria-modal="true"`, which is the sentence the two Tab
+ *     questions above make true.
+ *
+ * That fourth question is here because the guard that used to hold it was a
+ * type and the type was widened. `DialogProps['aria-modal']` was the literal
+ * `true` until `GmSheet` needed a dialog that deliberately does not own the
+ * document; widening it to `boolean` left nothing at all asserting the
+ * attribute on these six - a build returning `false` for every caller was green
+ * across the whole suite. `useDialog` carries a narrowed type again for the
+ * call sites, but a type cannot watch the line that builds the object, so the
+ * attribute is asked for HERE, per dialog, through the component a person
+ * opens, on the same six this file already enumerates. It is one list, not two:
+ * a second enumeration somewhere else is how the seventh dialog gets missed.
+ *
+ * It is asserted as the string `"true"` rather than as truthiness. `aria-modal`
+ * is an ARIA attribute, not a boolean DOM one: `"false"` and an omission are
+ * both different from `"true"` and only one of the three is the claim, so
+ * `getAttribute` is what can tell all three apart.
  *
  * jsdom moves no focus of its own - it implements neither Tab nor the browser's
  * sequential navigation - so everything asserted here is the app's own work.
@@ -324,6 +342,21 @@ for (const [name, c] of Object.entries(CASES)) {
       expect(dialog().getAttribute('tabindex'), 'the dialog cannot hold focus').toBe('-1');
       expect(document.activeElement, 'focus never entered the dialog').toBe(c.lands());
       expect(dialog().contains(document.activeElement)).toBe(true);
+    });
+
+    it('says `aria-modal="true"`, the sentence the wrap below makes true', () => {
+      // The whole point of the two Tab tests under this one. A dialog that
+      // trapped and did not say it would merely be quiet; one that says it and
+      // does not trap is the defect this file was written for, and one that
+      // trapped while saying `false` - which is what the widened type allowed -
+      // tells a screen reader the page behind is reachable while the keyboard
+      // proves it is not.
+      expect(
+        dialog().getAttribute('aria-modal'),
+        'this dialog traps Tab and no longer claims to. `useDialog` returning anything but ' +
+          '`true` here, or the attribute coming off, is a screen reader being told the page ' +
+          'behind this panel is still there while the keyboard cannot reach it.',
+      ).toBe('true');
     });
 
     it('takes Tab at the last control and wraps, rather than letting it out', () => {

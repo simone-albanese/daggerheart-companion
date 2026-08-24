@@ -177,16 +177,19 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
 
         At 393 the content width is 367, and "393 - 24 of region padding =
         369" stood here because it began one border too far out. `Scene` has
-        exactly one mount point - `Gm.tsx:281`, inside `<GmSheet
-        label={TOOL_LABEL[tool]} size="full">` - and that overlay pads
-        `calc(env(safe-area-inset-top) + 8px) 0 0`, which is zero on both
-        sides, around a panel at `width: '100%'` with `border: 1px solid
-        var(--line)` (`GmSheet.tsx:95-104`). Under `base.css:13`'s
-        `box-sizing: border-box` the sheet's content box at 393 is 391.00, so
-        this region's 24px of padding leaves 367.00. Not derived here for the
-        first time: `GmSheet.tsx`'s own docblock states the 391.00, and
-        `Reference.tsx:37-39` - the other `full` tool padding 12 a side -
-        states the identical 367.00 and says it was measured in Chrome.
+        exactly one mount point - `Gm.tsx`, inside `<GmSheet
+        label={TOOL_LABEL[tool]} size="full">` - and that overlay declares
+        `padding: full || phone ? 0 : 24`, which is zero on both sides, around
+        a panel at `width: '100%'` with `border: '1px solid var(--line)'`.
+        Under `base.css`'s `box-sizing: border-box` the sheet's content box at
+        393 is 391.00, so this region's 24px of padding leaves 367.00. Not
+        derived here for the first time: `GmSheet.tsx`'s own docblock states
+        the 391.00, and `Reference.tsx` - the other `full` tool padding 12 a
+        side - states the identical 367.00 and says it was measured in Chrome.
+        (The overlay paid `calc(env(safe-area-inset-top) + 8px) 0 0` when that
+        was measured, and is `position: absolute` inside the stage now. Both
+        spend zero horizontally, which is the only axis this paragraph is
+        about; the vertical price is in `GmSheet.tsx`.)
 
         11.5px Archivo at 400 averages about 5.6px a character -
         `RuleTableView.tsx:72` puts `.t-read`, 13px of the same face at 400, at
