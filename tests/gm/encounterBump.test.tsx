@@ -5,10 +5,12 @@
  * `EncounterAdjustments.damageBump` is a boolean, and what it *does* was
  * written out by hand in three places: the engine's budget line, the note under
  * the builder's toggles, and the chip on a planned session row. Three
- * transcriptions of one sentence, and two of them had already drifted from the
- * book - the SRD says "+1d4 (or a **static** +2)" and both screens had dropped
- * the word. A homebrew rules layer that changed the bump would have changed
- * none of them.
+ * transcriptions of one sentence, and all three had already drifted from the
+ * book the same way - the SRD says "+1d4 (or a **static** +2)" and every one of
+ * them had dropped the word, the engine as `+1d4 (or +2)` and the two screens
+ * as the same parenthesis uppercased. A homebrew rules layer that changed the
+ * bump would have changed none of them, and no copy was right enough to catch
+ * the others.
  *
  * The engine's is not a fourth quotation and never became one: it names the
  * switch (`'Adversaries deal extra damage'`) because a module that computes
