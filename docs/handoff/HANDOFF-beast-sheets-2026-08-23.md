@@ -1,5 +1,23 @@
 # Handoff — branch `beast-sheets`, 23 agosto 2026 (seconda sessione)
 
+> ## ⚑ SUPERATO — non riscritto di proposito
+>
+> **L'autorità su questo branch è ora `docs/handoff/HANDOFF-beast-sheets-2026-08-24.md`.**
+>
+> Questo documento non è stato corretto perché era accurato per il suo momento, e i suoi **§3
+> (la tabella dei tredici commit) e §4 (i tre scostamenti)** sono stati ri-verificati hash per hash
+> il 24 agosto e **reggono per intero**. Quello che è cambiato gli è successo intorno:
+>
+> - la **verifica avversariale del branch è morta** mezz'ora dopo la sua ultima riga, e il suo
+>   rapporto è stato ricostruito dal disco in `VERIFICA-BRANCH-2026-08-23.md`;
+> - il **proprietario ha risposto alle nove domande** la sera stessa (`DECISIONI-2026-08-23.md`);
+> - quindi il suo **§7 è superato** — undici delle sue affermazioni sono state trovate false o
+>   scadute — il suo **§2** dice «15 commit» e «verificato», e il suo **§1** manda a
+>   `workflows/scripts/`, un percorso **che nel repo non è mai esistito**.
+>
+> Il suo **§8** (cosa non toccare) resta valido parola per parola.
+
+
 > **`HANDOFF-2026-08-23.md` nella radice resta l'autorità su `main`.** Questo documento non lo
 > sostituisce e non lo contraddice: `main` è ancora `f0c23f1` / `0.5.0`, pubblicata e verificata.
 > Questo descrive un branch **non unito e non pushato**, e tre workflow lasciati girare.
