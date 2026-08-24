@@ -22,6 +22,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Campaign } from '../../shared/campaigns.ts';
 import type { Adversary, Character } from '../../shared/types.ts';
+import { NO_FIGHT } from '../fixtures/factories.ts';
 
 type Gm = typeof import('../../src/ui/gm/gmStore.ts');
 type Store = typeof import('../../src/store/campaigns.ts');
@@ -268,7 +269,7 @@ describe('countdowns are rows of the session list', () => {
 
 describe('the session list', () => {
   const scene = (id: string, name: string) =>
-    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null }) as const;
+    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null, ...NO_FIGHT }) as const;
 
   it('numbers the items as they are added', () => {
     const s = () => gm.useGm.getState();

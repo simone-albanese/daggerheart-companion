@@ -31,6 +31,7 @@ import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { LIFT_MS, ROW_STEP } from '../../src/ui/gm/useSessionDrag.ts';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -97,6 +98,7 @@ const four = (): SessionItem[] =>
     order,
     collapsed: true,
     environmentRef: null,
+    ...NO_FIGHT,
   }));
 
 const order = (): string[] => useGm.getState().session.map((i) => i.id);

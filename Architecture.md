@@ -680,8 +680,8 @@ senza esserlo:
 3. **nessun `.md` era stato toccato**, ed è per questo che la frase di §5.3
    sulle «tre voci esatte» esisteva.
 
-La lezione che vale per il prossimo bump, e in particolare per il passaggio
-`CAMPAIGN_SCHEMA_VERSION` 2→3 che le decisioni del 23 agosto impongono: i tre
+La lezione che vale per il prossimo bump — ed è valsa per il passaggio
+`CAMPAIGN_SCHEMA_VERSION` 2→3, fatto il 24 agosto ed elencato più sotto: i tre
 requisiti in cima a questa sezione sono ciò che `tests/store/migrations.test.ts`
 sa controllare, non l'elenco completo di ciò che uno scalino costa. Le fixture,
 il generatore della matrice e la prosa che afferma un numero stanno fuori da
@@ -785,6 +785,48 @@ rimasta 2. È la prima prova *di fatto* che i tre numeri di questa sezione sono
 indipendenti e non solo indipendenti in linea di principio — nessuno store e
 nessun indice sono cambiati, quindi il numero del database non aveva ragione di
 muoversi.
+
+#### Lo scalino 2→3 della catena campagne: tre decisioni in un bump solo
+
+Il 24 agosto 2026 `CAMPAIGN_SCHEMA_VERSION` è passata **da 2 a 3**, e ha portato
+tre decisioni insieme (`docs/handoff/DECISIONI-2026-08-23.md` §1, §6 e §8). Farle
+in tre momenti diversi sarebbe costato tre convertitori, tre giri di fixture e
+tre riscritture dei test di trasferimento, per un guadagno nullo: nessuna delle
+tre ripara niente in un record v2.
+
+- **§1 — la riga scena assorbe la rissa.** L'arm `scene` guadagna `roster`,
+  `adjustments` e `combatants`. `encounter` **resta nell'unione come legacy**:
+  leggibile e modificabile, non più creabile. Non è stato convertito, ed è una
+  scelta: riscrivere le righe salvate cambierebbe il *kind* di una cosa che il
+  GM ha nominato, cosa che questa catena non ha mai fatto, e il precedente
+  sarebbe difficile da ritirare. Il modo di dire «non più creabile» in questo
+  codice è **uscire da `SESSION_ITEM_KINDS`**: `ADD_FORMS` è un
+  `Record<SessionItemKind, …>`, quindi il compilatore toglie la form da solo.
+- **§8 — l'orologio registra tutto.** `Countdown` guadagna la triade
+  Activation / Advancement / Effect, il campo `owner` e le battute per tick.
+  `owner` è un ref e **il reader non lo verifica** contro la squadra: un
+  compagno può uscire dal party board mentre un orologio lo nomina ancora, e lo
+  schermo che lo dice è meglio di un campo svuotato in silenzio da una lettura.
+- **§6 — la sessione ha un ciclo di vita.** `Campaign` guadagna `archive`
+  (le serate chiuse, ognuna con le sue righe *copiate* e cosa è successo) e
+  `register` (il registro durevole: persone, luoghi, accordi, archi, fatti —
+  la casa della §7). `RegisterEntry` porta un arm `unreadable` per la stessa
+  ragione di `SessionItem` e `LinkTarget`.
+
+**Anche questo convertitore non cambia un solo campo**, e per la stessa ragione
+del primo — ma il pericolo che spegne è più grande. Una build schema-2 non
+fallirebbe su un record v3: *riuscirebbe*, in silenzio, e riscriverebbe la sua
+lettura 400 ms dopo. Perderebbe la rissa dentro ogni scena, la triade e le
+battute di ogni orologio, e **l'archivio e il registro interi**. È un GM che
+perde una stagione di appunti aprendo la campagna su un dispositivo non
+aggiornato.
+
+Nello stesso bump è stata chiusa la classe di difetto che la prova (f) del
+cancello aveva trovato: **`readPartyMember` faceva un cast**, quindi la scheda di
+un giocatore dentro una campagna era l'unica strada che non passava da
+`migrateCharacterRecord`. Ora ci passa. Una conversione riuscita **non avvisa** —
+avviserebbe a ogni avvio, per sempre, di una cosa che ha funzionato — mentre una
+scheda che il reader rifiuta lascia cadere la propria riga e lo dice.
 
 ### 6.2 Se il bundle non si valuta: cosa c'è sullo schermo, e la leva per ritirarlo
 

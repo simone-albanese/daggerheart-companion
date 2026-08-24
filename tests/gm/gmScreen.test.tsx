@@ -24,6 +24,7 @@ import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { flushGm, hydrateGm, REPLACED_ON_LOAD, useGm } from '../../src/ui/gm/gmStore.ts';
 import { SESSION_KIND_LABEL } from '../../src/ui/gm/session.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { NO_CLOCK_PROSE, NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -199,7 +200,7 @@ const countdownRow = (id: string, name: string, primary: boolean, value = 4): Se
   order: 0,
   collapsed: true,
   primary,
-  countdown: { id, name, kind: 'standard', start: 6, value, notes: '' },
+  countdown: { id, name, kind: 'standard', start: 6, value, notes: '', ...NO_CLOCK_PROSE },
 });
 
 // ---------------------------------------------------------------------------
@@ -554,6 +555,16 @@ describe('ADD', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  /*
+   * These two were written against ENCOUNTER and now go through SCENE.
+   *
+   * That is decision 1 arriving on the screen rather than a test being made to
+   * pass: at campaign schema 3 the scene row *is* the place and the fight, and
+   * ADD no longer offers ENCOUNTER at all - `encounter` left
+   * `SESSION_ITEM_KINDS`, which is how this codebase spells "no longer
+   * creatable". The assertions themselves are unchanged in substance; only the
+   * door they go through, and the arm they read back off, have moved.
+   */
   it('takes the roster that is on the board, and never the fight', () => {
     useGm.setState({
       roster: [{ ref: 'acid-burrower', count: 3 }],
@@ -561,26 +572,35 @@ describe('ADD', () => {
     });
     gm();
     click(named('ADD'));
-    click(leading('ENCOUNTER'));
+    click(leading('SCENE'));
     click(leading('TAKE THE 3 ON THE BOARD NOW'));
     submit();
 
     const row = useGm.getState().session[0]!;
-    expect(row.kind === 'encounter' && row.roster).toEqual([{ ref: 'acid-burrower', count: 3 }]);
-    expect(row.kind === 'encounter' && row.adjustments.harder).toBe(true);
+    expect(row.kind === 'scene' && row.roster).toEqual([{ ref: 'acid-burrower', count: 3 }]);
+    expect(row.kind === 'scene' && row.adjustments.harder).toBe(true);
     // No store action sets a combatant list wholesale, so a row that arrived
     // carrying one would show a number nothing could ever change again.
-    expect(row.kind === 'encounter' && row.combatants).toEqual([]);
+    expect(row.kind === 'scene' && row.combatants).toEqual([]);
   });
 
   it('leaves the roster behind when it is not asked for', () => {
     useGm.setState({ roster: [{ ref: 'acid-burrower', count: 3 }] });
     gm();
     click(named('ADD'));
-    click(leading('ENCOUNTER'));
+    click(leading('SCENE'));
     submit();
     const row = useGm.getState().session[0]!;
-    expect(row.kind === 'encounter' && row.roster).toEqual([]);
+    expect(row.kind === 'scene' && row.roster).toEqual([]);
+  });
+
+  it('no longer offers ENCOUNTER at all, because nothing may mint one', () => {
+    // The other half of decision 1, asserted where a GM would see it. The arm
+    // stays readable and editable - saved campaigns carry it - but the menu is
+    // built from `SESSION_ITEM_KINDS`, and it left.
+    gm();
+    click(named('ADD'));
+    expect(() => leading('ENCOUNTER')).toThrow();
   });
 
   it('links to a rule, which is the one kind the dataset index cannot answer', () => {
@@ -696,6 +716,7 @@ describe('a tool that is switched off', () => {
     order: 0,
     collapsed: false,
     environmentRef: null,
+    ...NO_FIGHT,
   });
 
   /** Reach the scene runner the way a GM does: from a row, with nothing in it. */

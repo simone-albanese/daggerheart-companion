@@ -200,9 +200,27 @@ export function describeItem(
 ): string {
   switch (item.kind) {
     case 'scene': {
-      if (item.environmentRef === null) return 'NO ENVIRONMENT';
-      const found: unknown = index.byRef.get(item.environmentRef);
-      return namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
+      /*
+       * A scene is a place *and* the fight in it since campaign schema 3, so a
+       * shut row has to be able to say both. The two halves are joined only
+       * when both exist: a row that read "NO ENVIRONMENT · NOTHING PLANNED"
+       * would spend the whole width of a phone saying nothing twice.
+       *
+       * The order is place first because that is the half a GM scans for - the
+       * plan is a list of *where tonight goes* - and because the fight half is
+       * the one that is usually absent.
+       */
+      const planned = plannedAdversaries(item.roster, index, partySize);
+      const fight = planned === 0 ? '' : `${String(planned)} PLANNED`;
+      let place: string;
+      if (item.environmentRef === null) {
+        place = fight === '' ? 'NO ENVIRONMENT' : '';
+      } else {
+        const found: unknown = index.byRef.get(item.environmentRef);
+        place = namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
+      }
+      if (place === '') return fight;
+      return fight === '' ? place : `${place} · ${fight}`;
     }
     case 'encounter': {
       // Adversaries, not roster rows and not the sum of the counts. A Minion
@@ -273,35 +291,61 @@ export function describeItem(
  * so a test can pin an id and the app never has to.
  */
 
+/**
+ * A beat of the evening: a place, and the fight that happens in it.
+ *
+ * Since `CAMPAIGN_SCHEMA_VERSION` 3 this is the only factory ADD has for the
+ * two, because decision 1 gave the scene row the encounter's three fields.
+ * `newEncounter` is **gone rather than deprecated**: a factory nothing calls is
+ * how a kind that is supposed to be uncreatable gets created again.
+ *
+ * `combatants` is empty and has to be: the row's combatant list is the *fight
+ * as it is being fought*, and nothing in `gmStore` sets one wholesale, so a
+ * factory that invented one would write a field no control can ever change
+ * again. The roster and the adjustments are **copied rather than aliased** -
+ * they come from the live board, and a plan that changed when the board changed
+ * would not be a plan.
+ *
+ * Both default to empty, which is what a scene with no fight in it is. That is
+ * the common case - most rows of a night are a place somebody talks in - and it
+ * keeps "I planned a fight here" an explicit act rather than a side effect of
+ * whatever happened to be on the board when the GM typed a name.
+ *
+ * ## Why this one takes a bag where its siblings take positions
+ *
+ * The note above says `id` is last with a `crypto.randomUUID()` default, and
+ * that convention holds for every factory in this file that has three
+ * parameters or fewer. This one grew to five at campaign schema 3, two of them
+ * defaulted and in the middle, and five positional arguments is how a roster
+ * ends up where the adjustments go - or how `newScene('The gate', null, 's1')`
+ * silently passes an id as a roster. The compiler catches that one; it does not
+ * catch two arguments of the same shape swapped.
+ *
+ * So `id` stays optional and stays last *inside the bag*, which keeps the
+ * property the convention was protecting - a test can pin an id and the app
+ * never has to - and drops the property that had stopped paying for itself.
+ */
 export function newScene(
   name: string,
   environmentRef: Ref | null,
-  id: string = crypto.randomUUID(),
+  opts: {
+    roster?: readonly RosterEntry[];
+    adjustments?: EncounterAdjustments;
+    id?: string;
+  } = {},
 ): SessionItem {
-  return { id, kind: 'scene', name: name.trim(), order: 0, collapsed: true, environmentRef };
-}
-
-/**
- * A planned fight.
- *
- * `combatants` is empty and has to be: the row's combatant list is the *fight*,
- * and nothing in `gmStore` sets one wholesale, so a factory that invented one
- * would write a field no control can ever change again. The roster and the
- * adjustments are copied rather than aliased - they come from the live board,
- * and a plan that changed when the board changed would not be a plan.
- */
-export function newEncounter(
-  name: string,
-  roster: readonly RosterEntry[],
-  adjustments: EncounterAdjustments,
-  id: string = crypto.randomUUID(),
-): SessionItem {
+  const {
+    roster = [],
+    adjustments = { easier: false, harder: false, damageBump: false },
+    id = crypto.randomUUID(),
+  } = opts;
   return {
     id,
-    kind: 'encounter',
+    kind: 'scene',
     name: name.trim(),
     order: 0,
     collapsed: true,
+    environmentRef,
     roster: roster.map((entry) => ({ ...entry })),
     adjustments: { ...adjustments },
     combatants: [],

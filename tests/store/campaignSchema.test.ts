@@ -474,7 +474,97 @@ describe('walking a campaign record forward', () => {
   });
 });
 
-describe('the first bump, and the record it must not touch', () => {
+describe('what campaign schema 3 added, held down', () => {
+  /*
+   * The gate's own lesson, applied while the paint is wet: a green suite is not
+   * a verification. Each of these fails if the field it names stops surviving a
+   * read, which is the only property the bump actually bought.
+   */
+  const v3 = (): Record<string, unknown> => readFixture(3);
+
+  it('carries the fight on the scene row, which is the whole of decision 1', () => {
+    const { campaign } = readCampaignRecord(v3());
+    const scene = campaign.session.find((i) => i.kind === 'scene');
+    expect(scene?.kind === 'scene' && scene.roster).toEqual([
+      { ref: 'jagged-knife-bandit', count: 2 },
+    ]);
+    expect(scene?.kind === 'scene' && scene.adjustments.harder).toBe(true);
+    // The fight as it is being fought is never in the plan, only the plan for it.
+    expect(scene?.kind === 'scene' && scene.combatants).toEqual([]);
+  });
+
+  it('still reads the legacy encounter row, because saved campaigns carry one', () => {
+    /*
+     * The half of decision 1 that is easy to lose. `encounter` left
+     * `SESSION_ITEM_KINDS` so nothing can mint one; the union arm stayed so
+     * every campaign already on a disk still opens. A build that dropped the
+     * arm would read this row as `unreadable` and then write that back.
+     */
+    const { campaign, warnings } = readCampaignRecord(v3());
+    const enc = campaign.session.find((i) => i.kind === 'encounter');
+    expect(enc?.kind).toBe('encounter');
+    expect(enc?.kind === 'encounter' && enc.roster.length).toBeGreaterThan(0);
+    expect(warnings).toEqual([]);
+  });
+
+  it('keeps the triad, the owner and every beat on a countdown', () => {
+    const { campaign } = readCampaignRecord(v3());
+    const row = campaign.session.find((i) => i.kind === 'countdown');
+    const clock = row?.kind === 'countdown' ? row.countdown : null;
+    expect(clock?.activation).toBe('the party first sets foot on the ice');
+    expect(clock?.advancement).toBe('one tick per failed crossing roll');
+    expect(clock?.effect).toBe('the ice gives way and everyone standing on it falls in');
+    expect(clock?.owner).toBe('9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8');
+    expect(clock?.beats).toEqual([
+      'a crack runs out from the bank',
+      'water wells up over the boots',
+    ]);
+  });
+
+  it('leaves the beats alone when there are fewer of them than there are ticks', () => {
+    // A GM who has written the first two beats of a six-tick clock is the
+    // normal case. Padding would make "unwritten" and "deliberately blank"
+    // indistinguishable; truncating would eat words on a clock that shortened.
+    const { campaign } = readCampaignRecord(v3());
+    const row = campaign.session.find((i) => i.kind === 'countdown');
+    const clock = row?.kind === 'countdown' ? row.countdown : null;
+    expect(clock?.beats.length).toBe(2);
+    expect(clock?.start).toBe(6);
+  });
+
+  it('opens the archive and the register, and orders the archive by when it closed', () => {
+    const { campaign } = readCampaignRecord(v3());
+    expect(campaign.archive).toHaveLength(1);
+    expect(campaign.archive[0]!.name).toBe('The first night out');
+    expect(campaign.archive[0]!.items.map((i) => i.kind)).toEqual(['scene']);
+    expect(campaign.register.map((e) => e.name)).toContain('Old Hessa, the ferrywoman');
+  });
+
+  it('wraps a register entry whose kind this build has never heard of', () => {
+    /*
+     * The same promise `SessionItem` and `LinkTarget` make, made again one
+     * level down. A GM who wrote forty people and finds thirty-nine has no way
+     * to learn which one left, so an entry this build cannot read comes back
+     * out of the file it went into.
+     */
+    const { campaign } = readCampaignRecord(v3());
+    const odd = campaign.register.find((e) => e.kind === 'unreadable');
+    expect(odd).toBeDefined();
+    expect(odd?.name).toBe('The drowned king returns');
+    expect(odd?.kind === 'unreadable' && odd.why).toContain('prophecy');
+    expect(odd?.kind === 'unreadable' && odd.raw).toContain('prophecy');
+  });
+
+  it('a campaign written now and read back keeps both new arrays', () => {
+    // `newCampaign` seeds them, the reader names them. A `Campaign` literal
+    // that forgot either would drop it on the first save/load round trip.
+    const { campaign } = readCampaignRecord(bare({ archive: [], register: [] }));
+    expect(campaign.archive).toEqual([]);
+    expect(campaign.register).toEqual([]);
+  });
+});
+
+describe('the bumps, and the record they must not touch', () => {
   /*
    * The whole justification for schema 2, restated as an assertion.
    *
@@ -485,13 +575,23 @@ describe('the first bump, and the record it must not touch', () => {
    * is destroyed on the older device and nothing anywhere says why.
    *
    * Nothing in a v1 record is wrong, so the converter changes no field.
+   *
+   * Schema 3 is the same argument with more at stake. It moved so that an older
+   * build refuses a record whose `scene` rows carry a fight, whose countdowns
+   * carry the Activation / Advancement / Effect triad, and which has an
+   * `archive` and a `register` at all - every one of which a schema-2 reader
+   * would drop on the floor and then write back over. Nothing in a v2 record is
+   * wrong either, so that converter changes no field either.
    */
-  it('carries exactly one converter, and it is the one leaving 1', () => {
-    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1]);
-    expect(CAMPAIGN_SCHEMA_VERSION).toBe(2);
+  it('carries one converter per bump, in order, and none of them is a repair', () => {
+    // Derived from the constant rather than frozen as a literal: a third bump
+    // adds one entry here and does not have to remember to edit two lines.
+    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1, 2]);
+    expect(CAMPAIGN_SCHEMA_VERSION).toBe(3);
+    expect(CAMPAIGN_MIGRATIONS).toHaveLength(CAMPAIGN_SCHEMA_VERSION - OLDEST_READABLE_CAMPAIGN);
   });
 
-  it('gives a v1 record back byte for byte, apart from the stamp', () => {
+  it('gives a v1 record back byte for byte, apart from the stamp, across both bumps', () => {
     // Deep equality against the fixture itself rather than against a list of
     // fields somebody remembered to check: an `apply` that dropped `party`,
     // renamed `board.partyTier`, or normalised a countdown on the way through
@@ -500,18 +600,21 @@ describe('the first bump, and the record it must not touch', () => {
     const { record, from, applied } = migrateCampaignRecord(fixture);
 
     expect(from).toBe(1);
-    expect(applied).toEqual([CAMPAIGN_MIGRATIONS[0]!.note]);
-    expect(record).toEqual({ ...fixture, schemaVersion: 2 });
+    // Both converters ran, in order, and each said what it was for.
+    expect(applied).toEqual(CAMPAIGN_MIGRATIONS.map((m) => m.note));
+    expect(record).toEqual({ ...fixture, schemaVersion: CAMPAIGN_SCHEMA_VERSION });
     // Deep equality is not enough on its own to earn the words "byte for byte":
     // `toEqual` ignores key order and treats an absent key and an
     // `undefined`-valued one as the same. The `.dhcampaign` checksum is
     // computed over `JSON.stringify`, so a converter that reordered keys or
     // turned a value into `undefined` would pass the line above and still make
     // the file this app writes fail to verify against the file it reads.
-    expect(JSON.stringify(record)).toBe(JSON.stringify({ ...fixture, schemaVersion: 2 }));
+    expect(JSON.stringify(record)).toBe(
+      JSON.stringify({ ...fixture, schemaVersion: CAMPAIGN_SCHEMA_VERSION }),
+    );
     // Said separately, because the two assertions above would also pass if both
     // sides were 1 and the bump had never happened.
-    expect(record['schemaVersion']).toBe(2);
+    expect(record['schemaVersion']).toBe(3);
   });
 
   it('hands the chain a copy rather than the record it was given', () => {

@@ -47,6 +47,7 @@ import { damageBumpRule } from '../../src/ui/shared/ruleText.ts';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { NO_FIGHT, NO_CLOCK_PROSE } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -195,10 +196,10 @@ const card = dataset.domainCards[0]!;
 const rule = dataset.rules[0]!;
 
 const oneOfEach = (): SessionItem[] => [
-  { ...base({ id: 'a', name: 'Scene one', order: 0 }), kind: 'scene', environmentRef: environment.id },
+  { ...base({ id: 'a', name: 'Scene one', order: 0 }), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
   { ...base({ id: 'b', name: 'The ambush', order: 1 }), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
   { ...base({ id: 'c', name: 'Read this', order: 2 }), kind: 'link', target: { kind: 'rule', ref: rule.id } },
-  { ...base({ id: 'd', name: 'The ritual', order: 3 }), kind: 'countdown', primary: false, countdown: { id: 'd', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' } },
+  { ...base({ id: 'd', name: 'The ritual', order: 3 }), kind: 'countdown', primary: false, countdown: { id: 'd', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
   { ...base({ id: 'e', name: '', order: 4 }), kind: 'unreadable', why: 'this version of the app has no "photo" item', raw: '{"kind":"photo","blob":"AAAA"}' },
 ];
 
@@ -315,7 +316,7 @@ describe('the unreadable row, opened', () => {
 
 describe('the scene arm', () => {
   const scene = (ref: string | null = null): SessionItem[] => [
-    { ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: ref },
+    { ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: ref, ...NO_FIGHT },
   ];
 
   it('offers every environment in the dataset, plus none', () => {
@@ -705,7 +706,7 @@ describe('the countdown arm', () => {
       ...base({ id: 'c', name: 'The ritual', collapsed: false }),
       kind: 'countdown',
       primary,
-      countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' },
+      countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
     },
   ];
 
@@ -722,7 +723,7 @@ describe('the countdown arm', () => {
   it('pins exactly one countdown to the top bar', () => {
     seed([
       ...countdown(),
-      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: true, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '' } },
+      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: true, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
     ]);
     list();
     const pin = buttons().find((b) => (b.textContent ?? '') === 'PIN IT TO THE TOP BAR')!;
@@ -751,7 +752,7 @@ describe('opening and deleting a row', () => {
   });
 
   it('deletes nothing on one tap', () => {
-    seed([{ ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: null }]);
+    seed([{ ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT }]);
     list();
     const del = buttons().find((b) => (b.textContent ?? '') === 'DELETE')!;
     click(del);
@@ -785,12 +786,12 @@ describe('opening and deleting a row', () => {
      * next arm somebody writes gets the property for free or fails here.
      */
     seed([
-      { ...base({ id: 's1', name: 'The Sablewood gate', order: 0, collapsed: false }), kind: 'scene', environmentRef: environment.id },
-      { ...base({ id: 's2', name: 'The frozen ford', order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 's1', name: 'The Sablewood gate', order: 0, collapsed: false }), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
+      { ...base({ id: 's2', name: 'The frozen ford', order: 1, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
       { ...base({ id: 'e1', name: 'The ambush', order: 2, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
       { ...base({ id: 'e2', name: 'The bridge', order: 3, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 1 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
-      { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' } },
-      { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '' } },
+      { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ id: 'l1', name: 'The grove', order: 6, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
       { ...base({ id: 'l2', name: 'The other grove', order: 7, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: dataset.environments[1]!.id } },
     ]);
@@ -973,6 +974,7 @@ describe('renaming a row', () => {
         ...base({ id: 's', name: 'Scene one', collapsed: false, ...patch }),
         kind: 'scene',
         environmentRef: null,
+        ...NO_FIGHT,
       },
     ]);
     list();
@@ -1137,8 +1139,8 @@ describe('renaming a row', () => {
    */
   const twoScenes = (a: string, b: string): void => {
     seed([
-      { ...base({ id: 'a', name: a, order: 0, collapsed: false }), kind: 'scene', environmentRef: null },
-      { ...base({ id: 'b', name: b, order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 'a', name: a, order: 0, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 'b', name: b, order: 1, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
     ]);
     list();
     for (const button of buttons().filter((x) => (x.textContent ?? '').trim() === 'RENAME')) {
@@ -1171,8 +1173,8 @@ describe('renaming a row', () => {
      * mistake, and an empty name is how three of the four kinds arrive.
      */
     seed([
-      { ...base({ id: 'a', name: 'The ambush', order: 0, collapsed: false }), kind: 'scene', environmentRef: null },
-      { ...base({ id: 'b', name: 'The bridge', order: 1, collapsed: false }), kind: 'scene', environmentRef: null },
+      { ...base({ id: 'a', name: 'The ambush', order: 0, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 'b', name: 'The bridge', order: 1, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
     ]);
     list();
     click(buttons().find((b) => (b.getAttribute('aria-label') ?? '') === 'RENAME — The bridge')!);
@@ -1228,7 +1230,7 @@ describe('renaming a row', () => {
         ...base({ id: 'c', name: 'The ritual', collapsed: false }),
         kind: 'countdown',
         primary: true,
-        countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '' },
+        countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
       },
     ]);
     list();

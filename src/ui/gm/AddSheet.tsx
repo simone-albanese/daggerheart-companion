@@ -120,7 +120,6 @@ import { useGm } from './gmStore.ts';
 import {
   LINK_KIND_LABEL,
   SESSION_KIND_LABEL,
-  newEncounter,
   newLink,
   newUrl,
   newScene,
@@ -155,11 +154,7 @@ interface AddChoice {
 export const ADD_FORMS: Record<SessionItemKind, AddChoice> = {
   scene: {
     form: SceneForm,
-    what: 'A place tonight goes through. It remembers an environment, and opens the scene runner.',
-  },
-  encounter: {
-    form: EncounterForm,
-    what: 'A fight you have planned. It carries a roster you can put back on the board when you reach it.',
+    what: 'A beat of tonight — a place, and the fight in it if there is one. It remembers an environment, carries a roster you can put back on the board, and opens the scene runner.',
   },
   link: {
     form: LinkForm,
@@ -317,17 +312,34 @@ const Form = ({
 
 // ---------------------------------------------------------------------------
 
+/**
+ * One form, since `CAMPAIGN_SCHEMA_VERSION` 3.
+ *
+ * It used to be two, and the pair is what decision 1 closed: a scene and the
+ * fight in it were two rows whose relationship was *adjacency*, which a drag
+ * destroyed silently. The roster control below is `EncounterForm`'s, moved
+ * rather than rebuilt, and it keeps that form's own sentence about why a new
+ * row never carries a half-finished fight.
+ */
 function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
   const environments = useApp((s) => s.dataset.environments);
   const add = useGm((s) => s.addSessionItem);
+  const roster = useGm((s) => s.roster);
+  const adjustments = useGm((s) => s.adjustments);
   const [name, setName] = useState('');
   const [environmentRef, setEnvironmentRef] = useState('');
+  const [takeBoard, setTakeBoard] = useState(false);
+  const planned = roster.reduce((sum, entry) => sum + entry.count, 0);
 
   return (
     <Form
       onSubmit={(e) => {
         e.preventDefault();
-        add(newScene(name, environmentRef === '' ? null : environmentRef));
+        add(
+          takeBoard
+            ? newScene(name, environmentRef === '' ? null : environmentRef, { roster, adjustments })
+            : newScene(name, environmentRef === '' ? null : environmentRef),
+        );
         onDone();
       }}
     >
@@ -352,41 +364,6 @@ function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
             </option>
           ))}
         </select>
-      </Field>
-      <Submit />
-    </Form>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function EncounterForm({ onDone }: { onDone: () => void }): React.JSX.Element {
-  const add = useGm((s) => s.addSessionItem);
-  const roster = useGm((s) => s.roster);
-  const adjustments = useGm((s) => s.adjustments);
-  const [name, setName] = useState('');
-  const [takeBoard, setTakeBoard] = useState(false);
-  const planned = roster.reduce((sum, entry) => sum + entry.count, 0);
-
-  return (
-    <Form
-      onSubmit={(e) => {
-        e.preventDefault();
-        add(
-          takeBoard
-            ? newEncounter(name, roster, adjustments)
-            : newEncounter(name, [], { easier: false, harder: false, damageBump: false }),
-        );
-        onDone();
-      }}
-    >
-      <Field label="NAME">
-        <input
-          value={name}
-          placeholder="The ambush at the ford"
-          onChange={(e) => setName(e.target.value)}
-          style={INPUT}
-        />
       </Field>
       <button
         type="button"
@@ -415,6 +392,8 @@ function EncounterForm({ onDone }: { onDone: () => void }): React.JSX.Element {
     </Form>
   );
 }
+
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 

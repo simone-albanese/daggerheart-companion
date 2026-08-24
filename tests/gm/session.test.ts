@@ -29,12 +29,12 @@ import {
   SESSION_KIND_LABEL,
   describeItem,
   linkName,
-  newEncounter,
   newLink,
   newScene,
   sessionName,
   sessionTitle,
 } from '../../src/ui/gm/session.ts';
+import { NO_FIGHT, NO_CLOCK_PROSE } from '../fixtures/factories.ts';
 
 const dataset = baseDataset;
 const index = indexDataset(baseDataset);
@@ -65,7 +65,7 @@ const rule = dataset.rules[0]!;
 
 describe('the name a row draws', () => {
   it('uses the name the GM gave it', () => {
-    const item: SessionItem = { ...base({ name: 'The Sablewood Gate' }), kind: 'scene', environmentRef: null };
+    const item: SessionItem = { ...base({ name: 'The Sablewood Gate' }), kind: 'scene', environmentRef: null, ...NO_FIGHT };
     expect(sessionTitle(item)).toEqual({ text: 'The Sablewood Gate', invented: false });
   });
 
@@ -73,16 +73,16 @@ describe('the name a row draws', () => {
     // The flag is the whole point: `SessionItemBase.name` promises an empty
     // name stays empty, so the row has to be able to draw the substitute as a
     // substitute rather than write it back onto the record.
-    const item: SessionItem = { ...base({ name: '   ' }), kind: 'scene', environmentRef: null };
+    const item: SessionItem = { ...base({ name: '   ' }), kind: 'scene', environmentRef: null, ...NO_FIGHT };
     expect(sessionTitle(item)).toEqual({ text: 'Scene', invented: true });
   });
 
   it('never hands a control an empty accessible name, on any arm', () => {
     const items: SessionItem[] = [
-      { ...base({ name: '' }), kind: 'scene', environmentRef: null },
+      { ...base({ name: '' }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
       { ...base({ name: '' }), kind: 'encounter', roster: [], adjustments: { easier: false, harder: false, damageBump: false }, combatants: [] },
       { ...base({ name: '' }), kind: 'link', target: { kind: 'rule', ref: 'x' } },
-      { ...base({ name: '' }), kind: 'countdown', primary: false, countdown: { id: 'c', name: '', kind: 'standard', start: 4, value: 4, notes: '' } },
+      { ...base({ name: '' }), kind: 'countdown', primary: false, countdown: { id: 'c', name: '', kind: 'standard', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ name: '' }), kind: 'url', href: 'https://a.example/' },
       { ...base({ name: '' }), kind: 'note', note: [] },
       { ...base({ name: '' }), kind: 'unreadable', why: 'why', raw: '{}' },
@@ -96,13 +96,13 @@ describe('the name a row draws', () => {
 
 describe('what a shut row says about itself', () => {
   it('names the scene’s environment rather than counting it', () => {
-    const item: SessionItem = { ...base(), kind: 'scene', environmentRef: environment.id };
+    const item: SessionItem = { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT };
     expect(describe_(item)).toBe(environment.name.toUpperCase());
   });
 
   it('tells a scene with no environment apart from one this dataset cannot resolve', () => {
-    const none: SessionItem = { ...base(), kind: 'scene', environmentRef: null };
-    const gone: SessionItem = { ...base(), kind: 'scene', environmentRef: 'a-layer-not-loaded' };
+    const none: SessionItem = { ...base(), kind: 'scene', environmentRef: null, ...NO_FIGHT };
+    const gone: SessionItem = { ...base(), kind: 'scene', environmentRef: 'a-layer-not-loaded', ...NO_FIGHT };
     expect(describe_(none)).toBe('NO ENVIRONMENT');
     // The two are different facts and the difference is the point: one is a
     // scene not yet placed, the other is a scene whose place this device has
@@ -225,7 +225,7 @@ describe('what a shut row says about itself', () => {
       ...base(),
       kind: 'countdown',
       primary: false,
-      countdown: { id: 'c', name: 'The ritual completes', kind: 'dynamic', start: 6, value, notes: '' },
+      countdown: { id: 'c', name: 'The ritual completes', kind: 'dynamic', start: 6, value, notes: '', ...NO_CLOCK_PROSE },
     });
     expect(describe_(at(4))).toBe('4/6');
     // Not "0/6". A spent countdown is the thing happening, and the board this
@@ -366,21 +366,19 @@ describe('the rows ADD mints through a factory', () => {
   it('leaves the order to the store, which is the only thing that knows it', () => {
     // `addSessionItem` stamps `session.length`. A factory that also guessed
     // would be a second opinion about a number, and two rows at position 4.
-    expect(newScene('The gate', null, 's1').order).toBe(0);
+    expect(newScene('The gate', null, { id: 's1' }).order).toBe(0);
     expect(newLink('A card', { kind: 'domainCard', ref: card.id }, 'l1').order).toBe(0);
-    expect(newEncounter('The ambush', [], ADJUSTMENTS, 'e1').order).toBe(0);
   });
 
   it('mints every one of them closed', () => {
     // Open, the new row pushes the rest of the night off a 393px phone at the
     // moment it is added - and the GM has just typed everything it would show.
-    expect(newScene('The gate', null, 's1').collapsed).toBe(true);
+    expect(newScene('The gate', null, { id: 's1' }).collapsed).toBe(true);
     expect(newLink('A card', { kind: 'domainCard', ref: card.id }, 'l1').collapsed).toBe(true);
-    expect(newEncounter('The ambush', [], ADJUSTMENTS, 'e1').collapsed).toBe(true);
   });
 
   it('takes the id it is given, so a test never has to guess one', () => {
-    expect(newScene('The gate', environment.id, 's1').id).toBe('s1');
+    expect(newScene('The gate', environment.id, { id: 's1' }).id).toBe('s1');
     expect(newScene('The gate', environment.id).id).not.toBe('');
   });
 
@@ -389,21 +387,39 @@ describe('the rows ADD mints through a factory', () => {
     // one stays empty; `sessionTitle` is the other half, drawing the kind word
     // dimmed. Trimming is not generating, and '   ' left in would be a title
     // that renders as blank rather than as the word "Scene".
-    const item = newScene('   ', null, 's1');
+    const item = newScene('   ', null, { id: 's1' });
     expect(item.name).toBe('');
     expect(sessionTitle(item)).toEqual({ text: 'Scene', invented: true });
   });
 
-  it('gives a new encounter no fight, because nothing could ever change one', () => {
-    const item = newEncounter('The ambush', [{ ref: adversary.id, count: 3 }], ADJUSTMENTS, 'e1');
-    expect(item.kind === 'encounter' && item.combatants).toEqual([]);
+  /*
+   * These three moved from `newEncounter` to `newScene` at campaign schema 3
+   * rather than being deleted with it. The properties are the factory's, not
+   * the kind's: decision 1 moved the three fight fields onto the scene row, so
+   * whatever used to be true of minting a fight has to stay true of minting a
+   * scene that has one.
+   */
+  it('gives a new scene no fight in progress, because nothing could ever change one', () => {
+    const item = newScene('The ambush', null, {
+      roster: [{ ref: adversary.id, count: 3 }],
+      adjustments: ADJUSTMENTS,
+      id: 's1',
+    });
+    expect(item.kind === 'scene' && item.combatants).toEqual([]);
     expect(describe_(item)).toBe('3 PLANNED');
   });
 
   it('copies the roster it is handed rather than pointing at the board’s', () => {
     const roster = [{ ref: adversary.id, count: 2 }];
-    const item = newEncounter('The ambush', roster, ADJUSTMENTS, 'e1');
+    const item = newScene('The ambush', null, { roster, adjustments: ADJUSTMENTS, id: 's1' });
     roster[0]!.count = 9;
-    expect(item.kind === 'encounter' && item.roster).toEqual([{ ref: adversary.id, count: 2 }]);
+    expect(item.kind === 'scene' && item.roster).toEqual([{ ref: adversary.id, count: 2 }]);
+  });
+
+  it('mints a scene with no fight at all when it is not given one', () => {
+    // The common case: most rows of a night are a place somebody talks in.
+    const item = newScene('The gate', null, { id: 's1' });
+    expect(item.kind === 'scene' && item.roster).toEqual([]);
+    expect(item.kind === 'scene' && item.combatants).toEqual([]);
   });
 });

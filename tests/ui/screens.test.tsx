@@ -166,6 +166,7 @@ import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
 import { ShellBanner } from '../../src/ui/shell/ShellBanner.tsx';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
 import { UpdateBanner } from '../../src/ui/shell/UpdateBanner.tsx';
+import { NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -513,6 +514,7 @@ const sceneItem = (): SessionItem => ({
   order: 0,
   collapsed: false,
   environmentRef: null,
+  ...NO_FIGHT,
 });
 /**
  * A `## ` block of a shipped rules section that carries a pipe table.

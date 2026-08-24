@@ -16,6 +16,9 @@ import type {
   Feature,
   Item,
   LevelUpChoice,
+  EncounterAdjustments,
+  RosterEntry,
+  SceneCombatant,
   Subclass,
   Tier,
   Trait,
@@ -227,4 +230,41 @@ export const scriptedRng = (...results: number[]): ScriptedRng => {
 /** For proving a code path never touches the dice. */
 export const refusingRng: Rng = () => {
   throw new Error('the RNG must not be consulted here');
+};
+
+// ---------------------------------------------------------------------------
+// What `CAMPAIGN_SCHEMA_VERSION` 3 added, as empty as a fresh row makes it
+// ---------------------------------------------------------------------------
+
+/**
+ * The three fields the `scene` row absorbed from `encounter` at campaign
+ * schema 3 (decision 1), all empty.
+ *
+ * Spread into a scene literal rather than typed out in each of them. A test
+ * that cares about the fight sets its own roster over the top; the many that
+ * predate the bump and only ever cared about a name and an environment say so
+ * by spreading this, which reads as *"no fight here"* rather than as three
+ * fields somebody forgot to think about.
+ */
+export const NO_FIGHT = {
+  roster: [] as RosterEntry[],
+  adjustments: { easier: false, harder: false, damageBump: false } as EncounterAdjustments,
+  combatants: [] as SceneCombatant[],
+};
+
+/**
+ * The five fields a `Countdown` gained at campaign schema 3 (decision 8), all
+ * empty — the Activation / Advancement / Effect triad, the owner, and the
+ * per-tick beats.
+ *
+ * Empty is not a placeholder here: it is exactly what every countdown written
+ * before the bump holds after `readCountdown` has supplied its defaults, so a
+ * fixture spreading this is a faithful schema-2 clock read forward.
+ */
+export const NO_CLOCK_PROSE = {
+  activation: '',
+  advancement: '',
+  effect: '',
+  owner: '',
+  beats: [] as string[],
 };
