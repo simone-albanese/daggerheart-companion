@@ -137,8 +137,45 @@ export interface RestOutcome {
  * The companion is named in that line when they have a name, because "your
  * companion cleared 2 Stress" is a line about somebody the player calls
  * Ashfoot.
+ *
+ * AN ANIMAL WHO HAS LEFT THE SCENE IS NOT CLEARED, AND THAT IS A DELIBERATE
+ * DEVIATION RATHER THAN THE RULE ABOVE BEING APPLIED CARELESSLY.
+ *
+ * Folio 18 says two things and this is where they meet. The sentence quoted
+ * above carries no exception; three paragraphs earlier the same folio says
+ * *"when they mark their last Stress, they drop out of the scene... They
+ * remain unavailable until the start of your next long rest, WHERE THEY RETURN
+ * WITH 1 STRESS CLEARED."* Both cannot hold on a short rest: without this
+ * guard, a Clear Stress cleared the animal's whole track, `companionIsAway` is
+ * purely derived, and so they walked back into the scene - the attack armable
+ * again, the panel's own banner reading BACK AT YOUR NEXT LONG REST gone, the
+ * GM's board un-greyed. The app printed a promise and took it back on the next
+ * rest.
+ *
+ * The later sentence wins because it is the more specific one and because it
+ * states its own return mechanism: if a short rest could bring them back, "they
+ * return with 1 Stress cleared" would almost never happen. The cost is that
+ * "an equal number" has an exception the book does not write, which is why it
+ * is written here.
+ *
+ * THE FAITHFUL VERSION OF THIS COSTS A SCHEMA. Both sentences hold together
+ * only if availability stops being derived from the Stress track - an explicit
+ * `away` on `CompanionState`, which is `SCHEMA_VERSION` and a codec decision,
+ * and which would falsify `companion.ts`'s "there is no second way to be out of
+ * the scene". That is a bigger change than this defect is worth on its own; it
+ * belongs to whichever step moves the character schema next.
+ *
+ * It does not reach a LONG rest. The return at the top of `takeRest` runs
+ * before any move resolves, so by the time a long rest's clear arrives the
+ * companion is back in the scene and it lands on them like any other.
  */
 function alsoTheCompanion(c: Character, amount: number, log: string[]): Character {
+  const companion = c.companion;
+  if (companion !== null && companionIsAway(companion)) {
+    const name = companion.name === '' ? 'Your companion' : companion.name;
+    log.push(`${name}: out of the scene until your next long rest`);
+    return c;
+  }
   const { character, cleared } = clearCompanionStress(c, amount);
   if (cleared === 0) return character;
   const name = c.companion?.name ?? '';
