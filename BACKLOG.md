@@ -644,14 +644,76 @@ level-up path does not know that yet.
 **~4 h total**
 
 - [ ] **An unresolvable armor ref silently produces wrong thresholds.**
-      `character.ts:147-157` takes the same branch for a present-but-unresolvable
-      `activeArmor` as for no armor at all, giving the unarmored `[0, level]`
-      formula and `armorScore` 0. A level-5 character in improved chainmail
-      should read 16/29. *(small)*
-- [ ] **"Free during downtime" is printed mid-combat** for the 31 SRD cards with
+      **[split — the engine half is closed, three surfaces still print the fallback as fact]**
+
+      **Closed** (`97fd2d9`, 16 Aug): `deriveStats` no longer swallows the ref.
+      `character.ts:256-258` computes `unresolvedArmor` and `:421` carries it out
+      with the stats, so a caller can finally tell "wearing armor this build
+      cannot name" from "wearing nothing"; and `character.ts:298-302` keeps the
+      sheet's own `armorSlots.max` rather than answering Armor Score 0, which
+      kills the second clause of the sentence above and stops `syncCounters`
+      emptying a passing sheet's Armor track. Two surfaces branch on it —
+      `Play.tsx:1436, 1499-1503` and `Vitals.tsx:621` — and the GM's board
+      reaches the same answer by its own route, `party.ts:135-142` with
+      `PartyBoard.tsx:388-389, 686-696`. The `character.ts:147-157` anchor above
+      is stale; the code is `character.ts:256-302` now.
+
+      **Still open**, and `97fd2d9`'s own message says so: *"Not done,
+      deliberately: the print sheet, the wizard's review, Edit's readout, the
+      gear picker's per-armor preview and the party board's own figures still
+      show the fallback ladder without qualification."* Of those five, the
+      wizard and the gear picker are not reachable — they only ever hold armor
+      this dataset supplied — and the party board has since been qualified. The
+      other three have not. `grep -rn unresolvedArmor src/ui/` returns `Play.tsx`
+      and `Vitals.tsx` and nothing else.
+
+      Executed at level 5 with `activeArmor: 'improved-chainmail'` absent from
+      the dataset and `armorSlots.max` 4, where the sheet the file came from
+      reads 16/29 (SRD: Improved Chainmail 11/24, Score 5):
+
+      - **The printed sheet is the worst of the three, because paper cannot be
+        tapped to check.** `sheetModel.ts:346-349` has two branches — override,
+        or not — so it prints Major 5 / Severe 10 under the caption **"Level 5
+        is already added to both"**: not silence, a false derivation.
+        `buildLadder` (`sheetModel.ts:463`) turns the same numbers into "below 5
+        / 5+ / 10+", and `sheetModel.ts:360` resolves the ref to `undefined`, so
+        `CharacterSheet.tsx:213-215` prints **"Nothing worn."** next to an Armor
+        cell (`CharacterSheet.tsx:116-125`) reading 4 with four pips — the page
+        contradicting itself.
+      - `Edit.tsx:104` shows `THRESHOLDS 5/10` with no qualification, and the
+        Armor `GearSlot` at `Edit.tsx:219-224` falls to its `empty` state,
+        *"Search N sets of armor"*, for a character who is wearing some.
+      - `LevelUp.tsx:326-333` shows `5/10 → 5/12` captioned **"THRESHOLDS ARE
+        YOUR ARMOR'S BASE PLUS YOUR LEVEL"** — reached from Edit's own "Level up
+        to N" button on that same imported sheet.
+
+      This state is reachable by design, not by accident: `state.ts:797-802`
+      deliberately returns an arriving sheet unsynced when its armor will not
+      resolve, so that the numbers it came with survive.
+
+      Correct one line while here: `PartyBoard.tsx:694` still tells the GM the
+      sheet's *"thresholds and Armor Slots are the unarmored ones"*. Since
+      `character.ts:298-302` the Armor Slots are no longer the unarmored ones.
+
+      And pin it. No test anywhere builds a sheet with an unresolvable armor ref
+      — `tests/ui/printSheet.test.ts` is 48 green cases and none of them is this
+      one — which is why the gap survived an audit. *(small: the branch already
+      exists, these are three read surfaces and a sentence)*
+- [x] ~~**"Free during downtime" is printed mid-combat** for the 31 SRD cards with
       `recallCost: 0` (`Play.tsx:370`, `Cards.tsx:116`). Branch on the `downtime`
-      option, not on the resulting cost. *(trivial)*
-- [ ] **~~Unarmored thresholds are the app's own invention presented as rules~~**
+      option, not on the resulting cost. *(trivial)*~~
+      — **done, `5ed3def`** — though not by the means this bullet prescribed, and the
+      difference is worth writing down. Both surfaces now go through one hook,
+      `src/ui/player/recall.ts:39-67`, and no path into it has ever carried
+      `downtime` (`recall.ts:11-17`: a recall during a rest is deliberately staged by
+      `Rest.tsx` instead), so branching on the option *there* would be dead code. The
+      zero-cost branch stays at `recall.ts:63` and now writes the sentence that is
+      true of it — *"This card costs nothing to recall"*. The other zero is written
+      where it is earned: `Rest.tsx:464`, *"free during this rest"*, inside the rest's
+      own log entry. The quoted string survives nowhere in `src/` except the two
+      comments that explain its removal (`recall.ts:55`, `Cards.tsx:174`). Pinned by
+      `tests/ui/playSheet.test.tsx:2877` and `tests/ui/cards.test.tsx:138`.
+- [x] **~~Unarmored thresholds are the app's own invention presented as rules~~**
       **[corrected — half of this was wrong, and the other half is now sourced]**
 
       The first clause does not survive checking: an auditor traced
@@ -678,12 +740,44 @@ level-up path does not know that yet.
       a hard-coded `1`. Verify the shipped SRD carries the sentence before
       quoting it on screen — if it does not, the app may enforce the cap but
       must not cite a rule the user cannot read in the app.
+      — **done, and verified against the moved tree 2026-08-23.** The cap lives in the engine
+      in both halves the bullet named: `damage.ts:186` reads it from `armorSlotCap`, whose
+      default `DEFAULT_ARMOR_SLOT_CAP` (`damage.ts:93`) is 1 and is deliberately not exported;
+      `damage.ts:198-199` cuts the spend to `min(cap, available, rungs)`; and `markDamage`
+      re-clamps against the cap the outcome carries (`damage.ts:240-242`), so an object literal
+      with `armorSlotsUsed: 3` cannot forge a spend. `Vitals.tsx:737` reads
+      `preview.armorSlotsSpendable` and `Vitals.tsx:762` cycles against it; both layouts render
+      the one `{armor}` node (`Vitals.tsx:829, 886`). There is no second surface to re-invent
+      it: `applyDamage`/`markDamage` have exactly one caller in `src/` (`Vitals.tsx:11`), and
+      the companion added on `beast-sheets` touches no armour at all despite the SRD's *Armored*
+      upgrade. Pinned at `tests/engine/damage.test.ts` (54 green, caps of 2/3/4/∞) and
+      `tests/ui/playSheet.test.tsx:2654` (132 green), the latter written against the old
+      `n + 1 > available || n >= 3`. The SRD instruction was carried out: `data/srd-1.0.json`
+      does not carry the sentence, nothing on screen cites one, and the app says only what it
+      does.
+
+      **Spun off, not left open here:** `damage.ts:52-54` concludes "evidence is not a
+      quotation". True of the app, false of the book — the SRD states the cap outright on p54,
+      under ARMOR › REDUCING INCOMING DAMAGE: *"When you take damage, you can mark one Armor
+      Slot to reduce the severity of the damage by one threshold (Severe to Major, Major to
+      Minor, Minor to Nothing)."* The same paragraph carries the unarmored formula that settles
+      this bullet's struck first clause. Neither is quotable in the app because the shipped
+      dataset's 80 `rules` sections include no Equipment chapter at all. See the new item.
+- [ ] **The shipped rules text drops the whole Equipment chapter, and the app enforces two of
+      its rules anyway.** `data/srd-1.0.json`'s `rules` array has 80 sections and none of them
+      is Equipment, Weapons, Armor or Inventory: `"REDUCING INCOMING DAMAGE"`,
+      `"mark one Armor Slot"`, `"While unarmored"` and `"Armor Score of 0"` all return zero
+      matches. So the one-slot-per-hit cap the engine enforces and the unarmored threshold
+      formula `deriveStats` computes are both unreadable in the app and unfindable in
+      `RuleSearch`, which is the only reason `damage.ts:43-54` forbids citing either. Extend the
+      parser to the Equipment chapter; the citation can then be lifted through the existing
+      find-by-sentence pattern in `ruleText.ts` rather than typed into a source file. *(small)*
 - [x] ~~**`src/engine/rest.ts` has zero callers** — 226 lines, 28 passing tests, and
       no rest or downtime anywhere in the UI; `state.ts:29` declares a `'rest'`
       log kind nothing produces. It is fully tree-shaken, so it costs users
       nothing today. Decide: wire it, or say out loud that rest is not in 1.0.~~
       — **decided: it ships.** See P1-7.
-- [ ] **`newCharacter` seeds the wrong HP and Stress track for six of nine
+- [x] ~~**`newCharacter` seeds the wrong HP and Stress track for six of nine
       classes.** `character.ts:282` hardcodes `max: 6` for both, but
       `startingHitPoints` is 5 for bard and wizard and 7 for guardian and seraph.
       Latent rather than live: the only persisting caller is `store.create`
@@ -692,7 +786,28 @@ level-up path does not know that yet.
       flow, a test seed — a wizard is stored with a 6-box track the engine
       derives as 5, and `validatePlan` warns *"Hit Points are already at the
       maximum of 12"* one advancement early. Seed from the class, or make
-      `create()` sync. *(trivial)*
+      `create()` sync.~~ *(trivial)*
+      — **done, and half of it was never true.** The Hit Point half was real and
+      is fixed at `character.ts:511`: the track is
+      `Math.min(MAX_HP, startingHitPoints(klass))`, off the same
+      `startingHitPoints` helper (`character.ts:89-90`) and the same
+      `HIT_POINTS_WITHOUT_A_CLASS` fallback that `deriveStats` reads at
+      `character.ts:388`, so the seeder and the engine cannot drift. Both
+      remedies landed, not one: `state.ts:426` passes `get().index`, and
+      `Wizard.tsx:296-297` passes it *and* calls `syncCounters`. Pinned by
+      `tests/engine/character.test.ts:359-370` and by the dataset-read
+      `describe` at :400-430, which reads the nine numbers off `srd-1.0.json`
+      rather than trusting either count.
+      The Stress half is **premise-false** and should not be repeated: there is
+      no per-class Stress in the game. The SRD prints STARTING HIT POINTS for
+      each class and nothing else; `shared/types.ts:161` carries
+      `startingHitPoints` alone; `character.ts:512` and `:392` both read one
+      `BASE_STRESS`. And it was **four** of nine, not six — bard 5, wizard 5,
+      guardian 7, seraph 7.
+      Not a reason to reopen, but the one place the no-index call still lives:
+      `fileIo.ts:368` builds its blank sheet with `newCharacter()`, so a record
+      with a resolvable class and no `hp` key would inherit the 6. Every store
+      write path re-syncs it (`state.ts:797-802`), so it is unreachable today.
 
 ---
 
@@ -745,11 +860,34 @@ value in `loadout.ts` and missed the other.
 - [ ] Render what `missingCardRefs` returns, on Play and on the print sheet: a
       ghost row naming the ref, counted against the cap so `n / 5 ACTIVE` and
       `SLOTS FREE` agree with the gate, and removable to the vault by hand.
+- [x] ~~Until it does, `codec.ts:851` must not promise a repair that never
+      happens. Wire the resolver or change the sentence.~~ — **done,
+      `3076dac` · `f33a14b`**, second branch taken. `codec.ts:1022-1028` (the
+      old `:851`) now says only what the codec does — the ids stay, they are
+      drawn as rows marked CARD NOT IN THIS BUILD with a way to the vault, they
+      are forwarded unchanged — and then denies the repair out loud: *"What
+      this build cannot do is name them, and adding the content here later will
+      not: a device that already has it names them when the sheet arrives
+      there."* `codec.ts:986-989` keeps the retired wording as history, and
+      `Transfer.tsx` never had a copy of its own — it renders the codec's
+      `warnings` through `ImportConflicts.tsx:57`. Three tests at
+      `tests/transfer/codec.test.ts:230-303` pin it, the third sweeping every
+      file in `src/` for the promise so it cannot creep back.
+      **Not closed by this, and not this box's work:** `Architecture.md:477-478`
+      still states the repair as a rule, and `CHANGELOG.md:970` still quotes the
+      retired sentence under *Known to be wrong*. Both move to the box above.
+
 - [ ] Call `resolvePlaceholders` at startup, after `init()` loads the library,
       and re-persist what it heals — so an update that grows the registry
-      repairs the sheets already on the device.
-- [ ] Until it does, `codec.ts:851` must not promise a repair that never
-      happens. Wire the resolver or change the sentence.
+      repairs the sheets already on the device. When it lands, correct
+      `Architecture.md:477-478` — *"I riferimenti ignoti restano nella scheda
+      come `unresolvedRefs` e si risolvono da soli quando arriva la fonte
+      mancante"* — which names the wrong trigger in exactly the way this item's
+      preamble already diagnoses: the registry is compiled into the bundle and
+      grows with a build, not when the missing content arrives, so that rule is
+      false even after this box is ticked. Correct `CHANGELOG.md:970` in the
+      same pass; its *Known to be wrong* entry has quoted a string that no
+      longer exists since `3076dac`.
 
 P0-7 already uses this exact scenario — *"a sheet arrives from a newer device
 with its class ref parked as `?60007`"* — but only asks for `syncCounters` at
@@ -972,10 +1110,34 @@ outer scroller never engages.
 Nothing is clipped anywhere: every Experience shows its whole name, every pip
 clears 31 px, ROLL keeps its full 66 px clear of the tab bar.
 
-- [ ] 188 px on a tall phone is workable but not generous. If it grates, the
+- [x] ~~188 px on a tall phone is workable but not generous. If it grates, the
       levers are: let the Experience rows join the top of the scroll on short
       viewports, or unpin Stress. Both cost something already asked for, so
-      neither happens without asking.
+      neither happens without asking.~~
+      — **closed as expired, 2026-08-23. Not as done, and not by a `[y/n]`** —
+      which is the disposal the note at the head of this section reserved for
+      exactly this outcome. Nothing was built for this bullet; its premise left.
+      The fixed block it is a reading of does not exist: `Play.tsx:3475-3479`,
+      "One column, and it is the only thing on this screen that scrolls…
+      there is nothing pinned for them to be arranged around - and with them
+      went the 88px floor that existed only to stop a fixed block starving the
+      scroll." `playSheet.test.tsx:475-488` holds it there rather than trusting
+      the comment: it fails if *any* element on Play declares `position: fixed`
+      or `sticky`, and if any element other than the root declares a second
+      `overflowY: auto` (132/132 green on Node v24.19.0). The seven `position:
+      fixed` left in `src/` are all `inset: 0` dialog overlays.
+      So both levers are spent or meaningless. The Experience rows are already
+      inside the scroll — a `Disclosure` fold in the column, `Play.tsx:3424`
+      and `:3683` — which is more than the lever asked for; and Stress cannot be
+      unpinned because nothing is. There is no 188 px window left to be generous
+      or mean with: the number survives nowhere in `src/` or `tests/`. What
+      replaced it is asserted rather than remembered, in `playSheet.test.tsx`'s
+      budget: the folded sheet sums to 600 in a 730px column at 393×852, and the
+      margin under ROLL on the 375×667 phone went from 10 px to **221**, still
+      96 to spare with a 34 px home-indicator inset.
+      **The table and the two paragraphs above expire with it** — they still say
+      "keeps two things out of the scroll" and "All four tracks are pinned" about
+      a screen that does neither, and left standing they read as current.
 
 ### P2-3 · Touch targets and the tablet header
 **~3 h total**
@@ -1650,7 +1812,7 @@ where being wrong stops the project rather than costing a character.
       whole, so repairing one bar would leave the shape in six places while
       reading as though it had been dealt with. `Header.tsx`, "THE FALLBACK THIS
       GAVE UP, AND WHY IT IS NOT OWED".
-- [ ] **A screen crash gives the user one line of text and no way to convey it.**
+- [x] ~~**A screen crash gives the user one line of text and no way to convey it.**
       `ScreenBoundary.tsx:29-31` — *"No telemetry anywhere in this app; the
       console is the only reporter"* — then `console.error`. The fallback renders
       `error.message` alone (`:60`) in a `<code>` block with no stack and no copy
@@ -1659,7 +1821,94 @@ where being wrong stops the project rather than costing a character.
       shipped for months were found by a person opening the app on their own
       phone; that channel is this project's only working bug-finding mechanism,
       and it gives that person nothing to send back but a retyped sentence.
-      `pasteboard.ts:54` already does `navigator.clipboard.writeText`.
+      `pasteboard.ts:54` already does `navigator.clipboard.writeText`.~~ —
+      **done for `ScreenBoundary`, `3dc3d82`, `ac54a8d`, `69ac8b5`; re-verified
+      line by line 23 August 2026. Struck around `AppBoundary.tsx`, not through
+      it — the half that is still true is the bullet below.**
+
+      The change the rest rests on is `componentDidCatch`
+      (`ScreenBoundary.tsx:91-97`): `info.componentStack` now goes into *state*
+      as well as the console — *"the console is still the only reporter for
+      anyone with a cable; the state is the only one for everybody else"* — so
+      the fallback can show where the failure was instead of being structurally
+      unable to. On top of that, `report()` (`:108-121`) assembles the version,
+      an ISO timestamp, `error.stack`, the component stack and
+      `navigator.userAgent` into one block and deliberately no character data;
+      `copyTheReport` (`:123-131`) puts it on the pasteboard through `copyText`
+      (`pasteboard.ts:62`, the one place in the app that touches
+      `navigator.clipboard.writeText`) behind a **Copy the error report** button
+      (`:272-274`); the stack is on screen under a **WHERE IT HAPPENED**
+      `<details>` that scrolls inside its own box (`:217-248`); and **Save a copy
+      of everything** (`:261`) appears once a retry has been disproven. The
+      refusal path is held as well — a clipboard the browser denied says so and
+      points at a photograph of the screen rather than reporting a copy that did
+      not happen. `tests/ui/screenBoundary.test.tsx` is 9 tests, green on the
+      project's Node 24.19.0, among them *"puts the whole report on the
+      pasteboard, version and browser included"*, *"shows where it happened, not
+      only what it said"* and *"does not claim a copy the browser refused"*.
+
+      **The quoted sentence did not go away; it moved.** `grep -rn "No telemetry
+      anywhere in this app" src/ tests/` returns exactly one hit, and it is
+      `AppBoundary.tsx:61`. Do not read this tick as a file that was looked at
+      and cleared.
+- [ ] **The boundary a white page actually reaches still gives one line of text
+      and no way to convey it.** `AppBoundary.tsx:60-62` takes
+      `info.componentStack` and hands it straight to `console.error` under the
+      verbatim sentence this item was filed against, and never to state — which
+      is precisely the defect `ScreenBoundary.tsx:55-58` now describes in the
+      past tense. `AppBoundary.tsx:114` renders `{error.message}` alone in a
+      `<code>` block with no stack and no copy affordance. `copyText` is imported
+      by exactly one file in `src/` (`ScreenBoundary.tsx:22`), and none of
+      `tests/ui/appBoundary.test.tsx`'s six tests asks for a report or a stack.
+
+      **Not a clause the fix skipped — a variant that post-dates the item.** At
+      `1c22c91`, the commit that authored the bullet above, `src/` held two
+      `console.*` calls and `AppBoundary.tsx` did not exist; it arrived in
+      `232d8a9`. That is why this is a new bullet rather than a reopening.
+
+      **And it is the harder half.** `ScreenBoundary` wraps the five screens.
+      `AppBoundary` is mounted at `App.tsx:106-108`, above `useStats()` — which
+      derives a whole sheet inside the shell's own render — the `Header`, the
+      `TabBar`, `CardReader`, the licence footer and five alert banners
+      (`App.tsx:96-98`). A throw in any of those is the white page, and this
+      fallback is the only thing standing between it and a user whose next move
+      is to clear site data. The rescue half of that screen is already right and
+      has to survive the fix: `role="alert"`, **Export everything** offered
+      unconditionally, **Try again**. What is missing is the report.
+
+      Correcting this entry's own arithmetic while it is open: `src/` now holds
+      **three** `console.*` calls, not two — `App.tsx:210` (`console.warn`, the
+      service worker), `ScreenBoundary.tsx:96` and `AppBoundary.tsx:62` — and the
+      reason is unchanged, because on iOS reaching any of them needs a Mac and a
+      cable. The fix is the three pieces `ScreenBoundary` already has (`stack` in
+      state, a `report()`, `copyText`); lift them into something both boundaries
+      call rather than copying them, because `copyText`'s single import site is
+      exactly what made this look finished.
+- [ ] **The crash report names the version and cannot name the build.**
+      `ScreenBoundary.report()` stamps `APP_VERSION` (`:112`) and nothing else
+      about the build; `grep -rnE "BUILD_ID|shortBuildId" src/` shows the build id
+      reaching exactly one screen, `About.tsx:237, 246`. `buildInfo.ts` exists
+      for one stated reason (`:4-10`) — *"A user on a stale cached build had no
+      way to tell us which one and we had no way to ask"* — and an app that holds
+      its bundle in Cache Storage until the user accepts an update can sit on
+      `0.5.0` across several deploys. So the one artefact in this app that is
+      designed to be sent to a maintainer answers *which build* with the value
+      that cannot tell two builds of `0.5.0` apart, while `deploy.yml:94-95`
+      fails the deploy outright when the real answer is missing from the bundle.
+      One import and one line in `report()`.
+
+      **Deliberately not filed: the duplicate `APP_VERSION`.** `report()` takes
+      its version from `fileIo.ts:49`, a hand-typed `export const APP_VERSION =
+      '0.5.0'`, rather than from `buildInfo.ts:31`, which vite compiles out of
+      `package.json` — a second source of truth for the exact value P4's *No
+      version or build id anywhere in the UI* exists to keep from drifting. It is
+      still not a bullet, because the drift is already held and has already been
+      exercised: `tests/transfer/fileIo.test.ts`, *"stamps the version this build
+      actually is"*, asserts `APP_VERSION === pkg.version` and fails CI
+      otherwise, and the constant read `0.3.0` when this was raised on 19 August
+      2026 and reads `0.5.0` today without anyone having to be reminded. The
+      constant is also deliberate and says why (`fileIo.ts:46-50`): a file stamps
+      the build that wrote it. Recorded here so it is not filed a third time.
 - [ ] **Settings hints are never tied to the control they explain.**
       `settings/parts.tsx:94-101` renders `label` and `hint` as bare `<div>`s
       with no `id`; `Switch` (`:117-178`) is a sibling carrying only
@@ -2114,11 +2363,22 @@ silence:**
 - [x] ~~**Nothing in this build writes a new scene, encounter or link row.**~~ —
       **closed by the ADD sheet.** The three factories are in `session.ts` now
       because there is a caller.
-- [ ] **`Countdown.notes` is persisted, read by `readCountdown`, and rendered
-      nowhere.** The open countdown row is now the obvious place for it, which
-      makes the absence louder than it was. It needs a keyboard inside a
-      scrolling list and a history, and a row that starts showing the field must
-      not imply it was ever editable before.
+- [ ] **A countdown records all of it — and the recorded decision that it would not is
+      superseded, not forgotten.** `Countdown.notes` is still persisted, still read by
+      `readCountdown`, and still rendered nowhere. What changed is the answer to *why*.
+      This entry used to say the field stays undrawn because it needs a keyboard inside a
+      scrolling list and a history, and because a row that starts showing the field must not
+      imply it was ever editable before. **Decision 8 of `docs/handoff/DECISIONI-2026-08-23.md`
+      overrules that** — explicitly and on the record, rather than by drift: a countdown gains
+      the **Activation / Advancement / Effect** triad, a field for **whose it is**, and
+      per-tick beats on long-term clocks. `notes` stops being an orphan field and becomes the
+      smallest part of a shape somebody is designing on purpose.
+      **Not a standalone job, and that is the point of writing it here.** It moves
+      `CAMPAIGN_SCHEMA_VERSION`, and decisions 1, 6 and 8 all move it, so it travels in the
+      single 2 → 3 bump with them or it costs three converters, three rounds of fixtures and
+      three rewrites of the transfer tests. This file already carries that lesson for a
+      smaller case, twelve hundred lines up: *"Decide the URL row and the note row together so
+      the schema is bumped once, not twice."*
 - [ ] **A session encounter row can put its plan back on the board, but not its
       fight.** `combatants` on the row are stated as a fact with no control,
       because no action in `gmStore` sets the combatant list wholesale. Adding
@@ -2456,20 +2716,108 @@ The comparison the owner asked for, and it is favourable: `Gold` is already
 boxes in `LevelUp.tsx` already mirror the guide page — including the black box
 that `0626368` and `d71136c` just made behave.
 
-- [ ] Compare `src/ui/print/CharacterSheet.tsx` field by field against the
+- [x] Compare `src/ui/print/CharacterSheet.tsx` field by field against the
       official sheet and list what is missing, what is named differently, and
       what the app has that the paper does not. Report before changing.
-- [ ] Match the **information architecture**, not the artwork. The field set and
-      its order are functional and mostly SRD; the layout, the frames and the
-      class banners are Darrington Press's design. Reproducing the look is a
-      licensing question this project cannot afford to get wrong — P3-10 exists
-      because the attribution is already thinner than the licence asks for.
-- [ ] Specifics visible on the paper and worth checking for: *"Start at 10"*
-      under Evasion, *"Add your current level to your damage thresholds"*,
+      — **done, `b64a52e`**, whose message *is* the report: ten findings (eight
+      fields missing, two misfiled), the app-only extras named (the loadout,
+      the domain cards printed in full, the features), and **nothing** left
+      named differently — the page says *Heritage*, the paper's own word
+      (`sheetModel.ts:126`, `CharacterSheet.tsx:76`). Re-checked 23 Aug: the
+      only commit to touch `src/ui/print/` since is `bf3b6a2`, which swapped
+      `collectFeatures` for `engine/features.ts` and added, removed and renamed
+      no field. Verified against the tree, not against the audit.
+- [ ] **The companion block was never put through that comparison, and it is in
+      the same file.** `eef8f19` (branch `beast-sheets`, unmerged) added
+      `SheetCompanion` (`sheetModel.ts:189-213`), `printedCompanion`
+      (`sheetModel.ts:263-290`) and a Companion section
+      (`CharacterSheet.tsx:354-430`) *after* the report above was written; its
+      commit message is a rationale for the shape, not a field-by-field list,
+      and it names no missing field. Against the SRD's own companion sheet
+      (folio 16, *"RANGER COMPANION"*, steps 1–4) the block carries name,
+      Evasion, Stress, the two Experiences with their ruled lines, range,
+      physical/magic, the damage with Proficiency in it, and all eight level-up
+      options with the taken ones marked. Two gaps, one of them real:
+      - step 4's *"describe your companion's method of dealing damage (their
+        standard attack) and record it in the 'Attack & Damage' section"* has
+        no field anywhere — `CompanionState` (`shared/types.ts:386-407`) holds
+        `description` as the species, not the attack — so the page prints
+        `Attack — melee, physical` with the attack unnamed. Closing it is a
+        change to `shared/types.ts`, the companion editor and the schema, which
+        is the same "not this lane" `b64a52e` invoked for Inventory Weapons;
+      - step 1's *"add a picture of them"* is absent and always will be, since
+        this app holds no images. Say so on the page or in the model, rather
+        than leaving the omission silent.
+      None of the eight companion tests in `tests/ui/printSheet.test.ts`
+      asserts against the paper's field set, so nothing in the suite stands in
+      for the missing comparison.
+- [x] Match the **information architecture**, not the artwork — **on the character
+      sheet's own fields**, done in `b64a52e`. The field set and its order are
+      functional and mostly SRD; the layout, the frames and the class banners are
+      Darrington Press's design. Reproducing the look is a licensing question this
+      project cannot afford to get wrong — P3-10 exists because the attribution is
+      already thinner than the licence asks for. Verified 23 Aug against page 1 of
+      `Manuali/Character-Sheets-and-Guides-Daggerheart-May212025.pdf`: the section
+      order follows the paper's groupings (`CharacterSheet.tsx:13-19`), and none of
+      the look is reproduced — `sheet.css:35-39` holds five ink values and 0.4pt
+      hairlines and nothing else, `marks.tsx:9-11` converts this app's own
+      `DOMAIN_MARKS` polygons rather than DP's icons, and the one piece of official
+      artwork in the repository (`public/brand/*`, via `CompatibleMark.tsx`) never
+      reaches the page: the footer prints `ATTRIBUTION` as words
+      (`CharacterSheet.tsx:454`) and `sheet.css:81` removes the header's icon.
+- [ ] **The companion section has never been held against the companion sheet.**
+      `eef8f19` (beast-sheets, 23 Aug) added it — 78 lines in `CharacterSheet.tsx`
+      — after the box above was judged done, and its message argues only "a section
+      rather than a second page"; `c88bd21`'s pass over the same block changed
+      glyphs, not architecture. Page 10 of the same PDF runs COMPANION NAME (with a
+      space to *"draw or attach a picture of them"*) → evasion, captioned *"Start
+      at 10"* → companion Experience → Attack & damage (Standard Attack | Range |
+      d6 d8 d10 d12) → stress → TRAINING. `CharacterSheet.tsx:364-429` runs name →
+      Evasion/Attack/Stress as one list → Companion Experience → Level-up options.
+      So: Experience and the attack block are transposed against the paper, the
+      *"Start at 10"* caption is absent, and the paper's two write-in affordances —
+      the picture space and the Standard Attack line — have nothing on the page,
+      on the one sheet that already rules blank lines for Inventory weapons
+      precisely so it can offer room without claiming data. `CompanionState`
+      (`shared/types.ts:386-407`) has no attack-name field, so that line is either
+      a new field or a deliberate blank, and the blank is the cheaper honest answer.
+- [ ] Correct `CharacterSheet.tsx:362`. *"It sits after the character's own
+      Experience and before the features, which is where the paper sheet's own
+      reading order puts it"* is not a fact about any paper: the companion is a
+      separate sheet, as the two lines above it already say, and page 1 has no
+      companion block in its reading order at all. Keep the placement if it is
+      wanted — give it its real reason.
+- [x] Specifics visible on the paper and worth checking for: *"Start at 10"* under
+      Evasion, *"Add your current level to your damage thresholds"*,
       the `Mark 1 HP / 2 HP / 3 HP` labels on the ladder, HP and Stress drawn as
-      filled boxes up to the current maximum and dashed to twelve, six Hope
+      ~~filled~~ **outlined** boxes up to the current maximum and dashed to twelve, six Hope
       diamonds, five Experience lines, the class feature printed in full, and
       inventory weapons carrying primary/secondary checkboxes.
+      — **done, `b64a52e`**, all eight, and each one pinned rather than merely present:
+      the two captions at `sheetModel.ts:340-349` (`printSheet.test.ts:172`), the ladder at
+      `CharacterSheet.tsx:153` (`:343`), `growth` to `MAX_HP`/`MAX_STRESS` = 12 at
+      `sheetModel.ts:392-406` with the dashes at `marks.tsx:178` (`:138`, `:152`, `:332`),
+      the diamond at `marks.tsx:98` with `crossed: min(scars, 6)` (`:162`),
+      `EXPERIENCE_LINES` derived to five at `sheetModel.ts:237-241` (`:209`), the feature
+      text through `CardText` at `CharacterSheet.tsx:171-181` and `432-451` (`:195`), and
+      three ruled weapon rows each with both ticks at `CharacterSheet.tsx:297-313` (`:375`).
+      **One word of the item is stale and was overruled on purpose:** the boxes are
+      *outlined*, never filled — `printSheet.test.ts:323` asserts `not.toContain('fill="black"')` —
+      because a printed track is somewhere to make a mark, not a picture of one.
+      Do not reopen this on the strength of the word "filled".
+- [ ] **The companion page was never held against its own official sheet.** The block at
+      `src/ui/print/CharacterSheet.tsx:354-430` arrived on `beast-sheets`, after `b64a52e`
+      closed the box above, so no pass of this checklist has ever seen it — and the box
+      above's *first* quoted caption is printed on the official Ranger companion sheet
+      verbatim ("evasion / Start at 10", page 4 of
+      `Manuali/Character-Sheets-and-Guides-Daggerheart-May212025.pdf`). The app prints
+      `Evasion 10` bare at `CharacterSheet.tsx:372-375`, with none of the derivation note
+      the character's Evasion carries — and the number moves, because *"Aware: Your
+      companion gains a permanent +2 bonus to their Evasion"*. That is the one gap found;
+      the rest of the block already follows the page's conventions (derived Experience
+      lines, outlined `TickRow`s, no ballot glyphs). Read the companion sheet through
+      once, the way `b64a52e` read the character sheet, and report before changing.
+      Not in scope: dashing the companion's Stress — it has no rules ceiling to dash toward.
 
 ## ~~P5-5 · The whole sheet in one look — the reflow~~
       — **done, `0ccc857`, `2d7b1d2`, `65da3eb`, `d049ac0`, `a1ff3c3`, `0fb61d0`, `598c07f`,
@@ -2837,13 +3185,25 @@ the literal appears anywhere in `src/`.
       paying it for the first time. The failure mode is visible in one second
       and invisible to the whole suite: 34px of empty panel under a bar, or a
       row of buttons under the indicator. It belongs in *Needs a human* below.
-- [ ] **Settings prints the notice twice and that is still deliberate.** The
-      About panel opens with the same 342 characters, from the same array, about
-      two thousand pixels above the footer — `About.tsx`'s own docblock says the
-      notice is "at the top of this screen and in the shell's footer,
-      unconditionally". Nobody reads a paragraph twice in one glance, so nothing
-      was changed here; it is written down so the next reader does not
-      "fix" it by deleting the copy the other one depends on.
+
+**Recorded rather than outstanding — Settings prints the notice twice, and that
+is still deliberate.** Nothing is pending here; it is written down so the next
+reader does not "fix" it by deleting the copy the other one depends on. The
+About panel opens with the same 342 characters, from the same array —
+`CompatibleMark.tsx:127` is the only declaration, and `About.tsx:210` and
+`LicenceFooter.tsx:185` both render `ATTRIBUTION.join(' ')` — and `About.tsx:326`
+says the notice is "at the top of this screen and in the shell's footer,
+unconditionally", meaning the top of the About panel, which is the last of the
+seven sections on this screen. `Settings.tsx:227-236` carries the same decision
+as a comment beside the footer it renders, authored by the same commit,
+`965d419`, so the record is in the source and not only here. Settings is the
+only surface that doubles: every other screen renders `LicenceFooter` once, and
+`EmptyState` replaces Play and Cards rather than joining them —
+`attribution.test.tsx:559` pins that at *"still carries it, and does not print it
+twice"*. Seven `Field` rows, the device-stats grid and the reset panel sit
+between the two copies, so nobody reads the paragraph twice in one glance; the
+"roughly two thousand pixels" this bullet used to assert was an estimate, and
+nobody has measured it.
 
 ## ~~P5-8 · The last 19px, and three numbers that had stopped being true~~
       — **done, `4b3d816`, `039b757`, `93a3e91`**
@@ -3131,15 +3491,25 @@ is needed **once, for both**.
       URLs outright.
 - [ ] All six security mitigations go **in the reader**, inside the URL row's 16 h.
 
-### Still open, and no amount of reading settles them
+### Settled by the owner on 2026-08-23 — answered on paper, not yet in the code
 
-- [ ] **Is a "scene" a place or a fight?** In the code a scene has an `environmentRef` and an encounter
-      has a `roster` — two different things — and Giorgio has written both versions.
-      **The next action is to ask Giorgio, not to read more code.** It blocks the nesting question and
-      anything built on it.
+- [x] ~~**Is a "scene" a place or a fight?** In the code a scene has an `environmentRef` and an
+      encounter has a `roster` — two different things — and Giorgio has written both versions.
+      **The next action is to ask Giorgio, not to read more code.** It blocks the nesting
+      question and anything built on it.~~
+      — **asked, and answered. Decision 1 of `docs/handoff/DECISIONI-2026-08-23.md`: a scene is
+      one row per beat of the evening.** The scene arm gains the encounter's three fields, and
+      `encounter` stays in the union as a **legacy** type — readable and editable, no longer
+      creatable. The app had already been arguing for this answer on its own, which is the part
+      worth keeping: `Encounter.tsx:542` sends a fight to the board without carrying its
+      environment, so the brawl opens silently in the *previous* scene's place, and `END SCENE`
+      already empties the combatants while leaving the environment standing.
+      **Ticked as a question, not as work.** The union change is unwritten, and it moves
+      `CAMPAIGN_SCHEMA_VERSION`, so it travels in the single 2 → 3 bump with decisions 6 and 8.
 - [ ] **If it nests, nesting is a real preference** — both renderings, both reorder models, and a
-      campaign written nested must be correct when read back flat. Decided, but parked behind the
-      question above: if a scene contains nothing, there is nothing to set.
+      campaign written nested must be correct when read back flat. **Unblocked** by the answer
+      above, which is the whole reason that question was worth asking. Still open, because being
+      unblocked is not being decided.
 
 
 ## Needs a human, two devices and a dim room
@@ -3322,6 +3692,69 @@ scope. They are here so they are visible as **open** rather than quietly closed.
       P3-12, above.
 
 ---
+
+## Opened by the pre-merge gate, and deliberately not closed
+
+Everything here was found by the gate that ran before `beast-sheets` was merged
+(`docs/handoff/CANCELLO-MERGE-2026-08-24.md`), and six of the eight were found by
+**executing a mutation**, not by reading. That is the distinction worth keeping: these are not
+suspicions, they are measurements, and each one names the mutation that produced it. None was
+closed inside the lane that found it, because each is either a schema change, a rules decision,
+or a scope the gate had no mandate to open. They are here so they are visible as **open**.
+
+- [ ] **`readPartyMember` casts, so a player's sheet inside a campaign never passes the
+      character migration chain.** Proof **(f)** of the gate: making `readPartyMember` run
+      `migrateCharacterRecord` turned **nothing** red, whole suite. That verdict cuts both
+      ways and both halves matter — the change is free of test resistance, *and* the current
+      "never migrates" behaviour is pinned by nothing at all. The natural moment is the
+      `CAMPAIGN_SCHEMA_VERSION` 2 → 3 bump, which decisions 1, 6 and 8 impose anyway.
+- [ ] **`CompanionLine` does not obey its own docblock.** Proof **(g)**: relaxing `=== null` to
+      `== null` turned nothing red, whole suite — no test anywhere covers the shape "companion
+      absent", so not even the safest guard in the file is held. Closing this properly means the
+      wide rule — *nothing in `src/ui/gm/` calls a method on a field of `PartyMember.sheet`, **nor
+      passes it to a function that does*** — and that rule depends on the item above.
+- [ ] **`EXPERIENCE_LINES` is right for a companion by coincidence.** Proof **(e)**: setting
+      `COMPANION_START.experiences = 3` left `printSheet.test.ts` at 49/49 green while the sheet
+      ruled **5** lines for a companion who would hold **6**. The number derives from
+      `STARTING_EXPERIENCES`, a `2` whose docblock speaks only of the character, while
+      `COMPANION_START.experiences` is a second `2` that nothing reads there. Live coupling,
+      pinned by nothing. Written into the docblock at the gate; not fixed.
+- [ ] **`NO_EXPERIENCES` is a shared mutable array.** *Correction to the branch verification,
+      which overstated this:* it is **not** exported — `attack.ts` keeps it module-private. It
+      still escapes, as the **return value** of `experiencesFor`, so a caller that sorts or
+      pushes in place poisons every other caller. Real, but narrower than it was filed as.
+      Remedy: `Object.freeze` and a `readonly` return type.
+- [ ] **The party board's regression test goes in through `importParty`, so it never exercises
+      the reader it exists to protect.** It therefore skips `readPartyMember` and
+      `readCampaignRecord` entirely, which means the defect class the finding rests on is
+      exercised nowhere in the suite. Travels with the `readPartyMember` item above.
+- [ ] **The faithful version of defect 8: an explicit `away` field on `CompanionState`.** The
+      shipped behaviour is a **declared deviation**, not the rule — a short rest no longer clears
+      a companion who has left the scene, closed at `86dad3c` and written down as a deviation in
+      the docblock, the CHANGELOG and the gate report. Folio 18 puts no exception on *"your
+      companion clears an equal number"*; the sentence that wins — *"they remain unavailable until
+      the start of your next long rest, where they return with 1 Stress cleared"* — wins on
+      specificity and because it names its own re-entry mechanism. The faithful version costs a
+      schema: `SCHEMA_VERSION` 5 → 6, a decision about the codec, and it falsifies `companion.ts`'s
+      *"there is no second way to be out of the scene"*. Goes with the next step that moves the
+      character schema.
+- [ ] **jsdom measures nothing, and the six never-measured surfaces are still six.** Not a
+      pixel bug — a hole where the evidence should be. **One lane, one rig, all six together:**
+      the Chrome measurement rig already exists and is to be reused, not rebuilt. One of the six
+      is not a pixel at all but a possible `shapeCoding` violation: `· OUT OF THE SCENE` is the
+      last thing under `ellipsis` on the party board, so when it truncates, colour alone is
+      carrying the meaning.
+- [ ] **§4.1(e) of the DPCGL is not met: nothing in the app says the content was modified.**
+      Found while writing the README's Legal reading. The licence asks Shared content to carry
+      *"a statement indicating whether you have modified the Public Game Content and whether there
+      were any previous modifications by you or others"*. The two paragraphs of `ATTRIBUTION`
+      (`CompatibleMark.tsx`) do not say it and no other surface does — while §4.1(a) through (d)
+      are all met, the licence shipping in full rather than as a link. It is awkward precisely
+      because the README now argues at length that this app **does** modify: `data/srd-1.0.json`
+      is the book rearranged and `deriveStats` transforms. Not fixed in passing on purpose —
+      `ATTRIBUTION` is licence-critical, pinned by `tests/ui/attribution.test.tsx`, and its exact
+      wording is the owner's call and not a drive-by edit.
+
 
 ## Already good — do not spend time here
 
