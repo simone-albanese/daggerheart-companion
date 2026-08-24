@@ -1279,7 +1279,7 @@ describe('the budget the pin came off for', () => {
    *
    *   Header.tsx    height: 52, content-box, borderBottom 1px  -> 53
    *   TabBar.tsx    minHeight: 60 plus borderTop 1px            -> 61
-   *   Play.tsx      the phone root's padding: '0 12px 8px'      ->  8
+   *   Play.tsx      the phone root's padding: '8px 12px 8px'    ->  8
    *
    * That is one pixel tighter than the 731/546 already committed in this repo,
    * which forgot the header's border. It is corrected here rather than carried,

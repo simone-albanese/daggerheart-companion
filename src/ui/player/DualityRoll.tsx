@@ -193,8 +193,9 @@ interface DieProps {
  * one, the panel's content box is narrower than 402 and every number above
  * comes down with it. The panel reserves that gutter with `scrollbar-gutter:
  * stable` so it is one width per platform instead of one per scroll state, and
- * `.scroll` bounds the bar at 8px: worst case 394 of content, 186 of grid, and
- * a key of (186 - 23) / 4 = **43.75** - a quarter-pixel under the 44px coarse
+ * `.scroll` bounds the bar at 8px: worst case 394 of content, 198 of grid -
+ * the 206 measured above, less that 8 - and a key of (198 - 23) / 4 = **43.75**
+ * - a quarter-pixel under the 44px coarse
  * floor and 9.75 over the 34px fine one. macOS draws overlay bars, so the
  * gutter is 0 there and the number stays 45.75; measured with a Chrome launched
  * without `--hide-scrollbars`, this panel's whole gutter is its 2px border.
