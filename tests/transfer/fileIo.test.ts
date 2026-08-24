@@ -242,6 +242,57 @@ describe('refusing a file it does not understand', () => {
   });
 
   /**
+   * The door `companion: 'yes'` above only half closed.
+   *
+   * `companion` was checked for object-ness and for nothing else - not `name`,
+   * `damage`, `range`, `stress`, `evasion`, `damageType`, `experiences` or
+   * `upgrades` - so `companion: {}` was accepted and came out the other side
+   * identical. Nothing downstream is defensive about it: `PartyBoard`'s
+   * companion line calls `.toUpperCase()` on the name, reads `.marked`/`.max`
+   * off the stress track and hands `damage` to `parseDamage`, which is total
+   * for a junk string and fatal for an absent one; the printed sheet calls
+   * `.toLowerCase()` on the range; and `damageTypeOf(...)` is `.toUpperCase()`d
+   * on the first damage roll.
+   *
+   * An animal is whole or it is not there. There is no blank fallback for a
+   * field inside `companion` the way there is for `scars`, because
+   * `readCharacterRecord` spreads the object wholesale.
+   */
+  it('refuses half an animal, since nothing downstream is ready for one', () => {
+    const damaged = (companion: unknown): (() => Character) =>
+      () => parseCharacterFile(JSON.stringify({ ...wizard(), companion }));
+    const whole = {
+      name: 'Ashfoot',
+      description: 'A grey wolf',
+      evasion: 10,
+      stress: { marked: 0, max: 3 },
+      damage: 'd6+2',
+      range: 'Close',
+      damageType: 'phy',
+      experiences: [{ id: 'ce-1', name: 'Sharp eyes', bonus: 2 }],
+      upgrades: ['vicious'],
+    };
+    expect(damaged(whole)).not.toThrow();
+    expect(damaged({})).toThrow(/damaged "companion.name" field/);
+
+    for (const key of Object.keys(whole)) {
+      const { [key]: _dropped, ...missing } = whole as Record<string, unknown>;
+      expect(damaged(missing), `a companion with no ${key} was accepted`).toThrow(
+        new RegExp(`damaged "companion\\.${key}" field`),
+      );
+    }
+
+    expect(damaged({ ...whole, damageType: 42 })).toThrow(/damaged "companion.damageType"/);
+    expect(damaged({ ...whole, damageType: 'radiant' })).toThrow(/damaged "companion.damageType"/);
+    expect(damaged({ ...whole, stress: { marked: 0 } })).toThrow(/damaged "companion.stress"/);
+    expect(damaged({ ...whole, damage: null })).toThrow(/damaged "companion.damage"/);
+    expect(damaged({ ...whole, upgrades: [7] })).toThrow(/damaged "companion.upgrades"/);
+    expect(damaged({ ...whole, experiences: [{ name: 'Sharp eyes' }] })).toThrow(
+      /damaged "companion.experiences"/,
+    );
+  });
+
+  /**
    * Checked harder than the other numbers on the sheet, because it is the only
    * one read to decide a refusal. A count of 2.5 or -1 would have
    * `mustTakeLongRest` answering about a number of rests that cannot have
@@ -414,5 +465,53 @@ describe('writing into a chosen folder', () => {
     const choice = await chooseDirectory();
     expect(choice.ok).toBe(false);
     expect(choice.reason).toMatch(/cannot pick a folder/);
+  });
+});
+
+/**
+ * The other half of the fourth deliberate loss.
+ *
+ * The codec drops a companion's damage type and says so; the file paths carry
+ * it exactly, and that is the whole reason the loss was acceptable. A test on
+ * one side without a test on the other proves only that something is missing.
+ */
+describe('a companion’s damage type, in a file', () => {
+  const raven = (damageType: 'phy' | 'mag'): Character => ({
+    ...wizard(),
+    companion: {
+      name: 'Ash',
+      description: 'A one-eyed raven',
+      evasion: 12,
+      stress: { marked: 1, max: 3 },
+      damage: 'd6+2',
+      range: 'Close',
+      damageType,
+      experiences: [],
+      upgrades: [],
+    },
+  });
+
+  it('survives a .dhchar round trip when it is magic', () => {
+    const back = parseCharacterFile(serializeCharacter(raven('mag')));
+    expect(back.companion?.damageType).toBe('mag');
+  });
+
+  it('survives a .dhbackup round trip when it is magic', () => {
+    const file = parseTransferFile(serializeBackup([raven('mag')]));
+    expect(file.characters[0]?.companion?.damageType).toBe('mag');
+  });
+
+  it('reads a companion written before the field existed as physical', () => {
+    // The schema-4 shape, arriving through the file path rather than the
+    // converter's own test: a companion object with no `damageType` at all.
+    const text = serializeCharacter(raven('mag'));
+    const parsed = JSON.parse(text) as { character: Record<string, unknown>; schemaVersion: number };
+    const companion = parsed.character['companion'] as Record<string, unknown>;
+    delete companion['damageType'];
+    parsed.schemaVersion = 4;
+    parsed.character['schemaVersion'] = 4;
+
+    const back = parseCharacterFile(JSON.stringify(parsed));
+    expect(back.companion?.damageType).toBe('phy');
   });
 });

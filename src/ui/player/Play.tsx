@@ -74,6 +74,9 @@ import { useLayout } from '../shared/useLayout.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import {
   DAMAGE_SIDES,
+  beastformSource,
+  companionSource,
+  experiencesFor,
   sourceFromWeapon,
   sourceName,
   spellcastDamage,
@@ -177,7 +180,15 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     if (declared.kind === 'spellcast') {
       return spellcastSource(stats, declared.sides, spellModifier);
     }
+    // Re-derived from the worn form every render, like the spell's count above:
+    // DROP resolves this to null and the damage offer goes with it, rather than
+    // leaving a bear's dice armed on a sheet that is a person again.
+    if (declared.kind === 'beastform') return beastformSource(stats);
     if (character === null) return null;
+    // Re-derived like the two above, and for one reason more: a companion who
+    // marks their last Stress walks out of the scene, and `companionSource`
+    // answers null for them - so the offer goes at the moment they do.
+    if (declared.kind === 'companion') return companionSource(character.companion, stats);
     const held =
       declared.ref === character.activePrimaryWeapon ||
       declared.ref === character.activeSecondaryWeapon;
@@ -185,6 +196,58 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     const weapon = index.weapons.get(declared.ref);
     return weapon === undefined ? null : sourceFromWeapon(weapon, stats);
   }, [character, declared, index, spellModifier, stats]);
+
+  /*
+   * The chips change owner with the armed attack, so the armed ones are let go.
+   *
+   * A companion roll spends Hope on *their* Experiences, so `experiencesFor`
+   * hands the row a different list the moment one is armed. Ids from the other
+   * list simply would not match and would cost nothing - but they would come
+   * back the instant the player disarmed, re-arming chips nobody pressed and
+   * putting a Hope cost back on the roll bar out of nowhere. One clearing rule,
+   * the same as the one below for a change of sheet.
+   */
+  const companionArmed = source?.kind === 'companion';
+  useEffect(() => {
+    setArmedExperiences([]);
+  }, [companionArmed]);
+
+  /*
+   * A Beastform declaration is form-agnostic on purpose, so the trait has to be
+   * re-derived the way the pool is.
+   *
+   * `arm` writes the trait once, at the tap, and stores `{kind:'beastform'}`
+   * with no ref in it - which is what lets `source` follow a change of shape
+   * without anything re-arming. The trait did not follow: arm a bear under
+   * Strength, open the picker, become a raven, and the row read `ARMED ·
+   * FINESSE` while the chip and the ROLL bar still said STRENGTH and the
+   * modifier was genuinely the wrong one. The picker cannot fix it from its own
+   * side - `enterBeastform` knows nothing about what is armed - so it is fixed
+   * here, where both halves are in view.
+   *
+   * The null branch is the half nobody had seen, and it is the one an ordinary
+   * table hits. DROP resolves `source` to null and takes the row away, but the
+   * declaration behind it survived, so the next transform came back with an
+   * attack armed that nobody tapped, under the trait of a shape the character
+   * had stopped wearing. That includes this branch's own automatic drop at the
+   * last Hit Point, which only nulls `character.beastform`.
+   *
+   * Keyed on the ref as well as the trait: two forms can arm the same trait,
+   * and a swap between them still changes which dice are rolled.
+   */
+  const wornForm = stats.beastform?.form ?? null;
+  const wornFormRef = wornForm?.id ?? null;
+  const wornFormTrait = wornForm?.attack.trait ?? null;
+  const beastformDeclared = declared?.kind === 'beastform';
+  useEffect(() => {
+    if (!beastformDeclared) return;
+    if (wornFormTrait === null) {
+      setDeclared(null);
+      return;
+    }
+    setTrait(wornFormTrait);
+  }, [beastformDeclared, wornFormRef, wornFormTrait]);
+
 
   /*
    * Arming a weapon arms its trait, because the weapon is what decides it:
@@ -210,6 +273,27 @@ export function Play({ stats }: { stats: DerivedStats }): React.JSX.Element | nu
     // hand*, and it withdraws the declaration that specified one. A spell sent
     // through it would be put down by the same tap that armed it.
     if (declaration.kind === 'spellcast') {
+      setTrait('spellcast');
+      return;
+    }
+    // A form specifies its trait the way a weapon does, and the sentence is the
+    // same one: *"you use the creature's listed range, trait, and damage
+    // dice"*. So arming a bear moves the chip to Strength.
+    if (declaration.kind === 'beastform') {
+      const trait = stats.beastform?.form.attack.trait;
+      if (trait !== undefined) setTrait(trait);
+      return;
+    }
+    /*
+     * Commanding the companion is a Spellcast Roll, so arming them arms that
+     * slot - the same half-sentence a weapon arms its own trait by.
+     *
+     * *"Make a Spellcast Roll to connect with your companion and command them
+     * to take action."* This is the one attack in the app whose roll belongs to
+     * one creature and whose damage belongs to another, and the trait chip is
+     * where a player would otherwise have to know that.
+     */
+    if (declaration.kind === 'companion') {
       setTrait('spellcast');
       return;
     }
@@ -447,7 +531,37 @@ function lineageOf(character: Character, index: DatasetIndex): string {
  * true of this block: the column `Identity` is drawn in is `.stack scroll`,
  * which is the whole argument `Rest` and the licence notice are placed on.)
  */
-function Identity(): React.JSX.Element | null {
+/**
+ * The Spellcast trait, on the line that says what class you are.
+ *
+ * It is a property of the subclass - the SRD prints "SPELLCAST TRAIT" wherever
+ * a subclass has one - and until now the only place on Play that said so was
+ * the hint under the trait grid, which a player reads while choosing a trait
+ * rather than while asking what their character is. (It said "on every subclass
+ * page", which the next paragraph contradicts and which the book contradicts
+ * too: the heading is printed fourteen times against eighteen subclasses, and
+ * the four without it run straight from the blurb into FOUNDATION FEATURES.)
+ *
+ * IT SAYS SO WHEN THERE IS NONE, and that is the half worth having. Four of the
+ * eighteen shipped subclasses carry no Spellcast trait at all - both Guardian
+ * subclasses and both Warrior ones - and for those characters the whole
+ * Spellcast row is simply absent from `Equipped`. An absence explains nothing;
+ * a line saying the class has none explains the absence.
+ *
+ * `deriveStats` takes the first subclass that declares one, so a multiclass
+ * shows the trait its rolls will actually use rather than both.
+ */
+function SpellcastLine({ stats }: { stats: DerivedStats }): React.JSX.Element {
+  return (
+    <div className="t-meta" style={{ color: 'var(--muted)', letterSpacing: '0.09em' }}>
+      {stats.spellcastTrait === null
+        ? 'NO SPELLCAST TRAIT'
+        : `SPELLCAST · ${TRAIT_LABELS[stats.spellcastTrait].toUpperCase()}`}
+    </div>
+  );
+}
+
+function Identity({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
   const character = useActive();
   const index = useApp((s) => s.index);
   if (!character) return null;
@@ -509,6 +623,7 @@ function Identity(): React.JSX.Element | null {
           {subclass !== '' && ` — ${subclass}`}
         </div>
       </div>
+      <SpellcastLine stats={stats} />
       {lineage !== '' && (
         <div style={{ font: '400 13px/1.35 var(--sans)', color: 'var(--muted)' }}>{lineage}</div>
       )}
@@ -583,6 +698,7 @@ function Lineage({ stats }: { stats: DerivedStats }): React.JSX.Element | null {
         {klass === '' ? 'No class' : klass}
         {subclass !== '' && ` — ${subclass}`}
       </div>
+      <SpellcastLine stats={stats} />
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {stats.domains.map((domain) => (
           <span
@@ -1663,6 +1779,46 @@ function GearEffects({ stats, ref_ }: { stats: DerivedStats; ref_: Ref }): React
   );
 }
 
+/**
+ * What a Beastform takes away, said on the row it takes it from.
+ *
+ * *"While transformed, you can't use weapons or cast spells from domain cards,
+ * but you can still use other features or abilities you have access to."*
+ *
+ * MARKED AND NOT REFUSED, which is a decision and not an oversight. The rows
+ * stay armable. This app has one house rule about rules it cannot enforce -
+ * show what changed, never take the control away - and the Beastform strip is
+ * where it is clearest: it prints the Evasion the form replaced, struck
+ * through, rather than hiding the number. A greyed-out weapon would be the app
+ * refusing a thing a GM may well have allowed, and the same question was
+ * already answered this way once, for the companion's level-up boxes.
+ *
+ * THE SECOND HALF OF THE SENTENCE IS WHY THERE ARE TWO WORDINGS. A weapon is
+ * simply out. Spellcast is not: the rule removes spells *from domain cards*,
+ * and a Spellcast Roll a subclass feature asks for - Nightwalker's "Dark
+ * Cloud", the Beastbound's own command to their companion - is one of the
+ * "other features or abilities" the same sentence protects. A single
+ * UNAVAILABLE across both would be the app inventing a stricter rule than the
+ * book's and printing it in the book's voice.
+ *
+ * The loadout rows are deliberately not marked. A 46px row on a 393px phone
+ * already carries domain, level, type and Recall cost under a name that
+ * ellipsises, and the only mark that would fit is a colour - which this
+ * codebase does not accept as a sole signal, `shapeCoding` being the standing
+ * proof. The rows that declare an attack are marked, and that is where an
+ * attack is declared.
+ */
+function BeastformSeal({ what }: { what: string }): React.JSX.Element {
+  return (
+    <span
+      className="t-meta"
+      style={{ display: 'block', marginTop: 5, color: 'var(--sage)', letterSpacing: '0.05em' }}
+    >
+      {what}
+    </span>
+  );
+}
+
 function Equipped({
   stats,
   arming,
@@ -1679,6 +1835,22 @@ function Equipped({
   const reaches = useMemo(() => rangeDistances(rules), [rules]);
   if (!character) return null;
 
+  /*
+   * The reach, and what the book says it is - worded once, because the weapon
+   * rows and the Beastform row below both print it and two spellings of one
+   * range is two ranges eventually.
+   *
+   * Null feet is Melee, which the SRD gives no figure for, and every range at
+   * all if the dataset carries no range section. In both cases the word stands
+   * alone, which is what these rows said before there was anything to add.
+   */
+  const reachOf = (range: string): string => {
+    const feet = reaches.get(range.toLowerCase())?.feet ?? null;
+    return feet === null
+      ? range.toUpperCase()
+      : `${range.toUpperCase()} ${feetRange(feet).toUpperCase()}`;
+  };
+
   const primary = character.activePrimaryWeapon
     ? index.weapons.get(character.activePrimaryWeapon)
     : undefined;
@@ -1687,6 +1859,9 @@ function Equipped({
     : undefined;
   const armor = character.activeArmor ? index.armors.get(character.activeArmor) : undefined;
   const unarmed = arming.declared?.kind === 'unarmed';
+  const worn = stats.beastform;
+  const beast = beastformSource(stats);
+  const armedBeast = arming.declared?.kind === 'beastform';
 
   return (
     // flex: none, because this lives inside a scrolling flex column and a flex
@@ -1699,6 +1874,47 @@ function Equipped({
           Nothing equipped — choose gear in Build.
         </div>
       )}
+      {/*
+       * THE FORM'S OWN ATTACK, WHICH THIS SCREEN COULD NOT ROLL.
+       *
+       * It sits above the weapons because while it is here the weapons are the
+       * two things the rule takes away, and a player reaching for an attack
+       * should meet the one they have first. `Beastform.tsx` prints the same
+       * dice up in the identity strip, unmultiplied, as part of the form's
+       * stat line; this is the same attack as something you can declare, with
+       * Proficiency applied - `d12+10` there and `4d12+10` here, which is the
+       * difference between reading a stat block and rolling it.
+       */}
+      {worn !== null && beast !== null && beast.kind === 'beastform' && (
+        <button
+          type="button"
+          aria-pressed={armedBeast}
+          onClick={() => arming.arm(armedBeast ? null : { kind: 'beastform' })}
+          className="panel"
+          style={{
+            borderLeft: `3px solid ${armedBeast ? 'var(--hope)' : 'var(--sage)'}`,
+            background: armedBeast ? 'var(--hope-wash)' : undefined,
+            padding: '10px 11px',
+            textAlign: 'left',
+            minHeight: 'var(--tap)',
+          }}
+        >
+          <span className="spread">
+            <span style={{ font: '700 14px/1.15 var(--sans)' }}>{worn.form.name}</span>
+            <span className="t-num" style={{ color: 'var(--hope)' }}>
+              {formatDamage(beast.damage)}
+            </span>
+          </span>
+          <span
+            className="t-meta"
+            style={{ display: 'block', marginTop: 5, letterSpacing: '0.05em' }}
+          >
+            {armedBeast ? 'ARMED · ' : ''}
+            {TRAIT_LABELS[beast.trait].toUpperCase()} · {reachOf(worn.form.attack.range)} ·
+            PHYSICAL
+          </span>
+        </button>
+      )}
       {[primary, secondary].filter(Boolean).map((w) => {
         if (!w) return null;
         // weaponDamage, not a regex. The inline `replace(/^(\d*)d/, ...)` that
@@ -1708,15 +1924,7 @@ function Equipped({
         const scaled = weaponDamage(w, stats);
         const dice = scaled?.spec ?? w.damage;
         const isArmed = arming.declared?.kind === 'weapon' && arming.declared.ref === w.id;
-        // The reach, and what the book says it is. Null feet is Melee, which
-        // the SRD gives no figure for, and every range at all if the dataset
-        // carries no range section - in both cases the word stands alone, which
-        // is what this row said before there was anything to add to it.
-        const feet = reaches.get(w.range.toLowerCase())?.feet ?? null;
-        const reach =
-          feet === null
-            ? w.range.toUpperCase()
-            : `${w.range.toUpperCase()} ${feetRange(feet).toUpperCase()}`;
+        const reach = reachOf(w.range);
         return (
           <button
             key={w.id}
@@ -1767,6 +1975,7 @@ function Equipped({
                 {w.feature}
               </span>
             )}
+            {worn !== null && <BeastformSeal what="UNAVAILABLE WHILE TRANSFORMED" />}
             <GearEffects stats={stats} ref_={w.id} />
           </button>
         );
@@ -1934,6 +2143,9 @@ function SpellcastPanel({
         {Math.abs(value)} · {spell.rollable ? `${spell.count} ${spell.count === 1 ? 'DIE' : 'DICE'} · ` : ''}
         MAGIC
       </span>
+      {stats.beastform !== null && (
+        <BeastformSeal what="NO DOMAIN SPELLS WHILE TRANSFORMED · OTHER FEATURES STILL WORK" />
+      )}
       {spell.rollable ? (
         <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
           {DAMAGE_SIDES.map((sides) => {
@@ -2644,7 +2856,7 @@ function PlayDesktop({
     >
       <div className="stack scroll" style={{ gap: 14, minHeight: 'var(--control)', minWidth: 0 }}>
         <Beastform stats={stats} layout="desktop" />
-        <Identity />
+        <Identity stats={stats} />
         <TraitGrid stats={stats} trait={trait} onPick={chooseTrait} />
         <Defenses stats={stats} />
         <Equipped stats={stats} arming={arming} />
@@ -2710,7 +2922,7 @@ function PlayDesktop({
       </div>
 
       <div className="stack" style={{ gap: 12, minHeight: 'var(--control)', minWidth: 0 }}>
-        <Vitals stats={stats} layout="desktop" />
+        <Vitals stats={stats} layout="desktop" arming={arming} />
         <DualityRoll
           stats={stats}
           trait={trait}
@@ -3277,11 +3489,12 @@ function PlayPhone({
     const held = characterFeatures(character, index);
     return held.features.length + (held.hopeFeature === null ? 0 : 1);
   })();
-  // Filtered through the character rather than counted off the armed list: an
-  // Experience deleted in Build must not go on being counted on a header.
-  const armedCount = character.experiences.filter((e) =>
-    armedExperiences.includes(e.id),
-  ).length;
+  // Filtered through the list the armed attack names rather than counted off
+  // the armed ids: an Experience deleted in Build must not go on being counted
+  // on a header, and neither must one belonging to whichever of the two sheets
+  // is not being rolled.
+  const rollExperiences = experiencesFor(character, arming.source);
+  const armedCount = rollExperiences.filter((e) => armedExperiences.includes(e.id)).length;
 
   /*
    * Whether each pair is drawing two-line headers, which is true exactly while
@@ -3400,7 +3613,7 @@ function PlayPhone({
 
         {/* The four counters, two across. `bare`, because a box drawn around
             four silhouettes costs 18px and distinguishes nothing. */}
-        <Vitals stats={stats} layout="phone" showState={false} bare />
+        <Vitals stats={stats} layout="phone" showState={false} bare arming={arming} />
 
         <TraitRow
           stats={stats}
@@ -3567,13 +3780,13 @@ function PlayPhone({
               label="Experiences"
               summary={
                 armedCount === 0
-                  ? `${character.experiences.length}`
-                  : `${character.experiences.length} · ${armedCount} ARMED`
+                  ? `${rollExperiences.length}`
+                  : `${rollExperiences.length} · ${armedCount} ARMED`
               }
               stacked={stackedA}
             >
               <ExperienceRow
-                experiences={character.experiences}
+                experiences={rollExperiences}
                 armedExperiences={armedExperiences}
                 hopeAvailable={character.hope.marked}
                 toggleExperience={(id) =>

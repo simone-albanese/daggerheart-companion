@@ -15,8 +15,10 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { Ancestry, Beastform, Community } from '@shared/types.ts';
+import type { Ancestry, Beastform, CompanionState, Community } from '@shared/types.ts';
 import { indexDataset } from '@engine/character.ts';
+import { newCompanion } from '@engine/companion.ts';
+import { baseDataset } from '../../src/store/dataset.ts';
 import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
 import { buildSheet } from '../../src/ui/print/sheetModel.ts';
 import {
@@ -469,5 +471,137 @@ describe('the print stylesheet', () => {
     for (const match of bare.matchAll(/background(?:-color)?:\s*([^;]+);/g)) {
       expect((match[1] ?? '').trim()).toMatch(/^(#fff|#ffffff|white|none|transparent)$/i);
     }
+  });
+});
+
+/**
+ * The companion, on paper.
+ *
+ * `src/ui/print/` did not mention a companion anywhere, so a Beastbound Ranger
+ * printed a sheet with a whole creature missing from it - and a printout is the
+ * one artefact nobody can tap to check.
+ *
+ * It is NOT dropped the way a Beastform is, and the difference is the reason
+ * `buildSheet` drops one. A Beastform is a state: a Druid would come back to a
+ * page claiming their Evasion is 14 because they were a bear on Tuesday. A
+ * companion is not a state; it is the other half of the sheet, and it is as
+ * true in a folder a month from now as it was mid-scene.
+ */
+describe('the companion page', () => {
+  const shipped = indexDataset(baseDataset);
+
+  const ranger = (over: Partial<CompanionState> = {}) =>
+    makeCharacter({
+      name: 'Wren',
+      level: 5,
+      companion: {
+        ...newCompanion('Ashfoot', 'A grey wolf'),
+        damage: 'd6+2',
+        range: 'Close',
+        experiences: [{ id: 'ce-1', name: 'Nobody left behind', bonus: 2 }],
+        upgrades: ['vicious'],
+        ...over,
+      },
+    });
+
+  const printed = (c = ranger()) => buildSheet(c, baseDataset, shipped);
+
+  it('is absent for a character who has no companion', () => {
+    expect(buildSheet(makeCharacter(), baseDataset, shipped).companion).toBeNull();
+  });
+
+  it('prints their damage with Proficiency in it, because that is what is rolled', () => {
+    const sheet = printed();
+    // "On a success, their damage roll uses your Proficiency and their damage
+    // die." A page printing `d6+2` would be a page printing the wrong number.
+    expect(sheet.companion?.damage).toBe(`${String(sheet.proficiency)}d6+2`);
+    expect(sheet.proficiency).toBeGreaterThan(1);
+  });
+
+  it('prints the die as typed when it will not parse, rather than a blank', () => {
+    expect(printed(ranger({ damage: 'a bite' })).companion?.damage).toBe('a bite');
+  });
+
+  it('carries their numbers, their Experiences and which boxes are marked', () => {
+    const companion = printed().companion!;
+    expect(companion.name).toBe('Ashfoot');
+    expect(companion.evasion).toBe(10);
+    expect(companion.stressSlots).toBe(3);
+    expect(companion.experiences.map((e) => e.name)).toEqual(['Nobody left behind']);
+    expect(companion.upgrades).toHaveLength(8);
+    expect(companion.upgrades.filter((u) => u.marked).map((u) => u.id)).toEqual(['vicious']);
+    expect(companion.allowance).toBe(4);
+  });
+
+  it('reaches the page, saying which options were taken', () => {
+    const html = renderToStaticMarkup(
+      createElement(CharacterSheet, { sheet: printed() }),
+    );
+    expect(html).toContain('Ashfoot');
+    expect(html).toContain('A grey wolf');
+    expect(html).toContain('Nobody left behind');
+    expect(html).toContain('Vicious');
+    expect(html).toContain('Bonded');
+  });
+
+  it('gives every option a box to mark, and no ballot glyph', () => {
+    /*
+     * The regression this pins. `☑`/`☐` were the first version and were wrong
+     * for one good reason - a ballot glyph prints as tofu wherever the print
+     * font does not carry U+2610 - and taking them out took the checkbox with
+     * them, so the seven unmarked options printed as a bare name under a
+     * heading reading "1 marked · 4 earned". Folio 18 says "mark it on your
+     * sheet", and there was nowhere left to make the mark.
+     *
+     * `.dhc-tick` is the page's own checkbox and was already in the stylesheet,
+     * unused by this section and used twice by others.
+     */
+    const html = renderToStaticMarkup(createElement(CharacterSheet, { sheet: printed() }));
+    expect(html).not.toContain('☑');
+    expect(html).not.toContain('☐');
+
+    const opensAt = html.indexOf('Level-up options');
+    expect(opensAt).toBeGreaterThan(-1);
+    // Bounded at the end of the companion section, so a checkbox anywhere else
+    // on the page cannot make up the count.
+    const section = html.slice(opensAt, html.indexOf('</section>', opensAt));
+    const options = printed().companion!.upgrades;
+    expect(options).toHaveLength(8);
+    expect(options.filter((u) => u.marked)).toHaveLength(1);
+    // One box per option, marked or not - seven of these are the ones that
+    // went missing.
+    expect(section.split('dhc-tick').length - 1).toBe(options.length);
+    for (const option of options) {
+      const at = section.indexOf(`${option.name}<`);
+      expect(at, `${option.name} is not on the page`).toBeGreaterThan(-1);
+      expect(section.slice(Math.max(0, at - 120), at)).toContain('dhc-tick');
+    }
+  });
+
+  it('says beside the name which options are already taken', () => {
+    const html = renderToStaticMarkup(createElement(CharacterSheet, { sheet: printed() }));
+    // `Vicious` is the marked one; `Bonded` is not.
+    const vicious = html.slice(html.indexOf('>Vicious<'));
+    expect(vicious.slice(0, 200)).toContain('Taken');
+    const bonded = html.slice(html.indexOf('>Bonded<'));
+    expect(bonded.slice(0, 200)).not.toContain('Taken');
+  });
+
+  it('rules as many Experience lines as the companion can ever have', () => {
+    // Not a literal 2. They gain one at every tier achievement, exactly as the
+    // character does, so the number is the same derivation - which is what the
+    // note over `EXPERIENCE_LINES` asks for.
+    const sheet = printed();
+    expect(sheet.companion?.experienceLines).toBe(sheet.experienceLines);
+    expect(sheet.companion?.experienceLines).toBeGreaterThan(2);
+  });
+
+  it('is on the page even for a Druid mid-transformation, unlike the Beastform', () => {
+    // The two rules side by side: the form is dropped from the printout and the
+    // animal is not.
+    const c = { ...ranger(), beastform: { ref: 'agile-scout', activatedAt: '2026-08-23T00:00:00.000Z' } };
+    const sheet = buildSheet(c, baseDataset, shipped);
+    expect(sheet.companion?.name).toBe('Ashfoot');
+    expect(sheet.evasion).toBe(buildSheet(ranger(), baseDataset, shipped).evasion);
   });
 });

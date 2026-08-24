@@ -27,6 +27,15 @@ import { ParseError, normalizeText } from './util.ts';
 const RANGES: ReadonlyArray<readonly [number, number]> = [
   [3, 3],
   [4, 6],
+  // Two pages out of the class chapter that are rules and not stat blocks.
+  // Folio 12 opens the Beastform list with the paragraphs that say how a form
+  // is *used* - the Proficiency sentence among them - and folio 18 is the whole
+  // Ranger Companion sheet. Both were unreachable prose until this range
+  // existed, and `engine/companion.ts` carried a copy of folio 18 because of
+  // it. Folio 19 is deliberately NOT here: it is the Rogue, and the companion
+  // text ends with folio 18's second column.
+  [12, 12],
+  [18, 18],
   [35, 43],
   [62, 74],
   [102, 102],
@@ -53,6 +62,30 @@ const SPECS: readonly Spec[] = [
   { id: 'rulings-over-rules', title: 'Rulings Over Rules', start: 'RULINGS OVER RULES' },
 
   { id: 'character-creation', title: 'Character Creation', start: 'CHARACTER CREATION' },
+
+  // Folio 12. The preamble only; `TIER 1` opens the stat cards, which are
+  // `parseBeastforms`'s and would otherwise flow into this section.
+  { id: 'beastform-options', title: 'Beastform Options', start: 'BEASTFORM OPTIONS' },
+  { start: 'TIER 1', drop: true },
+
+  // Folio 18, in the order the page is read: the sheet down column one, then
+  // the two boxes down column two.
+  { id: 'ranger-companion', title: 'Ranger Companion', start: 'RANGER COMPANION' },
+  {
+    id: 'working-with-your-companion',
+    title: 'Working with Your Companion',
+    start: 'WORKING WITH YOUR COMPANION',
+  },
+  {
+    id: 'companion-taking-damage',
+    title: 'Companion: Taking Damage as Stress',
+    start: 'TAKING DAMAGE AS STRESS',
+  },
+  {
+    id: 'leveling-up-your-companion',
+    title: 'Leveling Up Your Companion',
+    start: 'LEVELING UP YOUR COMPANION',
+  },
 
   { start: 'CORE MECHANICS', drop: true },
   { id: 'flow-of-the-game', title: 'Flow of the Game', start: 'FLOW OF THE GAME' },

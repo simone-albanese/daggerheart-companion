@@ -3,7 +3,9 @@ import { deriveStats, indexDataset, rollModifier } from '@engine/character.ts';
 import {
   BEASTFORM_STRESS_COST,
   EVOLUTION_HOPE_COST,
+  beastformDamage,
   beastformOptions,
+  dropFormOnLastHitPoint,
   enterBeastform,
   evolutionFeature,
   hasBeastform,
@@ -174,5 +176,127 @@ describe('entering and leaving', () => {
     expect(after.beastform).toBeNull();
     expect(stats(after).evasion).toBe(stats(before).evasion);
     expect(stats(after).traits).toEqual(stats(before).traits);
+  });
+});
+
+/**
+ * *"When you make an attack while transformed, you use the creature's listed
+ * range, trait, and damage dice, but you use your Proficiency."* Folio 12,
+ * which the dataset now carries as `beastform-options`.
+ *
+ * The rule is the same shape as a weapon's and a companion's, so the arithmetic
+ * is the same two calls; what is pinned here is that it IS the same, because
+ * the alternative - a `d12+10` rolled flat - looks entirely plausible on a
+ * screen and is wrong by three dice at tier 4.
+ */
+describe('beastformDamage', () => {
+  it.each([
+    [1, '1d6'],
+    [2, '2d6'],
+    [3, '3d6'],
+    [4, '4d6'],
+  ])('rolls Proficiency %i dice of the form’s die', (proficiency, spec) => {
+    expect(beastformDamage(form(), proficiency)?.spec).toBe(spec);
+  });
+
+  it('multiplies the dice and not the flat bonus', () => {
+    // The tier-4 shape: `d12+10` at Proficiency 4 is 4d12+10, never 4d12+40.
+    const terrible = form({ attack: { name: 'x', range: 'Melee', damage: 'd12+10', trait: 'strength' } });
+    expect(beastformDamage(terrible, 4)).toMatchObject({
+      spec: '4d12+10',
+      count: 4,
+      sides: 12,
+      modifier: 10,
+    });
+  });
+
+  it('never rolls no dice, whatever Proficiency says', () => {
+    expect(beastformDamage(form(), 0)?.count).toBe(1);
+  });
+
+  it('is null for a damage string that will not parse', () => {
+    const broken = form({ attack: { name: 'x', range: 'Melee', damage: 'a bite', trait: 'agility' } });
+    expect(beastformDamage(broken, 3)).toBeNull();
+  });
+});
+
+/**
+ * *"If you mark your last Hit Point, you automatically drop out of this form."*
+ *
+ * The whole of what is asserted here is that it is EDGE-triggered. A level
+ * check - "is this character on their last Hit Point?" - passes every test that
+ * only ever marks damage, and then quietly forbids a Druid who survived their
+ * last Hit Point from ever transforming again, stripping the form on the next
+ * write with nothing on screen to explain it.
+ */
+describe('dropping out on the last Hit Point', () => {
+  const worn = { ref: 'nimble-grazer', activatedAt: '2026-08-23T00:00:00.000Z' };
+  const at = (marked: number, max = 6): Pick<Character, 'hp'> => ({ hp: { marked, max } });
+
+  it('drops the form when the last Hit Point is newly marked', () => {
+    const before = druid({ ...at(4), beastform: worn });
+    const after = { ...before, ...at(6) };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toBeNull();
+  });
+
+  it('drops it when a Stress that overflowed did the marking', () => {
+    // The route that makes this reachable in one tap: entering a form marks a
+    // Stress, and a full Stress track spends a Hit Point instead.
+    const before = druid({ ...at(5), stress: { marked: 6, max: 6 }, beastform: null });
+    const entered = enterBeastform(before, 'nimble-grazer', 'stress');
+    expect(entered.hpMarked).toBe(1);
+    expect(dropFormOnLastHitPoint(before, entered.character).beastform).toBeNull();
+  });
+
+  it('leaves a form alone when the character was ALREADY on their last one', () => {
+    // Not a hypothetical: a death move can be walked away from, and an ally can
+    // clear a Hit Point back. The sentence is about marking, and nothing was
+    // marked here.
+    const before = druid({ ...at(6), beastform: worn });
+    const after = { ...before, stress: { marked: 1, max: 6 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
+  });
+
+  it('lets a character on their last Hit Point transform', () => {
+    const before = druid({ ...at(6), beastform: null });
+    const after = enterBeastform(before, 'nimble-grazer', 'evolution').character;
+    expect(dropFormOnLastHitPoint(before, after).beastform).not.toBeNull();
+  });
+
+  it('does nothing at all to a character wearing no form', () => {
+    const before = druid({ ...at(4), beastform: null });
+    const after = { ...before, ...at(6) };
+    expect(dropFormOnLastHitPoint(before, after)).toBe(after);
+  });
+
+  it('does nothing when Hit Points are cleared rather than marked', () => {
+    const before = druid({ ...at(6), beastform: worn });
+    const after = { ...before, ...at(2) };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
+  });
+});
+
+/**
+ * The edge is the mark, and not the gap closing.
+ *
+ * `syncCounters` writes `hp.max` from the derived maximum and clamps `marked`
+ * to it, so a maximum that falls onto a mark already there makes the track full
+ * without anybody having marked anything. The first version of this rule asked
+ * whether the track had *become* full and fired on exactly that.
+ */
+describe('a maximum that drops is not a Hit Point being marked', () => {
+  const worn = { ref: 'nimble-grazer', activatedAt: '2026-08-23T00:00:00.000Z' };
+
+  it('keeps the form when hp.max falls onto the marks, marking nothing', () => {
+    const before = druid({ hp: { marked: 5, max: 8 }, beastform: worn });
+    // What `syncCounters` would write if the derived maximum became 5.
+    const after = { ...before, hp: { marked: 5, max: 5 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toEqual(worn);
+  });
+
+  it('still drops it when a mark is what filled the track', () => {
+    const before = druid({ hp: { marked: 4, max: 5 }, beastform: worn });
+    const after = { ...before, hp: { marked: 5, max: 5 } };
+    expect(dropFormOnLastHitPoint(before, after).beastform).toBeNull();
   });
 });

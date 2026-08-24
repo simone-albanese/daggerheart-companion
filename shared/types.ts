@@ -13,7 +13,7 @@
 /** A stable slug, e.g. `arcana-rune-ward`. Produced by `slugify`. */
 export type Ref = string;
 
-export const SCHEMA_VERSION = 4 as const;
+export const SCHEMA_VERSION = 5 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -391,6 +391,16 @@ export interface CompanionState {
   stress: Counter;
   damage: string;
   range: Range;
+  /**
+   * Physical or magic, which the player chooses.
+   *
+   * Folio 18, step 4: *"Choose whether they deal physical or magic damage."*
+   * Until this field existed `damageTypeOf` answered `phy` for every companion
+   * and a comment called it the SRD's default - which is true of an unarmed
+   * attack and was never true of this sheet, where the book asks the question
+   * outright.
+   */
+  damageType: 'phy' | 'mag';
   experiences: Experience[];
   /** Levelled-up companion upgrades, by slug. */
   upgrades: string[];

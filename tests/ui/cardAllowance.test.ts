@@ -235,7 +235,9 @@ describe('the grant table in cardAllowance.ts', () => {
      * Beastbound would give a Ranger a card the SRD never gave them, and the
      * regex above would not catch it because the sentence does not say "domain
      * card". So the two mechanisms are held apart on purpose, and the reasoning
-     * is written out above COMPANION_UPGRADES in src/engine/companion.ts.
+     * is written out above companionUpgrades in src/ui/shared/srdReference.ts,
+     * which is where the eight options moved when the rules stream reached
+     * folio 18.
      *
      * The list is pinned rather than merely counted so that a revision adding a
      * third companion-training feature lands here, in front of somebody, rather

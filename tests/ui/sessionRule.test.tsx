@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * `ADD → LINK → Rule`, drawn: the door that offers all 75 SRD sections.
+ * `ADD → LINK → Rule`, drawn: the door that offers all 80 SRD sections.
  *
  * The row resolved its target and then walked the body itself with
- * `paragraphs()`, which is the one shape the dataset is *not* in. 38 of the 75
- * shipped sections carry a bullet list or a pipe table - 34 lists, 7 tables, 3
- * of them both - so a GM who linked any of those 38 got a literal `- ` down the
+ * `paragraphs()`, which is the one shape the dataset is *not* in. 42 of the 80
+ * shipped sections carry a bullet list or a pipe table - 38 lists, 7 tables, 3
+ * of them both - so a GM who linked any of those 42 got a literal `- ` down the
  * left of every list and a wall of raw pipes where a table should be. Twelve
  * tables ship; not one of them was drawn as a table on this surface.
  *

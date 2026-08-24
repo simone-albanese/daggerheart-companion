@@ -343,7 +343,7 @@ describe('newCharacter', () => {
     expect(c.consecutiveShortRests).toBe(0);
     // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
     // whatever the constant said, and this assertion exists to notice a bump.
-    expect(c.schemaVersion).toBe(4);
+    expect(c.schemaVersion).toBe(5);
   });
 
   it('lets a caller override any field', () => {

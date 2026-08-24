@@ -6,6 +6,8 @@ import {
   takeRest,
   type DowntimeChoice,
 } from '@engine/rest.ts';
+import type { Character } from '@shared/types.ts';
+import { companionIsAway, newCompanion } from '@engine/companion.ts';
 import { makeCharacter, makeStats, refusingRng, scriptedRng } from '../fixtures/factories.ts';
 
 const stats = makeStats({ tier: 2 });
@@ -339,5 +341,186 @@ describe('a move from the other rest', () => {
         expect(out.log[0], `${move.id} on a ${kind} rest`).not.toMatch(/not applied/);
       }
     }
+  });
+});
+
+/**
+ * The Beastbound's other creature, which a rest never touched.
+ *
+ * *"When you choose a downtime move that clears Stress on yourself, your
+ * companion clears an equal number of Stress"*, and *"they remain unavailable
+ * until the start of your next long rest, where they return with 1 Stress
+ * cleared."* Neither sentence was anywhere in `src/`, so a Ranger who rested
+ * came back to an animal carrying every mark it had taken.
+ */
+describe('a rest, for the companion too', () => {
+  const withCompanion = (marked: number, max = 3, over: Partial<Character> = {}) =>
+    makeCharacter({
+      hp: { marked: 5, max: 6 },
+      stress: { marked: 5, max: 6 },
+      armorSlots: { marked: 3, max: 4 },
+      hope: { marked: 1, max: 6 },
+      companion: { ...newCompanion('Ashfoot', 'A grey wolf'), stress: { marked, max } },
+      ...over,
+    });
+
+  it('clears their Stress alongside yours, by the number you cleared', () => {
+    // d4 of 2 plus tier 2 is 4, and the character had 5 marked, so 4 came off
+    // both tracks.
+    //
+    // 3 of 4 and not 3 of 3: at 3 of 3 this companion is already OUT OF THE
+    // SCENE, and asserting that a short rest empties their track is asserting
+    // the one thing the rule below forbids. That is what this test used to do.
+    const out = takeRest(
+      withCompanion(3, 4),
+      stats,
+      'short',
+      [{ move: 'clear-stress', fixedRoll: 2 }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.stress.marked).toBe(1);
+    expect(out.character.companion?.stress.marked).toBe(0);
+    expect(out.log.join('\n')).toContain('Ashfoot: cleared 3 Stress alongside you');
+  });
+
+  it('leaves a companion who is out of the scene out of it', () => {
+    /*
+     * *"They remain unavailable until the start of your next long rest."*
+     *
+     * The app printed that sentence on the companion panel and then took it
+     * back on the next short rest: `clear-stress` cleared the animal's track
+     * with no guard, `companionIsAway` is purely derived, so any clear at all
+     * ended the away state - the attack came back, the banner vanished, the
+     * GM's board un-greyed. A rule the app states and then breaks is worse
+     * than a rule it never states.
+     *
+     * The character still clears their own. Only the animal is left alone.
+     */
+    const out = takeRest(
+      withCompanion(3),
+      stats,
+      'short',
+      [{ move: 'clear-stress', fixedRoll: 2 }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.stress.marked).toBe(1);
+    expect(out.character.companion?.stress.marked).toBe(3);
+    expect(companionIsAway(out.character.companion!)).toBe(true);
+    expect(out.log.join('\n')).not.toContain('alongside you');
+    expect(out.log.join('\n')).toContain('Ashfoot: out of the scene until your next long rest');
+  });
+
+  it('still clears them on a long rest, because the return runs first', () => {
+    /*
+     * The guard above must not reach the long rest, and it does not: the
+     * return at the top of `takeRest` puts them back with 1 Stress cleared
+     * BEFORE any move resolves, so by the time the move's own clear arrives
+     * they are in the scene and it lands on them like any other.
+     *
+     * 3 of 3 marked, away. The return takes them to 2, then Clear All Stress
+     * clears the character's 5 and an equal number off the animal - which is
+     * more than they have left, so the track empties.
+     */
+    const out = takeRest(
+      withCompanion(3),
+      stats,
+      'long',
+      [{ move: 'clear-all-stress' }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.companion?.stress.marked).toBe(0);
+    expect(companionIsAway(out.character.companion!)).toBe(false);
+    expect(out.log.join('\n')).toContain('returns to the scene with 1 Stress cleared');
+    expect(out.log.join('\n')).toContain('alongside you');
+  });
+
+  it('never clears them more than the character actually cleared', () => {
+    // The character has 1 Stress marked and rolls plenty. They clear 1, so the
+    // companion clears 1 - not the 4 the move produced. The reading is written
+    // out over `clearCompanionStress`.
+    //
+    // 3 of 4, so the animal is in the scene: at 3 of 3 they are out of it and
+    // clear nothing at all, which is a different rule and is tested above.
+    const out = takeRest(
+      withCompanion(3, 4, { stress: { marked: 1, max: 6 } }),
+      stats,
+      'short',
+      [{ move: 'clear-stress', fixedRoll: 2 }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.stress.marked).toBe(0);
+    expect(out.character.companion?.stress.marked).toBe(2);
+  });
+
+  it('clears them on the long rest’s move as well', () => {
+    const out = takeRest(
+      withCompanion(2),
+      stats,
+      'long',
+      [{ move: 'clear-all-stress' }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.stress.marked).toBe(0);
+    expect(out.character.companion?.stress.marked).toBe(0);
+  });
+
+  it('brings an absent companion back at the start of a long rest', () => {
+    const out = takeRest(
+      withCompanion(3),
+      stats,
+      'long',
+      [{ move: 'tend-to-all-wounds' }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.companion?.stress.marked).toBe(2);
+    expect(out.log[0]).toBe('Ashfoot: returns to the scene with 1 Stress cleared');
+  });
+
+  it('brings them back BEFORE the moves, so the move’s clear lands on them too', () => {
+    /*
+     * The order is the rule, not tidiness, and this is the case that can tell.
+     *
+     * The character has ONE Stress marked, so Clear All Stress clears one, and
+     * the companion therefore clears one. Return first and the companion goes
+     * 3 -> 2 -> 1. Return afterwards and they go 3 -> 2, and then are no longer
+     * away so nothing brings them back at all: they walk into the next scene on
+     * their last Stress.
+     *
+     * The obvious version of this test - a healthy character clearing five -
+     * lands on 0 either way and proves nothing. It was written that way first.
+     */
+    const out = takeRest(
+      withCompanion(3, 3, { stress: { marked: 1, max: 6 } }),
+      stats,
+      'long',
+      [{ move: 'clear-all-stress' }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.companion?.stress.marked).toBe(1);
+  });
+
+  it('does not bring anyone back on a short rest', () => {
+    const out = takeRest(
+      withCompanion(3),
+      stats,
+      'short',
+      [{ move: 'tend-to-wounds', fixedRoll: 1 }],
+      { fixedFear: 1 },
+      refusingRng,
+    );
+    expect(out.character.companion?.stress.marked).toBe(3);
+    expect(out.log.join('\n')).not.toContain('returns to the scene');
+  });
+
+  it('says nothing about a companion on a sheet that has none', () => {
+    const out = rest([{ move: 'clear-stress', fixedRoll: 2 }]);
+    expect(out.log.join('\n')).not.toContain('alongside you');
   });
 });

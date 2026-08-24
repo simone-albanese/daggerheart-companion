@@ -187,6 +187,7 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
     });
 
     it('keeps the fields a round trip usually drops, field by field', () => {
+      let magicCompanions = 0;
       for (const row of rows) {
         const { original: was, decoded: now, label } = row;
         expect(now.levelUpHistory.length, label).toBe(was.levelUpHistory.length);
@@ -214,10 +215,28 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
         expect(now.inventory, label).toStrictEqual(was.inventory);
         expect(now.gold, label).toStrictEqual(was.gold);
         expect(now.unresolvedRefs, label).toStrictEqual(was.unresolvedRefs);
+        /*
+         * Everything about the animal that the wire carries, with the one
+         * field it deliberately does not held aside and then asserted on its
+         * own below. `damageType` used to be inside this comparison and passed
+         * anyway, because the generator made every companion physical: the
+         * sweep agreed with the codec by coincidence rather than by contract.
+         */
         expect(
-          now.companion === null ? null : { ...now.companion, experiences: null },
+          now.companion === null
+            ? null
+            : { ...now.companion, experiences: null, damageType: 'phy' },
           label,
-        ).toStrictEqual(was.companion === null ? null : { ...was.companion, experiences: null });
+        ).toStrictEqual(
+          was.companion === null
+            ? null
+            : { ...was.companion, experiences: null, damageType: 'phy' },
+        );
+        if (was.companion !== null) {
+          // The fourth deliberate loss, proved on the sweep instead of assumed.
+          if (was.companion.damageType === 'mag') magicCompanions += 1;
+          expect(now.companion?.damageType, label).toBe('phy');
+        }
         expect(
           now.companion?.experiences.map((e) => [e.name, e.bonus]),
           label,
@@ -227,6 +246,12 @@ describe.skipIf(!hasDataset())('the transfer matrix', () => {
           label,
         ).toStrictEqual(was.experiences.map((e) => [e.name, e.bonus]));
       }
+      /*
+       * And the sweep really did carry the case. Without this the assertion
+       * above is green on a matrix of nothing but physical companions, which
+       * is precisely the state it was written to end.
+       */
+      expect(magicCompanions, 'no companion in the matrix deals magic damage').toBeGreaterThan(0);
     });
 
     it('keeps text that is not ASCII, codepoint for codepoint', () => {

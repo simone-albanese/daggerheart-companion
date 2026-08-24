@@ -24,6 +24,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Character } from '../../../shared/types.ts';
 import { deriveStats, type DerivedStats } from '../../engine/character.ts';
+import { companionDamage, companionIsAway } from '../../engine/companion.ts';
 import { useApp } from '../../store/state.ts';
 import { parseTransferFile, pickFile } from '../../transfer/fileIo.ts';
 import { Track } from '../shared/Track.tsx';
@@ -406,6 +407,7 @@ function Row({
         <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{stats.proficiency}</span>
       </span>
       <Experiences sheet={sheet} />
+      <CompanionLine sheet={sheet} proficiency={stats.proficiency} />
     </span>
   );
 
@@ -480,6 +482,101 @@ function Row({
 }
 
 /** One of the three numbers the row exists for. */
+/**
+ * The second creature, which this board could not see.
+ *
+ * A Beastbound Ranger is two things to target and the board drew one of them.
+ * The data was already here - `party.ts` keeps the sheet whole, so
+ * `sheet.companion` arrived with everything else and was simply never drawn -
+ * which is why this is a few lines rather than a transfer change.
+ *
+ * READ-ONLY, and that is the board's own rule rather than a shortcut. A PC here
+ * is a sighting: every number is derived from the sheet as it arrived and dated
+ * by when it did. The four tracks above are editable because a GM marks damage
+ * they are dealing; a companion's Stress is marked by the player operating the
+ * companion, and a second set of numbers the GM could edit would be a second
+ * answer to what the animal has taken.
+ *
+ * Evasion leads because it is what the GM needs: it is the number an attack is
+ * rolled against, and it is not the Ranger's.
+ *
+ * NOTHING HERE SHOULD ASSUME A FIELD IS PRESENT, AND THAT IS NOT DEFENSIVENESS -
+ * IT IS WHERE THESE SHEETS COME FROM. A campaign record holds whole copies of
+ * the players' sheets, and `readPartyMember` in `shared/campaigns.ts` casts the
+ * stored object straight to `Character`: the character migration chain never
+ * runs on it. So a board saved before a schema bump hands this component a
+ * sheet from the *previous* schema, with whatever that schema did not have
+ * missing. `damageType` arrived in schema 5 and `companion.damageType
+ * .toUpperCase()` threw on every such row - taking the whole board down on
+ * first render, which is the one failure `readPartyMember`'s own docblock
+ * exists to prevent.
+ *
+ * AND THIS FUNCTION DOES NOT YET OBEY IT. The paragraph above used to end "so
+ * this reads by comparison and never by method call, the way `CompanionPanel`
+ * already does", and both halves of that sentence were false when they were
+ * written. Measured by rendering a row with each field deleted in turn:
+ *
+ *   - `companion.name.toUpperCase()` throws on a missing name, and the `=== ''`
+ *     beside it covers neither an absent one nor a numeric one;
+ *   - `companion.stress.marked` / `.max` throw on a missing track;
+ *   - `companionDamage` hands `companion.damage` to `parseDamage`, which is
+ *     total for a junk string - `parseDamage('nonsense')` is null and the board
+ *     prints NO DIE - and fatal for an absent one, because its only guard is
+ *     one line too late;
+ *   - `CompanionPanel` calls `.toUpperCase()` on the name, the description and
+ *     the range, so it is not the example to follow.
+ *
+ * Two lines here are genuinely total and are not on that list: `:545` wraps the
+ * range in `String()`, and the `damageType` comparison is the schema-5 fix.
+ * `String()` is not free either - it turns a crash into the literal word
+ * UNDEFINED printed to a GM - but a board you can read and disbelieve beats a
+ * board that is gone.
+ *
+ * The reason it stays as it is: the file reader was tightened instead
+ * (`checkShapes` now refuses half an animal), which closes every route a
+ * CHARACTER arrives by - and closes none of the routes a party copy does,
+ * because `readPartyMember` is the cast this paragraph opens with. The rule
+ * that would close it is broader than "no method calls here": nothing in
+ * `src/ui/gm/` may call a method on a field of `PartyMember.sheet`, NOR PASS IT
+ * TO A FUNCTION THAT DOES. Doing that properly means deciding whether
+ * `readPartyMember` repairs or quarantines, which is a design decision and is
+ * scheduled for the `CAMPAIGN_SCHEMA_VERSION` bump that has to open that file
+ * anyway. Until then this docblock states the debt rather than a wish.
+ */
+function CompanionLine({
+  sheet,
+  proficiency,
+}: {
+  sheet: Character;
+  proficiency: number;
+}): React.JSX.Element | null {
+  const companion = sheet.companion;
+  if (companion === null) return null;
+  const attack = companionDamage(companion, proficiency);
+  const away = companionIsAway(companion);
+  return (
+    <span
+      className="t-meta"
+      style={{
+        letterSpacing: '0.07em',
+        color: away ? 'var(--stress)' : 'var(--muted)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {(companion.name === '' ? 'COMPANION' : companion.name.toUpperCase())} · EVASION{' '}
+      <span style={{ color: away ? 'var(--stress)' : 'var(--text-2)', fontWeight: 600 }}>
+        {companion.evasion}
+      </span>{' '}
+      · {attack === null ? 'NO DIE' : attack.spec} {String(companion.range).toUpperCase()}{' '}
+      {companion.damageType === 'mag' ? 'MAG' : 'PHY'} · STRESS {companion.stress.marked}/
+      {companion.stress.max}
+      {away && ' · OUT OF THE SCENE'}
+    </span>
+  );
+}
+
 function Figure({
   label,
   value,

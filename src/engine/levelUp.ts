@@ -16,6 +16,7 @@
  */
 import type { AdvancementKind, Character, LevelUpChoice, Tier, Trait } from '../../shared/types.ts';
 import { MAX_HP, MAX_LEVEL, MAX_STRESS, TIER_LEVELS, tierOf } from './character.ts';
+import { COMPANION_START } from './companion.ts';
 
 export interface AdvancementOption {
   kind: AdvancementKind;
@@ -482,6 +483,40 @@ export function applyLevelUp(c: Character, plan: LevelUpPlan): Character {
         { id: crypto.randomUUID(), name, bonus: 2 },
       ],
     };
+    /*
+     * *"Whenever you gain a new Experience, your companion also gains one. All
+     * new Experiences start at +2."* Folio 18.
+     *
+     * Applied rather than offered, because the sentence offers nothing: it is
+     * the same shape as the Stress a transformation costs. What the player
+     * chooses is the words, and those are theirs - it arrives unnamed and is
+     * named on the companion sheet, the way an achievement Experience with no
+     * name typed arrives unnamed here.
+     *
+     * The `experience` advancement above raises two Experiences the character
+     * already has, which is not what the sentence is about - so it correctly
+     * gives the companion nothing.
+     *
+     * IT IS NOT THE ONLY PLACE A CHARACTER GAINS A NEW ONE, and this comment
+     * used to say it was. `ExperienceEditor` has an "Add an Experience" button
+     * (`src/ui/build/parts.tsx`), reachable from Build and from the wizard, and
+     * folio 18's *"whenever"* covers that route too. Nothing there hands the
+     * companion anything, so a hand-added Experience quietly leaves the animal
+     * one behind. That is a real gap in the rule and not a decision; it is
+     * written down here because the false sentence was hiding it.
+     */
+    if (next.companion !== null) {
+      next = {
+        ...next,
+        companion: {
+          ...next.companion,
+          experiences: [
+            ...next.companion.experiences,
+            { id: crypto.randomUUID(), name: '', bonus: COMPANION_START.experienceBonus },
+          ],
+        },
+      };
+    }
   }
 
   if (plan.newCardRef) next = { ...next, vault: [...next.vault, plan.newCardRef] };

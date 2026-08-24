@@ -41,7 +41,7 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
-import type { ArmedAttack, AttackSource } from './attack.ts';
+import { experiencesFor, type ArmedAttack, type AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
@@ -484,9 +484,6 @@ interface Props {
   onArmedExperiencesChange: (ids: string[]) => void;
 }
 
-/** A stable empty list, so a character without Experiences is not a new array. */
-const NO_EXPERIENCES: Experience[] = [];
-
 /**
  * Whether a scrolling box still has content under its bottom edge.
  *
@@ -753,7 +750,15 @@ export function DualityRoll({
     setTyping(null);
   }, [characterId]);
 
-  const experiences = character?.experiences ?? NO_EXPERIENCES;
+  /*
+   * Whose Experiences this roll spends Hope on.
+   *
+   * The companion's when the companion is what is armed - "spend a Hope to add
+   * an applicable Companion Experience to the roll" - and the character's
+   * otherwise. Derived through the shared rule rather than restated, because
+   * the row that draws the chips is in `Play` and this is what pays for them.
+   */
+  const experiences = experiencesFor(character, source);
   // Filtering the ids through the character and the tray rather than trusting
   // them: an Experience deleted in Build, or a die discarded from the tray,
   // must not keep paying out here.

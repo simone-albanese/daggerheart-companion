@@ -17,6 +17,7 @@ import {
   type DatasetIndex,
   type DerivedStats,
 } from '../engine/character.ts';
+import { dropFormOnLastHitPoint } from '../engine/beastform.ts';
 import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
 import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
@@ -444,9 +445,34 @@ export const useApp = create<AppState>((set, get) => ({
     if (activeId === null) return;
     const current = characters.find((c) => c.id === activeId);
     if (!current) return;
-    const next = { ...mutate(current), updatedAt: new Date().toISOString() };
+    const written = { ...mutate(current), updatedAt: new Date().toISOString() };
+    /*
+     * One rule is applied here rather than by the caller, because it is the
+     * only rule in the app that is about a *transition* and this is the only
+     * place that holds both sides of one.
+     *
+     * *"If you mark your last Hit Point, you automatically drop out of this
+     * form."* Hit Points are marked from the damage calculator, from the pips
+     * on the track, and from a Stress mark that overflowed - which includes the
+     * Stress that paid for the transformation. Enforcing it at each of those
+     * would be three copies of one sentence, and the fourth writer would be
+     * along shortly.
+     *
+     * Nothing else belongs here. This is not a normalisation hook and must not
+     * become one: `syncCounters` and `boundCounters` are the shapes for "make
+     * this sheet consistent", and they are level-triggered because that is what
+     * they are for.
+     */
+    const next = dropFormOnLastHitPoint(current, written);
     schedule(next);
     set({ characters: characters.map((c) => (c.id === next.id ? next : c)) });
+    if (next.beastform === null && written.beastform !== null) {
+      get().pushLog({
+        kind: 'note',
+        label: 'Dropped out of Beastform',
+        detail: 'Last Hit Point marked',
+      });
+    }
   },
 
   async remove(id) {

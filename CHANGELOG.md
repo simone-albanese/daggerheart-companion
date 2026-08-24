@@ -12,6 +12,117 @@ before the one below.
 
 ---
 
+## 0.6.0 — 2026-08-24
+
+The version moved for the same reason 0.4.0's did, and it is worth stating
+plainly: **this release changes what a saved file can carry.** `SCHEMA_VERSION`
+is 5, a companion's sheet now records whether their damage is physical or magic,
+and a `.dhchar` written before this and one written after it must not claim to
+be the same build. Files from schema 3 and 4 open and are converted, and the
+conversion is announced rather than done quietly.
+
+Two subclasses could be built in this app and not played in it. A Druid could
+put on a Beastform and then had no way to roll what the form attacks with; a
+Beastbound Ranger had a companion sheet and no way to command the animal. Both
+were prose sitting on folios the rules parser had never reached.
+
+### A Druid in a Beastform can attack with it
+
+- **The form's attack is a row you can declare**, in `Equipped`, with
+  **Proficiency already in the dice**: a Massive Behemoth's `d12+12` is `4d12+12`
+  at Proficiency 4, which is the difference between reading a stat block and
+  rolling one. All 22 shipped forms.
+- **Arming it moves the trait chip to the form's own** — *"you use the
+  creature's listed range, trait, and damage dice"* — and **the trait follows a
+  change of shape**. Swap a bear for a raven mid-turn and the roll changes with
+  you rather than keeping the bear's Strength.
+- **Dropping the form takes the attack with it.** So does the automatic drop
+  below, and neither leaves an attack armed that the next transformation would
+  silently re-arm under the old shape's trait.
+- **Weapons and domain spells are marked, not refused.** *"While transformed,
+  you can't use weapons or cast spells from domain cards"* — they stay on the
+  screen, struck through and labelled, because a rule that hides your kit is a
+  rule you cannot check.
+- **The form falls when you mark your last Hit Point**, at the moment you mark
+  it, wherever in the app the mark came from.
+
+### The Ranger's companion is a creature you can play, not a form you fill in
+
+- **Command them, as the roll the book names.** *"Make a Spellcast Roll to
+  connect with your companion and command them to take action."* It is the one
+  attack in this app whose roll belongs to one creature and whose damage belongs
+  to another, and the trait chip says so.
+- **Their Experiences, not yours**, when they are what is armed — *"spend a Hope
+  to add an applicable **Companion** Experience to the roll"*.
+- **Physical or magic is a choice now.** Folio 18 asks outright; the app had
+  answered physical for every companion there had ever been, under a comment
+  calling it the SRD's default. It is on the sheet, and it can be changed back.
+- **A rest reaches them.** A downtime move that clears your Stress clears an
+  equal number of theirs. A full Stress track takes them out of the scene, the
+  panel says so and says when they are back, and a long rest returns them with
+  1 Stress cleared. **A short rest does not bring them back** — see the
+  deviations below.
+- **The eight level-up options come out of the book**, not out of the app's
+  source, so a layer that rewrites folio 18 is obeyed. The sheet counts what is
+  marked and what has been earned, and a tier achievement gives the companion an
+  Experience alongside yours.
+- **The Spellcast trait is on the line that says what class you are** — and says
+  `NO SPELLCAST TRAIT` for the four subclasses that have none, because an
+  absence explains nothing.
+- **They are on the GM's party board and on the printed sheet.** The board draws
+  their Evasion, the pool that will be rolled, their damage type and their
+  Stress, and greys them out when they have left the scene.
+
+### A GM's party board that went down, and files that can no longer take one down
+
+**Any board holding a Beastbound Ranger imported before this release crashed on
+first render.** A campaign keeps whole copies of the players' sheets and reads
+them back without running the character conversion, so a sheet saved by 0.5.0
+arrived without the new damage-type field and the board called a method on it.
+Fixed, and pinned by the shape that broke it.
+
+Two more of the same kind are closed on the way in rather than on the way out:
+an imported sheet's companion damage type is narrowed the way a weapon's already
+was, and **a file carrying half a companion is refused with the field named**
+instead of being stored and rendered. Every field that clause checks has been on
+the companion sheet since the companion existed, so nothing 0.5.0 could write is
+turned away.
+
+### The rules text the app draws reaches two more folios
+
+`parseRules` stops at folio 11 no longer: folios 12 and 18 bring **five new rule
+sections, 75 to 80**, and everything the beast sheets quote is read from the
+dataset rather than typed into the source. Folio 19 stays out on purpose — it is
+the Rogue.
+
+### The printed sheet
+
+The companion has a section: their numbers, their Experiences with ruled blank
+lines to fill in, and **all eight level-up options each with a box to mark**,
+because folio 18 says to mark it on your sheet. The boxes are drawn with the
+page's own hairline primitive rather than a Unicode ballot glyph, which prints
+as a blank square wherever the printer's font does not carry one.
+
+### Three deliberate deviations, said out loud
+
+- **A QR code does not carry the companion's damage type**, and a companion
+  handed over that way arrives dealing physical. It is the fourth documented
+  loss of the compact format and it is a format-number decision, not a byte one:
+  carrying it needs format 4, and a phone that has not updated would stop being
+  able to receive **any** sheet in exchange. A `.dhchar` file carries it exactly.
+- **A short rest does not bring an out-of-scene companion back**, even when its
+  move clears Stress. Folio 18 says both *"your companion clears an equal number
+  of Stress"* and *"they remain unavailable until the start of your next long
+  rest, where they return with 1 Stress cleared"*, and on a short rest those
+  cannot both hold. The second wins because it is the more specific one and
+  because it names its own return; the exception to the first is not in the book
+  and is written into the code that makes it.
+- **The companion's tier Experience is applied, not offered.** *"Your companion
+  also gains one"* offers nothing to choose; what the player chooses is the
+  words, and those are typed on the companion sheet.
+
+---
+
 ## 0.5.0 — 2026-08-23
 
 ### Rally, Prayer and Slayer Dice are a pool now, not a guess

@@ -23,10 +23,14 @@
  * as perfectly plausible at the table, which is the worst kind.
  */
 import { describe, expect, it } from 'vitest';
+import type { Beastform, CompanionState } from '../../shared/types.ts';
 import type { DerivedStats } from '../../src/engine/character.ts';
 import { formatDamage, rollDamage, seededRng, type DamageDice } from '../../src/engine/dice.ts';
 import {
+  beastformSource,
+  companionSource,
   damageArithmetic,
+  experiencesFor,
   damageLogEntry,
   damageOffer,
   damageTypeOf,
@@ -39,7 +43,7 @@ import {
   type ArmedAttack,
   type AttackSource,
 } from '../../src/ui/player/attack.ts';
-import { makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
+import { makeCharacter, makeStats, makeWeapon, traits } from '../fixtures/factories.ts';
 
 const weaponSource = (damage: string, proficiency: number): AttackSource => {
   const source = sourceFromWeapon(
@@ -280,14 +284,19 @@ describe('which of the two damage types', () => {
     expect(damageTypeOf(spellSource(3, 8, 3)!)).toBe('mag');
   });
 
-  it('gives an unarmed attack and a companion the default', () => {
+  it('gives an unarmed attack the default the sentence above states', () => {
     expect(damageTypeOf(unarmedSource(makeStats({ proficiency: 2 })))).toBe('phy');
-    // The companion variant carries no damageType of its own. A total function
-    // over the union has to answer for it, and the answer is the SRD's default
-    // rather than a crash on a shape the type system already allows.
-    expect(
-      damageTypeOf({ kind: 'companion', name: 'Wolf', damage: { count: 1, sides: 6, modifier: 0 } }),
-    ).toBe('phy');
+  });
+
+  it('reads a companion’s own answer, which the sheet now asks for', () => {
+    // This branch used to return `phy` for every companion under a comment
+    // calling it the SRD's default. It is not: folio 18 asks the player to
+    // "choose whether they deal physical or magic damage", and a raven who
+    // deals magic damage was being reduced by the wrong resistances at the
+    // table and printing PHY in the log.
+    const wolf = { kind: 'companion' as const, name: 'Wolf', damage: { count: 1, sides: 6, modifier: 0 } };
+    expect(damageTypeOf({ ...wolf, damageType: 'phy' })).toBe('phy');
+    expect(damageTypeOf({ ...wolf, damageType: 'mag' })).toBe('mag');
   });
 });
 
@@ -341,5 +350,236 @@ describe('the line the damage roll writes', () => {
   it('drops a modifier of zero rather than printing +0', () => {
     const result = rolled({ count: 2, sides: 4, modifier: 0 }, false, [3, 1]);
     expect(damageArithmetic(result)).toBe('3 + 1 = 4');
+  });
+});
+
+/**
+ * The Beastform's own attack, which this screen printed and could not roll.
+ *
+ * The strip at the top of Play has always shown `ATTACK d12+10 · MELEE ·
+ * STRENGTH`, and there was no `Declaration` that could arm it - so a Druid in a
+ * bear could roll the greatsword the rule had just taken away, and not the
+ * bear. The rule is folio 12's: *"you use the creature's listed range, trait,
+ * and damage dice, but you use your Proficiency."*
+ */
+describe('the attack a worn Beastform makes', () => {
+  const bear: Beastform = {
+    id: 'great-predator',
+    name: 'Great Predator',
+    tier: 3,
+    category: 'Great Predator',
+    examples: ['Bear'],
+    traitBonus: { strength: 2 },
+    evasionBonus: 2,
+    attack: { name: 'Great Predator', range: 'Melee', damage: 'd12+8', trait: 'strength' },
+    advantageOn: ['attack'],
+    features: [],
+  };
+
+  const wearing = (form: Beastform, proficiency: number): DerivedStats =>
+    makeStats({
+      proficiency,
+      beastform: { form, baseEvasion: 10, raised: [{ trait: 'strength', from: 1, to: 3 }] },
+    });
+
+  it('is nothing at all when no form is worn', () => {
+    expect(beastformSource(makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('rolls the form’s dice at the character’s Proficiency', () => {
+    const source = beastformSource(wearing(bear, 3));
+    expect(source).toMatchObject({
+      kind: 'beastform',
+      name: 'Great Predator',
+      trait: 'strength',
+      damage: { count: 3, sides: 12, modifier: 8 },
+    });
+  });
+
+  it('carries the trait the form specifies, which is what arms the chip', () => {
+    // Not the character's own best trait and not the one the form *raises* -
+    // the one its attack line names. On this form they happen to agree; the
+    // Winged Beast raises Finesse and attacks with it too, but a layer's need
+    // not, and the row must follow the attack line.
+    const winged = { ...bear, attack: { ...bear.attack, trait: 'finesse' as const } };
+    expect(beastformSource(wearing(winged, 2))?.kind).toBe('beastform');
+    expect(
+      beastformSource(wearing(winged, 2)) as Extract<AttackSource, { kind: 'beastform' }>,
+    ).toMatchObject({ trait: 'finesse' });
+  });
+
+  it('is physical, and that is guarded by the parser rather than assumed', () => {
+    // `shared/parsers/beastforms.ts` refuses a form whose attack line reads
+    // `mag` - "magic beastform attack has nowhere to go in Beastform" - so no
+    // dataset can carry one for this branch to get wrong.
+    expect(damageTypeOf(beastformSource(wearing(bear, 3))!)).toBe('phy');
+  });
+
+  it('is named by the form, so the log line matches the strip', () => {
+    expect(sourceName(beastformSource(wearing(bear, 3))!)).toBe('Great Predator');
+  });
+
+  it('refuses a damage line that will not parse rather than arming a bad pool', () => {
+    const odd = { ...bear, attack: { ...bear.attack, damage: 'a mauling' } };
+    expect(beastformSource(wearing(odd, 3))).toBeNull();
+  });
+});
+
+/**
+ * The companion's attack, and the two sentences that unblocked it.
+ *
+ * `BACKLOG.md` P1-1 left this out because it could not answer "whose
+ * Proficiency and whose roll". Folio 18 answers both - *"Make a Spellcast Roll
+ * to connect with your companion"*, *"their damage roll uses your Proficiency
+ * and their damage die"* - and it was unreachable prose until `parseRules`
+ * reached the folio.
+ */
+describe('the attack the companion makes', () => {
+  const ash = (over: Partial<CompanionState> = {}): CompanionState => ({
+    name: 'Ash',
+    description: 'A one-eyed raven',
+    evasion: 12,
+    stress: { marked: 0, max: 3 },
+    damage: 'd6+2',
+    range: 'Close',
+    damageType: 'phy',
+    experiences: [{ id: 'ce-1', name: 'Sharp eyes', bonus: 2 }],
+    upgrades: [],
+    ...over,
+  });
+
+  it('is nothing at all without a companion', () => {
+    expect(companionSource(null, makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('rolls their die at your Proficiency, and leaves their bonus alone', () => {
+    expect(companionSource(ash(), makeStats({ proficiency: 3 }))).toMatchObject({
+      kind: 'companion',
+      name: 'Ash',
+      damage: { count: 3, sides: 6, modifier: 2 },
+      damageType: 'phy',
+    });
+  });
+
+  it('carries their own damage type rather than the old assumption', () => {
+    const magic = companionSource(ash({ damageType: 'mag' }), makeStats({ proficiency: 2 }));
+    expect(damageTypeOf(magic!)).toBe('mag');
+  });
+
+  it('has no attack while they are out of the scene', () => {
+    // "They remain unavailable until the start of your next long rest." An
+    // armed pool over an animal who has fled is the app offering a roll the
+    // rule has taken away - the same defect the Beastform seal is about.
+    expect(companionSource(ash({ stress: { marked: 3, max: 3 } }), makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('refuses a die nobody can roll rather than arming it', () => {
+    expect(companionSource(ash({ damage: 'a peck' }), makeStats({ proficiency: 3 }))).toBeNull();
+  });
+
+  it('is named for the animal, and says so when they have no name', () => {
+    expect(sourceName(companionSource(ash(), makeStats({ proficiency: 1 }))!)).toBe('Ash');
+    expect(sourceName(companionSource(ash({ name: '' }), makeStats({ proficiency: 1 }))!)).toBe(
+      'Your companion',
+    );
+  });
+
+  it('coerces a damage type that is not one of the two, the way the weapon branch does', () => {
+    /*
+     * A LIVE CRASH, and the same class the branch has already fixed once on
+     * the GM's board.
+     *
+     * `readCharacterRecord` spreads a file's `companion` wholesale, `checkShapes`
+     * asserts only that it is an object, and the 4->5 converter fills a MISSING
+     * `damageType` without coercing a bad one. So a hand-edited `.dhchar`
+     * carrying `damageType: 42` imports in silence and then throws on the first
+     * companion damage roll, at `damageTypeOf(...).toUpperCase()`.
+     *
+     * The asymmetry is the defect: fifty lines above, `sourceFromWeapon`
+     * narrows the MORE trustworthy value - a weapon out of the shipped dataset
+     * - with `=== 'mag' ? 'mag' : 'phy'`, while the value that arrives from a
+     * stranger's file went through raw. The trust levels were backwards.
+     *
+     * Physical and not magic, because that is what every older sheet behaved
+     * as, what `readCompanion` invents, and what the migration seeds.
+     */
+    const wrong = ash({ damageType: 42 as unknown as 'phy' });
+    const source = companionSource(wrong, makeStats({ proficiency: 2 }))!;
+    expect(source.kind).toBe('companion');
+    expect(damageTypeOf(source)).toBe('phy');
+    const result = rollDamage({ count: 2, sides: 6, modifier: 2 }, { critical: false }, seededRng(7));
+    expect(damageLogEntry(attack({ source }), result).label).toBe(`${String(result.total)} PHY`);
+  });
+});
+
+/**
+ * *"Spend a Hope to add an applicable **Companion** Experience to the roll."*
+ *
+ * The word that matters is Companion. Their Experiences are on their sheet, and
+ * a roll commanding them is not a roll where "Grew Up on the Streets" applies.
+ */
+describe('whose Experiences a roll is declared with', () => {
+  const character = makeCharacter({
+    experiences: [{ id: 'mine', name: 'Grew up on the streets', bonus: 2 }],
+    companion: {
+      name: 'Ash',
+      description: '',
+      evasion: 10,
+      stress: { marked: 0, max: 3 },
+      damage: 'd6',
+      range: 'Melee',
+      damageType: 'phy',
+      experiences: [{ id: 'theirs', name: 'Sharp eyes', bonus: 2 }],
+      upgrades: [],
+    },
+  });
+
+  it('is the character’s, for every attack that is not the companion', () => {
+    expect(experiencesFor(character, null).map((e) => e.id)).toEqual(['mine']);
+    expect(experiencesFor(character, weaponSource('d8', 2)).map((e) => e.id)).toEqual(['mine']);
+  });
+
+  it('is the companion’s when the companion is armed', () => {
+    const source = companionSource(character.companion, makeStats({ proficiency: 2 }));
+    expect(experiencesFor(character, source).map((e) => e.id)).toEqual(['theirs']);
+  });
+
+  it('reads the source and not the declaration, so a lost companion takes the chips back', () => {
+    // A companion who walks out of the scene resolves to no source at all. The
+    // chips must go back to the character in the same render the offer does,
+    // rather than leaving a roll declared against a sheet that is not there.
+    const gone = { ...character, companion: { ...character.companion!, stress: { marked: 3, max: 3 } } };
+    const source = companionSource(gone.companion, makeStats({ proficiency: 2 }));
+    expect(source).toBeNull();
+    expect(experiencesFor(gone, source).map((e) => e.id)).toEqual(['mine']);
+  });
+
+  it('answers with nothing for no character at all', () => {
+    expect(experiencesFor(null, null)).toEqual([]);
+  });
+
+  it('hands back the same empty list every time, and not a fresh one', () => {
+    /*
+     * The half of the contract `toEqual([])` cannot see, and the whole reason
+     * `NO_EXPERIENCES` is a module constant rather than a literal at each
+     * return. `DualityRoll` memoises the armed subset on `[experiences,
+     * armedExperiences]`; a new `[]` per call makes that memo recompute on
+     * every render for ever, and nothing in the suite noticed when the
+     * constant was reverted to two literals.
+     */
+    expect(experiencesFor(null, null)).toBe(experiencesFor(null, null));
+
+    /*
+     * The other branch the constant guards: a companion source standing over a
+     * sheet that carries no companion. `companionSource` cannot produce that
+     * pair - it answers null when the companion is null - so this is the only
+     * place it can be held, and it has to be the SAME array as the first
+     * branch or the memo is back where it started for half its inputs.
+     */
+    const source = companionSource(character.companion, makeStats({ proficiency: 2 }));
+    expect(source?.kind).toBe('companion');
+    const orphan = { ...character, companion: null };
+    expect(experiencesFor(orphan, source)).toBe(experiencesFor(orphan, source));
+    expect(experiencesFor(orphan, source)).toBe(experiencesFor(null, null));
   });
 });

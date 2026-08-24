@@ -351,6 +351,102 @@ export function CharacterSheet({
         )}
       </section>
 
+      {sheet.companion !== null && (
+        /*
+         * The companion, which this printout has never carried.
+         *
+         * The SRD prints it as a sheet of its own, tucked under the right side
+         * of the character's; here it is a section like any other, because a
+         * second page for one subclass is a page most printouts would waste.
+         * It sits after the character's own Experience and before the features,
+         * which is where the paper sheet's own reading order puts it.
+         */
+        <section className="dhc-sec">
+          <h2 className="dhc-h">
+            Companion — {sheet.companion.name || 'Unnamed'}
+            {sheet.companion.description !== '' && (
+              <span className="dhc-meta"> · {sheet.companion.description}</span>
+            )}
+          </h2>
+          <ul className="dhc-list">
+            <li>
+              <span>Evasion</span>
+              <span className="dhc-block-name">{sheet.companion.evasion}</span>
+            </li>
+            <li>
+              <span>Attack — {sheet.companion.range.toLowerCase()}, {sheet.companion.damageType === 'mag' ? 'magic' : 'physical'}</span>
+              <span className="dhc-block-name">{sheet.companion.damage}</span>
+            </li>
+            <li>
+              <span>Stress</span>
+              {/* `TickRow`, like every other track on this page: an SVG of
+                  outlined boxes. A row of `☐` would depend on the print font
+                  covering U+2610 and would print as tofu where it does not -
+                  and this page is the one artefact nobody can tap to check. */}
+              <TickRow kind="stress" count={Math.max(0, sheet.companion.stressSlots)} />
+            </li>
+          </ul>
+
+          <h2 className="dhc-h">Companion Experience</h2>
+          <ul className="dhc-list">
+            {sheet.companion.experiences.map((e) => (
+              <li key={e.id}>
+                <span>{e.name}</span>
+                <span className="dhc-block-name">{modifier(e.bonus)}</span>
+              </li>
+            ))}
+            {blanks(sheet.companion.experienceLines - sheet.companion.experiences.length, (i) => (
+              <li className="dhc-write" key={`companion-blank-${i}`}>
+                <span className="dhc-rule" />
+                <span className="dhc-box" />
+              </li>
+            ))}
+          </ul>
+
+          <h2 className="dhc-h">
+            Level-up options
+            <span className="dhc-meta">
+              {' '}
+              · {sheet.companion.upgrades.filter((u) => u.marked).length} marked ·{' '}
+              {sheet.companion.allowance} earned
+            </span>
+          </h2>
+          <div className="dhc-two">
+            {sheet.companion.upgrades.map((u) => (
+              <div className="dhc-block" key={u.id}>
+                {/*
+                 * A box on every one of the eight, and the state beside the
+                 * name rather than inside the box.
+                 *
+                 * `☑`/`☐` were the first version and depended on the print font
+                 * carrying U+2610; dropping them was right. Dropping the box
+                 * with them was not: folio 18 says "mark it on your sheet", and
+                 * seven options printed as a bare name under a heading that
+                 * counts marks is a list you cannot mark. `.dhc-tick` is this
+                 * page's own checkbox - a border, which prints where a
+                 * background does not - and it already draws the trait row's
+                 * `marked` box and the two weapon slots.
+                 *
+                 * It prints empty whether or not the app has the option marked,
+                 * which is the same choice `TickRow` makes and states: a
+                 * printed sheet is played with a pencil, so it owes the player
+                 * room rather than a snapshot. `Taken` beside the name is what
+                 * carries the snapshot, for the reader who wants one.
+                 */}
+                <div className="dhc-block-head">
+                  <span className="dhc-block-name">
+                    <span className="dhc-tick" />
+                    {u.name}
+                  </span>
+                  {u.marked && <span className="dhc-meta">Taken</span>}
+                </div>
+                <div className="dhc-text">{u.text}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="dhc-sec">
         <h2 className="dhc-h">Features</h2>
         {sheet.features.length === 0 ? (

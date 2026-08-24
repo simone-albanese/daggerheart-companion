@@ -207,6 +207,11 @@ export function loadedWizard(): Character {
       stress: { marked: 1, max: 3 },
       damage: 'd6+2',
       range: 'Close',
+      // Physical, and deliberately so: the codec does not carry this field, so
+      // a 'mag' here would make every round-trip assertion in the matrix fail
+      // for a reason that has nothing to do with what it is testing. The loss
+      // itself is pinned on its own, in codec.test.ts.
+      damageType: 'phy',
       experiences: [{ id: 'c0ffee00-1111-4222-8333-444455556666', name: 'Sharp eyes', bonus: 2 }],
       upgrades: ['intelligent', 'light-in-the-dark'],
     },
@@ -225,6 +230,15 @@ export function loadedWizard(): Character {
  * both sides rather than compared. Zeroing it here rather than deleting it is
  * deliberate: a codec that stopped writing the *field* would still be caught,
  * because the decoded sheet would then be missing a key this one has.
+ *
+ * `companion.damageType` is the fourth, and it is flattened to `phy` on both
+ * sides for exactly the same reason and in exactly the same shape. It arrived
+ * with schema 5 and this function was not extended with it, which was harmless
+ * only because the sample generator produced `phy` for every companion it made
+ * - so the sweep agreed with the codec by accident rather than by contract.
+ * The generator varies it now, and this is the line that says the difference is
+ * a decision. `phy` and not deletion, again: a codec that stopped writing the
+ * key at all is a different failure and has to stay visible.
  */
 export function normalizeHandles(c: Character): unknown {
   const at = new Map(c.experiences.map((e, i) => [e.id, `experience#${i}`]));
@@ -242,6 +256,7 @@ export function normalizeHandles(c: Character): unknown {
         ? null
         : {
             ...c.companion,
+            damageType: 'phy',
             experiences: c.companion.experiences.map((e) => ({ ...e, id: rename(e.id) })),
           },
     levelUpHistory: c.levelUpHistory.map((choice) => {

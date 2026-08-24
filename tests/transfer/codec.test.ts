@@ -634,3 +634,53 @@ describe('the fixture is a real character', () => {
     expect(characterRefs(wizard()).length).toBeGreaterThan(15);
   });
 });
+
+/**
+ * The fourth deliberate loss, pinned rather than left to be discovered.
+ *
+ * A companion's `damageType` is not on the wire. The header says why - the
+ * format number it would need is 4, and taking it would stop every phone that
+ * has not updated from receiving ANY sheet, in exchange for one bit about one
+ * subclass - but a documented loss that nothing asserts is a comment, and this
+ * is the assertion.
+ */
+describe('a companion’s damage type, over the wire', () => {
+  const withCompanionType = (damageType: 'phy' | 'mag'): Character => {
+    const c = wizard();
+    return {
+      ...c,
+      companion: {
+        name: 'Ash',
+        description: 'A one-eyed raven',
+        evasion: 12,
+        stress: { marked: 1, max: 3 },
+        damage: 'd6+2',
+        range: 'Close',
+        damageType,
+        experiences: [],
+        upgrades: [],
+      },
+    };
+  };
+
+  it('survives when it is physical, which is what the wire assumes', async () => {
+    const back = await roundTrip(withCompanionType('phy'));
+    expect(back.companion?.damageType).toBe('phy');
+  });
+
+  it('is lost when it is magic, and comes back physical', async () => {
+    const back = await roundTrip(withCompanionType('mag'));
+    expect(back.companion?.damageType).toBe('phy');
+  });
+
+  it('loses nothing else about the companion on the way', async () => {
+    // The loss is one field. If a later format does carry it, this is the test
+    // that says the rest was never the problem.
+    const original = withCompanionType('mag');
+    const back = await roundTrip(original);
+    expect({ ...back.companion, damageType: 'mag' }).toEqual({
+      ...original.companion,
+      experiences: original.companion?.experiences ?? [],
+    });
+  });
+});

@@ -442,6 +442,7 @@ describe('the store, against a real database', () => {
         stress: { marked: 0, max: 1_048_576 },
         damage: 'd6',
         range: 'Melee' as const,
+        damageType: 'phy' as const,
         experiences: [],
         upgrades: [],
       },

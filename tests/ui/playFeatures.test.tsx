@@ -337,3 +337,55 @@ describe('the derivation under the number', () => {
     ).toBe(`EVASION${String(stats.evasion)}`);
   });
 });
+
+/**
+ * Which trait a Spellcast Roll uses, said where a player asks what their
+ * character is.
+ *
+ * It is a property of the subclass - the SRD prints "SPELLCAST TRAIT" on every
+ * subclass page - and the only place on Play that said so was the hint under
+ * the trait grid, which is read while choosing a trait rather than while
+ * reading the class line. Asked for directly: «inserisci per ogni classe la
+ * spellcastTrait visibile nelle info sulla classe».
+ */
+describe('the Spellcast trait, in the class info', () => {
+  const subclassWith = (want: boolean) => {
+    const found = dataset.subclasses.find((s) => (s.spellcastTrait !== null) === want);
+    if (found === undefined) throw new Error(`no subclass ${want ? 'with' : 'without'} a Spellcast trait`);
+    return found;
+  };
+
+  const asSubclass = (sub: (typeof dataset.subclasses)[number]): Character =>
+    seed({ classRef: sub.classRef, subclassRefs: [sub.id] });
+
+  const openLineage = (): void => {
+    click(fold('Lineage, domains & features'));
+  };
+
+  it('names the trait on the phone, in the fold that carries the class line', () => {
+    const sub = subclassWith(true);
+    const c = asSubclass(sub);
+    play(c);
+    openLineage();
+    expect(text()).toContain(`SPELLCAST · ${sub.spellcastTrait!.toUpperCase()}`);
+  });
+
+  it('names it in the cockpit too, where the class line is not behind a fold', () => {
+    setViewport(1280);
+    const sub = subclassWith(true);
+    const c = asSubclass(sub);
+    play(c);
+    expect(text()).toContain(`SPELLCAST · ${sub.spellcastTrait!.toUpperCase()}`);
+  });
+
+  it('says a class has none rather than leaving an absence to explain itself', () => {
+    // Four of the eighteen shipped subclasses carry no Spellcast trait - both
+    // Guardian subclasses and both Warrior ones - and for those characters the
+    // whole Spellcast row is missing from Equipped. A blank explains nothing.
+    setViewport(1280);
+    const c = asSubclass(subclassWith(false));
+    play(c);
+    expect(text()).toContain('NO SPELLCAST TRAIT');
+    expect(text()).not.toContain('SPELLCAST ·');
+  });
+});

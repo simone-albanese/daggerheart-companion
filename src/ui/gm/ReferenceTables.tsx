@@ -8,7 +8,7 @@
  * and tables out of `paragraphs()` until the pipes showed up on screen.
  *
  * **It is not one drawing of each, and this header used to claim it was.** The
- * `ADD -> LINK -> Rule` door offers all seventy-five sections, so a GM can link
+ * `ADD -> LINK -> Rule` door offers all eighty sections, so a GM can link
  * `countdowns`, `using-fear`, `difficulty-benchmarks`,
  * `adversary-stat-block-benchmarks` or `adapting-environments` and get the
  * generic `RuleTableView`, while the reference region draws those same tables
@@ -1025,7 +1025,7 @@ export function GoldAndLoot(): React.JSX.Element {
  * reason it is exported rather than private to this file. That row printed a
  * section through `paragraphs()` alone until now, so
  * every bullet it drew carried a literal `- ` and every table came out as raw
- * pipes; 38 of the 75 shipped sections are one of those two shapes. A second
+ * pipes; 42 of the 80 shipped sections are one of those two shapes. A second
  * renderer beside this one would have been a second thing to keep in step, and
  * the pipes are what that costs.
  */

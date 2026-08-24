@@ -12,22 +12,37 @@
  * the eight level-up options, the numbers you set once - opens in a sheet over
  * the top, because a fight never needs them.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { RANGES, type Range } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import {
   COMPANION_START,
-  COMPANION_UPGRADES,
   companionDamage,
+  companionIsAway,
+  companionUpgradeAllowance,
   hasCompanionFeature,
   newCompanion,
   withCompanion,
 } from '../../engine/companion.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import type { Arming } from './attack.ts';
+import { companionUpgrades, type CompanionUpgrade } from '../shared/srdReference.ts';
+import { NameRefusal } from '../shared/NameRefusal.tsx';
 import { Track } from '../shared/Track.tsx';
 import { useDialog } from '../shared/useDialog.ts';
 
 export type Who = 'you' | 'companion';
+
+/**
+ * The eight boxes, out of whatever dataset this device is running.
+ *
+ * Read here rather than passed down because both the panel and the sheet want
+ * the count, and a prop threaded through one of them is the pair drifting.
+ */
+function useCompanionUpgrades(): CompanionUpgrade[] {
+  const rules = useApp((s) => s.dataset.rules);
+  return useMemo(() => companionUpgrades(rules), [rules]);
+}
 
 /** True when this character is owed a companion sheet, or already has one. */
 export function useHasCompanion(): boolean {
@@ -172,11 +187,24 @@ function Stepper({
 interface PanelProps {
   stats: DerivedStats;
   layout: 'desktop' | 'phone';
+  /**
+   * Optional only because tests mount the panel on its own.
+   *
+   * There is no surface in `src/` that draws this without a roll behind it:
+   * `Vitals` is the only mount and it always forwards one, and the party board
+   * and the printed sheet draw their own companion lines from
+   * `companionDamage` rather than from this component. The sentence that used
+   * to stand here named surfaces the body docblock ninety lines below already
+   * said do not exist - the audit that rewrote that one landed a docblock
+   * short of this one.
+   */
+  arming?: Arming;
 }
 
-export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element | null {
+export function CompanionPanel({ stats, layout, arming }: PanelProps): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
+  const upgrades = useCompanionUpgrades();
   const [sheet, setSheet] = useState(false);
   if (!character) return null;
 
@@ -187,6 +215,7 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
 
   const attack = companionDamage(companion, stats.proficiency);
   const named = companion.experiences.filter((e) => e.name !== '');
+  const away = companionIsAway(companion);
 
   return (
     <div className="stack" style={{ gap: phone ? 8 : 12, minHeight: 0 }}>
@@ -228,38 +257,112 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
         compact={!phone}
       />
 
-      {/* The damage die is free text, so it can be something no one can roll.
-          When it is, the panel says so rather than printing the unmultiplied
-          string under a label promising it had Proficiency applied. */}
-      <div
-        className="spread"
-        style={{
-          alignItems: 'center',
+      {/*
+       * Out of the scene, which the track alone does not say.
+       *
+       * A full Stress track on the player's own sheet means Vulnerable; on this
+       * one it means the animal has gone - *"they drop out of the scene (by
+       * hiding, fleeing, or a similar action)"* - and the two are different
+       * enough that leaving a player to infer it from a row of filled pips
+       * would be the app knowing something and not saying it. It also says when
+       * they are back, because that is the half a player has to plan around.
+       */}
+      {away && (
+        <div
+          className="t-meta"
+          style={{
+            padding: '9px 11px',
+            borderRadius: 'var(--r3)',
+            background: 'var(--app)',
+            border: '1px solid var(--damage)',
+            color: 'var(--damage)',
+            lineHeight: 1.5,
+          }}
+        >
+          OUT OF THE SCENE · BACK AT YOUR NEXT LONG REST, WITH 1 STRESS CLEARED
+        </div>
+      )}
+
+      {/*
+       * The attack, and - when there is a roll behind this panel - the control
+       * that declares it.
+       *
+       * *"Make a Spellcast Roll to connect with your companion and command them
+       * to take action... On a success, their damage roll uses your Proficiency
+       * and their damage die."* This box printed the second half and could not
+       * do the first, which is the shape `BACKLOG.md` P1-1 left open.
+       *
+       * It stays a `<div>` where no roll is mounted rather than becoming a
+       * disabled button, because a dead control is worse than none. In `src/`
+       * that case does not arise today - `Vitals` is the only thing that draws
+       * this and it always has a roll behind it - so what the branch is really
+       * for is the tests that mount this panel alone. Said plainly rather than
+       * dressed up: an earlier version of this note named the GM's board and
+       * the print preview, and neither of them mounts this component.
+       *
+       * The damage die is free text, so it can be something no one can roll.
+       * When it is, the panel says so rather than printing the unmultiplied
+       * string under a label promising it had Proficiency applied - and it does
+       * not offer to arm a pool it has just refused.
+       */}
+      {(() => {
+        const armed = arming?.source?.kind === 'companion';
+        const armable = arming !== undefined && attack !== null && !away;
+        const body = (
+          <>
+            <span className="stack">
+              <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
+                ATTACK
+              </span>
+              <span className="t-meta" style={{ marginTop: 5, color: 'var(--muted)' }}>
+                {armed ? 'ARMED · ' : ''}
+                {companion.range.toUpperCase()} ·{' '}
+                {companion.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'} ·{' '}
+                {attack === null
+                  ? 'SET A DAMAGE DIE IN THE SHEET'
+                  : away
+                    ? 'NOT WHILE THEY ARE OUT OF THE SCENE'
+                    : `${companion.damage} × PROF ${stats.proficiency}`}
+              </span>
+            </span>
+            <span
+              className="t-num"
+              style={{ color: attack === null ? 'var(--damage)' : 'var(--hope)', fontSize: 17 }}
+            >
+              {attack === null ? 'NO DIE' : attack.spec}
+            </span>
+          </>
+        );
+        const box = {
+          alignItems: 'center' as const,
           padding: '9px 11px',
+          minHeight: 'var(--tap)',
+          textAlign: 'left' as const,
+          width: '100%',
           borderRadius: 'var(--r3)',
-          background: 'var(--app)',
+          background: armed ? 'var(--hope-wash)' : 'var(--app)',
           border: '1px solid var(--line-soft)',
           borderLeft: `3px solid ${attack === null ? 'var(--damage)' : 'var(--hope)'}`,
-        }}
-      >
-        <span className="stack">
-          <span className="t-meta" style={{ letterSpacing: '0.1em' }}>
-            ATTACK
-          </span>
-          <span className="t-meta" style={{ marginTop: 5, color: 'var(--muted)' }}>
-            {companion.range.toUpperCase()} ·{' '}
-            {attack === null
-              ? 'SET A DAMAGE DIE IN THE SHEET'
-              : `${companion.damage} × PROF ${stats.proficiency}`}
-          </span>
-        </span>
-        <span
-          className="t-num"
-          style={{ color: attack === null ? 'var(--damage)' : 'var(--hope)', fontSize: 17 }}
-        >
-          {attack === null ? 'NO DIE' : attack.spec}
-        </span>
-      </div>
+        };
+        return armable ? (
+          <button
+            type="button"
+            className="spread"
+            aria-pressed={armed}
+            aria-label={`${armed ? 'Stop commanding' : 'Command'} ${
+              companion.name === '' ? 'your companion' : companion.name
+            } to attack — a Spellcast Roll, ${attack.spec} damage`}
+            onClick={() => arming.arm(armed ? null : { kind: 'companion' })}
+            style={box}
+          >
+            {body}
+          </button>
+        ) : (
+          <div className="spread" style={box}>
+            {body}
+          </div>
+        );
+      })()}
 
       <div className="spread" style={{ alignItems: 'center' }}>
         <span
@@ -283,7 +386,7 @@ export function CompanionPanel({ stats, layout }: PanelProps): React.JSX.Element
           onClick={() => setSheet(true)}
           style={{ minHeight: 44, padding: '0 12px', flex: 'none' }}
         >
-          SHEET · {companion.upgrades.length}/{COMPANION_UPGRADES.length}
+          SHEET · {companion.upgrades.length}/{upgrades.length}
         </button>
       </div>
 
@@ -353,14 +456,21 @@ function CreateForm(): React.JSX.Element {
 /** The whole sheet: the numbers you set once, and the eight level-up options. */
 function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element {
   const character = useActive();
+  const index = useApp((s) => s.index);
   const update = useApp((s) => s.update);
+  const upgrades = useCompanionUpgrades();
 
   const companion = character?.companion ?? null;
   const dialog = useDialog(
     companion === null ? 'Companion sheet' : `${companion.name} — companion sheet`,
     onClose,
   );
-  if (companion === null) return <div />;
+  if (companion === null || character === null) return <div />;
+
+  // After the guard, and not a hook: the allowance needs a character, and
+  // faking one to keep the call above the early return would be inventing a
+  // level and a subclass to count.
+  const allowance = companionUpgradeAllowance(character, index);
 
   const set = (patch: Parameters<typeof withCompanion>[1]): void => {
     update((c) => withCompanion(c, patch));
@@ -410,16 +520,60 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
       >
         <div className="spread" style={{ padding: '14px 16px 10px', flex: 'none' }}>
           <span className="t-label">Companion sheet</span>
+          {/*
+           * Marked, and earned. The second number is a readout and not a gate -
+           * every box below stays toggleable - which is the decision this sheet
+           * has always made; what changes is that the app stops being silent
+           * about a number it can work out. See `companionUpgradeAllowance`.
+           */}
           <span className="t-meta" style={{ color: 'var(--muted)' }}>
-            {companion.upgrades.length} OF {COMPANION_UPGRADES.length} OPTIONS MARKED
+            {companion.upgrades.length} OF {upgrades.length} MARKED · {allowance} EARNED
           </span>
         </div>
 
         <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 14, padding: '0 16px' }}>
+          {/*
+           * The name, and the one thing this sheet used to let you take back.
+           *
+           * Creation refuses an empty name - the SRD asks for one, "give them a
+           * name and add a picture of them" - and then this field let you clear
+           * it again, after which the panel read "Unnamed companion" and the
+           * YOU|COMPANION switch went back to saying COMPANION. Nobody was told
+           * that would happen.
+           *
+           * Said, not refused. Every other field on this sheet commits as you
+           * type, and a draft-and-SAVE control here for one field would be a
+           * second interaction model on one dialog. So the field keeps writing
+           * and the region below says what the sheet will read as - which is
+           * `NameRefusal`'s whole job, and the reason it is a component rather
+           * than a fourth hand-rolled sentence.
+           *
+           * No offer, because there is no rule here to offer around: a
+           * companion's name collides with nothing. `judgeName` guards
+           * characters, whose names have to tell two rows of a `<select>`
+           * apart; two Rangers may both call their wolf Ash.
+           */}
           <label className="stack" style={{ gap: 5, flex: 'none' }}>
             <span className="t-label">Name</span>
-            <input value={companion.name} onChange={(e) => set({ name: e.target.value })} />
+            <input
+              value={companion.name}
+              aria-describedby="companion-name-note"
+              onChange={(e) => set({ name: e.target.value })}
+            />
           </label>
+          <NameRefusal
+            id="companion-name-note"
+            refusal={
+              companion.name.trim() === ''
+                ? 'With no name they read as “Unnamed companion”, and the switch above goes back to saying COMPANION.'
+                : null
+            }
+            offer={null}
+            onTake={() => {
+              // Unreachable: the button only exists beside an offer, and this
+              // door never has one.
+            }}
+          />
           <label className="stack" style={{ gap: 5, flex: 'none' }}>
             <span className="t-label">What they are</span>
             <input
@@ -454,6 +608,40 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                 style={{ width: 84, textAlign: 'center', font: '600 14px/1 var(--mono)' }}
               />
             </label>
+            {/*
+             * Step 4's other half: *"Choose whether they deal physical or magic
+             * damage."* The app answered `phy` for every companion until the
+             * sheet had somewhere to put the answer, which was wrong for a
+             * raven at every table that ever used it - the wrong resistances
+             * at the GM's end and PHY in the log.
+             */}
+            <div className="row" style={{ gap: 6 }}>
+              <span className="t-meta">TYPE</span>
+              {(
+                [
+                  ['phy', 'PHY'],
+                  ['mag', 'MAG'],
+                ] as Array<['phy' | 'mag', string]>
+              ).map(([id, text]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="chip"
+                  aria-pressed={companion.damageType === id}
+                  aria-label={id === 'phy' ? 'Physical damage' : 'Magic damage'}
+                  onClick={() => set({ damageType: id })}
+                  style={{
+                    minWidth: 52,
+                    minHeight: 44,
+                    fontSize: 13,
+                    background: companion.damageType === id ? 'var(--hope)' : 'var(--raised)',
+                    color: companion.damageType === id ? 'var(--app)' : 'var(--muted)',
+                  }}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
             <div className="row" style={{ gap: 6 }}>
               <span className="t-meta">RANGE</span>
               <button
@@ -555,7 +743,19 @@ function CompanionSheet({ onClose }: { onClose: () => void }): React.JSX.Element
                 ONE PER LEVEL-UP · TRAINING GRANTS MORE
               </span>
             </div>
-            {COMPANION_UPGRADES.map((up) => {
+            {/* A dataset with no such section draws nothing here, and nothing
+                is indistinguishable from eight boxes none of which are marked.
+                So it says which of the two it is - the same refusal the
+                Beastform picker makes when its list comes back empty. */}
+            {upgrades.length === 0 && (
+              <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                This dataset carries no companion level-up options.
+                {companion.upgrades.length > 0
+                  ? ` ${String(companion.upgrades.length)} already marked on this sheet cannot be shown.`
+                  : ''}
+              </span>
+            )}
+            {upgrades.map((up) => {
               const on = companion.upgrades.includes(up.id);
               return (
                 <button

@@ -13,6 +13,7 @@ import type { DerivedStats } from '../../engine/character.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
 import { CompanionPanel, useHasCompanion, WhoSwitch, type Who } from './Companion.tsx';
+import type { Arming } from './attack.ts';
 import { ActiveConditions } from './Conditions.tsx';
 import { DeathMoveOffer } from './DeathMove.tsx';
 
@@ -47,6 +48,23 @@ interface Props {
    * all.
    */
   bare?: boolean;
+  /**
+   * The roll's arming, forwarded to the companion panel and used nowhere else
+   * here.
+   *
+   * A companion's attack is declared from the companion's own panel rather than
+   * from `Equipped`, and that is the point of threading it this far: the player
+   * switched to COMPANION because they are operating the animal, and sending
+   * them to another section to arm its bite would split one action across two
+   * places.
+   *
+   * Optional because the tests mount this component and `CompanionPanel` on
+   * their own, and for no better reason than that. Every place in `src/` that
+   * draws it - both of them, in `Play.tsx` - passes it. The first version of
+   * this note claimed the GM's board and the print preview mount it without a
+   * roll; neither mounts it at all.
+   */
+  arming?: Arming;
 }
 
 export function Vitals({
@@ -54,6 +72,7 @@ export function Vitals({
   layout,
   showState = true,
   bare = false,
+  arming,
 }: Props): React.JSX.Element | null {
   const character = useActive();
   const update = useApp((s) => s.update);
@@ -102,7 +121,7 @@ export function Vitals({
         {state}
         <div className={panelClass} style={panel}>
           <WhoSwitch who={who} setWho={setWho} compact={!phone} />
-          <CompanionPanel stats={stats} layout={layout} />
+          <CompanionPanel stats={stats} layout={layout} arming={arming} />
         </div>
       </>
     );

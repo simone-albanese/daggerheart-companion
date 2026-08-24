@@ -46,7 +46,7 @@ export const FILE_MIME = 'application/json';
  * constant rather than read from package.json: the app version is a fact about
  * the build, and the build is what ships this file.
  */
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.6.0';
 
 export interface CharacterFile {
   format: typeof CHARACTER_FORMAT;
@@ -279,6 +279,57 @@ function checkShapes(value: Record<string, unknown>, where: string): void {
   for (const key of ['companion', 'beastform'] as const) {
     const v = value[key];
     if (v !== undefined && v !== null && !isRecord(v)) wrong(key, 'an object or null');
+  }
+
+  /*
+   * An animal is whole, or there is no animal.
+   *
+   * The object-ness check above is where this stopped, and `companion: {}` went
+   * through it and came out the other side identical. That is not a shape
+   * anything downstream is ready for, and there is no blank fallback for it the
+   * way there is for `scars`: `readCharacterRecord` spreads this object
+   * wholesale, so a field missing here is a field missing on the sheet. What
+   * then reads it: `PartyBoard`'s companion line calls `.toUpperCase()` on the
+   * name and reads `.marked`/`.max` off the stress track; `companionDamage`
+   * hands `damage` to `parseDamage`, which is total for a junk string and fatal
+   * for an absent one; the printed sheet calls `.toLowerCase()` on the range;
+   * and `damageTypeOf` is `.toUpperCase()`d on the first damage roll.
+   *
+   * The converters do not save you here either. `migrateCharacterRecord` has
+   * run by now, so a companion out of a schema-4 file already has its
+   * `damageType` - but it is filled, never coerced, and a file stamped 5 or not
+   * stamped at all reaches this line with whatever it was written with.
+   *
+   * `range` is checked for text and not for membership of `RANGES`: an
+   * unrecognised range prints as itself, which is a sheet you can read and
+   * correct, while a missing one is a call on `undefined`.
+   */
+  const companion = value['companion'];
+  if (isRecord(companion)) {
+    const fields: Array<[string, (v: unknown) => boolean, string]> = [
+      ['name', (v) => typeof v === 'string', 'text'],
+      ['description', (v) => typeof v === 'string', 'text'],
+      ['evasion', (v) => typeof v === 'number', 'a number'],
+      [
+        'stress',
+        (v) => isRecord(v) && typeof v['marked'] === 'number' && typeof v['max'] === 'number',
+        'a track with marked and max as numbers',
+      ],
+      ['damage', (v) => typeof v === 'string', 'a damage die, as text'],
+      ['range', (v) => typeof v === 'string', 'a range, as text'],
+      ['damageType', (v) => v === 'phy' || v === 'mag', '"phy" or "mag"'],
+      [
+        'experiences',
+        (v) =>
+          Array.isArray(v) &&
+          v.every((e) => isRecord(e) && typeof e['name'] === 'string' && typeof e['bonus'] === 'number'),
+        'a list of Experiences with a name and a bonus',
+      ],
+      ['upgrades', (v) => Array.isArray(v) && v.every((u) => typeof u === 'string'), 'a list of option slugs'],
+    ];
+    for (const [key, ok, expected] of fields) {
+      if (!ok(companion[key])) wrong(`companion.${key}`, expected);
+    }
   }
   const marks = value['traitMarks'];
   if (marks !== undefined && !isRecord(marks)) wrong('traitMarks', 'an object');

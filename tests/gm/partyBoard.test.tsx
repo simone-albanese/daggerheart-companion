@@ -32,7 +32,9 @@ import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Character } from '../../shared/types.ts';
+import type { Character, CompanionState } from '../../shared/types.ts';
+import { deriveStats } from '../../src/engine/character.ts';
+import { newCompanion } from '../../src/engine/companion.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
@@ -209,5 +211,139 @@ describe('REMOVE FROM THE BOARD', () => {
     for (const label of ['BACK TO WHAT ARRIVED', 'REMOVE FROM THE BOARD']) {
       expect(named(label).style.minHeight).toBe('var(--control)');
     }
+  });
+});
+
+/**
+ * The second creature, which this board could not see.
+ *
+ * A Beastbound Ranger is two things to target and the board drew one of them.
+ * The data was here all along - `party.ts` keeps the sheet whole, so
+ * `sheet.companion` arrived with everything else and was simply never drawn.
+ *
+ * Evasion leads, because that is the number an attack is rolled against and it
+ * is not the Ranger's.
+ */
+describe('a companion on the board', () => {
+  const withCompanion = (over: Partial<CompanionState> = {}): Character => ({
+    ...sheet('ranger', 'Wren'),
+    companion: {
+      ...newCompanion('Ashfoot', 'A grey wolf'),
+      evasion: 12,
+      damage: 'd6+2',
+      range: 'Close',
+      ...over,
+    },
+  });
+
+  it('draws nothing for a sheet with no companion', () => {
+    /*
+     * Both rows on the board at once, and exactly one companion line between
+     * them.
+     *
+     * An absence on its own is what stood here - `not.toMatch(/STRESS \d+\/\d+/)`,
+     * under a note claiming the companion line is the only thing on this board
+     * that writes STRESS as `n/n`. It is not: `Pill` writes the character's own
+     * the same way and only the missing space keeps the pattern off it, so the
+     * assertion was one whitespace change away from passing for the wrong
+     * reason - which is verbatim the flaw it was written to correct. Counting
+     * the matches on a board that carries one row of each kind cannot go quiet
+     * that way: a needle that stops finding the companion line fails here
+     * rather than passing everywhere.
+     */
+    put(sheet('a', 'Marek'), withCompanion());
+    board();
+    expect(text().match(/ · EVASION \d+ · /g) ?? []).toHaveLength(1);
+    expect(text()).toContain('ASHFOOT');
+  });
+
+  it('names them, with their own Evasion and the pool that will be rolled', () => {
+    const character = withCompanion();
+    put(character);
+    board();
+    expect(text()).toContain('ASHFOOT');
+    /*
+     * THEIR Evasion, with the number attached to the word.
+     *
+     * `expect(text()).toContain('EVASION')` was what stood here, and the row
+     * above this line already prints EVASION for the Ranger: deleting the
+     * companion's own figure outright left that assertion green, which is the
+     * whole reason the line was added. The fixture's own Evasion is asserted
+     * beside it so the two can never quietly become the same number.
+     */
+    const own = deriveStats(character, dataset, index).evasion;
+    expect(own, 'the companion shares the Ranger’s Evasion, so this proves nothing').not.toBe(12);
+    expect(text()).toContain('EVASION 12');
+    // Proficiency applied, because that is the roll: their die, the Ranger's
+    // Proficiency. The fixture is level 3, so Proficiency is 2.
+    expect(text()).toContain('2d6+2');
+    expect(text()).toContain('CLOSE');
+  });
+
+  it('says which damage type, since the sheet now records one', () => {
+    put(withCompanion({ damageType: 'mag' }));
+    board();
+    expect(text()).toContain('MAG');
+  });
+
+  it('says physical when that is what the sheet records, and not by default', () => {
+    /*
+     * The direction nothing held. With only the `mag` case above and the
+     * legacy row below - where the field is absent - the whole line could be
+     * inverted to `damageType === undefined ? 'PHY' : 'MAG'` and this file
+     * stayed 14/14 green. A companion who was *chosen* to be physical is the
+     * one shape neither of those covers, and it is the commonest one there is.
+     */
+    put(withCompanion({ damageType: 'phy' }));
+    board();
+    expect(text()).toContain('PHY');
+    expect(text()).not.toContain('MAG');
+  });
+
+  it('says when the animal has left the scene', () => {
+    put(withCompanion({ stress: { marked: 3, max: 3 } }));
+    board();
+    expect(text()).toContain('OUT OF THE SCENE');
+  });
+
+  it('says nothing of the kind while they still have a slot', () => {
+    put(withCompanion({ stress: { marked: 2, max: 3 } }));
+    board();
+    expect(text()).toContain('STRESS 2/3');
+    expect(text()).not.toContain('OUT OF THE SCENE');
+  });
+});
+
+/**
+ * A sheet from the schema before this one, which is what a saved board holds.
+ *
+ * `readPartyMember` casts the stored object straight to `Character` - the
+ * character migration chain never runs on a campaign's copies - so a board
+ * saved before a field existed hands this screen a sheet without it. When
+ * `damageType` arrived in schema 5 the board called `.toUpperCase()` on it and
+ * every GM with a Beastbound Ranger already on the board lost the whole board
+ * on first render, which is the exact failure `readPartyMember`'s own docblock
+ * is written to prevent.
+ */
+describe('a party row saved by an older schema', () => {
+  const legacy = (): Character => {
+    const companion = { ...newCompanion('Ashfoot', 'A grey wolf') } as Record<string, unknown>;
+    // Precisely what schema 4 wrote: everything else, and no damage type.
+    delete companion['damageType'];
+    return { ...sheet('legacy', 'Wren'), companion } as unknown as Character;
+  };
+
+  it('draws the row instead of taking the board down', () => {
+    put(legacy());
+    board();
+    expect(text()).toContain('Wren');
+    expect(text()).toContain('ASHFOOT');
+  });
+
+  it('reads the missing type as physical, the way every older sheet behaved', () => {
+    put(legacy());
+    board();
+    expect(text()).toContain('PHY');
+    expect(text()).not.toContain('MAG');
   });
 });
