@@ -160,16 +160,20 @@ chiuso in `c715538`. Le altre sette hanno confermato la previsione di §38 esegu
 
 Non è arretrato scoperto adesso: è arretrato **misurato adesso**, che è diverso.
 
-1. **Il difetto 8 (prova i) è vivo e non è stato corretto.** Un riposo breve con Clear Stress
-   riporta in scena un compagno fuori scena. La verifica lo dà per il rilievo più forte del
-   run — 9 verificatori su 9 — **e due di loro hanno sollevato l'obiezione che conta**: il
-   folio 18 non mette eccezioni alla frase *«when you choose a downtime move that clears
-   Stress on yourself, your companion clears an equal number»*, quindi rifiutare il clear
-   **scambia una deviazione con un'altra**. Una correzione fedele probabilmente richiede che
-   la disponibilità **smetta di essere puramente derivata** — il che falsifica
-   `companion.ts:133` («non c'è un secondo modo di essere fuori scena») e ha conseguenze sul
-   codec che il branch ha argomentato *contro*. **È una decisione di regole, non un bug da
-   chiudere di corsa**, ed è per questo che è qui e non in §1.
+1. ~~**Il difetto 8 (prova i) è vivo.**~~ **CHIUSO il 24 agosto** — decisione del proprietario,
+   opzione A: guardia in testa a `alsoTheCompanion`, `86dad3c`. Il compagno fuori scena non
+   viene più ripulito da un riposo breve. **È una deviazione dichiarata, non l'applicazione
+   della regola**: il folio 18 non mette eccezioni a *«your companion clears an equal
+   number»*, e la frase che vince — *«they remain unavailable until the start of your next
+   long rest, where they return with 1 Stress cleared»* — vince perché è la più specifica e
+   perché nomina il proprio meccanismo di rientro. Scritta nel docblock, nel CHANGELOG e qui.
+   Il riposo **lungo** non è toccato: il rientro gira prima delle mosse, e adesso c'è un test
+   anche per quello. **La versione fedele resta aperta** e costa uno schema: un campo `away`
+   esplicito su `CompanionState`, cioè `SCHEMA_VERSION` 5→6 più una decisione sul codec, e
+   falsifica `companion.ts` («non c'è un secondo modo di essere fuori scena»). Va con il
+   prossimo passo che muove lo schema dei personaggi.
+   *(Due test pinnavano il comportamento sbagliato: costruivano il compagno a 3 di 3, che è
+   già fuori scena, e poi asserivano che un riposo breve gli svuotasse la traccia.)*
 2. **`readPartyMember` fa ancora il cast** (prova f). Il momento naturale resta il bump
    `CAMPAIGN_SCHEMA_VERSION` 2→3, che le decisioni 1+6+8 impongono comunque. La prova f dice
    che nessun test si mette di traverso in nessuna delle due direzioni.
@@ -211,3 +215,23 @@ Quello che il cancello dice, detto senza ammorbidirlo:
 
 **Chi decide sceglie fra**: unire adesso e aprire il numero 1 come voce di regole; oppure
 chiudere prima il numero 1 e unire dopo. Non fra «verde» e «non verde».
+
+---
+
+## 7. Cosa è stato deciso, il 24 agosto
+
+Il proprietario ha scelto **A** sul difetto 8 (`86dad3c`) e **push del branch + PR** sul merge.
+Quindi, in ordine e già fatti:
+
+1. **Difetto 8 chiuso** con la guardia, come deviazione dichiarata — §5 punto 1 qui sopra.
+2. **`CHANGELOG.md` e la versione** (`6e71200`). Tredici commit di funzionalità erano senza una
+   riga di changelog e `package.json` diceva ancora `0.5.0` — **una versione che i compagni non
+   li aveva**, e quel numero è timbrato dentro ogni `.dhchar` e `.dhbackup`. Ora è **0.6.0**,
+   con `APP_VERSION` mosso insieme (la suite lo controlla già, ed è diventata rossa per prima).
+   Le sezioni rilasciate non sono state toccate.
+3. **Push del branch e PR.** `deploy.yml` gira **solo** su push a `main`: pushare
+   `beast-sheets` **non pubblica niente**. `ci.yml` gira su `pull_request`, quindi la PR
+   esegue i cancelli su Node `.nvmrc` = 24, che è lo stesso major usato qui.
+
+Resta non fatto, e resta del proprietario: **unire la PR**, e poi **pushare `main`** — che è
+il momento in cui 0.6.0 viene davvero pubblicata.
