@@ -78,7 +78,7 @@ export function DomainMark({
 /** The Hope/Fear diamond pair used as the app's mark. */
 export function AppMark({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
-    <span className="row" style={{ gap: 0 }} aria-label="Daggerheart Companion" role="img">
+    <span className="row" style={{ gap: 0 }} aria-label="Duality Companion" role="img">
       <span
         style={{
           width: size,

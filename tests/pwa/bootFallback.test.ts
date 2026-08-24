@@ -244,7 +244,7 @@ describe('the words on screen when nothing else ran', () => {
     expect(el('boot-fallback').hidden).toBe(false);
     expect(text).toMatch(/has not started/i);
     // The three things the item asks the words to carry.
-    expect(text, 'it never says what the app is').toMatch(/Daggerheart Companion/);
+    expect(text, 'it never says what the app is').toMatch(/Duality Companion/);
     expect(text, 'it never says the characters are still there').toMatch(
       /in this browser’s own storage/i,
     );

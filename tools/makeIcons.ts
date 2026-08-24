@@ -84,7 +84,7 @@ function svg(scale: number): string {
     .join('\n');
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID} ${GRID}" ` +
-    `width="${GRID}" height="${GRID}" role="img" aria-label="Daggerheart Companion">\n` +
+    `width="${GRID}" height="${GRID}" role="img" aria-label="Duality Companion">\n` +
     `  <rect width="${GRID}" height="${GRID}" fill="${BG}"/>\n${paths}\n</svg>\n`
   );
 }

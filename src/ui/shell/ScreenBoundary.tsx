@@ -109,7 +109,7 @@ export class ScreenBoundary extends Component<Props, State> {
     const { error, stack } = this.state;
     const agent = typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent;
     return [
-      `Daggerheart Companion ${APP_VERSION} — ${this.props.name} could not open`,
+      `Duality Companion ${APP_VERSION} — ${this.props.name} could not open`,
       new Date().toISOString(),
       '',
       error?.stack ?? `${error?.name ?? 'Error'}: ${error?.message ?? ''}`,
