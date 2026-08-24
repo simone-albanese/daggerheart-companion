@@ -376,10 +376,22 @@ export function About({
             characters takes it from four lines to five, so the row goes 112.6
             -> 128.5px: **+15.87px, one `.t-dense` line at 11.5px/1.38**. The
             button keeps its 44px and moves 7.9px down inside its own row.
-          - 375x667: the button has *already* wrapped below the hint - 130.8 and
-            a 180px basis do not fit in a 349px row - so the hint has the full
-            321px and stays at three lines and 47.6px. Row 154.8px before and
-            after: **+0**. The narrower phone is the one that pays nothing.
+          - 375x667: the button has *already* wrapped below the hint - 130.8 +
+            14 + 180 = 324.8 does not fit in a 321px row - so the hint has the
+            full 321px and stays at three lines and 47.6px. Row 154.8px before
+            and after: **+0**. The narrower phone is the one that pays nothing.
+            (**321, not the 349 that stood here.** 349 is the `Rows` content box
+            one container out - 375 less the 12px either side of the settings
+            scroller's phone `padding: '12px 12px 28px'` in `Settings.tsx`,
+            less the 1px either side of `Rows`' own
+            `border: '1px solid var(--line-soft)'` - and this flex line lives
+            one container in, inside the 14px either side of `Field`'s
+            `padding: '13px 14px'`, so it is 321. The old premise reversed the
+            conclusion beside it: 324.8 fits in 349 and does not fit in 321, and
+            it is the wrap that was measured. Each term is named by the
+            declaration that makes it rather than by a line in `parts.tsx`,
+            which is a file this docblock cannot keep in step with;
+            `gmGeometryProse.test.ts` holds the 321 against those declarations.)
           - 744x1133: 341px column, three lines, **+0**.
 
           The 15.87px is a scroll position on a 6188px scroll and not a reach:
