@@ -1,7 +1,7 @@
 /**
  * The prose the app renders and never executes: the introduction, character
- * creation, the core mechanics, combat, downtime, levelling, the GM chapter
- * and the Witherwild campaign frame.
+ * creation, the core mechanics, combat, downtime, levelling and the GM
+ * chapter. The Witherwild campaign frame is read and dropped; see the manifest.
  *
  * Two things make this harder than reading `page.lines` in order.
  *
@@ -216,33 +216,22 @@ const SPECS: readonly Spec[] = [
   { id: 'extended-downtime', title: 'Extended Downtime', start: 'EXTENDED DOWNTIME' },
   { id: 'campaign-frames', title: 'Campaign Frames', start: 'CAMPAIGN FRAMES' },
 
-  { id: 'witherwild', title: 'The Witherwild', start: 'The Witherwild' },
-  { id: 'witherwild-overview', title: 'The Witherwild: Overview', start: 'OVERVIEW' },
-  { id: 'witherwild-communities', title: 'The Witherwild: Communities', start: 'COMMUNITIES' },
-  { id: 'witherwild-ancestries', title: 'The Witherwild: Ancestries', start: 'ANCESTRIES' },
-  { id: 'witherwild-classes', title: 'The Witherwild: Classes', start: 'CLASSES' },
-  {
-    id: 'witherwild-player-principles',
-    title: 'The Witherwild: Player Principles',
-    start: 'PLAYER PRINCIPLES',
-  },
-  { id: 'witherwild-gm-principles', title: 'The Witherwild: GM Principles', start: 'GM PRINCIPLES' },
-  { id: 'witherwild-distinctions', title: 'The Witherwild: Distinctions', start: 'DISTINCTIONS' },
-  {
-    id: 'witherwild-inciting-incident',
-    title: 'The Witherwild: The Inciting Incident',
-    start: 'THE INCITING INCIDENT',
-  },
-  {
-    id: 'witherwild-campaign-mechanics',
-    title: 'The Witherwild: Campaign Mechanics',
-    start: 'CAMPAIGN MECHANICS',
-  },
-  {
-    id: 'witherwild-session-zero',
-    title: 'The Witherwild: Session Zero Questions',
-    start: 'SESSION ZERO QUESTIONS',
-  },
+  /*
+   * The Witherwild campaign frame is read and dropped, not left unnamed.
+   *
+   * Removed from the shipped dataset by the owner's decision of 2026-08-23
+   * (`docs/handoff/DECISIONI-2026-08-23.md` §4): eleven sections, 27,679
+   * characters of body, 21.7% of the rules corpus. The pages stay inside
+   * `RANGES` and this spec stays in the manifest so the removal is a stated
+   * choice rather than a gap - a heading the parser cannot find still throws,
+   * which is the property the manifest exists for.
+   *
+   * One `drop` covers all eleven because the frame is the last thing in the
+   * stream and every unit after this heading falls into it. What bounds that
+   * is not luck: `RANGES` ends at folio 118, so nothing past the frame is ever
+   * read. Extend the range and this spec starts swallowing whatever follows.
+   */
+  { start: 'The Witherwild', drop: true },
 ];
 
 interface TableSpec {

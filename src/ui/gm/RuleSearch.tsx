@@ -9,7 +9,7 @@
  * when there is a countdown for a button to move. Those are the questions a GM
  * knows they have. This is the other kind: a phrase off a page, half
  * remembered, wanted now. It covers every section `dataset.rules` carries -
- * eighty in the shipped SRD - and draws every one of them through
+ * sixty-nine in the shipped SRD - and draws every one of them through
  * `BlockView`, which is already this app's single drawing of a section
  * somebody chose: the GM chapter's five folds use it, the adversary
  * Experiences put their lead block through it, the costs topic beside them
@@ -81,17 +81,30 @@
  * 10px. A shut hit is 44px whenever what it carries fits inside that floor,
  * which is every title-only hit, every table hit, and every preview that comes
  * to a single line; 56.7 at two preview lines and 72.6 at three. The tallest
- * measured is 82.6, and it is not a preview that did it: `The Witherwild:
- * Campaign Mechanics` is long enough to wrap its own title in a 363px column,
- * which puts 10px on the header before the three lines under it.
+ * measured was 82.6, and it was not a preview that did it: a title long enough
+ * to wrap in a 363px column puts 10px on the header before the three lines
+ * under it.
+ *
+ * **That measurement's subject no longer exists.** It was `The Witherwild:
+ * Campaign Mechanics`, and the frame was dropped from the dataset by the
+ * decision of 2026-08-23. The mechanism outlives the example - titles that wrap
+ * a 363px column are still in there, and the longest is now `Giving Out Gold,
+ * Equipment, and Loot` at 36 characters against that one's 34 - but 82.6 is not
+ * re-measured here and must not be read as current. It belongs to the single
+ * Chrome pass that owes six surfaces at once.
  *
  * Empty, the sheet is 308.2px - a little over a third of the window. Typing
  * fills it upward: `countdown` finds seven sections and takes it to 632.4px,
- * and `adversary` finds twenty-two and pins it against the cap. That cap
+ * and `adversary` finds twenty and pins it against the cap. (`countdown` is
+ * still seven after the Witherwild removal and `adversary` was twenty-two
+ * before it; both counts re-run against the shipped dataset rather than
+ * assumed. It still pins without a fresh measurement, and that is arithmetic
+ * on numbers already taken rather than a new one: twenty shut hits at the 44px
+ * floor is 880px against a cap of 717.4.) That cap
  * measures **717.4px**, not the 724.2 that 85% of 852 would be, because
  * `GmSheet` pays 8px of padding above the panel and a percentage `max-height`
  * resolves against the flex container's content box - 85% of 844. Nine of those
- * twenty-two hits are fully on screen before the first scroll. All of that is
+ * twenty hits are fully on screen before the first scroll. All of that is
  * this machine's Chrome at a 393px viewport, not a phone's.
  *
  * A phone keyboard rises from that same bottom edge, and its height - and what
