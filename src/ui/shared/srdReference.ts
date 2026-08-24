@@ -24,10 +24,13 @@
  * with its page number attached so the screen can say where it came from.
  *
  * `searchRules` at the foot of the file is the one selector that names no
- * section at all: what it matches on is the phrase the GM typed, which is not
- * this repository's text either. It returns a line of the book verbatim, and
- * that is the same promise the rest of the file makes, arrived at from the
- * other direction.
+ * section at all: what it matches on is every word the GM typed, found
+ * together in one line of the book, which is not this repository's text
+ * either. It returns that line verbatim, and that is the same promise the rest
+ * of the file makes, arrived at from the other direction. (This said *the
+ * phrase the GM typed* until the section headed **Every word, in one line,
+ * read with the title** was written into this same file, and the sweep that
+ * re-took the figures below did not look at the top of its own file.)
  *
  * ## A layer can replace any of this
  *
@@ -957,13 +960,24 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
 /**
  * Where in a section the query landed.
  *
- * Three values rather than two, and all three are read. `RuleSearch.tsx` draws
- * its results as two groups - IN THE TITLE and IN THE TEXT - because "the words
- * you typed are the name of this rule" and "the words you typed are somewhere
- * in the middle of it" are different answers to a GM scanning a list, and the
- * order this function returns them in is invisible until it is labelled.
+ * Four values now, and all four are read. `RuleSearch.tsx` draws its results as
+ * the bands this order already is - IN THE TITLE, IN A HEADING, IN THE TEXT -
+ * because "the words you typed are the name of this rule", "they are the name
+ * of a part of it" and "they are somewhere in the middle of it" are three
+ * different answers to a GM scanning a list, and the order this function
+ * returns them in is invisible until it is labelled.
  *
- * `table` is the third because a hit that occurs only inside a pipe table has
+ * `heading` arrived with the multi-term matcher below, and it is not
+ * decoration. This book keeps its own answers under `## ` subheads - **156 of
+ * them, across 36 of its 69 sections** - and a matcher that reads a body line
+ * together with its section's title lands on those subheads constantly, because
+ * a subhead is where the SRD writes the words a GM half-remembers: it is the
+ * subhead, not the section title, that says FALLING AND COLLISION DAMAGE. A subhead names a rule the way a title does, so it
+ * is banded beside the titles rather than left among the paragraphs. It costs a
+ * third group header on a sheet that had two, and `RuleSearch.tsx` carries what
+ * that is worth in pixels.
+ *
+ * `table` is the fourth because a hit that occurs only inside a pipe table has
  * no line worth quoting. `adversary-stat-block-benchmarks` holds its Severe
  * thresholds in a row that begins `| Damage Thresholds | Major 7/Severe 12 |`
  * and runs on through three more tiers; a preview showing one row of that,
@@ -971,7 +985,7 @@ export function playerExperiences(rules: RulesSection[]): PlayerExperiences {
  * than saying the match is in this section's table and letting the tap draw the
  * table whole.
  */
-export type RuleMatchKind = 'title' | 'text' | 'table';
+export type RuleMatchKind = 'title' | 'heading' | 'text' | 'table';
 
 export interface RuleHit {
   id: Ref;
@@ -986,102 +1000,348 @@ export interface RuleHit {
    * business and happens where the column's width is known.
    */
   line: string | null;
+  /**
+   * True when this hit carries only *some* of the words the GM typed - the
+   * fallback at the foot of `searchRules`, which fires only when nothing in the
+   * dataset carries them all. Every hit in a result has the same value: the
+   * fallback is the whole answer or none of it, which is what lets the screen
+   * print one header over the list instead of a badge on each row.
+   */
+  partial: boolean;
 }
 
 /**
- * Every section whose title or body carries `query`, titles first.
+ * The words a GM puts in to make a sentence, and this search takes out.
+ *
+ * `how do I set the difficulty` is five words of grammar and one question.
+ * Requiring `do` of a section requires nothing of it, and requiring it of the
+ * same *line* as `difficulty` throws away the answer. So these go before the
+ * AND runs.
+ *
+ * This is a closed list typed into this repository, which everywhere else in
+ * this file is the forbidden move. It is allowed here for the reason the file's
+ * header gives: these words are used only to **discard** part of what the GM
+ * typed. Not one of them reaches the screen, and no string this search returns
+ * is chosen by them - a section still has to carry the words that are left, in
+ * its own spelling, before anything of the book's is quoted.
+ */
+const STOPWORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'the', 'of', 'and', 'or', 'to', 'in', 'on', 'for', 'is', 'are', 'was', 'were',
+  'be', 'been', 'do', 'does', 'did', 'how', 'what', 'when', 'where', 'why', 'which', 'who',
+  'my', 'me', 'i', 'it', 'its', 'with', 'at', 'by', 'from', 'as', 'that', 'this', 'these',
+  'those', 'you', 'your', 'they', 'their', 'can', 'could', 'should', 'would', 'if', 'but',
+  'not', 'no', 'so', 'up', 'out', 'get', 'got',
+]);
+
+/**
+ * The query as the set of words a section will have to carry, lower-cased.
+ *
+ * Deduplicated, because `soft move hard move` asks for `move` once however many
+ * times it was typed, and a term listed twice would be marked twice in the same
+ * characters.
+ *
+ * **A query that is nothing but stopwords keeps its words.** `the` is a word of
+ * the book as well as a word of English, and answering it with silence would be
+ * the search saying "this dataset does not carry that" about a string on every
+ * page of it. What it must not do is answer with *everything*: `terms.every()`
+ * over an empty list is vacuously true, so an empty term list would make every
+ * section a title hit - the same defect as an unguarded empty query, arriving
+ * by a different road. Falling back to the words as typed closes both: `the`
+ * searches for `the`, which is what it looks like it does.
+ */
+export function ruleTerms(query: string): string[] {
+  const words = query.trim().replace(/\s+/g, ' ').toLowerCase().split(' ').filter((w) => w !== '');
+  let kept = words.filter((w) => !STOPWORDS.has(w));
+  if (kept.length === 0) kept = words;
+  return [...new Set(kept)];
+}
+
+/** The line a section can show for a hit, or null when it has none worth showing. */
+interface Quote {
+  line: string | null;
+  where: RuleMatchKind;
+}
+
+/**
+ * The best body line that satisfies `wanted`, with the SRD's markup off it.
+ *
+ * **Best, not first, and the difference is three hits out of sixty-five.** A
+ * `## ` subhead that satisfies the words is preferred over a paragraph that
+ * does, wherever in the section it sits, and a line that spells one of those
+ * words as a whole word is preferred over one that only carries it inside a
+ * longer word. Taking the first satisfying line instead put
+ * `multi target attack` on `Attacking`'s 355-character RESISTANCE, IMMUNITY,
+ * AND DIRECT DAMAGE paragraph - banded IN THE TEXT, marking `multi` inside the
+ * word *multiple* - while `## MULTI-TARGET ATTACK ROLLS`, eight lines further
+ * down and the actual answer, was never shown. The other two are
+ * `adversary attack roll` on `Adversary Action Rolls`, which owns
+ * `## ADVERSARY ATTACKS`, and `fear feature adversary` on
+ * `Example Adversary Features`, which owns `## FEAR FEATURES`.
+ *
+ * These are exactly the queries that name a rule the way the book names it, so
+ * this is not a tie-break at the margin: it is the case the multi-term matcher
+ * was built for. The preference costs the early return - a subhead can be
+ * anywhere in the section, so a hit that lands on a paragraph reads the rest of
+ * the body looking for one - and stops on the first subhead that is also a
+ * whole-word match, which is the best rank there is.
+ *
+ * Whole-word is a *preference* and never a filter. The AND that decides whether
+ * this section is a hit at all is `wanted`, unchanged and substring-based:
+ * `condition` still finds `Conditions`, because the SRD's own inflections are
+ * how a GM finds the book. `sharp` only breaks the tie between two lines that
+ * both already satisfy it.
+ *
+ * A pipe row is remembered and skipped: a prose line further down the same
+ * section is a better preview than any cell, and a section whose only match is
+ * in a table still has to appear in the list.
+ */
+function quoteFrom(
+  body: string,
+  wanted: (line: string) => boolean,
+  sharp: (line: string) => boolean,
+): Quote | null {
+  let inTable = false;
+  let best: Quote | null = null;
+  let bestRank = 4;
+  for (const raw of body.split('\n')) {
+    const text = raw.trim();
+    if (text === '' || !wanted(text)) continue;
+    if (text.startsWith('|')) {
+      inTable = true;
+      continue;
+    }
+    const line = text.replace(/^#+\s+/, '').replace(/^-\s+/, '');
+    if (line === '') continue;
+    const heading = /^#+\s/.test(text);
+    const rank = (heading ? 0 : 2) + (sharp(text) ? 0 : 1);
+    if (rank >= bestRank) continue;
+    best = { line, where: heading ? 'heading' : 'text' };
+    bestRank = rank;
+    if (rank === 0) break;
+  }
+  if (best !== null) return best;
+  return inTable ? { line: null, where: 'table' } : null;
+}
+
+/** Is `term` in `low` (already lowercased) as a word rather than inside one? */
+function wholeWordIn(low: string, term: string): boolean {
+  const wordish = (c: string | undefined): boolean =>
+    c !== undefined && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
+  for (let at = low.indexOf(term); at !== -1; at = low.indexOf(term, at + 1)) {
+    if (!wordish(low[at - 1]) && !wordish(low[at + term.length])) return true;
+  }
+  return false;
+}
+
+/**
+ * Every section that carries every word of `query`, titles first - or, when no
+ * section carries them all, the sections that carry some.
  *
  * ## There is no index, and that is a measurement rather than an opinion
  *
- * Measured on this machine against the shipped `data/srd-1.0.json`, on the
- * Node major `.nvmrc` names, 3000 iterations a query after 500 of warm-up,
- * worst of six queries including one that matches nothing: **0.172 ms** for the
- * whole of what this function does, **0.116 ms** for the reject pass on its own
- * and **0.0016 ms** for the titles alone, taken against the seventy-five-section
- * dataset this app shipped 0.5.0 with. The dataset is **sixty-nine** sections
- * now - **107,884** bytes of JSON, **35,936** of it gzipped at zlib's default
- * level - inside a chunk `index.html` already preloads, the Witherwild frame
- * having been dropped. The sizes are re-measured; the
- * timings are not, because they were taken on a particular machine and a fresh
- * number from a different one would read as a correction rather than as what it
- * is. Four percent more bytes to walk does not move an argument with three
- * orders of magnitude in it, and neither does the twenty-one percent *fewer*
- * this file walks now - a move in the direction that was already the safe one.
- * A phone's engine is slower than this machine's
- * by a single-digit factor, and that still leaves three orders of magnitude
- * between a keystroke and anything a person can feel.
+ * Measured on this machine against the shipped `data/srd-1.0.json`, on the Node
+ * major `.nvmrc` names, 3000 iterations a query after 500 of warm-up, worst of
+ * six queries: **0.244 ms** for the whole of what this function does, and the
+ * worst of the six is now the query that matches nothing, because a query that
+ * matches nothing still has to be rejected once per word. The phrase search
+ * this replaced measures **0.145 ms** in the same process on the same run - it
+ * recorded 0.172 ms in this docblock when it was taken on its own day, which is
+ * the size of the noise between two runs on one machine and the reason a single
+ * figure from either is not worth arguing with. The dataset under both is
+ * **sixty-nine** sections - **107,884** bytes of JSON, **35,936** of it gzipped
+ * at zlib's default level - inside a chunk `index.html` already preloads, the
+ * Witherwild frame having been dropped.
+ *
+ * The multi-term matcher is the slower of the two and it is worth saying where
+ * the time went, because it is not the AND. It is the **line split**: the cheap
+ * reject now runs once per term, so more sections survive it than survived a
+ * whole-phrase reject, and every survivor pays to split its body into lines.
+ * That is the cost of the property this function exists for - a hit has to
+ * prove a *single line* carries the words, and a line is the only unit that can
+ * prove it. What that buys is still not a cost a keystroke can feel: 0.244 ms
+ * is one part in sixty-eight of a 16.7 ms frame, and a phone's engine is slower
+ * than this machine's by a single-digit factor, which at five times slower
+ * still leaves the whole scan inside a thirteenth of the frame it was typed
+ * into.
  *
  * So: no index, no precomputation, no worker, and no debounce. Each of those
  * would be a structure to keep in step with the dataset, bought with time
  * nobody was going to spend. A homebrew layer that rewrites `rules` is
  * searchable the instant it loads, because there is nothing to rebuild.
  *
- * The measurement did rule one thing out. **Collapsing the body's whitespace
- * before matching costs 1.05 ms** - six times the whole scan - because it
- * allocates a rewritten copy of all 122,437 characters on every keystroke, and
- * it buys nothing: not one of the 969 non-empty body lines in the shipped file
- * carries two spaces in a row, a tab, a carriage return or trailing space, and
- * the paragraphs are one line each, hard-wrapped nowhere, so a phrase never
- * straddles a newline. The query is collapsed, because a person types the
- * double space; the book is not, because it does not contain one.
+ * The measurement did rule one thing out, and the numbers in it were stale
+ * enough to be worth re-taking: they counted the Witherwild frame this dataset
+ * no longer carries. **Collapsing the body's whitespace before matching costs
+ * 2.14 ms** - nine times the whole scan - because it allocates a rewritten copy
+ * of all **100,165** body characters on every keystroke, and it buys nothing:
+ * not one of the **869** non-empty body lines in the shipped file carries two
+ * spaces in a row, a tab, a carriage return or trailing space, and the
+ * paragraphs are one line each, hard-wrapped nowhere. (It read 1.05 ms over
+ * 122,437 characters and 969 lines before the frame was dropped. The
+ * conclusion did not need re-taking; the three numbers did.) The query is
+ * collapsed, because a person types the double space; the book is not, because
+ * it does not contain one.
  *
- * ## One substring, not a set of words
+ * ## Every word, in one line, read with the title
  *
- * `very close` matches the bullet that says "Very Close", and does not match a
- * section that says "close" in one paragraph and "very" in another. An AND over
- * separate terms would then owe an answer to "which line is the preview, when
- * the two words are eight paragraphs apart", and there is no honest one. What a
- * GM types here is a phrase they half-remember off a page, so a phrase is what
- * is matched.
+ * This used to match one substring, and the sentence that defended it said an
+ * AND over separate terms "would also answer with every section that says
+ * 'close' in one paragraph and 'very' in another, and would then owe a preview
+ * line that does not exist". **That objection was measured and it was correct.**
+ * Over thirty natural GM phrasings, an AND asked of a whole *section* returns
+ * **eighty-two** hits where the phrase search returned twenty, and
+ * **seventeen** of the sixty-two it adds have their words in different
+ * paragraphs: seventeen sections in a list, each owing a preview line that does
+ * not exist. It is overturned by answering it, not by outvoting it.
  *
- * ## The order is the dataset's, split once
+ * The rule is: a section matches when **one body line, read together with the
+ * section's own title, carries every term**. Scoping to the line is what
+ * removes those seventeen, and it removes nothing else - the line-scoped AND
+ * returns **sixty-five** against the section-wide eighty-two, and eighty-two
+ * less sixty-five is the seventeen. Of the forty-five hits it adds to the
+ * phrase search's twenty, **not one** has its words in different paragraphs and
+ * **not one** is unable to quote the line it is claiming.
  *
- * Titles first, then bodies, each in the order the dataset carries them. The
- * split is not a relevance score - this file does not rank rules, and inventing
- * weights would be the app deciding which of the SRD's sections a GM meant. It
- * is the one distinction the data itself makes: a section whose *name* is what
- * you typed is a section you asked for by name.
+ * The rule as it was handed to this lane had a third clause - *and the line
+ * carries at least one term itself* - to throw out the hit whose whole
+ * evidence is the header. **Written as a guard it can never fire, and that is
+ * structural rather than lucky.** A section whose title carries every term is
+ * a title hit and returns above, before a line is ever read; so every section
+ * that reaches this scan is missing at least one term from its title, and a
+ * line that satisfies the AND has to supply that term out of its own
+ * characters. The guarantee is the branch, not a second copy of the branch.
+ * Probed as well as argued: over 40,000 one-, two- and three-word queries
+ * drawn from the SRD's own 2,242-word vocabulary, the clause changed the
+ * answer to none of them. It is gone, the property it protected is asserted
+ * directly in `ruleSearch.test.tsx`, and a guard no test could ever kill is
+ * exactly what `orphans.test.ts` exists to keep out of this tree.
+ *
+ * Reading the line *with the title* is what a GM already sees. Of the
+ * sixty-one preview lines this returns over that query set, fifty carry every
+ * word in the line itself; the other eleven split between the header and the
+ * line, and on the glass those two are three lines apart inside one 44px tap
+ * target. Nothing has to confess that the words are in different places,
+ * because they are not in different places - they are both in the thing the GM
+ * is looking at.
+ *
+ * What that bought, against the thirty: **twenty of them returned nothing**
+ * before and two do now, and the section the query was asking for is found in
+ * **twenty-eight** of thirty where nine were found before. `falling damage`
+ * returned a blank screen while the SRD carried a subhead reading FALLING AND
+ * COLLISION DAMAGE, and a blank screen reads as *the book does not cover this*.
+ *
+ * ## The order is the dataset's, split three ways
+ *
+ * Titles, then headings, then bodies, each in the order the dataset carries
+ * them. The split is not a relevance score - this file does not rank rules, and
+ * inventing weights would be the app deciding which of the SRD's sections a GM
+ * meant. It is the distinction the data itself makes: a section whose *name* is
+ * what you typed is a section you asked for by name, and a subhead is a name
+ * too.
+ *
+ * ## When nothing carries them all
+ *
+ * The AND answers two of those thirty queries with nothing, and neither fails
+ * on vocabulary. Both fail on an inflection: the book writes *sets* where the
+ * GM typed *setting*, and *clear* where they typed *clearing*, and every other
+ * word of both queries is on the page. Nothing here stems a word - a stemmer is
+ * a table of English this repository would have to keep, and it would be
+ * guessing at the SRD's vocabulary rather than reading it - so on an empty AND
+ * the search falls back to OR, every section carrying at least one word, and
+ * the screen labels that list with a header saying exactly that.
+ *
+ * **The fallback is weak, and the code should say so rather than the release
+ * notes.** Those two queries return eighteen and sixteen sections, un-ranked,
+ * and the section the GM wanted is eighth of the eighteen and sixth of the
+ * sixteen. It beats a blank screen and it is not an answer. It is not ranked because ranking here would
+ * be this file guessing, which is the thing it refuses to do everywhere else;
+ * the honest fix is a stemmer or the SRD's own vocabulary, and neither is a
+ * line of code.
  */
 export function searchRules(rules: RulesSection[], query: string): RuleHit[] {
   const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
   if (needle === '') return [];
+  const terms = ruleTerms(needle);
 
   const titles: RuleHit[] = [];
+  const headings: RuleHit[] = [];
   const bodies: RuleHit[] = [];
 
   for (const section of rules) {
     const page = section.sourcePage ?? null;
-    if (section.title.toLowerCase().includes(needle)) {
-      titles.push({ id: section.id, title: section.title, page, where: 'title', line: null });
+    const title = section.title.toLowerCase();
+    const seen = { id: section.id, title: section.title, page, partial: false };
+
+    if (terms.every((t) => title.includes(t))) {
+      titles.push({ ...seen, where: 'title', line: null });
       continue;
     }
-    // The cheap reject. Most sections lose here on any real query and never pay
-    // for the line split below.
-    if (!section.body.toLowerCase().includes(needle)) continue;
+    // The cheap reject, once per term. Most sections lose here on any real
+    // query and never pay for the line split below.
+    const body = section.body.toLowerCase();
+    if (!terms.every((t) => body.includes(t) || title.includes(t))) continue;
 
-    let line: string | null = null;
-    let inTable = false;
-    for (const raw of section.body.split('\n')) {
-      const text = raw.trim();
-      if (text === '' || !text.toLowerCase().includes(needle)) continue;
-      // A pipe row is remembered and skipped: a prose line further down the
-      // same section is a better preview than any cell, and a section whose
-      // only match is in a table still has to appear in the list.
-      if (text.startsWith('|')) {
-        inTable = true;
-        continue;
-      }
-      line = text.replace(/^#+\s+/, '').replace(/^-\s+/, '');
-      break;
+    // Every word, in this line or in the header three lines above it on the
+    // glass. This is the AND, and the scope of it is what makes it safe. The
+    // second predicate decides nothing about membership - it only says which of
+    // two satisfying lines is the better one to show, and the title side of it
+    // stays a substring on purpose, because marking `Condition` inside
+    // `Conditions` in the header is the behaviour that pairs the two words up.
+    const quote = quoteFrom(
+      section.body,
+      (text) => {
+        const low = text.toLowerCase();
+        return terms.every((t) => low.includes(t) || title.includes(t));
+      },
+      (text) => {
+        const low = text.toLowerCase();
+        return terms.every((t) => wholeWordIn(low, t) || title.includes(t));
+      },
+    );
+    if (quote === null) continue;
+    if (quote.where === 'heading') {
+      headings.push({ ...seen, ...quote });
+      continue;
     }
-    bodies.push({
-      id: section.id,
-      title: section.title,
-      page,
-      where: line === null && inTable ? 'table' : 'text',
-      line,
-    });
+    bodies.push({ ...seen, ...quote });
   }
 
-  return [...titles, ...bodies];
+  const all = [...titles, ...headings, ...bodies];
+  // One word that is nowhere is a miss, not a search worth running twice.
+  if (all.length === 0 && terms.length > 1) return someOf(rules, terms);
+  return all;
+}
+
+/**
+ * The fallback: every section carrying at least one of the words.
+ *
+ * In the dataset's order, unranked, and marked `partial` so the screen can put
+ * one header over the whole list. Sorting these by how many words each carries
+ * is the obvious next move and it is the move this file does not make: the
+ * count of matched words is not a measure of which rule a GM meant, and a list
+ * ordered by it would look like it was.
+ */
+function someOf(rules: RulesSection[], terms: string[]): RuleHit[] {
+  const out: RuleHit[] = [];
+  for (const section of rules) {
+    const title = section.title.toLowerCase();
+    const carries = (text: string): boolean => {
+      const low = text.toLowerCase();
+      return terms.some((t) => low.includes(t));
+    };
+    if (!carries(section.title) && !carries(section.body)) continue;
+    const sharply = (text: string): boolean => {
+      const low = text.toLowerCase();
+      return terms.some((t) => wholeWordIn(low, t));
+    };
+    const quote = quoteFrom(section.body, carries, sharply) ?? { line: null, where: 'title' as const };
+    out.push({
+      id: section.id,
+      title: section.title,
+      page: section.sourcePage ?? null,
+      partial: true,
+      ...quote,
+    });
+  }
+  return out;
 }

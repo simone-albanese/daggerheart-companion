@@ -24,6 +24,13 @@
  * custom properties, so `minHeight: 'var(--tap)'` measures as the literal
  * string and proves nothing. The 44s asserted here are the numbers the source
  * writes out, which is the only form of the rule a test can check.
+ *
+ * **The search asks for words, and the words have to be in one line.** That
+ * replaced a search for one phrase, and the assertion that pinned the phrase
+ * carried a written reason rather than a preference. The reason is answered
+ * where it stood - see *asks for every word, in one line* below - and not
+ * deleted: it named two real failures of an AND over a whole section, and this
+ * file now holds a test for each of them.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
@@ -34,7 +41,7 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
-import { searchRules } from '../../src/ui/shared/srdReference.ts';
+import { ruleSection, ruleTerms, searchRules } from '../../src/ui/shared/srdReference.ts';
 import { preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
@@ -117,6 +124,28 @@ afterEach(() => {
 
 const rules = dataset.rules;
 
+/**
+ * The elements a run asks to be brought into view, in the order it asked.
+ *
+ * jsdom ships no `scrollIntoView`, so the stub goes on and comes off through
+ * the descriptor: deleting on the wrong branch would either strip a real one
+ * or leave this one standing over every test after it.
+ */
+function landings(run: (asked: Element[]) => void): void {
+  const asked: Element[] = [];
+  const proto = Element.prototype as unknown as { scrollIntoView?: unknown };
+  const was = Object.getOwnPropertyDescriptor(proto, 'scrollIntoView');
+  proto.scrollIntoView = function scrollIntoView(this: Element): void {
+    asked.push(this);
+  };
+  try {
+    run(asked);
+  } finally {
+    if (was === undefined) delete proto.scrollIntoView;
+    else Object.defineProperty(proto, 'scrollIntoView', was);
+  }
+}
+
 const click = (el: Element): void => {
   act(() => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -180,10 +209,50 @@ const hits = (): HTMLButtonElement[] => [
 const hitTitles = (): string[] =>
   hits().map((b) => (b.querySelector('span > span')?.textContent ?? '').trim());
 
+/**
+ * What a band header can say, so this helper cannot miss one.
+ *
+ * It filtered on `IN THE ` and that was fine while there were two bands. The
+ * third is `IN A HEADING`, and a prefix filter went on reporting two headers
+ * over a three-band list - a helper quietly answering the question the
+ * assertion below was written to ask. Named labels, matched from the front so
+ * the ` · n` count can still be read off the end.
+ */
+const BAND_LABELS = [
+  'IN THE TITLE',
+  'IN A HEADING',
+  'IN THE TEXT',
+  'NO SECTION CARRIES ALL OF THOSE WORDS · THESE CARRY SOME',
+];
+
 const groupHeaders = (): string[] =>
   [...scroller().querySelectorAll('span.t-meta')]
     .map((s) => (s.textContent ?? '').trim())
-    .filter((t) => t.startsWith('IN THE '));
+    .filter((t) => BAND_LABELS.some((label) => t.startsWith(label)));
+
+/**
+ * Natural GM phrasings, and the section each is asking for.
+ *
+ * Written as a GM says them rather than as the book writes them - which is the
+ * whole point: every one of these is a phrase that appears nowhere in the
+ * shipped dataset, and the assertions below check that first rather than
+ * assuming it. These are the query, not the SRD's wording, so they are the one
+ * kind of string this file is allowed to type out.
+ */
+const PHRASINGS: ReadonlyArray<{ q: string; want: string }> = [
+  { q: 'falling damage', want: 'optional-gm-mechanics' },
+  { q: 'line of sight cover', want: 'maps-range-and-movement' },
+  { q: 'underwater fighting', want: 'optional-gm-mechanics' },
+  { q: 'restrained condition', want: 'conditions' },
+  { q: 'multi target attack', want: 'attacking' },
+  { q: 'direct damage immunity', want: 'attacking' },
+  { q: 'long rest downtime', want: 'downtime' },
+  { q: 'soft move hard move', want: 'making-gm-moves' },
+  { q: 'death move options', want: 'death' },
+  { q: 'gold handfuls bags', want: 'gold' },
+  { q: 'battle points encounter', want: 'building-balanced-encounters' },
+  { q: 'environment impulses', want: 'using-environments' },
+];
 
 // ---------------------------------------------------------------------------
 
@@ -211,24 +280,197 @@ describe('searchRules, over the shipped SRD', () => {
     expect(hitsFor[0]!.line).toBeNull();
   });
 
-  it('matches the phrase whole, not its words in any order', () => {
-    // `very close` is a range in this book. A GM half-remembering it types the
-    // two words together; an AND over separate terms would also answer with
-    // every section that says "close" in one paragraph and "very" in another,
-    // and would then owe a preview line that does not exist.
+  it('asks for every word, in one line, rather than for the phrase whole', () => {
+    /*
+     * This assertion used to read `expect(searchRules(rules, 'close very'))
+     * .toEqual([])`, and what stood beside it was not a preference. It was
+     * this: an AND over separate terms "would also answer with every section
+     * that says 'close' in one paragraph and 'very' in another, and would then
+     * owe a preview line that does not exist."
+     *
+     * **That objection was real, and it was measured.** Over thirty natural GM
+     * phrasings, an AND asked of a whole *section* returns eighty-two hits
+     * against the phrase search's twenty, and seventeen of the sixty-two it
+     * adds have their words in different paragraphs of the section - seventeen
+     * rows in a list, each owing a line it cannot show. Nothing about that has
+     * been decided away, and the next test holds it in place against the
+     * shipped dataset.
+     *
+     * What makes it not apply is the **scope**. The matcher does not ask
+     * whether the section carries both words. It asks whether **one body line,
+     * read together with the section's own title, carries both - and whether
+     * that line carries at least one of them itself**. Measured against the
+     * same thirty queries it returns sixty-five - the eighty-two less exactly
+     * those seventeen - and of the forty-five hits it adds, *none* has its
+     * words in different paragraphs and *none* is unable to quote its line.
+     *
+     * So `close very` is `very close` now, because word order was never
+     * evidence of anything, and both are the same three lines that carry the
+     * two words side by side.
+     */
     const together = searchRules(rules, 'very close');
     expect(together.map((h) => h.id)).toEqual([
       'maps-range-and-movement',
       'optional-gm-mechanics',
       'example-adversary-features',
     ]);
-    expect(searchRules(rules, 'close very')).toEqual([]);
+    const reversed = searchRules(rules, 'close very');
+    expect(reversed.map((h) => h.id)).toEqual(together.map((h) => h.id));
+    // And every one of them can show the line it is claiming, whole.
+    for (const hit of reversed) {
+      expect(hit.line!.toLowerCase()).toContain('very');
+      expect(hit.line!.toLowerCase()).toContain('close');
+    }
+  });
+
+  it('refuses the section that says one word here and the other four lines down', () => {
+    /*
+     * The other half of the sentence above, against the dataset rather than
+     * against a fixture. `Rulings Over Rules` really does carry `close` and
+     * `very` - in different paragraphs, with nothing between them that says
+     * both. An AND over the section returns it (six sections for `very close`
+     * instead of three) and then has to pick a preview line; whichever line it
+     * picks, one of the two words the GM typed is not in it. That is the hit
+     * the line scope refuses, and this is it, by name.
+     */
+    const body = rules.find((r) => r.id === 'rulings-over-rules')!.body.toLowerCase();
+    expect(body).toContain('close');
+    expect(body).toContain('very');
+    expect(body.split('\n').some((l) => l.includes('close') && l.includes('very'))).toBe(false);
+    expect(searchRules(rules, 'very close').map((h) => h.id)).not.toContain('rulings-over-rules');
+  });
+
+  it('reaches the section a GM meant, where a whole-phrase search reached nothing', () => {
+    /*
+     * Twenty of thirty natural phrasings returned a blank screen before, and a
+     * blank screen reads as *the SRD does not cover this*. It does: `falling
+     * damage` was blank while the book carried a subhead reading FALLING AND
+     * COLLISION DAMAGE.
+     *
+     * The first assertion is the one that keeps this test honest. It checks
+     * that the phrase really is absent from the dataset, so this cannot quietly
+     * become a test that a substring search would also pass.
+     */
+    for (const { q, want } of PHRASINGS) {
+      const whole = rules.some((r) => `${r.title}\n${r.body}`.toLowerCase().includes(q));
+      expect(whole, `"${q}" is in the dataset as a phrase; pick another`).toBe(false);
+      expect(searchRules(rules, q).map((h) => h.id), q).toContain(want);
+    }
+  });
+
+  it('never returns a hit whose words are not answered by one line and its header', () => {
+    /*
+     * The property the whole change rests on, asserted over every hit of every
+     * phrasing rather than over the ones that were convenient: a hit either
+     * names the words in its title, or holds them in a table, or has **a line
+     * that carries at least one of them and, with the header above it, all of
+     * them**. There is no fourth case, and if there were it would be the hit
+     * that owes a preview line it does not have.
+     */
+    for (const { q } of PHRASINGS) {
+      const terms = ruleTerms(q);
+      for (const hit of searchRules(rules, q)) {
+        if (hit.where === 'title' || hit.where === 'table') {
+          expect(hit.line, `${q} / ${hit.id}`).toBeNull();
+          continue;
+        }
+        expect(hit.line, `${q} / ${hit.id}`).not.toBeNull();
+        const line = hit.line!.toLowerCase();
+        expect(terms.some((t) => line.includes(t)), `${q} / ${hit.id}: line carries none`).toBe(
+          true,
+        );
+        const onGlass = `${line}\n${hit.title.toLowerCase()}`;
+        expect(terms.every((t) => onGlass.includes(t)), `${q} / ${hit.id}: not all`).toBe(true);
+      }
+    }
+  });
+
+  it('bands a subhead with the titles, because a subhead is a name too', () => {
+    // `Conditions` answers `restrained condition` from its own RESTRAINED
+    // subhead: the line carries `restrained`, the header carries `condition`,
+    // and they are three lines apart inside one tap target rather than eight
+    // paragraphs apart.
+    const hitsFor = searchRules(rules, 'restrained condition');
+    expect(hitsFor.map((h) => h.id)).toEqual(['conditions']);
+    expect(hitsFor[0]!.where).toBe('heading');
+    expect(hitsFor[0]!.line!.toLowerCase()).toContain('restrained');
+    expect(hitsFor[0]!.line!.toLowerCase()).not.toContain('condition');
+    expect(hitsFor[0]!.title.toLowerCase()).toContain('condition');
+  });
+
+  it('cannot answer out of the header alone, because a named section never gets that far', () => {
+    /*
+     * The rule this lane was given had a third clause: *and the line carries at
+     * least one term itself*, so that a section whose header supplies all of
+     * them cannot answer from a sentence that supplies none. Written as a guard
+     * it never fired - probed over 40,000 queries built from the SRD's own
+     * vocabulary, it changed no answer - and the reason is structural. A
+     * section whose title carries every word is a **title hit** and returns
+     * before the body is scanned at all, so every section that reaches the scan
+     * is missing a word from its title, and any line satisfying the AND has to
+     * carry that word itself.
+     *
+     * The property is asserted above, over every hit of every phrasing. This is
+     * the branch that makes it true, asserted where it lives: if the title band
+     * ever stopped returning early, the property would go with it and nothing
+     * else in this file would notice.
+     */
+    const named = searchRules(rules, 'conditions');
+    expect(named[0]!.id).toBe('conditions');
+    expect(named[0]!.where).toBe('title');
+    expect(named[0]!.line).toBeNull();
+    // Once, not twice: the section is named for the word and its body is full
+    // of it, and none of that body is quoted back.
+    expect(named.filter((h) => h.id === 'conditions')).toHaveLength(1);
+  });
+
+  it('falls back to some of the words only when nothing carries them all', () => {
+    /*
+     * Two of the thirty phrasings fail on an inflection rather than on
+     * vocabulary - the book writes `Setting Difficulty Values` and `clear
+     * Stress` - and for those the AND is empty. An empty screen would say the
+     * book is silent, so the search answers with the sections carrying some of
+     * the words and the screen labels the list as exactly that.
+     *
+     * The flag is all-or-nothing on purpose: the fallback is the whole answer
+     * or none of it, which is what lets one header stand over the list instead
+     * of a badge on every row.
+     */
+    const some = searchRules(rules, 'setting difficulty');
+    expect(some.length).toBeGreaterThan(10);
+    expect(some.every((h) => h.partial)).toBe(true);
+    expect(some.map((h) => h.id)).toContain('difficulty-benchmarks');
+    // And it does not fire while the AND has anything at all.
+    const solid = searchRules(rules, 'falling damage');
+    expect(solid).not.toEqual([]);
+    expect(solid.some((h) => h.partial)).toBe(false);
+  });
+
+  it('answers a query that is nothing but stopwords with its words, not with everything', () => {
+    /*
+     * `the` is a word of this book as well as a word of English, so a query of
+     * nothing but stopwords keeps the words it was given rather than being
+     * answered with silence. The trap is the other direction: `terms.every()`
+     * over an empty list is vacuously true, so dropping every word would make
+     * every section a *title* hit - all sixty-nine of them, on the first
+     * keystroke, which is the same defect the empty guard exists to stop
+     * arriving by a different road.
+     */
+    expect(ruleTerms('the of')).toEqual(['the', 'of']);
+    const hitsFor = searchRules(rules, 'the of');
+    expect(hitsFor).not.toEqual([]);
+    expect(hitsFor.length).toBeLessThan(rules.length);
+    expect(hitsFor.filter((h) => h.where === 'title')).toHaveLength(1);
+    expect(hitsFor.every((h) => h.partial)).toBe(false);
   });
 
   it('collapses the spaces the GM typed and not the ones the book did not type', () => {
     // A person typing a phrase into a field on a phone puts two spaces in it.
     // The book has none: not one of the shipped bodies carries a double space,
-    // which is why the scan never rewrites 122,437 characters to find out.
+    // which is why the scan never rewrites 100,165 characters to find out.
+    // (122,437 stood here, and it counted the Witherwild frame this dataset no
+    // longer carries - `srdReference.ts` re-took it against the file that
+    // ships and this line was left behind in the same commit.)
     expect(searchRules(rules, '  very   close  ')).toEqual(searchRules(rules, 'very close'));
     expect(rules.some((r) => / {2,}/.test(r.body))).toBe(false);
   });
@@ -298,15 +540,272 @@ describe('preview', () => {
   });
 
   it('windows the longest lines the shipped SRD actually has', () => {
-    // 294 of the 969 non-empty body lines are longer than the 150 characters
-    // this keeps. The bullet below is one of them, and it is the line the
-    // search hands the screen for `very close`.
+    // 255 of the 869 non-empty body lines are longer than the 150 characters
+    // this keeps, counting a line the way the book writes it. Counted the way
+    // `preview` is actually handed them it is 227 of 769: `quoteFrom` takes the
+    // `## ` and `- ` off the front, and it skips a pipe row outright rather
+    // than stripping it, so the book's hundred table rows are not in the
+    // population at all. The bullet below is one of the long ones, and it is
+    // the line the search hands the screen for `very close`. (It read 294 of
+    // 969 while the dataset still carried the Witherwild frame, then 253 in a
+    // unit that stripped the markup but kept the pipe rows - which is neither
+    // the book's unit nor `preview`'s.)
     const hit = searchRules(rules, 'very close').find((h) => h.id === 'maps-range-and-movement')!;
     expect(hit.line!.length).toBeGreaterThan(150);
     const found = preview(hit.line!, 'very close');
     expect(found.match).toBe('Very Close');
     expect(found.after.endsWith('…')).toBe(true);
     expect(hit.line).toContain(found.after.replace(/…$/, ''));
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Every body line the shipped SRD has, with a query built out of its own words.
+ *
+ * Three per line: the first content word with the last, which is the widest
+ * spread that line can produce; the same pair with a word from the middle
+ * between them, which is the case that puts two gaps in one preview; and a
+ * later word with the last, which starts the window part-way into the line.
+ * Words of four letters or more only - a two-letter term matches so often that
+ * every line becomes the same test.
+ *
+ * This exists because the ceiling below is a claim about *the book*, not about
+ * thirty queries. The failure it replaced only ever showed itself on a line
+ * whose words sit at its two ends, and no query anybody had typed by hand went
+ * near the one line in the file that is long enough to make it hurt.
+ */
+function everyLineProbed(): Array<{ id: string; line: string; query: string }> {
+  const out: Array<{ id: string; line: string; query: string }> = [];
+  for (const section of rules) {
+    for (const raw of section.body.split('\n')) {
+      const line = raw.trim().replace(/^#+\s+/, '').replace(/^-\s+/, '');
+      if (line === '' || line.startsWith('|')) continue;
+      const words = [...new Set(line.toLowerCase().match(/[a-z]{4,}/g) ?? [])];
+      if (words.length < 2) continue;
+      const first = words[0]!;
+      const last = words[words.length - 1]!;
+      for (const query of [
+        `${first} ${last}`,
+        `${first} ${words[Math.floor(words.length / 2)]!} ${last}`,
+        `${words[Math.floor(words.length / 3)]!} ${last}`,
+      ]) {
+        if (ruleTerms(query).length > 0) out.push({ id: section.id, line, query });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * How much of a preview is the book's characters rather than the GM's words.
+ *
+ * The runs are merged the way the screen merges them - two marked words with
+ * nothing but a space between them are drawn inside one `<mark>`, so that space
+ * is part of the answer and not part of the quotation. The ellipses come out
+ * too: an ellipsis is `preview` speaking, not the SRD.
+ *
+ * Written out here rather than imported, deliberately. This is the property the
+ * ceiling *is*, and a test that measured it with the same helper the code
+ * measures it with would agree with a bug in that helper.
+ */
+function bookIn(drawn: string, query: string): number {
+  const low = drawn.toLowerCase();
+  const found: Array<[number, number]> = [];
+  for (const term of ruleTerms(query)) {
+    for (let at = low.indexOf(term); at !== -1; at = low.indexOf(term, at + term.length)) {
+      found.push([at, at + term.length]);
+    }
+  }
+  found.sort((a, b) => a[0] - b[0]);
+  const runs: Array<[number, number]> = [];
+  for (const [start, end] of found) {
+    const last = runs.at(-1);
+    if (last !== undefined && start <= last[1]) last[1] = Math.max(last[1], end);
+    else if (last !== undefined && drawn.slice(last[1], start).trim() === '') last[1] = end;
+    else runs.push([start, end]);
+  }
+  let marked = 0;
+  for (const [start, end] of runs) marked += end - start;
+  return drawn.replaceAll('…', '').length - marked;
+}
+
+const drawnBy = (line: string, query: string): string => {
+  const found = preview(line, query);
+  return found.before + found.match + found.after;
+};
+
+describe('which line a hit quotes', () => {
+  it('quotes the subhead that names the rule, not the paragraph that reached it first', () => {
+    /*
+     * `quoteFrom` took the first body line satisfying the AND and had no
+     * preference for a `## ` subhead, so a section whose prose matched before
+     * its subhead did was banded IN THE TEXT and previewed the wrong paragraph
+     * - on exactly the queries that name a rule the way the book names it.
+     *
+     * Three of the thirty-query set's forty-two text-band hits were doing this.
+     * The worst is here: `multi target attack` quoted `Attacking`'s
+     * 355-character RESISTANCE, IMMUNITY, AND DIRECT DAMAGE paragraph, with
+     * `multi` marked inside the word *multiple*, while `## MULTI-TARGET ATTACK
+     * ROLLS` sat further down the same section and was never shown.
+     */
+    const cases: Array<[string, string, string]> = [
+      ['multi target attack', 'attacking', 'MULTI-TARGET ATTACK ROLLS'],
+      ['adversary attack roll', 'adversary-action-rolls', 'ADVERSARY ATTACKS'],
+      ['fear feature adversary', 'example-adversary-features', 'FEAR FEATURES'],
+    ];
+    for (const [query, id, subhead] of cases) {
+      const hit = searchRules(rules, query).find((h) => h.id === id)!;
+      expect(hit.where, query).toBe('heading');
+      expect(hit.line, query).toBe(subhead);
+
+      // And it is a preference rather than an accident of ordering: the
+      // paragraph that used to win still satisfies the AND, and still comes
+      // first in the section's own body.
+      const section = rules.find((r) => r.id === id)!;
+      const title = section.title.toLowerCase();
+      const satisfying = section.body
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l !== '' && !l.startsWith('|'))
+        .filter((l) => ruleTerms(query).every((t) => l.toLowerCase().includes(t) || title.includes(t)));
+      expect(satisfying.length, query).toBeGreaterThan(1);
+      expect(/^#+\s/.test(satisfying[0]!), query).toBe(false);
+      expect(satisfying.some((l) => l.replace(/^#+\s+/, '') === subhead), query).toBe(true);
+    }
+  });
+
+  it('quotes the line that spells the word as a word over the one that buries it', () => {
+    /*
+     * The other half of the preference, and it is tested apart from the subhead
+     * half on purpose: on all three cases above the subhead is *also* the
+     * whole-word match, so either preference alone would have picked it and
+     * neither test would notice the other going missing.
+     *
+     * Here nothing is a subhead. `The Basics` opens with a line ending "2-5
+     * players.", where the GM's `player` is only ever inside *players*; the
+     * line under it names "the Player Characters" and spells the word as a
+     * word. Both satisfy the AND, the buried one comes first, and the spelled
+     * one is what the hit quotes.
+     */
+    const hit = searchRules(rules, 'daggerheart player').find((h) => h.id === 'the-basics')!;
+    expect(hit.where).toBe('text');
+    expect(hit.line).toContain('Player Characters');
+
+    const lines = rules
+      .find((r) => r.id === 'the-basics')!
+      .body.split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l !== '');
+    const satisfying = lines.filter((l) =>
+      ruleTerms('daggerheart player').every((t) => l.toLowerCase().includes(t)),
+    );
+    // The first one carries `player` only inside `players`, and it is not the
+    // one shown.
+    expect(satisfying[0]).not.toBe(hit.line);
+    expect(/\bplayer\b/i.test(satisfying[0]!)).toBe(false);
+    expect(/\bPlayer\b/.test(hit.line!)).toBe(true);
+    expect(lines.indexOf(satisfying[0]!)).toBeLessThan(lines.indexOf(hit.line!));
+  });
+
+  it('changes which line a section shows and never which sections answer', () => {
+    // The preference is about the preview, not about membership. Across the
+    // whole shipped file, asking for a section's own words returns the same
+    // sections whichever line ends up being quoted - so a subhead that wins the
+    // tie can never add a hit or lose one.
+    for (const query of ['multi target attack', 'adversary attack roll', 'fear feature adversary', 'fear']) {
+      const hits = searchRules(rules, query);
+      for (const hit of hits) {
+        const section = rules.find((r) => r.id === hit.id)!;
+        const haystack = `${section.title}\n${section.body}`.toLowerCase();
+        for (const term of ruleTerms(query)) expect(haystack, `${query} / ${hit.id}`).toContain(term);
+      }
+      // No duplicates, and every hit is a section of the dataset.
+      expect(new Set(hits.map((h) => h.id)).size).toBe(hits.length);
+    }
+    expect(searchRules(rules, 'fear')).toHaveLength(19);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the ceiling on a shut preview', () => {
+  it('does not hand a GM the longest line in the book for a hit they have not opened', () => {
+    /*
+     * The window widened to hold every mark and stopped there, which is not a
+     * ceiling: its width was whatever the book's spacing said. A line whose
+     * words sit at its two ends came back **whole**, and the SRD has a
+     * 745-character one - `Avoid Death:` in `Death`. A verifier measured that
+     * preview in Chrome at 363px and it was 199.5px tall: 4.5 times the 44px
+     * tap floor, about 31.5% of a results viewport of roughly 634px, for a hit
+     * nobody had opened. That figure is theirs; nothing here re-takes it, and
+     * what this test can hold is the characters rather than the pixels.
+     */
+    const longest = rules
+      .flatMap((r) => r.body.split('\n').map((l) => l.trim().replace(/^#+\s+/, '').replace(/^-\s+/, '')))
+      .reduce((a, b) => (b.length > a.length ? b : a));
+    expect(longest.length).toBe(745);
+    expect(longest.startsWith('Avoid Death:')).toBe(true);
+
+    const drawn = drawnBy(longest, 'avoid death scar');
+    // It used to be 642 characters of this one line. It is a fraction of that
+    // now, and every word the GM typed is still in it.
+    expect(drawn.length).toBeLessThan(250);
+    expect(bookIn(drawn, 'avoid death scar')).toBeLessThanOrEqual(150);
+    for (const term of ruleTerms('avoid death scar')) expect(drawn.toLowerCase(), term).toContain(term);
+    // The cut is in the middle and it says so, rather than being a silent join.
+    expect(drawn).toContain('…');
+    expect(drawn.startsWith('Avoid Death:')).toBe(true);
+  });
+
+  it('keeps every word marked and stays under the ceiling, on every line the book has', () => {
+    /*
+     * The whole rule, over the whole file. `preview` may cut the book down to
+     * `BEFORE + AFTER` characters and no further; what it may never do is drop
+     * one of the GM's words off the end of the preview, because a preview
+     * missing a word the line carries is the search claiming a match it will
+     * not show.
+     */
+    const probes = everyLineProbed();
+    expect(probes.length).toBeGreaterThan(2000);
+    let widest = 0;
+    let mostBook = 0;
+    for (const { line, query, id } of probes) {
+      const drawn = drawnBy(line, query);
+      widest = Math.max(widest, drawn.length);
+      const book = bookIn(drawn, query);
+      mostBook = Math.max(mostBook, book);
+      expect(book, `${query} @ ${id}`).toBeLessThanOrEqual(150);
+      for (const term of ruleTerms(query)) {
+        if (line.toLowerCase().includes(term)) {
+          expect(drawn.toLowerCase(), `${term} :: ${query} @ ${id}`).toContain(term);
+        }
+      }
+    }
+    // Measured, not assumed: these are what the shipped file comes to, and the
+    // window before the ceiling drew 745 characters at its widest.
+    expect(widest).toBeLessThanOrEqual(200);
+    expect(mostBook).toBeLessThanOrEqual(150);
+  });
+
+  it('leaves a preview the ceiling does not bind exactly as long as it was', () => {
+    // The ceiling is a bound, not a rewrite. One mark spends 34 characters in
+    // front and 116 behind and has no gap in the middle to pay for, so the
+    // ordinary preview - which is most of them - comes back untouched, and the
+    // whole line still comes back whole when the whole line is inside budget.
+    expect(drawnBy('Very Close: 3 squares', 'very close')).toBe('Very Close: 3 squares');
+
+    const short = `Marked: ${'x'.repeat(100)}`;
+    expect(drawnBy(short, 'marked')).toBe(short);
+
+    const long = `${'alpha '.repeat(40)}NEEDLE${' omega'.repeat(40)}`;
+    const found = preview(long, 'needle');
+    expect(found.before.startsWith('…')).toBe(true);
+    expect(found.after.endsWith('…')).toBe(true);
+    expect(found.match).toBe('NEEDLE');
+    // One mark, so the tail is the full 116 and nothing in the middle is cut.
+    expect(found.after.replace(/…$/, '')).not.toContain('…');
   });
 });
 
@@ -447,7 +946,17 @@ describe('the results', () => {
     );
 
     type('fear');
-    expect(groupHeaders()).toHaveLength(2);
+    // Three bands, not two: `fear` reaches `Pitfalls to Avoid` through its
+    // HOARDING FEAR subhead, and a subhead gets its own header. Three sections
+    // in that band rather than the one this asserted while `quoteFrom` took the
+    // first satisfying line it met: `Using Adversaries` and `Example Adversary
+    // Features` each open with prose carrying the word and each own a FEAR
+    // FEATURE(S) subhead further down, and the subhead is the one that names
+    // the rule. The nineteen hits are the same nineteen sections either way -
+    // what moved is which line three of them quote, and so which band they
+    // stand in.
+    expect(groupHeaders()).toHaveLength(3);
+    expect(groupHeaders()[1]).toBe('IN A HEADING · 3');
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
       `${String(searchRules(rules, 'fear').length)} sections match`,
     );
@@ -458,12 +967,126 @@ describe('the results', () => {
     type('very close');
     const marks = [...dialog().querySelectorAll('mark')];
     expect(marks).not.toEqual([]);
-    // Typed lower case, drawn as the SRD writes it. A mark that echoed the
-    // query back would be the screen quoting the GM instead of the book.
-    for (const m of marks) expect(m.textContent).toBe('Very Close');
+    /*
+     * This read `for (const m of marks) expect(m.textContent).toBe('Very
+     * Close')`, and it was right while the search matched one phrase and drew
+     * one run. It cannot be right now and should not be: `very close` is two
+     * words, and the range bullet says `Close enough to see fine details`
+     * eleven characters after it - one of the GM's words, on its own, in the
+     * same line. Marking it is the feature.
+     *
+     * What was actually being asserted survives whole, in two halves. Every
+     * marked run is **the book's characters** - it is a slice of the shipped
+     * dataset, in the dataset's case, never the lower-case string that was
+     * typed - and every marked run is **one of the words the GM typed**,
+     * never a word the screen chose.
+     */
+    const terms = ruleTerms('very close');
+    for (const m of marks) {
+      const text = m.textContent ?? '';
+      expect(text).not.toBe('');
+      expect(rules.some((r) => `${r.title}\n${r.body}`.includes(text)), text).toBe(true);
+      expect(text.toLowerCase().split(' ').every((w) => terms.includes(w)), text).toBe(true);
+    }
+    // Two words the book wrote side by side are still one run: `Very Close` is
+    // the name of a range, and a mark that split it would put a hole in it.
+    expect(marks.map((m) => m.textContent)).toContain('Very Close');
+    // And the second word on its own, further along the same line, is marked
+    // too - which is the whole of what changed.
+    expect(marks.map((m) => m.textContent)).toContain('Close');
     // And not a lamp in a dim room: the highlight is weight and ink, no block.
     expect(marks[0]!.style.background).toBe('transparent');
     expect(marks[0]!.style.fontWeight).toBe('700');
+  });
+
+  it('marks every word on a line, not just the first one it finds', () => {
+    // `falling damage` lands on the subhead FALLING AND COLLISION DAMAGE, and
+    // the GM's two words are at its two ends: one run is not enough.
+    //
+    // This read "fifty-five of the sixty-one preview lines this search produces
+    // over thirty phrasings need two marks or more". Both figures came off a
+    // thirty-query set that is nowhere in this repository, so neither could be
+    // re-derived from anything a reader can open, and `RuleSearch.tsx`
+    // withdrew them rather than mint a replacement. This assertion is what the
+    // sentence was standing in for anyway, and unlike the sentence it goes red
+    // when the dataset moves.
+    openShow();
+    type('falling damage');
+    const line = hits()[0]!.querySelector('span.t-dense')!;
+    const marks = [...line.querySelectorAll('mark')].map((m) => m.textContent);
+    expect(marks).toEqual(['FALLING', 'DAMAGE']);
+    // Nothing between them was reworded or dropped: the line comes back whole.
+    expect(line.textContent).toBe(searchRules(rules, 'falling damage')[0]!.line);
+  });
+
+  it('marks in the header and in the line when the words are split between them', () => {
+    openShow();
+    type('restrained condition');
+    const header = hits()[0]!;
+    expect(header.querySelector('span.t-label > mark')?.textContent).toBe('Condition');
+    expect(header.querySelector('span.t-dense > mark')?.textContent).toBe('RESTRAINED');
+    // One tap target, both words on it. Nothing has to confess a split that
+    // the GM is not going to see as one.
+    expect(header.style.minHeight).toBe('44px');
+  });
+
+  it('marks every word a far-apart line carries without previewing the whole line', () => {
+    /*
+     * This asserted the same property on `multi target attack` against
+     * `Attacking`, and both halves of that example have since moved.
+     *
+     * The line moved first. That hit quoted a 355-character paragraph about
+     * resistance and immunity, with `multi` marked inside the word *multiple*,
+     * while the section's own `## MULTI-TARGET ATTACK ROLLS` subhead - the
+     * answer - was eight lines further down and never shown. `quoteFrom` now
+     * prefers the subhead, so `Attacking` is a nineteen-character heading hit
+     * and no longer a line with anything far apart on it.
+     *
+     * Then the window moved. It used to widen to hold every mark and stop
+     * there, which had no ceiling in it: the widest preview the thirty-query
+     * set drew was 407 characters, and a line whose words sit at its two ends
+     * came back whole - all 745 characters of `Avoid Death:` in `Death`, for a
+     * hit the GM had not opened.
+     *
+     * So the property is asserted where it still lives, and it is now two
+     * properties rather than one. `spending fear` answers with `Tag Team Rolls`
+     * on a 473-character line whose first and last marks are 322 apart: every
+     * word the line carries is marked, and the preview is 157 characters rather
+     * than 473, because the book between the marks is what gets cut and never a
+     * mark.
+     */
+    openShow();
+    type('spending fear');
+    const hit = searchRules(rules, 'spending fear').find((h) => h.id === 'tag-team-rolls')!;
+    const terms = ruleTerms('spending fear');
+    const low = hit.line!.toLowerCase();
+    const spots = terms.filter((t) => low.includes(t)).flatMap((t) => [low.indexOf(t), low.indexOf(t) + t.length]);
+    expect(Math.max(...spots) - Math.min(...spots)).toBeGreaterThan(150);
+    expect(hit.line!.length).toBeGreaterThan(400);
+
+    const line = hits()[hitTitles().indexOf('Tag Team Rolls')]!.querySelector('span.t-dense')!;
+    const marked = [...line.querySelectorAll('mark')].map((m) => (m.textContent ?? '').toLowerCase());
+    // Every word, still. This is the half that must never be traded away.
+    for (const t of terms) if (low.includes(t)) expect(marked, t).toContain(t);
+    // And the ceiling: a shut hit does not get to quote four hundred characters
+    // of the book at a GM who has not asked it to.
+    expect((line.textContent ?? '').length).toBeLessThan(hit.line!.length / 2);
+    expect(line.textContent).toContain('…');
+  });
+
+  it('says over the list when it could only find some of the words', () => {
+    openShow();
+    type('setting difficulty');
+    const some = searchRules(rules, 'setting difficulty');
+    expect(groupHeaders()).toEqual([
+      `NO SECTION CARRIES ALL OF THOSE WORDS · THESE CARRY SOME · ${String(some.length)}`,
+    ]);
+    // One header, standing in for the three - not a fourth band under them.
+    expect(hits()).toHaveLength(some.length);
+
+    // And it is gone the moment the AND has anything to say.
+    type('falling damage');
+    expect(groupHeaders()).toEqual(['IN A HEADING · 1']);
   });
 
   it('marks the title of a section that is named for the phrase', () => {
@@ -472,6 +1095,263 @@ describe('the results', () => {
     const mark = dialog().querySelector('mark');
     expect(mark?.textContent).toBe('Pitfalls');
     expect(mark?.closest('span')?.className).toBe('t-label');
+  });
+
+  it('lands the GM on the subhead the heading band promised, not the top of the section', () => {
+    /*
+     * The band said IN A HEADING and printed `SOFT AND HARD MOVES`. Opening it
+     * drew *Making GM Moves* from its first block, which put that subhead most
+     * of a screen below where the GM landed - the right section and then a
+     * scroll hunt for the thing the row had already quoted at them.
+     *
+     * jsdom has no layout and no `scrollIntoView`, so what is checkable here is
+     * which element the component asks to bring into view. That is the whole of
+     * the decision this file makes; where a real browser then puts it is the
+     * browser's.
+     */
+    const asked: Element[] = [];
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown };
+    // Restored from the descriptor rather than by deleting: jsdom ships no
+    // `scrollIntoView`, so deleting on the wrong branch would either strip a
+    // real one or leave this stub standing for every test after it.
+    const was = Object.getOwnPropertyDescriptor(proto, 'scrollIntoView');
+    proto.scrollIntoView = function scrollIntoView(this: Element): void {
+      asked.push(this);
+    };
+    try {
+      openShow();
+      type('soft move hard move');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      // The row is quoting the subhead, which is what makes landing elsewhere a
+      // broken promise rather than a preference.
+      expect(hits()[at]!.querySelector('span.t-dense')!.textContent).toBe('SOFT AND HARD MOVES');
+
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      // And it is the block that carries the subhead, not the section's first.
+      expect(asked[0]!.textContent!.startsWith('SOFT AND HARD MOVES')).toBe(true);
+      const blocks = ruleSection(rules, 'making-gm-moves')!.blocks;
+      expect(blocks.findIndex((b) => b.heading === 'SOFT AND HARD MOVES')).toBeGreaterThan(0);
+
+      // A title hit promised the section, so the section's top is the answer
+      // and nothing is scrolled.
+      asked.length = 0;
+      type('countdown');
+      expect(hits()[0]!.getAttribute('aria-expanded')).toBe('false');
+      click(hits()[0]!);
+      expect(searchRules(rules, 'countdown')[0]!.line).toBeNull();
+      expect(asked).toEqual([]);
+    } finally {
+      if (was === undefined) delete proto.scrollIntoView;
+      else Object.defineProperty(proto, 'scrollIntoView', was);
+    }
+  });
+
+  it('lands on the subhead itself, not on an earlier block that quotes it', () => {
+    /*
+     * The landing above matched a heading *or* a block whose prose contained
+     * it, and `making-gm-moves` is a section that does both: its QUICK
+     * REFERENCE block writes `the "Example GM Moves" list` in a sentence, and
+     * two blocks further down `## Example GM Moves` is the list itself. So the
+     * band that had named a subhead landed the GM on the block that only
+     * mentioned it - the defect the landing exists to fix, back again inside
+     * the fix.
+     *
+     * Both halves of that are asserted from the dataset rather than assumed,
+     * so this goes red if the SRD stops quoting its own subhead as well as if
+     * the lookup starts searching prose for a heading again.
+     */
+    const blocks = ruleSection(rules, 'making-gm-moves')!.blocks;
+    const owner = blocks.findIndex((b) => b.heading === 'Example GM Moves');
+    const quoter = blocks.findIndex((b) =>
+      b.parts.some((p) => p.kind === 'text' && p.text.includes('Example GM Moves')),
+    );
+    expect(quoter).toBeGreaterThanOrEqual(0);
+    expect(quoter).toBeLessThan(owner);
+
+    landings((asked) => {
+      openShow();
+      type('example moves');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      const hit = searchRules(rules, 'example moves').find((h) => h.id === 'making-gm-moves')!;
+      // The band promised a subhead, which is what makes landing elsewhere a
+      // broken promise rather than a preference.
+      expect(hit.where).toBe('heading');
+      expect(hit.line).toBe('Example GM Moves');
+
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.textContent!.startsWith('Example GM Moves')).toBe(true);
+      // Not the block that merely says the words.
+      expect(asked[0]!.textContent).not.toContain('QUICK REFERENCE');
+    });
+  });
+
+  it('lands a text hit on the block whose prose carries the quoted line', () => {
+    /*
+     * The band said IN THE TEXT and quoted a line out of the middle of the
+     * section. `hope-and-fear` draws three blocks and the line is in the
+     * second, so landing on the first would be the top of the section again.
+     *
+     * The line is in a prose part and in nothing else - asserted here, so a
+     * survivor of the prose lookup cannot be a bullet quietly covering for it.
+     */
+    const hit = searchRules(rules, 'spending fear').find((h) => h.id === 'hope-and-fear')!;
+    expect(hit.where).toBe('text');
+    const blocks = ruleSection(rules, 'hope-and-fear')!.blocks;
+    expect(blocks.length).toBeGreaterThan(1);
+    const inProse = blocks.findIndex((b) =>
+      b.parts.some((p) => p.kind === 'text' && p.text.includes(hit.line!)),
+    );
+    expect(inProse).toBeGreaterThan(0);
+    expect(
+      blocks.some((b) => b.parts.some((p) => p.kind === 'list' && p.items.includes(hit.line!))),
+    ).toBe(false);
+    expect(blocks.some((b) => b.heading === hit.line)).toBe(false);
+
+    landings((asked) => {
+      openShow();
+      type('spending fear');
+      const at = hitTitles().indexOf('Hope & Fear');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.textContent!.startsWith(blocks[inProse]!.heading!)).toBe(true);
+      expect(asked[0]!.textContent).toContain(hit.line);
+    });
+  });
+
+  it('lands a text hit on the block whose bullet is the quoted line', () => {
+    /*
+     * The other arm, and the one the prose arm cannot cover for: the line
+     * `making-gm-moves` quotes for `golden opportunity` is a bullet, it is a
+     * bullet in exactly one block, and it appears in no paragraph of the
+     * section at all - so if this lands anywhere it landed through the list
+     * lookup.
+     */
+    const hit = searchRules(rules, 'golden opportunity').find((h) => h.id === 'making-gm-moves')!;
+    expect(hit.where).toBe('text');
+    const blocks = ruleSection(rules, 'making-gm-moves')!.blocks;
+    const inList = blocks.findIndex((b) =>
+      b.parts.some((p) => p.kind === 'list' && p.items.includes(hit.line!)),
+    );
+    expect(inList).toBeGreaterThan(0);
+    expect(
+      blocks.some((b) => b.parts.some((p) => p.kind === 'text' && p.text.includes(hit.line!))),
+    ).toBe(false);
+    expect(blocks.some((b) => b.heading === hit.line)).toBe(false);
+
+    landings((asked) => {
+      openShow();
+      type('golden opportunity');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.textContent!.startsWith(blocks[inList]!.heading!)).toBe(true);
+      expect(asked[0]!.textContent).toContain(hit.line);
+    });
+  });
+
+  it('can only reach the top of a section the SRD draws as a single block', () => {
+    /*
+     * The limit, written down as a test rather than as a sentence. A section
+     * with no `## ` in it is one block, so its landing block is the block the
+     * section already opened with, and the GM arrives at the top of their
+     * section rather than on their line. Reaching the line means changing
+     * `BlockView`, which this lane does not own.
+     *
+     * The count is here so it goes red on a dataset change instead of ageing
+     * quietly in a docblock, which is how this file lost figures before.
+     */
+    const single = rules.filter((r) => ruleSection(rules, r.id)!.blocks.length === 1);
+    expect(rules).toHaveLength(69);
+    expect(single).toHaveLength(34);
+    // Not vacuous the other way either: most sections do have subheads to land
+    // on, which is what makes the landing worth having at all.
+    expect(rules.length - single.length).toBe(35);
+
+    const section = single.find((r) => r.id === 'stress')!;
+    const hit = searchRules(rules, 'stress mark clear').find((h) => h.id === section.id)!;
+    expect(hit.line).not.toBeNull();
+    // One block, so there is exactly one place to land and it is the top.
+    expect(ruleSection(rules, section.id)!.blocks).toHaveLength(1);
+
+    landings((asked) => {
+      openShow();
+      type('stress mark clear');
+      const at = hitTitles().indexOf(section.title);
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      // The whole section, from its first word: this is the top, not the line.
+      const drawn = asked[0]!.textContent!;
+      expect(drawn).toContain(hit.line);
+      expect(drawn.indexOf(hit.line!)).toBeGreaterThan(0);
+    });
+  });
+
+  it('can find the block for every subhead the shipped SRD carries', () => {
+    /*
+     * The landing above is an equality between two strings produced by two
+     * different files: `quoteFrom` hands the screen a heading with
+     * `text.replace(/^#+\s+/, '')`, and `ruleBlocks` captures the same line
+     * with `/^##\s+(.+)$/`. They agree today. This is the test that goes red on
+     * the day one of them starts trimming differently, and it asks it of every
+     * subhead in the book rather than of the two the docblock names.
+     */
+    let subheads = 0;
+    for (const section of rules) {
+      const blocks = ruleSection(rules, section.id)!.blocks;
+      for (const raw of section.body.split('\n')) {
+        const found = /^##\s+(.+)$/.exec(raw.trim());
+        if (found === null) continue;
+        subheads += 1;
+        const heading = found[1]!.trim();
+        expect(
+          blocks.some((b) => b.heading === heading),
+          `${section.id} :: ${heading}`,
+        ).toBe(true);
+        // And the string the search would hand the screen for a hit on that
+        // line is character-for-character the one the block carries.
+        expect(raw.trim().replace(/^#+\s+/, '').replace(/^-\s+/, '')).toBe(heading);
+      }
+    }
+    // Not a vacuous pass: the book really does carry subheads.
+    expect(subheads).toBeGreaterThan(100);
+  });
+
+  it('gives the title mark a plate, because its face has no weight left to give', () => {
+    /*
+     * `.t-label` is `600 10px var(--mono)` and `--mono` is IBM Plex Mono, which
+     * this app ships as 400, 500 and 600 - three `@font-face` rules in
+     * `tokens.css` and no 700. So the 700 the mark asks for cannot arrive, and
+     * `--text-2` -> `--text` is a 1.38:1 step of ink against the 1.83:1 the
+     * preview line gets from `--muted`. Both of the channels that work on the
+     * preview are spent on the title, so the title gets the third one.
+     *
+     * The preview keeps its cleared background, and that is half the property:
+     * this is not "marks get plates", it is "the run whose face cannot get
+     * heavier gets a plate".
+     */
+    openShow();
+    type('restrained condition');
+    const header = hits()[0]!;
+    const title = header.querySelector('span.t-label > mark')!;
+    const line = header.querySelector('span.t-dense > mark')!;
+    expect(title.textContent).toBe('Condition');
+    expect(line.textContent).toBe('RESTRAINED');
+
+    expect((title as HTMLElement).style.background).toBe('var(--line)');
+    expect((line as HTMLElement).style.background).toBe('transparent');
+    // The ink is the same on both, and it is the top of the palette - which is
+    // why the plate had to be the thing that moved.
+    expect((title as HTMLElement).style.color).toBe('var(--text)');
+    expect((line as HTMLElement).style.color).toBe('var(--text)');
+    // No padding on the plate: it would shift a monospaced label off its grid.
+    expect((title as HTMLElement).style.padding).toBe('');
   });
 
   it('opens one hit at a time, in place, and draws the section it came from', () => {

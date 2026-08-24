@@ -22,6 +22,50 @@
  * hit at once would bury the list under the first section's bullets. One open
  * hit keeps the list, the answer and the field all on the same surface.
  *
+ * ## Opening lands on the block the band promised, not on the top of the section
+ *
+ * The IN A HEADING band says a subhead carries the GM's words and prints that
+ * subhead under the title. Opening the hit used to draw the whole section from
+ * its first block and stop there, which put the GM at the top of a section
+ * whose promised subhead can be most of a screen further down - `soft move hard
+ * move` opens *Making GM Moves* and wants its fifth block, `line of sight
+ * cover` opens *Maps, Range, and Movement* and wants its fifth of five. The
+ * band found the right section and then lost the GM inside it, and for a GM
+ * mid-sentence with five people waiting a scroll hunt is most of the way back
+ * to the blank screen this search exists to stop.
+ *
+ * So `Hit` finds the block that carries `hit.line` - `blockOf` below, an
+ * equality against `SectionBlock.heading` because `quoteFrom` and `ruleBlocks`
+ * strip the same `## ` - and scrolls it to the top of the scroller `ShowSheet`
+ * already puts this list inside. A `title` hit has no line and does not move:
+ * it promised the section, and the section's top is the section.
+ *
+ * **The other half of that defect is not fixable in this file and is not
+ * fixed.** The GM's words are marked in the preview and are *not* marked
+ * anywhere in the body that opens, so the subhead they land on arrives with no
+ * word on it lit. Marking it means `BlockView` - `src/ui/gm/ReferenceTables.tsx`,
+ * where it is declared taking `{ block }` and nothing else - accepting a
+ * `query` and running its heading, its paragraphs and its list items through
+ * the same `Marked` walk this file uses. That is an added optional prop, three
+ * wrapped children at its three text call sites, and an export of `Marked` from
+ * here: on the order of ten lines in a file this lane does not own, plus the
+ * four other `BlockView` call sites that would pass nothing and keep the
+ * unmarked behaviour. It is written down rather than done.
+ *
+ * **A block is as fine as this lands, and where the SRD draws a section as one
+ * block, that is the section's top.** 34 of the 69 shipped sections carry no
+ * `## ` at all, so `ruleSection` gives each of them a single block, and a hit
+ * inside one lands on the block the section already began with: the GM is
+ * brought to the top of their section rather than to their line. The same
+ * `BlockView` signature is what stops it. That file draws a prose part as one
+ * `<p>{part.text}</p>` holding a whole paragraph and a bullet as
+ * `<li>{item}</li>`, so a *bullet* could be landed on by threading one more
+ * optional prop to that `<li>` - a handful of lines there, plus the same four
+ * call sites passing nothing - while a prose *line* could not be landed on at
+ * all until that `<p>` stops being one node per paragraph, which changes what
+ * every one of those callers draws. Neither is done, and nothing below claims
+ * either. `ruleSearch.test.tsx` pins the 34 rather than leaving it to age.
+ *
  * That single-open rule is the whole reason `Hit` below is not `Fold`. Its
  * header is otherwise `Fold`'s header, deliberately - same `t-label` title in
  * `--text-2`, same `t-meta` page stamp in `--muted`, same `aria-expanded`
@@ -37,31 +81,74 @@
  * `--dim` is left to the two labels that are not `Fold`'s - the group headers
  * and the table note - which have no counterpart there to disagree with.
  *
- * ## The organised half of the request: two groups, not a ranking
+ * ## The organised half of the request: three bands, not a ranking
  *
- * `searchRules` returns title matches before body matches. That order is
- * invisible in a flat list, so the list is drawn as the two groups the order
- * already is: **IN THE TITLE**, then **IN THE TEXT**, each with its own count.
- * A GM who typed `countdown` sees at a glance that one section of the shipped
- * SRD is *about* countdowns and six merely mention them, which is the
- * distinction they were going to make by reading the titles anyway.
+ * `searchRules` returns title matches, then heading matches, then body matches.
+ * That order is invisible in a flat list, so the list is drawn as the bands the
+ * order already is: **IN THE TITLE**, **IN A HEADING**, then **IN THE TEXT**,
+ * each with its own count. A GM who typed `countdown` sees at a glance that one
+ * section of the shipped SRD is *about* countdowns and six merely mention them,
+ * which is the distinction they were going to make by reading the titles
+ * anyway.
  *
- * It is two groups rather than a relevance score for the reason `searchRules`
- * gives: weighting the SRD's sections would be the app deciding which rule the
- * GM meant. A group header is the data's own split, printed.
+ * The middle band came with the multi-term matcher, and it earns a header
+ * rather than being folded into the text: the SRD keeps 156 `## ` subheads
+ * across 36 of its 69 sections, so `fear` now draws three bands where it drew
+ * two, and a subhead names a rule in the same way a title does. `searchRules`
+ * argues that at greater length; this file pays for it in a 10px header.
+ *
+ * It is bands rather than a relevance score for the reason `searchRules` gives:
+ * weighting the SRD's sections would be the app deciding which rule the GM
+ * meant. A group header is the data's own split, printed.
+ *
+ * There is a fourth header and it appears in place of all three. When no
+ * section carries every word, `searchRules` falls back to the sections carrying
+ * some, and that list is drawn under **NO SECTION CARRIES ALL OF THOSE WORDS ·
+ * THESE CARRY SOME**. The header is the whole point of the fallback: an
+ * unranked list of eighteen sections presented as *the answer* is a worse lie
+ * than a blank screen, and presented as *this is not the answer, here is what
+ * is near it* it is a place to start.
  *
  * ## Where the query landed, marked
  *
- * The matched characters are drawn in `--text` at weight 700 inside a `<mark>`
- * whose background is explicitly cleared. A GM scanning fifteen previews in a
- * dim room needs to find their own words in each line without reading it, and a
- * yellow block - the UA default - is a lamp in that room. Nothing is reworded,
- * nothing is reordered, and the marked run is the line's own characters in the
- * line's own case: `preview` splits, it never rewrites.
+ * The matched characters are drawn in `--text` at weight 700 inside a `<mark>`.
+ * On the preview line the background is explicitly cleared: a GM scanning
+ * fifteen previews in a dim room needs to find their own words in each line
+ * without reading it, and a yellow block - the UA default - is a lamp in that
+ * room. On the *title* the mark carries a plate instead, for a reason that is
+ * about the face rather than about taste; `Marked` below argues it, with the
+ * ink ratios and the `@font-face` count it turns on. Nothing is reworded,
+ * nothing is reordered, and the marked runs are the line's own characters in
+ * the line's own case: `preview` splits, it never rewrites.
  *
- * The title is marked through the same call. For a text hit the title cannot
- * contain the query - a title that contained it would have made it a title hit
- * - so the mark is empty there and the title draws plain, with no branch.
+ * There are several marks now, because there are several words, so `Marked`
+ * walks the line instead of splitting it once: `preview` cuts at the first run
+ * and hands the rest back to `splitFirst`, which cuts at the next, until there
+ * is nothing left to mark. Two runs the book wrote with nothing but a space
+ * between them are marked as one, because the GM typed them with nothing but a
+ * space between them - which is how `very close` still marks `Very Close` and
+ * not `Very` and `Close`.
+ *
+ * **A count stood here and is withdrawn rather than re-taken.** It read
+ * "measured over the sixty-one preview lines the thirty-query set produces,
+ * fifty-five need two marks or more". That thirty-query set is not in this
+ * repository - not in `ruleSearch.test.tsx`, not in the data, nowhere a reader
+ * can open - so neither the sixty-one nor the fifty-five can be checked by
+ * anyone who did not have the probe open at the time, and re-running the
+ * sentence against a set reconstructed here would only mint a third number. The
+ * property the walk actually needs is that *a* preview line can carry two runs,
+ * and that is pinned on a named query by *marks every word on a line, not just
+ * the first one it finds* in `ruleSearch.test.tsx`, where a dataset change can
+ * turn it red. A test that fails beats a figure nobody can re-derive.
+ *
+ * The title is marked through the same call, and that is no longer the empty
+ * case it was. A text hit's title could not contain a *phrase* the body carried
+ * - a title that contained it would have made it a title hit - but it can
+ * certainly contain one word of several: `restrained condition` finds a line in
+ * `Conditions`, and the header marks `Condition` inside `Conditions` while the
+ * line - the book's own RESTRAINED subhead - marks itself. That is the header
+ * doing the job the matcher already gave it: the two words are one tap target
+ * apart, not eight paragraphs.
  *
  * ## Ergonomics: the field is the last element in the sheet
  *
@@ -93,19 +180,69 @@
  * re-measured here and must not be read as current. It belongs to the single
  * Chrome pass that owes six surfaces at once.
  *
- * Empty, the sheet is 308.2px - a little over a third of the window. Typing
- * fills it upward: `countdown` finds seven sections and takes it to 632.4px,
- * and `adversary` finds twenty and pins it against the cap. (`countdown` is
- * still seven after the Witherwild removal and `adversary` was twenty-two
- * before it; both counts re-run against the shipped dataset rather than
- * assumed. It still pins without a fresh measurement, and that is arithmetic
- * on numbers already taken rather than a new one: twenty shut hits at the 44px
- * floor is 880px against a cap of 717.4.) That cap
- * measures **717.4px**, not the 724.2 that 85% of 852 would be, because
- * `GmSheet` pays 8px of padding above the panel and a percentage `max-height`
- * resolves against the flex container's content box - 85% of 844. Nine of those
- * twenty hits are fully on screen before the first scroll. All of that is
- * this machine's Chrome at a 393px viewport, not a phone's.
+ * **"Empty, the sheet is 308.2px" is withdrawn rather than replaced.**
+ * `ShowSheet.tsx` retired that figure where it was first taken: with every door
+ * on and the field empty the panel measures 402.73, and 308.2 was true of two
+ * doors, which is a state this sheet still has and is no longer the state it is
+ * usually in. This file went on printing it as current, in a paragraph the same
+ * commit rewrote. There is no fresh number in its place because there is no
+ * fresh Chrome pass here, and a figure invented at this keyboard would read as
+ * a measurement that was never taken.
+ *
+ * Typing fills the sheet upward. `countdown` finds seven sections and
+ * `adversary` twenty - both re-run against the shipped dataset rather than
+ * assumed; `countdown` was seven before the Witherwild removal too and
+ * `adversary` was twenty-two. Both counts survive the multi-term matcher
+ * unchanged, and that is not luck: for one word the AND is one `includes` and
+ * the line it picks is the first line carrying that word, which is the line the
+ * phrase search picked. What does move for them is the band count - `adversary`
+ * draws three bands now where it drew two, `countdown` still draws two.
+ *
+ * **"Twenty shut hits at the 44px floor is 880px" is withdrawn too.** It was
+ * arithmetic and not a measurement - twenty times forty-four - and it assumed
+ * the thing it was there to establish, that every one of the twenty sits on the
+ * floor. A verifier put `adversary` in front of Chrome at 393 x 852 with a
+ * 363px column and measured the results column at **1327.1px**, which is 447
+ * more than 880; that is how the figure was found, and it is the whole of the
+ * reason it goes.
+ *
+ * The withdrawal used to give a different reason - that a sentence elsewhere in
+ * this docblock contradicted it and "this docblock could have caught itself".
+ * It could not have. The sentence it blamed, the one calling two- and
+ * three-line previews the ordinary shape of a hit, was written by the same
+ * commit that withdrew the 880; `git show 6fefd74:src/ui/gm/RuleSearch.tsx`
+ * carries no such sentence. The docblock the 880 lived in contradicted nothing.
+ * A withdrawal does not need a cause it has to invent.
+ *
+ * **How many of the twenty are on the floor is not settled here, and the
+ * arithmetic beside it cannot settle it.** That verifier read 7 of 20; a second
+ * pass over the same query read 12. Both fit the 1327.1 they agree on, and not
+ * approximately: `adversary` returns 20 hits banded 5 title / 2 heading / 13
+ * text, so the column is those twenty plus three 10px headers and twenty-two
+ * 10px gaps, and solving over the three measured shut-hit heights gives
+ * 7x44 + 11x56.7 + 2x72.6 = 1076.9 and 12x44 + 2x56.7 + 6x72.6 = 1077.0 - two
+ * integer solutions, 0.1px apart, inside one rendering. So the count is left
+ * out rather than given, and what stands is what both passes and the arithmetic
+ * agree on: the column is **1327.1px**, and it is not twenty hits at the floor.
+ * The cap it runs against still measures **717.4px**, not the 724.2 that 85% of
+ * 852 would be, because `GmSheet` pays 8px of padding above the panel and a
+ * percentage `max-height` resolves against the flex container's content box -
+ * 85% of 844. So `adversary` pins against that cap and scrolls; how many of its
+ * twenty are on screen before the first scroll was arithmetic on the 880 and
+ * goes with it.
+ *
+ * **The multi-term matcher moves two of those numbers, and only one of the two
+ * can be moved here.** A third band puts a third 10px header into any result
+ * that has one - `fear` draws three bands where it drew two, so the same hits
+ * stand 10px taller - and that is arithmetic on a pixel already measured. The
+ * other is the preview, and it is not: two- and three-line previews are the
+ * ordinary shape of a hit now rather than the exception, which moves a shut hit
+ * off the 44px floor onto the 56.7 and 72.6 that were measured for those cases.
+ * How many lines a given preview wraps to in a 363px column is a Chrome
+ * measurement, jsdom cannot take it, and nothing here invents it. It belongs to
+ * the same pass 82.6 belongs to, which owes seven surfaces now rather than six.
+ * What this file can bound without a browser is characters, and the section
+ * below now bounds them: no preview keeps more than 150 characters of the book.
  *
  * A phone keyboard rises from that same bottom edge, and its height - and what
  * a browser does to a `position: fixed` scrim when it appears - is a device
@@ -140,35 +277,136 @@
  * permanent 66px hole or a greyed control, both of which `ShowSheet`'s own
  * docblock argues against.
  *
- * ## The preview is windowed, and says where it cut
+ * ## The preview is windowed around every mark, bounded, and says where it cut
  *
- * 294 of the 969 non-empty body lines in the shipped SRD are longer than the
- * 150 characters this window keeps, and the longest is 780. A list of fifteen
- * of those is a list nobody scans. `preview` below takes a window around the
- * match rather than the first N characters, so the words the GM typed are always
- * inside it, and marks each cut end with an ellipsis. Nothing is reworded and
- * nothing is summarised; the whole line is one tap away, and the tap draws the
- * section it came from.
+ * 255 of the 869 non-empty body lines in the shipped SRD are longer than the
+ * 150 characters `BEFORE + AFTER` keeps, and the longest is 747. (It was 294 of
+ * 969 and 780 while the dataset still carried the Witherwild frame; the three
+ * counts are re-taken against the file that ships, and only the counts moved.
+ * Those three count the line as the book writes it, `- ` and `## ` included,
+ * pipe rows and all.
+ *
+ * `preview` is handed none of that. `quoteFrom` strips `## ` and `- ` off the
+ * front of a line, and it skips a pipe row outright rather than stripping it -
+ * `if (text.startsWith('|')) { inTable = true; continue; }` - so a table row
+ * never becomes a `line` and never reaches this function. In the unit `preview`
+ * actually receives, then, the population is **769** lines, **227** of them
+ * over 150, and the longest is **745**: the two characters off 747 are the
+ * bullet on `Avoid Death:`, and the hundred lines off 869 are the book's pipe
+ * rows. It read "253 lines over 150, counted the way `preview` sees them",
+ * which is a third unit - markup stripped but pipe rows still counted - and one
+ * `preview` never sees either.)
+ * A list of fifteen of those is a list nobody scans. `preview` below takes a window
+ * around the match rather than the first N characters, so the words the GM
+ * typed are always inside it, and marks each cut end with an ellipsis. Nothing
+ * is reworded and nothing is summarised; the whole line is one tap away, and
+ * the tap draws the section it came from.
+ *
+ * *Always inside it* got harder the moment there was more than one word: a
+ * line can carry the GM's words further apart than the 150-character window is
+ * wide. The one this file names is `spending fear` landing in `Tag Team Rolls`
+ * on a **473**-character line whose first and last marks are **322** apart -
+ * both figures are the shipped `data/srd-1.0.json`'s own and come back from it
+ * on demand, and `ruleSearch.test.tsx` asserts the shape of them on that query.
+ * The choice was to hold every mark or to leave a word unmarked off the end of
+ * the preview, and every mark is held.
+ *
+ * (A count stood in front of that example - "ten have their first and last mark
+ * further apart than that 150-character window" - and it is withdrawn for the
+ * reason the marks paragraph above withdraws its own: it counts over a
+ * thirty-query set this repository does not contain. The example survives
+ * because it does not depend on the set; the line and the two numbers on it are
+ * in the data file.) The unmarked word would be a lie by omission in exactly
+ * the case a GM most needs the preview - three words typed, and the line is
+ * long *because* it carries all three.
+ *
+ * **Holding every mark by widening the window was the wrong half of that
+ * choice, and it is not what happens now.** Widening had no ceiling in it: the
+ * window ran from `BEFORE` the first mark to `AFTER` the last of the first
+ * appearances and stopped, so its width was whatever the book's spacing said,
+ * and a line whose words sit at its two ends came back **whole**. The SRD has a
+ * 745-character one,
+ * `Avoid Death:` in `Death`, and a GM who had opened nothing got all of it. A
+ * verifier measured that preview in Chrome at 363px: **199.5px**, four and a
+ * half times the 44px tap floor and about 31.5% of a results viewport of
+ * roughly 634px, with `spending fear` already at **120.2px**. Those figures are
+ * theirs and are cited as theirs; none of them is re-taken or derived here.
+ *
+ * So the book is on a budget - `WINDOW`, 150 characters - and **the marks are
+ * not in it**. What pays for a line whose words are far apart is the book
+ * *between* the marks: `shares` hands the gaps whatever the budget has left,
+ * `bridge` elides what will not fit, and every word the GM typed and the line
+ * carries is still drawn, marked, in the book's own case. Swept over **2,142**
+ * queries built from every body line the shipped file has, the longest preview
+ * is **199** characters where the old window drew **745**, no preview keeps
+ * more than 150 characters of book, and not one of the 2,142 loses a mark.
+ * `ruleSearch.test.tsx` runs that sweep on every run, which is why those are
+ * the figures quoted here rather than the ones a probe took once.
+ *
+ * Two and three preview lines are still the ordinary shape of a hit rather than
+ * the exception. What has gone is the eleventh line.
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { RulesSection } from '../../../shared/types.ts';
 import { useApp } from '../../store/state.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
-import { ruleSection, searchRules, type RuleHit } from '../shared/srdReference.ts';
+import {
+  ruleSection,
+  ruleTerms,
+  searchRules,
+  type RuleHit,
+  type SectionView,
+} from '../shared/srdReference.ts';
 import { BlockView } from './ReferenceTables.tsx';
 
-/** How much of a long line to keep on either side of the match. */
+/** How much of a long line to keep on either side of the marks. */
 const BEFORE = 34;
 const AFTER = 116;
+/**
+ * The ceiling: the most characters *of the book* one shut preview keeps.
+ *
+ * The marks are not in this budget and are never spent out of it - every word
+ * the GM typed and the line carries is drawn, whole, always. What the budget
+ * bounds is the unmarked text around and between them.
+ *
+ * It is `BEFORE + AFTER` because that is **what a one-mark preview already
+ * kept**, so a preview with a single run comes back character for character
+ * what it was before this ceiling existed: it spends 34 in front and 116
+ * behind and has no gap in the middle to pay for. The ceiling was added to
+ * bound the many-mark case, and it is set at the width the one-mark case had
+ * so that adding it changed nothing that was not broken.
+ *
+ * **The reason given here used to be a different one, and it was false.** It
+ * said 150 was "the width whose height on the glass was actually measured: 150
+ * characters of book came to at most three preview lines." No such measurement
+ * exists. This file's own Ergonomics section says the opposite in as many
+ * words - *how many lines a given preview wraps to in a 363px column is a
+ * Chrome measurement, jsdom cannot take it, and nothing here invents it* - and
+ * lists that wrap count among the surfaces a future Chrome pass still owes.
+ * The 56.7 and 72.6 that were measured are heights for a two- and a three-line
+ * preview; neither says how many characters produce one. And 150 is not even
+ * the width of what gets drawn: the marks sit on top of the budget, so
+ * `roll damage modifier` on `Character Creation` draws **193** characters, and
+ * the sweep's widest is **199**. A constant can be right for a reason that is
+ * not the reason written next to it, and this one was.
+ */
+const WINDOW = BEFORE + AFTER;
+/** How much of the book to keep on each side of an elided gap. */
+const BRIDGE = 10;
 
 /**
- * A line split into what comes before the query, the query as the line spells
- * it, and what comes after.
+ * A line split into what comes before one marked run, that run as the line
+ * spells it, and what comes after.
  *
- * `match` is a slice of the line rather than the typed query, so the case is
- * the book's: type `very close` and what is marked is `Very Close`. It is `''`
- * when the line does not carry the query at all, which is the honest answer for
- * a title on a hit that matched in the body.
+ * `match` is a slice of the line rather than the typed word, so the case is the
+ * book's: type `very close` and what is marked is `Very Close`. It is `''` when
+ * the line carries none of the words at all, which is the honest answer for the
+ * title of a hit whose words are all in the body.
+ *
+ * One run, not the whole line's worth: `after` can carry further runs, and
+ * `Marked` splits it again until it does not. Keeping the shape at one run is
+ * what lets the window - which has to be decided once, over the whole line -
+ * live in `preview` and the walk live in the component.
  */
 export interface RulePreview {
   before: string;
@@ -177,57 +415,336 @@ export interface RulePreview {
 }
 
 /**
- * A long line, cut down to a window that contains the match, and split at it.
+ * Every run of `text` the GM's words claim, merged, in order, and how far along
+ * the line their first appearances reach.
  *
- * Each cut lands on the nearest space between it and the match, where there is
+ * Two runs with nothing but whitespace between them are one run. The GM typed
+ * those words side by side and the book wrote them side by side, so marking
+ * them separately would put a hole in a phrase that is not there: `very close`
+ * marks `Very Close`, which is the range this book names, not `Very` and
+ * `Close` with a gap between them.
+ *
+ * `cover` is where the window has to reach to have shown every word at least
+ * once - the furthest end among the words' *first* appearances, not among all
+ * of them. A word repeated at the end of the dataset's longest line - **745**
+ * characters as this function receives it, the `- ` already off it - is marked
+ * if the window happens to reach it and is not a reason to widen the window to
+ * it. (780 stood here, in a docblock added in the same sitting as the paragraph
+ * seventy lines above that re-took the figure as 747. One file, two numbers,
+ * one subject.)
+ */
+function marksIn(text: string, query: string): { runs: Array<[number, number]>; cover: number } {
+  const low = text.toLowerCase();
+  const found: Array<[number, number]> = [];
+  let cover = 0;
+  for (const term of ruleTerms(query)) {
+    let at = low.indexOf(term);
+    if (at === -1) continue;
+    cover = Math.max(cover, at + term.length);
+    for (; at !== -1; at = low.indexOf(term, at + term.length)) found.push([at, at + term.length]);
+  }
+  found.sort((a, b) => a[0] - b[0]);
+
+  const runs: Array<[number, number]> = [];
+  for (const [start, end] of found) {
+    const last = runs.at(-1);
+    if (last !== undefined && start <= last[1]) last[1] = Math.max(last[1], end);
+    else if (last !== undefined && text.slice(last[1], start).trim() === '') last[1] = end;
+    else runs.push([start, end]);
+  }
+  return { runs, cover };
+}
+
+/**
+ * `text`, split at its first marked run and at nothing else.
+ *
+ * No window: this is what `Marked` walks the tail of an already-windowed line
+ * with, and re-windowing a tail would cut characters out of the middle of a
+ * preview without an ellipsis to say it had.
+ */
+function splitFirst(text: string, query: string): RulePreview {
+  const [first] = marksIn(text, query).runs;
+  if (first === undefined) return { before: text, match: '', after: '' };
+  return {
+    before: text.slice(0, first[0]),
+    match: text.slice(first[0], first[1]),
+    after: text.slice(first[1]),
+  };
+}
+
+/**
+ * A stretch of book between two marks, cut down to `allow` characters.
+ *
+ * Half either side and an ellipsis in the middle, and the cuts land on a space
+ * where there is one inside the half, so the bridge does not begin or end
+ * mid-word; where there is not, it cuts where it has to, the same concession
+ * the ends of the window make. A gap the allowance already covers comes back
+ * untouched, which is why a preview whose words the book wrote near each other
+ * is byte-for-byte what it was before there was a ceiling at all.
+ */
+function bridge(gap: string, allow: number): string {
+  if (gap.length <= allow) return gap;
+  const half = Math.max(BRIDGE, Math.floor(allow / 2));
+  const head = gap.slice(0, half);
+  const tail = gap.slice(gap.length - half);
+  const cutHead = head.lastIndexOf(' ');
+  const cutTail = tail.indexOf(' ');
+  return `${cutHead === -1 ? head : head.slice(0, cutHead)}…${cutTail === -1 ? tail : tail.slice(cutTail + 1)}`;
+}
+
+/**
+ * How much of each gap survives, when the gaps between them have `budget`
+ * characters to share.
+ *
+ * Evenly, and a gap that does not need its share hands the surplus back to the
+ * ones that do - so a line with one long gap and three short ones spends almost
+ * the whole budget on the long one rather than cutting all four to a quarter
+ * each. Nothing here is a ranking of the gaps; every gap is worth the same and
+ * the only thing that differs is how much of it there is.
+ */
+function shares(gaps: readonly number[], budget: number): number[] {
+  const out = gaps.map(() => 0);
+  let open = gaps.map((_, i) => i);
+  let left = budget;
+  while (open.length > 0) {
+    const share = Math.floor(left / open.length);
+    const small = open.filter((i) => gaps[i]! <= share);
+    if (small.length === 0) {
+      for (const i of open) out[i] = share;
+      break;
+    }
+    for (const i of small) {
+      out[i] = gaps[i]!;
+      left -= gaps[i]!;
+    }
+    open = open.filter((i) => gaps[i]! > share);
+  }
+  return out;
+}
+
+/**
+ * A long line, cut down to every mark plus at most `WINDOW` characters of the
+ * book around and between them, and split at the first mark.
+ *
+ * Each cut lands on the nearest space between it and the marks, where there is
  * one, so the preview does not begin or end mid-word; where there is not - a
- * 34-character run with no space in it - it cuts where it has to. An ellipsis marks each end that was cut, and only an end that was
- * cut - a line that fits comes back whole, character for character, which is
- * what lets the stamp beside it stay honest.
+ * 34-character run with no space in it - it cuts where it has to. An ellipsis
+ * marks each end that was cut, and only an end that was cut - a line that fits
+ * comes back whole, character for character, which is what lets the stamp
+ * beside it stay honest.
+ *
+ * ## Why there is a ceiling, and why it never costs a mark
+ *
+ * The window ran from `BEFORE` ahead of the first mark to `AFTER` past `cover`
+ * and stopped there, which meant it had no ceiling: a line whose words are 300
+ * characters apart was previewed over 300 characters, and a line whose spread
+ * was wider than the line itself was previewed **whole**. That last case did
+ * the damage, because the guard that let a short line through compared the line
+ * against a window that grew with the spread - so the SRD's longest line, 745
+ * characters, `Avoid Death:` in `Death`, came back entire for a query whose
+ * words sit at its two ends. One shut hit, never opened, taller than anything
+ * else on the surface. The verifier who found it measured that one at
+ * **199.5px** in Chrome at 363px, against a 44px tap floor and a results
+ * viewport of about 634px; the figures are theirs, not re-taken here.
+ *
+ * So the book is put on a budget of `WINDOW` characters and **the marks are not
+ * in it**. Every word the GM typed and the line carries has its first
+ * appearance inside `[start, end]` by construction - `start` is at or before
+ * the earliest run, `end` is at or after `cover`, and `cover` is the furthest
+ * end among the words' *first* appearances - and every run in that range is
+ * drawn whole. Nothing is dropped off-screen, so the other half of this file's
+ * rule - *say so when you could not show them all* - never has to fire, and
+ * there is no confession line to print under the preview.
+ *
+ * ## What the budget is spent on, in order
+ *
+ * 1. **The run-up**, `BEFORE` characters ahead of the first mark. A mark with
+ *    no lead-in is a word with no sentence around it.
+ * 2. **The gaps between the marks**, shared out by `shares`. This is the one
+ *    that had to be argued: an earlier draft of this ceiling elided every gap
+ *    over twenty-one characters on principle, and it turned
+ *    `stress clearing` on `Additional Rules` from a readable sentence into
+ *    `…you can't…or mark Stress multiple…roll.` - eight ellipses in a list of
+ *    fifteen, and a GM cannot read a word of it. The middle of the sentence is
+ *    the sentence. It is cut only when the ceiling actually forces it.
+ * 3. **The tail**, up to `AFTER` past `cover`, out of whatever is left. It is
+ *    spent first because it is the only part of the preview that carries none
+ *    of the GM's words and does not join two that it carries.
+ *
+ * Swept over 2,142 queries built from every body line in the shipped file - the
+ * sweep is in `ruleSearch.test.tsx` and runs on every test run - the longest
+ * preview this draws is **199** characters against the old window's **745**, no
+ * preview keeps more than 150 characters of book, and not one of the 2,142
+ * loses a mark. A second pair stood in front of that, 189 against 407, counted
+ * over the thirty-query set instead; both are withdrawn with the rest of that
+ * set's figures, because the set is not in this repository and the sweep beside
+ * them makes the same point out of a population a reader can regenerate.
  */
 export function preview(line: string, query: string): RulePreview {
-  const needle = query.trim().replace(/\s+/g, ' ').toLowerCase();
-  const at = needle === '' ? -1 : line.toLowerCase().indexOf(needle);
-  if (at === -1) return { before: line, match: '', after: '' };
+  const { runs, cover } = marksIn(line, query);
+  const [first] = runs;
+  if (first === undefined) return { before: line, match: '', after: '' };
+  // The whole line, when the whole line already costs no more than the budget.
+  // This is the test the old guard made - the run-up plus the tail inside 150 -
+  // with the gaps between the marks counted too, which is the only thing it was
+  // missing and the whole of what let a 745-character line through.
+  if (line.length - marked(runs) <= WINDOW) return splitFirst(line, query);
 
-  if (line.length <= BEFORE + needle.length + AFTER) {
-    return {
-      before: line.slice(0, at),
-      match: line.slice(at, at + needle.length),
-      after: line.slice(at + needle.length),
-    };
-  }
-
-  let start = Math.max(0, at - BEFORE);
+  let start = Math.max(0, first[0] - BEFORE);
   if (start > 0) {
     const space = line.indexOf(' ', start);
-    if (space !== -1 && space < at) start = space + 1;
+    if (space !== -1 && space < first[0]) start = space + 1;
   }
-  let end = Math.min(line.length, at + needle.length + AFTER);
+
+  // The marks the window has to hold: every run that opens inside it, up to and
+  // including the one that reaches `cover`. Runs past `cover` are repeats of
+  // words already marked, and they are drawn if the tail happens to reach them.
+  const held = runs.filter(([from]) => from >= start && from <= cover);
+  const gaps: number[] = [];
+  for (let i = 1; i < held.length; i += 1) gaps.push(held[i]![0] - held[i - 1]![1]);
+  const allow = shares(gaps, Math.max(0, WINDOW - (first[0] - start)));
+
+  let text = line.slice(start, first[1]);
+  let at = first[1];
+  for (let i = 1; i < held.length; i += 1) {
+    text += bridge(line.slice(at, held[i]![0]), allow[i - 1]!) + line.slice(held[i]![0], held[i]![1]);
+    at = held[i]![1];
+  }
+
+  let spent = first[0] - start;
+  for (const a of allow) spent += a;
+  let end = Math.min(line.length, Math.max(at, at + Math.min(AFTER, Math.max(0, WINDOW - spent))));
   if (end < line.length) {
     const space = line.lastIndexOf(' ', end);
-    if (space > at + needle.length) end = space;
+    if (space > at) end = space;
   }
+
+  const split = splitFirst(text + line.slice(at, end), query);
   return {
-    before: `${start > 0 ? '…' : ''}${line.slice(start, at)}`,
-    match: line.slice(at, at + needle.length),
-    after: `${line.slice(at + needle.length, end)}${end < line.length ? '…' : ''}`,
+    before: `${start > 0 ? '…' : ''}${split.before}`,
+    match: split.match,
+    after: `${split.after}${end < line.length ? '…' : ''}`,
   };
+}
+
+/** How many of a line's characters the marks cover. */
+function marked(runs: ReadonlyArray<[number, number]>): number {
+  let sum = 0;
+  for (const [from, to] of runs) sum += to - from;
+  return sum;
 }
 
 const stamp = (page: number | null): string => `SRD 1.0${page === null ? '' : ` · P.${String(page)}`}`;
 
-/** A previewed line with the query's characters lifted out of it. */
-function Marked({ found }: { found: RulePreview }): React.JSX.Element {
+/**
+ * A previewed line with every one of the GM's words lifted out of it.
+ *
+ * It walks rather than splits once, because a preview line can carry more than
+ * one marked run - `falling damage` lands on the subhead FALLING AND COLLISION
+ * DAMAGE and has to mark both ends of it. `preview` has already taken the
+ * window and cut at the first run; each step here cuts the tail at the next,
+ * and the recursion ends on the first tail that carries none.
+ * `ruleSearch.test.tsx` pins the two-run case on that query.
+ *
+ * ## `plate`, and why one of the two marks on a hit needs it
+ *
+ * The same call marks the hit's title and the hit's line, and until now it
+ * drew them identically: ink at `--text`, weight 700, no background. On the
+ * line that is a strong cue and on the title it is very nearly no cue at all,
+ * and the difference is the two faces rather than anything this file chose.
+ *
+ * The line is `.t-dense`, `400 11.5px var(--sans)`, overridden here to
+ * `--muted`. `--sans` is Archivo, declared `font-weight: 400 900` as a single
+ * variable font (`tokens.css`), so 400 -> 700 is three real steps of a face
+ * that has them, and `--muted` -> `--text` is a **1.83:1** step of ink.
+ *
+ * The title is `.t-label`, `600 10px/1 var(--mono)` at `letter-spacing:
+ * 0.16em`, overridden here to `--text-2`. Both of those channels are already
+ * spent:
+ *
+ * - **Ink.** `--text-2` -> `--text` is **1.38:1**, against the 1.83:1 the line
+ *   gets. It cannot be widened from this end - `--text` is the lightest ink the
+ *   palette has, so the mark is already at the top - and it must not be widened
+ *   from the other end, because the title's `--text-2` is what makes this
+ *   header `Fold`'s header, which is the argument the top of this file makes
+ *   and the stamp beside it was corrected to keep.
+ * - **Weight.** `--mono` is IBM Plex Mono, and this app ships it as three
+ *   static faces - **400, 500 and 600**, three `@font-face` rules in
+ *   `tokens.css` and no more. There is no 700 file. A run asking for 700 inside
+ *   a 600 label gets the 600 file back with synthetic bold smeared over it, and
+ *   on a phone at 10px in a monospaced face that is not a step a scanning eye
+ *   resolves. The 700 stays because a deployment that ships a heavier mono
+ *   should get the real step; what has changed is that nothing depends on it.
+ *
+ * So the third channel is opened, and only where the first two are gone: a
+ * plate behind the run. `--line` is the palette's own "structure you can just
+ * see" - **1.34:1** against `--panel`, which is what the sheet is drawn on -
+ * and the marked ink still reads at **9.97:1** on top of it, above AAA. That
+ * is deliberately the dimmest plate in the palette that is still a plate. The
+ * cue it adds is not luminance, it is **area**: 1.34:1 spread over a whole
+ * glyph box is pre-attentive where 1.38:1 along a 10px stroke is not.
+ *
+ * This does not reopen the yellow block the marked preview refuses. That
+ * objection is to the UA default - a saturated near-white fill, a lamp in a dim
+ * room, on every one of fifteen preview lines. `--line` is one step off the
+ * panel and it is on the title only, where there is no other cue left.
+ *
+ * ## 393 x 852, read against touch
+ *
+ * The mark is **read and never touched**. The whole header is one target - a
+ * single `minHeight: 44` button spanning the 363px column - and nothing here
+ * carries a target of its own, so this is a legibility question and not a
+ * reach one.
+ *
+ * That is why it is a background and not an underline. `background` on an
+ * inline run paints inside the line box that is already there: no advance
+ * width, so the monospaced grid this label is set on does not shift and a title
+ * cannot be pushed into a wrap it was not in before; no height, so the 44px
+ * floor and the three-line header this file measures are untouched. There is
+ * no padding on it for the same reason - padding would break the character
+ * grid. An underline would have to paint below a `10px/1` line box, into the
+ * 3px gap this button puts between the title and the preview under it.
+ *
+ * And it is the right line to spend the cue on. The hits read upward from the
+ * field at the thumb, and the title is the top line of each one - the furthest
+ * from the hand, the line the GM scans rather than the line they read once they
+ * have stopped. Multi-term matching is what made that line load-bearing:
+ * `searchRules` admits a section when each word is in the line **or in the
+ * title**, so a hit can satisfy a word entirely from its title and the row's
+ * only copy of that word is up there. `restrained condition` on `Conditions` is
+ * exactly that, and it is pinned by a test.
+ */
+function Marked({
+  found,
+  query,
+  plate = false,
+}: {
+  found: RulePreview;
+  query: string;
+  plate?: boolean;
+}): React.JSX.Element {
+  if (found.match === '') {
+    return (
+      <>
+        {found.before}
+        {found.after}
+      </>
+    );
+  }
   return (
     <>
       {found.before}
-      {found.match !== '' && (
-        <mark style={{ background: 'transparent', color: 'var(--text)', fontWeight: 700 }}>
-          {found.match}
-        </mark>
-      )}
-      {found.after}
+      <mark
+        style={{
+          background: plate ? 'var(--line)' : 'transparent',
+          color: 'var(--text)',
+          fontWeight: 700,
+          borderRadius: plate ? 2 : undefined,
+        }}
+      >
+        {found.match}
+      </mark>
+      <Marked found={splitFirst(found.after, query)} query={query} plate={plate} />
     </>
   );
 }
@@ -296,10 +813,26 @@ const spoken = (count: number): string => {
   return count === 1 ? '1 section matches' : `${String(count)} sections match`;
 };
 
-/** What the two group headers say, and which hits belong under each. */
+/** What the three group headers say, and which hits belong under each. */
 const GROUPS: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
   { label: 'IN THE TITLE', holds: (hit) => hit.where === 'title' },
-  { label: 'IN THE TEXT', holds: (hit) => hit.where !== 'title' },
+  { label: 'IN A HEADING', holds: (hit) => hit.where === 'heading' },
+  { label: 'IN THE TEXT', holds: (hit) => hit.where === 'text' || hit.where === 'table' },
+];
+
+/**
+ * The header that replaces all three when the search had to give ground.
+ *
+ * One band, not four, and it is drawn instead of the others rather than under
+ * them: `searchRules` falls back to OR only when the AND found nothing at all,
+ * so every hit in the list is one of these and a second header would be a group
+ * with nothing in it. What it must never do is look like the answer - the list
+ * under it is unranked and runs to eighteen sections for `setting difficulty`,
+ * with the section that answers it eighth - so the header says what it is out
+ * loud, in the same ink and at the same size as the three it stands in for.
+ */
+const SOME: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
+  { label: 'NO SECTION CARRIES ALL OF THOSE WORDS · THESE CARRY SOME', holds: () => true },
 ];
 
 /**
@@ -316,6 +849,8 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
   const rules = useApp((s) => s.dataset.rules);
   const hits = useMemo(() => searchRules(rules, query), [rules, query]);
   const [openId, setOpenId] = useState<string | null>(null);
+  let bands = GROUPS;
+  if (hits.some((hit) => hit.partial)) bands = SOME;
 
   return (
     <>
@@ -347,11 +882,12 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
       </span>
       {hits.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
-          No rule in this dataset carries that. The search reads every section’s title and its
-          whole text, so a phrase that is not here is not in the rules the app is holding.
+          No rule in this dataset carries that. The search reads every section’s title, its
+          subheads and its whole text, and it asks for every word you typed; not one of those
+          words is in the rules the app is holding.
         </p>
       )}
-      {GROUPS.map((group) => {
+      {bands.map((group) => {
         const inGroup = hits.filter(group.holds);
         if (inGroup.length === 0) return null;
         return (
@@ -378,6 +914,49 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
   );
 }
 
+/**
+ * Which of the drawn blocks carries the line this hit is promising, or -1.
+ *
+ * The band said IN A HEADING and named a subhead; opening the hit has to put
+ * the GM on that subhead rather than at the top of the section that contains
+ * it. `hit.line` is already exactly the string to look for - `quoteFrom`
+ * strips `## ` with `text.replace(/^#+\s+/, '')` and `ruleBlocks` captures the
+ * same subhead with `/^##\s+(.+)$/`, so the two are the identical string and
+ * the match is an equality rather than a search.
+ *
+ * **`hit.where` picks which of the two lookups runs, and running both was the
+ * defect.** A subhead is also a string the book may quote in its own prose:
+ * `making-gm-moves` writes *the "Example GM Moves" list* inside its QUICK
+ * REFERENCE block, above the `## Example GM Moves` that ends the section. A
+ * heading-or-prose search finds the earlier block first, so the band that had
+ * actually named a subhead landed the GM on the block that merely mentioned
+ * it - the defect the landing was written to fix, arriving inside the fix. `where` is `quoteFrom`'s own record of which line it took, so a
+ * `heading` hit is looked up among the headings alone and a `text` hit among
+ * the parts alone.
+ *
+ * A `text` hit lands on the **block** that carries its line, not on the line.
+ * `ruleList` strips `- ` exactly as `quoteFrom` does, so a bullet is an
+ * equality; prose is `includes` because a paragraph is many lines and the hit
+ * quoted one of them.
+ *
+ * -1 for a `title` hit, which promised the section and not a place in it, and
+ * for a `table` hit, whose line is null because no cell was worth quoting.
+ * Both of those are already answered by the top of the section, which is where
+ * a hit with no landing block opens.
+ */
+function blockOf(section: SectionView, hit: RuleHit): number {
+  const line = hit.line;
+  if (line === null) return -1;
+  if (hit.where === 'heading') return section.blocks.findIndex((block) => block.heading === line);
+  return section.blocks.findIndex((block) =>
+    block.parts.some((part) =>
+      part.kind === 'text'
+        ? part.text.includes(line)
+        : part.kind === 'list' && part.items.includes(line),
+    ),
+  );
+}
+
 function Hit({
   hit,
   query,
@@ -392,6 +971,25 @@ function Hit({
   onToggle: () => void;
 }): React.JSX.Element {
   const section = useMemo(() => (open ? ruleSection(rules, hit.id) : null), [rules, hit.id, open]);
+  const landing = section === null ? -1 : blockOf(section, hit);
+
+  /*
+   * A callback ref rather than an effect, because the thing being waited for
+   * is the node and not a render: React hands it over the moment the landing
+   * block is attached and hands back `null` when it goes, so the scroll
+   * happens once per opening and never on a re-render that left the same node
+   * in place. Typing while a hit is open re-runs the search; if the same hit
+   * survives with the same landing block, this does not fire again and the
+   * GM's reading position is left alone.
+   *
+   * `scrollIntoView` is optional-called because jsdom does not implement it -
+   * the test that pins this behaviour puts its own on the prototype and
+   * watches for the call, which is the only form of the property a test in
+   * this repo can check.
+   */
+  const land = useCallback((node: HTMLDivElement | null) => {
+    node?.scrollIntoView?.({ block: 'start' });
+  }, []);
 
   return (
     <section className="stack" style={{ flex: 'none', gap: open ? 8 : 0 }}>
@@ -412,7 +1010,7 @@ function Hit({
       >
         <span className="row" style={{ width: '100%', gap: 8 }}>
           <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
-            <Marked found={preview(hit.title, query)} />
+            <Marked found={preview(hit.title, query)} query={query} plate />
           </span>
           <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
             {stamp(hit.page)}
@@ -420,7 +1018,7 @@ function Hit({
         </span>
         {hit.line !== null && (
           <span className="t-dense" style={{ color: 'var(--muted)' }}>
-            <Marked found={preview(hit.line, query)} />
+            <Marked found={preview(hit.line, query)} query={query} />
           </span>
         )}
         {hit.where === 'table' && (
@@ -438,9 +1036,21 @@ function Hit({
             This dataset no longer carries that section.
           </p>
         ) : (
-          section.blocks.map((block, i) => (
-            <BlockView key={`${block.heading ?? ''}-${String(i)}`} block={block} />
-          ))
+          section.blocks.map((block, i) => {
+            const key = `${block.heading ?? ''}-${String(i)}`;
+            // Only the landing block is wrapped, and the wrapper is a `.stack`
+            // holding one `flex: none` child - the same box `BlockView` draws
+            // itself - so the column it sits in measures what it measured
+            // before. The wrapper exists because `BlockView` is not this
+            // file's and does not forward a ref; reaching into the DOM it
+            // renders instead would tie this scroll to that file's markup.
+            if (i !== landing) return <BlockView key={key} block={block} />;
+            return (
+              <div key={key} ref={land} className="stack" style={{ flex: 'none' }}>
+                <BlockView block={block} />
+              </div>
+            );
+          })
         ))}
     </section>
   );
