@@ -1184,9 +1184,10 @@ function landsInside(block: SectionBlock, at: BlockTarget): boolean {
  * `LINK -> Rule` row - pass nothing and did not change a line. Three of the
  * four are asserted from the outside rather than from this signature, in
  * `reference.test.tsx`: they bring nothing into view and they light no word.
- * The fourth, the session's `LINK -> Rule` row, is not - the case for it would
- * go in `tests/ui/sessionRule.test.tsx`, which pins the tags that row draws and
- * says nothing yet about scroll or marks.
+ * The fourth, the session's `LINK -> Rule` row, is asserted the same way in
+ * `tests/ui/sessionRule.test.tsx`, on two sections chosen to be complementary -
+ * one all subheads and bullets, one carrying the table - so all three places
+ * this file writes a string of its own are covered.
  *
  * `land` carries a place and the caller's ref, never a scroll: this file has no
  * opinion about what the ref is for, and the one caller that has one keeps it.
