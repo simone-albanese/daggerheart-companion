@@ -41,6 +41,47 @@ be rather than about what it does.
 - **Nothing else was lost with it.** The Campaign Frames section stays: it
   describes what a campaign frame *is* and never named this one.
 
+### A rule you searched for opens on your line
+
+- **A hit lands on the line the header is quoting**, not on the block around it.
+  Of the 769 lines rule search can quote, **613** now have a target inside a
+  block; the other 156 are `## ` subheads, and a subhead still opens its own
+  block, because a subhead *is* where its block starts.
+- **Your words are lit in the section that opens**, not only in the preview
+  above it. Before this, a search took you to a subhead that arrived with no word
+  on it lit, and the hunt started again by eye.
+- **Only the block you landed in is lit.** Lighting every occurrence in a long
+  section turns the marking into wallpaper, and a section the SRD draws as one
+  block is still lit whole — 34 of the 69 shipped sections are drawn that way.
+- **A section a rules layer rewrote still opens.** A target that does not fit
+  the text it names — a paragraph index past the end, a bullet that is not a
+  bullet — opens the block instead of breaking.
+
+### The GM's screen does the arithmetic the engine already knew
+
+- **Type the damage onto a monster.** The combatant card takes a number, shows
+  what it will do before you commit it, and applies it on APPLY or Enter. Minion
+  overkill comes out of the same number instead of a second count in your head.
+- **Massive Damage reaches adversaries too, if you turned it on.** The optional
+  rule is off by default and unchanged there; when it is on, it now applies on
+  both sides of the screen rather than to the party alone.
+- **A rest gives the GM the Fear it owes them**, on the screen they are holding:
+  a short rest and a long one, each quoting the sentence the Downtime section
+  writes for it, honouring both dice switches, and stopping at the Fear cap where
+  you can see it. Nothing is written until you press.
+- **A long rest can leave a sentence on the countdown it moved.** A countdown
+  has carried per-tick beats since the schema gained them, and until now no
+  screen could put anything in them: the field was written on save and read on
+  load, and never filled.
+- **The board says something when a PC marks their last Hit Point.** A prompt
+  under the four tracks, a `DEATH MOVE` chip on the shut row, and RECORD writes
+  what happened into tonight's plan.
+- **A long-term countdown stopped claiming it advances between sessions.** It
+  said so on two screens. In the whole shipped dataset that phrase appears twice
+  and both times it is about Fear carrying over, never about clocks; the hint now
+  says the app's own words for what the book describes — it advances when the
+  party rests.
+
 ## 0.6.0 — 2026-08-24
 
 The version moved for the same reason 0.4.0's did, and it is worth stating
