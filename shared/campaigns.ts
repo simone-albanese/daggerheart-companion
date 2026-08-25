@@ -85,6 +85,7 @@ import {
 import { readNoteDoc, type NoteDoc } from './richText.ts';
 import {
   MAX_FEAR,
+  TRAITS,
   type Countdown,
   type CountdownKind,
   type EncounterAdjustments,
@@ -804,12 +805,160 @@ const readTracks = (v: unknown): PartyTracks => {
 };
 
 /**
+ * What `src/ui/gm/` reaches for on a party sheet, and nothing beyond it.
+ *
+ * Derived by reading the consumers rather than the `Character` type: the union
+ * of every field named by `deriveStats` and `collectModifiers` (which the board
+ * calls per row), by `findGaps`, and by the `src/ui/gm/` components themselves -
+ * the row, its drawer and `CompanionLine`. It is deliberately shorter than
+ * `Character`. `gold`, `notes`, `connections`, `traitMarks`, `createdAt` and the
+ * rest are absent because no GM screen reads them, and a sheet that is missing
+ * one of those renders a board a GM can use. Refusing on a field nobody reads
+ * would throw away a usable row to satisfy a type.
+ *
+ * The predicates answer the question the crash asked, not the question the type
+ * asks, and how deep each one goes was MEASURED rather than reasoned about.
+ * `tests/store/campaignPartySheet.test.ts` hands each shape below to the
+ * consumers themselves and records which ones throw; the depths here are that
+ * table, and the same test also holds the other side of it - the shapes that
+ * were measured harmless are required to keep their row.
+ *
+ * THE RULE: an element is checked as deep as some `src/ui/gm/` consumer
+ * dereferences it, and no deeper. The first version of this guard checked every
+ * list with `Array.isArray` alone, on the reasoning that "a junk element renders
+ * wrong, which is a board you can read and disbelieve". That sentence was false
+ * for three of the six lists, and a verifier proved it by getting past the guard:
+ *
+ *   `levelUpHistory`  `advancementCount` reads `a.kind` off every element, and
+ *                     `collectModifiers` reads `h.detail['subclassRef']` off the
+ *                     ones that say `subclass` - so a hole in the list, or an
+ *                     entry with no `detail`, is the original crash again.
+ *   `inventory`       `collectModifiers` reads `entry.ref` off every element.
+ *   `experiences`     the board's own `Experiences` reads `.name` off every one,
+ *                     on first render - which no test saw, because every
+ *                     question the suite asked of a sheet deleted a field, and
+ *                     a deleted list is refused by the list check itself.
+ *
+ * The other three are checked as lists and nothing more, and that is measured
+ * too: `scars` is only ever `.length`, and `subclassRefs`/`ancestryRefs` are
+ * handed to `Map.get`, which is total for anything. Making those deeper would
+ * throw away a usable row to satisfy a type, which is the other way to lose a
+ * board. `companion.experiences` and `companion.upgrades` stay shallow for the
+ * blunter reason that no GM screen reads either one.
+ *
+ * `levelUpHistory` is the one predicate that is a shade wider than its crash: a
+ * missing `detail` is only fatal on a `subclass` entry, and this refuses it on
+ * any. Branching on `kind` would put a consumer's internal `if` inside the
+ * guard, where it would drift; and the wider rule cannot refuse a real sheet,
+ * because `detail` is required by `LevelUpChoice` and every writer of one -
+ * `applyLevelUp` and the codec's `readChoice` - sets it.
+ *
+ * The two records that go deeper are the two the board calls methods through:
+ * `traits`, because the six are read by name, and `companion`, because
+ * `CompanionLine` calls `.toUpperCase()` on its name and reads `.marked`/`.max`
+ * off its Stress - so half an animal is refused here exactly as
+ * `checkShapes` in `src/transfer/fileIo.ts` refuses it for a file.
+ *
+ * A second opinion this is not, and could not have been: `readCharacterRecord`
+ * is the reader that already knows this shape, and it lives in `src/`, which
+ * `shared/` may not import - `shared/` is used by `tools/` as well as by `src/`
+ * (Architecture, the tree at the end). What keeps this list from drifting away
+ * from the type is a test rather than a compiler: `tests/store/campaignPartySheet.test.ts`
+ * requires every key named here to be present on a blank `newCharacter()`, so a
+ * rename in `shared/types.ts` fails there instead of quietly refusing every row.
+ * That test writes out the field list by hand, and - since the verifier got past
+ * the first version of this guard - the fatal shapes by hand as well, because a
+ * guard asked which shapes it stops is a guard that cannot go red.
+ */
+const isCounter = (v: unknown): boolean =>
+  isRecord(v) && typeof v['marked'] === 'number' && typeof v['max'] === 'number';
+
+const isRefOrNull = (v: unknown): boolean => v === null || typeof v === 'string';
+
+/**
+ * A list, and nothing is asked of what is in it.
+ *
+ * Correct only where no consumer dereferences an element: `.length`, or a
+ * `Map.get` that is total for any key. Everywhere else it is the hole the
+ * verifier walked through, and `isListOf` is the predicate to use instead.
+ */
+const isList = (v: unknown): boolean => Array.isArray(v);
+
+/** A list whose every element survives being dereferenced by the board. */
+const isListOf =
+  (each: (v: unknown) => boolean) =>
+  (v: unknown): boolean =>
+    Array.isArray(v) && v.every(each);
+
+/**
+ * An advancement the board can count and read a `detail` off.
+ *
+ * Both halves are the crash: a hole in the list throws in `advancementCount`,
+ * and an entry with no `detail` throws in `collectModifiers` the moment the
+ * character's subclass resolves.
+ */
+const isAdvancement = (v: unknown): boolean => isRecord(v) && isRecord(v['detail']);
+
+const COMPANION_FIELDS: ReadonlyArray<readonly [string, (v: unknown) => boolean]> = [
+  ['name', (v) => typeof v === 'string'],
+  ['description', (v) => typeof v === 'string'],
+  ['evasion', (v) => typeof v === 'number'],
+  ['stress', isCounter],
+  ['damage', (v) => typeof v === 'string'],
+  ['range', (v) => typeof v === 'string'],
+  ['damageType', (v) => v === 'phy' || v === 'mag'],
+  ['experiences', isList],
+  ['upgrades', isList],
+];
+
+const BOARD_FIELDS: ReadonlyArray<readonly [string, (v: unknown) => boolean]> = [
+  ['id', (v) => typeof v === 'string'],
+  ['name', (v) => typeof v === 'string'],
+  ['level', (v) => typeof v === 'number'],
+  ['classRef', (v) => typeof v === 'string'],
+  ['traits', (v) => isRecord(v) && TRAITS.every((t) => typeof v[t] === 'number')],
+  ['hp', isCounter],
+  ['stress', isCounter],
+  ['hope', isCounter],
+  ['armorSlots', isCounter],
+  ['evasionOverride', (v) => v === null || typeof v === 'number'],
+  [
+    'thresholdOverride',
+    (v) => v === null || (Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number')),
+  ],
+  ['communityRef', isRefOrNull],
+  ['multiclassRef', isRefOrNull],
+  ['multiclassDomain', isRefOrNull],
+  ['activePrimaryWeapon', isRefOrNull],
+  ['activeSecondaryWeapon', isRefOrNull],
+  ['activeArmor', isRefOrNull],
+  // Handed to `Map.get`, which is total for anything: a list is the whole check.
+  ['subclassRefs', isList],
+  ['ancestryRefs', isList],
+  // Dereferenced per element: by `collectModifiers`, and by the row itself.
+  ['inventory', isListOf(isRecord)],
+  ['experiences', isListOf(isRecord)],
+  ['levelUpHistory', isListOf(isAdvancement)],
+  // Only ever `.length`, in `deriveStats`.
+  ['scars', isList],
+  ['beastform', (v) => v === null || isRecord(v)],
+  ['companion', (v) => v === null || (isRecord(v) && COMPANION_FIELDS.every(([k, ok]) => ok(v[k])))],
+];
+
+/** The board fields this sheet does not have, in the order they are listed. */
+export const boardShortfall = (sheet: Record<string, unknown>): string[] =>
+  BOARD_FIELDS.filter(([key, ok]) => !ok(sheet[key])).map(([key]) => key);
+
+/**
  * A board row, or nothing.
  *
- * The one place in this file that drops something, and it is the rule
- * `gmStore.load()` already had: a row with no sheet has no numbers to derive
- * and takes the whole screen down on first render. Everything else here is
- * repaired rather than discarded, because everything else can be.
+ * The one place in this file that drops something, and it now drops for three
+ * reasons rather than one: a row with no sheet, a sheet the character migration
+ * chain refuses, and - since this commit - a sheet that arrived whole enough to
+ * store and not whole enough to draw. All three are the same rule
+ * `gmStore.load()` already had: a row the board cannot derive numbers from takes
+ * the whole screen down on first render. Everything else here is repaired rather
+ * than discarded, because everything else can be.
  */
 function readPartyMember(v: unknown, warn: (s: string) => void): PartyMember[] {
   if (!isRecord(v) || typeof v['id'] !== 'string') return [];
@@ -857,10 +1006,74 @@ function readPartyMember(v: unknown, warn: (s: string) => void): PartyMember[] {
     return [];
   }
 
+  /*
+   * AND THE CHAIN IS NOT A CHECK. This is the clause the paragraph above kept
+   * promising and did not have.
+   *
+   * `migrateCharacterRecord` converts a record from an older schema; handed one
+   * that already claims the current schema it returns it untouched, converter
+   * and all. So a stub stamped `schemaVersion: 5` walks through the `try` above
+   * with nothing having looked at it, and the cast below then calls it a
+   * `Character`. That is not a hypothetical: the party sheet in the committed
+   * campaign fixtures is nine fields long, and opening a campaign holding one
+   * took the GM screen down with `Cannot read properties of undefined (reading
+   * 'filter')` - `levelUpHistory.filter`, inside `deriveStats`, called by the
+   * board's row.
+   *
+   * REFUSAL, NOT REPAIR - which is the decision `PartyBoard.tsx` said was
+   * scheduled for this file. Repair would mean filling the holes from a blank
+   * sheet, and a blank sheet has a level, no class and no armour: a GM would
+   * read out an Evasion of 10 and thresholds off the unarmored ladder for a
+   * character who has neither, with nothing on screen saying the numbers were
+   * invented. Refusing costs one row and says why; repairing costs the GM's
+   * trust in every number on the board.
+   *
+   * AND THE WORD IS NOT QUARANTINE, WHICH IS WHAT THIS SAID FIRST. Quarantine
+   * is a thing this codebase already does, one layer out: `readCampaigns`
+   * leaves a record a newer build wrote exactly where it is on disk, and
+   * `tests/store/campaignDb.test.ts` measures the bytes. This is not that. The
+   * row is dropped from the campaign the GM is then holding, so the next thing
+   * that saves - marking Fear, adding a scene, the debounce in `gmStore` -
+   * writes that campaign back over the record the sheet was in, and the sheet
+   * is gone from the device. `campaignDb.test.ts` measures that too, in the
+   * test named for it. The price is real and it is paid here: a row the board
+   * *could* have drawn a name and four tracks for is gone for good, and the
+   * only way back is re-importing that character - which is why the warning
+   * below says so rather than merely apologising.
+   */
+  const missing = boardShortfall(migrated);
+  if (missing.length > 0) {
+    /*
+     * The warning names the character, not the row id, and it names what to do.
+     * A GM reading "a party row was left out" can act on nothing; a GM reading
+     * that Ilya's sheet is missing its traits knows which player to ask for the
+     * file. The field list is capped because the interesting case - a stub, a
+     * hand-written record, a sheet from a build this one has never met - is
+     * missing twenty of them, and twenty field names is a sentence nobody
+     * finishes reading.
+     */
+    const named = missing.slice(0, 3).join(', ');
+    const rest = missing.length - 3;
+    warn(
+      `a party row's character sheet is not a whole character, so the row was left out: "${sheet['name'].slice(0, 60)}" is missing ${rest > 0 ? `${named} and ${String(rest)} more` : named}. Import that character again, from its file or its code, to put the row back.`,
+    );
+    return [];
+  }
+
   const source = v['source'];
   return [
     {
       id: v['id'],
+      /*
+       * The cast, and what now stands behind it.
+       *
+       * It is still a cast - `shared/` cannot reach `readCharacterRecord`, so
+       * nothing here can hand back a `Character` the compiler believes in. What
+       * changed is that it is no longer unbacked: `boardShortfall` has checked
+       * every field any `src/ui/gm/` consumer reads, which is the set that
+       * decides whether the board draws or dies. What it does not vouch for is
+       * the rest of `Character`, and that is the honest limit of this line.
+       */
       sheet: migrated as unknown as PartyMember['sheet'],
       importedAt: str(v['importedAt']),
       source: PARTY_SOURCES.includes(source as PartySource) ? (source as PartySource) : 'file',

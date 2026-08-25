@@ -17,6 +17,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Campaign } from '../../shared/campaigns.ts';
+import { newCharacter } from '../../src/engine/character.ts';
 
 type Migration = typeof import('../../src/store/campaignMigration.ts');
 type Store = typeof import('../../src/store/campaigns.ts');
@@ -83,7 +84,10 @@ const LEGACY = {
       source: 'file',
       markedAt: null,
       tracks: { hp: 2, stress: 4, hope: 3, armor: 1 },
-      sheet: { id: 'pc-1', schemaVersion: 3, name: 'Ilya of the Ninth', level: 4 },
+      // A whole sheet, still stamped at the schema the old GM screen wrote,
+      // so the character chain has something to convert and `readPartyMember`
+      // has a character rather than a stub to put on the board.
+      sheet: { ...newCharacter({ name: 'Ilya of the Ninth' }), id: 'pc-1', schemaVersion: 3, level: 4 },
     },
   ],
 };

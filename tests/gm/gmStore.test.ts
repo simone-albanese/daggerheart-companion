@@ -23,6 +23,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Campaign } from '../../shared/campaigns.ts';
 import type { Adversary, Character } from '../../shared/types.ts';
 import { NO_FIGHT } from '../fixtures/factories.ts';
+import { newCharacter } from '../../src/engine/character.ts';
 
 type Gm = typeof import('../../src/ui/gm/gmStore.ts');
 type Store = typeof import('../../src/store/campaigns.ts');
@@ -68,16 +69,24 @@ beforeEach(async () => {
   await gm.hydrateGm();
 });
 
-const sheet = (id: string, name: string): Character =>
-  ({
-    id,
-    schemaVersion: 3,
-    name,
-    hp: { marked: 0, max: 6 },
-    stress: { marked: 0, max: 6 },
-    hope: { marked: 2, max: 6 },
-    armorSlots: { marked: 0, max: 3 },
-  }) as unknown as Character;
+/*
+ * A whole sheet, and it has to be one.
+ *
+ * This used to be the four tracks and a name, which is all `importParty` and
+ * `markPartyTracks` read - but the round trip below goes through
+ * `readPartyMember`, and since it started refusing a sheet the party board
+ * could not draw, the four tracks are no longer a character. `newCharacter`
+ * supplies the rest, and the tracks stay overridden because two of the tests
+ * here read the numbers back.
+ */
+const sheet = (id: string, name: string): Character => ({
+  ...newCharacter({ name }),
+  id,
+  hp: { marked: 0, max: 6 },
+  stress: { marked: 0, max: 6 },
+  hope: { marked: 2, max: 6 },
+  armorSlots: { marked: 0, max: 3 },
+});
 
 const adversary = {
   id: 'acid-burrower',

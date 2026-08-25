@@ -257,7 +257,10 @@ describe('the version window the bump moved', () => {
 
     const { campaign: back, warnings, app } = parseCampaignFile(text);
 
-    expect(warnings).toEqual([]);
+    // The one warning is the frozen fixture's party stub, which `readPartyMember`
+    // refuses because the board could not have drawn it. Nothing about the
+    // envelope, the checksum or the session list needed saying.
+    expect(warnings.filter((w) => !w.includes('not a whole character'))).toEqual([]);
     expect(back.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
     expect(app).toBe('0.2.0');
     // Whole, not merely parsed: the things a GM would notice missing.
@@ -270,7 +273,10 @@ describe('the version window the bump moved', () => {
       'link',
       'link',
     ]);
-    expect(back.party[0]!.sheet.name).toBe('Ilya of the Ninth');
+    // And the party row is gone with it: this file's party is a nine-field
+    // stand-in, so what survives the trip is the campaign around it.
+    expect(back.party).toEqual([]);
+    expect(warnings.join(' ')).toContain('Ilya of the Ninth');
   });
 
   it('hands a file this build writes to a v1-only build as a refusal, not as damage', () => {

@@ -62,6 +62,7 @@ import {
   SchemaError,
 } from '../../shared/migrations.ts';
 import { MAX_FEAR, SCHEMA_VERSION } from '../../shared/types.ts';
+import { newCharacter } from '../../src/engine/character.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
 
@@ -146,7 +147,20 @@ describe('the committed fixtures', () => {
     it(`still opens the campaign schema ${version} record whole`, () => {
       const { campaign, warnings } = readCampaignRecord(readFixture(version));
 
-      expect(warnings).toEqual([]);
+      /*
+       * One warning, and it is the party row.
+       *
+       * Every committed fixture carries the same nine-field stand-in where a
+       * character should be - `armorSlots`, `hope`, `hp`, `id`, `level`, `name`,
+       * `pronouns`, `schemaVersion`, `stress` - which was enough to store and
+       * never enough to draw. `readPartyMember` refuses it now, so this walk
+       * expects the refusal rather than silence. The fixtures are NOT
+       * regenerated to make it go away: a fixture rewritten by a later build
+       * proves only that the current code can read its own output, which is the
+       * rule this whole file exists to keep.
+       */
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toMatch(/not a whole character/);
       expect(campaign.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
 
       // Not just "it parsed". These are the things a GM would notice missing.
@@ -173,9 +187,10 @@ describe('the committed fixtures', () => {
         'link',
       ]);
       expect(campaign.board.environmentRef).toBe('raging-river');
-      expect(campaign.party).toHaveLength(1);
-      expect(campaign.party[0]!.sheet.name).toBe('Ilya of the Ninth');
-      expect(campaign.party[0]!.tracks.stress).toBe(4);
+      // The row is gone, and the sentence that took it away names the
+      // character, which is the only part of a refusal a GM can act on.
+      expect(campaign.party).toEqual([]);
+      expect(warnings[0]).toContain('Ilya of the Ninth');
 
       const fight = campaign.session.find((i) => i.kind === 'encounter');
       expect(fight?.kind === 'encounter' && fight.roster).toHaveLength(2);
@@ -431,14 +446,27 @@ describe('the repairs, which never cost the record', () => {
     expect(campaign.session.map((i) => i.id)).toEqual(['b', 'a']);
   });
 
-  it('leaves out a party row with no sheet, and says that too', () => {
-    // The one thing here that is dropped, and the rule `gmStore.load()` already
-    // had: a row with no sheet has no numbers and takes the screen down.
+  it('leaves out a party row with no sheet, and one with half a sheet, and says both', () => {
+    /*
+     * The rule `gmStore.load()` already had - a row with no sheet has no
+     * numbers and takes the screen down - and the clause added beside it. `p2`
+     * used to survive this assertion: a name and nothing else was enough to be
+     * stored and was never enough for `deriveStats`, and it is the shape that
+     * took the GM screen down with `levelUpHistory.filter`. Two refusals, two
+     * different sentences, and `p3` shows the campaign is not what is refused.
+     */
     const { campaign, warnings } = readCampaignRecord(
-      bare({ party: [{ id: 'p1' }, { id: 'p2', sheet: { name: 'Kesh' } }] }),
+      bare({
+        party: [
+          { id: 'p1' },
+          { id: 'p2', sheet: { name: 'Kesh' } },
+          { id: 'p3', sheet: newCharacter({ name: 'Ilya of the Ninth' }) },
+        ],
+      }),
     );
-    expect(campaign.party.map((m) => m.id)).toEqual(['p2']);
+    expect(campaign.party.map((m) => m.id)).toEqual(['p3']);
     expect(warnings.join(' ')).toMatch(/no character sheet/);
+    expect(warnings.join(' ')).toMatch(/"Kesh" is not a whole character|"Kesh"/);
   });
 
   it('does not accept a party tier the game has no tier for', () => {
@@ -504,7 +532,9 @@ describe('what campaign schema 3 added, held down', () => {
     const enc = campaign.session.find((i) => i.kind === 'encounter');
     expect(enc?.kind).toBe('encounter');
     expect(enc?.kind === 'encounter' && enc.roster.length).toBeGreaterThan(0);
-    expect(warnings).toEqual([]);
+    // Nothing in the session list needed saying. The fixture's party stub is
+    // refused whatever this row does, and the walk above is where that is held.
+    expect(warnings.filter((w) => !w.includes('not a whole character'))).toEqual([]);
   });
 
   it('keeps the triad, the owner and every beat on a countdown', () => {
@@ -639,7 +669,9 @@ describe('the bumps, and the record they must not touch', () => {
 
   it('reads a v1 record into a campaign with nothing missing and nothing invented', () => {
     const { campaign, warnings } = readCampaignRecord(readFixture(1));
-    expect(warnings).toEqual([]);
+    // Same exception as the walk: the frozen fixture's party row is a stub, and
+    // this test is about the session list rather than the board.
+    expect(warnings.filter((w) => !w.includes('not a whole character'))).toEqual([]);
     // A v1 record has neither of the two new kinds in it, and this build must
     // not conjure one - an empty `url` row appearing here would mean the reader
     // was inventing rows rather than reading them.

@@ -21,11 +21,13 @@ import {
   parseBackupFile,
   parseCharacterFile,
   parseTransferFile,
+  readCharacterRecord,
   saveTextFile,
   serializeBackup,
   serializeCharacter,
   writeIntoDirectory,
 } from '../../src/transfer/fileIo.ts';
+import { newCharacter } from '../../src/engine/character.ts';
 import { loadedWizard, wizard } from './fixtures.ts';
 
 afterEach(() => {
@@ -513,5 +515,62 @@ describe('a companion’s damage type, in a file', () => {
 
     const back = parseCharacterFile(JSON.stringify(parsed));
     expect(back.companion?.damageType).toBe('phy');
+  });
+});
+
+/**
+ * The door the party board leans on, and the one shape it used to let past.
+ *
+ * `PartyBoard.tsx` declines to defend itself a second time, and the reason it
+ * gives is that the other door into `importParty` has a check on it. That was
+ * true of `companion` - `checkShapes` refuses half an animal - and it was not
+ * true of an advancement, because `checkShapes` asks a `levelUpHistory` entry
+ * for a `level` and a `kind` and never for a `detail`. So a file holding one
+ * came through silently and then threw in `collectModifiers`, which is the same
+ * crash a stored campaign used to cause.
+ */
+describe('an advancement with no detail on it', () => {
+  const base = (): Record<string, unknown> => ({
+    ...(newCharacter({ name: 'Ilya' }) as unknown as Record<string, unknown>),
+  });
+
+  it('is read as granting nothing rather than rejected, and says so', () => {
+    const warnings: string[] = [];
+    const c = readCharacterRecord(
+      { ...base(), levelUpHistory: [{ level: 2, slot: 0, kind: 'subclass' }] },
+      'That file',
+      warnings,
+    );
+
+    expect(c.levelUpHistory[0]!.detail).toEqual({});
+    expect(warnings.join(' ')).toMatch(/no detail recorded/);
+  });
+
+  it('is filled when the field is there and null, which is the other way to arrive', () => {
+    const c = readCharacterRecord(
+      { ...base(), levelUpHistory: [{ level: 2, slot: 0, kind: 'subclass', detail: null }] },
+      'That file',
+      [],
+    );
+    expect(c.levelUpHistory[0]!.detail).toEqual({});
+  });
+
+  it('leaves an advancement that has its detail exactly as it was', () => {
+    const warnings: string[] = [];
+    const detail = { subclassRef: 'caster', card: 'specialization' };
+    const c = readCharacterRecord(
+      { ...base(), levelUpHistory: [{ level: 2, slot: 0, kind: 'subclass', detail }] },
+      'That file',
+      warnings,
+    );
+
+    expect(c.levelUpHistory[0]!.detail).toEqual(detail);
+    expect(warnings).toEqual([]);
+  });
+
+  it('still refuses a hole in the list, which checkShapes always did', () => {
+    expect(() => readCharacterRecord({ ...base(), levelUpHistory: [null] }, 'That file', [])).toThrow(
+      /damaged "levelUpHistory"/,
+    );
   });
 });

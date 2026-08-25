@@ -31,6 +31,7 @@ import {
   type Character,
   type Counter,
   type Experience,
+  type LevelUpChoice,
   type Trait,
 } from '../../shared/types.ts';
 import { newCharacter } from '../engine/character.ts';
@@ -441,10 +442,42 @@ export function readCharacterRecord(
     warnings.push(`${where} had Experiences without ids, so new ones were given.`);
   }
 
+  /*
+   * An advancement with no `detail`, filled rather than refused.
+   *
+   * `checkShapes` above requires a `level` and a `kind` off every entry and
+   * says nothing about `detail`, so a hand-written file - or one from a build
+   * that did not write the field - came through here silently and then took the
+   * GM's party board down: `collectModifiers` reads `h.detail['subclassRef']`
+   * off every `subclass` entry the moment the character's subclass resolves.
+   * `tests/transfer/fileIo.test.ts` measures both halves of that.
+   *
+   * Filled, not refused, for the reason the Experience ids a few lines up are
+   * filled: `{}` is exactly what "this advancement recorded no detail" means,
+   * it grants nothing, and it is already how `collectModifiers` treats a detail
+   * that has no `subclassRef` in it. Rejecting a whole character file over a
+   * missing sub-field would cost a player their sheet to protect a lookup.
+   *
+   * This is also the sentence `PartyBoard.tsx` leans on when it declines to
+   * defend itself a second time - that `importParty` is a door with a check on
+   * it. Until this clause, that was true of `companion` and not of this.
+   */
+  // After `checkShapes`, which has already refused a list holding anything
+  // that is not a record - so `h.detail` below is a read that cannot throw.
+  const rawHistory = value['levelUpHistory'] as LevelUpChoice[] | undefined;
+  const detailless = rawHistory?.some((h) => !isRecord(h.detail)) === true;
+  const levelUpHistory = detailless
+    ? rawHistory?.map((h) => (isRecord(h.detail) ? h : { ...h, detail: {} }))
+    : rawHistory;
+  if (detailless) {
+    warnings.push(`${where} had advancements with no detail recorded, so they were read as granting nothing.`);
+  }
+
   return {
     ...base,
     ...(value as Partial<Character>),
     ...(experiences === undefined ? {} : { experiences }),
+    ...(levelUpHistory === undefined ? {} : { levelUpHistory }),
     id: typeof value['id'] === 'string' ? value['id'] : base.id,
     schemaVersion: SCHEMA_VERSION,
     name: value['name'],
