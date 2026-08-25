@@ -112,10 +112,56 @@ const openTheBand = (): void => {
   });
 };
 
-describe('what the card says the thing wants', () => {
+/**
+ * The card's own fold, which is the only `aria-expanded` control a card draws.
+ *
+ * The same selector as `openTheBand` above, and deliberately not the same
+ * helper: the two run over different trees - `scene()` renders `Scene`, `band()`
+ * renders `EnvironmentBand` on its own - and one helper reaching for whichever
+ * control came first is the quiet wrong-target failure this suite refuses by
+ * name everywhere else.
+ */
+const openTheCard = (): void => {
+  const fold = container.querySelector('button[aria-expanded]');
+  if (fold === null) throw new Error('the card drew no fold');
+  act(() => {
+    fold.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
+/*
+ * THE MOTIVES ARE BEHIND A FOLD NOW, AND A MEASUREMENT IS WHY.
+ *
+ * `CombatantCard`'s docblock carries it whole: at 393x852 with 47/34 insets one
+ * card measured taller than the entire 498px panel holding it, and the field a
+ * GM types damage into landed below the glass. So the two parts a GM does not
+ * read while the fight is running - the motives and the features - are shut on
+ * mount behind one `Fold`.
+ *
+ * What changes here is only WHERE, and these tests are written to hold exactly
+ * that. The words are unchanged and still the bestiary card's; the assertions
+ * that had them on sight now open one control first, and a new one holds that
+ * they are NOT on sight before it - because a fold whose contents were
+ * unreachable and a fold that had quietly become a deletion would both pass a
+ * suite that only ever looked after the tap.
+ */
+describe('what the card says the thing wants, and where it says it', () => {
+  it('keeps the motives and the features shut on mount', () => {
+    const a = dataset.adversaries[0]!;
+    expect(a.features.length).toBeGreaterThan(0);
+    scene([makeCombatant(a, 0, 4)]);
+
+    expect(text()).not.toContain('MOTIVES & TACTICS');
+    // Not even the name. The chip row that used to print every feature name
+    // under a shut SHOW button is what the fold cost, and the header counts
+    // them instead - so a build that kept the chips would fail here.
+    expect(text()).not.toContain(a.features[0]!.name);
+  });
+
   it("prints the adversary's own motives, in the words AdversaryBlock uses", () => {
     const a = dataset.adversaries[0]!;
     scene([makeCombatant(a, 0, 4)]);
+    openTheCard();
 
     // Not "some motives": this adversary's, joined and cased the one way the
     // bestiary card already joins and cases them.
@@ -130,7 +176,31 @@ describe('what the card says the thing wants', () => {
     );
     const last = dataset.adversaries.at(-1)!;
     scene([makeCombatant(last, 0, 4)]);
+    openTheCard();
     expect(text()).toContain(`MOTIVES & TACTICS · ${last.motives.join(', ').toUpperCase()}`);
+  });
+
+  it('names both halves on the shut header and counts the features there', () => {
+    const a = dataset.adversaries[0]!;
+    expect(a.motives.length).toBeGreaterThan(0);
+    expect(a.features.length).toBeGreaterThan(0);
+    scene([makeCombatant(a, 0, 4)]);
+
+    // The label is built from what is actually inside, so a dataset with one
+    // half missing gets a header that does not name the other.
+    expect(text()).toContain('Motives & features');
+    expect(text()).toContain(`${String(a.features.length)} FEATURES`);
+  });
+
+  it('gives the feature text and not just the name when it opens', () => {
+    const a = dataset.adversaries[0]!;
+    scene([makeCombatant(a, 0, 4)]);
+    openTheCard();
+
+    // The whole `FeatureList`, which is the half the old chip row never had:
+    // the name was one tap away before and the rules text was the same tap.
+    expect(text()).toContain(a.features[0]!.name);
+    expect(text()).toContain(a.features[0]!.text);
   });
 
   it('says nothing about motives for a combatant this dataset cannot resolve', () => {
@@ -151,6 +221,9 @@ describe('what the card says the thing wants', () => {
     // after it would be the app inventing a second explanation for it.
     expect(text()).toContain('NOT IN THIS DATASET');
     expect(text()).not.toContain('MOTIVES & TACTICS');
+    // And no fold either. A header a GM can press onto an empty section is the
+    // same invented explanation one control louder.
+    expect(container.querySelector('button[aria-expanded]')).toBeNull();
   });
 });
 

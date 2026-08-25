@@ -22,6 +22,7 @@ import { combatantHit, SEVERITY_LABEL } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
+import { Fold } from '../shared/Fold.tsx';
 import { Stepper } from './Encounter.tsx';
 import { damageLabel, EnvironmentBand, FeatureList, signed } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
@@ -330,6 +331,181 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   );
 }
 
+/**
+ * ONE CARD WAS TALLER THAN THE WHOLE PANEL THAT HOLDS IT, SO THE CARD FOLDS.
+ *
+ * ## The measurement, and it is the only Chrome anything below stands on
+ *
+ * Taken on the deploy, viewport 393x852, insets 47 top and 34 bottom, pointer
+ * coarse, a campaign with its roster on the board, inside OPEN THE FIGHT: the
+ * scrollable panel is 498px and one `CombatantCard` measured "558.00" for the
+ * Acid Burrower and "534.50" for the Bear. The damage field on the first
+ * combatant landed at `top: 852.41` on an 852px window - below the glass,
+ * unreachable without scrolling to it.
+ *
+ * THE DEFECT IS OLDER THAN THE DAMAGE FIELD, and that is worth being exact
+ * about, because it decides whether the answer is a fold or a revert. In the
+ * same box before the field existed the card measured "504.00", which was
+ * already 6px past the panel. The field and the card's gap above it added 54
+ * and took the overflow from 6 to 60. Nothing was broken by the row that made
+ * it visible; the card had simply never fitted.
+ *
+ * `PROGETTO-GM §7` item 3 asked whether a card carrying a motives line AND a
+ * damage field still leaves TWO cards readable on one screen, and stays under a
+ * thumb's arc at about 330px. The measured answer is harder than the question:
+ * it did not leave ONE.
+ *
+ * ## What is above the fold, and the criterion
+ *
+ * The criterion the owner set is what a GM LOOKS AT WHILE THE FIGHT IS RUNNING,
+ * not what is interesting about the thing. Everything a round asks for stays on
+ * the glass, in this order:
+ *
+ *   - the name, the tier and role, SPOTLIGHT and the remove ✕;
+ *   - HP and Stress, because they are what damage lands on;
+ *   - DIF and the two thresholds, which are the numbers said out loud several
+ *     times a round. This file's head docblock argues that permanence and the
+ *     fold does not reopen it - the damage field reading the same thresholds
+ *     saves the GM the comparison, not the glance;
+ *   - the damage field and APPLY, which is the row this whole fold exists to
+ *     get back above the crease;
+ *   - Minions standing, where the group has any;
+ *   - the attack: the bonus that is rolled, the name that is narrated, the dice
+ *     that are read out, the range. That is the adversary's turn, and a turn is
+ *     not a detail.
+ *
+ * Under it go the two things that are read once and then remembered:
+ *
+ *   - MOTIVES & TACTICS, which decides what the thing does across a scene
+ *     rather than inside the four seconds of one exchange;
+ *   - the features, which were ALREADY one tap away behind the SHOW n / HIDE
+ *     button this fold replaces. Their reach did not change. WHAT DID CHANGE,
+ *     and it is the price: the row of feature-name chips that was drawn under
+ *     that button whether it was open or shut is gone, and the fold's summary
+ *     carries the COUNT where the chips carried the NAMES. At four features
+ *     that row was 37px. It is paid knowingly, and it is the one thing a GM can
+ *     no longer read without a tap that they could before.
+ *
+ * The owner's list also named experiences and notes. Neither is on this card:
+ * `SceneCombatant` carries `notes` and nothing here draws it, and an
+ * adversary's experiences are drawn by `ReferenceTables`. There was nothing to
+ * fold.
+ *
+ * REJECTED, named so they are not re-proposed as fresh ideas: one damage bar
+ * for the whole scene (it costs two gestures to hit a monster that is not in
+ * the spotlight), declaring the card too tall and leaving it, and growing the
+ * panel - which is decision §2 of 23 August, the one that keeps the Fear bar on
+ * the glass.
+ *
+ * ## Ergonomics: what a card taller than its panel actually costs
+ *
+ * THE SHARP VERSION OF THE DEFECT IS NOT THAT THE CARD IS TALL. It is that
+ * while the card is taller than the box that scrolls it, THERE IS NO SCROLL
+ * POSITION AT WHICH A WHOLE CARD IS ON THE GLASS. The GM had to choose, every
+ * single exchange, between seeing the thresholds and the HP counter and seeing
+ * the field that writes to it - the two halves of one action, on one card, that
+ * could not be looked at together. Under the panel that stops being a choice,
+ * and that is what the 471.00 buys rather than tidiness.
+ *
+ * THUMB ARC, and it is an argument rather than a rect. `Gm.tsx` reasons off a
+ * right thumb covering roughly y 560-820 at 393x852, and with a countdown
+ * pinned this panel is y 259.00 to 757.00 (`GmSheet.tsx` states both). A card
+ * that fits inside 498 can be scrolled so that its damage row sits anywhere in
+ * the panel the GM likes, the lower half included, and the counters and the
+ * band come with it. A card that does not fit can only be pushed: getting the
+ * damage row down into the thumb band meant driving the vitals off the top
+ * edge. Nobody has re-measured a thumb against this, and this paragraph does
+ * not pretend anybody has.
+ *
+ * TARGET SIZE: nothing here got smaller and nothing was taken away. Every
+ * control above the crease keeps the floor it declared - SPOTLIGHT and ✕ at
+ * `var(--control)`, the counters' steppers at `Counter`'s own 44, the damage
+ * field at `var(--control)` and APPLY at a flat `var(--tap)`. The fold ADDS a
+ * target: a header the full width of the card at `var(--tap)`, which is larger
+ * than the SHOW n / HIDE row it replaces because that row shared its line with
+ * a label. The feature chips that went were `<span>`s and never targets at all.
+ *
+ * READ VS TOUCH is what the whole crease is drawn along. Above it is everything
+ * that is touched during a round, plus the numbers a round is answered with;
+ * below it is prose - a motives line and rules text - which is read
+ * between rounds and never pressed. The one control that crossed the line is
+ * the features button, and it crossed it into a bigger target.
+ *
+ * ## What the fold makes the card - A SUM, AND NOT A MEASUREMENT
+ *
+ * Nothing since the fold has been in front of a browser. The figure below is
+ * arithmetic over lengths this file and `tokens.css` declare, and it is written
+ * as that rather than dressed up as a rect somebody read off Chrome.
+ *
+ * **The shut card is 471.00 by declaration**: 2 of `.panel` border + 22 of the
+ * card's own `padding: 11` + 50 of its five `gap: 10` + 44 of header row + 188
+ * of counters + 31 of threshold band + 44 of damage row + 46 of attack row + 44
+ * of shut fold. 471.00 against the 498 the panel scrolls, which is the goal
+ * this lane was given, with 27.00 left over.
+ *
+ * The composite terms, so a reader can check them rather than take them - and
+ * written without a count, because the count of a list is not a thing this repo
+ * writes from memory:
+ *
+ *   - 44 of header row is the SPOTLIGHT chip's and the ✕'s `minHeight:
+ *     'var(--control)'`, which is `var(--tap)` under `(pointer: coarse)`. The
+ *     name stack beside them is shorter - a 15px name, a 5px gap and a 10px
+ *     meta line - so the floor is the row;
+ *   - 188 of counters, and NOT 90: the grid is `repeat(auto-fit, minmax(170px,
+ *     1fr))` with `gap: 8` in a 341px column, and two 170px tracks plus that
+ *     gap want 348. So `auto-fit` drops to one column and the two counters
+ *     stack: 90 + 8 + 90, at `--counter-cell`'s 90 from viewport 390 up. That
+ *     is 98px and the largest term on the card. It is not this lane's to
+ *     reclaim: the 170 is `Vitals.tsx`'s measured min-content for a `Counter`
+ *     labelled STRESS (165.81), and the reasoning beside the grid below says
+ *     what a 160px track would do to it;
+ *   - 31 of threshold band is its own `padding: '8px 10px'` twice over around a
+ *     `.t-num` at `fontSize: 15`, whose `line-height: 1` makes the line 15;
+ *   - 44 of damage row is APPLY's `minHeight: 'var(--tap)'`, the flat coarse
+ *     floor it declares inline;
+ *   - 46 of attack row is its `borderTop` of 1, its `paddingTop: 9`, the 17px
+ *     attack bonus, its `gap: 9` taken as the wrap gap, and the 10px `.t-meta`
+ *     range line that `width: '100%'` puts on a second line;
+ *   - 44 of shut fold is `Fold`'s own header, `minHeight: 'var(--tap)'`, with
+ *     `gap: 0` while it is shut.
+ *
+ * WHY THAT SUM IS WORTH BELIEVING. Run over the card as it stood, term for
+ * term, the same arithmetic returns "558.00" for the Acid Burrower and "534.50"
+ * for the Bear - both of Chrome's figures, to the half pixel. A model that
+ * reproduces two independent measurements is worth writing a third number out
+ * of; one that did not would be worth deleting instead.
+ *
+ * AND THE TWO CARDS ARE NOW THE SAME HEIGHT, which is the same fact from the
+ * other end. Their "23.50" of difference was entirely the feature chips - the
+ * Burrower's four wrap to two rows where the Bear's three fit one, and a row of
+ * chips is `.chip`'s 9.5px line plus its `padding: 4px 6px`, 17.50, plus the
+ * 6px row gap. Both adversaries' motives are two lines at 341px. Every term
+ * that varied between the two is now inside the fold, so shut, every adversary
+ * in the book draws the same 471.00 - with one exception.
+ *
+ * ## THE EXCEPTION, WRITTEN DOWN RATHER THAN ROUNDED OFF
+ *
+ * A Minion group draws one control no other card draws: `Minions standing`.
+ * That `Stepper` is a `.t-meta` label, its own `gap: 6` and a `var(--control)`
+ * row - 60 - and the card's gap above it is 10. So a Minion group's shut card
+ * is **541.00 by the same declarations, and it is still 43.00 past the panel.**
+ * Sixteen of the book's 129 adversaries are Minions.
+ *
+ * Nothing here fixes that, deliberately. The two moves that would - putting the
+ * stepper inside the threshold band's row, or taking a control off the card -
+ * are both ergonomic decisions about a control the damage field is wired to
+ * (see the damage field's own note below), and inventing one of those inside a
+ * lane that was given a fold to build is how a screen ends up with two
+ * half-arguments instead of one decision. It is a smaller, separable defect
+ * than the one this lane closed, and it is here so the next reader has the
+ * number and does not have to re-derive it.
+ *
+ * TWO CARDS ON ONE SCREEN IS STILL NO. `PROGETTO-GM §7` item 3 wanted two
+ * readable at once; 2 x 471.00 plus the grid's 10px gap is 952.00 against 498.
+ * What the fold bought is the answer moving from "not even one" to "one, with
+ * 27px to spare". The gate's own question has not been answered yes, and this
+ * paragraph is here so nobody reads the 471.00 as though it had been.
+ */
 function CombatantCard({
   combatant,
   adversary,
@@ -351,7 +527,6 @@ function CombatantCard({
    * would not, with nothing on either screen saying why.
    */
   const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
-  const [openFeatures, setOpenFeatures] = useState(false);
   const [incoming, setIncoming] = useState('');
   const c = combatant;
   const down = c.hp.marked >= c.hp.max;
@@ -426,84 +601,6 @@ function CombatantCard({
           ✕
         </button>
       </div>
-
-      {/*
-        What the thing wants, in the component that decides what it does.
-        `AdversaryBlock` has printed MOTIVES & TACTICS on the bestiary card
-        since the beginning; this is that line, not a second vocabulary for the
-        same field, so a GM who has read one recognises the other.
-
-        It is a full-width row of its own rather than a third line in the name
-        stack, because that stack never gets the card's whole column. Its row
-        at `:327` is `gap: 8` over three children: this stack (`:328`, `flex:
-        1, minWidth: 0`, so basis 0 and it takes the remainder), the SPOTLIGHT
-        chip (`:345-356`, `flex: 'none'`, `padding: '0 10px'`) and the remove
-        button (`:364-368`, `flex: 'none', width: 34`). Neither control has a
-        border to spend: `base.css:46` gives every button `border: 0` and
-        `.chip` declares none. So off the 341 below go two 8px gaps, the 34,
-        and the chip's 20 of padding - **271px at the ceiling**, before the
-        chip's label costs a pixel, and the label only takes more.
-
-        "Well under half the card's width" stood here and was false in the
-        direction that matters: 271 is four fifths of 341 before the label, and
-        for the stack to fall under half the label would have to measure 100.5px
-        - eleven pixels a character across nine characters of a 9.5px font.
-        What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
-        (`base.css:356-364`) actually measures is the one term here that is not
-        a declaration, and it has not been in a browser; do not read a figure
-        for the stack itself out of this paragraph, because there isn't one.
-
-        The conclusion survives without it. The stack is short of the column by
-        at least 70px of declared chrome plus the chip's widest label - nine
-        characters, since pressed it reads SPOTLIT and gives two back - and the
-        motives line runs to 92 characters (below) where the name above it is
-        already `whiteSpace: 'nowrap'` with an ellipsis. A sentence that long
-        wants the widest column on the card, which is the full 341 and not the
-        remainder of a shared row.
-
-        Full width the card's inner column is 341px at 393, and the
-        subtraction starts at 391 rather than at 393. `Scene` is mounted in one
-        place, the `<GmSheet … size="full">` block in `Gm.tsx` - named by its
-        block and not by a line, because "`Gm.tsx:281`" stood here and the mount
-        had already moved down the file. Inside a `size="full"` `GmSheet` whose overlay pads
-        zero horizontally and whose panel is `width: '100%'` with `border: 1px
-        solid var(--line)` (`GmSheet.tsx:95-104`); at `base.css:13`'s
-        `box-sizing: border-box` that makes the sheet's content box 391.00,
-        which `GmSheet.tsx` states and `Reference.tsx:37-39` measured. 391 less
-        the region's 24px of padding, less this card's four pixels of border,
-        less its own 22 of padding, is 341.
-
-        Four pixels of border and not two: `.panel` declares `border: 1px solid
-        var(--line-soft)` (`base.css:235`), but this `<article>` overrides the
-        left one to `3px solid` on the element itself, so three pixels come off
-        one edge where one comes off the other. "343" stood here and "345"
-        before it - the first spent the sheet's border nowhere, the second
-        spent neither that nor the left edge's extra two. `Gm.tsx` retired its
-        own "345" for the second of those and `tests/ui/gmGeometryProse.test.ts`
-        keeps a guard over the files behind it.
-
-        The label plus the motives measures 37 characters at its shortest, 58
-        at the median and 92 at its longest over all 129 adversaries in the
-        book, every one of which carries motives. `.t-meta` is 10px IBM Plex
-        Mono at 0.06em, which is a 0.6 advance plus the tracking - ~6.6px a
-        character, the figure `GearPicker.tsx:716-720` derives and
-        `ReferenceTables.tsx` uses for this class - so 341 holds 51 characters
-        a line, which is exactly what 343 held: 51 characters want 336.6px and
-        52 want 343.2, and both columns fall in that gap. No conclusion moves
-        with the width: 37 is one line, 58 and 92 are both two. Two lines at
-        1.5 is 30px, and this stack's gap is 10, so HP and everything under it
-        drops about 40px. Whether two cards still read on one screen after that
-        is PROGETTO-GM §7 item 3, and it has not been in a browser.
-
-        The undefined arm needs nothing: a combatant whose adversary is not in
-        this dataset has no motives to print, and the meta line above already
-        says NOT IN THIS DATASET rather than leaving the absence unexplained.
-      */}
-      {adversary !== undefined && adversary.motives.length > 0 && (
-        <span className="t-meta" style={{ lineHeight: 1.5 }}>
-          MOTIVES &amp; TACTICS · {adversary.motives.join(', ').toUpperCase()}
-        </span>
-      )}
 
       {/*
        * NUMBERS, NOT PIPS - THE SAME TRADE THE PLAY COCKPIT MADE.
@@ -717,32 +814,145 @@ function CombatantCard({
         </div>
       )}
 
-      {adversary !== undefined && adversary.features.length > 0 && (
-        <>
-          <button
-            type="button"
-            className="row"
-            aria-expanded={openFeatures}
-            onClick={() => setOpenFeatures((o) => !o)}
-            style={{ gap: 8, minHeight: 44, justifyContent: 'space-between' }}
-          >
-            <span className="t-label">Features</span>
-            <span className="chip" style={{ color: 'var(--text-2)' }}>
-              {openFeatures ? 'HIDE' : `SHOW ${adversary.features.length}`}
+      {/*
+        THE CREASE. Everything above it is a round; everything in it is the
+        thing. The head docblock argues which is which and what the fold makes
+        the card - this note is only about the three decisions made here.
+
+        `Fold` AND NOT A SECOND DISCLOSURE OF ITS OWN. Its file states the
+        difference: `Disclosure` keys its open state on `<characterId>:<id>` and
+        writes it into `prefs.playSections`, which is *the Play screen's
+        per-character folds*, and a combatant is nobody's sheet. `Fold` opens
+        shut every time, which is the right default for something you consult,
+        act on and close - and it is what this fold's traffic is. It also gives
+        the card a header the whole width of the column at `var(--tap)`, where
+        the SHOW n / HIDE button it replaces had put its own `minHeight: 44` on
+        the same job by hand.
+
+        THE LABEL IS BUILT AND NOT WRITTEN, because two of its three arms are
+        reachable. The book ships motives and features on all 129 adversaries,
+        so `MOTIVES & FEATURES` is what a GM will see - but the dataset is
+        replaceable (Settings can load a rulebook of the table's own), and a
+        fold labelled for what is not inside it is worse than one word longer.
+        The guard is the same shape: no motives and no features, no fold.
+
+        THE SUMMARY COUNTS RATHER THAN NAMES. That is the one thing the fold
+        takes away - the chip row of feature names that used to sit under the
+        button, drawn open or shut - and the head docblock costs it at 37px and
+        accepts it. A summary long enough to carry the names would put the
+        header itself over one line: `Fold` draws it `flex: 'none'` in a `.row`
+        that does not wrap, so the names would not wrap, they would overflow.
+      */}
+      {adversary !== undefined && (adversary.motives.length > 0 || adversary.features.length > 0) && (
+        <Fold
+          label={
+            adversary.motives.length === 0
+              ? 'Features'
+              : adversary.features.length === 0
+                ? 'Motives'
+                : 'Motives & features'
+          }
+          summary={
+            adversary.features.length === 0
+              ? undefined
+              : `${adversary.features.length} FEATURE${adversary.features.length === 1 ? '' : 'S'}`
+          }
+        >
+          {/*
+            What the thing wants, in the component that decides what it does.
+            `AdversaryBlock` has printed MOTIVES & TACTICS on the bestiary card
+            since the beginning; this is that line, not a second vocabulary for
+            the same field, so a GM who has read one recognises the other.
+
+            It is a full-width row of its own rather than a third line in the
+            name stack, because that stack never gets the card's whole column.
+            The header row is `gap: 8` over three children: the name stack
+            (`flex: 1, minWidth: 0`, so basis 0 and it takes the remainder), the
+            SPOTLIGHT chip (`flex: 'none'`, `padding: '0 10px'`) and the remove
+            button (`flex: 'none', width: 34`). Neither control has a border to
+            spend: `base.css` gives every button `border: 0` and `.chip`
+            declares none. So off the 341 below go two 8px gaps, the 34, and the
+            chip's 20 of padding - **271px at the ceiling**, before the chip's
+            label costs a pixel, and the label only takes more. (Those three
+            children were cited as `:327`, `:328`, `:345-356` and `:364-368`
+            while this file was under edit, and the fold moved every one of
+            them. They are named by their declarations now, which is this
+            repo's own rule about a file still being written.)
+
+            "Well under half the card's width" stood here and was false in the
+            direction that matters: 271 is four fifths of 341 before the label,
+            and for the stack to fall under half the label would have to measure
+            100.5px - eleven pixels a character across nine characters of a
+            9.5px font. What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
+            (`base.css`, `.chip`) actually measures is the one term here that is
+            not a declaration, and it has not been in a browser; do not read a
+            figure for the stack itself out of this paragraph, because there
+            isn't one.
+
+            The conclusion survives without it. The stack is short of the column
+            by at least 70px of declared chrome plus the chip's widest label -
+            nine characters, since pressed it reads SPOTLIT and gives two back -
+            and the motives line runs to 92 characters (below) where the name
+            above it is already `whiteSpace: 'nowrap'` with an ellipsis. A
+            sentence that long wants the widest column on the card, which is the
+            full 341 and not the remainder of a shared row. Inside the fold it
+            still gets it: `Fold`'s children are the full width of a `.stack`
+            that is itself the full width of this card.
+
+            Full width the card's inner column is 341px at 393, and the
+            subtraction starts at 391 rather than at 393. `Scene` is mounted in
+            one place, the `<GmSheet … size="full">` block in `Gm.tsx` - named
+            by its block and not by a line, because "`Gm.tsx:281`" stood here
+            and the mount had already moved down the file. Inside a
+            `size="full"` `GmSheet` whose overlay pads zero horizontally
+            (`padding: full || phone ? 0 : 24`) and whose panel is `width:
+            '100%'` with `border: 1px solid var(--line)`; at `base.css`'s
+            `box-sizing: border-box` that makes the sheet's content box 391.00,
+            which `GmSheet.tsx` states and `Reference.tsx` measured. 391 less
+            the region's 24px of padding, less this card's four pixels of
+            border, less its own 22 of padding, is 341.
+
+            Four pixels of border and not two: `.panel` declares `border: 1px
+            solid var(--line-soft)`, but this `<article>` overrides the left one
+            to `3px solid` on the element itself, so three pixels come off one
+            edge where one comes off the other. "343" stood here and "345"
+            before it - the first spent the sheet's border nowhere, the second
+            spent neither that nor the left edge's extra two. `Gm.tsx` retired
+            its own "345" for the second of those and
+            `tests/ui/gmGeometryProse.test.ts` keeps a guard over the files
+            behind it.
+
+            The label plus the motives measures 37 characters at its shortest,
+            58 at the median and 92 at its longest over all 129 adversaries in
+            the book, every one of which carries motives. `.t-meta` is 10px IBM
+            Plex Mono at 0.06em, which is a 0.6 advance plus the tracking -
+            ~6.6px a character, the figure `GearPicker.tsx` derives and
+            `ReferenceTables.tsx` uses for this class - so 341 holds 51
+            characters a line, which is exactly what 343 held: 51 characters
+            want 336.6px and 52 want 343.2, and both columns fall in that gap.
+            No conclusion moves with the width: 37 is one line, 58 and 92 are
+            both two. Two lines at 1.5 is 30px.
+
+            "Whether two cards still read on one screen after that is
+            PROGETTO-GM §7 item 3, and it has not been in a browser" ended this
+            paragraph. It has been in a browser since, the answer was no twice
+            over, and it is the whole reason this line is inside a fold. The
+            head docblock carries the measurement and what came of it; this
+            sentence is kept only so the next reader can see that the question
+            was asked here first and left open.
+
+            The undefined arm needs nothing: a combatant whose adversary is not
+            in this dataset has no motives to print, no features either, and so
+            draws no fold at all - and the meta line in the header already says
+            NOT IN THIS DATASET rather than leaving the absence unexplained.
+          */}
+          {adversary.motives.length > 0 && (
+            <span className="t-meta" style={{ lineHeight: 1.5 }}>
+              MOTIVES &amp; TACTICS · {adversary.motives.join(', ').toUpperCase()}
             </span>
-          </button>
-          {openFeatures ? (
-            <FeatureList features={adversary.features} />
-          ) : (
-            <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: -4 }}>
-              {adversary.features.map((f, i) => (
-                <span key={`${f.name}-${i}`} className="chip" style={{ color: 'var(--text-3)' }}>
-                  {f.name}
-                </span>
-              ))}
-            </div>
           )}
-        </>
+          {adversary.features.length > 0 && <FeatureList features={adversary.features} />}
+        </Fold>
       )}
     </article>
   );
