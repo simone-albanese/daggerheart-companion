@@ -922,20 +922,22 @@ describe('the field, at the foot of SHOW', () => {
     // named two while the sheet held three, so the merchant could have stayed
     // drawn beside the hits and nothing here would have gone red.
     openShow();
+    // Named rather than described: a door carries its label alone since the
+    // sentences moved beside the Settings switches on 2026-08-25.
     const doorText = (): string => dialog().textContent ?? '';
-    expect(doorText()).toContain('without adding any of them');
-    expect(doorText()).toContain('Nothing here ever writes to their characters');
-    expect(doorText()).toContain('never spends anybody’s gold');
+    expect(doorText()).toContain('BESTIARY');
+    expect(doorText()).toContain('THE PARTY BOARD');
+    expect(doorText()).toContain('THE MERCHANT');
 
     type('fear');
-    expect(doorText()).not.toContain('without adding any of them');
-    expect(doorText()).not.toContain('Nothing here ever writes to their characters');
-    expect(doorText()).not.toContain('never spends anybody’s gold');
+    expect(doorText()).not.toContain('BESTIARY');
+    expect(doorText()).not.toContain('THE PARTY BOARD');
+    expect(doorText()).not.toContain('THE MERCHANT');
 
     type('');
-    expect(doorText()).toContain('without adding any of them');
-    expect(doorText()).toContain('Nothing here ever writes to their characters');
-    expect(doorText()).toContain('never spends anybody’s gold');
+    expect(doorText()).toContain('BESTIARY');
+    expect(doorText()).toContain('THE PARTY BOARD');
+    expect(doorText()).toContain('THE MERCHANT');
   });
 
   it('is still there when only one of SHOW’s doors is switched on', () => {
@@ -945,7 +947,7 @@ describe('the field, at the foot of SHOW', () => {
       prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmMerchant: false },
     });
     openShow();
-    expect(dialog().textContent).toContain('Nothing here ever writes to their characters');
+    expect(dialog().textContent).toContain('THE PARTY BOARD');
     type('pitfalls');
     expect(hitTitles()).toEqual(['Pitfalls to Avoid']);
     // And the name the sheet is announced under says so. `Gm.tsx` narrows this

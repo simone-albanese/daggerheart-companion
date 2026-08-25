@@ -140,3 +140,29 @@ Tre di queste risposte non sono preferenze: **invalidano un passo scritto.**
 
 E una che apre lavoro di misura invece di chiuderlo: **§6 non è spedibile senza Chrome.**
 L'altezza della griglia 2×3 di chip è un numero che nessuno ha.
+
+---
+
+## 10. QUESTIONS sta sopra `SOME` — deciso il 25 agosto, a costruzione avvenuta
+
+La domanda è nata guardando il codice, non progettandolo: la lane del catalogo ha messo il gruppo
+QUESTIONS **sopra** la banda `SOME` nei risultati di ricerca, se n'è accorta che **nessuna delle
+nove decisioni lo autorizzava**, e l'ha segnalato invece di lasciarlo passare.
+
+**Risposta: sopra, e diventa una decisione.** Una voce curata da una persona, con un puntatore
+verificato a mano contro l'SRD, batte una corrispondenza parziale trovata da un algoritmo. È il
+senso stesso per cui il catalogo esiste: le domande che ci stanno dentro sono precisamente quelle
+a cui una ricerca per parole **non sa rispondere**, perché il libro non usa quelle parole.
+Verificato sul testo spedito, zero occorrenze ciascuna: `surrender`, `concede`, `chase`,
+`difficulty roll`, `nearly impossible`, `lines and veils`.
+
+**Il costo, e perché è minore di quanto sembri.** L'obiezione seria è che l'SRD dovrebbe venire
+prima: chi cerca una parola del libro deve trovare il libro. Ma i due casi non collidono quasi
+mai — quando la parola è nel libro, sopra QUESTIONS ci sono comunque le corrispondenze **esatte**,
+e QUESTIONS scavalca solo `SOME`, che è già la banda di ripiego. Quando la parola nel libro non
+c'è, sopra non c'è niente da scavalcare.
+
+**Cosa costa se la si scopre dopo.** Due delle sei bande di momento cadono già nel ripiego OR
+(`THE DICE LANDED`, `BETWEEN SCENES`): se un giorno si volesse invertire l'ordine, quelle due sono
+le superfici dove il cambiamento si vedrebbe per prime, ed è lì che va guardato al tavolo prima di
+toccarlo.

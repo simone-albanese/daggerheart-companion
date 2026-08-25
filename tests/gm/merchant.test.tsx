@@ -260,12 +260,17 @@ describe('the doors SHOW draws', () => {
     expect(dialog().getAttribute('aria-label')).toBe('The merchant');
   });
 
-  it('says on the door itself that it spends nobody’s gold', () => {
+  it('offers the merchant by name, and answers the gold question elsewhere', () => {
     // A tool named for a shopkeeper invites the assumption that buying here
-    // marks a slot on a character. The sentence answers it before the tap.
+    // marks a slot on a character, and the door's sentence answered that before
+    // the tap. It is answered beside the merchant's own switch now - asserted
+    // in `tests/ui/settingsHints.test.tsx` - because three doors with three
+    // sentences filled SHOW's whole reading window. The negative is asserted
+    // too: a sentence that comes back to the door brings back the room it cost.
     gm();
     click(named('SHOW'));
-    expect(dialog().textContent).toContain('never spends anybody’s gold');
+    expect(dialog().textContent).toContain('THE MERCHANT');
+    expect(dialog().textContent).not.toContain('never spends anybody’s gold');
   });
 
   it('will not follow a stored region into the merchant while it is switched off', () => {

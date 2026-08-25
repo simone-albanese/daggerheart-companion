@@ -299,3 +299,39 @@ describe('the settings screen', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// The three promises SHOW's doors used to carry
+// ---------------------------------------------------------------------------
+
+/**
+ * Each of SHOW's three doors used to end in a sentence saying what that tool is
+ * *not*: a bestiary that adds nothing to tonight, a board that writes to no
+ * character, a stall that spends nobody's gold. On 2026-08-25 the sentences
+ * came off the doors - three of them filled SHOW's 308.3px reading window on
+ * their own, measured in Chrome, and the moment chips had nowhere to go.
+ *
+ * A promise does not stop being owed because the surface that carried it ran
+ * out of room. This is where it is owed from now on, and this test is what goes
+ * red if a hint is rewritten without it. It reads the hint through
+ * `aria-describedby`, so a sentence that is on the page but unreachable from
+ * the switch fails here exactly as a missing one does.
+ */
+describe("the doors' promises, beside the switches that own them", () => {
+  it('promises the bestiary adds nothing to tonight', async () => {
+    await render(<Settings />);
+    expect(describedBy(control('Bestiary'))).toContain('without adding any of them to tonight');
+  });
+
+  it('promises the party board writes to no character', async () => {
+    await render(<Settings />);
+    expect(describedBy(control('The party board'))).toContain(
+      'Nothing on the board ever writes to their characters',
+    );
+  });
+
+  it('promises the merchant spends nobody\u2019s gold', async () => {
+    await render(<Settings />);
+    expect(describedBy(control('The merchant'))).toContain('never spends anybody\u2019s gold');
+  });
+});

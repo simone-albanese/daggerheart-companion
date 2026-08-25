@@ -129,20 +129,22 @@
  * The rest of this paragraph used to be arithmetic and is now a measurement,
  * and the arithmetic was wrong. The inner column is **363px**, not the "365"
  * that `393 - 28 of padding` gives, because the panel also carries a 1px border on
- * each side. No choice comes near its 56px floor at that width: each draws
- * **84.58**, which is 2 of border, 20 of padding, the 10px label, a 5px gap
- * and its sentence on **three** lines rather than the two this said. The
- * sentence is read rather than touched either way.
+ * each side. A choice is its label alone now, so nothing in it comes near the
+ * 56px floor: 20 of padding and a 10px line is **30**, and the floor is what
+ * the row measures.
  *
- * **The third door was measured, not assumed to match.** Its sentence is the
- * longest of the three and it still wraps to three lines, so all three choices
- * measure 84.58 exactly and the sheet grows by one choice and one 10px gap:
- * with every door on and the field empty the panel is **402.73** - y 449.27 to
- * 852.00, a little under half the window. ("308.2px" stood here and is retired:
- * it was true of two doors, which is a state this sheet still has and is no
- * longer the state it is usually in.) The field is 363.00 x 44.00 at y 793.00.
- * All of it measured in Chrome at 393x852, device-scale-factor 1, safe area
- * top 47 / bottom 34.
+ * **A door used to carry a sentence, and the figures that went with it are
+ * records rather than claims.** Each choice measured "84.58" - 2 of border, 20
+ * of padding, the 10px label, a 5px gap and its sentence on three lines - and
+ * with every door on and the field empty the panel measured "402.73", y 449.27
+ * to 852.00. Both belong to the sheet as it was before the sentences came off;
+ * see the section on the moment chips for why they did and what the space was
+ * spent on. The panel's new height is **not re-measured here** and is owed to
+ * the next Chrome pass. ("308.2px" also stood here and is retired: it was true
+ * of two doors, which is a state this sheet still has and is no longer the
+ * state it is usually in.) The field is 363.00 x 44.00 at y 793.00. All of it
+ * measured in Chrome at 393x852, device-scale-factor 1, safe area top 47 /
+ * bottom 34.
  *
  * The **field is the last element**, on the bottom edge of a bottom-anchored
  * sheet, where the thumb that pressed SHOW already is and where a keyboard will
@@ -159,49 +161,112 @@
  *
  * That is the owner's decision of 2026-08-25 §6, taken over the two
  * alternatives - chips instead of the doors, or chips only when every door is
- * switched off - and it is a decision rather than a derivation, so it is
- * recorded as one. What this file owes it is the arithmetic underneath and an
- * honest account of what has not been measured.
+ * switched off. Chrome then measured what that costs, and the answer changed
+ * the doors rather than the chips.
  *
- * **Six chips, and they are a 2x3 grid rather than a row.** Six across the
- * column at an 8px gap is 53.8px each, which clears the 44px tap floor in
- * *width* and does not hold `BETWEEN SCENES`: the longest of the six labels is
- * fourteen characters of a 10px mono face at 0.16em of tracking, and 53.8px
- * does not take it without wrapping the label inside the chip or cutting it.
- * Two columns give each chip about 177px, which takes every one of the six on
- * one line with room to spare. That is arithmetic on a column this file already
- * measures and it is sound; what it does not give is the **height** of the
- * result.
+ * **The window, measured on this branch at 393x852 with insets 47/34.** The
+ * scroller's reading window is **308.3**; it pays **14** of padding above its
+ * first child, so **294.3** is what the column has. Three doors and the two
+ * 10px gaps between them took **273.7** of it. That left **20.6px** above the
+ * doors, and nothing this app draws is 20.6px tall: not a 2x3 grid of chips,
+ * not a 3x2, not a single row of them, not a QUESTIONS band. The chips were
+ * never the problem to solve - **three doors filled the reading window on their
+ * own.**
  *
- * **The height of that grid has never been measured, by anyone, and it is not
- * derived here.** Three rows of a 44px floor plus two 8px gaps is 148px if
- * every chip sits exactly on the floor, and whether they do is precisely the
- * thing arithmetic cannot say - it is the same trap the "twenty shut hits at
- * the 44px floor is 880px" figure fell into next door, where Chrome measured
- * 1327.1 against an arithmetic 880. So no number is written down for it.
- * **This owes a Chrome pass at 393x852**, which also owes the answer to the
- * question the grid raises rather than settles: with three doors on, whether
- * the last door is still reachable without a scroll, and where the grid puts
- * the first door relative to the thumb.
+ * **So the sentence under each door goes, and the label stays** (the owner,
+ * same pass). A door was **84.6** tall: 20 of padding, the 10px label, a 5px
+ * gap, and **47.6** of description on three lines. Without the description it
+ * is 20 + 10 = **30**, floored by its own `minHeight` to **56**, and three of
+ * them with their gaps come to **188** - **85.7px** handed back, for **106.3**
+ * above the doors.
  *
- * **The panel scrolls, so this is a cost and not a cliff.** It did not on the
- * day §6 was framed, and the argument against putting anything above the doors
- * was written against a panel that clipped. `GmSheet` gave its body a real
- * scroller on 2026-08-25, so a grid that turns out taller than the arithmetic
- * hopes pushes the last door under the fold rather than off the sheet. That is
- * the premise this paragraph rests on; the old one must not be quoted back at
- * it.
+ * **What that costs is real and is not hidden.** A GM opening SHOW for the
+ * first time no longer reads what THE MERCHANT does before pressing it, and
+ * those three sentences were the ones that said what each tool is *not* - a
+ * bestiary that adds nothing to tonight, a board that writes to no character, a
+ * stall that spends nobody's gold. They are not lost: `Settings.tsx` carries
+ * all three beside the switch that decides whether the door exists at all,
+ * which is the one place a GM is already reading about a tool rather than
+ * reaching for one. It carries them **in its own words rather than by drawing
+ * `choice.body`**, because a hint beside a switch answers a different question
+ * than a door does: what turning this off takes away, not what waits behind
+ * it. `tests/ui/settingsHints.test.tsx` pins one clause of each to the switch
+ * it describes. Two halves needed work rather than inheritance, and both were
+ * done rather than assumed: the party board's *never
+ * writes to their characters* was a promise about the board and Settings only
+ * said it about the switch, so that clause was added to the hint; the
+ * bestiary's *an adversary can still be sent straight to the live scene from
+ * there* is dropped outright, because it is an affordance rather than a promise
+ * and the button that does it is inside the bestiary where it can be seen.
  *
- * **The overflow is not a way out.** H-9 is shut - no horizontal rail on this
- * screen - so six chips in one scrolling row is not an option that was weighed
- * and rejected here, it is one that is closed elsewhere.
+ * **`ShowDoor.body` is now read by nothing.** Dropping the sentence from the
+ * door left the field on the type and on all three entries with no drawer
+ * anywhere in `src`. It is left standing rather than deleted, because whether
+ * those three sentences remain the app's canonical wording for what each tool
+ * is not - with Settings paraphrasing them - is a decision about the words and
+ * not about this layout. It is the next thing to settle here, and
+ * `tests/ui/settingsHints.test.tsx` is what holds the promises in the meantime.
  *
- * **What the doors pay.** They move down by the grid and its gap, and
- * `showDoors.ts` says in its own words why their order is never touched: a GM
- * who has been opening the bestiary from the top of this sheet for a month
- * keeps it at the top. That property is about the order of the three and it
- * survives; what does not survive is the *position*, and this is the one place
- * that says so out loud rather than letting a GM find it.
+ * **The grid is three columns and two rows, and every term of it is written
+ * down.** Two rows at the 44px tap floor with one 8px gap is **96**; the
+ * scroller's own 10px gap puts the first door at 106, inside the 106.3 the
+ * doors gave back. The whole column comes to 96 + 10 + 188 = **294.0** in a
+ * **294.3** window. That fits by **0.3px**, which is a coincidence and not a
+ * margin: if the re-measurement moves any term the last door loses a hair to
+ * the scroller, which is a thing the panel now has. The first place with give
+ * in it is the door floor - 56 against a 44px tap floor is 12px a door, 36 in
+ * the column - and it is spent there rather than on the chips, because the
+ * doors are the destinations and the chips are an index of them.
+ *
+ * **Three columns needed 16.33px that were not there, and the constant that
+ * was blocking it is not the one this docblock used to name.** Three columns
+ * with 8px gaps give **115.67** each. The widest label is **BEFORE THE ROLL at
+ * 114.00**, tied with **THE DICE LANDED**; `BETWEEN SCENES` is **106.41** and
+ * third, and two sentences here named it as the binding one and were wrong. At
+ * the chip's 18px of frame - 8px of padding and a 1px border a side - the
+ * minimum was **132.00**, over by **16.33**.
+ *
+ * **Of the three levers, only tracking could pay it.** *Columns*: two of them
+ * is three rows, 2x44 + 2x8 = **148**, which is 41.7 more than the doors gave
+ * back - so the arrangement that fitted the old sheet cannot fit this one.
+ * *Padding*: taking all 16px of it leaves 114.00 + 2 of border = **116.00**,
+ * still 0.33 over, and padding is not the breathing room here anyway - the cell
+ * is a fixed 115.67 and the label is centred in it, so what a reader sees at
+ * either end is half of whatever the label does not use. *Tracking*: the label
+ * is 10px mono at **1.6px** of letter-spacing, and `BEFORE THE ROLL` is fifteen
+ * characters, so **24.00** of that 114.00 is spacing and **90.00** is glyphs -
+ * more slack in the spacing than the whole deficit.
+ *
+ * So the chips are drawn at **0.08em**, half the label role's own. The same
+ * fifteen characters then carry 12.00 and the text is **102.00**; with 4px of
+ * padding and the border the chip's minimum is **112.00** against 115.67, with
+ * **3.67** to spare. Every other label is inside it by construction: THE DICE
+ * LANDED 102.00, BETWEEN SCENES 95.21, THIS PLACE 68.00, MY TURN 47.60, DAMAGE
+ * 40.81. (Whether Chrome hangs the tracking off the trailing character too
+ * moves each of those by 0.8px and changes none of the conclusions.)
+ *
+ * 0.08em is not a number invented for this box: `.t-meta` is the same 10px mono
+ * face at 0.06em, so this sits inside the range the type scale already uses,
+ * and this file already overrides `.t-label`'s tracking once - the door's own
+ * label is drawn at 0.1em.
+ *
+ * **What the next Chrome pass still owes.** The height of a one-line door and
+ * of the two-row grid, both of which are floors here rather than measurements;
+ * the panel's new overall height, which retires "402.73"; and the one thing
+ * arithmetic cannot answer at all - whether 102px of 10px mono at half its
+ * usual tracking is still read at arm's length in a dim room, which is what
+ * this lever was spent on.
+ *
+ * **The overflow is still not a way out.** H-9 is shut - no horizontal rail on
+ * this screen - so six chips in one scrolling row is not an option that was
+ * weighed and rejected here, it is one that is closed elsewhere.
+ *
+ * **What the doors pay, beyond their sentences.** They move down by the grid
+ * and its gap, and `showDoors.ts` says in its own words why their order is
+ * never touched: a GM who has been opening the bestiary from the top of this
+ * sheet for a month keeps it at the top. That property is about the order of
+ * the three and it survives; what does not survive is the *position*, and this
+ * is the one place that says so out loud rather than letting a GM find it.
  *
  * **A chip fills the field.** It creates no new state, no second list and no
  * overlay: tapping `DAMAGE` types `damage` where the GM could have typed it,
@@ -259,10 +324,9 @@ export function ShowSheet({
           <>
             {/*
               The moment chips, above the doors, in one scroll - the owner's
-              decision of 2026-08-25 §6. Two columns because six across this
-              column is 53.8px each and `BETWEEN SCENES` does not fit that; the
-              grid's height is unmeasured and the docblock above says so rather
-              than guessing at it.
+              decision of 2026-08-25 §6. Three columns and two rows: the
+              docblock above carries every term of that, including the 16.33px
+              the third column costs and the tracking that pays for it.
 
               A chip is drawn the way CLEAR is - a `t-label` with its words as
               its own text and no `<span>` inside - and that is load bearing
@@ -277,7 +341,7 @@ export function ShowSheet({
               style={{
                 flex: 'none',
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
+                gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: 8,
               }}
             >
@@ -291,7 +355,11 @@ export function ShowSheet({
                   }}
                   style={{
                     minHeight: 44,
-                    padding: '0 8px',
+                    padding: '0 4px',
+                    // Half the label role's 0.16em, and the whole of what buys
+                    // a third column: fifteen characters at 1.6px is 24 of the
+                    // widest label's 114.00, and 16.33 of it had to go.
+                    letterSpacing: '0.08em',
                     color: 'var(--text-2)',
                     background: 'var(--panel)',
                     border: '1px solid var(--line)',
@@ -303,6 +371,17 @@ export function ShowSheet({
               ))}
             </div>
             {liveDoors(prefs).map((choice) => (
+              /*
+                The label alone. `choice.body` is still in `showDoors.ts` and
+                still says what each tool is not - it is drawn beside that
+                tool's switch in Settings, which is where a GM reads about a
+                door rather than reaching for one, and the docblock above says
+                what that trade cost and what was moved to keep it honest.
+
+                `justifyContent: center` because the row is one 10px line in a
+                56px box now: left at the top of it, the label would sit under
+                the ceiling with 26px of nothing beneath it.
+              */
               <button
                 key={choice.tool}
                 type="button"
@@ -311,17 +390,14 @@ export function ShowSheet({
                 style={{
                   flex: 'none',
                   minHeight: 56,
-                  gap: 5,
                   padding: '10px 12px',
                   textAlign: 'left',
                   alignItems: 'flex-start',
+                  justifyContent: 'center',
                 }}
               >
                 <span className="t-label" style={{ letterSpacing: '0.1em' }}>
                   {choice.label}
-                </span>
-                <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
-                  {choice.body}
                 </span>
               </button>
             ))}
