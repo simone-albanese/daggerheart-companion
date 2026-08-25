@@ -49,7 +49,7 @@ import {
   type SectionView,
 } from '../../src/ui/shared/srdReference.ts';
 import { landingIn, preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
-import { loadAsk, searchAsk } from '../../src/ui/gm/ask.ts';
+import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/gm/ask.ts';
 import { ASK_CATALOGUE } from '../../src/ui/gm/askCatalogue.ts';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
@@ -2134,5 +2134,62 @@ describe('the questions above the sections', () => {
 
     click(named('SEARCH “chase” INSTEAD'));
     expect(field().value).toBe('chase');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the moment chips, on the empty field', () => {
+  const chipGroup = (): HTMLElement | null => dialog().querySelector('[role="group"]');
+  const doors = (): HTMLButtonElement[] => [
+    ...scroller().querySelectorAll<HTMLButtonElement>('button.panel'),
+  ];
+
+  it('draws all six above the doors, in one scroll', () => {
+    // The owner's decision of 2026-08-25 §6: both, not one or the other. The
+    // panel scrolls, so a grid above the doors pushes them down rather than off
+    // - and how far down is the Chrome measurement `ShowSheet.tsx` says it is
+    // still waiting for.
+    openShow();
+    const chips = [...chipGroup()!.querySelectorAll('button')];
+    expect(chips.map((b) => (b.textContent ?? '').trim())).toEqual(
+      MOMENTS.map((moment) => moment.label),
+    );
+    expect(doors()).toHaveLength(3);
+    expect(
+      chipGroup()!.compareDocumentPosition(doors()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+    expect(scroller().contains(chipGroup())).toBe(true);
+    // The floor, inline, where jsdom can read it. A chip is not two columns
+    // because 53.8px would not hold `BETWEEN SCENES`; it is 44 tall because
+    // everything on this screen is.
+    for (const chip of chips) expect(chip.style.minHeight).toBe('44px');
+  });
+
+  it('fills the field, and every one of the six finds its own questions', () => {
+    for (const moment of MOMENTS) {
+      openShow();
+      click(named(moment.label));
+      expect(field().value).toBe(moment.label.toLowerCase());
+      // A chip that drew an empty band would be a control that answers
+      // nothing, which is worse than no chip.
+      expect(askRows().length, moment.label).toBeGreaterThan(0);
+      expect(groupHeaders()[0], moment.label).toBe(
+        `QUESTIONS · ${String(searchAsk(ASK_CATALOGUE, moment.label.toLowerCase()).length)}`,
+      );
+      act(() => root.unmount());
+      root = createRoot(container);
+    }
+  });
+
+  it('goes with the doors while a question is being typed, and comes back', () => {
+    openShow();
+    expect(chipGroup()).not.toBeNull();
+    type('fear');
+    expect(chipGroup()).toBeNull();
+    expect(doors()).toEqual([]);
+    type('');
+    expect(chipGroup()).not.toBeNull();
+    expect(doors()).toHaveLength(3);
   });
 });

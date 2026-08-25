@@ -146,18 +146,75 @@
  *
  * The **field is the last element**, on the bottom edge of a bottom-anchored
  * sheet, where the thumb that pressed SHOW already is and where a keyboard will
- * rise to meet it. The scroller above it holds whichever doors are live when
- * the field is empty and the hits when it is not - **not both**: a GM who is
+ * rise to meet it. The scroller above it holds the empty-field state when the
+ * field is empty and the hits when it is not - **not both**: a GM who is
  * typing has asked a question the doors do not answer, and on a phone with a
  * keyboard up the sheet has no room to keep offering them. That argument got
  * stronger with the third door rather than weaker, because the thing being
  * displaced is now taller. Emptying the field - one tap on the CLEAR beside it
  * - brings them straight back, so nothing is lost and nothing had to be
  * dismissed.
+ *
+ * ## The empty field holds both: the moment chips, then the doors
+ *
+ * That is the owner's decision of 2026-08-25 §6, taken over the two
+ * alternatives - chips instead of the doors, or chips only when every door is
+ * switched off - and it is a decision rather than a derivation, so it is
+ * recorded as one. What this file owes it is the arithmetic underneath and an
+ * honest account of what has not been measured.
+ *
+ * **Six chips, and they are a 2x3 grid rather than a row.** Six across the
+ * column at an 8px gap is 53.8px each, which clears the 44px tap floor in
+ * *width* and does not hold `BETWEEN SCENES`: the longest of the six labels is
+ * fourteen characters of a 10px mono face at 0.16em of tracking, and 53.8px
+ * does not take it without wrapping the label inside the chip or cutting it.
+ * Two columns give each chip about 177px, which takes every one of the six on
+ * one line with room to spare. That is arithmetic on a column this file already
+ * measures and it is sound; what it does not give is the **height** of the
+ * result.
+ *
+ * **The height of that grid has never been measured, by anyone, and it is not
+ * derived here.** Three rows of a 44px floor plus two 8px gaps is 148px if
+ * every chip sits exactly on the floor, and whether they do is precisely the
+ * thing arithmetic cannot say - it is the same trap the "twenty shut hits at
+ * the 44px floor is 880px" figure fell into next door, where Chrome measured
+ * 1327.1 against an arithmetic 880. So no number is written down for it.
+ * **This owes a Chrome pass at 393x852**, which also owes the answer to the
+ * question the grid raises rather than settles: with three doors on, whether
+ * the last door is still reachable without a scroll, and where the grid puts
+ * the first door relative to the thumb.
+ *
+ * **The panel scrolls, so this is a cost and not a cliff.** It did not on the
+ * day §6 was framed, and the argument against putting anything above the doors
+ * was written against a panel that clipped. `GmSheet` gave its body a real
+ * scroller on 2026-08-25, so a grid that turns out taller than the arithmetic
+ * hopes pushes the last door under the fold rather than off the sheet. That is
+ * the premise this paragraph rests on; the old one must not be quoted back at
+ * it.
+ *
+ * **The overflow is not a way out.** H-9 is shut - no horizontal rail on this
+ * screen - so six chips in one scrolling row is not an option that was weighed
+ * and rejected here, it is one that is closed elsewhere.
+ *
+ * **What the doors pay.** They move down by the grid and its gap, and
+ * `showDoors.ts` says in its own words why their order is never touched: a GM
+ * who has been opening the bestiary from the top of this sheet for a month
+ * keeps it at the top. That property is about the order of the three and it
+ * survives; what does not survive is the *position*, and this is the one place
+ * that says so out loud rather than letting a GM find it.
+ *
+ * **A chip fills the field.** It creates no new state, no second list and no
+ * overlay: tapping `DAMAGE` types `damage` where the GM could have typed it,
+ * so what happens next is the surface they already know, the CLEAR beside the
+ * field undoes it, and the words in the field are the words on the chip they
+ * pressed. The words are the moment's own label because `searchAsk` indexes
+ * each question under its moment as well as under `ask` and `also`, so every
+ * chip is guaranteed to find its own questions rather than only whatever
+ * sections happen to carry the same words.
  */
 import { useEffect, useState } from 'react';
 import { useApp } from '../../store/state.ts';
-import { loadAsk } from './ask.ts';
+import { loadAsk, MOMENTS } from './ask.ts';
 import type { GmRegion } from './gmStore.ts';
 import { RuleSearchField, RuleSearchResults } from './RuleSearch.tsx';
 import { liveDoors } from './showDoors.ts';
@@ -199,29 +256,76 @@ export function ShowSheet({
         {searching ? (
           <RuleSearchResults query={query} onQuery={setQuery} />
         ) : (
-          liveDoors(prefs).map((choice) => (
-            <button
-              key={choice.tool}
-              type="button"
-              onClick={() => onOpenTool(choice.tool)}
-              className="panel stack"
+          <>
+            {/*
+              The moment chips, above the doors, in one scroll - the owner's
+              decision of 2026-08-25 §6. Two columns because six across this
+              column is 53.8px each and `BETWEEN SCENES` does not fit that; the
+              grid's height is unmeasured and the docblock above says so rather
+              than guessing at it.
+
+              A chip is drawn the way CLEAR is - a `t-label` with its words as
+              its own text and no `<span>` inside - and that is load bearing
+              rather than tidy: `merchant.test.tsx` enumerates the doors of
+              this sheet by reading the first `<span>` of every button in the
+              dialog, so a chip built like a door would join the list of doors
+              in seven assertions that are about which tools SHOW opens.
+            */}
+            <div
+              role="group"
+              aria-label="What just happened"
               style={{
                 flex: 'none',
-                minHeight: 56,
-                gap: 5,
-                padding: '10px 12px',
-                textAlign: 'left',
-                alignItems: 'flex-start',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
               }}
             >
-              <span className="t-label" style={{ letterSpacing: '0.1em' }}>
-                {choice.label}
-              </span>
-              <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
-                {choice.body}
-              </span>
-            </button>
-          ))
+              {MOMENTS.map((moment) => (
+                <button
+                  key={moment.id}
+                  type="button"
+                  className="t-label"
+                  onClick={() => {
+                    setQuery(moment.label.toLowerCase());
+                  }}
+                  style={{
+                    minHeight: 44,
+                    padding: '0 8px',
+                    color: 'var(--text-2)',
+                    background: 'var(--panel)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 'var(--r2)',
+                  }}
+                >
+                  {moment.label}
+                </button>
+              ))}
+            </div>
+            {liveDoors(prefs).map((choice) => (
+              <button
+                key={choice.tool}
+                type="button"
+                onClick={() => onOpenTool(choice.tool)}
+                className="panel stack"
+                style={{
+                  flex: 'none',
+                  minHeight: 56,
+                  gap: 5,
+                  padding: '10px 12px',
+                  textAlign: 'left',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <span className="t-label" style={{ letterSpacing: '0.1em' }}>
+                  {choice.label}
+                </span>
+                <span className="t-dense" style={{ color: 'var(--muted)', maxWidth: '62ch' }}>
+                  {choice.body}
+                </span>
+              </button>
+            ))}
+          </>
         )}
       </div>
       <div className="stack" style={{ flex: 'none', padding: '0 14px 14px' }}>
