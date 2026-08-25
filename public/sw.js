@@ -570,11 +570,27 @@ async function warmManifestIcons(shellCache) {
  * Activation is the moment to do it: it happens only once the user has accepted
  * the update, and the client that accepted reloads immediately after.
  *
- * What this cannot see is a chunk that only a dynamic `import()` names, since
- * the document never mentions it - such a chunk is dropped here and refetched,
- * online, the next time it is wanted. Today there are none: the SRD is a static
- * import and so appears as a modulepreload. Anything lazily loaded that has to
- * survive offline needs naming here first.
+ * Two limits, and both bite the same kind of file: one that has to survive
+ * offline and is named nowhere in the document.
+ *
+ * The first is what counts as a name. A chunk that only a dynamic `import()`
+ * names *is* found - the walk below reads the text of every cached chunk and
+ * applies `JS_IMPORTS` to it again, which is the only reason the lazy screens
+ * are here at all - but only because Vite writes that specifier as a literal
+ * `"./Gm-<hash>.js"`. A specifier the build computes, or a dataset loaded as
+ * `.json`, is a string this worker never recognises as a name: it never
+ * reaches `hashed`, so it is deleted here on the first activation and fetched
+ * again, online, the next time it is wanted. Anything that has to survive
+ * offline has to be a `.js` or `.css` file named by a literal.
+ *
+ * The second is how far the walk can get. The prune passes no `fetchMissing` -
+ * it is only allowed to keep what is already cached, so it must not fill
+ * anything - and stops at `if (!cached) continue`. A file that no cached chunk
+ * names, because the only chunk naming it is itself missing, is invisible from
+ * here and goes with the superseded. Today the one chunk deliberately left
+ * uncached is the importer's worker, on every device that never asked for it
+ * (see `isDeferred`), and it imports nothing of ours; put something behind it
+ * and this is where it would quietly stop existing.
  */
 async function pruneAssets() {
   const shellCache = await caches.open(SHELL_CACHE);
