@@ -33,6 +33,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDamage, rollDamage, type DamageResult } from '../../engine/dice.ts';
 import { useApp } from '../../store/state.ts';
+import type { RollAffordance } from '../shared/rollAffordance.ts';
 import {
   damageArithmetic,
   damageLogEntry,
@@ -40,7 +41,6 @@ import {
   isRollableDamage,
   type ArmedAttack,
 } from './attack.ts';
-import type { RollAffordance } from './DualityRoll.tsx';
 
 interface DamageRowProps {
   /**

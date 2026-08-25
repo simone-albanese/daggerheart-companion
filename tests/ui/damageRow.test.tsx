@@ -25,7 +25,7 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import type { ArmedAttack, AttackSource } from '../../src/ui/player/attack.ts';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
-import { rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
 import { dataset, index, playedCharacter } from './fixture.ts';
 
 declare global {

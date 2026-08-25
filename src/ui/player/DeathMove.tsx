@@ -61,10 +61,11 @@ import { hasFallen } from '../../engine/damage.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { useDialog } from '../shared/useDialog.ts';
 import { MAX_NAMED, useConditions, useConditionsFor } from './conditionsStore.ts';
-// The same helper the roll control computes for itself (`DualityRoll.tsx:926`)
-// and the damage row is handed (`DamageRoll.tsx:288`), read here rather than
-// reasoned out again from the two switches it is made of.
-import { rollAffordance, type RollAffordance } from './DualityRoll.tsx';
+// The same helper the roll control computes for itself and the damage row is
+// handed, read here rather than reasoned out again from the two switches it is
+// made of. It left `DualityRoll.tsx` for `shared/` when the GM's rest control
+// became a fourth surface that has to ask the same question.
+import { rollAffordance, type RollAffordance } from '../shared/rollAffordance.ts';
 import { paragraphs, ruleBullets } from '../shared/ruleText.ts';
 
 const ORDER: DeathMoveId[] = ['blaze', 'avoid', 'risk'];

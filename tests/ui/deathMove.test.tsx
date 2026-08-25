@@ -27,7 +27,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Character } from '@shared/types.ts';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
-import { rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { dataset, index, playedCharacter } from './fixture.ts';

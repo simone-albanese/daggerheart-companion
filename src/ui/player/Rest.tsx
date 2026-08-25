@@ -223,11 +223,11 @@ import {
 } from '../../engine/rest.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
-// The one place this app answers "what may this surface offer"
-// (`DualityRoll.tsx:83`), read here rather than reasoned out again: a surface
-// deciding for itself what the two dice switches mean is another answer that
-// can disagree with the roll control's, which is where a player learnt them.
-import { rollAffordance } from './DualityRoll.tsx';
+// The one place this app answers "what may this surface offer", read here
+// rather than reasoned out again: a surface deciding for itself what the two
+// dice switches mean is another answer that can disagree with the roll
+// control's, which is where a player learnt them.
+import { rollAffordance } from '../shared/rollAffordance.ts';
 import { shortReason } from './recall.ts';
 import { interruptedRestRule, longRestRule } from '../shared/ruleText.ts';
 

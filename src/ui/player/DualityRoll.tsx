@@ -48,73 +48,12 @@ import {
   type DualityResult,
 } from '../../engine/dice.ts';
 import { useActive, useApp } from '../../store/state.ts';
+import { rollAffordance, type RollAffordance } from '../shared/rollAffordance.ts';
 import { experiencesFor, type ArmedAttack, type AttackSource } from './attack.ts';
 import { DamageRow } from './DamageRoll.tsx';
 import { DIE_SIZES, MAX_HELD, useHeldDice, useHeldFor, type HeldDie } from './heldDice.ts';
 
 export type RollTrait = Trait | 'spellcast';
-
-/** What the two dice switches leave a player able to do. */
-export interface RollAffordance {
-  /** Pressing the control can produce a roll. */
-  canRoll: boolean;
-  /** The Hope and Fear faces accept a typed value. */
-  canType: boolean;
-  /** The word on the control before a roll has been made. */
-  label: string;
-  /** What to do next, for whichever idle readout the layout has. */
-  prompt: string;
-  /** The prompt is a thing to go and fix, not an instruction to follow. */
-  blocked: boolean;
-}
-
-/**
- * The honesty rule, in one place.
- *
- * "Digital dice" and "Type your own dice" are independent switches, so there
- * are four states and one of them - both off - leaves nothing on the screen
- * that can resolve a roll. That state is real, it is reachable from Settings
- * in two taps, and it is not prevented. What it must never do is present a
- * disabled control still saying ROLL, because a greyed-out button with the
- * name of the thing you wanted on it says the app could do it and won't,
- * rather than that nothing is switched on. So the control names the missing
- * switch and where to find it.
- *
- * Both layouts read this rather than deciding for themselves; the phone and
- * the desktop disagreeing about what the app can do would be its own bug. The
- * desktop was that bug for a while - its verdict strip kept its own idle copy
- * and went on saying READY and "tap ROLL" next to a button that could not
- * roll, while this comment claimed otherwise. Hence `prompt`: there is one
- * instruction line, and whichever readout a layout has, it shows that one.
- */
-export function rollAffordance(digitalDice: boolean, manualDice: boolean): RollAffordance {
-  if (digitalDice) {
-    return {
-      canRoll: true,
-      canType: manualDice,
-      label: 'ROLL',
-      prompt: 'PICK A TRAIT · TAP ROLL',
-      blocked: false,
-    };
-  }
-  if (manualDice) {
-    return {
-      canRoll: false,
-      canType: true,
-      label: 'ENTER YOUR DICE',
-      // No ROLL to tap: the faces are the only way in, and the line says so.
-      prompt: 'PICK A TRAIT · TYPE YOUR DICE',
-      blocked: false,
-    };
-  }
-  return {
-    canRoll: false,
-    canType: false,
-    label: 'NO DICE TURNED ON',
-    prompt: 'TURN ON DIGITAL OR TYPED DICE IN SETTINGS',
-    blocked: true,
-  };
-}
 
 export interface RollState {
   result: DualityResult | null;

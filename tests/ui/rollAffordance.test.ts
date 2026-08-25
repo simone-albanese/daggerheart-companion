@@ -20,14 +20,23 @@
  * creation.ts is: the phone and the desktop both read it, and two layouts
  * disagreeing about what the app can do would be its own bug. The last block
  * checks that neither layout has quietly gone back to deciding for itself.
+ *
+ * It is a pure function in `src/ui/shared/rollAffordance.ts` now. It was
+ * declared in `DualityRoll.tsx` while only the Play screen asked the question;
+ * the GM's rest control gains 1d4 Fear and has to ask it too, and reaching into
+ * a 3403-line cockpit from `src/ui/gm/` would have put the cockpit in the GM
+ * screen's chunk. So the last block reads two files rather than one, and says
+ * for each literal both where it is and where it is not.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { rollAffordance, stillToTypeLine } from '../../src/ui/player/DualityRoll.tsx';
+import { stillToTypeLine } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
 import { DIE_SIZES, MAX_HELD } from '../../src/ui/player/heldDice.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 
 const SOURCE = 'src/ui/player/DualityRoll.tsx';
+const AFFORDANCE = 'src/ui/shared/rollAffordance.ts';
 const SETTINGS = 'src/ui/settings/Settings.tsx';
 const POOLS = 'src/ui/player/DicePools.tsx';
 
@@ -104,6 +113,7 @@ describe('the dice switches', () => {
 
 describe('both layouts read the one decision', () => {
   const source = readFileSync(SOURCE, 'utf8');
+  const affordance = readFileSync(AFFORDANCE, 'utf8');
 
   it('gates every die face on the affordance, not on a switch', () => {
     /*
@@ -189,13 +199,33 @@ describe('both layouts read the one decision', () => {
     expect(source).not.toMatch(/disabled=\{!digitalDice\}/);
   });
 
+  /*
+   * The counts moved with the function and the property did not.
+   *
+   * `rollAffordance` used to be declared in `DualityRoll.tsx`, so "declared
+   * exactly once" and "declared exactly once *in this file*" were the same
+   * sentence and this block read only the one file. The GM's rest control now
+   * asks the same question, and a `src/ui/gm/` module importing a 3403-line
+   * cockpit to ask it would put the cockpit in the GM chunk - so the helper
+   * lives in `src/ui/shared/` and the two halves of the sentence came apart.
+   *
+   * Both halves are asserted, because either one alone is passable by the
+   * defect this exists for. One declaration in the helper is not enough: a
+   * layout can still keep a copy of the word beside it. Zero in the cockpit is
+   * not enough either: that is also what a file with no control in it looks
+   * like, and the helper could have lost the literal entirely.
+   */
   it('leaves no layout deciding the wording for itself', () => {
     expect(source).not.toMatch(/'DIGITAL DICE OFF'/);
     // Every literal the control can show comes out of rollAffordance, so it is
-    // declared exactly once each.
+    // declared exactly once each - there, and nowhere a layout can reach it.
     for (const label of ['ROLL', 'ENTER YOUR DICE', 'NO DICE TURNED ON']) {
-      const declarations = source.match(new RegExp(`label: '${label}'`, 'g')) ?? [];
-      expect(declarations).toHaveLength(1);
+      const pattern = new RegExp(`label: '${label}'`, 'g');
+      expect(affordance.match(pattern) ?? [], `${label} is no longer declared once in ${AFFORDANCE}`).toHaveLength(1);
+      expect(
+        source.match(pattern) ?? [],
+        `${SOURCE} declares ${label} again. The word on the control is the helper's to choose.`,
+      ).toHaveLength(0);
     }
   });
 
@@ -208,8 +238,10 @@ describe('both layouts read the one decision', () => {
      * instruction anywhere in this file is how that happens again.
      */
     expect(source).not.toMatch(/\? 'PICK A TRAIT · TAP ROLL'/);
-    const prompts = source.match(/'PICK A TRAIT · TAP ROLL'/g) ?? [];
-    expect(prompts).toHaveLength(1);
+    // Same split as the labels above: the one copy is the helper's, and the
+    // cockpit holds none of its own.
+    expect(affordance.match(/'PICK A TRAIT · TAP ROLL'/g) ?? []).toHaveLength(1);
+    expect(source.match(/'PICK A TRAIT · TAP ROLL'/g) ?? []).toHaveLength(0);
     expect(source).toMatch(/affordance\.prompt/);
     // READY is a claim too: it must not be printed when nothing is switched on.
     expect(source).toMatch(/affordance\.blocked/);

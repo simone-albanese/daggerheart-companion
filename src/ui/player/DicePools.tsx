@@ -60,7 +60,7 @@ import { useActive, useApp } from '../../store/state.ts';
 // The same helper the Duality Roll and the damage row read, and for the same
 // reason: three surfaces deciding for themselves what the two dice switches
 // mean is three answers that can disagree about what this build can do.
-import { rollAffordance, type RollAffordance } from './DualityRoll.tsx';
+import { rollAffordance, type RollAffordance } from '../shared/rollAffordance.ts';
 import { usePool, usePools, type PoolDie } from './poolStore.ts';
 
 /** The pools this character has, or an empty list. Safe with no character. */

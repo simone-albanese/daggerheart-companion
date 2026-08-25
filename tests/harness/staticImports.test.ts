@@ -213,3 +213,39 @@ describe('the GM screen does not carry the QR decoder', () => {
     );
   });
 });
+
+/**
+ * The other direction the same edge would go, and the reason `rollAffordance`
+ * moved instead of being imported across.
+ *
+ * The GM's rest control has to ask what the two dice switches leave the table
+ * able to do before it rolls 1d4 Fear, and `rollAffordance` is the one place
+ * this app answers that. It was declared in `player/DualityRoll.tsx`, which is
+ * 3403 lines of roll cockpit; one `import` of it from `src/ui/gm/` would put
+ * all of that in the GM screen's chunk for twenty lines of branching. So the
+ * helper moved to `ui/shared/rollAffordance.ts`, which both sides reach without
+ * either one dragging the other in.
+ *
+ * The move is a courtesy that one line undoes, which is what this is for. It is
+ * the whole directory rather than that one module, because the defect is not
+ * "somebody imported the cockpit" - it is that `src/ui/gm/` has never had a
+ * reason to reach into `src/ui/player/` and the first one will arrive looking
+ * cheap.
+ *
+ * The non-vacuity control is the block above: the same walker finds
+ * `transfer/qr.ts` from `ui/gm/PartyScanner.tsx` and `ui/gm/PartyBoard.tsx`
+ * from `ui/gm/Gm.tsx`, so an empty answer here is an answer and not a silence.
+ */
+describe('the GM screen does not carry the player screen', () => {
+  it('reaches no module under `ui/player/`', () => {
+    const inside = [...staticGraph('ui/gm/Gm.tsx')].filter((m) => m.startsWith('ui/player/'));
+    expect(
+      inside,
+      'the GM screen now statically imports these player modules:\n' +
+        inside.map((m) => `  ${m}`).join('\n') +
+        '\n\nIf what was wanted is a helper both sides read, move it to `ui/shared/` the way ' +
+        '`rollAffordance` was moved. An import from here pulls the whole player module - and ' +
+        'everything it imports - into the chunk that draws the GM screen.',
+    ).toEqual([]);
+  });
+});
