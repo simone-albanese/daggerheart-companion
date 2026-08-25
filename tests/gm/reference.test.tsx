@@ -990,4 +990,30 @@ describe('the three topics here that draw a block, and ask nothing of it', () =>
     });
     expect(asked).toEqual([]);
   });
+
+  it('lights not one word, because nobody here typed one', () => {
+    /*
+     * The second optional prop, checked the same way. `BlockView` takes a
+     * `mark` for SHOW's rule search, which hands it each string split around
+     * the words the GM typed; a topic here has no query and passes nothing, so
+     * every word arrives as the book wrote it and no `<mark>` is drawn.
+     *
+     * Red if `BlockView` ever marks on its own account, and red if `mark` stops
+     * being optional and these three have to invent an argument for it.
+     */
+    openReference();
+
+    click(named('GM moves and principles'));
+    for (const fold of folds()) click(fold);
+    expect(text()).toContain('BEGIN AND END WITH THE FICTION');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+
+    click(named('Adversary Experiences'));
+    expect(text()).toContain('EXPERIENCE (OPTIONAL)');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+
+    click(named('Gold, equipment, and loot'));
+    expect(text()).toContain('1 Handful');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+  });
 });

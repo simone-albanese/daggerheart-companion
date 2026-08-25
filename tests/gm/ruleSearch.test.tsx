@@ -1409,6 +1409,177 @@ describe('the results', () => {
     });
   });
 
+  it('lights the GM’s words in the section that opens, not only in the preview', () => {
+    /*
+     * The debt the docblock declared and did not pay: the GM's words were
+     * marked in the preview line and nowhere in the body that opened, so the
+     * line they were carried to arrived with no word on it lit.
+     *
+     * `spending fear` lands on a paragraph of `hope-and-fear` that carries
+     * `spending` and leaves `fear` to the title, so the mark expected here is
+     * one word, in the book's own spelling of it.
+     */
+    const hit = searchRules(rules, 'spending fear').find((h) => h.id === 'hope-and-fear')!;
+    expect(hit.line).toContain('spending');
+    expect(hit.line!.toLowerCase()).not.toContain('fear');
+
+    landings((asked) => {
+      openShow();
+      type('spending fear');
+      const at = hitTitles().indexOf('Hope & Fear');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      const landed = asked[0]!;
+      expect(landed.tagName).toBe('P');
+      expect([...landed.querySelectorAll('mark')].map((m) => m.textContent)).toEqual(['spending']);
+      // A mark is a split and never a rewrite: the paragraph still reads,
+      // character for character, the line the row quoted.
+      expect(landed.textContent).toBe(hit.line);
+    });
+  });
+
+  it('lights the subhead it lands on, in the book’s case and not the typed one', () => {
+    /*
+     * The other text call site inside a block, and the one the heading band
+     * lands on. The GM typed three lower-case words; what is lit is the book's
+     * capitals, and `SOFT AND HARD MOVES` comes back as one run for `soft` and
+     * a second for `hard` and `move` together, because the book wrote those two
+     * with nothing but a space between them.
+     */
+    landings((asked) => {
+      openShow();
+      type('soft move hard move');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      const label = asked[0]!.querySelector('span.t-label')!;
+      expect(label.textContent).toBe('SOFT AND HARD MOVES');
+      expect([...label.querySelectorAll('mark')].map((m) => m.textContent)).toEqual([
+        'SOFT',
+        'HARD MOVE',
+      ]);
+    });
+  });
+
+  it('lights the block it landed on and no other block of the same section', () => {
+    /*
+     * The owner's decision of 2026-08-25 §8, pinned. Lighting every occurrence
+     * in the open section makes the mark noise instead of a direction, and
+     * `making-gm-moves` is the case that shows it: every one of its blocks
+     * carries `move`, so a section-wide walk would light all of them and the
+     * one the GM was carried to would stop standing out.
+     *
+     * The block-by-block check is read out of the dataset first, so this cannot
+     * pass because the section quietly stopped repeating the word.
+     */
+    const blocks = ruleSection(rules, 'making-gm-moves')!.blocks;
+    expect(blocks.length).toBeGreaterThan(1);
+    for (const block of blocks) {
+      const whole = [
+        block.heading ?? '',
+        ...block.parts.map((p) =>
+          p.kind === 'text' ? p.text : p.kind === 'list' ? p.items.join(' ') : '',
+        ),
+      ].join(' ');
+      expect(whole.toLowerCase()).toContain('move');
+    }
+
+    landings((asked) => {
+      openShow();
+      type('soft move hard move');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      const header = hits()[at]!;
+      click(header);
+      const opened = header.closest('section')!;
+      const inBody = [...opened.querySelectorAll('mark')].filter((m) => !header.contains(m));
+      expect(inBody).not.toEqual([]);
+      for (const m of inBody) expect(asked[0]!.contains(m), m.textContent ?? '').toBe(true);
+    });
+  });
+
+  it('leaves the cells of a table unlit, because they are not this file’s to split', () => {
+    /*
+     * The one text on an open section that does not go through the mark walk.
+     * `RuleTableView` draws a cell, and a table hit has no line to land on at
+     * all - `quoteFrom` skips pipe rows, so `hit.line` is null and there is
+     * nothing inside one to point at.
+     *
+     * `equipment prices` lands on the paragraph above the Average Costs table
+     * and takes `equipment` from the section's title, which four of that
+     * table's own cells also carry. Those four are what makes this test say
+     * something.
+     */
+    const table = ruleSection(rules, 'giving-out-gold-equipment-and-loot')!.blocks[0]!.parts.find(
+      (p) => p.kind === 'table',
+    )!;
+    const cells =
+      table.kind === 'table'
+        ? [...table.table.header, ...table.table.rows.flat()].filter((c) =>
+            c.toLowerCase().includes('equipment'),
+          )
+        : [];
+    expect(cells.length).toBeGreaterThan(0);
+
+    landings((asked) => {
+      openShow();
+      type('equipment prices');
+      const at = hitTitles().indexOf('Giving Out Gold, Equipment, and Loot');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      expect(asked[0]!.tagName).toBe('P');
+      expect([...asked[0]!.querySelectorAll('mark')].map((m) => m.textContent)).toEqual(['prices']);
+      // The cells are drawn - the table is on screen - and not one of them is
+      // lit. `span.t-read` is `RuleTableView`'s cell; `p.t-read` is the prose.
+      const opened = hits()[at]!.closest('section')!;
+      expect(opened.querySelectorAll('span.t-read').length).toBeGreaterThan(0);
+      expect(opened.querySelectorAll('span.t-read mark')).toHaveLength(0);
+    });
+  });
+
+  it('lights the whole of a section the SRD draws as one block, which is what §8 leaves', () => {
+    /*
+     * The residual of the owner's decision of 2026-08-25 §8, pinned rather than
+     * left in a docblock to age. §8 lights the landing block and not the open
+     * section; where the SRD draws a section as one block those are the same
+     * thing, and `using-fear` is the widest of the 34 - one block of twelve
+     * parts, ten of which carry a word of `spend a fear`.
+     *
+     * The query `fear` on its own is *not* this case, which is worth having
+     * here because it is the query §8 names: it names the section, so it is a
+     * title hit, and a title hit has no landing and lights nothing.
+     *
+     * Red if somebody narrows the mark from the landing block to the landing
+     * part - a decision §8 did not take, and one that would have to gate `ink`
+     * at all three of `BlockView`'s text call sites. Both a paragraph and a
+     * bullet away from the landing are checked, so narrowing one of the three
+     * and not the others cannot slip through either.
+     */
+    const section = ruleSection(rules, 'using-fear')!;
+    expect(section.blocks).toHaveLength(1);
+    expect(section.blocks[0]!.parts).toHaveLength(12);
+    expect(searchRules(rules, 'fear').find((h) => h.id === 'using-fear')!.line).toBeNull();
+
+    landings((asked) => {
+      openShow();
+      type('spend a fear');
+      const at = hitTitles().indexOf('Using Fear');
+      expect(at).toBeGreaterThanOrEqual(0);
+      const header = hits()[at]!;
+      click(header);
+      expect(asked[0]!.tagName).toBe('P');
+      expect(asked[0]!.querySelectorAll('mark').length).toBeGreaterThan(0);
+      // And so is the rest of the block, because here the block is the section:
+      // another paragraph the GM did not land on, and a bullet as well.
+      const opened = header.closest('section')!;
+      const lit = (selector: string): Element[] =>
+        [...opened.querySelectorAll(selector)].filter((n) => n.querySelector('mark') !== null);
+      expect(lit('p.t-read').filter((n) => n !== asked[0]).length).toBeGreaterThan(0);
+      expect(lit('li.t-read').length).toBeGreaterThan(0);
+      expect(lit('p.t-read')).toContain(asked[0]);
+    });
+  });
+
   it('finds a landing of its own for every line the search can quote', () => {
     /*
      * The agreement between `quoteFrom` - which decides which line the GM is

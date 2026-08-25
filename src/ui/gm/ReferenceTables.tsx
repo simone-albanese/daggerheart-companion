@@ -1177,23 +1177,45 @@ function landsInside(block: SectionBlock, at: BlockTarget): boolean {
  * pipes. A second renderer beside this one would have been a second thing to
  * keep in step, and the pipes are what that costs.
  *
- * **`land` is the one thing a caller may ask of the inside of a block, and it
- * is optional.** Pass nothing and what is drawn is what was drawn before, node
- * for node: the four callers that have no reason to point inside a block - the
- * GM chapter's folds, the adversary Experiences' lead, the costs topic, and the
- * `LINK -> Rule` row - pass nothing and did not change a line. What `land`
- * carries is a place and the caller's ref, never a scroll: this file has no
+ * **The two things a caller may ask of the inside of a block are both
+ * optional.** Pass neither and what is drawn is what was drawn before, node for
+ * node: the four callers that have no reason to point inside a block - the GM
+ * chapter's folds, the adversary Experiences' lead, the costs topic, and the
+ * `LINK -> Rule` row - pass nothing and did not change a line. Three of the
+ * four are asserted from the outside rather than from this signature, in
+ * `reference.test.tsx`: they bring nothing into view and they light no word.
+ * The fourth, the session's `LINK -> Rule` row, is not - the case for it would
+ * go in `tests/ui/sessionRule.test.tsx`, which pins the tags that row draws and
+ * says nothing yet about scroll or marks.
+ *
+ * `land` carries a place and the caller's ref, never a scroll: this file has no
  * opinion about what the ref is for, and the one caller that has one keeps it.
+ *
+ * `mark` is the same bargain about text. It is handed each string this block
+ * draws in its own words - the subhead, a paragraph, a bullet - and gives back
+ * whatever the caller wants drawn in its place, which for SHOW's rule search is
+ * that string split around the GM's words. This file is not told the query and
+ * does not own the marking: a component passed in would have to come from
+ * `RuleSearch.tsx`, which already imports `BlockView` from here, and the import
+ * back would be a cycle. A function has no such direction.
+ *
+ * The three text call sites are all of them, and the cells of a table are
+ * deliberately not a fourth: they belong to `RuleTableView`, and a table hit
+ * has no line to land on in the first place - `quoteFrom` skips pipe rows, so
+ * its `line` is null and `landingIn` never points inside one.
  */
 export function BlockView({
   block,
   land = null,
+  mark,
 }: {
   block: SectionBlock;
   land?: BlockLanding | null;
+  mark?: (text: string) => React.ReactNode;
 }): React.JSX.Element {
   const at = land === null ? null : land.at;
   const ref = land === null ? undefined : land.ref;
+  const ink = mark ?? ((text: string): React.ReactNode => text);
   // The ref sits on the block itself unless the target names a node inside it
   // that this block really draws, which is what keeps every unhonourable
   // target - and every caller that asked for nothing - on the old behaviour.
@@ -1202,7 +1224,7 @@ export function BlockView({
     <div className="stack" style={{ flex: 'none', gap: 6 }} ref={onRoot ? ref : undefined}>
       {block.heading !== null && (
         <span className="t-label" style={{ color: 'var(--text-2)' }}>
-          {block.heading}
+          {ink(block.heading)}
         </span>
       )}
       {block.parts.map((part, i) => {
@@ -1218,7 +1240,7 @@ export function BlockView({
               style={{ margin: 0, maxWidth: '62ch' }}
               ref={onPart ? ref : undefined}
             >
-              {part.text}
+              {ink(part.text)}
             </p>
           );
         }
@@ -1241,7 +1263,7 @@ export function BlockView({
                     : undefined
                 }
               >
-                {item}
+                {ink(item)}
               </li>
             ))}
           </ul>
