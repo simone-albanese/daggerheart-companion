@@ -22,7 +22,7 @@
  * hit at once would bury the list under the first section's bullets. One open
  * hit keeps the list, the answer and the field all on the same surface.
  *
- * ## Opening lands on the block the band promised, not on the top of the section
+ * ## Opening lands on the line the band promised, not on the top of the section
  *
  * The IN A HEADING band says a subhead carries the GM's words and prints that
  * subhead under the title. Opening the hit used to draw the whole section from
@@ -34,38 +34,57 @@
  * mid-sentence with five people waiting a scroll hunt is most of the way back
  * to the blank screen this search exists to stop.
  *
- * So `Hit` finds the block that carries `hit.line` - `blockOf` below, an
- * equality against `SectionBlock.heading` because `quoteFrom` and `ruleBlocks`
- * strip the same `## ` - and scrolls it to the top of the scroller `ShowSheet`
- * already puts this list inside. A `title` hit has no line and does not move:
- * it promised the section, and the section's top is the section.
+ * So `Hit` finds where `hit.line` is drawn - `landingIn` below, which answers
+ * with a block and a place inside it - and scrolls that to the top of the
+ * scroller `ShowSheet` already puts this list inside. A subhead hit lands on
+ * the block its subhead opens, an equality against `SectionBlock.heading`
+ * because `quoteFrom` and `ruleBlocks` strip the same `## `, and the subhead is
+ * that block's first drawn line so there is nothing finer to ask for. A body
+ * hit lands on the **paragraph or the bullet** that carries the line, because
+ * `BlockView` now takes an optional `land` naming which of its own nodes the
+ * caller's ref belongs on. A `title` hit has no line and does not move: it
+ * promised the section, and the section's top is the section.
  *
  * **The other half of that defect is not fixable in this file and is not
  * fixed.** The GM's words are marked in the preview and are *not* marked
- * anywhere in the body that opens, so the subhead they land on arrives with no
+ * anywhere in the body that opens, so the line they land on arrives with no
  * word on it lit. Marking it means `BlockView` - `src/ui/gm/ReferenceTables.tsx`,
- * where it is declared taking `{ block }` and nothing else - accepting a
- * `query` and running its heading, its paragraphs and its list items through
+ * where the landing above added a `land` and nothing that knows a query -
+ * accepting a `query` and running its heading, its paragraphs and its list items through
  * the same `Marked` walk this file uses. That is an added optional prop, three
  * wrapped children at its three text call sites, and an export of `Marked` from
  * here: on the order of ten lines in a file this lane does not own, plus the
  * four other `BlockView` call sites that would pass nothing and keep the
  * unmarked behaviour. It is written down rather than done.
  *
- * **A block is as fine as this lands, and where the SRD draws a section as one
- * block, that is the section's top.** 34 of the 69 shipped sections resolve to
- * a single block - 33 carry no `## ` at all, and `the-basics` opens with its
- * only one, so it has no prose above the heading to make a second - and a hit
- * inside one lands on the block the section already began with: the GM is
- * brought to the top of their section rather than to their line. The same
- * `BlockView` signature is what stops it. That file draws a prose part as one
- * `<p>{part.text}</p>` holding a whole paragraph and a bullet as
- * `<li>{item}</li>`, so a *bullet* could be landed on by threading one more
- * optional prop to that `<li>` - a handful of lines there, plus the same four
- * call sites passing nothing - while a prose *line* could not be landed on at
- * all until that `<p>` stops being one node per paragraph, which changes what
- * every one of those callers draws. Neither is done, and nothing below claims
- * either. `ruleSearch.test.tsx` pins the 34 rather than leaving it to age.
+ * **A block was as fine as this landed, and where the SRD draws a section as
+ * one block that was the section's top.** 34 of the 69 shipped sections resolve
+ * to a single block - 33 carry no `## ` at all, and `the-basics` opens with its
+ * only one, so it has no prose above the heading to make a second - so a hit
+ * inside one arrived at the block the section had already begun with, and the
+ * GM was brought to the top of their section rather than to their line. That is
+ * what the `land` prop ends: the ref goes on the `<p>` or the `<li>` the line
+ * actually is, and the widest of those sections - `using-fear`, one block of
+ * twelve parts - is twelve parts the GM no longer scrolls past.
+ * `ruleSearch.test.tsx` pins the 34 rather than leaving it to age.
+ *
+ * **"A *bullet* could be landed on ... while a prose *line* could not be landed
+ * on at all until that `<p>` stops being one node per paragraph" is withdrawn,
+ * and the dataset is what withdraws it.** The asymmetry that sentence claimed
+ * is not in the shipped data: not one of the SRD's 312 prose parts carries more
+ * than one line, so `part.text === hit.line` holds for a paragraph exactly as
+ * `part.items.includes(line)` holds for a bullet, and a `<p>` is addressable on
+ * the same equality an `<li>` is. Nothing had to be split, and the four callers
+ * that pass nothing still draw what they drew. What survives of that sentence
+ * is smaller and belongs to the general case rather than to this dataset: a
+ * homebrew layer may write a paragraph across several lines, and there
+ * `landingIn` lands on the **paragraph that carries** the line rather than on
+ * the line, which is the owner's answer of 2026-08-25 §7. A per-line node stays
+ * additive if that answer ever changes - one more `BlockTarget` branch, inside
+ * two files and inside no caller. `ruleSearch.test.tsx` walks every line the
+ * search can quote and asserts each has a place of its own, so the day a layer
+ * or a folio does write multi-line prose it stops being theoretical in a test
+ * rather than in a paragraph here.
  *
  * That single-open rule is the whole reason `Hit` below is not `Fold`. Its
  * header is otherwise `Fold`'s header, deliberately - same `t-label` title in
@@ -358,7 +377,7 @@ import {
   type RuleHit,
   type SectionView,
 } from '../shared/srdReference.ts';
-import { BlockView } from './ReferenceTables.tsx';
+import { BlockView, type BlockTarget } from './ReferenceTables.tsx';
 
 /** How much of a long line to keep on either side of the marks. */
 const BEFORE = 34;
@@ -915,8 +934,14 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
   );
 }
 
+/** A block of the open section, and the place inside it the hit promised. */
+export interface Landing {
+  block: number;
+  at: BlockTarget;
+}
+
 /**
- * Which of the drawn blocks carries the line this hit is promising, or -1.
+ * Where in the open section the line this hit is promising is drawn, or null.
  *
  * The band said IN A HEADING and named a subhead; opening the hit has to put
  * the GM on that subhead rather than at the top of the section that contains
@@ -935,27 +960,58 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
  * `heading` hit is looked up among the headings alone and a `text` hit among
  * the parts alone.
  *
- * A `text` hit lands on the **block** that carries its line, not on the line.
- * `ruleList` strips `- ` exactly as `quoteFrom` does, so a bullet is an
- * equality; prose is `includes` because a paragraph is many lines and the hit
- * quoted one of them.
+ * A `heading` hit lands on the **block** the subhead opens, because the subhead
+ * is that block's first drawn line and there is nothing finer to ask for. A
+ * `text` hit lands on the **paragraph or the bullet** that carries its line,
+ * which is what `BlockTarget` exists to say.
  *
- * -1 for a `title` hit, which promised the section and not a place in it, and
+ * **Equality first, `includes` only if nothing is equal, and the order is the
+ * whole of the correctness.** `ruleList` strips `- ` exactly as `quoteFrom`
+ * does and `paragraphs` never trims inside a paragraph, so on everything the
+ * SRD ships `part.text === hit.line` - all 613 quotable body lines resolve to a
+ * part or an item by equality and not one falls through to `includes`, which
+ * `ruleSearch.test.tsx` walks the whole book to assert. A single `includes`
+ * pass would let a long paragraph higher up the section, which merely *contains*
+ * the line, take the landing off the part that *is* it.
+ *
+ * The `includes` pass is not dead code, it is the degradation. `dataset.ts`
+ * resolves layers and `rules` is overridable, so a homebrew layer can write a
+ * paragraph across several lines; there the line the GM was quoted is inside a
+ * part rather than equal to it, and this lands on the **paragraph that carries
+ * it**. That is the owner's decision of 2026-08-25 §7, taken with the shipped
+ * dataset measured at zero multi-line prose parts: better than the block it
+ * used to be, and it does not shut the door on a per-line node, which would be
+ * one more `BlockTarget` branch inside two files and inside no caller.
+ *
+ * Null for a `title` hit, which promised the section and not a place in it, and
  * for a `table` hit, whose line is null because no cell was worth quoting.
  * Both of those are already answered by the top of the section, which is where
- * a hit with no landing block opens.
+ * a hit with no landing opens.
  */
-function blockOf(section: SectionView, hit: RuleHit): number {
+export function landingIn(section: SectionView, hit: RuleHit): Landing | null {
   const line = hit.line;
-  if (line === null) return -1;
-  if (hit.where === 'heading') return section.blocks.findIndex((block) => block.heading === line);
-  return section.blocks.findIndex((block) =>
-    block.parts.some((part) =>
-      part.kind === 'text'
-        ? part.text.includes(line)
-        : part.kind === 'list' && part.items.includes(line),
-    ),
-  );
+  if (line === null) return null;
+  if (hit.where === 'heading') {
+    const block = section.blocks.findIndex((b) => b.heading === line);
+    return block === -1 ? null : { block, at: { kind: 'block' } };
+  }
+  for (const [block, drawn] of section.blocks.entries()) {
+    for (const [part, piece] of drawn.parts.entries()) {
+      if (piece.kind === 'text' && piece.text === line) return { block, at: { kind: 'part', part } };
+      if (piece.kind === 'list') {
+        const item = piece.items.indexOf(line);
+        if (item !== -1) return { block, at: { kind: 'item', part, item } };
+      }
+    }
+  }
+  for (const [block, drawn] of section.blocks.entries()) {
+    for (const [part, piece] of drawn.parts.entries()) {
+      if (piece.kind === 'text' && piece.text.includes(line)) {
+        return { block, at: { kind: 'part', part } };
+      }
+    }
+  }
+  return null;
 }
 
 function Hit({
@@ -972,23 +1028,39 @@ function Hit({
   onToggle: () => void;
 }): React.JSX.Element {
   const section = useMemo(() => (open ? ruleSection(rules, hit.id) : null), [rules, hit.id, open]);
-  const landing = section === null ? -1 : blockOf(section, hit);
+  const landing = section === null ? null : landingIn(section, hit);
 
   /*
    * A callback ref rather than an effect, because the thing being waited for
    * is the node and not a render: React hands it over the moment the landing
-   * block is attached and hands back `null` when it goes, so the scroll
+   * node is attached and hands back `null` when it goes, so the scroll
    * happens once per opening and never on a re-render that left the same node
-   * in place. Typing while a hit is open re-runs the search; if the same hit
-   * survives with the same landing block, this does not fire again and the
-   * GM's reading position is left alone.
+   * in place. It is a `useCallback` with no deps for that second half - a fresh
+   * arrow every render would be a fresh ref every render, and React would
+   * detach and reattach it on a keystroke that changed nothing.
+   *
+   * **What that leaves alone got narrower when the landing did, and it is a
+   * trade rather than a free win.** The condition used to be the same landing
+   * *block*; it is now the same landing *part*, because that is the node the
+   * ref is on. A hit stays open while the GM keeps typing - `openId` is state
+   * in `RuleSearchResults` and is not cleared on a new query, and `Hit` is
+   * keyed on `hit.id` - so a keystroke that makes `quoteFrom` quote a different
+   * line of the same block now moves the GM's reading position where before it
+   * did not. It moves it *onto the line the header is quoting at them*, which
+   * is the promise this landing exists to keep: leaving the body still while
+   * the row above it changed its mind would put the two out of step. The other
+   * reading is defensible and costs one line here - hand `BlockView` a
+   * `{ kind: 'block' }` target instead of `landing.at` - so it is written down
+   * and pinned by *follows the quoted line when a keystroke moves it inside the
+   * same block* in `ruleSearch.test.tsx` rather than left for someone to
+   * discover.
    *
    * `scrollIntoView` is optional-called because jsdom does not implement it -
    * the test that pins this behaviour puts its own on the prototype and
    * watches for the call, which is the only form of the property a test in
    * this repo can check.
    */
-  const land = useCallback((node: HTMLDivElement | null) => {
+  const land = useCallback((node: HTMLElement | null) => {
     node?.scrollIntoView?.({ block: 'start' });
   }, []);
 
@@ -1039,18 +1111,15 @@ function Hit({
         ) : (
           section.blocks.map((block, i) => {
             const key = `${block.heading ?? ''}-${String(i)}`;
-            // Only the landing block is wrapped, and the wrapper is a `.stack`
-            // holding one `flex: none` child - the same box `BlockView` draws
-            // itself - so the column it sits in measures what it measured
-            // before. The wrapper exists because `BlockView` is not this
-            // file's and does not forward a ref; reaching into the DOM it
-            // renders instead would tie this scroll to that file's markup.
-            if (i !== landing) return <BlockView key={key} block={block} />;
-            return (
-              <div key={key} ref={land} className="stack" style={{ flex: 'none' }}>
-                <BlockView block={block} />
-              </div>
-            );
+            // Every block is drawn the same way, and one of them is handed a
+            // place and this file's ref. A `<div ref>` used to be wrapped round
+            // the landing block instead, because `BlockView` took `{ block }`
+            // and nothing else; the wrapper is gone with the reason for it, and
+            // with it the one node in an open hit that measured nothing.
+            if (landing === null || landing.block !== i) {
+              return <BlockView key={key} block={block} />;
+            }
+            return <BlockView key={key} block={block} land={{ at: landing.at, ref: land }} />;
           })
         ))}
     </section>

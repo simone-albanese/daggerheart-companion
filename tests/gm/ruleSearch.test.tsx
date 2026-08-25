@@ -41,8 +41,14 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
-import { ruleSection, ruleTerms, searchRules } from '../../src/ui/shared/srdReference.ts';
-import { preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import {
+  ruleSection,
+  ruleTerms,
+  searchRules,
+  type RuleHit,
+  type SectionView,
+} from '../../src/ui/shared/srdReference.ts';
+import { landingIn, preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
 
@@ -1189,11 +1195,13 @@ describe('the results', () => {
     });
   });
 
-  it('lands a text hit on the block whose prose carries the quoted line', () => {
+  it('lands a text hit on the paragraph that carries the quoted line', () => {
     /*
      * The band said IN THE TEXT and quoted a line out of the middle of the
      * section. `hope-and-fear` draws three blocks and the line is in the
-     * second, so landing on the first would be the top of the section again.
+     * second, so landing on the first would be the top of the section again -
+     * and landing on the second is the top of a block whose prose runs on past
+     * the line the row quoted. The `<p>` is the answer to both.
      *
      * The line is in a prose part and in nothing else - asserted here, so a
      * survivor of the prose lookup cannot be a bullet quietly covering for it.
@@ -1210,6 +1218,12 @@ describe('the results', () => {
       blocks.some((b) => b.parts.some((p) => p.kind === 'list' && p.items.includes(hit.line!))),
     ).toBe(false);
     expect(blocks.some((b) => b.heading === hit.line)).toBe(false);
+    // Not the block's first part either, so the block's top and the line are
+    // two different places and this test can tell them apart.
+    const part = blocks[inProse]!.parts.findIndex(
+      (p) => p.kind === 'text' && p.text === hit.line,
+    );
+    expect(part).toBeGreaterThan(0);
 
     landings((asked) => {
       openShow();
@@ -1218,12 +1232,16 @@ describe('the results', () => {
       expect(at).toBeGreaterThanOrEqual(0);
       click(hits()[at]!);
       expect(asked).toHaveLength(1);
-      expect(asked[0]!.textContent!.startsWith(blocks[inProse]!.heading!)).toBe(true);
-      expect(asked[0]!.textContent).toContain(hit.line);
+      expect(asked[0]!.tagName).toBe('P');
+      expect(asked[0]!.textContent).toBe(hit.line);
+      // And inside the block the old landing reached, not somewhere else: the
+      // unit got finer, the block did not move.
+      expect(asked[0]!.closest('div.stack')!.textContent!.startsWith(blocks[inProse]!.heading!))
+        .toBe(true);
     });
   });
 
-  it('lands a text hit on the block whose bullet is the quoted line', () => {
+  it('lands a text hit on the bullet that is the quoted line', () => {
     /*
      * The other arm, and the one the prose arm cannot cover for: the line
      * `making-gm-moves` quotes for `golden opportunity` is a bullet, it is a
@@ -1250,20 +1268,70 @@ describe('the results', () => {
       expect(at).toBeGreaterThanOrEqual(0);
       click(hits()[at]!);
       expect(asked).toHaveLength(1);
-      expect(asked[0]!.textContent!.startsWith(blocks[inList]!.heading!)).toBe(true);
-      expect(asked[0]!.textContent).toContain(hit.line);
+      expect(asked[0]!.tagName).toBe('LI');
+      expect(asked[0]!.textContent).toBe(hit.line);
+      expect(asked[0]!.closest('div.stack')!.textContent!.startsWith(blocks[inList]!.heading!))
+        .toBe(true);
     });
   });
 
-  it('can only reach the top of a section the SRD draws as a single block', () => {
+  it('asks for one node when the same bullet is in the landing block twice', () => {
     /*
-     * The limit, written down as a test rather than as a sentence. A section
-     * with no `## ` in it is one block, so its landing block is the block the
-     * section already opened with, and the GM arrives at the top of their
-     * section rather than on their line. Reaching the line means changing
-     * `BlockView`, which this lane does not own.
+     * The measurement that decides the shape of the prop, and the only test
+     * that can tell the two shapes apart.
      *
-     * The count is here so it goes red on a dataset change instead of ageing
+     * `making-gm-moves` writes the same four lines twice inside `CHOOSING GM
+     * MOVES`: flattened under the Success-with-Fear bullet, and again as a list
+     * of their own under the Failure-with-Hope paragraph. The book is repeating
+     * four consequences for two roll outcomes, so a parser that nested would
+     * still emit the string twice inside the one `## `. A `land` prop that
+     * named the *string* would hand the ref to both `<li>`s and ask for two
+     * scrolls; one that names the part and item indices asks for one.
+     *
+     * Both occurrences are read out of the dataset first, so this cannot pass
+     * vacuously if the SRD stops repeating itself.
+     */
+    const hit = searchRules(rules, 'adversary attacks').find((h) => h.id === 'making-gm-moves')!;
+    expect(hit.line).toBe('An adversary attacks');
+    const blocks = ruleSection(rules, 'making-gm-moves')!.blocks;
+    const landing = landingIn(ruleSection(rules, 'making-gm-moves')!, hit)!;
+    const carriers = blocks[landing.block]!.parts.flatMap((p, i) =>
+      p.kind === 'list' && p.items.includes(hit.line!) ? [i] : [],
+    );
+    expect(carriers).toHaveLength(2);
+    // The first in document order, which is the one `quoteFrom` read.
+    const twin = blocks[landing.block]!.parts[carriers[0]!]!;
+    expect(landing.at).toEqual({
+      kind: 'item',
+      part: carriers[0],
+      item: twin.kind === 'list' ? twin.items.indexOf(hit.line!) : -1,
+    });
+
+    landings((asked) => {
+      openShow();
+      type('adversary attacks');
+      const at = hitTitles().indexOf('Making GM Moves');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      const twins = [...dialog().querySelectorAll('li')].filter(
+        (n) => n.textContent === hit.line,
+      );
+      expect(twins).toHaveLength(2);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]).toBe(twins[0]);
+    });
+  });
+
+  it('lands on the GM’s own line inside a section the SRD draws as one block', () => {
+    /*
+     * The limit that was, written down as a test rather than as a sentence. A
+     * section with no `## ` in it is one block, so its landing block is the
+     * block the section already opened with, and the GM used to arrive at the
+     * top of their section rather than on their line. Reaching the line meant
+     * changing `BlockView`, and `BlockView` now takes an optional place to put
+     * the caller's ref, so it is reached.
+     *
+     * The counts stay so they go red on a dataset change instead of ageing
      * quietly in a docblock, which is how this file lost figures before.
      */
     const single = rules.filter((r) => ruleSection(rules, r.id)!.blocks.length === 1);
@@ -1276,8 +1344,13 @@ describe('the results', () => {
     const section = single.find((r) => r.id === 'stress')!;
     const hit = searchRules(rules, 'stress mark clear').find((h) => h.id === section.id)!;
     expect(hit.line).not.toBeNull();
-    // One block, so there is exactly one place to land and it is the top.
-    expect(ruleSection(rules, section.id)!.blocks).toHaveLength(1);
+    // One block, so the block was the only place there was to land.
+    const blocks = ruleSection(rules, section.id)!.blocks;
+    expect(blocks).toHaveLength(1);
+    // And the whole of what the old defect measured: the line is not the first
+    // thing that block draws, so the block's top and the line are apart.
+    expect(blocks[0]!.parts.findIndex((p) => p.kind === 'text' && p.text === hit.line))
+      .toBeGreaterThan(0);
 
     landings((asked) => {
       openShow();
@@ -1286,11 +1359,183 @@ describe('the results', () => {
       expect(at).toBeGreaterThanOrEqual(0);
       click(hits()[at]!);
       expect(asked).toHaveLength(1);
-      // The whole section, from its first word: this is the top, not the line.
-      const drawn = asked[0]!.textContent!;
-      expect(drawn).toContain(hit.line);
+      // The GM's own paragraph, not the section it is in.
+      expect(asked[0]!.tagName).toBe('P');
+      expect(asked[0]!.textContent).toBe(hit.line);
+      // The block is still drawn whole around it - nothing was hidden to get
+      // here - and the line still sits some way into it.
+      const drawn = asked[0]!.closest('div.stack')!.textContent!;
       expect(drawn.indexOf(hit.line!)).toBeGreaterThan(0);
     });
+  });
+
+  it('follows the quoted line when a keystroke moves it inside the same block', () => {
+    /*
+     * The cost of landing on the part instead of on the block, pinned rather
+     * than left to be discovered.
+     *
+     * A hit stays open while the GM keeps typing: `openId` is state and is not
+     * cleared on a new query, and `Hit` is keyed on `hit.id`. So a keystroke
+     * that makes `quoteFrom` quote a different line of the *same* block used to
+     * change nothing at all - one landing block, one node, the ref never moved.
+     * It now moves the GM's reading position onto the newly quoted line.
+     *
+     * `stress` is one block of four paragraphs. `stress mark` quotes its first
+     * and `stress mark clear` quotes its second, so the two queries differ by a
+     * word the GM would type and by nothing else. Both are read out of the
+     * dataset here rather than assumed.
+     */
+    const section = ruleSection(rules, 'stress')!;
+    expect(section.blocks).toHaveLength(1);
+    const first = searchRules(rules, 'stress mark').find((h) => h.id === 'stress')!;
+    const then = searchRules(rules, 'stress mark clear').find((h) => h.id === 'stress')!;
+    expect(first.line).not.toBe(then.line);
+    expect(landingIn(section, first)!.block).toBe(landingIn(section, then)!.block);
+
+    landings((asked) => {
+      openShow();
+      type('stress mark');
+      const at = hitTitles().indexOf('Stress');
+      expect(at).toBeGreaterThanOrEqual(0);
+      click(hits()[at]!);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.textContent).toBe(first.line);
+
+      // The GM types one more word. The hit is the same hit and stays open.
+      type('stress mark clear');
+      expect(hits()[hitTitles().indexOf('Stress')]!.getAttribute('aria-expanded')).toBe('true');
+      expect(asked).toHaveLength(2);
+      expect(asked[1]!.textContent).toBe(then.line);
+    });
+  });
+
+  it('finds a landing of its own for every line the search can quote', () => {
+    /*
+     * The agreement between `quoteFrom` - which decides which line the GM is
+     * shown - and `landingIn` - which decides where that line is drawn - over
+     * the whole book rather than over the four queries named above.
+     *
+     * The population is the one `quoteFrom` itself works in: every non-empty
+     * body line that is not a pipe row, with the SRD's own `## ` and `- ` taken
+     * off the front, which is the line a hit would carry verbatim.
+     *
+     * The totals are asserted so a dataset change goes red here instead of
+     * quietly ageing a sentence somewhere. The one that matters most is the
+     * zero: not one line in the shipped SRD needs the `includes` fallback, so
+     * every prose part is exactly one line of the book and nothing had to be
+     * split to land on one. The day a layer or a folio writes a paragraph
+     * across two lines, that zero moves and the fallback stops being theory.
+     */
+    let headings = 0;
+    let body = 0;
+    let fallback = 0;
+    for (const section of rules) {
+      const view = ruleSection(rules, section.id)!;
+      for (const raw of section.body.split('\n')) {
+        const text = raw.trim();
+        if (text === '' || text.startsWith('|')) continue;
+        const line = text.replace(/^#+\s+/, '').replace(/^-\s+/, '');
+        if (line === '') continue;
+        const heading = /^#+\s/.test(text);
+        const hit: RuleHit = {
+          id: section.id,
+          title: section.title,
+          page: null,
+          where: heading ? 'heading' : 'text',
+          line,
+          partial: false,
+        };
+        const landing = landingIn(view, hit);
+        expect(landing, `${section.id} :: ${line}`).not.toBeNull();
+        const block = view.blocks[landing!.block]!;
+        const at = landing!.at;
+        if (heading) {
+          headings += 1;
+          expect(at.kind, `${section.id} :: ${line}`).toBe('block');
+          expect(block.heading).toBe(line);
+          continue;
+        }
+        body += 1;
+        expect(at.kind, `${section.id} :: ${line}`).not.toBe('block');
+        const part = block.parts[at.kind === 'block' ? 0 : at.part]!;
+        if (at.kind === 'item') {
+          expect(part.kind).toBe('list');
+          expect(part.kind === 'list' ? part.items[at.item] : null).toBe(line);
+        } else {
+          expect(part.kind).toBe('text');
+          // Exact, not merely containing: the fallback is counted rather than
+          // forbidden, so a homebrew layer would move a number instead of
+          // failing an assertion nobody could read.
+          if (part.kind === 'text' && part.text !== line) fallback += 1;
+        }
+      }
+    }
+    expect(headings).toBe(156);
+    expect(body).toBe(613);
+    expect(headings + body).toBe(769);
+    expect(fallback).toBe(0);
+  });
+
+  it('prefers the paragraph that is the line over one that merely contains it', () => {
+    /*
+     * The only two properties of `landingIn` the shipped SRD cannot show,
+     * because the shipped SRD has neither shape in it: every prose part it
+     * carries is exactly one line of the book, which is what the count above
+     * asserts. `dataset.ts` resolves layers and `rules` is overridable, so both
+     * shapes are a homebrew layer away, and this is the section such a layer
+     * would produce - written here rather than taken from the data, because
+     * inventing SRD text into `data/` is the one thing this repo forbids.
+     *
+     * First: equality beats containment, wherever each sits. A paragraph higher
+     * up the section that quotes the line inside a longer sentence must not
+     * take the landing off the paragraph that *is* the line - which is the same
+     * defect, one level down, that `where` fixed for subheads.
+     *
+     * Second: when nothing is equal, the landing is the **paragraph that
+     * carries** the line and not the line. That is the owner's answer of
+     * 2026-08-25 §7: better than the block it used to be, and it leaves a
+     * per-line node additive rather than needed.
+     */
+    const line = 'Mark a Stress to hold the door.';
+    const layered: SectionView = {
+      id: 'homebrew',
+      title: 'Homebrew',
+      page: null,
+      blocks: [
+        {
+          heading: null,
+          parts: [
+            { kind: 'text', text: `The GM may say: ${line} That is the whole of it.` },
+            { kind: 'text', text: line },
+          ],
+        },
+      ],
+    };
+    const hit: RuleHit = {
+      id: 'homebrew',
+      title: 'Homebrew',
+      page: null,
+      where: 'text',
+      line,
+      partial: false,
+    };
+    expect(landingIn(layered, hit)).toEqual({ block: 0, at: { kind: 'part', part: 1 } });
+
+    // And with the equal paragraph gone, the one that contains it: a layer that
+    // ran two lines of the book into one paragraph lands on that paragraph.
+    const runOn: SectionView = {
+      ...layered,
+      blocks: [
+        {
+          heading: null,
+          parts: [
+            { kind: 'text', text: 'Something else entirely.' },
+            { kind: 'text', text: `Hold fast.\n${line}` },
+          ],
+        },
+      ],
+    };
+    expect(landingIn(runOn, hit)).toEqual({ block: 0, at: { kind: 'part', part: 1 } });
   });
 
   it('can find the block for every subhead the shipped SRD carries', () => {
