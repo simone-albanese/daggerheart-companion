@@ -40,6 +40,10 @@ import { useApp } from '../../src/store/state.ts';
 import { PartyBoard } from '../../src/ui/gm/PartyBoard.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index, playedCharacter } from '../ui/fixture.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { boardShortfall, CAMPAIGN_SCHEMA_VERSION, readCampaignRecord } from '../../shared/campaigns.ts';
+import { newCharacter } from '../../src/engine/character.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -315,15 +319,18 @@ describe('a companion on the board', () => {
 });
 
 /**
- * A sheet from the schema before this one, which is what a saved board holds.
+ * A sheet from the schema before this one, held in memory rather than read.
  *
- * `readPartyMember` casts the stored object straight to `Character` - the
- * character migration chain never runs on a campaign's copies - so a board
- * saved before a field existed hands this screen a sheet without it. When
- * `damageType` arrived in schema 5 the board called `.toUpperCase()` on it and
- * every GM with a Beastbound Ranger already on the board lost the whole board
- * on first render, which is the exact failure `readPartyMember`'s own docblock
- * is written to prevent.
+ * When `damageType` arrived in schema 5 the board called `.toUpperCase()` on it
+ * and every GM with a Beastbound Ranger already on the board lost the whole
+ * board on first render, which is the exact failure `readPartyMember`'s own
+ * docblock is written to prevent. Two things have changed under this test since
+ * it was written, and neither retires it: the character migration chain now
+ * runs on a campaign's copies, and `boardShortfall` refuses a sheet the board
+ * could not draw - so a row in this shape no longer reaches the screen *through
+ * a stored campaign*. It reaches it through `importParty`, which is what these
+ * tests use and what a GM does when they take a file from a player, and the
+ * total read stays the reason the board survives it.
  */
 describe('a party row saved by an older schema', () => {
   const legacy = (): Character => {
@@ -345,5 +352,76 @@ describe('a party row saved by an older schema', () => {
     board();
     expect(text()).toContain('PHY');
     expect(text()).not.toContain('MAG');
+  });
+});
+
+/**
+ * The surface, fed only what the reader is willing to emit.
+ *
+ * The other tests in this file put sheets on the board by hand, which is the
+ * right way to ask what the component does with a given shape and the wrong way
+ * to ask whether that shape can get there. This one closes the loop the crash
+ * came round: a stored campaign record goes through `readCampaignRecord`, and
+ * whatever survives is mounted. If the reader's guard is the whole answer -
+ * which is the decision `readPartyMember` now states - then nothing that comes
+ * out of it can take this screen down, and no per-field defence is needed here.
+ */
+describe('what the campaign reader can put on this board', () => {
+  const v2 = (): Record<string, unknown> =>
+    JSON.parse(
+      // A path off the repo root, not off `import.meta.url`: under the jsdom
+      // environment this file runs in, that URL is not a `file:` one.
+      readFileSync(join(process.cwd(), 'tests/fixtures/schema/v2.campaign.json'), 'utf8'),
+    ) as Record<string, unknown>;
+
+  const load = (record: Record<string, unknown>): void => {
+    act(() => {
+      useGm.setState({ party: readCampaignRecord(record).campaign.party });
+    });
+  };
+
+  const held = (sheetRecord: Record<string, unknown>): Record<string, unknown> => ({
+    id: 'campaign-1',
+    schemaVersion: CAMPAIGN_SCHEMA_VERSION,
+    name: 'A Campaign',
+    party: [{ id: 'p1', sheet: sheetRecord, source: 'file' }],
+  });
+
+  it('draws the board for the campaign that used to take it down', () => {
+    // The reproduction, at the surface. The nine-field party sheet in this
+    // fixture reached `deriveStats` and threw on `levelUpHistory.filter`.
+    load(v2());
+    board();
+    expect(text()).toContain('Nobody on the board');
+    expect(text()).not.toContain('Ilya of the Ninth');
+  });
+
+  it('draws the row when the sheet is whole', () => {
+    load(held(newCharacter({ name: 'Ilya of the Ninth' }) as unknown as Record<string, unknown>));
+    board();
+    expect(text()).toContain('Ilya of the Ninth');
+  });
+
+  it('survives every sheet the reader will pass, one missing field at a time', () => {
+    /*
+     * The crash was one absent field, so the question is asked one absent field
+     * at a time. Each pass deletes a field the board reads, hands the record to
+     * the reader, and mounts whatever comes back - a drawn row or an empty
+     * board, never a thrown one. This is the assertion that would go red if the
+     * guard were loosened for any single field, and it is the reason
+     * `PartyBoard` is not made defensive a second time.
+     */
+    for (const key of boardShortfall({})) {
+      const sheetRecord = newCharacter({
+        name: 'Ilya of the Ninth',
+      }) as unknown as Record<string, unknown>;
+      delete sheetRecord[key];
+      load(held(sheetRecord));
+      expect(() => {
+        board();
+      }, `the board threw on a sheet with no "${key}"`).not.toThrow();
+      act(() => root.unmount());
+      root = createRoot(container);
+    }
   });
 });

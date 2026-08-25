@@ -500,16 +500,15 @@ function Row({
  * Evasion leads because it is what the GM needs: it is the number an attack is
  * rolled against, and it is not the Ranger's.
  *
- * NOTHING HERE SHOULD ASSUME A FIELD IS PRESENT, AND THAT IS NOT DEFENSIVENESS -
- * IT IS WHERE THESE SHEETS COME FROM. A campaign record holds whole copies of
- * the players' sheets, and `readPartyMember` in `shared/campaigns.ts` casts the
- * stored object straight to `Character`: the character migration chain never
- * runs on it. So a board saved before a schema bump hands this component a
- * sheet from the *previous* schema, with whatever that schema did not have
- * missing. `damageType` arrived in schema 5 and `companion.damageType
- * .toUpperCase()` threw on every such row - taking the whole board down on
- * first render, which is the one failure `readPartyMember`'s own docblock
- * exists to prevent.
+ * NOTHING HERE SHOULD HAVE ASSUMED A FIELD WAS PRESENT, AND THAT WAS NOT
+ * DEFENSIVENESS - IT WAS WHERE THESE SHEETS CAME FROM. A campaign record holds
+ * whole copies of the players' sheets, and `readPartyMember` in
+ * `shared/campaigns.ts` used to cast the stored object straight to `Character`.
+ * So a board saved before a schema bump handed this component a sheet from the
+ * *previous* schema, with whatever that schema did not have missing.
+ * `damageType` arrived in schema 5 and `companion.damageType.toUpperCase()`
+ * threw on every such row - taking the whole board down on first render, which
+ * is the one failure `readPartyMember`'s own docblock exists to prevent.
  *
  * AND THIS FUNCTION DOES NOT YET OBEY IT. The paragraph above used to end "so
  * this reads by comparison and never by method call, the way `CompanionPanel`
@@ -532,16 +531,30 @@ function Row({
  * UNDEFINED printed to a GM - but a board you can read and disbelieve beats a
  * board that is gone.
  *
- * The reason it stays as it is: the file reader was tightened instead
- * (`checkShapes` now refuses half an animal), which closes every route a
- * CHARACTER arrives by - and closes none of the routes a party copy does,
- * because `readPartyMember` is the cast this paragraph opens with. The rule
- * that would close it is broader than "no method calls here": nothing in
- * `src/ui/gm/` may call a method on a field of `PartyMember.sheet`, NOR PASS IT
- * TO A FUNCTION THAT DOES. Doing that properly means deciding whether
- * `readPartyMember` repairs or quarantines, which is a design decision and is
- * scheduled for the `CAMPAIGN_SCHEMA_VERSION` bump that has to open that file
- * anyway. Until then this docblock states the debt rather than a wish.
+ * AND THE DECISION THAT WAS SCHEDULED HAS BEEN MADE: `readPartyMember`
+ * QUARANTINES. Its `boardShortfall` checks every field any `src/ui/gm/`
+ * consumer reads - the union of what `deriveStats`, `collectModifiers` and
+ * `findGaps` name, plus what this file reads itself, `companion` included, whole
+ * animal or none - and a sheet missing one of them loses its row and says so in
+ * a sentence naming the character. So the shapes this docblock catalogues can
+ * no longer arrive from a stored campaign.
+ *
+ * WHICH IS WHY THE METHOD CALLS BELOW STAY, AND ARE NOT WRAPPED A SECOND TIME.
+ * Two guards over one shape are two opinions about it, and they drift; the one
+ * that would drift is this one, because it is the one with no test naming the
+ * fields. Worse, a guard here can only degrade a value - `String()` on the range
+ * a few lines down turns a crash into the literal word UNDEFINED printed to a
+ * GM - while the reader's refusal produces the only outcome that helps: the row
+ * is gone, and the GM is told which player to ask for a file. A board with a
+ * silently wrong row on it is not the safer half of that trade.
+ *
+ * The price is stated where it is paid. `tests/gm/partyBoard.test.tsx` mounts
+ * this component on nothing but what the reader will emit, deleting each
+ * checked field in turn, and that is what makes "unreachable" a measurement
+ * rather than a wish. `importParty` is a different door - a GM taking a file
+ * from a player goes through `readCharacterRecord`, whose `checkShapes` refuses
+ * half an animal - and the total reads that are already here are what carries a
+ * sheet that got in before either door existed.
  */
 function CompanionLine({
   sheet,
