@@ -280,7 +280,39 @@ export function GmSheet({
             ✕
           </button>
         </div>
-        <div className="stack" style={{ flex: 1, minHeight: 0 }}>
+        {/*
+          THE PANEL SCROLLS, AND UNTIL THIS LINE NOTHING DID.
+          
+          This box was `flex: 1; minHeight: 0` and no more, so a tool taller than
+          the panel was not scrolled - it was cut off and gone. Five of the eight
+          tools hide that by carrying a `className="scroll"` of their own on an
+          inner list; `Encounter` carries none at all, and `Scene`'s covers the
+          combatant grid only, so an environment band opened with SHOW grew
+          past the panel edge with no way to reach the rest. That is what a GM
+          reported: the specs open and the page stops going down.
+          
+          Ergonomics, since this is the surface a thumb now moves:
+          
+            - The header above stays `flex: 'none'`, so ESC and the 44px ✕ never
+              scroll away. A GM three screens into an environment closes it from
+              the same place they opened it, without scrolling back up first.
+            - `overscrollBehavior: 'contain'` keeps the gesture in the panel. The
+              plan behind is `inert` while a tool is open, and chaining the last
+              flick into a surface the GM cannot see is a scroll they cannot undo
+              by looking.
+            - On a phone the panel is bottom-anchored and full height, so the new
+              scroll surface is already under the thumb; nothing moved further
+              away, and no new target was added. This only turns content that
+              was unreachable into content that is reachable.
+          
+          A tool that scrolls its own inner list is unaffected: its child still
+          fits the panel, so this box never overflows and never shows a second
+          bar.
+        */}
+        <div
+          className="stack"
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}
+        >
           {children}
         </div>
       </div>
