@@ -34,6 +34,8 @@
  */
 import { create } from 'zustand';
 import {
+  COUNTDOWN_BEATS_MAX,
+  COUNTDOWN_TEXT_MAX,
   countdownsOf,
   emptyBoard,
   newCampaign,
@@ -229,6 +231,22 @@ export interface GmState extends GmLive {
     more?: Partial<Pick<Countdown, 'activation' | 'advancement' | 'effect' | 'owner' | 'beats'>>,
   ) => string;
   advanceCountdown: (id: string, delta: number) => void;
+  /**
+   * The sentence for one tick of a long-term clock.
+   *
+   * `Countdown.beats` has been persisted and read since schema 3 and nothing
+   * has ever written one. `shared/types.ts` describes the case in as many
+   * words: *"A rest that advances a long-term countdown should produce a
+   * sentence to narrate, not a decrement."* Index 0 is the first tick.
+   *
+   * Writing past the end fills the gap with `''` rather than refusing, because
+   * a GM who writes the beat for tick four before the beat for tick two has not
+   * made a mistake - the array is sparse in practice and `readCountdown` says
+   * so. Both bounds are the reader's own, imported rather than restated: a
+   * writer that let through more than the reader keeps would hand back cut text
+   * on the next load, with the GM's own words as the thing that changed.
+   */
+  writeCountdownBeat: (id: string, index: number, text: string) => void;
   resetCountdown: (id: string) => void;
   removeCountdown: (id: string) => void;
   /** At most one, always. Pass null to have none. */
@@ -871,6 +889,19 @@ export const useGm = create<GmState>((set, get) => {
 
     advanceCountdown(id, delta) {
       commit({ session: withCountdown(id, (c) => tickCountdown(c, delta)) });
+    },
+
+    writeCountdownBeat(id, index, text) {
+      const at = Math.floor(index);
+      if (!Number.isFinite(at) || at < 0 || at >= COUNTDOWN_BEATS_MAX) return;
+      commit({
+        session: withCountdown(id, (c) => {
+          const beats = [...c.beats];
+          while (beats.length <= at) beats.push('');
+          beats[at] = text.slice(0, COUNTDOWN_TEXT_MAX);
+          return { ...c, beats: beats.slice(0, COUNTDOWN_BEATS_MAX) };
+        }),
+      });
     },
 
     resetCountdown(id) {

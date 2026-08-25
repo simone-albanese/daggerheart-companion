@@ -53,6 +53,21 @@
  * `gmPartySize` comes from the preference and never from `party.length` - the
  * board is a board and not a roster, and `partySize.ts` argues that at length.
  *
+ * ## The beat, which is what a long-term tick is actually for
+ *
+ * `Countdown.beats` has been persisted, read and seeded since schema 3 and
+ * nothing in the app has ever drawn one. Its own docblock in `shared/types.ts`
+ * describes this exact moment: *"A rest that advances a long-term countdown
+ * should produce a sentence to narrate, not a decrement."* So the clock a rest
+ * advances gets a one-line field, and it is the tick's own beat - the index is
+ * `start - value` read BEFORE the advance, so the sentence lands on the tick
+ * that just happened rather than on the next one.
+ *
+ * It is optional in both directions: advancing without writing is the ordinary
+ * case, and a beat typed and then left is saved by the same press that moved
+ * the clock, because a GM who has typed a sentence and moved on to the next
+ * scene should not lose it to a control they did not know to press.
+ *
  * ## Ergonomics
  *
  * The panel lives inside a container that already scrolls, so its growth costs
@@ -89,6 +104,7 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
   const nudgeFear = useGm((s) => s.nudgeFear);
   const countdowns = useGm((s) => s.countdowns);
   const advanceCountdown = useGm((s) => s.advanceCountdown);
+  const writeBeat = useGm((s) => s.writeCountdownBeat);
 
   // Three pieces of staged state, none of them written anywhere: which rest is
   // on the table, the face it produced, and the clock this rest has already
@@ -96,6 +112,9 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
   const [kind, setKind] = useState<RestKind | null>(null);
   const [face, setFace] = useState('');
   const [advanced, setAdvanced] = useState<string | null>(null);
+  // The tick's own index and the words typed for it, held together: the index
+  // is only knowable before the clock moves.
+  const [beat, setBeat] = useState<{ index: number; text: string } | null>(null);
 
   const affordance = rollAffordance(digitalDice, manualDice);
   const rolled = isFace(face) ? Number(face) : null;
@@ -107,15 +126,20 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
   const longTerm = countdowns.filter((c) => c.kind === 'long-term');
 
   const putAway = (): void => {
+    if (advanced !== null && beat !== null && beat.text.trim() !== '') {
+      writeBeat(advanced, beat.index, beat.text);
+    }
     setKind(null);
     setFace('');
     setAdvanced(null);
+    setBeat(null);
   };
 
   const stage = (next: RestKind): void => {
     setKind(next);
     setFace('');
     setAdvanced(null);
+    setBeat(null);
   };
 
   const rule = kind === 'short' ? shortRestFearRule(rules) : kind === 'long' ? longRestFearRule(rules) : null;
@@ -263,6 +287,9 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
                       aria-pressed={advanced === c.id}
                       onClick={() => {
                         if (advanced !== null) return;
+                        // The index is read here and not after: once the clock
+                        // has moved, `start - value` names the NEXT tick.
+                        setBeat({ index: Math.max(0, c.start - c.value), text: '' });
                         advanceCountdown(c.id, -1);
                         setAdvanced(c.id);
                       }}
@@ -276,6 +303,33 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
                       {c.name} · {c.value}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {advanced !== null && beat !== null && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <label className="t-meta" htmlFor="rest-beat">
+                    WHAT HAPPENED, IN ONE LINE
+                  </label>
+                  <input
+                    id="rest-beat"
+                    value={beat.text}
+                    placeholder="The frost reaches the outer farms."
+                    onChange={(e) => setBeat({ index: beat.index, text: e.target.value })}
+                    style={{ minHeight: 44, padding: '8px 11px', font: '600 14px/1 var(--sans)' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={beat.text.trim() === ''}
+                    onClick={() => {
+                      writeBeat(advanced, beat.index, beat.text);
+                      putAway();
+                    }}
+                    style={{ flex: 'none', minHeight: 44, alignSelf: 'flex-start', padding: '0 16px' }}
+                  >
+                    KEEP IT
+                  </button>
                 </div>
               )}
             </div>

@@ -294,6 +294,84 @@ describe('the clock a long rest may advance', () => {
   });
 });
 
+/**
+ * The beat, which is the half of a long-term tick that is not a decrement.
+ *
+ * `shared/types.ts` describes this moment in as many words - *"A rest that
+ * advances a long-term countdown should produce a sentence to narrate, not a
+ * decrement"* - and nothing in the app had ever written one. The index is the
+ * part that can silently be wrong: it has to be the tick that just happened,
+ * which is only knowable before the clock moves.
+ */
+describe('the sentence a long rest leaves on the clock it moved', () => {
+  const beatField = (): HTMLInputElement | null =>
+    container.querySelector<HTMLInputElement>('#rest-beat');
+
+  const beatsOf = (id: string): string[] =>
+    useGm.getState().countdowns.find((c) => c.id === id)!.beats;
+
+  const typeBeat = (value: string): void => {
+    const el = beatField();
+    if (el === null) throw new Error('no beat field on the panel');
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  const stageLongRestOn = (name: string): void => {
+    prefs({ digitalDice: false, manualDice: true });
+    panel();
+    press('LONG REST');
+    press(name);
+  };
+
+  it('offers no field until a clock has actually been advanced', () => {
+    prefs({ digitalDice: false, manualDice: true });
+    seed([clock('c2', 'The winter', 'long-term')]);
+    panel();
+    press('LONG REST');
+    expect(beatField()).toBeNull();
+  });
+
+  it('writes it on the tick that just happened, not the next one', () => {
+    seed([clock('c2', 'The winter', 'long-term', 6)]);
+    stageLongRestOn('The winter · 6');
+    typeBeat('The frost reaches the outer farms.');
+    press('KEEP IT');
+
+    // 6 -> 5 is the FIRST tick, so index 0. Reading `start - value` after the
+    // advance would have put it on index 1 and left tick one blank forever.
+    expect(beatsOf('c2')).toEqual(['The frost reaches the outer farms.']);
+  });
+
+  it('lands on the right index for a clock already part-way down', () => {
+    seed([clock('c2', 'The winter', 'long-term', 4)]);
+    stageLongRestOn('The winter · 4');
+    typeBeat('The river stops.');
+    press('KEEP IT');
+    expect(beatsOf('c2')).toEqual(['', '', 'The river stops.']);
+  });
+
+  it('keeps a sentence typed and then left, when the rest is put away', () => {
+    seed([clock('c2', 'The winter', 'long-term', 6)]);
+    stageLongRestOn('The winter · 6');
+    typeBeat('The frost reaches the outer farms.');
+
+    // Putting the rest away is the same gesture as opening it: a GM who typed a
+    // sentence and moved on should not lose it to a button they did not press.
+    press('LONG REST');
+    expect(beatsOf('c2')).toEqual(['The frost reaches the outer farms.']);
+  });
+
+  it('writes nothing at all when the field is left empty', () => {
+    seed([clock('c2', 'The winter', 'long-term', 6)]);
+    stageLongRestOn('The winter · 6');
+    press('LONG REST');
+    expect(beatsOf('c2')).toEqual([]);
+  });
+});
+
 describe('nothing moves that a hand did not move', () => {
   it('writes nothing at mount, and nothing on choosing a rest or a face', () => {
     prefs({ digitalDice: false, manualDice: true });
