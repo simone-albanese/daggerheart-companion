@@ -23,7 +23,6 @@ import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
 import { Fold } from '../shared/Fold.tsx';
-import { Stepper } from './Encounter.tsx';
 import { damageLabel, EnvironmentBand, FeatureList, signed } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
 
@@ -369,7 +368,9 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  *     saves the GM the comparison, not the glance;
  *   - the damage field and APPLY, which is the row this whole fold exists to
  *     get back above the crease;
- *   - Minions standing, where the group has any;
+ *   - how many Minions are standing, where the group has any - in the band with
+ *     DIF and the thresholds rather than in a row of its own, which is the
+ *     owner's decision of 2026-08-25 and is argued where it is drawn;
  *   - the attack: the bonus that is rolled, the name that is narrated, the dice
  *     that are read out, the range. That is the adversary's turn, and a turn is
  *     not a detail.
@@ -431,11 +432,21 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  * between rounds and never pressed. The one control that crossed the line is
  * the features button, and it crossed it into a bigger target.
  *
- * ## What the fold makes the card - A SUM, AND NOT A MEASUREMENT
+ * ## What the fold makes the card - DERIVED FIRST, THEN MEASURED
  *
- * Nothing since the fold has been in front of a browser. The figure below is
- * arithmetic over lengths this file and `tokens.css` declare, and it is written
- * as that rather than dressed up as a rect somebody read off Chrome.
+ * This was written as a sum with "nothing since the fold has been in front of a
+ * browser" over it, because that was true when it was written. It is not any
+ * more: the rig built this branch, served it and measured it in Chrome on
+ * 2026-08-25 on the same surface and the same insets as the retired heights
+ * above -
+ * **471.00 exactly, on all three cards it put on the board.** The Bear included,
+ * which had differed by 23.50 before the fold.
+ *
+ * THE DERIVATION STAYS, and not out of sentiment. The measurement says what the
+ * card is today; the nine terms say WHY, and they are what goes red when
+ * somebody moves a padding or a token. A rect on its own would go stale in
+ * silence. So the sum below is still stated as a sum, and the browser has
+ * simply agreed with it.
  *
  * **The shut card is 471.00 by declaration**: 2 of `.panel` border + 22 of the
  * card's own `padding: 11` + 50 of its five `gap: 10` + 44 of header row + 188
@@ -459,8 +470,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  *     reclaim: the 170 is `Vitals.tsx`'s measured min-content for a `Counter`
  *     labelled STRESS (165.81), and the reasoning beside the grid below says
  *     what a 160px track would do to it;
- *   - 31 of threshold band is its own `padding: '8px 10px'` twice over around a
- *     `.t-num` at `fontSize: 15`, whose `line-height: 1` makes the line 15;
+ *   - 31 of threshold band is the read-only arm of its `padding: minions ===
+ *     undefined ? '8px 10px' : '0 10px'` twice over around a `.t-num` at
+ *     `fontSize: 15`, whose `line-height: 1` makes the line 15. The other arm
+ *     is the Minion group's, and it is the one exception below;
  *   - 44 of damage row is APPLY's `minHeight: 'var(--tap)'`, the flat coarse
  *     floor it declares inline;
  *   - 46 of attack row is its `borderTop` of 1, its `paddingTop: 9`, the 17px
@@ -469,11 +482,12 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  *   - 44 of shut fold is `Fold`'s own header, `minHeight: 'var(--tap)'`, with
  *     `gap: 0` while it is shut.
  *
- * WHY THAT SUM IS WORTH BELIEVING. Run over the card as it stood, term for
- * term, the same arithmetic returns "558.00" for the Acid Burrower and "534.50"
- * for the Bear - both of Chrome's figures, to the half pixel. A model that
- * reproduces two independent measurements is worth writing a third number out
- * of; one that did not would be worth deleting instead.
+ * WHY THAT SUM WAS WORTH BELIEVING BEFORE ANYBODY CHECKED IT. Run over the card
+ * as it stood, term for term, the same arithmetic returns "558.00" for the Acid
+ * Burrower and "534.50" for the Bear - both of Chrome's figures, to the half
+ * pixel. A model that reproduces two independent measurements is worth writing
+ * a third number out of; one that did not would be worth deleting instead. The
+ * third number then came back from Chrome unchanged, which is three for three.
  *
  * AND THE TWO CARDS ARE NOW THE SAME HEIGHT, which is the same fact from the
  * other end. Their "23.50" of difference was entirely the feature chips - the
@@ -483,22 +497,33 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  * that varied between the two is now inside the fold, so shut, every adversary
  * in the book draws the same 471.00 - with one exception.
  *
- * ## THE EXCEPTION, WRITTEN DOWN RATHER THAN ROUNDED OFF
+ * ## THE EXCEPTION, WHICH USED TO BE A SECOND DEFECT AND IS NOW A SECOND ARM
  *
- * A Minion group draws one control no other card draws: `Minions standing`.
- * That `Stepper` is a `.t-meta` label, its own `gap: 6` and a `var(--control)`
- * row - 60 - and the card's gap above it is 10. So a Minion group's shut card
- * is **541.00 by the same declarations, and it is still 43.00 past the panel.**
- * Sixteen of the book's 129 adversaries are Minions.
+ * A Minion group is the only combatant carrying a number no other card carries:
+ * how many bodies are still standing. It had a row of its own - a `Stepper`
+ * from the encounter builder, 60 tall, plus the card's 10px gap - and that put
+ * the shut card at "541.00", 43 past the panel, on 16 of the book's 129
+ * adversaries. That figure was written down here rather than fixed, because
+ * choosing where the control went was a decision this lane had not been given.
  *
- * Nothing here fixes that, deliberately. The two moves that would - putting the
- * stepper inside the threshold band's row, or taking a control off the card -
- * are both ergonomic decisions about a control the damage field is wired to
- * (see the damage field's own note below), and inventing one of those inside a
- * lane that was given a fold to build is how a screen ends up with two
- * half-arguments instead of one decision. It is a smaller, separable defect
- * than the one this lane closed, and it is here so the next reader has the
- * number and does not have to re-derive it.
+ * IT WAS GIVEN ON 2026-08-25: the count joins DIF and the thresholds instead of
+ * taking a row. The reason is conceptual before it is geometric - how many are
+ * left standing is a figure of the creature, like Difficulty, not a control in
+ * its own right - and the band's JSX comment below carries the whole of it,
+ * including the two things that gave way for it and the alternatives that were
+ * refused.
+ *
+ * A Minion group's band is the other arm: `padding: '0 10px'` around the flat
+ * 44 its `−` and `+` declare, where an ordinary card's is 8 + 15 + 8. So the
+ * band grows by 13 and nothing else on the card moves: **a Minion group's shut
+ * card is 484.00 by the same declarations, 14.00 inside the panel.** THAT ONE
+ * IS A SUM AND HAS NOT BEEN MEASURED - the 471.00 above has, this has not, and
+ * the rig is measuring it after this lane rather than before it.
+ *
+ * The row that went was not free of prose: what stood beside the old stepper,
+ * and what the band no longer prints on a Minion card, is listed in the band's
+ * comment under `## What gave way for it`. Both were read rather than pressed,
+ * and both are still on the card behind one tap.
  *
  * TWO CARDS ON ONE SCREEN IS STILL NO. `PROGETTO-GM §7` item 3 wanted two
  * readable at once; 2 x 471.00 plus the grid's 10px gap is 952.00 against 498.
@@ -530,6 +555,15 @@ function CombatantCard({
   const [incoming, setIncoming] = useState('');
   const c = combatant;
   const down = c.hp.marked >= c.hp.max;
+  /*
+   * Read into a const so the narrowing survives into the handlers.
+   * `c.minionsRemaining !== undefined` narrows the property for the JSX around
+   * it and not for the arrow function inside it, because a property of a
+   * mutable object can be reassigned between the check and the call as far as
+   * the checker is concerned. A `const` cannot, so this is what the band's
+   * `−`/`+` close over.
+   */
+  const minions = c.minionsRemaining;
 
   const amount = Number(incoming);
   const hit =
@@ -662,12 +696,85 @@ function CombatantCard({
         />
       </div>
 
+      {/*
+       * HOW MANY ARE STILL STANDING IS A NUMBER OF THE CREATURE, LIKE DIFFICULTY.
+       *
+       * It had a row of its own - a `Stepper` from the encounter builder, label
+       * over control, with a sentence beside it - and that row is why a Minion
+       * group's shut card was 43px past the panel while every other card fitted.
+       * The owner settled it on 2026-08-25 and the reason is conceptual before
+       * it is geometric: how many bodies are left is one of the figures a GM
+       * reads off the thing, and it belongs in the strip that already holds the
+       * other three rather than in a control of its own.
+       *
+       * Three alternatives were named and rejected: under the fold (it is
+       * touched DURING the fight, which is the criterion the fold was filled
+       * by), left where it was with the overflow written down, and measured
+       * before deciding.
+       *
+       * ## What the band pays for it, and what it stops paying
+       *
+       * `padding: '8px 10px'` while the strip is only read; `'0 10px'` the
+       * moment it carries the control. Not a saving dressed up as a principle:
+       * 8px of decoration above and below a 44px target is 16px the GM cannot
+       * press, on the one row of this card where the target IS the height. With
+       * the vertical padding gone the strip is exactly its target - 44 - and
+       * the two 15px numbers beside it are centred in that by `.row`'s own
+       * `align-items: center`. A card with no Minion group never reaches this
+       * arm and its band is still 8 + 15 + 8 = 31, which is what keeps the
+       * ordinary card at the 471.00 that was measured in Chrome.
+       *
+       * FLAT 44 AND NOT `var(--control)`, which is `Stepper`'s own choice and
+       * is deliberately not copied. END SCENE at the top of this file already
+       * argues the same inline literal for the same two reasons - 44 clears the
+       * coarse floor outright so it clears the 34px fine one too, and an inline
+       * number is the only place a test can read a height from. The band's
+       * height is that 44, so a token that moved under a pointer query would
+       * move this card's geometry with it.
+       *
+       * ## What gave way for it, and it is two things
+       *
+       * NO THRESHOLDS · ANY DAMAGE DEFEATS IS NOT DRAWN ON A MINION CARD ANY
+       * MORE. That sentence exists to explain an EMPTY slot - the reason MAJOR
+       * and SEVERE are missing - and on a Minion group the slot is not empty:
+       * the count is in it, and a group whose bodies are counted one by one is
+       * the reason there is no ladder to print. The rule itself is still on the
+       * card twice over: the damage field one row down prints ANY DAMAGE
+       * DEFEATS the instant a number is typed into it, and the `Minion (N)`
+       * feature under the fold carries the SRD's own sentence at length. A
+       * combatant with no thresholds and no Minion group - which the shipped
+       * book does not contain, all 16 null-threshold adversaries being Minions
+       * - still gets the sentence, because there the slot IS empty.
+       *
+       * Keeping it as a second band line was costed rather than waved off: the
+       * 34 characters are 224.4 at `.t-meta`'s ~6.6, which cannot share a
+       * 321px line with DIF, the rule and a 186.2px control, so it is a wrap,
+       * and the band becomes 44 + a row gap + 10. At the smallest gap anybody
+       * would draw that is 60, and the shut Minion card is 500.00 - two pixels
+       * past the panel. That is the whole of what this paragraph is buying.
+       *
+       * AND THE GLOSS IS GONE: "One group. Each defeated Minion is one fewer
+       * body in the same space." stood beside the old stepper. It was there
+       * because a control alone on a row looks like a feature that needs
+       * explaining; one number among three does not, and DIF, MAJOR and SEVERE
+       * have never carried one. The `Minion (N)` feature says more than it did.
+       *
+       * ## The shape a custom dataset can still make
+       *
+       * The label and the control are one `.row` rather than two children of
+       * the band, so a wrap can never leave MINIONS on one line and its `−`
+       * on the next. That matters for the one combination the book does not
+       * ship: thresholds AND a Minion group, which a replaceable dataset can
+       * make. There the band draws both, wraps, and is 15 + 10 + 44 = 69,
+       * which puts that card at 509.00. It is correct and it is taller; no
+       * adversary in this book can reach it.
+       */}
       <div
         className="row"
         style={{
           gap: 10,
           flexWrap: 'wrap',
-          padding: '8px 10px',
+          padding: minions === undefined ? '8px 10px' : '0 10px',
           borderRadius: 'var(--r2)',
           background: 'var(--app)',
         }}
@@ -677,11 +784,7 @@ function CombatantCard({
           {c.difficulty}
         </span>
         <span style={{ width: 1, height: 13, background: 'var(--line)' }} />
-        {c.thresholds === null ? (
-          <span className="t-meta" style={{ color: 'var(--dim)' }}>
-            NO THRESHOLDS · ANY DAMAGE DEFEATS
-          </span>
-        ) : (
+        {c.thresholds !== null ? (
           <>
             <span className="t-meta">MAJOR</span>
             <span className="t-num" style={{ fontSize: 15 }}>
@@ -692,6 +795,52 @@ function CombatantCard({
               {c.thresholds[1]}
             </span>
           </>
+        ) : (
+          minions === undefined && (
+            <span className="t-meta" style={{ color: 'var(--dim)' }}>
+              NO THRESHOLDS · ANY DAMAGE DEFEATS
+            </span>
+          )
+        )}
+        {minions !== undefined && (
+          <span className="row" style={{ flex: 'none', gap: 8 }}>
+            <span className="t-meta">MINIONS</span>
+            <span className="row" style={{ gap: 0 }}>
+              <button
+                type="button"
+                aria-label="Decrease Minions standing"
+                disabled={minions <= 0}
+                onClick={() => patch(c.id, { minionsRemaining: Math.max(0, minions - 1) })}
+                style={{
+                  width: 44,
+                  minHeight: 44,
+                  font: '700 17px/1 var(--sans)',
+                  opacity: minions <= 0 ? 0.35 : 1,
+                }}
+              >
+                −
+              </button>
+              <span
+                aria-live="polite"
+                style={{
+                  minWidth: 44,
+                  textAlign: 'center',
+                  font: '800 17px/1 var(--sans)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {minions}
+              </span>
+              <button
+                type="button"
+                aria-label="Increase Minions standing"
+                onClick={() => patch(c.id, { minionsRemaining: minions + 1 })}
+                style={{ width: 44, minHeight: 44, font: '700 17px/1 var(--sans)' }}
+              >
+                +
+              </button>
+            </span>
+          </span>
         )}
       </div>
 
@@ -707,11 +856,14 @@ function CombatantCard({
        * player's own vitals ladder through, so the two sides of the table
        * cannot arrive at different answers.
        *
-       * WHERE IT SITS, AND WHY IT IS EXACTLY HERE. Directly under the
-       * DIF/MAJOR/SEVERE band and directly above the Minion stepper: the
-       * figure that is read and the figure that is typed are adjacent, and the
-       * one control the hit can also move - Minions standing - is the next
-       * thing down. The panel is `size="full"` inside `GmSheet` and a full tool
+       * WHERE IT SITS, AND WHY IT IS EXACTLY HERE. Directly under the band: the
+       * figure that is read and the figure that is typed are adjacent. ("And
+       * directly above the Minion stepper [...] the one control the hit can
+       * also move - Minions standing - is the next thing down" stood here, and
+       * the row it named is gone.) The hit still moves that count, and the
+       * count is now IN the band a line up rather than in a row below - so the
+       * one control this field writes to besides HP is on the row the GM is
+       * already reading off. The panel is `size="full"` inside `GmSheet` and a full tool
        * on a 393x852 phone gets a band rather than the window, so a row here is
        * expensive; this is one row, and it is the row that removes three
        * gestures.
@@ -780,19 +932,6 @@ function CombatantCard({
           </span>
         )}
       </div>
-
-      {c.minionsRemaining !== undefined && (
-        <div className="row" style={{ gap: 10 }}>
-          <Stepper
-            label="Minions standing"
-            value={c.minionsRemaining}
-            onChange={(n) => patch(c.id, { minionsRemaining: n })}
-          />
-          <span className="t-dense" style={{ color: 'var(--muted)', flex: 1, minWidth: 0 }}>
-            One group. Each defeated Minion is one fewer body in the same space.
-          </span>
-        </div>
-      )}
 
       {adversary !== undefined && (
         <div

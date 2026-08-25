@@ -169,13 +169,17 @@ describe('the damage field on the combatant card', () => {
     expect(c.minionsRemaining).toBe(4);
     scene([c]);
 
-    // Counted rather than contained: the band above the field already prints
-    // NO THRESHOLDS · ANY DAMAGE DEFEATS, so `toContain` would pass on a card
-    // that drew no preview at all.
+    // Counted rather than contained, and the count is now 0 -> 1 where it was
+    // 1 -> 2. The band above the field used to print NO THRESHOLDS · ANY DAMAGE
+    // DEFEATS on this card, which is why `toContain` would have passed on a
+    // card that drew no preview at all; it stopped printing it when the Minion
+    // count moved into that slot (`Scene.tsx`, the band's comment, under
+    // `## What gave way for it`). The device is unchanged and the guard is if
+    // anything sharper - a card with no preview reads 0 both times.
     const says = (needle: string): number => (container.textContent ?? '').split(needle).length - 1;
-    expect(says('ANY DAMAGE DEFEATS')).toBe(1);
+    expect(says('ANY DAMAGE DEFEATS')).toBe(0);
     type(a.name, String(a.minionGroup));
-    expect(says('ANY DAMAGE DEFEATS')).toBe(2);
+    expect(says('ANY DAMAGE DEFEATS')).toBe(1);
     expect(container.textContent).toContain('2 MINIONS');
 
     press('APPLY');

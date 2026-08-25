@@ -607,12 +607,30 @@ const countersGrid = (): number[] =>
     "the card's counters grid",
   );
 
-/** The threshold band's vertical padding. */
-const bandPadY = (): number =>
-  only(
+/**
+ * The threshold band's two paddings: read-only y and x, then the Minion arm's.
+ *
+ * One declaration and one anchor, because they are one ternary. Reading the
+ * read-only arm alone would let the Minion arm be given a vertical padding
+ * without anything here noticing, and that arm's zero is exactly what makes the
+ * band its 44px target rather than 44 inside 16 of decoration.
+ */
+const bandPad = (): number[] =>
+  decl(
     SCENE,
-    /padding: '(\d+)px \d+px',\s*borderRadius: 'var\(--r2\)'/g,
-    "the threshold band's padding",
+    /padding: minions === undefined \? '(\d+)px (\d+)px' : '(\d+) (\d+)px',/g,
+    "the threshold band's two paddings",
+  );
+
+/** The band's vertical padding while it is only read. */
+const bandPadY = (): number => bandPad()[0]!;
+
+/** The flat floor the band's Minion `−` declares, and its width. */
+const minionStep = (): number[] =>
+  decl(
+    SCENE,
+    /aria-label="Decrease Minions standing"[\s\S]*?width: (\d+),\s*minHeight: (\d+),/g,
+    "the band's Minion stepper",
   );
 
 /** The size of the number in the threshold band, at `.t-num`'s `line-height: 1`. */
@@ -627,9 +645,21 @@ const attackRow = (): number[] =>
     "the card's attack row",
   );
 
-/** The attack bonus, the tallest thing on the attack row's first line. */
+/**
+ * The attack bonus, the tallest thing on the attack row's first line.
+ *
+ * Anchored through `signed(adversary.attackBonus)` and not through the `font:`
+ * alone: the band's Minion readout declares the identical `800 17px/1
+ * var(--sans)`, so a bare font anchor stopped being unique the day that control
+ * moved into the band, and `decl()` said so by name rather than reading the
+ * wrong one.
+ */
 const attackBonus = (): number =>
-  only(SCENE, /font: '800 (\d+)px\/1 var\(--sans\)'/g, "the attack bonus's font size");
+  only(
+    SCENE,
+    /font: '800 (\d+)px\/1 var\(--sans\)', fontVariantNumeric: 'tabular-nums' \}\}>\s*\{signed\(/g,
+    "the attack bonus's font size",
+  );
 
 describe('the GM screen states the geometry its own declarations make', () => {
   /*
@@ -1181,8 +1211,8 @@ describe('the GM screen states the geometry its own declarations make', () => {
     expect(
       gaps,
       'the shut card no longer has five gaps between six children, or the gap moved. Six is ' +
-        'header, counters, band, damage row, attack row and fold - a Minion group has a seventh ' +
-        'and the docblock costs it separately.',
+        'header, counters, band, damage row, attack row and fold - and it is six for a Minion ' +
+        'group too, since the count moved into the band rather than taking a row.',
     ).toBe(5 * gapDecl);
     expect(
       header,
@@ -1309,34 +1339,80 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
-   * The exception the card's docblock refuses to round off. A Minion group is
-   * the only combatant that draws a seventh child, and it puts the shut card
-   * back over the panel. Held so that "541.00" cannot quietly become a figure
-   * nobody re-derived after the stepper or the token under it moved.
+   * THE ONE CARD THE OWNER MOVED A CONTROL FOR, AND THE ONE FIGURE HERE THAT
+   * CHROME HAS NOT SEEN.
+   *
+   * A Minion group used to draw the count on a row of its own and land at
+   * "541.00", 43 past the panel. The count is in the band now, so the whole of
+   * the difference from an ordinary card is the band's two arms - 8 + 15 + 8
+   * read-only against a flat 44 with the control in it - and that difference is
+   * 13. Every term of that is a declaration, which is the only reason a number
+   * nobody has measured is allowed to be written down at all.
+   *
+   * The 471.00 it is added to HAS been measured; this has not, and the docblock
+   * says which is which. If the rig comes back with anything but 484.00, it is
+   * this arithmetic that is wrong and not the browser.
    */
-  it('costs the Minion group the one control that puts a shut card back over', () => {
+  it("costs the Minion group its band arm, and nothing else on the card", () => {
     const said = says(
       SCENE,
-      /That `Stepper` is a `\.t-meta` label, its own `gap: (\d+)` and a `var\(--control\)` row - (\d+) - and the card's gap above it is (\d+)\. So a Minion group's shut card is \*\*(\d+\.\d+) by the same declarations, and it is still (\d+\.\d+) past the panel\.\*\*/g,
-      "the Minion group's shut card and the four terms over the ordinary one",
+      /A Minion group's band is the other arm: `padding: '(\d+) (\d+)px'` around the flat (\d+) its `−` and `\+` declare, where an ordinary card's is (\d+) \+ (\d+) \+ (\d+)\. So the band grows by (\d+) and nothing else on the card moves: \*\*a Minion group's shut card is (\d+\.\d+) by the same declarations, (\d+\.\d+) inside the panel\.\*\*/g,
+      "the Minion group's shut card and the band arm it is made of",
     );
-    expect(said[0], '`Stepper` no longer declares the gap between its label and its row').toBe(
-      declared('src/ui/gm/Encounter.tsx', 'export function Stepper(', 'gap'),
+    const pad = bandPad();
+    expect(
+      [said[0], said[1]],
+      'the band no longer declares this padding on the arm that carries the Minion count. A ' +
+        'vertical padding here would put the 44px target inside decoration and take the card ' +
+        'straight back over the panel.',
+    ).toEqual([pad[2], pad[3]]);
+    expect(
+      said[2],
+      "the band's Minion `−` no longer declares the flat floor this sentence reads. It is the " +
+        "band's whole height on that arm, so a floor set in a token or a class is a height " +
+        'nothing here can check.',
+    ).toBe(minionStep()[1]);
+    expect(
+      [said[3], said[5]],
+      "the read-only arm's vertical padding moved, so the 13 the band grows by is stale",
+    ).toEqual([bandPadY(), bandPadY()]);
+    expect(said[4], 'the band no longer draws its numbers at the size this sentence reads').toBe(
+      bandNum(),
     );
-    expect(said[1], '`Stepper` is no longer a `.t-meta` label, its gap and a `--control` row').toBe(
-      roleSize('t-meta') + said[0]! + resolve('var(--control)', PHONE),
-    );
-    expect(said[2], "the card no longer declares the gap this sentence puts above the stepper").toBe(
-      cardBox()[0],
+    expect(said[6], 'the band arm no longer grows by the difference between its own two arms').toBe(
+      said[2]! - (said[3]! + said[4]! + said[5]!),
     );
     const ordinary = stated(SCENE, /\*\*The shut card is (\d+\.\d+) by declaration\*\*/g)[0]!;
     const panel = stated(SCENE, /the scrollable panel is (\d+)px/g)[0]!;
-    expect(said[3], "a Minion group's shut card is no longer the ordinary one plus that row").toBe(
-      ordinary + said[1]! + said[2]!,
+    expect(said[7], "a Minion group's shut card is no longer the ordinary one plus that arm").toBe(
+      ordinary + said[6]!,
     );
-    expect(said[4], 'the Minion overflow is no longer that card against the measured panel').toBe(
-      said[3]! - panel,
-    );
+    expect(
+      said[8],
+      'the room a Minion group leaves is no longer that card against the measured panel',
+    ).toBe(panel - said[7]!);
+    expect(
+      said[7]! < panel,
+      "a Minion group's shut card is over the panel again. Say the figure in the docblock rather " +
+        'than deleting this assertion - a card that overflows in silence is the defect this ' +
+        'whole corner of the file exists for.',
+    ).toBe(true);
+  });
+
+  /*
+   * The Minion stepper's two buttons, held at the floor rather than at a token.
+   * `Stepper` in `Encounter.tsx` draws the same shape at `var(--control)`, which
+   * is 34 on a fine pointer; the band's copy is a flat 44 for END SCENE's stated
+   * reason, and the band's height is that number.
+   */
+  it('keeps the band\'s Minion stepper at the touch floor, in both axes', () => {
+    const [width, floor] = minionStep() as [number, number];
+    const tap = resolve('var(--tap)', PHONE);
+    expect(
+      [width, floor],
+      "the band's Minion stepper went under the touch floor. Height is also the band's height " +
+        'here, so shrinking it is how a card gets shorter by making a target smaller.',
+    ).toEqual([tap, tap]);
   });
 
   /*

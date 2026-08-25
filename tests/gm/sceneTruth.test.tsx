@@ -27,7 +27,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import srd from '../../data/srd-1.0.json' with { type: 'json' };
-import type { Dataset, Environment } from '@shared/types.ts';
+import type { Adversary, Dataset, Environment } from '@shared/types.ts';
 import { indexDataset } from '@engine/character.ts';
 import { makeCombatant } from '../../src/engine/encounter.ts';
 import type { SceneCombatant } from '../../src/engine/encounter.ts';
@@ -224,6 +224,131 @@ describe('what the card says the thing wants, and where it says it', () => {
     // And no fold either. A header a GM can press onto an empty section is the
     // same invented explanation one control louder.
     expect(container.querySelector('button[aria-expanded]')).toBeNull();
+  });
+});
+
+/*
+ * WHERE A MINION GROUP'S COUNT LIVES, AND WHAT MOVED OUT OF THE WAY FOR IT.
+ *
+ * The owner settled it on 2026-08-25: how many are still standing is a figure
+ * of the creature, like Difficulty, so it sits in the strip with DIF and the
+ * thresholds instead of taking a row of its own. `Scene.tsx`'s band comment
+ * argues it and costs it; these hold the two consequences a docblock cannot -
+ * that the control is still there and still writes to the board, and that the
+ * sentence it displaced is only displaced on the cards that have the count.
+ *
+ * The dataset facts these lean on are asserted rather than assumed: in the
+ * shipped book `role === 'Minion'`, `thresholds === null` and a `minionGroup`
+ * divisor are the same 16 adversaries, and a card can only reach the displaced
+ * arm through that coincidence. A rebuild that broke it would make these tests
+ * fail rather than quietly test nothing.
+ */
+describe('a Minion group counts its bodies in the band, not in a row of its own', () => {
+  const minionAdversary = (): Adversary => {
+    const found = dataset.adversaries.find((a) => a.role === 'Minion');
+    if (found === undefined) throw new Error('the shipped book has no Minion');
+    return found;
+  };
+
+  const stepper = (which: 'Decrease' | 'Increase'): HTMLButtonElement => {
+    const found = container.querySelector<HTMLButtonElement>(
+      `button[aria-label="${which} Minions standing"]`,
+    );
+    if (found === null) throw new Error(`the card drew no ${which} control for Minions`);
+    return found;
+  };
+
+  it('is the same sixteen adversaries that carry all three Minion facts', () => {
+    const byRole = dataset.adversaries.filter((a) => a.role === 'Minion');
+    expect(byRole.length).toBeGreaterThan(0);
+    expect(
+      byRole.every((a) => a.thresholds === null && a.minionGroup !== undefined),
+      'a Minion in this book no longer has null thresholds and a divisor, so the band arm these ' +
+        'tests exercise is reachable by a different set of cards than they assume.',
+    ).toBe(true);
+    expect(
+      dataset.adversaries.filter((a) => a.thresholds === null),
+      'some non-Minion adversary now ships without thresholds, which is the one combination that ' +
+        'still draws NO THRESHOLDS · ANY DAMAGE DEFEATS. Give that case a test of its own here.',
+    ).toHaveLength(byRole.length);
+  });
+
+  it('draws the count in the band with DIF, and drops the sentence for an empty slot', () => {
+    const a = minionAdversary();
+    scene([makeCombatant(a, 0, 4)]);
+
+    // The band, found through the control rather than through the text: this
+    // adversary's role line already reads `T1 · MINION`, so a search for the
+    // word in `textContent` would pass on a card that drew no control at all.
+    const strip = stepper('Decrease').closest('div');
+    expect(strip, 'the Minion control is not inside a band').not.toBeNull();
+    expect(strip!.textContent).toContain('DIF');
+    expect(strip!.textContent).toContain('MINIONS');
+    // The slot is not empty any more, so the sentence that existed to explain
+    // an emptiness is not drawn. The rule it stated is still on the card: the
+    // damage preview prints it, and the `Minion (N)` feature carries the SRD's
+    // own wording behind the fold.
+    expect(text()).not.toContain('NO THRESHOLDS');
+  });
+
+  it('keeps that sentence for a combatant with no thresholds and no Minion group', () => {
+    const a = minionAdversary();
+    // The board is the authority, and it can hold a combination the dataset
+    // does not: `makeCombatant` only writes `minionsRemaining` for a Minion, so
+    // this is the same adversary with the count taken off the board.
+    const { minionsRemaining: _dropped, ...noGroup } = makeCombatant(a, 0, 4);
+    scene([noGroup]);
+
+    expect(text()).toContain('NO THRESHOLDS · ANY DAMAGE DEFEATS');
+    expect(
+      container.querySelector('button[aria-label="Decrease Minions standing"]'),
+      'a combatant the board gives no Minion count still drew the control',
+    ).toBeNull();
+  });
+
+  it('has no row of its own left, and no gloss beside one', () => {
+    const a = minionAdversary();
+    scene([makeCombatant(a, 0, 4)]);
+
+    // The label the old `Stepper` printed over its control, and the sentence
+    // that sat beside it. Both went with the row; the aria-labels on the two
+    // buttons are where "Minions standing" survives.
+    expect(text()).not.toContain('MINIONS STANDING');
+    expect(text()).not.toContain('One group.');
+  });
+
+  it('still writes both ways to the board it was moved off a row for', () => {
+    const a = minionAdversary();
+    scene([makeCombatant(a, 0, 4)]);
+    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(4);
+
+    act(() => stepper('Decrease').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(3);
+
+    act(() => stepper('Increase').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(4);
+  });
+
+  it('refuses to count below nothing, the way the row it replaces did', () => {
+    const a = minionAdversary();
+    scene([{ ...makeCombatant(a, 0, 4), minionsRemaining: 0 }]);
+
+    expect(stepper('Decrease').disabled).toBe(true);
+    act(() => stepper('Decrease').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(0);
+  });
+
+  it('declares the touch floor on both of its buttons, where a test can read it', () => {
+    const a = minionAdversary();
+    scene([makeCombatant(a, 0, 4)]);
+
+    // A floor that came from a token under a pointer query, or from a class,
+    // is a floor jsdom scores 0 for - which is how this app's sweeps have been
+    // fooled before. The band's height IS this number, so it is written inline.
+    for (const which of ['Decrease', 'Increase'] as const) {
+      expect(stepper(which).style.width).toBe('44px');
+      expect(stepper(which).style.minHeight).toBe('44px');
+    }
   });
 });
 
