@@ -53,8 +53,9 @@
  * unmarked behaviour. It is written down rather than done.
  *
  * **A block is as fine as this lands, and where the SRD draws a section as one
- * block, that is the section's top.** 34 of the 69 shipped sections carry no
- * `## ` at all, so `ruleSection` gives each of them a single block, and a hit
+ * block, that is the section's top.** 34 of the 69 shipped sections resolve to
+ * a single block - 33 carry no `## ` at all, and `the-basics` opens with its
+ * only one, so it has no prose above the heading to make a second - and a hit
  * inside one lands on the block the section already began with: the GM is
  * brought to the top of their section rather than to their line. The same
  * `BlockView` signature is what stops it. That file draws a prose part as one

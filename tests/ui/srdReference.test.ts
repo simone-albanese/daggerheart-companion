@@ -604,10 +604,10 @@ describe('the adjectives that are not in the SRD', () => {
 /**
  * The pipeline every surface that prints a whole section goes through.
  *
- * The counts here are the ones the source's own docblocks quote - 42 sections
- * of 80, 38 lists, 7 tables, 3 with both, 12 tables in all - so a dataset that
- * changes underneath them turns a comment that is now false into a red test
- * rather than into a sentence nobody re-read.
+ * The counts below are the only home these figures have. Four source docblocks
+ * quoted them too, drifted a dataset behind, and were taken out of the prose
+ * rather than re-derived: a figure that lives in an assertion goes red when
+ * the dataset moves, and one that lives in a sentence just stops being true.
  */
 describe('ruleSection', () => {
   const parts = (id: string): BlockPart[] =>
