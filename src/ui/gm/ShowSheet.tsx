@@ -155,8 +155,9 @@
  * - brings them straight back, so nothing is lost and nothing had to be
  * dismissed.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../../store/state.ts';
+import { loadAsk } from './ask.ts';
 import type { GmRegion } from './gmStore.ts';
 import { RuleSearchField, RuleSearchResults } from './RuleSearch.tsx';
 import { liveDoors } from './showDoors.ts';
@@ -171,6 +172,24 @@ export function ShowSheet({
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
 
+  /*
+   * Warm the catalogue's chunk when the sheet opens, and throw the result
+   * away: what is wanted is the fetch, not the data, which `RuleSearchResults`
+   * asks for itself when it needs it.
+   *
+   * This is ergonomics rather than optimisation. The questions are behind a
+   * dynamic `import()` - `ask.ts` says why - so on a cold cache they can arrive
+   * a beat after the first keystroke, and a band that appears late pushes the
+   * first rule hit down the glass while the GM is reading it. Opening SHOW is a
+   * deliberate tap with a sheet animation behind it and several seconds of
+   * human before the first character lands, so the fetch costs nothing there
+   * and nothing at all is put on the boot path: this component is inside `Gm`,
+   * which is itself a `lazy()` chunk.
+   */
+  useEffect(() => {
+    void loadAsk();
+  }, []);
+
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10 }}>
       <div
@@ -178,7 +197,7 @@ export function ShowSheet({
         style={{ flex: 1, minHeight: 0, gap: 10, padding: '14px 14px 0' }}
       >
         {searching ? (
-          <RuleSearchResults query={query} />
+          <RuleSearchResults query={query} onQuery={setQuery} />
         ) : (
           liveDoors(prefs).map((choice) => (
             <button

@@ -1,5 +1,6 @@
 /**
- * The rules, searched: a field at the foot of SHOW and the hits above it.
+ * The rules, searched: a field at the foot of SHOW, the hits above it, and the
+ * app's own questions above those.
  *
  * ## What this is not
  *
@@ -146,13 +147,44 @@
  * weighting the SRD's sections would be the app deciding which rule the GM
  * meant. A group header is the data's own split, printed.
  *
- * There is a fourth header and it appears in place of all three. When no
- * section carries every word, `searchRules` falls back to the sections carrying
- * some, and that list is drawn under **NO SECTION CARRIES ALL OF THOSE WORDS ·
- * THESE CARRY SOME**. The header is the whole point of the fallback: an
+ * There is a fourth header of the book's and it appears in place of all three.
+ * When no section carries every word, `searchRules` falls back to the sections
+ * carrying some, and that list is drawn under **NO SECTION CARRIES ALL OF THOSE
+ * WORDS · THESE CARRY SOME**. The header is the whole point of the fallback: an
  * unranked list of eighteen sections presented as *the answer* is a worse lie
  * than a blank screen, and presented as *this is not the answer, here is what
  * is near it* it is a place to start.
+ *
+ * ## The one band that is not the book's: QUESTIONS
+ *
+ * Above all of those stands a band of the app's own words. `ask.ts` holds
+ * twelve questions a GM asks under pressure, each with a pointer at the place
+ * the SRD comes nearest to answering it, and `searchAsk` matches the same query
+ * against those questions that `searchRules` matches against the sections.
+ *
+ * **It is above rather than below, and that is the whole of it.** The band
+ * exists for the query this search answers correctly and uselessly: `surrender`
+ * is in none of the sixty-nine sections, and so are `concede`, `chase`,
+ * `difficulty roll`, `nearly impossible` and `lines and veils` - all six
+ * measured against the shipped text, all six things a GM says out loud at a
+ * table. Below the list, a question a GM has to scroll nineteen hits to reach
+ * is a question they will not find at the moment they needed it.
+ *
+ * **A question is not a `RuleHit` and does not become one.** `AskRow` below is
+ * its own row - the app's sentence first, the book's address under it - because
+ * `Hit`'s header is a section's title and a quoted line, and an entry has
+ * neither. What the two share is everything downstream: the same `ruleSection`,
+ * the same block equality, the same `BlockView`, the same one-open-at-a-time
+ * `openId`, so opening a question and opening a hit are the same act and there
+ * is still exactly one drawing of a section in this app.
+ *
+ * **It stays when `SOME` replaces the other three,** which no document decided
+ * and this file does. If a question matched, the surface has found something
+ * the GM asked for; the fallback header goes on saying exactly what it says
+ * about the sections under it, and neither sentence is made to answer for the
+ * other. The one thing that does move is the silence: the "no rule in this
+ * dataset carries that" paragraph is drawn only when the questions are empty
+ * too, because its second clause is a claim about the whole surface.
  *
  * ## Where the query landed, marked
  *
@@ -412,7 +444,7 @@
  * Two and three preview lines are still the ordinary shape of a hit rather than
  * the exception. What has gone is the eleventh line.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RulesSection } from '../../../shared/types.ts';
 import { useApp } from '../../store/state.ts';
 import { useIsPhone } from '../shared/useLayout.ts';
@@ -423,6 +455,7 @@ import {
   type RuleHit,
   type SectionView,
 } from '../shared/srdReference.ts';
+import { askLoaded, loadAsk, searchAsk, type AskEntry } from './ask.ts';
 import { BlockView, type BlockTarget } from './ReferenceTables.tsx';
 
 /** How much of a long line to keep on either side of the marks. */
@@ -877,10 +910,25 @@ export function RuleSearchField({
  * The counts are the eye's too - each group header prints its own - so this
  * says the total rather than repeating them, and it is the only sentence on
  * this surface a GM who cannot see the list gets for free.
+ *
+ * **It names the questions as well as the sections, and it has to.** The
+ * QUESTIONS band is drawn above every other band, so a GM who cannot see it is
+ * the one person for whom a sentence saying only `19 sections match` would put
+ * the catalogue behind the whole list rather than in front of it - and in the
+ * case that matters most, a question matched and no section did, that sentence
+ * would have read `No section matches` over a surface that had just found
+ * something. The questions come first here for the same reason they come first
+ * on the glass.
  */
-const spoken = (count: number): string => {
-  if (count === 0) return 'No section matches';
-  return count === 1 ? '1 section matches' : `${String(count)} sections match`;
+const spoken = (sections: number, asks: number): string => {
+  const found =
+    sections === 0
+      ? 'no section matches'
+      : sections === 1
+        ? '1 section matches'
+        : `${String(sections)} sections match`;
+  if (asks === 0) return sections === 0 ? 'No section matches' : found;
+  return `${asks === 1 ? '1 question' : `${String(asks)} questions`} and ${found}`;
 };
 
 /** What the three group headers say, and which hits belong under each. */
@@ -906,6 +954,60 @@ const SOME: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> =
 ];
 
 /**
+ * The band the app's own questions stand in, above every band of the book's.
+ *
+ * It is not a member of `GROUPS` and it cannot be: those three sort a
+ * `RuleHit` by where in a section the query landed, and a question is not a
+ * section. It is computed beside them rather than inside them, which is also
+ * what decides the one behaviour no document covers - **QUESTIONS stays when
+ * `SOME` replaces the other three.** That is a choice and it is defensible: if
+ * a question matched, this surface *has* found something the GM asked for, and
+ * printing NO SECTION CARRIES ALL OF THOSE WORDS over the whole list would be
+ * telling them otherwise about the one row that did. The header still says
+ * exactly what it says, about the sections under it.
+ *
+ * `null` is the state before the chunk lands and it draws nothing - not a
+ * spinner, not a placeholder row. The band appears when it has something to
+ * say, the way an empty `GROUPS` band does.
+ */
+const ASKED = 'QUESTIONS';
+
+/** Nothing, with an identity, so a render before the chunk lands does not churn. */
+const NO_ASKS: readonly AskEntry[] = [];
+
+/**
+ * The catalogue, once it is here.
+ *
+ * `ask.ts` keeps it behind a dynamic `import()` so the strings are not in the
+ * chunk that draws the GM screen, which means there is a moment - the first
+ * render after the sheet opens, on a cold cache - when this surface has the
+ * search and not the questions. `askLoaded()` is the synchronous half of that:
+ * `ShowSheet` warms the import when the sheet opens, so by the time a GM has
+ * reached the field and typed a character the chunk is usually already here and
+ * the questions are in the **first** render rather than in a second one that
+ * pushes the first rule hit down the glass while it is being read.
+ *
+ * When it is not here, this subscribes once and never again - the promise is
+ * memoised in `ask.ts`, so a hundred keystrokes are one request - and the
+ * `alive` flag is the ordinary guard: a GM who shuts the sheet before the chunk
+ * lands must not be setting state on an unmounted tree.
+ */
+function useAskCatalogue(): readonly AskEntry[] {
+  const [entries, setEntries] = useState<readonly AskEntry[]>(() => askLoaded() ?? NO_ASKS);
+  useEffect(() => {
+    if (askLoaded() !== null) return undefined;
+    let alive = true;
+    void loadAsk().then((next) => {
+      if (alive) setEntries(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return entries;
+}
+
+/**
  * The hits, in `searchRules`' order, grouped by where they landed, one open.
  *
  * `dataset.rules` is read through a selector narrow enough to be the array
@@ -915,9 +1017,26 @@ const SOME: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> =
  * matches half the SRD would otherwise open forty subscriptions to the store to
  * answer one question.
  */
-export function RuleSearchResults({ query }: { query: string }): React.JSX.Element {
+export function RuleSearchResults({
+  query,
+  onQuery,
+}: {
+  query: string;
+  /**
+   * Put words in the field this list is answering, if the caller owns one.
+   *
+   * One caller does - `ShowSheet` holds the query - and one deliberately does
+   * not: the fixture that mounts these results alone. It is optional so that
+   * the second stays possible, and the one control that needs it is simply not
+   * drawn without it. That control is the dead-pointer door in `AskRow`, which
+   * a shipped entry cannot reach; see there.
+   */
+  onQuery?: (next: string) => void;
+}): React.JSX.Element {
   const rules = useApp((s) => s.dataset.rules);
   const hits = useMemo(() => searchRules(rules, query), [rules, query]);
+  const catalogue = useAskCatalogue();
+  const asked = useMemo(() => searchAsk(catalogue, query), [catalogue, query]);
   const [openId, setOpenId] = useState<string | null>(null);
   let bands = GROUPS;
   if (hits.some((hit) => hit.partial)) bands = SOME;
@@ -948,14 +1067,45 @@ export function RuleSearchResults({ query }: { query: string }): React.JSX.Eleme
         prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {spoken(hits.length)}
+        {spoken(hits.length, asked.length)}
       </span>
-      {hits.length === 0 && (
+      {/*
+        The honest silence, and it is now guarded on both lists rather than on
+        one. Its second clause - not one of those words is in the rules the app
+        is holding - is true of the sections and false of the surface the
+        moment a question has matched, and a GM reading "this dataset does not
+        carry that" over a row that does carry it would be reading the app
+        contradict itself. Nothing takes its place when a question matched: the
+        band above says how many, and §4 forbids an apology row for the other
+        direction - a query that finds sections and no question prints nothing
+        about questions at all.
+      */}
+      {hits.length === 0 && asked.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
           No rule in this dataset carries that. The search reads every section’s title, its
           subheads and its whole text, and it asks for every word you typed; not one of those
           words is in the rules the app is holding.
         </p>
+      )}
+      {asked.length > 0 && (
+        <div className="stack" style={{ flex: 'none', gap: 10 }}>
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+            {ASKED} · {asked.length}
+          </span>
+          {asked.map((entry) => (
+            <AskRow
+              key={entry.id}
+              entry={entry}
+              query={query}
+              rules={rules}
+              open={entry.id === openId}
+              onToggle={() => {
+                setOpenId(entry.id === openId ? null : entry.id);
+              }}
+              onQuery={onQuery}
+            />
+          ))}
+        </div>
       )}
       {bands.map((group) => {
         const inGroup = hits.filter(group.holds);
@@ -1038,11 +1188,26 @@ export interface Landing {
  * Both of those are already answered by the top of the section, which is where
  * a hit with no landing opens.
  */
+/**
+ * The block a subhead opens, or -1.
+ *
+ * One function because there are now two callers who must agree byte for byte:
+ * the heading branch of `landingIn` below, where the string came out of the
+ * book through `quoteFrom`, and `AskRow`, where it was written into
+ * `askCatalogue.ts` by a person. The second is the one the equality is load
+ * bearing for - `tests/gm/ask.test.ts` asserts every catalogue heading against
+ * the dataset's own `## ` string, and that assertion is only a property of the
+ * screen while the screen looks the heading up the same way. An `includes` or a
+ * case-insensitive compare here would make the test true and the row wrong.
+ */
+const headingBlock = (section: SectionView, heading: string): number =>
+  section.blocks.findIndex((block) => block.heading === heading);
+
 export function landingIn(section: SectionView, hit: RuleHit): Landing | null {
   const line = hit.line;
   if (line === null) return null;
   if (hit.where === 'heading') {
-    const block = section.blocks.findIndex((b) => b.heading === line);
+    const block = headingBlock(section, line);
     return block === -1 ? null : { block, at: { kind: 'block' } };
   }
   for (const [block, drawn] of section.blocks.entries()) {
@@ -1201,6 +1366,194 @@ function Hit({
               />
             );
           })
+        ))}
+    </section>
+  );
+}
+
+/**
+ * One question, and the block of the book it points at.
+ *
+ * ## It is `Hit`'s header upside down, and that is the argument
+ *
+ * A hit leads with the book's title and puts the GM's own words under it,
+ * because a hit *is* a section and the title is what was found. A question
+ * leads with the question - the app's sentence, in `.t-read`, the size this
+ * app uses for prose somebody is reading in order to decide something - and
+ * puts the address under it in the label face. What the GM is scanning for
+ * here is their own situation, not a heading of the SRD; the address is what
+ * they read second, to know whether to trust the answer before they open it.
+ *
+ * The address is the whole of the provenance and it is drawn shut, not on
+ * opening: section title, the subhead when the entry names one, and the page
+ * stamp - all three read out of `dataset.rules` at draw time, none of them
+ * typed into `askCatalogue.ts`. That is what stands between this catalogue and
+ * the one failure its tests cannot catch, which is content moving from one
+ * subhead to another while both keep their names: every assertion still passes
+ * and the answer is quietly wrong, and the only defence is that a GM is looking
+ * at the book's own words under the book's own address rather than at a
+ * paraphrase this repo wrote.
+ *
+ * The shut row reads the section out of `rules` with a `find` rather than
+ * through `ruleSection`, and only the open one parses. `ruleSection` splits a
+ * whole body into blocks and every block into parts; twelve rows doing that on
+ * every keystroke would be twelve parses to print twelve titles. The parse
+ * happens when a row opens, which is once and on purpose.
+ *
+ * ## Opening: the section whole, landed on the block the entry named
+ *
+ * Not the block alone. The pointer is *where to start reading*, and a rule read
+ * with the paragraphs around it cut away is how a GM ends up ruling on half a
+ * sentence; `Hit` already draws the section whole and scrolls, and doing the
+ * same thing here means there is still exactly one drawing of a section in this
+ * app. The ref goes on the named block, so the block the question points at is
+ * at the top of the scroller with the rest of its section under it.
+ *
+ * ## Two ways the pointer can rot, and neither is guessed at
+ *
+ * This is the runtime half of the ladder the rot test cannot cover, and it is
+ * `RECUPERO-JOURNAL-2026-08-24.md`'s design rather than one invented here.
+ *
+ * **The subhead is gone and the section is not.** The section is drawn whole
+ * and the row says so, out loud. What it must never do is fuzzy-match: a
+ * subhead that has been renamed is not the nearest subhead that survived, and
+ * landing a GM on a heading that merely looks similar is worse than landing
+ * them at the top, because the top is visibly the top and a wrong subhead looks
+ * like an answer.
+ *
+ * **The section is gone.** That is the `Unresolved` shape `SessionBody.tsx`
+ * already uses for a link whose target this device cannot resolve - say that it
+ * is not here, say the pointer is kept, say what would bring it back - plus the
+ * half that turns a dead pointer into a live search: a control that puts the
+ * question's own index word into the field. Neither is reachable with the
+ * shipped dataset, where all twelve anchors resolve; both are reachable the
+ * moment a homebrew layer rewrites `rules`, which `dataset.ts` allows by
+ * design.
+ *
+ * **One index word and not all of them, and that is a departure from the
+ * journal's wording with a reason.** `searchRules` is an AND over every term
+ * the GM typed, so filling the field with eight `also` words would guarantee
+ * that no section carries them all and hand back the OR fallback - a list under
+ * NO SECTION CARRIES ALL OF THOSE WORDS, which is the honest shape of a bad
+ * answer and not the live search the design asked for. The first word of `also`
+ * is the one the entry was written around, and the control prints it, so the
+ * GM can see what is about to be typed for them.
+ */
+function AskRow({
+  entry,
+  query,
+  rules,
+  open,
+  onToggle,
+  onQuery,
+}: {
+  entry: AskEntry;
+  query: string;
+  rules: RulesSection[];
+  open: boolean;
+  onToggle: () => void;
+  onQuery?: (next: string) => void;
+}): React.JSX.Element {
+  const named = rules.find((rule) => rule.id === entry.at.section) ?? null;
+  const section = useMemo(
+    () => (open ? ruleSection(rules, entry.at.section) : null),
+    [rules, entry.at.section, open],
+  );
+  const heading = entry.at.heading;
+  const block = section === null || heading === null ? -1 : headingBlock(section, heading);
+  const word = entry.also[0] ?? '';
+
+  // The same callback ref `Hit` uses, for the same reason: React hands the node
+  // over when it is attached, so the scroll happens once per opening rather
+  // than on every render that left the same node in place.
+  const land = useCallback((node: HTMLElement | null) => {
+    node?.scrollIntoView?.({ block: 'start' });
+  }, []);
+  const markBody = useCallback(
+    (text: string): React.ReactNode => <Marked found={splitFirst(text, query)} query={query} />,
+    [query],
+  );
+
+  return (
+    <section className="stack" data-ask style={{ flex: 'none', gap: open ? 8 : 0 }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="stack"
+        style={{
+          flex: 'none',
+          minHeight: 44,
+          width: '100%',
+          gap: 3,
+          padding: '6px 2px',
+          textAlign: 'left',
+          alignItems: 'flex-start',
+        }}
+      >
+        <span className="t-read" style={{ width: '100%', margin: 0 }}>
+          <Marked found={preview(entry.ask, query)} query={query} />
+        </span>
+        <span className="row" style={{ width: '100%', gap: 8 }}>
+          <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--dim)' }}>
+            {named === null ? entry.at.section : named.title}
+            {heading === null ? '' : ` · ${heading}`}
+          </span>
+          {named !== null && (
+            <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
+              {stamp(named.sourcePage ?? null)}
+            </span>
+          )}
+        </span>
+      </button>
+      {open &&
+        (section === null ? (
+          <div className="stack" style={{ flex: 'none', gap: 8 }}>
+            <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
+              This dataset no longer carries that section, so there is nothing to draw. The
+              question is kept: load the layer it came from and it points somewhere again.
+            </p>
+            {onQuery !== undefined && word !== '' && (
+              <button
+                type="button"
+                className="t-label"
+                onClick={() => {
+                  onQuery(word);
+                }}
+                style={{
+                  flex: 'none',
+                  minHeight: 44,
+                  padding: '0 10px',
+                  alignSelf: 'flex-start',
+                  color: 'var(--muted)',
+                }}
+              >
+                SEARCH “{word}” INSTEAD
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {heading !== null && block === -1 && (
+              <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
+                This dataset no longer carries that subhead, so the whole section is drawn
+                instead. Nothing is matched loosely: a renamed subhead is not the nearest one
+                still standing.
+              </p>
+            )}
+            {section.blocks.map((drawn, i) => {
+              const key = `${drawn.heading ?? ''}-${String(i)}`;
+              if (i !== block) return <BlockView key={key} block={drawn} />;
+              return (
+                <BlockView
+                  key={key}
+                  block={drawn}
+                  land={{ at: { kind: 'block' }, ref: land }}
+                  mark={markBody}
+                />
+              );
+            })}
+          </>
         ))}
     </section>
   );
