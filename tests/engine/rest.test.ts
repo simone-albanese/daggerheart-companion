@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DOWNTIME_MOVES,
+  FEAR_DIE,
+  fearFromRest,
   movesFor,
   mustTakeLongRest,
   takeRest,
@@ -218,6 +220,48 @@ describe('the Fear the GM gains', () => {
 
   it('assumes a party of one when nobody said', () => {
     expect(takeRest(hurt(), stats, 'long', [], { fixedFear: 2 }, refusingRng).gmFear).toBe(3);
+  });
+
+  /*
+   * The formula came out of `takeRest` so the GM's side could read it: their
+   * rest control has a party size and a die and no `Character` at all, so it
+   * cannot call `takeRest` and would otherwise have written the sentence out a
+   * second time.
+   *
+   * Every face against every party size a table plausibly has, rather than a
+   * sample, because the whole content of this function is which of two branches
+   * adds the second number.
+   */
+  it('is the same formula over every face and every party size', () => {
+    for (const roll of [1, 2, 3, 4]) {
+      for (const size of [1, 2, 3, 4, 5, 6]) {
+        expect(fearFromRest('short', roll, size)).toBe(roll);
+        expect(fearFromRest('long', roll, size)).toBe(roll + size);
+      }
+    }
+  });
+
+  /*
+   * The one that actually bites. Two copies of a formula written from the same
+   * sentence agree by accident, and go on agreeing until somebody edits one of
+   * them - at which point every test written against either copy still passes.
+   * This is red the day the arithmetic goes back inside `takeRest`.
+   */
+  it('cannot drift from the copy inside takeRest', () => {
+    for (const kind of ['short', 'long'] as const) {
+      for (const roll of [1, 2, 3, 4]) {
+        for (const size of [1, 4, 6]) {
+          const out = takeRest(hurt(), stats, kind, [], { fixedFear: roll, partySize: size }, refusingRng);
+          expect(out.gmFear).toBe(fearFromRest(kind, roll, size));
+        }
+      }
+    }
+  });
+
+  it('is rolled on the die both surfaces name', () => {
+    // A `4` typed into the GM's face picker beside the `rng(4)` here would be
+    // two copies of one number, which is what the constant is for.
+    expect(FEAR_DIE).toBe(4);
   });
 });
 

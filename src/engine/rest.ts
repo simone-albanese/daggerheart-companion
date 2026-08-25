@@ -126,6 +126,38 @@ export interface RestOutcome {
 }
 
 /**
+ * The die the Fear is rolled on. Named because two surfaces now roll it.
+ *
+ * The GM's own rest control draws a d4 face picker for a table that types its
+ * dice, and a `4` written into that picker beside the `rng(4)` here is two
+ * copies of one number - the shape this file's own docblocks name twice as
+ * something this repository has been bitten by.
+ */
+export const FEAR_DIE = 4;
+
+/**
+ * The Fear a rest hands the GM, out of the rest that produced it.
+ *
+ * *"On a short rest, the GM gains 1d4 Fear. On a long rest, they gain Fear
+ * equal to 1d4 + the number of PCs"* - `downtime`, p.41. The formula was one
+ * line inside `takeRest` while the player's rest screen was the only thing that
+ * could produce it. The GM's side has a rest control now, and it cannot call
+ * `takeRest`: that wants a `Character` and a `DerivedStats`, and the GM has
+ * neither - they have a party size and a die.
+ *
+ * So the formula comes out, `takeRest` calls it, and both sides read the one
+ * definition. `tests/engine/rest.test.ts` asserts that they agree on the same
+ * inputs, which is the half that matters: two copies written from the same
+ * sentence agree by accident until the day one of them is edited.
+ *
+ * `partySize` is a count the table declares, never `party.length` - the board
+ * is not a roster and `partySize.ts` argues that at length. This takes the
+ * number it is given and does no counting of its own.
+ */
+export const fearFromRest = (rest: RestKind, roll: number, partySize: number): number =>
+  rest === 'short' ? roll : roll + partySize;
+
+/**
  * The Beastbound's other creature, on the two moves that clear Stress.
  *
  * *"When you choose a downtime move that clears Stress on yourself, your
@@ -297,8 +329,8 @@ export function takeRest(
     }
   }
 
-  const fearRoll = options.fixedFear ?? rng(4);
-  const gmFear = rest === 'short' ? fearRoll : fearRoll + (options.partySize ?? 1);
+  const fearRoll = options.fixedFear ?? rng(FEAR_DIE);
+  const gmFear = fearFromRest(rest, fearRoll, options.partySize ?? 1);
 
   /*
    * The rest counts itself, here, rather than on whatever screen called it.
