@@ -701,10 +701,10 @@ export interface SectionView {
  * region's GM chapter above, and the `ADD -> LINK -> Rule` row of a GM session.
  *
  * That row used to call `paragraphs()` by itself, which is the one shape the
- * dataset is not in. 42 of the 80 shipped sections carry a list or a table - 38
- * lists, 7 tables, 3 of them both - so 42 of the 80 rules a GM can put on a
- * session printed their bullets with a literal `- ` in front of every line and
- * their tables as raw pipes.
+ * dataset is not in. Every shipped section that carries a list or a table
+ * printed its bullets with a literal `- ` in front of every line and its tables
+ * as raw pipes. How many that is, is counted in `tests/ui/srdReference.test.ts`
+ * and nowhere else: this sentence used to quote the figure and outlived it.
  */
 export function ruleSection(rules: RulesSection[], id: string): SectionView | null {
   const section = rules.find((r) => r.id === id);

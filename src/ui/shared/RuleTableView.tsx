@@ -6,8 +6,8 @@
  * `CountdownChart` puts a button on the cells that carry a number, the
  * Difficulty ladder turns six tables on their side. This one is the drawing for
  * a table nobody chose in advance - the twelve the SRD ships, reached through
- * the `ADD -> LINK -> Rule` door that offers all 80 sections - so it may not
- * assume a column count, a heading, or a meaning.
+ * the `ADD -> LINK -> Rule` door that offers every shipped section - so it may
+ * not assume a column count, a heading, or a meaning.
  *
  * Nothing here is a target. A table you arrived at from a session row is
  * something you read, and the app has nothing to do with a price in Handfuls.
