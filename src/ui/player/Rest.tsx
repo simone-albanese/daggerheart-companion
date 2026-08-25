@@ -16,6 +16,44 @@
  * of the arithmetic on this surface, and the thing that previews the rest is
  * the thing that will apply it.
  *
+ * AND NOTHING ROLLS FOR A TABLE THAT SWITCHED THE ROLLER OFF, WHICH IS THE
+ * SAME RULE ONE STEP FURTHER ON. The preview was careful and the commit was
+ * not: `Play.tsx` handed this `cryptoRng`, the commit called `takeRest` with
+ * it, and no preference was read anywhere on the path - so a table that had
+ * answered "Real dice, and the app stays out of it" in Onboarding, or turned
+ * both switches off in Settings, still had 1d4s rolled for it the moment it
+ * pressed COMMIT. `rollAffordance` is the one place this app answers what a
+ * surface may offer and it is read here now, the way the roll control it
+ * belongs to reads it (`DualityRoll.tsx:83`, `:926`) and the damage row is
+ * handed it (`DamageRoll.tsx:288`): the roller is `canRoll`'s, the typed faces
+ * are `canType`'s, and with neither on the rest is refused in a sentence.
+ *
+ * HOW MANY NUMBERS THAT ASKS FOR, WHICH IS THE QUESTION THAT DECIDES WHETHER
+ * IT IS REASONABLE. `takeRest` reads one `fixedRoll` per choice and one
+ * `fixedFear`, and `choices.slice(0, 2)` caps the choices at two - but only
+ * three of the nine downtime moves ever reach `roll()` (`rest.ts:239`, `:247`,
+ * `:256`), and all three are short-rest moves. Not one of the five long-rest
+ * ones does. A LONG REST THEREFORE ASKS FOR EXACTLY ONE NUMBER whatever is
+ * picked - the GM's Fear die - and a short rest for one, two or three: one per
+ * Tend to Wounds, Clear Stress or Repair Armor chosen, plus the Fear. Three is
+ * the worst case on this surface, and it is three d4s at a table that has just
+ * rolled three d4s. Which of the moves costs a die is not a list kept here -
+ * see `dieAsked` - so nobody is handed a blank for a die they did not roll.
+ *
+ * WITH BOTH SWITCHES ON, BOTH ROADS ARE OPEN AT ONCE. That is the meaning
+ * `Onboarding.tsx:43-45` records for the fourth combination and this file does
+ * not get to hold a different one - "ROLL *and* typable faces: a table that
+ * rolls physically and digitally in the same session". What the old rule - the
+ * first typed face turns the roller off - was buying is still real: a rest that
+ * rolled some of its dice and took the others typed would write
+ * "GM gains 3 Fear" into the log with nothing saying whether the 3 came off the
+ * table or out of this device. What answers it is the two controls, not the
+ * removal of one - each press is a single source for every die in the rest, so
+ * a mixed rest is not reachable by pressing anything. The panel's press is held
+ * back, in this file's own voice, until each face is a face a die of that size
+ * can show; the roller's press is never held back, because it needs nothing
+ * typed. `DeathMove.tsx` draws the same four states from the same helper.
+ *
  * A ROW SAYS WHAT TAPPING IT WILL DO, NOT WHAT THE MOVE DOES IN GENERAL. Each
  * row's bracket is the difference between the rest as it stands and the rest
  * with that move appended, so picking Tend to Wounds twice shows the second one
@@ -68,6 +106,29 @@
  * place and the vault charges Recall Cost during a scene and nothing during a
  * rest out of one function rather than out of two screens that agree today.
  *
+ * THE TYPED PANEL'S ARITHMETIC, over its own declarations and this docblock's
+ * own column figure. It is a `.panel` - 1px border, base.css:233-237 - with
+ * `padding: '10px 11px'` and `gap: 6`, one `t-label` at 10px/1
+ * (tokens.css:559-564), one row per die at `var(--tap)` = 44 (tokens.css:106),
+ * and its own press at the declared 56. So it is 2 + 20 + 10 + n * (6 + 44) +
+ * 6 + 56 = 144px for one die, 194 for two and 244 for three, plus the 8px the
+ * column gaps it by: 152, 202, 252. Every long rest that types pays the first
+ * of those and only a short rest with two rolling moves pays the last. With
+ * typed dice off it costs nothing, because it is not drawn - and with the
+ * roller on as well it is drawn above the rolling press rather than instead of
+ * it, so the fourth combination pays 68 more than the third (12 of pad and
+ * rule, 56 of button). A face nothing can show adds 6 and a `t-read` paragraph
+ * at 13px/1.45 = 18.85 a line, whose line count is not stated here because the
+ * width it wraps at is `Disclosure`'s inner width and this file does not
+ * declare it. Across the row, the name takes 369 - 2 of border - 22 of
+ * padding - 8 of gap - the field's declared 72 = 265px, and it is one line
+ * with an ellipsis rather than a wrap, so a long move name cannot push the
+ * field it belongs to onto a second row. The field itself is 72x44: over the
+ * 44px floor in both directions, and centred text because what goes in it is
+ * one digit. The refusal that replaces the rolling press is a `t-label` at 10,
+ * a `t-read` paragraph, and a `t-meta` at 10, gapped by 6; its line count is
+ * unstated for the same reason.
+ *
  * ERGONOMICS, at 393x852 (column 369px), 375x667 (351px), 744 and 1024 (both
  * the one-column sheet), and 1180+ (the cockpit's first column, 300-336px).
  * Closed it is one `Disclosure` header - 44px at `var(--tap)` - plus the
@@ -83,9 +144,10 @@
  *
  * Every target is at or above the 44px floor: the header 44x369, the two kind
  * buttons 44x180.5, a move row 46 (the family `LoadoutRows` uses at 46 and the
- * vault rows at 52), a slot's clear control 44x44, the party toggle 44, COMMIT
- * 56x369 because it is the only irreversible thing here, and the swap chips
- * 44x84. Nothing declares a width or a minWidth above 84px, so the column is
+ * vault rows at 52), a slot's clear control 44x44, the party toggle 44, either
+ * press that takes the rest 56x369 - the rolling one and the typed panel's -
+ * because taking the rest is the only irreversible thing here whichever road it
+ * goes down, and the swap chips 44x84. Nothing declares a width or a minWidth above 84px, so the column is
  * never forced wider than the phone by construction rather than by
  * measurement.
  *
@@ -106,8 +168,23 @@
  * exist until a rest kind has been chosen, so the first tap on this surface can
  * never be the last one.
  *
+ * The typed panel sits between the swap rows and the rolling press, which is
+ * the only place it can be: it is filled in immediately before its own press,
+ * and above the swaps it would be up to 50px a card away from the button it
+ * fills in. That puts it in the same three-scrolls-down band rather than under
+ * a resting thumb, which is right for a field somebody is looking at while they
+ * type into it - and the press it feeds is inside it, directly under the last
+ * field, so a thumb that overshoots the fields lands on the control those
+ * fields are for rather than on the one that would roll instead of reading
+ * them. `DeathMove.tsx` puts its roll button above its panel and this puts it
+ * below, and that is the one place the two surfaces are drawn differently: the
+ * rule here is that the control which applies the swaps drawn above it comes
+ * last, and the dialog has no swaps.
+ *
  * READ VERSUS TOUCH. Touched: three controls before a kind is chosen, up to
- * eighteen after. Read and never touched: the SRD's own move text, at
+ * eighteen after, plus one to three fields and the press they fill in when the
+ * table types its own dice - and with both switches on, one more press than
+ * with either alone, which is what a surface that offers two roads costs. Read and never touched: the SRD's own move text, at
  * `t-read` - 13px/1.45, the size that exists in this stylesheet for prose
  * somebody is reading in order to decide something, which is exactly the job
  * here - the two quoted rules, and the brackets, which are `t-num` with
@@ -146,6 +223,11 @@ import {
 } from '../../engine/rest.ts';
 import { useActive, useApp } from '../../store/state.ts';
 import { Disclosure } from '../shared/Disclosure.tsx';
+// The one place this app answers "what may this surface offer"
+// (`DualityRoll.tsx:83`), read here rather than reasoned out again: a surface
+// deciding for itself what the two dice switches mean is another answer that
+// can disagree with the roll control's, which is where a player learnt them.
+import { rollAffordance } from './DualityRoll.tsx';
 import { shortReason } from './recall.ts';
 import { interruptedRestRule, longRestRule } from '../shared/ruleText.ts';
 
@@ -158,6 +240,12 @@ interface Props {
    * rest can roll is visible from `Play.tsx` without opening this file - and so
    * a test can hand it a scripted one and assert that the numbers on the screen
    * are the numbers the script produced. The preview never sees it.
+   *
+   * NOR DOES THE TYPED COMMIT, WHICH IS WHY THE PROP DID NOT HAVE TO CHANGE.
+   * With the roller off every die goes in as a `fixedRoll` or a `fixedFear`,
+   * both of which `takeRest` reads with `??` before it reaches for the `Rng` -
+   * so this is passed and never consulted, and a test proving it can simply
+   * hand over `refusingRng` and press COMMIT.
    */
   rng: Rng;
   /**
@@ -188,6 +276,22 @@ const neverRolls: Rng = () => {
 /** The two moves that gain Hope, by id: both are named "Prepare". */
 const PREPARE: DowntimeMoveId[] = ['prepare', 'prepare-long'];
 
+/**
+ * A chosen move and the face typed for it, which are one value on purpose.
+ *
+ * The sibling defect on the Duality Roll was a face outliving the die it was
+ * typed for: the faces were kept in their own map, the dice were re-armed
+ * between rolls, and a roll resolved on a number entered for a different one.
+ * Here the two cannot come apart, because taking a move out of a slot is
+ * `filter` over this list and replacing one is a new object in it - so the face
+ * goes with the move by construction rather than by remembering to clear it.
+ */
+interface Pick {
+  move: DowntimeMoveId;
+  /** What the table's die showed, as typed. Empty until it has been. */
+  face: string;
+}
+
 interface Delta {
   hp: number;
   stress: number;
@@ -209,6 +313,8 @@ interface MoveView {
   bracket: Bracket;
   /** The engine's own line, for the one move the engine does not apply. */
   note: string | null;
+  /** The die this move costs, in sides, or null when it costs none. */
+  die: number | null;
 }
 
 interface View {
@@ -217,6 +323,46 @@ interface View {
   total: Bracket;
   /** The engine's lines for whatever picked moves it does not apply. */
   notes: string[];
+  /** The GM's Fear die, in sides. Every rest owes one. */
+  fearDie: number | null;
+}
+
+/**
+ * Which die the engine will roll for this, in sides - asked of the engine.
+ *
+ * A surface that types the dice has to know which dice there are, and there is
+ * no honest way to know it from here: `movesFor` says what the moves are and
+ * `mechanical` says whether the app applies one, but neither says whether a d4
+ * is involved. Six of the nine roll nothing at all. `DOWNTIME_MOVES`
+ * (`rest.ts:41-106`) holds nine - four short (`:45`, `:52`, `:59`, `:66`) and
+ * five long (`:73`, `:80`, `:87`, `:94`, `:101`) - and `roll()` is reached at
+ * three places in `takeRest`'s `switch` (`:239`, `:247`, `:256`), all three of
+ * them short-rest moves. The other six get there four different ways, which is
+ * the point: three long ones clear a whole track (`:266`, `:271`, `:278`),
+ * both Prepares gain a flat Hope (`:283-284`), and Work on a Project is
+ * `mechanical: false` and only writes a line (`:293`). A list of the three
+ * that do roll, kept in this file, would be a second opinion about that
+ * `switch`, which is exactly the shape of bug this repository keeps finding.
+ *
+ * So the engine is asked, with an `Rng` that records the sides it was called
+ * for and hands back a 1. Nothing is kept but the number of sides: the outcome
+ * is dropped on the floor, and the 1 never reaches a screen or a sheet. That
+ * is also why it may return null - a move that consults no die never calls it -
+ * and why nobody is ever asked to type a die they did not roll.
+ */
+function dieAsked(
+  c: Character,
+  stats: DerivedStats,
+  kind: RestKind,
+  choices: DowntimeChoice[],
+  options: { partySize?: number; fixedFear?: number },
+): number | null {
+  const asked: number[] = [];
+  takeRest(c, stats, kind, choices, options, (sides) => {
+    asked.push(sides);
+    return 1;
+  });
+  return asked[0] ?? null;
 }
 
 const cleared = (from: Character, to: Character): Delta => ({
@@ -293,6 +439,9 @@ function buildView(
 
   return {
     total: bracket([], picks),
+    // Every rest owes the GM a die and no choice suppresses it, so this is
+    // asked with no moves at all and with the fear left to the engine.
+    fearDie: dieAsked(c, stats, kind, [], { partySize }),
     notes: picks
       .map((id) => moves.find((m) => m.id === id))
       .filter((m): m is DowntimeMove => m !== undefined && !m.mechanical)
@@ -301,6 +450,9 @@ function buildView(
       move,
       bracket: bracket(before, [...before, move.id]),
       note: move.mechanical ? null : (run([move.id], 1).log[0] ?? null),
+      // The Fear die is suppressed here so that the only call this can record
+      // is the move's own.
+      die: dieAsked(c, stats, kind, [{ move: move.id }], { fixedFear: 0, partySize }),
     })),
   };
 }
@@ -351,12 +503,33 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
   const index = useApp((s) => s.index);
   const rules = useApp((s) => s.dataset.rules);
   const partySize = useApp((s) => s.prefs.gmPartySize);
+  const digitalDice = useApp((s) => s.prefs.digitalDice);
+  const manualDice = useApp((s) => s.prefs.manualDice);
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
-  const [kind, setKind] = useState<RestKind | null>(null);
-  const [picks, setPicks] = useState<DowntimeMoveId[]>([]);
+  /**
+   * The rest being proposed: which kind it is, and the GM's die as typed.
+   *
+   * One value, for the reason `Pick` is one. The Fear die belongs to no move,
+   * so `setPicks([])` does not take it away and something has to - and there
+   * are two places that would have to remember: the commit, which ends a rest,
+   * and the kind switch, which replaces one. Two clears is two chances to
+   * forget, and a mutant that deletes either of them is invisible while the
+   * other stands, which is exactly how a face outlives the roll it was typed
+   * for. Held here, the face cannot outlive the rest it belongs to, because
+   * ending a rest is `setRest(null)` and starting one is a new object.
+   */
+  const [rest, setRest] = useState<{ kind: RestKind; fearFace: string } | null>(null);
+  const kind = rest?.kind ?? null;
+  const fearFace = rest?.fearFace ?? '';
+  const setFearFace = (value: string): void => {
+    setRest((current) => (current === null ? current : { ...current, fearFace: value }));
+  };
+  const [picks, setPicks] = useState<Pick[]>([]);
   const [withParty, setWithParty] = useState(false);
   const [swaps, setSwaps] = useState<Swap[]>([]);
+
+  const affordance = rollAffordance(digitalDice, manualDice);
 
   /** The sheet this rest is being proposed against: the swaps are part of it. */
   const staged = useMemo(
@@ -376,7 +549,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
     () =>
       staged === null || kind === null
         ? null
-        : buildView(staged, stats, kind, picks, withParty, partySize),
+        : buildView(staged, stats, kind, picks.map((p) => p.move), withParty, partySize),
     [staged, stats, kind, picks, withParty, partySize],
   );
 
@@ -392,7 +565,7 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
 
   const moves = kind === null ? [] : movesFor(kind);
   const nameOf = (id: DowntimeMoveId): string => moves.find((m) => m.id === id)?.name ?? id;
-  const preparing = picks.some((id) => PREPARE.includes(id));
+  const preparing = picks.some((p) => PREPARE.includes(p.move));
 
   /*
    * What the staged swaps come to, netted rather than counted.
@@ -406,6 +579,85 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
   const movingIn = staged.loadout.filter((r) => !character.loadout.includes(r));
   const moving = movingOut.length + movingIn.length;
 
+  /*
+   * THE DICE THIS REST WILL ACTUALLY ROLL, AND WHO ROLLS THEM.
+   *
+   * One entry per die the engine asked for, in the order it asked: a face for
+   * each chosen move that costs one, then the GM's. A move that costs no die
+   * has no entry, so nobody is ever handed a blank for a die they did not roll.
+   */
+  const dice: {
+    key: string;
+    /** The move this die is for, as the panel names it. */
+    name: string;
+    sides: number;
+    face: string;
+    set: (value: string) => void;
+  }[] =
+    view === null
+      ? []
+      : [
+          ...picks.flatMap((p, slot) => {
+            const sides = view.moves.find((m) => m.move.id === p.move)?.die ?? null;
+            if (sides === null) return [];
+            return [
+              {
+                key: `move-${String(slot)}`,
+                name: `${nameOf(p.move)}, move ${String(slot + 1)}`,
+                sides,
+                face: p.face,
+                set: (value: string): void => {
+                  setPicks((current) =>
+                    current.map((q, i) => (i === slot ? { ...q, face: value } : q)),
+                  );
+                },
+              },
+            ];
+          }),
+          ...(view.fearDie === null
+            ? []
+            : [
+                {
+                  key: 'fear',
+                  name: 'the GM\u2019s Fear',
+                  sides: view.fearDie,
+                  face: fearFace,
+                  set: setFearFace,
+                },
+              ]),
+        ];
+
+  /** A face a die of this size can show. The surface validates; the engine takes. */
+  const isFace = (value: string, sides: number): boolean =>
+    /^\d+$/.test(value.trim()) && Number(value) >= 1 && Number(value) <= sides;
+
+  /*
+   * BOTH ROADS AT ONCE, WHICH IS WHAT THE FOURTH COMBINATION ALREADY MEANT.
+   *
+   * `Onboarding.tsx:43-45` is where that meaning is recorded, and it is not
+   * this file's to change: "The fourth combination, both switched on, is ROLL
+   * *and* typable faces: a table that rolls physically and digitally in the
+   * same session, which is a real thing and a rare one." So `canRoll` draws the
+   * control that rolls, `canType` draws the panel that takes faces, both on
+   * draws both and neither draws the sentence - the same four states
+   * `DeathMove.tsx` draws out of the same helper, and the same pair of roads
+   * `DicePools.tsx:185-204` puts side by side when a pool die has no face:
+   * "Roll it" beside "Type what you rolled".
+   *
+   * This surface used to let the first typed face turn the roller off, and the
+   * honesty it was buying is real: a rest whose log line mixed a number off the
+   * table with a number out of this device would leave "GM gains 3 Fear" unable
+   * to say which the 3 was. Two controls buy it without taking a road away.
+   * Each of them is one source for every die in the rest - the roller rolls all
+   * of them, the typed control takes all of them - so a mixed rest is not
+   * reachable by pressing anything, and which road this rest went down is the
+   * press the player chose rather than a rule this file applied to them.
+   */
+  const outstanding = affordance.canType ? dice.filter((d) => !isFace(d.face, d.sides)) : [];
+  /** Typed but impossible: a d4 showing 5, or a 0, which no die shows. */
+  const impossible = outstanding.filter((d) => d.face.trim() !== '');
+  const typedReady = affordance.canType && dice.length > 0 && outstanding.length === 0;
+
   const chooseKind = (next: RestKind): void => {
     if (next === kind) return;
     // The lists are different and `takeRest` refuses a move from the other one
@@ -413,13 +665,20 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
     // are not on the screen, a preview bracketing to zero, and a commit that
     // writes "is not a long rest move - not applied" into an entry labelled
     // Long rest.
-    setKind(next);
+    // A new rest, with a blank Fear die in it: the moves go with `setPicks`
+    // and their faces go with them, and the GM's die goes because it is part
+    // of the rest that has just been replaced.
+    setRest({ kind: next, fearFace: '' });
     setPicks([]);
     setWithParty(false);
   };
 
   const pick = (id: DowntimeMoveId): void => {
-    setPicks((current) => (current.length < 2 ? [...current, id] : [current[0]!, id]));
+    setPicks((current) =>
+      current.length < 2
+        ? [...current, { move: id, face: '' }]
+        : [current[0]!, { move: id, face: '' }],
+    );
   };
 
   /*
@@ -433,12 +692,42 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
     setSwaps((current) => [...current, { ref, to }]);
   };
 
-  const commit = (): void => {
+  /**
+   * Take the rest, down one road or the other.
+   *
+   * `typed` is the press rather than a preference: the panel's control passes
+   * true and can only be pressed when every die has a face, the rolling control
+   * passes false and is only drawn when `canRoll`. It is checked again here so
+   * that the guard is on the function that writes rather than on the two things
+   * that call it.
+   */
+  const commit = (typed: boolean): void => {
     if (kind === null) return;
-    const choices: DowntimeChoice[] = picks.map((move) => ({ move, withParty }));
+    if (typed ? !typedReady : !affordance.canRoll) return;
+    /*
+     * The typed road is the preview's road, which is the whole reason it is
+     * safe: `fixedRoll` and `fixedFear` are the two doors `takeRest` has always
+     * had, the preview has used both since this file was written, and nothing
+     * here widens the engine to add a third. A face is attached only to a move
+     * the engine said it would roll for, so a `fixedRoll` never sits on a move
+     * that would ignore it and quietly look like an applied number.
+     */
+    const choices: DowntimeChoice[] = picks.map((p) => {
+      const rolls = view?.moves.find((m) => m.move.id === p.move)?.die ?? null;
+      return typed && rolls !== null
+        ? { move: p.move, withParty, fixedRoll: Number(p.face) }
+        : { move: p.move, withParty };
+    });
     // Against the staged sheet, so the one press applies the rest and the card
     // moves that are free *because of* it, in one write and one entry.
-    const outcome = takeRest(staged, stats, kind, choices, { partySize }, rng);
+    const outcome = takeRest(
+      staged,
+      stats,
+      kind,
+      choices,
+      typed && view?.fearDie !== null ? { partySize, fixedFear: Number(fearFace) } : { partySize },
+      rng,
+    );
     update(() => outcome.character);
     /*
      * The `'rest'` entry `state.ts` has declared since the first commit and
@@ -468,7 +757,11 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
       .filter((line): line is string => line !== null && line !== '')
       .join(' · ');
     pushLog({ kind: 'rest', label: kind === 'short' ? 'Short rest' : 'Long rest', detail });
-    setKind(null);
+    // AND THE SECOND REST OF THE EVENING STARTS FROM BLANK, because this takes
+    // the whole rest away and the Fear die was part of it. Left behind, it
+    // would arrive on the next rest already filled in, with nothing
+    // outstanding to say it was typed for one that has already been taken.
+    setRest(null);
     setPicks([]);
     setWithParty(false);
     setSwaps([]);
@@ -575,11 +868,11 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
           <>
             <div className="stack" style={{ flex: 'none', gap: 6 }}>
               {view.moves.map(({ move, bracket, note }) => {
-                const chosen = picks.filter((id) => id === move.id).length;
+                const chosen = picks.filter((p) => p.move === move.id).length;
                 const slotSaid =
                   picks.length < 2
                     ? `as your ${picks.length === 0 ? 'first' : 'second'} move`
-                    : `as your second move, replacing ${nameOf(picks[1]!)}`;
+                    : `as your second move, replacing ${nameOf(picks[1]!.move)}`;
                 const answer = note !== null ? 'WITH THE GM' : (rowText(bracket) || 'NOTHING');
                 return (
                   <div key={move.id} className="stack" style={{ flex: 'none', gap: 4 }}>
@@ -690,12 +983,12 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {nameOf(held)}
+                      {nameOf(held.move)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setPicks((current) => current.filter((_, i) => i !== slot))}
-                      aria-label={`Take ${nameOf(held)} out of move ${slot + 1}`}
+                      aria-label={`Take ${nameOf(held.move)} out of move ${slot + 1}`}
                       className="row"
                       style={{
                         flex: 'none',
@@ -913,23 +1206,139 @@ export function Rest({ stats, rng, stacked = false }: Props): React.JSX.Element 
               )}
             </div>
 
-            {/* Last on the surface, because it is the only thing here that
-                writes: the moves above it and the card moves above it are both
-                proposals until this is pressed, and a control that applied half
-                of what is drawn over it would be the worse of the two. */}
-            <div
-              className="stack"
-              style={{ flex: 'none', gap: 12, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}
-            >
-              <button
-                type="button"
-                onClick={commit}
-                className="btn btn-primary"
-                style={{ flex: 'none', minHeight: 56, width: '100%' }}
+            {/* THE FACES, AND THE PRESS THEY FILL IN, IN ONE PANEL. Last but
+                one on the surface, because typing them is the last thing done
+                before the press and a panel of numbers separated from the
+                controls by the swap rows would be up to 50px a card away from
+                the button it fills in. Drawn only when the switches allow
+                typing, and only for dice the engine said it will roll. */}
+            {affordance.canType && dice.length > 0 && (
+              <div className="panel stack" style={{ flex: 'none', gap: 6, padding: '10px 11px' }}>
+                <span className="t-label">Type what the table rolled</span>
+                {dice.map((d) => (
+                  <div key={d.key} className="row" style={{ flex: 'none', gap: 8 }}>
+                    <span
+                      className="t-meta"
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        color: 'var(--text-2)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {d.name.toUpperCase()} · D{d.sides}
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={d.face}
+                      min={1}
+                      max={d.sides}
+                      placeholder={`1–${String(d.sides)}`}
+                      aria-label={`The face the d${String(d.sides)} showed for ${d.name}`}
+                      onChange={(e) => d.set(e.target.value)}
+                      style={{ flex: 'none', width: 72, minHeight: 'var(--tap)', textAlign: 'center' }}
+                    />
+                  </div>
+                ))}
+
+                {/* A NUMBER NO DIE CAN SHOW, SAID OUT LOUD. A field holding 5
+                    for a d4 - or a 0, which nothing shows - leaves the press
+                    held back exactly as an empty field does, and an empty field
+                    is self-explanatory where this is not: the player has typed
+                    something and the app has silently declined it. So the
+                    sentence names the die, the range it has, what the field
+                    currently says, and the one thing that clears it. Same
+                    construction as `DeathMove.tsx`'s, which had the same gap. */}
+                {impossible.length > 0 && (
+                  <p className="t-read" style={{ margin: 0 }}>
+                    {impossible
+                      .map(
+                        (d) =>
+                          `A d${String(d.sides)} shows 1 to ${String(d.sides)}, and ${d.name} says ${d.face.trim()}.`,
+                      )
+                      .join(' ')}{' '}
+                    Correct it and the rest is yours to take.
+                  </p>
+                )}
+
+                {/* THE TYPED ROAD'S OWN PRESS. Held back until every die has a
+                    face it could have shown, and saying which ones it is
+                    waiting for rather than only refusing - a rest can want
+                    three, and "one more to go" three times is not an answer.
+                    This is not the greyed-out ROLL `rollAffordance`'s docblock
+                    forbids and this file's own refusal rule is about: that one
+                    stands in for a capability the build does not have, where
+                    this is waiting for a number somebody is in the middle of
+                    typing, and it says so. `DeathMove.tsx`'s record button is
+                    the same control for the same reason. */}
+                <button
+                  type="button"
+                  onClick={() => commit(true)}
+                  disabled={!typedReady}
+                  className="btn btn-primary"
+                  style={{ flex: 'none', minHeight: 56, width: '100%' }}
+                >
+                  {typedReady
+                    ? `TAKE THE ${kind === 'short' ? 'SHORT' : 'LONG'} REST WITH ${dice
+                        .map((d) => d.face.trim())
+                        .join(' AND ')}`
+                    : `STILL TO TYPE: ${outstanding.map((d) => d.name.toUpperCase()).join(' · ')}`}
+                </button>
+              </div>
+            )}
+
+            {/* Last on the surface, because it is the one control here that
+                writes without being told a number first: the moves above it and
+                the card moves above it are both proposals until it is pressed,
+                and a control that applied half of what is drawn over it would
+                be the worse of the two. It is drawn when the roller is on, and
+                the sentence takes its place when nothing is on at all - with
+                typed dice alone the press that writes is the panel's, directly
+                under the faces it consumes. */}
+            {(affordance.canRoll || affordance.blocked) && (
+              <div
+                className="stack"
+                style={{ flex: 'none', gap: 12, paddingTop: 12, borderTop: '1px solid var(--line-soft)' }}
               >
-                TAKE THE {kind === 'short' ? 'SHORT' : 'LONG'} REST
-              </button>
-            </div>
+                {/* AND THE REFUSAL IS A SENTENCE, WHICH IS THIS FILE'S RULE AND
+                    NOT A NEW ONE. With both switches off there is nothing on the
+                    device that can produce the die this rest owes the GM, and a
+                    greyed-out control still saying TAKE THE SHORT REST would say
+                    the app could do this and will not. So the control is replaced
+                    by the affordance's own two lines - the same words the roll
+                    control uses, because a player who has read them once should
+                    not have to learn a second phrasing here. Nothing else on the
+                    surface is taken away: the moves, the party choice and the
+                    staged swaps are all still chosen when the switch comes back. */}
+                {affordance.blocked ? (
+                  <div className="stack" style={{ flex: 'none', gap: 6 }}>
+                    <span className="t-label" style={{ color: 'var(--damage)' }}>
+                      {affordance.label}
+                    </span>
+                    <p className="t-read" style={{ margin: 0 }}>
+                      Every rest owes the GM a Fear die, and this device has been told not to
+                      roll one and not to take one. The moves and the cards you have chosen
+                      stay chosen.
+                    </p>
+                    <span className="t-meta" style={{ color: 'var(--dim)' }}>
+                      {affordance.prompt}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => commit(false)}
+                    className="btn btn-primary"
+                    style={{ flex: 'none', minHeight: 56, width: '100%' }}
+                  >
+                    TAKE THE {kind === 'short' ? 'SHORT' : 'LONG'} REST
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

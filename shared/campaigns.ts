@@ -77,6 +77,7 @@ import { readExternalUrl } from './externalLink.ts';
 import {
   applyChain,
   checkReadable,
+  migrateCharacterRecord,
   versionOf,
   type Migration,
   type MigrationResult,
@@ -96,7 +97,7 @@ import {
   type Tier,
 } from './types.ts';
 
-export const CAMPAIGN_SCHEMA_VERSION = 2;
+export const CAMPAIGN_SCHEMA_VERSION = 3;
 
 /**
  * The lowest campaign schema any build has ever written.
@@ -106,20 +107,40 @@ export const CAMPAIGN_SCHEMA_VERSION = 2;
  * genuinely nothing older here.
  *
  * It stays 1 across the bump to 2, exactly as `OLDEST_READABLE` stayed 3
- * across P1-7. Every campaign already in an IndexedDB and every `.dhcampaign`
- * already on a disk is a schema-1 record, and 1 is precisely the version the
- * chain below now leaves.
+ * across P1-7, and it stays 1 across the bump to 3 for the same reason. Every
+ * campaign already in an IndexedDB and every `.dhcampaign` already on a disk is
+ * a schema-1 or schema-2 record, and 1 is precisely the version the chain below
+ * still starts from.
  */
 export const OLDEST_READABLE_CAMPAIGN = 1;
 
 /**
  * The chain, one entry per campaign schema this build has left behind.
  *
- * The first and only entry is 2026-08-18's, and it is deliberately empty of
- * work. See the header: the version moved so that older builds *refuse* a
- * record carrying a `url` or `note` row, not because anything in a v1 record
- * is wrong. There is no field to add, no field to rename and no field to drop,
- * so the honest converter is the one that copies the record and says so.
+ * **Both entries are deliberately empty of work, and that is the point rather
+ * than an omission.** A converter in this chain exists to make an *older* build
+ * refuse a record it would otherwise truncate in silence - not to repair
+ * anything wrong with the record. In both bumps there is no field to rename and
+ * none to drop, so the honest converter is the one that copies and says why.
+ *
+ * The 2 -> 3 entry carries the larger hazard of the two, and it is worth being
+ * exact about what a schema-2 build would do to a schema-3 campaign if the
+ * version had not moved. Every reader in this file rebuilds its object field by
+ * field and drops what it does not name, so that build would not fail - it
+ * would succeed, quietly, and then write its reading back on the next 400 ms
+ * save:
+ *
+ * - a `scene` row's `roster`, `adjustments` and `combatants` - **the fight**
+ *   - erased, because a schema-2 `scene` arm names only `environmentRef`;
+ * - a countdown's Activation / Advancement / Effect, its owner and every
+ *   per-tick beat - erased by `readCountdown`;
+ * - `archive` and `register` - **every closed sitting and the whole durable
+ *   record** - erased by `readCampaignRecord`, which builds a `Campaign`
+ *   literal naming its own keys.
+ *
+ * That is a GM losing a season of notes by opening their campaign on a device
+ * that has not updated. `checkReadable` turns it into a sentence asking them to
+ * update instead, which is the entire job of the number.
  */
 export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
   {
@@ -135,6 +156,21 @@ export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
      * and purity is what `tests/store/campaignSchema.test.ts` can actually
      * assert - it reads the frozen v1 fixture, walks it forward, and requires
      * every field to come back identical apart from the stamp.
+     */
+    apply: (r) => ({ ...r }),
+  },
+  {
+    from: 2,
+    note: 'the scene row absorbed the fight, countdowns gained the triad, and the campaign gained an archive and a register; no schema-2 field changed',
+    /*
+     * A copy, for the reason the entry above gives at length.
+     *
+     * Nothing here seeds the new fields either, and that is not laziness: the
+     * readers below already supply every default on the way in - `[]` for a
+     * scene's roster, `''` for each of the triad, `[]` for the beats and for
+     * both new campaign arrays. Seeding them here as well would put the default
+     * in two places, and the one in the converter would be the one nobody
+     * notices has gone stale.
      */
     apply: (r) => ({ ...r }),
   },
@@ -230,10 +266,17 @@ export type LinkTarget =
  * asserts the half of the gap that never closes - `unreadable` is never in
  * here. So it stays a decision rather than becoming an oversight, and it needs
  * no second edit when it narrows.
+ *
+ * **Two names are now permanently outside it rather than one.** `unreadable` is
+ * a reading. `encounter` left at `CAMPAIGN_SCHEMA_VERSION` 3, when decision 1
+ * gave the scene row the fight: the arm stays in the union because saved
+ * campaigns carry it and it is still editable, but nothing may mint one, and
+ * the way to say "no longer creatable" in this codebase is to not be in this
+ * list. The compiler then removes the form for you - `ADD_FORMS` would not
+ * typecheck with a row for a kind that is not here.
  */
 export const SESSION_ITEM_KINDS = [
   'scene',
-  'encounter',
   'link',
   'url',
   'countdown',
@@ -276,7 +319,43 @@ export interface SessionItemBase {
  * trusted as it arrived.
  */
 export type SessionItem =
-  | (SessionItemBase & { kind: 'scene'; environmentRef: Ref | null })
+  /**
+   * A beat of the evening: a place, and the fight that happens in it.
+   *
+   * `CAMPAIGN_SCHEMA_VERSION` 3, decision 1 of `DECISIONI-2026-08-23.md`. The
+   * scene arm gained the three fields that used to live on `encounter`, so
+   * *"this fight happens here"* is a stored fact instead of an adjacency that a
+   * drag destroys. The defect it closes was live: `Encounter.tsx:542` sent a
+   * fight to the board without carrying an environment, so the brawl opened
+   * silently in the **previous** scene's place.
+   *
+   * The app had been arguing for this shape on its own. `GmBoard` below has
+   * carried exactly these four fields together since it existed, unnamed, and
+   * `END SCENE` already emptied the combatants while leaving the environment
+   * standing.
+   */
+  | (SessionItemBase & {
+      kind: 'scene';
+      environmentRef: Ref | null;
+      roster: RosterEntry[];
+      adjustments: EncounterAdjustments;
+      combatants: SceneCombatant[];
+    })
+  /**
+   * **Legacy. Readable and editable, and no longer creatable.**
+   *
+   * Kept in the union rather than converted, and the difference matters. The
+   * cheaper option was to rewrite every stored `encounter` row into a `scene`
+   * row, and it was refused for one reason: it changes the kind of a thing the
+   * GM named. This chain has never done that - its only other converter changes
+   * no field at all - and doing it once sets a precedent that is hard to walk
+   * back, because the next migration that wants to rewrite somebody's data will
+   * cite this one.
+   *
+   * So no saved campaign changes shape, nothing in `src/` may construct one,
+   * and the arm stays until a build can prove no stored campaign still carries
+   * it - which is a fact about other people's disks and therefore never.
+   */
   | (SessionItemBase & {
       kind: 'encounter';
       roster: RosterEntry[];
@@ -427,6 +506,71 @@ export interface GmBoard {
   environmentRef: Ref | null;
 }
 
+/**
+ * A sitting that has been closed, with what happened in it.
+ *
+ * `CAMPAIGN_SCHEMA_VERSION` 3, decision 6 of `DECISIONI-2026-08-23.md`.
+ *
+ * Before this, `Campaign.session` was one flat array edited in place for ever:
+ * last week's rows sat there this week, in the same order, with nothing saying
+ * which were played, and there was no moment at which a GM would ever write
+ * down *"they never went north"* - which is the whole of the between-sessions
+ * loop.
+ *
+ * `items` is a **copy of the rows as they stood at the moment of closing**, not
+ * a list of references into the live plan. A row carried forward into next
+ * week's plan and then rewritten must not silently rewrite what the archive
+ * says happened last week; an archive that changes under you is not a record.
+ */
+export interface ArchivedSession {
+  id: string;
+  /** What the GM called this sitting. Never generated; an empty one stays empty. */
+  name: string;
+  /** When it was closed. The archive is ordered by this on read. */
+  closedAt: string;
+  /** The rows as they stood when it closed. A copy, never a reference. */
+  items: SessionItem[];
+  /** What happened, in the GM's own words. */
+  account: NoteDoc;
+}
+
+/**
+ * The kinds of thing the durable record holds.
+ *
+ * Decision 7 of `DECISIONI-2026-08-23.md` names them: session-zero agreements,
+ * the people and places the table invented, arc notes. They are one list with a
+ * kind rather than five lists, for the reason the session list is one list: a
+ * GM looking for *"that innkeeper"* does not first decide which array it is in.
+ *
+ * **This data never shares a scroll with SRD prose**, which is the other half
+ * of decision 7 and a constraint on whatever screen draws it, not on this file.
+ * REFERENCE means what its heading says; the table's own words live behind
+ * their own door.
+ */
+export const REGISTER_KINDS = ['person', 'place', 'agreement', 'arc', 'fact'] as const;
+export type RegisterKind = (typeof REGISTER_KINDS)[number];
+
+export interface RegisterEntryBase {
+  id: string;
+  /** The name the GM gave it. Never generated; an empty one stays empty. */
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * One entry in the durable record.
+ *
+ * The `unreadable` arm is the same idea as `SessionItem`'s and `LinkTarget`'s,
+ * and it is here for the same reason it is there: this list will gain kinds,
+ * and an entry a build cannot read must come back out of the file it went into.
+ * A GM who wrote down forty people and finds thirty-nine has no way to learn
+ * which one left.
+ */
+export type RegisterEntry =
+  | (RegisterEntryBase & { kind: RegisterKind; body: NoteDoc })
+  | (RegisterEntryBase & { kind: 'unreadable'; why: string; raw: string });
+
 export interface Campaign {
   id: string;
   schemaVersion: number;
@@ -434,7 +578,18 @@ export interface Campaign {
   createdAt: string;
   updatedAt: string;
   fear: number;
+  /** Tonight's plan: the rows the GM is editing now. */
   session: SessionItem[];
+  /**
+   * Sittings that have been closed, oldest first.
+   *
+   * Separate from `session` and not a prefix of it: the plan is what is being
+   * edited, the archive is what happened. Merging them would mean every screen
+   * that walks the plan has to remember to skip the past.
+   */
+  archive: ArchivedSession[];
+  /** The durable record beside the plan. Decision 7's home. */
+  register: RegisterEntry[];
   /** Whole sheets, on purpose. See the header of `src/ui/gm/party.ts`. */
   party: PartyMember[];
   board: GmBoard;
@@ -458,6 +613,8 @@ export function newCampaign(name: string, at: string, id: string): Campaign {
     updatedAt: at,
     fear: 0,
     session: [],
+    archive: [],
+    register: [],
     party: [],
     board: emptyBoard(),
   };
@@ -563,10 +720,38 @@ const readCombatants = (v: unknown): SceneCombatant[] =>
 
 const COUNTDOWN_KINDS: readonly CountdownKind[] = ['standard', 'dynamic', 'loop', 'long-term'];
 
+/**
+ * The longest a single beat, or one field of the triad, may be.
+ *
+ * A bound rather than a validation: these are the GM's own words and nothing
+ * here judges them. What it stops is a campaign file whose countdown carries a
+ * megabyte of text per tick, which is a denial-of-service on the GM's own
+ * IndexedDB quota rather than on anything of ours. `richText.ts` bounds the
+ * `note` row for the same reason and says so at greater length.
+ */
+const COUNTDOWN_TEXT_MAX = 2000;
+
+/** As many beats as any clock could sensibly have ticks, and then some. */
+const COUNTDOWN_BEATS_MAX = 100;
+
 const readCountdown = (v: unknown, id: string, name: string): Countdown => {
   const r = isRecord(v) ? v : {};
   const kind = r['kind'];
   const start = Math.max(1, Math.round(num(r['start'], 1)));
+  const text = (k: string): string => str(r[k]).slice(0, COUNTDOWN_TEXT_MAX);
+  /*
+   * The beats are bounded in both directions and trimmed of neither end.
+   *
+   * Not truncated to `start`: a GM who shortens a clock from six to four must
+   * not lose the two sentences they had already written for the ticks that went
+   * away, because lengthening it again is one tap and retyping them is not.
+   * Not padded to `start` either - `beats.length < start` is the normal state of
+   * a clock somebody is still writing, and padding would make "unwritten" and
+   * "deliberately blank" indistinguishable.
+   */
+  const beats = Array.isArray(r['beats'])
+    ? r['beats'].slice(0, COUNTDOWN_BEATS_MAX).map((b) => str(b).slice(0, COUNTDOWN_TEXT_MAX))
+    : [];
   return {
     id: str(r['id'], id),
     name: str(r['name'], name),
@@ -574,6 +759,18 @@ const readCountdown = (v: unknown, id: string, name: string): Countdown => {
     start,
     value: Math.max(0, Math.min(start, Math.round(num(r['value'], start)))),
     notes: str(r['notes']),
+    activation: text('activation'),
+    advancement: text('advancement'),
+    effect: text('effect'),
+    /*
+     * Read as a string and never checked against the party.
+     *
+     * See the field's docblock in `shared/types.ts`: a clock may name somebody
+     * who has left the party board, and the screen saying so is better than the
+     * reader silently emptying a field the GM filled in.
+     */
+    owner: str(r['owner']),
+    beats,
   };
 };
 
@@ -621,11 +818,50 @@ function readPartyMember(v: unknown, warn: (s: string) => void): PartyMember[] {
     warn('a party row arrived with no character sheet on it, so the row was left out');
     return [];
   }
+  /*
+   * The sheet goes through the character migration chain, and until schema 3
+   * it did not.
+   *
+   * This is the cast the pre-merge gate's proof (f) found: a player's sheet
+   * inside a campaign was the one road into this app that never passed
+   * `migrateCharacterRecord`, so a campaign carrying a schema-3 character
+   * handed schema-3 fields to code that reads schema 5. Proof (f) also
+   * established, by executing it, that **no test held the old behaviour in
+   * either direction** - so the change was free of test resistance and the old
+   * behaviour was covered by nothing. It is decided here because this is the
+   * bump that opens the file, exactly as `DECISIONI-2026-08-23.md` said it
+   * should be.
+   *
+   * **A successful conversion says nothing**, and that is the same judgement the
+   * `url` arm makes a few lines down: a campaign whose party was imported before
+   * the last schema bump would otherwise warn on every single launch, for ever,
+   * about something that worked. That is how a real warning stops being read.
+   * The character import path announces its own conversions, at the moment the
+   * user is actually doing something about a file.
+   *
+   * A throw is caught rather than propagated, because this reader's contract is
+   * that it warns and never refuses a campaign. A sheet from a *newer* build,
+   * or from a schema older than any release wrote, drops its row and says so -
+   * which is the disposal the clause above already uses for a row that arrived
+   * with no sheet at all. Keeping an unreadable sheet would be the worse
+   * answer: it is precisely the shape that lets `src/ui/gm/` call a method on a
+   * field that is not there.
+   */
+  let migrated: Record<string, unknown>;
+  try {
+    migrated = migrateCharacterRecord(sheet).record;
+  } catch (e) {
+    warn(
+      `a party row's character sheet could not be read, so the row was left out: ${e instanceof Error ? e.message : 'unknown reason'}`,
+    );
+    return [];
+  }
+
   const source = v['source'];
   return [
     {
       id: v['id'],
-      sheet: sheet as unknown as PartyMember['sheet'],
+      sheet: migrated as unknown as PartyMember['sheet'],
       importedAt: str(v['importedAt']),
       source: PARTY_SOURCES.includes(source as PartySource) ? (source as PartySource) : 'file',
       tracks: readTracks(v['tracks']),
@@ -672,10 +908,20 @@ function readSessionItem(
 
   switch (r['kind']) {
     case 'scene':
+      /*
+       * The three fight fields read exactly as the `encounter` arm below reads
+       * them, and through the same three functions rather than a copy of them.
+       * A schema-2 scene row carries none of the three and gets `[]`, the
+       * shipped defaults and `[]` - which is what a scene with no fight in it
+       * is, so nothing has to know whether it was written before the bump.
+       */
       return {
         ...base,
         kind: 'scene',
         environmentRef: typeof r['environmentRef'] === 'string' ? r['environmentRef'] : null,
+        roster: readRoster(r['roster']),
+        adjustments: readAdjustments(r['adjustments']),
+        combatants: readCombatants(r['combatants']),
       };
     case 'encounter':
       return {
@@ -728,6 +974,62 @@ function readSessionItem(
         raw,
       };
   }
+}
+
+/**
+ * One closed sitting.
+ *
+ * The rows inside go through `readSessionItem`, the same function the live plan
+ * uses, so an archived row gets exactly the same defence: field by field, never
+ * a spread, and an unreadable row wrapped rather than dropped. An archive that
+ * read its rows more loosely than the plan would be a way in through the back.
+ */
+function readArchivedSession(
+  v: unknown,
+  index: number,
+  newId: () => string,
+  warn: (s: string) => void,
+): ArchivedSession {
+  const r = isRecord(v) ? v : {};
+  const items = (Array.isArray(r['items']) ? r['items'] : []).map((item, i) =>
+    readSessionItem(item, i, newId, warn),
+  );
+  return {
+    id: str(r['id']) || newId(),
+    name: str(r['name']),
+    closedAt: str(r['closedAt']),
+    items: items.map((item, i) => ({ ...item, order: i })),
+    account: readNoteDoc(r['account'], warn),
+  };
+}
+
+/** One entry of the durable record, including one this build has no kind for. */
+function readRegisterEntry(v: unknown, newId: () => string, warn: (s: string) => void): RegisterEntry {
+  const raw = JSON.stringify(v) ?? 'null';
+  const r = isRecord(v) ? v : {};
+  const base: RegisterEntryBase = {
+    id: str(r['id']) || newId(),
+    name: str(r['name']),
+    createdAt: str(r['createdAt']),
+    updatedAt: str(r['updatedAt']),
+  };
+  const kind = r['kind'];
+  if (REGISTER_KINDS.includes(kind as RegisterKind)) {
+    return { ...base, kind: kind as RegisterKind, body: readNoteDoc(r['body'], warn) };
+  }
+  if (kind === 'unreadable') {
+    // Already wrapped once, by an earlier read. Do not wrap it twice.
+    return { ...base, kind: 'unreadable', why: str(r['why']), raw: str(r['raw'], raw) };
+  }
+  return {
+    ...base,
+    kind: 'unreadable',
+    why:
+      typeof kind === 'string'
+        ? `this version of the app has no "${kind}" entry`
+        : 'it does not say what kind of entry it is',
+    raw,
+  };
 }
 
 export interface CampaignRead {
@@ -817,6 +1119,17 @@ export function readCampaignRecord(
     updatedAt: str(record['updatedAt']),
     fear,
     session: deduped.map((item, i) => ({ ...item, order: i })),
+    /*
+     * Ordered by `closedAt` here rather than trusted, the same way the session
+     * list's `order` is re-sorted rather than believed. A file whose archive
+     * arrived shuffled still reads back as a history in the order it happened.
+     */
+    archive: (Array.isArray(record['archive']) ? record['archive'] : [])
+      .map((a, i) => readArchivedSession(a, i, newId, warn))
+      .sort((a, b) => a.closedAt.localeCompare(b.closedAt)),
+    register: (Array.isArray(record['register']) ? record['register'] : []).map((e) =>
+      readRegisterEntry(e, newId, warn),
+    ),
     party: (Array.isArray(record['party']) ? record['party'] : []).flatMap((m) =>
       readPartyMember(m, warn),
     ),

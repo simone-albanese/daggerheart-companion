@@ -15,6 +15,7 @@ import { useApp } from '../../store/state.ts';
 import { AdversaryRow, FilterBar, NO_FILTER, useFiltered, type Filter } from './AdversaryList.tsx';
 import { AdversaryBlock, EnvironmentBand, EnvironmentBlock } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
+import { partySizeNote } from './partySize.ts';
 
 type Tab = 'adversaries' | 'environments';
 
@@ -24,8 +25,12 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
   const partySize = useApp((s) => s.prefs.gmPartySize);
   const environmentRef = useGm((s) => s.environmentRef);
   const setEnvironment = useGm((s) => s.setEnvironment);
+  const onTheBoard = useGm((s) => s.party).length;
   const spawn = useGm((s) => s.spawn);
   const setRegion = useGm((s) => s.setRegion);
+
+  // Read, never written back: nothing here sets the preference from the board.
+  const disagreement = partySizeNote(partySize, onTheBoard);
 
   const [tab, setTab] = useState<Tab>('adversaries');
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
@@ -44,7 +49,14 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
           e.name.toLowerCase().includes(needle) ||
           e.description.toLowerCase().includes(needle) ||
           e.impulses.toLowerCase().includes(needle) ||
-          e.features.some((f) => f.name.toLowerCase().includes(needle))),
+          // `f.text` as well as `f.name`, because the words a GM searches for
+          // are almost never in a feature's title. A feature called "Tangling
+          // Roots" is what imposes *Restrained*, and the only place that word
+          // appears is the sentence underneath.
+          e.features.some(
+            (f) =>
+              f.name.toLowerCase().includes(needle) || f.text.toLowerCase().includes(needle),
+          )),
     );
   }, [environments, envQuery, envTier]);
 
@@ -182,6 +194,76 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
         {tab === 'adversaries' && adversary !== undefined && (
           <>
             {active !== undefined && <EnvironmentBand environment={active} />}
+            {/*
+              ABOVE THE BLOCK, NOT INSIDE THE HEADER, AND THE REASON IS WIDTH.
+
+              `AdversaryBlock`'s header in `StatBlock.tsx` is a `.spread`
+              holding the name and whatever the host passes as `action`, and
+              this screen's `action` is a `flex: 'none'` column - so its base
+              size is the max-content width of its widest child, and every
+              pixel it takes comes off the `<h2 class="t-card">` beside it.
+              How far the name is allowed to give before the header overflows
+              instead is a separate question - it turns on the `min-width` of
+              that `h2`, which declares only `margin: 0` and so keeps a flex
+              item's default `min-width: auto`, and on glyph widths - and this
+              comment does not answer it. Three earlier drafts of this
+              paragraph did answer it, each differently and at least one of
+              them backwards, none of them from a browser. The direction is
+              the part that needs no measuring and the part the decision below
+              rests on, so the direction is all that is claimed here.
+
+              `ADD TO THE SCENE` at 16 characters and `ONE GROUP OF 4` at 14 are
+              short enough that the name has been paying nothing for them;
+              `BUDGET FOR 4 · 5 SHEETS ON THE BOARD` is 36, more than twice
+              either, and tracked out at `0.08em` on top.
+
+              **Measured elsewhere, and not re-measured here.** The review pass
+              that caught this ran the header in Chrome against this repo's
+              `base.css` and `tokens.css` at 393: the action column went
+              156.34 → 245.54px, the title 149.28 → 111.46, and eight of the
+              sixteen SRD Minion names wrapped to two lines - from `Jagged
+              Knife Lackey` at 19 characters down to `Tangle Bramble` at 14.
+              Glyph widths and not character counts decide that boundary:
+              `Treant Sapling` is 14 too and stayed on one line. Those figures
+              belong to that pass and to the layout this comment removes; do
+              not read them as current. What survives them is the mechanism
+              above, which needs no browser: a wider child in a `flex: 'none'`
+              column is a narrower name.
+
+              So the line comes out of the header and sits over it instead,
+              right-aligned so it still reads as attached to the button it
+              qualifies, in the detail's own full-width column where its length
+              costs nothing at all. It is read and never touched, so nothing
+              here changes a target or a thumb's reach; the only price is 27px
+              of vertical space in a column that already scrolls, and only on
+              the evenings the two numbers disagree. That figure is arithmetic,
+              not a measurement: `tokens.css` declares `.t-meta` as
+              `font: 500 10px/1 var(--mono)`, but the element this comment
+              stands over steps it to `lineHeight: 1.5`, so the line box is 15,
+              and the enclosing `.stack` - the detail column this block opens,
+              `<div className="stack" style={{ gap: 12 }}>` - charges that gap
+              once to a new flex item. 15 + 12.
+
+              Still only under a Minion. The rule in `partySize.ts` is that the
+              two numbers are said where the preference is *used*, and beside
+              `ONE ADVERSARY, FULL HP` it is not used at all - the party size
+              has nothing to do with how many bodies that button puts on the
+              board. A line about a number nothing near it spends is the
+              furniture the whole design is written against.
+            */}
+            {adversary.role === 'Minion' && disagreement !== null && (
+              <span
+                className="t-meta"
+                style={{
+                  color: 'var(--dim)',
+                  letterSpacing: '0.08em',
+                  lineHeight: 1.5,
+                  textAlign: 'right',
+                }}
+              >
+                {disagreement}
+              </span>
+            )}
             <AdversaryBlock
               adversary={adversary}
               action={
@@ -318,9 +400,29 @@ function EnvironmentRow({
           )}
         </span>
         <span className="t-meta" style={{ letterSpacing: '0.08em' }}>
-          T{environment.tier} · {environment.type.toUpperCase()}
-          {/* Event environments have no Difficulty of their own. */}
-          {environment.difficulty > 0 && ` · DIF ${environment.difficulty}`}
+          {/*
+            NOT A PROPERTY OF THE TYPE, AND THE OLD COMMENT HERE SAID IT WAS.
+
+            Two environments in the shipped dataset print `Difficulty: Special`
+            instead of a number, Ambushed and Ambushers, and
+            `shared/parsers/environments.ts:37-43` records that the book prints the
+            word and that this app stores it as 0 because
+            `Environment.difficulty` is a `number`. Both happen to be Events,
+            which is what the sentence that stood here generalised from - but
+            the other four Events all carry a Difficulty (Cult Ritual 14, Castle
+            Siege 17, Pitched Battle 17, Divine Usurpation 20), so the type
+            never had anything to do with it and no other type is exempt either.
+
+            Dropping the field on 0 was right about the 0 - printing `DIF 0`
+            would be a number the book does not give - and wrong about the
+            silence: a row reading `T1 · EVENT` where every neighbour reads
+            `T1 · EVENT · DIF 14` says the app lost the field, not that the
+            place has no fixed Difficulty. So it prints the book's own word.
+            No row gets wider for it: `T1 · EVENT · DIF SPECIAL` is shorter than
+            `T4 · EXPLORATION · DIF 19`, which this list already sets.
+          */}
+          T{environment.tier} · {environment.type.toUpperCase()} · DIF{' '}
+          {environment.difficulty > 0 ? environment.difficulty : 'SPECIAL'}
         </span>
       </button>
     </li>

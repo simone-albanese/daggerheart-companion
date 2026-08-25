@@ -588,6 +588,65 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
+describe('what the notice actually says, clause by clause of §4.1', () => {
+  /*
+   * Every other test in this file asks whether the notice *arrives* - on which
+   * screen, in which element, how many times. All of them would pass on a
+   * notice that said nothing at all, which is the gap this describe closes.
+   *
+   * The licence text these read against is the copy the app ships,
+   * `src/legal/dpcgl-2025-07-30.txt`, and §4.1 is five clauses. Four were
+   * satisfied from the start; (e) was added on 2026-08-24, and it was missing
+   * because the first line is §4.3's own combined template **minus its last
+   * sentence** rather than because anybody decided against it.
+   */
+  it('(a) carries the copyright notice in §4.3’s format', () => {
+    expect(NOTICE).toContain('This product includes materials from the');
+    expect(NOTICE).toContain('© Critical Role, LLC');
+  });
+
+  it('(b) identifies the Public Game Content and names who made it', () => {
+    // The clause wants the material named, not merely a © line: "Daggerheart
+    // System Reference Document 1.0" is the Public Game Content by its own name.
+    expect(NOTICE).toContain('Daggerheart System Reference Document 1.0');
+    expect(NOTICE).toContain('Critical Role, LLC');
+  });
+
+  it('(c) gives a URL where the Public Game Content can be found', () => {
+    expect(NOTICE).toContain('daggerheart.com');
+  });
+
+  it('(d) says it is licensed under this licence, and where the licence is', () => {
+    expect(NOTICE).toContain('Darrington Press Community Gaming License');
+    // The URL half of (d). The full text also ships offline, which is stronger
+    // than a link in an app whose headline claim is that it needs no network.
+    expect(NOTICE).toContain('darringtonpress.com/license');
+  });
+
+  it('(e) says this app modified the material, and that nobody modified it before', () => {
+    /*
+     * Both halves, because the clause asks for both: whether *you* modified it,
+     * and whether there were previous modifications by you or others.
+     *
+     * This is the clause the README's Legal section makes unavoidable - it
+     * argues at length that `data/srd-1.0.json` is the book rearranged and that
+     * `deriveStats` computes figures the book prints for nobody. Saying that in
+     * a README and not here was the one combination that could not be defended.
+     */
+    expect(NOTICE).toMatch(/has modified/i);
+    expect(NOTICE).toContain('There are no previous modifications by others.');
+  });
+
+  it('would fail on a notice that said nothing, which is the point of this block', () => {
+    // The guard on the guard. If someone replaces the notice with a plausible
+    // but empty sentence, at least one clause above has to go red - so this
+    // asserts the clauses are not all satisfied by boilerplate every notice has.
+    const empty = 'This product includes materials from the Daggerheart SRD.';
+    expect(empty).not.toContain('There are no previous modifications by others.');
+    expect(empty).not.toContain('darringtonpress.com/license');
+  });
+});
+
 describe('how many copies of it there are', () => {
   it('declares the notice in exactly one module', () => {
     // Matched on the opening clause rather than the whole string, because the

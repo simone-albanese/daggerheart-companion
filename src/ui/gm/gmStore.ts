@@ -212,7 +212,22 @@ export interface GmState extends GmLive {
    * the moment it exists, which is what `src/ui/gm/countdownTemplates.ts` means
    * by an instance.
    */
-  addCountdown: (name: string, kind: CountdownKind, start: number) => string;
+  /**
+   * `more` carries what `CAMPAIGN_SCHEMA_VERSION` 3 added — the Activation /
+   * Advancement / Effect triad, the owner, and the per-tick beats.
+   *
+   * One optional bag rather than five more positional parameters, because five
+   * strings in a row at a call site is how the owner ends up in the effect. It
+   * is optional because a clock with none of them is still a clock: every one
+   * of the five defaults to empty, which is exactly what every countdown
+   * written before schema 3 holds.
+   */
+  addCountdown: (
+    name: string,
+    kind: CountdownKind,
+    start: number,
+    more?: Partial<Pick<Countdown, 'activation' | 'advancement' | 'effect' | 'owner' | 'beats'>>,
+  ) => string;
   advanceCountdown: (id: string, delta: number) => void;
   resetCountdown: (id: string) => void;
   removeCountdown: (id: string) => void;
@@ -810,7 +825,7 @@ export const useGm = create<GmState>((set, get) => {
     setFear: (value) => commit({ fear: clampFear(value) }),
     nudgeFear: (delta) => commit({ fear: clampFear(get().fear + delta) }),
 
-    addCountdown(name, kind, start) {
+    addCountdown(name, kind, start, more) {
       const value = Math.max(1, Math.round(start));
       const id = crypto.randomUUID();
       const session = get().session;
@@ -830,7 +845,24 @@ export const useGm = create<GmState>((set, get) => {
             // The item's id and the countdown's are the same on purpose: every
             // screen that has ever drawn a countdown holds the countdown's id,
             // and a second identifier would be a second thing to keep in step.
-            countdown: { id, name, kind, start: value, value, notes: '' },
+            countdown: {
+              id,
+              name,
+              kind,
+              start: value,
+              value,
+              notes: '',
+              // Every one of the five defaults to empty rather than absent.
+              // `readCountdown` would supply the same defaults on the next
+              // read, but a row that is briefly missing them in memory is a
+              // row whose shape differs from the one a reload produces, and
+              // that difference is where "works until you refresh" lives.
+              activation: more?.activation ?? '',
+              advancement: more?.advancement ?? '',
+              effect: more?.effect ?? '',
+              owner: more?.owner ?? '',
+              beats: [...(more?.beats ?? [])],
+            },
           },
         ],
       });

@@ -188,6 +188,19 @@ function pickable(move: string, slot = 'first'): HTMLButtonElement {
 const byText = (label: string): HTMLButtonElement | undefined =>
   buttons().find((b) => (b.textContent ?? '').trim() === label);
 
+/** The same lookup, for the cases that mean to press it: it says what is there. */
+function pressed(label: string): HTMLButtonElement {
+  const found = byText(label);
+  if (found === undefined) {
+    throw new Error(
+      `no control reading "${label}". Here: ${buttons()
+        .map((b) => (b.textContent ?? '').trim())
+        .join(' | ')}`,
+    );
+  }
+  return found;
+}
+
 const header = (): HTMLButtonElement => {
   const found = buttons().find((b) => b.getAttribute('aria-expanded') !== null);
   if (found === undefined) throw new Error('the rest fold has no header');
@@ -863,5 +876,363 @@ describe('the whole open surface', () => {
     // control whose name does not contain its own visible words cannot be
     // asked for by the words on it.
     expect(unaskable, 'these cannot be reached by saying what is on them').toEqual([]);
+  });
+});
+
+/**
+ * The dice this rest rolls, and who rolls them.
+ *
+ * The surface was careful in exactly one direction. The preview has handed
+ * `takeRest` an `Rng` that throws since this file was written, so nothing rolls
+ * because a screen was opened - and then the commit called the same function
+ * with `Play.tsx`'s `cryptoRng` and read no preference at all, so a table that
+ * had switched the roller off got its 1d4s rolled for it the moment it pressed
+ * COMMIT. Everything below is that one path.
+ */
+describe('the dice this rest rolls, and who rolls them', () => {
+  /** Which dice switches this device has on. Call after `seed`, which resets them. */
+  function dice(digital: boolean, manual: boolean): void {
+    act(() => {
+      useApp.setState((s) => ({ prefs: { ...s.prefs, digitalDice: digital, manualDice: manual } }));
+    });
+  }
+
+  /**
+   * A keystroke, through the prototype's setter.
+   *
+   * React installs its own `value` setter on the element and watches the
+   * original for changes; assigning `field.value` goes through React's and the
+   * tracker never notices, so `onChange` never runs.
+   */
+  function type(field: HTMLInputElement, value: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    act(() => {
+      setter?.call(field, value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  const fields = (): HTMLInputElement[] => [
+    ...container.querySelectorAll<HTMLInputElement>('input[type="number"]'),
+  ];
+
+  function field(name: string): HTMLInputElement {
+    const found = fields().find((f) => (f.getAttribute('aria-label') ?? '') === name);
+    if (found === undefined) {
+      throw new Error(
+        `no field called "${name}". Here: ${fields()
+          .map((f) => f.getAttribute('aria-label') ?? '?')
+          .join(' | ')}`,
+      );
+    }
+    return found;
+  }
+
+  const asked = (): string[] => fields().map((f) => f.getAttribute('aria-label') ?? '?');
+
+  const FEAR = 'The face the d4 showed for the GM\u2019s Fear';
+  const TEND = 'The face the d4 showed for Tend to Wounds, move 1';
+
+  it('asks for one number per die the engine will roll, and for no others', () => {
+    mount(hurt());
+    dice(false, true);
+    open('short');
+    // Every rest owes the GM a die, so one field before a move is chosen.
+    expect(asked()).toEqual([FEAR]);
+
+    click(pickable('Tend to Wounds'));
+    expect(asked()).toEqual([TEND, FEAR]);
+
+    click(pickable('Repair Armor', 'second'));
+    // Three is the worst case this surface has: `choices.slice(0, 2)` caps the
+    // moves at two and each of these two costs a 1d4.
+    expect(asked()).toEqual([
+      TEND,
+      'The face the d4 showed for Repair Armor, move 2',
+      FEAR,
+    ]);
+  });
+
+  it('never asks for a die the engine will not roll', () => {
+    mount(hurt());
+    dice(false, true);
+    open('long');
+    click(pickable('Tend to All Wounds'));
+    click(pickable('Prepare', 'second'));
+    // Not one of the five long-rest moves reaches `roll()`: three of them clear
+    // a whole track, Prepare gains a flat Hope, and Work on a Project is not
+    // applied at all. So the longest, most-picked rest in the game asks for
+    // exactly one number, and it is the GM's.
+    expect(asked()).toEqual([FEAR]);
+  });
+
+  it('writes the numbers the table typed, and consults no rng at all', () => {
+    // `refusingRng` throws, so this fails loudly if any die is reached for.
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    click(pickable('Tend to Wounds'));
+    type(field(TEND), '3');
+    type(field(FEAR), '2');
+    // The press names the numbers it is about to use, the way `DeathMove`'s
+    // record button does: what it writes is readable before it is pressed.
+    click(pressed('TAKE THE SHORT REST WITH 3 AND 2'));
+
+    const after = useApp.getState().characters[0]!;
+    expect(after.hp.marked, 'd4 3 + tier 2 clears the five marked').toBe(0);
+    const detail = useApp.getState().log[0]!.detail;
+    expect(detail).toContain('Tend to Wounds: cleared 5 HP (d4 3 + tier 2)');
+    expect(detail).toContain('GM gains 2 Fear');
+  });
+
+  it('holds the rest back until every die has a face, and names the ones missing', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    click(pickable('Tend to Wounds'));
+    // The press names what it is waiting for rather than standing there
+    // greyed out with TAKE THE SHORT REST still on it - and it names every die
+    // still missing rather than only the first, because a rest can want three
+    // and "one more to go" three times is not an answer.
+    expect(byText('TAKE THE SHORT REST'), 'a live press over blank fields').toBeUndefined();
+    expect(pressed('STILL TO TYPE: TEND TO WOUNDS, MOVE 1 · THE GM’S FEAR').disabled).toBe(true);
+
+    type(field(TEND), '3');
+    expect(text(), 'a die already typed is still being asked for').not.toContain(
+      'STILL TO TYPE: TEND TO WOUNDS',
+    );
+    expect(pressed('STILL TO TYPE: THE GM’S FEAR').disabled).toBe(true);
+
+    type(field(FEAR), '4');
+    expect(text()).not.toContain('STILL TO TYPE');
+    expect(pressed('TAKE THE SHORT REST WITH 3 AND 4').disabled).toBe(false);
+  });
+
+  /*
+   * THE TWO BOUNDS OF A FACE, WHICH ARE TWO CASES ON PURPOSE. `isFace` reads
+   * `Number(value) >= 1 && Number(value) <= sides` on one line, and the whole
+   * suite stayed green with the lower half moved to `>= 0`. A case that typed 5
+   * would have gone red for a mutant on the upper half and credited the line;
+   * these two cannot die of each other's mutant.
+   */
+  it('refuses a face above the die, and says what the die can show', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    type(field(FEAR), '5');
+    // A d4 showing a 5 is a typo, and taking it would put a 5 in the log under
+    // the words "d4". The rest stays held back - and now says why, because a
+    // blank field explains itself and a refused one does not.
+    expect(byText('TAKE THE SHORT REST WITH 5')).toBeUndefined();
+    expect(pressed('STILL TO TYPE: THE GM’S FEAR').disabled).toBe(true);
+    expect(text()).toContain('A d4 shows 1 to 4, and the GM’s Fear says 5.');
+    expect(text()).toContain('Correct it and the rest is yours to take.');
+
+    type(field(FEAR), '4');
+    expect(text(), 'the sentence outlived the number it was about').not.toContain(
+      'A d4 shows 1 to 4',
+    );
+    expect(pressed('TAKE THE SHORT REST WITH 4').disabled).toBe(false);
+  });
+
+  it('refuses a 0, which is a face no die in this game shows', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    type(field(FEAR), '0');
+    // `takeRest` would take the 0 through `fixedFear` and write "GM gains 0
+    // Fear" over a die that was never rolled.
+    expect(byText('TAKE THE SHORT REST WITH 0')).toBeUndefined();
+    expect(pressed('STILL TO TYPE: THE GM’S FEAR').disabled).toBe(true);
+    expect(text()).toContain('A d4 shows 1 to 4, and the GM’s Fear says 0.');
+
+    type(field(FEAR), '1');
+    expect(pressed('TAKE THE SHORT REST WITH 1').disabled).toBe(false);
+  });
+
+  it('says nothing at all about a field nobody has typed into', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    // A blank field is self-explanatory: the press says which die it is waiting
+    // for, and a sentence about a number that is not there would be the app
+    // answering a question nobody asked.
+    expect(text()).not.toContain('A d4 shows 1 to 4');
+    expect(pressed('STILL TO TYPE: THE GM’S FEAR').disabled).toBe(true);
+  });
+
+  it('starts the second rest of the evening from blank', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    click(pickable('Tend to Wounds'));
+    type(field(TEND), '3');
+    type(field(FEAR), '2');
+    click(pressed('TAKE THE SHORT REST WITH 3 AND 2'));
+    expect(useApp.getState().log).toHaveLength(1);
+
+    // THE SECOND REST, WHICH IS WHERE THE STATE LIVES. The moves go with
+    // `setPicks([])`; the GM's die is the rest's own and nothing else clears
+    // it, so left standing it would arrive filled in, with nothing outstanding
+    // to say it was typed for a rest that has already been taken.
+    // Not `open()`: the commit clears `kind` and leaves the fold itself open,
+    // so clicking the header here would shut the surface rather than reopen it.
+    click(named('Take a short rest'));
+    expect(field(FEAR).value, 'the last rest\u2019s Fear die is still in the field').toBe('');
+    expect(
+      byText('TAKE THE SHORT REST WITH 2'),
+      'a rest ready to commit on a stale face',
+    ).toBeUndefined();
+    expect(pressed('STILL TO TYPE: THE GM’S FEAR').disabled).toBe(true);
+
+    type(field(FEAR), '1');
+    click(pressed('TAKE THE SHORT REST WITH 1'));
+    expect(useApp.getState().log[0]!.detail).toContain('GM gains 1 Fear');
+  });
+
+  it('takes a face away with the move it was typed for', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    click(pickable('Tend to Wounds'));
+    type(field(TEND), '4');
+
+    click(named('Take Tend to Wounds out of move 1'));
+    click(pickable('Clear Stress'));
+    expect(
+      field('The face the d4 showed for Clear Stress, move 1').value,
+      'a face typed for a move that is no longer chosen',
+    ).toBe('');
+
+    // And the same on the replacement path, which is a different branch of
+    // `pick`: with both slots full, a third choice replaces the second.
+    click(pickable('Repair Armor', 'second'));
+    type(field('The face the d4 showed for Repair Armor, move 2'), '2');
+    click(pickable('Tend to Wounds', 'second'));
+    expect(field('The face the d4 showed for Tend to Wounds, move 2').value).toBe('');
+  });
+
+  it('forgets a typed face when the rest kind changes under it', () => {
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    type(field(FEAR), '3');
+    click(named('Take a long rest'));
+    expect(field(FEAR).value, "the short rest's Fear die carried into the long one").toBe('');
+  });
+
+  /*
+   * THE FOURTH COMBINATION, WHICH IS BOTH ROADS AT ONCE.
+   *
+   * `Onboarding.tsx:43-45` records what both switches on means - "ROLL *and*
+   * typable faces: a table that rolls physically and digitally in the same
+   * session" - and this surface used to answer it differently, turning the
+   * roller off the moment one character landed in one field. Three cases,
+   * because there are three things to keep apart: that neither road closes the
+   * other, and what each of the two presses writes.
+   */
+  it('with both switches on, offers both roads and keeps offering them', () => {
+    mount(hurt(), scriptedRng(2));
+    dice(true, true);
+    open('short');
+    expect(asked()).toEqual([FEAR]);
+    expect(byText('TAKE THE SHORT REST'), 'the roller was not offered').toBeDefined();
+
+    type(field(FEAR), '4');
+    // The road that used to close here. A typed face is an offer taken up, not
+    // a preference changed under the player.
+    expect(
+      byText('TAKE THE SHORT REST'),
+      'the roller went away because a face was typed',
+    ).toBeDefined();
+    expect(pressed('TAKE THE SHORT REST WITH 4').disabled).toBe(false);
+  });
+
+  it('takes the typed faces when the typed press is the one taken', () => {
+    const rng = scriptedRng(2);
+    mount(hurt(), rng);
+    dice(true, true);
+    open('short');
+    type(field(FEAR), '4');
+    click(pressed('TAKE THE SHORT REST WITH 4'));
+    // The typed 4, not the scripted 2. One press is one source for every die in
+    // the rest, so no log line can mix the table's numbers with this device's.
+    expect(useApp.getState().log[0]!.detail).toContain('GM gains 4 Fear');
+    expect(rng.calls, 'the app rolled beside the face the table typed').toEqual([]);
+  });
+
+  it('rolls when the rolling press is the one taken, and says so on the button', () => {
+    const rng = scriptedRng(2);
+    mount(hurt(), rng);
+    dice(true, true);
+    open('short');
+    // The two presses are told apart by their words: this one does not name a
+    // number, because it does not have one until it rolls.
+    click(pressed('TAKE THE SHORT REST'));
+    expect(useApp.getState().log[0]!.detail).toContain('GM gains 2 Fear');
+    expect(rng.calls, 'the rolling press did not roll').toEqual([4]);
+  });
+
+  /*
+   * The two halves of "both switches off" are two cases on purpose. They share
+   * a state and nothing else: one is about a field that must not be offered,
+   * the other about a control that must not be drawn, and a single case
+   * asserting both would go red for either mutant and credit the wrong half.
+   */
+  it('offers no field to type into when typed dice are off', () => {
+    mount(hurt(), refusingRng);
+    dice(false, false);
+    open('short');
+    expect(fields(), 'a field to type into with typed dice switched off').toEqual([]);
+  });
+
+  it('replaces the commit with the affordance\u2019s own sentence when both are off', () => {
+    mount(hurt(), refusingRng);
+    dice(false, false);
+    open('short');
+    expect(byText('TAKE THE SHORT REST')).toBeUndefined();
+    // The affordance's own two lines, so a player who has read them under ROLL
+    // does not have to learn a second phrasing here.
+    expect(text()).toContain('NO DICE TURNED ON');
+    expect(text()).toContain('TURN ON DIGITAL OR TYPED DICE IN SETTINGS');
+    expect(useApp.getState().characters[0]!.hp.marked, 'a mark moved anyway').toBe(5);
+  });
+
+  it('keeps the whole rest on the screen while it refuses the dice', () => {
+    mount(hurt(), refusingRng);
+    dice(false, false);
+    open('short');
+    // Taking the roller away must not take the rest away: the moves, their
+    // brackets and the free card swap are all still chosen when the switch
+    // comes back, and the preview never needed a die in the first place.
+    expect(moveRow('Tend to Wounds')).toBeDefined();
+    click(pickable('Tend to Wounds'));
+    expect(text()).toContain('Will clear');
+    expect(maybe('Take Tend to Wounds out of move 1')).toBeDefined();
+    expect(text()).toContain('Cards move free during this rest');
+  });
+
+  it('holds every target at the touch floor with the typed panel drawn', () => {
+    const px = (value: string): number => {
+      if (value === 'var(--tap)' || value === 'var(--control)') return 44;
+      if (value === '') return 0;
+      const n = Number.parseFloat(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+    mount(hurt(), refusingRng);
+    dice(false, true);
+    open('short');
+    click(pickable('Tend to Wounds'));
+    click(pickable('Repair Armor', 'second'));
+    // Three fields, which is the most this surface ever asks for.
+    expect(fields()).toHaveLength(3);
+    const short = fields()
+      .filter((f) => Math.max(px(f.style.height), px(f.style.minHeight)) < 44)
+      .map((f) => f.getAttribute('aria-label') ?? '?');
+    expect(short, 'these fields declare less than the 44px floor').toEqual([]);
+    const wide = fields()
+      .filter((f) => px(f.style.width) > 369)
+      .map((f) => f.getAttribute('aria-label') ?? '?');
+    expect(wide, 'these are wider than the 369px column at 393px').toEqual([]);
   });
 });

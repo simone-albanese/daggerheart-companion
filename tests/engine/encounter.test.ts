@@ -12,6 +12,7 @@ import {
   type EncounterEntry,
 } from '@engine/encounter.ts';
 import { adversaryOfRole, makeAdversary } from '../fixtures/factories.ts';
+import { NO_CLOCK_PROSE } from '../fixtures/factories.ts';
 
 const entry = (role: AdversaryRole, count = 1, tier: Tier = 2): EncounterEntry => ({
   adversary: adversaryOfRole(role, tier),
@@ -202,6 +203,7 @@ describe('countdowns', () => {
     start: 4,
     value: 4,
     notes: '',
+    ...NO_CLOCK_PROSE,
     ...over,
   });
 

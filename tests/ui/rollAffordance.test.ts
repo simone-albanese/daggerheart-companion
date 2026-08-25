@@ -23,11 +23,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance, stillToTypeLine } from '../../src/ui/player/DualityRoll.tsx';
+import { DIE_SIZES, MAX_HELD } from '../../src/ui/player/heldDice.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 
 const SOURCE = 'src/ui/player/DualityRoll.tsx';
 const SETTINGS = 'src/ui/settings/Settings.tsx';
+const POOLS = 'src/ui/player/DicePools.tsx';
 
 describe('the dice switches', () => {
   it('ships with the roller on and typing off', () => {
@@ -143,6 +145,42 @@ describe('both layouts read the one decision', () => {
     expect(byProp.length + (guarded.match(/<Die\b/g) ?? []).length).toBe(faces.length);
   });
 
+  it('gates the armed dice on the affordance too, not on a fourth notion of mode', () => {
+    /*
+     * The faces were gated and the dice the faces are added to were not. A
+     * player typing their own Hope and Fear had the advantage d6 and every
+     * bonus die rolled for them by `cryptoRng` and added to the total they were
+     * shown - the app inventing a number at a table that had switched it off.
+     * Those dice have slots now, and the gate on them has to be this same
+     * helper: a surface that decides for itself what mode it is in is how the
+     * phone and the desktop came to disagree the first time.
+     */
+    expect(source, 'the armed dice are offered whatever the switches say').toMatch(
+      /const extraDice: ExtraDie\[\] = !canType/,
+    );
+
+    // Every slot and every grid comes from that one list, so there is no second
+    // way onto the screen that the gate above does not cover.
+    const slots = source.match(/<ExtraSlot\b/g) ?? [];
+    const pads = source.match(/<ExtraKeypad\b/g) ?? [];
+    expect(slots).toHaveLength(1);
+    expect(pads).toHaveLength(1);
+    expect(source).toMatch(/extraDice\.map\(\(d\) => \(/);
+
+    // And both layouts draw that one element. A phone that could type its
+    // Rally die and a cockpit that could not - or the reverse - is the same
+    // bug this helper exists for, on a newer control.
+    const drawn = source.match(/^\s*\{extras\}$/gm) ?? [];
+    expect(drawn, 'one of the two layouts stopped drawing the armed dice').toHaveLength(2);
+
+    // And what the engine is handed carries all four of the things it honours.
+    // The old signature was `(fixed?: { hope: number; fear: number })`, which is
+    // the whole defect: the other two fell through to `rng`.
+    expect(source, 'the typed roll cannot supply the dice the engine asks for').toMatch(
+      /fixed\?: \{ hope: number; fear: number; advantage\?: number; bonus: number\[\] \}/,
+    );
+  });
+
   it('gates both roll buttons on the affordance', () => {
     const guarded = source.match(/disabled=\{!canRoll\}/g) ?? [];
     expect(guarded).toHaveLength(2);
@@ -193,5 +231,180 @@ describe('the settings screen', () => {
 
   it('says out loud when both switches are off', () => {
     expect(settings).toMatch(/!prefs\.digitalDice && !prefs\.manualDice/);
+  });
+});
+
+/**
+ * THE THIRD SURFACE THAT ROLLS DICE, WHICH WAS NOT ASKING WHETHER IT MAY.
+ *
+ * `DicePools` had two `cryptoRng` call sites - one behind **Roll it** on a
+ * blank die, one behind **Roll N dN** at the start of a session - and neither
+ * read a preference. Its own comment quoted the owner on there being two roads
+ * to a face, "o inserendo i risultati o facendo tirare i dadi all'app", while
+ * the switch that chooses between them was being set two screens away. These
+ * are source reads; `dicePools.test.tsx` drives the surface itself under each
+ * of the three combinations `Onboarding` writes.
+ */
+describe('the dice pools read the one decision as well', () => {
+  const pools = readFileSync(POOLS, 'utf8');
+
+  it('reads the helper rather than the two switches', () => {
+    expect(pools).toMatch(/rollAffordance\(digitalDice, manualDice\)/);
+    // Not a second copy of the branching, which is what would drift.
+    expect(pools).not.toMatch(/digitalDice \?/);
+    expect(pools).not.toMatch(/prefs\.digitalDice &&/);
+  });
+
+  it('gates every roller it has, and only the rollers', () => {
+    /*
+     * Two `cryptoRng` call sites, two gates. The face is the only thing the
+     * switches govern: who the die is for, what it is spent on and taking it
+     * out of the pool are things a player does with a die they already have.
+     */
+    // The two CALLS, not the mentions: `cryptoRng(pool.sides)` on one die and
+    // `rollPool(pool, count, cryptoRng)` on the set. The import and the prose
+    // are neither of them a roll.
+    const rollers = pools.match(/cryptoRng[()]/g) ?? [];
+    expect(rollers, 'a roller appeared or disappeared without a gate to match').toHaveLength(
+      2,
+    );
+    // Each gate named with the control it is on, because both call sites read
+    // the same two fields and a regex that matches either one proves neither:
+    // deleting the gate on **Roll it** left `canRoll && (` matching the gate on
+    // the session roll, and this assertion stayed green while the surface
+    // regressed.
+    expect(pools, 'the die roller lost its gate').toMatch(
+      /affordance\.canRoll && \([\s\S]{0,320}?Roll it/,
+    );
+    expect(pools, 'the numeric entry lost its gate').toMatch(
+      /affordance\.canType && \([\s\S]{0,320}?Type what you rolled/,
+    );
+    expect(pools).toMatch(/pool\.rolledAt === 'grant' && affordance\.canRoll/);
+    expect(pools).toMatch(/pool\.rolledAt === 'grant' && !affordance\.canRoll/);
+  });
+
+  it('says which switch is missing when neither is on', () => {
+    // The same sentence `DamageRow` uses in this state, for the same reason: a
+    // dead end with no exit is not an honest state either.
+    expect(pools).toMatch(/!affordance\.canRoll && !affordance\.canType/);
+    expect(pools).toMatch(/Settings turns one on/);
+  });
+});
+
+/**
+ * WHAT THE INSTRUCTION LINE COSTS THE PHONE BAR, COUNTED OFF THE CONSTANTS.
+ *
+ * `rollLine`'s docblock derives the bar's height from a characters-per-line
+ * figure, and it used to close that derivation with an example it called the
+ * longest: `STILL TO TYPE: HOPE · FEAR · ADV · +D6`, 38 characters, "two of the
+ * 30-character lines this docblock derives", therefore "this costs the bar no
+ * height". The example is real and the conclusion does not follow from it,
+ * because `untyped` names HOPE, FEAR and ONE LABEL PER ARMED DIE - and the
+ * armed set is capped by `MAX_HELD`, which is twelve, not by the one the
+ * example happens to have.
+ *
+ * Corrected, and it is the same failure a second time: the replacement counted
+ * `untyped` - fifteen items, 116 characters - and `untyped` is the POOL, not
+ * the line. The line is `started ? stillToTypeLine(untyped) : null`, and
+ * `started` is true only once a face has been ENTERED, because a sheet with
+ * nothing typed on it is idle rather than waiting. So one of the fifteen is
+ * always filled, a filled die is never in `untyped`, and the line names at most
+ * FOURTEEN. 116 is a state the code cannot reach, argued in the paragraph
+ * written to replace one that argued from a state the code could not reach.
+ *
+ * So the worst case is built here out of the four declared things it depends
+ * on - `MAX_HELD`, the tray's own `DIE_SIZES`, the separator and prefix
+ * `stillToTypeLine` writes, and the gate that decides whether the line is drawn
+ * at all - rather than asserted as a number a docblock can drift away from.
+ * That is why that function is exported at all. `cockpitRoll.test.tsx` drives
+ * the surface to the same number, because an arithmetic nobody drives is how
+ * both of the wrong ones got written.
+ */
+describe('the line that names the dice still outstanding', () => {
+  /** The label `extraSlots` gives a held die, which is what makes it four wide. */
+  const bonusLabel = (sides: number): string => `+D${String(sides)}`;
+  const widest = Math.max(...DIE_SIZES);
+
+  it('is 38 characters for the ordinary roll the docblock was written on', () => {
+    expect(stillToTypeLine(['HOPE', 'FEAR', 'ADV', bonusLabel(6)])).toHaveLength(38);
+  });
+
+  it('can hold fifteen items and can never draw all fifteen', () => {
+    // The pool: HOPE, FEAR, the advantage die, and one label per held die.
+    const pool = [
+      'HOPE',
+      'FEAR',
+      'ADV',
+      ...Array.from({ length: MAX_HELD }, () => bonusLabel(widest)),
+    ];
+    expect(pool).toHaveLength(2 + 1 + MAX_HELD);
+    // 15 of prefix + (4 + 4 + 3 + 12 * 4) of labels + 14 separators at 3.
+    expect(stillToTypeLine(pool)).toHaveLength(
+      15 + (4 + 4 + 3 + MAX_HELD * bonusLabel(widest).length) + 14 * 3,
+    );
+    expect(stillToTypeLine(pool)).toHaveLength(116);
+
+    /*
+     * And that is the count the docblock drew its heights from. The line is not
+     * the pool: `stillToType` is `started ? stillToTypeLine(untyped) : null`,
+     * and `started` needs a face entered. One of the fifteen is therefore always
+     * filled, and a filled die is not in `untyped`.
+     */
+    const source = readFileSync(SOURCE, 'utf8');
+    expect(source, 'the line is no longer gated on a face having been entered').toMatch(
+      /const stillToType = started \? stillToTypeLine\(untyped\) : null;/,
+    );
+    expect(source, 'started stopped meaning "somebody has typed something"').toMatch(
+      /const started =\n\s*canType &&\n\s*\(manual\.hope !== null \|\| manual\.fear !== null \|\| extraDice\.some\(\(d\) => d\.value !== null\)\);/,
+    );
+  });
+
+  it('reaches 110 characters, which is four lines at 393px and four at 375', () => {
+    const pool = [
+      'HOPE',
+      'FEAR',
+      'ADV',
+      ...Array.from({ length: MAX_HELD }, () => bonusLabel(widest)),
+    ];
+    /** The line with the `i`th item entered, which is the only way it is drawn. */
+    const entered = (i: number): string =>
+      stillToTypeLine(pool.filter((_, j) => j !== i)) ?? '';
+    const lengths = pool.map((_, i) => entered(i).length);
+
+    // Fourteen items, giving up the least: ADV is the shortest label at three,
+    // and it takes its separator with it, so 116 less 6.
+    expect(Math.max(...lengths), 'the longest line one entered face can leave').toBe(110);
+    expect(entered(pool.indexOf('ADV'))).toHaveLength(
+      15 + (4 + 4 + MAX_HELD * bonusLabel(widest).length) + 13 * 3,
+    );
+    // Every other choice is shorter: a four-character label costs 7, not 6.
+    expect(entered(0), 'giving up HOPE instead').toHaveLength(109);
+    expect(entered(pool.length - 1), 'giving up a held die instead').toHaveLength(109);
+    // And with no sign armed there is no ADV to give up: fourteen in the pool,
+    // thirteen in the line, all four characters wide.
+    const noSign = pool.filter((x) => x !== 'ADV');
+    expect(stillToTypeLine(noSign.slice(1))).toHaveLength(
+      15 + (4 + MAX_HELD * bonusLabel(widest).length) + 12 * 3,
+    );
+    expect(stillToTypeLine(noSign.slice(1))).toHaveLength(103);
+
+    // The 30 and the 28 are `rollLine`'s own, derived there from the 245px and
+    // 227px boxes measured in Chrome; nothing is measured here. What this pins
+    // is that the worst case is four lines at both reference widths rather than
+    // the two the docblock's first example concluded - so the bar grows past
+    // its 56, which is why it declares `minHeight` and not `height`.
+    expect(Math.ceil(110 / 30)).toBe(4);
+    expect(Math.ceil(110 / 28)).toBe(4);
+    expect(17 + 4 + 4 * 15 + 2, 'the bar at 393px').toBe(83);
+    expect(17 + 4 + 4 * 15 + 2, 'the bar at 375px').toBe(83);
+
+    const source = readFileSync(SOURCE, 'utf8');
+    expect(source, 'ROLL went back to a fixed height, which is where a line clips').toMatch(
+      /minHeight: 56,/,
+    );
+  });
+
+  it('says nothing at all when nothing is outstanding', () => {
+    expect(stillToTypeLine([])).toBeNull();
   });
 });

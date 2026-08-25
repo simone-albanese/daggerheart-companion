@@ -27,6 +27,7 @@ import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { NO_CLOCK_PROSE } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -497,7 +498,7 @@ describe('the advancement chart, on a dynamic countdown', () => {
     order: 0,
     collapsed: true,
     primary: false,
-    countdown: { id: 'c1', name: 'The ritual', kind, start: 6, value, notes: '' },
+    countdown: { id: 'c1', name: 'The ritual', kind, start: 6, value, notes: '', ...NO_CLOCK_PROSE },
   });
 
   const openBoard = (item: SessionItem): void => {

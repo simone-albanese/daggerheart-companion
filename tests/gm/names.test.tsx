@@ -45,6 +45,7 @@ import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index, playedCharacter } from '../ui/fixture.ts';
+import { NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -191,6 +192,7 @@ const sceneRow = (name: string, at: number): SessionItem => ({
   order: at,
   collapsed: true,
   environmentRef: null,
+  ...NO_FIGHT,
 });
 
 const combatant = (name: string, at: number): SceneCombatant => ({

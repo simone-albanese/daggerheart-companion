@@ -1181,6 +1181,20 @@ describe('the trait row and the roll surface', () => {
  *   - a companion, which adds a 44px WhoSwitch inside the counters.
  *   - `manualDice`, which puts two 62px faces back above ROLL: +68.
  *   - an armed modifier, which puts a 44px strip back above ROLL: +50.
+ *   - the slot row `manualDice` draws for the dice beyond the pair, which is a
+ *     third band above ROLL and not part of either of the two above: `ADV`,
+ *     `DIS` and every armed held die get one 44px slot each, and the row is
+ *     drawn only when typing is on AND something is armed. One row is +50, the
+ *     44 and the stack's 6px gap, which is the figure `DualityRoll` states
+ *     inline beside it. It wraps rather than shrinking: a slot is `1 1 44px`
+ *     with a 6px gap, so `n` of them need `50n - 6` and seven fit on one line
+ *     at both reference widths - 344 against the 369 of column at 393 and the
+ *     351 at 375 - while eight need 394 and wrap. The most this app can arm is
+ *     `MAX_HELD` 12 plus the advantage die, which is thirteen, two rows at
+ *     either width: **+100**. An open keypad under it is 105 more for anything up to a d10
+ *     and 152 for a d12, and that one is deliberately left out of the count:
+ *     it is open only while a player is looking at it and is not reaching for
+ *     ROLL, and it shuts the moment the last face lands.
  *   - `env(safe-area-inset-bottom)`. Every number here follows the arithmetic
  *     already committed in this repo and treats the inset as 0. On a
  *     home-indicator iPhone installed as a PWA it is 34px, which would take the
@@ -1191,13 +1205,30 @@ describe('the trait row and the roll surface', () => {
  *     sheet was 697 and one pixel over. Somebody should still check the inset
  *     on the owner's own phone; every number here treats it as 0.
  *
- * NONE OF THOSE FIVE NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
+ * NONE OF THOSE SIX NOW COSTS MORE THAN THE SLACK AT 375x667, where four of
  * them used to: the margin under ROLL on the small phone went from 10px to
- * **221px** over the reflow, and the dearest of them is now typed dice at +68,
- * which leaves 153. It was six states and the dearest was `counterStyle:
- * 'pips'` at +100, leaving 121; decision 7 deleted the preference and the
- * branch, so that shape is not reachable from this screen at all and the bullet
- * went with it rather than being re-costed. That is the number the grid was
+ * **221px** over the reflow, and the dearest of them is the slot row at +100 in
+ * its thirteen-dice worst case, which leaves 121; typed dice at +68 is second,
+ * and it is what this paragraph used to name as the dearest, back when the two
+ * 62px faces were the whole of what `manualDice` put above ROLL.
+ *
+ * AND THESE THREE ARE THE ONE PLACE THE BULLETS ARE NOT INDEPENDENT, so the sum
+ * is worth writing down rather than leaving to be discovered: the slot row is
+ * drawn only with typing on, and everything that arms a die into it also draws
+ * the ARMED strip. Thirteen dice typed with a Difficulty set is 68 + 50 + 100 =
+ * **218** against 221 - it fits, by 3px, and it is the worst the three
+ * interlocking bullets can do TO EACH OTHER. It is not the worst state on the
+ * list, and reading it as one is a mistake this sentence used to invite: three
+ * of the six bullets have nothing to do with typing and stack straight on top
+ * of this sum. A Druid is +52 before anything is armed, a companion is +44,
+ * and a wrapping name or multiclass line is +18.9 - so a Druid with a
+ * companion typing thirteen dice is 314 against 221 and over by 93, and the
+ * wrap alone takes 218 to 236.9 and over by 15.9. What 218 buys is the
+ * knowledge that TYPING cannot fail this table by itself; what fails it is
+ * typing on a sheet that was already paying for something else. It was six states before decision 7 and the dearest
+ * was `counterStyle: 'pips'` at +100, leaving 121; that decision deleted the
+ * preference and the branch, so that shape is not reachable from this screen at
+ * all and the bullet went with it rather than being re-costed. That is the number the grid was
  * bought for, and it is asserted below rather than told - `the slack at 375x667
  * has moved`. (This paragraph said 110 against an assertion of 160 for two
  * passes, and then 160 and 92 against an assertion of 221 for the whole of the
@@ -1248,7 +1279,7 @@ describe('the budget the pin came off for', () => {
    *
    *   Header.tsx    height: 52, content-box, borderBottom 1px  -> 53
    *   TabBar.tsx    minHeight: 60 plus borderTop 1px            -> 61
-   *   Play.tsx      the phone root's padding: '0 12px 8px'      ->  8
+   *   Play.tsx      the phone root's padding: '8px 12px 8px'    ->  8
    *
    * That is one pixel tighter than the 731/546 already committed in this repo,
    * which forgot the header's border. It is corrected here rather than carried,
@@ -1490,13 +1521,16 @@ describe('the budget the pin came off for', () => {
    * `NARROW_CELLS` is that difference over the grid's two rows, read out of
    * `tokens.css` rather than written down.
    *
-   * The docblock above lists five ordinary states this table cannot see, and
-   * the dearest of them - typed dice, at +68 - leaves 153 of the 221 the
-   * assertion below reads. It was six, and the dearest was pips at +100,
-   * leaving 121, until decision 7 took the pip tracks off this sheet. (`177`
-   * stood here against a slack of 245; the slack became 221 in the same pass
-   * that left this line alone, and 245 - 68 is the only reading it was ever
-   * true of.)
+   * The docblock above lists six ordinary states this table cannot see, and
+   * the dearest of them - the slot row, at +100 in its thirteen-dice worst
+   * case - leaves 121 of the 221 the assertion below reads. Typed dice at +68
+   * is second, leaving 153, and it is what this line named as the dearest
+   * until the slot row existed. (It said five and named typed dice, in the
+   * same commit that rewrote the paragraph above to six and to the slot row -
+   * so the file answered its own headline question two different ways, 300
+   * lines apart. Before that: `177` stood here against a slack of 245, the
+   * slack became 221 in the same pass that left this line alone, and 245 - 68
+   * is the only reading it was ever true of.)
    */
   it('puts ROLL above the fold at 375x667 too, and no longer by ten pixels', () => {
     const glass = column(667);

@@ -267,6 +267,61 @@
  * it is the step this branch got wrong twice by not running it at all and a
  * third time by running it from the wrong base with a pattern that could see
  * only three references in five.
+ *
+ * ## Three files outside the GM screen, and the rule that put them here
+ *
+ * The name at the top of this file says the GM screen, and it is now narrower
+ * than what is asserted below: a second `describe` holds figures in
+ * `src/ui/settings/Settings.tsx`, `src/ui/settings/About.tsx` and
+ * `src/ui/player/Conditions.tsx`. That is the widening this header already
+ * argues for twice - `CampaignNotSaved.tsx` is in the alert scan because the
+ * claim and not the directory is the scope, and the licence notice got a
+ * `describe` of its own because the strip is on five screens - so it is done
+ * the way those two were done, in its own `describe`, named for the claim
+ * rather than for a screen. The GM `describe` above is unchanged.
+ *
+ * What those three have in common with `SessionRow.tsx` is not a screen, it is
+ * one defect: a width stated as a subtraction that skipped a container. 78 and
+ * 277 spent a 369px column as though the flex line were 369, when `Rows` puts
+ * a border round it and `Field` puts 14px either side inside that; 349 in
+ * `About.tsx` was that same `Rows` box named as a flex line one container
+ * further in; 337 in `Conditions.tsx` counted the dialog's border as nothing.
+ * Every one of them is the 1px this file's first paragraph is about, one
+ * screen over.
+ *
+ * ## Nothing below is anchored to a line, and that is a correction
+ *
+ * Those four docblocks used to cite their terms as `file:line`. Three of the
+ * citations - `Conditions.tsx:749`, `:761` and `:961` - were pushed onto a
+ * `zIndex`, a `width` and a `</div>` by the same insertion that wrote them,
+ * and so were false in the commit that added them. The sentences now quote the
+ * declaration instead, and what is asserted here is the declaration.
+ *
+ * That created a hazard of its own, and `code()` below is the answer to it: a
+ * docblock that quotes `padding: '10px 11px'` puts a second copy of that
+ * string in its file, so an anchor over the raw text can match the sentence
+ * instead of the style and end up checking prose against itself. Every anchor
+ * added for these four files reads the file with its comments removed, and
+ * refuses a match that is not unique in it.
+ *
+ * ## What already reads these files as source text
+ *
+ * Recorded because a report out of this lane said the opposite.
+ * `tests/ui/rollAffordance.test.ts` reads `Settings.tsx` with `readFileSync`
+ * and asserts three things about it: that `checked={prefs.manualDice}` is
+ * there, that the retired hint "The two dice on the Play screen become inputs"
+ * is not, and that `!prefs.digitalDice && !prefs.manualDice` is. All three are
+ * about the code and none is about the geometry held below, so nothing here
+ * collides with them - but "no test reads this file as source text" was not
+ * true when it was written.
+ *
+ * Counted properly, because the count is the part that was wrong: of the four
+ * files the second `describe` reads, three were already inside somebody's
+ * assertion as text. `Settings.tsx` is read by `rollAffordance.test.ts`;
+ * `Conditions.tsx` is read by `reflowProse.test.ts`, which holds four figures
+ * in it against `--control` and `--damage-w`; `SessionRow.tsx` is read by the
+ * `describe` above. `About.tsx` is the only one of the four that nothing read
+ * as source text until this file did.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -331,6 +386,67 @@ function stated(file: string, find: RegExp): number[] {
     );
   }
   return all;
+}
+
+/**
+ * A file with every comment taken out.
+ *
+ * For a hazard this round created rather than found. The docblocks the second
+ * `describe` reads now name each term by quoting the declaration that makes it
+ * - `padding: '10px 11px'`, `flex: '1 1 180px'`, `border: '1px solid
+ * var(--line)'` - instead of citing a line, so several of those strings occur
+ * twice in their file: once as the style, once inside the paragraph that reads
+ * it. An anchor matched against the raw text finds whichever comes first, and
+ * where that is the sentence, the assertion is prose checked against its own
+ * copy of the number. Every anchor below reads this instead.
+ */
+function code(file: string): string {
+  return source(file)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+}
+
+/**
+ * Every number one declaration states, insisted on being the only match in the
+ * file's code.
+ *
+ * A second match is a silent choice between two controls, which is the failure
+ * `declared()` above already refuses by name; this refuses it by count, because
+ * these anchors are regexes over a block rather than a string plus a property.
+ */
+function decl(file: string, find: RegExp, what: string): number[] {
+  const all = [...code(file).matchAll(find)];
+  if (all.length !== 1) {
+    throw new Error(
+      `${what} matches ${all.length} times in the code of ${file}, where this needs exactly ` +
+        'one. Re-point the anchor at the control the docblock is about.',
+    );
+  }
+  return all[0]!.slice(1).map((n) => Number.parseFloat(n!));
+}
+
+/** The single number a declaration states. */
+const only = (file: string, find: RegExp, what: string): number => decl(file, find, what)[0]!;
+
+/**
+ * Every number one sentence states, in the order it states them.
+ *
+ * `stated()` above reads one capture from possibly several sentences; these
+ * claims are enumerations - a column and the five terms it subtracts - so what
+ * is wanted is several captures from exactly one sentence. Same refusal as
+ * `stated()`: if the wording moved, re-point the claim; if the sentence went,
+ * say here that it did.
+ */
+function says(file: string, find: RegExp, what: string): number[] {
+  const all = [...prose(file).matchAll(find)];
+  if (all.length !== 1) {
+    throw new Error(
+      `${file} states ${what} ${all.length} times where this expects exactly one. Either the ` +
+        'wording moved - re-point this claim at it - or the sentence went, in which case say ' +
+        'here that it did rather than deleting the assertion.',
+    );
+  }
+  return all[0]!.slice(1).map((n) => Number.parseFloat(n!));
 }
 
 /** `.panel`'s own border, which is the pixel every one of these errors dropped. */
@@ -556,6 +672,253 @@ describe('the GM screen states the geometry its own declarations make', () => {
       stated('src/ui/gm/GmTopBar.tsx', /row A (\d+)px MENU/g),
       '`GmTopBar` states a row height the MENU button no longer declares',
     ).toEqual([declared('src/ui/gm/GmTopBar.tsx', 'onClick={onOpenMenu}', 'minHeight')]);
+  });
+
+  /*
+   * THE STAGE, WHICH IS THE ONE NUMBER ON THIS SCREEN THAT USED TO BE A WINDOW.
+   *
+   * Every GM tool was a `position: fixed; inset: 0` overlay, so a `full` panel
+   * was the window less the top inset and 8px: 797.00 at 393x852. It is drawn
+   * against the band between `GmTopBar` and `GmBar` now - the owner's decision
+   * that the night is a sheet and the bar stays on the glass under it - which
+   * is the same band `SessionList.tsx` has always measured. So `GmSheet.tsx`
+   * does not get its own measurement here and must not have one: it states the
+   * list's, and this holds the two files to each other. The moment somebody
+   * re-measures the chrome in `SessionList.tsx`, `GmSheet.tsx` goes red.
+   *
+   * The price is held rather than stated freely because it is the figure a GM
+   * actually pays - 249px of tool, every tool - and a docblock is where a
+   * reader meets it. It is arithmetic on two figures in the same paragraph, so
+   * what this checks is that the subtraction is still right and that the
+   * percentage beside it is still that subtraction over the panel that is gone.
+   *
+   * Nothing here is a measurement of the new panel. NOBODY HAS PUT THE MOVED
+   * TOOL IN FRONT OF A BROWSER; the stage is measured, the loss is arithmetic
+   * on it, and every file that carried a vertical figure inside a `full` tool
+   * now says which of the two it is holding.
+   */
+  it('states a stage that is the band `SessionList.tsx` measures, not a window', () => {
+    expect(
+      stated('src/ui/gm/GmSheet.tsx', /session list runs, which `SessionList.tsx` measures at \*\*(\d+\.\d\d)\*\*/g),
+      '`GmSheet` states a stage that is not the band `SessionList.tsx` measures between the two ' +
+        'bars. One of the two files has re-measured the pinned chrome without the other.',
+    ).toEqual(stated('src/ui/gm/SessionList.tsx', /= \*\*(\d+\.\d\d) of list\*\*/g));
+
+    const pinned = says(
+      'src/ui/gm/SessionList.tsx',
+      /countdown pinned `GmTopBar` is [\d.]+, the region is (\d+\.\d\d) to (\d+\.\d\d)/g,
+      'the region a pinned countdown leaves',
+    );
+    expect(
+      stated('src/ui/gm/GmSheet.tsx', /the stage is (\d+\.\d\d) \(region/g),
+      '`GmSheet` states a with-a-countdown stage that is not the region `SessionList.tsx` ' +
+        'measures for the same case',
+    ).toEqual([pinned[1]! - pinned[0]!]);
+  });
+
+  it('costs every full tool the difference between the window it had and that stage', () => {
+    const panel = stated('src/ui/gm/GmSheet.tsx', /\*\*(\d+\.\d\d)\*\* of panel/g)[0]!;
+    const stage = stated('src/ui/gm/GmSheet.tsx', /measures at \*\*(\d+\.\d\d)\*\*/g)[0]!;
+    const pinnedStage = stated('src/ui/gm/GmSheet.tsx', /the stage is (\d+\.\d\d) \(region/g)[0]!;
+    const pct = (lost: number): number => Math.round((lost / panel) * 10_000) / 100;
+
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /loses \*\*(\d+\.\d\d)px\*\*, which is \*\*(\d+\.\d\d)%\*\* of what it had/g,
+        'the height a full tool loses',
+      ),
+      '`GmSheet` states a price that is not the panel it had less the stage it has. That number ' +
+        'is what a GM pays at a table, so it is held rather than left to drift.',
+    ).toEqual([panel - stage, pct(panel - stage)]);
+
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /the loss is\s+\*\*(\d+\.\d\d)px\*\* - \*\*(\d+\.\d\d)%\*\*/g,
+        'the height a full tool loses with a countdown pinned',
+      ),
+      '`GmSheet` states a with-a-countdown price that is not the same subtraction',
+    ).toEqual([panel - pinnedStage, pct(panel - pinnedStage)]);
+  });
+
+  /*
+   * The `sheet` half of the same move. The cap is declared, so the four figures
+   * around it are that percentage of the two stages and the two edges those
+   * leave - including the 174.55 that put a bottom sheet's top edge inside the
+   * Fear row, which is the half of this defect that was never about `full`.
+   */
+  it('states a bottom sheet capped at the fraction the panel declares', () => {
+    const cap =
+      Number.parseInt(
+        /maxHeight: full \? undefined : '(\d+)%'/.exec(code('src/ui/gm/GmSheet.tsx'))?.[1] ??
+          (() => {
+            throw new Error('`GmSheet` no longer caps a `sheet` panel at a percentage');
+          })(),
+        10,
+      ) / 100;
+    const panel = stated('src/ui/gm/GmSheet.tsx', /\*\*(\d+\.\d\d)\*\* of panel/g)[0]!;
+    const stage = stated('src/ui/gm/GmSheet.tsx', /measures at \*\*(\d+\.\d\d)\*\*/g)[0]!;
+    const foot = says(
+      'src/ui/gm/SessionList.tsx',
+      /region (\d+\.\d\d) to (\d+\.\d\d)\. A/g,
+      'the band the list runs',
+    )[1]!;
+    // The window, taken from the one sentence that subtracts the chrome from
+    // it rather than from a constant here: `tokens.ts` gives `PHONE` a width
+    // and deliberately no height, and this file does not get to invent one.
+    const window = says(
+      'src/ui/gm/SessionList.tsx',
+      /and (\d+) − [\d.]+ = \*\*[\d.]+ of list\*\*/g,
+      'the window the chrome is subtracted from',
+    )[0]!;
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /is (\d+\.\d\d) against the old (\d+\.\d\d), and its top edge moves from (\d+\.\d\d) - inside the Fear\s+row - down to (\d+\.\d\d)/g,
+        'what a bottom sheet caps at',
+      ),
+      '`GmSheet` states bottom-sheet heights that are no longer its declared cap over the two ' +
+        'stages. The 174.55 is the one that mattered: it is where the old cap put the top edge, ' +
+        'which was inside the Fear row.',
+    ).toEqual(
+      // To the hundredth the docblock writes them at. `0.85 * 797` is
+      // 677.4499999999999 in binary floating point and the sentence says
+      // 677.45; a comparison that failed on that would be this file testing
+      // IEEE 754 rather than the prose.
+      [cap * stage, cap * panel, window - cap * panel, foot - cap * stage].map(
+        (n) => Math.round(n * 100) / 100,
+      ),
+    );
+  });
+
+  /*
+   * The Fear row's own band, which is what a bottom sheet used to cut into and
+   * is the only vertical claim `GmSheet.tsx` makes about another component. Its
+   * terms are the shell header `SessionList.tsx` measures and the padding, gap
+   * and row height `GmTopBar` declares - the same four `GmTopBar`'s own 109.00
+   * is made of, one row short.
+   */
+  it('puts the Fear row where `GmTopBar`\'s own declarations put it', () => {
+    const header = says(
+      'src/ui/gm/SessionList.tsx',
+      /the shell header at (\d+\.\d\d) \(/g,
+      'the shell header',
+    )[0]!;
+    const found = /gap: (\d+),\n\s*padding: phone \? '(\d+)px/.exec(source('src/ui/gm/GmTopBar.tsx'));
+    if (found === null) throw new Error('`GmTopBar` no longer declares a gap and a phone padding');
+    const [gap, top] = found.slice(1).map((n) => Number.parseInt(n, 10));
+    const row = declared('src/ui/gm/GmTopBar.tsx', 'onClick={onOpenMenu}', 'minHeight');
+    const startsAt = header + top! + row + gap!;
+    expect(
+      says(
+        'src/ui/gm/GmSheet.tsx',
+        /put at y (\d+\.\d\d) to (\d+\.\d\d)/g,
+        'the band the Fear row occupies',
+      ),
+      '`GmSheet` states a Fear-row band that is no longer the shell header plus `GmTopBar`\'s ' +
+        'declared padding, first row and gap. That band is the thing a bottom sheet used to cut ' +
+        'into, so it is held to the declarations rather than to a remembered pair of numbers.',
+    ).toEqual([startsAt, startsAt + row]);
+  });
+
+  /*
+   * The overlay pays no top inset any more, and three other files quote the
+   * declaration to establish that it pays nothing a side either. It is the same
+   * string in four places, which is four chances for one of them to keep
+   * describing an overlay that ran the window.
+   */
+  it('quotes the overlay padding those columns are measured inside', () => {
+    const declaration = /padding: full \|\| phone \? 0 : 24/;
+    expect(
+      declaration.test(code('src/ui/gm/GmSheet.tsx')),
+      '`GmSheet`\'s overlay no longer declares this padding. If it pays a top inset again it is ' +
+        'a fixed overlay over the window again; if it pays anything a side, every column ' +
+        'measured inside this panel is stale.',
+    ).toBe(true);
+    for (const file of [
+      'src/ui/gm/GmSheet.tsx',
+      'src/ui/gm/Reference.tsx',
+      'src/ui/gm/Scene.tsx',
+      'src/ui/gm/StatBlock.tsx',
+    ]) {
+      expect(
+        declaration.test(prose(file).replace(/\s+/g, ' ')) || file === 'src/ui/gm/GmSheet.tsx',
+        `${file} quotes an overlay padding \`GmSheet\` no longer declares, and the column it ` +
+          'subtracts from is measured inside it.',
+      ).toBe(true);
+    }
+  });
+
+  /*
+   * THE BACKDROP A `full` TOOL DOES NOT LEAVE ON A PHONE.
+   *
+   * Not arithmetic. A decision, whose price is a gesture rather than a number -
+   * and that is the kind of claim the docblocks on this screen have got wrong
+   * before, by asserting the comfortable half of it. `GmSheet.tsx` said the
+   * backdrop was "also a target" and that the surface was "smaller than it
+   * was". For the eight `full` tools on a phone it is not smaller. Three
+   * declarations together leave none of it:
+   *
+   *   - the overlay pays `padding: full || phone ? 0 : 24`, so nothing above it
+   *     and nothing either side;
+   *   - the panel is `flex: full ? 1 : 'none'`, so under `full` it takes the
+   *     whole stage rather than its own content height;
+   *   - and `width: '100%'`, so it takes the whole of it across as well.
+   *
+   * Move any one of the three and the paragraph describes a screen that is no
+   * longer there - in the direction that makes it too pessimistic, which is the
+   * harmless direction and is still a docblock stating something false. So all
+   * three are anchors here.
+   *
+   * And the sentence that says what is left - CLOSE, alone, because a phone has
+   * no Escape key - is held to the size the button actually declares. On those
+   * eight, on that width, that 44x44 is the whole of the way out; a target that
+   * shrank would be the exit shrinking, not a control shrinking.
+   *
+   * What this cannot say is whether a thumb reaches it. NOBODY HAS PUT THIS IN
+   * FRONT OF A BROWSER, and reach is not a declaration - the placement argument
+   * in `GmSheet.tsx` is an argument, and the 393x852 screenshot the handoff asks
+   * for is still owed.
+   */
+  it('leaves a `full` tool on a phone no backdrop, and says CLOSE is what is left', () => {
+    const src = code('src/ui/gm/GmSheet.tsx');
+    expect(
+      /padding: full \|\| phone \? 0 : 24/.test(src),
+      "`GmSheet`'s overlay no longer pays zero padding under `full` or on a phone. If it pays " +
+        'anything, there is a backdrop again and the Ergonomics paragraph is describing a ' +
+        'screen that is not there.',
+    ).toBe(true);
+    expect(
+      /flex: full \? 1 : 'none'/.test(src),
+      '`GmSheet`\'s panel no longer fills the stage under `full`. A panel at its content ' +
+        'height leaves the rest of the band as backdrop, which is the target the Ergonomics ' +
+        'paragraph says a `full` tool does not get below 1100.',
+    ).toBe(true);
+    expect(
+      /width: '100%'/.test(src),
+      '`GmSheet`\'s panel no longer spans its overlay, so there is backdrop either side of it ' +
+        'and the paragraph that says there is none is stale.',
+    ).toBe(true);
+    expect(
+      decl('src/ui/gm/GmSheet.tsx', /width: (\d+), height: (\d+)/g, 'the CLOSE square'),
+      'the CLOSE square is no longer 44x44. Under `full` below 1100 it is the only dismissal ' +
+        'this panel has - no backdrop at all - and on a phone there is no Escape key either, ' +
+        'so it is the one target on this screen that cannot go under the floor.',
+    ).toEqual([44, 44]);
+
+    const said = prose('src/ui/gm/GmSheet.tsx');
+    for (const sentence of [
+      '**A `full` tool has no backdrop at all below 1100.** Not a smaller one: none,',
+      'Escape key, so on a phone it is CLOSE, alone.',
+    ]) {
+      expect(
+        said.includes(sentence),
+        `\`GmSheet.tsx\` no longer says "${sentence}". That paragraph is the record of a ` +
+          'decision - the tap-outside a phone gives up, and what it is given up for - so if ' +
+          'the decision changed, re-take it here rather than deleting the sentence.',
+      ).toBe(true);
+    }
   });
 
   /*
@@ -1039,5 +1402,516 @@ describe('every file that costs the licence notice costs it at the measured heig
         'different 12x-pixel number and this pattern needs narrowing - do not settle it by ' +
         'deriving one on paper.',
     ).toEqual(['126.16']);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The containers these four docblocks subtract through. Every one is read out
+ * of `code()`, so a docblock quoting a declaration cannot be mistaken for it.
+ * ------------------------------------------------------------------------ */
+
+const PARTS = 'src/ui/settings/parts.tsx';
+const SETTINGS = 'src/ui/settings/Settings.tsx';
+const ABOUT = 'src/ui/settings/About.tsx';
+const CONDITIONS = 'src/ui/player/Conditions.tsx';
+const ROW = 'src/ui/gm/SessionRow.tsx';
+
+/** The 12px either side the settings scroller pads a phone with. */
+const settingsPadX = (): number =>
+  only(
+    SETTINGS,
+    /className="scroll"[\s\S]{0,300}?padding: phone \? '\d+px (\d+)px \d+px'/g,
+    "the settings scroller's phone padding",
+  );
+
+/** `Rows`' own border, which is the container both corrected screens skipped. */
+const rowsBorder = (): number =>
+  only(PARTS, /export function Rows\([\s\S]*?border: '(\d+)px solid/g, "`Rows`' border");
+
+/** The 14px either side `Field` pads every settings row with. */
+const fieldPadX = (): number =>
+  only(PARTS, /padding: '\d+px (\d+)px' \}\}>/g, "`Field`'s padding");
+
+/** The gap of the flex line `Field` draws between its text block and its controls. */
+const fieldGap = (): number =>
+  only(PARTS, /justifyContent: 'space-between',\s*gap: (\d+),/g, "the gap of `Field`'s flex line");
+
+/** The text block's flex basis, which is what decides whether a row wraps. */
+const fieldBasis = (): number =>
+  only(PARTS, /flex: '1 1 (\d+)px'/g, "the text block's flex basis");
+
+/** The `ch` cap on the hint - a declaration, and not a count of characters. */
+const hintCap = (): number =>
+  only(
+    PARTS,
+    /className="t-dense" style=\{\{ marginTop: \d+, maxWidth: '(\d+)ch' \}\}/g,
+    "the hint's `ch` cap",
+  );
+
+/** `Switch`'s gap and its two horizontal paddings, in that order. */
+const switchBox = (): number[] =>
+  decl(
+    PARTS,
+    /minHeight: 'var\(--tap\)',\s*gap: (\d+),\s*padding: '0 (\d+)px 0 (\d+)px'/g,
+    "`Switch`'s gap and padding",
+  );
+
+/** The ON/OFF span's declared width. */
+const switchSpan = (): number =>
+  only(
+    PARTS,
+    /className="t-meta"\s*style=\{\{ width: (\d+), textAlign: 'right'/g,
+    "the ON/OFF span's width",
+  );
+
+/** The pill's declared width. */
+const switchPill = (): number =>
+  only(PARTS, /width: (\d+),\s*height: \d+,\s*borderRadius: \d+,\s*background: checked/g, "the pill's width");
+
+/** What the whole control block spends, which is the figure that read 78. */
+const switchWidth = (): number => {
+  const box = switchBox();
+  return box[2]! + switchSpan() + box[0]! + switchPill() + box[1]!;
+};
+
+/**
+ * The border `base.css` gives a bare `button`, which is what makes the 88 a sum
+ * of five terms and not of seven.
+ */
+const buttonBorder = (): number => {
+  const css = source('src/ui/base.css');
+  const at = css.indexOf('button {');
+  if (at === -1) throw new Error('`base.css` no longer declares a bare `button` block');
+  const found = /border: (\d+);/.exec(css.slice(at, at + 300));
+  if (found === null) {
+    throw new Error(
+      '`base.css` no longer zeroes a `button` border. Every switch on the settings screen then ' +
+        'carries one inside its own box, and the control block is wider than the 88 the ' +
+        'docblock states - re-measure the row rather than editing the sum.',
+    );
+  }
+  return Number.parseInt(found[1]!, 10);
+};
+
+/** The 12px either side the conditions overlay pads, inside the safe area. */
+const overlayPadX = (): number =>
+  only(
+    CONDITIONS,
+    /padding: 'max\(\d+px, env\(safe-area-inset-top\)\) (\d+)px max\(/g,
+    "the overlay's horizontal padding",
+  );
+
+/** The dialog's own border - the pixel the retired 337 counted as nothing. */
+const dialogBorder = (): number =>
+  only(
+    CONDITIONS,
+    /border: '(\d+)px solid var\(--line\)',\s*borderTop: '\d+px solid var\(--line\)'/g,
+    "the dialog's border",
+  );
+
+/** The conditions footer's horizontal padding. */
+const footerPadX = (): number =>
+  only(
+    CONDITIONS,
+    /padding: '\d+px (\d+)px \d+px',\s*borderTop: '1px solid var\(--line-soft\)'/g,
+    "the footer's horizontal padding",
+  );
+
+/** The horizontal padding on the dialog's own scroller. */
+const dialogScrollPadX = (): number =>
+  only(
+    CONDITIONS,
+    /className="scroll stack"[^>]*?padding: '0 (\d+)px \d+px'/g,
+    "the dialog scroller's horizontal padding",
+  );
+
+/** A condition card's horizontal padding. */
+const cardPadX = (): number =>
+  only(
+    CONDITIONS,
+    /padding: '\d+px (\d+)px',\s*borderRadius: 'var\(--r3\)',\s*background: 'var\(--app\)'/g,
+    "the condition card's horizontal padding",
+  );
+
+/** A condition card's own border, which the retired enumeration was short of. */
+const cardBorder = (): number =>
+  only(CONDITIONS, /background: 'var\(--app\)',\s*border: `(\d+)px \$\{/g, "the condition card's border");
+
+/** The 12px either side the session list pads a phone with. */
+const listPadX = (): number =>
+  only(
+    'src/ui/gm/SessionList.tsx',
+    /className="scroll stack"[\s\S]{0,200}?padding: phone \? '\d+px (\d+)px \d+px'/g,
+    "the list scroller's phone padding",
+  );
+
+/** The kind stripe down the left edge of a session row. */
+const rowStripe = (): number =>
+  only(ROW, /borderLeft: `(\d+)px solid \$\{SESSION_KIND_COLOR/g, "the row's kind stripe");
+
+/** The row's horizontal padding, off the same declaration `rowPadY` reads. */
+const rowPadX = (): number =>
+  only(ROW, /padding: '\d+px (\d+)px',\s*gap: open/g, "the row's horizontal padding");
+
+/** The open block's horizontal padding, the innermost term of the footer column. */
+const openPadX = (): number =>
+  only(ROW, /gap: \d+, padding: '\d+px (\d+)px \d+px' \}\}>/g, "the open block's horizontal padding");
+
+/**
+ * THE FOUR FILES THAT STATED A WIDTH AND SKIPPED A CONTAINER.
+ *
+ * Its own `describe` and not the GM one above, for the reason the licence
+ * notice has its own: the claim is not a screen. Four docblocks stated a width
+ * as a subtraction and each dropped a container out of the middle of it - a
+ * border, a padding, or both - and each corrected figure is held here against
+ * the containers rather than against itself. There is no table of expected
+ * numbers here either.
+ *
+ * WHAT IS HELD is every term a sentence names and the sum it makes of them, so
+ * a padding that moves turns the docblock red instead of turning it stale.
+ *
+ * WHAT IS NOT HELD, and naming them is the point rather than an apology:
+ * `About.tsx`'s 194 and 341, and the 130.8, 47.6, 112.6, 128.5 and 15.87 in
+ * the same list; `Conditions.tsx`'s 96.88 for `VULNERABLE` and the 42.81 the
+ * card's own docblock derives from a font advance. Those are Chrome at a named
+ * viewport with the shipped faces. 194 is what 339 less that 130.8 button and
+ * the 14px gap leaves, rounded off a `.2`; nothing this file can read produces
+ * 341 at all, which is what a `ch` cap measured in a real font looks like from
+ * here. jsdom has no layout engine, so an assertion over any of them would be
+ * checking this file's own arithmetic. They stay in the docblocks with their
+ * viewport beside them, which is this file's rule from its first paragraph,
+ * and they are listed here so the silence around them is not read as coverage.
+ * Where one sentence mixes the two kinds - `130.8 + 14 + 180 = 324.8` - the
+ * two declared terms are held, the sum is held against what it adds, and the
+ * browser figure is taken as written.
+ */
+describe('the four widths that skipped a container state the containers instead', () => {
+  /*
+   * The session-row footer, which is the deepest chain of the four: page
+   * padding, stripe, panel border, row padding, open block. The correction
+   * this round made to it was one word - "either side" on the open block's 2px
+   * - and a word is exactly the kind of edit that never goes red on its own.
+   */
+  it('costs the session-row footer every container between it and the glass', () => {
+    const said = says(
+      ROW,
+      /inside the (\d+)px this footer has - (\d+) less the list's (\d+)px page padding either side, less the panel's (\d+)px stripe and (\d+)px border and (\d+)px padding either side, less the open block's (\d+)px either side/g,
+      'the footer column and the five containers it subtracts',
+    );
+    expect(
+      said[1],
+      'the footer sentence measures from a glass width this suite does not know. Every verb ' +
+        'width beside it was measured at `PHONE.glass`.',
+    ).toBe(PHONE.glass);
+    expect(
+      said.slice(2),
+      'the footer sentence names a page padding, a stripe, a panel border, a row padding or an ' +
+        'open-block padding that is no longer declared. The four verb widths beside it were ' +
+        'measured inside this column - re-measure the row rather than editing the subtraction.',
+    ).toEqual([listPadX(), rowStripe(), panelBorder(), rowPadX(), openPadX()]);
+    expect(
+      said[0],
+      'the footer column is no longer what its own five terms take off the glass',
+    ).toBe(
+      PHONE.glass - 2 * listPadX() - rowStripe() - panelBorder() - 2 * rowPadX() - 2 * openPadX(),
+    );
+    /*
+     * The armed footer spends the same column twenty lines further down, and
+     * two copies of one figure in one file is the defect the header of this
+     * file names. Held to each other rather than to a number.
+     */
+    const armed = says(ROW, /= (\d+) of (\d+), so arming the row/g, "the armed footer's column");
+    expect(
+      armed[1],
+      'the armed footer and the resting footer state different columns. They are one claim said ' +
+        'twice - re-measure and change both.',
+    ).toBe(said[0]);
+  });
+
+  /*
+   * The drag handle, where the defect was a mixed frame rather than a missing
+   * term: x309-353 was measured from the panel's content box while every other
+   * `x` in this repo is measured from the glass. What is holdable is the 21px
+   * that converts one to the other, and that the range beside it is what the
+   * conversion produces.
+   *
+   * The 309 and the 353 it converts are NOT held, and that is this file's
+   * header taken at its word rather than an omission: it argues that a second
+   * copy of `SessionRow.tsx`'s 353 here is the defect this file exists for.
+   * They are not left bare either - every term 353 is made of is held by the
+   * footer test above, which subtracts through the same page padding, stripe,
+   * panel border and row padding on its way to 349. Move any of them and that
+   * test goes red next to these two numbers.
+   */
+  it('puts the drag handle on the glass, with the offset on the declarations', () => {
+    const glass = says(ROW, /\*\*x(\d+)-(\d+) on the glass of a 393px phone\*\*/g, "the handle's glass range");
+    const said = says(
+      ROW,
+      /content box starts (\d+)px in - the (\d+)px either side of the list scroller's phone padding in `SessionList\.tsx`, this row's own `borderLeft: (\d+)px solid` stripe and the (\d+)px either side of its `padding: '4px 6px'` - so (\d+) \+ (\d+) = (\d+) and (\d+) \+ (\d+) = (\d+)/g,
+      'the panel inset and the two conversions off it',
+    );
+    expect(
+      said.slice(1, 4),
+      'the inset names a page padding, a stripe or a row padding that is no longer declared',
+    ).toEqual([listPadX(), rowStripe(), rowPadX()]);
+    expect(
+      said[0],
+      "the panel's content box no longer starts where the list's padding, this row's stripe and " +
+        'its own padding put it',
+    ).toBe(listPadX() + rowStripe() + rowPadX());
+    expect(
+      [said[4], said[7]],
+      'the two conversions no longer add the inset the sentence has just derived',
+    ).toEqual([said[0], said[0]]);
+    expect(
+      [said[4]! + said[5]!, said[7]! + said[8]!],
+      'the arithmetic in the parenthesis does not make the two numbers it states',
+    ).toEqual([said[6], said[9]]);
+    expect(
+      glass,
+      'the handle range on the glass is no longer what the conversion beside it produces, which ' +
+        'is the two frames mixed again - the defect that parenthesis exists to record.',
+    ).toEqual([said[6], said[9]]);
+  });
+
+  /*
+   * The conditions footer. 337 counted the dialog's border as nothing, and the
+   * file had already recorded the answer thirty-five lines above as a measured
+   * rect - so the derivation and the measurement are held to each other here
+   * as well as to the declarations.
+   */
+  it('costs the conditions footer the overlay, the dialog border and its own padding', () => {
+    const said = says(
+      CONDITIONS,
+      /column is (\d+)px wide - (\d+) less the (\d+)px either side of the overlay's .*?, less the (\d+)px either side of the dialog's .*?, less the (\d+)px either side of the footer's own/g,
+      'the footer column and the three containers it subtracts',
+    );
+    expect(said[1], 'the footer sentence measures from a glass width this suite does not know').toBe(
+      PHONE.glass,
+    );
+    expect(
+      said.slice(2),
+      "the footer sentence names an overlay padding, a dialog border or a footer padding that is " +
+        'no longer declared. The 98px tab pitch it is compared against does not move, so this ' +
+        'is the half of the comparison that has to be re-derived.',
+    ).toEqual([overlayPadX(), dialogBorder(), footerPadX()]);
+    expect(
+      said[0],
+      'the conditions footer column is no longer what its own three terms take off the glass',
+    ).toBe(PHONE.glass - 2 * overlayPadX() - 2 * dialogBorder() - 2 * footerPadX());
+    const armed = says(
+      CONDITIONS,
+      /recorded under `Where the commit is instead, measured armed in Chrome` as `(\d+)x44 at x(\d+)-(\d+)`, and \d+ - \d+ is (\d+)/g,
+      'the measured armed rect the correction was checked against',
+    );
+    expect(
+      [armed[0], armed[2]! - armed[1]!, armed[3]],
+      'the rect this file measured in Chrome and the column its declarations derive no longer ' +
+        'agree. One of the two is stale, and the browser is the one that decides which.',
+    ).toEqual([said[0], said[0], said[0]]);
+  });
+
+  /*
+   * The condition card, two containers deeper than the footer. Its 311 was
+   * right and its enumeration was one term short - the card's own border - so
+   * what is held is the enumeration, not just the total.
+   */
+  it('enumerates every container between a condition card and the glass', () => {
+    const said = says(
+      CONDITIONS,
+      /card's content box is (\d+)px \((\d+) of dialog.*?the (\d+) less the (\d+)px either side of the overlay's.*?less the (\d+)px either side of the dialog's.*?less the (\d+)px either side of the scroll's.*?less the (\d+)px either side of the card's own `padding.*?less the (\d+)px either side of the card's own `border`\)/g,
+      "the card's content box and the five containers it subtracts",
+    );
+    expect(said[2], 'the card sentence measures from a glass width this suite does not know').toBe(
+      PHONE.glass,
+    );
+    expect(
+      said.slice(3),
+      "the card sentence names an overlay padding, a dialog border, a scroller padding, a card " +
+        "padding or a card border that is no longer declared. `VULNERABLE` at 96.88 and the 44px " +
+        'floor beside it were measured in this box.',
+    ).toEqual([overlayPadX(), dialogBorder(), dialogScrollPadX(), cardPadX(), cardBorder()]);
+    expect(
+      said[1],
+      "the dialog's outer width is no longer the glass less the overlay's padding",
+    ).toBe(PHONE.glass - 2 * overlayPadX());
+    expect(
+      said[0],
+      "the card's content box is no longer what its own five terms leave",
+    ).toBe(
+      PHONE.glass -
+        2 * overlayPadX() -
+        2 * dialogBorder() -
+        2 * dialogScrollPadX() -
+        2 * cardPadX() -
+        2 * cardBorder(),
+    );
+  });
+
+  /*
+   * The GM-tools switch row, which is the one that skipped two containers at
+   * once and then spent the difference twice. Held term by term, because the
+   * two numbers that were wrong - 78 and 277 - were each wrong by a different
+   * missing term and a total would have hidden that.
+   */
+  it('spends the settings column through `Rows`, `Field` and `Switch`', () => {
+    const column = says(
+      SETTINGS,
+      /settings column is (\d+) − (\d+) = (\d+) - the (\d+)px either side of this file's own scroller/g,
+      'the settings column',
+    );
+    expect(column[0], 'the settings column is measured from a glass width this suite does not know').toBe(
+      PHONE.glass,
+    );
+    expect(column[3], 'the settings scroller no longer pads a phone by the figure named here').toBe(
+      settingsPadX(),
+    );
+    expect(
+      [column[1], column[2]],
+      'the settings column is no longer the glass less its own scroller either side',
+    ).toEqual([2 * settingsPadX(), PHONE.glass - 2 * settingsPadX()]);
+
+    const box = says(
+      SETTINGS,
+      /content box is that less the (\d+)px either side of `Rows`' `border[^`]*` and the (\d+)px either side of `Field`'s `padding: '13px 14px'`, = (\d+)/g,
+      "the field's content box",
+    );
+    expect(
+      box.slice(0, 2),
+      "the row names a `Rows` border or a `Field` padding neither component declares. These two " +
+        'are the containers the retired 78 and 277 skipped - if either moved, the row was ' +
+        're-laid out and wants re-measuring.',
+    ).toEqual([rowsBorder(), fieldPadX()]);
+    const field = PHONE.glass - 2 * settingsPadX() - 2 * rowsBorder() - 2 * fieldPadX();
+    expect(box[2], "the field's content box is no longer what its own terms leave").toBe(field);
+
+    const block = says(
+      SETTINGS,
+      /control block spends (\d+): `Switch`'s own `padding: '0 (\d+)px 0 (\d+)px'` and `gap: (\d+)` around its `width: (\d+)` ON\/OFF span and its `width: (\d+)` pill/g,
+      'the control block and its five terms',
+    );
+    const sw = switchBox();
+    expect(
+      block.slice(1),
+      '`Switch` no longer declares the padding, gap, span width or pill width this sentence ' +
+        'names, so the 88 it adds up to is stale.',
+    ).toEqual([sw[1], sw[2], sw[0], switchSpan(), switchPill()]);
+    expect(block[0], 'the control block is no longer the sum of the five terms beside it').toBe(
+      switchWidth(),
+    );
+    expect(
+      buttonBorder(),
+      '`base.css` no longer zeroes a bare `button` border, so every switch carries one inside ' +
+        'its own box and the control block is 2px wider than the sentence says.',
+    ).toBe(0);
+
+    const rest = says(
+      SETTINGS,
+      /take the remaining (\d+), across the `gap: (\d+)` of the flex line/g,
+      'the label column',
+    );
+    expect(rest[1], '`Field` no longer declares the gap this sentence spends').toBe(fieldGap());
+    expect(
+      rest[0],
+      'the label column is no longer the field box less the control block and the row gap',
+    ).toBe(field - switchWidth() - fieldGap());
+
+    const fit = says(
+      SETTINGS,
+      /the text block's `flex: '1 1 (\d+)px'` basis plus (\d+) plus (\d+) is (\d+), inside (\d+)/g,
+      'the one-line fit check',
+    );
+    expect(
+      fit.slice(0, 3),
+      'the fit check adds a basis, a gap or a control block none of these components declares',
+    ).toEqual([fieldBasis(), fieldGap(), switchWidth()]);
+    expect([fit[3], fit[4]], 'the fit check no longer adds up to what it states').toEqual([
+      fieldBasis() + fieldGap() + switchWidth(),
+      field,
+    ]);
+    expect(
+      fit[3]!,
+      'the switch row no longer fits on one line at `PHONE.glass`, so the whole paragraph - ' +
+        'which argues that the sentence gets the width because the row is read before it is ' +
+        'touched - is about a layout this build does not draw.',
+    ).toBeLessThanOrEqual(fit[4]!);
+
+    expect(
+      says(SETTINGS, /the switch keeps a fixed (\d+)/g, "the switch's fixed width")[0],
+      'the paragraph closes on a different fixed width from the one it derived',
+    ).toBe(switchWidth());
+
+    /*
+     * The `62ch` is the one thing left of a deleted clause. "About 44
+     * characters a line, inside the 62ch maximum" was cut rather than
+     * re-derived at 237, because a character count is a browser result; the
+     * cap itself is a declaration, and this is what holds it.
+     */
+    expect(
+      says(SETTINGS, /`maxWidth: '(\d+)ch'` on the hint `Field` draws/g, 'the hint cap')[0],
+      'the docblock names a `ch` cap the hint no longer declares. It is the only half of the ' +
+        'retired character-count clause that was keepable - if the cap moved, the sentence has ' +
+        'nothing left to stand on.',
+    ).toBe(hintCap());
+  });
+
+  /*
+   * The reset row at 375, where the premise argued against its own conclusion:
+   * 324.8 fits in the 349 the docblock claimed and does not fit in the 321 the
+   * containers make, and it is the wrap that was measured. Both numbers are
+   * held - the live 321 and the retired 349 - because 349 is a real box one
+   * container out, and a sweep that met it again without this would "correct"
+   * the wrong one.
+   */
+  it('states the 375px wrap premise as the containers that make it', () => {
+    const record = says(
+      ABOUT,
+      /\*\*(\d+), not the (\d+) that stood here\.\*\* \d+ is the `Rows` content box one container out - (\d+) less the (\d+)px either side of the settings scroller's phone `padding: '12px 12px 28px'` in `Settings\.tsx`, less the (\d+)px either side of `Rows`' own `border[^`]*` - and this flex line lives one container in, inside the (\d+)px either side of `Field`'s `padding: '13px 14px'`, so it is (\d+)/g,
+      'the record of the retired 349 and the containers behind the 321',
+    );
+    expect(
+      record.slice(3, 6),
+      'the record names a scroller padding, a `Rows` border or a `Field` padding that is no ' +
+        'longer declared',
+    ).toEqual([settingsPadX(), rowsBorder(), fieldPadX()]);
+    const narrow = record[2]!;
+    const rows = narrow - 2 * settingsPadX() - 2 * rowsBorder();
+    const line = rows - 2 * fieldPadX();
+    expect(
+      record[1],
+      'the retired 349 is no longer the `Rows` box at this width, so the record no longer says ' +
+        'what the old number was. It was a real box one container out, which is why it is kept.',
+    ).toBe(rows);
+    expect(
+      [record[0], record[6]],
+      'the flex line at this width is no longer what `Rows` and `Field` leave inside the column',
+    ).toEqual([line, line]);
+
+    const premise = says(
+      ABOUT,
+      /(\d+\.\d) \+ (\d+) \+ (\d+) = (\d+\.\d) does not fit in a (\d+)px row/g,
+      'the 375px wrap premise',
+    );
+    expect(
+      premise.slice(1, 3),
+      'the premise adds a gap or a basis `Field` no longer declares',
+    ).toEqual([fieldGap(), fieldBasis()]);
+    expect(premise[3], 'the premise no longer adds up to what it states').toBeCloseTo(
+      premise[0]! + premise[1]! + premise[2]!,
+      5,
+    );
+    expect(premise[4], 'the premise measures against a row width the containers do not make').toBe(
+      line,
+    );
+    expect(
+      premise[3]!,
+      'the premise no longer argues for the wrap it is the premise of. This is the exact defect ' +
+        'it was corrected for: 324.8 fits in the 349 that stood here and does not fit in the ' +
+        '321 the containers leave, and the wrap is the thing that was measured in Chrome.',
+    ).toBeGreaterThan(premise[4]!);
+    expect(
+      says(ABOUT, /the hint has the full (\d+)px/g, 'the hint column at 375')[0],
+      'the hint is given a column the containers no longer leave',
+    ).toBe(line);
   });
 });

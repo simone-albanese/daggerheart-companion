@@ -81,7 +81,7 @@
  * verbs are 62 + 69 + 83 + 62 and lay out on one 44px line inside the 349px
  * this footer has - 393 less the list's 12px page padding either side, less
  * the panel's 3px stripe and 1px border and 6px padding either side, less the
- * open block's 2px.
+ * open block's 2px either side.
  *
  * **RENAME leaves while DELETE is armed, and that is the measurement's doing.**
  * "TAP AGAIN TO DELETE" is 153px where DELETE is 62. Today that still fits on
@@ -355,12 +355,33 @@ export function SessionRow({
       </button>
 
       {/*
-        The handle is at the right edge of every row - x 309-353 on a 393px
-        phone - which is the easiest horizontal reach for a right thumb across
-        the whole column, and where iOS has put this control since it invented
-        it. It is a sibling of the disclosure and not inside it, because a
-        button may not contain a button; of the panel's 353px content box the
-        header keeps 303, the gap takes 6, and these last 44 are the handle.
+        The handle is at the right edge of every row - **x330-374 on the glass
+        of a 393px phone** - which is the easiest horizontal reach for a right
+        thumb across the whole column, and where iOS has put this control since
+        it invented it. It is a sibling of the disclosure and not inside it,
+        because a button may not contain a button; of the panel's 353px content
+        box the header keeps 303, the gap takes 6, and these last 44 are the
+        handle.
+
+        (**x330-374, not the x309-353 that stood here.** 309-353 was measured
+        from the left of the panel's content box, and every other `x` range in
+        this repo is measured from the left of the glass: `Conditions.tsx`'s
+        `landed on CLEAR ALL, at x283.6-364`, `GearPicker.tsx`'s
+        `chip's box was x324.30-368.30`, `Vitals.tsx`'s `door x267 at 393`.
+        Mixing the two frames is the defect `playSheet.test.tsx` names in as
+        many words, in the numbered item that opens «a right edge of 364.61 in
+        a 369px column»: "364.61 is an offset from the left of the glass and
+        369 is a width". The panel's content box starts 21px in - the 12px
+        either side of the list scroller's phone padding in `SessionList.tsx`,
+        this row's own `borderLeft: 3px solid` stripe and the 6px either side
+        of its `padding: '4px 6px'` - so 21 + 309 = 330 and 21 + 353 = 374.
+        The sentence beside it keeps the panel frame because it names the
+        frame.
+
+        Named by declaration and by quoted fragment rather than by line, because
+        four of those five files belong to other passes and a line number in one
+        of them is stale as soon as anybody inserts above it. The 21 is held in
+        `gmGeometryProse.test.ts` against the three declarations that make it.)
 
         `touch-action: none` is on this square alone, 12% of the row's width,
         so the other 88% still scrolls the list under the same thumb.

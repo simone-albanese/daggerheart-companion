@@ -672,9 +672,27 @@ export function ConditionsControl(): React.JSX.Element | null {
  *
  * *Move CLEAR ALL out of the row it shares with CLOSE.* There is nowhere to
  * move it to. Four tabs across 393px is a 98px pitch and the footer's content
- * column is 337px wide, so any control wide enough to read contains a tab
- * centre; the only axis with room is the vertical one, which is the axis this
- * fix uses.
+ * column is 335px wide - 393 less the 12px either side of the overlay's
+ * `padding: 'max(12px, env(safe-area-inset-top)) 12px ...'`, less the 1px
+ * either side of the dialog's `border: '1px solid var(--line)'`, less the 16px
+ * either side of the footer's own `padding: '10px 16px 14px'` - so any control
+ * wide enough to read contains a tab centre; the only axis with room is the
+ * vertical one, which is the axis this fix uses. (**335, not the 337 that
+ * stood here**, and this file already had the answer: the armed commit is
+ * recorded under `Where the commit is instead, measured armed in Chrome` as
+ * `335x44 at x29-364`, and 364 - 29 is 335. The 337 counted the dialog's
+ * `border: 1px solid` as nothing; only the 4px `borderTop` beside it is
+ * vertical-only.)
+ *
+ * Each of the three terms taken off the 393 is named by its declaration rather
+ * than by a line, and that is a correction rather than a style: a line number
+ * into a file still being edited is wrong by the time it is read, and the three
+ * this paragraph could have carried would all have landed on the wrong
+ * declaration by the end of the same sitting. Nothing in git shows that, which
+ * is the point - the damage lands inside one commit and leaves no trace to
+ * check. `gmGeometryProse.test.ts` holds the column against
+ * those three declarations and against the measured rect above, so moving any
+ * of them turns this sentence red.
  *
  * *Make it undoable instead of confirmable.* Nothing in this app has an undo -
  * `merge.ts`, `ImportConflicts.tsx` and `Edit.tsx` all say so in as many words -
@@ -826,11 +844,18 @@ function ConditionsDialog({
                    * is taken from slack, not from a neighbour. The row is
                    * `.spread`, so the name sits hard left and this sits hard
                    * right; at 393x852 the card's content box is 311px (369 of
-                   * panel, less 2 of border, less 32 of the scroll's padding,
-                   * less 22 of the card's own), the widest name `VULNERABLE`
-                   * is 96.88px at 700/14 Archivo, and 96.88 + 8 + 44 = 148.88
-                   * leaves 162px unspent. At 320 the same sum is 148.88 in a
-                   * 238px box. Nothing reflows and no card grows a pixel.
+                   * dialog - its outer width, not a panel's content box, and
+                   * itself the 393 less the 12px either side of the overlay's
+                   * `padding: 'max(12px, env(safe-area-inset-top)) 12px ...'`
+                   * - less the 1px either side of the dialog's `border: '1px
+                   * solid var(--line)'`, less the 16px either side of the
+                   * scroll's `padding: '0 16px 12px'`, less the 11px either
+                   * side of the card's own `padding: '10px 11px'`, less the 1px
+                   * either side of the card's own `border`), the widest name
+                   * `VULNERABLE` is 96.88px at 700/14 Archivo, and
+                   * 96.88 + 8 + 44 = 148.88 leaves 162px unspent. At 320 the
+                   * same sum is 148.88 in a 238px box. Nothing reflows and no
+                   * card grows a pixel.
                    * **Thumb arc:** these three cards are the top of a scrolling
                    * dialog that fills the glass, so SET travels with the
                    * scroll; what does not travel is the pair below it, and this

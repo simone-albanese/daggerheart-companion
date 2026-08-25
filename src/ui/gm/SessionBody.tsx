@@ -9,26 +9,36 @@
  * shows its own bytes, and a link this dataset cannot resolve says so and shows
  * the ref, instead of rendering nothing and looking like a bug.
  *
- * ## Two arms are placeholders, say so on screen, and live in their own files
+ * ## Two arms live in their own files, and both of them draw
  *
  * `url` and `note` arrived with campaign schema 2 as a *storage* layer - a
- * type, a reader, a writer and an export - and their screens are two later
- * lanes. `UrlArm.tsx` and `NoteArm.tsx` exist because the union is exhaustive
- * and a row that rendered nothing would look exactly like the bug this file was
- * written to prevent. Each draws the value it holds as text and says out loud
- * what it cannot do yet, which is the honest state of the app: the address is
- * stored, exported and re-imported intact, and there is no control on it.
+ * type, a reader, a writer and an export - and for one commit their arms were
+ * placeholders that said so on screen. `UrlArm.tsx` and `NoteArm.tsx` exist
+ * because the union is exhaustive and a row that rendered nothing would look
+ * exactly like the bug this file was written to prevent.
+ *
+ * **Both screens have since landed, and this section described the
+ * placeholders for longer than they existed.** `UrlArm` draws the punycode
+ * address as text and an `<a className="btn">` OPEN IN A NEW TAB built out of
+ * `externalLinkAttrs`, carrying a `minHeight: 44` of its own - a control,
+ * which is why the Targets paragraph below counts it and why the whole-screen
+ * sweep had to be taught to see an anchor. It still says the one thing that is
+ * a limitation rather than a gap: it is the only control on the row that
+ * leaves the app, and it needs a tap. `NoteArm` walks the block format -
+ * headings, paragraphs and bullets, spans drawn as `<strong>`/`<em>` - and
+ * builds no markup out of any string, which is the property the format was
+ * chosen for.
  *
  * **Those two arms are files and the other five are not, and that is about the
- * schedule rather than about the code.** Both are replaced wholesale, by two
- * *separate* lanes; in here they were one region with no section rule between
- * them, so those two lanes would have been rewriting adjacent halves of one
- * region of one file with nothing else in common. A file each is a merge. The
- * scene, encounter, link, countdown and unreadable arms are not being replaced
- * by anybody, so moving them too would have been churn dressed up as symmetry -
- * and they are the arms the rest of this header is about, which is the second
- * reason they stayed. What is left here is the dispatch: the switch below still
- * answers every kind, and the two `case` lines now name imports.
+ * schedule rather than about the code.** They were the pair a *separate* lane
+ * each replaced wholesale; in here they were one region with no section rule
+ * between them, so those two lanes would have been rewriting adjacent halves of
+ * one region of one file with nothing else in common. A file each was a merge.
+ * The scene, encounter, link, countdown and unreadable arms were not being
+ * replaced by anybody, so moving them too would have been churn dressed up as
+ * symmetry - and they are the arms the rest of this header is about, which is
+ * the second reason they stayed. What is left here is the dispatch: the switch
+ * below still answers every kind, and the two `case` lines name imports.
  *
  * ## The plan is not the table, and the row says so
  *
@@ -103,9 +113,71 @@
  *
  * ## Targets
  *
- * Every control in this file declares 44 or `var(--tap)` inline. The widest
- * thing any arm draws is full-width; the one piece of foreign text on the
- * screen - the unreadable row's raw JSON, one unbroken line as
+ * Every control this file draws itself declares 44 or `var(--tap)` inline, and
+ * so does every control it draws by mounting a component from another file.
+ * There are four of those, and enumerating them is the point of the sentence:
+ * `UrlArm`'s OPEN IN A NEW TAB anchor, `EnvironmentBlock`'s SET ACTIVE toggle
+ * in `StatBlock.tsx`, `Fold`'s header on the countdown arm, and the pressable
+ * cells of `CountdownChart` folded under that header. The rest of what this
+ * file mounts draws no control at all: `Fact`, `NoteArm`, `BlockView` and
+ * `AdversaryBlock` are print, and `DomainCardView`'s overlay button exists
+ * only where it is handed an `onOpen`, which the `card` link arm here
+ * deliberately does not. Said out loud rather than left implied, because that
+ * sentence used to be checkable by reading this file and is not any more.
+ *
+ * The sweep is not automatically safe from a borrowed control, and two of the
+ * four above proved it - and then a control this file draws itself proved the
+ * same thing again. `tests/gm/sessionList.test.tsx` reads the declared floor
+ * off whichever element it finds, whichever file wrote it, but it only ever
+ * saw a subset of them: the elements matching `<button>` that were in the DOM
+ * at the moment it counted. One half hid one control, and the other half hid
+ * two.
+ *
+ * *In the DOM.* The chart's cells are behind a `Fold` that starts shut, so a
+ * sweep that runs "with every row open" still could not see them, until it was
+ * taught to click the folds open before counting.
+ *
+ * *A `<button>`.* Two of the controls on this screen are not one, and the
+ * sentence that stood here counted one. `UrlArm`'s OPEN IN A NEW TAB is an
+ * anchor - `UrlArm.tsx` draws `<a className="btn">` with a `minHeight: 44` of
+ * its own - so it declared its floor into a sweep whose selector could not
+ * read it, and the fixture drew no `url` row to put it on the screen in the
+ * first place. The other is `SceneArm`'s environment `<select>` a little way
+ * below this header, which declares `var(--tap)` and has been on the swept
+ * screen since the first fixture: the sweep was widened to `button, a` on the
+ * strength of a sentence calling the anchor the only non-button here, and the
+ * select went on hiding behind that comma. The selector names every tag that
+ * can carry a control now, and a shrunk control shows why either way - at
+ * `minHeight: 30` the narrower selector stays green over it and the wider one
+ * names it.
+ *
+ * **And the set is no longer enumerated by hand - as far as the mechanism
+ * reaches.** `floorsOutsideTheSweep`, in `tests/gm/sessionList.test.tsx`,
+ * walks the rendered screen for elements whose *inline* `style.minHeight` is a
+ * length its `px` helper resolves - a plain number, or one of the three tokens
+ * that helper knows: `--tap`, `--control`, `--pip-h` - and asserts, as an
+ * exact list, which of those its own selector cannot reach: one element,
+ * `DomainCardView`'s card body, which is print and declares a floor so a row
+ * of cards ends level. That is a mechanism rather than a promise, and the
+ * three things it does not see are worth saying rather than rounding off.
+ *
+ * A floor declared in a stylesheet is invisible to it: `.btn` and the
+ * `input, textarea, select` rule, both in `base.css`, carry a `min-height`
+ * that no `style` attribute has to repeat, and the two borrowed controls above
+ * are readable only because they do repeat it - `UrlArm`'s anchor is
+ * `<a className="btn">` with a `minHeight: 44`, and `SceneArm`'s select
+ * declares `var(--tap)` in its own `style`. A floor declared through any other
+ * custom property reads as zero. And nothing the fixture does not render
+ * counts at all, which is why `openEverything` clicks the chart's fold open
+ * and seeds the `url` row, then asserts after each that the control arrived.
+ *
+ * So the set is read off the screen rather than off a sentence, and the screen
+ * is still the fixture's. That is the general form of both failures above: a
+ * whole-screen sweep is only as wide as its selector and its fixture, and
+ * neither is a thing this file can be read to check.
+ *
+ * The widest thing any arm draws is full-width; the one piece of foreign text
+ * on the screen - the unreadable row's raw JSON, one unbroken line as
  * `JSON.stringify` produced it - is wrapped and given its own horizontal
  * scroller, because a `<pre>` of it at 393px is the one element that could make
  * the whole page scroll sideways. The SRD tables that arrive with a rule link
@@ -121,11 +193,12 @@ import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
 import { DomainCardView } from '../shared/DomainCardView.tsx';
+import { Fold } from '../shared/Fold.tsx';
 import { damageBumpRule } from '../shared/ruleText.ts';
 import { ruleSection } from '../shared/srdReference.ts';
 import { Fact } from './Fact.tsx';
 import { NoteArm } from './NoteArm.tsx';
-import { BlockView } from './ReferenceTables.tsx';
+import { BlockView, CountdownChart } from './ReferenceTables.tsx';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { UrlArm } from './UrlArm.tsx';
 import { useGm } from './gmStore.ts';
@@ -711,6 +784,60 @@ function CountdownArm({
           RESET
         </button>
       </div>
+
+      {/*
+        The chart, on the surface a GM opens because they are thinking about
+        this clock - and it is `Countdowns.tsx`'s chart, not a second one.
+        `CountdownChart` is given the countdown and calls the same
+        `advanceCountdown` the − above calls, with the same sign, so a cell
+        pressed here moves this clock toward zero and moves nothing else. Two
+        drawings of one table is how one of them goes wrong; two *sources* for
+        which cells are pressable is how the four cells the SRD gives no number
+        for quietly become buttons on one screen and not the other.
+
+        Dynamic and nothing else, which is the board's answer and has to be.
+        `Countdowns.tsx` gives a standard, loop or long-term row no fold at all
+        - the chart is the rule for dynamic countdowns, and offering it
+        anywhere else would be the row claiming a rule that is not about it.
+        The kinds are the same records on both screens; the two surfaces
+        disagreeing about which of them the rule covers would be worse than
+        either answer on its own.
+
+        Under the −/value/+ row and above the two verbs, for the reason the
+        board gives for the same placement: the gesture of the scene keeps its
+        position and its floor. The price is paid by PIN IT TO THE TOP BAR and
+        OPEN FEAR AND COUNTDOWNS, which sit one shut fold lower on a dynamic
+        row - they are the controls that leave this row rather than the ones
+        aimed at while somebody is still talking, and the chart belongs with
+        the number it changes. How far down that puts them, and whether the
+        open chart is reachable one-handed once it is inside a session row, is
+        a browser measurement this lane did not make and `PROGETTO-GM` §7 lists
+        as owed. The column is a different one either way: `CountdownChart`'s
+        own ergonomics paragraph costs its two shipped columns inside a
+        `CountdownRow` article, and this is the open block of a `SessionRow`
+        panel, whose stripe, border and padding `SessionRow.tsx` costs and this
+        file deliberately does not restate.
+
+        The row's name is on the fold's header for a screen reader and not on
+        the glass. `Fold` names its button with the words it draws, so a night
+        with two dynamic clocks open would put two identical ADVANCE BY A ROLL
+        disclosures in the rotor - the defect `Verb` and the roster disclosure
+        above each spend an `aria-label` on. `summary` takes a node, so the
+        name goes in `sr-only` beside the stamp rather than into a label the
+        board would then have to draw too.
+      */}
+      {c.kind === 'dynamic' && (
+        <Fold
+          label="ADVANCE BY A ROLL"
+          summary={
+            <>
+              SRD 1.0<span className="sr-only"> — {row}</span>
+            </>
+          }
+        >
+          <CountdownChart countdown={c} />
+        </Fold>
+      )}
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button

@@ -304,6 +304,12 @@ Each step names what would prove it. Steps 1 and 3 are independent and can run i
 
 ### Step 2 — The bar stays on the glass *(the gate)*
 
+> **DONE, 24 August 2026, on `schema-wave-v3`.** Everything below describes the state before
+> the fix and is kept as the record of why it was made. The tools now mount `absolute; inset: 0`
+> inside a `relative` band between the two bars, `useDialog` no longer traps, and `aria-modal`
+> is off the twelve. The present tense below is no longer true of the code. See
+> `WAVE3-2026-08-24.md` §5.
+
 `GmSheet` mounts every tool at `size="full"` ✓ — `position: fixed; inset: 0; z-index: 30`, a 55% backdrop, a panel from `env(safe-area-inset-top)+8px` to the bottom. `GmTopBar` and `GmBar` are in normal flow underneath, and `useDialog` traps Tab. **So while the live scene is open, Fear, the pinned countdown, MENU, ADD, SHOW and SAVE are all covered and keyboard-unreachable** — and `FearPool.tsx`'s own docblock asserts the opposite as the reason it exists. That sentence was true before P5-2 made tools dialogs; nothing was moved, and no test asserts it.
 
 This is a constraint for the Layout B lane, not a redesign of Layout B: **whatever THE NIGHT is, it cannot be a `size="full"` modal**, because that is the thing that takes the Fear pool off the glass. Everything live in step 4 is blocked on it.
@@ -393,7 +399,7 @@ One five-button bar on THE NIGHT. `gmStore` gains one action. Applies Fear +1 on
 
 ## 2. Under Layout B, is THE NIGHT a tab that keeps the Fear pool, the pinned countdown and ADD/SHOW/SAVE on the glass — or does the live scene stay a full-screen modal?
 
-**Perché:** Verified in the CSS: every GM tool mounts at `position: fixed; inset: 0; z-index: 30` with `useDialog` trapping Tab, so while the scene is open Fear is covered and keyboard-unreachable — and `FearPool.tsx`'s docblock asserts the opposite as the reason the bar exists. That sentence was true before P5-2 and was never revisited. It costs three gestures per Fear spend, forty-odd times an evening, and it blocks the roll-outcome bar entirely (the bar fires on every roll and lands its effects on three regions, so it must act without navigating). No test asserts it, which is why it went unnoticed. Layout B is being designed by another workflow right now, so this needs to reach them as a constraint before they finish.
+**Perché:** *(Answered and fixed on 2026-08-24; this records the reasoning, not the code.)* Verified in the CSS at the time: every GM tool mounted at `position: fixed; inset: 0; z-index: 30` with `useDialog` trapping Tab, so while the scene is open Fear is covered and keyboard-unreachable — and `FearPool.tsx`'s docblock asserts the opposite as the reason the bar exists. That sentence was true before P5-2 and was never revisited. It costs three gestures per Fear spend, forty-odd times an evening, and it blocks the roll-outcome bar entirely (the bar fires on every roll and lands its effects on three regions, so it must act without navigating). No test asserts it, which is why it went unnoticed. Layout B is being designed by another workflow right now, so this needs to reach them as a constraint before they finish.
 
 - **A tab. Hand this to the Layout B lane as a hard constraint: THE NIGHT is not a modal, and the bar stays on the glass beneath it.** **(consigliata)** — The correct end state and the one Layout B was chosen for. Everything live — the outcome bar, the Fear ledger, the rest control, the death prompt — unblocks. Cost: step 4 of the build order waits for Layout B to land.
 - **A tab, plus a minimal fix now so the pulse is not blocked — raise `GmBar` above the sheet, or make the scene region non-modal ahead of the tab work.** — Unblocks the highest-value build immediately and the fix is thrown away when Layout B lands. Risk: it is work in territory another workflow is actively designing, and two hands on the same layout is how a merge conflict becomes a design conflict.

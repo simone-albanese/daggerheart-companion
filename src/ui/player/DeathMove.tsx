@@ -15,6 +15,33 @@
  *
  * The three options and their exact wording come from the dataset, not from
  * memory.
+ *
+ * AND THE DICE ARE NOT THIS FILE'S TO ROLL EITHER. Both rolling options called
+ * into `engine/death.ts` with its defaulted `cryptoRng` and read no preference
+ * at all, so a table that had turned the roller off in Settings - or answered
+ * "Real dice, and the app stays out of it" in Onboarding - still got a button
+ * that rolled a d12 for the one roll in this game you cannot take back. The
+ * engine had no door: `avoidDeath` and `riskItAll` took an `Rng` and had no
+ * `fixed` at all, so there was nowhere to put a face even if this file had
+ * wanted to. Both take one now, in `engine/dice.ts`'s own shape, and both roads
+ * here are `rollAffordance`'s to open: `canRoll` draws the roll button,
+ * `canType` draws the faces, both on draws both, and neither draws the sentence
+ * naming the switch.
+ *
+ * TWO RULES PULL AGAINST EACH OTHER ON THIS SCREEN AND THIS IS HOW THEY WERE
+ * SETTLED. A player must never be shown a death result composed of a number
+ * they did not enter, and must never be unable to record the number their own
+ * die showed. They meet on the Fear Die of Avoid Death, which `rollDuality`
+ * rolls and `AvoidDeathRoll` throws away: recording it would be asking for a
+ * die nobody rolled, and rolling it would be the app touching dice at a table
+ * that told it not to. The engine short-circuits it - see `avoidDeath` - so
+ * neither happens: one typed number is the whole roll, and this file hands the
+ * typed paths an `Rng` that throws to prove it.
+ *
+ * WHAT IS REFUSED IS THE ROLL, NOT THE MOVE. With both switches off the three
+ * options are still listed, still carry the SRD's text, and Blaze of Glory -
+ * which rolls nothing - still works end to end. Only the two dice are missing,
+ * and the line says which switch would bring them back.
  */
 import { useMemo, useState } from 'react';
 import {
@@ -29,13 +56,41 @@ import {
   type DeathMoveId,
   type RiskItAllRoll,
 } from '../../engine/death.ts';
+import type { Rng } from '../../engine/dice.ts';
 import { hasFallen } from '../../engine/damage.ts';
 import { normalizeActive, useActive, useApp } from '../../store/state.ts';
 import { useDialog } from '../shared/useDialog.ts';
 import { MAX_NAMED, useConditions, useConditionsFor } from './conditionsStore.ts';
+// The same helper the roll control computes for itself (`DualityRoll.tsx:926`)
+// and the damage row is handed (`DamageRoll.tsx:288`), read here rather than
+// reasoned out again from the two switches it is made of.
+import { rollAffordance, type RollAffordance } from './DualityRoll.tsx';
 import { paragraphs, ruleBullets } from '../shared/ruleText.ts';
 
 const ORDER: DeathMoveId[] = ['blaze', 'avoid', 'risk'];
+
+/** A d12, which is what both of these moves are made of. */
+const D12 = 12;
+
+/**
+ * The `Rng` a typed death move is handed, which must never be consulted.
+ *
+ * It throws rather than returning a number, because what it guards is silent:
+ * `avoidDeath` short-circuits on a typed Hope Die and `riskItAll` needs both
+ * faces before `rollDuality` stops reaching for a die, so an edit that drops a
+ * field from either call - or a control that lets a blank through - would go
+ * back to rolling a d12 for a table that switched the roller off, and nothing
+ * on the screen would say so. `Rest.tsx` guards its preview the same way and
+ * for the same reason. Nothing can reach it as written: every typed path is
+ * behind a control that is disabled until every face it needs is a face.
+ */
+const neverRolls: Rng = () => {
+  throw new Error('a typed death move must not roll dice');
+};
+
+/** A face a d12 can show. The surface validates; the engine takes the number. */
+const isFace = (value: string): boolean =>
+  /^\d+$/.test(value.trim()) && Number(value) >= 1 && Number(value) <= D12;
 
 const MATCHES: Record<DeathMoveId, string> = {
   blaze: 'blaze',
@@ -132,12 +187,25 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
   const update = useApp((s) => s.update);
   const pushLog = useApp((s) => s.pushLog);
   const rules = useDeathRules();
+  const digitalDice = useApp((s) => s.prefs.digitalDice);
+  const manualDice = useApp((s) => s.prefs.manualDice);
+  const affordance = rollAffordance(digitalDice, manualDice);
 
   const [phase, setPhase] = useState<Phase>('choose');
   const [avoid, setAvoid] = useState<AvoidDeathRoll | null>(null);
   const [risk, setRisk] = useState<RiskItAllRoll | null>(null);
   const [split, setSplit] = useState({ hp: 0, stress: 0 });
   const [scarNote, setScarNote] = useState('');
+  /**
+   * The faces the table rolled, as typed.
+   *
+   * Here rather than inside `Avoid` and `Risk` because `back()` is the one
+   * place this dialog admits that a move has been abandoned, and everything a
+   * move produced is let go of there together. Both options draw on the same
+   * pair because both roll d12s; what stops one move reading the other's face
+   * is that leaving a move clears them, not that they are kept apart.
+   */
+  const [typed, setTyped] = useState({ hope: '', fear: '' });
   /** Set once something has actually been written to the character. */
   const [applied, setApplied] = useState<string | null>(null);
   const dialog = useDialog('Death move', onClose);
@@ -150,6 +218,22 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
     setRisk(null);
     setApplied(null);
     setScarNote('');
+    /*
+     * AND THE FACES, WHICH IS THE HALF A FIRST VERSION WOULD LEAVE OUT. This is
+     * the only way out of a move short of closing the dialog, so a face left
+     * standing here is a face the NEXT death move starts holding: type 9 into
+     * Avoid Death, come back, and Risk It All opens with a 9 already in it and
+     * a record button already live, on the one roll in this game that cannot be
+     * taken back. Nothing else on this screen survives `back()` either.
+     */
+    setTyped({ hope: '', fear: '' });
+  };
+
+  /** What a Risk It All result does to this dialog, however it was arrived at. */
+  const land = (result: RiskItAllRoll): void => {
+    setRisk(result);
+    // Hit Points first by default: it is the track that is full.
+    setSplit(splitClear(character, result.clear, { hp: result.clear, stress: result.clear }));
   };
 
   const chosen = phase === 'choose' ? null : rules.option[phase];
@@ -253,7 +337,16 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
                   note={scarNote}
                   setNote={setScarNote}
                   applied={applied}
+                  affordance={affordance}
+                  typed={typed}
+                  setTyped={setTyped}
                   onRoll={() => setAvoid(avoidDeath(character))}
+                  /* One number is the whole roll here, so `neverRolls` is not
+                     a precaution about the Fear Die - the engine does not draw
+                     one when the Hope Die is given. It is the proof. */
+                  onRecord={() =>
+                    setAvoid(avoidDeath(character, neverRolls, { hope: Number(typed.hope) }))
+                  }
                   onScar={() => {
                     const cost = scarCost(character);
                     update((c) => addScar(c, scarNote));
@@ -282,13 +375,18 @@ function DeathMoveDialog({ onClose }: { onClose: () => void }): React.JSX.Elemen
                     setSplit(risk === null ? want : splitClear(character, risk.clear, want))
                   }
                   applied={applied}
+                  affordance={affordance}
+                  typed={typed}
+                  setTyped={setTyped}
                   onRoll={() => {
-                    const result = riskItAll();
-                    setRisk(result);
-                    // Hit Points first by default: it is the track that is full.
-                    setSplit(
-                      splitClear(character, result.clear, { hp: result.clear, stress: result.clear }),
-                    );
+                    land(riskItAll());
+                  }}
+                  /* Both faces or neither: `rollDuality` honours `fixed` one
+                     field at a time, so a Hope Die on its own would leave the
+                     Fear Die on the rng - and `neverRolls` would say so out
+                     loud rather than a d12 appearing beside a typed one. */
+                  onRecord={() => {
+                    land(riskItAll(neverRolls, { hope: Number(typed.hope), fear: Number(typed.fear) }));
                   }}
                   onClear={() => {
                     if (risk === null) return;
@@ -420,19 +518,175 @@ function Die({ value, label, color }: { value: number; label: string; color: str
   );
 }
 
+
+/**
+ * The two roads to a face, and the state where there is neither.
+ *
+ * One component for both moves, because a death move that offered typing on
+ * one option and not the other would be this app disagreeing with itself about
+ * what the switches mean - and because the interesting case is the one nobody
+ * draws twice by hand: both switches off, where there is no control at all and
+ * a sentence has to say which switch is missing.
+ *
+ * The record button is `disabled` until every face it needs is a face, and
+ * that is not the greyed-out ROLL `rollAffordance`'s docblock forbids: this one
+ * is waiting for a number the player is in the middle of typing, not standing
+ * in for a capability the build does not have. It is `DicePools`' SET, in the
+ * one dialog where getting it wrong crosses out a Hope slot. It says what it is
+ * waiting for rather than only refusing, so the words on it change from
+ * "Still to type: FEAR DIE" to "Record 9 and 4" - which is also what makes it
+ * askable by voice, since its name is its contents.
+ *
+ * ERGONOMICS, over this file's own declarations at 393x852. The dialog is
+ * `maxWidth: 520` inside 12px of overlay padding, so the box is 369 wide on
+ * that phone, and its scrolling body pads 18 a side: 333. This panel takes
+ * `padding: '12px 13px'` and a 1px border off that, leaving 305 across, so a
+ * row is a 213px name, an 8px gap and the field's declared 84 - and 84x44
+ * clears the 44px floor in both directions - the failure `DieKeypad`'s
+ * docblock records for its own cockpit keys was width, at 24px, and nothing
+ * here is narrow for the same reason: one field, not a twelve-key grid. Height is 2 of border, 24 of padding, a
+ * 10px `t-label` (tokens.css:559-564), then 8 + 44 per die and 8 + 44 for the
+ * button at `.btn`'s `min-height: var(--tap)` (base.css:318-319): 140px for
+ * Avoid Death's one die and 192 for Risk It All's two, inside a body that
+ * already scrolls. A face no d12 can show adds 8 and a `t-dense` paragraph at
+ * 11.5px/1.38 (tokens.css:540-543) = 15.87 a line, wrapping at the 305 across
+ * computed above; its line count is not stated here, because what it prints
+ * depends on how long the number in the field is. TARGET SIZE is 84x44 for a field and full-width x44 for
+ * both buttons. THUMB ARC: the fields sit above the button that consumes them
+ * and below the SRD text that the choice is made out of, which is the order
+ * the reading happens in; the consequential press - the one that crosses out a
+ * Hope slot - is not here at all but two steps further down, behind the panel
+ * that spells out what it costs. READ VERSUS TOUCH: read are the option's own
+ * words and the refusal; touched are one or two fields and one button.
+ */
+function RollOrType({
+  affordance,
+  action,
+  faces,
+  onRoll,
+  onRecord,
+}: {
+  affordance: RollAffordance;
+  /** The words on the roll control, which name the dice it would roll. */
+  action: string;
+  faces: { key: string; label: string; value: string; set: (value: string) => void }[];
+  onRoll: () => void;
+  onRecord: () => void;
+}): React.JSX.Element {
+  const missing = faces.filter((f) => !isFace(f.value));
+  /** Typed but impossible: a 13, or a 0, which no d12 shows. */
+  const impossible = missing.filter((f) => f.value.trim() !== '');
+  return (
+    <div className="stack" style={{ flex: 'none', gap: 10 }}>
+      {affordance.canRoll && (
+        <button type="button" className="btn btn-primary" onClick={onRoll} style={{ flex: 'none' }}>
+          {action}
+        </button>
+      )}
+
+      {affordance.canType && (
+        <div
+          className="stack"
+          style={{
+            flex: 'none',
+            gap: 8,
+            padding: '12px 13px',
+            borderRadius: 'var(--r3)',
+            background: 'var(--app)',
+            border: '1px solid var(--line-soft)',
+          }}
+        >
+          <span className="t-label">Type what you rolled</span>
+          {faces.map((f) => (
+            <div key={f.key} className="spread" style={{ flex: 'none', alignItems: 'center', gap: 8 }}>
+              <span className="t-meta" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+                {f.label} · D{D12}
+              </span>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={f.value}
+                min={1}
+                max={D12}
+                placeholder={`1–${String(D12)}`}
+                aria-label={`The face your ${f.label} showed`}
+                onChange={(e) => f.set(e.target.value)}
+                style={{ flex: 'none', width: 84, minHeight: 'var(--tap)', textAlign: 'center' }}
+              />
+            </div>
+          ))}
+          {/* A NUMBER NO DIE CAN SHOW, SAID OUT LOUD. A 13 - or a 0, which
+              nothing shows - holds the button back exactly as an empty field
+              does, and an empty field is self-explanatory where this is not:
+              something has been typed and the app has silently declined it.
+              So the sentence names the range, what the field says now, and the
+              one thing that clears it. `Rest.tsx` draws the same sentence over
+              the same state, because they had the same gap. */}
+          {impossible.length > 0 && (
+            <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)' }}>
+              {impossible
+                .map(
+                  (f) =>
+                    `A d${String(D12)} shows 1 to ${String(D12)}, and your ${f.label} says ${f.value.trim()}.`,
+                )
+                .join(' ')}{' '}
+              Correct it and the roll is yours to record.
+            </p>
+          )}
+          <button
+            type="button"
+            className="btn"
+            disabled={missing.length > 0}
+            onClick={onRecord}
+            style={{ flex: 'none' }}
+          >
+            {missing.length > 0
+              ? `Still to type: ${missing.map((f) => f.label).join(' · ')}`
+              : `Record ${faces.map((f) => f.value).join(' and ')}`}
+          </button>
+        </div>
+      )}
+
+      {affordance.blocked && (
+        <div className="stack" style={{ flex: 'none', gap: 8 }}>
+          <span className="t-label" style={{ color: 'var(--damage)' }}>
+            {affordance.label}
+          </span>
+          <p className="t-dense" style={{ margin: 0, color: 'var(--text-2)' }}>
+            This device has been told not to roll dice and not to take yours, so there is
+            nothing here that can make this roll. The move is still yours to take at the
+            table; only the app is standing aside.
+          </p>
+          <span className="t-meta" style={{ color: 'var(--dim)' }}>
+            {affordance.prompt}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Avoid({
   roll,
   note,
   setNote,
   applied,
+  affordance,
+  typed,
+  setTyped,
   onRoll,
+  onRecord,
   onScar,
 }: {
   roll: AvoidDeathRoll | null;
   note: string;
   setNote: (v: string) => void;
   applied: string | null;
+  affordance: RollAffordance;
+  typed: { hope: string; fear: string };
+  setTyped: (next: { hope: string; fear: string }) => void;
   onRoll: () => void;
+  onRecord: () => void;
   onScar: () => void;
 }): React.JSX.Element {
   const character = useActive();
@@ -441,10 +695,25 @@ function Avoid({
   if (!character) return <div />;
 
   if (roll === null) {
+    /* One face, because one die is read: `AvoidDeathRoll` carries the Hope Die,
+       the level and the verdict, and no Fear Die reaches the screen or the log.
+       Asking for a second number would be asking for a die the table did not
+       roll for this. */
     return (
-      <button type="button" className="btn btn-primary" onClick={onRoll} style={{ flex: 'none' }}>
-        Roll the Hope Die
-      </button>
+      <RollOrType
+        affordance={affordance}
+        action="Roll the Hope Die"
+        faces={[
+          {
+            key: 'hope',
+            label: 'HOPE DIE',
+            value: typed.hope,
+            set: (value) => setTyped({ ...typed, hope: value }),
+          },
+        ]}
+        onRoll={onRoll}
+        onRecord={onRecord}
+      />
     );
   }
 
@@ -589,7 +858,11 @@ function Risk({
   split,
   setSplit,
   applied,
+  affordance,
+  typed,
+  setTyped,
   onRoll,
+  onRecord,
   onClear,
   onDie,
   tail,
@@ -598,7 +871,11 @@ function Risk({
   split: { hp: number; stress: number };
   setSplit: (want: { hp: number; stress: number }) => void;
   applied: string | null;
+  affordance: RollAffordance;
+  typed: { hope: string; fear: string };
+  setTyped: (next: { hope: string; fear: string }) => void;
   onRoll: () => void;
+  onRecord: () => void;
   onClear: () => void;
   onDie: () => void;
   tail: string;
@@ -607,10 +884,30 @@ function Risk({
   if (!character) return <div />;
 
   if (roll === null) {
+    /* Both faces, because which one is higher IS the outcome: a Hope Die alone
+       cannot say whether the character stays up, and matching dice - their own
+       result here, not a critical - need both to match. */
     return (
-      <button type="button" className="btn btn-primary" onClick={onRoll} style={{ flex: 'none' }}>
-        Roll the Duality Dice
-      </button>
+      <RollOrType
+        affordance={affordance}
+        action="Roll the Duality Dice"
+        faces={[
+          {
+            key: 'hope',
+            label: 'HOPE DIE',
+            value: typed.hope,
+            set: (value) => setTyped({ ...typed, hope: value }),
+          },
+          {
+            key: 'fear',
+            label: 'FEAR DIE',
+            value: typed.fear,
+            set: (value) => setTyped({ ...typed, fear: value }),
+          },
+        ]}
+        onRoll={onRoll}
+        onRecord={onRecord}
+      />
     );
   }
 

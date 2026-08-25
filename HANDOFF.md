@@ -283,6 +283,25 @@ things cost real time and will cost it again:
   with the first lane's files. Both were recovered from the dangling stash
   commits, but only because the agent noticed. Tell lanes to `cp -R` aside
   instead of stashing.
+- **Do not write a bare `file:line` citation into prose in a file the wave is
+  still editing.** It goes stale inside its own commit: the census-repair lane
+  recomputed three of them correctly and then its own insertions in the same
+  file pushed the targets down, so the three corrected numbers shipped pointing
+  at declarations they were not about. **Cite the declaration by name and
+  selector** — `.btn`'s `min-height` in `base.css`, `floorsOutsideTheSweep` in
+  `tests/gm/sessionList.test.tsx` — or by a quoted fragment a `grep` can find.
+  A name survives an edit above it; a line number does not. Line numbers that
+  predate the wave, in sentences nobody is otherwise editing, stay where they
+  are: the four `Play.tsx` ones in the Play-column rule above are that case.
+- **A mark that carries a number is not a mark.** The idiom is `RuleSearch.tsx`'s
+  82.6: keep the retired figure, say outright that it is not re-measured and
+  must not be read as current, and let the mechanism that outlives it carry the
+  paragraph. `FearGuide` in `ReferenceTables.tsx` marked its "about 102px a row"
+  correctly and then, inside the sentence promising no re-derivation, put a
+  larger unattributed magnitude in its place — which is the mark being used to
+  smuggle a number through. Where the conclusion stands without a height, write
+  the mechanism and no number at all. That paragraph now says why the fold
+  starts shut without costing the section.
 
 Merge the branches back one at a time from the main tree and run the whole
 suite once at the end — it is about ten seconds for the whole of it, so there is
@@ -319,7 +338,7 @@ one session of it — which is also the span the next push publishes in one go.
 | **Rename** (P5-1(b)) | Rename is on the sheet, in the Identity block the rebuild created: a 72×44 chip on the class/subclass row with 51 px of clearance below the header's SETTINGS button, **costing 25 px** of the 457 px scroll window measured at 393×852. The name line itself is still not a target — no role, no `tabIndex`, no handler — because that is what the bullet about a keyboard opening under a thumb actually forbids. The unique-name rule left `duplicateFor`'s body and became one comparison in `merge.ts` with two callers: the *keep-both* copy, and one `RenameField` that both Play and Build's Name field go through. Nothing is written while you type; the sheet writes on SAVE or Return, and Build — which has no ✕ and sits among fields that all write on the keystroke — writes on blur as well, which `rename.test.tsx` pins in both directions. A refusal is a `role="status"` sentence with the field pointing at it through `aria-describedby`, not a greyed SAVE, because `disabled` takes the only control carrying the reason out of the tab order. **Enforced at two doors, not everywhere** — creation and a plain import both still write a colliding name, and `characterFileName` still slugifies two distinguishable names to one file. Those three are `BACKLOG.md` P5-1(c), and `Architecture.md` §7 states the limit rather than claiming an invariant. |
 | **Damage rolls** (P1-1) | An attack roll leads into the damage roll it earned, which no screen in this app had ever done — `rollDamage` was correct from the first commit and had no caller outside its tests. Unarmed attacks have a row of their own, drawn even with nothing equipped; Spellcast damage counts its dice off the trait and refuses at +0 in the SRD's own sentence; damage dice can be typed the way the Duality faces already could; and a hidden Difficulty gets the offer labelled IF IT HIT rather than no offer at all. |
 | **Rests** (P1-7) | The rest engine has the screen it had no caller for, as a fold in the part of Play that scrolls: pick short or long, pick two moves, and every row says what tapping it clears before you tap it. Nothing is rolled or applied until COMMIT. This is also the first `SCHEMA_VERSION` bump this project has ever taken — 3 → 4, one converter, two new fixtures, and the two v3 fixtures left untouched because they are the proof. |
-| **The GM reference** (P5-3) | MENU → OPEN THE REFERENCE, seven topics, every word read out of `data/srd-1.0.json` at render time with the page stamped beside the table it came from rather than at the top of the topic. The Fear guidance and the advancement chart are folded into the two controls they belong to — one drawing, two doors. `engine/encounter.ts::TIER_BENCHMARKS` was deleted rather than wired: the same table ships in the dataset and the typed copy had already deformed two cells. |
+| **The GM reference** (P5-3) | MENU → OPEN THE REFERENCE, seven topics, every word read out of `data/srd-1.0.json` at render time with the page stamped beside the table it came from rather than at the top of the topic. The Fear guidance and the advancement chart are folded into the controls they belong to — one drawing each, never a second copy. The guidance has two doors; the chart has three since it went onto a dynamic countdown's session row as well. `engine/encounter.ts::TIER_BENCHMARKS` was deleted rather than wired: the same table ships in the dataset and the typed copy had already deformed two cells. |
 | **Print sheet** (P5-4) | Reordered to the official sheet, HP and Stress drawn solid to the earned maximum and dashed to twelve. Every string sourced from `data/srd-1.0.json`; no artwork, wording or trade dress copied from the PDF. |
 
 ## What is open
@@ -396,7 +415,9 @@ resolves to the nav button and the row fails for the wrong reason.
 `2a9f5dc`. MENU → OPEN THE REFERENCE, seven topics, every word read out of
 `data/srd-1.0.json` at render time with the page stamped beside the table it
 came from. The Fear guidance and the countdown chart are also folded into the
-two controls they belong to. Three things the item asked for were not in the
+controls they belong to — one drawing each, never a second copy. The guidance
+has two doors; the chart has three, since it went onto a dynamic countdown's
+session row as well. Three things the item asked for were not in the
 shipped SRD and are corrected in `BACKLOG.md` rather than left to be copied
 again: the Difficulty ladder ships as the SRD's own worked example at each
 number and **not** as the printed screen's five adjectives, which occur zero
@@ -807,6 +828,20 @@ the intended behaviour.**
   are kept on the sheet and will resolve when the missing source is added"* is
   still a promise the app cannot keep. This is the founding rule failing on a
   surface a user reads.
+- **The GM screen's floor sweep reads inline styles only, and this is now said
+  in the source rather than promised away.** `floorsOutsideTheSweep`, in
+  `tests/gm/sessionList.test.tsx`, walks the rendered screen for elements whose
+  `style.minHeight` its own `px` helper can resolve — a plain number, or
+  `--tap`, `--control`, `--pip-h`. A floor declared in a stylesheet is invisible
+  to it: `.btn` and the `input, textarea, select` rule in `base.css` each carry
+  a `min-height` no `style` attribute has to repeat. Proved by mutation rather
+  than argued — deleting the inline `minHeight: 44` from `UrlArm`'s
+  `<a className="btn">`, which is still 44px in a browser, makes the sweep
+  report it at 0. And nothing the fixture does not render is covered at all:
+  dropping the `url` row **and** its arrival assertion from `openEverything`
+  leaves both whole-screen sweeps green over a screen with no anchor on it. The
+  `SessionBody.tsx` Targets section states that reach; the thing still owed is a
+  browser, not another sentence.
 - `tests/import/coreRulebook.test.ts` needs the PDFs in `Manuali/`, which are
   gitignored. It skips itself when they are absent, so CI runs one file fewer
   than this machine does.

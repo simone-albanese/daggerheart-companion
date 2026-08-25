@@ -31,6 +31,29 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const byRef = new Map(adversaries.map((a) => [a.id, a]));
   const environment = environments.find((e) => e.id === environmentRef);
   const spotlit = combatants.filter((c) => c.spotlighted).length;
+  /*
+   * What Ambushed and Ambushers mean by `Difficulty: Special`, for the band.
+   *
+   * It reads the combatants' own `difficulty` rather than the adversaries' -
+   * `makeCombatant` copies it at spawn and the card prints that copy, so this
+   * is the number a GM can see under it. Deriving from `byRef` instead would
+   * let the band and the card beneath it disagree.
+   *
+   * That copy is exactly why the decision was unguarded for a round: a
+   * combatant built by `makeCombatant` has the two numbers agreeing, so no
+   * test made from one can tell which was read, and the `byRef` version passed
+   * the entire suite. `sceneTruth.test.tsx` now puts them in disagreement - a
+   * board copy the dataset has moved under, and a combatant whose adversary is
+   * not in this dataset at all - and asserts the band follows the board.
+   *
+   * `undefined` on an empty board, never 0: the band draws no substitute
+   * without one, and 0 here would be the same lie the readout was suppressed
+   * for in the first place.
+   */
+  const strongestHere =
+    combatants.length === 0
+      ? undefined
+      : combatants.reduce((n, c) => Math.max(n, c.difficulty), 0);
 
   /*
    * Ending a scene throws away every HP and Stress mark in it, and this module
@@ -53,7 +76,9 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: phone ? '10px 12px 0' : '14px 20px 0' }}>
-      {environment !== undefined && <EnvironmentBand environment={environment} />}
+      {environment !== undefined && (
+        <EnvironmentBand environment={environment} strongestHere={strongestHere} />
+      )}
 
       <div className="spread" style={{ flex: 'none' }}>
         <span className="t-label">
@@ -90,6 +115,138 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
           </button>
         </span>
       </div>
+
+      {/*
+        What END SCENE costs, on the glass at all times rather than only while
+        it is armed.
+
+        It says it here rather than in the label, because the label is the
+        target the thumb is already aiming at and a label that grew into a
+        sentence would move the box between the two taps of one gesture. That
+        much was right. What was wrong was gating the line on `armed`.
+
+        ## The jump this used to make
+
+        `armed` is cleared by a 4-second timer, not by a tap (see the `armed`
+        block above). So a GM who armed END SCENE and then did anything else -
+        which is every abandoned confirmation - had the sentence taken away
+        from under a hand that had not moved, and everything below it came up
+        with it: the whole card grid, every HP and Stress track, every
+        SPOTLIGHT chip, every remove ✕.
+
+        The size of that jump is the sentence's own height plus this stack's
+        10px gap. `.t-dense` is `400 11.5px/1.38 var(--sans)`
+        (`tokens.css:540`), so one line box is 15.87px: with the gap, the jump
+        is 25.87px at one line, 41.74 at two and 57.61 at three.
+
+        "Both are at or over the 44px coarse floor the END SCENE button
+        declares in the row immediately above" stood here, and 41.74 is not at
+        or over 44. The floor is real - `minHeight: 44`, written on that button
+        a few lines up this file - but only the three-line jump clears it, and
+        three lines is not reachable at the wording that ships: the string runs
+        57 characters at its shortest and 118 at its longest over the whole
+        book (the budget is worked out below), which is one line or two. So
+        what the gate actually moved the grid by was up to 41.74px - 95% of a
+        whole touch target, not more than one.
+
+        That is still the defect, and the height was never the whole of it. It
+        moved on a timer, for no gesture at all, and it moved into the hand: at
+        393 x 852 a right thumb covers roughly y 560-820 (the band `Gm.tsx`
+        reasons off), and the grid below is `flex: 1` down to the bottom edge,
+        so that band is card grid all the way through.
+
+        ## Why permanence, and not a reserved gap
+
+        Reserving the space and filling it only when armed costs exactly the
+        same pixels and gives nothing back for them. Keeping the line always
+        costs those pixels and buys the GM the consequence *before* the first
+        tap instead of after it, which is what a confirmation step is for.
+
+        Nothing about the string depends on `armed`, so nothing about the box
+        does: arming changes `color` and only `color`, and colour moves no
+        geometry. There is therefore no reflow on arming either, by
+        construction rather than by measurement. Weight is deliberately left
+        out of it - 600 widens every glyph and could take the wrap with it,
+        which is the same jump one step quieter.
+
+        The remaining motion is a real state change the GM made: adding or
+        removing an adversary rewrites the count, and can move the wrap. The
+        grid changes under that tap anyway.
+
+        ## The price, and the wording that bounds it
+
+        At 393 the content width is 367, and "393 - 24 of region padding =
+        369" stood here because it began one border too far out. `Scene` has
+        exactly one mount point - `Gm.tsx`, inside `<GmSheet
+        label={TOOL_LABEL[tool]} size="full">` - and that overlay declares
+        `padding: full || phone ? 0 : 24`, which is zero on both sides, around
+        a panel at `width: '100%'` with `border: '1px solid var(--line)'`.
+        Under `base.css`'s `box-sizing: border-box` the sheet's content box at
+        393 is 391.00, so this region's 24px of padding leaves 367.00. Not
+        derived here for the first time: `GmSheet.tsx`'s own docblock states
+        the 391.00, and `Reference.tsx` - the other `full` tool padding 12 a
+        side - states the identical 367.00 and says it was measured in Chrome.
+        (The overlay paid `calc(env(safe-area-inset-top) + 8px) 0 0` when that
+        was measured, and is `position: absolute` inside the stage now. Both
+        spend zero horizontally, which is the only axis this paragraph is
+        about; the vertical price is in `GmSheet.tsx`.)
+
+        11.5px Archivo at 400 averages about 5.6px a character -
+        `RuleTableView.tsx:72` puts `.t-read`, 13px of the same face at 400, at
+        about 6.3, and 6.3/13 of 11.5 is 5.57 - so a line holds about 65
+        characters, and 63 even at a pessimistic 5.75 (367/5.75 = 63.8; it read
+        64 while the column read 369). The longest string this can build over
+        the shipped book is 118: a three-digit count and `Burning Heart of the
+        Woods`, the longest of the 19 environment names. 118 is inside both
+        2 x 65 and 2 x 63, so it is still two lines at either figure, the
+        permanent cost is still 31.74px and 41.74 with the gap, and it still
+        never becomes three. The two pixels moved the character budget and left
+        every conclusion drawn from it standing.
+
+        Two lines is what the wording buys. The old sentence gave the
+        environment its own clause - "X stays the environment. Fear and the
+        countdowns stay as they are." - which over the same worst case (a
+        three-digit count and the same environment name) is 152 characters,
+        past 2 x 65 and past 2 x 63 alike, so three lines at either figure.
+        ("151" stood here and was one character short.) Naming it inside the
+        list of what stays says the same thing in 118. The band directly above
+        is labelled Environment and carries that name, so the list needs no
+        second label for it.
+
+        Read-vs-touch: this is read and never touched. It carries no target and
+        takes none away - the button keeps its 44px inline floor above it, the
+        grid keeps every pixel below it - and it sits at the top of the screen,
+        directly under the row it explains and far out of the 560-820 band,
+        which is where this app puts what is read rather than answered.
+
+        Every clause is read off `clearScene`, which is `commit({ combatants:
+        [] })` and nothing else. The combatants go, and with them every HP and
+        Stress mark, which is the whole reason this module keeps them. The
+        environment, the Fear pool and the session's countdowns are not in that
+        commit and do not move. That is not an accident of implementation any
+        more: `docs/handoff/DECISIONI-2026-08-23.md` §1 closed the scene
+        question and cited this very behaviour as the app having already
+        answered it in the same direction. A decision that has been taken
+        belongs on the glass rather than left to be inferred from what happens
+        to survive.
+      */}
+      <p
+        className="t-dense"
+        style={{
+          flex: 'none',
+          margin: 0,
+          // The only property arming is allowed to touch here, because it is
+          // the only one that cannot resize the box.
+          color: armed ? 'var(--text-2)' : 'var(--muted)',
+        }}
+      >
+        {combatants.length === 0
+          ? 'Nothing to clear. '
+          : `Clears ${combatants.length} adversar${combatants.length === 1 ? 'y' : 'ies'} and every HP and Stress mark on them. `}
+        {environment === undefined
+          ? 'No environment is set; Fear and the countdowns stay.'
+          : `${environment.name}, Fear and the countdowns stay.`}
+      </p>
 
       {combatants.length === 0 ? (
         <div className="panel stack" style={{ flex: 'none', padding: 18, gap: 12, alignItems: 'flex-start' }}>
@@ -215,6 +372,82 @@ function CombatantCard({
           ✕
         </button>
       </div>
+
+      {/*
+        What the thing wants, in the component that decides what it does.
+        `AdversaryBlock` has printed MOTIVES & TACTICS on the bestiary card
+        since the beginning; this is that line, not a second vocabulary for the
+        same field, so a GM who has read one recognises the other.
+
+        It is a full-width row of its own rather than a third line in the name
+        stack, because that stack never gets the card's whole column. Its row
+        at `:327` is `gap: 8` over three children: this stack (`:328`, `flex:
+        1, minWidth: 0`, so basis 0 and it takes the remainder), the SPOTLIGHT
+        chip (`:345-356`, `flex: 'none'`, `padding: '0 10px'`) and the remove
+        button (`:364-368`, `flex: 'none', width: 34`). Neither control has a
+        border to spend: `base.css:46` gives every button `border: 0` and
+        `.chip` declares none. So off the 341 below go two 8px gaps, the 34,
+        and the chip's 20 of padding - **271px at the ceiling**, before the
+        chip's label costs a pixel, and the label only takes more.
+
+        "Well under half the card's width" stood here and was false in the
+        direction that matters: 271 is four fifths of 341 before the label, and
+        for the stack to fall under half the label would have to measure 100.5px
+        - eleven pixels a character across nine characters of a 9.5px font.
+        What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
+        (`base.css:356-364`) actually measures is the one term here that is not
+        a declaration, and it has not been in a browser; do not read a figure
+        for the stack itself out of this paragraph, because there isn't one.
+
+        The conclusion survives without it. The stack is short of the column by
+        at least 70px of declared chrome plus the chip's widest label - nine
+        characters, since pressed it reads SPOTLIT and gives two back - and the
+        motives line runs to 92 characters (below) where the name above it is
+        already `whiteSpace: 'nowrap'` with an ellipsis. A sentence that long
+        wants the widest column on the card, which is the full 341 and not the
+        remainder of a shared row.
+
+        Full width the card's inner column is 341px at 393, and the
+        subtraction starts at 391 rather than at 393. `Scene` is mounted only
+        at `Gm.tsx:281`, inside a `size="full"` `GmSheet` whose overlay pads
+        zero horizontally and whose panel is `width: '100%'` with `border: 1px
+        solid var(--line)` (`GmSheet.tsx:95-104`); at `base.css:13`'s
+        `box-sizing: border-box` that makes the sheet's content box 391.00,
+        which `GmSheet.tsx` states and `Reference.tsx:37-39` measured. 391 less
+        the region's 24px of padding, less this card's four pixels of border,
+        less its own 22 of padding, is 341.
+
+        Four pixels of border and not two: `.panel` declares `border: 1px solid
+        var(--line-soft)` (`base.css:235`), but this `<article>` overrides the
+        left one to `3px solid` on the element itself, so three pixels come off
+        one edge where one comes off the other. "343" stood here and "345"
+        before it - the first spent the sheet's border nowhere, the second
+        spent neither that nor the left edge's extra two. `Gm.tsx` retired its
+        own "345" for the second of those and `tests/ui/gmGeometryProse.test.ts`
+        keeps a guard over the files behind it.
+
+        The label plus the motives measures 37 characters at its shortest, 58
+        at the median and 92 at its longest over all 129 adversaries in the
+        book, every one of which carries motives. `.t-meta` is 10px IBM Plex
+        Mono at 0.06em, which is a 0.6 advance plus the tracking - ~6.6px a
+        character, the figure `GearPicker.tsx:716-720` derives and
+        `ReferenceTables.tsx` uses for this class - so 341 holds 51 characters
+        a line, which is exactly what 343 held: 51 characters want 336.6px and
+        52 want 343.2, and both columns fall in that gap. No conclusion moves
+        with the width: 37 is one line, 58 and 92 are both two. Two lines at
+        1.5 is 30px, and this stack's gap is 10, so HP and everything under it
+        drops about 40px. Whether two cards still read on one screen after that
+        is PROGETTO-GM §7 item 3, and it has not been in a browser.
+
+        The undefined arm needs nothing: a combatant whose adversary is not in
+        this dataset has no motives to print, and the meta line above already
+        says NOT IN THIS DATASET rather than leaving the absence unexplained.
+      */}
+      {adversary !== undefined && adversary.motives.length > 0 && (
+        <span className="t-meta" style={{ lineHeight: 1.5 }}>
+          MOTIVES &amp; TACTICS · {adversary.motives.join(', ').toUpperCase()}
+        </span>
+      )}
 
       <Track
         kind="hp"

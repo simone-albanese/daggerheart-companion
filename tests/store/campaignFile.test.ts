@@ -36,6 +36,7 @@ import {
   serializeCampaign,
 } from '../../src/transfer/campaignFile.ts';
 import * as fileIo from '../../src/transfer/fileIo.ts';
+import { NO_CLOCK_PROSE } from '../fixtures/factories.ts';
 
 const at = new Date('2026-08-16T10:00:00.000Z');
 
@@ -57,6 +58,7 @@ const campaign = (): Campaign => ({
         start: 6,
         value: 4,
         notes: '',
+        ...NO_CLOCK_PROSE,
       },
     },
     {
@@ -239,7 +241,7 @@ describe('writing it out', () => {
 describe('the version window the bump moved', () => {
   const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
 
-  it('takes a v1 file at this v2 build, and walks the record forward', () => {
+  it('takes a v1 file at this build, and walks the record forward', () => {
     /*
      * The lower edge. `tests/fixtures/schema/v1.dhcampaign` is a real envelope
      * round the frozen v1 record, checksum and all, committed rather than built
@@ -271,14 +273,21 @@ describe('the version window the bump moved', () => {
     expect(back.party[0]!.sheet.name).toBe('Ilya of the Ninth');
   });
 
-  it('hands a v2 file to a v1-only build as a refusal, not as damage', () => {
+  it('hands a file this build writes to a v1-only build as a refusal, not as damage', () => {
     /*
-     * The upper edge, and the whole reason the number moved.
+     * The upper edge, and the whole reason the number moved - twice now.
      *
      * A build that predates `url` and `note` must refuse this file rather than
      * read it: its `readSessionItem` would wrap both new rows as `unreadable`
      * and its `gmStore` would write that reading back 400ms later, destroying
      * two rows the GM can still see on the newer device.
+     *
+     * Schema 3 widened what is at stake without changing the argument. A build
+     * that predates it drops a `scene` row's roster and combatants, every
+     * countdown's triad, owner and beats, and the whole `archive` and
+     * `register` - and then writes that reading back. The refusal below is the
+     * only thing between a GM and losing a season of notes to a device that has
+     * not updated.
      *
      * `CAMPAIGN_SCHEMA_VERSION` is a module constant and this suite cannot
      * lower it, so the guard is called with the old build's numbers - which is
@@ -287,7 +296,7 @@ describe('the version window the bump moved', () => {
      * the real one this build writes.
      */
     const written = JSON.parse(serializeCampaign(campaign(), at)) as { schemaVersion: number };
-    expect(written.schemaVersion).toBe(2);
+    expect(written.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
 
     // What a v1-only build does with it.
     expect(() => checkReadable(written.schemaVersion, 1, 1)).toThrow(SchemaError);

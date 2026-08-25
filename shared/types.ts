@@ -540,8 +540,68 @@ export interface Countdown {
    * build without `notes` would erase it from every stored campaign on the
    * next 400ms write — a schema change wearing a tidy-up's clothes. If it is
    * ever really to go, it goes through the migration chain like anything else.
+   *
+   * **It now has neighbours, and they are not it.** `CAMPAIGN_SCHEMA_VERSION` 3
+   * gave this object the Activation / Advancement / Effect triad below. That
+   * does not reopen the decision above and does not make `notes` drawable: what
+   * :2117 rejected was *a second plain free-text box*, and three named fields
+   * answering three named questions are a different shape doing a different
+   * job. The prose a GM wants at the table still belongs to the `note` row.
    */
   notes: string;
+  /**
+   * Activation / Advancement / Effect — the triad, `CAMPAIGN_SCHEMA_VERSION` 3.
+   *
+   * The three questions that keep a clock legible an hour later and let a GM
+   * resume one next session: what starts it, what moves it, and what happens
+   * when it fills. All three are structure the GM types; nothing here is ever
+   * quoted from the book, which is why the triad costs the licence nothing.
+   *
+   * Plain strings and not a `NoteDoc`, deliberately. A `NoteDoc` is the answer
+   * where the GM wants *prose* - bold, bullets, a centred heading - and that is
+   * the `note` row's job. These are three short answers to three fixed
+   * questions, and giving them a block editor apiece would put four note
+   * surfaces on one sheet disagreeing about what a note is.
+   *
+   * Empty is the honest default and the only thing every clock written before
+   * schema 3 can be. Nothing derives from them and nothing validates them: a
+   * clock with three blank fields behaves exactly as it did at schema 2.
+   */
+  activation: string;
+  advancement: string;
+  effect: string;
+  /**
+   * Whose clock this is. A `PartyMember` id, or `''` for nobody's.
+   *
+   * The same correction as `eb4c60e`, which made the dice pools ask whose sheet
+   * a die is for: with three or four projects running, unowned clocks are
+   * indistinguishable from each other. A ref rather than a name, so renaming a
+   * character does not orphan the sentence.
+   *
+   * **Not a foreign key, and the reader does not check it.** A party member can
+   * be removed while a clock still names them, and that is the same class of
+   * thing as `LinkTarget`'s `unknown` arm: the screen says "somebody who is no
+   * longer on the party board" rather than the field being silently emptied by
+   * a read. Emptying it would destroy the GM's own data to satisfy an invariant
+   * nobody asked for.
+   */
+  owner: string;
+  /**
+   * One written beat per tick, for a `long-term` clock.
+   *
+   * A rest that advances a long-term countdown should produce *a sentence to
+   * narrate*, not a decrement. Index 0 is the first tick. The array is allowed
+   * to be shorter than `start` - a GM who has written the first two beats and
+   * not the rest is the normal case, not an error - and it is allowed to be
+   * longer, because shortening a clock must not throw away words that were
+   * typed.
+   *
+   * Empty for every clock written before schema 3, and empty is what a clock of
+   * any other kind keeps: the field exists on all four kinds because the kind is
+   * editable, and moving a clock to `long-term` and back must not lose the
+   * beats typed in between.
+   */
+  beats: string[];
 }
 
 export interface SceneCombatant {

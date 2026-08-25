@@ -17,6 +17,20 @@
  * typed in by hand, and the numeric entry is the same gesture `Counter` uses
  * for typing a track: tap the number, type it, SET.
  *
+ * AND WHICH OF THE TWO ROADS IS OPEN IS NOT THIS FILE'S TO DECIDE. It offered
+ * both unconditionally, `cryptoRng` and all, while the preference that chooses
+ * between them was being set two screens away: Settings has a switch each and a
+ * branch for the case where both are off, and Onboarding's third answer -
+ * "Real dice, and the app stays out of it" - writes exactly that. A table that
+ * had said the app stays out of it still got a **Roll it** button here, and a
+ * die it rolled for them. So both call sites read `rollAffordance` now, which
+ * is the one place this app answers "what may this surface offer": the roller
+ * is `canRoll`'s, the numeric entry is `canType`'s, and with neither switched
+ * on the sheet keeps the pool and its dice and says which switch is missing
+ * rather than inventing a face. Taking the button away must not take the pool
+ * away - a pool that arrives rolled hands out its blank dice instead, and a
+ * player who rolled on the table types what they showed.
+ *
  * AND IT ASKS WHO BEFORE IT WRITES ANYTHING. Prayer Dice are spent "to aid
  * yourself **or an ally within Far range**", so "gain Hope equal to the result"
  * is only sometimes about the sheet this device is holding. An app that
@@ -43,6 +57,10 @@ import {
 } from '../../engine/dicePools.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { useActive, useApp } from '../../store/state.ts';
+// The same helper the Duality Roll and the damage row read, and for the same
+// reason: three surfaces deciding for themselves what the two dice switches
+// mean is three answers that can disagree about what this build can do.
+import { rollAffordance, type RollAffordance } from './DualityRoll.tsx';
 import { usePool, usePools, type PoolDie } from './poolStore.ts';
 
 /** The pools this character has, or an empty list. Safe with no character. */
@@ -116,16 +134,23 @@ function DieFace({
  * words. `SPESO` removes the die whether or not anything was applied, because
  * the die is gone either way and the app must not make "I did it by hand" a
  * state it cannot express.
+ *
+ * The two ways to a face are the affordance's to offer, not this sheet's. Only
+ * the face is gated: who the die is for, what it may be spent on, and taking it
+ * out of the pool are all things a player does with a die they already have,
+ * and none of them is a roll.
  */
 function SpendSheet({
   pool,
   die,
   characterId,
+  affordance,
   onClose,
 }: {
   pool: DicePool;
   die: PoolDie;
   characterId: string;
+  affordance: RollAffordance;
   onClose: () => void;
 }): React.JSX.Element {
   const setFace = usePools((s) => s.face);
@@ -181,25 +206,40 @@ function SpendSheet({
 
       {/* No face yet: the two ways to get one, which is the whole of what the
           owner asked for - «o inserendo i risultati o facendo tirare i dadi
-          all'app». */}
-      {face === null && typing === null && (
+          all'app». Which of the two is here is the switches' answer: it is one
+          button for the two tables that picked one road, both for the table
+          that wants both, and the line below instead of a control for the table
+          that told the app to stay out of it. Each is `flex: '1 1 auto'`, so
+          one of them fills the sheet rather than sitting half-width beside a
+          gap where the other used to be. */}
+      {face === null && typing === null && !affordance.canRoll && !affordance.canType && (
+        <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+          Digital and typed dice are both off, so this one is yours to roll —
+          Settings turns one on. The die keeps its place in the pool either way.
+        </span>
+      )}
+      {face === null && typing === null && (affordance.canRoll || affordance.canType) && (
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn"
-            style={{ flex: '1 1 auto', minHeight: TAP }}
-            onClick={() => setFace(characterId, pool.id, die.id, cryptoRng(pool.sides))}
-          >
-            Roll it
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ flex: '1 1 auto', minHeight: TAP }}
-            onClick={() => setTyping('')}
-          >
-            Type what you rolled
-          </button>
+          {affordance.canRoll && (
+            <button
+              type="button"
+              className="btn"
+              style={{ flex: '1 1 auto', minHeight: TAP }}
+              onClick={() => setFace(characterId, pool.id, die.id, cryptoRng(pool.sides))}
+            >
+              Roll it
+            </button>
+          )}
+          {affordance.canType && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ flex: '1 1 auto', minHeight: TAP }}
+              onClick={() => setTyping('')}
+            >
+              Type what you rolled
+            </button>
+          )}
         </div>
       )}
 
@@ -317,9 +357,11 @@ function SpendSheet({
 function PoolBlock({
   pool,
   characterId,
+  affordance,
 }: {
   pool: DicePool;
   characterId: string;
+  affordance: RollAffordance;
 }): React.JSX.Element {
   const dice = usePool(characterId, pool.id);
   const setPool = usePools((s) => s.set);
@@ -378,6 +420,7 @@ function PoolBlock({
           pool={pool}
           die={openDie}
           characterId={characterId}
+          affordance={affordance}
           onClose={() => setOpen(null)}
         />
       )}
@@ -385,8 +428,31 @@ function PoolBlock({
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {/* A pool whose dice arrive rolled gets one button that rolls the lot,
             because that is literally what the feature says to do at the start
-            of a session. One that arrives blank gets its dice handed out. */}
-        {!banked && pool.rolledAt === 'grant' && (
+            of a session. One that arrives blank gets its dice handed out.
+
+            WITH THE ROLLER OFF IT GETS THE SECOND BUTTON RATHER THAN NEITHER.
+            "At the start of each session, roll your Prayer Dice" is still what
+            the feature says; what changes is who rolls them, and a table
+            rolling their own needs the dice on the sheet to type the faces
+            onto. So the pool is handed out blank and each die is typed - which
+            is the gesture that pool already has, since a spend-rolled pool
+            arrives blank for everybody. `dropLowest` needs no special case: the
+            player rolls the extra die and drops the lowest on the table, and
+            what they type in is the set they kept, which is `count`.
+
+            AND ALL THREE OF THEM ARE `dice.length === 0`, WHICH TWO OF THEM
+            WERE NOT. `rollAll` and `seed` both call `setPool` with a freshly
+            built array, so either one pressed a second time replaces the pool
+            outright - and the second press is not hypothetical, because the
+            button stayed on the screen after the pool had been handed out, in a
+            row directly under the dice it had just made. Driven with a Divine
+            Wielder's Prayer Dice - `rolledAt: 'grant'`, two d4 - and the roller
+            off: hand out, type 3 and 4 onto the two dice, press the button
+            again, and both faces are gone with nothing said. The spend-rolled
+            sibling had the guard from the start; the way back to a fresh pool
+            is `Clear the pool`, which is drawn exactly when there is a pool to
+            clear, so nothing is lost by taking the second press away. */}
+        {!banked && pool.rolledAt === 'grant' && affordance.canRoll && dice.length === 0 && (
           <button
             type="button"
             className="btn"
@@ -395,6 +461,17 @@ function PoolBlock({
             onClick={rollAll}
           >
             Roll {Math.min(pool.granted ?? 0, pool.cap)} d{pool.sides}
+          </button>
+        )}
+        {!banked && pool.rolledAt === 'grant' && !affordance.canRoll && dice.length === 0 && (
+          <button
+            type="button"
+            className="btn"
+            style={{ flex: '1 1 auto', minHeight: TAP }}
+            disabled={pool.cap === 0}
+            onClick={seed}
+          >
+            Take your {pool.name}
           </button>
         )}
         {!banked && pool.rolledAt === 'spend' && dice.length === 0 && (
@@ -464,6 +541,16 @@ export function DicePools({ stats }: { stats: DerivedStats }): React.JSX.Element
   const clearAll = usePools((s) => s.clearAll);
   const update = useApp((s) => s.update);
   const byCharacter = usePools((s) => s.byCharacter);
+  /*
+   * Read once here and handed down, rather than subscribed to in each of the
+   * two components that need it. Every pool on the sheet is answering the same
+   * two switches, and a `PoolBlock` that read them for itself would be a second
+   * place this decision is made - which is the shape of the defect this is
+   * fixing, not a smaller version of the fix.
+   */
+  const digitalDice = useApp((s) => s.prefs.digitalDice);
+  const manualDice = useApp((s) => s.prefs.manualDice);
+  const affordance = rollAffordance(digitalDice, manualDice);
   const [ended, setEnded] = useState<number | null>(null);
   if (character === null || pools.length === 0) return null;
 
@@ -479,7 +566,12 @@ export function DicePools({ stats }: { stats: DerivedStats }): React.JSX.Element
   return (
     <div className="stack" style={{ flex: 'none', gap: 14 }}>
       {pools.map((pool) => (
-        <PoolBlock key={pool.id} pool={pool} characterId={character.id} />
+        <PoolBlock
+          key={pool.id}
+          pool={pool}
+          characterId={character.id}
+          affordance={affordance}
+        />
       ))}
       {/*
        * END OF SESSION, WHICH EVERY ONE OF THE THREE FEATURES ASKS FOR AND

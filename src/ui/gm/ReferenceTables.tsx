@@ -1,8 +1,12 @@
 /**
  * The SRD's own tables and sections, drawn.
  *
- * The reference region composes these, so do the two controls that get a table
- * folded in beside them, and so do the hits SHOW's rule search opens and the
+ * The reference region composes these, so do the three controls that get a
+ * table folded in beside them - the Fear board's `MAX_FEAR` pips (`FearPool.tsx`),
+ * the countdowns board's dynamic row and a dynamic countdown's session row
+ * (`Countdowns.tsx` and `SessionBody.tsx`, the same `CountdownChart` under the
+ * same ADVANCE BY A ROLL header) - and so do the hits SHOW's rule search opens
+ * and the
  * `LINK -> Rule` row of a GM session, both through `BlockView` at the foot of
  * this file. That row is why `BlockView` exists: it printed its own bullets
  * and tables out of `paragraphs()` until the pipes showed up on screen.
@@ -101,9 +105,26 @@ import { useGm } from './gmStore.ts';
  * **367.00**, measured in Chrome - see `Reference.tsx`, where the same
  * omission turned a three-row topic strip into a two-row one. Nothing derived
  * from 369 below has been re-measured and none of it is re-derived here;
- * measure before writing a replacement down. (The folded copies - the chart
- * under a countdown's row, the guide under the Fear board - sit in a different
- * container again, and this note says nothing about those.)
+ * measure before writing a replacement down.
+ *
+ * **The two 349s are short by 4, not by 2.** `RangeReference`'s *inside a
+ * card's 10px padding 349* and `DifficultyLadder`'s *349 inside a panel* both
+ * take 20 of padding off a 369 that was already 2 too many, and the container
+ * they take it off is a `.panel`: `base.css` gives that `border: 1px solid`,
+ * and `box-sizing: border-box` on `*` takes the 1px a side out of the column
+ * rather than off the outside. 367.00 - 2 - 20 = 345.00 by the same arithmetic
+ * as the rest of this flag, and like the rest of it that is where this stops -
+ * nothing downstream of either 349 has been measured.
+ *
+ * **The folded copies are no longer scoped out of this note.** It used to end
+ * by excluding them - the chart under a countdown's row, the guide under the
+ * Fear board, both in a different container again - and an exclusion is not a
+ * clearance: both of those paragraphs were costing their column off 393 with
+ * the same border dropped, and this note said nothing about them while they
+ * did it. Both are costed from the same 391.00 now, each naming the
+ * declarations it subtracts: `CountdownChart` reaches 341.00 inside a
+ * `CountdownRow` article, `FearGuide` 337.00 inside the Fear board's panel.
+ * What is still owed on either is a browser, and each says where it stops.
  *
  * The widest cell in the shipped table is `4d8+10 to 4d12+15` - 17 characters
  * at `.t-num`, which is 13px mono at roughly 7.8px a character, so 133px
@@ -250,12 +271,34 @@ function BenchmarkGrid({
  *
  * The scene table is five stacked panels, not a `<table>`: three columns of
  * which one holds a 190-character sentence would scroll a 393px phone sideways
- * whatever the column widths were. Inside the Fear board the column is
- * 393 - 24 of region padding - 28 of panel padding = 341px, so the longest
- * examples cell is four lines at `.t-dense` (11.5px, about 5.5px a character)
- * and a row is about 102px. Five rows and the prose come to roughly 800px,
- * which is why it lives behind a fold that starts shut, in a region that
- * already scrolls.
+ * whatever the column widths were.
+ *
+ * Inside the Fear board the column is **337**, and the `341` that stood here
+ * dropped two borders reaching it. `FearBoard` is a `<section className="panel
+ * stack" style={{ padding: 14 }}>` (`FearPool.tsx`) sitting directly in
+ * `Countdowns`' phone region, which pads `'10px 12px 16px'` and puts nothing
+ * between the two that insets further - the `Fold` this is drawn inside
+ * renders its body as a bare child of a `section.stack` with no padding of its
+ * own. So: the region's box is `GmSheet`'s 391.00 and not 393, for the reason
+ * the flag above gives; the region takes 24; `.panel`'s `border: 1px solid`
+ * takes 2, which `box-sizing: border-box` takes out of the column; and the
+ * section's own padding takes 28. 391.00 - 24 - 2 - 28 = **337.00**.
+ *
+ * **What those 4px do to the rows is not re-derived here.** The *four lines*
+ * and the *about 102px a row* this paragraph used to give came from a
+ * 5.5px-a-character estimate at `.t-dense` rather than from a browser, and
+ * whether a 190-character cell still breaks at four lines in a column 4px
+ * narrower is an occasion for a measurement, not a sum. Not re-measured here,
+ * and must not be read as current - and nothing stands in for it, because the
+ * sentence that first carried the mark replaced one unmeasured magnitude with
+ * a larger one, which is a mark being used to smuggle a number through.
+ *
+ * The fold needs no height to justify it. What is behind it is the SRD's
+ * paragraphs and lists and a panel for each of the five scene types
+ * `srdReference.test.ts` pins by name, and none of it is a control: the board
+ * this sits under is the twelve buttons that set the pool, and the guidance is
+ * what a GM opens when the spend is the question. That is why it starts shut,
+ * in a region that already scrolls.
  *
  * Nothing here is a target. The Fear pool is set on the twelve buttons above
  * it; a table that offered to spend for you would be the app deciding what a
@@ -265,8 +308,11 @@ function BenchmarkGrid({
  * it changes is the empty state. The consolation for a dataset with no Fear
  * section - *the pool above still works* - is true under the Fear board's
  * twelve targets and false on the reference screen, which carries no pool at
- * all. Same rule as `CountdownChart`'s `countdown`: a component drawn in two
- * places may not describe the one it is not in.
+ * all. Two doors is this component's number, not the rule's: `CountdownChart`
+ * keeps the same rule through `countdown`, and it has three - null on the
+ * reference screen, a live clock on the countdowns board and again on a
+ * dynamic countdown's session row. A component drawn in more than one place
+ * may not describe the one it is not in, however many places that is.
  */
 export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);
@@ -383,17 +429,64 @@ export function FearGuide({ besidePool }: { besidePool: boolean }): React.JSX.El
  *
  * ## Ergonomics
  *
- * Inside a `CountdownRow` article at 393px the column is 393 - 24 of region
- * padding - 22 of article padding = 347px. The grid is
+ * One of the three surfaces below, and the numbers here are that one only: the
+ * countdowns board's `CountdownRow` article. `SessionBody.tsx` says of its own
+ * door that the column is a different one and costs neither it nor the
+ * reference screen's read-only copy, which is the rule above kept rather than
+ * a gap - a chart drawn in three places may not quote one place's width as
+ * though it were the chart's.
+ *
+ * This paragraph read `393 - 24 of region padding - 22 of article padding =
+ * 347px` and dropped a border at every step it had one. Three of them, and the
+ * arithmetic is the whole correction:
+ *
+ * - **391.00, not 393.** `Countdowns` is a `full` tool inside `GmSheet`, whose
+ *   panel is `width: 100%` with `border: 1px solid var(--line)` and border-box
+ *   (`GmSheet.tsx`). Its own docblock calls that 1px "the pixel every docblock
+ *   that ever costed a column in here dropped" and records the 12-a-side `full`
+ *   column as **367.00**, measured in Chrome, against the 369 that `393 - 24`
+ *   gives. This was one of the docblocks that dropped it.
+ * - **367.00 less the article's padding.** `Countdowns.tsx`'s phone branch pads
+ *   the region `'10px 12px 16px'` and nothing between it and the article insets
+ *   further - the two grids and the stack between them declare gaps only - so
+ *   the article's border box is that 367.00, and its 11-a-side padding takes 22.
+ * - **Less 4 of the article's own border.** It is a `.panel`, which `base.css`
+ *   gives `border: 1px solid`, with the left one overridden to a 3px
+ *   `borderLeft` stripe: 3 + 1, not 2, and `box-sizing: border-box` on `*` takes
+ *   all of it out of the column rather than off the outside.
+ *
+ * So the column is 367.00 - 22 - 4 = **341.00**. The grid is
  * `minmax(0, 1.15fr)` then one `minmax(0, 1fr)` a column, at 4px gaps, so with
- * the shipped two-column chart that is 124 / 108 / 108. `Failure with Fear` is
+ * the shipped two-column chart 341 - 8 of gap is 333 over 3.15fr:
+ * **121.57 / 105.71 / 105.71**, where the old numbers said 124 / 108 / 108.
+ * `Failure with Fear` is
  * 17 characters at `.t-meta` - 10px mono at 0.06em, about 6.6px a character -
- * so 112px inside 124, and it wraps rather than clips if a layer writes longer.
- * `Tick down 3` at `.t-num` is 86px inside 108 less 12 of padding.
+ * so 112px inside 121.57, and it wraps rather than clips if a layer writes
+ * longer - but that is now 9px of slack and not 12, and it is the figure to
+ * recheck first if a layer writes a longer row label.
+ * `Tick down 3` at `.t-num` is 13px mono with no tracking, so 86px inside
+ * 105.71 less the cell's 12 of padding and the 2 of border `.btn` carries =
+ * 91.71. Only 367.00 is measured; everything after it is arithmetic over the
+ * declarations named above, and nothing here has been read off a browser.
  *
  * Every button declares `minHeight: var(--tap)`. Five rows plus a header is
- * 20 + 5x44 + 4x4 = 256px, which is why it lives behind a fold that starts
- * shut on a row that is already inside a scroller.
+ * six grid rows and therefore five gaps, not four: 20 + 5x44 + 5x4 = **260px**,
+ * where this said 256. The header's 20 is the one figure the narrower column
+ * does not move - both column headings wrap to two 10px lines at 105.71 exactly
+ * as they did at 108, since `Progress Advancement` is already 132px of
+ * `.t-meta` and `Consequence Advancement` about 152 - and 260px is why the
+ * chart lives behind a fold that starts shut on a row that is already inside a
+ * scroller.
+ *
+ * **The 256 is still in circulation, in a document this lane does not own.**
+ * `docs/handoff/PROGETTO-GM-2026-08-23.md` §7 item 8 asks whether *"the 256px
+ * advancement chart"* is reachable one-handed once it moves onto a session
+ * countdown row. That figure is superseded here and the handoff item still
+ * carries it, so the string now has three homes: the item, and the two
+ * sentences in this file that retire it. The
+ * question it asks is genuinely owed and no browser here has answered it; the
+ * figure inside it is the one this paragraph just superseded, and nothing in
+ * this file should be read as the document having agreed.
  */
 export function CountdownChart({ countdown }: { countdown: Countdown | null }): React.JSX.Element {
   const dataset = useApp((s) => s.dataset);

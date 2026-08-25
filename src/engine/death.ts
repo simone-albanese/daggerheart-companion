@@ -35,8 +35,38 @@ export interface AvoidDeathRoll {
   scar: boolean;
 }
 
-export function avoidDeath(c: Character, rng: Rng = cryptoRng): AvoidDeathRoll {
-  const hopeDie = rollDuality(DEATH_ROLL, rng).hope;
+/**
+ * Avoid Death, with a door for the table that rolls its own dice.
+ *
+ * The shape is `engine/dice.ts`'s and deliberately not a new one: `fixed` is
+ * that file's `DualityInput['fixed']`, honoured with `??` exactly as
+ * `rollDuality` honours it, so the two engines read alike and a caller that
+ * knows how to type a duality roll already knows how to type this one.
+ *
+ * WHY THE `??` IS OUT HERE RATHER THAN LEFT TO `rollDuality`. This move reads
+ * the Hope Die and nothing else - `AvoidDeathRoll` carries no Fear Die, no
+ * total and no outcome - but `rollDuality` draws both dice unconditionally, so
+ * passing the fixed Hope Die through and letting it roll the Fear Die would
+ * consult the rng at a table that had switched the roller off, for a number
+ * nobody will ever see. Short-circuiting means a typed Hope Die is the whole
+ * roll: hand this an `Rng` that throws and it does not throw.
+ *
+ * With no Hope Die typed nothing changes, `rollDuality` is still the one place
+ * that defines what a Hope Die is, and the rest of `fixed` still reaches it -
+ * so `{ fear }` alone leaves the Hope Die on the rng, which is what a per-field
+ * `??` means.
+ *
+ * The face is not validated here, for the same reason `rollDuality` does not
+ * validate its own: the engine takes the number the table says it rolled. What
+ * a d12 may show is the surface's business, and `DeathMove.tsx` refuses to
+ * record anything outside 1-12.
+ */
+export function avoidDeath(
+  c: Character,
+  rng: Rng = cryptoRng,
+  fixed?: DualityInput['fixed'],
+): AvoidDeathRoll {
+  const hopeDie = fixed?.hope ?? rollDuality({ ...DEATH_ROLL, fixed }, rng).hope;
   return { hopeDie, level: c.level, scar: hopeDie <= c.level };
 }
 
@@ -89,8 +119,18 @@ export interface RiskItAllRoll {
   clear: number;
 }
 
-export function riskItAll(rng: Rng = cryptoRng): RiskItAllRoll {
-  const roll = rollDuality(DEATH_ROLL, rng);
+/**
+ * Risk It All, with the same door.
+ *
+ * Both dice are read here - which one is higher IS the outcome - so `fixed`
+ * goes straight through to `rollDuality` and every field keeps that file's own
+ * per-field `??`: a typed Hope Die with no Fear Die still rolls the Fear Die,
+ * because half a 2d12 is not a roll anybody made. Type both and no rng is
+ * consulted: `DEATH_ROLL` arms neither advantage nor a bonus die, so the two
+ * faces are the only dice in it.
+ */
+export function riskItAll(rng: Rng = cryptoRng, fixed?: DualityInput['fixed']): RiskItAllRoll {
+  const roll = rollDuality({ ...DEATH_ROLL, fixed }, rng);
   // Matching dice are checked first: they are their own outcome here, not the
   // critical success the same pair would be on an action roll.
   if (roll.critical) return { hope: roll.hope, fear: roll.fear, result: 'clear-all', clear: 0 };

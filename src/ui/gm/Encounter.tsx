@@ -8,7 +8,7 @@
  * not offered.
  */
 import { useState } from 'react';
-import type { Adversary, Tier } from '../../../shared/types.ts';
+import type { Adversary, Environment, Ref, Tier } from '../../../shared/types.ts';
 import {
   computeBudget,
   ROLE_COST,
@@ -19,6 +19,7 @@ import { useApp } from '../../store/state.ts';
 import { damageBumpRule } from '../shared/ruleText.ts';
 import { AdversaryRow, FilterBar, NO_FILTER, useFiltered, type Filter } from './AdversaryList.tsx';
 import { useGm } from './gmStore.ts';
+import { partySizeNote } from './partySize.ts';
 
 /**
  * The three adjustments a GM chooses, in the order `computeBudget` emits its
@@ -225,6 +226,11 @@ function Party({
 }): React.JSX.Element {
   const setPrefs = useApp((s) => s.setPrefs);
   const setPartyTier = useGm((s) => s.setPartyTier);
+  // The board is read here and never written from here: the stepper below sets
+  // the preference and nothing sets the preference from the board. See
+  // `partySize.ts` for why that is a decision and not a missing wire.
+  const onTheBoard = useGm((s) => s.party).length;
+  const disagreement = partySizeNote(partySize, onTheBoard);
   return (
     <section className="panel stack" style={{ flex: 'none', padding: 12, gap: 11 }}>
       <div className="spread">
@@ -233,6 +239,22 @@ function Party({
           (3 × {partySize}) + 2 = {base} BASE
         </span>
       </div>
+      {/*
+        Between the base and the stepper that moves it, because that is the
+        order the eye already runs in on this panel: the number, then what the
+        number is, then the control. Read and never touched, so it costs the
+        thumb nothing and the panel 21px - a 10px line box, since `.t-meta` is
+        `10px/1` (`tokens.css:565-566`) and nothing below steps it, plus the
+        `gap: 11` this `.panel stack` charges every item it holds. Arithmetic
+        over those two declarations, not a measurement. And it is only ever
+        there on a disagreement, so it is a line that means something every
+        time it appears.
+      */}
+      {disagreement !== null && (
+        <span className="t-meta" style={{ color: 'var(--dim)', letterSpacing: '0.08em' }}>
+          {disagreement}
+        </span>
+      )}
       <div className="row" style={{ gap: 10 }}>
         <Stepper
           label="PCs"
@@ -523,6 +545,37 @@ function Adjustments({
   );
 }
 
+/**
+ * Where the fight this button opens will actually be.
+ *
+ * `send` below spawns to the board and switches region. It does not touch
+ * `environmentRef`, so the fight opens in whatever place the board was already
+ * standing in - the last scene's, most of the time, because the only controls
+ * that set it are the bestiary's environment block and a session row. Nothing
+ * on this screen ever said so, and a GM sending eight adversaries had no way to
+ * know which terrain they were sending them into short of opening another tool.
+ *
+ * **This names that; it does not change it.** Whether the builder ought to pick
+ * an environment of its own - or whether an encounter and a scene are the same
+ * record, in which case the question dissolves - is the open one, and the
+ * sentence below is true either way: it says where this roster lands, which is
+ * the fact a GM needs at the moment they press the button and the fact that
+ * makes the answer obvious at the table rather than in a document.
+ *
+ * Three states and all three are honest. A resolved environment is named. No
+ * environment is said as an absence rather than left blank, because a blank
+ * beside a SEND reads as "nothing to say" and this has something to say. A ref
+ * this dataset cannot resolve prints the ref and `NOT IN THIS DATASET`, the
+ * same words the unresolved roster row above uses and for the same reason: the
+ * board still carries it, the fight still opens with it, and inventing a name
+ * for a record this build cannot read would be the one dishonest option.
+ */
+function opensIn(environment: Environment | undefined, ref: Ref | null): string {
+  if (environment !== undefined) return `OPENS IN ${environment.name.toUpperCase()} · CARRIED OVER, NOT PICKED HERE`;
+  if (ref === null) return 'NO ENVIRONMENT ON THE BOARD · THIS FIGHT OPENS WITHOUT ONE';
+  return `OPENS IN ${ref} · NOT IN THIS DATASET`;
+}
+
 function Roster({
   entries,
   costs,
@@ -538,11 +591,18 @@ function Roster({
   const clearRoster = useGm((s) => s.clearRoster);
   const spawn = useGm((s) => s.spawn);
   const setRegion = useGm((s) => s.setRegion);
+  const environments = useApp((s) => s.dataset.environments);
+  const environmentRef = useGm((s) => s.environmentRef);
 
   const send = (): void => {
     for (const e of entries) spawn(e.adversary, partySize, e.count);
     setRegion('scene');
   };
+
+  const opens = opensIn(
+    environments.find((e) => e.id === environmentRef),
+    environmentRef,
+  );
 
   return (
     <section className="stack" style={{ flex: 'none', gap: 8 }}>
@@ -653,9 +713,24 @@ function Roster({
       })}
 
       {entries.length > 0 && (
-        <button type="button" className="btn btn-primary" onClick={send} style={{ marginTop: 2 }}>
-          SEND {entries.reduce((n, e) => n + e.count, 0)} TO THE SCENE
-        </button>
+        <>
+          <button type="button" className="btn btn-primary" onClick={send} style={{ marginTop: 2 }}>
+            SEND {entries.reduce((n, e) => n + e.count, 0)} TO THE SCENE
+          </button>
+          {/*
+            Under the button rather than beside it: at 393 this section is one
+            column, and a name of any length beside a full-width primary control
+            has nowhere to go. `lineHeight` because `.t-meta` ships at `10px/1`
+            and this sentence wraps - the same correction the adjustments note
+            above makes, for the same reason.
+          */}
+          <span
+            className="t-meta"
+            style={{ color: 'var(--dim)', letterSpacing: '0.08em', lineHeight: 1.5 }}
+          >
+            {opens}
+          </span>
+        </>
       )}
     </section>
   );
