@@ -1,17 +1,20 @@
 /**
  * The live scene.
  *
- * Same Track component as the player sheet, on purpose: a GM who plays this
- * game has already learned that a tap marks and a hold clears, and there is no
- * reason for their side of the screen to work differently. Thresholds sit under
- * the tracks permanently rather than behind a tap, because they are the number
- * you are asked for out loud, several times a round.
+ * Same counters as the player sheet, on purpose: a GM who plays this game has
+ * already learned what a `-`, a number and a `+` do, and there is no reason for
+ * their side of the screen to work differently. That sentence used to name
+ * `Track` and the tap-and-hold pips, and it stayed true only until the player's
+ * own vitals became numbers - see `CombatantCard` below for why an adversary
+ * followed, and for the three things that went with the pips. Thresholds sit
+ * under the counters permanently rather than behind a tap, because they are the
+ * number you are asked for out loud, several times a round.
  */
 import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
-import { Track } from '../shared/Track.tsx';
+import { Counter } from '../shared/Counter.tsx';
 import { Stepper } from './Encounter.tsx';
 import { damageLabel, EnvironmentBand, FeatureList, signed } from './StatBlock.tsx';
 import { useGm } from './gmStore.ts';
@@ -279,10 +282,26 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         </div>
       ) : (
         <div
-          className="scroll"
+          /*
+            NOT A SCROLLER OF ITS OWN ANY MORE, AND THAT IS THE FIX.
+            
+            This was `className="scroll"` with `flex: 1; minHeight: 0`, which
+            made the cards the only thing on this screen that could be scrolled.
+            The environment band above is `flex: 'none'`, so opening it with SHOW
+            grew it past the panel edge - unreachable, because nothing above the
+            cards scrolled - and, once `GmSheet` was given a scroller, would have
+            done the opposite harm instead: a `flex: 1` grid beside a taller
+            `flex: 'none'` sibling in a fixed-height box collapses to nothing, so
+            the fix for the band would have taken the cards away.
+            
+            One scroller, in `GmSheet`'s panel body, and everything here is a
+            block inside it: the band, the count, END SCENE and the cards all
+            move together. The GM scrolls back to the top to end the scene, which
+            is the same gesture that reaches the environment they just read, and
+            the panel's own ESC and ✕ never move at all.
+          */
           style={{
-            flex: 1,
-            minHeight: 0,
+            flex: 'none',
             display: 'grid',
             gridTemplateColumns: phone ? '1fr' : 'repeat(auto-fill, minmax(330px, 1fr))',
             gap: 10,
@@ -449,24 +468,65 @@ function CombatantCard({
         </span>
       )}
 
-      <Track
-        kind="hp"
-        label="HP"
-        value={c.hp.marked}
-        max={c.hp.max}
-        onChange={(v) => patch(c.id, { hp: { ...c.hp, marked: v } })}
-        readout={`${c.hp.marked} / ${c.hp.max} MARKED`}
-        compact
-      />
-      <Track
-        kind="stress"
-        label="STRESS"
-        value={c.stress.marked}
-        max={c.stress.max}
-        onChange={(v) => patch(c.id, { stress: { ...c.stress, marked: v } })}
-        readout={`${c.stress.marked} / ${c.stress.max} MARKED`}
-        compact
-      />
+      {/*
+       * NUMBERS, NOT PIPS - THE SAME TRADE THE PLAY COCKPIT MADE.
+       *
+       * These two were `<Track>` rows: a silhouette of pips a GM had to count.
+       * An adversary's HP is read across a table, mid-fight, while three other
+       * things are happening, and counting eleven shapes is not reading. Decision
+       * 7 already made this call for the player's own vitals - `Vitals.tsx` says
+       * why at length - and an adversary is the surface where it matters more,
+       * because the GM is holding six of them at once and the player is holding
+       * one.
+       *
+       * WHAT GOES WITH THE PIPS, AND IT IS NOT NOTHING. `Vitals.tsx` enumerates
+       * the three and they are the same three here: a pip row sets any value in
+       * one click where a number is one `+` per point; the press-and-hold that
+       * cleared a track has no `Counter` equivalent; and MARKED survives only
+       * inside `Counter`'s accessible name rather than being printed. The GM
+       * keeps the one that matters most in their hands - marking one HP at a
+       * time is what actually happens when damage lands - and the reset that
+       * clears a whole scene is still one control away, on END SCENE.
+       *
+       * TOUCH IS NOT REDUCED. `Counter` declares its steppers at its own 44px
+       * floor and does not follow `--control` down, so nothing here got smaller
+       * than the pip row it replaces.
+       *
+       * `auto-fit` and not two fixed columns: a card in this grid is as narrow
+       * as 330px minus its padding, and two counters do not always fit in that.
+       * `auto-fit` drops to one column when they do not, rather than pushing the
+       * card's own width out and breaking the grid it sits in.
+       *
+       * 170 AND NOT 160, AND THE NUMBER IS BORROWED RATHER THAN GUESSED.
+       * `Vitals.tsx` measured a `Counter`'s min-content in Chrome while sizing
+       * the cockpit - 44 and 44 of steppers, 2 of border and the value button's
+       * own label line, which for `STRESS` came to 165.81. A 160px column would
+       * be under that floor and the counter would spill its own cell by six
+       * pixels; 170 clears it with the widest of the two labels used here. If a
+       * longer label ever arrives, this number moves with it.
+       */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: 8,
+        }}
+      >
+        <Counter
+          kind="hp"
+          label="HP"
+          value={c.hp.marked}
+          max={c.hp.max}
+          onChange={(v) => patch(c.id, { hp: { ...c.hp, marked: v } })}
+        />
+        <Counter
+          kind="stress"
+          label="STRESS"
+          value={c.stress.marked}
+          max={c.stress.max}
+          onChange={(v) => patch(c.id, { stress: { ...c.stress, marked: v } })}
+        />
+      </div>
 
       <div
         className="row"
