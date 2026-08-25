@@ -9,9 +9,16 @@
  * followed, and for the three things that went with the pips. Thresholds sit
  * under the counters permanently rather than behind a tap, because they are the
  * number you are asked for out loud, several times a round.
+ *
+ * And now they are read by the card as well as by the GM: the damage field on
+ * `CombatantCard` turns the number a player says into HP through the same
+ * `severityFor` the player's own vitals use, so nobody at this table is doing
+ * that comparison in their head twice. Nothing it works out is applied until
+ * APPLY is pressed.
  */
 import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
+import { combatantHit, SEVERITY_LABEL } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
@@ -332,9 +339,37 @@ function CombatantCard({
 }): React.JSX.Element {
   const patch = useGm((s) => s.patchCombatant);
   const remove = useGm((s) => s.removeCombatant);
+  /*
+   * The optional rule is the table's, and it is the same switch on both sides.
+   *
+   * `prefs.massiveDamageRule` is off by default and Settings words it in the
+   * second person - "twice **your** Severe threshold" - which is why it read
+   * like a PC-only rule. The owner settled it on 2026-08-25: a table that
+   * turned it on sees it applied to the monsters too. Hard-coding `false` here
+   * would have been the worst version, because it would have been silent:
+   * their own vitals would ladder to Massive and the card in front of the GM
+   * would not, with nothing on either screen saying why.
+   */
+  const massiveDamageRule = useApp((s) => s.prefs.massiveDamageRule);
   const [openFeatures, setOpenFeatures] = useState(false);
+  const [incoming, setIncoming] = useState('');
   const c = combatant;
   const down = c.hp.marked >= c.hp.max;
+
+  const amount = Number(incoming);
+  const hit =
+    incoming.trim() !== '' && Number.isFinite(amount) && amount > 0
+      ? combatantHit(amount, c, { massiveDamageRule, minionGroup: adversary?.minionGroup })
+      : null;
+
+  const applyHit = (): void => {
+    if (hit === null) return;
+    patch(c.id, {
+      hp: { ...c.hp, marked: hit.marked },
+      ...(hit.minionsRemaining === undefined ? {} : { minionsRemaining: hit.minionsRemaining }),
+    });
+    setIncoming('');
+  };
 
   return (
     <article
@@ -427,8 +462,10 @@ function CombatantCard({
         remainder of a shared row.
 
         Full width the card's inner column is 341px at 393, and the
-        subtraction starts at 391 rather than at 393. `Scene` is mounted only
-        at `Gm.tsx:281`, inside a `size="full"` `GmSheet` whose overlay pads
+        subtraction starts at 391 rather than at 393. `Scene` is mounted in one
+        place, the `<GmSheet … size="full">` block in `Gm.tsx` - named by its
+        block and not by a line, because "`Gm.tsx:281`" stood here and the mount
+        had already moved down the file. Inside a `size="full"` `GmSheet` whose overlay pads
         zero horizontally and whose panel is `width: '100%'` with `border: 1px
         solid var(--line)` (`GmSheet.tsx:95-104`); at `base.css:13`'s
         `box-sizing: border-box` that makes the sheet's content box 391.00,
@@ -558,6 +595,92 @@ function CombatantCard({
               {c.thresholds[1]}
             </span>
           </>
+        )}
+      </div>
+
+      {/*
+       * THE NUMBER THE PLAYER SAYS OUT LOUD, TYPED WHERE IT IS READ.
+       *
+       * "26" arrives across the table and the GM has to turn it into HP. Until
+       * now that meant reading MAJOR and SEVERE off the band above, doing the
+       * comparison in their head, and pressing `+` on the HP counter the right
+       * number of times - three separate places for one hit to go wrong, while
+       * three other things are happening. `combatantHit` in `engine/damage.ts`
+       * does all of it from one number, and it is the same `severityFor` the
+       * player's own vitals ladder through, so the two sides of the table
+       * cannot arrive at different answers.
+       *
+       * WHERE IT SITS, AND WHY IT IS EXACTLY HERE. Directly under the
+       * DIF/MAJOR/SEVERE band and directly above the Minion stepper: the
+       * figure that is read and the figure that is typed are adjacent, and the
+       * one control the hit can also move - Minions standing - is the next
+       * thing down. The panel is `size="full"` inside `GmSheet` and a full tool
+       * on a 393x852 phone gets a band rather than the window, so a row here is
+       * expensive; this is one row, and it is the row that removes three
+       * gestures.
+       *
+       * READ AT A GLANCE, TOUCHED ONCE. The field is `--control` because it is
+       * read as much as it is pressed - the GM checks the number they typed
+       * before they commit it - and 84px is `Vitals.tsx`'s own non-band width
+       * for the same three digits at the same mono face. APPLY is a flat 44,
+       * the coarse floor, declared inline because a floor set in a class is a
+       * floor no test can read. Enter commits too, for the same reason it does
+       * on the player's calculator: a GM typing with a keyboard should not have
+       * to go and find a button.
+       *
+       * THE VERDICT IS DRAWN BEFORE IT IS APPLIED, never after. Nothing here
+       * moves a track until APPLY - Architecture 3.2's *proposta, mai
+       * automatismo*, the same rule the countdowns board states at the top of
+       * its file. The preview also carries the Minion count, because the one
+       * number does two things and a GM must see both before committing.
+       *
+       * THE DIVISOR COMES FROM `byRef` WHILE THE THRESHOLDS BESIDE IT COME
+       * FROM THE BOARD, and that is the shape `sceneTruth.test.tsx` pins
+       * *against* for Difficulty. It is not the same case. The disagreement
+       * that test guards is two sources for ONE number: `makeCombatant` copies
+       * `difficulty` onto the board at spawn, so the dataset and the board can
+       * drift apart and the card must print the copy the GM can see. The board
+       * carries no divisor at all - `SceneCombatant` has `minionsRemaining` and
+       * nothing to divide by - so there is nothing here for `byRef` to
+       * contradict. And when the lookup misses, the arithmetic is simply
+       * absent: the card already says NOT IN THIS DATASET, and a guessed
+       * divisor would be worse than none.
+       */}
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={incoming}
+          placeholder="damage"
+          aria-label={`Damage to ${c.name}`}
+          onChange={(e) => setIncoming(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && applyHit()}
+          style={{
+            flex: 'none',
+            width: 84,
+            minHeight: 'var(--control)',
+            padding: '6px 8px',
+            font: '600 15px/1 var(--mono)',
+          }}
+        />
+        <button
+          type="button"
+          className="btn"
+          disabled={hit === null}
+          onClick={applyHit}
+          style={{ flex: 'none', minHeight: 'var(--tap)', padding: '0 14px' }}
+        >
+          APPLY
+        </button>
+        {hit !== null && (
+          <span className="t-meta" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+            {hit.severity === null
+              ? 'ANY DAMAGE DEFEATS'
+              : `${SEVERITY_LABEL[hit.severity].toUpperCase()} · ${hit.hp} HP`}
+            {hit.minionsDefeated > 0
+              ? ` · ${hit.minionsDefeated} MINION${hit.minionsDefeated === 1 ? '' : 'S'}`
+              : ''}
+          </span>
         )}
       </div>
 
