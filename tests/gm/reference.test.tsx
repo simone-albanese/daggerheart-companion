@@ -934,3 +934,86 @@ describe('the costs, which are the eighth topic', () => {
     expect(text()).not.toContain('1 Handful');
   });
 });
+
+describe('the three topics here that draw a block, and ask nothing of it', () => {
+  /*
+   * `BlockView` took `{ block }` and nothing else until SHOW's rule search
+   * needed a ref on one paragraph or one bullet inside a block. It now takes an
+   * optional `land` for that, and the callers with no reason to point inside a
+   * block pass nothing - three of them are in this region: the GM chapter's
+   * five folds, the adversary Experiences' lead block, and the costs topic's
+   * whole section. This says so from the outside rather than from the
+   * signature.
+   *
+   * It goes red on the one shortcut somebody could plausibly take: moving the
+   * scroll inside `BlockView` instead of leaving it to the caller's ref. Then
+   * all three of these would start moving the panel under a GM who had only
+   * opened a fold, and nothing in `ruleSearch.test.tsx` - which asserts what
+   * the search asks for, not what these ask for - would go red.
+   */
+  const whileWatching = (run: () => void): Element[] => {
+    const seen: Element[] = [];
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown };
+    // Restored from the descriptor rather than deleted: this file puts a no-op
+    // on the prototype in `beforeAll`, and deleting would leave every test
+    // after this one without one.
+    const was = Object.getOwnPropertyDescriptor(proto, 'scrollIntoView');
+    proto.scrollIntoView = function scrollIntoView(this: Element): void {
+      seen.push(this);
+    };
+    try {
+      run();
+    } finally {
+      if (was === undefined) delete proto.scrollIntoView;
+      else Object.defineProperty(proto, 'scrollIntoView', was);
+    }
+    return seen;
+  };
+
+  it('brings nothing into view of its own, on any of the three', () => {
+    const asked = whileWatching(() => {
+      openReference();
+
+      click(named('GM moves and principles'));
+      const chapter = folds();
+      // Not vacuous: there are five sections behind those folds, and opening
+      // them is what puts a `BlockView` on screen at all.
+      expect(chapter).toHaveLength(5);
+      for (const fold of chapter) click(fold);
+      expect(text()).toContain('BEGIN AND END WITH THE FICTION');
+
+      click(named('Adversary Experiences'));
+      expect(text()).toContain('EXPERIENCE (OPTIONAL)');
+
+      click(named('Gold, equipment, and loot'));
+      expect(text()).toContain('1 Handful');
+    });
+    expect(asked).toEqual([]);
+  });
+
+  it('lights not one word, because nobody here typed one', () => {
+    /*
+     * The second optional prop, checked the same way. `BlockView` takes a
+     * `mark` for SHOW's rule search, which hands it each string split around
+     * the words the GM typed; a topic here has no query and passes nothing, so
+     * every word arrives as the book wrote it and no `<mark>` is drawn.
+     *
+     * Red if `BlockView` ever marks on its own account, and red if `mark` stops
+     * being optional and these three have to invent an argument for it.
+     */
+    openReference();
+
+    click(named('GM moves and principles'));
+    for (const fold of folds()) click(fold);
+    expect(text()).toContain('BEGIN AND END WITH THE FICTION');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+
+    click(named('Adversary Experiences'));
+    expect(text()).toContain('EXPERIENCE (OPTIONAL)');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+
+    click(named('Gold, equipment, and loot'));
+    expect(text()).toContain('1 Handful');
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+  });
+});
