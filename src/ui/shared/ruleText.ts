@@ -231,6 +231,38 @@ export const interruptedRestRule = (rules: RulesSection[]): string | null =>
   downtimeSentence(rules, 'long rest is interrupted');
 
 /**
+ * What a short rest hands the GM, in the book's own words.
+ *
+ * *"On a short rest, the GM gains 1d4 Fear."* The GM's rest control prints this
+ * beside the number it is about to add to the pool, so the sentence a GM checks
+ * against and the arithmetic the app did come from the same place - and so a
+ * homebrew rules layer that moves the die moves what the screen says.
+ *
+ * Found by what the sentence says rather than by a subhead, for the reason
+ * `downtimeSentence` gives above: it is buried mid-paragraph in a 2KB body and
+ * there is nothing structural to key on.
+ */
+export const shortRestFearRule = (rules: RulesSection[]): string | null =>
+  downtimeSentence(rules, 'on a short rest, the gm gains');
+
+/**
+ * What a long rest hands the GM, and the clock it lets them move.
+ *
+ * *"On a long rest, they gain Fear equal to 1d4 + the number of PCs, and they
+ * can advance a long-term countdown of their choice."* One sentence carrying
+ * both halves of the control, which is why it is quoted whole rather than split
+ * into two selectors: the "of their choice" is the half that says the app must
+ * offer the clocks and never pick one.
+ *
+ * Keyed on the countdown clause rather than on `on a long rest` because that
+ * phrase also opens the interrupted-rest rule two paragraphs down, and the
+ * first sentence to match would be whichever the section happened to order
+ * first.
+ */
+export const longRestFearRule = (rules: RulesSection[]): string | null =>
+  downtimeSentence(rules, 'advance a long-term countdown');
+
+/**
  * The damage an encounter's adversaries add, in the book's own words.
  *
  * `EncounterAdjustments.damageBump` is a boolean, and every screen that has

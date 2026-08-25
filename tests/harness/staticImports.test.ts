@@ -248,4 +248,12 @@ describe('the GM screen does not carry the player screen', () => {
         'everything it imports - into the chunk that draws the GM screen.',
     ).toEqual([]);
   });
+
+  it('reaches the helper that moved so both sides could have it', () => {
+    // Control: the property above is only worth having while the GM screen
+    // really does need the answer. This is the edge that replaced the one the
+    // assertion forbids - `RestControl` asks `rollAffordance` before it rolls a
+    // d4 - so an empty answer up there is an answer and not a silence.
+    expect(staticGraph('ui/gm/Gm.tsx')).toContain('ui/shared/rollAffordance.ts');
+  });
 });

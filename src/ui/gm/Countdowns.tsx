@@ -19,6 +19,14 @@
  * moves that a hand did not move. The four cells the SRD gives no number for
  * are printed and are not buttons.
  *
+ * `RestControl` is the same paragraph again on a third control. A long rest
+ * lets the GM *"advance a long-term countdown of their choice"*, so the panel
+ * lists the long-term clocks and moves the one that is tapped - it does not
+ * pick, it does not move one at mount, and it does not notice that a rest
+ * happened. The GM says a rest happened; the app does the arithmetic the book
+ * owes them for it. "Plus and minus, and nothing else" above is about what
+ * moves a clock without being told to, and the answer to that is still nothing.
+ *
  * ## The shelf makes clocks; it still never moves one
  *
  * A template is a countdown the GM set up once — a name, a kind, a starting
@@ -151,6 +159,7 @@ import { useCountdownTemplates, type CountdownTemplate } from './countdownTempla
 import { Stepper } from './Encounter.tsx';
 import { FearBoard } from './FearPool.tsx';
 import { useGm } from './gmStore.ts';
+import { RestControl } from './RestControl.tsx';
 import { CountdownChart } from './ReferenceTables.tsx';
 // One map, two screens. A session row draws a countdown now as well as this
 // board does, and two copies of "dynamic is orange" is how one of them goes
@@ -173,6 +182,12 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
       style={{ flex: 1, minHeight: 0, gap: 14, padding: phone ? '10px 12px 16px' : '14px 20px 18px' }}
     >
       <FearBoard phone={phone} />
+
+      {/* Directly under the pool it feeds, and above the clocks, because the
+          one gesture a long rest offers is on a clock and the number it offers
+          first is Fear. Both halves of `downtime` p.41 are in this tool
+          already; the rest is what connects them. */}
+      <RestControl phone={phone} />
 
       <div
         style={{
@@ -197,8 +212,10 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
               </span>
               <p className="t-body" style={{ margin: 0, maxWidth: 480 }}>
                 Nothing here ever advances by itself. The app does not know when a trigger fired,
-                whether a roll counted toward the clock, or whether the party rested — you do. That
-                is deliberate: a countdown that moves on its own is one you have to check.
+                whether a roll counted toward the clock, or whether the party rested — you do. The
+                rest panel above changes none of that: it takes your word that a rest happened and
+                works out what the book owes you for it, and moving a clock is still a tap. That is
+                deliberate: a countdown that moves on its own is one you have to check.
               </p>
               <p className="t-body" style={{ margin: 0, maxWidth: 480, color: 'var(--muted)' }}>
                 Name one, give it a starting value, and move it by hand.
