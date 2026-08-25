@@ -109,9 +109,40 @@
  * it is a rule this app deliberately does not execute, so printing it as the
  * description of a control that will not execute it would be the screen
  * promising an automation on the very screen whose first paragraph refuses one.
- * And correcting one of the four while leaving three is arbitrary. The SRD's own
- * wording is where the SRD's own wording belongs: in the reference, quoted with
- * its page number, one tap away in both directions.
+ * And correcting one of the four while leaving three would be arbitrary if the
+ * reason for it were taste. The SRD's own wording is where the SRD's own
+ * wording belongs: in the reference, quoted with its page number, one tap away
+ * in both directions.
+ *
+ * ### Which one was corrected, and why that is not the arbitrary case
+ *
+ * `long-term`, and the objection above is answered rather than got round.
+ *
+ * It said "Advances across downtime and between sessions." The trouble with it
+ * was never that it was the app's own sentence instead of the book's - it was
+ * that it described the wrong thing. `between sessions` occurs twice in all 69
+ * shipped sections and both are in the Hope and Fear prose; it is nowhere in
+ * the clocks. What the `countdowns` section says about this kind is that it
+ * advances after rests instead of action rolls. So the hint was handing the
+ * clocks a property the book gives to another resource, on the screen whose
+ * first paragraph is about not telling a GM something the app does not know.
+ *
+ * That is a different defect from the one the section above refuses to fix. A
+ * hint that describes the wrong thing and a hint that describes the right thing
+ * in the app's words rather than the book's are not the same complaint, and
+ * only the first is being repaired. The other three are left because there is
+ * nothing wrong with them, not because one was picked out of four.
+ *
+ * The replacement is the app's own words too - `Advances when the party rests,
+ * not when a roll lands.` - because quoting the SRD here would break the very
+ * rule this section states, and the owner's decision of 2026-08-25 says so in
+ * those terms: correct it, with the app's words, and do not revoke this
+ * paragraph to do it.
+ *
+ * Both copies of it. The same sentence sat in `AddSheet.tsx`'s
+ * `COUNTDOWN_KINDS`, which is the list a GM reads *before* choosing a kind;
+ * retiring it here alone would have left it standing where it does the most
+ * work. The two lists say the same thing in the same words on purpose.
  */
 import { useState } from 'react';
 import { type Countdown, type CountdownKind } from '../../engine/encounter.ts';
@@ -130,7 +161,7 @@ const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
   { id: 'dynamic', label: 'Dynamic', hint: 'Advances by the outcome of a roll — you decide by how much.' },
   { id: 'loop', label: 'Loop', hint: 'Returns to its starting value the moment it runs out.' },
-  { id: 'long-term', label: 'Long-term', hint: 'Advances across downtime and between sessions.' },
+  { id: 'long-term', label: 'Long-term', hint: 'Advances when the party rests, not when a roll lands.' },
 ];
 
 export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
