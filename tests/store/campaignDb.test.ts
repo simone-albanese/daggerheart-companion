@@ -176,6 +176,47 @@ describe('reading the campaigns', () => {
     expect(stored['fear']).toBe(99);
   });
 
+  it('does NOT leave a refused party sheet on disk once the campaign is written again', async () => {
+    /*
+     * The word `readPartyMember` uses for what it does to a sheet the board
+     * cannot draw is QUARANTINE, and the test above is what quarantine looks
+     * like in this file: a record a newer build wrote is read past and left
+     * byte for byte where it was. A refused party row is not that, and this is
+     * the measurement rather than the argument.
+     *
+     * The row is dropped from the campaign the reader returns. Nothing has been
+     * written yet at that point - but the GM is now holding a campaign object
+     * with one fewer party member, and the next thing that saves it (marking
+     * Fear, adding a scene, the debounce in `gmStore`) writes that object back
+     * over the record the sheet was in. The sheet is then gone from the device.
+     *
+     * That is a defensible price - it is the one the commit that added the
+     * guard chose, and the warning names the player to ask for a file - but it
+     * is eviction, not quarantine, and this test exists so the difference is
+     * measured somewhere rather than asserted in a comment.
+     */
+    await writeRaw({
+      id: 'c-party',
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION,
+      name: 'A Campaign',
+      party: [{ id: 'p1', sheet: { name: 'Ilya of the Ninth', schemaVersion: 5 }, source: 'file' }],
+    });
+
+    const { campaigns } = await store.readCampaigns();
+    const read = campaigns.find((c) => c.id === 'c-party');
+    expect(read, 'the campaign itself was refused, which is not what the guard does').toBeDefined();
+    expect(read!.party, 'the unreadable sheet was put on the board').toEqual([]);
+
+    // Still on disk while nothing has saved: the read alone destroys nothing.
+    const beforeWrite = (await (await db.db()).get('campaigns', 'c-party')) as unknown as Record<string, unknown>;
+    expect((beforeWrite['party'] as unknown[]).length).toBe(1);
+
+    // And gone the moment anything saves the campaign the GM is holding.
+    await store.putCampaign(read!);
+    const afterWrite = (await (await db.db()).get('campaigns', 'c-party')) as unknown as Record<string, unknown>;
+    expect(afterWrite['party']).toEqual([]);
+  });
+
   it('keeps reading the rest around a record it cannot read', async () => {
     for (const name of ['A', 'B', 'C']) await store.putCampaign(make({ name }));
     await writeRaw({ id: 'c-bad', schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1, name: 'Bad' });

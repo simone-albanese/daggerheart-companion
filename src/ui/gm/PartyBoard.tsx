@@ -555,6 +555,20 @@ function Row({
  * from a player goes through `readCharacterRecord`, whose `checkShapes` refuses
  * half an animal - and the total reads that are already here are what carries a
  * sheet that got in before either door existed.
+ *
+ * THAT SENTENCE WAS TAKEN ON TRUST AND WAS HALF FALSE, WHICH IS WHY IT NOW
+ * NAMES WHAT THE CHECK COVERS. `checkShapes` does refuse half an animal. It
+ * asked a `levelUpHistory` entry for a `level` and a `kind` and never for a
+ * `detail`, so a file holding an advancement without one came through this door
+ * in silence and took the board down in `collectModifiers` - the same crash a
+ * stored campaign caused, arriving by the route this docblock offered as the
+ * reason not to worry about it. `readCharacterRecord` now fills that `detail`
+ * and says it did, and `tests/transfer/fileIo.test.ts` holds both halves.
+ *
+ * The reader's own guard is measured the same way now: `boardShortfall` checks
+ * a list element as deep as some consumer here dereferences it, and
+ * `tests/store/campaignPartySheet.test.ts` writes the fatal shapes out by hand
+ * and proves each one fatal against the consumer that dies on it.
  */
 function CompanionLine({
   sheet,

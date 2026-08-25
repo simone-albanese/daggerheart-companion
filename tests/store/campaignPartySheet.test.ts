@@ -26,7 +26,9 @@ import {
   primaryCountdownOf,
   readCampaignRecord,
 } from '../../shared/campaigns.ts';
-import { newCharacter } from '../../src/engine/character.ts';
+import { deriveStats, indexDataset, newCharacter } from '../../src/engine/character.ts';
+import type { Character } from '../../shared/types.ts';
+import { makeClass, makeDataset, makeSubclass } from '../fixtures/factories.ts';
 
 const v2 = (): Record<string, unknown> =>
   JSON.parse(
@@ -204,5 +206,175 @@ describe('a party sheet the board can draw', () => {
     const { campaign, warnings } = readCampaignRecord(withSheet(sheet));
     expect(campaign.party).toEqual([]);
     expect(warnings.join(' ')).toContain('companion');
+  });
+});
+
+/**
+ * THE OTHER HALF OF THE GUARD: how deep each predicate goes.
+ *
+ * The first version of this file asked twenty-five questions and every one of
+ * them deleted a field. That is one severity, and a guard has two: a predicate
+ * that answers true for an absent field is caught by the loop above, and a
+ * predicate that answers true for a field of the WRONG SHAPE was caught by
+ * nothing at all. A verifier walked straight through the first version of
+ * `boardShortfall` with `levelUpHistory: [null]` - a list, so `Array.isArray`
+ * said yes - and took the board down with the original crash.
+ *
+ * So the shapes are written out here by hand, the way the field list above is,
+ * and for the same reason: asking the guard which shapes it stops is asking the
+ * question and the answer at once.
+ *
+ * Each row of `FATAL` was MEASURED, not argued: `proves` is the consumer that
+ * throws on it, and the last describe in this file hands the shape to that
+ * consumer and requires it to throw. When a consumer is made total, its row
+ * goes red here and the predicate above it can be loosened - which is the only
+ * honest reason to loosen it.
+ */
+const ds = makeDataset({
+  classes: [makeClass({ startingEvasion: 11, startingHitPoints: 5, domains: ['blade', 'valor'] })],
+  subclasses: [makeSubclass({ id: 'caster', name: 'Caster', spellcastTrait: 'presence' })],
+});
+const ix = indexDataset(ds);
+
+/** A whole sheet whose subclass resolves, so `collectModifiers` runs its arm. */
+const played = (): Record<string, unknown> => ({
+  ...whole(),
+  classRef: 'test-class',
+  subclassRefs: ['caster'],
+});
+
+const FATAL: Array<{ field: string; value: unknown; why: string }> = [
+  {
+    field: 'levelUpHistory',
+    value: [null],
+    why: "`advancementCount` reads `a.kind` off every element - the original crash, one element deep",
+  },
+  {
+    field: 'levelUpHistory',
+    value: [{ level: 2, slot: 0, kind: 'subclass' }],
+    why: "`collectModifiers` reads `h.detail['subclassRef']` once the subclass resolves",
+  },
+  {
+    field: 'levelUpHistory',
+    value: [{ level: 2, slot: 0, kind: 'subclass', detail: null }],
+    why: 'the same read, with `detail` present and null',
+  },
+  {
+    field: 'inventory',
+    value: [null],
+    why: '`collectModifiers` reads `entry.ref` off every carried entry',
+  },
+  {
+    field: 'experiences',
+    value: [null],
+    why: "the drawer's `Experiences` reads `.name` off every one - the read no deletion test could reach, because the loop never opened the drawer",
+  },
+];
+
+/**
+ * And the shapes that must KEEP their row.
+ *
+ * Refusing costs a GM a whole row and names a player to go and ask, so a guard
+ * that refuses more than it must is not the safe direction - it is the other
+ * way to lose a board. Every shape here was measured harmless at the same time
+ * the fatal ones were measured fatal.
+ */
+const TOLERATED: Array<{ field: string; value: unknown; why: string }> = [
+  { field: 'scars', value: [null, {}], why: '`deriveStats` only ever takes `.length`' },
+  { field: 'subclassRefs', value: [{}], why: 'handed to `Map.get`, which is total for any key' },
+  { field: 'ancestryRefs', value: [null], why: 'the same, plus an `!== undefined` in `collectModifiers`' },
+  { field: 'inventory', value: [{}], why: 'an entry with no `ref` reads as free text, and draws' },
+  { field: 'experiences', value: [{}], why: 'a nameless Experience prints "Unnamed", which is a board you can read and disbelieve' },
+];
+
+describe('a party sheet whose fields are the wrong shape', () => {
+  it.each(FATAL)('refuses $field as $value, because $why', ({ field, value }) => {
+    const sheet = played();
+    sheet[field] = value;
+    const { campaign, warnings } = readCampaignRecord(withSheet(sheet));
+
+    expect(campaign.party).toEqual([]);
+    expect(warnings.join(' ')).toContain(field);
+  });
+
+  it.each(TOLERATED)('keeps the row when $field is $value, because $why', ({ field, value }) => {
+    const sheet = played();
+    sheet[field] = value;
+    const { campaign, warnings } = readCampaignRecord(withSheet(sheet));
+
+    expect(warnings, `"${field}" was refused for a shape measured harmless`).toEqual([]);
+    expect(campaign.party).toHaveLength(1);
+  });
+
+  it('refuses a wrong-shaped value for every field it checks, not just an absent one', () => {
+    /*
+     * The sweep the first version did not have. `false` is a value no field on
+     * a character can legally hold - not a number, not a string, not a record,
+     * not a list, not null - so a predicate that lets it through is a predicate
+     * that is not looking at the value at all.
+     */
+    for (const key of boardShortfall({}).filter((k) => k !== 'name')) {
+      const sheet = played();
+      sheet[key] = false;
+      const { campaign, warnings } = readCampaignRecord(withSheet(sheet));
+      expect(campaign.party, `a sheet whose "${key}" was \`false\` was put on the board`).toEqual([]);
+      expect(warnings.join(' '), `"${key}" was refused without being named`).toContain(key);
+    }
+  });
+
+  it('reads the six traits by name, and not the object that holds them', () => {
+    // `deriveStats` reads every trait by name and adds it to a number. An
+    // object that is a record and holds none of them is the shape that gets
+    // through a bare `isRecord`, and NaN is what a GM would have read.
+    for (const traits of [{}, { agility: 1 }, { agility: '1', strength: 1, finesse: 1, instinct: 1, presence: 1, knowledge: 1 }]) {
+      const sheet = played();
+      sheet['traits'] = traits;
+      expect(readCampaignRecord(withSheet(sheet)).campaign.party, `traits ${JSON.stringify(traits)} drew a row`).toEqual([]);
+    }
+  });
+
+  it('reads a track as two numbers, and not as an object with a shape', () => {
+    // The four counters are printed as `marked`/`max` by the row itself.
+    for (const track of [{}, { marked: 1 }, { max: 6 }, { marked: '1', max: 6 }]) {
+      const sheet = played();
+      sheet['hp'] = track;
+      expect(readCampaignRecord(withSheet(sheet)).campaign.party, `hp ${JSON.stringify(track)} drew a row`).toEqual([]);
+    }
+  });
+});
+
+/**
+ * The measurement the depths above are copied from.
+ *
+ * A guard is deep enough when it stops what the consumers cannot survive, so
+ * the consumers are asked directly. This is the test that stops the table
+ * turning into folklore: if `advancementCount` is one day written to skip a
+ * hole, its row here goes red, and the predicate that refuses a GM's row for it
+ * can be loosened on evidence rather than on a feeling.
+ *
+ * `experiences` is absent from this list and cannot be added to it: its crash
+ * is in the drawer, not the engine. It is measured in `tests/gm/partyBoard.test.tsx`,
+ * which mounts the component and opens the row.
+ */
+describe('the shapes the consumers themselves cannot survive', () => {
+  const poisoned = (field: string, value: unknown): Character =>
+    ({ ...played(), [field]: value }) as unknown as Character;
+
+  it.each(FATAL.filter((f) => f.field !== 'experiences'))(
+    '$field as $value takes deriveStats down',
+    ({ field, value }) => {
+      expect(() => deriveStats(poisoned(field, value), ds, ix)).toThrow();
+    },
+  );
+
+  it.each(TOLERATED.filter((t) => t.field !== 'experiences'))(
+    '$field as $value does not, which is why the guard lets it past',
+    ({ field, value }) => {
+      expect(() => deriveStats(poisoned(field, value), ds, ix)).not.toThrow();
+    },
+  );
+
+  it('draws its numbers from a sheet that is whole, so the two above mean something', () => {
+    expect(deriveStats(played() as unknown as Character, ds, ix).evasion).toBeGreaterThan(0);
   });
 });

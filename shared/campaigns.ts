@@ -817,11 +817,44 @@ const readTracks = (v: unknown): PartyTracks => {
  * would throw away a usable row to satisfy a type.
  *
  * The predicates answer the question the crash asked, not the question the type
- * asks. A list is checked for being a list and not for its element type, because
- * what took the board down was `levelUpHistory.filter` on `undefined`; a junk
- * element renders wrong, which is a board you can read and disbelieve. The two
- * places that go deeper are the two the board calls methods through: `traits`,
- * because the six are read by name, and `companion`, because
+ * asks, and how deep each one goes was MEASURED rather than reasoned about.
+ * `tests/store/campaignPartySheet.test.ts` hands each shape below to the
+ * consumers themselves and records which ones throw; the depths here are that
+ * table, and the same test also holds the other side of it - the shapes that
+ * were measured harmless are required to keep their row.
+ *
+ * THE RULE: an element is checked as deep as some `src/ui/gm/` consumer
+ * dereferences it, and no deeper. The first version of this guard checked every
+ * list with `Array.isArray` alone, on the reasoning that "a junk element renders
+ * wrong, which is a board you can read and disbelieve". That sentence was false
+ * for three of the six lists, and a verifier proved it by getting past the guard:
+ *
+ *   `levelUpHistory`  `advancementCount` reads `a.kind` off every element, and
+ *                     `collectModifiers` reads `h.detail['subclassRef']` off the
+ *                     ones that say `subclass` - so a hole in the list, or an
+ *                     entry with no `detail`, is the original crash again.
+ *   `inventory`       `collectModifiers` reads `entry.ref` off every element.
+ *   `experiences`     the board's own `Experiences` reads `.name` off every one,
+ *                     on first render - which no test saw, because every
+ *                     question the suite asked of a sheet deleted a field, and
+ *                     a deleted list is refused by the list check itself.
+ *
+ * The other three are checked as lists and nothing more, and that is measured
+ * too: `scars` is only ever `.length`, and `subclassRefs`/`ancestryRefs` are
+ * handed to `Map.get`, which is total for anything. Making those deeper would
+ * throw away a usable row to satisfy a type, which is the other way to lose a
+ * board. `companion.experiences` and `companion.upgrades` stay shallow for the
+ * blunter reason that no GM screen reads either one.
+ *
+ * `levelUpHistory` is the one predicate that is a shade wider than its crash: a
+ * missing `detail` is only fatal on a `subclass` entry, and this refuses it on
+ * any. Branching on `kind` would put a consumer's internal `if` inside the
+ * guard, where it would drift; and the wider rule cannot refuse a real sheet,
+ * because `detail` is required by `LevelUpChoice` and every writer of one -
+ * `applyLevelUp` and the codec's `readChoice` - sets it.
+ *
+ * The two records that go deeper are the two the board calls methods through:
+ * `traits`, because the six are read by name, and `companion`, because
  * `CompanionLine` calls `.toUpperCase()` on its name and reads `.marked`/`.max`
  * off its Stress - so half an animal is refused here exactly as
  * `checkShapes` in `src/transfer/fileIo.ts` refuses it for a file.
@@ -833,13 +866,38 @@ const readTracks = (v: unknown): PartyTracks => {
  * from the type is a test rather than a compiler: `tests/store/campaignPartySheet.test.ts`
  * requires every key named here to be present on a blank `newCharacter()`, so a
  * rename in `shared/types.ts` fails there instead of quietly refusing every row.
+ * That test writes out the field list by hand, and - since the verifier got past
+ * the first version of this guard - the fatal shapes by hand as well, because a
+ * guard asked which shapes it stops is a guard that cannot go red.
  */
 const isCounter = (v: unknown): boolean =>
   isRecord(v) && typeof v['marked'] === 'number' && typeof v['max'] === 'number';
 
 const isRefOrNull = (v: unknown): boolean => v === null || typeof v === 'string';
 
+/**
+ * A list, and nothing is asked of what is in it.
+ *
+ * Correct only where no consumer dereferences an element: `.length`, or a
+ * `Map.get` that is total for any key. Everywhere else it is the hole the
+ * verifier walked through, and `isListOf` is the predicate to use instead.
+ */
 const isList = (v: unknown): boolean => Array.isArray(v);
+
+/** A list whose every element survives being dereferenced by the board. */
+const isListOf =
+  (each: (v: unknown) => boolean) =>
+  (v: unknown): boolean =>
+    Array.isArray(v) && v.every(each);
+
+/**
+ * An advancement the board can count and read a `detail` off.
+ *
+ * Both halves are the crash: a hole in the list throws in `advancementCount`,
+ * and an entry with no `detail` throws in `collectModifiers` the moment the
+ * character's subclass resolves.
+ */
+const isAdvancement = (v: unknown): boolean => isRecord(v) && isRecord(v['detail']);
 
 const COMPANION_FIELDS: ReadonlyArray<readonly [string, (v: unknown) => boolean]> = [
   ['name', (v) => typeof v === 'string'],
@@ -874,11 +932,14 @@ const BOARD_FIELDS: ReadonlyArray<readonly [string, (v: unknown) => boolean]> = 
   ['activePrimaryWeapon', isRefOrNull],
   ['activeSecondaryWeapon', isRefOrNull],
   ['activeArmor', isRefOrNull],
+  // Handed to `Map.get`, which is total for anything: a list is the whole check.
   ['subclassRefs', isList],
   ['ancestryRefs', isList],
-  ['inventory', isList],
-  ['experiences', isList],
-  ['levelUpHistory', isList],
+  // Dereferenced per element: by `collectModifiers`, and by the row itself.
+  ['inventory', isListOf(isRecord)],
+  ['experiences', isListOf(isRecord)],
+  ['levelUpHistory', isListOf(isAdvancement)],
+  // Only ever `.length`, in `deriveStats`.
   ['scars', isList],
   ['beastform', (v) => v === null || isRecord(v)],
   ['companion', (v) => v === null || (isRecord(v) && COMPANION_FIELDS.every(([k, ok]) => ok(v[k])))],
@@ -959,15 +1020,26 @@ function readPartyMember(v: unknown, warn: (s: string) => void): PartyMember[] {
    * 'filter')` - `levelUpHistory.filter`, inside `deriveStats`, called by the
    * board's row.
    *
-   * QUARANTINE, NOT REPAIR - which is the decision `PartyBoard.tsx` said was
+   * REFUSAL, NOT REPAIR - which is the decision `PartyBoard.tsx` said was
    * scheduled for this file. Repair would mean filling the holes from a blank
    * sheet, and a blank sheet has a level, no class and no armour: a GM would
    * read out an Evasion of 10 and thresholds off the unarmored ladder for a
    * character who has neither, with nothing on screen saying the numbers were
    * invented. Refusing costs one row and says why; repairing costs the GM's
-   * trust in every number on the board. The price is real and it is paid here:
-   * a row the board *could* have drawn a name and four tracks for is gone, and
-   * the only way back is re-importing that character.
+   * trust in every number on the board.
+   *
+   * AND THE WORD IS NOT QUARANTINE, WHICH IS WHAT THIS SAID FIRST. Quarantine
+   * is a thing this codebase already does, one layer out: `readCampaigns`
+   * leaves a record a newer build wrote exactly where it is on disk, and
+   * `tests/store/campaignDb.test.ts` measures the bytes. This is not that. The
+   * row is dropped from the campaign the GM is then holding, so the next thing
+   * that saves - marking Fear, adding a scene, the debounce in `gmStore` -
+   * writes that campaign back over the record the sheet was in, and the sheet
+   * is gone from the device. `campaignDb.test.ts` measures that too, in the
+   * test named for it. The price is real and it is paid here: a row the board
+   * *could* have drawn a name and four tracks for is gone for good, and the
+   * only way back is re-importing that character - which is why the warning
+   * below says so rather than merely apologising.
    */
   const missing = boardShortfall(migrated);
   if (missing.length > 0) {

@@ -29,7 +29,7 @@
  * IMPORTED" - was disproved by the drawer one tap below it.
  */
 import 'fake-indexeddb/auto';
-import { act, createElement } from 'react';
+import { act, Component, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Character, CompanionState } from '../../shared/types.ts';
@@ -402,6 +402,31 @@ describe('what the campaign reader can put on this board', () => {
     expect(text()).toContain('Ilya of the Ninth');
   });
 
+  /*
+   * AND THE ROW IS OPENED, WHICH IT WAS NOT.
+   *
+   * Every pass below used to mount the board and stop. The row draws a name,
+   * four numbers, the Experiences and the companion; the drawer one tap further
+   * in draws the lineage line, which is the only place `subclassRefs` and
+   * `ancestryRefs` are mapped rather than handed to `Map.get`. So a surface was
+   * being declared safe by a test that never rendered it.
+   *
+   * This is not, however, what hid `experiences: [null]` - that read is in the
+   * row and always was. What hid it is one line below: every pass DELETED a
+   * field, and none ever supplied one of the wrong shape.
+   */
+  const openIfDrawn = (): void => {
+    const toggle = [...container.querySelectorAll('button[aria-expanded]')][0];
+    if (toggle === undefined) return;
+    act(() => {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  };
+  const remount = (): void => {
+    act(() => root.unmount());
+    root = createRoot(container);
+  };
+
   it('survives every sheet the reader will pass, one missing field at a time', () => {
     /*
      * The crash was one absent field, so the question is asked one absent field
@@ -419,9 +444,77 @@ describe('what the campaign reader can put on this board', () => {
       load(held(sheetRecord));
       expect(() => {
         board();
+        openIfDrawn();
       }, `the board threw on a sheet with no "${key}"`).not.toThrow();
-      act(() => root.unmount());
-      root = createRoot(container);
+      remount();
     }
+  });
+
+  it('survives every sheet the reader will pass, one wrong-shaped field at a time', () => {
+    /*
+     * The severity the loop above does not have. A field that is present and
+     * the wrong shape is a different question from a field that is absent, and
+     * it is the one a verifier used to get past the first version of the guard.
+     * `false` is a value no character field can legally hold; a list poisoned
+     * with a hole is the shape that actually reached a GM.
+     */
+    for (const key of boardShortfall({})) {
+      for (const junk of [false, [null], {}]) {
+        const sheetRecord = newCharacter({
+          name: 'Ilya of the Ninth',
+        }) as unknown as Record<string, unknown>;
+        sheetRecord[key] = junk;
+        load(held(sheetRecord));
+        expect(() => {
+          board();
+          openIfDrawn();
+        }, `the board threw on a sheet whose "${key}" was ${JSON.stringify(junk)}`).not.toThrow();
+        remount();
+      }
+    }
+  });
+
+  it('would have gone down on the experience the guard now refuses, which is why it refuses it', () => {
+    /*
+     * The measurement behind one row of the table in
+     * `tests/store/campaignPartySheet.test.ts`. That file proves the fatality of
+     * every other listed shape against `deriveStats`; this one cannot be proved
+     * there, because the read is in `Row` rather than in the engine - it is the
+     * board's own `Experiences`, and it throws on first render, before anything
+     * is tapped.
+     *
+     * WHY NOTHING CAUGHT IT: not depth, but severity. Every question this suite
+     * asked of a party sheet deleted a field, and a deleted `experiences` is
+     * refused by the guard's list check, so no test ever rendered a row whose
+     * `experiences` was present and wrong. That is the hole the sweep above now
+     * fills, and it is the same hole a verifier walked through in `shared/`.
+     *
+     * Through an error boundary rather than a `try`: React reports an uncaught
+     * render error to the host after the call that provoked it, so catching it
+     * by hand leaves a second report behind that fails the test anyway. A
+     * boundary is the supported way to hold one, and holding it is the whole
+     * assertion.
+     *
+     * `importParty` is the door used because it takes a `Character` as given -
+     * the reader will no longer emit this shape, which is the point.
+     *
+     * If this ever stops throwing, `Experiences` has been made total and the
+     * guard's `experiences` predicate can go back to a bare list check.
+     */
+    let caught: Error | null = null;
+    class Boundary extends Component<{ children: React.ReactNode }> {
+      override componentDidCatch(e: Error): void {
+        caught = e;
+      }
+      override render(): React.ReactNode {
+        return caught === null ? this.props.children : null;
+      }
+    }
+
+    put({ ...sheet('pc-1', 'Ilya'), experiences: [null] } as unknown as Character);
+    act(() => root.render(createElement(Boundary, null, createElement(PartyBoard, { phone: false }))));
+
+    expect(caught, 'the drawer drew a null experience without throwing').not.toBeNull();
+    expect(String(caught)).toMatch(/Cannot read properties of null \(reading 'name'\)/);
   });
 });
