@@ -270,6 +270,42 @@ describe('service worker, against what the build actually emitted', () => {
   });
 
   /**
+   * The same build, at the one moment this worker deletes.
+   *
+   * The assertion above is about install, which only fills. Activation prunes,
+   * and it prunes by walking the cached document with no network at all: what
+   * the walk cannot name from what is already cached is superseded, and goes. A
+   * lazy screen is named nowhere in the document - only inside another chunk,
+   * as the literal specifier of an `import()` - so it is precisely the file a
+   * prune that read only the document would take, and the file with the least
+   * to fall back on once it is taken, because offline there is nothing left to
+   * fetch it from.
+   *
+   * The set is derived from `dist/index.html` rather than from a name pattern
+   * on purpose. A pattern is a second guess about what the build emitted, and
+   * the property under test is about what the document does and does not say.
+   */
+  it('keeps the chunks the document never names, through the activation that deletes', async () => {
+    const app = world(dist);
+    const indexHtml = readFileSync(join(dist, 'index.html'), 'utf8');
+    const unnamed = app
+      .emitted(/\/assets\/.+\.js$/)
+      .filter((url) => !/\/import-worker-/.test(url))
+      .filter((url) => !indexHtml.includes(url.split('/').pop()!));
+    expect(
+      unnamed.length,
+      'this build names every chunk in its document; there is nothing here for a prune to lose',
+    ).toBeGreaterThan(0);
+
+    await app.dispatch('install');
+    const filled = app.cached(ASSETS);
+    await app.dispatch('activate');
+
+    expect(app.cached(ASSETS), 'the prune took nothing this build still uses').toEqual(filled);
+    expect(app.cached(ASSETS), 'the lazy screens above all').toEqual(expect.arrayContaining(unnamed));
+  });
+
+  /**
    * Every expectation here is derived from what Vite actually emitted, because
    * a hand-written list of filenames is a test that passes while the app is
    * broken - the worker infers its precache from the build, so the test has to
