@@ -263,6 +263,32 @@ export const longRestFearRule = (rules: RulesSection[]): string | null =>
   downtimeSentence(rules, 'advance a long-term countdown');
 
 /**
+ * The one sentence of the `death` section that is the GM's half of a death move.
+ *
+ * *"They temporarily drop unconscious, and then you work with the GM to
+ * describe how the situation worsens."* The three moves themselves belong to
+ * the player and happen on their own screen; what reaches the GM's board is
+ * this - a thing to describe, and then a thing to write down.
+ *
+ * The section is keyed by id here rather than searched across every rule,
+ * because `worsens` is a common enough verb that a homebrew layer could put it
+ * somewhere else entirely, and a sentence lifted out of the wrong section and
+ * printed under a fallen PC would be worse than no sentence at all. Null when
+ * no loaded layer carries it, and the board then prints the row without a
+ * quotation rather than one this file invented.
+ */
+export function situationWorsensRule(rules: RulesSection[]): string | null {
+  const death = rules.find((r) => r.id === 'death');
+  if (death === undefined) return null;
+  for (const paragraph of paragraphs(death.body)) {
+    for (const sentence of paragraph.split(/(?<=\.)\s+/)) {
+      if (/the situation worsens/i.test(sentence)) return sentence.trim();
+    }
+  }
+  return null;
+}
+
+/**
  * The damage an encounter's adversaries add, in the book's own words.
  *
  * `EncounterAdjustments.damageBump` is a boolean, and every screen that has

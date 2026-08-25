@@ -21,6 +21,7 @@ import {
   ruleBullets,
   ruleList,
   ruleTables,
+  situationWorsensRule,
   spellcastZeroNote,
   traitVerbs,
 } from '../../src/ui/shared/ruleText.ts';
@@ -269,6 +270,37 @@ describe('the two downtime sentences the GM rest control quotes', () => {
     expect(longRestFearRule([])).toBeNull();
     expect(shortRestFearRule(reworded)).toBeNull();
     expect(longRestFearRule(reworded)).toBeNull();
+  });
+});
+
+/**
+ * The one sentence of the `death` section addressed to the GM.
+ *
+ * The three moves are the player's and are read elsewhere. What the GM's party
+ * board prints under a fallen row is this, and it is quoted rather than
+ * restated because the row beside it is a field for the GM's own words - and
+ * what is between quotation marks on that panel has to be the book's.
+ */
+describe('situationWorsensRule', () => {
+  it('finds it in the shipped dataset, verbatim', () => {
+    const out = situationWorsensRule(dataset.rules);
+    expect(out, 'the SRD no longer carries the sentence the board quotes').not.toBeNull();
+    expect(section('death')).toContain(out!);
+    expect(out).toBe(
+      'They temporarily drop unconscious, and then you work with the GM to describe how the ' +
+        'situation worsens.',
+    );
+  });
+
+  it('reads the `death` section and never another one', () => {
+    // `worsens` is a common enough verb that a homebrew layer could put it
+    // anywhere. A sentence lifted out of the wrong section and printed under a
+    // fallen PC would be worse than no sentence at all.
+    const elsewhere = [
+      { id: 'combat', title: 'Combat', body: 'And then the situation worsens for everyone.' },
+    ];
+    expect(situationWorsensRule(elsewhere)).toBeNull();
+    expect(situationWorsensRule([])).toBeNull();
   });
 });
 
