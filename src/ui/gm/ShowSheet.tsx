@@ -250,12 +250,25 @@
  * and this file already overrides `.t-label`'s tracking once - the door's own
  * label is drawn at 0.1em.
  *
- * **What the next Chrome pass still owes.** The height of a one-line door and
- * of the two-row grid, both of which are floors here rather than measurements;
- * the panel's new overall height, which retires "402.73"; and the one thing
- * arithmetic cannot answer at all - whether 102px of 10px mono at half its
- * usual tracking is still read at arm's length in a dim room, which is what
- * this lever was spent on.
+ * **Chrome answered, on this branch, at 393x852 with insets 47/34.** Every term
+ * of the arithmetic above came back exact: the two-row grid is **96.00**, a
+ * one-line door is **56.00** - its floor, so the floor is what it measures -
+ * three of them with their gaps are **188.00**, and the whole column from the
+ * first chip to the last door is **294.00**. A chip is **115.66** wide and
+ * every one of the six labels is on **one line**, `BEFORE THE ROLL` included,
+ * so the tracking bought what it was spent on. THE MERCHANT's bottom edge
+ * lands on **688**, which is the reading window's own bottom edge: the third
+ * door is whole, by nothing.
+ *
+ * **The empty state no longer scrolls at all.** Before this it overflowed by
+ * 138px and the panel's scroller took the difference; now nothing on the sheet
+ * has a `scrollHeight` past its `clientHeight` with the field empty. That is
+ * the fit, stated as the browser found it rather than as the sum hoped.
+ *
+ * **What is still owed** is the one thing arithmetic cannot answer and Chrome
+ * does not either: whether 102px of 10px mono at half its usual tracking is
+ * still read at arm's length in a dim room, which is what this lever was
+ * spent on. That needs a table, not a rig.
  *
  * **The overflow is still not a way out.** H-9 is shut - no horizontal rail on
  * this screen - so six chips in one scrolling row is not an option that was
