@@ -179,7 +179,7 @@ const COUNTDOWN_KINDS: Array<{ id: CountdownKind; label: string }> = [
   { id: 'standard', label: 'Standard — advances when the fiction says it does' },
   { id: 'dynamic', label: 'Dynamic — advances by the outcome of a roll' },
   { id: 'loop', label: 'Loop — returns to its start the moment it runs out' },
-  { id: 'long-term', label: 'Long-term — advances across downtime and between sessions' },
+  { id: 'long-term', label: 'Long-term — advances when the party rests, not when a roll lands' },
 ];
 
 export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Element {

@@ -21,6 +21,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Campaign } from '../../shared/campaigns.ts';
+import { COUNTDOWN_BEATS_MAX, COUNTDOWN_TEXT_MAX } from '../../shared/campaigns.ts';
 import type { Adversary, Character } from '../../shared/types.ts';
 import { NO_FIGHT } from '../fixtures/factories.ts';
 import { newCharacter } from '../../src/engine/character.ts';
@@ -273,6 +274,72 @@ describe('countdowns are rows of the session list', () => {
       .getState()
       .session.filter((i) => i.kind === 'countdown' && i.primary);
     expect(kept.map((i) => i.name)).toEqual(['B']);
+  });
+});
+
+/**
+ * The first writer `Countdown.beats` has ever had.
+ *
+ * The field has been persisted, read by `readCountdown` and seeded by
+ * `addCountdown` since schema 3, and nothing in the app drew or wrote one. What
+ * these hold is the two ends agreeing: the writer's bounds are the reader's
+ * own, so a sentence that goes in is the sentence that comes back out after a
+ * reload rather than a shorter one.
+ */
+describe('the sentence a long-term tick is for', () => {
+  const s = () => gm.useGm.getState();
+  const beatsOf = (): string[] => s().countdowns[0]!.beats;
+
+  it('writes one beat at its own index, and pads what is not written yet', () => {
+    s().addCountdown('The winter', 'long-term', 6);
+    const id = s().countdowns[0]!.id;
+
+    s().writeCountdownBeat(id, 0, 'The frost reaches the outer farms.');
+    expect(beatsOf()).toEqual(['The frost reaches the outer farms.']);
+
+    // A GM who writes tick four before tick two has not made a mistake: the
+    // array is sparse in practice and `readCountdown` says so.
+    s().writeCountdownBeat(id, 3, 'The river stops.');
+    expect(beatsOf()).toEqual(['The frost reaches the outer farms.', '', '', 'The river stops.']);
+  });
+
+  it('replaces the beat that is already at that index', () => {
+    s().addCountdown('The winter', 'long-term', 6);
+    const id = s().countdowns[0]!.id;
+    s().writeCountdownBeat(id, 0, 'first');
+    s().writeCountdownBeat(id, 0, 'second');
+    expect(beatsOf()).toEqual(['second']);
+  });
+
+  it('bounds the text where the reader bounds it, so nothing comes back cut', () => {
+    s().addCountdown('The winter', 'long-term', 6);
+    const id = s().countdowns[0]!.id;
+    s().writeCountdownBeat(id, 0, 'x'.repeat(COUNTDOWN_TEXT_MAX + 500));
+    expect(beatsOf()[0]!.length).toBe(COUNTDOWN_TEXT_MAX);
+  });
+
+  it('refuses an index that is not one, rather than growing an array to reach it', () => {
+    s().addCountdown('The winter', 'long-term', 6);
+    const id = s().countdowns[0]!.id;
+    for (const bad of [-1, COUNTDOWN_BEATS_MAX, Number.NaN, Number.POSITIVE_INFINITY]) {
+      s().writeCountdownBeat(id, bad, 'nowhere');
+    }
+    expect(beatsOf()).toEqual([]);
+  });
+
+  it('survives a reload with the beat on the same tick', async () => {
+    s().addCountdown('The winter', 'long-term', 6);
+    const id = s().countdowns[0]!.id;
+    s().advanceCountdown(id, -1);
+    s().writeCountdownBeat(id, 0, 'The frost reaches the outer farms.');
+    await gm.flushGm();
+
+    vi.resetModules();
+    const reloaded = (await import('../../src/ui/gm/gmStore.ts')) as Gm;
+    await reloaded.hydrateGm();
+    const clock = reloaded.useGm.getState().countdowns[0]!;
+    expect(clock.value).toBe(5);
+    expect(clock.beats).toEqual(['The frost reaches the outer farms.']);
   });
 });
 

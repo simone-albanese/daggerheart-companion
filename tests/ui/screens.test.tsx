@@ -99,6 +99,7 @@ import {
   TierBenchmarks,
 } from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
+import { RestControl } from '../../src/ui/gm/RestControl.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
@@ -119,7 +120,8 @@ import { CompanionPanel, WhoSwitch } from '../../src/ui/player/Companion.tsx';
 import { ActiveConditions, ConditionsControl } from '../../src/ui/player/Conditions.tsx';
 import { DamageRow } from '../../src/ui/player/DamageRoll.tsx';
 import { DeathMoveOffer } from '../../src/ui/player/DeathMove.tsx';
-import { DualityRoll, ExperienceRow, rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { DualityRoll, ExperienceRow } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
 import { Play } from '../../src/ui/player/Play.tsx';
 import { Rest } from '../../src/ui/player/Rest.tsx';
 import { IncomingDamage, Vitals } from '../../src/ui/player/Vitals.tsx';
@@ -684,6 +686,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // chart's block is three columns wide, which is the stacked-panel half of
   // `RuleTableView`; the grid half is its own fixture below.
   'gm/ReferenceTables.tsx::BlockView': () => <BlockView block={blockWithTable('countdowns')} />,
+  'gm/RestControl.tsx::RestControl': () => <RestControl phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   'gm/SessionBody.tsx::SessionBody': () => (

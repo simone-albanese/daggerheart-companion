@@ -17,7 +17,7 @@ import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DicePools } from '../../src/ui/player/DicePools.tsx';
-import { rollAffordance } from '../../src/ui/player/DualityRoll.tsx';
+import { rollAffordance } from '../../src/ui/shared/rollAffordance.ts';
 import { deriveStats } from '../../src/engine/character.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';

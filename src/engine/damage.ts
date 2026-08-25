@@ -9,6 +9,13 @@
  *   at or above twice Severe    -> 4 HP  (Massive, optional rule)
  *   reduced to 0 or less        -> nothing
  *
+ * The Play screen is no longer the only reader. `combatantHit` at the bottom of
+ * this file answers the same question for an adversary on the GM's scene card -
+ * same ladder, same optional rule, two branches a PC has not got - so the two
+ * sides of the table cannot come to different numbers for one hit. It is at the
+ * bottom rather than beside `applyDamage` because it reuses `severityFor` and
+ * nothing else here; the armor arithmetic above is the player's alone.
+ *
  * Marking an Armor Slot moves the result down one rung, and can take a Minor
  * hit all the way to nothing. ONE slot, for one incoming damage - and
  * "incoming damage" is the SRD's own unit: "the total damage from a single
@@ -61,7 +68,7 @@
  * still fall - so a control that cycles up to it can never ask for a slot the
  * engine would refuse, and one that cycles past it is asking for a refusal.
  */
-import type { Character } from '../../shared/types.ts';
+import type { Character, Counter } from '../../shared/types.ts';
 import type { DerivedStats } from './character.ts';
 
 export type Severity = 'none' | 'minor' | 'major' | 'severe' | 'massive';
@@ -289,6 +296,148 @@ export function markStress(
 export const isVulnerableFromStress = (c: Character): boolean =>
   c.stress.max > 0 && c.stress.marked >= c.stress.max;
 
+/**
+ * The fallen test on two numbers, for the surfaces that do not hold a
+ * `Character`.
+ *
+ * The GM's party board keeps its own tally in `PartyTracks` - four plain
+ * counts and a maximum derived from the sheet beside them - so it cannot call
+ * `hasFallen`, and writing `hp >= maxHp` there instead would be a second answer
+ * to a question this file already answers. Both ends delegate here, so the
+ * board and the sheet cannot start disagreeing about when a PC has to make a
+ * death move.
+ *
+ * `max > 0` is the clause worth keeping rather than the comparison: a track
+ * with no maximum is a sheet the dataset could not size, and treating everyone
+ * on it as already down would put a death prompt on every row of an unresolved
+ * import.
+ */
+export const hasFallenAt = (marked: number, max: number): boolean => max > 0 && marked >= max;
+
 /** True when the last Hit Point is marked - the character must make a death move. */
-export const hasFallen = (c: Character): boolean =>
-  c.hp.max > 0 && c.hp.marked >= c.hp.max;
+export const hasFallen = (c: Character): boolean => hasFallenAt(c.hp.marked, c.hp.max);
+
+/**
+ * One hit on one adversary, and everything it decides at once.
+ *
+ * `applyDamage` above is the player's, and it is not reusable here: it wants a
+ * `DerivedStats`, which an adversary has not got, and it spends Armor Slots,
+ * which an adversary has not got either. What an adversary has is a threshold
+ * pair that may be absent, a Hit Point counter, and - for a Minion group - a
+ * divisor that turns one big hit into several dead bodies. Those three answers
+ * come out together because they come from one number the GM typed.
+ *
+ * ## Three branches, and only one of them is `severityFor`
+ *
+ * `severityFor(amount, thresholds: [number, number], massiveDamageRule)` does
+ * not take `null`, and that is not an oversight to work around: the SRD does
+ * not give Minions a severity at all. Its sixteen no-threshold adversaries are
+ * all and only Minions, and what it says about them is that any damage defeats
+ * one. So the no-thresholds branch is the caller's, it returns `severity: null`
+ * rather than an invented rung, and it marks the whole track.
+ *
+ * Nothing at or below zero does anything. An empty field, a minus sign, a
+ * pasted word - these arrive from a text input on a card, and a NaN that walked
+ * into the ladder would come back out as `hp: undefined`.
+ *
+ * ## The optional rule is an argument, and the caller reads the preference
+ *
+ * `prefs.massiveDamageRule` is off by default and a table turns it on
+ * deliberately. Whether it also applies against an adversary is a reading, not
+ * a quotation - the SRD says at p.71 that thresholds, HP and Stress "function
+ * the same way they do for PCs", and the Massive text itself sits in the PC
+ * chapter - and the owner took it on 2026-08-25: yes, the same preference, on
+ * both sides. So this takes the flag and never a default, because the failure
+ * being avoided is silent: a table that switched the rule on would otherwise
+ * see it applied to their own PCs and not to the monsters, with nothing on
+ * screen saying so.
+ *
+ * ## Minion overkill, and why the divisor is optional
+ *
+ * "For every N damage a PC deals to the X, defeat an additional Minion within
+ * range the attack would succeed against" - so one hit defeats
+ * `1 + floor(amount / N)` of them, and `amount === N` defeats two rather than
+ * one. The divisor lives on the `Adversary` record and not on the combatant,
+ * so a combatant whose `adversaryRef` this dataset cannot resolve has none, and
+ * then there is no Minion arithmetic at all rather than a guessed divisor.
+ * `minionsRemaining` caps it: a card must never offer to defeat bodies that are
+ * not standing.
+ */
+export interface CombatantHit {
+  /** What the GM typed, after the guard above. */
+  amount: number;
+  /** Null for an adversary with no thresholds: the SRD gives it no rung. */
+  severity: Severity | null;
+  /** Hit Points this hit marks. */
+  hp: number;
+  /** Where the HP track lands, already clamped to its maximum. */
+  marked: number;
+  /** The track is full: this combatant is out of the fight. */
+  defeated: boolean;
+  minionsDefeated: number;
+  /** What `minionsRemaining` becomes, or undefined when nothing tracks it. */
+  minionsRemaining: number | undefined;
+  explanation: string;
+}
+
+export function combatantHit(
+  amount: number,
+  combatant: {
+    thresholds: [number, number] | null;
+    hp: Counter;
+    minionsRemaining?: number;
+  },
+  options: { massiveDamageRule: boolean; minionGroup?: number },
+): CombatantHit {
+  const { hp, thresholds } = combatant;
+  const clean = Number.isFinite(amount) ? Math.floor(amount) : 0;
+  const standing = combatant.minionsRemaining;
+
+  if (clean <= 0) {
+    return {
+      amount: Math.max(0, clean),
+      severity: thresholds === null ? null : 'none',
+      hp: 0,
+      marked: hp.marked,
+      defeated: hasFallenAt(hp.marked, hp.max),
+      minionsDefeated: 0,
+      minionsRemaining: standing,
+      explanation: 'no damage',
+    };
+  }
+
+  const parts = [`${clean} incoming`];
+  let severity: Severity | null;
+  let marks: number;
+  if (thresholds === null) {
+    severity = null;
+    marks = Math.max(0, hp.max - hp.marked);
+    parts.push('no thresholds -> defeated');
+  } else {
+    severity = severityFor(clean, thresholds, options.massiveDamageRule);
+    marks = SEVERITY_HP[severity];
+    parts.push(`vs ${thresholds[0]}/${thresholds[1]} -> ${SEVERITY_LABEL[severity]}`);
+  }
+  const marked = Math.min(hp.max, hp.marked + marks);
+
+  const divisor = options.minionGroup;
+  let minionsDefeated = 0;
+  let minionsRemaining = standing;
+  if (divisor !== undefined && Number.isFinite(divisor) && divisor > 0) {
+    const raw = 1 + Math.floor(clean / divisor);
+    minionsDefeated = standing === undefined ? raw : Math.min(raw, Math.max(0, standing));
+    if (standing !== undefined) minionsRemaining = Math.max(0, standing - minionsDefeated);
+    parts.push(`${minionsDefeated} minion${minionsDefeated === 1 ? '' : 's'} defeated`);
+  }
+
+  return {
+    amount: clean,
+    severity,
+    hp: marks,
+    marked,
+    defeated: hasFallenAt(marked, hp.max),
+    minionsDefeated,
+    minionsRemaining,
+    explanation: parts.join(' · '),
+  };
+}

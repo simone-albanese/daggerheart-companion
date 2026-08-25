@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   SEVERITY_HP,
   applyDamage,
+  combatantHit,
   hasFallen,
+  hasFallenAt,
   isVulnerableFromStress,
   markDamage,
   markStress,
@@ -422,5 +424,181 @@ describe('conditions the sheet can read off the tracks', () => {
   it('has fallen with the last Hit Point marked', () => {
     expect(hasFallen(makeCharacter({ hp: { marked: 6, max: 6 } }))).toBe(true);
     expect(hasFallen(makeCharacter({ hp: { marked: 5, max: 6 } }))).toBe(false);
+  });
+});
+
+/**
+ * The adversary's side of the same ladder.
+ *
+ * `severityFor` is covered above and is not re-covered here. What is new is
+ * everything around it: the branch for an adversary the SRD gives no
+ * thresholds, the optional rule arriving as an argument rather than a default,
+ * and the Minion divisor that turns one number into a count of bodies.
+ *
+ * The fixture thresholds stay [7, 12] so the boundaries line up with the block
+ * at the top of this file and a reader can hold one pair of numbers in their
+ * head for the whole file.
+ */
+describe('combatantHit', () => {
+  const withThresholds = (marked = 0, max = 8): Parameters<typeof combatantHit>[1] => ({
+    thresholds: [7, 12],
+    hp: { marked, max },
+  });
+
+  it.each([
+    [6, 'minor', 1],
+    [7, 'major', 2],
+    [11, 'major', 2],
+    [12, 'severe', 3],
+  ] as Array<[number, Severity, number]>)(
+    'reads %i as %s and marks %i HP',
+    (amount, severity, hp) => {
+      const hit = combatantHit(amount, withThresholds(), { massiveDamageRule: false });
+      expect(hit.severity).toBe(severity);
+      expect(hit.hp).toBe(hp);
+      expect(hit.marked).toBe(hp);
+    },
+  );
+
+  it('marks nothing at all for zero, a negative, or a field that is not a number', () => {
+    for (const amount of [0, -3, Number.NaN]) {
+      const hit = combatantHit(amount, withThresholds(2), { massiveDamageRule: false });
+      expect(hit.severity).toBe('none');
+      expect(hit.hp).toBe(0);
+      // The track is where it was, not where a NaN would have walked it.
+      expect(hit.marked).toBe(2);
+      expect(hit.minionsDefeated).toBe(0);
+    }
+  });
+
+  it('never marks past the maximum', () => {
+    const hit = combatantHit(12, withThresholds(7, 8), { massiveDamageRule: false });
+    expect(hit.hp).toBe(3);
+    expect(hit.marked).toBe(8);
+    expect(hit.defeated).toBe(true);
+  });
+
+  /*
+   * The no-thresholds branch. Sixteen adversaries in the shipped dataset carry
+   * `thresholds: null` and every one of them is a Minion; what the book says
+   * about them is that any damage defeats one, which is not a rung on the
+   * ladder. So `severity` is null rather than a severity this file made up,
+   * and one point of damage takes the whole track.
+   */
+  it('defeats an adversary with no thresholds on any damage at all, and gives it no severity', () => {
+    const hit = combatantHit(1, { thresholds: null, hp: { marked: 0, max: 1 } }, {
+      massiveDamageRule: false,
+    });
+    expect(hit.severity).toBeNull();
+    expect(hit.hp).toBe(1);
+    expect(hit.marked).toBe(1);
+    expect(hit.defeated).toBe(true);
+  });
+
+  it('marks the whole of a longer no-threshold track from wherever it stood', () => {
+    const hit = combatantHit(1, { thresholds: null, hp: { marked: 1, max: 3 } }, {
+      massiveDamageRule: false,
+    });
+    expect(hit.hp).toBe(2);
+    expect(hit.marked).toBe(3);
+  });
+
+  /*
+   * The owner's decision of 2026-08-25: the optional rule follows the same
+   * preference against an adversary as it does on a PC. The flag is an
+   * argument here and has no default, so the day somebody writes `false` into
+   * the call site instead of reading `prefs`, this is what says so.
+   */
+  it('reaches Massive against an adversary only when the table turned the rule on', () => {
+    const off = combatantHit(24, withThresholds(), { massiveDamageRule: false });
+    expect(off.severity).toBe('severe');
+    expect(off.hp).toBe(3);
+
+    const on = combatantHit(24, withThresholds(), { massiveDamageRule: true });
+    expect(on.severity).toBe('massive');
+    expect(on.hp).toBe(4);
+
+    // And not one point below it, on either setting.
+    expect(combatantHit(23, withThresholds(), { massiveDamageRule: true }).severity).toBe('severe');
+  });
+
+  it.each([
+    [2, 1],
+    [3, 2],
+    [5, 2],
+    [6, 3],
+    [9, 4],
+  ])('defeats %i damage worth of Minions in a group of three: %i', (amount, defeated) => {
+    const hit = combatantHit(amount, { thresholds: null, hp: { marked: 0, max: 1 } }, {
+      massiveDamageRule: false,
+      minionGroup: 3,
+    });
+    expect(hit.minionsDefeated).toBe(defeated);
+  });
+
+  it('never defeats more Minions than are standing', () => {
+    const hit = combatantHit(
+      30,
+      { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 4 },
+      { massiveDamageRule: false, minionGroup: 3 },
+    );
+    expect(hit.minionsDefeated).toBe(4);
+    expect(hit.minionsRemaining).toBe(0);
+  });
+
+  it('does no Minion arithmetic at all without a divisor', () => {
+    for (const amount of [1, 9, 30]) {
+      const hit = combatantHit(
+        amount,
+        { thresholds: null, hp: { marked: 0, max: 1 }, minionsRemaining: 4 },
+        { massiveDamageRule: false },
+      );
+      expect(hit.minionsDefeated).toBe(0);
+      expect(hit.minionsRemaining).toBe(4);
+    }
+  });
+
+  it('leaves `minionsRemaining` undefined when nothing was counting them', () => {
+    const hit = combatantHit(9, { thresholds: null, hp: { marked: 0, max: 1 } }, {
+      massiveDamageRule: false,
+      minionGroup: 3,
+    });
+    expect(hit.minionsDefeated).toBe(4);
+    expect(hit.minionsRemaining).toBeUndefined();
+  });
+});
+
+/**
+ * One condition, two surfaces.
+ *
+ * `hasFallen` reads a `Character`; the GM's party board holds four plain counts
+ * and a maximum derived beside them, so it cannot. The board delegating rather
+ * than writing `hp >= maxHp` is the whole point, and the last case here is what
+ * makes it check: the same numbers, both ways round, have to agree.
+ */
+describe('hasFallenAt', () => {
+  it.each([
+    [0, 6, false],
+    [5, 6, false],
+    [6, 6, true],
+    [7, 6, true],
+    // A track with no maximum is a sheet the dataset could not size. Treating
+    // it as fallen would put a death prompt on every row of a broken import.
+    [0, 0, false],
+    [3, 0, false],
+  ])('reads %i of %i as %s', (marked, max, fallen) => {
+    expect(hasFallenAt(marked, max)).toBe(fallen);
+  });
+
+  it('is the same answer `hasFallen` gives on the same numbers', () => {
+    for (const [marked, max] of [
+      [0, 6],
+      [5, 6],
+      [6, 6],
+      [0, 0],
+    ] as Array<[number, number]>) {
+      const c = makeCharacter({ hp: { marked, max } });
+      expect(hasFallen(c)).toBe(hasFallenAt(marked, max));
+    }
   });
 });

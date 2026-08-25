@@ -19,6 +19,14 @@
  * moves that a hand did not move. The four cells the SRD gives no number for
  * are printed and are not buttons.
  *
+ * `RestControl` is the same paragraph again on a third control. A long rest
+ * lets the GM *"advance a long-term countdown of their choice"*, so the panel
+ * lists the long-term clocks and moves the one that is tapped - it does not
+ * pick, it does not move one at mount, and it does not notice that a rest
+ * happened. The GM says a rest happened; the app does the arithmetic the book
+ * owes them for it. "Plus and minus, and nothing else" above is about what
+ * moves a clock without being told to, and the answer to that is still nothing.
+ *
  * ## The shelf makes clocks; it still never moves one
  *
  * A template is a countdown the GM set up once — a name, a kind, a starting
@@ -109,9 +117,40 @@
  * it is a rule this app deliberately does not execute, so printing it as the
  * description of a control that will not execute it would be the screen
  * promising an automation on the very screen whose first paragraph refuses one.
- * And correcting one of the four while leaving three is arbitrary. The SRD's own
- * wording is where the SRD's own wording belongs: in the reference, quoted with
- * its page number, one tap away in both directions.
+ * And correcting one of the four while leaving three would be arbitrary if the
+ * reason for it were taste. The SRD's own wording is where the SRD's own
+ * wording belongs: in the reference, quoted with its page number, one tap away
+ * in both directions.
+ *
+ * ### Which one was corrected, and why that is not the arbitrary case
+ *
+ * `long-term`, and the objection above is answered rather than got round.
+ *
+ * It said "Advances across downtime and between sessions." The trouble with it
+ * was never that it was the app's own sentence instead of the book's - it was
+ * that it described the wrong thing. `between sessions` occurs twice in all 69
+ * shipped sections and both are in the Hope and Fear prose; it is nowhere in
+ * the clocks. What the `countdowns` section says about this kind is that it
+ * advances after rests instead of action rolls. So the hint was handing the
+ * clocks a property the book gives to another resource, on the screen whose
+ * first paragraph is about not telling a GM something the app does not know.
+ *
+ * That is a different defect from the one the section above refuses to fix. A
+ * hint that describes the wrong thing and a hint that describes the right thing
+ * in the app's words rather than the book's are not the same complaint, and
+ * only the first is being repaired. The other three are left because there is
+ * nothing wrong with them, not because one was picked out of four.
+ *
+ * The replacement is the app's own words too - `Advances when the party rests,
+ * not when a roll lands.` - because quoting the SRD here would break the very
+ * rule this section states, and the owner's decision of 2026-08-25 says so in
+ * those terms: correct it, with the app's words, and do not revoke this
+ * paragraph to do it.
+ *
+ * Both copies of it. The same sentence sat in `AddSheet.tsx`'s
+ * `COUNTDOWN_KINDS`, which is the list a GM reads *before* choosing a kind;
+ * retiring it here alone would have left it standing where it does the most
+ * work. The two lists say the same thing in the same words on purpose.
  */
 import { useState } from 'react';
 import { type Countdown, type CountdownKind } from '../../engine/encounter.ts';
@@ -120,6 +159,7 @@ import { useCountdownTemplates, type CountdownTemplate } from './countdownTempla
 import { Stepper } from './Encounter.tsx';
 import { FearBoard } from './FearPool.tsx';
 import { useGm } from './gmStore.ts';
+import { RestControl } from './RestControl.tsx';
 import { CountdownChart } from './ReferenceTables.tsx';
 // One map, two screens. A session row draws a countdown now as well as this
 // board does, and two copies of "dynamic is orange" is how one of them goes
@@ -130,7 +170,7 @@ const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
   { id: 'dynamic', label: 'Dynamic', hint: 'Advances by the outcome of a roll — you decide by how much.' },
   { id: 'loop', label: 'Loop', hint: 'Returns to its starting value the moment it runs out.' },
-  { id: 'long-term', label: 'Long-term', hint: 'Advances across downtime and between sessions.' },
+  { id: 'long-term', label: 'Long-term', hint: 'Advances when the party rests, not when a roll lands.' },
 ];
 
 export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
@@ -142,6 +182,12 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
       style={{ flex: 1, minHeight: 0, gap: 14, padding: phone ? '10px 12px 16px' : '14px 20px 18px' }}
     >
       <FearBoard phone={phone} />
+
+      {/* Directly under the pool it feeds, and above the clocks, because the
+          one gesture a long rest offers is on a clock and the number it offers
+          first is Fear. Both halves of `downtime` p.41 are in this tool
+          already; the rest is what connects them. */}
+      <RestControl phone={phone} />
 
       <div
         style={{
@@ -166,8 +212,10 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
               </span>
               <p className="t-body" style={{ margin: 0, maxWidth: 480 }}>
                 Nothing here ever advances by itself. The app does not know when a trigger fired,
-                whether a roll counted toward the clock, or whether the party rested — you do. That
-                is deliberate: a countdown that moves on its own is one you have to check.
+                whether a roll counted toward the clock, or whether the party rested — you do. The
+                rest panel above changes none of that: it takes your word that a rest happened and
+                works out what the book owes you for it, and moving a clock is still a tap. That is
+                deliberate: a countdown that moves on its own is one you have to check.
               </p>
               <p className="t-body" style={{ margin: 0, maxWidth: 480, color: 'var(--muted)' }}>
                 Name one, give it a starting value, and move it by hand.

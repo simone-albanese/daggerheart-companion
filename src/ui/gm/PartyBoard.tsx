@@ -19,14 +19,23 @@
  * about numbers, so it is said at the head of the board rather than left to be
  * inferred from the drawer, and it is said in the same words at every width.
  *
+ * One thing on a row is not a sighting and is the GM's own: when the HP track
+ * they keep fills, the drawer says so and offers the one half of a death move
+ * that belongs to this side of the table - *"you work with the GM to describe
+ * how the situation worsens"* - as a line to write down. `FallenPrompt` below
+ * argues the whole of it, including everything it deliberately does not offer.
+ *
  * The camera is a `lazy()` chunk. See `PartyScanner.tsx` for the measurement.
  */
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { noteFromPlainText } from '../../../shared/richText.ts';
 import type { Character } from '../../../shared/types.ts';
 import { deriveStats, type DerivedStats } from '../../engine/character.ts';
 import { companionDamage, companionIsAway } from '../../engine/companion.ts';
+import { hasFallenAt } from '../../engine/damage.ts';
 import { useApp } from '../../store/state.ts';
 import { parseTransferFile, pickFile } from '../../transfer/fileIo.ts';
+import { paragraphs, ruleBullets, situationWorsensRule } from '../shared/ruleText.ts';
 import { Track } from '../shared/Track.tsx';
 import { useGm, type PartyImportSummary } from './gmStore.ts';
 import { signed } from './StatBlock.tsx';
@@ -411,8 +420,19 @@ function Row({
     </span>
   );
 
+  const fallen = hasFallenAt(Math.min(member.tracks.hp, stats.maxHp), stats.maxHp);
   const pills = (
     <span className="row" style={{ gap: 10, flex: 'none' }}>
+      {/* Beside the count it is read off, not instead of it. A shut row shows
+          `HP 6/6` and nothing else said what that meant; a GM scanning six rows
+          for who is down was reading six fractions and doing the comparison
+          themselves. The same `hasFallenAt` the drawer's prompt uses, so the
+          chip and the prompt cannot say different things about one row. */}
+      {fallen && (
+        <span className="chip" style={{ flex: 'none', color: 'var(--damage)', fontWeight: 700 }}>
+          DEATH MOVE
+        </span>
+      )}
       <Pill label="HP" tone="var(--damage)" value={member.tracks.hp} max={stats.maxHp} />
       <Pill label="STRESS" tone="var(--stress)" value={member.tracks.stress} max={stats.maxStress} />
       <Pill label="HOPE" tone="var(--hope)" value={member.tracks.hope} max={stats.maxHope} />
@@ -690,6 +710,151 @@ function Experiences({ sheet }: { sheet: Character }): React.JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// When a track fills: the GM's half of a death move
+// ---------------------------------------------------------------------------
+
+/**
+ * A PC has marked their last Hit Point, and the board said nothing about it.
+ *
+ * `PROGETTO-GM` §6 step 3, third item. Until now the drawer's HP track could be
+ * filled to its maximum and absolutely nothing happened: no border, no line, no
+ * offer. `DeathMove.tsx` and `engine/death.ts` have been complete for a while
+ * and are mounted in exactly one place - the player's own vitals - and nothing
+ * under `src/ui/gm/` had ever mentioned death at all.
+ *
+ * ## What this does NOT do, and it is most of it
+ *
+ * It does not make the move. The three options are the player's to choose, on
+ * the player's own screen, with their own dice; a board that offered them here
+ * would be a GM's phone resolving a decision that belongs to somebody else, on
+ * numbers that are a *sighting* rather than a live sheet - the one thing the
+ * top of this file says this screen must never do. So the three are printed by
+ * name, out of the dataset, and that is all: they are what the GM says out loud
+ * to a player who is deciding.
+ *
+ * It does not mark or clear anything either. The tracks above are untouched -
+ * the prompt appears because one of them is full and disappears when it is not,
+ * and nothing here writes to them.
+ *
+ * ## What it does do is the one thing that is the GM's
+ *
+ * *"you work with the GM to describe how the situation worsens"* is the only
+ * sentence in the `death` section addressed to this side of the table, and what
+ * it produces is words. So there is a field and a RECORD, and what it mints is
+ * a `note` row on the session list.
+ *
+ * A `note` because it is the durable house that exists. The third house for the
+ * table's own words - the owner's decision 7 - is not built, and neither is the
+ * session lifecycle; `Campaign.register` is persisted and read but has no
+ * surface at all, so writing into it from here would be inventing one. A note
+ * row is a row the GM already knows how to find, move and delete.
+ *
+ * ## Ergonomics
+ *
+ * Inside the drawer that is already open, never a dialog. Below 1100 a `full`
+ * tool has no backdrop at all, so the only way out of one is its own CLOSE
+ * square; a dialog opened from in here would spend that. It sits under the four
+ * tracks and above the two buttons that end the row, so the thing that just
+ * happened is next to the track that says it happened, and the destructive pair
+ * stays where a thumb has learnt to find it. RECORD is a flat 44 declared
+ * inline, and the field is `--control` because it is read back before it is
+ * pressed.
+ */
+function FallenPrompt({ member }: { member: PartyMember }): React.JSX.Element {
+  const rules = useApp((s) => s.dataset.rules);
+  const add = useGm((s) => s.addSessionItem);
+  const [text, setText] = useState('');
+
+  const death = rules.find((r) => r.id === 'death');
+  // The lead sentence and the three names, out of the shipped section. The
+  // filter is `DeathMove.tsx`'s: a paragraph that starts with `-` is the bullet
+  // list, not prose.
+  const lead =
+    death === undefined
+      ? null
+      : (paragraphs(death.body).filter((p) => !p.startsWith('-'))[0] ?? null);
+  const moves = death === undefined ? [] : ruleBullets(death.body).map((b) => b.label);
+  const worsens = situationWorsensRule(rules);
+
+  const record = (): void => {
+    const said = text.trim();
+    if (said === '') return;
+    add({
+      id: crypto.randomUUID(),
+      kind: 'note',
+      name: `${member.sheet.name || 'Unnamed'} — the situation gets worse`,
+      // `addSessionItem` rewrites this from the list's own length, so the
+      // number here is a placeholder and not an opinion about where it lands.
+      order: 0,
+      collapsed: true,
+      note: noteFromPlainText(said),
+    });
+    setText('');
+  };
+
+  return (
+    <div
+      className="stack"
+      style={{
+        gap: 9,
+        padding: '10px 11px',
+        borderRadius: 'var(--r2)',
+        border: '1px solid var(--damage)',
+        background: 'var(--app)',
+      }}
+    >
+      <span className="t-label" style={{ color: 'var(--damage)' }}>
+        Their last Hit Point is marked
+      </span>
+      {lead !== null && (
+        <p className="t-dense" style={{ margin: 0, maxWidth: '68ch' }}>
+          {lead}
+        </p>
+      )}
+      {moves.length > 0 && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {moves.map((name) => (
+            <span key={name} className="chip" style={{ color: 'var(--text-2)' }}>
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
+      {worsens !== null && (
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '68ch' }}>
+          “{worsens}”
+        </p>
+      )}
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <input
+          value={text}
+          aria-label={`How the situation gets worse for ${member.sheet.name || 'Unnamed'}`}
+          placeholder="And the situation gets worse…"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && record()}
+          style={{
+            flex: 1,
+            minWidth: 180,
+            minHeight: 'var(--control)',
+            padding: '8px 11px',
+            font: '600 14px/1 var(--sans)',
+          }}
+        />
+        <button
+          type="button"
+          className="btn"
+          disabled={text.trim() === ''}
+          onClick={record}
+          style={{ flex: 'none', minHeight: 'var(--tap)', padding: '0 14px' }}
+        >
+          RECORD
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The drawer: where the GM keeps their own tally
 // ---------------------------------------------------------------------------
 
@@ -798,6 +963,10 @@ function Drawer({
           compact={!phone}
         />
       </div>
+
+      {hasFallenAt(clamp(member.tracks.hp, stats.maxHp), stats.maxHp) && (
+        <FallenPrompt member={member} />
+      )}
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button

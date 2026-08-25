@@ -730,10 +730,18 @@ const COUNTDOWN_KINDS: readonly CountdownKind[] = ['standard', 'dynamic', 'loop'
  * IndexedDB quota rather than on anything of ours. `richText.ts` bounds the
  * `note` row for the same reason and says so at greater length.
  */
-const COUNTDOWN_TEXT_MAX = 2000;
+export const COUNTDOWN_TEXT_MAX = 2000;
 
-/** As many beats as any clock could sensibly have ticks, and then some. */
-const COUNTDOWN_BEATS_MAX = 100;
+/**
+ * As many beats as any clock could sensibly have ticks, and then some.
+ *
+ * Both of these are exported because the reader is no longer the only end that
+ * has to honour them. `gmStore.writeCountdownBeat` is the first thing in the
+ * app that writes a beat, and a writer bounded differently from the reader
+ * would let a GM type a sentence that came back cut - "works until you refresh"
+ * with the GM's own words as the thing that changes.
+ */
+export const COUNTDOWN_BEATS_MAX = 100;
 
 const readCountdown = (v: unknown, id: string, name: string): Countdown => {
   const r = isRecord(v) ? v : {};

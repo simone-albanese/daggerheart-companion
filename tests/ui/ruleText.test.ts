@@ -13,12 +13,15 @@ import {
   blockNamed,
   damageBumpRule,
   interruptedRestRule,
+  longRestFearRule,
   longRestRule,
+  shortRestFearRule,
   paragraphs,
   ruleBlocks,
   ruleBullets,
   ruleList,
   ruleTables,
+  situationWorsensRule,
   spellcastZeroNote,
   traitVerbs,
 } from '../../src/ui/shared/ruleText.ts';
@@ -224,6 +227,80 @@ describe('the two downtime sentences the rest surface quotes', () => {
     // The long one, not the short one: they are adjacent sentences in the same
     // paragraph and the short one comes first.
     expect(interrupted).toContain('only gain the benefits of a short rest');
+  });
+});
+
+/**
+ * The two sentences the GM's own rest control quotes.
+ *
+ * The GM's panel prints what the book says a rest costs beside the number it is
+ * about to add to the Fear pool, so the sentence a GM checks against and the
+ * arithmetic the app did come from one place. Both are pinned against the
+ * shipped dataset rather than typed here, which is the whole point of the
+ * module: a homebrew rules layer that moves the die moves what the screen says.
+ */
+describe('the two downtime sentences the GM rest control quotes', () => {
+  it('finds both of them in the shipped dataset, verbatim', () => {
+    const short = shortRestFearRule(dataset.rules);
+    expect(short, 'the SRD no longer says what a short rest hands the GM').not.toBeNull();
+    expect(section('downtime')).toContain(short!);
+    expect(short).toBe('On a short rest, the GM gains 1d4 Fear.');
+
+    const long = longRestFearRule(dataset.rules);
+    expect(long, 'the SRD no longer says what a long rest hands the GM').not.toBeNull();
+    expect(section('downtime')).toContain(long!);
+    expect(long).toBe(
+      'On a long rest, they gain Fear equal to 1d4 + the number of PCs, and they can advance ' +
+        'a long-term countdown of their choice.',
+    );
+  });
+
+  it('keys the long one on the countdown clause, not on “on a long rest”', () => {
+    // That phrase also opens the interrupted-rest rule further down the same
+    // section, so keying on it would return whichever sentence the body
+    // happened to order first.
+    const both = shortRestFearRule(dataset.rules);
+    expect(both).not.toContain('long-term countdown');
+    expect(longRestFearRule(dataset.rules)).toContain('long-term countdown');
+  });
+
+  it('answers nothing rather than guessing when the section is gone or reworded', () => {
+    const reworded = [{ id: 'downtime', title: 'Downtime', body: 'Rest as long as you like.' }];
+    expect(shortRestFearRule([])).toBeNull();
+    expect(longRestFearRule([])).toBeNull();
+    expect(shortRestFearRule(reworded)).toBeNull();
+    expect(longRestFearRule(reworded)).toBeNull();
+  });
+});
+
+/**
+ * The one sentence of the `death` section addressed to the GM.
+ *
+ * The three moves are the player's and are read elsewhere. What the GM's party
+ * board prints under a fallen row is this, and it is quoted rather than
+ * restated because the row beside it is a field for the GM's own words - and
+ * what is between quotation marks on that panel has to be the book's.
+ */
+describe('situationWorsensRule', () => {
+  it('finds it in the shipped dataset, verbatim', () => {
+    const out = situationWorsensRule(dataset.rules);
+    expect(out, 'the SRD no longer carries the sentence the board quotes').not.toBeNull();
+    expect(section('death')).toContain(out!);
+    expect(out).toBe(
+      'They temporarily drop unconscious, and then you work with the GM to describe how the ' +
+        'situation worsens.',
+    );
+  });
+
+  it('reads the `death` section and never another one', () => {
+    // `worsens` is a common enough verb that a homebrew layer could put it
+    // anywhere. A sentence lifted out of the wrong section and printed under a
+    // fallen PC would be worse than no sentence at all.
+    const elsewhere = [
+      { id: 'combat', title: 'Combat', body: 'And then the situation worsens for everyone.' },
+    ];
+    expect(situationWorsensRule(elsewhere)).toBeNull();
+    expect(situationWorsensRule([])).toBeNull();
   });
 });
 
