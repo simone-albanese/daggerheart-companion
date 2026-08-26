@@ -166,3 +166,121 @@ c'è, sopra non c'è niente da scavalcare.
 (`THE DICE LANDED`, `BETWEEN SCENES`): se un giorno si volesse invertire l'ordine, quelle due sono
 le superfici dove il cambiamento si vedrebbe per prime, ed è lì che va guardato al tavolo prima di
 toccarlo.
+
+---
+
+# Le decisioni del 26 agosto
+
+Il registro continua qui invece di aprirne un altro, perché queste sette rispondono alle domande
+che le nove sopra hanno lasciato aperte — la §15 è letteralmente la risposta alla §5 — e separarle
+avrebbe messo la domanda e la risposta in due file. La data di ciascuna è nel titolo.
+
+## 11. `ShowDoor.body` resta, ed è la formulazione canonica
+
+Togliere le descrizioni dalle porte di SHOW ha lasciato `ShowDoor.body` — il campo, e tutte e tre
+le voci — **letto da nessuno in `src`**. Un campo così è esattamente ciò che un giro di pulizia
+cancella.
+
+**Risposta: resta, e non è un orfano.** Quelle tre frasi sono la formulazione canonica dell'app per
+ciò che ogni strumento **non** è — un bestiario che non aggiunge niente a stasera, un tabellone che
+non scrive su nessun personaggio, una bancarella che non spende i soldi di nessuno. `Settings.tsx`
+le **parafrasa** con parole sue, perché un hint accanto a un interruttore risponde a una domanda
+diversa da una porta: cosa ti toglie spegnerlo, non cosa c'è dietro.
+
+→ **Serve un commento sul campo che dica questo**, in `showDoors.ts`, dove chi pulisce guarda. E la
+frase di `ShowSheet.tsx` che dice *«It is the next thing to settle here»* va aggiornata: è settled.
+
+## 12. Il `--control` su `hybrid` segue `coarse`, cioè sale a 44px
+
+Misurato: su profilo `hybrid` (portatile touch) `--control` risolve a **34px** e undici bottoni
+stanno sotto il pavimento di 44 — fra cui *Play / Cards / Build / GM*, cioè la navigazione. Su
+`coarse` sono 44. **Un portatile touch riceve i controlli da mouse.**
+
+**Risposta: sì, la query si allarga** — `(pointer: coarse)` diventa `(any-pointer: coarse)` a
+`tokens.css:334`, che è già la query che `--pip-h` usa.
+
+**Ma costa più di così, e va scritto qui perché il handoff non lo diceva.** Il repo porta una
+guardia che **vieta** questo cambiamento: `tests/ui/stylesheets.test.ts:318`, *«does not drag
+--control along with them»*, asserisce che nessun blocco `any-pointer: coarse` contenga
+`--control:`. La sua motivazione — il pannello del cockpit *«clips its own overflow»* — **non è più
+vera**: `DualityRoll.tsx:130` dice *«The panel scrolls»*, e `tokens.css:129-142` lo registra già
+sotto il titolo *WHAT NO LONGER APPLIES*, concludendo che quel che resta è *«a live defect rather
+than a decision»*.
+
+Quindi `tokens.css:435` — *«because `--control` must not follow it — see the note beside
+`--pip-h`»* — **contraddice la nota a cui rimanda**, nello stesso file. È prosa stantia, ed è il
+difetto che questo repo paga più spesso.
+
+→ Il ramo che esegue questa decisione fa **tre** cose, non una: gira la query, ritira la guardia
+(o la inverte), e corregge la frase del 435. E `tokens.css:142` chiede *«its own measurements
+of the GM screens»*: la misura del **prima** c'è, quella del **dopo** no.
+
+## 13. Un test pinna il margine da 0.3px dello stato vuoto di SHOW
+
+La colonna dello stato vuoto viene **294.0** in una finestra da **294.3**. `ShowSheet.tsx` lo dice
+già e lo chiama *«a coincidence and not a margin»*.
+
+**Risposta: si pinna.** Un margine che nessuno ha scelto e che nessun test difende è un margine che
+il prossimo cambio di padding consuma in silenzio.
+
+## 14. Il fixture del rig porta un gruppo di Minion — **fatto**
+
+`comb-minions`, `minionsRemaining: 4`, quattro Giant Rat nella riga `row-encounter`. È ciò che ha
+reso misurabile la carta dei Minion: **tre tentativi di portarcene uno pilotando il builder non
+hanno mai superato il passaggio del roster.** La copia precedente è in
+`fixtures.json.bak-pre-minion`.
+
+## 15. La lista delle 35 sezioni di mezza scena è confermata così com'è
+
+È la risposta alla **§5**, che diceva *«la lista si scrive e il proprietario la corregge»*. La lista
+è scritta (`tests/gm/ask.test.ts:384`) e il proprietario l'ha letta.
+
+**Risposta: nessuna correzione. Le tre chiamate contestabili restano come sono:**
+
+- **`downtime` fuori.** Un riposo si conduce al tavolo, ma il downtime sta *fra* le scene e non
+  dentro una — e il sesto chip momento è per l'appunto `BETWEEN SCENES`.
+- **`engaging-your-players` dentro**, per la tabella d'obiettivi casuali a 1d12, che si tira a metà
+  rissa. Non per il titolo.
+- **`pitfalls-to-avoid` e `session-rewards` fuori**, anche se delle voci del catalogo ci puntano.
+  Un puntatore può mirare fuori dalla lista: la cosa più vicina che il libro dice su un problema di
+  scena è a volte un principio.
+
+Il conto resta **35 su 69**, e i due `expect` che lo pinnano non si toccano.
+
+## 16. Le due cose che un rig non può misurare si guardano al tavolo **dopo**
+
+Sono il `<mark>` a sfondo azzerato in una stanza buia, e i 102px di mono da 10px a metà spaziatura
+dei chip momento.
+
+**Risposta: dopo.** Il ragionamento è di rischio, non di qualità: undici commit verdi che esistono
+su una macchina sola sono più fragili di una marcatura poco visibile, e **entrambe le correzioni
+sono piccole** — la marcatura è un cambio di una riga (§8), la spaziatura dei chip è un token. Un
+deploy si torna indietro con un revert; un disco no.
+
+La wave 5 è stata spedita il 26 agosto in cinque PR (**#16** `wave5-pin`, **#17** `wave5-step5-replan`,
+**#18** `wave5-handoff`, **#19** `wave5-carta`, **#20** `wave5-catalogo`), unite dalla più piccola
+alla più grande, con la #20 **riallineata su `main` prima del merge** — e quel verde, a differenza
+di quello della #14 del 25 agosto, ha girato sul base giusto.
+
+## 17. Un avversario a Stress pieno diventa Vulnerable
+
+La domanda è nata al tavolo, non progettando: *«ma i nemici se raggiungono il massimo di stress non
+diventano vulnerabili?»*
+
+Verificato sul dataset spedito. `rules/stress`: *«When a character marks their last Stress, they
+become Vulnerable (see: Conditions) until they clear at least 1 Stress.»* E `rules/using-adversaries`,
+sotto *DAMAGE THRESHOLDS, HIT POINTS, AND STRESS*: *«These systems function the same way they do for
+PCs.»*
+
+Verificato nel codice: il lato giocatore lo deriva (`engine/damage.ts:296`, `isVulnerableFromStress`,
+disegnato dalla striscia di `Conditions.tsx`). Il lato GM **no**: `makeCombatant`
+(`engine/encounter.ts:189`) tiene `stress: { marked, max }`, la carta lo disegna come contatore, e
+`src/ui/gm/` non contiene la parola *vulnerable* nemmeno una volta.
+
+**Risposta: sì, e in un ramo suo.** È **esattamente la stessa forma della §3** — una lettura di p.71
+e non una citazione — e la §3 l'ha già risolta nella stessa direzione, con lo stesso motivo: un
+tavolo che vede la regola applicata ai propri PG e non ai mostri, senza che niente sullo schermo lo
+dica, è la forma peggiore, perché è silenziosa. Qui è persino più netta, perché la frase sullo
+Stress che si esaurisce sta nella sezione `stress` e p.71 ci rimanda esplicitamente.
+
+Registrata, come la §3, **come lettura e non come citazione.**
