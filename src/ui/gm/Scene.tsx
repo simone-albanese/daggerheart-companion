@@ -516,9 +516,13 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  * A Minion group's band is the other arm: `padding: '0 10px'` around the flat
  * 44 its `−` and `+` declare, where an ordinary card's is 8 + 15 + 8. So the
  * band grows by 13 and nothing else on the card moves: **a Minion group's shut
- * card is 484.00 by the same declarations, 14.00 inside the panel.** THAT ONE
- * IS A SUM AND HAS NOT BEEN MEASURED - the 471.00 above has, this has not, and
- * the rig is measuring it after this lane rather than before it.
+ * card is 484.00 by the same declarations, 14.00 inside the panel.**
+ *
+ * On 2026-08-26 Chrome said 484.00 as well, on all four cards of a seeded group of
+ * Giant Rats, beside the 471.00 of the three that are not Minions. It was a sum
+ * when this lane wrote it and it is a measurement now; the derivation stays,
+ * because it is what tells the next person which term to look at when one of
+ * these moves.
  *
  * The row that went was not free of prose: what stood beside the old stepper,
  * and what the band no longer prints on a Minion card, is listed in the band's

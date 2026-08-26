@@ -1349,9 +1349,13 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * 13. Every term of that is a declaration, which is the only reason a number
    * nobody has measured is allowed to be written down at all.
    *
-   * The 471.00 it is added to HAS been measured; this has not, and the docblock
-   * says which is which. If the rig comes back with anything but 484.00, it is
-   * this arithmetic that is wrong and not the browser.
+   * The 471.00 it is added to had been measured when this was written and the
+   * 484.00 had not, and the wager was stated here: if the rig came back with
+   * anything but 484.00, the arithmetic was wrong and not the browser. It came
+   * back with 484.00, on 2026-08-26, on all four cards of a seeded group of
+   * Giant Rats. This assertion is therefore no longer holding an unmeasured
+   * figure honest - it is holding a measured one to the terms it is made of, so
+   * that a term moving under it goes red here rather than silently.
    */
   it("costs the Minion group its band arm, and nothing else on the card", () => {
     const said = says(
