@@ -1086,7 +1086,7 @@ describe('running a scene', () => {
   });
 
   it('leaves the board’s environment alone when the row has none', () => {
-    // Resume must not walk through a door the app locks: PUT THIS ON THE BOARD
+    // Resume must not walk through a door the app locks: PUT THIS ENVIRONMENT ON THE BOARD
     // is disabled on exactly `environmentRef === null`.
     s().addSessionItem(scene('dungeon', 'The dungeon', 'ruined-hall'));
     s().addSessionItem(scene('forest', 'The forest', null));
