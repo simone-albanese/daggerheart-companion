@@ -187,7 +187,7 @@
  * why this row is the one route to that view whose width nobody has measured in
  * a browser yet.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
@@ -303,13 +303,55 @@ function SceneArm({
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const environments = useApp((s) => s.dataset.environments);
+  const adversaries = useApp((s) => s.dataset.adversaries);
+  const partySize = useApp((s) => s.prefs.gmPartySize);
   const patch = useGm((s) => s.patchSessionItem);
   const live = useGm((s) => s.environmentRef);
   const setEnvironment = useGm((s) => s.setEnvironment);
+  const liveScene = useGm((s) => s.liveScene);
+  const runScene = useGm((s) => s.runScene);
+  const spawn = useGm((s) => s.spawn);
+
+  // The same index `EncounterArm` builds, for the same one lookup.
+  const byId = new Map(adversaries.map((a) => [a.id, a]));
 
   const known = environments.some((e) => e.id === item.environmentRef);
   const onBoard = item.environmentRef !== null && item.environmentRef === live;
   const row = sessionName(item);
+
+  const isLive = item.id === liveScene;
+  const parked = item.combatants.length;
+  /*
+   * The same filter `EncounterArm` applies, for the same reason: a roster
+   * entry whose ref this dataset does not carry cannot be turned into a
+   * combatant, so a roster of nothing but unresolved refs starts nothing.
+   */
+  const spawnable = item.roster.filter((entry) => byId.has(entry.ref));
+
+  /*
+   * One tap, and no arming, and that is a decision rather than an omission.
+   *
+   * «Conferma sempre» (`DECISIONI-2026-08-18` §A point 2) was decided about a
+   * button that threw marks away. Running a scene throws nothing away - the
+   * fight on the board is parked into the row it came from, which is the
+   * entire reason the storage exists - and a confirmation would double the
+   * cost of the one gesture this feature was built for, on every beat. It is
+   * the ratified reading "arm what replaces, not what appends", extended to
+   * "nor what moves".
+   */
+  const startFight = (): void => {
+    runScene(item.id);
+    for (const entry of spawnable) spawn(byId.get(entry.ref)!, partySize, entry.count);
+    onOpenTool('scene');
+  };
+
+  /** Clearing a parked fight IS destruction, so this one arms. */
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return undefined;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -340,12 +382,77 @@ function SceneArm({
         </select>
       </label>
 
+      {/*
+        The old sentence said the runner shows "whatever environment is on the
+        board right now, which is one per campaign". The board is still one,
+        but a scene now remembers its own fight and its own place, so the
+        clause about the campaign stopped being true with decision 18. It was
+        pinned by no test, which is exactly why it had to be rewritten by hand
+        rather than left to rot.
+      */}
       <Fact>
-        This is the plan. The scene runner shows whatever environment is on the
-        board right now, which is one per campaign — {onBoard ? 'and it is this one.' : 'and it is not this one.'}
+        This is the plan. Running this scene puts its environment on the board;
+        parking it leaves whatever is there.
       </Fact>
 
+      {isLive && (
+        <Fact>
+          This scene is on the board. Its adversaries and their marks are on the
+          table, not in the plan, until you run another scene or end this one.
+        </Fact>
+      )}
+
+      {!isLive && parked > 0 && (
+        <Fact>
+          Parked here: {parked} adversar{parked === 1 ? 'y' : 'ies'}, with their
+          marks. BACK TO THIS FIGHT puts them back exactly as they were, and
+          parks whatever is on the board into its own row.
+        </Fact>
+      )}
+
+      {/*
+        One primary at most, first match wins, and the list is exhaustive.
+
+        `OPEN THE SCENE` is not PRIMARY on a row that is neither live nor
+        holding a fight. There it opens a runner showing a different scene, and
+        as the row's headline verb it lies about which row it belongs to - the
+        defect of a button whose word is about this row and whose action is
+        about another.
+
+        It is still drawn, plainly, and that is not a hedge. The runner's empty
+        state is the only door in the app to the bestiary from here, and the
+        top bar's `SCENE · n` chip appears only once something is on the board -
+        so deleting this verb outright would leave "Nothing in the scene"
+        unreachable from a campaign that has not started a fight yet. Demoted,
+        not removed: the row stops shouting it, and the room still has a door.
+      */}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {isLive ? (
+          <Verb onClick={() => onOpenTool('scene')} primary label="OPEN THE SCENE" row={row} />
+        ) : parked > 0 ? (
+          <Verb
+            onClick={() => {
+              runScene(item.id);
+              onOpenTool('scene');
+            }}
+            primary
+            label="BACK TO THIS FIGHT"
+            row={row}
+          />
+        ) : spawnable.length > 0 ? (
+          /*
+           * The bootstrap none of the three designs had. A row planned and
+           * never fought holds no combatants, so it is not live and not on the
+           * switcher's strip - and without this verb, starting the second
+           * fight of a split party still costs the five gestures it costs
+           * today. With it, that is five gestures once per split and one tap
+           * per beat after.
+           */
+          <Verb onClick={startFight} primary label="START THIS FIGHT" row={row} />
+        ) : (
+          <Verb onClick={() => onOpenTool('scene')} label="OPEN THE SCENE" row={row} />
+        )}
+
         <Verb
           onClick={() => setEnvironment(item.environmentRef)}
           disabled={onBoard || item.environmentRef === null}
@@ -358,7 +465,26 @@ function SceneArm({
           label="KEEP WHAT IS ON THE BOARD"
           row={row}
         />
-        <Verb onClick={() => onOpenTool('scene')} primary label="OPEN THE SCENE" row={row} />
+
+        {parked > 0 && (
+          /*
+           * Nothing else empties a parked fight, so without this the strip
+           * grows for the whole evening. This one arms, because unlike the
+           * flip it destroys the only copy of those marks.
+           */
+          <Verb
+            onClick={() => {
+              if (!armed) {
+                setArmed(true);
+                return;
+              }
+              patch(item.id, { combatants: [] });
+              setArmed(false);
+            }}
+            label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
+            row={row}
+          />
+        )}
       </div>
     </div>
   );
@@ -380,6 +506,7 @@ function EncounterArm({
   const boardRoster = useGm((s) => s.roster);
   const boardAdjustments = useGm((s) => s.adjustments);
   const inTheScene = useGm((s) => s.combatants.length);
+  const liveScene = useGm((s) => s.liveScene);
   const addToRoster = useGm((s) => s.addToRoster);
   const setRosterCount = useGm((s) => s.setRosterCount);
   const clearRoster = useGm((s) => s.clearRoster);
@@ -580,12 +707,32 @@ function EncounterArm({
         */}
         <Verb
           onClick={openFight}
-          disabled={spawnable.length === 0}
+          /*
+           * Guarded since decision 18, and this is the ONE path that appends.
+           *
+           * `openFight` spawns this row's entries onto the board without
+           * clearing it, which was harmless when the board was the only fight
+           * there was. With another scene running, pressing it here pours this
+           * row's adversaries into that scene - and the flip would then park
+           * the merged pile into the wrong row. A scene row cannot reach this
+           * verb; this is `encounter`, the arm nothing can mint any more, so
+           * the decision survives on the type that cannot be created and is
+           * superseded only on the one that can.
+           */
+          disabled={
+            spawnable.length === 0 || (liveScene !== null && liveScene !== item.id)
+          }
           primary
           label="OPEN THE FIGHT"
           row={row}
         />
       </div>
+      {liveScene !== null && liveScene !== item.id && (
+        <Fact>
+          The board is running another scene. Run that row instead, or end that
+          fight first.
+        </Fact>
+      )}
     </div>
   );
 }

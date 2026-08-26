@@ -83,15 +83,27 @@
  * the panel's 3px stripe and 1px border and 6px padding either side, less the
  * open block's 2px either side.
  *
- * **RENAME leaves while DELETE is armed, and that is the measurement's doing.**
- * "TAP AGAIN TO DELETE" is 153px where DELETE is 62. Today that still fits on
- * one line: 69 + 83 + 153 = 305 of 349, so arming the row changes nothing
- * above or below it. Add RENAME and the same row is 391, which wraps - the
- * armed button drops to a second line 52px lower, out from under the finger
- * that has four seconds to press it again. So it is not drawn while `armed`,
- * which puts the armed footer back at exactly today's one 44px line. The
- * unreadable row's "TAP AGAIN TO DELETE THE ONLY COPY" is 251px and wraps to
- * 96px either way; that is older than this change and is not made worse by it.
+ * **The whole footer empties while DELETE is armed, and that is the
+ * measurement's doing.** "TAP AGAIN TO DELETE" is 153px where DELETE is 62,
+ * and RENAME beside it made the row 391 against 349 - the armed button dropped
+ * to a second line 52px lower, out from under the finger that has four seconds
+ * to press it again. So RENAME was not drawn while `armed`.
+ *
+ * Decision 18 added a fourth wording. A scene row holding a parked fight arms
+ * to "TAP AGAIN TO DELETE THE FIGHT" - 29 characters, and at the 7.0px per
+ * character this file's own two measured points give (DELETE 62 at 6, TAP
+ * AGAIN TO DELETE 153 at 19), that is 223px. With MOVE UP and MOVE DOWN it is
+ * 69 + 83 + 223 = 375 of 349, so arming the row would wrap it: the same defect,
+ * one wording later.
+ *
+ * So MOVE UP and MOVE DOWN leave while armed too, unconditionally, beside
+ * RENAME. The armed footer becomes the single button in every case - 223 fits,
+ * today's 153 fits, and the unreadable row's "TAP AGAIN TO DELETE THE ONLY
+ * COPY" at 251px stops wrapping, which it has done since it was written. The
+ * rule is unconditional so that the shape of this footer never depends on
+ * state the GM is not looking at, which is the objection `Scene.tsx` raises
+ * against a control whose tap count varies. **Re-measure in Chrome before
+ * treating the 223 as anything but derived.**
  *
  * No rule is passed to the field. A night is *expected* to hold rows with no
  * name and rows with the same name - `judgeName`'s sentences are about a
@@ -176,9 +188,11 @@ function RowVerb({
 const armedLabel = (item: SessionItem, armed: boolean): string =>
   !armed
     ? 'DELETE'
-    : item.kind === 'unreadable'
-      ? 'TAP AGAIN TO DELETE THE ONLY COPY'
-      : 'TAP AGAIN TO DELETE';
+    : item.kind === 'scene' && item.combatants.length > 0
+      ? 'TAP AGAIN TO DELETE THE FIGHT'
+      : item.kind === 'unreadable'
+        ? 'TAP AGAIN TO DELETE THE ONLY COPY'
+        : 'TAP AGAIN TO DELETE';
 
 export function SessionRow({
   item,
@@ -475,20 +489,24 @@ export function SessionRow({
                 hand can hit where a 250ms hold plus half a `ROW_STEP` of travel
                 per place is not.
               */}
-              <RowVerb
-                onClick={() => move(item.id, position - 2)}
-                disabled={position === 1}
-                label={`MOVE UP — ${row}`}
-              >
-                MOVE UP
-              </RowVerb>
-              <RowVerb
-                onClick={() => move(item.id, position)}
-                disabled={position === total}
-                label={`MOVE DOWN — ${row}`}
-              >
-                MOVE DOWN
-              </RowVerb>
+              {!armed && (
+                <>
+                  <RowVerb
+                    onClick={() => move(item.id, position - 2)}
+                    disabled={position === 1}
+                    label={`MOVE UP — ${row}`}
+                  >
+                    MOVE UP
+                  </RowVerb>
+                  <RowVerb
+                    onClick={() => move(item.id, position)}
+                    disabled={position === total}
+                    label={`MOVE DOWN — ${row}`}
+                  >
+                    MOVE DOWN
+                  </RowVerb>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => {

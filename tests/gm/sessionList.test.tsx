@@ -115,7 +115,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, session: [], countdowns: [], combatants: [], environmentRef: null, roster: [] });
+  useGm.setState({ hydrated: true, session: [], countdowns: [], combatants: [], liveScene: null, environmentRef: null, roster: [] });
 });
 
 afterEach(() => {
@@ -362,6 +362,173 @@ describe('the scene arm', () => {
     const put = buttons().find((b) => (b.textContent ?? '').includes('PUT THIS ON THE BOARD'))!;
     click(put);
     expect(useGm.getState().environmentRef).toBe(environment.id);
+  });
+
+  /*
+   * The fight the row holds, decision 18.
+   *
+   * A scene row can be planned, running, or parked with a fight in it, and the
+   * arm has to say which - the only primary verb it offers is a different verb
+   * in each case, and one of them destroys marks.
+   */
+  describe('the fight it is holding', () => {
+    const withFight = (n: number, id = 's'): SessionItem[] => [
+      {
+        ...base({ id, name: 'Scene one', collapsed: false }),
+        kind: 'scene',
+        environmentRef: null,
+        roster: [],
+        adjustments: NO_ADJUSTMENTS,
+        combatants: Array.from({ length: n }, (_, i) => ({
+          id: `${adversary.id}-${String(i)}`,
+          adversaryRef: adversary.id,
+          name: adversary.name,
+          hp: { max: 6, marked: 2 },
+          stress: { max: 3, marked: 0 },
+          thresholds: [4, 8] as [number, number],
+          difficulty: 12,
+          spotlighted: false,
+          notes: '',
+        })),
+      },
+    ];
+
+    const primary = (): HTMLButtonElement | undefined =>
+      buttons().find((b) => b.className.includes('btn-primary'));
+
+    it('never draws two primary verbs, however the conditions overlap', () => {
+      /*
+       * Two primaries in one row is none, and the conditions overlap on their
+       * own: a row that is live still has its roster, and a parked row can
+       * have one too. The arm resolves them first-match-wins rather than by
+       * drawing every verb whose condition is true.
+       *
+       * A bare row draws NONE, and that is the decision rather than an
+       * oversight: there is nothing of that row's to open, and the only verb
+       * that would fit opens somebody else's scene.
+       */
+      const cases: [SessionItem[], number][] = [
+        [scene(), 0],
+        [scene(environment.id), 0],
+        [withFight(2), 1],
+      ];
+      for (const [items, expected] of cases) {
+        seed(items);
+        list();
+        expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(expected);
+      }
+
+      // Live, and holding a roster it could still start: one primary, not two.
+      seed([
+        {
+          ...base({ id: 's', name: 'Scene one', collapsed: false }),
+          kind: 'scene',
+          environmentRef: null,
+          roster: [{ ref: adversary.id, count: 1 }],
+          adjustments: NO_ADJUSTMENTS,
+          combatants: [],
+        },
+      ]);
+      useGm.setState({ liveScene: 's' });
+      list();
+      expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(1);
+    });
+
+    it('says how many are parked, and what bringing them back costs', () => {
+      seed(withFight(3));
+      list();
+      expect(text()).toContain('Parked here: 3 adversaries');
+      expect(primary()?.textContent).toBe('BACK TO THIS FIGHT');
+    });
+
+    it('says one adversary rather than one adversaries', () => {
+      seed(withFight(1));
+      list();
+      expect(text()).toContain('Parked here: 1 adversary,');
+    });
+
+    it('puts a parked fight back on the board, and parks whatever was there', () => {
+      seed([...withFight(2, 'dungeon'), ...withFight(1, 'forest').map((i) => ({ ...i, order: 1 }))]);
+      useGm.setState({ liveScene: null, combatants: [] });
+      list();
+
+      const back = buttons().filter((b) => (b.textContent ?? '') === 'BACK TO THIS FIGHT');
+      click(back[0]!);
+
+      expect(useGm.getState().liveScene).toBe('dungeon');
+      expect(useGm.getState().combatants).toHaveLength(2);
+    });
+
+    it('offers no way to clear a fight that is not there', () => {
+      seed(scene());
+      list();
+      expect(buttons().some((b) => (b.textContent ?? '').includes('CLEAR THIS FIGHT'))).toBe(false);
+    });
+
+    it('arms CLEAR THIS FIGHT, because it destroys the only copy of those marks', () => {
+      // The flip is one tap and this is two, and that is the whole line:
+      // running a scene moves a fight, clearing one ends it.
+      seed(withFight(2));
+      list();
+      const clear = buttons().find((b) => (b.textContent ?? '') === 'CLEAR THIS FIGHT')!;
+      click(clear);
+      expect(text()).toContain('TAP AGAIN TO CLEAR');
+      const row = useGm.getState().session[0]!;
+      expect(row.kind === 'scene' && row.combatants, 'one tap cleared it').toHaveLength(2);
+
+      click(buttons().find((b) => (b.textContent ?? '') === 'TAP AGAIN TO CLEAR')!);
+      const after = useGm.getState().session[0]!;
+      expect(after.kind === 'scene' && after.combatants).toEqual([]);
+    });
+
+    it('says what a live row is holding, and does not call it parked', () => {
+      seed(scene());
+      useGm.setState({ liveScene: 's' });
+      list();
+      expect(text()).toContain('This scene is on the board');
+      expect(text()).not.toContain('Parked here');
+      expect(primary()?.textContent).toBe('OPEN THE SCENE');
+    });
+
+    it('starts a planned fight in one tap, without arming', () => {
+      /*
+       * Running a scene destroys nothing - the fight on the board is parked
+       * into the row it came from - so this is one tap. «Conferma sempre» was
+       * decided about a button that threw marks away, and this is the ratified
+       * reading "arm what replaces, not what appends", extended to "nor what
+       * moves".
+       */
+      seed([
+        {
+          ...base({ id: 's', name: 'Scene one', collapsed: false }),
+          kind: 'scene',
+          environmentRef: null,
+          roster: [{ ref: adversary.id, count: 2 }],
+          adjustments: NO_ADJUSTMENTS,
+          combatants: [],
+        },
+      ]);
+      list();
+      expect(primary()?.textContent).toBe('START THIS FIGHT');
+      click(primary()!);
+      expect(useGm.getState().liveScene).toBe('s');
+      expect(useGm.getState().combatants.length).toBeGreaterThan(0);
+    });
+
+    it('does not make OPEN THE SCENE the headline of a row whose scene is elsewhere', () => {
+      /*
+       * On a row that is neither live nor holding a fight, that button opens a
+       * runner showing a DIFFERENT scene - so as the row's primary verb it lies
+       * about which row it belongs to. It is still drawn, plainly: the runner's
+       * empty state is the only door to the bestiary from here, and the top
+       * bar's chip appears only once something is on the board.
+       */
+      seed(scene());
+      list();
+      const open = buttons().find((b) => (b.textContent ?? '') === 'OPEN THE SCENE');
+      expect(open, 'the only door to the empty runner was walled up').toBeDefined();
+      expect(open!.className).not.toContain('btn-primary');
+    });
   });
 });
 
@@ -926,7 +1093,7 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       // `oneOfEach` above has always drawn one.
       { ...base({ id: 'u1', name: 'The map board', collapsed: false }), kind: 'url', href: 'https://example.com/board' },
     ]);
-    useGm.setState({ combatants: [] });
+    useGm.setState({ combatants: [], liveScene: null });
     render(createElement(Gm));
     /*
      * The one thing on this screen that is open and still not in the DOM. The
@@ -1332,21 +1499,74 @@ describe('renaming a row', () => {
     expect(useGm.getState().session.map((i) => i.name)).toEqual(['The ambush', 'The ambush']);
   });
 
-  it('leaves the band while DELETE is armed, so the armed target does not move', () => {
+  it('empties the whole band while DELETE is armed, so the armed target does not move', () => {
     /*
      * Measured in Chrome at 393px with the shipped IBM Plex Mono: RENAME 62 +
      * MOVE UP 69 + MOVE DOWN 83 + DELETE 62 lay out on one 44px line inside the
      * footer's 349px. DELETE armed is "TAP AGAIN TO DELETE" at 153, and the
      * four then measure 391 and wrap - which drops the armed button 52px, out
      * from under the finger that has four seconds to press it again.
+     *
+     * Decision 18 added a fourth wording and pushed the same defect one step
+     * further. A scene row holding a parked fight arms to "TAP AGAIN TO DELETE
+     * THE FIGHT" - 29 characters, ~223px at the 7.0px per character this
+     * footer's own two measured points give - and 69 + 83 + 223 is 375 of 349,
+     * which wraps with the move verbs alone. So they leave too, beside RENAME,
+     * and the rule is UNCONDITIONAL: the shape of this footer must not depend
+     * on whether the row happens to be holding a fight, which is state the GM
+     * is not looking at while their thumb is over the button.
      */
     oneScene();
     click(buttons().find((b) => (b.textContent ?? '').trim() === 'DELETE')!);
     expect(text()).toContain('TAP AGAIN TO DELETE');
-    expect(footer(), 'RENAME stayed and pushed the armed button onto a second line').toEqual([
-      'MOVE UP',
-      'MOVE DOWN',
+    expect(
+      footer(),
+      'a verb stayed beside the armed button, which is what pushes it onto a second line',
+    ).toEqual([]);
+  });
+
+  it('says it is deleting a fight when the row is holding one', () => {
+    /*
+     * The third arm of the armed wording, decision 18. Every other row in this
+     * list can be rebuilt from the dataset; a scene row holding a parked fight
+     * holds HP and Stress marks that exist nowhere else once the row is gone -
+     * the same reason the `unreadable` row gets its own sentence.
+     */
+    seed([
+      {
+        ...base({ id: 's', name: 'Scene one', collapsed: false }),
+        kind: 'scene',
+        environmentRef: null,
+        roster: [],
+        adjustments: NO_ADJUSTMENTS,
+        combatants: [
+          {
+            id: `${adversary.id}-0`,
+            adversaryRef: adversary.id,
+            name: adversary.name,
+            hp: { max: 6, marked: 4 },
+            stress: { max: 3, marked: 1 },
+            thresholds: [4, 8] as [number, number],
+            difficulty: 12,
+            spotlighted: false,
+            notes: '',
+          },
+        ],
+      },
     ]);
+    list();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'DELETE')!);
+    expect(text()).toContain('TAP AGAIN TO DELETE THE FIGHT');
+  });
+
+  it('says the ordinary thing on a scene row with nothing parked in it', () => {
+    seed([
+      { ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+    ]);
+    list();
+    click(buttons().find((b) => (b.textContent ?? '').trim() === 'DELETE')!);
+    expect(text()).toContain('TAP AGAIN TO DELETE');
+    expect(text()).not.toContain('THE FIGHT');
   });
 
   it('abandons a rename when the row is shut, rather than hiding the field', () => {

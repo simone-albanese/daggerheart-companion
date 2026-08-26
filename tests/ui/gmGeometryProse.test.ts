@@ -2102,6 +2102,14 @@ describe('the four widths that skipped a container state the containers instead'
      * file names. Held to each other rather than to a number.
      */
     const armed = says(ROW, /= (\d+) of (\d+), so arming the row/g, "the armed footer's column");
+    // The armed row's own total, which decision 18 pushed over the column: the
+    // fight wording is 223 where the old one was 153, so the two move verbs
+    // leave beside RENAME and the armed footer is one button in every case.
+    expect(
+      armed[0],
+      'the armed footer no longer states a total that overflows its own column, so the rule ' +
+        'that empties it has lost the measurement it rests on',
+    ).toBeGreaterThan(armed[1]!);
     expect(
       armed[1],
       'the armed footer and the resting footer state different columns. They are one claim said ' +

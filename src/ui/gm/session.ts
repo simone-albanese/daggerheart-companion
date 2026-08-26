@@ -212,15 +212,31 @@ export function describeItem(
        */
       const planned = plannedAdversaries(item.roster, index, partySize);
       const fight = planned === 0 ? '' : `${String(planned)} PLANNED`;
+      /*
+       * A third term since decision 18, joined by the same rule as the other
+       * two: never two segments saying the same thing.
+       *
+       * A row can hold a fight that has been fought - parked out of the runner
+       * with every mark on it - and a shut plan that did not say so would let
+       * a GM delete it without ever being told what was inside. This counts
+       * bodies on the table, where `PLANNED` counts what the roster would
+       * spawn, so the two are different facts and both may appear.
+       *
+       * The row the GM is playing reads `combatants.length === 0`, because
+       * resume empties it - so a running scene prints only `PLANNED` and there
+       * is never a stale number in the plan. That is also why the signature
+       * does not move, and none of `describeItem`'s call sites do either.
+       */
+      const parked =
+        item.combatants.length === 0 ? '' : `${String(item.combatants.length)} PARKED`;
       let place: string;
       if (item.environmentRef === null) {
-        place = fight === '' ? 'NO ENVIRONMENT' : '';
+        place = fight === '' && parked === '' ? 'NO ENVIRONMENT' : '';
       } else {
         const found: unknown = index.byRef.get(item.environmentRef);
         place = namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
       }
-      if (place === '') return fight;
-      return fight === '' ? place : `${place} · ${fight}`;
+      return [place, fight, parked].filter((s) => s !== '').join(' · ');
     }
     case 'encounter': {
       // Adversaries, not roster rows and not the sum of the counts. A Minion

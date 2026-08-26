@@ -842,3 +842,344 @@ describe('a campaign that is not the one on screen', () => {
     expect(spy, 'every launch rewrites every campaign').not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Park and resume, decision 18.
+ *
+ * Two scenes can be half-fought at once, so the fight on the board has to be
+ * able to go back where it came from and come out again with every mark on it.
+ * The rules being asserted here are the ones that are cheap to break later: one
+ * commit, a copy at both crossings, and never a fight on the floor.
+ */
+describe('running a scene', () => {
+  const scene = (id: string, name: string, environmentRef: string | null = null) =>
+    ({
+      id,
+      kind: 'scene',
+      name,
+      order: 0,
+      collapsed: false,
+      environmentRef,
+      ...NO_FIGHT,
+    }) as const;
+
+  const s = () => gm.useGm.getState();
+  const parkedIn = (id: string): number => {
+    const row = s().session.find((i) => i.id === id);
+    return row?.kind === 'scene' ? row.combatants.length : -1;
+  };
+
+  it('parks the board into the row it came from, and puts the new row’s fight on it', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 2);
+    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 5 } });
+
+    s().runScene('forest');
+
+    // The dungeon's fight went into the dungeon's row, marks and all.
+    expect(parkedIn('dungeon')).toBe(2);
+    const parked = s().session.find((i) => i.id === 'dungeon');
+    expect(parked?.kind === 'scene' && parked.combatants[0]?.hp.marked).toBe(5);
+
+    // The board is the forest's, which had no fight.
+    expect(s().combatants).toEqual([]);
+    expect(s().liveScene).toBe('forest');
+  });
+
+  it('brings a parked fight back with every mark exactly where it was', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    const id = s().combatants[0]!.id;
+    s().patchCombatant(id, { hp: { max: 8, marked: 6 }, stress: { max: 3, marked: 2 } });
+
+    s().runScene('forest');
+    s().runScene('dungeon');
+
+    expect(s().combatants).toHaveLength(1);
+    expect(s().combatants[0]!.hp.marked).toBe(6);
+    expect(s().combatants[0]!.stress.marked).toBe(2);
+  });
+
+  it('leaves the row it resumed from empty, so one fight is never in two places', () => {
+    // Two copies of one fight with different marks is a state no screen can
+    // draw honestly, and the shut row would print a count from before the flip.
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    s().runScene('forest');
+    expect(parkedIn('dungeon')).toBe(1);
+
+    s().runScene('dungeon');
+    expect(parkedIn('dungeon')).toBe(0);
+    expect(s().combatants).toHaveLength(1);
+  });
+
+  it('copies rather than aliases, so marking the board does not reach into the plan', () => {
+    /*
+     * `spread` hands the board's array in by reference and `gather` hands it
+     * back. Every writer rebuilds the array today, so an alias is invisible
+     * until one of them stops - which is exactly the kind of defect that
+     * arrives years later in an unrelated commit.
+     */
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    s().runScene('forest');
+
+    const row = s().session.find((i) => i.id === 'dungeon');
+    const parkedCombatant = row?.kind === 'scene' ? row.combatants[0]! : undefined;
+    expect(parkedCombatant).toBeDefined();
+
+    s().runScene('dungeon');
+    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 7 } });
+
+    // The object the row was holding before the resume is untouched.
+    expect(parkedCombatant!.hp.marked).not.toBe(7);
+  });
+
+  it('copies `thresholds` too, which is a mutable tuple riding along', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    const before = s().combatants[0]!.thresholds;
+    s().runScene('forest');
+
+    const row = s().session.find((i) => i.id === 'dungeon');
+    const parkedThresholds = row?.kind === 'scene' ? row.combatants[0]!.thresholds : null;
+    expect(parkedThresholds).toEqual(before);
+    expect(parkedThresholds).not.toBe(before);
+  });
+
+  it('mints a row for a fight that came from nowhere, rather than dropping it', () => {
+    // Reachable normally: the bestiary spawns straight onto the board with no
+    // row behind it. The app makes a house instead of asking permission to
+    // destroy.
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().spawn(adversary, 4, 2);
+    expect(s().liveScene).toBe(null);
+
+    s().runScene('forest');
+
+    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
+    expect(minted, 'the bestiary fight was dropped instead of being given a row').toBeDefined();
+    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(2);
+    // An empty name is legal, and `sessionTitle` draws it as SCENE.
+    expect(minted?.name).toBe('');
+  });
+
+  it('mints a row when the pointer names something that is not a scene row', () => {
+    /*
+     * The reader checks `liveScene` against EVERY row's id, not every scene
+     * row's - an `unreadable` row keeps its id so a build that cannot parse it
+     * cannot lose it. So a hand-edited file can leave the board pointing at a
+     * countdown row, and the park below only ever matches scene rows. Without
+     * a guard the fight would have nowhere to go and the commit would overwrite
+     * it: the silent loss, in person.
+     */
+    s().addSessionItem(scene('forest', 'The forest'));
+    const clockId = s().addCountdown('The tide', 'standard', 6);
+    s().spawn(adversary, 4, 1);
+    gm.useGm.setState({ liveScene: clockId });
+
+    s().runScene('forest');
+
+    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
+    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(1);
+  });
+
+  it('takes the row’s environment on the way in, and never writes one on the way out', () => {
+    /*
+     * The row IS the plan. A park that wrote the plan would let three ungated
+     * controls quietly rewrite another row's place: with the dungeon live,
+     * putting the forest's environment on the board and then flipping would
+     * park Forest into the dungeon's row.
+     */
+    s().addSessionItem(scene('dungeon', 'The dungeon', 'ruined-hall'));
+    s().addSessionItem(scene('forest', 'The forest', 'raging-river'));
+
+    s().runScene('dungeon');
+    expect(s().environmentRef).toBe('ruined-hall');
+
+    s().setEnvironment('somewhere-else');
+    s().runScene('forest');
+
+    expect(s().environmentRef).toBe('raging-river');
+    const row = s().session.find((i) => i.id === 'dungeon');
+    expect(row?.kind === 'scene' && row.environmentRef).toBe('ruined-hall');
+  });
+
+  it('leaves the board’s environment alone when the row has none', () => {
+    // Resume must not walk through a door the app locks: PUT THIS ON THE BOARD
+    // is disabled on exactly `environmentRef === null`.
+    s().addSessionItem(scene('dungeon', 'The dungeon', 'ruined-hall'));
+    s().addSessionItem(scene('forest', 'The forest', null));
+    s().runScene('dungeon');
+    s().runScene('forest');
+    expect(s().environmentRef).toBe('ruined-hall');
+  });
+
+  it('does nothing at all when asked for the scene already running', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    const before = s().combatants;
+    s().runScene('dungeon');
+    expect(s().combatants).toBe(before);
+  });
+
+  it('refuses a row that is not a scene, because that arm has no place to open in', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    const clockId = s().addCountdown('The tide', 'standard', 6);
+
+    s().runScene(clockId);
+
+    expect(s().liveScene).toBe('dungeon');
+    expect(s().combatants).toHaveLength(1);
+  });
+
+  it('leaves Fear, the countdowns and the party where they are', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().setFear(5);
+    s().addCountdown('The tide', 'standard', 6);
+
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    s().runScene('forest');
+
+    expect(s().fear).toBe(5);
+    expect(s().countdowns).toHaveLength(1);
+    expect(s().countdowns[0]!.value).toBe(6);
+  });
+});
+
+describe('ending a scene, once a fight can be parked', () => {
+  const scene = (id: string, name: string) =>
+    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null, ...NO_FIGHT }) as const;
+  const s = () => gm.useGm.getState();
+
+  it('empties the row as well as the glass, so the dead do not stand back up', () => {
+    /*
+     * The overturn decision 18 forced. END SCENE used to be `commit({
+     * combatants: [] })` and nothing else, which was complete when the board
+     * was the only place a fight could be. Now the row holds a copy, and
+     * emptying only the board would let a GM end a fight, flip away, flip back,
+     * and find every one of them on their feet.
+     */
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 2);
+
+    s().clearScene();
+
+    expect(s().combatants).toEqual([]);
+    expect(s().liveScene).toBe(null);
+    const row = s().session.find((i) => i.id === 'dungeon');
+    expect(row?.kind === 'scene' && row.combatants).toEqual([]);
+
+    s().runScene('dungeon');
+    expect(s().combatants).toEqual([]);
+  });
+
+  it('does not reach into a scene that is only parked', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 2);
+    s().runScene('forest');
+    s().spawn(adversary, 4, 1);
+
+    s().clearScene();
+
+    const row = s().session.find((i) => i.id === 'dungeon');
+    expect(row?.kind === 'scene' && row.combatants).toHaveLength(2);
+  });
+
+  it('leaves the environment, Fear and the countdowns standing, as it always has', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().runScene('dungeon');
+    s().setEnvironment('ruined-hall');
+    s().setFear(4);
+    s().addCountdown('The tide', 'standard', 6);
+    s().spawn(adversary, 4, 1);
+
+    s().clearScene();
+
+    expect(s().environmentRef).toBe('ruined-hall');
+    expect(s().fear).toBe(4);
+    expect(s().countdowns).toHaveLength(1);
+  });
+});
+
+describe('deleting a row a fight came from', () => {
+  const scene = (id: string, name: string) =>
+    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null, ...NO_FIGHT }) as const;
+  const s = () => gm.useGm.getState();
+
+  it('lets go of the pointer and keeps the fight on the glass', () => {
+    // The GM deleted a row of the plan; they did not ask to end a fight.
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 2);
+
+    s().removeSessionItem('dungeon');
+
+    expect(s().liveScene).toBe(null);
+    expect(s().combatants).toHaveLength(2);
+  });
+
+  it('gives that homeless fight a row the next time a scene is run', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 2);
+    s().removeSessionItem('dungeon');
+
+    s().runScene('forest');
+
+    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
+    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(2);
+  });
+
+  it('hands a clock that belonged to it back to the campaign, in the same commit', () => {
+    // Without this the clock is invisible until some scene happens to be run
+    // again. The reader repairs a dangling scope on the way in from disk, but
+    // that is cold, and this is a GM deleting a row with the app open.
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    const clockId = s().addCountdown('The tide', 'standard', 6);
+    gm.useGm.setState({
+      session: s().session.map((i) =>
+        i.kind === 'countdown' && i.id === clockId ? { ...i, sceneId: 'dungeon' } : i,
+      ),
+    });
+
+    s().removeSessionItem('dungeon');
+
+    const clock = s().session.find((i) => i.id === clockId);
+    expect(clock?.kind === 'countdown' && clock.sceneId).toBe(null);
+    // Never re-pinned: a countdown does not become the top bar's by accident.
+    expect(clock?.kind === 'countdown' && clock.primary).toBe(false);
+  });
+
+  it('does not touch the pointer when a different row is deleted', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+    s().runScene('dungeon');
+    s().removeSessionItem('forest');
+    expect(s().liveScene).toBe('dungeon');
+  });
+});
