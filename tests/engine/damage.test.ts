@@ -5,6 +5,7 @@ import {
   combatantHit,
   hasFallen,
   hasFallenAt,
+  isVulnerableAt,
   isVulnerableFromStress,
   markDamage,
   markStress,
@@ -576,6 +577,55 @@ describe('combatantHit', () => {
  * than writing `hp >= maxHp` is the whole point, and the last case here is what
  * makes it check: the same numbers, both ways round, have to agree.
  */
+/*
+ * The Vulnerable test on two numbers, and its agreement with the sheet's.
+ *
+ * Same shape as `hasFallenAt` below, and here for a second reason: it is read
+ * by a surface that is not a `Character` at all. The GM's combatant card keeps
+ * an adversary's Stress as a plain counter, and the alternative was for that
+ * card to write `marked >= max` itself - a second answer to a question this
+ * file already answers, free to drift from the player's side of the same
+ * screen.
+ *
+ * That an adversary gets the condition at all is a reading of p.71 rather than
+ * a quotation, taken by the owner on 2026-08-26
+ * (`DECISIONI-2026-08-25.md` section 17). The dataset carries both halves: the
+ * `stress` section says a character who marks their last Stress becomes
+ * Vulnerable, and `using-adversaries` says thresholds, Hit Points and Stress
+ * "function the same way they do for PCs".
+ */
+describe('isVulnerableAt', () => {
+  it.each([
+    [0, 3, false],
+    [2, 3, false],
+    [3, 3, true],
+    // Over the maximum, which a dataset edit under a live scene can produce.
+    [4, 3, true],
+    // A track with no maximum is a record the dataset could not size. Calling
+    // it Vulnerable would put the condition on every row of a broken import.
+    [0, 0, false],
+    [2, 0, false],
+  ])('reads %i of %i as %s', (marked, max, vulnerable) => {
+    expect(isVulnerableAt(marked, max)).toBe(vulnerable);
+  });
+
+  it('is the same answer `isVulnerableFromStress` gives on the same numbers', () => {
+    for (const [marked, max] of [
+      [0, 6],
+      [5, 6],
+      [6, 6],
+      [7, 6],
+      [0, 0],
+    ] as Array<[number, number]>) {
+      const c = makeCharacter({ stress: { marked, max } });
+      expect(
+        isVulnerableAt(marked, max),
+        `the GM's side and the player's side disagree at ${String(marked)} of ${String(max)}`,
+      ).toBe(isVulnerableFromStress(c));
+    }
+  });
+});
+
 describe('hasFallenAt', () => {
   it.each([
     [0, 6, false],
