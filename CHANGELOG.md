@@ -49,6 +49,26 @@ unreachable.
   The campaign's own countdown group carries no scene id, and the comparison
   that highlights the live one was matching it against nothing.
 
+### Every GM sheet's title row has room to breathe
+
+- **The title row of every GM tool is 57.00px instead of 45.00px**, and the name
+  of the scene on the table stops touching the edges of the glass. The row had
+  declared no vertical padding at all, so its height was whatever its tallest
+  child was — the 44×44 close button — plus the rule beneath it. That read
+  correctly for as long as the title was plain text, because a glyph with no box
+  has nothing to press against an edge. The strip above put a **filled** chip
+  there, and a filled box exactly as tall as the row touched both of them:
+  measured, **0.50px** of air per side. It is now **6.00** above and **7.00**
+  below, the ✕ sits on the same line as the chip, and `docOverflowX` stays
+  **0.00**.
+- **This moves two numbers the entry above recorded.** The title row it measured
+  at 45.00px is the row this entry pays 12.00px into; the scroller it measured at
+  582.00px at 393×852 becomes **570.00px**, because the header is `flex: none`,
+  the scroller is `flex: 1`, and the panel between them is fixed — so the twelve
+  the header gains is the twelve the scroller loses, exactly. The claim that the
+  strip itself costs **0.00px** either way is untouched and still true: both
+  states pay the same.
+
 ### Two scenes can be half-fought at the same time
 
 - **A fight you leave is parked in the row it came from, not thrown away.**

@@ -123,9 +123,12 @@
  *
  * ## Ergonomics, and the dismiss target a `full` tool does not get
  *
- * The title row is 44px and CLOSE is a 44x44 square at its right edge - the
- * corner a right thumb reaches by sliding up the edge rather than across the
- * glass, and the same corner every other dismissal in this app uses.
+ * The title row is 57px - 6px of padding, 44px of content, 6px of padding and
+ * a 1px rule - and CLOSE is a 44x44 square at its right edge: the corner a
+ * right thumb reaches by sliding up the edge rather than across the glass, and
+ * the same corner every other dismissal in this app uses. The 44 is the target;
+ * the 12 is the air around it, and it was missing until a filled chip stood in
+ * the row and showed that it was.
  *
  * **A `full` tool has no backdrop at all below 1100.** Not a smaller one: none,
  * and not only on a phone. The overlay declares `padding: full || phone ? 0 : 24`
@@ -222,11 +225,16 @@ export function GmSheet({
    * Replaces the VISIBLE title. `label` stays the dialog's accessible name.
    *
    * Optional, so the other seven tools and every sheet are untouched. It exists
-   * because the title row is 44px of glass that already says one word, and the
-   * scene runner has something better to put there - which row of the plan is
-   * on the board - at a vertical cost of exactly 0.00px: `.row` has no
-   * min-height and no wrap, the tallest child is the 44x44 close button, and
-   * the span this replaces is already `flex: 1, minWidth: 0`.
+   * because the title row already says one word, and the scene runner has
+   * something better to put there - which row of the plan is on the board - at
+   * a vertical cost of exactly 0.00px: `.row` has no min-height and no wrap,
+   * the tallest child is the 44x44 close button, and the span this replaces is
+   * already `flex: 1, minWidth: 0`.
+   *
+   * That 0.00px is still true and still measured. What changed is the row it is
+   * measured against: it is 57px now, not 45, because the chip this field was
+   * added for revealed that the row had no vertical padding. See the padding
+   * literal below.
    */
   title?: React.ReactNode;
 }): React.JSX.Element {
@@ -273,7 +281,30 @@ export function GmSheet({
           style={{
             flex: 'none',
             gap: 12,
-            padding: '0 6px 0 14px',
+            /*
+             * 6px top and bottom, and it is a repair rather than a taste.
+             *
+             * This row declared no vertical padding at all, so its height was
+             * whatever its tallest child was: the 44x44 close button, plus the
+             * 1px rule below it. 45.00, measured. That read correctly for six
+             * years because the default title is `t-label` TEXT - a glyph with
+             * no box has nothing to press against an edge, so the missing
+             * padding was invisible.
+             *
+             * `SceneSwitcher` put a FILLED chip there - `background:
+             * var(--hope)`, `minHeight: 44` - and a filled box exactly as tall
+             * as the row's content box touches both edges. Measured on this
+             * branch before the change: chip 44.00 in a row of 45.00, 0.50px of
+             * air per side. The owner read it as squashed, which is what it is.
+             *
+             * The symptom could have been fixed in `SceneSwitcher` - the
+             * current chip is a non-interactive `<span>`, so the 44px floor
+             * never bound it and it could have shrunk. That would have left the
+             * next filled thing anybody puts on this row to rediscover the same
+             * edge. The cause is here, so the fix is here, and it pays for
+             * every GM sheet at once.
+             */
+            padding: '6px 6px 6px 14px',
             borderBottom: '1px solid var(--line-soft)',
           }}
         >
