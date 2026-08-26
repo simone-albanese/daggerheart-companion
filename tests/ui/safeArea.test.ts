@@ -270,13 +270,21 @@ describe('the tab bar pays it too, and not only as a guarantee', () => {
   });
 
   it('does not spend the tabs to pay it', () => {
-    // Horizontal padding, so the 60px height is untouched and the grid
-    // redistributes. Both sides are paid, so the cost is 2x the inset:
-    // measured, 98.3 per column at 393 becomes 68.8 with 59 on each side, and
-    // 173.3 at 693x320 becomes 143.8 - still 1.6x and 3.3x the 44px floor.
+    /*
+     * Horizontal padding, so the 60px height is untouched and the grid
+     * redistributes. Both sides are paid, so the cost is 2x the inset, and the
+     * grid divides what is left: at 393 with 59 on each side that is 275, and
+     * at 693x320 it is 575.
+     *
+     * The figures this comment carried were for four columns - 98.3 becoming
+     * 68.8 at 393, and 173.3 becoming 143.8 at 693x320. At five the same
+     * division gives **55.00** and **115.00**, which are 1.25x and 2.6x the
+     * 44px floor. The height is what the floor is really protected by here and
+     * it is untouched: every button is 60px in both configurations.
+     */
     mount(createElement(TabBar), PHONE);
     const nav = container.querySelector('nav')!;
-    expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
+    expect(nav.style.gridTemplateColumns).toBe('repeat(5, minmax(0, 1fr))');
     for (const button of nav.querySelectorAll<HTMLButtonElement>('button')) {
       expect(button.style.minHeight).toBe('60px');
     }

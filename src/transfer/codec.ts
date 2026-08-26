@@ -102,6 +102,7 @@ import {
   unresolvedRef,
   type Registry,
 } from './registry.ts';
+import { characterRefs } from '../engine/holdings.ts';
 
 /** What this build writes. */
 export const CODEC_VERSION = 2;
@@ -1240,34 +1241,20 @@ export const isDeflated = (payload: Uint8Array): boolean =>
   payload.length > 0 && (payload[0]! & DEFLATED_BIT) !== 0;
 
 /**
- * Every reference on a character, in one pass. Used to check a QR is possible
- * before offering it, and to re-resolve parked ids when content arrives.
+ * Every reference on a character, in one pass. Used here to check a QR is
+ * possible before offering it, and to re-resolve parked ids when content
+ * arrives.
+ *
+ * The body moved to `engine/holdings.ts` when the SRD search grew a second
+ * caller for it: the walk is not a transfer concern, and importing it from
+ * this module dragged the whole QR chunk behind a screen that wanted one
+ * function. Re-exported rather than relocated-and-renamed so that this
+ * module's own callers and tests keep the name they had.
+ *
+ * Imported as well as re-exported: `missingSlugs` below calls it, and a bare
+ * `export … from` re-exports the name without binding it in this scope.
  */
-export function characterRefs(c: Character): Ref[] {
-  const out: Ref[] = [];
-  const add = (ref: Ref | null | undefined): void => {
-    if (typeof ref === 'string' && ref !== '') out.push(ref);
-  };
-  add(c.classRef);
-  c.subclassRefs.forEach(add);
-  c.ancestryRefs.forEach(add);
-  add(c.communityRef);
-  add(c.multiclassRef);
-  c.loadout.forEach(add);
-  c.vault.forEach(add);
-  add(c.activePrimaryWeapon);
-  add(c.activeSecondaryWeapon);
-  add(c.activeArmor);
-  for (const entry of c.inventory) add(entry.ref);
-  if (c.beastform !== null) add(c.beastform.ref);
-  for (const choice of c.levelUpHistory) {
-    for (const key of ['cardRef', 'subclassRef', 'classRef'] as const) {
-      const value = choice.detail[key];
-      if (typeof value === 'string') add(value);
-    }
-  }
-  return out;
-}
+export { characterRefs };
 
 /** Slugs with no registry id. Empty means this character fits in a QR. */
 export const missingSlugs = (c: Character, registry: Registry): string[] =>

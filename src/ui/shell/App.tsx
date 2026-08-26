@@ -76,8 +76,19 @@ import { UpdateBanner } from './UpdateBanner.tsx';
 // something heavy of its own (the wizard, the bestiary, pdf.js and the QR
 // codec). Splitting them keeps first paint small and - just as usefully - means
 // a failure inside one of them cannot take the sheet down with it.
+// Search is split with them and not with Play, and it is the one that sits
+// across the stated line: it *is* opened at the table, which is the whole
+// argument for it existing, and it also pulls something heavy of its own -
+// `RuleSearch.tsx`, the 849-record index, and the character ref walk out of
+// the transfer codec. Eager, all of that would land on first paint for every
+// player, including the ones who never open it; and the shared chunk it
+// already has in common with the GM screen would be pulled onto the boot path
+// with it. Split, the cost is one chunk on a deliberate tap, and the app is a
+// PWA that has precached it - the module graph walk finds a new `lazy()` chunk
+// without anything being added to a list.
 const Build = lazy(async () => ({ default: (await import('../build/Build.tsx')).Build }));
 const Gm = lazy(async () => ({ default: (await import('../gm/Gm.tsx')).Gm }));
+const Search = lazy(async () => ({ default: (await import('../search/Search.tsx')).Search }));
 const Settings = lazy(async () => ({ default: (await import('../settings/Settings.tsx')).Settings }));
 
 function Loading(): React.JSX.Element {
@@ -528,6 +539,23 @@ function Shell(): React.JSX.Element {
               <ScreenBoundary name="GM tools">
                 <Suspense fallback={<Loading />}>
                   <Gm />
+                </Suspense>
+              </ScreenBoundary>
+            )}
+            {/*
+              No `needsCharacter` here, unlike Play and Cards above. Those two
+              draw a character and have nothing to say without one; this draws
+              the book, which the app ships whether or not the library has
+              anybody in it. It is the same class as Build, GM and Settings,
+              and `openingScreen` says the matching half out loud - `search`
+              sits beside `gm` in the screens that are whole without a
+              character, so a device with an empty library that was last here
+              opens here rather than being handed the wizard.
+            */}
+            {screen === 'search' && (
+              <ScreenBoundary name="Search">
+                <Suspense fallback={<Loading />}>
+                  <Search />
                 </Suspense>
               </ScreenBoundary>
             )}

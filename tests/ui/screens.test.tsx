@@ -89,6 +89,7 @@ import { NoteArm } from '../../src/ui/gm/NoteArm.tsx';
 import { PartyScanner } from '../../src/ui/gm/PartyScanner.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
 import { RuleSearchField, RuleSearchResults } from '../../src/ui/shared/RuleSearch.tsx';
+import { Search } from '../../src/ui/search/Search.tsx';
 import { BlockView } from '../../src/ui/shared/BlockView.tsx';
 import {
   AdversaryExperiences,
@@ -365,7 +366,7 @@ function screenText(): string {
 // ---------------------------------------------------------------------------
 
 describe('the shell, on every screen', () => {
-  const screens: Screen[] = ['play', 'cards', 'build', 'gm', 'settings'];
+  const screens: Screen[] = ['play', 'cards', 'build', 'gm', 'search', 'settings'];
 
   for (const screen of screens) {
     it(`renders ${screen} with a character on it`, async () => {
@@ -391,7 +392,7 @@ describe('the shell, on every screen', () => {
       // put about forty characters on the page on their own, so a screen that
       // rendered nothing at all would still clear a threshold measured against
       // the container. Measured against the real screens, the smallest of the
-      // five is an order of magnitude above this.
+      // six is an order of magnitude above this.
       expect(screenText().length, `the ${screen} screen drew almost nothing`).toBeGreaterThan(200);
       expect(warnings(), `the ${screen} screen made React complain`).toEqual([]);
     });
@@ -960,6 +961,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
       the banner both shell banners are
     </ShellBanner>
   ),
+  'search/Search.tsx::Search': () => <Search />,
   'shell/TabBar.tsx::TabBar': () => <TabBar />,
   'shell/UpdateBanner.tsx::UpdateBanner': () => <UpdateBanner apply={noop} />,
 };

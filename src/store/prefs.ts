@@ -159,7 +159,7 @@ export const DEFAULT_PREFS: Prefs = {
  * record and spreads it over the defaults without inspecting `lastScreen`, so
  * `Screen` is a promise TypeScript makes about code and not about storage.
  */
-const SCREENS: readonly Screen[] = ['play', 'cards', 'build', 'gm', 'settings'];
+const SCREENS: readonly Screen[] = ['play', 'cards', 'build', 'gm', 'search', 'settings'];
 
 /**
  * The screen the shell is allowed to draw, given what the preferences allow.
@@ -288,14 +288,31 @@ export function onboardedByDoing(prefs: Prefs, characterCount: number): boolean 
  * handed the character wizard instead - the app asking a question, being
  * answered, and forgetting the answer at the door.
  *
- * The exception is `wanted !== 'gm'` rather than `prefs.gmSection`, and the
- * difference matters: it is the *stored screen* that earns the exemption, not
- * the preference. A GM who was last on Play still opens on Build with an empty
- * library, because Play is still a screen with nothing on it.
+ * The exemption is read off the *stored screen* rather than off a preference,
+ * and the difference matters: a GM who was last on Play still opens on Build
+ * with an empty library, because Play is still a screen with nothing on it.
+ *
+ * ## Why it is a list now, and why `search` is the second entry
+ *
+ * It was the literal `wanted !== 'gm'`, and a literal was right while exactly
+ * one screen had earned it. The search screen earns it by the same sentence,
+ * word for word: it has never needed a character and is fully usable without
+ * one. Its subject is the book - 849 records the app ships whatever is in the
+ * library - and `Search.tsx` opens on the whole of it when there is nobody to
+ * narrow to, which is the case `RICERCA-SRD §4.5` calls correct and not empty.
+ * Sending that person to the character wizard would be the same defect the GM
+ * exemption was written for: the app asking a question, being answered, and
+ * forgetting the answer at the door.
+ *
+ * A list rather than a second `&&` because the next screen to earn this should
+ * join a set and not lengthen a condition - and because the property has a
+ * name, which a chain of inequalities does not.
  */
+const WHOLE_WITHOUT_A_CHARACTER: readonly Screen[] = ['gm', 'search'];
+
 export function openingScreen(prefs: Prefs, characterCount: number): Screen {
   const wanted = allowedScreen(prefs, prefs.lastScreen);
-  if (characterCount === 0 && wanted !== 'gm') return 'build';
+  if (characterCount === 0 && !WHOLE_WITHOUT_A_CHARACTER.includes(wanted)) return 'build';
   return wanted;
 }
 

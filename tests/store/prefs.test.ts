@@ -119,6 +119,22 @@ describe('where the app opens', () => {
     ).toBe('gm');
   });
 
+  /*
+   * The second screen to earn the exemption, and it earns it by the sentence
+   * above rather than by a new one: the search screen has never needed a
+   * character and is fully usable without one. Its subject is the book, which
+   * the app ships whether or not the library has anybody in it - so a device
+   * that was last here and has no characters opens here, and the person who
+   * came to look something up is not handed the character wizard instead.
+   */
+  it('opens on the search screen with an empty library, for the same reason', () => {
+    expect(
+      openingScreen({ ...DEFAULT_PREFS, lastScreen: 'search' }, 0),
+      'somebody who came to read the book was sent to the character wizard',
+    ).toBe('search');
+    expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'search' }, 2)).toBe('search');
+  });
+
   it('still sends an empty library to Build for every other screen', () => {
     expect(openingScreen(DEFAULT_PREFS, 0)).toBe('build');
     expect(openingScreen({ ...DEFAULT_PREFS, lastScreen: 'cards' }, 0)).toBe('build');
@@ -141,22 +157,27 @@ describe('where the app opens', () => {
   });
 
   /*
-   * A stored screen that is not one of the five, which `Screen` cannot prevent.
+   * A stored screen that is not one of the six, which `Screen` cannot prevent.
    *
    * `loadPrefs` JSON-parses whatever is on the disk and spreads it over the
    * defaults; nothing looks at `lastScreen`. So the type is a promise about
    * code, not about storage, and the value can be anything - a hand-edited
    * record, a corrupted one, or a downgrade after a future build has added a
-   * sixth screen and written its name here.
+   * seventh screen and written its name here.
+   *
+   * The literal was `'sixth'`, and `'search'` is now the sixth - so the name
+   * had to move or the next reader would take this case for coverage of it.
+   * `'nowhere'` cannot ever become a screen id, which is the property the
+   * fixture actually needs.
    */
   it('refuses a stored screen the shell has no branch for', () => {
-    const nowhere = { ...DEFAULT_PREFS, lastScreen: 'sixth' as Screen };
+    const nowhere = { ...DEFAULT_PREFS, lastScreen: 'nowhere' as Screen };
     expect(
       allowedScreen(nowhere, nowhere.lastScreen),
       'the shell is about to draw a header, a tab bar and nothing in between',
     ).toBe('play');
     expect(openingScreen(nowhere, 2)).toBe('play');
-    // And an empty library still lands on Build, as it does for the other four.
+    // And an empty library still lands on Build, as it does for the other five.
     expect(openingScreen(nowhere, 0)).toBe('build');
   });
 });

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 /**
- * The four navigation glyphs, which were invisible.
+ * The five navigation glyphs, four of which were invisible.
  *
  * Each tab is meant to carry a distinct silhouette so the destination you want
  * is findable by shape at the bottom of a dim room - a diamond, a rectangle, a
- * triangle, a hexagon. Three of the four painted transparent from the first
- * commit, and the fourth was only visible because it also draws a border.
+ * triangle, a hexagon, a ring. Three of the original four painted transparent
+ * from the first commit, and the fourth was only visible because it also draws
+ * a border.
  *
  * The mechanism is worth writing down, because it is silent and it is easy to
  * repeat. The style object set `background` - a shorthand - and then
@@ -59,7 +60,16 @@ afterEach(() => {
   useApp.setState({ prefs: { ...DEFAULT_PREFS } });
 });
 
-/** The glyph span in each tab, with what it would be drawn with. */
+/**
+ * The glyph span in each tab, with what it would be drawn with.
+ *
+ * `border` is the shorthand and not `borderTopWidth`, and that is a jsdom
+ * fact rather than a preference: jsdom's CSS parser does not expand
+ * `border: 1.5px solid …` into the longhands, so `borderTopWidth` reads back
+ * `''` for a glyph that plainly declares one. Reading the longhand made the
+ * outline invisible to this file - which is the same shape of defect as the
+ * bug the file was written about, one layer up.
+ */
 const glyphs = (): Array<{ tab: string; fill: string; border: string }> => {
   const nav = container.querySelector('nav');
   if (nav === null) throw new Error('the tab bar did not render');
@@ -69,34 +79,59 @@ const glyphs = (): Array<{ tab: string; fill: string; border: string }> => {
     return {
       tab: (button.textContent ?? '').trim(),
       fill: glyph.style.backgroundColor,
-      border: glyph.style.borderTopWidth,
+      border: glyph.style.border,
     };
   });
 };
 
 describe('the navigation glyphs', () => {
-  it('all four are drawn with something', () => {
+  it('all five are drawn with something', () => {
     act(() => root.render(createElement(TabBar)));
 
     const drawn = glyphs();
-    expect(drawn).toHaveLength(4);
+    expect(drawn).toHaveLength(5);
     for (const { tab, fill, border } of drawn) {
-      // A glyph is visible if it has a fill or an outline. Cards is the one
-      // that is deliberately an outline; the other three are solid.
+      // A glyph is visible if it has a fill or an outline. Two of the five are
+      // deliberately outlines - Cards' rectangle and Search's ring - and the
+      // other three are solid. Which is which is not asserted here; the next
+      // test reads it off the bar.
       const visible = fill !== '' || border !== '';
       expect(visible, `the ${tab} glyph would paint nothing`).toBe(true);
     }
   });
 
-  it('gives the three solid glyphs an actual fill', () => {
-    // The specific failure: `background` set and `background-color` removed,
-    // so the fill is empty and only Cards' border survives.
+  it('gives every solid glyph an actual fill, and reads which are solid off the bar', () => {
+    /*
+     * The specific failure: `background` set and `background-color` removed,
+     * so the fill is empty and only an outline survives.
+     *
+     * **This used to filter `g.tab !== 'CARDS'` and that made it blind.** The
+     * list of solid marks was a literal, so the arrival of a second outline
+     * would not have been noticed: SEARCH is not CARDS, so a ring with no
+     * fill would have been demanded to have one, and the failure would have
+     * pointed at the ring rather than at the test. A test that carries the
+     * expected answer as a literal confirms whatever the code does next.
+     *
+     * So the classification comes from the rendered glyph - an outline is the
+     * one with a border - and only the shape of the result is pinned.
+     */
     act(() => root.render(createElement(TabBar)));
 
-    const solid = glyphs().filter((g) => g.tab !== 'CARDS');
-    expect(solid).toHaveLength(3);
+    const drawn = glyphs();
+    // A mark is an outline when it declares its fill away. That is the
+    // discriminator the component itself uses, so reading it back here asks
+    // the bar what it drew instead of telling it.
+    const outlined = drawn.filter((g) => g.fill === 'transparent');
+    const solid = drawn.filter((g) => g.fill !== 'transparent');
+    expect(solid, 'the solid marks').toHaveLength(3);
+    expect(outlined, 'the outlined marks').toHaveLength(2);
     for (const { tab, fill } of solid) {
       expect(fill, `the ${tab} glyph has no background-color`).not.toBe('');
+    }
+    for (const { tab, border } of outlined) {
+      // An outline with its fill declared away and no border is the original
+      // bug wearing the other mask: it would paint nothing at all.
+      expect(border, `the ${tab} outline would paint nothing`).not.toBe('');
     }
   });
 });
@@ -108,10 +143,10 @@ describe('a tab with nothing behind it', () => {
 
   const nav = (): HTMLElement => container.querySelector('nav')!;
 
-  it('is four tabs and four columns with the default preferences', () => {
+  it('is five tabs and five columns with the default preferences', () => {
     act(() => root.render(createElement(TabBar)));
 
-    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM']);
+    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM', 'SEARCH']);
     /*
      * This assertion read `toBe('repeat(4, 1fr)')` and the reversal is
      * deliberate. `1fr` is `minmax(auto, 1fr)`: a column's minimum is its
@@ -119,9 +154,11 @@ describe('a tab with nothing behind it', () => {
      * widen the bar past the viewport rather than shrink - the same trap
      * `.app` was actually caught in one file over. Latent here, and measured
      * as latent: in Chrome the columns resolve to 80px at 320 against a widest
-     * per-tab min-content of 35. So this pins a guarantee, not a repair.
+     * per-tab min-content of 35. So this pins a guarantee, not a repair - and
+     * the fifth tab is the case it was written for: SEARCH could only ever
+     * make a column narrower, never push the bar off the glass.
      */
-    expect(nav().style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
+    expect(nav().style.gridTemplateColumns).toBe('repeat(5, minmax(0, 1fr))');
   });
 
   it('drops the GM tab when the GM section is switched off, and takes its column with it', () => {
@@ -138,22 +175,22 @@ describe('a tab with nothing behind it', () => {
     });
     act(() => root.render(createElement(TabBar)));
 
-    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD']);
+    expect(labels()).toEqual(['PLAY', 'CARDS', 'BUILD', 'SEARCH']);
     expect(labels()).not.toContain('GM');
     // Was `toBe('repeat(3, 1fr)')`, for the reason given above: the count is
     // what this case is about, and the minimum is now zero either way.
-    expect(nav().style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))');
+    expect(nav().style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
   });
 
   it('keeps every surviving tab a 60px target with a glyph', () => {
-    // The GM tab leaving must not cost the other three anything they had.
+    // The GM tab leaving must not cost the other four anything they had.
     act(() => {
       useApp.setState({ prefs: { ...DEFAULT_PREFS, gmSection: false } });
     });
     act(() => root.render(createElement(TabBar)));
 
     const drawn = glyphs();
-    expect(drawn).toHaveLength(3);
+    expect(drawn).toHaveLength(4);
     for (const { tab, fill, border } of drawn) {
       expect(fill !== '' || border !== '', `the ${tab} glyph would paint nothing`).toBe(true);
     }

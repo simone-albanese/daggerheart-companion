@@ -1,16 +1,33 @@
 /**
- * Phone navigation. Four destinations, each with a distinct silhouette rather
+ * Phone navigation. Five destinations, each with a distinct silhouette rather
  * than a generic icon set, so the tab you want is findable by shape at the
  * bottom of a dim room.
  *
- * Three of them when the GM section is switched off, and the grid is written
- * from the surviving tabs rather than fixed at four so the row redistributes
- * instead of leaving a gap where the hexagon was. On a 393px phone that is
- * 98px per tab at four and 131px at three - both far above the 44px floor, and
- * every button keeps its 60px height, so the change is a wider target and
- * never a smaller one. What must not survive is the tab itself: a destination
- * the shell will not draw is a door to an empty room, and `allowedScreen` in
- * `prefs.ts` is the other half of the same rule.
+ * Four of them when the GM section is switched off, and the grid is written
+ * from the surviving tabs rather than fixed at a number so the row
+ * redistributes instead of leaving a gap where the hexagon was. On a 393px
+ * phone that is 78.59px per tab at five and 98.25 at four - both far above the
+ * 44px floor, and every button keeps its 60px height, so the change is a
+ * narrower target and never a shorter one. What must not survive is the tab
+ * itself: a destination the shell will not draw is a door to an empty room,
+ * and `allowedScreen` in `prefs.ts` is the other half of the same rule.
+ *
+ * ## The fifth tab, and what it cost
+ *
+ * SEARCH is the fifth, and the whole of its cost is horizontal. Measured on
+ * 26 August against a level-5 character built through the real path, on a
+ * separate origin with an empty IndexedDB: the vertical cost is **0.00px** at
+ * both 393x852 and 375x667, because this bar already existed and the fifth
+ * voice divides the same width into five instead of four. The tabs go from
+ * 98.25 to **78.59** at 393 and from 93.75 to **75.00** at 375; `SEARCH` is
+ * the widest label at 42.00 and keeps 36.59 / 33.00 of air around it; no label
+ * overflows at either size, and every target stays 78.59x60 and 75.00x60 -
+ * both axes well over the 44px floor. Re-measured on this branch against the
+ * shipped five-tab bar, both figures came back unchanged.
+ *
+ * The paragraph below about `minmax(0, 1fr)` was written when a fifth
+ * destination was the hypothetical it names. It is not hypothetical now, and
+ * the guarantee it describes is what made this a data change.
  *
  * ## Why the columns say `minmax(0, 1fr)` and not `1fr`
  *
@@ -21,17 +38,20 @@
  * column sized to an over-wide header laid `main` out 27.5px wider than a 744px
  * window and clipped 45 elements on every screen at once.
  *
- * Here it is a guarantee and not a repair, and the numbers say which: measured
- * in Chrome, the four columns resolve to 80px at 320, 93.8 at 375, 98.3 at 393
- * and 179.8 at 719, against per-tab min-contents of 28 (PLAY), 35 (CARDS), 35
- * (BUILD) and 17 (GM) - a 17px glyph over 10px IBM Plex Mono. The widest
- * minimum is 35, so the auto minimum could not be reached above a 140px
- * viewport and nothing moves today. What changes is the failure mode: a longer
- * word, a translation or a fifth destination can now only make a tab narrower,
- * where before it could push the bar off the glass. Every button keeps its 60px
- * height either way - well above the 44px floor, because this bar is the one
- * control strip that lives inside the thumb arc - and at 320, 375, 393 and 719
- * every tab returns itself from its own centre.
+ * Here it is a guarantee and not a repair, and the numbers say which. It was
+ * measured at four columns - 80px at 320, 93.8 at 375, 98.3 at 393 - against
+ * per-tab min-contents of 28 (PLAY), 35 (CARDS), 35 (BUILD) and 17 (GM), a
+ * 17px glyph over 10px IBM Plex Mono. **The fifth destination that sentence
+ * called hypothetical is SEARCH, and it arrived**: re-measured through the
+ * audit rig at five columns, they resolve to **64.00 at 320, 75.00 at 375 and
+ * 78.59 at 393**, every one above the widest 35px minimum and every one above
+ * the 44px floor. Label overflow is **0 on all five at every width measured**,
+ * and `docOverflowX` is 0.
+ *
+ * So the failure mode this spelling bought is the one that actually happened:
+ * a fifth destination made every tab narrower and could not push the bar off
+ * the glass. Every button keeps its 60px height - well above the floor,
+ * because this bar is the one control strip that lives inside the thumb arc.
  *
  * ## The horizontal insets, which are 0px in the common case and not always
  *
@@ -56,10 +76,10 @@
  * sideways that is 693x320, which is under 720, so `useMedia(PHONE_QUERY)`
  * matches, `useIsPhone()` is true and `App.tsx` draws this bar - on a device
  * that still has its cutout down a side edge. Measured at 693x320 with 59
- * injected on each side: this element's padding-left and padding-right read
- * back `59px`, the four columns are 143.8x60 spanning [59, 634], clear of both
- * strips, and the header above is inset to 79/79 with 239.8px of slack.
- * Nothing is lost and the four labels come out from under the cutout. That is
+ * injected on each side, re-taken at five columns: this element's padding-left
+ * and padding-right read back `59px`, the five columns are **115.00x60**, clear
+ * of both strips, and every label still fits with **0 overflow**. Nothing is
+ * lost and the five labels come out from under the cutout. That is
  * a configuration a person reaches from Settings, not a hypothetical.
  *
  * In portrait iOS reports no horizontal inset, and this rig cannot be the
@@ -78,7 +98,7 @@
  *
  * They go on the `<nav>` itself and not on an ancestor because padding sits
  * inside the background box: `var(--panel)` keeps painting to the physical edge
- * while the four buttons move in, which is what a bar under a cutout is meant
+ * while the five buttons move in, which is what a bar under a cutout is meant
  * to look like. The same padding on `.app` or on `<main>` would move the
  * background with the buttons and leave a strip of `--app` down the glass.
  *
@@ -86,28 +106,44 @@
  * thumb arc, so what matters is that the cost lands on the grid and not on the
  * height - and it does, because this padding is horizontal. In the
  * configuration where the insets are live, 693x320 in landscape, both thumbs
- * are on the short edges and each rests against a strip; the four columns go
- * from 173.3 to 143.8 (both measured), which is 3.3x the 44px floor, and every
- * button keeps its 60px height. Nothing moves out of either arc: the row is
+ * are on the short edges and each rests against a strip; the five columns
+ * measure **115.00**, which is 2.6x the 44px floor, and every button keeps its
+ * 60px height. Nothing moves out of either arc: the row is
  * the last thing in the window and the tabs still span [59, 634] of 693.
  * Read-versus-touch is unchanged because every item here is touched - a glyph
  * and its label are one target. What the tabs gain is the part that matters at
  * a table: a label under a cutout is a destination you cannot read in a dim
- * room, which is the whole argument for the four silhouettes above. If a
- * portrait device ever reported one, the same arithmetic holds at 393 - four
- * columns 98.3 -> 68.8 and three 131 -> 91.7, all four measured with 59 on
- * each side - still 1.6x and 2.1x the floor.
+ * room, which is the whole argument for the five silhouettes above. A portrait
+ * device reporting one is still hypothetical, and it is measured rather than
+ * reasoned about: forced to 393x852 with 59 on each side, the five columns come
+ * back at **55.00x60** with 0 label overflow - 1.25x the floor on the narrow
+ * axis and clear of it on the other. That figure is worth stating exactly,
+ * because arriving at it by subtracting an inset from a *column* rather than
+ * from the *viewport* gives 19.6 and a false alarm: the grid divides
+ * 393 - 118 = 275, not 78.59 - 59.
  */
 import { allowedScreen } from '../../store/prefs.ts';
 import { useApp, type Screen } from '../../store/state.ts';
 
-const TABS: Array<{ id: Screen; label: string; mark: React.CSSProperties }> = [
+/**
+ * The destinations, each with its silhouette and whether that silhouette is
+ * drawn as an outline.
+ *
+ * `hollow` is a property of the *mark* and it used to be a property of the
+ * *renderer*: two `tab.id === 'cards'` tests decided both the fill and the
+ * border below. That was honest while exactly one mark was an outline, and it
+ * stopped being honest the moment a second one was. It also put the one
+ * declaration this file has already been bitten by - see the `backgroundColor`
+ * comment at the span - behind a hard-coded id, so the way to add a mark was
+ * to edit a conditional rather than to add a row.
+ */
+const TABS: Array<{ id: Screen; label: string; mark: React.CSSProperties; hollow?: true }> = [
   {
     id: 'play',
     label: 'Play',
     mark: { width: 17, height: 17, clipPath: 'polygon(50% 0,100% 50%,50% 100%,0 50%)' },
   },
-  { id: 'cards', label: 'Cards', mark: { width: 17, height: 14, borderRadius: 2 } },
+  { id: 'cards', label: 'Cards', mark: { width: 17, height: 14, borderRadius: 2 }, hollow: true },
   {
     id: 'build',
     label: 'Build',
@@ -121,6 +157,35 @@ const TABS: Array<{ id: Screen; label: string; mark: React.CSSProperties }> = [
       height: 17,
       clipPath: 'polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)',
     },
+  },
+  /*
+   * The ring, and it is the one mark in this bar chosen by looking rather than
+   * by drawing.
+   *
+   * A magnifying glass is what a search tab is "supposed" to carry, and it is
+   * the one thing the other four are not: a lens needs a disc and a handle,
+   * which is two elements or a `clipPath` tracing a shape nothing else here
+   * traces. Every mark above is one `<span>` with a fill and at most a border,
+   * and the argument at the head of this file is *silhouette*, not iconography
+   * - the diamond does not mean Play and the hexagon does not mean GM.
+   *
+   * A filled disc was the first answer and it was the wrong one. Rendered at
+   * 17px against the real tokens, its nearest neighbour is the GM hexagon:
+   * same solidity, near-identical visual weight, separable only by faceting,
+   * and they would sit next to each other in the bar. The ring has no
+   * neighbour - it is the only round *outline* in the set, where CARDS is the
+   * only square one, and round-versus-square is the largest contrast two
+   * outlines can have. It survives at inactive `--edge` ink, at reduced
+   * brightness, and in the light theme.
+   *
+   * That it also reads as a loupe is a coincidence this gets for free. It is
+   * not why it was chosen, and nothing here is drawing one.
+   */
+  {
+    id: 'search',
+    label: 'Search',
+    mark: { width: 17, height: 17, borderRadius: '50%' },
+    hollow: true,
   },
 ];
 
@@ -208,15 +273,20 @@ export function TabBar(): React.JSX.Element {
                  * The inactive colour is --edge: a glyph is a shape rather
                  * than a label, so it needs the 3:1 a meaningful graphic
                  * needs, where --dim is tuned for 10px text.
+                 *
+                 * The two tests below read `tab.hollow` and used to read
+                 * `tab.id === 'cards'`. Same pixels for CARDS, and the reason
+                 * for the change is in `TABS`: an outline is something a mark
+                 * *is*, and there are two of them now.
                  */
                 backgroundColor:
-                  tab.id === 'cards'
+                  tab.hollow === true
                     ? 'transparent'
                     : active
                       ? 'var(--hope)'
                       : 'var(--edge)',
                 border:
-                  tab.id === 'cards'
+                  tab.hollow === true
                     ? `1.5px solid ${active ? 'var(--hope)' : 'var(--edge)'}`
                     : undefined,
               }}
