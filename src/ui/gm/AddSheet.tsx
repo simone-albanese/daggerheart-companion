@@ -50,9 +50,19 @@
  *
  * ## What each form can honestly promise
  *
- * A **scene** records an environment. It does not put that environment on the
- * board: the board holds one environment per campaign and it is the *table*,
- * not the plan, so the row carries PUT THIS ON THE BOARD once it exists.
+ * A **scene** records an environment *and* a roster. It does not put either on
+ * the board: the board holds one environment and one roster per campaign and it
+ * is the *table*, not the plan, so the row carries PUT THIS ENVIRONMENT ON THE
+ * BOARD and PUT THIS ROSTER ON THE BOARD once it exists.
+ *
+ * **This paragraph named only the environment for as long as the scene form has
+ * had `CARRY THE n INTO THIS SCENE` on it, and the arm believed it.** `SceneArm`
+ * read the roster it was given only to decide whether START THIS FIGHT appeared,
+ * drew not one name of it, and offered no control that could write it again - so
+ * a scene planned before the session could not receive the adversary the GM
+ * thought of afterwards, and nothing said so. The two verbs above are the loop
+ * that was missing, and they are the encounter row's own two verbs on the row
+ * that was skipped.
  *
  * An **encounter** can take the roster that is on the board right now, which
  * is how a GM who has just built a fight keeps it for later. It never takes

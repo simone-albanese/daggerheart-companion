@@ -50,8 +50,12 @@
  * things with the same shape.
  *
  * The rows therefore carry the crossing explicitly, in both directions, built
- * only out of actions the store already has: PUT THIS ON THE BOARD and KEEP
- * WHAT IS ON THE BOARD. What has no verb is stated as a fact with no control:
+ * only out of actions the store already has: PUT THIS <thing> ON THE BOARD and
+ * KEEP THE BOARD'S <thing> HERE, for both things a row can hold - its
+ * environment and its roster. Every one of those verbs names the noun it moves,
+ * because four buttons about "the board" on one strip are four buttons a GM has
+ * to open one at a time to tell apart, and one of them overwrites a plan.
+ * What has no verb is stated as a fact with no control:
  * a row's stored `combatants` cannot be put back with their marks, because no
  * action in `gmStore` sets the combatant list wholesale, and inventing a button
  * that silently dropped them would be exactly the kind of quiet wrongness the
@@ -188,7 +192,7 @@
  * a browser yet.
  */
 import { useEffect, useState } from 'react';
-import type { EncounterAdjustments, Ref } from '../../../shared/types.ts';
+import type { Adversary, EncounterAdjustments, Ref, RosterEntry } from '../../../shared/types.ts';
 import type { LinkTarget, SessionItem } from '../../../shared/campaigns.ts';
 import type { GmRegion } from './gmStore.ts';
 import { useApp } from '../../store/state.ts';
@@ -308,6 +312,9 @@ function SceneArm({
   const patch = useGm((s) => s.patchSessionItem);
   const live = useGm((s) => s.environmentRef);
   const setEnvironment = useGm((s) => s.setEnvironment);
+  const boardRoster = useGm((s) => s.roster);
+  const boardAdjustments = useGm((s) => s.adjustments);
+  const rosterToBoard = useRosterToBoard();
   const liveScene = useGm((s) => s.liveScene);
   const runScene = useGm((s) => s.runScene);
   const adoptBoard = useGm((s) => s.adoptBoard);
@@ -486,6 +493,30 @@ function SceneArm({
         unreachable from a campaign that has not started a fight yet. Demoted,
         not removed: the row stops shouting it, and the room still has a door.
       */}
+      {/*
+        The plan this row carries, on the row that carries it.
+        `CARRY THE n INTO THIS SCENE` has written a roster here since the scene
+        form grew that button, and the shut row has read `n PLANNED` off it -
+        but this arm never drew one name of it. A GM could see how many were
+        coming and not what.
+      */}
+      <RosterList roster={item.roster} byId={byId} partySize={partySize} row={row} />
+      <AdjustmentNotes adjustments={item.adjustments} />
+
+      {/*
+        The loop that makes the plan editable, and it did not exist.
+        A scene row took a roster once, at creation, and no control anywhere
+        could add to it or take from it again - so a row planned before the
+        session could not receive the adversary a GM thought of afterwards, and
+        nothing on the row said so. The encounter row has had both halves all
+        along; this is the same two verbs on the row that was missed.
+      */}
+      <Fact>
+        To change this plan: put it on the board, edit it in the builder, then bring it back with
+        KEEP THE BOARD’S ROSTER HERE. The board is the campaign’s one workbench — this row is a
+        copy, and neither writes to the other until you tap one of these.
+      </Fact>
+
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {isLive ? (
           <Verb onClick={() => onOpenTool('scene')} primary label="OPEN THE SCENE" row={row} />
@@ -550,16 +581,46 @@ function SceneArm({
           />
         )}
 
+        {/*
+          Every verb here names the noun it moves, and that is what adding the
+          roster pair cost. `PUT THIS ON THE BOARD` and `KEEP WHAT IS ON THE
+          BOARD` were unambiguous while an environment was the only thing this
+          row could send anywhere. Beside two roster verbs they stop being: a
+          strip with four buttons about "the board" on it is four buttons a GM
+          has to open one at a time to tell apart.
+
+          Measured in Chrome at 393x852 and 375x667, `pointer: coarse`: each of
+          the four is 44px tall and takes a line of its own - 246.41 and 251.23
+          wide for the roster pair, 289.06 and 293.89 for the longer
+          environment words, against a 363px column. Two to a line would need
+          every label under about 177px, which is not a length these verbs can
+          be written in and stay unambiguous. So the fix costs this arm two more
+          lines, 104px, and that is what a GM pays to be able to change a plan
+          at all. `docOverflowX` is 0.00 at both sizes and nothing is under the
+          tap floor.
+        */}
         <Verb
           onClick={() => setEnvironment(item.environmentRef)}
           disabled={onBoard || item.environmentRef === null}
-          label="PUT THIS ON THE BOARD"
+          label="PUT THIS ENVIRONMENT ON THE BOARD"
           row={row}
         />
         <Verb
           onClick={() => patch(item.id, { environmentRef: live })}
           disabled={item.environmentRef === live}
-          label="KEEP WHAT IS ON THE BOARD"
+          label="KEEP THE BOARD’S ENVIRONMENT HERE"
+          row={row}
+        />
+        <Verb
+          onClick={() => rosterToBoard(item.roster, item.adjustments)}
+          disabled={item.roster.length === 0}
+          label="PUT THIS ROSTER ON THE BOARD"
+          row={row}
+        />
+        <Verb
+          onClick={() => patch(item.id, { roster: boardRoster, adjustments: boardAdjustments })}
+          disabled={boardRoster.length === 0}
+          label="KEEP THE BOARD’S ROSTER HERE"
           row={row}
         />
 
@@ -589,6 +650,195 @@ function SceneArm({
 
 // ---------------------------------------------------------------------------
 
+/**
+ * What a row was built with, on the row that was built with it.
+ *
+ * `EncounterAdjustments` is written by the builder and copied onto a row at
+ * creation, and until now only an **encounter** row read it back. A scene row
+ * carries the same three flags out of the same builder - `AddSheet` writes
+ * `{ roster, adjustments }` together, in one call - and drew none of them, so a
+ * scene planned with the damage bump on said so nowhere and a GM found out by
+ * not finding out. That is the second half of the same omission the roster
+ * above is the first half of.
+ *
+ * The dice are said here rather than only inside the builder because nothing in
+ * the scene applies the bump: a combatant carries HP, Stress and thresholds,
+ * never a damage expression, so the GM adds it by hand and the row is where
+ * they have to learn that.
+ */
+function AdjustmentNotes({ adjustments }: { adjustments: EncounterAdjustments }): React.JSX.Element {
+  const rules = useApp((s) => s.dataset.rules);
+  const bump = damageBumpRule(rules);
+  const chosen = ADJUSTMENT_KEYS.filter((key) => adjustments[key]);
+  return (
+    <>
+      {chosen.length > 0 && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {chosen.map((key) => (
+            <span key={key} className="chip">
+              {ADJUSTMENT_LABEL[key]}
+            </span>
+          ))}
+        </div>
+      )}
+      {adjustments.damageBump && (
+        <Fact>
+          {bump === null
+            ? 'This row was built with the damage bump on, and no rules layer this device has loaded carries the line that says what it adds. Nothing in the scene rolls it for you either way.'
+            : `This row was built with “${bump}”. Nothing in the scene rolls that for you — it is added at the table, on every adversary attack.`}
+        </Fact>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A row's roster onto the campaign's one board, and the adjustments with it.
+ *
+ * Built out of the four actions that already exist, in the order they have to
+ * run: `setRosterCount` only ever *updates* an entry, so a ref that is not on
+ * the board yet has to be added before its count means anything. Every call is
+ * a separate commit and the store's 400 ms debounce collapses the lot into one
+ * write.
+ *
+ * A hook rather than a function because it needs five subscriptions, and both
+ * arms that own a roster need it: this is the outbound half of the loop that
+ * lets a planned row be edited at all - put it on the board, change it in the
+ * builder, take it back with KEEP THE BOARD'S ROSTER HERE.
+ */
+function useRosterToBoard(): (
+  roster: readonly RosterEntry[],
+  adjustments: EncounterAdjustments,
+) => void {
+  const boardAdjustments = useGm((s) => s.adjustments);
+  const addToRoster = useGm((s) => s.addToRoster);
+  const setRosterCount = useGm((s) => s.setRosterCount);
+  const clearRoster = useGm((s) => s.clearRoster);
+  const toggleAdjustment = useGm((s) => s.toggleAdjustment);
+  return (roster, adjustments) => {
+    clearRoster();
+    for (const entry of roster) {
+      addToRoster(entry.ref);
+      setRosterCount(entry.ref, entry.count);
+    }
+    for (const key of ADJUSTMENT_KEYS) {
+      if (adjustments[key] !== boardAdjustments[key]) toggleAdjustment(key);
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A row's roster, drawn the same way on both arms that own one.
+ *
+ * It was `EncounterArm`'s and only `EncounterArm`'s, and that is the whole of
+ * the defect this fixes. A **scene** row carries a roster too - `AddSheet`'s
+ * `CARRY THE n INTO THIS SCENE` writes one at creation, and the shut row has
+ * read `n PLANNED` off it ever since - but `SceneArm` read `item.roster` only
+ * to decide whether START THIS FIGHT appeared and what it spawned. The GM could
+ * see a count on the closed row and not one name on the open one.
+ *
+ * So it is lifted rather than copied. Two drawings of a roster is how one of
+ * them comes to say `×3` about twelve rats while the other says `3 GROUPS OF
+ * 4`, which is the exact defect `minionGroups.test.tsx` was written after.
+ *
+ * The open-preview state belongs here rather than to the arm: only one entry's
+ * stat block is open at a time, and that is a property of this list, not of the
+ * row it sits in.
+ */
+function RosterList({
+  roster,
+  byId,
+  partySize,
+  row,
+}: {
+  roster: readonly RosterEntry[];
+  byId: Map<Ref, Adversary>;
+  partySize: number;
+  /** The row's name, for the rotor: a night with three of these draws many. */
+  row: string;
+}): React.JSX.Element {
+  /** The ref whose stat block is open under it, or none. */
+  const [preview, setPreview] = useState<Ref | null>(null);
+  return (
+    <>
+    <span className="t-meta">ROSTER</span>
+    {roster.length === 0 ? (
+      <Fact>Nothing planned yet.</Fact>
+    ) : (
+      <ul className="stack" style={{ gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
+        {roster.map((entry) => {
+          const adversary = byId.get(entry.ref);
+          /*
+           * A Minion's count is groups, each the size of the party -
+           * `EncounterEntry.count` says so and `ROLE_COST` prices it that
+           * way. `×3` beside a Minion therefore read as three rats where the
+           * budget had been spent on twelve, and the builder had said
+           * "3 GROUPS OF 4" about the same number all along. Same words here,
+           * so the plan and the builder cannot disagree about what is coming.
+           */
+          const count =
+            adversary === undefined
+              ? NOT_HERE
+              : adversary.role === 'Minion'
+                ? `${String(entry.count)} GROUP${entry.count === 1 ? '' : 'S'} OF ${String(partySize)}`
+                : `×${String(entry.count)}`;
+          const open = preview === entry.ref;
+
+          return (
+            <li key={entry.ref} className="stack" style={{ gap: 6 }}>
+              {adversary === undefined ? (
+                <span className="spread" style={{ gap: 10 }}>
+                  <span className="t-dense" style={{ color: 'var(--dim)' }}>
+                    {entry.ref}
+                  </span>
+                  <span className="t-meta" style={{ flex: 'none' }}>
+                    {count}
+                  </span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="spread"
+                  aria-expanded={open}
+                  // The visible words first, then the row, for the same
+                  // reason `Verb` does it: a night with three encounter rows
+                  // in it draws this button many times over, and the rotor's
+                  // button list is where they have to be told apart.
+                  aria-label={`${adversary.name} — ${count} — ${row}`}
+                  onClick={() => setPreview(open ? null : entry.ref)}
+                  style={{ gap: 10, width: '100%', minHeight: 'var(--tap)', textAlign: 'left' }}
+                >
+                  <span className="t-dense" style={{ color: 'var(--text-2)' }}>
+                    {adversary.name}
+                  </span>
+                  <span className="t-meta" style={{ flex: 'none' }}>
+                    {count}
+                  </span>
+                </button>
+              )}
+              {open && adversary !== undefined && (
+                <div
+                  className="panel"
+                  style={{ padding: 12, borderLeft: '3px solid var(--line)' }}
+                >
+                  <AdversaryBlock adversary={adversary} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 function EncounterArm({
   item,
   onOpenTool,
@@ -597,26 +847,17 @@ function EncounterArm({
   onOpenTool: (tool: GmRegion) => void;
 }): React.JSX.Element {
   const adversaries = useApp((s) => s.dataset.adversaries);
-  const rules = useApp((s) => s.dataset.rules);
   const partySize = useApp((s) => s.prefs.gmPartySize);
   const patch = useGm((s) => s.patchSessionItem);
   const boardRoster = useGm((s) => s.roster);
   const boardAdjustments = useGm((s) => s.adjustments);
   const inTheScene = useGm((s) => s.combatants.length);
   const liveScene = useGm((s) => s.liveScene);
-  const addToRoster = useGm((s) => s.addToRoster);
-  const setRosterCount = useGm((s) => s.setRosterCount);
-  const clearRoster = useGm((s) => s.clearRoster);
-  const toggleAdjustment = useGm((s) => s.toggleAdjustment);
+  const rosterToBoard = useRosterToBoard();
   const spawn = useGm((s) => s.spawn);
 
-  /** The ref whose stat block is open under it, or none. */
-  const [preview, setPreview] = useState<Ref | null>(null);
-
   const byId = new Map(adversaries.map((a) => [a.id, a]));
-  const chosen = ADJUSTMENT_KEYS.filter((key) => item.adjustments[key]);
   const row = sessionName(item);
-  const bump = damageBumpRule(rules);
 
   /*
    * What OPEN THE FIGHT can actually put in the scene. A ref this dataset
@@ -626,24 +867,6 @@ function EncounterArm({
    * disabled rather than opening an empty scene and looking like it worked.
    */
   const spawnable = item.roster.filter((entry) => byId.has(entry.ref));
-
-  /*
-   * Built out of the four actions that already exist, in the order they have
-   * to run: `setRosterCount` only ever *updates* an entry, so a ref that is
-   * not on the board yet has to be added before its count means anything.
-   * Every call is a separate commit and the store's 400 ms debounce collapses
-   * the lot into one write.
-   */
-  const putOnBoard = (): void => {
-    clearRoster();
-    for (const entry of item.roster) {
-      addToRoster(entry.ref);
-      setRosterCount(entry.ref, entry.count);
-    }
-    for (const key of ADJUSTMENT_KEYS) {
-      if (item.adjustments[key] !== boardAdjustments[key]) toggleAdjustment(key);
-    }
-  };
 
   /*
    * The row straight to the table, without going through the builder - and
@@ -659,99 +882,9 @@ function EncounterArm({
 
   return (
     <div className="stack" style={{ gap: 10 }}>
-      <span className="t-meta">ROSTER</span>
-      {item.roster.length === 0 ? (
-        <Fact>Nothing planned yet.</Fact>
-      ) : (
-        <ul className="stack" style={{ gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
-          {item.roster.map((entry) => {
-            const adversary = byId.get(entry.ref);
-            /*
-             * A Minion's count is groups, each the size of the party -
-             * `EncounterEntry.count` says so and `ROLE_COST` prices it that
-             * way. `×3` beside a Minion therefore read as three rats where the
-             * budget had been spent on twelve, and the builder had said
-             * "3 GROUPS OF 4" about the same number all along. Same words here,
-             * so the plan and the builder cannot disagree about what is coming.
-             */
-            const count =
-              adversary === undefined
-                ? NOT_HERE
-                : adversary.role === 'Minion'
-                  ? `${String(entry.count)} GROUP${entry.count === 1 ? '' : 'S'} OF ${String(partySize)}`
-                  : `×${String(entry.count)}`;
-            const open = preview === entry.ref;
+      <RosterList roster={item.roster} byId={byId} partySize={partySize} row={row} />
 
-            return (
-              <li key={entry.ref} className="stack" style={{ gap: 6 }}>
-                {adversary === undefined ? (
-                  <span className="spread" style={{ gap: 10 }}>
-                    <span className="t-dense" style={{ color: 'var(--dim)' }}>
-                      {entry.ref}
-                    </span>
-                    <span className="t-meta" style={{ flex: 'none' }}>
-                      {count}
-                    </span>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="spread"
-                    aria-expanded={open}
-                    // The visible words first, then the row, for the same
-                    // reason `Verb` does it: a night with three encounter rows
-                    // in it draws this button many times over, and the rotor's
-                    // button list is where they have to be told apart.
-                    aria-label={`${adversary.name} — ${count} — ${row}`}
-                    onClick={() => setPreview(open ? null : entry.ref)}
-                    style={{ gap: 10, width: '100%', minHeight: 'var(--tap)', textAlign: 'left' }}
-                  >
-                    <span className="t-dense" style={{ color: 'var(--text-2)' }}>
-                      {adversary.name}
-                    </span>
-                    <span className="t-meta" style={{ flex: 'none' }}>
-                      {count}
-                    </span>
-                  </button>
-                )}
-                {open && adversary !== undefined && (
-                  <div
-                    className="panel"
-                    style={{ padding: 12, borderLeft: '3px solid var(--line)' }}
-                  >
-                    <AdversaryBlock adversary={adversary} />
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {chosen.length > 0 && (
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          {chosen.map((key) => (
-            <span key={key} className="chip">
-              {ADJUSTMENT_LABEL[key]}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/*
-        The dice the chip above used to name, said where the roster is read
-        rather than only inside the builder. Nothing in the scene applies the
-        bump - a combatant carries HP, Stress and thresholds, never a damage
-        expression - so the GM adds it by hand, and the row is where they find
-        out that they have to.
-      */}
-      {item.adjustments.damageBump && (
-        <Fact>
-          {bump === null
-            ? 'This row was built with the damage bump on, and no rules layer this device has loaded carries the line that says what it adds. Nothing in the scene rolls it for you either way.'
-            : `This row was built with “${bump}”. Nothing in the scene rolls that for you — it is added at the table, on every adversary attack.`}
-        </Fact>
-      )}
+      <AdjustmentNotes adjustments={item.adjustments} />
 
       {/*
         A fact, with no control beside it, because there is no action in the
@@ -783,7 +916,7 @@ function EncounterArm({
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <Verb
-          onClick={putOnBoard}
+          onClick={() => rosterToBoard(item.roster, item.adjustments)}
           disabled={item.roster.length === 0}
           label="PUT THIS ROSTER ON THE BOARD"
           row={row}

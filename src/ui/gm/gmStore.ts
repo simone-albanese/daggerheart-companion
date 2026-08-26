@@ -998,15 +998,17 @@ export const useGm = create<GmState>((set, get) => {
         combatants: target.combatants.map(copy),
         /*
          * Only when the row has one, and never on the way out. The row is the
-         * plan; a park that wrote the plan would let `PUT THIS ON THE BOARD` on
-         * one row quietly rewrite another row's place. `PUT THIS ON THE BOARD`
-         * is disabled on exactly `environmentRef === null`, and resume must not
-         * walk through a door the app locks.
+         * plan; a park that wrote the plan would let
+         * `PUT THIS ENVIRONMENT ON THE BOARD` on one row quietly rewrite
+         * another row's place. That verb is disabled on exactly
+         * `environmentRef === null`, and resume must not walk through a door
+         * the app locks.
          *
          * The cost, accepted: an environment the GM swapped mid-fight from the
          * bestiary or a link row is not carried back into the row, so flipping
-         * away and back restores the row's own place instead. `KEEP WHAT IS ON
-         * THE BOARD` is still the one verb that writes a row's place.
+         * away and back restores the row's own place instead.
+         * `KEEP THE BOARD'S ENVIRONMENT HERE` is still the one verb that writes
+         * a row's place.
          */
         ...(target.environmentRef !== null ? { environmentRef: target.environmentRef } : {}),
       });

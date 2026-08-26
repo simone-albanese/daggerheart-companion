@@ -359,9 +359,123 @@ describe('the scene arm', () => {
     seed(scene(environment.id));
     list();
     expect(text()).toContain('This is the plan');
-    const put = buttons().find((b) => (b.textContent ?? '').includes('PUT THIS ON THE BOARD'))!;
-    click(put);
+    // Named for the noun it moves. `named` throws unless exactly one button
+    // matches, so this is also the assertion that the four verbs on this strip
+    // that talk about the board can be told apart from each other.
+    click(named('PUT THIS ENVIRONMENT ON THE BOARD'));
     expect(useGm.getState().environmentRef).toBe(environment.id);
+  });
+
+  /*
+   * The plan a scene row carries, which it could neither show nor change.
+   *
+   * `AddSheet`'s CARRY THE n INTO THIS SCENE has written a roster onto a scene
+   * row since the scene form grew that button, and the shut row has read
+   * `n PLANNED` off it. The open arm read it only to decide whether START THIS
+   * FIGHT appeared. So a row planned before the session held adversaries the GM
+   * could count and not name, and could not add the one they thought of
+   * afterwards - there was no control, on any screen, that wrote a scene row's
+   * roster after it was born.
+   */
+  describe('the roster it plans', () => {
+    const planned = (): SessionItem[] => [
+      {
+        ...base({ id: 's', name: 'Scene one', collapsed: false }),
+        kind: 'scene',
+        environmentRef: null,
+        ...NO_FIGHT,
+        roster: [{ ref: adversary.id, count: 2 }],
+      },
+    ];
+
+    it('names what it is planning, and not only how many', () => {
+      seed(planned());
+      list();
+      // The adversary's own name, off the dataset rather than typed here.
+      expect(text()).toContain(adversary.name);
+      expect(text()).toContain('ROSTER');
+    });
+
+    it('says nothing is planned rather than drawing an empty list', () => {
+      seed(scene());
+      list();
+      expect(text()).toContain('Nothing planned yet.');
+      expect(named('PUT THIS ROSTER ON THE BOARD').disabled).toBe(true);
+    });
+
+    it('puts its plan on the board, adjustments and all', () => {
+      seed(planned());
+      list();
+      click(named('PUT THIS ROSTER ON THE BOARD'));
+      expect(useGm.getState().roster).toEqual([{ ref: adversary.id, count: 2 }]);
+    });
+
+    it('takes the board’s roster back, which is what it could never do', () => {
+      seed(scene());
+      act(() => {
+        useGm.setState({ roster: [{ ref: adversary.id, count: 4 }] });
+      });
+      list();
+      click(named('KEEP THE BOARD’S ROSTER HERE'));
+      const row = useGm.getState().session[0]!;
+      expect(row.kind === 'scene' && row.roster).toEqual([{ ref: adversary.id, count: 4 }]);
+      // And the board is left alone: the row is a copy of it, not an alias.
+      expect(useGm.getState().roster).toEqual([{ ref: adversary.id, count: 4 }]);
+    });
+
+    it('offers nothing to take when the board is empty', () => {
+      seed(scene());
+      list();
+      expect(named('KEEP THE BOARD’S ROSTER HERE').disabled).toBe(true);
+    });
+
+    it('says what it was built with, which nothing on this row ever said', () => {
+      /*
+       * The other half of the same omission. `AddSheet` writes `roster` and
+       * `adjustments` onto a scene row in one call; the encounter arm read the
+       * flags back and this one did not, so a scene planned with the damage
+       * bump on carried it to the table and told nobody. Nothing in the scene
+       * applies the bump - a combatant carries HP, Stress and thresholds, never
+       * a damage expression - so a GM who is not told simply does not add it.
+       */
+      seed([
+        {
+          ...base({ id: 's', name: 'Scene one', collapsed: false }),
+          kind: 'scene',
+          environmentRef: null,
+          ...NO_FIGHT,
+          adjustments: { easier: false, harder: false, damageBump: true },
+        },
+      ]);
+      list();
+      expect(text()).toContain('Nothing in the scene rolls that for you');
+      // And a row built with the flag off says nothing at all about it, which
+      // is the rule this app follows everywhere: no apology row for a thing
+      // that is not there.
+      seed(scene());
+      list();
+      expect(text()).not.toContain('Nothing in the scene rolls that for you');
+    });
+
+    it('gives every verb that names the board a noun of its own', () => {
+      seed(planned());
+      act(() => {
+        useGm.setState({ roster: [{ ref: adversary.id, count: 1 }] });
+      });
+      list();
+      // Four buttons on one strip talk about the board. Each has to say which
+      // thing it moves, or a GM opens them one at a time to find out - and one
+      // of the four overwrites a plan. `named` throws on an ambiguous match, so
+      // these four calls are the assertion.
+      for (const label of [
+        'PUT THIS ENVIRONMENT ON THE BOARD',
+        'KEEP THE BOARD’S ENVIRONMENT HERE',
+        'PUT THIS ROSTER ON THE BOARD',
+        'KEEP THE BOARD’S ROSTER HERE',
+      ]) {
+        expect(named(label).textContent, label).toContain(label);
+      }
+    });
   });
 
   /*
@@ -1094,7 +1208,7 @@ describe('opening and deleting a row', () => {
      * handle - "a list of identical DELETE buttons is a list a screen reader
      * cannot tell apart" - and then the arms made exactly the same list one
      * level down. A planned night with two scenes and two countdowns in it drew
-     * OPEN THE SCENE, PUT THIS ON THE BOARD, RESET, PIN IT TO THE TOP BAR and
+     * OPEN THE SCENE, PUT THIS ENVIRONMENT ON THE BOARD, RESET, PIN IT TO THE TOP BAR and
      * OPEN FEAR AND COUNTDOWNS twice each, with nothing to choose between them,
      * on the one screen whose whole point is an ordered list of similar rows.
      *

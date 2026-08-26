@@ -23,7 +23,7 @@
  * another edits the second, so both numbers were dead on arrival in the commit
  * that wrote them. Named instead: the other seven regions, the builder among
  * them, offer no control, and the only writers outside a region are the two
- * arms of a session row, `SceneArm`'s `PUT THIS ON THE BOARD` verb and
+ * arms of a session row, `SceneArm`'s `PUT THIS ENVIRONMENT ON THE BOARD` verb and
  * `LinkArm`'s `EnvironmentBlock`, both in `SessionBody.tsx`.
  * `grep -rn 'setEnvironment(' src/` finds those two and the bestiary's, and is
  * the check to run.
