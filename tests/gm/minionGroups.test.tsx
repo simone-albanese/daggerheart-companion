@@ -122,6 +122,28 @@ const sendButton = (): HTMLButtonElement => {
   return found[0]!;
 };
 
+/**
+ * The roster panel's own line for one adversary - `T1 · MINION · 2 GROUPS OF 4`.
+ *
+ * Scoped to the row rather than read out of the whole screen, and that is not
+ * fussiness: `container.textContent` carries the picker's `IN ×1` badge too, so
+ * an assertion looking for `×1` anywhere passed while the roster row beside it
+ * called every entry a group. The mutant proved it before this helper existed.
+ */
+const rosterLine = (name: string): string => {
+  // Anchored on the row's own stepper, because the picker cell above is the
+  // same shape - a name with a `t-meta` under it - and a selector that matched
+  // both threw before it could assert anything. This is the row with the ✕ on
+  // it: the one in the roster panel.
+  const stepper = [...container.querySelectorAll('button')].filter(
+    (b) => (b.getAttribute('aria-label') ?? '') === `One fewer ${name}`,
+  );
+  if (stepper.length !== 1) throw new Error(`${String(stepper.length)} roster rows name ${name}`);
+  const meta = stepper[0]?.closest('div.row')?.querySelector('span.t-meta');
+  if (meta == null) throw new Error(`no roster line for ${name}`);
+  return (meta.textContent ?? '').replace(/\s+/g, ' ').trim();
+};
+
 /** The picker's add button for one adversary, found by the name it announces. */
 const addButton = (name: string): HTMLButtonElement => {
   const found = buttons().filter((b) => (b.getAttribute('aria-label') ?? '').includes(`${name} for `));
@@ -284,6 +306,44 @@ describe('SEND, and the unit it is in', () => {
       4,
     );
     expect(tapped()).toBe(3);
+  });
+
+  it('is bare because no noun is true of a roster with both in it', () => {
+    /*
+     * The owner's open question of 2026-08-26, and the measurement that closes
+     * it: **should the button spell the groups itself?**
+     *
+     * `SEND n` counts cards, and a card is a group only when the adversary is a
+     * Minion. On a mixed roster the panel above says both things at once, in
+     * two different words, on one screen - so `SEND 3 GROUPS` would be false
+     * about the Solo, and a label that is false on a mixed roster is worse than
+     * a number that is bare on every roster. `SEND 3 CARDS` names this app's
+     * furniture rather than the fiction.
+     *
+     * This is the assertion the decision rests on, so it is here rather than in
+     * a docblock: if a future roster panel ever calls every row a group, this
+     * goes red and the reasoning written beside the button stops being true in
+     * a test rather than in a paragraph.
+     */
+    builder(
+      [
+        { ref: minion.id, count: 2 },
+        { ref: solo.id, count: 1 },
+      ],
+      4,
+    );
+    expect(rosterLine(minion.name), 'the Minion row stopped reading as groups').toContain(
+      '2 GROUPS OF 4',
+    );
+    expect(rosterLine(solo.name), 'the Solo row stopped reading as a multiplier').toContain('×1');
+    expect(rosterLine(solo.name), 'the Solo row started calling itself a group').not.toContain(
+      'GROUP',
+    );
+    // Three cards, two of which are groups. There is no one noun for that, so
+    // the button uses none.
+    expect(sendButton().textContent).toContain('SEND 3 TO THE SCENE');
+    expect(sendButton().textContent).not.toContain('GROUP');
+    expect(sendButton().textContent).not.toContain('CARD');
   });
 
   it('stands beside a panel that spells the group out, which is where the four is', () => {
