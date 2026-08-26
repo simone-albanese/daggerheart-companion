@@ -60,6 +60,42 @@ export interface ShowDoor {
    * drift apart; `sentenceCase` below is the cost of not having it.
    */
   name: string;
+  /**
+   * What the tool is *not*, in the app's own canonical words.
+   *
+   * ## Read this before deleting it
+   *
+   * Nothing in `src` draws this field. That is true, it is deliberate, and it
+   * is not the shape of dead code - so a cleanup pass that greps for readers,
+   * finds none and removes the field would be removing the only place these
+   * three sentences are written down.
+   *
+   * They used to be drawn under each door in `ShowSheet`, and they were taken
+   * off because three doors *with* their descriptions came to 273.7px in a
+   * 294.3px window and left 20.6px for everything else - see the docblock over
+   * `ShowSheet`, which has the arithmetic. The promise they made did not go
+   * away with the layout: a bestiary that adds nothing to tonight, a board that
+   * writes to no character, a stall that spends nobody's gold.
+   *
+   * ## Why Settings does not read it either
+   *
+   * `Settings.tsx` says all three beside the switch that decides whether the
+   * door exists at all, and it says them **in its own words rather than by
+   * drawing this field**. That is not duplication by accident. A hint beside a
+   * switch answers a different question than a door does - what turning this
+   * off takes away, not what waits behind it - and one string cannot be both
+   * without being worse at each. `tests/ui/settingsHints.test.tsx` pins one
+   * clause of each promise to the switch it describes, read through
+   * `aria-describedby`, so a sentence that is present but unreachable from the
+   * control fails the same way a missing one does.
+   *
+   * This field is the canonical wording those hints paraphrase. It is the text
+   * to change first when what a tool refuses to do changes, and the text to
+   * check a new hint against. That is a job, and it is why the field stands.
+   *
+   * Settled by the owner on 2026-08-26; recorded as section 11 of
+   * `docs/handoff/DECISIONI-2026-08-25.md`.
+   */
   body: string;
 }
 
