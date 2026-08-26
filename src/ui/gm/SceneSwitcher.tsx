@@ -105,14 +105,33 @@ const MIN_CHIP = 74;
 /** `.row`'s gap between chips. */
 const GAP = 6;
 
-export function SceneSwitcher(): React.JSX.Element | null {
+/**
+ * The word the title row keeps when there is nothing to flip between.
+ *
+ * It is drawn HERE rather than left to `GmSheet`'s `{title ?? label}`, and that
+ * is a repair rather than a preference. `Gm.tsx` passes
+ * `title={tool === 'scene' ? <SceneSwitcher /> : undefined}` - an element,
+ * always, for the runner - so `??` tests the element and never its output. A
+ * strip that rendered `null` left the row with no title at all: on a campaign
+ * with no live scene the runner's header was a bare `ESC ✕`, which is the state
+ * a GM reaches by opening the tool at all before a fight exists. The comment in
+ * `Gm.tsx` promised the opposite and could not deliver it, because there is no
+ * value a component can return that makes `??` fall through.
+ */
+export function SceneSwitcher({ label }: { label: string }): React.JSX.Element {
   const session = useGm((s) => s.session);
   const liveScene = useGm((s) => s.liveScene);
   const runScene = useGm((s) => s.runScene);
 
   const live = liveScenes(session, liveScene);
   // Nothing to flip between: the title row keeps the word it has always had.
-  if (live.length === 0) return null;
+  if (live.length === 0) {
+    return (
+      <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+        {label}
+      </span>
+    );
+  }
 
   const cap = Math.max(MIN_CHIP, Math.floor((STRIP - GAP * (live.length - 1)) / live.length));
 

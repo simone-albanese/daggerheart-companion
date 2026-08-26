@@ -313,12 +313,19 @@ export function Gm(): React.JSX.Element {
             onClose={() => setTool(null)}
             /*
              * Only the runner, and only ever as the VISIBLE title - `label`
-             * stays the dialog's accessible name either way. The strip returns
-             * `null` when there is nothing to flip between, so a campaign with
-             * one scene keeps the word it has always had, and the other seven
-             * tools never see this prop at all.
+             * stays the dialog's accessible name either way. The other seven
+             * tools never see this prop at all and fall through to
+             * `GmSheet`'s own `{title ?? label}`.
+             *
+             * The runner cannot fall through it, and that is why the label is
+             * handed down rather than left behind: this expression is an
+             * ELEMENT whenever the tool is the scene, so `??` is already
+             * satisfied before the strip has decided whether it has anything to
+             * draw. This comment used to say the strip "returns `null` … so a
+             * campaign with one scene keeps the word it has always had", and
+             * the row was rendering a bare `ESC ✕` the whole time.
              */
-            title={tool === 'scene' ? <SceneSwitcher /> : undefined}
+            title={tool === 'scene' ? <SceneSwitcher label={TOOL_LABEL.scene} /> : undefined}
           >
             {tool === 'encounter' && <Encounter phone={phone} />}
             {tool === 'scene' && <Scene phone={phone} />}

@@ -871,6 +871,72 @@ describe('running a scene', () => {
     return row?.kind === 'scene' ? row.combatants.length : -1;
   };
 
+  /*
+   * `adoptBoard` is the verb for the state `runScene` could only repair on the
+   * way past: a board with combatants on it and no row behind them. `runScene`
+   * mints an untitled home for such a board when a GM runs some OTHER row, so
+   * the fight was kept - but only as a side effect of leaving it, and with a
+   * name nobody chose. This claims it in place.
+   */
+  it('gives the board’s fight to a row without moving a single mark', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    // A fight from the bestiary: spawned straight onto the board, no pointer.
+    s().spawn(adversary, 4, 2);
+    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 5 } });
+    expect(s().liveScene).toBeNull();
+
+    s().adoptBoard('dungeon');
+
+    expect(s().liveScene).toBe('dungeon');
+    // Nothing moved: the marks on the glass are the marks on the glass.
+    expect(s().combatants).toHaveLength(2);
+    expect(s().combatants[0]?.hp.marked).toBe(5);
+    // And no home was minted, because the fight already has one now.
+    expect(s().session).toHaveLength(1);
+    // The live row keeps no copy, which is resume's own invariant.
+    expect(parkedIn('dungeon')).toBe(0);
+  });
+
+  it('refuses to adopt when a scene is already running, or onto a parked row', () => {
+    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    s().addSessionItem(scene('forest', 'The forest'));
+
+    // (a) Another scene owns the board: adopting would give one fight two rows.
+    s().runScene('dungeon');
+    s().spawn(adversary, 4, 1);
+    s().adoptBoard('forest');
+    expect(s().liveScene).toBe('dungeon');
+
+    // (b) The target is holding a parked fight of its own. Two fights and one
+    //     board is a state no screen can draw honestly, so the row keeps its
+    //     own and `BACK TO THIS FIGHT` stays the honest verb there.
+    s().runScene('forest');
+    expect(parkedIn('dungeon')).toBe(1);
+    gm.useGm.setState({ liveScene: null });
+    s().spawn(adversary, 4, 1);
+    s().adoptBoard('dungeon');
+    expect(s().liveScene).toBeNull();
+    expect(parkedIn('dungeon')).toBe(1);
+  });
+
+  it('refuses a row that is not a scene', () => {
+    s().addSessionItem({
+      id: 'clock',
+      kind: 'countdown',
+      name: 'The tide',
+      order: 0,
+      collapsed: true,
+      value: 3,
+      start: 3,
+      loop: false,
+      pinned: false,
+      sceneId: null,
+    } as never);
+    s().spawn(adversary, 4, 1);
+    s().adoptBoard('clock');
+    expect(s().liveScene).toBeNull();
+  });
+
   it('parks the board into the row it came from, and puts the new row’s fight on it', () => {
     s().addSessionItem(scene('dungeon', 'The dungeon'));
     s().addSessionItem(scene('forest', 'The forest'));

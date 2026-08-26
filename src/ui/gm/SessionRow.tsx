@@ -223,6 +223,12 @@ export function SessionRow({
   const move = useGm((s) => s.moveSessionItem);
   // Only so a scoped countdown's shut row can name the scene it belongs to.
   const session = useGm((s) => s.session);
+  /*
+   * Read here and nowhere else in this file, for the shut header's summary.
+   * Until now this list never read the pointer at all, which is why two scene
+   * rows with a fight running between them said the same thing.
+   */
+  const liveScene = useGm((s) => s.liveScene);
   const [armed, setArmed] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -237,7 +243,7 @@ export function SessionRow({
 
   const open = !item.collapsed;
   const title = sessionTitle(item);
-  const summary = describeItem(item, dataset, index, partySize, session);
+  const summary = describeItem(item, dataset, index, partySize, session, liveScene);
   const row = sessionName(item);
 
   return (

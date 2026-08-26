@@ -260,7 +260,20 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
                   {groups.length > 1 && (
                     <span
                       className="t-meta"
-                      style={{ color: group.id === liveScene ? 'var(--hope)' : 'var(--muted)' }}
+                      /*
+                       * `group.id !== null` first, and it is not defensive.
+                       * `groups[0]` is the campaign's own group and its id IS
+                       * `null`, so with no scene running `null === null` lit
+                       * THE CAMPAIGN in the live-scene colour - the heading
+                       * that means "belongs to no scene" wearing the mark that
+                       * means "this is the scene on the table".
+                       */
+                      style={{
+                        color:
+                          group.id !== null && group.id === liveScene
+                            ? 'var(--hope)'
+                            : 'var(--muted)',
+                      }}
                     >
                       {group.name}
                     </span>

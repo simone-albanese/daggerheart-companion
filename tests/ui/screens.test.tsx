@@ -692,14 +692,14 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
   /*
-   * Seeded live, because the strip returns `null` when there is nothing to
-   * flip between and a fixture that mounted nothing would prove nothing. The
-   * store is what it reads - it takes no props - so the seeding happens in the
-   * factory rather than in the element.
+   * Seeded live, because with nothing to flip between the strip draws the
+   * plain title label instead and a fixture in that state would prove nothing
+   * about the chips. The store is the rest of what it reads, so the seeding
+   * happens in the factory rather than in the element.
    */
   'gm/SceneSwitcher.tsx::SceneSwitcher': () => {
     useGm.setState({ session: [sceneItem()], liveScene: 's1' });
-    return <SceneSwitcher />;
+    return <SceneSwitcher label="THE LIVE SCENE" />;
   },
   'gm/SessionBody.tsx::SessionBody': () => (
     <SessionBody item={sceneItem()} phone={false} onOpenTool={noop} />
