@@ -292,9 +292,40 @@ export function markStress(
   };
 }
 
+/**
+ * The Vulnerable test on two numbers, for the surfaces that do not hold a
+ * `Character`.
+ *
+ * The sibling of `hasFallenAt` below, and it exists for the same reason and now
+ * for a second one. An adversary is not a `Character` - it has no class, no
+ * Armor Slots and no `DerivedStats` - but it does have a Stress track, and the
+ * GM's combatant card keeps it as a plain `Counter`. Without this, the card
+ * would have to write `marked >= max` itself, which is a second answer to a
+ * question this file already answers, and the two would be free to drift.
+ *
+ * `max > 0` is the clause that matters rather than the comparison: a track with
+ * no maximum is a record the dataset could not size, and calling everyone on
+ * one Vulnerable would put the condition on every row of an unresolved import.
+ *
+ * ## That an adversary gets this at all is a reading, and it is registered
+ *
+ * The SRD says it of a *character*, in the `stress` section: "When a character
+ * marks their last Stress, they become Vulnerable (see: Conditions) until they
+ * clear at least 1 Stress." What carries it across is `using-adversaries`,
+ * under DAMAGE THRESHOLDS, HIT POINTS, AND STRESS: "These systems function the
+ * same way they do for PCs."
+ *
+ * So this is a reading of p.71 and not a quotation, exactly like the Massive
+ * Damage argument above, and the owner took it the same way and for the same
+ * reason on 2026-08-26 (`DECISIONI-2026-08-25.md` section 17): a table that
+ * sees a rule applied to their own PCs and not to the monsters, with nothing on
+ * screen saying so, is the worst shape, because it is silent.
+ */
+export const isVulnerableAt = (marked: number, max: number): boolean => max > 0 && marked >= max;
+
 /** True while the character has every Stress slot marked - they are Vulnerable. */
 export const isVulnerableFromStress = (c: Character): boolean =>
-  c.stress.max > 0 && c.stress.marked >= c.stress.max;
+  isVulnerableAt(c.stress.marked, c.stress.max);
 
 /**
  * The fallen test on two numbers, for the surfaces that do not hold a
