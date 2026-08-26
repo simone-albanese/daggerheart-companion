@@ -284,3 +284,75 @@ dica, è la forma peggiore, perché è silenziosa. Qui è persino più netta, pe
 Stress che si esaurisce sta nella sezione `stress` e p.71 ci rimanda esplicitamente.
 
 Registrata, come la §3, **come lettura e non come citazione.**
+
+---
+
+# La decisione del 26 agosto, sera
+
+## 18. Le scene si parcheggiano, e l'interruttore sta sul runner
+
+**Questa risponde alla §7.1 di `SCENE-MODEL-2026-08-26.md`, che era la domanda aperta più grande
+del documento:** se *«non si capisce niente»* volesse dire *non capisco cosa fanno questi pulsanti*
+oppure *ho pianificato quattro scene e l'app ne regge una sola*.
+
+**Risposta: la seconda.** E lo scenario che l'ha resa concreta è del proprietario:
+
+> *«Preparo 6 scene, 4 di combattimento, il gruppo si divide e ho 2 combattimenti in parallelo in
+> scene diverse. Uno in un dungeon e l'altro in una foresta.»*
+
+### Il fatto fisico che ha deciso la forma
+
+**Due risse disegnate insieme non ci stanno.** Una carta combattente misura **471.00px** in un
+pannello da **498** — è la misura della wave 5, ed è il motivo per cui la carta è stata piegata.
+Su 393×852 non esiste un posto dove metterne due.
+
+Quindi la domanda non era *«parallelo o sequenziale»*. Era **quanto costa il salto, e se si perde
+qualcosa.**
+
+### Cosa è stato deciso
+
+1. **Ogni riga scena tiene la sua rissa.** Far partire una riga, o tornarci, **parcheggia** ciò che
+   è sul tavolo dentro la riga da cui veniva e mette in campo quella di questa. Nessun segno perso.
+2. **L'interruttore sta sul runner, non nel piano.** Una striscia in cima alla scena che nomina le
+   scene vive — `DUNGEON | FORESTA` — e un tocco la ribalta.
+3. **Un countdown può appartenere a una scena** invece che alla campagna, così *«la marea sale»* non
+   segue il GM dentro il dungeon.
+
+### Perché l'interruttore non poteva stare nel piano
+
+In Daggerheart **non c'è iniziativa**: lo spotlight passa di continuo, quindi col gruppo diviso si
+salta dungeon↔foresta **a ogni battuta**, non una volta a scena. Dal piano il salto è chiudi il
+runner → scorri la lista → trova la riga → apri → premi: **cinque gesti per battuta.** Un tocco va
+bene solo se è dove il pollice è già.
+
+### Cosa questo costa meno di quanto sembrasse
+
+**Il magazzino c'è già.** Verificato: una riga `scene` possiede `combatants: SceneCombatant[]` da
+`shared/campaigns.ts:338-344`, schema 3, persistito ed esportato — e **niente in `src` lo scrive**.
+`spread`/`gather` (`gmStore.ts:283-312`) muovono soltanto `board.combatants`. Il campo aspetta
+esattamente questa funzione da quando esiste.
+
+Serve **un** campo nuovo — quale riga sta girando, perché per parcheggiare bisogna sapere dove
+rimettere — più il campo che lega un countdown a una scena.
+
+### Una correzione al documento di stamattina
+
+La sua §4 rifiutava il parcheggio dicendo che *«rimetterebbe a posto la metà del GM e lascerebbe
+cadere in silenzio quella del tavolo»*. **Non regge, ed è verificato:** `campaign.party` è
+`PartyMember[]` con i suoi `tracks` **a livello di campagna** (`shared/campaigns.ts:595`,
+`shared/types.ts:651-660`) — e deve esserlo, perché gli HP di un PG **attraversano** le scene. Un
+personaggio ferito nel dungeon è ferito anche in foresta.
+
+Quindi la metà che deve parcheggiare (i mostri, l'ambiente) parcheggia, e la metà che non deve (i
+PG, la Fear) giustamente resta ferma. **L'obiezione che affossava questo design era sbagliata.**
+
+### Il buco che lo scenario ha fatto emergere, e che nessun documento aveva
+
+I countdown sono righe del piano, quindi si vedono **tutti, sempre**. Col gruppo diviso è la prima
+cosa che confonde: un orologio che riguarda la foresta ti sta davanti mentre corri il dungeon. Non
+era nel documento di stamattina — è uscito guardando lo scenario delle sei scene.
+
+### Cosa resta da progettare, e dove
+
+Il rischio è **geometrico**: la striscia va in cima al pannello dove una carta è già 471 su 498.
+Non si spedisce su un'altezza dedotta. Il progetto è in corso.
