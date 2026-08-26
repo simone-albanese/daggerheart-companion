@@ -123,24 +123,59 @@
    * different question from a chip: the honest test for "a thumb may land here"
    * is whether the machine has *a* coarse pointer at all, because an iPad with
    * a keyboard attached, and every touchscreen laptop, reports `pointer: fine`
-   * while a finger can still reach the glass. That argument stands on its own
-   * and it is why this token, and not `--control`, answers `any-pointer`.
+   * while a finger can still reach the glass. That argument stands on its own,
+   * and it is now the argument BOTH tokens answer.
    *
-   * WHAT NO LONGER APPLIES, WRITTEN DOWN RATHER THAN DELETED. This comment used
-   * to add that `--control` also *could* not follow: it gates every chip in the
-   * app including the ones inside the desktop cockpit's roll panel, and that
-   * panel was `flex: 1, min-height: 0, overflow: hidden`, so widening
-   * `--control`'s query to catch touchscreens would have inflated the panel's
-   * contents from the inside and crushed them against its own clip. That panel
-   * scrolls now - see the docblock over `DualityRoll`'s desktop branch - so the
-   * blocker is gone, and what is left is a live defect rather than a decision:
-   * measured on the audit rig's `hybrid` profile at 1280x800 and 1440x900,
-   * `--control` resolves to 34 while `--pip-h` resolves to 44, so on a
-   * touchscreen laptop every chip and every die key on the cockpit is 10px
-   * under this project's own 44px coarse floor with a finger on the glass.
-   * Widening the query is the fix; it changes every desktop surface in the app
-   * and not just this panel, so it wants its own pass and its own measurements
-   * of the GM screens, and it is written up in the cockpit lane's doc-deltas.
+   * THE DEFECT THIS PARAGRAPH USED TO DESCRIBE IS FIXED, AND THE HISTORY IS
+   * KEPT BECAUSE THE REASONING WAS WRONG TWICE. `--control` was once held out
+   * of `any-pointer` on a real ground: it gates every chip in the app including
+   * the ones inside the desktop cockpit's roll panel, and that panel was
+   * `flex: 1, min-height: 0, overflow: hidden`, so widening the query would
+   * have inflated its contents from the inside and crushed them against its own
+   * clip. **That panel scrolls** - see the docblock over `DualityRoll`'s keypad
+   * - so the ground went, and what was left was a live defect rather than a
+   * decision: measured on the audit rig's `hybrid` profile at 1280x800 and
+   * 1440x900, `--control` resolved to 34 while `--pip-h` resolved to 44, so on
+   * a touchscreen laptop eleven controls - the four screen tabs among them -
+   * were 10px under this project's own 44px coarse floor with a finger on the
+   * glass.
+   *
+   * The owner took it on 2026-08-26 (`DECISIONI-2026-08-25.md` section 12) and
+   * the query below now reads `any-pointer`. What is worth carrying forward is
+   * not the fix but the failure mode: for one whole wave this file said
+   * `--control` must not follow, in a sentence that pointed AT this paragraph,
+   * while this paragraph said the opposite. A cross-reference is not a proof,
+   * and a retired reason left standing reads exactly like a live one.
+   *
+   * ## What the pass this paragraph asked for actually found
+   *
+   * Ten cases on the audit rig's `hybrid` profile - five screens at 1280x800
+   * and 1440x900 - measured before and after, with the `dist` rebuilt for each
+   * half.
+   *
+   * The defect was far larger than the eleven controls the handoff counted:
+   * **272 controls under the floor across the ten cases, and one after.** The
+   * survivor is a 20px-wide checkbox in Settings, which is short in WIDTH and
+   * is not sized by this token at all. Every screen tab - Play, Cards, Build,
+   * GM, SETTINGS - was under it on every screen, and so were all six damage-die
+   * keys on Play and all seven Settings section tabs.
+   *
+   * **The old guard's specific fear did not happen and is now measured rather
+   * than argued.** Content clipped by an ancestor that cannot be scrolled: 0 to
+   * 0 on the GM screen, on Build and on Settings, and the Play and Cards counts
+   * that did move did not move for that reason - see below.
+   *
+   * **THE COST, WHICH IS REAL AND IS ON THE CARDS GRID.** A browse card is a
+   * fixed height with its text in what is left, so ten pixels taken by the
+   * controls above come out of the text below: the preview box measured
+   * **110 -> 100** at 1440x900 and **112 -> 102** at 1280x800, exactly this
+   * token's delta. Twelve more cards at 1440 and four at 1280 crossed from
+   * whole to truncated, and the median clipped card lost 41.4px of text instead
+   * of 48.5. It was accepted rather than missed: 145 of those cards were
+   * already truncated in that grid before this change, the whole text is one
+   * tap away, and the thing bought is eleven controls reaching a floor this
+   * project sets for itself. If that trade is ever revisited, the card's own
+   * height is the term to move, not this token.
    */
   --pip-h: 34px;
   /*
@@ -331,7 +366,7 @@
   color-scheme: dark;
 }
 
-@media (max-width: 1179px), (pointer: coarse) {
+@media (max-width: 1179px), (any-pointer: coarse) {
   :root {
     --control: var(--tap);
   }
@@ -431,8 +466,16 @@
  * `pointer` only describes the primary one. An iPad in a keyboard case and a
  * touchscreen laptop both answer `pointer: fine` and both have a finger
  * available; the tracks are the one surface where that finger is the normal
- * way in, so they size for it. This is a separate query rather than a wider
- * one because `--control` must not follow it - see the note beside `--pip-h`.
+ * way in, so they size for it.
+ *
+ * This was a separate query for a second reason that is now gone: `--control`
+ * was held out of it, on the grounds that the desktop cockpit's roll panel
+ * clipped its own overflow and would be crushed from the inside. That panel
+ * scrolls - `DualityRoll.tsx` says so where it declares the keypad - and the
+ * owner took the token over on 2026-08-26 (`DECISIONI-2026-08-25.md` section
+ * 12). Both queries now read `any-pointer`, and the two blocks stay apart
+ * because they still answer different questions: this one is about a track, the
+ * one above about every chip in the app.
  */
 @media (max-width: 1179px), (any-pointer: coarse) {
   :root {

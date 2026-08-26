@@ -193,9 +193,15 @@ describe('the door to Settings', () => {
     // the claim the two lines above depend on.
     const tokens = readFileSync('src/ui/tokens.css', 'utf8');
     expect(tokens).toMatch(/--tap:\s*44px/);
-    expect(tokens).toMatch(
-      /@media\s*\(max-width:\s*1179px\),\s*\(pointer:\s*coarse\)\s*\{\s*:root\s*\{\s*--control:\s*var\(--tap\)/,
-    );
+    // The width half only, and deliberately: the pointer half widened to
+    // `any-pointer` on 2026-08-26, which gives this door a 44px target on MORE
+    // machines rather than fewer. What the two lines above depend on is the
+    // phone, and that is what is pinned.
+    expect(
+      /@media[^{]*max-width:\s*1179px[^{]*\{\s*:root\s*\{\s*--control:\s*var\(--tap\)/.test(tokens),
+      'the Settings door is sized by `--control`, and `--control` is no longer the 44px floor ' +
+        'at phone widths - so this door is under the touch floor on a phone',
+    ).toBe(true);
   });
 });
 
