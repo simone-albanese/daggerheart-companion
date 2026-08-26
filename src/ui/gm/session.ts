@@ -208,6 +208,19 @@ export function describeItem(
    * owns it.
    */
   session: readonly SessionItem[] = [],
+  /**
+   * Which row the table is on, so a scene row can say that it is the one.
+   *
+   * Optional and last, for the reason `session` above is: a test may go on
+   * calling this with four arguments, and the arms that are not `scene` never
+   * read it. `SessionRow` is the one production call site and passes it.
+   *
+   * The plan is where a GM looks to find the row they are thinking of, and
+   * until this it was the one screen that could not answer *which fight is
+   * happening* - `grep liveScene src/ui/gm/SessionRow.tsx` was empty. Two
+   * scene rows with a fight running between them read identically.
+   */
+  liveScene: string | null = null,
 ): string {
   switch (item.kind) {
     case 'scene': {
@@ -240,14 +253,27 @@ export function describeItem(
        */
       const parked =
         item.combatants.length === 0 ? '' : `${String(item.combatants.length)} PARKED`;
+      /*
+       * The fourth term, and it stands IN PLACE OF the fight half rather than
+       * beside it.
+       *
+       * A running row is exactly the row whose `combatants` is empty - resume
+       * empties it, which the paragraph above relies on - so `PARKED` is
+       * already silent here and only `PLANNED` would print. `PLANNED` on the
+       * row being fought is the least useful thing this line can say: it counts
+       * what the roster WOULD spawn, about a fight that has already started and
+       * is being marked up on the glass. Replacing it costs the shut row no
+       * width, which is what a third segment on a 393px phone would have cost.
+       */
+      const live = item.id === liveScene ? 'ON THE TABLE' : '';
       let place: string;
       if (item.environmentRef === null) {
-        place = fight === '' && parked === '' ? 'NO ENVIRONMENT' : '';
+        place = fight === '' && parked === '' && live === '' ? 'NO ENVIRONMENT' : '';
       } else {
         const found: unknown = index.byRef.get(item.environmentRef);
         place = namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
       }
-      return [place, fight, parked].filter((s) => s !== '').join(' · ');
+      return [place, live === '' ? fight : live, parked].filter((s) => s !== '').join(' · ');
     }
     case 'encounter': {
       // Adversaries, not roster rows and not the sum of the counts. A Minion

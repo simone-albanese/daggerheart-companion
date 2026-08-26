@@ -15,8 +15,39 @@ before the one below.
 ## Unreleased
 
 Two decisions taken on 23 August, both of them about what this app is allowed to
-be rather than about what it does — and one taken on 26 August about running two
-fights at once.
+be rather than about what it does — one taken on 26 August about running two
+fights at once, and a repair the same evening to the thing that made all of it
+unreachable.
+
+### The row you opened is the row on the table
+
+- **`OPEN THE SCENE` now puts that scene on the table**, where before it opened
+  the runner and told the app nothing. A GM who added a scene, opened it, built
+  an encounter and sent it "to the scene" ended with adversaries on a board that
+  named no row of the plan — and the row they had been looking at the whole time
+  still empty. Pressing the verb on one row or on another did the same thing.
+  It claims the table only when the table is empty and belongs to nobody;
+  where another scene is running it stays the quiet verb it was, and the row
+  now says why in the sentence that had been shipping on a row kind nothing can
+  create.
+- **A fight that belongs to no row can be given one, by name.** Adversaries
+  dropped in from the bestiary, or built from the menu, used to belong to
+  nothing until they were ended: no chip named them, and the plan could not mark
+  them. Any scene row now offers **TAKE THE FIGHT ON THE BOARD**, which moves
+  nothing — the marks on the glass are the same marks after the tap.
+- **A shut row says when it is the one being played**, reading `ON THE TABLE`
+  where it would otherwise count a roster nobody is planning any more. The plan
+  never read that pointer at all, so two scene rows with a fight running between
+  them read identically.
+- **The runner's title row keeps its name when there is no scene to flip
+  between.** It was rendering as a bare close button: the strip returned nothing
+  and the fallback beneath it could never fire. Measured in Chrome at 393×852,
+  coarse: the title row is **45.00px** and the scroller **582.00px** in both
+  states, the ✕ 44×44 at the same 386.00, and the strip's 315.00 unchanged —
+  **0.00px** either way.
+- **THE CAMPAIGN no longer lights up as though it were the scene on the table.**
+  The campaign's own countdown group carries no scene id, and the comparison
+  that highlights the live one was matching it against nothing.
 
 ### Two scenes can be half-fought at the same time
 

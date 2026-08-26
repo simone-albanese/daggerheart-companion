@@ -203,6 +203,30 @@ export interface GmState extends GmLive {
    * Only `kind: 'scene'` rows. See `liveScenes`.
    */
   runScene: (sceneId: string) => void;
+  /**
+   * Give the fight already on the board to a row, without moving anything.
+   *
+   * `runScene` is the verb that *swaps* tables; this is the verb for the state
+   * that had no verb at all - a board with combatants on it and
+   * `liveScene === null`, which is where the ordinary path through this app
+   * used to end up and where the bestiary and the builder still can. There the
+   * fight belongs to nobody: the plan cannot mark it, `liveScenes` returns
+   * nothing so the switcher draws no chip, and `countdownsIn(session, null)`
+   * hands the runner the campaign's clocks in place of the scene's.
+   *
+   * The machinery to give that fight a home already existed and fired only as a
+   * side effect of leaving it: `runScene` mints an untitled row for an
+   * unparkable board on the way past. That is the right repair arriving at the
+   * wrong moment, and it costs the GM the name - this lets them say whose fight
+   * it is while they are still looking at it.
+   *
+   * Nothing is copied, in either direction. The live row's own `combatants` is
+   * empty by the same invariant `runScene` maintains on resume, so adopting is
+   * the pointer and only the pointer. Refused when the target row is holding a
+   * parked fight of its own: two fights and one board is a state no screen can
+   * draw honestly, and the caller offers `BACK TO THIS FIGHT` there instead.
+   */
+  adoptBoard: (sceneId: string) => void;
 
   setEnvironment: (ref: Ref | null) => void;
 
@@ -884,6 +908,16 @@ export const useGm = create<GmState>((set, get) => {
         combatants: [],
         liveScene: null,
       });
+    },
+
+    adoptBoard(sceneId) {
+      const s = get();
+      if (s.liveScene !== null) return;
+      const target = s.session.find((i) => i.id === sceneId);
+      if (target === undefined || target.kind !== 'scene') return;
+      // A row already holding marks of its own would end up naming two fights.
+      if (target.combatants.length > 0) return;
+      commit({ liveScene: sceneId });
     },
 
     runScene(sceneId) {

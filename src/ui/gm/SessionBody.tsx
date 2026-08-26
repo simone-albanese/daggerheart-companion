@@ -310,6 +310,8 @@ function SceneArm({
   const setEnvironment = useGm((s) => s.setEnvironment);
   const liveScene = useGm((s) => s.liveScene);
   const runScene = useGm((s) => s.runScene);
+  const adoptBoard = useGm((s) => s.adoptBoard);
+  const onTable = useGm((s) => s.combatants.length);
   const spawn = useGm((s) => s.spawn);
 
   // The same index `EncounterArm` builds, for the same one lookup.
@@ -327,6 +329,38 @@ function SceneArm({
    * combatant, so a roster of nothing but unresolved refs starts nothing.
    */
   const spawnable = item.roster.filter((entry) => byId.has(entry.ref));
+
+  /**
+   * Nobody owns the fight that is on the board, and this row could.
+   *
+   * `liveScene === null` with combatants on the glass is the state the plan
+   * cannot describe: no row is marked, `liveScenes` is empty so the runner's
+   * strip draws nothing, and the fight is one END SCENE away from being marks
+   * that existed nowhere else. It is reachable from the bestiary and from the
+   * builder opened out of MENU, neither of which has a row to write to.
+   *
+   * Offered only on a row with nothing parked - `adoptBoard` refuses the rest,
+   * and `BACK TO THIS FIGHT` is the honest verb there.
+   */
+  const orphan = liveScene === null && onTable > 0 && parked === 0;
+
+  /**
+   * The table is empty and belongs to nobody, so opening this row can claim it.
+   *
+   * This is what `OPEN THE SCENE` was missing. The verb opened the runner and
+   * wrote no pointer, so a GM who planned a row, opened it, built an encounter
+   * and sent it to "the scene" ended with a fight on a board that named no row
+   * at all - and the row they had been looking at the whole time stayed empty.
+   * Claiming an empty board costs nothing and destroys nothing: `runScene`
+   * mints no home when there is no fight to house, so this writes the pointer
+   * and nothing else.
+   *
+   * It is deliberately NOT extended to a board that has a fight on it. There
+   * the same call would park somebody else's fight and swap the table under a
+   * word that says «open» - the defect this is repairing rather than a second
+   * helping of it. `orphan` above offers that case its own verb, named.
+   */
+  const claimable = liveScene === null && onTable === 0;
 
   /*
    * One tap, and no arming, and that is a decision rather than an omission.
@@ -411,6 +445,32 @@ function SceneArm({
       )}
 
       {/*
+        The sentence that was written for this and shipped on the wrong arm.
+
+        `EncounterArm` has said it since decision 18 - "The board is running
+        another scene. Run that row instead, or end that fight first." - and
+        `encounter` is the kind `SESSION_ITEM_KINDS` no longer lets anybody
+        make. So the app's clearest explanation of the one state where a verb
+        on this row is about a different row has been unreachable in every
+        campaign this build can create. It is here now, on the arm that can be.
+      */}
+      {!isLive && parked === 0 && liveScene !== null && (
+        <Fact>
+          The board is running another scene, so OPEN THE SCENE shows that one
+          and not this. Run this row instead, or end that fight first.
+        </Fact>
+      )}
+
+      {orphan && (
+        <Fact>
+          There {onTable === 1 ? 'is 1 adversary' : `are ${String(onTable)} adversaries`} on the
+          board belonging to no row of the plan. TAKE THE FIGHT ON THE BOARD
+          makes them this scene’s, exactly as they stand — nothing moves and no
+          mark is lost.
+        </Fact>
+      )}
+
+      {/*
         One primary at most, first match wins, and the list is exhaustive.
 
         `OPEN THE SCENE` is not PRIMARY on a row that is neither live nor
@@ -449,8 +509,45 @@ function SceneArm({
            * per beat after.
            */
           <Verb onClick={startFight} primary label="START THIS FIGHT" row={row} />
+        ) : orphan ? (
+          /*
+           * The verb for the fight nobody owns, and the one state on this arm
+           * that used to have no verb at all.
+           *
+           * It appends nothing and moves nothing - `adoptBoard` writes the
+           * pointer - so the marks on the glass are the same marks after the
+           * tap, now belonging to this row. No arming, by the rule the flip
+           * already follows: it destroys nothing.
+           */
+          <Verb
+            onClick={() => {
+              adoptBoard(item.id);
+              onOpenTool('scene');
+            }}
+            primary
+            label="TAKE THE FIGHT ON THE BOARD"
+            row={row}
+          />
         ) : (
-          <Verb onClick={() => onOpenTool('scene')} label="OPEN THE SCENE" row={row} />
+          /*
+           * Demoted, and now it claims an empty unowned table on the way.
+           *
+           * The demotion stays for the case it was written for - a row that is
+           * not live while somebody else is, where the runner really is showing
+           * another scene and this verb really is about a different row. What
+           * has changed is that on a campaign whose board belongs to nobody,
+           * this no longer walks the GM into that state: `claimable` makes the
+           * row they pressed the row the runner is about.
+           */
+          <Verb
+            onClick={() => {
+              if (claimable) runScene(item.id);
+              onOpenTool('scene');
+            }}
+            primary={claimable}
+            label="OPEN THE SCENE"
+            row={row}
+          />
         )}
 
         <Verb

@@ -79,7 +79,7 @@ const scene = (id: string, name: string, order: number, fighters = 0): SessionIt
 const show = (session: SessionItem[], liveScene: string | null): void => {
   act(() => {
     useGm.setState({ session, liveScene });
-    root.render(createElement(SceneSwitcher));
+    root.render(createElement(SceneSwitcher, { label: 'THE LIVE SCENE' }));
   });
 };
 
@@ -88,11 +88,22 @@ const chips = (): HTMLElement[] => [
 ];
 
 describe('what the strip draws', () => {
-  it('draws nothing at all when there is no scene to flip to', () => {
-    // The title row keeps the word it has always had, and the strip costs
-    // nothing rather than drawing an empty box.
+  it('keeps the title row’s own word when there is no scene to flip to', () => {
+    /*
+     * It used to return `null` here, and this test asserted the row's text was
+     * empty - which it was, and which is the defect rather than the decision.
+     *
+     * `Gm.tsx` passes `title={tool === 'scene' ? <SceneSwitcher/> : undefined}`,
+     * so for the runner `title` is an ELEMENT whatever this component goes on
+     * to render. `GmSheet`'s `{title ?? label}` therefore never falls through
+     * for this tool, and a strip that rendered nothing left the header as a
+     * bare `ESC ✕` - on the very state a GM reaches by opening the runner
+     * before any fight exists. No value a component can return makes `??` fall
+     * through, so the word is drawn here.
+     */
     show([scene('a', 'The dungeon', 0)], null);
-    expect(container.textContent).toBe('');
+    expect(container.textContent).toBe('THE LIVE SCENE');
+    expect(chips()).toHaveLength(0);
   });
 
   it('puts a row on it because it holds a fight, or because it is the live one', () => {
@@ -211,7 +222,7 @@ describe('what the strip draws', () => {
         ],
         liveScene: 'b',
       });
-      root.render(createElement(SceneSwitcher));
+      root.render(createElement(SceneSwitcher, { label: 'THE LIVE SCENE' }));
     });
     expect(chips().map((c) => c.textContent)).toEqual(['THE FOREST']);
   });
