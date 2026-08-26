@@ -738,8 +738,25 @@ function Roster({
             is unsatisfied cheaply: the panel directly above prints "3 GROUPS
             OF 4" for the entry, so the structure is on the glass a few pixels
             up, and the three cards that arrive each say MINIONS 4 out loud.
-            Whether the button should spell the groups itself is an open
-            question for the owner, recorded rather than guessed.
+
+            WHETHER THE BUTTON SHOULD SPELL THE GROUPS ITSELF WAS THE OWNER'S
+            QUESTION, AND IT IS ANSWERED: IT STAYS A BARE NUMBER. Not for want
+            of room, and not because the neighbour is enough - because no noun
+            is true of every roster. `SEND n` counts cards, and a card is a
+            group only when the adversary is a Minion: the roster row above
+            prints `N GROUPS OF 4` for a Minion and `×N` for everything else,
+            which is the same fact from the other side. Two Minion groups and
+            one Solo are three cards of which two are groups, so SEND 3 GROUPS
+            would be false about the Solo - and a label that is false on a
+            mixed roster is worse than a number that is bare on every one.
+            SEND 3 CARDS names this app's furniture rather than the fiction,
+            and the thing that arrives on the board is an adversary.
+
+            The `AddButton` rule is not being broken here, which is the part
+            worth saying out loud: that rule is about a number that counts
+            bodies, and this number does not count bodies. What it counts has
+            no single word, so it is left to the panel above, which has the
+            room to spell the structure out per entry and does.
 
             It is NOT the same number as the scene builder's CARRY THE n. That
             one predicts a row whose shut line reads `12 PLANNED`, so it counts
