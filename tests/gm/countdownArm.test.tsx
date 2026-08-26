@@ -153,6 +153,7 @@ const clock = (
   // is `SessionRow`'s and `sessionList.test.tsx` holds it.
   collapsed: false,
   primary: false,
+  sceneId: null,
   countdown: { id, name, kind, start: 6, value, notes: '', ...NO_CLOCK_PROSE },
 });
 

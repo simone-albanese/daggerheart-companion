@@ -51,6 +51,7 @@ const campaign = (): Campaign => ({
       order: 0,
       collapsed: false,
       primary: true,
+      sceneId: null,
       countdown: {
         id: 'i1',
         name: 'The ice gives way',
@@ -119,6 +120,87 @@ describe('the round trip', () => {
     const file = parseCampaignFile(serializeCampaign(campaign(), at));
     expect(file.app).toBe(fileIo.APP_VERSION);
     expect(file.exportedAt).toBe('2026-08-16T10:00:00.000Z');
+  });
+
+  it('carries the parked fight and the scene a clock belongs to, out and back', () => {
+    /*
+     * The assertion `CAMPAIGN_SCHEMA_VERSION` 4 exists for.
+     *
+     * Neither field costs the transfer layer a line - `serializeCampaign` is
+     * `JSON.stringify` of the whole record - and that is exactly why it is
+     * worth pinning here rather than assuming. The reader rebuilds `board` and
+     * every row field by field and drops what it does not name, so a bump that
+     * added the fields to the type and forgot one seat in `readCampaignRecord`
+     * would typecheck, run, and lose the pointer on the first save and load.
+     *
+     * The scene row carries a fight with a mark on it, because a parked fight
+     * that came back empty would pass a test that only looked at the pointer.
+     */
+    const before: Campaign = {
+      ...campaign(),
+      session: [
+        ...campaign().session,
+        {
+          id: 's1',
+          kind: 'scene',
+          name: 'The frozen ford',
+          order: 2,
+          collapsed: true,
+          environmentRef: 'raging-river',
+          roster: [],
+          adjustments: { easier: false, harder: false, damageBump: false },
+          combatants: [
+            {
+              id: 'jagged-knife-bandit-0',
+              adversaryRef: 'jagged-knife-bandit',
+              name: 'Jagged Knife Bandit',
+              hp: { max: 4, marked: 3 },
+              stress: { max: 3, marked: 1 },
+              thresholds: [4, 8],
+              difficulty: 10,
+              spotlighted: false,
+              notes: '',
+            },
+          ],
+        },
+        {
+          id: 'i3',
+          kind: 'countdown',
+          name: 'The ford thaws',
+          order: 3,
+          collapsed: true,
+          primary: false,
+          sceneId: 's1',
+          countdown: {
+            id: 'i3',
+            name: 'The ford thaws',
+            kind: 'standard',
+            start: 6,
+            value: 5,
+            notes: '',
+            ...NO_CLOCK_PROSE,
+          },
+        },
+      ],
+      board: { ...campaign().board, liveScene: 's1' },
+    };
+
+    const { campaign: after, warnings } = parseCampaignFile(serializeCampaign(before, at));
+
+    expect(warnings).toEqual([]);
+    expect(after).toEqual(before);
+    expect(after.board.liveScene).toBe('s1');
+
+    const thaw = after.session.find((i) => i.id === 'i3');
+    expect(thaw?.kind === 'countdown' && thaw.sceneId).toBe('s1');
+
+    const ford = after.session.find((i) => i.id === 's1');
+    expect(ford?.kind === 'scene' && ford.combatants[0]?.hp.marked).toBe(3);
+
+    // The pinned clock is untouched by a scope on another row.
+    const ice = after.session.find((i) => i.id === 'i1');
+    expect(ice?.kind === 'countdown' && ice.sceneId).toBe(null);
+    expect(ice?.kind === 'countdown' && ice.primary).toBe(true);
   });
 });
 

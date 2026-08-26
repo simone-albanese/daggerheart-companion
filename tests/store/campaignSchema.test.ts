@@ -199,6 +199,36 @@ describe('the committed fixtures', () => {
       expect(primaryCountdownOf(campaign.session)?.value).toBe(4);
     });
   }
+
+  it('opens the schema 4 record with both of its pointers standing', () => {
+    /*
+     * Said here rather than in the loop above, because v1, v2 and v3 have
+     * neither field and asserting on them would only prove that the reader
+     * supplies a default.
+     *
+     * This is what the bump bought: a fight parked in the row it came from,
+     * and a clock that belongs to one scene rather than to the evening. A
+     * reader that dropped either would still pass every assertion above.
+     */
+    const { campaign, warnings } = readCampaignRecord(readFixture(4));
+
+    expect(campaign.board.liveScene).toBe('item-scene-1');
+    expect(campaign.session.some((i) => i.id === 'item-scene-1')).toBe(true);
+
+    const thaw = campaign.session.find((i) => i.id === 'item-countdown-2');
+    expect(thaw?.kind === 'countdown' && thaw.sceneId).toBe('item-scene-1');
+    expect(thaw?.kind === 'countdown' && thaw.primary).toBe(false);
+
+    // The clock that was already here keeps its pin, and keeps being the
+    // campaign's: a scope on one row does not reach the others.
+    const ice = campaign.session.find((i) => i.id === 'item-countdown-1');
+    expect(ice?.kind === 'countdown' && ice.sceneId).toBe(null);
+    expect(primaryCountdownOf(campaign.session)?.id).toBe('item-countdown-1');
+
+    // Still the one party warning, and no repair fired: nothing in this
+    // fixture is dangling, so the pass must be silent on it.
+    expect(warnings).toHaveLength(1);
+  });
 });
 
 describe('a campaign owns its own things, and not the player characters', () => {
@@ -393,6 +423,165 @@ describe('countdowns, which live in the session list', () => {
     expect(withPrimaryCountdown(campaign.session, null).some((i) => i.kind === 'countdown' && i.primary)).toBe(
       false,
     );
+  });
+
+  /*
+   * The scope, and the two pointers the reader answers together.
+   *
+   * `CAMPAIGN_SCHEMA_VERSION` 4. A countdown row may belong to one scene, and
+   * the board remembers the row its fight came from. Both name a row by id and
+   * both are reachable dangling, so both are repaired in one pass on the way
+   * in - never trusted, and never emptied.
+   */
+  describe('a countdown that belongs to a scene', () => {
+    const sceneRow = (id: string): Record<string, unknown> => ({
+      id,
+      kind: 'scene',
+      name: id,
+      environmentRef: 'raging-river',
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [],
+    });
+
+    const scoped = (id: string, sceneId: string | null, primary = false): Record<string, unknown> => ({
+      ...countdownItem(id, primary),
+      sceneId,
+    });
+
+    it('reads a schema-3 row as the campaign’s, because that is what every one of them was', () => {
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [countdownItem('a', false)] }),
+      );
+      const row = campaign.session[0];
+      expect(row?.kind === 'countdown' && row.sceneId).toBe(null);
+      expect(warnings).toEqual([]);
+    });
+
+    it('keeps a scope that names a row this campaign still has', () => {
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1'), scoped('a', 's1')] }),
+      );
+      const row = campaign.session.find((i) => i.kind === 'countdown');
+      expect(row?.kind === 'countdown' && row.sceneId).toBe('s1');
+      expect(warnings).toEqual([]);
+    });
+
+    it('hands it back to the campaign when its scene is gone, rather than losing the clock', () => {
+      // Degrade, never vanish: the same policy `readLinkTarget` applies to a
+      // target it does not recognise. A clock nobody can reach is worse than a
+      // clock in the wrong place, because only one of the two can be moved.
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [scoped('a', 'a-row-that-was-deleted')] }),
+      );
+      const row = campaign.session[0];
+      expect(row?.kind === 'countdown' && row.sceneId).toBe(null);
+      expect(row?.kind === 'countdown' && row.countdown.id).toBe('a');
+      expect(warnings.join(' ')).toMatch(/no longer has/);
+    });
+
+    it('keeps a scope that names an unreadable row, because that row keeps its id', () => {
+      /*
+       * The set is every row's id, not every scene row's. An `unreadable` row
+       * keeps its id precisely so a build that cannot parse it still cannot
+       * lose it - and nulling a pointer at one, then letting the next save
+       * write that back, is how that arm's whole purpose gets defeated.
+       */
+      const { campaign } = readCampaignRecord(
+        bare({
+          session: [{ id: 's1', kind: 'photo', blob: 'AAAA' }, scoped('a', 's1')],
+        }),
+      );
+      const row = campaign.session.find((i) => i.kind === 'countdown');
+      expect(row?.kind === 'countdown' && row.sceneId).toBe('s1');
+    });
+
+    it('clears the pin when a row is both scoped and pinned, because the top bar is the campaign’s', () => {
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1'), scoped('a', 's1', true)] }),
+      );
+      const row = campaign.session.find((i) => i.kind === 'countdown');
+      expect(row?.kind === 'countdown' && row.primary).toBe(false);
+      expect(row?.kind === 'countdown' && row.sceneId).toBe('s1');
+      expect(primaryCountdownOf(campaign.session)).toBe(null);
+      expect(warnings.join(' ')).toMatch(/both pinned to the top bar and given to a scene/);
+    });
+
+    it('strips the scoped pin before deduping, so a real pin further down survives', () => {
+      /*
+       * The order of the two repairs is load-bearing, and getting it backwards
+       * destroys the GM's actual pin without a word.
+       *
+       * The dedupe keeps the FIRST primary row in array order. If it ran on
+       * the raw list, the scoped row here would win it, `b` would be cleared
+       * as a duplicate, and the scope repair would then clear the scoped one
+       * too - leaving zero primary rows and an empty top bar. So: strip the
+       * scoped primaries, then dedupe what is left.
+       */
+      const { campaign } = readCampaignRecord(
+        bare({ session: [sceneRow('s1'), scoped('a', 's1', true), countdownItem('b', true)] }),
+      );
+      expect(primaryCountdownOf(campaign.session)?.id).toBe('b');
+    });
+
+    it('refuses to pin one, and says so by clearing rather than by pretending', () => {
+      // `withPrimaryCountdown` is total, and this is the second way of being
+      // ineligible - the same honest reading as passing an id that is not a
+      // countdown at all.
+      const { campaign } = readCampaignRecord(
+        bare({ session: [sceneRow('s1'), scoped('a', 's1'), countdownItem('b', true)] }),
+      );
+      const moved = withPrimaryCountdown(campaign.session, 'a');
+      expect(moved.some((i) => i.kind === 'countdown' && i.primary)).toBe(false);
+    });
+  });
+
+  describe('the row the fight on the board came from', () => {
+    const sceneRow = (id: string): Record<string, unknown> => ({
+      id,
+      kind: 'scene',
+      name: id,
+      environmentRef: null,
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [],
+    });
+
+    it('starts at nothing, because a fresh board came from nowhere', () => {
+      expect(emptyBoard().liveScene).toBe(null);
+    });
+
+    it('reads a schema-3 board as belonging to no row', () => {
+      const { campaign, warnings } = readCampaignRecord(bare());
+      expect(campaign.board.liveScene).toBe(null);
+      expect(warnings).toEqual([]);
+    });
+
+    it('keeps a pointer to a row this campaign still has', () => {
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1')], board: { liveScene: 's1' } }),
+      );
+      expect(campaign.board.liveScene).toBe('s1');
+      expect(warnings).toEqual([]);
+    });
+
+    it('lets the fight belong to no row when its row is gone, and does not empty the board', () => {
+      // The GM is playing that fight. Losing it because the plan row behind it
+      // was deleted is the silent loss this pass exists to refuse; it gets a
+      // home again the next time a scene is run.
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1')], board: { liveScene: 'a-row-that-was-deleted' } }),
+      );
+      expect(campaign.board.liveScene).toBe(null);
+      expect(warnings.join(' ')).toMatch(/came from a scene this campaign no longer has/);
+    });
+
+    it('says nothing when there was no pointer to repair', () => {
+      // A warning that fires on an ordinary launch is a warning that stops
+      // being read, which is `readSessionItem`'s argument about empty rows.
+      const { warnings } = readCampaignRecord(bare({ board: { liveScene: null } }));
+      expect(warnings).toEqual([]);
+    });
   });
 
   it('brings a countdown value back inside its own start', () => {
@@ -612,16 +801,25 @@ describe('the bumps, and the record they must not touch', () => {
    * `archive` and a `register` at all - every one of which a schema-2 reader
    * would drop on the floor and then write back over. Nothing in a v2 record is
    * wrong either, so that converter changes no field either.
+   *
+   * Schema 4 is the same argument on two pointers. It moved so that an older
+   * build refuses a record whose board names the scene row its fight came from
+   * and whose countdown rows name the scene they belong to. A schema-3 reader
+   * does not fail on either - it rebuilds `board` and every row field by field
+   * and drops what it does not name - so it would park a fight that belongs to
+   * no row, hand every scene clock back to the campaign, and let the 400 ms
+   * debounce write that reading back. Nothing in a v3 record is wrong, so that
+   * converter changes no field either.
    */
   it('carries one converter per bump, in order, and none of them is a repair', () => {
     // Derived from the constant rather than frozen as a literal: a third bump
     // adds one entry here and does not have to remember to edit two lines.
-    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1, 2]);
-    expect(CAMPAIGN_SCHEMA_VERSION).toBe(3);
+    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1, 2, 3]);
+    expect(CAMPAIGN_SCHEMA_VERSION).toBe(4);
     expect(CAMPAIGN_MIGRATIONS).toHaveLength(CAMPAIGN_SCHEMA_VERSION - OLDEST_READABLE_CAMPAIGN);
   });
 
-  it('gives a v1 record back byte for byte, apart from the stamp, across both bumps', () => {
+  it('gives a v1 record back byte for byte, apart from the stamp, across all three bumps', () => {
     // Deep equality against the fixture itself rather than against a list of
     // fields somebody remembered to check: an `apply` that dropped `party`,
     // renamed `board.partyTier`, or normalised a countdown on the way through
@@ -630,7 +828,7 @@ describe('the bumps, and the record they must not touch', () => {
     const { record, from, applied } = migrateCampaignRecord(fixture);
 
     expect(from).toBe(1);
-    // Both converters ran, in order, and each said what it was for.
+    // Every converter ran, in order, and each said what it was for.
     expect(applied).toEqual(CAMPAIGN_MIGRATIONS.map((m) => m.note));
     expect(record).toEqual({ ...fixture, schemaVersion: CAMPAIGN_SCHEMA_VERSION });
     // Deep equality is not enough on its own to earn the words "byte for byte":
@@ -644,7 +842,7 @@ describe('the bumps, and the record they must not touch', () => {
     );
     // Said separately, because the two assertions above would also pass if both
     // sides were 1 and the bump had never happened.
-    expect(record['schemaVersion']).toBe(3);
+    expect(record['schemaVersion']).toBe(4);
   });
 
   it('hands the chain a copy rather than the record it was given', () => {

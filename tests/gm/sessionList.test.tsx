@@ -212,7 +212,7 @@ const oneOfEach = (): SessionItem[] => [
   { ...base({ id: 'a', name: 'Scene one', order: 0 }), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
   { ...base({ id: 'b', name: 'The ambush', order: 1 }), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
   { ...base({ id: 'c', name: 'Read this', order: 2 }), kind: 'link', target: { kind: 'rule', ref: rule.id } },
-  { ...base({ id: 'd', name: 'The ritual', order: 3 }), kind: 'countdown', primary: false, countdown: { id: 'd', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+  { ...base({ id: 'd', name: 'The ritual', order: 3 }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'd', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
   { ...base({ id: 'e', name: '', order: 4 }), kind: 'unreadable', why: 'this version of the app has no "photo" item', raw: '{"kind":"photo","blob":"AAAA"}' },
 ];
 
@@ -719,6 +719,7 @@ describe('the countdown arm', () => {
       ...base({ id: 'c', name: 'The ritual', collapsed: false }),
       kind: 'countdown',
       primary,
+      sceneId: null,
       countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
     },
   ];
@@ -744,7 +745,7 @@ describe('the countdown arm', () => {
      */
     seed([
       ...countdown(),
-      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
     ]);
     list();
     const chart = buttons().filter((b) => (b.textContent ?? '').trim().startsWith('ADVANCE BY A ROLL'));
@@ -758,7 +759,7 @@ describe('the countdown arm', () => {
   it('pins exactly one countdown to the top bar', () => {
     seed([
       ...countdown(),
-      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: true, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c2', name: 'The tide', collapsed: false }), kind: 'countdown', primary: true, sceneId: null, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
     ]);
     list();
     const pin = buttons().find((b) => (b.textContent ?? '') === 'PIN IT TO THE TOP BAR')!;
@@ -825,15 +826,15 @@ describe('opening and deleting a row', () => {
       { ...base({ id: 's2', name: 'The frozen ford', order: 1, collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
       { ...base({ id: 'e1', name: 'The ambush', order: 2, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
       { ...base({ id: 'e2', name: 'The bridge', order: 3, collapsed: false }), kind: 'encounter', roster: [{ ref: adversary.id, count: 1 }], adjustments: NO_ADJUSTMENTS, combatants: [] },
-      { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
-      { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c1', name: 'The ritual', order: 4, collapsed: false }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c2', name: 'The tide', order: 5, collapsed: false }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       // A *second* dynamic clock, and it is here rather than in the pair
       // above because the pair above cannot see the defect: the advancement
       // chart is offered on a dynamic row and on no other, so one dynamic and
       // one loop draw one ADVANCE BY A ROLL header between them and any two
       // identical headers stay hidden. `Fold` names its button with the words
       // it draws, and both of these draw the same three words.
-      { ...base({ id: 'c3', name: 'The flood', order: 6, collapsed: false }), kind: 'countdown', primary: false, countdown: { id: 'c3', name: 'The flood', kind: 'dynamic', start: 6, value: 5, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c3', name: 'The flood', order: 6, collapsed: false }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c3', name: 'The flood', kind: 'dynamic', start: 6, value: 5, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ id: 'l1', name: 'The grove', order: 7, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: environment.id } },
       { ...base({ id: 'l2', name: 'The other grove', order: 8, collapsed: false }), kind: 'link', target: { kind: 'environment', ref: dataset.environments[1]!.id } },
     ]);
@@ -1376,6 +1377,7 @@ describe('renaming a row', () => {
         ...base({ id: 'c', name: 'The ritual', collapsed: false }),
         kind: 'countdown',
         primary: true,
+        sceneId: null,
         countdown: { id: 'c', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
       },
     ]);

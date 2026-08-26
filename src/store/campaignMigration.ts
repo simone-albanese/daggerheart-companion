@@ -214,6 +214,11 @@ function campaignFromLegacy(
       adjustments: legacy['adjustments'],
       combatants: legacy['combatants'],
       environmentRef: legacy['environmentRef'],
+      // A legacy record predates the pointer by two bumps, so its board came
+      // from no row. `readCampaignRecord` would supply the same `null`; it is
+      // named here because this literal builds a `GmBoard` field by field and
+      // an unnamed field is a compile error, not a default.
+      liveScene: null,
     },
   };
 }

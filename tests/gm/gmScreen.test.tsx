@@ -200,6 +200,7 @@ const countdownRow = (id: string, name: string, primary: boolean, value = 4): Se
   order: 0,
   collapsed: true,
   primary,
+  sceneId: null,
   countdown: { id, name, kind: 'standard', start: 6, value, notes: '', ...NO_CLOCK_PROSE },
 });
 
