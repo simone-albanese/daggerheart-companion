@@ -124,3 +124,94 @@ describe('a rules section linked from a GM session', () => {
     expect((container.textContent ?? '').trim()).not.toBe('');
   });
 });
+
+/*
+ * The two things this row does NOT ask of the block it draws.
+ *
+ * `BlockView` took `{ block }` and nothing else until SHOW's rule search needed
+ * to land on one paragraph or one bullet inside a block and to light the words
+ * the GM had typed. It grew two optional props for that - `land` and `mark` -
+ * and four callers pass neither. Three of them are asserted from the outside in
+ * `tests/gm/reference.test.tsx`; this row is the fourth, and its docblock in
+ * `ReferenceTables.tsx` names this file as the place its case goes.
+ *
+ * Why it is worth a case at all: this row draws SRD prose inside the plan for
+ * the evening, where a GM is reading rather than searching. Nobody typed a
+ * query, so no word here is anybody's hit, and nothing on this row has any
+ * business moving the page under a GM who was reading the row above it.
+ *
+ * It goes red on the two ways a GM would feel that stopping: `BlockView`
+ * scrolling or marking on its own account, and this row being handed a `land`
+ * whose ref moves the page or a `mark` that lights a word - which is what an
+ * invented argument would be, if either prop stopped being optional and this
+ * call site had to pass something.
+ *
+ * The prop ceasing to be optional is not this file's to catch and is not
+ * claimed here: `tsc` fails at the call site before any of this runs. Nor is a
+ * `land` whose ref does nothing - that is a prop passed for no reason, not a
+ * page that moved, and what is asserted below is what a GM would see.
+ */
+describe('what that row asks of the block, which is nothing', () => {
+  /**
+   * Run `run` with a `scrollIntoView` on the prototype that records rather than
+   * scrolls, and give back what it was asked to bring into view.
+   *
+   * jsdom implements no `scrollIntoView` at all, so what this installs is the
+   * only one there is while it runs; the descriptor is saved and put back
+   * rather than deleted blind, because this file installing no no-op of its own
+   * is true today and is not this helper's to decide for the tests after it.
+   */
+  const whileWatching = async (run: () => Promise<void>): Promise<Element[]> => {
+    const seen: Element[] = [];
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown };
+    const was = Object.getOwnPropertyDescriptor(proto, 'scrollIntoView');
+    proto.scrollIntoView = function scrollIntoView(this: Element): void {
+      seen.push(this);
+    };
+    try {
+      await run();
+    } finally {
+      if (was === undefined) delete proto.scrollIntoView;
+      else Object.defineProperty(proto, 'scrollIntoView', was);
+    }
+    return seen;
+  };
+
+  it('brings nothing into view, on bullets or on a table', async () => {
+    const asked = await whileWatching(async () => {
+      await draw('making-gm-moves');
+      // Not vacuous: the bullets are on screen, so a `BlockView` really drew.
+      expect(container.querySelectorAll('li').length).toBeGreaterThan(0);
+
+      // And again on the section whose blocks carry a table, since that is the
+      // one part `BlockView` hands to somebody else to draw.
+      await draw('giving-out-gold-equipment-and-loot');
+      expect(cells('Expense').length).toBeGreaterThan(0);
+    });
+    expect(asked).toEqual([]);
+  });
+
+  it('lights not one word, because nobody here typed one', async () => {
+    await draw('making-gm-moves');
+    /*
+     * All three of the places `BlockView` draws a string in its own words are
+     * on screen before the count below means anything: a subhead, a paragraph
+     * and a bullet. `making-gm-moves` carries all three and no table, and the
+     * section drawn after it carries the table and none of the three, so the
+     * two together are what puts every word of this row under the count -
+     * a table cell included, though those are `RuleTableView`'s to draw and
+     * not among the three strings `mark` is handed.
+     */
+    const subheads = [...container.querySelectorAll('span.t-label')].map((el) =>
+      (el.textContent ?? '').trim(),
+    );
+    expect(subheads).toContain('WHEN TO MAKE A MOVE');
+    expect(container.querySelectorAll('p.t-read').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('li').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+
+    await draw('giving-out-gold-equipment-and-loot');
+    expect(cells('1 Handful').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('mark')).toHaveLength(0);
+  });
+});
