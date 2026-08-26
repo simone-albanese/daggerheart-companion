@@ -49,6 +49,12 @@ import {
   type SectionView,
 } from '../../src/ui/shared/srdReference.ts';
 import { landingIn, preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import {
+  searchSrd,
+  SRD_KIND_LABELS,
+  SRD_KINDS,
+  srdIndex,
+} from '../../src/ui/shared/srdIndex.ts';
 import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/gm/ask.ts';
 import { ASK_CATALOGUE } from '../../src/ui/gm/askCatalogue.ts';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
@@ -147,6 +153,27 @@ afterEach(() => {
 const rules = dataset.rules;
 
 /**
+ * The book beyond the rules, as the screen builds it: the whole index with the
+ * 69 sections taken out, because those are searched by `searchRules` and drawn
+ * with a landing this list has no equivalent of.
+ *
+ * Built here from the same dataset the screen is handed, so a count derived
+ * from it is a claim about what the *screen reports*, which is what the live
+ * line and the band headers are for. Where a test needs to know what the search
+ * actually found - which record, under which band - it reads that off the glass
+ * instead; see `recordNames`.
+ */
+const beyondRules = srdIndex(dataset).filter((record) => record.kind !== 'rules');
+
+/** The bands the rest of the book draws for a query, as their headers read. */
+const kindBands = (query: string): string[] => {
+  const found = searchSrd(beyondRules, query);
+  return SRD_KINDS.filter((kind) => found.some((hit) => hit.kind === kind)).map(
+    (kind) => `${SRD_KIND_LABELS[kind]} · ${String(found.filter((h) => h.kind === kind).length)}`,
+  );
+};
+
+/**
  * The elements a run asks to be brought into view, in the order it asked.
  *
  * jsdom ships no `scrollIntoView`, so the stub goes on and comes off through
@@ -224,7 +251,7 @@ const type = (text: string): void => {
 };
 
 /**
- * Every hit header on screen, in the order the list draws them.
+ * Every *section* hit header on screen, in the order the list draws them.
  *
  * `section:not([data-ask])`, because a question row is a `<section>` with a
  * `button[aria-expanded]` in it too and it is not a hit: it carries no book
@@ -232,13 +259,32 @@ const type = (text: string): void => {
  * hits in this file would start counting rows the SRD did not produce. The
  * attribute is on the row for this reason and no other - it is the seam
  * between the app's own words and the book's.
+ *
+ * **`:not([data-kind])` is the same seam a second time, and it had to be added
+ * rather than assumed.** The search now covers the 780 records the rules
+ * sections' own search cannot reach, and a record row is a third `<section>` of
+ * this shape - so without it `hitTitles()` answered `countdown` with
+ * thirty-three rows where `searchRules` found seven, and every `toEqual` in
+ * this file comparing hits against `searchRules` would have been comparing two
+ * different lists. That is the failure the `data-ask` paragraph above calls the
+ * worse of the two: it looks like proof.
  */
 const hits = (): HTMLButtonElement[] => [
-  ...dialog().querySelectorAll<HTMLButtonElement>('section:not([data-ask]) > button[aria-expanded]'),
+  ...dialog().querySelectorAll<HTMLButtonElement>(
+    'section:not([data-ask]):not([data-kind]) > button[aria-expanded]',
+  ),
 ];
 
 const hitTitles = (): string[] =>
   hits().map((b) => (b.querySelector('span > span')?.textContent ?? '').trim());
+
+/** Every record row on screen - the book beyond the rules - in list order. */
+const recordRows = (): HTMLButtonElement[] => [
+  ...dialog().querySelectorAll<HTMLButtonElement>('section[data-kind] > button[aria-expanded]'),
+];
+
+const recordNames = (): string[] =>
+  recordRows().map((b) => (b.querySelector('span > span')?.textContent ?? '').trim());
 
 /** Every question row on screen, in the order the band draws them. */
 const askRows = (): HTMLButtonElement[] => [
@@ -272,6 +318,11 @@ const BAND_LABELS = [
   'IN A HEADING',
   'IN THE TEXT',
   'NO SECTION CARRIES ALL OF THOSE WORDS · THESE CARRY SOME',
+  // The book beyond the rules, banded by kind. Taken from the source of the
+  // labels rather than typed out again here: a kind added to the dataset and
+  // drawn on the glass must not be a band this helper cannot see, which is the
+  // whole reason the paragraph above names QUESTIONS.
+  ...Object.values(SRD_KIND_LABELS),
 ];
 
 const groupHeaders = (): string[] =>
@@ -983,15 +1034,27 @@ describe('the results', () => {
     expect(groupHeaders()).toEqual([
       `IN THE TITLE · ${String(titled)}`,
       `IN THE TEXT · ${String(found.length - titled)}`,
+      // The rest of the book stands under the sections, banded by kind. The
+      // words `countdown` reaches out there are in domain cards and adversary
+      // features, and they are twenty-six rows the GM could not see at all
+      // before this: the section bands above are unchanged, and what used to be
+      // the whole answer is now the top of it.
+      ...kindBands('countdown'),
     ]);
-    // The header order is the list order: the named ones are drawn first.
+    // The header order is the list order: the named ones are drawn first, and
+    // the sections come before the rest of the book.
     expect(hitTitles()).toEqual(found.map((h) => h.title));
+    expect(recordNames()).toEqual(searchSrd(beyondRules, 'countdown').map((h) => h.name));
   });
 
   it('draws only the group it has, and says how many sections in one live line', () => {
     openShow();
     type('pitfalls');
     expect(groupHeaders()).toEqual(['IN THE TITLE · 1']);
+    // No card, no adversary and no weapon carries the word, so the sentence is
+    // the one it always was: the third clause is appended only when there is
+    // something out there to append.
+    expect(searchSrd(beyondRules, 'pitfalls')).toEqual([]);
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
       '1 section matches',
     );
@@ -1014,7 +1077,11 @@ describe('the results', () => {
     expect(searchAsk(ASK_CATALOGUE, 'fear').map((entry) => entry.id)).toEqual([
       'q-blank-consequence',
     ]);
-    expect(groupHeaders()).toHaveLength(4);
+    // Four of the book's and the app's, and then one per kind out in the rest
+    // of the book. The four are what this test was written about and they are
+    // unchanged; the rest are counted rather than named so that a kind entering
+    // or leaving the dataset moves this number instead of breaking the claim.
+    expect(groupHeaders()).toHaveLength(4 + kindBands('fear').length);
     expect(groupHeaders()[0]).toBe('QUESTIONS · 1');
     expect(groupHeaders()[2]).toBe('IN A HEADING · 3');
     // The live line names both, questions first, in the order the glass draws
@@ -1022,7 +1089,8 @@ describe('the results', () => {
     // them, so a question above the list that it did not mention would put the
     // catalogue behind the whole result for exactly one reader.
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
-      `1 question and ${String(searchRules(rules, 'fear').length)} sections match`,
+      `1 question and ${String(searchRules(rules, 'fear').length)} sections match; ` +
+        `${String(searchSrd(beyondRules, 'fear').length)} elsewhere in the book`,
     );
   });
 
@@ -1148,9 +1216,13 @@ describe('the results', () => {
     // One header, standing in for the three - not a fourth band under them.
     expect(hits()).toHaveLength(some.length);
 
-    // And it is gone the moment the AND has anything to say.
+    // And it is gone the moment the AND has anything to say - over the
+    // sections. The kind bands below it are the records that carry both words
+    // outright, and they are not part of what the SOME header stands in for:
+    // that header speaks about sections, and it is drawn instead of the three
+    // section bands rather than instead of the list.
     type('falling damage');
-    expect(groupHeaders()).toEqual(['IN A HEADING · 1']);
+    expect(groupHeaders()).toEqual(['IN A HEADING · 1', ...kindBands('falling damage')]);
   });
 
   it('marks the title of a section that is named for the phrase', () => {
@@ -1854,8 +1926,14 @@ describe('the results', () => {
     openShow();
     type('kobolds riding a velocipede');
     expect(hits()).toEqual([]);
+    // And nothing out in the other 780 either, which is now the second half of
+    // what the sentence claims. The silence is only honest while both are empty:
+    // the paragraph says *nothing in this dataset*, and a card carrying the word
+    // under a paragraph saying no such thing exists would be the app
+    // contradicting itself on one surface.
+    expect(recordRows()).toEqual([]);
     expect(groupHeaders()).toEqual([]);
-    expect(dialog().textContent).toContain('No rule in this dataset carries that');
+    expect(dialog().textContent).toContain('Nothing in this dataset carries that');
   });
 
   it('says the empty answer in the live line that was counting the hits', () => {
@@ -1871,13 +1949,14 @@ describe('the results', () => {
     type('fear');
     const live = dialog().querySelector('.sr-only[role="status"]');
     expect(live?.textContent).toBe(
-      `1 question and ${String(searchRules(rules, 'fear').length)} sections match`,
+      `1 question and ${String(searchRules(rules, 'fear').length)} sections match; ` +
+        `${String(searchSrd(beyondRules, 'fear').length)} elsewhere in the book`,
     );
 
     type('kobolds riding a velocipede');
     expect(dialog().querySelector('.sr-only[role="status"]')).toBe(live);
     expect(live?.textContent).toBe('No section matches');
-    expect(dialog().textContent).toContain('No rule in this dataset carries that');
+    expect(dialog().textContent).toContain('Nothing in this dataset carries that');
   });
 
   it('stamps the page in the same ink every other Fold header in the app uses', () => {
@@ -1944,7 +2023,7 @@ describe('the results', () => {
      * away and only a real subscription answers.
      */
     act(() => root.render(createElement(RuleSearchResults, { query: 'velocipede' })));
-    expect(container.textContent).toContain('No rule in this dataset carries that');
+    expect(container.textContent).toContain('Nothing in this dataset carries that');
 
     act(() => {
       useApp.setState({
@@ -2034,8 +2113,12 @@ describe('the questions above the sections', () => {
     expect(groupHeaders()).toEqual(['QUESTIONS · 1']);
     expect(dialog().textContent).toContain('wants to surrender');
     // And the silence is gone, because its second clause would now be false of
-    // the surface it is printed on.
-    expect(dialog().textContent).not.toContain('No rule in this dataset carries that');
+    // the surface it is printed on. The wording is read off the same constant
+    // the two tests above assert positively: a `not.toContain` left pointing at
+    // a string the screen no longer prints is a test that passes whatever the
+    // screen says, which is how this one survived the sentence being rewritten.
+    expect(searchSrd(beyondRules, 'surrender')).toEqual([]);
+    expect(dialog().textContent).not.toContain('Nothing in this dataset carries that');
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
       '1 question and no section matches',
     );
@@ -2050,7 +2133,8 @@ describe('the questions above the sections', () => {
     expect(askRows()).toEqual([]);
     expect(groupHeaders().some((header) => header.startsWith('QUESTIONS'))).toBe(false);
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
-      `${String(searchRules(rules, 'countdown').length)} sections match`,
+      `${String(searchRules(rules, 'countdown').length)} sections match; ` +
+        `${String(searchSrd(beyondRules, 'countdown').length)} elsewhere in the book`,
     );
   });
 
@@ -2193,5 +2277,148 @@ describe('the moment chips, on the empty field', () => {
     type('');
     expect(chipGroup()).not.toBeNull();
     expect(doors()).toHaveLength(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The book beyond the rules, on the glass.
+ *
+ * Everything here is read off the screen and checked against the dataset, never
+ * against a name typed beside the assertion: the record a query is expected to
+ * find is looked up in `dataset` first, and the row is then asked to be the one
+ * the book says it is.
+ */
+describe('the rest of the book, under the sections', () => {
+  it('finds an adversary the rules search answers with silence, and bands it by kind', () => {
+    const burrower = dataset.adversaries.find((a) => a.name === 'Acid Burrower')!;
+    expect(burrower).toBeDefined();
+    // The silence this part exists to end: the section search carries none of
+    // those words, so before this the whole surface said nothing.
+    expect(searchRules(rules, burrower.name)).toEqual([]);
+
+    openShow();
+    type(burrower.name);
+    expect(hits()).toEqual([]);
+    expect(groupHeaders()).toEqual([`${SRD_KIND_LABELS.adversary} · 1`]);
+    expect(recordNames()).toEqual([burrower.name]);
+    // Stamped with the book's own folio, in the same ink a section hit uses.
+    expect(recordRows()[0]!.querySelector('span.t-meta')?.textContent).toBe(
+      `SRD 1.0 · P.${String(burrower.sourcePage)}`,
+    );
+  });
+
+  it('opens a record in place and draws its own words under the app’s labels', () => {
+    const burrower = dataset.adversaries.find((a) => a.name === 'Acid Burrower')!;
+    openShow();
+    type(burrower.name);
+    const row = recordRows()[0]!;
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+
+    click(row);
+    expect(recordRows()[0]!.getAttribute('aria-expanded')).toBe('true');
+    const open = recordRows()[0]!.parentElement!;
+    // The record's own text, verbatim out of the dataset, and the app's label
+    // over it. Neither is typed here: both are read from the record the search
+    // says the row is.
+    expect(open.textContent).toContain(burrower.description);
+    expect(open.textContent).toContain(burrower.motives[0]);
+    for (const f of burrower.features) expect(open.textContent).toContain(f.text);
+    // The labels are read off the glass rather than out of the whole string:
+    // `HP` and `Stress` are words of the SRD's own feature text on this very
+    // adversary - "they must mark an additional HP" - so a `not.toContain` over
+    // `textContent` would have been asserting about the book while claiming to
+    // assert about the app. A field label is a `span.t-meta` that is a direct
+    // child of a field's own `div`; the page stamp is the one inside the
+    // button's `span.row`, and this selector cannot reach it.
+    const labels = [...open.querySelectorAll('div > span.t-meta')].map((n) => n.textContent);
+    expect(labels).toContain('MOTIVES');
+    expect(labels).toContain('FEATURES');
+    // And no number the app would have had to label: a tier and an HP are drawn
+    // by the screens that draw stat blocks, and this list is not one of them.
+    for (const banned of ['TIER', 'HP', 'STRESS', 'DIFFICULTY', 'THRESHOLDS']) {
+      expect(labels, banned).not.toContain(banned);
+    }
+  });
+
+  it('lights the GM’s words inside the record it opened, as it does in a section', () => {
+    // A word carried by an adversary's own text rather than by its name, so the
+    // marking has something in the body to find.
+    const beast = dataset.adversaries.find((a) =>
+      a.features.some((f) => f.text.toLowerCase().includes('countdown')),
+    )!;
+    expect(beast).toBeDefined();
+
+    openShow();
+    type('countdown');
+    const at = recordNames().indexOf(beast.name);
+    expect(at).toBeGreaterThan(-1);
+    click(recordRows()[at]!);
+    const open = recordRows()[at]!.parentElement!;
+    const marks = [...open.querySelectorAll('mark')].map((m) => (m.textContent ?? '').toLowerCase());
+    expect(marks).toContain('countdown');
+  });
+
+  it('keeps one row open across the sections and the rest of the book alike', () => {
+    openShow();
+    type('countdown');
+    // A section and a record both matched, which is what makes the shared open
+    // state worth asserting: two lists, one open row.
+    expect(hits().length).toBeGreaterThan(0);
+    expect(recordRows().length).toBeGreaterThan(0);
+
+    click(hits()[0]!);
+    expect(hits()[0]!.getAttribute('aria-expanded')).toBe('true');
+
+    click(recordRows()[0]!);
+    expect(recordRows()[0]!.getAttribute('aria-expanded')).toBe('true');
+    // The section shut when the record opened. Opening every hit at once is the
+    // thing this surface has refused since it was built, and a second list must
+    // not be a second exception to it.
+    expect(hits()[0]!.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      [...hits(), ...recordRows()].filter((b) => b.getAttribute('aria-expanded') === 'true'),
+    ).toHaveLength(1);
+  });
+
+  it('keeps the sections’ apology about sections when a record carried every word', () => {
+    /*
+     * The one interaction between the two searches, and the reason the SOME
+     * header did not have to be rewritten. `searchRules` widens to OR when no
+     * section carries every word and labels that list NO SECTION CARRIES ALL OF
+     * THOSE WORDS; `searchSrd` does not widen, so a record under it carries all
+     * of them outright. Both statements are true at once *because the header
+     * says section* - and if records had been folded into the three section
+     * bands instead of getting their own, that header would have been standing
+     * over rows that contradict it.
+     */
+    const query = 'clearing stress';
+    const some = searchRules(rules, query);
+    expect(some.length).toBeGreaterThan(0);
+    expect(some.every((h) => h.partial)).toBe(true);
+    const exact = searchSrd(beyondRules, query);
+    expect(exact.length).toBeGreaterThan(0);
+
+    openShow();
+    type(query);
+    expect(groupHeaders()).toEqual([
+      `NO SECTION CARRIES ALL OF THOSE WORDS · THESE CARRY SOME · ${String(some.length)}`,
+      ...kindBands(query),
+    ]);
+    // And the live line does not call the record hits sections either.
+    expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
+      `${String(some.length)} sections match; ${String(exact.length)} elsewhere in the book`,
+    );
+  });
+
+  it('draws the sections first and the rest of the book after them', () => {
+    openShow();
+    type('countdown');
+    // Up the glass from the thumb, in the DOM order a screen reader walks: the
+    // sections the surface was built around, then the kinds.
+    expect(
+      hits()[0]!.compareDocumentPosition(recordRows()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
   });
 });

@@ -1123,8 +1123,17 @@ function quoteFrom(
   return inTable ? { line: null, where: 'table' } : null;
 }
 
-/** Is `term` in `low` (already lowercased) as a word rather than inside one? */
-function wholeWordIn(low: string, term: string): boolean {
+/**
+ * Is `term` in `low` (already lowercased) as a word rather than inside one?
+ *
+ * Exported for `srdIndex.ts`, which ranks the line it quotes out of a record by
+ * the same preference this file ranks a section's line by. It is the whole of
+ * what the two searches share: the record search scopes its AND to the record
+ * rather than to the line - a weapon is one thing where a section is many - so
+ * `quoteFrom` above does not fit it, and a second copy of *this* would be two
+ * spellings of one question about a string.
+ */
+export function wholeWordIn(low: string, term: string): boolean {
   const wordish = (c: string | undefined): boolean =>
     c !== undefined && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
   for (let at = low.indexOf(term); at !== -1; at = low.indexOf(term, at + 1)) {

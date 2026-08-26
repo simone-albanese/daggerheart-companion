@@ -455,6 +455,14 @@ import {
   type RuleHit,
   type SectionView,
 } from '../shared/srdReference.ts';
+import {
+  searchSrd,
+  SRD_KIND_LABELS,
+  SRD_KINDS,
+  srdIndex,
+  type SrdHit,
+  type SrdRecord,
+} from '../shared/srdIndex.ts';
 import { askLoaded, loadAsk, searchAsk, type AskEntry } from './ask.ts';
 import { BlockView, type BlockTarget } from './ReferenceTables.tsx';
 
@@ -919,16 +927,29 @@ export function RuleSearchField({
  * would have read `No section matches` over a surface that had just found
  * something. The questions come first here for the same reason they come first
  * on the glass.
+ *
+ * **The rest of the book is a third count, and it is appended rather than added
+ * in.** A card, a weapon and an adversary are not sections and saying
+ * `21 sections match` over a list holding two of each would be the same defect
+ * the questions clause exists to close, one collection further out. It is a
+ * clause of its own and not a sum because the bands are of their own: the
+ * sections are banded by *where in a section* the words landed and the rest by
+ * *what kind of thing* carried them, so one total over both would be a number
+ * the eye cannot find anywhere on the glass.
  */
-const spoken = (sections: number, asks: number): string => {
+const spoken = (sections: number, records: number, asks: number): string => {
   const found =
     sections === 0
       ? 'no section matches'
       : sections === 1
         ? '1 section matches'
         : `${String(sections)} sections match`;
-  if (asks === 0) return sections === 0 ? 'No section matches' : found;
-  return `${asks === 1 ? '1 question' : `${String(asks)} questions`} and ${found}`;
+  const base = asks === 0
+    ? (sections === 0 ? 'No section matches' : found)
+    : `${asks === 1 ? '1 question' : `${String(asks)} questions`} and ${found}`;
+  if (records === 0) return base;
+  const rest = records === 1 ? '1 elsewhere in the book' : `${String(records)} elsewhere in the book`;
+  return `${base}; ${rest}`;
 };
 
 /** What the three group headers say, and which hits belong under each. */
@@ -1008,14 +1029,48 @@ function useAskCatalogue(): readonly AskEntry[] {
 }
 
 /**
- * The hits, in `searchRules`' order, grouped by where they landed, one open.
+ * The hits, in the two searches' own order, grouped, one open.
  *
- * `dataset.rules` is read through a selector narrow enough to be the array
- * itself, so a layer that rewrites a rules section changes both what is found
- * and what is drawn, and nothing in this file holds a copy. It is read once
- * here and handed down rather than read again in every hit: a query that
- * matches half the SRD would otherwise open forty subscriptions to the store to
- * answer one question.
+ * The dataset is read once here and handed down rather than read again in every
+ * hit: a query that matches half the SRD would otherwise open forty
+ * subscriptions to the store to answer one question. It is the whole dataset
+ * rather than `dataset.rules` alone because the search now covers the whole of
+ * what the app ships, and a layer that rewrites *any* collection changes both
+ * what is found and what is drawn - nothing in this file holds a copy of
+ * either.
+ *
+ * ## Two searches, and which one gets the sections
+ *
+ * `searchRules` keeps the 69 rules sections and `searchSrd` takes the other
+ * 780, and that split is not bookkeeping. A rules hit can be **landed in**: the
+ * band promises a subhead or a line, `landingIn` finds where that line is drawn
+ * inside `ruleSection`'s blocks, and `BlockView` scrolls the GM to it and lights
+ * their words in it. All of that machinery is about a `SectionView`, which is
+ * what only a section has. A record has no blocks to land between - it is a
+ * handful of short fields drawn whole - so it gets the simpler row, and the
+ * section keeps the richer one it already had rather than being flattened down
+ * to meet it.
+ *
+ * The index is filtered rather than the hits, and one line of filter saves the
+ * expensive half of the work: searching all 849 would re-split the 100,165
+ * characters of section bodies on every keystroke to produce hits this
+ * component would then throw away.
+ *
+ * ## The bands, and why the book's rest gets its own
+ *
+ * IN THE TITLE / IN A HEADING / IN THE TEXT sort a section hit by *where in the
+ * section* the words landed, and they are untouched. The rest of the book is
+ * banded by **kind** - DOMAIN CARDS, ADVERSARIES, WEAPONS - which is the
+ * distinction its own hits make: a weapon and a domain card can share a name,
+ * and the band is what tells a GM which of the two a row is without opening it.
+ * Folding records into the three would have made IN THE TITLE hold both, and
+ * the one thing that row most needs to say would have needed saying again on
+ * every row.
+ *
+ * The kind bands stand below the section bands, in the dataset's own order.
+ * That is not a ranking and it is the same refusal `searchRules` makes: the
+ * sections are first because the search that reaches them is the one this
+ * surface was built around, and inside a band the order is the dataset's.
  */
 export function RuleSearchResults({
   query,
@@ -1033,8 +1088,16 @@ export function RuleSearchResults({
    */
   onQuery?: (next: string) => void;
 }): React.JSX.Element {
-  const rules = useApp((s) => s.dataset.rules);
+  const dataset = useApp((s) => s.dataset);
+  const rules = dataset.rules;
   const hits = useMemo(() => searchRules(rules, query), [rules, query]);
+  // The 780 the rules search cannot reach. See the header for why the index is
+  // filtered here rather than the hits it returns.
+  const beyondRules = useMemo(
+    () => srdIndex(dataset).filter((record) => record.kind !== 'rules'),
+    [dataset],
+  );
+  const found = useMemo(() => searchSrd(beyondRules, query), [beyondRules, query]);
   const catalogue = useAskCatalogue();
   const asked = useMemo(() => searchAsk(catalogue, query), [catalogue, query]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1067,7 +1130,7 @@ export function RuleSearchResults({
         prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {spoken(hits.length, asked.length)}
+        {spoken(hits.length, found.length, asked.length)}
       </span>
       {/*
         The honest silence, and it is now guarded on both lists rather than on
@@ -1080,11 +1143,12 @@ export function RuleSearchResults({
         direction - a query that finds sections and no question prints nothing
         about questions at all.
       */}
-      {hits.length === 0 && asked.length === 0 && (
+      {hits.length === 0 && asked.length === 0 && found.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
-          No rule in this dataset carries that. The search reads every section’s title, its
-          subheads and its whole text, and it asks for every word you typed; not one of those
-          words is in the rules the app is holding.
+          Nothing in this dataset carries that. The search reads every section’s title, its
+          subheads and its whole text, and the name and the words of every card, adversary,
+          environment and piece of gear the app ships; it asks for every word you typed, and not
+          one of those words is in the book the app is holding.
         </p>
       )}
       {asked.length > 0 && (
@@ -1130,7 +1194,173 @@ export function RuleSearchResults({
           </div>
         );
       })}
+      {SRD_KINDS.map((kind) => {
+        const inKind = found.filter((hit) => hit.kind === kind);
+        if (inKind.length === 0) return null;
+        return (
+          <div key={kind} className="stack" style={{ flex: 'none', gap: 10 }}>
+            <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+              {SRD_KIND_LABELS[kind]} · {inKind.length}
+            </span>
+            {inKind.map((hit) => {
+              // Keyed and opened on kind *and* id. Two collections of the
+              // dataset may spell an id the same way, and a single open hit
+              // shared with the sections and the questions above needs one key
+              // space: `weapon:dagger` cannot collide with a section called
+              // `dagger`, and an id on its own could.
+              const key = `${hit.kind}:${hit.id}`;
+              return (
+                <RecordHit
+                  key={key}
+                  hit={hit}
+                  // Resolved only for the row that is open, which is at most
+                  // one: a walk of 780 per row per keystroke would be paying
+                  // for twenty records to draw the fields of one.
+                  record={
+                    key === openId
+                      ? (beyondRules.find((r) => r.kind === hit.kind && r.id === hit.id) ?? null)
+                      : null
+                  }
+                  query={query}
+                  open={key === openId}
+                  onToggle={() => {
+                    setOpenId(key === openId ? null : key);
+                  }}
+                />
+              );
+            })}
+          </div>
+        );
+      })}
     </>
+  );
+}
+
+/**
+ * One record of the book beyond the rules: its name, its page, the line the
+ * query landed in, and - opened - its own words under the app's labels.
+ *
+ * ## Why this is not `Hit`
+ *
+ * `Hit`'s header is the same three lines and its button is the same 44px
+ * target, deliberately, because a GM should not be able to tell from the shut
+ * row that two different searches are behind the list. What it does not share
+ * is the open half: `Hit` resolves a `SectionView`, finds a landing inside it
+ * and scrolls the GM to their line. A record has nowhere to land - it is four
+ * to seven short fields drawn whole, and the whole of it is already on the
+ * glass when it opens - so the scroll, the `land` ref and `landingIn` have
+ * nothing to be pointed at, and a shared component carrying them would be
+ * carrying a branch that can never fire.
+ *
+ * ## Why not `DomainCardView`, `AdversaryBlock`, `EnvironmentBlock`
+ *
+ * The plan this part comes from counted four renderers that already draw these
+ * kinds and called the work an adapter. **Reading them, three of the four do
+ * not fit this surface, and the reason is the same in each case: they are not
+ * readers, they are the screens their own surface needs.** `EnvironmentBlock`
+ * requires `active` and `onToggle` and draws a SET ACTIVE button that writes to
+ * the GM session - a control this list has no business growing, and one that
+ * cannot exist at all on the Play screen part 2.2 moves this file to.
+ * `DomainCardView` draws a 322px illustrated card and decodes art for it; the
+ * column it would open into on Play is the one measurement the whole plan is
+ * still gated on, and dropping an unmeasured 322px into it is exactly the move
+ * the owner's readability constraint was written against. `AdversaryBlock` is
+ * the closest fit and drawing one kind through its own renderer while twelve go
+ * through another would be the fork this file's header spends a paragraph
+ * refusing.
+ *
+ * So every record opens the same way, through its own fields: the label in the
+ * app's ink and the book's words under it, marked with the same walk the
+ * preview line uses so the GM's words are lit where they landed. Those screens
+ * keep their renderers, the page stamp says where the rest of the record is
+ * printed, and the day 2.2 measures that column this is one dispatch away from
+ * changing its mind per kind.
+ */
+function RecordHit({
+  hit,
+  record,
+  query,
+  open,
+  onToggle,
+}: {
+  hit: SrdHit;
+  /**
+   * The record the hit came out of, for its fields. Null is unreachable while
+   * the hit came from the index this is handed, and drawn as nothing anyway:
+   * a layer can land between the click and the render.
+   */
+  record: SrdRecord | null;
+  query: string;
+  open: boolean;
+  onToggle: () => void;
+}): React.JSX.Element {
+  return (
+    <section
+      className="stack"
+      // The seam between a section and a record, and it is on the row for the
+      // same single reason `data-ask` is on a question row: three kinds of row
+      // share this shape and a `<button aria-expanded>`, and a test that could
+      // not tell them apart would count rows the rules search never produced
+      // and call it proof. It names the kind rather than being a bare flag
+      // because the kind is what the band above it says.
+      data-kind={hit.kind}
+      style={{ flex: 'none', gap: open ? 8 : 0 }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="stack"
+        style={{
+          flex: 'none',
+          minHeight: 44,
+          width: '100%',
+          gap: 3,
+          padding: '6px 2px',
+          textAlign: 'left',
+          alignItems: 'flex-start',
+        }}
+      >
+        <span className="row" style={{ width: '100%', gap: 8 }}>
+          <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+            <Marked found={preview(hit.name, query)} query={query} plate />
+          </span>
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
+            {stamp(hit.page)}
+          </span>
+        </span>
+        {hit.line !== null && (
+          <span className="t-dense" style={{ color: 'var(--muted)' }}>
+            <Marked found={preview(hit.line, query)} query={query} />
+          </span>
+        )}
+      </button>
+      {open && record !== null && (
+        <div className="stack" style={{ flex: 'none', gap: 10, padding: '0 2px 4px' }}>
+          {record.fields.map((f) => (
+            <div key={f.label} className="stack" style={{ flex: 'none', gap: 3 }}>
+              <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+                {f.label}
+              </span>
+              {f.lines.map((line, at) => (
+                <p
+                  // The book's own words are the only thing that could key
+                  // these, and a record may repeat a line - two of a class's
+                  // connection questions can be worded alike. The index is
+                  // built once per dataset and never reordered, so the position
+                  // is stable for as long as the list is.
+                  key={`${String(at)}:${line}`}
+                  className="t-body"
+                  style={{ margin: 0, maxWidth: '62ch', whiteSpace: 'pre-wrap' }}
+                >
+                  <Marked found={splitFirst(line, query)} query={query} />
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
