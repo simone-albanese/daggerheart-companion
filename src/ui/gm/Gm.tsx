@@ -134,6 +134,7 @@ import { Countdowns } from './Countdowns.tsx';
 import { Encounter } from './Encounter.tsx';
 import { GmBar, type GmSheetId } from './GmBar.tsx';
 import { GmSheet } from './GmSheet.tsx';
+import { SceneSwitcher } from './SceneSwitcher.tsx';
 import { GmTopBar } from './GmTopBar.tsx';
 import { REPLACED_ON_LOAD, retryGm, useGm, type GmRegion } from './gmStore.ts';
 import { MenuSheet } from './MenuSheet.tsx';
@@ -306,7 +307,19 @@ export function Gm(): React.JSX.Element {
         </div>
 
         {tool !== null && (
-          <GmSheet label={TOOL_LABEL[tool]} size="full" onClose={() => setTool(null)}>
+          <GmSheet
+            label={TOOL_LABEL[tool]}
+            size="full"
+            onClose={() => setTool(null)}
+            /*
+             * Only the runner, and only ever as the VISIBLE title - `label`
+             * stays the dialog's accessible name either way. The strip returns
+             * `null` when there is nothing to flip between, so a campaign with
+             * one scene keeps the word it has always had, and the other seven
+             * tools never see this prop at all.
+             */
+            title={tool === 'scene' ? <SceneSwitcher /> : undefined}
+          >
             {tool === 'encounter' && <Encounter phone={phone} />}
             {tool === 'scene' && <Scene phone={phone} />}
             {tool === 'party' && <PartyBoard phone={phone} />}
