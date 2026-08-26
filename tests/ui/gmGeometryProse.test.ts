@@ -567,6 +567,100 @@ function sheetPadX(file: string): number {
   return found[0]!;
 }
 
+const SCENE = 'src/ui/gm/Scene.tsx';
+
+/**
+ * A `.t-*` role's font size, off `tokens.css` rather than remembered.
+ *
+ * Every one of these roles declares `line-height` as a unitless number in the
+ * same `font:` shorthand, so a role at `/1` is as tall as this returns and a
+ * role at `/1.5` is that multiplied - which is the whole of the arithmetic the
+ * combatant card's docblock does with `.t-meta`.
+ */
+function roleSize(role: string): number {
+  const css = readFileSync('src/ui/tokens.css', 'utf8');
+  const at = css.indexOf(`.${role} {`);
+  if (at === -1) throw new Error(`\`tokens.css\` no longer declares a \`.${role}\` block`);
+  const found = /font: \d+ (\d+(?:\.\d+)?)px\//.exec(css.slice(at, at + 200));
+  if (found === null) {
+    throw new Error(
+      `\`.${role}\` no longer declares a \`font:\` shorthand with a px size, so nothing here can ` +
+        'say how tall one of its lines is.',
+    );
+  }
+  return Number.parseFloat(found[1]!);
+}
+
+/** The combatant card's own `gap` and `padding`, in that order. */
+const cardBox = (): number[] =>
+  decl(SCENE, /gap: (\d+),\s*padding: (\d+),\s*borderLeft:/g, "the combatant card's gap and padding");
+
+/** The extra border the card paints down its left edge, over `.panel`'s own. */
+const cardLeftBorder = (): number =>
+  only(SCENE, /borderLeft: `(\d+)px solid \$\{c\.spotlighted/g, "the card's left border");
+
+/** The counters grid's `auto-fit` track floor and its gap, in that order. */
+const countersGrid = (): number[] =>
+  decl(
+    SCENE,
+    /repeat\(auto-fit, minmax\((\d+)px, 1fr\)\)',\s*gap: (\d+),/g,
+    "the card's counters grid",
+  );
+
+/**
+ * The threshold band's two paddings: read-only y and x, then the Minion arm's.
+ *
+ * One declaration and one anchor, because they are one ternary. Reading the
+ * read-only arm alone would let the Minion arm be given a vertical padding
+ * without anything here noticing, and that arm's zero is exactly what makes the
+ * band its 44px target rather than 44 inside 16 of decoration.
+ */
+const bandPad = (): number[] =>
+  decl(
+    SCENE,
+    /padding: minions === undefined \? '(\d+)px (\d+)px' : '(\d+) (\d+)px',/g,
+    "the threshold band's two paddings",
+  );
+
+/** The band's vertical padding while it is only read. */
+const bandPadY = (): number => bandPad()[0]!;
+
+/** The flat floor the band's Minion `−` declares, and its width. */
+const minionStep = (): number[] =>
+  decl(
+    SCENE,
+    /aria-label="Decrease Minions standing"[\s\S]*?width: (\d+),\s*minHeight: (\d+),/g,
+    "the band's Minion stepper",
+  );
+
+/** The size of the number in the threshold band, at `.t-num`'s `line-height: 1`. */
+const bandNum = (): number =>
+  only(SCENE, /fontSize: (\d+) \}\}>\s*\{c\.difficulty\}/g, "the threshold band's number");
+
+/** The attack row's `gap`, its top border and its top padding, in that order. */
+const attackRow = (): number[] =>
+  decl(
+    SCENE,
+    /gap: (\d+), flexWrap: 'wrap', borderTop: '(\d+)px solid var\(--line-soft\)', paddingTop: (\d+)/g,
+    "the card's attack row",
+  );
+
+/**
+ * The attack bonus, the tallest thing on the attack row's first line.
+ *
+ * Anchored through `signed(adversary.attackBonus)` and not through the `font:`
+ * alone: the band's Minion readout declares the identical `800 17px/1
+ * var(--sans)`, so a bare font anchor stopped being unique the day that control
+ * moved into the band, and `decl()` said so by name rather than reading the
+ * wrong one.
+ */
+const attackBonus = (): number =>
+  only(
+    SCENE,
+    /font: '800 (\d+)px\/1 var\(--sans\)', fontVariantNumeric: 'tabular-nums' \}\}>\s*\{signed\(/g,
+    "the attack bonus's font size",
+  );
+
 describe('the GM screen states the geometry its own declarations make', () => {
   /*
    * The step is the whole of the list's arithmetic, and every term of it is
@@ -1076,6 +1170,256 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
+   * THE COMBATANT CARD, WHICH IS THE FIRST NUMBER ON THIS SCREEN WRITTEN DOWN
+   * AS A SUM AND SAID TO BE ONE.
+   *
+   * Everything else this file holds is a width, and a width can be checked
+   * against a browser. The card's shut height cannot: it was measured at
+   * "558.00" and "534.50" in Chrome BEFORE the fold, and nothing has been in
+   * front of a browser since. So `Scene.tsx` states 471.00 as arithmetic over
+   * nine terms, says in the same sentence that it is arithmetic, and this holds
+   * every one of the nine against the declaration that makes it. The moment a
+   * padding, a gap or a token moves, the sum goes red and somebody has to open
+   * Chrome instead of editing the sentence.
+   *
+   * WHAT MAKES THE 471.00 WORTH ASSERTING AT ALL is the other half of the same
+   * docblock: run over the card as it stood, the identical nine terms return
+   * both of Chrome's figures to the half pixel. That is not checkable here -
+   * the pre-fold card is gone - and it is not claimed here. What is claimed is
+   * that the terms the sentence names are the terms the file declares.
+   */
+  it('costs the shut combatant card every term its own sentence names', () => {
+    const said = says(
+      SCENE,
+      /\*\*The shut card is (\d+\.\d+) by declaration\*\*: (\d+) of `\.panel` border \+ (\d+) of the card's own `padding: (\d+)` \+ (\d+) of its five `gap: (\d+)` \+ (\d+) of header row \+ (\d+) of counters \+ (\d+) of threshold band \+ (\d+) of damage row \+ (\d+) of attack row \+ (\d+) of shut fold\./g,
+      "the shut card's height and the nine terms it adds up",
+    );
+    // Named off the enumeration rather than read as `said[7]` nine lines
+    // further down, because the failure this whole test exists to catch is a
+    // term quietly costed against the wrong declaration.
+    type Six = [number, number, number, number, number, number];
+    const [total, border, padding, padDecl, gaps, gapDecl] = said as [...Six, ...number[]];
+    const [header, counters, band, damage, attack, fold] = said.slice(6) as Six;
+
+    expect(
+      [gapDecl, padDecl],
+      'the card no longer declares the `gap` and `padding` this sum spends five and two of. Every ' +
+        'term below is measured inside them, so the whole sentence wants re-deriving.',
+    ).toEqual(cardBox());
+    expect(border, "the card's border is no longer twice `.panel`'s own").toBe(2 * panelBorder());
+    expect(padding, "the card's padding is no longer twice what it declares").toBe(2 * padDecl);
+    expect(
+      gaps,
+      'the shut card no longer has five gaps between six children, or the gap moved. Six is ' +
+        'header, counters, band, damage row, attack row and fold - and it is six for a Minion ' +
+        'group too, since the count moved into the band rather than taking a row.',
+    ).toBe(5 * gapDecl);
+    expect(
+      header,
+      'the header row is no longer the coarse floor SPOTLIGHT and the remove ✕ declare',
+    ).toBe(resolve('var(--control)', PHONE));
+    expect(
+      counters,
+      'the counters are no longer two `--counter-cell` rows and the grid gap between them. If ' +
+        'the grid started fitting two tracks this term halves, and the card got 98px shorter ' +
+        'without anybody measuring it.',
+    ).toBe(2 * resolve('var(--counter-cell)', PHONE) + countersGrid()[1]!);
+    expect(band, 'the threshold band is no longer its own padding around its own number').toBe(
+      2 * bandPadY() + bandNum(),
+    );
+    expect(damage, "the damage row is no longer APPLY's flat `var(--tap)` floor").toBe(
+      resolve('var(--tap)', PHONE),
+    );
+    const [attackGap, attackBorder, attackPadTop] = attackRow() as [number, number, number];
+    expect(
+      attack,
+      'the attack row is no longer its border, its top padding, the bonus, its wrap gap and the ' +
+        '`.t-meta` range line that `width: 100%` puts on a second line',
+    ).toBe(attackBorder + attackPadTop + attackBonus() + attackGap + roleSize('t-meta'));
+    expect(fold, "the shut fold is no longer `Fold`'s own `var(--tap)` header").toBe(
+      resolve('var(--tap)', PHONE),
+    );
+    expect(total, 'the shut card is no longer the sum of the nine terms beside it').toBe(
+      border + padding + gaps + header + counters + band + damage + attack + fold,
+    );
+
+    /*
+     * The measured panel, and the two arithmetic claims made against it. 498 is
+     * a rect out of Chrome and stays one; what is held is that the docblock's
+     * own margin and its own two-card refusal are that rect against the sum.
+     */
+    const room = says(
+      SCENE,
+      /(\d+\.\d+) against the (\d+) the panel scrolls, which is the goal this lane was given, with (\d+\.\d+) left over\./g,
+      'the margin the shut card leaves in the panel',
+    );
+    expect(room[0], 'the margin sentence no longer measures the same shut card').toBe(total);
+    expect(room[2], 'the margin is no longer the panel less the shut card').toBe(room[1]! - total);
+
+    const two = says(
+      SCENE,
+      /2 x (\d+\.\d+) plus the grid's (\d+)px gap is (\d+\.\d+) against (\d+)\./g,
+      'the two-card refusal',
+    );
+    expect(two[0], 'the two-card refusal no longer costs the same shut card').toBe(total);
+    expect(two[1], "the cards grid no longer declares the gap this sentence puts between them").toBe(
+      declared(SCENE, 'gridTemplateColumns: phone ?', 'gap'),
+    );
+    expect(two[2], 'two cards and a gap are no longer what this sentence adds them to').toBe(
+      2 * total + two[1]!,
+    );
+    expect(two[3], 'the two-card refusal measures against a panel the margin sentence does not').toBe(
+      room[1],
+    );
+
+    /*
+     * The pre-existing half, which is the reason this was a fold and not a
+     * revert: the damage field's own row plus the card's gap is the 54 that
+     * took a 6px overflow to 60. Both retired heights are quoted records, so
+     * `claims()` cannot see them; `prose()` can, and this is the one place that
+     * checks the record is still arithmetic and not a remembered number.
+     */
+    const before = says(
+      SCENE,
+      /the card measured "(\d+\.\d+)", which was already (\d+)px past the panel\. The field and the card's gap above it added (\d+) and took the overflow from (\d+) to (\d+)\./g,
+      'what the damage field added to a card that was already over',
+    );
+    expect(before[2], 'the damage field and the gap above it no longer add up to what is stated').toBe(
+      resolve('var(--tap)', PHONE) + gapDecl,
+    );
+    expect(before[3], 'the record disagrees with itself about the overflow before the field').toBe(
+      before[1],
+    );
+    expect(before[4], 'the overflow after the field is no longer the one before it plus the row').toBe(
+      before[1]! + before[2]!,
+    );
+    expect(before[0], 'the retired pre-field height is no longer the panel plus its own overflow').toBe(
+      room[1]! + before[1]!,
+    );
+  });
+
+  /*
+   * The single largest term on that card, and the one a reader will disbelieve:
+   * two counters cost 188 and not 90, because the grid cannot fit two tracks in
+   * the column the card leaves. Held as the premise rather than as the 188,
+   * because the 188 is a consequence and the premise is what would move.
+   */
+  it('states the column that makes the card stack its two counters', () => {
+    const said = says(
+      SCENE,
+      /is `repeat\(auto-fit, minmax\((\d+)px, 1fr\)\)` with `gap: (\d+)` in a (\d+)px column, and two (\d+)px tracks plus that gap want (\d+)\./g,
+      'the counters grid and the column it cannot fit two tracks in',
+    );
+    expect(
+      [said[0], said[1]],
+      'the counters grid no longer declares the track floor and gap this sentence reads',
+    ).toEqual(countersGrid());
+    expect(
+      said[2],
+      "the card's inner column is no longer the glass less the sheet's border, the region's " +
+        "padding, the card's two borders and its own padding. Every character budget in this " +
+        'file and the line count of the motives are measured in it.',
+    ).toBe(
+      PHONE.glass -
+        2 * sheetBorder() -
+        2 * regionPadX(SCENE, 'minHeight: 0, gap: 10, padding: phone ?') -
+        (cardLeftBorder() + panelBorder()) -
+        2 * cardBox()[1]!,
+    );
+    expect(said[3], 'the sentence names a track width the grid does not declare').toBe(said[0]);
+    expect(said[4], 'two tracks and the gap are no longer what this sentence adds them to').toBe(
+      2 * said[0]! + said[1]!,
+    );
+    expect(
+      said[4]! > said[2]!,
+      'two tracks now FIT the column, so `auto-fit` gives the card one row of counters instead ' +
+        'of two and the shut card is 98px shorter than its own docblock says. That is the good ' +
+        'direction and it still wants measuring rather than editing.',
+    ).toBe(true);
+  });
+
+  /*
+   * THE ONE CARD THE OWNER MOVED A CONTROL FOR, AND THE ONE FIGURE HERE THAT
+   * CHROME HAS NOT SEEN.
+   *
+   * A Minion group used to draw the count on a row of its own and land at
+   * "541.00", 43 past the panel. The count is in the band now, so the whole of
+   * the difference from an ordinary card is the band's two arms - 8 + 15 + 8
+   * read-only against a flat 44 with the control in it - and that difference is
+   * 13. Every term of that is a declaration, which is the only reason a number
+   * nobody has measured is allowed to be written down at all.
+   *
+   * The 471.00 it is added to had been measured when this was written and the
+   * 484.00 had not, and the wager was stated here: if the rig came back with
+   * anything but 484.00, the arithmetic was wrong and not the browser. It came
+   * back with 484.00, on 2026-08-26, on all four cards of a seeded group of
+   * Giant Rats. This assertion is therefore no longer holding an unmeasured
+   * figure honest - it is holding a measured one to the terms it is made of, so
+   * that a term moving under it goes red here rather than silently.
+   */
+  it("costs the Minion group its band arm, and nothing else on the card", () => {
+    const said = says(
+      SCENE,
+      /A Minion group's band is the other arm: `padding: '(\d+) (\d+)px'` around the flat (\d+) its `−` and `\+` declare, where an ordinary card's is (\d+) \+ (\d+) \+ (\d+)\. So the band grows by (\d+) and nothing else on the card moves: \*\*a Minion group's shut card is (\d+\.\d+) by the same declarations, (\d+\.\d+) inside the panel\.\*\*/g,
+      "the Minion group's shut card and the band arm it is made of",
+    );
+    const pad = bandPad();
+    expect(
+      [said[0], said[1]],
+      'the band no longer declares this padding on the arm that carries the Minion count. A ' +
+        'vertical padding here would put the 44px target inside decoration and take the card ' +
+        'straight back over the panel.',
+    ).toEqual([pad[2], pad[3]]);
+    expect(
+      said[2],
+      "the band's Minion `−` no longer declares the flat floor this sentence reads. It is the " +
+        "band's whole height on that arm, so a floor set in a token or a class is a height " +
+        'nothing here can check.',
+    ).toBe(minionStep()[1]);
+    expect(
+      [said[3], said[5]],
+      "the read-only arm's vertical padding moved, so the 13 the band grows by is stale",
+    ).toEqual([bandPadY(), bandPadY()]);
+    expect(said[4], 'the band no longer draws its numbers at the size this sentence reads').toBe(
+      bandNum(),
+    );
+    expect(said[6], 'the band arm no longer grows by the difference between its own two arms').toBe(
+      said[2]! - (said[3]! + said[4]! + said[5]!),
+    );
+    const ordinary = stated(SCENE, /\*\*The shut card is (\d+\.\d+) by declaration\*\*/g)[0]!;
+    const panel = stated(SCENE, /the scrollable panel is (\d+)px/g)[0]!;
+    expect(said[7], "a Minion group's shut card is no longer the ordinary one plus that arm").toBe(
+      ordinary + said[6]!,
+    );
+    expect(
+      said[8],
+      'the room a Minion group leaves is no longer that card against the measured panel',
+    ).toBe(panel - said[7]!);
+    expect(
+      said[7]! < panel,
+      "a Minion group's shut card is over the panel again. Say the figure in the docblock rather " +
+        'than deleting this assertion - a card that overflows in silence is the defect this ' +
+        'whole corner of the file exists for.',
+    ).toBe(true);
+  });
+
+  /*
+   * The Minion stepper's two buttons, held at the floor rather than at a token.
+   * `Stepper` in `Encounter.tsx` draws the same shape at `var(--control)`, which
+   * is 34 on a fine pointer; the band's copy is a flat 44 for END SCENE's stated
+   * reason, and the band's height is that number.
+   */
+  it('keeps the band\'s Minion stepper at the touch floor, in both axes', () => {
+    const [width, floor] = minionStep() as [number, number];
+    const tap = resolve('var(--tap)', PHONE);
+    expect(
+      [width, floor],
+      "the band's Minion stepper went under the touch floor. Height is also the band's height " +
+        'here, so shrinking it is how a card gets shorter by making a target smaller.',
+    ).toEqual([tap, tap]);
+  });
+
+  /*
    * The retired claims, in the whole corner rather than in the three files the
    * measurement pointed at. Every one of these was true of no build and each
    * outlived at least one commit that corrected it somewhere else.
@@ -1089,7 +1433,9 @@ describe('the GM screen states the geometry its own declarations make', () => {
    * because it is what somebody reads while working out why a test failed.
    *
    * The name over this scan is scoped to the array under it. It read "no file
-   * in `src` or `tests` has gone back to ..." and the array is ten named files,
+   * in `src` or `tests` has gone back to ..." and the array is twelve named
+   * files - "ten" when that sentence was written, plus `Scene.tsx` and
+   * `sceneTruth.test.tsx`, which the card's retired heights brought in -
    * which is the same overstatement the header of this file already retired
    * under "How wide the sweep behind this file actually is" - a claim about the
    * tree standing in for a claim about a list. It was repaired in the prose and
@@ -1175,6 +1521,22 @@ describe('the GM screen states the geometry its own declarations make', () => {
     // `/660 against/` when it was planted, and the 369 in this row's name is
     // deliberately not part of the pattern.
     ['660 against a 369px column', /\b660(?!\d)/],
+    // The three heights the fold retired, and the card is in the array below so
+    // that this row has somewhere to look. All three are Chrome rects of a card
+    // that no longer exists: "558.00" and "534.50" are the Acid Burrower and
+    // the Bear before the fold, "504.00" is the same card before the damage
+    // field. `Scene.tsx` keeps all three inside double quotes, where they are
+    // the record that makes the fold a fix rather than a preference - the 504
+    // in particular is the whole proof the defect predates the field it was
+    // found on - and where `claims()` cannot see them.
+    //
+    // Bare, and for the 301 and 660 rows' stated reason rather than by
+    // analogy: none of the three digits occurs anywhere in the twelve files
+    // this scan reads, so an unquoted one is the regression and there is no
+    // right sentence for a wider pattern to retire. The half pixel is left off
+    // `534` on purpose - a regression is as likely to write `534` or `534px`
+    // as `534.50`, and 534 is no more live in these files than 534.50 is.
+    ['the card heights the fold retired', /\b558(?!\d)|\b534(?!\d)|\b504(?!\d)/],
   ])('no file this scan lists has gone back to %s', (_what, pattern) => {
     const files = [
       'src/ui/gm/SessionList.tsx',
@@ -1184,6 +1546,8 @@ describe('the GM screen states the geometry its own declarations make', () => {
       'src/ui/gm/GmTopBar.tsx',
       'src/ui/shell/App.tsx',
       'src/ui/gm/useSessionDrag.ts',
+      'src/ui/gm/Scene.tsx',
+      'tests/gm/sceneTruth.test.tsx',
       'tests/gm/sessionList.test.tsx',
       'tests/gm/gmShell.test.tsx',
       'tests/gm/sessionDrag.test.tsx',
