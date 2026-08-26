@@ -288,6 +288,7 @@ const spread = (c: Campaign): GmLive => ({
   adjustments: c.board.adjustments,
   combatants: c.board.combatants,
   environmentRef: c.board.environmentRef,
+  liveScene: c.board.liveScene,
   fear: c.fear,
   session: c.session,
   party: c.party,
@@ -308,6 +309,7 @@ const gather = (base: Campaign, live: GmLive, at: string): Campaign => ({
     adjustments: live.adjustments,
     combatants: live.combatants,
     environmentRef: live.environmentRef,
+    liveScene: live.liveScene,
   },
 });
 
@@ -860,6 +862,11 @@ export const useGm = create<GmState>((set, get) => {
             // is added, and the countdown that matters gets pinned instead.
             collapsed: true,
             primary: false,
+            // The campaign's, like every clock ADD mints. Scope is chosen on
+            // the row afterwards, for the reason this literal's own note
+            // gives about the triad: a default written in two places is one
+            // that goes stale in the place nobody reads.
+            sceneId: null,
             // The item's id and the countdown's are the same on purpose: every
             // screen that has ever drawn a countdown holds the countdown's id,
             // and a second identifier would be a second thing to keep in step.

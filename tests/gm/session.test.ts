@@ -82,7 +82,7 @@ describe('the name a row draws', () => {
       { ...base({ name: '' }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
       { ...base({ name: '' }), kind: 'encounter', roster: [], adjustments: { easier: false, harder: false, damageBump: false }, combatants: [] },
       { ...base({ name: '' }), kind: 'link', target: { kind: 'rule', ref: 'x' } },
-      { ...base({ name: '' }), kind: 'countdown', primary: false, countdown: { id: 'c', name: '', kind: 'standard', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ name: '' }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c', name: '', kind: 'standard', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ name: '' }), kind: 'url', href: 'https://a.example/' },
       { ...base({ name: '' }), kind: 'note', note: [] },
       { ...base({ name: '' }), kind: 'unreadable', why: 'why', raw: '{}' },
@@ -225,6 +225,7 @@ describe('what a shut row says about itself', () => {
       ...base(),
       kind: 'countdown',
       primary: false,
+      sceneId: null,
       countdown: { id: 'c', name: 'The ritual completes', kind: 'dynamic', start: 6, value, notes: '', ...NO_CLOCK_PROSE },
     });
     expect(describe_(at(4))).toBe('4/6');

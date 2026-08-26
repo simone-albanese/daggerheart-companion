@@ -114,6 +114,7 @@ const clock = (id: string, name: string, kind: Countdown['kind'], value = 6): Se
   order: 0,
   collapsed: false,
   primary: false,
+  sceneId: null,
   countdown: { id, name, kind, start: 6, value, notes: '', ...NO_CLOCK_PROSE },
 });
 

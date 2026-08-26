@@ -98,7 +98,7 @@ import {
   type Tier,
 } from './types.ts';
 
-export const CAMPAIGN_SCHEMA_VERSION = 3;
+export const CAMPAIGN_SCHEMA_VERSION = 4;
 
 /**
  * The lowest campaign schema any build has ever written.
@@ -112,17 +112,22 @@ export const CAMPAIGN_SCHEMA_VERSION = 3;
  * campaign already in an IndexedDB and every `.dhcampaign` already on a disk is
  * a schema-1 or schema-2 record, and 1 is precisely the version the chain below
  * still starts from.
+ *
+ * It stays 1 across the bump to 4 as well. Nothing older than 1 exists, and no
+ * schema-1 field changes in that bump either - the two fields it adds are new
+ * ones, and both readers below supply `null` for them.
  */
 export const OLDEST_READABLE_CAMPAIGN = 1;
 
 /**
  * The chain, one entry per campaign schema this build has left behind.
  *
- * **Both entries are deliberately empty of work, and that is the point rather
- * than an omission.** A converter in this chain exists to make an *older* build
- * refuse a record it would otherwise truncate in silence - not to repair
- * anything wrong with the record. In both bumps there is no field to rename and
- * none to drop, so the honest converter is the one that copies and says why.
+ * **All three entries are deliberately empty of work, and that is the point
+ * rather than an omission.** A converter in this chain exists to make an
+ * *older* build refuse a record it would otherwise truncate in silence - not to
+ * repair anything wrong with the record. In all three bumps there is no field
+ * to rename and none to drop, so the honest converter is the one that copies
+ * and says why.
  *
  * The 2 -> 3 entry carries the larger hazard of the two, and it is worth being
  * exact about what a schema-2 build would do to a schema-3 campaign if the
@@ -172,6 +177,30 @@ export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
      * both new campaign arrays. Seeding them here as well would put the default
      * in two places, and the one in the converter would be the one nobody
      * notices has gone stale.
+     */
+    apply: (r) => ({ ...r }),
+  },
+  {
+    from: 3,
+    note: 'the board gained the scene its fight came from, and a countdown row gained the scene it belongs to; no schema-3 field changed',
+    /*
+     * A copy, for the reason the two entries above give at length, and seeding
+     * nothing for the reason the `from: 2` entry gives: the readers below
+     * already supply `null` for both new fields on the way in, and a default
+     * written here as well is the one nobody notices has gone stale.
+     *
+     * What a schema-3 build would do to a schema-4 campaign, if the number had
+     * not moved, is the hazard this entry exists for - and it is *not* the
+     * hazard the entry above describes. A schema-3 build reads `board` field by
+     * field (`readCampaignRecord` names its own keys) and reads each session
+     * item through `readSessionItem`, which does the same. So it would not
+     * fail: it would drop `board.liveScene` and every row's `sceneId` in
+     * silence, `hydrateGm` would push the reading into `scheduleAside`, and
+     * `writeAside` would persist the truncation on the next 400 ms save. The
+     * GM would come back to a parked fight that belongs to no row and a set of
+     * scene clocks that are all the campaign's again. `checkReadable` turns
+     * that into a sentence asking them to update, which is the whole job of
+     * the number.
      */
     apply: (r) => ({ ...r }),
   },
@@ -364,7 +393,28 @@ export type SessionItem =
       combatants: SceneCombatant[];
     })
   | (SessionItemBase & { kind: 'link'; target: LinkTarget })
-  | (SessionItemBase & { kind: 'countdown'; countdown: Countdown; primary: boolean })
+  | (SessionItemBase & {
+      kind: 'countdown';
+      countdown: Countdown;
+      primary: boolean;
+      /**
+       * The scene row this clock belongs to, or null for the campaign's own.
+       *
+       * On the ROW, beside `primary`, and never a `countdowns: Countdown[]` on
+       * the scene row: `countdownsOf`'s docblock refuses the second array by
+       * name, and a clock is a plan row with a home already. (`combatants` on
+       * the scene row is not the same case - combatants are not plan rows and
+       * have no other home.) Not on `Countdown` in `shared/types.ts` either:
+       * `primary` is up here for the same reason, and the two are repaired
+       * together by `readCampaignRecord`.
+       *
+       * INVARIANT: `sceneId !== null` implies `primary === false`. A clock
+       * cannot be both pinned to the top bar - which is the campaign's - and
+       * owned by one scene. It is enforced by the two total writers below and
+       * by the reader's repair pass, never by a convention the UI remembers.
+       */
+      sceneId: string | null;
+    })
   /**
    * A link out of the app. Backlog item 12.
    *
@@ -505,6 +555,27 @@ export interface GmBoard {
   adjustments: EncounterAdjustments;
   combatants: SceneCombatant[];
   environmentRef: Ref | null;
+  /**
+   * The session row this fight came from, or null when it came from nowhere.
+   *
+   * Not derivable. `spawn` scans for a free index over the board's own
+   * combatants only, so the dungeon and the forest can both hold
+   * `acid-burrower-0` and an id intersection is ambiguous by construction. It
+   * is a `GmBoard` field and not a flag on the row because `GmLive` is exactly
+   * `GmBoard` plus four, and `spread`/`gather` carry `GmBoard`'s fields and
+   * nothing else. A `live: boolean` on the row would need a dedupe pass on
+   * read, the way `primary` does below, and would need this same schema bump
+   * anyway.
+   *
+   * NOT the `board.region` exemption argued further down. That exemption
+   * bounds itself - "whether they are widening THIS field or a different
+   * one" - and this is a different one.
+   *
+   * Never an index into `session`. `readCampaignRecord` re-sorts by `order`
+   * and renumbers on every load, so `order` is not stable identity across a
+   * reload and only `id` is.
+   */
+  liveScene: string | null;
 }
 
 /**
@@ -603,6 +674,7 @@ export const emptyBoard = (): GmBoard => ({
   adjustments: { easier: false, harder: false, damageBump: false },
   combatants: [],
   environmentRef: null,
+  liveScene: null,
 });
 
 export function newCampaign(name: string, at: string, id: string): Campaign {
@@ -650,10 +722,19 @@ export const primaryCountdownOf = (session: readonly SessionItem[]): Countdown |
  * from anywhere. Passing an id that is not a countdown clears the flag from
  * all of them, which is the honest reading of "make that one primary" when
  * that one cannot be.
+ *
+ * A clock that belongs to a scene cannot become the primary one, and the
+ * refusal is silent for the same reason: the top bar is the campaign's, so
+ * "make that one primary" when that one is a scene's clock is another id this
+ * writer cannot honour, and it clears the flag from all of them rather than
+ * pretending. It is the same reading as the sentence above, applied to a
+ * second way of being ineligible.
  */
 export const withPrimaryCountdown = (session: SessionItem[], id: string | null): SessionItem[] =>
   session.map((item) =>
-    item.kind === 'countdown' ? { ...item, primary: item.id === id } : item,
+    item.kind === 'countdown'
+      ? { ...item, primary: item.sceneId === null && item.id === id }
+      : item,
   );
 
 // ---------------------------------------------------------------------------
@@ -1160,6 +1241,14 @@ function readSessionItem(
         kind: 'countdown',
         countdown: readCountdown(r['countdown'], base.id, base.name),
         primary: bool(r['primary']),
+        /*
+         * `null` for a schema-3 row, which carried no scope at all - a clock
+         * written before the bump is the campaign's, which is what every one
+         * of them was. Whether the id names a row that still exists is not
+         * decided here: this function reads one item and cannot see the list.
+         * `readCampaignRecord` answers that, once, for both pointers.
+         */
+        sceneId: typeof r['sceneId'] === 'string' ? r['sceneId'] : null,
       };
     case 'url': {
       /*
@@ -1303,15 +1392,55 @@ export function readCampaignRecord(
   }
 
   /*
+   * Two pointers into this list, answered together.
+   *
+   * `board.liveScene` and a countdown row's `sceneId` both name a row by id,
+   * and both are reachable dangling: a hand-edited file, a row deleted by a
+   * build that did not know about the pointer, two builds writing one
+   * campaign. ONE pass rather than an `if` beside each field, because the
+   * third pointer is coming - an archived sitting's source, a nested row's
+   * parent - and three policies in three places is how they diverge.
+   *
+   * DEGRADE, NEVER VANISH: a clock whose scene is gone becomes the campaign's,
+   * visible everywhere, which is `readLinkTarget`'s `unknown` policy and
+   * `Countdown.owner`'s.
+   *
+   * The set is EVERY row's id, not every scene row's. An `unreadable` row
+   * keeps its id precisely so a build that cannot parse it still cannot lose
+   * it; nulling a pointer at one, and letting `writeAside` write that back, is
+   * how that arm's whole purpose gets defeated.
+   */
+  const rowIds = new Set(session.map((i) => i.id));
+  const scoped = session.map((item) => {
+    if (item.kind !== 'countdown' || item.sceneId === null) return item;
+    if (!rowIds.has(item.sceneId)) {
+      warn('a countdown belonged to a scene this campaign no longer has, so it is the campaign’s again');
+      return { ...item, sceneId: null };
+    }
+    if (item.primary) {
+      warn('a countdown was both pinned to the top bar and given to a scene, so the pin was cleared');
+      return { ...item, primary: false };
+    }
+    return item;
+  });
+
+  /*
    * At most one primary countdown, decided here rather than trusted.
    *
    * Two rows both claiming to be the one the GM is watching is not a state any
    * screen can draw honestly, and it is reachable from a hand-edited file or
    * from two builds writing the same campaign. The first in list order wins,
    * which is at least stable across reads.
+   *
+   * **It runs on `scoped`, and the order is not a preference.** The dedupe
+   * keeps the FIRST primary row in array order and clears every later one. If
+   * that first row is one a scene owns, deduping first would keep it and clear
+   * a legitimate pin further down - and then the scope repair would clear the
+   * first one too. Zero primary rows, an empty top bar, and the GM's real pin
+   * destroyed. So: strip the scoped primaries, then dedupe what is left.
    */
   let seenPrimary = false;
-  const deduped = session.map((item) => {
+  const deduped = scoped.map((item) => {
     if (item.kind !== 'countdown' || !item.primary) return item;
     if (seenPrimary) {
       warn('more than one countdown was marked as the primary one, so only the first was kept');
@@ -1331,6 +1460,20 @@ export function readCampaignRecord(
   const board = isRecord(record['board']) ? record['board'] : {};
   const region = board['region'];
   const tier = Math.round(num(board['partyTier'], 1));
+
+  /*
+   * The second pointer, answered by the same set and the same policy.
+   *
+   * A board whose row is gone belongs to no row - it is not emptied. The fight
+   * on the glass is what the GM is playing, and losing it because the plan row
+   * behind it was deleted is exactly the silent loss this pass exists to
+   * refuse. It gets a home again the next time a scene is run.
+   */
+  const rawLive = board['liveScene'];
+  const liveScene = typeof rawLive === 'string' && rowIds.has(rawLive) ? rawLive : null;
+  if (typeof rawLive === 'string' && liveScene === null) {
+    warn('the fight on the board came from a scene this campaign no longer has, so it belongs to no row');
+  }
 
   const campaign: Campaign = {
     id,
@@ -1362,6 +1505,7 @@ export function readCampaignRecord(
       combatants: readCombatants(board['combatants']),
       environmentRef:
         typeof board['environmentRef'] === 'string' ? board['environmentRef'] : null,
+      liveScene,
     },
   };
 

@@ -140,6 +140,7 @@ const countdownRow = (id: string, name: string, primary: boolean): SessionItem =
   order: 0,
   collapsed: true,
   primary,
+  sceneId: null,
   countdown: { id, name, kind: 'standard', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
 });
 

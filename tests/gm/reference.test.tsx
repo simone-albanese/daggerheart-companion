@@ -498,6 +498,7 @@ describe('the advancement chart, on a dynamic countdown', () => {
     order: 0,
     collapsed: true,
     primary: false,
+    sceneId: null,
     countdown: { id: 'c1', name: 'The ritual', kind, start: 6, value, notes: '', ...NO_CLOCK_PROSE },
   });
 
