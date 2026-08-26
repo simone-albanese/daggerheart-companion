@@ -1,0 +1,533 @@
+[
+ {
+  "verdict": "NO — the test cannot ship as written, and it fails on day one on eight rows, not on one awkward row. But the ballot understates the problem in one direction and overstates it in another, and it misses the artifact that already answers most of the question.\n\nWHAT BELONGS TO NOTHING (8 declared): introduction (0), ranger-companion (6), multiclassing (32), running-an-adventure (34), gm-guidance (35), additional-gm-guidance (57), preparing-combat-encounters (59), campaign-frames (68). I checked every body: all eight readings hold up. adversary-stat-block-benchmarks (54) is a ninth by evidence — its body is literally four table rows and a header with ZERO prose — but see finding 8, shipped code contradicts emptying it.\n\nWHAT BELONGS ONLY BY A STRETCH (20 more, each self-flagged by the ballot): the-basics (1), the-golden-rule (2), character-creation (4), leveling-up-your-companion (9), flow-of-the-game (10), player-principles-and-best-practices (11), core-gameplay-loop (12), additional-rules (30), leveling-up (31), gold (33), gm-principles (36), giving-out-gold-equipment-and-loot (47), npc-feature-examples (49), example-adversary-features (52), adversary-stat-block-benchmarks (54), adapting-environments (56), story-beats (58), battles-and-narrative (60), engaging-your-players (63), phased-battles (64). So 28 of 69 rows (41%) are either empty or conditional on a decision the ballot hands back. A test whose pass/fail boundary moves on 41% of its input is not a rot test; it is a poll.\n\nTHE THING THE BALLOT MISSED: tests/gm/ask.test.ts already ships MID_SCENE — 35 of the 69 ids, with a written three-question criterion (\"Is the thing it answers *happening*? Is it the GM's to answer? Would they open it *now*, or later?\"), an owner-correction protocol (DECISIONI-2026-08-25 §5), and three pinned assertions (names exist, length is 35, dataset is 69). It even names three of the close calls by hand. The owner has already made 69 of these calls once. The ballot does not cite it, agrees with it in one crucial place, and collides with it in two others.\n\nWHAT THE OWNER MUST CHOOSE. Four options, in ascending cost:\n\n(A) SCOPE THE TEST TO THE LIST THAT ALREADY EXISTS — \"every MID_SCENE section belongs to at least one moment.\" I ran it: zero of the eight orphans is in MID_SCENE, so this ships GREEN today on this exact ballot, with zero new owner decisions. It is the only option that costs nothing. Its weakness is that it says nothing about the other 34 sections, and it creates a second per-section judgement that can drift from the first — so it must live in tests/gm/ask.test.ts beside MID_SCENE, not in src, and it needs the cross-assertion in finding 7.\n\n(B) A SEVENTH MOMENT — and it is two chips, not one. PREP (running-an-adventure, gm-guidance, additional-gm-guidance, preparing-combat-encounters, npc-feature-examples, example-adversary-features, adversary-stat-block-benchmarks, battles-and-narrative, plus the prep halves of gm-principles, building-balanced-encounters, adapting-environments, story-beats, engaging-your-players) and SESSION ZERO / MY SHEET (introduction, the-basics, the-golden-rule, character-creation, ranger-companion, leveling-up-your-companion, leveling-up, multiclassing, campaign-frames). One chip cannot hold both; the ballot's own notes name them separately (\"SESSION ZERO / MY SHEET\" at row 4, \"there is no PREP moment\" at rows 49/54). And neither takes running-an-adventure / gm-guidance / additional-gm-guidance, which are dividers, not prep. So a seventh chip clears 5 of 8 orphans; a seventh AND eighth clears 5 of 8. Cost is three shipped assertions and a Chrome re-measure — see finding 3.\n\n(C) AN EXPLICIT OPT-OUT, BY PREDICATE NOT BY NAME — the ballot's \"divider\" class is real and mechanically detectable: running-an-adventure, gm-guidance, additional-gm-guidance are the only three sections whose entire body forward-references other sections (\"This section provides you with advice for running Daggerheart:…\", \"These three sections provide a foundation…\", \"This section provides additional guidance for preparing and running a session\"), all ≤337 chars, all with no `##`. A predicate exemption clears 3 of 8. It does not touch introduction (1412 chars, has a `##`), ranger-companion, multiclassing, preparing-combat-encounters or campaign-frames.\n\n(D) THE WEAKER TEST — fails on a section that belongs to nothing AND is not on an opt-out list. This is (A)+(C) and it is the honest one, but only if the opt-out is written as a `NO_MOMENT` array of exactly those 8 ids with one line of reason each, pinned in the test file the way MID_SCENE is, plus the assertion `NO_MOMENT ∩ MID_SCENE === []` (green today) so the two judgements cannot silently diverge. Without that intersection assertion, an opt-out list is a place to hide rows the owner did not want to decide.\n\nI would ship (A) now and (D) when the section→moments map is written, and I would refuse (B) until someone re-measures the sheet in Chrome.\n\nONE MORE THING THE OWNER MUST SETTLE BEFORE THE TEST IS WRITTEN AT ALL: §2.3 says the moments are extended \"a tutto il corpus\" and lists `srdIndex.ts` — the unified all-records index — as one of its three production files, while §6 question 3 asks who writes membership \"per le 69 sezioni\". If the test walks `rules` it walks 69; if it walks the index 2.1 built, it walks 849, and 780 records (204 weapons, 189 domain cards, 129 adversaries, 60 loot, 60 consumables, 34 armors, 22 beastforms, 19 environments, 18 ancestries, 18 subclasses, 27 classes/communities/domains) have no ballot at all. This ballot answers a question about 8% of what part 2.1 puts in the haystack.",
+  "findings": [
+   {
+    "kind": "test-cannot-ship",
+    "detail": "The test fails on eight rows on day one, and the ballot's own count understates the exposure. Eight sections carry `moments: []`. Twenty more are self-flagged as could-be-empty or one-clause-only — the ballot writes \"this is an orphan\" (1), \"Member or orphan\" (2), \"Possible orphan by redundancy\" (10), \"the row I most expect you to overrule to empty\" (12), \"second row to empty after multiclassing\" (31), \"this becomes a second orphan\" (33), \"a third orphan in this range\" (36), \"its honest reach is prep, not a moment\" (49), \"a menu written for prep\" (52), \"consider shipping it empty\" (54), \"this becomes an orphan\" (58), \"either both orphans\" (60), \"this row is really the table and not the section\" (63). 28 of 69 rows are either empty or conditional. Verified: I loaded the ballot against data/srd-1.0.json and the 69 ids match the dataset in order, so the walk is well-defined; it is the membership that is not.",
+    "sections": [
+     "introduction",
+     "ranger-companion",
+     "multiclassing",
+     "running-an-adventure",
+     "gm-guidance",
+     "additional-gm-guidance",
+     "preparing-combat-encounters",
+     "campaign-frames",
+     "the-basics",
+     "the-golden-rule",
+     "character-creation",
+     "leveling-up-your-companion",
+     "flow-of-the-game",
+     "player-principles-and-best-practices",
+     "core-gameplay-loop",
+     "additional-rules",
+     "leveling-up",
+     "gold",
+     "gm-principles",
+     "giving-out-gold-equipment-and-loot",
+     "npc-feature-examples",
+     "example-adversary-features",
+     "adversary-stat-block-benchmarks",
+     "adapting-environments",
+     "story-beats",
+     "battles-and-narrative",
+     "engaging-your-players",
+     "phased-battles"
+    ]
+   },
+   {
+    "kind": "test-cannot-ship",
+    "detail": "The repo already shipped the decision the ballot asks the owner to make, and the ballot never cites it. tests/gm/ask.test.ts carries `MID_SCENE`, 35 of the 69 ids, under a written criterion — \"A mid-scene section is one a GM opens *during* a scene, with their hands busy and people waiting\" — with three questions to decide each line, an owner-correction protocol (DECISIONI-2026-08-25 §5), and three pinned assertions (`MID_SCENE` names only real ids; `toHaveLength(35)`; `rules` `toHaveLength(69)`). I computed the intersection: NONE of the eight ballot orphans is in MID_SCENE. So the test 'every MID_SCENE section belongs to at least one moment' is GREEN TODAY on this exact ballot, with zero new owner decisions. That is the version that can ship this week; 'every section' is the version that cannot. The docblock even pre-answers the between-scenes objection: \"`downtime` is out… downtime is between scenes rather than inside one, and §4's own sixth chip is BETWEEN SCENES\" — so the repo already knows the six chips are wider than the mid-scene list.",
+    "sections": [
+     "downtime",
+     "using-downtime",
+     "projects-during-downtime",
+     "extended-downtime",
+     "session-rewards"
+    ]
+   },
+   {
+    "kind": "empty-moment",
+    "detail": "A seventh moment is not a line in ask.ts — it breaks three shipped assertions and a Chrome measurement, and the ballot proposes one in four separate notes (4, 6, 32, 68) without pricing any of it. (a) tests/gm/ask.test.ts asserts, for EVERY entry of MOMENTS, `searchAsk(ASK_CATALOGUE, moment.label.toLowerCase()).length` > 0 with the message \"${moment.label} finds no question\". A seventh chip with no catalogue entry fails that immediately. I probed the corpus: 'zero' appears in exactly ONE of 69 section bodies (campaign-frames) and in zero catalogue entries; 'prep' in 8 sections and zero entries. (b) Fixing (a) needs a 13th ask entry, which breaks `expect(ASK_CATALOGUE).toHaveLength(12)` AND the `Object.keys(PAGES).sort()` equality, and contradicts DECISIONI-2026-08-23 §9's growth rule that entry 13 \"is written when a GM notices themselves reaching for something twice, not chosen from a list drawn up in advance\" — which is exactly what adding a chip to fill an orphan hole would be. (c) ShowSheet.tsx's grid is measured in Chrome, not guessed: 3x2 at the 44px tap floor is 96.00, the whole column is 294.00 in a 294.3 window, and the docblock says \"That fits by 0.3px, which is a coincidence and not a margin\"; THE MERCHANT's bottom edge \"lands on 688, which is the reading window's own bottom edge: the third door is whole, by nothing.\" Seven chips is three rows: 3x44 + 2x8 = 148, and the same docblock already computed and rejected three rows — \"2x44 + 2x8 = 148, which is 41.7 more than the doors gave back - so the arrangement that fitted the old sheet cannot fit this one.\" Horizontal escape is closed: \"H-9 is shut - no horizontal rail on this screen\". So a seventh chip pushes a door below the fold and re-breaks the stated property that \"The empty state no longer scrolls at all.\"",
+    "sections": [
+     "introduction",
+     "character-creation",
+     "ranger-computer",
+     "multiclassing",
+     "campaign-frames"
+    ]
+   },
+   {
+    "kind": "orphan",
+    "detail": "The orphan set is not derived from a stated rule, so the test's boundary is taste rather than criterion — and the ballot contradicts itself twice on its own evidence. (1) character-creation (10,879 chars, nine session-zero steps) is a MEMBER on the strength of \"roughly one screen of it\", while multiclassing (682 chars) is an ORPHAN even though the ballot itself quotes a genuinely live sentence from it and I verified it verbatim: \"If your foundation cards specify different Spellcast traits, you can choose which one to apply when making a Spellcast roll.\" One live clause earns membership at row 4 and does not at row 32. (2) preparing-combat-encounters is EMPTY and battles-and-narrative is my-turn, and the ballot says \"the owner should probably make 59 and 60 match\" — but on the book's own words it filed them backwards. The phrase \"When preparing combat encounters:\" is in the body of 60, the one it kept, and NOT in 59, the one it emptied; 59's body is \"Build the hurdles the PCs face around the question of 'What helps tell the story?'\" with no prep frame stated at all. Whichever way the owner rules, these two must not split, and the split as filed is the wrong way round.",
+    "sections": [
+     "character-creation",
+     "multiclassing",
+     "preparing-combat-encounters",
+     "battles-and-narrative"
+    ]
+   },
+   {
+    "kind": "orphan",
+    "detail": "Six of the eight orphans are precisely the sections part 2.3 said membership existed to rescue, and the ballot leaves them with nothing. §2.3 of docs/handoff/RICERCA-SRD-2026-08-26.md justifies membership by §1.3: \"una sezione senza sottotitoli non ha niente per la banda IN A HEADING, ma può appartenere a *damage*.\" I checked which orphans have no `## ` subhead: multiclassing, running-an-adventure, gm-guidance, additional-gm-guidance, preparing-combat-encounters, campaign-frames — six of eight. Under this ballot those six end with neither a heading band nor a moment: double invisibility, in the exact rows §2.3 named as its reason to exist. Only introduction and ranger-companion have subheads. Related data correction for the plan doc: §1.3 says \"34 sezioni su 69 non ne hanno nessuno\"; the shipped dataset says 33. Its other three figures in that paragraph are exact (156 `##`, zero `###`, 100,165 chars of section body), so only the 34 is stale.",
+    "sections": [
+     "multiclassing",
+     "running-an-adventure",
+     "gm-guidance",
+     "additional-gm-guidance",
+     "preparing-combat-encounters",
+     "campaign-frames"
+    ]
+   },
+   {
+    "kind": "over-assigned",
+    "detail": "The test as written creates the defect it is meant to prevent. I counted the ballot: 94 memberships over 61 sections. MY TURN takes 26 of 69 sections (38% of the book), BEFORE THE ROLL 22 (32%), BETWEEN SCENES 15, THE DICE LANDED 13, DAMAGE 11, THIS PLACE 7 (10%). A chip returning 26 sections is not a filter — and the cheapest way to clear an orphan is always a weak my-turn, which is visibly what happened: of the 17 sections the shipped MID_SCENE list says are NOT mid-scene but which the ballot gives an in-scene chip, NINE include my-turn (beastform-options, working-with-your-companion, flow-of-the-game, player-principles-and-best-practices, pitfalls-to-avoid, story-beats, battles-and-narrative, phased-battles, crafting-scenes via this-place). This is exactly the criterion ask.ts's docblock rejected for the catalogue: DECISIONI-2026-08-25 §4 \"gave the seed a criterion that is not coverage.\" 'Every section belongs somewhere' IS a coverage criterion. Note also that MY TURN and THIS PLACE are already the two noisiest chips at runtime for an unrelated reason: 'my' and 'this' are both in STOPWORDS (srdReference.ts:1031), so tapping MY TURN today searches for 'turn' alone (12 sections) and THIS PLACE for 'place' alone (7).",
+    "sections": [
+     "beastform-options",
+     "working-with-your-companion",
+     "flow-of-the-game",
+     "player-principles-and-best-practices",
+     "pitfalls-to-avoid",
+     "story-beats",
+     "battles-and-narrative",
+     "phased-battles",
+     "maps-range-and-movement",
+     "optional-gm-mechanics"
+    ]
+   },
+   {
+    "kind": "wrong-moment",
+    "detail": "Today a moment is a property of the QUESTION's occasion, not of the SECTION's content, and part 2.3 erases that distinction without saying so. ask.test.ts states the escape hatch in as many words: \"`pitfalls-to-avoid` and `gm-practices` are how a GM gets better between sessions, even though a question in this catalogue points at each of them - **a pointer may aim outside this list**, because the nearest thing the book says about a mid-scene problem is sometimes a principle.\" That is why q-scene-stalled can be moment 'my-turn' while pointing at pitfalls-to-avoid, a section the same file classifies as not-mid-scene. Give the SECTION the moment and the hatch is gone: 17 sections then carry an in-scene chip that the repo's own pinned judgement says are not opened in a scene. The full list, verified by set difference: the-basics, the-golden-rule, character-creation, beastform-options, working-with-your-companion, companion-taking-damage, flow-of-the-game, player-principles-and-best-practices, core-gameplay-loop, gm-principles, gm-practices, pitfalls-to-avoid, building-balanced-encounters, story-beats, battles-and-narrative, crafting-scenes, phased-battles. The owner must either accept that section-moments and MID_SCENE mean different things (and write the cross-assertion `NO_MOMENT ∩ MID_SCENE === []` rather than a membership one), or reconcile them row by row — a second 69-row pass.",
+    "sections": [
+     "pitfalls-to-avoid",
+     "gm-practices",
+     "beastform-options",
+     "working-with-your-companion",
+     "the-basics",
+     "the-golden-rule",
+     "character-creation",
+     "companion-taking-damage",
+     "flow-of-the-game",
+     "player-principles-and-best-practices",
+     "core-gameplay-loop",
+     "gm-principles",
+     "building-balanced-encounters",
+     "story-beats",
+     "battles-and-narrative",
+     "crafting-scenes",
+     "phased-battles"
+    ]
+   },
+   {
+    "kind": "orphan",
+    "detail": "The ballot's three prep-stretch rows are refuted by shipped code, and emptying any of them would turn option (A) red. adversary-stat-block-benchmarks (54): the ballot says \"Closest thing to a true orphan in this range — consider shipping it empty\" and \"its only certain use is prep\". But (i) it is in MID_SCENE, (ii) ask.test.ts names it by hand as one of \"three of the calls close enough to name\" — \"`adversary-stat-block-benchmarks` and `adapting-environments` are in because this app already treats them as the mid-scene pair - the reference's `improvise` topic composes exactly those two, for a GM inventing a monster while the party waits\", and (iii) I confirmed that topic exists and ships: Reference.tsx:245 `{ id: 'improvise', label: 'Improvise an adversary', short: 'IMPROVISE' }` rendering `<TierBenchmarks />`, and ReferenceTables.tsx \"The improvise topic composes two tables thirty pages apart - adversaries on 73, environments on 102\". The app already has a labelled button for the exact mid-scene reach the ballot doubts. Same collision, weaker, for npc-feature-examples (49) and example-adversary-features (52) — both in MID_SCENE, both called prep stretches. The ballot's instinct is not baseless: I read 54's body and it is FOUR TABLE ROWS AND A HEADER with zero prose, the only such section in the book. But that argues for a rule about tables, not for an empty array — and either way this must be resolved against MID_SCENE rather than beside it.",
+    "sections": [
+     "adversary-stat-block-benchmarks",
+     "npc-feature-examples",
+     "example-adversary-features",
+     "adapting-environments",
+     "running-gm-npcs"
+    ]
+   },
+   {
+    "kind": "player-vs-gm",
+    "detail": "Roughly two dozen rows defer a decision to \"Part 2.2\" — a part that ships BEFORE 2.3 and that contains no player moment grid. The plan's build order is explicit and sequential: \"**Ordine: 2.1 → 2.2 → 2.3 → 2.4.** Sequenziale, una PR per parte, ognuna verde per conto suo\", with \"2.3 terza, perché è l'unica che chiede una decisione per riga.\" And §2.2 in full is a file move plus a default scope: \"`RuleSearch.tsx` si sposta in `src/ui/shared/`, e Play guadagna una porta. Non una seconda ricerca: lo stesso indice, le stesse tre bande, lo stesso atterraggio. Cambia **l'ambito predefinito**\". There is no player-facing six-chip grid anywhere in 2.2, and §6's three open questions do not include one. So every \"flag for Part 2.2\" note in this ballot — rows 1, 4, 5, 6, 7, 8, 9, 11, 15, 16, 17, 18, 19, 20, 21, 22, 25, 31, 33, 39, 40, 41, 42, 43, 44, 45, 47, 49, 52, 66, 68 — is addressed to a part that will already have merged and that never had that scope. If the player grid is real it is a FIFTH part, and §6 question 1 is the precedent for how the plan records that (\"Il catalogo `ask.ts` si allarga ai record? Il piano dice no (§4.4). Se sì, è una quinta parte.\"). Until it exists, the ballot's GM/player split is a judgement with nowhere to land, and rows like gm-moves-and-adversary-actions / making-gm-moves / using-fear — where the note is that MY TURN means the GM's turn, not the player's — stay unresolved inside the one grid that does exist.",
+    "sections": [
+     "gm-moves-and-adversary-actions",
+     "making-gm-moves",
+     "using-fear",
+     "core-gm-mechanics",
+     "adversary-action-rolls",
+     "adversary-actions",
+     "beastform-options",
+     "working-with-your-companion",
+     "projects-during-downtime"
+    ]
+   },
+   {
+    "kind": "empty-moment",
+    "detail": "No moment is empty under this ballot, so the plan's edge case 6 (\"Un momento senza membri. Non si disegna\") is unreachable at section level — but THIS PLACE is one owner ruling away from being the exception, and it is also the least-defined chip. It has 7 members and three of them rest on a single clause each: optional-gm-mechanics (the ballot's own 'contested'), phased-battles (one bullet of three, \"Alter the Environment\"), and crafting-scenes. If the owner applies the one-clause-is-not-membership rule that the ballot invokes to empty multiclassing, THIS PLACE falls to 4 sections against MY TURN's 26 — a 6:1 spread across a 3x2 grid where every chip looks identically weighted. Worth knowing that the chip is already not literal: the shipped q-chase entry has `moment: 'this-place'` while pointing at `countdowns`/DYNAMIC COUNTDOWN ADVANCEMENT, which is a clock, not a place — so THIS PLACE already means 'the world is doing something to them' on the question side. That semantic must be written down before 69 sections are filed against it, or the chip will mean 'location' to whoever writes the map and 'pressure' to whoever wrote the catalogue.",
+    "sections": [
+     "maps-range-and-movement",
+     "countdowns",
+     "optional-gm-mechanics",
+     "using-environments",
+     "adapting-environments",
+     "crafting-scenes",
+     "phased-battles"
+    ]
+   }
+  ]
+ },
+ {
+  "verdict": "DISTRIBUTION COUNTS (94 memberships over the 61 non-orphan sections; 8 orphans):\n\n  before-the-roll  22 sections (31.9% of 69) — 47.0% of the SRD's rules text — 7 sole members\n  the-dice-landed  13 sections (18.8%)       — 22.7% of text                  — 1 sole member\n  my-turn          26 sections (37.7%)       — 35.0% of text                  — 10 sole members\n  damage           11 sections (15.9%)       — 17.0% of text                  — 1 sole member\n  this-place        7 sections (10.1%)       — 10.1% of text                  — 2 sole members\n  between-scenes   15 sections (21.7%)       — 15.1% of text                  — 9 sole members\n\n(Text share computed over the 100,165 characters of `data/srd-1.0.json` → `rules[].body`, 69 sections; a section counts in full for each chip it is filed under.)\n\nAnswering the lens directly:\n\n1. **Is any of the six empty?** No. The floor is THIS PLACE at 7. So plan §4.6's guard — \"a moment with no members must not be drawn\" — never fires under this ballot, and the ergonomics survive it anyway: `ShowSheet.tsx` measured the 3×2 grid at exactly 96.00px, and five chips still take two rows. §4.6 is a floor the ballot does not approach. **The plan has no ceiling and no exclusivity rule, and both of those are where this ballot actually fails.**\n\n2. **Is any so large it has stopped being an organisation?** Yes — two, by two different metrics, and the ballot's own suggested revisions make both worse rather than better:\n   - MY TURN is 26/69 = **37.7% of the book by section count**, over the third the lens names, and it is the only chip over a third by count.\n   - BEFORE THE ROLL is **47.0% of the book by text volume** — nearly half the SRD — and MY TURN is 35.0%, so *two* chips are over a third by volume.\n   - Taking every \"the owner may want this too\" invitation the ballot offers (rows 7, 9, 17, 20, 22 ×2, 32, 38, 42, 45, 59) drives BEFORE THE ROLL to **50.3% of the book's text** and MY TURN to **28/69 = 40.6%**. Taking every trim it offers drives orphans from 8 to 19 (27.5% of the book homeless) and THE DICE LANDED to **zero** sections of its own. The ballot is constructed so that every open question, answered either way, makes the distribution worse.\n\n3. **The real near-empty finding is exclusivity, not count.** THE DICE LANDED (13) and DAMAGE (11) each have exactly **one** section no other chip carries — `the-basics` and `death` — and the ballot itself proposes emptying `the-basics` (\"If the owner's rule is that a chip points only at operative rules and never at a teaching paragraph, this is an orphan\"). Take that one overrule and THE DICE LANDED, the chip whose whole argument is \"a GM knows what just happened\", returns nothing a GM could not have reached from another chip. THIS PLACE's two exclusives are both schema documentation, not rules.\n\n4. **Scale check against the repo's own measurement.** `RuleSearch.tsx` records a Chrome pass at 393×852: the query `adversary` returns 20 hits and the results column measures **1327.1px against a 717.4px cap** — 1.85 screens. MY TURN as balloted is 26 sections + its 2 catalogue questions = 28 rows, roughly 1.4× that column. BEFORE THE ROLL is 22 + 4 = 26 rows. A chip that scrolls two and a half screens is a table of contents, which is the thing `ask.ts` says the six moments exist to replace.\n\n5. **What membership actually buys each chip, measured.** I ran the shipped `searchRules`/`searchAsk` over the real dataset for what each chip types today: BEFORE THE ROLL 5 sections, THE DICE LANDED 15 (`partial` — the AND found nothing and the `someOf` fallback ran), MY TURN 12, DAMAGE 24, THIS PLACE 7, BETWEEN SCENES 16 (also `partial`). So the ballot takes MY TURN from 12 → 26 and BEFORE THE ROLL from 5 → 22, while THIS PLACE goes 7 → 7. The one chip that most needs rescuing gets the same row count it already has; membership buys it accuracy (5 of its current 7 hits are coincidental word matches — `introduction`, `rulings-over-rules`, `gm-principles`, `giving-out-gold-equipment-and-loot`, `example-adversary-features`) and no size at all.\n\nFIXES, in the order I would apply them (all seven use the ballot's own reasoning or a mechanism the repo already has):\n\n  a. **MY TURN 26 → 19 (27.5%), under the third, with no seventh moment.** Empty the seven the ballot itself calls stretch, dead weight or possible-orphan: `flow-of-the-game`, `player-principles-and-best-practices`, `npc-feature-examples`, `example-adversary-features`, `adversary-stat-block-benchmarks`, `story-beats`, `battles-and-narrative`.\n  b. **BEFORE THE ROLL 47.0% → 38.0% of text**: let `character-creation` contribute its `## STEP 3 Assign Character Traits.` block (1,828 chars) instead of all 10,879. The repo already addresses blocks — `AskEntry.at` is `{ section, heading }`, `landingIn` scrolls to a block, `ruleBlocks` splits them — so block-level membership is not a new mechanism. Emptying the section outright instead gives 36.1%.\n  c. **THIS PLACE**: move `crafting-scenes` to this-place only (its entire 215-char body is \"arrive at a new place… thinking with all of your senses\"; between-scenes has 9 sole members and does not need it), and add this-place to `conditions`, whose HIDDEN and RESTRAINED are pure position rules. That gives the chip 3 exclusives, one of them an operative rule rather than a stat-block legend.\n  d. **THE DICE LANDED**: give it `additional-rules` alone by splitting that section — 4 of its 8 blocks are after-the-dice, and its DAMAGE claim is a single 101-character sentence out of 1,396.\n  e. Add a **ceiling rule** to §4.6 beside the floor: no moment over a third of the sections, and no moment whose sole-member count is below two.",
+  "findings": [
+   {
+    "kind": "over-assigned",
+    "sections": [
+     "flow-of-the-game",
+     "player-principles-and-best-practices",
+     "npc-feature-examples",
+     "example-adversary-features",
+     "adversary-stat-block-benchmarks",
+     "story-beats",
+     "battles-and-narrative",
+     "phased-battles",
+     "engaging-your-players",
+     "using-adversaries"
+    ],
+    "detail": "MY TURN carries 26 of the 69 sections = 37.7%, over the third the lens names, and it is the only chip over a third by section count. It is also 35.0% of the SRD's rules text (35,039 of 100,165 chars). The bulk is not load-bearing: the ballot's own notes call seven of the 26 a stretch or a possible orphan — flow-of-the-game ('Possible orphan by redundancy… four sentences of preamble', and the 469-char body confirms it: 'Daggerheart is a conversation…'), player-principles-and-best-practices ('close to dead weight' on the GM grid), npc-feature-examples ('Stretch'), example-adversary-features ('Stretch, and GM-only'), adversary-stat-block-benchmarks ('consider shipping it empty'), story-beats ('Half stretch'), battles-and-narrative ('Stretch, and I cannot call it'). Emptying exactly those seven takes MY TURN to 19 (27.5%) without inventing a seventh moment or overruling a single row the ballot defends. Scale check from the repo's own Chrome pass in RuleSearch.tsx: 20 hits measure 1327.1px against a 717.4px cap; 26 sections plus this chip's 2 catalogue questions is roughly 1.4x that column."
+   },
+   {
+    "kind": "over-assigned",
+    "sections": [
+     "character-creation",
+     "difficulty-benchmarks",
+     "optional-gm-mechanics",
+     "maps-range-and-movement",
+     "making-moves-and-taking-action"
+    ],
+    "detail": "BEFORE THE ROLL is 22 sections (31.9%) but 47.0% of the SRD's rules text — 47,075 of 100,165 characters, nearly half the book behind one chip. The driver is character-creation at 10,879 chars, 10.9% of the entire SRD, earned by one block: '## STEP 3 Assign Character Traits.' is 1,828 chars (16.8% of the section) and the six trait bullets inside it ('You'll make an Agility Roll to scurry up a rope, sprint to cover, or bound from rooftop to rooftop') are ~1,400. The other nine blocks — STEP 1 Class, STEP 2 Heritage, STEP 5 Equipment (1,811), EXAMPLE EXPERIENCES (1,190), STEP 9 Connections — are session-zero procedure the ballot itself says wants a moment the six do not have. Letting the section contribute only its STEP 3 block drops BEFORE THE ROLL from 47.0% to 38.0% of the book; emptying it outright gives 36.1%. This is not a new mechanism: AskEntry.at is already {section, heading}, landingIn already scrolls to a block, and ruleBlocks already splits them, so the repo addresses blocks everywhere except in this ballot. optional-gm-mechanics is the same defect in miniature — 3 moments on one section whose five blocks split cleanly (FATE ROLLS -> before-the-roll, FALLING AND COLLISION DAMAGE -> damage, MOVING AND FIGHTING UNDERWATER -> this-place), so at section granularity all three chips carry all 2,590 chars."
+   },
+   {
+    "kind": "empty-moment",
+    "sections": [
+     "the-basics",
+     "death",
+     "additional-rules",
+     "stress",
+     "the-spotlight",
+     "using-fear",
+     "making-gm-moves",
+     "pitfalls-to-avoid",
+     "gm-moves-and-adversary-actions"
+    ],
+    "detail": "No chip is empty (floor is 7), so plan §4.6's guard never fires — but two chips are one overrule away from having no section of their own. THE DICE LANDED has 13 members and exactly ONE sole member, the-basics, which the ballot itself proposes emptying ('If the owner's rule is that a chip points only at operative rules and never at a teaching paragraph, this is an orphan'). Take that and the chip whose entire argument is 'a GM knows what just happened' returns 12 sections all reachable from another chip — 5 of them (the-spotlight, using-fear, making-gm-moves, pitfalls-to-avoid, gm-moves-and-adversary-actions) shared with MY TURN alone. DAMAGE has 11 members and exactly ONE sole member, death; its additional-rules membership rests on a single 101-character sentence ('Incoming damage means the total damage from a single attack or source, before Armor Slots are marked.') out of a 1,396-char section whose other seven blocks are ROUNDING UP, REROLLING DICE, SIMULTANEOUS EFFECTS, STACKING EFFECTS, ONGOING SPELL EFFECTS, SPENDING RESOURCES and USING FEATURES AFTER A ROLL. §4.6 is written as a floor on membership count; the property that matters is exclusive membership, and the plan does not test it."
+   },
+   {
+    "kind": "empty-moment",
+    "sections": [
+     "using-environments",
+     "adapting-environments",
+     "crafting-scenes",
+     "maps-range-and-movement",
+     "countdowns",
+     "optional-gm-mechanics",
+     "phased-battles"
+    ],
+    "detail": "THIS PLACE is the smallest chip at 7 sections (10.1% of the book by count and 10.1% by text) and only 2 are exclusive to it — and both exclusives are schema documentation rather than rules. using-environments (1,363 chars) is a stat-block field glossary: its headings are NAME, TIER, TYPE, DESCRIPTION, IMPULSES, DIFFICULTY, POTENTIAL ADVERSARIES, FEATURES, FEATURE QUESTIONS, each with one line saying what the field means ('The unique name of the environment stat block'). adapting-environments (965 chars) is a retiering table. Neither answers the ballot's own why for row 55, 'what does this place do to them' — that is answered by the 19 entries in dataset.environments, and both RuleSearch.tsx and ShowSheet.tsx read only useApp(s => s.dataset.rules), so the chip can never return them. Strip the two glossaries and THIS PLACE has no section that is not also reachable from another chip. Worse, the ballot's own note on row 64 ('If the owner wants one, my-turn is the one I'd keep') takes it to 6. Fix: make crafting-scenes this-place only — its whole 215-char body is 'Whenever you start a session, arrive at a new place, or change the situation, tell the players what they need to know by thinking with all of your senses', and between-scenes has 9 sole members and 15 total, so it can spare it — and add this-place to conditions, whose HIDDEN ('While you're out of sight from all enemies and they don't otherwise know your location… you move into their line of sight') and RESTRAINED ('can't move, but you can still take actions from their current position') are position rules, not roll rules. conditions is already double-filed, so a third stays inside the ballot's own three-moment ceiling."
+   },
+   {
+    "kind": "player-vs-gm",
+    "sections": [
+     "gm-moves-and-adversary-actions",
+     "adversary-actions",
+     "core-gm-mechanics",
+     "making-gm-moves",
+     "using-fear",
+     "adversary-action-rolls",
+     "running-gm-npcs",
+     "npc-feature-examples",
+     "using-adversaries",
+     "example-adversary-features",
+     "adversary-stat-block-benchmarks",
+     "story-beats",
+     "battles-and-narrative",
+     "engaging-your-players",
+     "phased-battles",
+     "pitfalls-to-avoid",
+     "beastform-options",
+     "working-with-your-companion",
+     "tag-team-rolls",
+     "attacking",
+     "conditions",
+     "turn-order-and-action-economy",
+     "maps-range-and-movement",
+     "player-principles-and-best-practices"
+    ],
+    "detail": "MY TURN's 26 is not one moment with too many members; it is two disjoint moments fused, which is what 'stopped being an organisation' means here. Sixteen of the 26 are the GM's own spotlight — the ballot says so itself in five separate notes ('my-turn here is the GM's turn, not the player's' on core-gm-mechanics; 'Under a player's MY TURN it is literally the wrong person's turn' on making-gm-moves, which the SRD backs with 'GM moves happen during GM turns. A GM turn begins when the spotlight passes to them'; 'my-turn is the GM's turn again' on adversary-action-rolls; 'GM-ONLY' on gm-moves-and-adversary-actions and adversary-actions). Eight are the player's spotlight (beastform-options, working-with-your-companion, tag-team-rolls, attacking, conditions, turn-order-and-action-economy, maps-range-and-movement, player-principles-and-best-practices). No single sentence in one person's head selects all 26, which is exactly the test ask.ts sets: 'A moment is the sentence in somebody's head while five people wait at the table.' Seven of the sixteen GM-side ones form their own obvious cluster — using-adversaries, example-adversary-features, npc-feature-examples, adversary-actions, adversary-action-rolls, adversary-stat-block-benchmarks, running-gm-npcs — all answering 'what does this monster or NPC do', and the same SHOW sheet already has a BESTIARY door for that question."
+   },
+   {
+    "kind": "test-cannot-ship",
+    "sections": [
+     "introduction",
+     "ranger-companion",
+     "multiclassing",
+     "running-an-adventure",
+     "gm-guidance",
+     "additional-gm-guidance",
+     "preparing-combat-encounters",
+     "campaign-frames"
+    ],
+    "detail": "The 8 orphans are 5.3% of the book by text (5,314 of 100,165 chars) and the three smallest are structurally identical dividers — additional-gm-guidance is 93 chars ('This section provides additional guidance for preparing and running a session of Daggerheart.'), gm-guidance 169, running-an-adventure 337. So the walk-every-section test fails on a family, as row 57 argues. But the distribution lens finds the plan's §4.6 guard aimed at the wrong end entirely: it forbids drawing an empty moment, and this ballot has no empty moment and never will — the floor is 7. Meanwhile it says nothing about a chip on 37.7% of the sections or 47.0% of the text, and nothing about a chip whose sole-member count is 1. Applying the ballot's own suggested overrules (rows 1, 2, 8, 10, 12, 13, 26, 30, 31, 33, 36, 54, 58, 60, 64) takes orphans from 8 to 19 — 27.5% of the book homeless — and THE DICE LANDED to zero sole members, while §4.6 still passes every chip. Add a ceiling and an exclusivity floor beside it: no moment over a third of the sections, no moment with fewer than two sole members."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "crafting-scenes",
+     "using-environments",
+     "session-rewards",
+     "gold",
+     "giving-out-gold-equipment-and-loot"
+    ],
+    "detail": "BETWEEN SCENES at 15 sections is the healthiest chip by count but the thinnest by weight in a way the counts hide: 15.1% of the book's text, and 5 of its 15 members are under 550 chars (session-rewards 136, extended-downtime 184, crafting-scenes 215, using-downtime 351, companion-taking-damage 398). Two of its 15 are filed for reasons the ballot itself doubts (leveling-up 3,739 chars — 'the row I most want overruled'; gold 890 — 'this becomes a second orphan'), and those two are 4,629 chars, 31% of the chip's entire text. Strip them as the ballot suggests and between-scenes falls to 8.6% of the book's text, below THIS PLACE. Separately, crafting-scenes is filed 'obvious' under between-scenes with no note defending it, and it is the weakest membership on that chip: its 215-char body is about arriving somewhere, not about the seam between scenes, and it is the one row that would give THIS PLACE a third exclusive member at no cost to anything."
+   }
+  ]
+ },
+ {
+  "findings": [
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "46:countdowns"
+    ],
+    "detail": "Countdowns → THIS PLACE is the clearest misfile in the ballot, and it is rated \"obvious\" with no note. The section has no place in it. Its opening sentence is a definition of a clock — \"Countdowns represent a period of time or series of events preceding a future effect. A countdown begins at a starting value. When a countdown advances, it's reduced by 1.\" — and the only spatial word in the whole 1,698-character body is one incidental \"If an adversary or environment ability refers to a 'Countdown [n]'\". The chip was not derived from the section; it was inherited from askCatalogue.ts's q-chase, and there the moment is a property of the QUESTION (\"Something is chasing them. How do I run a chase?\") rather than of the text it points at. Worse, the inheritance is redundant: searchAsk in ask.ts builds its haystack as `${entry.ask} ${entry.also.join(' ')} ${momentLabel(entry.moment)}`, so q-chase already surfaces under THIS PLACE whether or not the section carries membership. Cut it. Countdowns' the-dice-landed half is the strongest single membership in the ballot — the DYNAMIC COUNTDOWN ADVANCEMENT table is keyed literally on \"Failure with Fear / Failure with Hope / Success with Fear / Success with Hope / Critical Success\" — and it should stand alone."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "54:adversary-stat-block-benchmarks",
+     "45:adversary-action-rolls",
+     "48:running-gm-npcs"
+    ],
+    "detail": "Row 54 is misfiled twice over. (a) Its own `why` is a damage sentence — \"I invented this captain on the spot and he's about to swing — what are his numbers?\" — and the section is nothing but a four-row table whose rows are Attack Modifier, Damage Dice, Difficulty, Damage Thresholds. Two of the four rows are damage numbers, and the DAMAGE chip is absent while MY TURN (a lookup table is not a turn) is present. (b) The ballot denies BEFORE THE ROLL to row 45 on a stated principle — \"before-the-roll as the shipped catalogue uses it means a PC's\" — and then grants BEFORE THE ROLL here to a table whose Attack Modifier row exists only for the adversary's own d20. One of those two rows is wrong; they cannot both be. Separately, 54's `why` is a near-duplicate of 48's (\"I invented this harbourmaster two seconds ago\") with the identical moment pair, and 48's own body routes the improviser away from this table: \"Adversaries can be invented or improvised by modifying the stat block of another adversary.\" Two sections, one sentence, two identical chip pairs — the second one is carrying no information."
+   },
+   {
+    "kind": "over-assigned",
+    "sections": [
+     "50:optional-gm-mechanics",
+     "30:additional-rules"
+    ],
+    "detail": "Optional GM Mechanics is one of only two three-moment rows, is marked \"contested\", and is the ONLY contested row in the ballot with no note at all (the other six — 2, 12, 31, 36, 54, 60 — all carry one). Its three chips are three unrelated subheads: FATE ROLLS + CONFLICT BETWEEN PCS → before-the-roll, FALLING AND COLLISION DAMAGE → damage, MOVING AND FIGHTING UNDERWATER → this-place. That is exactly the membership the ballot rejects as \"the weakest kind\" at row 30 (\"it belongs by its parts rather than as a whole\") — applied there to a two-moment row and waived here, silently, for a three-moment one. The chip to cut is this-place: \"By default, attack rolls made while the attacker is underwater have disadvantage\" is a rule about a condition on the attacker, not about a location the GM is describing, and it puts a section headlined FATE ROLLS into the results of the chip a GM taps when the party has just walked into somewhere new. The other three-moment row (26 maps-range-and-movement) is defensible by comparison — all three chips have text under them — but its before-the-roll third is redundant against 21 advantage-and-disadvantage, 44 giving-advantage-and-disadvantage and 27 conditions, which all carry the disadvantage reach already."
+   },
+   {
+    "kind": "player-vs-gm",
+    "sections": [
+     "5:beastform-options",
+     "7:working-with-your-companion",
+     "11:player-principles-and-best-practices",
+     "20:tag-team-rolls",
+     "25:attacking",
+     "41:making-gm-moves",
+     "17:adversary-actions"
+    ],
+    "detail": "MY TURN is assigned to 26 of the 69 sections — 38% of the book, the largest chip by half again — and it means two different people. Sixteen members are the GM's turn (16, 17, 38, 39, 41, 42, 45, 48, 49, 51, 52, 54, 58, 60, 63, 64); seven are the PC's turn (5, 7, 11, 20, 25, 26, 27); three are ambiguous (10, 13, 14). The ballot spots this five times but files it as a Part 2.2 problem (\"my-turn here is the GM's turn, not the player's\", row 39; \"literally the wrong person's turn\", row 41). It is already a defect on the GM grid being built now: a GM taps MY TURN mid-fight and gets beastform-options (\"while transformed into an Agile Scout, you gain a +1 bonus to your Agility\"), tag-team-rolls (\"Each player can, once per session, initiate a Tag Team Roll... by spending 3 Hope\") and player-principles-and-best-practices (\"Be a fan of your character and their journey. Spotlight your friends.\") — none of which a GM executes. Row 41 states the boundary in the book's own words: \"GM moves happen during GM turns. A GM turn begins when the spotlight passes to them and ends when the spotlight passes back to the players.\" One chip cannot sit on both sides of that sentence. Either MY TURN is the GM's turn and rows 5, 7, 11, 20, 25 come off it, or the chip needs splitting before membership ships."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "31:leveling-up",
+     "9:leveling-up-your-companion",
+     "36:gm-principles",
+     "2:the-golden-rule",
+     "33:gold",
+     "53:building-balanced-encounters",
+     "59:preparing-combat-encounters",
+     "32:multiclassing",
+     "68:campaign-frames",
+     "6:ranger-companion"
+    ],
+    "detail": "BETWEEN SCENES is used with two incompatible meanings, and the ballot names the error at row 59 before committing it six times elsewhere. Row 59: \"both catalogue entries tagged between-scenes today (q-safety, q-session-ends) are at-the-table moments, not week-between-sessions ones, so stretching it here would quietly redefine the chip.\" That is verifiably true — q-safety points at gm-practices/CREATE A META CONVERSATION and q-session-ends at session-rewards, both with five people in the room. The ballot then stretches it anyway: 31 leveling-up (whose own note concedes \"levelling largely does not\" happen with five people waiting; the section says it happens \"whenever the GM decides you've reached a narrative milestone (usually about every 3 sessions)\"), 9 leveling-up-your-companion, 36 gm-principles (justified as \"what you re-read in the break\" — a reading occasion, not a table moment), 2 the-golden-rule, 33 gold, and 53's Battle Points half. Six of fifteen BETWEEN SCENES members are out-of-play bookkeeping. This is not a local defect: if that reading of the chip is allowed, then 6 ranger-companion, 32 multiclassing, 59 preparing-combat-encounters and 68 campaign-frames stop being orphans by the same logic, and the ballot's orphan case — its central claim about the Part 2.3 test — collapses. The stretches and the empties cannot both be right."
+   },
+   {
+    "kind": "missing-moment",
+    "sections": [
+     "24:stress",
+     "23:combat",
+     "8:companion-taking-damage"
+    ],
+    "detail": "The \"clears on a rest\" clause earns BETWEEN SCENES at row 8 with confidence \"obvious\" — \"They remain unavailable until the start of your next long rest, where they return with 1 Stress cleared\" and \"When you choose a downtime move that clears Stress on yourself, your companion clears an equal number of Stress\" — and is withheld from the two sections carrying the identical clause: 24 stress (\"PCs can clear Stress by making downtime moves (see: Downtime)\") and 23 combat (\"Characters can clear Hit Points by taking downtime moves (see: Downtime) or by activating relevant special abilities or effects\"). The companion version is the derived one; the PC versions are what it derives from. Either the clause earns the chip or it does not, and if it does, 23 and 24 have the better claim."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "55:using-environments",
+     "62:crafting-scenes",
+     "56:adapting-environments"
+    ],
+    "detail": "Using Environments is THIS PLACE, \"obvious\", with a `why` its body cannot answer: \"They've just walked into the flooded temple — what does this place do to them?\" The body is a data-format glossary, not a place: \"NAME: The unique name of the environment stat block. TIER: The PC tier the environment is designed to challenge. DESCRIPTION: An evocative one-line summary of the environment. FEATURES: Features provide inspiration for GM moves...\" The flooded temple's actual features live in `dataset.environments` (19 entries — Abandoned Grove, Ambushed, ...), and RuleSearch.tsx searches `dataset.rules` alone (`const rules = useApp((s) => s.dataset.rules)`, and its own docblock: \"It covers every section `dataset.rules` carries\"). So the chip named for a location cannot return a single location. THIS PLACE ends up with seven members of which exactly one — 62 crafting-scenes, 215 characters — is prose about describing a place, and 56 adapting-environments is half a retiering table. This is the emptiest chip on the sheet and the ballot never says so; whatever else Part 2.3 decides, THIS PLACE's real content is in a collection this ballot does not map."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "3:rulings-over-rules"
+    ],
+    "detail": "The DAMAGE half of Rulings Over Rules is time-stamped to the other chip by the book itself. The full passage: \"if your character does something that would logically result in immediate death—such as diving into an active volcano without protection—you might not get to make one of Daggerheart's death moves, which normally give you control of your character's fate in their final moments. This kind of consequence should be made clear BEFORE the action is completed, and it should always follow the logic of the world.\" The SRD says the ruling is made before; the ballot files it at DAMAGE, which is after. The section already has before-the-roll (pinned by q-no-rule), so the second chip adds a section to DAMAGE for a sentence whose own instruction is that it belongs to the first. To the ballot's credit this is not the keyword error — the word \"damage\" appears nowhere in the section — which is why it needs refuting on the text rather than dismissing."
+   },
+   {
+    "kind": "missing-moment",
+    "sections": [
+     "19:group-action-rolls",
+     "1:the-basics"
+    ],
+    "detail": "Group Action Rolls is single-moment before-the-roll, \"obvious\", but half of its two paragraphs is arithmetic that cannot exist until the dice are down: \"The lead character gains a +1 bonus to their lead action roll for each of these reaction rolls that succeeded and a -1 penalty for each these reaction rolls that failed.\" \"We all rolled — what does she add?\" is a THE DICE LANDED question, and it is a stronger claim on that chip than the ballot's own the-dice-landed member at row 1 the-basics, which the ballot itself calls \"a summary rather than the operative text\". Stated against myself: a table may read the tally as happening inside one roll's resolution and therefore still before-the-roll — but that reading also disqualifies row 13's the-dice-landed, which rests on a single clause about the spotlight moving after a failure."
+   },
+   {
+    "kind": "wrong-moment",
+    "sections": [
+     "51:using-adversaries",
+     "52:example-adversary-features",
+     "39:core-gm-mechanics"
+    ],
+    "detail": "Row 51's justifying sentence cites a rule from the next section. Its `why` is \"It's my go with the ogre and I can't remember what Relentless means or whether I can spend Fear on top of the Stress\" — Relentless appears zero times in using-adversaries and once in 52 example-adversary-features (\"Relentless (X) - Passive: This adversary can be spotlighted up to X times per GM turn. Spend Fear as usual to spotlight them\"). 51 stops at the taxonomy: \"There are three kinds of adversary features: actions, reactions, and passives.\" Half the sentence justifying the row is answered by the row below it. Separately, 51 carries \"DAMAGE THRESHOLDS, HIT POINTS, AND STRESS: These systems function the same way they do for PCs. The numbers listed after 'Threshold' are the adversary's Major and Severe Thresholds\" and \"STANDARD ATTACK... the damage it deals on a success\" — a damage-time lookup denied the DAMAGE chip while 39 core-gm-mechanics is granted it for the same job."
+   },
+   {
+    "kind": "test-cannot-ship",
+    "sections": [
+     "46:countdowns",
+     "51:using-adversaries",
+     "52:example-adversary-features",
+     "54:adversary-stat-block-benchmarks",
+     "45:adversary-action-rolls",
+     "20:tag-team-rolls"
+    ],
+    "detail": "The ballot never checks membership against what the chips return today, and on the numbers most of them get narrower on their best live sentences. Measured against the shipped dataset with ask.ts's own stopword list (`this`, `my`, `the` are stopwords, so the chips search for `place`, `turn`, `before`+`roll`, `dice`+`landed`, `damage`, `between`+`scenes`): DAMAGE matches 24 sections by word today; the ballot's DAMAGE is 11, and the 16 it drops include 51 using-adversaries, 52 example-adversary-features (\"Armored Carapace - Passive: When this adversary takes physical damage, reduce it by X\"), 54 benchmarks, 20 tag-team-rolls (\"both players roll damage and add the totals together\"), 15, 18, 41, 42 and 56 — i.e. the entire adversary damage stack. BEFORE THE ROLL finds 45 adversary-action-rolls today (\"Before rolling, the GM can grant the attacking adversary advantage, impose disadvantage, or spend a Fear to add a relevant Experience from the adversary's stat block\") and the ballot deliberately excludes it. THIS PLACE overlaps today's word-hits on exactly one section of seven. If a chip's results become its membership, five of six chips lose sections on their strongest sentences; if membership only adds to the word search, then DAMAGE still returns 24 sections after Part 2.3 and the membership buys nothing on the surface it is for. The ballot has to say which, and it does not."
+   },
+   {
+    "kind": "orphan",
+    "sections": [
+     "32:multiclassing"
+    ],
+    "detail": "The ballot's membership threshold moves, and it moves exactly once, at the row that most changes the orphan count. One-clause membership is admitted six times — row 3 \"rests on one paragraph\", row 13 \"rests on one clause\", row 18 \"rests on one real rule\", row 8 \"carries only the last two lines\", row 60 \"One bullet... is the whole reason this row is not empty\", row 30 \"belongs by its parts\" — and refused once, at 32 multiclassing, whose live clause is as good as any of them: \"If your foundation cards specify different Spellcast traits, you can choose which one to apply when making a Spellcast roll.\" That is a BEFORE THE ROLL sentence a multiclassed caster asks every time they cast, and the ballot quotes it and then rules it out. Under the ballot's own working threshold, 32 is a member and the orphan count is 7, not 8 — which matters because the orphan count is the entire case being made about the Part 2.3 test. (I am not disputing 0, 34, 35 or 57: those four are genuinely content-free — 57 is \"This section provides additional guidance for preparing and running a session\" and nothing else, 93 characters, the shortest body in the dataset, and the divider family is real.)"
+   }
+  ],
+  "verdict": "The ballot is careful work and most of its 69 rows survive an adversarial read — the moment/`why` pairing is genuinely good on 23 combat, 27 conditions, 29 death, 41 making-gm-moves, 43 difficulty-benchmarks, 28/65/67 downtime and 15 making-moves, and its four true orphans (0, 34, 35, 57) hold up. But the wrongness lens finds twelve real defects, and three of them are structural rather than local. (1) Twelve rows are misfiled or under-filed on the section body: 46 countdowns → THIS PLACE is inherited from a question's moment, not the section's text, and the section has no place in it; 54 adversary-stat-block-benchmarks is a table of Damage Dice and Damage Thresholds filed everywhere except DAMAGE; 3 rulings-over-rules is filed at DAMAGE for a sentence whose own words say the call is made \"before the action is completed\"; 55 using-environments is filed THIS PLACE for a `why` about a flooded temple that the section — a stat-block glossary — cannot answer, and whose real content is in `dataset.environments`, which RuleSearch does not read; 51's `why` quotes a rule that lives in 52. (2) The two three-moment rows split badly: 50 optional-gm-mechanics is the only \"contested\" row in the ballot with no note, and its three chips are three unrelated subheads — the exact membership the ballot itself calls \"the weakest kind\" at row 30 and refuses there. (3) Two chips have stopped carrying information at the chip level. MY TURN holds 26 of 69 sections and means the GM's turn in sixteen of them and a PC's turn in seven; the ballot files this as a Part 2.2 problem when it is already noise on the GM grid it is building. BETWEEN SCENES is used in two incompatible senses, and the ballot writes the correct rule at row 59 (\"stretching it here would quietly redefine the chip\") and then stretches it six times at 31, 9, 36, 2, 33 and 53 — which, if allowed, dissolves four of its own orphans and with them its case about the Part 2.3 test. Finally, the ballot never measures membership against what the chips return today: DAMAGE matches 24 sections by word right now and the ballot gives it 11, dropping the whole adversary damage stack (51, 52, 54, 20, 41, 42, 56). Whether that is a narrowing or an addition is undecided in this document, and it is the first thing the owner should be made to decide."
+ },
+ {
+  "findings": [
+   {
+    "kind": "player-vs-gm",
+    "detail": "MY TURN is the wrong person's turn for a majority of its members. I classified all 26 sections the ballot files under my-turn by whose seat can use them: 10 are the player's own turn (05 beastform-options, 07 working-with-your-companion, 10 flow-of-the-game, 11 player-principles-and-best-practices, 13 the-spotlight, 14 turn-order-and-action-economy, 20 tag-team-rolls, 25 attacking, 26 maps-range-and-movement, 27 conditions) and 16 are the GM's turn or the GM's prep (16, 17, 38, 39, 41, 42, 45, 48, 49, 51, 52, 54, 58, 60, 63, 64). The ballot already flags this on rows 16, 39, 41 and 45 one at a time; the count is the finding. On the GM sheet 'MY TURN' resolves unambiguously because 41 making-gm-moves defines the referent in as many words - 'GM moves happen during GM turns. A GM turn begins when the spotlight passes to them.' On a player's sheet the same two words mean their character's action, and 62% of what comes back is about somebody else. This is the only one of the six where the label's meaning changes with the seat: 'BEFORE THE ROLL', 'THE DICE LANDED' and 'DAMAGE' name events at the table, and 'MY TURN' names a possessive.",
+    "sections": [
+     "16 gm-moves-and-adversary-actions",
+     "17 adversary-actions",
+     "39 core-gm-mechanics",
+     "41 making-gm-moves",
+     "42 using-fear",
+     "45 adversary-action-rolls",
+     "48 running-gm-npcs",
+     "49 npc-feature-examples",
+     "51 using-adversaries",
+     "52 example-adversary-features",
+     "54 adversary-stat-block-benchmarks",
+     "58 story-beats",
+     "60 battles-and-narrative",
+     "63 engaging-your-players",
+     "64 phased-battles",
+     "38 pitfalls-to-avoid"
+    ]
+   },
+   {
+    "kind": "empty-moment",
+    "detail": "Answering the prompt's direct question: no, a player would essentially never tap THIS PLACE, and it is the chip that collapses hardest. Of its 7 members, 5 are GM-only (46 countdowns is the GM's clock, 55 using-environments and 56 adapting-environments are environment stat blocks, 62 crafting-scenes is 'tell the players what they need to know', 64 phased-battles is 'shifting the nature of its enemies or environment'). That leaves 26 maps-range-and-movement and 50 optional-gm-mechanics (falling damage / underwater). And the usable half of 26 - the range ladder, 'Far: ... about 30-100 feet away' - is ALREADY drawn on the player's own attack button: src/ui/player/Play.tsx imports feetRange and rangeDistances from ../shared/srdReference.ts and its docblock says the reason out loud - 'a reach is a distance on p.40 and nothing in this app ever put it in front of the person declaring the attack'. So the player's one honest question about the place is answered on the row they are already looking at, and the chip returns four sections of the GM's scenery. THIS PLACE is also the only one of the six that is not a moment at all: it names a place, not a thing that just happened, which is why it survives on the GM grid (the GM owns the place) and not on the player's (the place happens to them).",
+    "sections": [
+     "26 maps-range-and-movement",
+     "46 countdowns",
+     "50 optional-gm-mechanics",
+     "55 using-environments",
+     "56 adapting-environments",
+     "62 crafting-scenes",
+     "64 phased-battles"
+    ]
+   },
+   {
+    "kind": "player-vs-gm",
+    "detail": "The mechanical trap under all of this: a chip is not a selector, it is a string. ShowSheet.tsx does setQuery(moment.label.toLowerCase()), searchAsk's haystack is `${entry.ask} ${entry.also.join(' ')} ${momentLabel(entry.moment)}`, and RuleSearch.tsx draws the QUESTIONS band ABOVE every band of the book ('The QUESTIONS band is drawn above every other band'). ShowSheet's own docblock states the guarantee that becomes the bug: 'every chip is guaranteed to find its own questions'. So a player grid reusing these six labels serves the GM's twelve questions FIRST, above the sections, and all twelve are GM-voiced: MY TURN would open with 'The scene has stalled and nobody is acting. How do I end it?' (q-scene-stalled) and 'The party wants to run from this fight. Can they just go?' (q-party-flees) - the player IS the party, in the third person, and cannot end a scene. DAMAGE opens with q-surrender, BEFORE THE ROLL with q-npc-difficulty ('They roll against an NPC I invented'). Two shipped tests turn this from an oversight into a deliberate diff: tests/gm/ask.test.ts:220 pins AskEntry to exactly ['id','ask','also','at','moment'], so a `seat` field fails a test; and tests/gm/ask.test.ts:236-239 asserts every moment label finds at least one question, so a seat filter over today's catalogue makes all six chips find zero on the player grid. Part 2.2 needs both a seat field and at least one player-voiced question per chip before a player grid can be drawn at all.",
+    "sections": [
+     "q-scene-stalled",
+     "q-party-flees",
+     "q-surrender",
+     "q-npc-difficulty",
+     "q-blank-consequence",
+     "q-safety"
+    ]
+   },
+   {
+    "kind": "missing-moment",
+    "detail": "The player's default scope is their loadout, and the corpus these six chips index contains nothing about it. Measured across all 69 section bodies: 'recall cost' 0 hits; 'loadout' and 'vault' appear in exactly 2 sections (28 downtime and 31 leveling-up) and only as a clause of a rest ('Each player can move domain cards between their loadout and vault for free'); 'domain card' appears in 6 sections and never states how many you may hold. The app has to supply both facts itself - src/engine/loadout.ts:57-58 carries MAX_LOADOUT and its refusal string 'Loadout is full (N) - move a card to the vault first', and recallCost is a field on each domainCards entry in data/srd-1.0.json, not a sentence anywhere in rules. So the moment a player most wants - 'what does this card do and can I use it right now?' - has no name among the six AND no section to file under a seventh. Adding a seventh chip does not fix it; only pointing the player grid at a different corpus (domainCards / classes / weapons / armors) would. The owner should know before shipping a player grid that it will answer everything except the cards in the player's hand.",
+    "sections": [
+     "28 downtime",
+     "31 leveling-up",
+     "04 character-creation"
+    ]
+   },
+   {
+    "kind": "missing-moment",
+    "detail": "DAMAGE cannot answer the player's most frequent damage question, and the gap is in the book rather than in the mapping. 'Do I mark an Armor Slot?' has no rule anywhere in the 69. I grepped every 'Armor Slot' sentence: 09 leveling-up-your-companion ('Armored: ... mark one of your Armor Slots instead'), 25 attacking (twice, both about resistance and direct damage - 'Direct damage is damage that can't be reduced by marking Armor Slots'), 28 downtime ('Repair Armor: Clear 1d4+Tier Armor Slots'), 30 additional-rules ('Incoming damage means the total damage from a single attack or source, before Armor Slots are marked'), 49 and 52 (adversary/NPC features). Not one states that marking a slot drops you a threshold, and 23 combat's HIT POINTS & DAMAGE THRESHOLDS - the ladder itself - never mentions armor at all. The app implements the missing rule: src/ui/player/Vitals.tsx's docblock is 'Someone hit you for 14 - how many HP is that?' ... 'the app reads the ladder, shows what marking an Armor Slot would save, and applies it on confirm.' So a player tapping DAMAGE gets the ladder they can already see computed, and silence on the one decision they have to make.",
+    "sections": [
+     "23 combat",
+     "25 attacking",
+     "30 additional-rules",
+     "29 death"
+    ]
+   },
+   {
+    "kind": "player-vs-gm",
+    "detail": "DAMAGE is one word for two opposite player events, and the ballot's own memberships show the split without naming it. Dealing damage: 25 attacking (DAMAGE ROLLS, CRITICAL DAMAGE, 'Proficiency only determines how many damage dice you roll'), filed my-turn+damage. Taking damage: 23 combat (the HP/threshold ladder), filed before-the-roll+damage; 29 death; 30 additional-rules INCOMING DAMAGE. For a GM those are one moment - the GM does both to the party and reads both off the same adversary block. For a player they are two different halves of a round with two different sheets involved, and the ballot's row-23 `why` ('what does he need to hit, and if it lands how many HP does she mark') is written entirely in the third person about the player's own character. The chip also drags 03 rulings-over-rules in on the strength of one death-move clause; on a player's DAMAGE that row is a GM philosophy section at the top of a list somebody is reading while bleeding.",
+    "sections": [
+     "23 combat",
+     "25 attacking",
+     "29 death",
+     "30 additional-rules",
+     "03 rulings-over-rules"
+    ]
+   },
+   {
+    "kind": "wrong-moment",
+    "detail": "Three misfilings that are only visible from the player seat. (a) 30 additional-rules is filed the-dice-landed+damage, but its SPENDING RESOURCES clause - 'you can't spend Hope or mark Stress multiple times on the same feature to increase or repeat its effects on the same roll' - is the classic mid-turn player question ('can I mark two Stress to double it?'), and my-turn is not on the row. (b) 46 countdowns is filed the-dice-landed+this-place, both GM readings; the player's countdown is their Project, and 66 projects-during-downtime (between-scenes) tells them it is 'typically tracked using a Progress Countdown' without carrying the advancement rules. A player asking 'how fast is my boat coming along' cannot reach 46 from any chip they would tap. (c) 24 stress is filed the-dice-landed+damage on a GM's sentence ('can I just say mark a Stress?'), but its player-facing clause is a state, not a moment - 'When a character marks their last Stress, they become Vulnerable' - and neither chip is where a player looks for that; 27 conditions is, and it does not carry it.",
+    "sections": [
+     "30 additional-rules",
+     "46 countdowns",
+     "66 projects-during-downtime",
+     "24 stress",
+     "27 conditions"
+    ]
+   },
+   {
+    "kind": "over-assigned",
+    "detail": "The repo already ships a pinned judgement about what 'mid-scene' means, and the ballot contradicts it 17 times - but the player-lens twist is what that list leaves out. tests/gm/ask.test.ts carries MID_SCENE, 35 named sections, asserted toHaveLength(35) against rules toHaveLength(69), under the describe 'the sections a GM opens mid-scene'. The ballot hands a MID-SCENE chip (before-the-roll / the-dice-landed / my-turn / damage / this-place - between-scenes is legitimately outside it) to 17 sections MID_SCENE excludes: 01, 02, 04, 05, 07, 08, 10, 11, 12, 36, 37, 38, 53, 58, 60, 62, 64. Now the part that only the player seat sees: MID_SCENE contains NONE of the four sections a druid or a ranger opens every single combat round - 05 beastform-options ('While transformed, you add the creature's Evasion bonus to your normal Evasion'), 06 ranger-companion, 07 working-with-your-companion ('Make a Spellcast Roll to connect with your companion and command them to take action'), 08 companion-taking-damage ('When your companion would take any amount of damage, they mark a Stress'). That is shipped, pinned evidence that 'mid-scene' in this repo means 'mid-scene for the GM'. Part 2.2 cannot reuse MID_SCENE; it needs its own list, and four of its first entries are the ones the GM's list has never had.",
+    "sections": [
+     "05 beastform-options",
+     "06 ranger-companion",
+     "07 working-with-your-companion",
+     "08 companion-taking-damage",
+     "01 the-basics",
+     "02 the-golden-rule",
+     "04 character-creation",
+     "10 flow-of-the-game",
+     "11 player-principles-and-best-practices",
+     "12 core-gameplay-loop"
+    ]
+   },
+   {
+    "kind": "orphan",
+    "detail": "The eight proposed orphans split cleanly by seat, and that split kills the seventh moment the ballot keeps reaching for. GM-side orphans are content-free or prep: 00 introduction, 34 running-an-adventure, 35 gm-guidance, 57 additional-gm-guidance (93 characters), 59 preparing-combat-encounters. Player-side orphans are real content with a real home: 06 ranger-companion (four numbered STEPs that fill in a sheet), 32 multiclassing, 68 campaign-frames - plus 04 character-creation and 31 leveling-up, which the ballot files with visible discomfort (row 4: 'wants a seventh moment ... SESSION ZERO / MY SHEET'; row 31: 'the row I most want overruled'). All five belong to a screen this app already ships: src/ui/build/ - Build.tsx ('where a character is made, changed and levelled'), LevelUp.tsx, GearPicker.tsx, cardAllowance.ts. So the seventh chip the ballot proposes six separate times is not a missing moment, it is an existing REGION. On the player grid those rows should be empty by routing, not by philosophy, and the six chips stay six. That is the strongest argument in this critique for leaving the set alone.",
+    "sections": [
+     "04 character-creation",
+     "06 ranger-companion",
+     "09 leveling-up-your-companion",
+     "31 leveling-up",
+     "32 multiclassing",
+     "68 campaign-frames"
+    ]
+   },
+   {
+    "kind": "test-cannot-ship",
+    "detail": "The Part 2.3 'every section belongs somewhere' test needs two different exemption rules, one per seat, which is a second reason it cannot ship as written beyond the one the ballot already gives. On the GM grid the exempt class is structural: divider stubs whose body only forward-references other sections (34, 35, 57) plus the document describing itself (00). On the player grid the exempt class is routing: sections the app hands to BUILD rather than to PLAY (04, 06, 09, 31, 32) - all of which the GM grid gives moments to. The two exemption rules do not overlap on a single section, so one predicate cannot serve both grids and the test has to take the seat as a parameter. Related: on the player grid four of the six chips survive the seat filter with healthy membership - BEFORE THE ROLL 16 of 22 usable, BETWEEN SCENES 9 of 15 (and it is the player's richest chip, carrying 28 downtime, 66 projects-during-downtime, 67 extended-downtime, 33 gold), DAMAGE 7 of 11, THE DICE LANDED 7 of 13 - so the finding is not that the six are wrong, it is that two of them are.",
+    "sections": [
+     "00 introduction",
+     "34 running-an-adventure",
+     "35 gm-guidance",
+     "57 additional-gm-guidance",
+     "59 preparing-combat-encounters",
+     "04 character-creation",
+     "06 ranger-companion",
+     "31 leveling-up",
+     "32 multiclassing"
+    ]
+   }
+  ],
+  "verdict": "Four of the six survive the move to a player seat; two do not, and one of those is nearly empty. I classified every section in the ballot by which chair can use it and counted per chip. Player-usable / total: BEFORE THE ROLL 16/22, BETWEEN SCENES 9/15, DAMAGE 7/11, THE DICE LANDED 7/13, MY TURN 10/26, THIS PLACE 2/7. So the ballot is a GM's ballot in its membership and not only in its `why` lines, and the two chips that fail do so for opposite reasons: MY TURN is over-full of the wrong person's turn (16 of 26 members are the GM's turn or prep), and THIS PLACE is empty (5 of 7 are the GM's scenery, and its one usable player member - the range ladder in 26 maps-range-and-movement - is already printed on the player's own attack button by Play.tsx via `feetRange`/`rangeDistances`). Answering the prompt directly: no, a player would not tap THIS PLACE. Would a player look for sections under a name that is not among the six? Yes, twice. The big one is their loadout - and it is unfixable by adding a chip, because the corpus is empty there: `recall cost` has 0 hits across all 69 bodies, `loadout`/`vault` appear only inside 28 downtime and 31 leveling-up, and MAX_LOADOUT and recallCost are facts the app supplies (src/engine/loadout.ts:57-60; a field on domainCards). The small one is BUILD - and it is fixable by deleting rows rather than adding a chip: the seventh moment the ballot reaches for six times (rows 4, 6, 9, 31, 32, 68 - \"SESSION ZERO / MY SHEET\") already exists in this app as a screen, src/ui/build/. That is the argument that saves the six. THE SMALLEST CHANGE, three edits: (1) add one field to each ballot row - `seat: 'gm' | 'player' | 'both'` - and derive the player grid as the same six moments minus the GM-only sections. One extra judgement per section, not a second 69-row ballot, and it makes MY TURN correct without a rename (10 members, all the player's own action). (2) Relabel exactly one chip on the player grid: `this-place` becomes WHERE I AM and keeps 26 maps-range-and-movement, plus 27 conditions' HIDDEN/RESTRAINED and 50's underwater/falling - the three things a player asks about their position. The id stays, which is what ask.ts's own docblock says the id/label split is for. (3) Add `seat` to AskEntry and at least one player-voiced question per chip. (3) is not optional and is not cosmetic: a chip types its LABEL into the field, searchAsk matches labels, and RuleSearch draws QUESTIONS above every band, so a player grid on these six labels opens MY TURN with the GM's \"The party wants to run from this fight. Can they just go?\" - the player, in the third person. Two shipped tests make this a deliberate diff: tests/gm/ask.test.ts:220 pins AskEntry to exactly five keys, and :236 asserts every label finds a question, which a seat filter over today's twelve GM-voiced entries would break for all six chips at once. One thing the owner should hear before committing: even with all three edits, the player grid answers everything except the cards in the player's hand, and the corpus is why."
+ }
+]

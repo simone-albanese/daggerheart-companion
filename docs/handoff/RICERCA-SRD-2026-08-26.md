@@ -1,5 +1,25 @@
 # Consultare l'SRD — il piano
 
+> **CORRETTO IL 26 AGOSTO. Non eseguire questo file da solo.**
+>
+> `DECISIONI-2026-08-26.md` risponde alle tre domande della §6 e **corregge sette punti** di
+> questo piano. Due di quelle correzioni sono portanti, non cosmetiche:
+>
+> - **§2.1 e §4.4 dicono il falso.** *«`ask.ts` continua a chiamare `searchRules`»* — non lo
+>   chiama. Il pagliaio di `searchAsk` non contiene una parola del dataset. La conclusione della
+>   §6.1 resta (il catalogo non si allarga), ma per un motivo semantico, non meccanico.
+> - **§2.3 dice il falso.** *«il campo vuoto oggi disegna una lista vuota»* — disegna i sei chip
+>   dei momenti e le porte, e li disegnava già al commit a cui questo piano si àncora.
+>
+> Le altre cinque — il 34 che è 33, le «tre bande» che sono cinque, i «venti campi corti» che non
+> esistono, le sei righe dei momenti già misurate, il meccanismo del rigetto a buon mercato —
+> sono elencate in `DECISIONI-2026-08-26.md` §1 e §2 e nel §5 di
+> `HANDOFF-2026-08-26-scene-wiring.md`.
+>
+> **Le §5.1 e §5.2 non sono più «da misurare».** La porta è misurata e decisa: una quinta voce
+> della TabBar, costo verticale 0.00px a 393×852 e a 375×667. Resta da misurare solo la lista dei
+> risultati dentro Play.
+
 Ancorato a `main` `5c9f1cc`, **150 file / 3941 test**. Le cifre qui sono lette da
 `data/srd-1.0.json` a quel commit; quelle marcate **(da misurare)** non sono mai state in un
 browser.
