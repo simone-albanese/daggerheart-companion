@@ -199,13 +199,15 @@
  * there* is dropped outright, because it is an affordance rather than a promise
  * and the button that does it is inside the bestiary where it can be seen.
  *
- * **`ShowDoor.body` is now read by nothing.** Dropping the sentence from the
- * door left the field on the type and on all three entries with no drawer
- * anywhere in `src`. It is left standing rather than deleted, because whether
- * those three sentences remain the app's canonical wording for what each tool
- * is not - with Settings paraphrasing them - is a decision about the words and
- * not about this layout. It is the next thing to settle here, and
- * `tests/ui/settingsHints.test.tsx` is what holds the promises in the meantime.
+ * **`ShowDoor.body` is now read by nothing, and that is settled rather than
+ * pending.** Dropping the sentence from the door left the field on the type and
+ * on all three entries with no drawer anywhere in `src`. The owner settled it
+ * on 2026-08-26 (`DECISIONI-2026-08-25.md` section 11): those three sentences
+ * **remain the app's canonical wording** for what each tool is not, and
+ * Settings paraphrases them rather than drawing them. The argument for the
+ * field, written where somebody deleting it would be standing, is the docblock
+ * over `body` in `showDoors.ts`; `tests/ui/settingsHints.test.tsx` is what holds
+ * the promises to their switches.
  *
  * **The grid is three columns and two rows, and every term of it is written
  * down.** Two rows at the 44px tap floor with one 8px gap is **96**; the

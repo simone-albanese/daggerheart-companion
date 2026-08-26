@@ -1562,6 +1562,123 @@ describe('the GM screen states the geometry its own declarations make', () => {
   });
 
   /*
+   * The 0.3px, which is the only margin the SHOW empty state has and which
+   * nobody chose.
+   *
+   * `ShowSheet.tsx` says the column comes to 294.0 in a 294.3 window and calls
+   * that "a coincidence and not a margin" in its own words. A coincidence with
+   * nothing under it is one the next padding change spends in silence: the
+   * state does not overflow today, so no test goes red, and the third door
+   * simply loses a hair to a scroller the panel now has - which is exactly the
+   * failure the empty state was rebuilt to end, when three doors with their
+   * descriptions overflowed it by 138px.
+   *
+   * The 294.3 is Chrome's and stays in the docblock, because a reading window
+   * is measured and not declared. Everything on the near side of it is
+   * declared in this very file, so that is what is held here: two chip rows
+   * and the grid gap between them, the scroller's own gap, and the door floor
+   * paid three times. Move any one of them by a pixel and this fails by name.
+   *
+   * The margin itself is asserted separately and last. It is the claim the
+   * owner asked for - `DECISIONI-2026-08-25.md` section 13 - and it needs its
+   * own line because the two numbers could both drift and still keep their
+   * difference, which would leave the sentence true and the layout wrong.
+   */
+  it('holds the 0.3px the SHOW empty state fits by, and every term on its near side', () => {
+    const SHOW = 'src/ui/gm/ShowSheet.tsx';
+    const chipRow = only(SHOW, /minHeight: (\d+),\s*padding: '0 4px'/g, 'the moment chip floor');
+    const gridGap = only(
+      SHOW,
+      /gridTemplateColumns: 'repeat\(3, 1fr\)',\s*gap: (\d+),/g,
+      "the moment grid's gap",
+    );
+    const scrollGap = only(
+      SHOW,
+      /className="scroll stack"[\s\S]{0,80}?gap: (\d+), padding:/g,
+      "the sheet scroller's gap",
+    );
+    const doorFloor = only(
+      SHOW,
+      /className="panel stack"[\s\S]{0,160}?minHeight: (\d+),/g,
+      'the door floor',
+    );
+
+    // Two rows and one gap. The row count is the browser's - six chips over
+    // three columns - and stays in the prose; the two lengths are declared.
+    const grid = 2 * chipRow + gridGap;
+    // Three doors, with the scroller's own gap standing between them.
+    const doors = 3 * doorFloor + 2 * scrollGap;
+
+    expect(
+      stated(SHOW, /with one (\d+)px gap is \*\*\d+\*\*/g),
+      'the docblock names a grid gap the moment grid no longer declares',
+    ).toEqual([gridGap]);
+    expect(
+      stated(SHOW, /with one \d+px gap is \*\*(\d+)\*\*/g),
+      'the chip grid is no longer two rows of the chip floor plus the gap the grid declares, ' +
+        'so the 294.0 below is stale. Re-measure the empty state.',
+    ).toEqual([grid]);
+    expect(
+      stated(SHOW, /them with their gaps come to \*\*(\d+)\*\*/g),
+      'the three doors are no longer three door floors and two of the scroller gap. This is ' +
+        'the largest of the three terms - re-measure before touching anything else.',
+    ).toEqual([doors]);
+
+    const sum = says(
+      SHOW,
+      /comes to (\d+) \+ (\d+) \+ (\d+) = \*\*(\d+\.\d)\*\* in a \*\*(\d+\.\d)\*\* window/g,
+      "the SHOW empty state's column",
+    );
+    const [statedGrid, statedGap, statedDoors, column, window] = sum as [
+      number,
+      number,
+      number,
+      number,
+      number,
+    ];
+
+    expect([statedGrid, statedGap, statedDoors], 'the sum names terms this file no longer declares')
+      .toEqual([grid, scrollGap, doors]);
+    expect(column, 'the stated column is not the sum of the three terms stated beside it').toBe(
+      grid + scrollGap + doors,
+    );
+
+    // The window is stated twice - once where it is derived from the reading
+    // window and the padding, once in the sum - and two copies of a measured
+    // number are a place for them to drift. The derivation is held to its own
+    // terms as well, so a re-measured window has to move all three together.
+    const measured = says(
+      SHOW,
+      /reading window is \*\*(\d+\.\d)\*\*; it pays \*\*(\d+)\*\* of padding above its first child, so \*\*(\d+\.\d)\*\* is what the column has/g,
+      "the SHOW scroller's reading window",
+    );
+    const [reading, padTop, has] = measured as [number, number, number];
+    expect(has, 'the window is no longer the reading window less the padding it states').toBe(
+      Number((reading - padTop).toFixed(1)),
+    );
+    expect(
+      padTop,
+      'the docblock states a top padding the scroller no longer declares',
+    ).toBe(only(SHOW, /className="scroll stack"[\s\S]{0,80}?padding: '(\d+)px/g, "the scroller's padding"));
+    expect(has, 'the two statements of the window disagree with each other').toBe(window);
+
+    // The margin, which is the whole point. Stated, and then checked against
+    // the two numbers that are supposed to make it, so that a sentence saying
+    // 0.3 over a column that no longer leaves 0.3 fails here rather than in a
+    // GM's hands.
+    expect(
+      stated(SHOW, /That fits by \*\*(\d+\.\d)px\*\*/g),
+      'the empty state no longer states what it fits by',
+    ).toEqual([Number((window - column).toFixed(1))]);
+    expect(
+      column,
+      'the SHOW empty state column has grown past the window it was measured in, so the third ' +
+        'door is under the scroller edge. There is give in the door floor - 56 against a 44px ' +
+        'tap floor - and the docblock says to spend it there rather than on the chips.',
+    ).toBeLessThanOrEqual(window);
+  });
+
+  /*
    * The bottom sheets are the `sheet` half of the same panel the reference
    * region is the `full` half of, and they dropped the identical pixel. All
    * three stated "393 - 28 of padding = 365px" while `ShowSheet.tsx` - same
