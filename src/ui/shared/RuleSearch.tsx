@@ -55,10 +55,10 @@
  * the same `Marked` walk the preview line uses.
  *
  * **A function and not an export of `Marked`, and that is not a preference.**
- * This file already imports `BlockView` from `ReferenceTables.tsx`, so handing
- * a component the other way would be an import cycle; it would also put a
- * second exported component under `src/ui` and owe `screens.test.tsx` a fixture
- * for it. A function has neither problem, and it keeps the policy - which
+ * This file imports `BlockView`, so handing a component back the other way
+ * would be an import cycle; it would also put a second exported component under
+ * `src/ui` and owe `screens.test.tsx` a fixture for it. A function has neither
+ * problem, and it keeps the policy - which
  * words, in whose case, what the `<mark>` is painted with - in the file that
  * owns the query. `splitFirst` is the door and not `preview`: `preview` windows
  * a line to 150 characters of book for a 363px column, which is right for a
@@ -447,14 +447,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RulesSection } from '../../../shared/types.ts';
 import { useApp } from '../../store/state.ts';
-import { useIsPhone } from '../shared/useLayout.ts';
+import { useIsPhone } from './useLayout.ts';
 import {
   ruleSection,
   ruleTerms,
   searchRules,
   type RuleHit,
   type SectionView,
-} from '../shared/srdReference.ts';
+} from './srdReference.ts';
 import {
   searchSrd,
   SRD_KIND_LABELS,
@@ -462,9 +462,9 @@ import {
   srdIndex,
   type SrdHit,
   type SrdRecord,
-} from '../shared/srdIndex.ts';
+} from './srdIndex.ts';
 import { askLoaded, loadAsk, searchAsk, type AskEntry } from './ask.ts';
-import { BlockView, type BlockTarget } from './ReferenceTables.tsx';
+import { BlockView, type BlockTarget } from './BlockView.tsx';
 
 /** How much of a long line to keep on either side of the marks. */
 const BEFORE = 34;
