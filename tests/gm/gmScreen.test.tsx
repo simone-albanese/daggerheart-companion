@@ -662,15 +662,19 @@ describe('ADD', () => {
 // ---------------------------------------------------------------------------
 
 describe('SHOW', () => {
-  it('offers three doors, and each says what it is not', () => {
-    // One clause per door, so deleting any `body` from `showDoors.ts` goes red
-    // here. Two of the three were asserted while there were three doors, and
-    // the merchant's was the missing one.
+  it('offers three doors, by the name each tool answers to', () => {
+    // This asserted one clause of each door's sentence until 2026-08-25, when
+    // the sentences came off the doors: three doors carrying three sentences
+    // filled SHOW's 308.3px reading window on their own and left the moment
+    // chips nowhere to go. The promises are beside the switch that decides
+    // whether each door exists at all, and `tests/ui/settingsHints.test.tsx`
+    // holds all three there - that is the assertion to break if they are ever
+    // quietly dropped, and it is stronger than this one was.
     gm();
     click(named('SHOW'));
-    expect(text()).toContain('without adding any of them');
-    expect(text()).toContain('Nothing here ever writes to their characters');
-    expect(text()).toContain('it never spends anybody’s gold');
+    expect(text()).toContain('BESTIARY');
+    expect(text()).toContain('THE PARTY BOARD');
+    expect(text()).toContain('THE MERCHANT');
   });
 
   it('opens the bestiary, which no row can', () => {

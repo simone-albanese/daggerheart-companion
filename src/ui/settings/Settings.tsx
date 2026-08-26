@@ -530,7 +530,7 @@ function GmTools({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
 
         <Field
           label="The party board"
-          hint="Also behind SHOW: the player sheets sent to this device, as they arrived, beside whatever you have marked on them since. Off, SHOW stops offering it. The sheets themselves are untouched — this decides what the screen shows, never what it keeps."
+          hint="Also behind SHOW: the player sheets sent to this device, as they arrived, beside whatever you have marked on them since. Nothing on the board ever writes to their characters. Off, SHOW stops offering it. The sheets themselves are untouched — this decides what the screen shows, never what it keeps."
         >
           <Switch
             label="The party board"

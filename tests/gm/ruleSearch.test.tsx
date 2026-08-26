@@ -49,6 +49,8 @@ import {
   type SectionView,
 } from '../../src/ui/shared/srdReference.ts';
 import { landingIn, preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/gm/ask.ts';
+import { ASK_CATALOGUE } from '../../src/ui/gm/askCatalogue.ts';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
 
@@ -87,6 +89,20 @@ beforeAll(async () => {
   Element.prototype.scrollTo = (): void => {};
   Element.prototype.scrollIntoView = (): void => {};
   await hydrateGm();
+  /*
+   * The question catalogue arrives through a dynamic `import()`, and this is
+   * where it is made to arrive - once, before anything renders.
+   *
+   * Without this line the chunk never lands inside a synchronous test at all:
+   * a microtask cannot run while a test body is still on the stack, so every
+   * assertion below would be written against a surface with no QUESTIONS band
+   * on it and would pass whether the band worked or not. That is the exact
+   * failure this file's own `groupHeaders` docblock warns about one bad helper
+   * further down - a check quietly answering the question it was not asked.
+   * `loadAsk` memoises, so this is one import for the file and the module's
+   * synchronous peek is warm for every case in it.
+   */
+  await loadAsk();
   baseCampaigns = useGm.getState().campaigns;
   baseActiveId = useGm.getState().activeCampaignId;
 });
@@ -207,13 +223,33 @@ const type = (text: string): void => {
   });
 };
 
-/** Every hit header on screen, in the order the list draws them. */
+/**
+ * Every hit header on screen, in the order the list draws them.
+ *
+ * `section:not([data-ask])`, because a question row is a `<section>` with a
+ * `button[aria-expanded]` in it too and it is not a hit: it carries no book
+ * title, so `hitTitles` would read a blank out of it, and every `toEqual` over
+ * hits in this file would start counting rows the SRD did not produce. The
+ * attribute is on the row for this reason and no other - it is the seam
+ * between the app's own words and the book's.
+ */
 const hits = (): HTMLButtonElement[] => [
-  ...dialog().querySelectorAll<HTMLButtonElement>('section > button[aria-expanded]'),
+  ...dialog().querySelectorAll<HTMLButtonElement>('section:not([data-ask]) > button[aria-expanded]'),
 ];
 
 const hitTitles = (): string[] =>
   hits().map((b) => (b.querySelector('span > span')?.textContent ?? '').trim());
+
+/** Every question row on screen, in the order the band draws them. */
+const askRows = (): HTMLButtonElement[] => [
+  ...dialog().querySelectorAll<HTMLButtonElement>('section[data-ask] > button[aria-expanded]'),
+];
+
+/** The questions a query finds, as the header over them reads. */
+const askBand = (query: string): string[] => {
+  const found = searchAsk(ASK_CATALOGUE, query);
+  return found.length === 0 ? [] : [`QUESTIONS · ${String(found.length)}`];
+};
 
 /**
  * What a band header can say, so this helper cannot miss one.
@@ -223,8 +259,15 @@ const hitTitles = (): string[] =>
  * over a three-band list - a helper quietly answering the question the
  * assertion below was written to ask. Named labels, matched from the front so
  * the ` · n` count can still be read off the end.
+ *
+ * `QUESTIONS` is in the list for exactly that reason. It is the band that is
+ * not the book's, it is drawn above all the others, and a helper that did not
+ * name it would leave every `toEqual` below asserting the old surface over a
+ * new one and passing - which is the worse of the two failures, because it
+ * looks like proof.
  */
 const BAND_LABELS = [
+  'QUESTIONS',
   'IN THE TITLE',
   'IN A HEADING',
   'IN THE TEXT',
@@ -879,20 +922,22 @@ describe('the field, at the foot of SHOW', () => {
     // named two while the sheet held three, so the merchant could have stayed
     // drawn beside the hits and nothing here would have gone red.
     openShow();
+    // Named rather than described: a door carries its label alone since the
+    // sentences moved beside the Settings switches on 2026-08-25.
     const doorText = (): string => dialog().textContent ?? '';
-    expect(doorText()).toContain('without adding any of them');
-    expect(doorText()).toContain('Nothing here ever writes to their characters');
-    expect(doorText()).toContain('never spends anybody’s gold');
+    expect(doorText()).toContain('BESTIARY');
+    expect(doorText()).toContain('THE PARTY BOARD');
+    expect(doorText()).toContain('THE MERCHANT');
 
     type('fear');
-    expect(doorText()).not.toContain('without adding any of them');
-    expect(doorText()).not.toContain('Nothing here ever writes to their characters');
-    expect(doorText()).not.toContain('never spends anybody’s gold');
+    expect(doorText()).not.toContain('BESTIARY');
+    expect(doorText()).not.toContain('THE PARTY BOARD');
+    expect(doorText()).not.toContain('THE MERCHANT');
 
     type('');
-    expect(doorText()).toContain('without adding any of them');
-    expect(doorText()).toContain('Nothing here ever writes to their characters');
-    expect(doorText()).toContain('never spends anybody’s gold');
+    expect(doorText()).toContain('BESTIARY');
+    expect(doorText()).toContain('THE PARTY BOARD');
+    expect(doorText()).toContain('THE MERCHANT');
   });
 
   it('is still there when only one of SHOW’s doors is switched on', () => {
@@ -902,7 +947,7 @@ describe('the field, at the foot of SHOW', () => {
       prefs: { ...DEFAULT_PREFS, gmBestiary: false, gmMerchant: false },
     });
     openShow();
-    expect(dialog().textContent).toContain('Nothing here ever writes to their characters');
+    expect(dialog().textContent).toContain('THE PARTY BOARD');
     type('pitfalls');
     expect(hitTitles()).toEqual(['Pitfalls to Avoid']);
     // And the name the sheet is announced under says so. `Gm.tsx` narrows this
@@ -952,19 +997,32 @@ describe('the results', () => {
     );
 
     type('fear');
-    // Three bands, not two: `fear` reaches `Pitfalls to Avoid` through its
-    // HOARDING FEAR subhead, and a subhead gets its own header. Three sections
-    // in that band rather than the one this asserted while `quoteFrom` took the
-    // first satisfying line it met: `Using Adversaries` and `Example Adversary
-    // Features` each open with prose carrying the word and each own a FEAR
-    // FEATURE(S) subhead further down, and the subhead is the one that names
-    // the rule. The nineteen hits are the same nineteen sections either way -
-    // what moved is which line three of them quote, and so which band they
-    // stand in.
-    expect(groupHeaders()).toHaveLength(3);
-    expect(groupHeaders()[1]).toBe('IN A HEADING · 3');
+    // Three bands of the book's, not two: `fear` reaches `Pitfalls to Avoid`
+    // through its HOARDING FEAR subhead, and a subhead gets its own header.
+    // Three sections in that band rather than the one this asserted while
+    // `quoteFrom` took the first satisfying line it met: `Using Adversaries`
+    // and `Example Adversary Features` each open with prose carrying the word
+    // and each own a FEAR FEATURE(S) subhead further down, and the subhead is
+    // the one that names the rule. The nineteen hits are the same nineteen
+    // sections either way - what moved is which line three of them quote, and
+    // so which band they stand in.
+    //
+    // And one band of the app's own, above all three. `fear` finds exactly one
+    // question - the one indexed under `success with fear` - which is asserted
+    // here rather than derived, because a helper that computed it from the same
+    // matcher the screen used would agree with the screen whatever either did.
+    expect(searchAsk(ASK_CATALOGUE, 'fear').map((entry) => entry.id)).toEqual([
+      'q-blank-consequence',
+    ]);
+    expect(groupHeaders()).toHaveLength(4);
+    expect(groupHeaders()[0]).toBe('QUESTIONS · 1');
+    expect(groupHeaders()[2]).toBe('IN A HEADING · 3');
+    // The live line names both, questions first, in the order the glass draws
+    // them. `spoken` is what a GM who cannot see the bands is given instead of
+    // them, so a question above the list that it did not mention would put the
+    // catalogue behind the whole result for exactly one reader.
     expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
-      `${String(searchRules(rules, 'fear').length)} sections match`,
+      `1 question and ${String(searchRules(rules, 'fear').length)} sections match`,
     );
   });
 
@@ -1812,7 +1870,9 @@ describe('the results', () => {
     openShow();
     type('fear');
     const live = dialog().querySelector('.sr-only[role="status"]');
-    expect(live?.textContent).toBe(`${String(searchRules(rules, 'fear').length)} sections match`);
+    expect(live?.textContent).toBe(
+      `1 question and ${String(searchRules(rules, 'fear').length)} sections match`,
+    );
 
     type('kobolds riding a velocipede');
     expect(dialog().querySelector('.sr-only[role="status"]')).toBe(live);
@@ -1924,5 +1984,214 @@ describe('the results', () => {
 
     expect(hitTitles()).toEqual(['Countdowns']);
     expect(dialog().textContent).toContain('A velocipede is Close range.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The question catalogue, on the surface it was built for.
+ *
+ * `tests/gm/ask.test.ts` asks whether the twelve entries still point at
+ * anything. This asks the other half: whether a GM ever sees them, which is the
+ * defect class this repo keeps shipping - twelve entries, a matcher, six chips,
+ * every unit test green, and nothing on the glass.
+ */
+describe('the questions above the sections', () => {
+  it('draws the app’s own band above every band of the book’s', () => {
+    openShow();
+    type('damage');
+    // Two questions, both filed under the DAMAGE moment: `searchAsk` indexes an
+    // entry under its moment's label as well as its own words, which is what
+    // makes a chip find its own questions rather than whatever the book calls
+    // them.
+    expect(searchAsk(ASK_CATALOGUE, 'damage').map((entry) => entry.id)).toEqual([
+      'q-surrender',
+      'q-death-move-refused',
+    ]);
+    expect(groupHeaders()[0]).toBe('QUESTIONS · 2');
+    expect(groupHeaders().length).toBeGreaterThan(1);
+    expect(askRows().map((b) => b.querySelector('span.t-read')?.textContent)).toEqual(
+      searchAsk(ASK_CATALOGUE, 'damage').map((entry) => entry.ask),
+    );
+    // Above, in the DOM and therefore up the glass from the thumb: the whole
+    // point of a fourth band is that it is read before the nineteen.
+    expect(
+      askRows()[0]!.compareDocumentPosition(hits()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+  });
+
+  it('answers a phrase this book does not carry with a question instead of silence', () => {
+    /*
+     * The case the catalogue exists for, and it is measured rather than
+     * assumed: `surrender` is in none of the sixty-nine sections, so the search
+     * alone answers a real table question with a correct and useless silence.
+     */
+    openShow();
+    type('surrender');
+    expect(searchRules(rules, 'surrender')).toEqual([]);
+    expect(hits()).toEqual([]);
+    expect(groupHeaders()).toEqual(['QUESTIONS · 1']);
+    expect(dialog().textContent).toContain('wants to surrender');
+    // And the silence is gone, because its second clause would now be false of
+    // the surface it is printed on.
+    expect(dialog().textContent).not.toContain('No rule in this dataset carries that');
+    expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
+      '1 question and no section matches',
+    );
+  });
+
+  it('says nothing at all about questions when it has none', () => {
+    // §4 forbids the other apology: a query that finds sections and no question
+    // prints no empty band and no "I have nothing for that" row.
+    openShow();
+    type('countdown');
+    expect(searchAsk(ASK_CATALOGUE, 'countdown')).toEqual([]);
+    expect(askRows()).toEqual([]);
+    expect(groupHeaders().some((header) => header.startsWith('QUESTIONS'))).toBe(false);
+    expect(dialog().querySelector('.sr-only[role="status"]')?.textContent).toBe(
+      `${String(searchRules(rules, 'countdown').length)} sections match`,
+    );
+  });
+
+  it('opens a question on the block its pointer names, under the book’s own address', () => {
+    landings((asked) => {
+      openShow();
+      type('chase');
+      expect(askRows()).toHaveLength(1);
+      // Shut, the row already carries the provenance: title, subhead, stamp -
+      // all three out of the dataset, none of them typed into the catalogue.
+      const row = askRows()[0]!;
+      expect(row.textContent).toContain('Countdowns · DYNAMIC COUNTDOWN ADVANCEMENT');
+      expect(row.textContent).toContain('SRD 1.0 · P.69');
+
+      click(row);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]!.textContent!.startsWith('DYNAMIC COUNTDOWN ADVANCEMENT')).toBe(true);
+      // Not the top of the section: the block it lands on is not the first.
+      const blocks = ruleSection(rules, 'countdowns')!.blocks;
+      expect(
+        blocks.findIndex((block) => block.heading === 'DYNAMIC COUNTDOWN ADVANCEMENT'),
+      ).toBeGreaterThan(0);
+      // The section is drawn whole around it rather than the block alone - a
+      // rule read with its neighbours cut away is how a GM rules on half a
+      // sentence.
+      const opened = row.closest('section')!;
+      expect(opened.textContent).toContain(blocks[0]!.parts[0]!.kind === 'text' ? blocks[0]!.parts[0]!.text : '');
+    });
+  });
+
+  it('keeps one thing open across both kinds of row', () => {
+    openShow();
+    type('damage');
+    click(hits()[0]!);
+    expect(hits()[0]!.getAttribute('aria-expanded')).toBe('true');
+    click(askRows()[0]!);
+    expect(askRows()[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(hits()[0]!.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('draws the whole section, and says so, when the subhead has gone', () => {
+    // The runtime half of the rot ladder. A homebrew layer can rewrite a body,
+    // and a renamed subhead must never be matched loosely onto the nearest one
+    // still standing: a wrong subhead looks like an answer, and the top of a
+    // section visibly is the top.
+    openShow();
+    act(() => {
+      useApp.setState({
+        dataset: {
+          ...dataset,
+          rules: dataset.rules.map((r) =>
+            r.id === 'countdowns' ? { ...r, body: r.body.replace('## DYNAMIC COUNTDOWN', '## HOW A CLOCK') } : r,
+          ),
+        },
+      });
+    });
+    type('chase');
+    click(askRows()[0]!);
+    expect(dialog().textContent).toContain('no longer carries that subhead');
+    expect(dialog().textContent).toContain('HOW A CLOCK');
+  });
+
+  it('turns a dead pointer into a live search when the section has gone', () => {
+    /*
+     * `RECUPERO-JOURNAL-2026-08-24.md`'s design, both halves: the `Unresolved`
+     * shape `SessionBody` uses for a link this device cannot resolve, plus a
+     * control that puts the question's own index word in the field so the GM
+     * ends up searching rather than staring at a note.
+     */
+    openShow();
+    act(() => {
+      useApp.setState({
+        dataset: { ...dataset, rules: dataset.rules.filter((r) => r.id !== 'countdowns') },
+      });
+    });
+    type('chase');
+    expect(askRows()).toHaveLength(1);
+    // The row still says where it was pointing, by its raw ref, because that
+    // is the one honest thing left to print.
+    expect(askRows()[0]!.textContent).toContain('countdowns');
+    click(askRows()[0]!);
+    expect(dialog().textContent).toContain('no longer carries that section');
+
+    click(named('SEARCH “chase” INSTEAD'));
+    expect(field().value).toBe('chase');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the moment chips, on the empty field', () => {
+  const chipGroup = (): HTMLElement | null => dialog().querySelector('[role="group"]');
+  const doors = (): HTMLButtonElement[] => [
+    ...scroller().querySelectorAll<HTMLButtonElement>('button.panel'),
+  ];
+
+  it('draws all six above the doors, in one scroll', () => {
+    // The owner's decision of 2026-08-25 §6: both, not one or the other. The
+    // panel scrolls, so a grid above the doors pushes them down rather than off
+    // - and how far down is the Chrome measurement `ShowSheet.tsx` says it is
+    // still waiting for.
+    openShow();
+    const chips = [...chipGroup()!.querySelectorAll('button')];
+    expect(chips.map((b) => (b.textContent ?? '').trim())).toEqual(
+      MOMENTS.map((moment) => moment.label),
+    );
+    expect(doors()).toHaveLength(3);
+    expect(
+      chipGroup()!.compareDocumentPosition(doors()[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeGreaterThan(0);
+    expect(scroller().contains(chipGroup())).toBe(true);
+    // The floor, inline, where jsdom can read it. A chip is not two columns
+    // because 53.8px would not hold `BETWEEN SCENES`; it is 44 tall because
+    // everything on this screen is.
+    for (const chip of chips) expect(chip.style.minHeight).toBe('44px');
+  });
+
+  it('fills the field, and every one of the six finds its own questions', () => {
+    for (const moment of MOMENTS) {
+      openShow();
+      click(named(moment.label));
+      expect(field().value).toBe(moment.label.toLowerCase());
+      // A chip that drew an empty band would be a control that answers
+      // nothing, which is worse than no chip.
+      expect(askRows().length, moment.label).toBeGreaterThan(0);
+      expect(groupHeaders()[0], moment.label).toBe(
+        `QUESTIONS · ${String(searchAsk(ASK_CATALOGUE, moment.label.toLowerCase()).length)}`,
+      );
+      act(() => root.unmount());
+      root = createRoot(container);
+    }
+  });
+
+  it('goes with the doors while a question is being typed, and comes back', () => {
+    openShow();
+    expect(chipGroup()).not.toBeNull();
+    type('fear');
+    expect(chipGroup()).toBeNull();
+    expect(doors()).toEqual([]);
+    type('');
+    expect(chipGroup()).not.toBeNull();
+    expect(doors()).toHaveLength(3);
   });
 });
