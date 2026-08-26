@@ -315,17 +315,46 @@ describe('the pip tokens', () => {
     expect(tokensCss).toMatch(/@media[^{]*any-pointer:\s*coarse[\s\S]*?--pip-h:\s*var\(--tap\)/);
   });
 
-  it('does not drag --control along with them', () => {
-    /*
-     * The trap this token exists to avoid. `--control` gates every chip in the
-     * app including the ones inside the desktop cockpit's roll panel, which
-     * clips its own overflow - so widening --control to `any-pointer` would
-     * crush that panel from the inside, which is the very failure the tablet
-     * band already has.
-     */
+  /*
+   * INVERTED ON 2026-08-26, AND THE OLD ASSERTION IS QUOTED RATHER THAN
+   * DELETED.
+   *
+   * This used to be `does not drag --control along with them`, and it forbade
+   * exactly what the line below now requires. Its ground was real when written:
+   * "`--control` gates every chip in the app including the ones inside the
+   * desktop cockpit's roll panel, which clips its own overflow - so widening
+   * --control to `any-pointer` would crush that panel from the inside." That
+   * panel scrolls now, so the ground went; the guard did not, and for a whole
+   * wave it was pinning a reason that had expired.
+   *
+   * It is quoted because that is the failure worth remembering. A guard states
+   * a reason at the moment it is written and never again, so a guard whose
+   * reason has expired reads exactly like a live one - and this one was
+   * cross-referenced from `tokens.css`, which is what made it look checked.
+   *
+   * What replaces it is not nothing. The honest test for "a thumb may land
+   * here" is whether the machine has *a* coarse pointer at all, and both
+   * tokens now answer that question - so the thing to hold is that they answer
+   * it *together*. A future change that narrows one of them back to `pointer`
+   * puts an iPad in a keyboard case, or any touchscreen laptop, back under this
+   * project's own 44px floor on eleven controls, the four screen tabs among
+   * them. `DECISIONI-2026-08-25.md` section 12 is where the owner took it.
+   */
+  it('take --control with them, because the same finger reaches both', () => {
     const anyPointerBlocks = tokensCss.match(/@media[^{]*any-pointer:\s*coarse[^{]*\{[\s\S]*?\n\}/g) ?? [];
     expect(anyPointerBlocks.length).toBeGreaterThan(0);
-    for (const rule of anyPointerBlocks) expect(rule).not.toMatch(/--control:/);
+    expect(
+      anyPointerBlocks.some((rule) => /--control:\s*var\(--tap\)/.test(rule)),
+      '`--control` no longer sizes for any coarse pointer. A touchscreen laptop reports ' +
+        '`pointer: fine` with a finger on the glass, and this is the query that catches it - ' +
+        'narrowing it back to `pointer` puts every chip in the app 10px under the 44px floor ' +
+        'on those machines.',
+    ).toBe(true);
+    expect(
+      /@media[^{]*[^-]pointer:\s*coarse[\s\S]{0,60}?--control:/.test(tokensCss),
+      '`--control` is sized by a bare `pointer: coarse` query again, which is the narrower ' +
+        'question the owner overturned on 2026-08-26.',
+    ).toBe(false);
   });
 
   it('never lets a pip go below the WCAG target floor', () => {

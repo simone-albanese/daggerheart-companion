@@ -315,9 +315,16 @@ describe('the height a banner takes off the screen below it', () => {
   it('reads its two tokens off the stylesheet, not off memory', () => {
     expect(tokens).toContain(`--tap: ${TAP}px;`);
     expect(tokens).toContain(`--control: ${CONTROL}px;`);
-    expect(tokens).toMatch(
-      /@media \(max-width: 1179px\), \(pointer: coarse\) \{\s*:root \{\s*--control: var\(--tap\);/,
-    );
+    // The width half only. The pointer half of that query widened from
+    // `pointer` to `any-pointer` on 2026-08-26 (`DECISIONI-2026-08-25.md`
+    // section 12) and this file failed on the wording, not on the claim: what
+    // 66 rests on is `--control` being the tap floor AT PHONE WIDTHS, and the
+    // pointer term can only ever add machines to that, never remove one. Pin
+    // the half this arithmetic depends on and let the other half move.
+    expect(
+      /@media[^{]*max-width:\s*1179px[^{]*\{\s*:root\s*\{\s*--control:\s*var\(--tap\)/.test(tokens),
+      '`--control` is no longer the tap floor at phone widths, so the 66 below is fiction',
+    ).toBe(true);
   });
 
   /**
