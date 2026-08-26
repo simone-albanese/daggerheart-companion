@@ -1,0 +1,833 @@
+[
+ {
+  "index": 0,
+  "id": "introduction",
+  "title": "Introduction",
+  "page": 3,
+  "moments": [],
+  "why": "There is no sentence. Nobody at a table has ever said \"remind me what a System Reference Document is\" while four people wait.",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN, and the least arguable one in the range. This is the document describing itself and its licence terms (\"copy text made available by Darrington Press under their Community Gaming License\") — it is about the artifact, not about the game. No moment fits, and no seventh moment would take it either. This alone means the Part 2.3 test that walks every section and fails on a section belonging to nothing cannot ship as written; the owner needs to decide what replaces it (an allow-list of front matter, or a section-visibility flag)."
+ },
+ {
+  "index": 1,
+  "id": "the-basics",
+  "title": "The Basics",
+  "page": 3,
+  "moments": [
+   "the-dice-landed"
+  ],
+  "why": "\"Hold on — which one is the Hope die, and what does it mean if that's the one that came up higher?\"",
+  "confidence": "arguable",
+  "note": "Player's sentence, not a GM's — flag for Part 2.2. It is also a summary rather than the operative text: the real answers are in hope-and-fear (22) and difficulty-benchmarks (43). If the owner's rule is that a chip points only at operative rules and never at a teaching paragraph, this is an orphan. I filed it because the second paragraph is the shortest correct answer in the book to a question every table asks in session one."
+ },
+ {
+  "index": 2,
+  "id": "the-golden-rule",
+  "title": "The Golden Rule",
+  "page": 3,
+  "moments": [
+   "before-the-roll",
+   "between-scenes"
+  ],
+  "why": "\"The book says that's how it works, but that's not how we've been playing it — can we just keep doing it our way?\"",
+  "confidence": "contested",
+  "note": "Genuinely cannot call this without the owner, on two axes. (a) Member or orphan: this is a table charter, not a lookup. (b) If it is a member, rulings-over-rules already owns the mid-scene reach under BEFORE THE ROLL via q-no-rule, so filing this there too gives that chip two near-identical philosophy sections back to back. The between-scenes half rests on \"as long as your group agrees\" and \"with your table's consent\" — the actual act is a conversation between people, not a ruling in a scene."
+ },
+ {
+  "index": 3,
+  "id": "rulings-over-rules",
+  "title": "Rulings Over Rules",
+  "page": 3,
+  "moments": [
+   "before-the-roll",
+   "damage"
+  ],
+  "why": "\"You can't pull a castle with a grappler. Actually — can you? I'm calling it now, before he rolls.\"",
+  "confidence": "obvious",
+  "note": "before-the-roll is beyond argument: q-no-rule already points here and tags it that way. The damage half is the arguable one and rests on one paragraph — \"if your character does something that would logically result in immediate death... you might not get to make one of Daggerheart's death moves\". That is the sentence someone reaches for the instant a PC dives into the volcano, and it is the only place in the SRD that qualifies death moves this way."
+ },
+ {
+  "index": 4,
+  "id": "character-creation",
+  "title": "Character Creation",
+  "page": 4,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "\"I want to get up that rope — is that Agility or Strength?\"",
+  "confidence": "arguable",
+  "note": "A stretch, reported as one. Nine steps of session-zero procedure earn a moment through roughly one screen of it: the six trait blurbs (\"You'll make an Agility Roll to scurry up a rope, sprint to cover, or bound from rooftop to rooftop\"), which are the most-asked live lookup in the game and are buried inside a creation walkthrough. The Experience rule (\"spend a Hope to add a relevant Experience's modifier to an action or reaction roll\") reinforces the same moment. Everything else here — heritage, equipment, connections — wants a seventh moment the six do not have: SESSION ZERO / MY SHEET. Player's sentence — flag for Part 2.2."
+ },
+ {
+  "index": 5,
+  "id": "beastform-options",
+  "title": "Beastform Options",
+  "page": 12,
+  "moments": [
+   "my-turn",
+   "before-the-roll"
+  ],
+  "why": "\"I drop to all fours and go for its throat — what am I rolling with, and is my Evasion different now?\"",
+  "confidence": "arguable",
+  "note": "Player's section, and only one player's. A GM will never tap a chip to find Beastform; the druid at the table reaches for it every combat. On the Part 2.2 player grid this is a headline under MY TURN; on the Part 2.3 GM grid it is noise in both chips I filed it under. Flag for 2.2."
+ },
+ {
+  "index": 6,
+  "id": "ranger-companion",
+  "title": "Ranger Companion",
+  "page": 18,
+  "moments": [],
+  "why": "There is no sentence. Nobody says this mid-scene — you read it once, the day you take Beastbound, and fill in a sheet.",
+  "confidence": "arguable",
+  "note": "TRUE ORPHAN (second of two in this range). Every line is setup: name the animal, write 10 in the Evasion box, invent two Experiences, pick a damage die. Once the sheet is filled the section is dead. between-scenes is the only fallback and it would be a lie — \"between scenes\" in this SRD means a rest between conflicts (see downtime, p.41), not building a sheet. This wants the same missing seventh moment as character-creation. Player-side either way."
+ },
+ {
+  "index": 7,
+  "id": "working-with-your-companion",
+  "title": "Working with Your Companion",
+  "page": 18,
+  "moments": [
+   "my-turn",
+   "before-the-roll"
+  ],
+  "why": "\"I send her in at the big one — do I roll for that, or does she?\"",
+  "confidence": "obvious",
+  "note": "A third moment was considered and deliberately left off: \"On a success with Hope, if your next action builds on their success, you gain advantage on the roll\" is a the-dice-landed reach. I kept the row at two rather than smell — the owner should add the-dice-landed if they want that clause findable from the chip. Player's section — flag for Part 2.2."
+ },
+ {
+  "index": 8,
+  "id": "companion-taking-damage",
+  "title": "Companion: Taking Damage as Stress",
+  "page": 18,
+  "moments": [
+   "damage",
+   "between-scenes"
+  ],
+  "why": "\"The wolf just took a hit — does she have HP, or what?\"",
+  "confidence": "obvious",
+  "note": "Player's section — flag for Part 2.2. between-scenes carries only the last two lines and nothing else: she stays gone \"until the start of your next long rest, where they return with 1 Stress cleared\", and downtime moves that clear your Stress clear hers. If the owner wants moments to cover a section rather than a clause, strike the second chip."
+ },
+ {
+  "index": 9,
+  "id": "leveling-up-your-companion",
+  "title": "Leveling Up Your Companion",
+  "page": 18,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "\"We levelled — what do I get to give her this time?\"",
+  "confidence": "arguable",
+  "note": "Stretch, with the objection stated. Levelling in this SRD happens between SESSIONS — \"whenever the GM decides you've reached a narrative milestone (usually about every 3 sessions)\" (leveling-up, p.42) — not between scenes, so this wants the same seventh moment as character-creation and ranger-companion. Pulling the other way: two of the eight options fire mid-combat and are exactly what someone frantically re-reads under fire — Armored (\"when your companion takes damage, you can mark one of your Armor Slots instead\") and Bonded (\"when you mark your last Hit Point... clear your last Hit Point and return to the scene\"). If the owner values findability over tidiness, add damage. Player's section."
+ },
+ {
+  "index": 10,
+  "id": "flow-of-the-game",
+  "title": "Flow of the Game",
+  "page": 35,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "\"Wait — are we in initiative? Whose go is it?\"",
+  "confidence": "arguable",
+  "note": "Possible orphan by redundancy rather than by content. It is four sentences of preamble (\"Daggerheart is a conversation... the players take turns describing how their characters react\"), and the operative MY TURN answers are the-spotlight and turn-order-and-action-economy (indices 13-14, outside my range). If those two own the chip — and they should — this section adds a preamble to a list where a GM under pressure wants the procedure. Owner's call whether MY TURN opens with the framing or with the mechanic."
+ },
+ {
+  "index": 11,
+  "id": "player-principles-and-best-practices",
+  "title": "Player Principles & Best Practices",
+  "page": 35,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "\"It's on me and I've got nothing. What am I even supposed to do here?\"",
+  "confidence": "arguable",
+  "note": "The title says whose section this is. On the GM grid it is close to dead weight; on the Part 2.2 player grid it is arguably what MY TURN should open with — \"Embrace danger. Use your resources. Tell the story.\" is the answer to a frozen player, and it is the player-side mirror of what q-scene-stalled points the GM at. between-scenes is the other real candidate: principles are a how-we-play conversation as much as an in-scene prompt. Flag for 2.2."
+ },
+ {
+  "index": 12,
+  "id": "core-gameplay-loop",
+  "title": "Core Gameplay Loop",
+  "page": 35,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "Wait - does she even need to roll for that, or does it just work?",
+  "confidence": "contested",
+  "note": "CLOSEST THING TO AN ORPHAN IN THIS RANGE, and the row I most expect you to overrule to empty. Nobody reaches for a four-step loop mid-scene; it is a read-once orientation section. The one sentence in it that IS a table sentence is Step 3's 'if their proposed actions carry no chance of failure... they automatically succeed. But if the outcome of their action is unknown, the GM calls for an action roll' - which is why I filed it before-the-roll rather than empty, and that same sentence is said better by section 15. Runner-up moment: between-scenes, because Step 1 SET THE SCENE is what a GM does when the last scene has just ended. If you want the part-2.3 'every section belongs somewhere' test to ship honestly, this is the row to interrogate first."
+ },
+ {
+  "index": 13,
+  "id": "the-spotlight",
+  "title": "The Spotlight",
+  "page": 35,
+  "moments": [
+   "my-turn",
+   "the-dice-landed"
+  ],
+  "why": "Three people are talking at once and I don't know who I'm supposed to be listening to - and Sara just failed, so does it come to me now?",
+  "confidence": "arguable",
+  "note": "the-dice-landed is the disputable half: it rests on one clause ('when a player fails an action roll, the mechanics prompt the GM to seize the spotlight'). File it my-turn only if you want that chip kept narrow."
+ },
+ {
+  "index": 14,
+  "id": "turn-order-and-action-economy",
+  "title": "Turn Order & Action Economy",
+  "page": 36,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "Marco has gone twice and Sara hasn't done anything all fight - is there an initiative order I'm forgetting?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 15,
+  "id": "making-moves-and-taking-action",
+  "title": "Making Moves & Taking Action",
+  "page": 36,
+  "moments": [
+   "before-the-roll",
+   "the-dice-landed"
+  ],
+  "why": "She's climbing the cliff - which trait is that, and now that it's come up 13 with Fear, what did she just get?",
+  "confidence": "obvious",
+  "note": "PLAYER ROW as much as a GM one - for part 2.2 this is the single most player-natural section in the range ('I rolled a 13 with Fear' is the player's own announcement, per Step 4). Both chips read the same to a player, so it needs no rewording; it is the one row I would build the player grid around."
+ },
+ {
+  "index": 16,
+  "id": "gm-moves-and-adversary-actions",
+  "title": "GM Moves and Adversary Actions",
+  "page": 37,
+  "moments": [
+   "the-dice-landed",
+   "my-turn"
+  ],
+  "why": "They failed and everyone is looking at me - am I supposed to do something now?",
+  "confidence": "arguable",
+  "note": "GM-ONLY content: a player never reaches for this. Flagged for part 2.2 - MY TURN in front of a player means 'my character's turn', and this section is about the GM's, so the player grid should leave this row out rather than inherit it. the-dice-landed is the obvious half (the trigger list IS the after-dice checklist); my-turn is the arguable one."
+ },
+ {
+  "index": 17,
+  "id": "adversary-actions",
+  "title": "Adversary Actions",
+  "page": 37,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "It's the ogre's turn. Can it walk over there and hit her, or is that two separate things?",
+  "confidence": "obvious",
+  "note": "GM-ONLY, same caveat as row 16 for part 2.2. I considered this-place for 'Move within Close range' / 'Sprint within Far or Very Far' but did not file it: a GM asking about distance wants maps-range-and-movement, and the ranges here are incidental. Overrule me if you want this-place to mean 'anything mentioning range'."
+ },
+ {
+  "index": 18,
+  "id": "special-rolls",
+  "title": "Special Rolls",
+  "page": 37,
+  "moments": [
+   "before-the-roll",
+   "the-dice-landed"
+  ],
+  "why": "The dragon breathes fire at me - do I roll something to dodge, and if it comes up Fear does the GM get a token?",
+  "confidence": "arguable",
+  "note": "PLAYER ROW (which trait, Spellcast, reaction) - reads correctly on a player grid unchanged. the-dice-landed is the arguable half and it rests on one real rule: reaction rolls 'don't generate Hope or Fear, don't trigger additional GM moves', which is a question only asked after the dice are already on the table."
+ },
+ {
+  "index": 19,
+  "id": "group-action-rolls",
+  "title": "Group Action Rolls",
+  "page": 38,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "All four of us are pushing the door together - do we all roll, or just her?",
+  "confidence": "obvious",
+  "note": "PLAYER ROW: this is almost always initiated from the players' side ('we all help'), so part 2.2 should carry it."
+ },
+ {
+  "index": 20,
+  "id": "tag-team-rolls",
+  "title": "Tag Team Rolls",
+  "page": 38,
+  "moments": [
+   "my-turn",
+   "before-the-roll"
+  ],
+  "why": "I want to do the thing where we both hit it at the same time - can we, and does it cost me?",
+  "confidence": "arguable",
+  "note": "PLAYER ROW - only a player can initiate this, and part 2.2 should carry it. Third contender I deliberately did NOT file, to stay under the three-moment smell: damage, for 'both players roll damage and add the totals together'. If you think the damage chip should catch every rule that produces a damage total, this row gains it."
+ },
+ {
+  "index": 21,
+  "id": "advantage-and-disadvantage",
+  "title": "Advantage & Disadvantage",
+  "page": 38,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "You said I get advantage, but I've also got disadvantage from the smoke - do I roll both dice?",
+  "confidence": "obvious",
+  "note": "PLAYER ROW mostly ('do I roll an advantage die?'), though the GM grants it at discretion, so it belongs on both grids in part 2.2."
+ },
+ {
+  "index": 22,
+  "id": "hope-and-fear",
+  "title": "Hope & Fear",
+  "page": 38,
+  "moments": [
+   "the-dice-landed",
+   "before-the-roll"
+  ],
+  "why": "I rolled with Fear - you take a token, right? And can I spend the Hope I just gained on the feature I'm about to use?",
+  "confidence": "arguable",
+  "note": "THREE-WAY PULL, held to two on purpose. The two I left off are real: my-turn (spend 3 Hope for a Hope Feature on your action; the GM spends Fear at any time to seize the spotlight) and between-scenes (the 'Hope carries over between sessions' / 'Fear carries over between sessions' clauses, which is a question asked at the start of next week's game and nowhere else). This section is the one place where the six chips visibly fail to be exclusive - if any row argues for a seventh chip about tokens, it is this one. Also a PLAYER ROW on the Hope half and a GM-only one on the Fear half; part 2.2 will have to split it or accept that a player tapping a chip lands on the GM's economy."
+ },
+ {
+  "index": 23,
+  "id": "combat",
+  "title": "Combat",
+  "page": 39,
+  "moments": [
+   "before-the-roll",
+   "damage"
+  ],
+  "why": "He's swinging at her — what does he need to hit, and if it lands how many HP does she mark?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 24,
+  "id": "stress",
+  "title": "Stress",
+  "page": 39,
+  "moments": [
+   "the-dice-landed",
+   "damage"
+  ],
+  "why": "That's a success with Fear and I want it to cost her something — can I just say mark a Stress?",
+  "confidence": "arguable"
+ },
+ {
+  "index": 25,
+  "id": "attacking",
+  "title": "Attacking",
+  "page": 39,
+  "moments": [
+   "my-turn",
+   "damage"
+  ],
+  "why": "That's a hit — how many dice do I roll, and the doubles came up, so does he get more?",
+  "confidence": "obvious",
+  "note": "Player-facing half, for 2.2: the damage-roll rules here (Proficiency multiplies the dice, Spellcast trait sets the count, unarmed is [Prof]d4) are read off a player's own sheet on a player's own turn. On a player's grid this row is squarely MY TURN plus DAMAGE; on the GM's it is DAMAGE first, because the GM reaches for it when an adversary's hit has to be totalled."
+ },
+ {
+  "index": 26,
+  "id": "maps-range-and-movement",
+  "title": "Maps, Range, and Movement",
+  "page": 40,
+  "moments": [
+   "this-place",
+   "my-turn",
+   "before-the-roll"
+  ],
+  "why": "He's behind the pillar and a long way off — can she even shoot him from there, and can she close the gap first?",
+  "confidence": "arguable",
+  "note": "Three moments, and I am flagging it rather than hiding it. It earns them: the range ladder and line-of-sight are what THIS PLACE is; MOVEMENT UNDER PRESSURE is already pinned to my-turn by q-party-flees in the shipped catalogue; and 'attacks made through cover are rolled with disadvantage' is a call made with the dice still in hand. If the owner wants two, cut before-the-roll — cover is the thinnest of the three and CONDITIONS already carries the advantage/disadvantage reach."
+ },
+ {
+  "index": 27,
+  "id": "conditions",
+  "title": "Conditions",
+  "page": 41,
+  "moments": [
+   "before-the-roll",
+   "my-turn"
+  ],
+  "why": "She's Hidden and the guard is firing into the dark — do I roll that with disadvantage?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 28,
+  "id": "downtime",
+  "title": "Downtime",
+  "page": 41,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "They want to make camp — what do they clear, and what do I get out of it?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 29,
+  "id": "death",
+  "title": "Death",
+  "page": 42,
+  "moments": [
+   "damage"
+  ],
+  "why": "She just marked her last Hit Point and the table has gone quiet.",
+  "confidence": "obvious"
+ },
+ {
+  "index": 30,
+  "id": "additional-rules",
+  "title": "Additional Rules",
+  "page": 42,
+  "moments": [
+   "the-dice-landed",
+   "damage"
+  ],
+  "why": "The roll already failed and now he wants to play a card — is he too late?",
+  "confidence": "arguable",
+  "note": "Judged as an orphan candidate and rejected, but the owner may disagree. It is a grab-bag with no chapter of its own, and no single sentence sends anybody here; what sends them is one of eight — USING FEATURES AFTER A ROLL and REROLLING DICE and SIMULTANEOUS EFFECTS are all the-dice-landed, INCOMING DAMAGE is damage. So it belongs by its parts rather than as a whole, which is the weakest kind of membership in this range that I am still willing to defend."
+ },
+ {
+  "index": 31,
+  "id": "leveling-up",
+  "title": "Leveling Up",
+  "page": 42,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "That's the end of the arc — everybody level up, so what do they actually get?",
+  "confidence": "contested",
+  "note": "A stretch, and the row I most want overruled. The GM sentence that reaches it is real but thin — 'you've hit the milestone, level up' — and everything after that first line is a player filling in a sheet: advancements, tier achievements, domain cards. The other two between-scenes members in this range (downtime) and in the catalogue (safety, session end) all happen with five people present and waiting; levelling largely does not. Player-facing, for 2.2: on a player's grid this is unambiguously BETWEEN SCENES and needs no argument, which is itself evidence that its GM membership is borrowed from the player's. If the owner decides the 'every section belongs somewhere' test can survive one honest empty, this is the second row to empty after multiclassing."
+ },
+ {
+  "index": 32,
+  "id": "multiclassing",
+  "title": "Multiclassing",
+  "page": 43,
+  "moments": [],
+  "why": "Nobody says this while five people wait — it gets said at home, between sessions, with a sheet and a pencil.",
+  "confidence": "arguable",
+  "note": "TRUE ORPHAN, and the row that breaks the test 2.3 promises to ship. It is one paragraph of character-build bookkeeping — take a module, add it to the right side of the sheet, pick a foundation card — reached from BUILD, not from a GM's index of what just happened. Filing it under between-scenes only inherits leveling-up's already-stretched membership one level further from the table. Two things that could overrule me, both the owner's call: (a) its one at-the-table sentence, 'if your foundation cards specify different Spellcast traits, you can choose which one to apply when making a Spellcast roll', is genuinely BEFORE THE ROLL — if a single live sentence is enough to earn membership, file it there and the test survives; (b) if leveling-up stays in between-scenes, consistency argues this step of levelling goes with it. I am reporting the empty array because I think the section as a whole is not what anybody reaches for, and because a membership invented here would hide exactly the case 2.3 needs to see."
+ },
+ {
+  "index": 33,
+  "id": "gold",
+  "title": "Gold",
+  "page": 62,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "That's nine handfuls and I'm giving you another — does that make it a bag?",
+  "confidence": "arguable",
+  "note": "Player-facing, for 2.2: this is denomination bookkeeping done on a character sheet, and its GM-facing counterpart (giving-out-gold-equipment-and-loot, index 47) sits outside my range and is the row a GM would actually tap. I kept it out of the empty array on the repo's own reasoning rather than mine — ShowSheet.tsx calls the merchant 'a thing the party walks into between two rows rather than a row of its own', and loot lands after a fight, which is the same slot. If the owner reads BETWEEN SCENES as strictly the GM's own between-scenes work (safety check, session end, rest), this becomes a second orphan alongside multiclassing."
+ },
+ {
+  "index": 34,
+  "id": "running-an-adventure",
+  "title": "Running an Adventure",
+  "page": 63,
+  "moments": [],
+  "why": "There is no sentence — nobody at a table has ever reached for the paragraph that announces the chapter they are already reading.",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN. Two sentences of chapter frontmatter: 'This section provides you with advice for running Daggerheart: using the core mechanics; creating memorable encounters...'. No rule, no ruling, no procedure, nothing to look up under pressure. The Part 2.3 test that walks every section and fails on one belonging to nothing cannot ship as written over this row."
+ },
+ {
+  "index": 35,
+  "id": "gm-guidance",
+  "title": "GM Guidance",
+  "page": 63,
+  "moments": [],
+  "why": "Again none — 'these three sections provide a foundation' is a table of contents talking, and nobody consults a table of contents mid-scene.",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN, and the same shape as index 34: a nav stub whose only job is to introduce the three sections printed under it. Treat 34 and 35 as one problem for the owner, not two — whatever replaces the every-section test has to account for the SRD's structural signposts as a class, because this range alone has two of them."
+ },
+ {
+  "index": 36,
+  "id": "gm-principles",
+  "title": "GM Principles",
+  "page": 63,
+  "moments": [
+   "before-the-roll",
+   "between-scenes"
+  ],
+  "why": "I've lost the thread of what kind of game we're running, and I keep asking for rolls that don't matter.",
+  "confidence": "contested",
+  "note": "CONTESTED, and the contest is not which moment — it is whether this is a table reference at all. Seven one-line principles read before play, not looked up while five people wait; 'when in doubt, return to these principles' describes a pause, not a scene. If the owner reads it as prep material, this is a third orphan in this range. The two memberships above are the honest best case: 'GIVE EVERY ROLL IMPACT — only ask the players to roll during meaningful moments' is a real before-the-roll sentence, and the rest is what you re-read in the break."
+ },
+ {
+  "index": 37,
+  "id": "gm-practices",
+  "title": "GM Practices",
+  "page": 63,
+  "moments": [
+   "the-dice-landed",
+   "between-scenes"
+  ],
+  "why": "I keep saying 'okay, nothing happens' after they roll and the scene is dying in my hands — and I need a way to say 'let's pause and check' out loud.",
+  "confidence": "arguable",
+  "note": "I declined a third. 'CUT TO THE ACTION' and 'WORK IN MOMENTS AND MONTAGES' have a genuine my-turn claim, but pitfalls-to-avoid/LETTING SCENES DRAG already carries that question and carries it better; adding it here would put two sections under one chip answering the same thing. between-scenes is the catalogue's existing tag (q-safety → CREATE A META CONVERSATION); the-dice-landed is mine, on the strength of 'advance the story ... after every action roll, whether it succeeds or fails'."
+ },
+ {
+  "index": 38,
+  "id": "pitfalls-to-avoid",
+  "title": "Pitfalls to Avoid",
+  "page": 64,
+  "moments": [
+   "my-turn",
+   "the-dice-landed"
+  ],
+  "why": "The roll failed and I was about to tell them they were clumsy — and I'm sitting on nine Fear I have never once spent.",
+  "confidence": "arguable",
+  "note": "I declined a third: 'ALWAYS TELLING THE PLAYERS WHAT TO ROLL' is a real before-the-roll entry and the owner may want it. This row resists membership by construction more than any other here — it is six unrelated warnings living in four different moments, so any answer is a choice about which two the chips should surface, not a fact about the section."
+ },
+ {
+  "index": 39,
+  "id": "core-gm-mechanics",
+  "title": "Core GM Mechanics",
+  "page": 64,
+  "moments": [
+   "my-turn",
+   "damage"
+  ],
+  "why": "The bandit swings at her — what do I even roll, and what happens on a 20?",
+  "confidence": "arguable",
+  "note": "2.2 flag: 'my-turn' here is the GM's turn, not the player's. A player who taps MY TURN wants to know what they can do with their own action, and would get the rules for the GM's d20 — noise under a player's chip, while the damage half (the crit rule: roll damage, then add the highest number on the dice) stays useful to both chairs."
+ },
+ {
+  "index": 40,
+  "id": "guidance-on-action-rolls",
+  "title": "Guidance on Action Rolls",
+  "page": 64,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "He says he wants to leap the chasm and everyone is looking at me to say 'roll it'.",
+  "confidence": "obvious",
+  "note": "2.2 flag: before-the-roll is a moment both chairs occupy, but every line of this text is the GM's half of it ('you might decide an action roll is necessary', 'establish the stakes before the player makes it'). Under a player's chip it answers a question the player is not the one who gets to ask."
+ },
+ {
+  "index": 41,
+  "id": "making-gm-moves",
+  "title": "Making GM Moves",
+  "page": 64,
+  "moments": [
+   "the-dice-landed",
+   "my-turn"
+  ],
+  "why": "They rolled Failure with Fear, and now it's on me and I have nothing.",
+  "confidence": "obvious",
+  "note": "2.2 flag: the same my-turn collision as index 39, and sharper — this section defines the GM turn in as many words ('GM moves happen during GM turns. A GM turn begins when the spotlight passes to them'). Under a player's MY TURN it is literally the wrong person's turn."
+ },
+ {
+  "index": 42,
+  "id": "using-fear",
+  "title": "Using Fear",
+  "page": 65,
+  "moments": [
+   "the-dice-landed",
+   "my-turn"
+  ],
+  "why": "She rolled with Fear, I took the token, and now I have eight of these sitting in front of me doing nothing.",
+  "confidence": "obvious",
+  "note": "I declined a third: the Fear-per-scene budget table (Incidental / Minor / Standard / Major / Climactic) is genuinely between-scenes — you consult it while framing a scene, not inside one — and the owner may want it there. 2.2 flag: the whole section is GM-only. A player has Hope; under either of these chips on a player's sheet this row has nothing for them."
+ },
+ {
+  "index": 43,
+  "id": "difficulty-benchmarks",
+  "title": "Difficulty Benchmarks",
+  "page": 66,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "She wants to break down the door and I have to say a number out loud, right now.",
+  "confidence": "obvious",
+  "note": "2.2 flag, and the friendliest one in the range: 'how hard is that?' is the same sentence in both chairs. The prose addresses the GM ('the GM sets the Difficulty'), but the six tables are the answer either person wants, so this is the strongest candidate for surviving the move to a player's BEFORE THE ROLL unchanged."
+ },
+ {
+  "index": 44,
+  "id": "giving-advantage-and-disadvantage",
+  "title": "Giving Advantage and Disadvantage",
+  "page": 68,
+  "moments": [
+   "before-the-roll"
+  ],
+  "why": "He's doing this in the rain with a broken arm — I don't want to move the number, I want it to feel harder.",
+  "confidence": "obvious",
+  "note": "2.2 flag: a player's before-the-roll question is 'do I have advantage?', and this section is the GM's answer to 'should I give them one?'. Same chip, opposite chair — a player tapping BEFORE THE ROLL needs the core advantage rules, not this one."
+ },
+ {
+  "index": 45,
+  "id": "adversary-action-rolls",
+  "title": "Adversary Action Rolls",
+  "page": 68,
+  "moments": [
+   "my-turn",
+   "damage"
+  ],
+  "why": "The assassin tries to reach the balcony before they do — does he even roll for that, and if he swings at three of them do they all take it?",
+  "confidence": "arguable",
+  "note": "I declined a third: the opening paragraph ('adversaries don't normally make action rolls ... have any relevant PCs make reaction rolls instead') is a real before-the-roll question, but about an adversary's roll rather than a PC's, and before-the-roll as the shipped catalogue uses it means a PC's. That is a decision about what the chip means, so it is the owner's. 2.2 flag: my-turn is the GM's turn again."
+ },
+ {
+  "index": 46,
+  "id": "countdowns",
+  "title": "Countdowns",
+  "page": 69,
+  "moments": [
+   "the-dice-landed",
+   "this-place"
+  ],
+  "why": "They rolled a failure with Fear and the fuse is burning — how many does it tick?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 47,
+  "id": "giving-out-gold-equipment-and-loot",
+  "title": "Giving Out Gold, Equipment, and Loot",
+  "page": 69,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "They're in town with the reward and want a horse and a room — what does that cost?",
+  "confidence": "arguable",
+  "note": "Player-side row for part 2.2: at a real table the person asking 'can I afford this?' is the player, not the GM, and this section is the answer. If the owner prefers, THIS PLACE is defensible instead (the shop is a location) — I filed it under BETWEEN SCENES because shopping happens when the fight is over."
+ },
+ {
+  "index": 48,
+  "id": "running-gm-npcs",
+  "title": "Running GM NPCs",
+  "page": 69,
+  "moments": [
+   "before-the-roll",
+   "my-turn"
+  ],
+  "why": "I invented this harbourmaster two seconds ago and now she's being lied to — what does she need beaten?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 49,
+  "id": "npc-feature-examples",
+  "title": "NPC Feature Examples",
+  "page": 70,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "The mentor NPC is standing right there in the fight and the spotlight just came to me — what does she actually do?",
+  "confidence": "arguable",
+  "note": "Stretch. This is a worked-examples appendix and its honest reach is prep, not a moment. The six chips were derived from mid-scene questions and contain no PREP moment; MY TURN is the nearest fit only because each example's Trigger fires while the GM holds the spotlight. Same gap as 52, 53, 54, 56."
+ },
+ {
+  "index": 50,
+  "id": "optional-gm-mechanics",
+  "title": "Optional GM Mechanics",
+  "page": 70,
+  "moments": [
+   "before-the-roll",
+   "damage",
+   "this-place"
+  ],
+  "why": "He went off the roof — how much does that hurt? And whether the fire spreads is pure chance, so who rolls for that?",
+  "confidence": "contested"
+ },
+ {
+  "index": 51,
+  "id": "using-adversaries",
+  "title": "Using Adversaries",
+  "page": 71,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "It's my go with the ogre and I can't remember what Relentless means or whether I can spend Fear on top of the Stress.",
+  "confidence": "obvious"
+ },
+ {
+  "index": 52,
+  "id": "example-adversary-features",
+  "title": "Example Adversary Features",
+  "page": 72,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "I need this bandit to do something nastier than swing again, and it's my move right now.",
+  "confidence": "arguable",
+  "note": "Stretch, and GM-only. Like 49 this is a menu written for prep; MY TURN fits only the improvising half. It also has no player-side reading at all, which part 2.2 has to answer for — a player never opens the adversary feature menu."
+ },
+ {
+  "index": 53,
+  "id": "building-balanced-encounters",
+  "title": "Building Balanced Encounters",
+  "page": 72,
+  "moments": [
+   "damage",
+   "between-scenes"
+  ],
+  "why": "They dropped the last one and he's on the floor — is he dead, or does he give up?",
+  "confidence": "arguable",
+  "note": "Two halves, two moments. DEFEATED ADVERSARIES is DAMAGE and is already pinned there by the shipped q-surrender entry. The Battle Points arithmetic above it is prep; BETWEEN SCENES only holds it if that chip covers 'the GM builds the next fight while the party shops'. If the owner reads BETWEEN SCENES as rest/safety/session-end only, this half is homeless."
+ },
+ {
+  "index": 54,
+  "id": "adversary-stat-block-benchmarks",
+  "title": "Adversary Stat Block Benchmarks",
+  "page": 73,
+  "moments": [
+   "before-the-roll",
+   "my-turn"
+  ],
+  "why": "I invented this captain on the spot and he's about to swing — what are his numbers?",
+  "confidence": "contested",
+  "note": "Closest thing to a true orphan in this range — consider shipping it empty. It is four rows of lookup table with no table sentence of its own, and section 48 tells a GM to improvise by modifying another adversary's stat block rather than by opening this table, so the mid-scene reach I wrote may not exist. Its only certain use is prep, and there is no PREP moment. If the owner agrees it is empty, the walk-every-section test in part 2.3 cannot ship as written."
+ },
+ {
+  "index": 55,
+  "id": "using-environments",
+  "title": "Using Environments",
+  "page": 102,
+  "moments": [
+   "this-place"
+  ],
+  "why": "They've just walked into the flooded temple — what does this place do to them?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 56,
+  "id": "adapting-environments",
+  "title": "Adapting Environments",
+  "page": 102,
+  "moments": [
+   "this-place"
+  ],
+  "why": "This swamp is written for tier 1 and my party is tier 3 — what do I change before they step in?",
+  "confidence": "arguable",
+  "note": "Half prep, half live: the body explicitly covers 'improvising an environment mid-session', which is what earns THIS PLACE. The retiering table is prep and would want the PREP moment that does not exist."
+ },
+ {
+  "index": 57,
+  "id": "additional-gm-guidance",
+  "title": "Additional GM Guidance",
+  "page": 112,
+  "moments": [],
+  "why": "Nobody at a table has ever said a sentence this answers — it only tells me there is more book after it.",
+  "confidence": "obvious",
+  "note": "TRUE ORPHAN, and not a lone one. At 93 characters this is the shortest body in the dataset and is a pure chapter divider ('This section provides additional guidance for preparing and running a session'). Two siblings outside this range are the same shape: 34 running-an-adventure ('This section provides you with advice for running Daggerheart...') and 35 gm-guidance ('These three sections provide a foundation...'). So the 2.3 test that walks every section and fails on an untagged one will fail on a FAMILY — dividers that announce sections rather than say anything — not on one awkward row. The owner's real choice is whether divider stubs are exempted by kind (a section whose body only forward-references other sections) or whether the test is softened to 'every section that a chip can usefully return'. Forcing a moment here would put a content-free row in the results of whichever chip got it."
+ },
+ {
+  "index": 58,
+  "id": "story-beats",
+  "title": "Story Beats",
+  "page": 112,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "I described the thing, everyone looked at me, and I just kept talking for another minute — when am I meant to stop and hand it back?",
+  "confidence": "arguable",
+  "note": "Half stretch: the last sentence is explicitly prep ('when preparing for a session, plan in terms of moments'). What earns my-turn is the live instruction in the middle — 'take turns with the players, narrating a beat and then letting them react' — which is the answer to a GM who has the spotlight and does not know when to drop it. If the owner reads my-turn as strictly the PC-facing spotlight rather than the GM's own, this becomes an orphan."
+ },
+ {
+  "index": 59,
+  "id": "preparing-combat-encounters",
+  "title": "Preparing Combat Encounters",
+  "page": 112,
+  "moments": [],
+  "why": "There is no sentence at the table this answers — I read it on the sofa on Tuesday, deciding whether this fight is worth running at all.",
+  "confidence": "arguable",
+  "note": "Proposed ORPHAN. It is philosophy for prep ('build the hurdles around what helps tell the story'), not a procedure anyone can execute with five people waiting; the live twin already exists at 53 building-balanced-encounters, which is where a GM improvising a fight actually goes. A reasonable owner could file it under between-scenes by reading that chip as 'the seam where I set up what comes next' — but both catalogue entries tagged between-scenes today (q-safety, q-session-ends) are at-the-table moments, not week-between-sessions ones, so stretching it here would quietly redefine the chip. Judge it together with row 60: they are the same prep frame split across two sections."
+ },
+ {
+  "index": 60,
+  "id": "battles-and-narrative",
+  "title": "Battles and Narrative",
+  "page": 112,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "The spotlight is on the ogre, five people are waiting, and I have no idea what it actually wants.",
+  "confidence": "contested",
+  "note": "Stretch, and I cannot call it without the owner. The bullet list is introduced by the words 'When preparing combat encounters:' — the same prep frame as row 59, which I filed as an orphan. One bullet, 'base adversaries' moves on their motives', is a genuine mid-scene answer and is the whole reason this row is not empty; the other three are Tuesday work. The owner should probably make 59 and 60 match: either both orphans, or both my-turn on the strength of that one line."
+ },
+ {
+  "index": 61,
+  "id": "session-rewards",
+  "title": "Session Rewards",
+  "page": 112,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "That's a good place to stop for tonight — what do they walk away with?",
+  "confidence": "obvious",
+  "note": "No dispute, but worth knowing: the existing catalogue already points q-session-ends ('The session has to end mid-fight. How do I stop here?') at this exact section under between-scenes, so this membership is the one row in my range that is already load-bearing in shipped code."
+ },
+ {
+  "index": 62,
+  "id": "crafting-scenes",
+  "title": "Crafting Scenes",
+  "page": 112,
+  "moments": [
+   "this-place",
+   "between-scenes"
+  ],
+  "why": "They pushed the door open and everyone is waiting for me to say what's in the room.",
+  "confidence": "obvious"
+ },
+ {
+  "index": 63,
+  "id": "engaging-your-players",
+  "title": "Engaging Your Players",
+  "page": 112,
+  "moments": [
+   "my-turn"
+  ],
+  "why": "This fight is just everyone hitting each other until the numbers run out, and I need it to be about something before the next round.",
+  "confidence": "arguable",
+  "note": "Mixed row. The eight bullets are prep and technique; what makes it reachable mid-scene is the d12 Table of Random Objectives, which is the only roll-it-now generator in this range and answers 'give me a point for this fight, now'. If the owner wants chips to return sections a GM can act on in ten seconds, this row is really the table and not the section — and if a section can only be tagged whole, this is the row where that hurts most."
+ },
+ {
+  "index": 64,
+  "id": "phased-battles",
+  "title": "Phased Battles",
+  "page": 112,
+  "moments": [
+   "my-turn",
+   "this-place"
+  ],
+  "why": "They're grinding this fight down and it's gone flat — can I change the ground under them without starting a new one?",
+  "confidence": "arguable",
+  "note": "The only section in the prep appendix whose own text says 'mid-combat', which is what pulls it out of the orphan pile its neighbours sit in. Two moments because the answer splits: 'evolve the opposition' is my move, 'alter the environment' is the place. If the owner wants one, my-turn is the one I'd keep."
+ },
+ {
+  "index": 65,
+  "id": "using-downtime",
+  "title": "Using Downtime",
+  "page": 112,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "The fight's over and they say 'we make camp' — so what actually happens now?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 66,
+  "id": "projects-during-downtime",
+  "title": "Projects During Downtime",
+  "page": 113,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "She says she's spending her downtime building the boat — how long is that going to take?",
+  "confidence": "obvious",
+  "note": "PLAYER'S MOMENT, flagged for 2.2. Work on a Project is a player move, and the person who reaches for this at the table is the player asking how long their thing takes; the GM half is only setting the countdown's starting value. Under a player-facing version of these six chips this row still lands on between-scenes, so it is safe — but it is evidence that between-scenes will carry a different mix of sections for a player than for a GM."
+ },
+ {
+  "index": 67,
+  "id": "extended-downtime",
+  "title": "Extended Downtime",
+  "page": 113,
+  "moments": [
+   "between-scenes"
+  ],
+  "why": "They want to skip three months of travel — do I just say yes, and what do I get for it?",
+  "confidence": "obvious"
+ },
+ {
+  "index": 68,
+  "id": "campaign-frames",
+  "title": "Campaign Frames",
+  "page": 113,
+  "moments": [],
+  "why": "Nobody says this mid-scene — it's what I'm reading the week before session zero, deciding what kind of game this is going to be.",
+  "confidence": "arguable",
+  "note": "Proposed ORPHAN, and the more structurally interesting of the two. All six moments are mid-session sentences; this section is about the campaign before scene one exists ('questions to consider during session zero', 'an inciting incident to launch the campaign'). It is not homeless because it is thin — it is homeless because there is no seventh moment for 'before we start' / 'between campaigns'. The prompt's other candidates fall in the same hole: character-creation (4), leveling-up (31), multiclassing (32), and the introduction/basics/golden-rule trio (0-2) are all things a table reaches for outside play. If the owner adds a seventh chip, this row and those six stop being orphans together; if not, the 2.3 test cannot ship as written. Note also that the natural reader here is the whole table, players included, not the GM alone — a 2.2 player-facing grid would want it just as much."
+ }
+]
