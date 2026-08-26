@@ -15,7 +15,56 @@ before the one below.
 ## Unreleased
 
 Two decisions taken on 23 August, both of them about what this app is allowed to
-be rather than about what it does.
+be rather than about what it does — and one taken on 26 August about running two
+fights at once.
+
+### Two scenes can be half-fought at the same time
+
+- **A fight you leave is parked in the row it came from, not thrown away.**
+  Running another scene puts the table you were on back into its own row of the
+  plan — every HP mark, every Stress mark, every spotlight — and puts that row's
+  fight on the table instead. Come back and it is exactly as you left it. A
+  split party stops costing you one of the two halves.
+- **A strip in the scene runner's title row says which scene is on the table,
+  and flips to another in one tap.** It costs **0.00px** of vertical space,
+  measured in Chrome against a build without it: the title row was already 44px
+  tall because of the close button, and the strip drops into the slot the title
+  was using. At four scenes every chip is still a 44px target in both axes;
+  past four the strip scrolls sideways rather than wrapping, because wrapping
+  would move the fight under your thumb.
+- **The flip is one tap, with no confirmation**, because it destroys nothing.
+  What destroys still asks twice: clearing a parked fight, and deleting a row
+  that is holding one — that row's delete button now says **TAP AGAIN TO DELETE
+  THE FIGHT**, because those marks exist nowhere else.
+- **A row you planned and never fought starts in one tap too.** `START THIS
+  FIGHT` puts its roster on the table and opens the runner, so the second fight
+  of a split party costs five gestures once instead of five gestures a beat.
+- **A shut row says how many are parked in it**, beside how many it plans. The
+  row being played says nothing about a fight, because the fight is on the
+  table and not in the plan.
+- **`END SCENE` now empties the row as well as the table.** Before this it
+  cleared only the glass — which was complete when the table was the only place
+  a fight could be, and would have meant ending a fight, flipping away and back,
+  and finding everyone on their feet.
+- **Deleting a row never drops the fight on it.** The plan row goes; what is on
+  the table stays there and gets a new row the next time you run a scene. A
+  fight started from the bestiary with no row behind it gets one the same way.
+
+### A countdown can belong to one scene
+
+- **A clock scoped to a scene is on the glass while that scene is running**, and
+  out of the way while it is not. A GM with a split party stops scrolling the
+  whole campaign to find the clock about the room they are in.
+- **Nothing about it is hidden anywhere else.** The Fear and countdowns board
+  still shows every clock, grouped by whose it is; a long rest still offers
+  every long-term clock, each labelled with the scene that owns it — resting is
+  the campaign's, not a scene's.
+- **A scoped clock is never on the top bar**, and the pin is not offered on it
+  rather than offered and refused. The top bar is the campaign's.
+- **Nothing ticks on its own.** Not when a scene starts, not when one ends, not
+  when you flip. Plus and minus, and nothing else, exactly as before.
+- **A clock whose scene you delete becomes the campaign's again**, immediately,
+  rather than going quiet until you next run some scene.
 
 ### The app is called Duality Companion
 

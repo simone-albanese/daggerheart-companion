@@ -39,7 +39,7 @@ import { useApp } from '../../src/store/state.ts';
 import { RestControl } from '../../src/ui/gm/RestControl.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
-import { NO_CLOCK_PROSE } from '../fixtures/factories.ts';
+import { NO_CLOCK_PROSE, NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -411,5 +411,94 @@ describe('nothing moves that a hand did not move', () => {
     press('LONG REST');
     expect(text()).toContain('advance a long-term countdown of their choice');
     expect(text()).not.toContain('On a short rest, the GM gains 1d4 Fear.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * A scoped long-term clock, and the filter that must not narrow.
+ *
+ * Decision 18 lets a countdown belong to one scene. This list is the one place
+ * where that scope must buy a WORD and not a filter: resting is a campaign
+ * event, the SRD gives the GM "advance a long-term countdown of their choice",
+ * and that choice is over all of them - so the forest's clock is on this list
+ * while the party rests in the dungeon.
+ *
+ * Narrowing it would take a clock off a list with no error message anywhere,
+ * which is the regression that has no symptom.
+ */
+describe('a long-term clock that belongs to a scene', () => {
+  const scoped = (id: string, name: string, sceneId: string): SessionItem => ({
+    id,
+    kind: 'countdown',
+    name,
+    order: 0,
+    collapsed: false,
+    primary: false,
+    sceneId,
+    countdown: {
+      id,
+      name,
+      kind: 'long-term',
+      start: 6,
+      value: 6,
+      notes: '',
+      ...NO_CLOCK_PROSE,
+    },
+  });
+
+  const scene = (id: string, name: string): SessionItem => ({
+    id,
+    kind: 'scene',
+    name,
+    order: 1,
+    collapsed: true,
+    environmentRef: null,
+    ...NO_FIGHT,
+  });
+
+  /** Open the panel on a long rest, which is the only rest that offers clocks. */
+  const longRest = (): void => {
+    prefs({ digitalDice: false, manualDice: true });
+    panel();
+    press('LONG REST');
+  };
+
+  const longTermButtons = (): HTMLButtonElement[] =>
+    buttons().filter((b) => (b.textContent ?? '').includes('·'));
+
+  it('is still on the rest’s list while a different scene is running', () => {
+    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest')]);
+    act(() => useGm.setState({ liveScene: 's1' }));
+    longRest();
+    expect(longTermButtons().map((b) => (b.textContent ?? '').trim())).toContain(
+      'The winter · 6 · The forest',
+    );
+  });
+
+  it('is on the list when no scene is running at all', () => {
+    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest')]);
+    longRest();
+    expect(longTermButtons()).toHaveLength(1);
+  });
+
+  it('says which scene owns it, so the GM knows what they are advancing', () => {
+    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest')]);
+    longRest();
+    expect(longTermButtons()[0]!.textContent).toContain('The forest');
+  });
+
+  it('says nothing extra about a clock the campaign owns', () => {
+    seed([clock('c1', 'The winter', 'long-term')]);
+    longRest();
+    expect((longTermButtons()[0]!.textContent ?? '').trim()).toBe('The winter · 6');
+  });
+
+  it('advances it exactly as it advances any other', () => {
+    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest')]);
+    longRest();
+    act(() => longTermButtons()[0]!.click());
+    expect(useGm.getState().countdowns.find((c) => c.id === 'c1')!.value).toBe(5);
   });
 });

@@ -197,6 +197,17 @@ export function describeItem(
   dataset: Dataset,
   index: DatasetIndex,
   partySize: number,
+  /**
+   * The list this row is in, only so a scoped countdown can name its scene.
+   *
+   * Optional and last, so neither of the two call sites that do not need it
+   * has to change and a test can go on calling this with four arguments. It
+   * is the list rather than a resolved name because the alternative - working
+   * the name out at the call site and appending it there - would split "what a
+   * shut row says" across two files, and this function is the one place that
+   * owns it.
+   */
+  session: readonly SessionItem[] = [],
 ): string {
   switch (item.kind) {
     case 'scene': {
@@ -257,12 +268,26 @@ export function describeItem(
       const name = linkName(item.target, dataset, index);
       return `${kind} · ${name === null ? NOT_HERE : name.toUpperCase()}`;
     }
-    case 'countdown':
+    case 'countdown': {
       // Not "0/6". A countdown at zero is the thing happening, and the word for
       // it is the word the countdowns board already uses out loud.
-      return item.countdown.value === 0
-        ? 'SPENT'
-        : `${String(item.countdown.value)}/${String(item.countdown.start)}`;
+      const clock =
+        item.countdown.value === 0
+          ? 'SPENT'
+          : `${String(item.countdown.value)}/${String(item.countdown.start)}`;
+      /*
+       * And whose it is, when it is not the campaign's. A shut plan that did
+       * not say so would let a GM look at a clock they cannot find on the
+       * glass and have nothing anywhere explain why.
+       *
+       * A scope naming a row that is gone prints nothing rather than a
+       * placeholder: the reader hands such a clock back to the campaign on the
+       * next load anyway, and inventing a word for a scene that is not there
+       * would be a second thing to keep in step.
+       */
+      const owner = session.find((i) => i.kind === 'scene' && i.id === item.sceneId);
+      return owner === undefined ? clock : `${clock} · ${sessionName(owner).toUpperCase()}`;
+    }
     case 'url':
       // The host, not the whole address, and never the raw stored string:
       // `displayUrl` prints the parsed hostname, which is punycode, so a

@@ -40,6 +40,7 @@ import {
   emptyBoard,
   newCampaign,
   withPrimaryCountdown,
+  withSceneScope,
   type Campaign,
   type GmBoard,
   type GmRegion,
@@ -265,6 +266,15 @@ export interface GmState extends GmLive {
   removeCountdown: (id: string) => void;
   /** At most one, always. Pass null to have none. */
   setPrimaryCountdown: (id: string | null) => void;
+  /**
+   * Give a countdown row to a scene, or hand it back to the campaign.
+   *
+   * Scope changes reach and attention, never arithmetic. Nothing here ticks:
+   * "a countdown that ticks on its own is one you stop trusting", and a clock
+   * moving because a scene started would be exactly that. It is the first
+   * optimisation somebody will propose, so it is refused here in writing.
+   */
+  setCountdownScene: (rowId: string, sceneId: string | null) => void;
 
   addSessionItem: (item: SessionItem) => void;
   patchSessionItem: (id: string, patch: Partial<SessionItem>) => void;
@@ -1052,6 +1062,10 @@ export const useGm = create<GmState>((set, get) => {
 
     setPrimaryCountdown(id) {
       commit({ session: withPrimaryCountdown(get().session, id) });
+    },
+
+    setCountdownScene(rowId, sceneId) {
+      commit({ session: withSceneScope(get().session, rowId, sceneId) });
     },
 
     addSessionItem(item) {

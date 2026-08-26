@@ -710,6 +710,51 @@ export const countdownsOf = (session: readonly SessionItem[]): Countdown[] =>
   session.flatMap((item) => (item.kind === 'countdown' ? [item.countdown] : []));
 
 /**
+ * The countdowns one scope owns. `null` is the campaign's own.
+ *
+ * `countdownsOf` above KEEPS its meaning - every clock in the campaign - and
+ * that is deliberate, because three callers depend on it: the store's derived
+ * `countdowns`, the export, and the long rest. **Scope is an argument at a call
+ * site, never a narrowing of what "the campaign's countdowns" means.** A
+ * `countdownsOf(session, sceneId)` would quietly take the forest's long-term
+ * clock off the list a rest may advance, with no error message anywhere.
+ */
+export const countdownsIn = (
+  session: readonly SessionItem[],
+  sceneId: string | null,
+): Countdown[] =>
+  session.flatMap((item) =>
+    item.kind === 'countdown' && item.sceneId === sceneId ? [item.countdown] : [],
+  );
+
+/**
+ * Give a countdown row to a scene, or hand it back to the campaign.
+ *
+ * Total, like `withPrimaryCountdown`, and it clears the pin on the way in for
+ * the same reason that one refuses to set it: the top bar is the campaign's, so
+ * a clock cannot be both pinned there and owned by one scene.
+ *
+ * **Both writers are needed and neither is redundant.** `withPrimaryCountdown`
+ * refuses to pin a clock a scene already owns; this one clears a pin a clock
+ * already had when a scene takes it. A single clause in either place leaves the
+ * other route open, and the forbidden state would sit on the glass until the
+ * next reload repaired it.
+ *
+ * Giving a clock back to the campaign does NOT re-pin it. A countdown does not
+ * become the one on the top bar as a side effect of losing a scope.
+ */
+export const withSceneScope = (
+  session: SessionItem[],
+  rowId: string,
+  sceneId: string | null,
+): SessionItem[] =>
+  session.map((item) =>
+    item.kind === 'countdown' && item.id === rowId
+      ? { ...item, sceneId, primary: sceneId === null ? item.primary : false }
+      : item,
+  );
+
+/**
  * The scene rows a GM is flipping between.
  *
  * Derived, never stored, and that is the whole of its argument. A row is live

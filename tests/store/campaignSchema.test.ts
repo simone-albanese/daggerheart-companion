@@ -43,6 +43,7 @@ import {
   CAMPAIGN_MIGRATIONS,
   CAMPAIGN_SCHEMA_VERSION,
   CampaignReadError,
+  countdownsIn,
   countdownsOf,
   emptyBoard,
   liveScenes,
@@ -53,6 +54,7 @@ import {
   primaryCountdownOf,
   readCampaignRecord,
   withPrimaryCountdown,
+  withSceneScope,
   type Campaign,
   type SessionItem,
 } from '../../shared/campaigns.ts';
@@ -999,5 +1001,132 @@ describe('the v2 fixture, which is the first one with the new rows in it', () =>
     const bullets = row.note[2]!;
     expect(bullets.type).toBe('bullets');
     expect(bullets.type === 'bullets' && bullets.items).toHaveLength(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * The two total writers of a countdown's scope.
+ *
+ * The invariant - a clock a scene owns is never the pinned one - has three
+ * enforcers and every one of them is needed: `withPrimaryCountdown` refuses to
+ * pin a scoped clock, `withSceneScope` clears a pin when a scene takes a clock,
+ * and `readCampaignRecord` repairs a record that arrived in the forbidden state
+ * anyway. A clause in only one of them leaves the other route open.
+ */
+describe('giving a countdown to a scene, and taking it back', () => {
+  const sceneRow = (id: string): Record<string, unknown> => ({
+    id,
+    kind: 'scene',
+    name: id,
+    environmentRef: null,
+    roster: [],
+    adjustments: { easier: false, harder: false, damageBump: false },
+    combatants: [],
+  });
+  const clock = (id: string, primary = false, kind = 'standard'): Record<string, unknown> => ({
+    id,
+    kind: 'countdown',
+    name: id,
+    primary,
+    countdown: { id, name: id, kind, start: 6, value: 4, notes: '' },
+  });
+
+  const read = (session: Record<string, unknown>[]) =>
+    readCampaignRecord(bare({ session })).campaign.session;
+
+  it('hands a clock to a scene, and back to the campaign', () => {
+    const session = read([sceneRow('s1'), clock('a')]);
+    const given = withSceneScope(session, 'a', 's1');
+    expect(given.find((i) => i.id === 'a')?.kind === 'countdown' && given.find((i) => i.id === 'a')).toBeTruthy();
+    const scoped = given.find((i) => i.id === 'a');
+    expect(scoped?.kind === 'countdown' && scoped.sceneId).toBe('s1');
+
+    const back = withSceneScope(given, 'a', null);
+    const unscoped = back.find((i) => i.id === 'a');
+    expect(unscoped?.kind === 'countdown' && unscoped.sceneId).toBe(null);
+  });
+
+  it('clears the pin when a scene takes a clock that was on the top bar', () => {
+    // The other half of the invariant. `withPrimaryCountdown` refuses to SET
+    // the flag on a scoped clock; this clears one a clock already had, and
+    // without it the forbidden state would sit on the glass until a reload.
+    const session = read([sceneRow('s1'), clock('a', true)]);
+    expect(primaryCountdownOf(session)?.id).toBe('a');
+
+    const scoped = withSceneScope(session, 'a', 's1');
+    expect(primaryCountdownOf(scoped)).toBe(null);
+    const row = scoped.find((i) => i.id === 'a');
+    expect(row?.kind === 'countdown' && row.primary).toBe(false);
+  });
+
+  it('does not re-pin a clock when the campaign takes it back', () => {
+    // A countdown does not become the one on the top bar as a side effect of
+    // losing a scope.
+    const session = read([sceneRow('s1'), clock('a', true)]);
+    const scoped = withSceneScope(session, 'a', 's1');
+    const back = withSceneScope(scoped, 'a', null);
+    expect(primaryCountdownOf(back)).toBe(null);
+  });
+
+  it('leaves a clock that was never pinned exactly as pinned as it was', () => {
+    const session = read([sceneRow('s1'), clock('a'), clock('b', true)]);
+    const scoped = withSceneScope(session, 'a', 's1');
+    expect(primaryCountdownOf(scoped)?.id).toBe('b');
+  });
+
+  it('touches nothing but the row it names', () => {
+    const session = read([sceneRow('s1'), clock('a'), clock('b')]);
+    const scoped = withSceneScope(session, 'a', 's1');
+    const other = scoped.find((i) => i.id === 'b');
+    expect(other?.kind === 'countdown' && other.sceneId).toBe(null);
+  });
+});
+
+describe('the countdowns one scope owns', () => {
+  const sceneRow = (id: string): Record<string, unknown> => ({
+    id,
+    kind: 'scene',
+    name: id,
+    environmentRef: null,
+    roster: [],
+    adjustments: { easier: false, harder: false, damageBump: false },
+    combatants: [],
+  });
+  const clock = (id: string, sceneId: string | null = null): Record<string, unknown> => ({
+    id,
+    kind: 'countdown',
+    name: id,
+    primary: false,
+    sceneId,
+    countdown: { id, name: id, kind: 'standard', start: 6, value: 4, notes: '' },
+  });
+
+  it('answers one scope at a time, and null is the campaign’s own', () => {
+    const { campaign } = readCampaignRecord(
+      bare({ session: [sceneRow('s1'), clock('a'), clock('b', 's1'), clock('c', 's1')] }),
+    );
+    expect(countdownsIn(campaign.session, null).map((c) => c.id)).toEqual(['a']);
+    expect(countdownsIn(campaign.session, 's1').map((c) => c.id)).toEqual(['b', 'c']);
+  });
+
+  it('leaves `countdownsOf` meaning every clock in the campaign', () => {
+    /*
+     * Three callers depend on that: the store's derived `countdowns`, the
+     * export, and the long rest. Scope is an argument at a call site and never
+     * a narrowing of what "the campaign's countdowns" means - a narrowed
+     * `countdownsOf` would take the forest's long-term clock off the list a
+     * rest may advance, with no error message anywhere.
+     */
+    const { campaign } = readCampaignRecord(
+      bare({ session: [sceneRow('s1'), clock('a'), clock('b', 's1')] }),
+    );
+    expect(countdownsOf(campaign.session).map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  it('gives an empty list for a scene that owns nothing', () => {
+    const { campaign } = readCampaignRecord(bare({ session: [sceneRow('s1'), clock('a')] }));
+    expect(countdownsIn(campaign.session, 's1')).toEqual([]);
   });
 });

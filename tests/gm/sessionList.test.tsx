@@ -1132,16 +1132,21 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       'no anchor on the screen for the floor sweep to cover',
     ).toHaveLength(1);
     /*
-     * And the select, asserted separately again for the same reason. It is the
-     * other control here that is not a `<button>`, it arrives on the scene row
-     * `oneOfEach` seeds rather than on a row added for it, and a fixture that
-     * stopped seeding a scene would take it out of both sweeps without either
+     * And the selects, asserted separately again for the same reason. They are
+     * the controls here that are not `<button>`s, they arrive on the rows
+     * `oneOfEach` seeds rather than on rows added for them, and a fixture that
+     * stopped seeding one would take it out of both sweeps without either
      * going red.
+     *
+     * TWO since decision 18: the scene row's ENVIRONMENT, and the countdown
+     * row's BELONGS TO. The count is pinned rather than loosened to "at least
+     * one" because the point of this assertion is that the fixture still
+     * carries every non-button control the sweeps below have to cover.
      */
     expect(
-      [...container.querySelectorAll('select')],
-      'no select on the screen for the floor sweep to cover',
-    ).toHaveLength(1);
+      [...container.querySelectorAll('select')].map((el) => el.getAttribute('aria-label')),
+      'a select the floor sweep covers is no longer on the screen',
+    ).toEqual(['ENVIRONMENT — Scene one', 'BELONGS TO — The ritual']);
   };
 
   it('has no target under the touch floor', () => {

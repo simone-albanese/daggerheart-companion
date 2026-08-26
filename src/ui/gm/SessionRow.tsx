@@ -221,6 +221,8 @@ export function SessionRow({
   const patch = useGm((s) => s.patchSessionItem);
   const remove = useGm((s) => s.removeSessionItem);
   const move = useGm((s) => s.moveSessionItem);
+  // Only so a scoped countdown's shut row can name the scene it belongs to.
+  const session = useGm((s) => s.session);
   const [armed, setArmed] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -235,7 +237,7 @@ export function SessionRow({
 
   const open = !item.collapsed;
   const title = sessionTitle(item);
-  const summary = describeItem(item, dataset, index, partySize);
+  const summary = describeItem(item, dataset, index, partySize, session);
   const row = sessionName(item);
 
   return (

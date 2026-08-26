@@ -87,6 +87,7 @@ import { useApp } from '../../store/state.ts';
 import { rollAffordance } from '../shared/rollAffordance.ts';
 import { longRestFearRule, shortRestFearRule } from '../shared/ruleText.ts';
 import { useGm } from './gmStore.ts';
+import { sessionName } from './session.ts';
 
 /** A face a table typed, once it is a face this die has. */
 const isFace = (value: string): boolean => {
@@ -103,6 +104,8 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
   const fear = useGm((s) => s.fear);
   const nudgeFear = useGm((s) => s.nudgeFear);
   const countdowns = useGm((s) => s.countdowns);
+  // Only to name the scene a long-term clock belongs to, never to filter.
+  const session = useGm((s) => s.session);
   const advanceCountdown = useGm((s) => s.advanceCountdown);
   const writeBeat = useGm((s) => s.writeCountdownBeat);
 
@@ -123,7 +126,28 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
   // `gain` is the sentence the panel owes a GM at the top of the scale.
   const applied = gain === null ? null : Math.min(MAX_FEAR, fear + gain) - fear;
 
+  /*
+   * Every long-term clock in the campaign, and the filter is UNCHANGED by
+   * decision 18 on purpose.
+   *
+   * A rest is a campaign event. The SRD gives the GM "advance a long-term
+   * countdown of their choice", and that choice is over all of them - so a
+   * clock that belongs to the forest is still on this list while the party is
+   * resting in the dungeon. Narrowing this to the running scene would take a
+   * clock off a list with no error message anywhere, which is the regression
+   * that has no symptom.
+   *
+   * What scope buys here is a word, not a filter: each entry says which scene
+   * owns it, so the GM advancing one knows what they are advancing.
+   */
   const longTerm = countdowns.filter((c) => c.kind === 'long-term');
+  const sceneOf = new Map(
+    session.flatMap((i) =>
+      i.kind === 'countdown' && i.sceneId !== null
+        ? [[i.countdown.id, session.find((s2) => s2.kind === 'scene' && s2.id === i.sceneId)] as const]
+        : [],
+    ),
+  );
 
   const putAway = (): void => {
     if (advanced !== null && beat !== null && beat.text.trim() !== '') {
@@ -301,6 +325,12 @@ export function RestControl({ phone }: { phone: boolean }): React.JSX.Element {
                       }}
                     >
                       {c.name} · {c.value}
+                      {sceneOf.get(c.id) !== undefined && (
+                        <span style={{ color: 'var(--muted)' }}>
+                          {' · '}
+                          {sessionName(sceneOf.get(c.id)!)}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
