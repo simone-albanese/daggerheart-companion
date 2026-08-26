@@ -50,8 +50,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { RulesSection } from '../../shared/types.ts';
-import { MOMENTS, searchAsk, type AskEntry } from '../../src/ui/gm/ask.ts';
-import { ASK_CATALOGUE } from '../../src/ui/gm/askCatalogue.ts';
+import { MOMENTS, searchAsk, type AskEntry } from '../../src/ui/shared/ask.ts';
+import { ASK_CATALOGUE } from '../../src/ui/shared/askCatalogue.ts';
 import { ruleSection } from '../../src/ui/shared/srdReference.ts';
 import { dataset } from '../ui/fixture.ts';
 

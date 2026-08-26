@@ -48,15 +48,15 @@ import {
   type RuleHit,
   type SectionView,
 } from '../../src/ui/shared/srdReference.ts';
-import { landingIn, preview, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import { landingIn, preview, RuleSearchResults } from '../../src/ui/shared/RuleSearch.tsx';
 import {
   searchSrd,
   SRD_KIND_LABELS,
   SRD_KINDS,
   srdIndex,
 } from '../../src/ui/shared/srdIndex.ts';
-import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/gm/ask.ts';
-import { ASK_CATALOGUE } from '../../src/ui/gm/askCatalogue.ts';
+import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/shared/ask.ts';
+import { ASK_CATALOGUE } from '../../src/ui/shared/askCatalogue.ts';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
 

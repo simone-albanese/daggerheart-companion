@@ -294,9 +294,9 @@
  */
 import { useEffect, useState } from 'react';
 import { useApp } from '../../store/state.ts';
-import { loadAsk, MOMENTS } from './ask.ts';
+import { loadAsk, MOMENTS } from '../shared/ask.ts';
 import type { GmRegion } from './gmStore.ts';
-import { RuleSearchField, RuleSearchResults } from './RuleSearch.tsx';
+import { RuleSearchField, RuleSearchResults } from '../shared/RuleSearch.tsx';
 import { liveDoors } from './showDoors.ts';
 
 export function ShowSheet({

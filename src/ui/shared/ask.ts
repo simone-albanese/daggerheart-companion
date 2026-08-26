@@ -85,7 +85,7 @@
  * render path would mean no search either.
  */
 import type { Ref } from '../../../shared/types.ts';
-import { ruleTerms } from '../shared/srdReference.ts';
+import { ruleTerms } from './srdReference.ts';
 
 /**
  * The six moments, in the order they are drawn.

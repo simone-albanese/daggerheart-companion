@@ -88,10 +88,10 @@ import { Names } from '../../src/ui/gm/Names.tsx';
 import { NoteArm } from '../../src/ui/gm/NoteArm.tsx';
 import { PartyScanner } from '../../src/ui/gm/PartyScanner.tsx';
 import { Reference } from '../../src/ui/gm/Reference.tsx';
-import { RuleSearchField, RuleSearchResults } from '../../src/ui/gm/RuleSearch.tsx';
+import { RuleSearchField, RuleSearchResults } from '../../src/ui/shared/RuleSearch.tsx';
+import { BlockView } from '../../src/ui/shared/BlockView.tsx';
 import {
   AdversaryExperiences,
-  BlockView,
   CountdownChart,
   DifficultyLadder,
   FearGuide,
@@ -664,10 +664,10 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // A query already typed, because the field draws its CLEAR only once there
   // is something to clear and the results only once there is something to
   // find - both of which are render paths, and the empty one is the sheet's.
-  'gm/RuleSearch.tsx::RuleSearchField': () => (
+  'shared/RuleSearch.tsx::RuleSearchField': () => (
     <RuleSearchField value="fear" onChange={noop} total={dataset.rules.length} />
   ),
-  'gm/RuleSearch.tsx::RuleSearchResults': () => <RuleSearchResults query="fear" />,
+  'shared/RuleSearch.tsx::RuleSearchResults': () => <RuleSearchResults query="fear" />,
   'gm/ReferenceTables.tsx::TierBenchmarks': () => <TierBenchmarks />,
   'gm/ReferenceTables.tsx::AdversaryExperiences': () => <AdversaryExperiences />,
   'gm/ReferenceTables.tsx::DifficultyLadder': () => <DifficultyLadder />,
@@ -687,7 +687,7 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // prose, bullets and tables, in the order the book wrote them. The countdown
   // chart's block is three columns wide, which is the stacked-panel half of
   // `RuleTableView`; the grid half is its own fixture below.
-  'gm/ReferenceTables.tsx::BlockView': () => <BlockView block={blockWithTable('countdowns')} />,
+  'shared/BlockView.tsx::BlockView': () => <BlockView block={blockWithTable('countdowns')} />,
   'gm/RestControl.tsx::RestControl': () => <RestControl phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
