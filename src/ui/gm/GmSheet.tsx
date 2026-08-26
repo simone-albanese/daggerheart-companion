@@ -211,12 +211,24 @@ export function GmSheet({
   onClose,
   children,
   size = 'sheet',
+  title,
 }: {
-  /** The dialog's accessible name and its visible title. */
+  /** The dialog's accessible name, and its visible title unless `title` replaces it. */
   label: string;
   onClose: () => void;
   children: React.ReactNode;
   size?: 'sheet' | 'full';
+  /**
+   * Replaces the VISIBLE title. `label` stays the dialog's accessible name.
+   *
+   * Optional, so the other seven tools and every sheet are untouched. It exists
+   * because the title row is 44px of glass that already says one word, and the
+   * scene runner has something better to put there - which row of the plan is
+   * on the board - at a vertical cost of exactly 0.00px: `.row` has no
+   * min-height and no wrap, the tallest child is the 44x44 close button, and
+   * the span this replaces is already `flex: 1, minWidth: 0`.
+   */
+  title?: React.ReactNode;
 }): React.JSX.Element {
   const phone = useIsPhone();
   const dialog = useDialog(label, onClose, { modal: false });
@@ -265,9 +277,11 @@ export function GmSheet({
             borderBottom: '1px solid var(--line-soft)',
           }}
         >
-          <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
-            {label}
-          </span>
+          {title ?? (
+            <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+              {label}
+            </span>
+          )}
           <span className="keycap" aria-hidden="true">
             ESC
           </span>

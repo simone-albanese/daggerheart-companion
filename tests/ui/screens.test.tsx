@@ -78,6 +78,8 @@ import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { Fact } from '../../src/ui/gm/Fact.tsx';
 import { GmBar } from '../../src/ui/gm/GmBar.tsx';
 import { GmSheet } from '../../src/ui/gm/GmSheet.tsx';
+import { SceneSwitcher } from '../../src/ui/gm/SceneSwitcher.tsx';
+import { useGm } from '../../src/ui/gm/gmStore.ts';
 import { GmTopBar } from '../../src/ui/gm/GmTopBar.tsx';
 import { MenuSheet } from '../../src/ui/gm/MenuSheet.tsx';
 import { Merchant } from '../../src/ui/gm/Merchant.tsx';
@@ -689,6 +691,16 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/RestControl.tsx::RestControl': () => <RestControl phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
+  /*
+   * Seeded live, because the strip returns `null` when there is nothing to
+   * flip between and a fixture that mounted nothing would prove nothing. The
+   * store is what it reads - it takes no props - so the seeding happens in the
+   * factory rather than in the element.
+   */
+  'gm/SceneSwitcher.tsx::SceneSwitcher': () => {
+    useGm.setState({ session: [sceneItem()], liveScene: 's1' });
+    return <SceneSwitcher />;
+  },
   'gm/SessionBody.tsx::SessionBody': () => (
     <SessionBody item={sceneItem()} phone={false} onOpenTool={noop} />
   ),
