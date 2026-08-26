@@ -717,7 +717,7 @@ function CombatantCard({
           onClick={() => remove(c.id)}
           aria-label={`Remove ${c.name} from the scene`}
           className="t-meta"
-          style={{ flex: 'none', width: 34, minHeight: 'var(--control)', color: 'var(--dim)' }}
+          style={{ flex: 'none', width: 'var(--control)', minHeight: 'var(--control)', color: 'var(--dim)' }}
         >
           ✕
         </button>
@@ -1134,20 +1134,31 @@ function CombatantCard({
             The header row is `gap: 8` over three children: the name stack
             (`flex: 1, minWidth: 0`, so basis 0 and it takes the remainder), the
             SPOTLIGHT chip (`flex: 'none'`, `padding: '0 10px'`) and the remove
-            button (`flex: 'none', width: 34`). Neither control has a border to
-            spend: `base.css` gives every button `border: 0` and `.chip`
-            declares none. So off the 341 below go two 8px gaps, the 34, and the
-            chip's 20 of padding - **271px at the ceiling**, before the chip's
-            label costs a pixel, and the label only takes more. (Those three
+            button (`flex: 'none', width: 'var(--control)'`). Neither control
+            has a border to spend: `base.css` gives every button `border: 0` and
+            `.chip` declares none. So off the 341 below go two 8px gaps, the ✕,
+            and the chip's 20 of padding - **261px at the ceiling**, before the
+            chip's label costs a pixel, and the label only takes more.
+
+            The ✕ is 44 here and not 34, and that is this paragraph's own
+            arithmetic changing under it. It was a literal `34` beside a
+            `--control` height, so on a phone it was a destructive target 34px
+            wide under a thumb, below the floor `tokens.css` sets and the floor
+            `Countdowns.tsx` had already written down as condemning this very
+            button. Width reads the same token the height reads now: 44 on any
+            coarse pointer, still 34 on a wide window with a fine one. The
+            ceiling was **271px** while it was 34, which is what it still is
+            where `--control` is still 34 - this paragraph is about 393, so 261
+            is its number. (Those three
             children were cited as `:327`, `:328`, `:345-356` and `:364-368`
             while this file was under edit, and the fold moved every one of
             them. They are named by their declarations now, which is this
             repo's own rule about a file still being written.)
 
             "Well under half the card's width" stood here and was false in the
-            direction that matters: 271 is four fifths of 341 before the label,
-            and for the stack to fall under half the label would have to measure
-            100.5px - eleven pixels a character across nine characters of a
+            direction that matters: 261 is over three quarters of 341 before the
+            label, and for the stack to fall under half the label would have to
+            measure 90.5px - ten pixels a character across nine characters of a
             9.5px font. What SPOTLIGHT's `600 9.5px/1 var(--mono)` at 0.06em
             (`base.css`, `.chip`) actually measures is the one term here that is
             not a declaration, and it has not been in a browser; do not read a
@@ -1155,7 +1166,7 @@ function CombatantCard({
             isn't one.
 
             The conclusion survives without it. The stack is short of the column
-            by at least 70px of declared chrome plus the chip's widest label -
+            by at least 80px of declared chrome plus the chip's widest label -
             nine characters, since pressed it reads SPOTLIT and gives two back -
             and the motives line runs to 92 characters (below) where the name
             above it is already `whiteSpace: 'nowrap'` with an ellipsis. A

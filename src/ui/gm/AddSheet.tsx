@@ -125,6 +125,7 @@ import {
   newScene,
   //
   newNote,
+  plannedAdversaries,
 } from './session.ts';
 
 /** A choice on the first screen: what it mints, and what it says it is. */
@@ -238,8 +239,15 @@ export function AddSheet({ onClose }: { onClose: () => void }): React.JSX.Elemen
           a digit rather than the word this label used to spell, because
           spelling it needs a second table of number words, and a second table
           keyed by a length is the exact thing the rest of this file just
-          stopped doing. The register is already here: the encounter form two
-          screens down says TAKE THE 3 ON THE BOARD NOW.
+          stopped doing. The register is already here: the scene form below
+          says CARRY THE 12 INTO THIS SCENE.
+
+          That citation used to read "the encounter form two screens down says
+          TAKE THE 3 ON THE BOARD NOW", and it was wrong twice: the string is
+          this file's own scene form, not another screen's, and the encounter
+          form says SEND n TO THE SCENE. Both halves are corrected here rather
+          than dropped, because a docblock that cites a sibling by quoting it
+          is exactly how the quote outlives the sibling.
         */}
         {`← THE ${String(SESSION_ITEM_KINDS.length)} KINDS`}
       </button>
@@ -323,20 +331,29 @@ const Form = ({
  */
 function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
   const environments = useApp((s) => s.dataset.environments);
+  const index = useApp((s) => s.index);
+  const partySize = useApp((s) => s.prefs.gmPartySize);
   const add = useGm((s) => s.addSessionItem);
   const roster = useGm((s) => s.roster);
   const adjustments = useGm((s) => s.adjustments);
   const [name, setName] = useState('');
   const [environmentRef, setEnvironmentRef] = useState('');
-  const [takeBoard, setTakeBoard] = useState(false);
-  const planned = roster.reduce((sum, entry) => sum + entry.count, 0);
+  const [carryRoster, setCarryRoster] = useState(false);
+  /*
+    Adversaries, not the sum of the counts - the same correction `SEND n TO THE
+    SCENE` took in this commit, and for the same reason. A Minion entry at 3 is
+    three groups the size of the party, so this button offered to carry "3"
+    into a row that would open with twelve in it, and the row's own shut line
+    has read `12 PLANNED` about that roster all along.
+  */
+  const planned = plannedAdversaries(roster, index, partySize);
 
   return (
     <Form
       onSubmit={(e) => {
         e.preventDefault();
         add(
-          takeBoard
+          carryRoster
             ? newScene(name, environmentRef === '' ? null : environmentRef, { roster, adjustments })
             : newScene(name, environmentRef === '' ? null : environmentRef),
         );
@@ -367,22 +384,22 @@ function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
       </Field>
       <button
         type="button"
-        aria-pressed={takeBoard}
+        aria-pressed={carryRoster}
         disabled={planned === 0}
-        onClick={() => setTakeBoard(!takeBoard)}
+        onClick={() => setCarryRoster(!carryRoster)}
         className="btn"
         style={{
           flex: 'none',
           minHeight: 'var(--tap)',
           opacity: planned === 0 ? 0.5 : 1,
-          background: takeBoard ? 'var(--hope)' : 'var(--raised)',
-          color: takeBoard ? 'var(--app)' : 'var(--text)',
-          borderColor: takeBoard ? 'transparent' : 'var(--line)',
+          background: carryRoster ? 'var(--hope)' : 'var(--raised)',
+          color: carryRoster ? 'var(--app)' : 'var(--text)',
+          borderColor: carryRoster ? 'transparent' : 'var(--line)',
         }}
       >
         {planned === 0
-          ? 'THE BOARD HAS NO ROSTER ON IT'
-          : `TAKE THE ${String(planned)} ON THE BOARD NOW`}
+          ? 'THERE IS NO ROSTER TO CARRY'
+          : `CARRY THE ${String(planned)} INTO THIS SCENE`}
       </button>
       <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
         The roster is the plan. The fight itself stays on the board — this build can put a roster

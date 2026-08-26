@@ -156,26 +156,51 @@ const minionRecord = (value: unknown): boolean =>
   typeof value === 'object' && value !== null && (value as { role?: unknown }).role === 'Minion';
 
 /**
- * How many adversaries a roster plans, which is not the sum of its counts.
+ * How many adversaries one roster entry puts on the table.
  *
  * For a Minion the count is *groups*, each the size of the party.
  * `EncounterEntry.count` says so, `ROLE_COST` prices it that way - "per group
  * of Minions equal to the party size" - and both screens that draw a roster
  * spell it out: the builder's roster panel and the open encounter row both
- * read "3 GROUPS OF 4" where every other role reads "×3". So a roster holding
- * one Minion entry at 3 with a party of four plans twelve adversaries, and 3
- * is the number of groups.
+ * read "3 GROUPS OF 4" where every other role reads "×3". So one Minion entry
+ * at 3 with a party of four puts twelve adversaries down, and 3 is the number
+ * of groups.
+ *
+ * IT IS ONE LINE AND IT IS EXPORTED BECAUSE THREE SURFACES NEED IT AND A
+ * FOURTH COPY IS HOW ONE OF THEM DRIFTS. The rule was written out longhand in
+ * `plannedAdversaries` below while the two builder buttons summed `count`
+ * raw - so `SEND 3 TO THE SCENE` sent twelve, and the shut row beneath it
+ * said `12 PLANNED` about the same roster. Whoever adds the next surface that
+ * counts a roster should reach for this rather than write `? partySize : 1`
+ * a second time.
+ *
+ * The caller passes the role rather than the record, because the two callers
+ * hold different things: `Encounter.tsx` has the `Adversary` resolved on the
+ * entry, and `plannedAdversaries` has only a ref and an index to look it up
+ * in. `minionRecord` above is that lookup, and it answers `false` for a ref
+ * this dataset cannot resolve.
  *
  * The party size is a parameter rather than a read, because this module has
  * neither React nor a store in it on purpose.
  */
-const plannedAdversaries = (
+export const adversaryBodies = (minion: boolean, count: number, partySize: number): number =>
+  count * (minion ? partySize : 1);
+
+/**
+ * How many adversaries a whole roster plans, which is not the sum of its
+ * counts.
+ *
+ * Exported since the scene builder needed it: `AddSheet.tsx` holds refs and a
+ * count, exactly what this takes, and was summing the counts raw.
+ */
+export const plannedAdversaries = (
   roster: readonly RosterEntry[],
   index: DatasetIndex,
   partySize: number,
 ): number =>
   roster.reduce(
-    (sum, entry) => sum + entry.count * (minionRecord(index.byRef.get(entry.ref)) ? partySize : 1),
+    (sum, entry) =>
+      sum + adversaryBodies(minionRecord(index.byRef.get(entry.ref)), entry.count, partySize),
     0,
   );
 

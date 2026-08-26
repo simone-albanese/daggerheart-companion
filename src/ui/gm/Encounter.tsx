@@ -139,12 +139,15 @@ export function Encounter({ phone }: { phone: boolean }): React.JSX.Element {
  * that way, "per group of Minions equal to the party size" - so `×3` beside a
  * Minion read as three where twelve had been paid for. The `Roster` panel this
  * picker feeds has spelled it out - "3 GROUPS OF 4" - since the first commit,
- * and `ecf8017` brought the open session row into line with it. This cell was
- * the last surface still printing the group count where a body count is read,
- * and it is the one that cannot say the words: at `.t-meta` 9.5px in the
- * shipped IBM Plex Mono 500, measured in Chrome with a `Range`, "3 GROUPS OF 4"
- * is 81.52px and this cell's content box is 44px - 46px less its two 1px
- * borders.
+ * and `ecf8017` brought the open session row into line with it. This cell
+ * called itself the last surface still printing the group count where a body
+ * count is read, AND IT WAS NOT: `SEND n TO THE SCENE` below and the scene
+ * builder's `TAKE THE n` both outlived it, summing `count` raw, and both are
+ * corrected in the commit that is correcting this sentence. What is true of
+ * this cell is the narrower thing - it is the one that cannot say the words:
+ * at `.t-meta` 9.5px in the shipped IBM Plex Mono 500, measured in Chrome with
+ * a `Range`, "3 GROUPS OF 4" is 81.52px and this cell's content box is 44px -
+ * 46px less its two 1px borders.
  *
  * So it says the same two numbers in the same order, compressed to fit: `3×4`
  * is three groups of four, which is the panel's sentence with the words taken
@@ -714,6 +717,35 @@ function Roster({
 
       {entries.length > 0 && (
         <>
+          {/*
+            THIS NUMBER COUNTS CARDS, AND IT IS RIGHT. Left as the raw sum of
+            `count` on purpose, and the note is here because the alternative
+            was tried and reverted in the same afternoon.
+
+            The handoff that opened this lane read "the button says 3 and
+            twelve arrive", and set out to make it say 12. Twelve *rats*
+            arrive; three *cards* do. `makeCombatant` gives a Minion
+            `minionsRemaining: partySize` (`encounter.ts:193`) and `Scene.tsx`
+            draws that as a MINIONS − 4 + stepper, so one card is one group.
+            `send` above calls `spawn` once per `count`, which is once per
+            card. A button reading SEND 12 would put three cards on the table
+            and leave a GM hunting for nine that were never coming - the same
+            defect in the louder direction, and visible in the second after
+            the tap rather than two screens away.
+
+            So the rule this file states for `AddButton` - a bare number is
+            read as bodies - is the one thing here still unsatisfied, and it
+            is unsatisfied cheaply: the panel directly above prints "3 GROUPS
+            OF 4" for the entry, so the structure is on the glass a few pixels
+            up, and the three cards that arrive each say MINIONS 4 out loud.
+            Whether the button should spell the groups itself is an open
+            question for the owner, recorded rather than guessed.
+
+            It is NOT the same number as the scene builder's CARRY THE n. That
+            one predicts a row whose shut line reads `12 PLANNED`, so it counts
+            rats; this one predicts cards. Two buttons, two actions, two units
+            - which is why `plannedAdversaries` is not called here.
+          */}
           <button type="button" className="btn btn-primary" onClick={send} style={{ marginTop: 2 }}>
             SEND {entries.reduce((n, e) => n + e.count, 0)} TO THE SCENE
           </button>
