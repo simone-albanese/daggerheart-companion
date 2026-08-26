@@ -110,6 +110,68 @@ describe('what a shut row says about itself', () => {
     expect(describe_(gone)).toBe('NOT IN THIS DATASET');
   });
 
+  /*
+   * The third term, decision 18. A scene row can hold a fight that has been
+   * FOUGHT - parked out of the runner with every mark on it - and a shut plan
+   * that did not say so would let a GM delete it without ever being told what
+   * was inside.
+   */
+  it('counts a parked fight beside what the row plans, because they are two facts', () => {
+    const fighter = {
+      id: `${adversary.id}-0`,
+      adversaryRef: adversary.id,
+      name: adversary.name,
+      hp: { max: 6, marked: 3 },
+      stress: { max: 3, marked: 0 },
+      thresholds: [4, 8] as [number, number],
+      difficulty: 12,
+      spotlighted: false,
+      notes: '',
+    };
+    const item: SessionItem = {
+      ...base(),
+      kind: 'scene',
+      environmentRef: environment.id,
+      roster: [{ ref: adversary.id, count: 2 }],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [fighter, { ...fighter, id: `${adversary.id}-1` }],
+    };
+    expect(describe_(item)).toBe(`${environment.name.toUpperCase()} · 2 PLANNED · 2 PARKED`);
+  });
+
+  it('says PARKED on its own when the row plans nothing and has no place', () => {
+    // Never "NO ENVIRONMENT · 1 PARKED": the row is not saying nothing, so the
+    // clause that exists to fill an empty line does not fire.
+    const item: SessionItem = {
+      ...base(),
+      kind: 'scene',
+      environmentRef: null,
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [
+        {
+          id: `${adversary.id}-0`,
+          adversaryRef: adversary.id,
+          name: adversary.name,
+          hp: { max: 6, marked: 0 },
+          stress: { max: 3, marked: 0 },
+          thresholds: [4, 8] as [number, number],
+          difficulty: 12,
+          spotlighted: false,
+          notes: '',
+        },
+      ],
+    };
+    expect(describe_(item)).toBe('1 PARKED');
+  });
+
+  it('says nothing about a fight for the row that is being played', () => {
+    // Resume EMPTIES the row it took the fight from, so a running scene reads
+    // zero here and the plan never shows a stale number.
+    const item: SessionItem = { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT };
+    expect(describe_(item)).toBe(environment.name.toUpperCase());
+  });
+
   it('counts the bodies in an encounter, not the lines in its roster', () => {
     // Neither adversary here is a Minion - `adversary` is the Acid Burrower, a
     // Solo, and the second ref resolves to nothing at all - so this is the arm

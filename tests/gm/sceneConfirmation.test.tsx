@@ -61,7 +61,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, combatants: [], environmentRef: null, region: 'scene' });
+  useGm.setState({ hydrated: true, combatants: [], liveScene: null, environmentRef: null, region: 'scene' });
 });
 
 afterEach(() => {

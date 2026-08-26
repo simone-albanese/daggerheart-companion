@@ -709,6 +709,28 @@ export function newCampaign(name: string, at: string, id: string): Campaign {
 export const countdownsOf = (session: readonly SessionItem[]): Countdown[] =>
   session.flatMap((item) => (item.kind === 'countdown' ? [item.countdown] : []));
 
+/**
+ * The scene rows a GM is flipping between.
+ *
+ * Derived, never stored, and that is the whole of its argument. A row is live
+ * because it holds a fight or because it is the one on the board - so the set
+ * cannot go stale, it survives an export for free, a row that is correctly
+ * archived is not in `session` and therefore not live, and deleting a row
+ * takes it off the strip with no cleanup anywhere.
+ *
+ * **Only `kind: 'scene'`, never `encounter`.** That arm has no
+ * `environmentRef`, so resuming one would open the fight in the *previous*
+ * scene's place - textually the defect the scene row absorbed the fight to
+ * close. It is also the arm nothing can mint any more.
+ */
+export const liveScenes = (
+  session: readonly SessionItem[],
+  liveScene: string | null,
+): SessionItem[] =>
+  session.filter(
+    (i) => i.kind === 'scene' && (i.combatants.length > 0 || i.id === liveScene),
+  );
+
 export const primaryCountdownOf = (session: readonly SessionItem[]): Countdown | null => {
   const item = session.find((i) => i.kind === 'countdown' && i.primary);
   return item !== undefined && item.kind === 'countdown' ? item.countdown : null;

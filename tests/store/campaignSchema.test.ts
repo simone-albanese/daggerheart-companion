@@ -45,6 +45,7 @@ import {
   CampaignReadError,
   countdownsOf,
   emptyBoard,
+  liveScenes,
   migrateCampaignRecord,
   newCampaign,
   OLDEST_READABLE_CAMPAIGN,
@@ -536,7 +537,81 @@ describe('countdowns, which live in the session list', () => {
     });
   });
 
-  describe('the row the fight on the board came from', () => {
+  describe('the scene rows a GM is flipping between', () => {
+  /*
+   * Derived, never stored, and that is the whole of its argument: it cannot go
+   * stale, it survives an export for free, and deleting a row takes it off the
+   * strip with no cleanup anywhere.
+   */
+  const sceneRow = (id: string, combatants: unknown[] = []): Record<string, unknown> => ({
+    id,
+    kind: 'scene',
+    name: id,
+    environmentRef: null,
+    roster: [],
+    adjustments: { easier: false, harder: false, damageBump: false },
+    combatants,
+  });
+
+  const fighter = {
+    id: 'acid-burrower-0',
+    adversaryRef: 'acid-burrower',
+    name: 'Acid Burrower',
+    hp: { max: 8, marked: 2 },
+    stress: { max: 3, marked: 0 },
+    thresholds: [8, 15],
+    difficulty: 14,
+    spotlighted: false,
+    notes: '',
+  };
+
+  it('counts a row live because it holds a fight, or because it is the one on the board', () => {
+    const { campaign } = readCampaignRecord(
+      bare({ session: [sceneRow('a', [fighter]), sceneRow('b'), sceneRow('c')] }),
+    );
+    expect(liveScenes(campaign.session, 'b').map((i) => i.id)).toEqual(['a', 'b']);
+  });
+
+  it('leaves a planned-and-never-fought row off it', () => {
+    const { campaign } = readCampaignRecord(bare({ session: [sceneRow('a'), sceneRow('b')] }));
+    expect(liveScenes(campaign.session, null)).toEqual([]);
+  });
+
+  it('never puts a legacy encounter row on it, whatever it is holding', () => {
+    /*
+     * That arm has no `environmentRef`, so resuming one would open the fight in
+     * the PREVIOUS scene's place - textually the defect the scene row absorbed
+     * the fight to close. It is also the arm nothing can mint any more.
+     */
+    const { campaign } = readCampaignRecord(
+      bare({
+        session: [
+          {
+            id: 'legacy',
+            kind: 'encounter',
+            name: 'legacy',
+            roster: [],
+            adjustments: { easier: false, harder: false, damageBump: false },
+            combatants: [fighter],
+          },
+        ],
+      }),
+    );
+    expect(campaign.session[0]?.kind).toBe('encounter');
+    expect(liveScenes(campaign.session, 'legacy')).toEqual([]);
+  });
+
+  it('keeps them in list order rather than by when they were last played', () => {
+    // A strip that reorders under a thumb is the one thing muscle memory
+    // cannot use.
+    const { campaign } = readCampaignRecord(
+      bare({ session: [sceneRow('a', [fighter]), sceneRow('b', [fighter])] }),
+    );
+    expect(liveScenes(campaign.session, 'b').map((i) => i.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('the row the fight on the board came from', () => {
     const sceneRow = (id: string): Record<string, unknown> => ({
       id,
       kind: 'scene',

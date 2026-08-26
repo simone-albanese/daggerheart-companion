@@ -29,6 +29,7 @@ import { useGm } from './gmStore.ts';
 export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const combatants = useGm((s) => s.combatants);
   const environmentRef = useGm((s) => s.environmentRef);
+  const liveScene = useGm((s) => s.liveScene);
   const setRegion = useGm((s) => s.setRegion);
   const clearScene = useGm((s) => s.clearScene);
   // `index.byRef` holds every kind of record under one key space, so reading an
@@ -83,6 +84,24 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
     const t = setTimeout(() => setArmed(false), 4000);
     return () => clearTimeout(t);
   }, [armed]);
+
+  /*
+   * A flip disarms it, and the reason is the same one the paragraph above
+   * gives for arming unconditionally.
+   *
+   * This component does not unmount when the board's fight is swapped, so
+   * without this a GM who arms END SCENE, flips to another scene and taps
+   * again inside the four seconds destroys the fight they have just ARRIVED
+   * at rather than the one they armed. The sentence beside the button would
+   * have counted the old fight when the first tap landed and the new one when
+   * the second did, and the second tap is the one that acts.
+   *
+   * It is not the tap count depending on unseen state - it is the arming
+   * pointing at a table that is no longer there.
+   */
+  useEffect(() => {
+    setArmed(false);
+  }, [liveScene]);
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: phone ? '10px 12px 0' : '14px 20px 0' }}>
@@ -229,16 +248,24 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         directly under the row it explains and far out of the 560-820 band,
         which is where this app puts what is read rather than answered.
 
-        Every clause is read off `clearScene`, which is `commit({ combatants:
-        [] })` and nothing else. The combatants go, and with them every HP and
-        Stress mark, which is the whole reason this module keeps them. The
-        environment, the Fear pool and the session's countdowns are not in that
-        commit and do not move. That is not an accident of implementation any
-        more: `docs/handoff/DECISIONI-2026-08-23.md` §1 closed the scene
-        question and cited this very behaviour as the app having already
-        answered it in the same direction. A decision that has been taken
-        belongs on the glass rather than left to be inferred from what happens
-        to survive.
+        Every clause is read off `clearScene`. The combatants go, and with them
+        every HP and Stress mark, which is the whole reason this module keeps
+        them. The environment, the Fear pool and the session's countdowns are
+        not in that commit and do not move. That is not an accident of
+        implementation any more: `docs/handoff/DECISIONI-2026-08-23.md` §1
+        closed the scene question and cited this very behaviour as the app
+        having already answered it in the same direction. A decision that has
+        been taken belongs on the glass rather than left to be inferred from
+        what happens to survive.
+
+        What that commit *is* changed with decision 18, and the sentence above
+        is the same either way. It used to be `commit({ combatants: [] })` and
+        nothing else; it now empties the scene ROW this fight was parked out of
+        as well, and lets go of the pointer. Nothing new is destroyed - the row
+        held a copy of exactly these combatants and exactly these marks - but
+        without it, ending a fight and then flipping back to its row would put
+        every one of them back on their feet, and "end" would be the only word
+        in this runner that the parking had made false.
       */}
       <p
         className="t-dense"
@@ -322,7 +349,22 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
           }}
         >
           {combatants.map((c) => (
-            <CombatantCard key={c.id} combatant={c} adversary={byRef.get(c.adversaryRef)} />
+            /*
+             * Keyed on the row as well as the combatant, because `c.id` alone
+             * is not unique across a flip.
+             *
+             * `spawn` scans for a free index over the BOARD's array only - the
+             * very fact that makes `liveScene` non-derivable - so the dungeon
+             * and the forest can both hold `acid-burrower-0`. With `c.id` as
+             * the key React reuses the same card component across a flip, and
+             * its local state goes with it: the half-typed damage number and
+             * the open fold cross from one fight into another.
+             */
+            <CombatantCard
+              key={`${liveScene ?? ''}:${c.id}`}
+              combatant={c}
+              adversary={byRef.get(c.adversaryRef)}
+            />
           ))}
         </div>
       )}
