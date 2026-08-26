@@ -12,11 +12,27 @@
  *     the first commit;
  *   - the open session row said "×3" until `ecf8017` brought it into line;
  *   - the picker's 46px add button said `IN ×3` about twelve rats, and the
- *     shut session row said "3 PLANNED" about the same twelve, until this one.
+ *     shut session row said "3 PLANNED" about the same twelve, until this one;
+ *   - the scene builder's `TAKE THE n` summed `count` raw and was the last one
+ *     genuinely counting the wrong thing; it reads `CARRY THE n INTO THIS
+ *     SCENE` now and counts what the row it mints will say.
  *
  * So the property is asserted across the surfaces at once rather than one file
- * at a time: the same roster, read three ways, has to carry the same two
- * numbers. A fourth surface that forgets is the whole point of the file.
+ * at a time: the same roster, read four ways, has to carry the same two
+ * numbers. A fifth surface that forgets is the whole point of the file.
+ *
+ * AND THERE IS A FIFTH THAT IS NOT WRONG, WHICH IS THE HARDER HALF. `SEND n TO
+ * THE SCENE` was read as a sixth defect and it is not one: `spawn` runs once
+ * per `count` and `makeCombatant` puts `minionsRemaining: partySize` on each,
+ * so three groups of four are three CARDS holding twelve rats. SEND predicts
+ * cards; the shut row counts rats; both are right, in different units, about
+ * different questions. A reader who "corrected" SEND to 12 would put three
+ * cards on the table under a label promising twelve.
+ *
+ * That near-miss is why the SEND block below pins the UNIT and not the number:
+ * it reads the label off the glass, taps it, and counts what arrives. Nothing
+ * in it writes 3 or 12 down, because a literal is exactly what made the wrong
+ * reading look verified.
  *
  * The party size is driven rather than defaulted in most of these, because the
  * defect a fixed party of four cannot catch is the one where somebody folds
@@ -98,6 +114,13 @@ const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('butto
 const minion = dataset.adversaries.find((a) => a.role === 'Minion')!;
 /** The Acid Burrower: a Solo, so one count is one adversary. */
 const solo = dataset.adversaries[0]!;
+
+/** The builder's primary control, found by the words either side of its number. */
+const sendButton = (): HTMLButtonElement => {
+  const found = buttons().filter((b) => (b.textContent ?? '').startsWith('SEND '));
+  if (found.length !== 1) throw new Error(`${String(found.length)} SEND controls`);
+  return found[0]!;
+};
 
 /** The picker's add button for one adversary, found by the name it announces. */
 const addButton = (name: string): HTMLButtonElement => {
@@ -195,6 +218,81 @@ describe('the badge and the roster panel, on the same screen', () => {
     expect(text()).toContain('1 GROUP OF 5');
     expect(text()).not.toContain('1 GROUPS OF 5');
     expect(addButton(minion.name).textContent ?? '').toContain('IN 1×5');
+  });
+});
+
+describe('SEND, and the unit it is in', () => {
+  /*
+   * THE TRAP THIS BLOCK EXISTS FOR, WHICH CAUGHT A READER OF THIS VERY FILE.
+   *
+   * A handoff read the surfaces above, saw the shut row say `12 PLANNED` where
+   * SEND says 3, and called SEND the liar. It is not. `spawn` runs once per
+   * `count`, and `makeCombatant` hands a Minion `minionsRemaining: partySize`,
+   * so three groups of four are three CARDS holding twelve rats - and
+   * `Scene.tsx` prints that four on each card as a MINIONS stepper. SEND
+   * predicts cards, the shut row counts rats, and both are right.
+   *
+   * So this block pins the unit rather than the number: whatever SEND says is
+   * what a GM finds on the table after tapping it. Nothing here writes 3 or 12
+   * down, because a literal is what let the wrong reading look verified.
+   */
+  const said = (): number => {
+    const found = /SEND (\d+) /.exec(sendButton().textContent ?? '');
+    if (found === null) throw new Error(`SEND prints no number: ${sendButton().textContent ?? ''}`);
+    return Number(found[1]);
+  };
+
+  const tapped = (): number => {
+    const promised = said();
+    act(() => {
+      sendButton().click();
+    });
+    expect(useGm.getState().combatants).toHaveLength(promised);
+    return promised;
+  };
+
+  it('promises the cards a Minion roster puts on the table, not the rats in them', () => {
+    builder([{ ref: minion.id, count: 3 }], 4);
+    expect(tapped()).toBe(3);
+    // Every card carries the group, which is where the twelve is.
+    const rats = useGm.getState().combatants.map((c) => c.minionsRemaining);
+    expect(rats).toEqual([4, 4, 4]);
+  });
+
+  it('does not move when the party does, because a card is a card', () => {
+    // The mutation that would break it: reaching for `adversaryBodies` here.
+    // A party of seven makes each group bigger, never adds a fourth card.
+    builder([{ ref: minion.id, count: 3 }], 7);
+    expect(tapped()).toBe(3);
+    expect(useGm.getState().combatants.map((c) => c.minionsRemaining)).toEqual([7, 7, 7]);
+  });
+
+  it('keeps its promise for a roster with no Minion in it', () => {
+    builder([{ ref: solo.id, count: 3 }], 4);
+    expect(tapped()).toBe(3);
+    expect(useGm.getState().combatants[0]?.minionsRemaining).toBeUndefined();
+  });
+
+  it('keeps its promise for a roster that mixes the two', () => {
+    // The case neither unit survives on its own: two cards holding four rats
+    // each, plus one Solo, is three cards and nine bodies.
+    builder(
+      [
+        { ref: minion.id, count: 2 },
+        { ref: solo.id, count: 1 },
+      ],
+      4,
+    );
+    expect(tapped()).toBe(3);
+  });
+
+  it('stands beside a panel that spells the group out, which is where the four is', () => {
+    // SEND is bare, and the rule this repo states for the picker cell is that
+    // a bare number reads as bodies. What keeps it honest is not the label but
+    // its neighbour: the sentence is on the glass a few pixels above it.
+    builder([{ ref: minion.id, count: 3 }], 4);
+    expect(text()).toContain('3 GROUPS OF 4');
+    expect(sendButton().textContent).toContain('SEND 3 TO THE SCENE');
   });
 });
 

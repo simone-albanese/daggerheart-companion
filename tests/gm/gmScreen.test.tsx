@@ -566,7 +566,7 @@ describe('ADD', () => {
    * creatable". The assertions themselves are unchanged in substance; only the
    * door they go through, and the arm they read back off, have moved.
    */
-  it('takes the roster that is on the board, and never the fight', () => {
+  it('carries the roster the builder holds, and never the fight', () => {
     useGm.setState({
       roster: [{ ref: 'acid-burrower', count: 3 }],
       adjustments: { easier: false, harder: true, damageBump: false },
@@ -574,7 +574,10 @@ describe('ADD', () => {
     gm();
     click(named('ADD'));
     click(leading('SCENE'));
-    click(leading('TAKE THE 3 ON THE BOARD NOW'));
+    // Three, not twelve: the Acid Burrower is a Solo, so one count is one
+    // adversary and this label reads the same after the Minion correction as
+    // before it. `minionGroups.test.tsx` drives the case where they differ.
+    click(leading('CARRY THE 3 INTO THIS SCENE'));
     submit();
 
     const row = useGm.getState().session[0]!;
@@ -583,6 +586,32 @@ describe('ADD', () => {
     // No store action sets a combatant list wholesale, so a row that arrived
     // carrying one would show a number nothing could ever change again.
     expect(row.kind === 'scene' && row.combatants).toEqual([]);
+  });
+
+  it('offers the adversaries a Minion roster carries, not the groups', () => {
+    /*
+     * The same correction SEND took, on the other builder. A Minion entry at 3
+     * with a party of four is twelve, and this button offered "3" into a row
+     * whose own shut line reads `12 PLANNED` - two numbers about one roster,
+     * one screen apart. `minionGroups.test.tsx` holds the cross-surface form
+     * of this; it is asserted here too because this is the only place the
+     * label is reached through the flow a GM actually walks.
+     */
+    const minion = dataset.adversaries.find((a) => a.role === 'Minion')!;
+    useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartySize: 4 } });
+    useGm.setState({ roster: [{ ref: minion.id, count: 3 }] });
+    gm();
+    click(named('ADD'));
+    click(leading('SCENE'));
+    expect(() => leading('CARRY THE 3 INTO THIS SCENE')).toThrow();
+    click(leading('CARRY THE 12 INTO THIS SCENE'));
+    submit();
+
+    const row = useGm.getState().session[0]!;
+    // The roster is stored in the units it is stored in - groups - and only
+    // the sentence about it is expanded. Storing twelve would double it the
+    // next time anything read it through `plannedAdversaries`.
+    expect(row.kind === 'scene' && row.roster).toEqual([{ ref: minion.id, count: 3 }]);
   });
 
   it('leaves the roster behind when it is not asked for', () => {

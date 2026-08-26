@@ -55,15 +55,25 @@
  * a 34px-wide target under a thumb is under the floor however tall it is.
  *
  * That last clause is the project's floor and not this control's taste, and two
- * ✕s older than this shelf do not meet it: `CountdownRow`'s delete lower down
+ * ✕s older than this shelf did not meet it: `CountdownRow`'s delete lower down
  * in this file, and the one that takes an adversary out of the scene in
- * `Scene.tsx`, both write `width: 34` as a literal beside a `--control` height,
- * so on a phone both are 34px wide under a thumb. Said out loud here rather
- * than left for the next reader to notice that the sentence above condemns the
- * neighbours. Not changed with them, and deliberately: widening a *destructive*
- * target that sits beside RESET is an ergonomic decision of its own, this lane
- * measured nothing in a browser, and the literal is an idiom shared by two
- * files rather than one slip in this one.
+ * `Scene.tsx`, both wrote `width: 34` as a literal beside a `--control` height,
+ * so on a phone both were 34px wide under a thumb. Said out loud here rather
+ * than left for the next reader to notice that the sentence above condemned the
+ * neighbours — AND THEY ARE FIXED NOW, both of them, in the same commit.
+ *
+ * The deferral said widening a *destructive* target beside RESET is an
+ * ergonomic decision of its own and that the lane had measured nothing. What
+ * settled it is that the fix turned out to need no new number and no judgement
+ * about how wide is wide enough: the height was already `var(--control)`, which
+ * `tokens.css` holds at the 44px floor on every coarse pointer and drops to 34
+ * only on a wide window with a fine one. Only the *width* was a literal, so it
+ * did not adapt. Both now read `width: 'var(--control)'` — 44 under a thumb,
+ * still 34 under a mouse, one token instead of two facts that can disagree.
+ *
+ * The cost is real and it is horizontal: on a phone the ✕ takes ten more pixels
+ * from the row beside it. `Scene.tsx` carries that arithmetic where it lands,
+ * on the adversary name.
  *
  * Where it goes, and the gesture that is *not* on it. The shelf shares a column
  * with NEW COUNTDOWN and sits above it — on a phone that column is under the
@@ -547,7 +557,7 @@ function CountdownRow({ countdown }: { countdown: Countdown }): React.JSX.Elemen
           onClick={() => remove(c.id)}
           aria-label={`Delete the countdown ${c.name}`}
           className="t-meta"
-          style={{ flex: 'none', width: 34, minHeight: 'var(--control)', color: 'var(--dim)' }}
+          style={{ flex: 'none', width: 'var(--control)', minHeight: 'var(--control)', color: 'var(--dim)' }}
         >
           ✕
         </button>
