@@ -684,6 +684,106 @@ describe('END SCENE names what the second tap takes', () => {
  * subject and not this one's.) A test written to kill it would still be
  * asserting on a combatant neither the book nor an import can produce.
  */
+/*
+ * VULNERABLE, DERIVED FROM THE STRESS TRACK THE GM IS TAPPING.
+ *
+ * The condition is what a full Stress track MEANS, and until 2026-08-26 this
+ * app only knew that on the player's side: `Conditions.tsx` derives it through
+ * `isVulnerableFromStress`, and `src/ui/gm/` did not contain the word once,
+ * while `makeCombatant` had been carrying `stress: { marked, max }` all along.
+ * A table that switched to the GM screen lost a rule the same app applied to
+ * their own PCs, with nothing saying so - the silent shape the Massive Damage
+ * decision was taken to avoid, and this is that decision's sibling.
+ *
+ * It is asserted on the BAND rather than anywhere else because that is where
+ * it changes something: the condition reads "all rolls targeting them have
+ * advantage", so what it costs is a fact about the roll being made against the
+ * Difficulty two spans to its left.
+ *
+ * Never stored, always derived. There is no `vulnerable` field to fall out of
+ * step with the counter - which is what the second test here proves, by moving
+ * the track rather than by seeding two scenes.
+ */
+describe('a full Stress track says so on the band, on the GM side too', () => {
+  const withStress = (marked: number, max: number): SceneCombatant => ({
+    ...makeCombatant(dataset.adversaries.find((a) => a.thresholds !== null)!, 0, 4),
+    stress: { marked, max },
+  });
+
+  it('draws VULNERABLE when every Stress slot is marked, and not before', () => {
+    scene([withStress(2, 3)]);
+    expect(text(), 'a track one short of full is not Vulnerable').not.toContain('VULNERABLE');
+
+    scene([withStress(3, 3)]);
+    expect(text(), 'the last Stress is marked and the band says nothing').toContain('VULNERABLE');
+  });
+
+  it('is derived, so clearing a Stress takes it away again', () => {
+    scene([withStress(3, 3)]);
+    expect(text()).toContain('VULNERABLE');
+    scene([withStress(2, 3)]);
+    expect(
+      text(),
+      'the word survived the track going down, so something is storing it instead of reading it',
+    ).not.toContain('VULNERABLE');
+  });
+
+  it('says nothing about a track the dataset could not size', () => {
+    // `max: 0` is a record with no Stress at all. Calling it Vulnerable would
+    // put the condition on every row of an unresolved import - the same clause
+    // `hasFallenAt` keeps, for the same reason.
+    scene([withStress(0, 0)]);
+    expect(text()).not.toContain('VULNERABLE');
+  });
+
+  it('takes the divider\'s place rather than a line of its own', () => {
+    /*
+     * Measured in Chrome on the audit rig, 393x852 with insets 47/34 and a
+     * coarse pointer, two Acid Burrowers one Stress apart: the card is
+     * **471.00** with the word and **471.00** without it, and the band is
+     * **31** in both - which is the `8 + 15 + 8` this file's own docblock
+     * states for a card with no Minion group.
+     *
+     * That is the whole argument for where it went. The band is `flexWrap`,
+     * and the docblock over the Minion arm has already costed what a second
+     * band line does: it takes the shut Minion card to 500.00, two pixels past
+     * the panel. So the word could not be ADDED to that row - it had to
+     * replace something, and the divider is what it replaces.
+     *
+     * jsdom computes no layout, so what is held here is the swap itself: the
+     * two cannot both be drawn, because that is the version that costs a
+     * wrap.
+     */
+    scene([withStress(3, 3)]);
+    const bands = [...container.querySelectorAll('div.row')].filter((d) =>
+      (d.textContent ?? '').trim().startsWith('DIF'),
+    );
+    expect(bands, 'the band no longer starts with DIF').toHaveLength(1);
+    const band = bands[0]!;
+    const dividers = [...band.children].filter(
+      (el) => (el as HTMLElement).style.width === '1px' && (el as HTMLElement).style.height === '13px',
+    );
+    expect(
+      dividers,
+      'VULNERABLE was added beside the divider instead of in its place. Both on one line is ' +
+        'the version that wraps, and a second band line puts the shut Minion card at 500.00 ' +
+        'against a 498 panel.',
+    ).toHaveLength(0);
+
+    scene([withStress(2, 3)]);
+    const plain = [...container.querySelectorAll('div.row')].filter((d) =>
+      (d.textContent ?? '').trim().startsWith('DIF'),
+    )[0]!;
+    expect(
+      [...plain.children].filter(
+        (el) =>
+          (el as HTMLElement).style.width === '1px' && (el as HTMLElement).style.height === '13px',
+      ),
+      'the divider is gone from a card that is not Vulnerable, so the band lost its separator',
+    ).toHaveLength(1);
+  });
+});
+
 describe('the chip says which state the adversary is in', () => {
   const chip = (): HTMLButtonElement => {
     const found = container.querySelector<HTMLButtonElement>('button[aria-pressed]');

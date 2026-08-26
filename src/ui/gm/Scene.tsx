@@ -18,7 +18,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
-import { combatantHit, SEVERITY_LABEL } from '../../engine/damage.ts';
+import { combatantHit, isVulnerableAt, SEVERITY_LABEL } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
@@ -568,6 +568,9 @@ function CombatantCard({
    * `−`/`+` close over.
    */
   const minions = c.minionsRemaining;
+  // Derived, so it can never disagree with the track the GM is tapping - and
+  // it is the same test the player's sheet reads. See the band below.
+  const vulnerable = isVulnerableAt(c.stress.marked, c.stress.max);
 
   const amount = Number(incoming);
   const hit =
@@ -787,7 +790,46 @@ function CombatantCard({
         <span className="t-num" style={{ fontSize: 15 }}>
           {c.difficulty}
         </span>
-        <span style={{ width: 1, height: 13, background: 'var(--line)' }} />
+        {/*
+          VULNERABLE SITS ON DIF, BECAUSE DIF IS THE NUMBER IT CHANGES.
+
+          The condition reads "all rolls targeting them have advantage", so
+          what it costs a GM is not a fact about the monster - it is a fact
+          about the roll the player is making right now, against the number
+          two spans to the left. Anywhere else on the card it would be a
+          status; here it is an instruction.
+
+          Derived and never stored. `isVulnerableAt` in `engine/damage.ts` is
+          the same two-number test the player's own sheet reads through
+          `isVulnerableFromStress`, so a full Stress track means the same thing
+          on both sides of the screen - which is the whole of the owner's
+          decision 17 of 2026-08-26, and a reading of p.71 rather than a
+          quotation.
+
+          IT COSTS NO ROW, AND THAT IS MEASURED RATHER THAN HOPED. The band is
+          `flexWrap`, so a word ADDED to it is a word that can wrap - and the
+          Minion arm below has already costed exactly that: a second band line
+          puts the shut Minion card at 500.00 against a 498 panel. So the word
+          could not be added. It takes the DIVIDER's place: on a card with
+          thresholds that 1px rule reads as "figures end, ladder begins", and a
+          condition is neither of those.
+
+          Chrome, 393x852 with insets 47/34 and a coarse pointer, two Acid
+          Burrowers one Stress apart: the card is **471.00** with the word and
+          **471.00** without it, and the band is **31** in both - the
+          `8 + 15 + 8` this file states for a card with no Minion group. The
+          word itself is **66.00 x 10.00**, ten `.t-meta` characters, against
+          the 11 the divider and its gap gave back, inside a 341px band. 471.00
+          is the number the fold was measured at, so this changes no term of
+          the nine-term derivation above.
+        */}
+        {vulnerable ? (
+          <span className="t-meta" style={{ color: 'var(--damage)' }}>
+            VULNERABLE
+          </span>
+        ) : (
+          <span style={{ width: 1, height: 13, background: 'var(--line)' }} />
+        )}
         {c.thresholds !== null ? (
           <>
             <span className="t-meta">MAJOR</span>
