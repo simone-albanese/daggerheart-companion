@@ -18,6 +18,8 @@
  */
 import { useEffect, useState } from 'react';
 import type { Adversary } from '../../../shared/types.ts';
+import { countdownsIn } from '../../../shared/campaigns.ts';
+import type { Countdown } from '../../engine/encounter.ts';
 import { combatantHit, isVulnerableAt, SEVERITY_LABEL } from '../../engine/damage.ts';
 import type { SceneCombatant } from '../../engine/encounter.ts';
 import { useApp } from '../../store/state.ts';
@@ -30,6 +32,10 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
   const combatants = useGm((s) => s.combatants);
   const environmentRef = useGm((s) => s.environmentRef);
   const liveScene = useGm((s) => s.liveScene);
+  const session = useGm((s) => s.session);
+  // Only this scene's. `countdownsOf` still means every clock in the campaign,
+  // and the board and the long rest still read that one.
+  const sceneClocks = countdownsIn(session, liveScene);
   const setRegion = useGm((s) => s.setRegion);
   const clearScene = useGm((s) => s.clearScene);
   // `index.byRef` holds every kind of record under one key space, so reading an
@@ -107,6 +113,38 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: phone ? '10px 12px 0' : '14px 20px 0' }}>
       {environment !== undefined && (
         <EnvironmentBand environment={environment} strongestHere={strongestHere} />
+      )}
+
+      {/*
+        The clocks this scene owns, decision 18.
+
+        Directly under the band, because they are the scene's own facts and
+        belong with the place rather than with the fight: the grid below is
+        adversaries and nothing else, and a clock among the cards would be a
+        card that is not one.
+
+        The five terms are the ones `PrimaryCountdown` already declares - name,
+        `−` 44x44, a 62px readout, `+` 44x44 - so a GM's hands already know the
+        shape. Cost: 54.00 of SCROLLABLE content per clock (44 plus the stack's
+        10 gap), 0.00 of viewport, and 0.00 to the card grid, which is
+        `flex: 'none'` with `gridAutoRows: 'max-content'` and is sized by its
+        cards and by nothing else.
+
+        NEVER `.t-dense`: the cost line below is the only `p.t-dense` in this
+        whole tree, and two tests assert exactly one.
+
+        NOTHING TICKS. Not on a park, not on a resume, not on END SCENE, not on
+        archiving. "A countdown that ticks on its own is one you stop trusting.
+        So: plus and minus, and nothing else." Scope changes reach and
+        attention, never arithmetic - and this is the first optimisation
+        somebody will propose, so it is refused here in writing.
+      */}
+      {sceneClocks.length > 0 && (
+        <div className="stack" style={{ flex: 'none', gap: 10 }}>
+          {sceneClocks.map((c) => (
+            <SceneCountdown key={c.id} countdown={c} />
+          ))}
+        </div>
       )}
 
       <div className="spread" style={{ flex: 'none' }}>
@@ -1182,5 +1220,75 @@ function CombatantCard({
         </Fold>
       )}
     </article>
+  );
+}
+
+/**
+ * One clock this scene owns, on the glass while the scene is running.
+ *
+ * The same five terms as the top bar's pinned countdown, in the same order and
+ * at the same sizes, because a GM's hands should not have to learn a second
+ * shape for the same job. It is a different component and not a shared one on
+ * purpose: that one is a row of a 159px-tall bar with its own width budget,
+ * this one is a `flex: 'none'` child of a scroller, and folding them together
+ * would tie the runner's layout to the top bar's.
+ *
+ * `−` advances toward zero, the same polarity as every other countdown control
+ * in this app. A surface that ran the other way from the board it mirrors would
+ * be the app disagreeing with itself about which direction time goes.
+ */
+function SceneCountdown({ countdown }: { countdown: Countdown }): React.JSX.Element {
+  const advance = useGm((s) => s.advanceCountdown);
+  const spent = countdown.value === 0;
+
+  return (
+    <div className="row" style={{ flex: 'none', gap: 8, minHeight: 44 }}>
+      <span className="stack" style={{ flex: 1, minWidth: 0, gap: 1, alignItems: 'flex-start' }}>
+        <span
+          className="t-label"
+          style={{
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {countdown.name}
+        </span>
+        <span className="t-meta" style={{ color: spent ? 'var(--damage)' : 'var(--dim)' }}>
+          {spent ? 'SPENT — IT HAPPENS NOW' : `OF ${countdown.start}`}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => advance(countdown.id, -1)}
+        aria-label={`Advance ${countdown.name} by one`}
+        className="btn"
+        style={{ flex: 'none', width: 44, minHeight: 44, font: '700 19px/1 var(--sans)' }}
+      >
+        −
+      </button>
+      <span
+        style={{
+          flex: 'none',
+          minWidth: 62,
+          textAlign: 'center',
+          font: '800 24px/1 var(--sans)',
+          fontVariantNumeric: 'tabular-nums',
+          color: spent ? 'var(--damage)' : 'var(--text)',
+        }}
+      >
+        {countdown.value}
+      </span>
+      <button
+        type="button"
+        onClick={() => advance(countdown.id, 1)}
+        aria-label={`Move ${countdown.name} back by one`}
+        className="btn"
+        style={{ flex: 'none', width: 44, minHeight: 44, font: '700 19px/1 var(--sans)' }}
+      >
+        +
+      </button>
+    </div>
   );
 }

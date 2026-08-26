@@ -866,9 +866,15 @@ function CountdownArm({
   const advance = useGm((s) => s.advanceCountdown);
   const reset = useGm((s) => s.resetCountdown);
   const setPrimary = useGm((s) => s.setPrimaryCountdown);
+  const setScene = useGm((s) => s.setCountdownScene);
+  const session = useGm((s) => s.session);
   const c = item.countdown;
   const spent = c.value === 0;
   const row = sessionName(item);
+
+  const scenes = session.filter((i) => i.kind === 'scene');
+  const owner = scenes.find((i) => i.id === item.sceneId);
+  const ownerName = owner === undefined ? '' : sessionName(owner).toUpperCase();
 
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -986,29 +992,88 @@ function CountdownArm({
         </Fold>
       )}
 
+      {/*
+        Whose clock this is, decision 18.
+
+        A `<select>` and not a set of chips, because the choice is "one of the
+        scenes, or the campaign" and that is exactly what a select is for - and
+        because it is the same control, with the same `aria-label` idiom, that
+        the scene arm already spends on choosing an environment. The visible
+        label is two words on every countdown row on the screen, and a select
+        has no text of its own to tell them apart.
+
+        Not offered at all when there is no scene to belong to, rather than
+        offered and disabled: "a button that can be pressed and does nothing is
+        the worse of the two lies", and a select with one option is the same
+        lie with a chevron on it.
+      */}
+      {scenes.length === 0 ? (
+        <Fact>There are no scenes to belong to yet.</Fact>
+      ) : (
+        <label className="stack" style={{ gap: 5 }}>
+          <span className="t-meta">BELONGS TO</span>
+          <select
+            value={item.sceneId ?? ''}
+            onChange={(e) => setScene(item.id, e.target.value || null)}
+            aria-label={`BELONGS TO — ${row}`}
+            style={{ minHeight: 'var(--tap)', font: '600 13px/1 var(--sans)' }}
+          >
+            <option value="">The campaign</option>
+            {scenes.map((scene) => (
+              <option key={scene.id} value={scene.id}>
+                {sessionName(scene)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          aria-pressed={item.primary}
-          onClick={() => setPrimary(item.primary ? null : item.id)}
-          aria-label={`${item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'} — ${row}`}
-          className="btn"
-          style={{
-            flex: 'none',
-            minHeight: 'var(--tap)',
-            background: item.primary ? 'var(--hope)' : 'var(--raised)',
-            color: item.primary ? 'var(--app)' : 'var(--text)',
-            borderColor: item.primary ? 'transparent' : 'var(--line)',
-          }}
-        >
-          {item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'}
-        </button>
+        {/*
+          The pin and the scope are the same statement said twice, so only one
+          of them is ever on the glass. A clock a scene owns is not on the top
+          bar - the top bar is the campaign's - and the control that would say
+          otherwise is not drawn rather than drawn and refused.
+        */}
+        {item.sceneId === null ? (
+          <button
+            type="button"
+            aria-pressed={item.primary}
+            onClick={() => setPrimary(item.primary ? null : item.id)}
+            aria-label={`${item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'} — ${row}`}
+            className="btn"
+            style={{
+              flex: 'none',
+              minHeight: 'var(--tap)',
+              background: item.primary ? 'var(--hope)' : 'var(--raised)',
+              color: item.primary ? 'var(--app)' : 'var(--text)',
+              borderColor: item.primary ? 'transparent' : 'var(--line)',
+            }}
+          >
+            {item.primary ? 'PINNED TO THE TOP BAR' : 'PIN IT TO THE TOP BAR'}
+          </button>
+        ) : null}
         <Verb
           onClick={() => onOpenTool('countdowns')}
           label="OPEN FEAR AND COUNTDOWNS"
           row={row}
         />
       </div>
+
+      {item.sceneId !== null && (
+        <Fact>
+          This clock belongs to {ownerName}. It is on the glass while that scene
+          is running, and it is not on the top bar — the top bar is the
+          campaign’s.
+        </Fact>
+      )}
+
+      {item.sceneId !== null && c.kind === 'long-term' && (
+        <Fact>
+          A long rest can still advance it. Resting is the campaign’s, not a
+          scene’s, so this clock is on the rest’s list wherever the party is.
+        </Fact>
+      )}
     </div>
   );
 }

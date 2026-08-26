@@ -38,7 +38,7 @@ import { useApp } from '../../src/store/state.ts';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
-import { NO_CLOCK_PROSE } from '../fixtures/factories.ts';
+import { NO_CLOCK_PROSE, NO_FIGHT } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -358,5 +358,163 @@ describe('what a cell moves', () => {
     // And the name is for the rotor, not for the glass.
     const hidden = folds()[0]!.querySelector('.sr-only');
     expect(hidden?.textContent).toBe(' — The ritual');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Whose clock this is, decision 18.
+ *
+ * A countdown row may belong to one scene instead of to the campaign. What that
+ * buys is REACH - the runner draws the running scene's clocks - and what it
+ * costs is the top bar, which stays the campaign's. The arm has to say both,
+ * and it must never offer a control that would put a clock in both places.
+ */
+describe('the scene a countdown belongs to', () => {
+  const scene = (id: string, name: string): SessionItem => ({
+    id,
+    kind: 'scene',
+    name,
+    order: 1,
+    collapsed: true,
+    environmentRef: null,
+    ...NO_FIGHT,
+  });
+
+  /*
+   * Built rather than spread from `clock`: spreading a `SessionItem` widens it
+   * back to the union and the compiler stops knowing which arm it is.
+   */
+  const scoped = (
+    id: string,
+    name: string,
+    kind: Countdown['kind'],
+    sceneId: string,
+  ): SessionItem => ({
+    id,
+    kind: 'countdown',
+    name,
+    order: 0,
+    collapsed: false,
+    primary: false,
+    sceneId,
+    countdown: { id, name, kind, start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
+  });
+
+  const belongsTo = (): HTMLSelectElement | null =>
+    container.querySelector('select[aria-label^="BELONGS TO"]');
+
+  const pin = (): HTMLButtonElement | undefined =>
+    buttons().find((b) => (b.textContent ?? '').includes('THE TOP BAR'));
+
+  it('offers no scope at all when there is no scene to belong to', () => {
+    // Not offered and disabled: "a button that can be pressed and does nothing
+    // is the worse of the two lies", and a select with one option is the same
+    // lie with a chevron on it.
+    seed([clock('c', 'The ritual', 'standard', 4)]);
+    expect(belongsTo()).toBe(null);
+    expect(text()).toContain('There are no scenes to belong to yet');
+  });
+
+  it('offers the campaign plus every scene, in list order', () => {
+    seed([
+      clock('c', 'The ritual', 'standard', 4),
+      scene('s1', 'The dungeon'),
+      { ...scene('s2', 'The forest'), order: 2 },
+    ]);
+    const select = belongsTo()!;
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      'The campaign',
+      'The dungeon',
+      'The forest',
+    ]);
+    expect(select.value).toBe('');
+  });
+
+  it('names the row in the accessible name, because one word is on every row', () => {
+    seed([clock('c', 'The ritual', 'standard', 4), scene('s1', 'The dungeon')]);
+    expect(belongsTo()!.getAttribute('aria-label')).toBe('BELONGS TO — The ritual');
+  });
+
+  it('gives the clock to a scene, and says what that costs', () => {
+    seed([clock('c', 'The ritual', 'standard', 4), scene('s1', 'The dungeon')]);
+    const select = belongsTo()!;
+    act(() => {
+      select.value = 's1';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const row = useGm.getState().session.find((i) => i.id === 'c');
+    expect(row?.kind === 'countdown' && row.sceneId).toBe('s1');
+    expect(text()).toContain('This clock belongs to THE DUNGEON');
+    expect(text()).toContain('the top bar is the campaign’s');
+  });
+
+  it('takes the pin off the glass entirely rather than drawing it refused', () => {
+    // The pin and the scope are the same statement said twice, so only one of
+    // them is ever on the screen.
+    seed([
+      scoped('c', 'The ritual', 'standard', 's1'),
+      scene('s1', 'The dungeon'),
+    ]);
+    expect(pin()).toBeUndefined();
+  });
+
+  it('puts the pin back when the campaign takes the clock back', () => {
+    seed([
+      scoped('c', 'The ritual', 'standard', 's1'),
+      scene('s1', 'The dungeon'),
+    ]);
+    const select = belongsTo()!;
+    act(() => {
+      select.value = '';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(pin()).toBeDefined();
+    expect(text()).not.toContain('This clock belongs to');
+  });
+
+  it('says a long rest still reaches a long-term clock a scene owns', () => {
+    /*
+     * The one place a scope hides nothing. Resting is a campaign event and the
+     * SRD gives the GM "advance a long-term countdown of their choice", so the
+     * rest's list is over all of them wherever the party is - and the row says
+     * so rather than leaving a GM to discover it.
+     */
+    seed([
+      scoped('c', 'The tide', 'long-term', 's1'),
+      scene('s1', 'The dungeon'),
+    ]);
+    expect(text()).toContain('A long rest can still advance it');
+  });
+
+  it('says nothing about resting on a kind a rest cannot advance', () => {
+    seed([
+      scoped('c', 'The ritual', 'standard', 's1'),
+      scene('s1', 'The dungeon'),
+    ]);
+    expect(text()).not.toContain('A long rest can still advance it');
+  });
+
+  it('never offers a legacy encounter row as a home', () => {
+    seed([
+      clock('c', 'The ritual', 'standard', 4),
+      {
+        id: 'e1',
+        kind: 'encounter',
+        name: 'The ambush',
+        order: 1,
+        collapsed: true,
+        roster: [],
+        adjustments: { easier: false, harder: false, damageBump: false },
+        combatants: [],
+      },
+      scene('s1', 'The dungeon'),
+    ]);
+    expect([...belongsTo()!.options].map((o) => o.textContent)).toEqual([
+      'The campaign',
+      'The dungeon',
+    ]);
   });
 });

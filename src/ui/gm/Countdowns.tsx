@@ -164,7 +164,8 @@ import { CountdownChart } from './ReferenceTables.tsx';
 // One map, two screens. A session row draws a countdown now as well as this
 // board does, and two copies of "dynamic is orange" is how one of them goes
 // green.
-import { COUNTDOWN_KIND_COLOR } from './session.ts';
+import { COUNTDOWN_KIND_COLOR, sessionName } from './session.ts';
+import { countdownsIn } from '../../../shared/campaigns.ts';
 
 const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
   { id: 'standard', label: 'Standard', hint: 'Advances when the fiction says it does.' },
@@ -175,6 +176,22 @@ const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
 
 export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
   const countdowns = useGm((s) => s.countdowns);
+  const session = useGm((s) => s.session);
+  const liveScene = useGm((s) => s.liveScene);
+
+  /*
+   * The campaign's clocks, then one group per scene that owns any, in list
+   * order. A scene with no clocks gets no heading - an empty section is a
+   * promise of something that is not there.
+   */
+  const groups: { id: string | null; name: string; clocks: typeof countdowns }[] = [
+    { id: null, name: 'THE CAMPAIGN', clocks: countdownsIn(session, null) },
+    ...session.flatMap((i) =>
+      i.kind === 'scene' && countdownsIn(session, i.id).length > 0
+        ? [{ id: i.id, name: sessionName(i).toUpperCase(), clocks: countdownsIn(session, i.id) }]
+        : [],
+    ),
+  ].filter((g) => g.clocks.length > 0);
 
   return (
     <div
@@ -222,15 +239,44 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
               </p>
             </div>
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: phone ? '1fr' : 'repeat(auto-fill, minmax(310px, 1fr))',
-                gap: 10,
-              }}
-            >
-              {countdowns.map((c) => (
-                <CountdownRow key={c.id} countdown={c} />
+            /*
+             * Grouped by whose clock it is, decision 18: the campaign's first,
+             * then one section per scene, in list order.
+             *
+             * The board still shows EVERY clock. Scope changes where a clock is
+             * reachable in a hurry - the runner draws the running scene's - and
+             * this screen is the one place a GM comes to think about all of
+             * them at once. Hiding a parked scene's clocks here would make them
+             * findable only by running that scene.
+             *
+             * The running scene's heading is in `var(--hope)`, the same colour
+             * its chip has on the runner's strip, so the two surfaces agree
+             * about which scene is on the board without either one saying it
+             * twice.
+             */
+            <div className="stack" style={{ gap: 14 }}>
+              {groups.map((group) => (
+                <div key={group.id ?? 'campaign'} className="stack" style={{ gap: 10 }}>
+                  {groups.length > 1 && (
+                    <span
+                      className="t-meta"
+                      style={{ color: group.id === liveScene ? 'var(--hope)' : 'var(--muted)' }}
+                    >
+                      {group.name}
+                    </span>
+                  )}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: phone ? '1fr' : 'repeat(auto-fill, minmax(310px, 1fr))',
+                      gap: 10,
+                    }}
+                  >
+                    {group.clocks.map((c) => (
+                      <CountdownRow key={c.id} countdown={c} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
