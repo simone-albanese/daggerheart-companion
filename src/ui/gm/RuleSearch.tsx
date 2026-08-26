@@ -952,6 +952,49 @@ const spoken = (sections: number, records: number, asks: number): string => {
   return `${base}; ${rest}`;
 };
 
+/**
+ * The name of a hit, one step up from the label scale it is drawn in.
+ *
+ * `t-label` ships `600 10px/1 var(--mono)` with `0.16em` of tracking, which is
+ * right for a *label* - a word standing over something else, read once. The
+ * name of a hit is not that: it is the thing being read, and this list is the
+ * one surface in the app where a person is scanning thirty of them for the one
+ * they meant. The owner's constraint of 2026-08-26 - readability and
+ * glanceability in consultation, nothing too small - lands here first.
+ *
+ * ## What a bigger name costs, measured rather than assumed
+ *
+ * The cost is not height on a row - it is a *name on a second line*, and the
+ * tracking is what decides how many. `0.16em` at 10px is 1.6px between glyphs;
+ * carried to 12px it is 1.92px, and the name is a fifth wider before a single
+ * glyph has grown. Chrome, `pointer: coarse`, campaign seeded, on `countdown`
+ * which returns 33 rows:
+ *
+ * | 393x852 | wrapped names | list height |
+ * |---|---|---|
+ * | 10px / 0.16em, as it was | 1 | 1992.62 |
+ * | 12px / 0.16em | 3 | 2195.74 |
+ * | 12px / 0.1em, as it is | **1** | 2164.54 |
+ *
+ * So at 393 the tracking cut pays for the whole of the size: one name wraps,
+ * which is the same one that wrapped at 10px - `Fallen Warlord: Undefeated
+ * Champion`, the longest name in the shipped dataset. What is left is +171.92px
+ * over 33 rows, 8.6%, spent entirely on rows that carry a preview line and were
+ * sitting on the 44px floor with room to spare.
+ *
+ * **At 375x667 it does not pay for all of it, and that is worth writing down
+ * rather than rounding off.** Three names wrap where one did (four at
+ * `0.16em`), because 30px less column is 30px less for a name that was already
+ * close. Nothing is clipped and nothing crosses the 44px floor at either size;
+ * the number of rows fully in the scroller is unchanged at both - 2 and 3 at
+ * 393, 1 at 375 - because what grew is smaller than the rows already were.
+ *
+ * `1.3` rather than `1` because a wrapped name at `line-height: 1` in an
+ * all-caps mono face sets its two lines touching, and the wrapped names are
+ * exactly the long titles that most need reading.
+ */
+const ROW_NAME = { fontSize: 12, lineHeight: 1.3, letterSpacing: '0.1em', color: 'var(--text-2)' } as const;
+
 /** What the three group headers say, and which hits belong under each. */
 const GROUPS: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
   { label: 'IN THE TITLE', holds: (hit) => hit.where === 'title' },
@@ -1322,7 +1365,7 @@ function RecordHit({
         }}
       >
         <span className="row" style={{ width: '100%', gap: 8 }}>
-          <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+          <span className="t-label" style={{ ...ROW_NAME, flex: 1, minWidth: 0 }}>
             <Marked found={preview(hit.name, query)} query={query} plate />
           </span>
           <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>
@@ -1544,7 +1587,7 @@ function Hit({
         }}
       >
         <span className="row" style={{ width: '100%', gap: 8 }}>
-          <span className="t-label" style={{ flex: 1, minWidth: 0, color: 'var(--text-2)' }}>
+          <span className="t-label" style={{ ...ROW_NAME, flex: 1, minWidth: 0 }}>
             <Marked found={preview(hit.title, query)} query={query} plate />
           </span>
           <span className="t-meta" style={{ flex: 'none', color: 'var(--muted)' }}>

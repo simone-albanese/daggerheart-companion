@@ -2412,6 +2412,34 @@ describe('the rest of the book, under the sections', () => {
     );
   });
 
+  it('gives a section name and a record name one scale, above the label scale', () => {
+    /*
+     * The owner's readability constraint, landed on the one surface where a
+     * person scans thirty names for the one they meant. `t-label` ships 10px
+     * with `0.16em` of tracking, which is right for a word standing *over*
+     * something and wrong for the thing being read.
+     *
+     * Both lists are asserted together and against each other, because the
+     * failure worth catching is not the number: it is the two drifting apart.
+     * A person reading this list cannot tell which of the two searches produced
+     * a row, and must not be able to.
+     */
+    openShow();
+    type('countdown');
+    const nameOf = (b: HTMLButtonElement): HTMLElement =>
+      b.querySelector<HTMLElement>('span.t-label')!;
+    const section = nameOf(hits()[0]!);
+    const record = nameOf(recordRows()[0]!);
+
+    expect(section.style.fontSize).toBe('12px');
+    expect(record.style.fontSize).toBe(section.style.fontSize);
+    expect(record.style.letterSpacing).toBe(section.style.letterSpacing);
+    expect(record.style.lineHeight).toBe(section.style.lineHeight);
+    // The tracking comes down as the size goes up; the docblock beside
+    // `ROW_NAME` carries what that bought, measured in a browser.
+    expect(section.style.letterSpacing).toBe('0.1em');
+  });
+
   it('draws the sections first and the rest of the book after them', () => {
     openShow();
     type('countdown');
