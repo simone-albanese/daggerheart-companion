@@ -958,7 +958,6 @@ const spoken = (
   sections: number,
   records: number,
   asks: number,
-  scope: SearchScope,
   moment: Moment | null,
 ): string => {
   /*
@@ -995,19 +994,6 @@ const spoken = (
    * assistive tech reads is a change of text in an element already on the
    * page, and two elements swapping is not that.
    */
-  if (!scope.sections) {
-    const whose = scope.only === null ? 'in the book' : 'you are carrying';
-    const one =
-      records === 0
-        ? `nothing ${whose} matches`
-        : records === 1
-          ? `1 thing ${whose} matches`
-          : `${String(records)} things ${whose} match`;
-    const lead = one.charAt(0).toUpperCase() + one.slice(1);
-    return asks === 0
-      ? lead
-      : `${asks === 1 ? '1 question' : `${String(asks)} questions`} and ${one}`;
-  }
   const found =
     sections === 0
       ? 'no section matches'
@@ -1064,61 +1050,6 @@ const spoken = (
  * exactly the long titles that most need reading.
  */
 const ROW_NAME = { fontSize: 12, lineHeight: 1.3, letterSpacing: '0.1em', color: 'var(--text-2)' } as const;
-
-/**
- * How much of the book one mount of this search may reach.
- *
- * ## Why it is three fields and not one
- *
- * This surface runs two searches over two haystacks and draws a third band
- * from a catalogue, and the three narrow for different reasons - so one flag
- * could only ever narrow them together or not at all.
- *
- * - `only` narrows the **780 records** to a set of ids. That is the player's
- *   own material: `Search.tsx` builds it from the open character, and the ids
- *   are the character's own `Ref`s, which are byte-for-byte the ids
- *   `srdIndex` puts on a record.
- * - `sections` decides whether the **69 rules sections** are searched at all.
- *   It is separate from `only` because a section is not a thing anybody holds:
- *   there is no id set that means "the sections this character carries", so
- *   narrowing to a person's material is not a smaller list of sections, it is
- *   *no* sections.
- * - `questions` decides whether the app's own twelve appear. Separate again,
- *   because it is a property of who is looking rather than of how much book
- *   they are looking at - see `Search.tsx` on why a player is not offered
- *   them at either width.
- *
- * ## What a scope must not do, and the seam that stops it
- *
- * A narrowed scope narrows *what is searched* and never *what can be
- * resolved*. `rules` is handed whole to `Hit` and to `AskRow` below whatever
- * this says, because there it is not a haystack: it is how an open hit finds
- * its blocks and how a question finds the section it points at. Filtering the
- * array that goes down there would trip `AskRow`'s dead-pointer branch on
- * every question anchored outside the scope - a defect that would look like a
- * broken catalogue and would actually be a broken filter.
- *
- * The records are the other way round and deliberately so: `beyondRules` is
- * both the haystack and the store the open row is drawn from, and narrowing
- * both is the same act. You cannot open what you were not allowed to find.
- */
-export interface SearchScope {
-  /** The record ids this search may reach, or `null` for all 780. */
-  only: ReadonlySet<Ref> | null;
-  /** Whether the 69 rules sections are in the haystack. */
-  sections: boolean;
-  /** Whether the app's own questions are offered above the book's own hits. */
-  questions: boolean;
-}
-
-/**
- * Everything, which is what the GM screen has always had and what the bare
- * fixture mount gets. Frozen and shared so a default does not churn a memo.
- */
-const WHOLE_BOOK: SearchScope = { only: null, sections: true, questions: true };
-
-/** The haystack a scope with `sections: false` searches, with an identity. */
-const NO_SECTIONS: RulesSection[] = [];
 
 /** What the three group headers say, and which hits belong under each. */
 const GROUPS: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
@@ -1269,7 +1200,7 @@ function useAskCatalogue(enabled: boolean): readonly AskEntry[] {
 export function RuleSearchResults({
   query,
   onQuery,
-  scope = WHOLE_BOOK,
+  questions = true,
   moment = null,
 }: {
   query: string;
@@ -1284,11 +1215,15 @@ export function RuleSearchResults({
    */
   moment?: Moment | null;
   /**
-   * How much of the book this mount may reach. Defaults to all of it, which
-   * is what the GM sheet has always had and what the bare fixture mount gets,
-   * so the two callers that pass nothing are unchanged by its existence.
+   * Whether the app's own twelve questions are offered above the book's hits.
+   *
+   * The one thing a second host needed to say, and the only one left. It is a
+   * property of *who is looking* rather than of how much book they are looking
+   * at: the catalogue is written in the GM's voice, so the GM sheet takes them
+   * and the search screen does not. It guards the fetch and not only the
+   * drawing - see `useAskCatalogue`.
    */
-  scope?: SearchScope;
+  questions?: boolean;
   /**
    * Put words in the field this list is answering, if the caller owns one.
    *
@@ -1303,12 +1238,18 @@ export function RuleSearchResults({
   const dataset = useApp((s) => s.dataset);
   const rules = dataset.rules;
   /*
-   * The sections the scope allows into the haystack - which is all of them or
-   * none, never a subset, because nobody holds a section. `rules` itself stays
-   * whole and is what goes down to `Hit` and `AskRow`: see `SearchScope` on
-   * why searching and resolving must not be narrowed by the same array.
+   * All sixty-nine, always. This searched a scoped subset for one release -
+   * the search screen opened narrowed to the character's own material - and
+   * the owner took that back: the search is global, and a screen that reads
+   * the book reads the book.
+   *
+   * `rules` is also what goes down to `Hit` and `AskRow` below, and the two
+   * uses are worth keeping apart in the reading even now they are the same
+   * array: there it is not a haystack but how an open hit finds its blocks and
+   * how a question finds the section it points at. Anything that ever narrows
+   * the first must not narrow the second.
    */
-  const searched = scope.sections ? rules : NO_SECTIONS;
+  const searched = rules;
   /*
    * A membership is not a search result and is assembled rather than found.
    *
@@ -1340,17 +1281,11 @@ export function RuleSearchResults({
     () => (moment === null ? searchRules(searched, query) : membership),
     [searched, query, moment, membership],
   );
-  // The 780 the rules search cannot reach, less whatever the scope keeps out.
-  // See the header for why the index is filtered here rather than the hits it
-  // returns - and `SearchScope` for why narrowing this one array narrows both
-  // what can be found and what can be opened, which is what we want here.
-  const only = scope.only;
+  // The 780 the rules search cannot reach. See the header for why the index is
+  // filtered here rather than the hits it returns.
   const beyondRules = useMemo(
-    () =>
-      srdIndex(dataset).filter(
-        (record) => record.kind !== 'rules' && (only === null || only.has(record.id)),
-      ),
-    [dataset, only],
+    () => srdIndex(dataset).filter((record) => record.kind !== 'rules'),
+    [dataset],
   );
   /*
    * No records under a moment, and it costs nothing to arrange: a moment is a
@@ -1364,7 +1299,7 @@ export function RuleSearchResults({
     () => (moment === null ? searchSrd(beyondRules, query) : []),
     [beyondRules, query, moment],
   );
-  const catalogue = useAskCatalogue(scope.questions);
+  const catalogue = useAskCatalogue(questions);
   /*
    * Under a moment the catalogue is filtered on the field itself, not on the
    * label the way `searchAsk` does it.
@@ -1455,7 +1390,7 @@ export function RuleSearchResults({
         prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {spoken(hits.length, found.length, asked.length, scope, moment)}
+        {spoken(hits.length, found.length, asked.length, moment)}
       </span>
       {/*
         The honest silence, and it is now guarded on both lists rather than on
@@ -1479,36 +1414,10 @@ export function RuleSearchResults({
       */}
       {moment === null && hits.length === 0 && asked.length === 0 && found.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
-          {scope.only === null ? (
-            <>
-              Nothing in this dataset carries that. The search reads every section’s title, its
-              subheads and its whole text, and the name and the words of every card, adversary,
-              environment and piece of gear the app ships; it asks for every word you typed, and
-              not one of those words is in the book the app is holding.
-            </>
-          ) : (
-            /*
-             * The same silence, told about the right thing.
-             *
-             * The paragraph above is a claim about the whole SRD, and under a
-             * scope it is simply false: the word may be on the next page and
-             * this search was never allowed to look there. Saying it anyway
-             * would be the worst kind of wrong answer - the app telling a
-             * player the book does not carry a rule, when what happened is
-             * that their own sheet does not.
-             *
-             * So this one says what it read, and it says the way out. The
-             * widening is not described here as a suggestion the player has to
-             * go and find: the control that does it is on the glass above,
-             * which is why this sentence can name it in one clause instead of
-             * explaining it.
-             */
-            <>
-              Nothing you are carrying carries that. This is reading your own cards, features and
-              gear — not the whole book — so a rule that lives anywhere else is out of its reach.
-              Widen it to the whole book above.
-            </>
-          )}
+          Nothing in this dataset carries that. The search reads every section’s title, its
+          subheads and its whole text, and the name and the words of every card, adversary,
+          environment and piece of gear the app ships; it asks for every word you typed, and not
+          one of those words is in the book the app is holding.
         </p>
       )}
       {moment === null && askedBand}
