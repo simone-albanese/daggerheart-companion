@@ -866,18 +866,21 @@ const readRoster = (v: unknown): RosterEntry[] =>
  *
  * ## Re-id, never drop
  *
- * Two bodies with one id is not a state a screen can act on. `find` reads the
- * first and `map` writes both, so one tap on one adversary's HP takes it off
- * two of them - one body drawn, two bodies marked, and nothing anywhere says
- * so. The one-line repair is to drop the second body. That is exactly the
- * silent loss this file is written against: the dropped body is an adversary
- * standing at the table in front of somebody, and no warning could put it
- * back. So the second and later collisions are re-numbered to the first free
- * `${adversaryRef}-${n}` in this same list, and every mark they carry travels
- * with them - `hp.marked`, `stress.marked`, `thresholds`, `spotlighted`,
- * `minionsRemaining`, and the GM's own `notes`. The GM is told once, not once
- * per body: `warn` collapses the repeat, and a sentence printed per adversary
- * is how a real warning stops being read.
+ * Two bodies with one id is not a state a screen can act on. Nothing in the
+ * app reads this list by id - `Scene.tsx` maps it and draws BOTH cards - so
+ * an id here is only ever a WRITE address, and this one addresses two bodies
+ * at once. `patchCombatant` maps on `c.id === id`, so one tap on one card's
+ * HP marks both of them; `removeCombatant` filters on the same key, so one
+ * REMOVE on one card takes both off the table. That second one is the silent
+ * loss, and nothing anywhere says so. Dropping the later body is the one-line
+ * repair, and it is that same loss again with this file's name on it: the
+ * dropped body is an adversary standing at the table in front of somebody,
+ * and no warning could put it back. So the second and later collisions are
+ * re-numbered to the first free `${adversaryRef}-${n}` in this same list, and
+ * every mark they carry travels with them - `hp.marked`, `stress.marked`,
+ * `thresholds`, `spotlighted`, `minionsRemaining`, and the GM's own `notes`.
+ * The GM is told once, not once per body: `warn` collapses the repeat, and a
+ * sentence printed per adversary is how a real warning stops being read.
  *
  * The free id is searched against every id in the list, given or minted, so
  * the repair can never land on a body further down that had that id first -
@@ -887,10 +890,15 @@ const readRoster = (v: unknown): RosterEntry[] =>
  *
  * The scene row, the legacy `encounter` row and the board's own list all read
  * their fight through this function, so all three get the repair from the one
- * line that writes it. That is deliberate rather than incidental: the legacy
- * row is the arm nothing can mint any more but every saved campaign may still
- * carry, and it is read with the same `find`-then-`map` pair as the row this
- * build mints. An `if` per arm is how two policies for one invariant start.
+ * line that writes it. That is deliberate rather than incidental. The board's
+ * list is the one `patchCombatant` and `removeCombatant` hold, and a scene
+ * row's list becomes it verbatim on the next resume - the copy that carries it
+ * over keeps every id - so a duplicate left on a row is a duplicate under
+ * those two writers one flip later. The legacy row is the arm nothing can mint
+ * any more but every saved campaign may still carry, and its bodies are only
+ * counted today rather than addressed; the day anything puts one back in play
+ * it arrives holding exactly the id this function gave it. An `if` per arm is
+ * how two policies for one invariant start.
  */
 const readCombatants = (v: unknown, warn: (s: string) => void): SceneCombatant[] => {
   const entries = (Array.isArray(v) ? v : []).filter(
@@ -1556,23 +1564,36 @@ export function readCampaignRecord(
    * checked against every id in the list, so the repair cannot collide with a
    * row further down that had it first.
    *
-   * **It runs before the pointer pass below, and the order is not a
-   * preference.** The walk is over the list AS IT ARRIVED, which is the order
-   * `rowIds` is built in and the order `find` reads in, so a countdown scoped
-   * to a duplicated id still resolves to the row that kept it. Run it any
-   * later than the passes below and it runs after `deduped.sort` has re-ordered
-   * the list by an `order` field that arrived in the same hand-edited file the
-   * duplicate did - and then which row keeps the id is decided by that field
-   * rather than by arrival, and the scope silently lands on the other row.
+   * A countdown row carries its id TWICE, and the inner one is the one the
+   * store writes through. `gmStore.addCountdown` mints `item.id` and
+   * `item.countdown.id` as the same string on purpose, and `readCountdown`
+   * hands the row's id down to a clock that arrived without one - while
+   * `withCountdown`, behind advance and reset, and `removeCountdown` both key
+   * on `item.countdown.id`, and that is the id every screen passes them. So a
+   * pass that re-ids the row alone leaves the hazard one field down, and lies
+   * about it: two clocks still answer to one id, one tap ticks both, and one
+   * DELETE takes both - a row the GM typed, gone, seconds after `warnings`
+   * told them it had been repaired. The fresh id goes onto the clock as well,
+   * and only where the two ids still match: a clock already carrying an id of
+   * its own is a pointer somebody else minted, and this pass has no business
+   * moving it.
    *
-   * Be exact about the reason, because the neighbouring repair is not it: the
-   * scope pass cannot see this one. Renaming a LATER duplicate cannot take an
-   * id out of a set the earlier row already put in, so moving this below the
-   * scope pass alone changes no reading. What the order buys is that every
-   * pass after this point - both pointers, the primary dedupe, the sort, and
-   * the third pointer this file says is coming - reads a list whose ids are
-   * already unique, instead of each having to decide for itself which of two
-   * rows a pointer meant.
+   * **It runs before `deduped.sort`, and the order is not a preference.** The
+   * walk is over the list AS IT ARRIVED, and arrival is what decides which of
+   * two rows keeps the id. Run it after that sort and the decision is made
+   * instead by an `order` field that arrived in the same hand-edited file the
+   * duplicate did: the rows swap, the later one keeps the id, and every
+   * pointer already written against the list as it was stored - a countdown's
+   * `sceneId`, the board's own - lands on the other row without a word.
+   *
+   * The pointer passes below are NOT that boundary, and saying which is which
+   * is the point of saying it at all. Renaming a LATER duplicate cannot take
+   * an id out of a set the earlier row already put in, so moving this below
+   * the scope pass alone changes no reading and leaves the suite green. It
+   * stays up here regardless, so that every pass after this point - both
+   * pointers, the primary dedupe, the sort, and the third pointer this file
+   * says is coming - reads a list whose ids are already unique, instead of
+   * each having to decide for itself which of two rows a pointer meant.
    *
    * The archive is deliberately left out. Its rows go through
    * `readSessionItem` for the same defence, but nothing points into an
@@ -1591,6 +1612,9 @@ export function readCampaignRecord(
     for (let n = 2; takenRowIds.has(fresh); n += 1) fresh = `${newId()}-${String(n)}`;
     takenRowIds.add(fresh);
     seenRowIds.add(fresh);
+    if (item.kind === 'countdown' && item.countdown.id === item.id) {
+      return { ...item, id: fresh, countdown: { ...item.countdown, id: fresh } };
+    }
     return { ...item, id: fresh };
   });
 

@@ -745,9 +745,12 @@ describe('the repairs, which never cost the record', () => {
    * `readSessionItem` fills an id that is MISSING and can do no more than
    * that: it reads one row and cannot see the list the row is in. So a list
    * where two rows carry the same id gets through whole, and so does a fight
-   * where two bodies do - and from there every `find` in the app answers a
-   * question every `map` answers differently. One row read, two rows written;
-   * one adversary drawn, two adversaries marked.
+   * where two bodies do - and the two lists then fail in different shapes. A
+   * row's id is read: `find` answers with the first and `map` answers with
+   * both, one row read and two rows written. A body's id is never read at all
+   * - `Scene.tsx` maps the fight and draws BOTH cards - so it is a write
+   * address with two bodies behind it: one tap on one card's HP marks both,
+   * and one REMOVE takes both off the table.
    *
    * These sit under the repairs that never cost the record because that is
    * precisely the argument. Dropping the later row, or the later body, would
@@ -784,6 +787,28 @@ describe('the repairs, which never cost the record', () => {
       sceneId,
       countdown: { id, name: id, kind: 'standard', start: 4, value: 2, notes: '' },
     });
+
+    /**
+     * A countdown row exactly as `gmStore.addCountdown` mints one: the row's
+     * id and the clock's are ONE string, on purpose, and the clock's is the
+     * one `withCountdown` and `removeCountdown` key on.
+     */
+    const clockRow = (
+      id: string,
+      name: string,
+      countdown: Record<string, unknown> = {},
+    ): Record<string, unknown> => ({
+      id,
+      kind: 'countdown',
+      name,
+      primary: false,
+      sceneId: null,
+      countdown: { id, name, kind: 'standard', start: 4, value: 2, notes: '', ...countdown },
+    });
+
+    type ClockRow = Extract<SessionItem, { kind: 'countdown' }>;
+    const clocksIn = (session: readonly SessionItem[]): ClockRow[] =>
+      session.flatMap((i) => (i.kind === 'countdown' ? [i] : []));
 
     const body = (id: string, patch: Record<string, unknown> = {}): Record<string, unknown> => ({
       id,
@@ -842,12 +867,13 @@ describe('the repairs, which never cost the record', () => {
     it('decides which row keeps the id by the order the list arrived in', () => {
       /*
        * Arrival, not `order`, and the difference is the whole reason this
-       * repair runs before the passes below it. Every pointer already written
-       * in the record - a countdown's `sceneId`, the board's own - was written
-       * against the list as it was stored, which is the list `find` reads.
-       * `order` is what the GM dragged the rows into, and it is re-sorted
-       * further down; deciding by it means the two rows here swap, and the
-       * scope lands on the other row without a word.
+       * repair runs before `deduped.sort`. Every pointer already written in
+       * the record - a countdown's `sceneId`, the board's own - was written
+       * against the list as it was STORED, and arrival is the only reading of
+       * that list this pass still has. `order` is what the GM dragged the rows
+       * into, and it is re-sorted further down; decide by it and the two rows
+       * here swap, the later one keeps `s1`, and the scope lands on the other
+       * row without a word.
        */
       const session = [
         { ...sceneRow('s1', 'first in the file'), order: 5 },
@@ -858,6 +884,67 @@ describe('the repairs, which never cost the record', () => {
       expect(campaign.session.find((i) => i.id === 's1')?.name).toBe('first in the file');
       const clock = campaign.session.find((i) => i.id === 'c1');
       expect(clock?.kind === 'countdown' && clock.sceneId).toBe('s1');
+    });
+
+    it('does not take the fresh id off a row further down that already had it', () => {
+      /*
+       * The promise the pass makes in its own voice - "the fresh id is checked
+       * against every id in the list" - and the row-level twin of the
+       * combatant test below it. Without the check the repaired row takes
+       * `fresh-1` from the row that owned it, that row is re-numbered in turn,
+       * and the clock scoped to `fresh-1` quietly lands on the row named
+       * 'second': one collision turned into two, and no warning says which.
+       */
+      const session = [
+        sceneRow('s1', 'first'),
+        sceneRow('s1', 'second'),
+        sceneRow('fresh-1', 'third'),
+        scopedClock('c1', 'fresh-1'),
+      ];
+      const { campaign } = readCampaignRecord(bare({ session }), counter());
+      expect(campaign.session.find((i) => i.id === 'fresh-1')?.name).toBe('third');
+      expect(new Set(campaign.session.map((i) => i.id)).size).toBe(session.length);
+      const clock = campaign.session.find((i) => i.id === 'c1');
+      expect(clock?.kind === 'countdown' && clock.sceneId).toBe('fresh-1');
+    });
+
+    it('carries the fresh id onto the clock, which is the id the store writes through', () => {
+      /*
+       * A countdown row holds its id twice and `addCountdown` mints both as
+       * one string. `withCountdown` (advance, reset) and `removeCountdown`
+       * both key on the INNER one, so a repair that re-numbered the row alone
+       * would hand back two clocks still answering to `c1`: one tap ticks
+       * both, one DELETE takes both - the silent loss this repair exists to
+       * refuse, moved one field down and announced in `warnings` as a fix.
+       */
+      const session = [clockRow('c1', 'the first'), clockRow('c1', 'the second')];
+      const { campaign, warnings } = readCampaignRecord(bare({ session }), counter());
+      const clocks = clocksIn(campaign.session);
+      expect(clocks.map((i) => i.name)).toEqual(['the first', 'the second']);
+      expect(new Set(clocks.map((i) => i.countdown.id)).size).toBe(session.length);
+      expect(clocks[0]?.countdown.id).toBe('c1');
+      // Both rows keep gmStore's invariant that the two ids are one string;
+      // the repair is not allowed to be what breaks it.
+      expect(clocks.map((i) => i.id === i.countdown.id)).toEqual([true, true]);
+      expect(warnings.filter((w) => /two rows/.test(w))).toHaveLength(1);
+    });
+
+    it('leaves a clock that was already carrying an id of its own exactly where it is', () => {
+      /*
+       * The guard on the line above: the ids travel together only where they
+       * were one string to begin with. A clock whose id somebody else minted
+       * is a pointer of its own - screens hold it, `removeCountdown` answers
+       * to it - and re-numbering the row it happens to sit on is no licence to
+       * move it.
+       */
+      const session = [
+        clockRow('c1', 'the first'),
+        clockRow('c1', 'the second', { id: 'minted-elsewhere' }),
+      ];
+      const { campaign } = readCampaignRecord(bare({ session }), counter());
+      const clocks = clocksIn(campaign.session);
+      expect(clocks[1]?.countdown.id).toBe('minted-elsewhere');
+      expect(clocks[1]?.id).not.toBe('c1');
     });
 
     it('re-numbers the second body in one fight and brings every mark with it', () => {
@@ -906,6 +993,36 @@ describe('the repairs, which never cost the record', () => {
       expect(fight.find((c) => c.name === 'two')?.id).toBe('acid-burrower-2');
     });
 
+    it('re-numbers every later body, not just the second, and still says it once', () => {
+      /*
+       * The body-side twin of "re-numbers every later one". With only two
+       * colliding bodies the repair can forget each id it mints and still come
+       * out right, because the second one is never consulted again. The third
+       * is what makes remembering load-bearing: forget it and bodies two and
+       * three both leave as `acid-burrower-1`, which is the state the repair
+       * was written to end - restored by the repair itself, after the GM has
+       * been told it was fixed.
+       */
+      const bodies = [
+        body('acid-burrower-0', { name: 'one' }),
+        body('acid-burrower-0', { name: 'two' }),
+        body('acid-burrower-0', { name: 'three' }),
+      ];
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1', 's1', bodies)] }),
+        counter(),
+      );
+      const fight = fightIn(campaign.session[0]);
+      expect(fight.map((c) => c.name)).toEqual(['one', 'two', 'three']);
+      expect(fight.map((c) => c.id)).toEqual([
+        'acid-burrower-0',
+        'acid-burrower-1',
+        'acid-burrower-2',
+      ]);
+      expect(new Set(fight.map((c) => c.id)).size).toBe(bodies.length);
+      expect(warnings.filter((w) => /two adversaries/.test(w))).toHaveLength(1);
+    });
+
     it('leaves the same id in two different rows alone, because that is what two fights look like', () => {
       /*
        * `makeCombatant` numbers from 0 in every fight it builds, so two rows
@@ -931,9 +1048,12 @@ describe('the repairs, which never cost the record', () => {
       /*
        * One function reads all three lists, so the repair is written once. The
        * `encounter` arm is the one nothing can mint any more and every saved
-       * campaign may still be carrying, and it is read with the same
-       * `find`-then-`map` pair as the row this build mints; an `if` per arm is
-       * how two policies for one invariant start.
+       * campaign may still be carrying; its bodies are only counted on the
+       * glass today rather than addressed, which is precisely why the repair
+       * must not be per-arm - the day anything puts one of them back in play
+       * it arrives holding whatever id this function gave it, under the same
+       * id-keyed `map` and `filter` as the row this build mints. An `if` per
+       * arm is how two policies for one invariant start.
        */
       const bodies = [
         body('acid-burrower-0', { name: 'one' }),
