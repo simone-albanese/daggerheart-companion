@@ -2549,3 +2549,94 @@ describe('the rest of the book, under the sections', () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe('the answer on a shut question row is a pointer, not a copy', () => {
+  /*
+   * The one test that can tell the two apart, and the reason it has to exist.
+   *
+   * `at.part` is an index, so nothing in `askCatalogue.ts` contains a word of
+   * the book and the key-set guard in `ask.test.ts` proves that much by type.
+   * What no assertion over the catalogue can prove is the other half: that the
+   * words on the glass came out of `dataset.rules` *at draw time* rather than
+   * from anywhere else. A copy pasted into this repo would satisfy every guard
+   * above and fail only here.
+   *
+   * So the dataset is swapped for a layer that rewrites the anchored paragraph
+   * into a sentence this repository wrote, and the row is asked what it draws.
+   * A pointer follows the layer; a copy does not. Both directions are
+   * asserted - the house sentence present AND the shipped one gone - because
+   * only the second catches a row that draws both.
+   */
+  const HOUSE = 'A layer wrote this sentence and the SRD never did.';
+
+  it('follows a layer that rewrote the paragraph it points at', () => {
+    const entry = ASK_CATALOGUE.find((e) => e.id === 'q-scene-stalled')!;
+    const shipped = dataset.rules.find((r) => r.id === entry.at.section)!;
+    // The head of the paragraph as the book ships it, taken from the dataset
+    // rather than typed, so this stays true when the book is regenerated.
+    const original = shipped.body.split('\n').find((l) => l.startsWith('Shake it up'))!;
+
+    openShow();
+    type('stalled');
+    expect(askRows().length, 'the query found no question to look at').toBeGreaterThan(0);
+    expect(dialog().textContent, 'the shipped sentence was not drawn to begin with').toContain(
+      original.slice(0, 30),
+    );
+
+    act(() => {
+      useApp.setState({
+        dataset: {
+          ...dataset,
+          rules: dataset.rules.map((r) =>
+            r.id === entry.at.section ? { ...r, body: r.body.replace(original, HOUSE) } : r,
+          ),
+        },
+      });
+    });
+
+    expect(dialog().textContent, 'the row did not follow the layer - it is a copy').toContain(
+      HOUSE,
+    );
+    expect(
+      dialog().textContent,
+      'the row drew the shipped sentence as well as the layer’s',
+    ).not.toContain(original.slice(0, 30));
+
+    act(() => {
+      useApp.setState({ dataset });
+    });
+  });
+});
+
+describe('a question with no subhead lands, and does not open into the void', () => {
+  /*
+   * Half the catalogue anchors with `heading: null` - six entries, including
+   * both Difficulty questions - and every one of them used to open at the top
+   * of its section with nothing landed and nothing lit. The row computed
+   * `heading === null ? -1`, and -1 means "no block", where what `heading:
+   * null` actually means is "the block before the first subhead", which is
+   * block 0. `checkEntry` had always resolved it that way, so the test and the
+   * row disagreed about where a question pointed and the row was wrong.
+   *
+   * It is asserted through the marking rather than through the scroll, because
+   * jsdom lays nothing out and `scrollIntoView` is a stub here - but `mark` is
+   * a real DOM change and only the landed block gets it. No `<mark>` inside an
+   * opened null-heading entry is exactly the old defect.
+   */
+  it('marks the opening block of an entry anchored with no subhead', () => {
+    const entry = ASK_CATALOGUE.find((e) => e.at.heading === null)!;
+    const word = entry.also.find((w) => w.split(/\s+/).length === 1)!;
+
+    openShow();
+    type(word);
+    const row = askRows().find((b) => (b.textContent ?? '').includes(entry.ask.slice(0, 24)));
+    expect(row, `no row for ${entry.id} on the query ${word}`).toBeDefined();
+    click(row!);
+
+    const opened = row!.closest('section')!;
+    expect(
+      opened.querySelectorAll('mark').length,
+      `${entry.id} opened with nothing lit - the landing resolved to no block`,
+    ).toBeGreaterThan(0);
+  });
+});

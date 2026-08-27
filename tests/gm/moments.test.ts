@@ -220,7 +220,7 @@ describe('a moment filters the questions by the field, not by the words on the c
     id,
     ask,
     also,
-    at: { section: 'attacking', heading: null },
+    at: { section: 'attacking', heading: null, part: null },
     moment,
   });
 

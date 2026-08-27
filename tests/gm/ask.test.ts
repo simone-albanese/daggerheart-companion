@@ -110,6 +110,40 @@ const PAGES: Readonly<Record<string, number>> = {
 const ASK_MAX = 72;
 
 /** Every check one entry has to pass, each with its own way of failing. */
+/**
+ * The head of the paragraph each pointer resolves to, pinned here.
+ *
+ * The tripwire for the one rot a part index cannot survive on its own. An
+ * index is a position, so inserting a paragraph at the top of a block shifts
+ * every index below it while the section id still resolves, the subhead still
+ * matches byte for byte and the page may not move at all - the row would draw
+ * the wrong sentence under the right address, and nothing else in this suite
+ * would notice.
+ *
+ * The book's values live in this file and never in `src`, which is the same
+ * arrangement `PAGES` above has and for the same reason: an expectation may
+ * quote the book, a shipped file may not.
+ *
+ * Forty characters, not the whole sentence. Enough that no two paragraphs in
+ * one block share it, short enough that a reflow that rewords a sentence
+ * without moving it does not fail this - which is a real edit and not a
+ * defect.
+ */
+const HEADS: Record<string, string | null> = {
+  'q-no-rule': "While playing Daggerheart, the GM and pl",
+  'q-difficulty': "When a player makes an action roll witho",
+  'q-impossible': "After a player describes a move they wan",
+  'q-npc-difficulty': "The only essential elements for a NPC ar",
+  'q-blank-consequence': null,
+  'q-party-flees': "When you\u2019re under pressure or in danger ",
+  'q-scene-stalled': "Shake it up or cut away when a scene has",
+  'q-surrender': "When an adversary marks their last Hit P",
+  'q-death-move-refused': "When a PC marks their last Hit Point, th",
+  'q-chase': null,
+  'q-safety': "Empower players to speak out of characte",
+  'q-session-ends': "Reward players at the end of a session w",
+};
+
 function checkEntry(entry: AskEntry, sections: RulesSection[]): void {
   const section = ruleSection(sections, entry.at.section);
   if (section === null) {
@@ -135,6 +169,58 @@ function checkEntry(entry: AskEntry, sections: RulesSection[]): void {
   });
   if (!carries) {
     throw new Error(`${entry.id}: the block it points at draws nothing`);
+  }
+
+  /*
+   * The part index, checked the same way the heading is: it must name a real
+   * thing in the shipped data, and it must name a PARAGRAPH.
+   *
+   * A list or a table is not a line and cannot be drawn on a shut row, so an
+   * index pointing at one is a mistake caught here rather than a row that
+   * silently draws nothing. `null` is the honest answer for the two blocks
+   * that hold no paragraph at all, and it is allowed only when the block
+   * really has none - otherwise `null` becomes the place to hide an index
+   * nobody worked out.
+   */
+  const part = entry.at.part;
+  const prose = block.parts.filter((one) => one.kind === 'text');
+  if (part === null) {
+    if (prose.length > 0) {
+      throw new Error(
+        `${entry.id}: at.part is null but its block has ${String(prose.length)} paragraph(s). ` +
+          `null is for a block with none, not for one nobody chose from.`,
+      );
+    }
+  } else {
+    const chosen = block.parts[part];
+    if (chosen === undefined) {
+      throw new Error(
+        `${entry.id}: at.part ${String(part)} is past the end - the block has ` +
+          `${String(block.parts.length)} part(s)`,
+      );
+    }
+    if (chosen.kind !== 'text') {
+      throw new Error(
+        `${entry.id}: at.part ${String(part)} is a ${chosen.kind}, not a paragraph. ` +
+          `A shut row draws one line, and a ${chosen.kind} is not one.`,
+      );
+    }
+    if (chosen.text.trim() === '') {
+      throw new Error(`${entry.id}: at.part ${String(part)} is empty`);
+    }
+  }
+
+  const head = HEADS[entry.id];
+  if (head === undefined) {
+    throw new Error(`${entry.id}: no answer head pinned in this file`);
+  }
+  const drawn = part === null ? null : (block.parts[part] as { text: string }).text.trim().slice(0, 40);
+  if (drawn !== head) {
+    throw new Error(
+      `${entry.id}: at.part ${String(part)} now resolves to ${JSON.stringify(drawn)}, ` +
+        `and this file pins ${JSON.stringify(head)}. Either the book moved under the index or ` +
+        `the index moved under the book - re-read the block and repin, do not just update this.`,
+    );
   }
 
   const pinned = PAGES[entry.id];
@@ -220,7 +306,26 @@ describe('the shipped catalogue, against the shipped dataset', () => {
     const allowed = ['id', 'ask', 'also', 'at', 'moment'];
     for (const entry of ASK_CATALOGUE) {
       expect(Object.keys(entry).sort(), entry.id).toEqual([...allowed].sort());
-      expect(Object.keys(entry.at).sort(), entry.id).toEqual(['heading', 'section']);
+      /*
+       * `part` was added to `at` on 27 August and this line is where that was
+       * allowed, deliberately and in one place. It is worth being slow about,
+       * because widening this list silently is how a guard gets removed while
+       * appearing to be kept.
+       *
+       * It passes the guard because of what it is rather than what it is
+       * called: an integer index into `SectionBlock.parts`. A number cannot
+       * carry a word of the book, so the property this test exists to defend -
+       * that the catalogue stores an address and never an answer - is held by
+       * the type itself here, not by this assertion. The next key that wants in
+       * must clear the same bar: an address, checkable against the dataset on
+       * every run. A string that named a line rather than counted to it would
+       * not, whatever it was called.
+       */
+      expect(Object.keys(entry.at).sort(), entry.id).toEqual(['heading', 'part', 'section']);
+      expect(
+        typeof entry.at.part === 'number' || entry.at.part === null,
+        `${entry.id}: at.part must be an index or null, never a string`,
+      ).toBe(true);
     }
   });
 
@@ -249,7 +354,7 @@ describe('checkEntry, against entries bent on purpose', () => {
 
   it('refuses a section this dataset does not carry', () => {
     expect(() => {
-      checkEntry(bent({ at: { section: 'the-witherwild', heading: null } }), rules);
+      checkEntry(bent({ at: { section: 'the-witherwild', heading: null, part: null } }), rules);
     }).toThrow(/no section/);
   });
 
@@ -258,12 +363,12 @@ describe('checkEntry, against entries bent on purpose', () => {
     const heading = real.at.heading!;
     expect(() => {
       checkEntry(
-        { ...real, at: { section: real.at.section, heading: heading.toLowerCase() } },
+        { ...real, at: { ...real.at, heading: heading.toLowerCase() } },
         rules,
       );
     }).toThrow(/carries no heading/);
     expect(() => {
-      checkEntry({ ...real, at: { section: real.at.section, heading: `${heading} ` } }, rules);
+      checkEntry({ ...real, at: { ...real.at, heading: `${heading} ` } }, rules);
     }).toThrow(/carries no heading/);
   });
 

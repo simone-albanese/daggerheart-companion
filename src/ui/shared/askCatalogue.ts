@@ -70,7 +70,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'judgement call',
       'homebrew',
     ],
-    at: { section: 'rulings-over-rules', heading: null },
+    at: { section: 'rulings-over-rules', heading: null, part: 0 },
     moment: 'before-the-roll',
   },
   {
@@ -85,7 +85,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'what number',
       'dc',
     ],
-    at: { section: 'difficulty-benchmarks', heading: null },
+    at: { section: 'difficulty-benchmarks', heading: null, part: 1 },
     moment: 'before-the-roll',
   },
   {
@@ -100,7 +100,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'pointless roll',
       'stakes',
     ],
-    at: { section: 'guidance-on-action-rolls', heading: null },
+    at: { section: 'guidance-on-action-rolls', heading: null, part: 0 },
     moment: 'before-the-roll',
   },
   {
@@ -116,7 +116,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'bystander',
       'shopkeeper',
     ],
-    at: { section: 'running-gm-npcs', heading: null },
+    at: { section: 'running-gm-npcs', heading: null, part: 1 },
     moment: 'before-the-roll',
   },
   {
@@ -131,7 +131,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'stuck for a move',
       'what move',
     ],
-    at: { section: 'making-gm-moves', heading: 'Example GM Moves' },
+    at: { section: 'making-gm-moves', heading: 'Example GM Moves', part: null },
     moment: 'the-dice-landed',
   },
   {
@@ -147,7 +147,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'break off',
       'leave the fight',
     ],
-    at: { section: 'maps-range-and-movement', heading: 'MOVEMENT UNDER PRESSURE' },
+    at: { section: 'maps-range-and-movement', heading: 'MOVEMENT UNDER PRESSURE', part: 0 },
     moment: 'my-turn',
   },
   {
@@ -163,7 +163,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'montage',
       'move on',
     ],
-    at: { section: 'pitfalls-to-avoid', heading: 'LETTING SCENES DRAG' },
+    at: { section: 'pitfalls-to-avoid', heading: 'LETTING SCENES DRAG', part: 0 },
     moment: 'my-turn',
   },
   {
@@ -179,7 +179,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'captured',
       'give up',
     ],
-    at: { section: 'building-balanced-encounters', heading: 'DEFEATED ADVERSARIES' },
+    at: { section: 'building-balanced-encounters', heading: 'DEFEATED ADVERSARIES', part: 0 },
     moment: 'damage',
   },
   {
@@ -194,7 +194,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'stalling',
       'wont choose',
     ],
-    at: { section: 'death', heading: null },
+    at: { section: 'death', heading: null, part: 0 },
     moment: 'damage',
   },
   {
@@ -209,7 +209,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'head start',
       'catching up',
     ],
-    at: { section: 'countdowns', heading: 'DYNAMIC COUNTDOWN ADVANCEMENT' },
+    at: { section: 'countdowns', heading: 'DYNAMIC COUNTDOWN ADVANCEMENT', part: null },
     moment: 'this-place',
   },
   {
@@ -225,7 +225,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'pause the game',
       'out of character',
     ],
-    at: { section: 'gm-practices', heading: 'CREATE A META CONVERSATION' },
+    at: { section: 'gm-practices', heading: 'CREATE A META CONVERSATION', part: 0 },
     moment: 'between-scenes',
   },
   {
@@ -240,7 +240,7 @@ export const ASK_CATALOGUE: readonly AskEntry[] = [
       'out of time',
       'pick it up later',
     ],
-    at: { section: 'session-rewards', heading: null },
+    at: { section: 'session-rewards', heading: null, part: 0 },
     moment: 'between-scenes',
   },
 ];
