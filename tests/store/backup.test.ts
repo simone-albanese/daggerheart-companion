@@ -170,6 +170,57 @@ describe('the indicator', () => {
     expect(backupStatus(deps()).label).toBe('last backup: yesterday');
   });
 
+  /**
+   * The GM who exports by hand every week, and the clock that must not lie for
+   * them or to them.
+   *
+   * On an iPhone there is no folder picker, so no run this app can verify ever
+   * happens and the age reads "Never" for ever - over a month of dutiful weekly
+   * exports from the GM section. `noteCampaignCopy` records those, and until
+   * this reader existed the field was written and read by nothing at all, so
+   * the indicator was unchanged by every one of them.
+   */
+  it('carries the copies saved by hand as their own weaker clock', () => {
+    noteCampaignCopy('winter-1', 'share', new Date(NOW.getTime() - 3 * DAY));
+
+    const status = backupStatus(deps());
+    expect(status.lastCopyAt).toBe(daysAgo(3));
+    expect(status.copyDaysSince).toBe(3);
+    expect(status.copyRoute).toBe('share');
+  });
+
+  it('takes the newest of them, whichever campaign it belonged to', () => {
+    noteCampaignCopy('winter-1', 'share', new Date(NOW.getTime() - 9 * DAY));
+    noteCampaignCopy('reach-1', 'download', new Date(NOW.getTime() - 2 * DAY));
+    noteCampaignCopy('gate-1', 'share', new Date(NOW.getTime() - 40 * DAY));
+
+    const status = backupStatus(deps());
+    expect(status.copyDaysSince).toBe(2);
+    expect(status.copyRoute).toBe('download');
+  });
+
+  /**
+   * And it is the weaker clock, in the one direction that matters.
+   *
+   * `saveTextFile` reads nothing back: a download or a share means the click
+   * happened, not that a file exists anywhere. Letting one reach `level`,
+   * `daysSince` or `label` would be "last backup: today" over a file this app
+   * has never opened - the exact claim this module opens by forbidding.
+   */
+  it('never lets a copy saved by hand move the backup clock', () => {
+    // Six weekly presses, oldest first, the way a GM actually makes them.
+    for (let week = 5; week >= 0; week -= 1) {
+      noteCampaignCopy('winter-1', 'share', new Date(NOW.getTime() - week * 7 * DAY));
+    }
+
+    const status = backupStatus(deps());
+    expect(status.copyDaysSince).toBe(0);
+    expect(status.level).toBe('never');
+    expect(status.daysSince).toBeNull();
+    expect(status.label).toBe('no backup yet');
+    expect(status.lastBackupAt).toBeNull();
+  });
+
   it('gets louder at five days and again at seven', () => {
     prefs = { ...prefs, lastBackupAt: daysAgo(5) };
     expect(backupStatus(deps()).level).toBe('aging');

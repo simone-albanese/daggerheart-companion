@@ -786,6 +786,32 @@ function Backup({
   const urgent = health.level !== 'fresh';
   const offlineSays = offlineWords(offline);
 
+  /**
+   * The hand-copy clock, in words. Null until there has been one.
+   *
+   * A separate sentence from the age above it, and never folded into it: the
+   * age is a file this app opened again and counted, and this is a click on a
+   * share sheet or a download that reported nothing back. Saying so is the
+   * point - it is the only line that makes the folderless hint's "SAVE A COPY
+   * in the GM section is the only way to get one out" answerable on screen.
+   */
+  const copySaid =
+    health.copyDaysSince === null
+      ? null
+      : `A copy of a campaign was saved by hand ${
+          health.copyDaysSince <= 0
+            ? 'today'
+            : health.copyDaysSince === 1
+              ? 'yesterday'
+              : `${health.copyDaysSince} days ago`
+        }${
+          health.copyRoute === 'share'
+            ? ', through the share sheet'
+            : health.copyRoute === 'download'
+              ? ', as a download'
+              : ''
+        }. The app cannot check that it arrived, so it does not count as a backup.`;
+
   // Every action in this section is a browser saying yes or no to a picker, a
   // permission or a quota, and any of them can reject. An unhandled rejection
   // here would leave a button that looks broken and a user who believes nothing
@@ -953,6 +979,19 @@ function Backup({
                   : campaignCount === 0
                     ? 'One file with every character in it. Readable JSON, no rules text, safe to keep anywhere.'
                     : `One file with every character in it, and one more for each of your ${campaignCount === 1 ? 'campaign' : `${campaignCount} campaigns`}. Readable JSON, no rules text, safe to keep anywhere.`)}
+              {/*
+                And the copies the GM made by hand, which is a different clock
+                and says so. The age above it reads "Never" until a run this app
+                can verify has happened, and on an iPhone - no folder picker, so
+                no automatic backup at all - that can be for ever, while the GM
+                exports every campaign every week from the GM section. Reading
+                "Never" over a month of that trains them to ignore the whole
+                panel. It is the last sentence rather than the first because
+                `health.detail` is the only line that knows a write failed, and
+                it says explicitly what the app cannot check, because a share
+                sheet reports the click and not the file.
+              */}
+              {copySaid === null ? null : ` ${copySaid}`}
             </p>
           </div>
           {/*

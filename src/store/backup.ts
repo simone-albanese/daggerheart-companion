@@ -96,8 +96,15 @@ const RECORD_KEY = 'dhc.backup.v1';
  * `lastCopyAt` and `route` are a copy the GM saved by hand, and they
  * deliberately do **not** set `checksum`. `saveTextFile` reads nothing back: a
  * `download` or a `share` means the click happened, not that a file exists.
- * Recording it anyway is what lets an iOS GM who exports every week read
- * something other than "no backup yet" for ever.
+ *
+ * Their reader is `backupStatus`, which carries them as `lastCopyAt`,
+ * `copyDaysSince` and `copyRoute` - a second, weaker clock that Settings prints
+ * beside the age, so an iOS GM who exports every week stops reading "Never" for
+ * ever. Named here because a field written for a user-visible effect and read
+ * by nothing is a feature shipped switched off, and this one had no reader at
+ * all for a while: the write has a caller, so the orphan gate could not see it.
+ * That clock must never be folded into `daysSince`, `level` or `label` - see
+ * `backupStatus`.
  */
 interface CampaignNote {
   /** crc32 of the record last read back out of the folder. */
@@ -847,9 +854,16 @@ export async function runBackup(
  * Deliberately no `checksum`: that field is what suppresses a folder write, and
  * only `writeIntoDirectory` - which opens the file again and compares it - has
  * earned the right to set it. A `download` or a `share` route means the click
- * happened. Leaving it unrecorded, which is what this app did until now, leaves
- * an iOS GM who dutifully saves a copy every week reading "no backup yet" for
- * ever, and that trains them to ignore the one indicator that matters.
+ * happened.
+ *
+ * What reads it is `backupStatus`'s `lastCopyAt`/`copyDaysSince`/`copyRoute`,
+ * which Settings prints beside the age as its own sentence. That is the whole
+ * justification for the write, and it is named here rather than left implied:
+ * for a while this wrote a field no line of the app read, so an iOS GM who
+ * dutifully saved a copy every week for a month still read "Never", and three
+ * docblocks - this one among them - described an effect the build did not have.
+ * A write kept for a user-visible effect has to be able to point at the line
+ * that produces it.
  */
 export function noteCampaignCopy(id: string, route: SaveRoute, at: Date = new Date()): void {
   const notes = readRecord().campaigns ?? {};
@@ -944,6 +958,22 @@ export interface BackupStatus {
   /** True only when a folder is live *and* permitted right now. */
   automatic: boolean;
   lastError: string | null;
+  /**
+   * The newest copy of a campaign the GM saved by hand, and how it went out.
+   *
+   * A second clock, and a **weaker** one. It must never touch `lastBackupAt`,
+   * `daysSince`, `level` or `label`: `saveTextFile` reads nothing back, so a
+   * `download` or a `share` is evidence that a click happened and not that a
+   * file exists anywhere, and folding one into "last backup: today" is the
+   * precise claim this file opens by forbidding. What it is for is the other
+   * direction - an iOS GM has no folder picker, so a hand copy is the only
+   * evidence this app will ever have that a campaign got out of it, and
+   * printing "Never" over a month of dutiful weekly exports trains them to
+   * ignore the one indicator that matters.
+   */
+  lastCopyAt: string | null;
+  copyDaysSince: number | null;
+  copyRoute: SaveRoute | null;
 }
 
 /**
@@ -992,6 +1022,20 @@ export function backupStatus(deps?: Partial<BackupDeps>): BackupStatus {
     detail = 'Nothing is exported automatically until you choose a folder to keep backups in.';
   }
 
+  /*
+   * The hand-copy clock, read from the same record and deliberately kept out of
+   * everything above: `level` is already decided, `days` is already computed,
+   * and neither is allowed to see this.
+   */
+  const notes = Object.values(record.campaigns ?? {}).filter(
+    (note) => note.lastCopyAt !== undefined,
+  );
+  const newest = notes.reduce<CampaignNote | null>(
+    (best, note) =>
+      best === null || (note.lastCopyAt ?? '') > (best.lastCopyAt ?? '') ? note : best,
+    null,
+  );
+
   return {
     lastBackupAt: prefs.lastBackupAt ?? null,
     daysSince: days,
@@ -1001,6 +1045,9 @@ export function backupStatus(deps?: Partial<BackupDeps>): BackupStatus {
     targetName: prefs.backupTarget ?? null,
     automatic,
     lastError: record.lastError ?? null,
+    lastCopyAt: newest?.lastCopyAt ?? null,
+    copyDaysSince: daysSince(newest?.lastCopyAt, d.now()),
+    copyRoute: newest?.route ?? null,
   };
 }
 

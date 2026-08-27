@@ -23,7 +23,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newCampaign } from '../../shared/campaigns.ts';
-import { chooseBackupFolder, forgetBackupFolder } from '../../src/store/backup.ts';
+import {
+  chooseBackupFolder,
+  forgetBackupFolder,
+  noteCampaignCopy,
+} from '../../src/store/backup.ts';
 import { appBackupDeps } from '../../src/store/backupDeps.ts';
 import { publishCampaignSource } from '../../src/store/campaignSource.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
@@ -66,6 +70,10 @@ beforeEach(() => {
       onchange: null,
     }) as unknown as MediaQueryList) as typeof window.matchMedia;
   Element.prototype.scrollIntoView = (): void => {};
+  // jsdom's localStorage is one object for the whole file, and `dhc.backup.v1`
+  // is what the panel reads. Without this a copy noted in one test is still on
+  // the panel in the next.
+  localStorage.clear();
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -154,5 +162,48 @@ describe('a GM who runs the table and plays nobody', () => {
       why,
       'the sentence promises one file of characters and never mentions the campaigns that are also going out',
     ).toContain('3 campaigns');
+  });
+});
+
+/**
+ * The other clock on the same panel.
+ *
+ * On an iPhone there is no folder picker, so no run this app can verify ever
+ * happens and "Last backup" reads Never for ever - while the GM exports every
+ * campaign every week from the GM section. `noteCampaignCopy` recorded those
+ * presses into a field that nothing read, which is a feature shipped switched
+ * off: the app's own docblocks said the indicator would stop lying to that GM,
+ * and the build had no line that produced the effect. This is that line.
+ */
+describe('the copies the GM saved by hand', () => {
+  it('says so on the panel, without calling any of them a backup', async () => {
+    publishCampaignSource(() => ({ campaigns: tables('Winter'), quarantined: [] }));
+    noteCampaignCopy('t-0', 'share', new Date(Date.now() - 3 * 86_400_000));
+    await mount();
+
+    const why = [...container.querySelectorAll('p')]
+      .map((el) => el.textContent ?? '')
+      .find((t) => t.includes('saved by hand'));
+    expect(
+      why,
+      'a GM who has exported by hand reads nothing at all about it on the backup panel',
+    ).toBeDefined();
+    expect(why).toContain('A copy of a campaign was saved by hand 3 days ago');
+    expect(why).toContain('through the share sheet');
+    // The whole reason it is a separate sentence: a share sheet reports the
+    // click, never the file.
+    expect(why).toContain('cannot check that it arrived');
+
+    // And it has not touched the age beside it, which is the one number that
+    // means a file this app opened again and counted.
+    const age = container.querySelector('[id$="-age"]')?.textContent ?? '';
+    expect(age, 'a copy this app cannot verify was counted as a backup').toContain('Never');
+  });
+
+  it('says nothing at all when no copy has been saved', async () => {
+    publishCampaignSource(() => ({ campaigns: tables('Winter'), quarantined: [] }));
+    await mount();
+
+    expect(container.textContent ?? '').not.toContain('saved by hand');
   });
 });
