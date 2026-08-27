@@ -1148,11 +1148,35 @@ export async function integrityCheck(deps?: Partial<BackupDeps>): Promise<Integr
    */
   if (missingCampaignIds.length > 0) {
     const one = missingCampaignIds.length === 1;
+    /*
+     * The remedy is a claim about a file, so it is made only where there is
+     * evidence of one - the same rule `triggered` enforces on the sentence
+     * above it.
+     *
+     * It used to be one hardcoded string, appended whenever a campaign was
+     * missing, sending the GM to look beside a character backup in a folder
+     * that on iOS cannot exist: `showDirectoryPicker` is not there, so `folder`
+     * is always null and no `.dhcampaign` was ever written. The evidence is
+     * already in `record.campaigns`, in the same localStorage the known-id list
+     * survives in - `fileName` is set only by a verified `writeIntoDirectory`,
+     * `lastCopyAt` only by a copy the GM saved by hand.
+     */
+    const notes = record.campaigns ?? {};
+    const inFolder = missingCampaignIds.some((id) => notes[id]?.fileName !== undefined);
+    const byHand = missingCampaignIds.some((id) => notes[id]?.lastCopyAt !== undefined);
+    const remedy = inFolder
+      ? ' A campaign is its own file: the .dhcampaign copies sit beside the character backup' +
+        ' in the same folder, one per campaign per day.'
+      : byHand
+        ? ' A campaign is its own file: the .dhcampaign copies are wherever SAVE A COPY put' +
+          ' them, which is usually the downloads folder.'
+        : ` A campaign is its own file, and no .dhcampaign copy of ${one ? 'it' : 'them'} was` +
+          ' ever written: campaign files go into a backup folder, and this device has never' +
+          ' had one.';
     message +=
       ` ${String(missingCampaignIds.length)} campaign${one ? '' : 's'} that ${one ? 'was' : 'were'}` +
       ` here at the end of the last session ${one ? 'is' : 'are'} not on this device now.` +
-      ' A campaign is its own file: the .dhcampaign copies sit beside the character backup' +
-      ' in the same folder, one per campaign per day.';
+      remedy;
   } else if (!campaignsReadable) {
     message += ' The campaign store could not be opened on this device.';
   }

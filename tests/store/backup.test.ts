@@ -946,6 +946,11 @@ describe('the seven-day check', () => {
    */
   it('notices that a campaign it saw last time is gone', async () => {
     tables = [table('The Sablewood Winter', 'winter-1'), table('Bones of the Reach', 'reach-1')];
+    // A run that actually wrote the files, so the remedy below has something to
+    // send the GM to. Without it the check has no evidence a copy exists.
+    fakeFolder();
+    await chooseBackupFolder(deps());
+    await runBackup('session-end', {}, deps());
     await integrityCheck(deps({ now: () => new Date(NOW.getTime() - 8 * DAY) }));
 
     tables = [table('Bones of the Reach', 'reach-1')];
@@ -958,6 +963,42 @@ describe('the seven-day check', () => {
     // The remedy names where a campaign copy actually lives, which is not the
     // character backup file.
     expect(report.message).toMatch(/\.dhcampaign copies sit beside the character backup/);
+  });
+
+  /**
+   * The remedy is a claim about a file, and it is only made when a file exists.
+   *
+   * "The .dhcampaign copies sit beside the character backup in the same folder"
+   * was appended to every campaign loss, folder or no folder - so the one GM
+   * who most needs a true sentence, an iPhone user whose browser has no folder
+   * picker at all and therefore *cannot* have written one, was sent to look in
+   * a folder that has never existed.
+   */
+  it('does not send the GM to a backup folder that never existed', async () => {
+    tables = [table('The Sablewood Winter', 'winter-1')];
+    await integrityCheck(deps({ now: () => new Date(NOW.getTime() - 8 * DAY) }));
+
+    tables = [];
+    const report = await integrityCheck(deps());
+
+    expect(report.missingCampaignIds).toEqual(['winter-1']);
+    expect(report.message).not.toMatch(/sit beside the character backup/);
+    expect(report.message).toMatch(/no \.dhcampaign copy of it was ever written/);
+    expect(report.message).toMatch(/this device has never had one/);
+  });
+
+  /** A copy saved by hand is a different place to look, and it is said. */
+  it('sends the GM to the downloads folder when the only copy was saved by hand', async () => {
+    tables = [table('The Sablewood Winter', 'winter-1')];
+    noteCampaignCopy('winter-1', 'share', new Date(NOW.getTime() - DAY));
+    await integrityCheck(deps({ now: () => new Date(NOW.getTime() - 8 * DAY) }));
+
+    tables = [];
+    const report = await integrityCheck(deps());
+
+    expect(report.missingCampaignIds).toEqual(['winter-1']);
+    expect(report.message).not.toMatch(/sit beside the character backup/);
+    expect(report.message).toMatch(/wherever SAVE A COPY put them/);
   });
 
   /**
