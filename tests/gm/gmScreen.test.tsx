@@ -900,13 +900,20 @@ describe('SAVE', () => {
     expect(text()).not.toContain('Saved');
   });
 
-  it('says out loud that nothing here can read a campaign file back in', async () => {
-    // `campaignFile.ts` has a parser and no import path, deliberately. A GM
-    // handed a file and not told will find out on the day they need it.
+  it('no longer says a campaign file cannot be read back in, and offers the door', async () => {
+    /*
+     * This test used to assert the opposite, and the sentence it asserted was
+     * true: `campaignFile.ts` had a parser and no import path, and a GM handed a
+     * file and not told would have found out on the day they needed it. The
+     * import lands the verb, so the sentence is retracted and this is what is
+     * left to check - that it went, and that something took its place rather
+     * than a gap.
+     */
     gm();
     click(named('SAVE'));
     await settle();
-    expect(text()).toContain('read a campaign file back in');
+    expect(text()).not.toContain('read a campaign file back in');
+    expect(text()).toContain('OPEN A CAMPAIGN FILE');
   });
 });
 

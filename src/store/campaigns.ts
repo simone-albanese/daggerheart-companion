@@ -117,6 +117,19 @@ export async function readCampaigns(): Promise<CampaignLibrary> {
  * store, so reaching this branch means something else has gone wrong - and a
  * campaign carries copies of sheets that belong to other people, who are not
  * in the room to notice.
+ *
+ * **The import path may not reach this function, and that is a rule and not an
+ * omission.** A campaign arriving from a file comes in through `addCampaign`
+ * below. The difference is not caution, it is which outcomes exist: `put`
+ * writes over whatever holds that key, and a `.dhcampaign` carrying an id this
+ * device already has is the ordinary case rather than the exotic one -
+ * `campaignMigration.ts` mints every upgraded device's first campaign under one
+ * fixed string, so two GMs who both came off the localStorage build collide on
+ * it by construction, on the first table either of them ever had. Through
+ * `put`, that GM loses a season to a file they were told was a copy; through
+ * `add`, the arrival lands beside it and MENU's REMOVE takes either one away.
+ * The guard here does not help: it refuses a record from a *newer build*, and
+ * the record being destroyed in that story was written by this one.
  */
 export async function putCampaign(campaign: Campaign): Promise<void> {
   const database = await db();
@@ -148,12 +161,62 @@ export async function putCampaign(campaign: Campaign): Promise<void> {
 }
 
 /**
+ * Write a campaign only if that id is free, and say which happened.
+ *
+ * `put` is what the import must not reach, and this is why it is a separate
+ * function rather than a flag on that one: an occupied key is answered by
+ * IndexedDB *inside* the transaction, atomically, so there is no read-then-write
+ * window for a second tab to drive through. It also refuses a record a newer
+ * build wrote - which `readCampaigns` above hides from every list and which
+ * `putCampaign` can only answer with a throw - because `add` sees raw keys and
+ * does not care whether this build could read what is there.
+ *
+ * **The error is named by `.name`, not by `instanceof DOMException`.** Not
+ * because a test shim lacks the class: `fake-indexeddb` throws the platform
+ * `DOMException` today and `instanceof` is true against it. It is because
+ * `.name` is the only check that survives both realms. A rejection carrying a
+ * constructor from another global - a worker, an iframe, a test double - fails
+ * `instanceof` while still reading `'ConstraintError'`, and the two ways that
+ * fails are an import announced as a duplicate or a duplicate announced as a
+ * crash. A check that is true today by coincidence is a check that goes quietly
+ * false.
+ *
+ * **Both absorptions of `tx.done` are deliberate.** Each one is independently
+ * enough to stop the `AbortError` that a refused `add` rolls the transaction
+ * back with from surfacing as an unhandled rejection - measured, not assumed -
+ * and the naive body with neither leaks exactly one. `hold()` covers the caller
+ * that never enters the catch; the `await` inside it is what makes the rollback
+ * *finish* before `'taken'` is returned, so a caller that reads the store on the
+ * next line is not racing it. The occupant is byte-identical afterwards.
+ */
+export async function addCampaign(campaign: Campaign): Promise<'added' | 'taken'> {
+  const database = await db();
+  const tx = hold(database.transaction('campaigns', 'readwrite'));
+  try {
+    await tx.store.add(campaign);
+  } catch (error) {
+    await tx.done.catch(() => {});
+    if ((error as { name?: string }).name === 'ConstraintError') return 'taken';
+    throw error;
+  }
+  await tx.done;
+  return 'added';
+}
+
+/**
  * Read one campaign back out, through the same reader.
  *
  * `getCharacter` has no caller and sits in the orphan allowlist because the
  * app holds every character in memory anyway. This one does have a caller and
  * a job: it is how the localStorage migration proves the campaign it just
  * wrote is really on the disk before it deletes the source.
+ *
+ * The import path is the second caller, and it is there for the same reason:
+ * `applyCampaignImport` reads back what `addCampaign` answered `'added'` for and
+ * compares it before the screen says a word. Through the reader rather than a
+ * raw `get`, on purpose - what is being checked is that the record on the disk
+ * reads back as the record that was decided on, and every other path in this
+ * app asks that same question of the same reader.
  */
 export async function getCampaign(id: string): Promise<Campaign | null> {
   const record = await (await db()).get('campaigns', id);

@@ -30,13 +30,31 @@
  *
  * ## What this is not
  *
- * There is no import here. Taking a campaign in raises questions this lane did
- * not settle - a campaign whose id is already on this device, and a party of
- * character sheets arriving beside a `characters` store that may hold newer
- * copies of the same people - and half of an import is worse than none.
+ * It is not the import. There is one now - `src/store/campaignImport.ts`
+ * decides what becomes of the record this hands back, and `src/ui/gm/TakeIn.tsx`
+ * is the door a GM presses - and neither decision is taken here. The two
+ * questions an earlier draft of this paragraph left open are both answered, and
+ * answered as rules rather than as code in this file:
+ *
+ *   - **a campaign whose id is already on this device.** Nothing here compares
+ *     ids and nothing judges a clock. `addCampaign` hands the key to IndexedDB,
+ *     and a key that is taken lands the arrival *beside* the record holding it
+ *     under a fresh UUID. There is no overwrite verb on this path at all, so the
+ *     destructive outcome is unreachable rather than carefully avoided.
+ *   - **party sheets meeting newer copies of the same people.** A prohibition,
+ *     not a policy: an imported campaign cannot reach the `characters` store,
+ *     so a row is never refreshed from the local library and never written into
+ *     it. `db.ts` and `src/ui/gm/party.ts` state why; the import is typed so
+ *     that it has no way to.
+ *
+ * What this file does is read a file, verify it, and hand back a record plus the
+ * repairs the reader made. That is also why the reader's own two refusals are
+ * caught below and re-thrown as `ImportError`: one way in, and one vocabulary of
+ * refusal on the other side of it, so no receive surface has to learn a second.
  */
 import {
   CAMPAIGN_SCHEMA_VERSION,
+  CampaignReadError,
   OLDEST_READABLE_CAMPAIGN,
   readCampaignRecord,
   type Campaign,
@@ -93,6 +111,22 @@ export interface ImportedCampaign {
   campaign: Campaign;
   app: string | null;
   exportedAt: string | null;
+  /**
+   * The **envelope's** campaign schema, as the file carried it.
+   *
+   * Not read off `campaign.schemaVersion`: that field has already been restamped
+   * `CAMPAIGN_SCHEMA_VERSION` by the reader, so asking the record would always
+   * answer "this build's number" and a conversion would be invisible at the one
+   * moment it is worth mentioning. This is the envelope's own stamp, the number
+   * `checkReadable` was given.
+   *
+   * `shared/campaigns.ts` says a successful conversion says nothing, and names
+   * the exception in the same paragraph: the import path announces its own
+   * conversions, because there a person is looking at a file and deciding
+   * something about it. This is that moment, and it is the only reason the
+   * number is carried out of here.
+   */
+  schemaVersion: number;
   /** Repairs the reader made. Named, never counted. */
   warnings: string[];
 }
@@ -126,12 +160,10 @@ export function parseCampaignFile(text: string): ImportedCampaign {
     );
   }
 
+  let schemaVersion: number;
   try {
-    checkReadable(
-      versionOf({ schemaVersion: parsed['schemaVersion'] }, CAMPAIGN_SCHEMA_VERSION),
-      CAMPAIGN_SCHEMA_VERSION,
-      OLDEST_READABLE_CAMPAIGN,
-    );
+    schemaVersion = versionOf({ schemaVersion: parsed['schemaVersion'] }, CAMPAIGN_SCHEMA_VERSION);
+    checkReadable(schemaVersion, CAMPAIGN_SCHEMA_VERSION, OLDEST_READABLE_CAMPAIGN);
   } catch (error) {
     if (error instanceof SchemaError) throw new ImportError(`That campaign file ${error.message}`);
     throw error;
@@ -152,11 +184,39 @@ export function parseCampaignFile(text: string): ImportedCampaign {
     );
   }
 
-  const { campaign, warnings } = readCampaignRecord(payload);
+  /*
+   * The reader's own refusals, behind the same one door.
+   *
+   * `readCampaignRecord` throws two things this file's callers have never been
+   * told about: `CampaignReadError` ("is not a campaign record at all.", "has no
+   * id, so there is nothing to write it back to.") and a *second* `SchemaError`
+   * from its own `checkReadable` - which the envelope check above cannot stand
+   * in for, because a file can carry one version on the envelope and another on
+   * the payload. Before this, all three escaped as themselves, past a caller
+   * that had enumerated `ImportError` and nothing else, and arrived on a screen
+   * as a stack trace or as silence.
+   *
+   * Caught here rather than at the UI because the format's error contract
+   * belongs behind the format's one way in. A second receive surface would
+   * otherwise have to rediscover which three classes come out of this call, and
+   * the one that forgot would be the one that shipped.
+   */
+  let campaign: Campaign;
+  let warnings: string[];
+  try {
+    ({ campaign, warnings } = readCampaignRecord(payload));
+  } catch (error) {
+    if (error instanceof CampaignReadError || error instanceof SchemaError) {
+      throw new ImportError(`That campaign file ${error.message}`);
+    }
+    throw error;
+  }
+
   return {
     campaign,
     app: typeof parsed['app'] === 'string' ? parsed['app'] : null,
     exportedAt: typeof parsed['exportedAt'] === 'string' ? parsed['exportedAt'] : null,
+    schemaVersion,
     warnings,
   };
 }
