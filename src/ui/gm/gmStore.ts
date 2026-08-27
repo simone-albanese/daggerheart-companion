@@ -444,6 +444,12 @@ export function flushGm(): Promise<void> {
  * valid `.dhcampaign` of the wrong record) and stamp "last backup: today" over
  * an evening that exists nowhere.
  *
+ * `exportActiveCampaign` composes the same record for the same reason, one
+ * campaign at a time. The two legs of the net must not be able to disagree
+ * about what tonight was: a hand-save reading `state.campaigns` straight would
+ * hand the GM the record from before the failed write under "Saved as …", which
+ * is this fatal wearing the other leg's clothes.
+ *
  * It lives here and can live nowhere else: `gather` and `dirty` are both
  * module-private, and `backup.ts` may not import this file. It is published
  * through `store/campaignSource.ts` instead, from this file's module-scope
@@ -1319,10 +1325,33 @@ export const useGm = create<GmState>((set, get) => {
        * 400 ms debounce is up to four hundred milliseconds behind the GM - and
        * a backup that is *nearly* the state you were in is the kind of quiet
        * wrongness this app exists not to have.
+       *
+       * **AND THE FLUSH IS NOT ENOUGH, WHICH IS THE WHOLE OF THE LINE BELOW.**
+       * `writeActive` assigns `state.campaigns` only *inside* its `try`, after
+       * `putCampaign` resolves, and on a throw deliberately leaves `dirty`
+       * true. So on the one evening a hand-save is worth anything - a full
+       * disk, an older build refusing a record a newer one wrote - the flush
+       * re-enters the same rejecting write, changes nothing, and the list still
+       * holds the record from before the failure. Exporting that would
+       * serialize the stale record, verify its checksum happily (it is a
+       * perfectly valid `.dhcampaign` of the wrong campaign) and print "Saved
+       * as …" over an evening that exists nowhere - the exact fatal
+       * `snapshotCampaigns` was built to close on the automatic leg, still open
+       * on the manual one.
+       *
+       * So this reads what `snapshotCampaigns` reads: memory first, the live
+       * board folded in whenever `dirty` says the disk is behind it. The two
+       * legs of the net cannot then disagree about what tonight was.
+       *
+       * `base.updatedAt` and not a fresh stamp, for `snapshotCampaigns`' own
+       * reason: `writeActive` stamps the moment a record actually reaches the
+       * disk, and inventing a time here would put a time in the file that no
+       * write ever happened at.
        */
       await flushGm();
       const state = get();
-      const campaign = state.campaigns.find((c) => c.id === state.activeCampaignId);
+      const base = state.campaigns.find((c) => c.id === state.activeCampaignId);
+      const campaign = base !== undefined && dirty ? gather(base, state, base.updatedAt) : base;
       if (campaign === undefined) {
         return {
           ok: false,

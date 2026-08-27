@@ -560,6 +560,57 @@ describe('exporting the open campaign', () => {
     spy.mockRestore();
   });
 
+  it('writes the evening the failed write did not, rather than the record before it', async () => {
+    /*
+     * The one evening a hand-save is worth anything is the evening writes are
+     * failing, and it was the one it got wrong. `writeActive` assigns
+     * `state.campaigns` only inside its `try`, after `putCampaign` resolves, so
+     * on a rejection the list still holds the record from before the failure and
+     * the `flushGm` above re-enters the same rejecting write. An export off that
+     * list serializes the stale record, verifies its checksum happily - it is a
+     * perfectly valid `.dhcampaign` of the wrong campaign - and prints "Saved
+     * as …" over an evening that exists nowhere. That is the fatal
+     * `snapshotCampaigns` closed on the automatic leg, and it stayed open on
+     * this one until the export read the same memory-first record.
+     */
+    const fileIo = await import('../../src/transfer/fileIo.ts');
+    const campaignFile = await import('../../src/transfer/campaignFile.ts');
+    const save = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: true,
+      route: 'download',
+      fileName: 'x',
+      cancelled: false,
+      reason: null,
+    });
+
+    const s = () => gm.useGm.getState();
+    s().setFear(3);
+    await gm.flushGm();
+    expect((await store.readCampaigns()).campaigns[0]!.fear, 'the disk took the first one').toBe(3);
+
+    const put = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    s().setFear(9);
+    await gm.flushGm();
+    expect(s().writeError).toMatch(/quota has been exceeded/);
+    expect((await store.readCampaigns()).campaigns[0]!.fear, 'the disk is stale').toBe(3);
+
+    expect((await s().exportActiveCampaign()).ok).toBe(true);
+    const [, text] = save.mock.calls[0]!;
+    expect(
+      campaignFile.parseCampaignFile(text).campaign.fear,
+      'the file holds the evening on the screen',
+    ).toBe(9);
+    // The same record the automatic leg would have written, to the byte.
+    expect(campaignFile.parseCampaignFile(text).campaign.updatedAt).toBe(
+      gm.snapshotCampaigns()!.campaigns[0]!.updatedAt,
+    );
+
+    put.mockRestore();
+    save.mockRestore();
+  });
+
   it('says there is nothing to export rather than writing an empty file', async () => {
     gm.useGm.setState({ activeCampaignId: null });
     const result = await gm.useGm.getState().exportActiveCampaign();
