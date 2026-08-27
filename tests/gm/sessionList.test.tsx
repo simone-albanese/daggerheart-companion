@@ -50,7 +50,7 @@
 import 'fake-indexeddb/auto';
 import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LinkTarget, SessionItem, SessionItemBase } from '../../shared/campaigns.ts';
 import { countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
@@ -58,9 +58,41 @@ import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { damageBumpRule } from '../../src/ui/shared/ruleText.ts';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
+import { MemoSessionRow, SessionRow } from '../../src/ui/gm/SessionRow.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
 import { NO_FIGHT, NO_CLOCK_PROSE } from '../fixtures/factories.ts';
+
+/**
+ * A render counter for the rows, and the reason it is a module mock.
+ *
+ * `React.memo` cannot be proved by asking whether `memo` was called. That
+ * check is true of a memo whose props are rebuilt on every render, which skips
+ * nothing and is exactly the defect this list had - so the proof has to be a
+ * count of renders that actually happened.
+ *
+ * `describeItem` is what counts them. `SessionRow` calls it once, at the top
+ * of its body, on every arm and with no condition in front of it, so calls to
+ * it and renders of a row are the same event one-for-one. The wrapper is a
+ * pass-through over the real module: every other test in this file goes on
+ * asserting against the real sentences, and this one reads the ids off the
+ * side.
+ *
+ * `vi.hoisted` because `vi.mock` is hoisted above the imports and the factory
+ * would otherwise close over a binding that does not exist yet.
+ */
+const drawn = vi.hoisted(() => [] as string[]);
+
+vi.mock('../../src/ui/gm/session.ts', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../src/ui/gm/session.ts')>();
+  return {
+    ...real,
+    describeItem: (...args: Parameters<typeof real.describeItem>): string => {
+      drawn.push(args[0].id);
+      return real.describeItem(...args);
+    },
+  };
+});
 
 declare global {
   // eslint-disable-next-line no-var
@@ -116,6 +148,7 @@ beforeEach(() => {
     openCard: null,
   });
   useGm.setState({ hydrated: true, session: [], countdowns: [], combatants: [], liveScene: null, environmentRef: null, roster: [] });
+  drawn.length = 0;
 });
 
 afterEach(() => {
@@ -1969,5 +2002,207 @@ describe('the note row campaign schema 2 added', () => {
     expect(text()).toContain('Terms');
     expect(text()).toContain('Rhys wants the cargo.');
     expect(text()).not.toContain('**Terms**');
+  });
+});
+
+/*
+ * ---------------------------------------------------------------------------
+ * The memo, proved by counting renders
+ * ---------------------------------------------------------------------------
+ *
+ * A `React.memo` whose props are rebuilt on every render skips nothing, and it
+ * passes a `$$typeof` check exactly as well as a working one does. This list
+ * had that defect waiting for it: `handle={drag.handleProps(item, i)}` minted
+ * a fresh object literal per row per render, and `SessionRow` subscribed to
+ * the whole `session` array, which no memo can gate because a store read is
+ * not a prop. So both were fixed, and both are held here by a count of what
+ * actually re-rendered rather than by asking whether `memo` was called.
+ *
+ * The counter is the `describeItem` wrapper at the head of this file: one call
+ * per row render, unconditionally, on every arm.
+ *
+ * It is not a performance test. It is a test that a change to one row of the
+ * night is a change to one row of the night, which is the property the whole
+ * plan list is about to depend on: once a fight lives on its scene row, an HP
+ * mark rebuilds `session`, and without this every mark would repaint every row
+ * under a thumb that is tapping a number.
+ */
+describe('what a change to one row costs the rest of the list', () => {
+  const three = (): SessionItem[] => [
+    { ...base({ id: 'a', name: 'The gate', order: 0 }), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
+    { ...base({ id: 'b', name: 'The bridge', order: 1 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+    { ...base({ id: 'c', name: 'The keep', order: 2 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+  ];
+
+  /** Derived from the seed, so the expectation cannot drift from the fixture. */
+  const ids = (items: SessionItem[]): string[] => items.map((i) => i.id);
+
+  it('draws every row once on the first paint, which is what makes the count mean anything', () => {
+    // The guard against a vacuous pass: if the counter never fired, every
+    // assertion below would read as "nothing re-rendered" and be worthless.
+    const items = three();
+    seed(items);
+    list();
+    expect(drawn).toEqual(ids(items));
+  });
+
+  it('re-renders only the row that changed, and leaves the others alone', () => {
+    const items = three();
+    seed(items);
+    list();
+    drawn.length = 0;
+
+    act(() => {
+      useGm.getState().patchSessionItem('b', { name: 'The broken bridge' });
+    });
+
+    // Not "fewer than three". Exactly the one row whose record changed, named,
+    // so that a memo which starts skipping the WRONG row fails here too.
+    expect(drawn).toEqual(['b']);
+    expect(text()).toContain('The broken bridge');
+  });
+
+  it('re-renders every row when a row is added, because every row speaks the total', () => {
+    /*
+     * A row the memo must NOT skip, and the reason is on the row itself: every
+     * drag handle announces `Reorder {name}, {position} of {total}`, and MOVE
+     * DOWN is disabled on the last row by comparing the two. So the arrival of
+     * a fourth row changes what all four of them say and what one of them
+     * offers, and a memo that skipped the three already there would leave a
+     * screen reader counting to three on a list of four.
+     *
+     * `total` is a number, so the default comparison catches it without
+     * anybody having to remember. This is here to record that the pass is
+     * deliberate rather than a hole.
+     */
+    const items = three();
+    seed(items);
+    list();
+    drawn.length = 0;
+
+    const arrived: SessionItem = {
+      ...base({ id: 'd', name: 'The vault' }),
+      kind: 'scene',
+      environmentRef: null,
+      ...NO_FIGHT,
+    };
+    act(() => {
+      useGm.getState().addSessionItem(arrived);
+    });
+
+    expect([...drawn].sort()).toEqual([...ids(items), arrived.id].sort());
+    const spoken = buttons().filter((b) => (b.getAttribute('aria-label') ?? '').startsWith('Reorder '));
+    expect(spoken).toHaveLength(useGm.getState().session.length);
+    for (const handle of spoken) {
+      expect(handle.getAttribute('aria-label')).toContain(
+        `of ${String(useGm.getState().session.length)}`,
+      );
+    }
+  });
+
+  it('re-renders every row when the plan is reordered, because every index moved', () => {
+    /*
+     * The other half of the same claim, and it has to be stated or the memo
+     * looks like it is skipping work it must not skip. `moveSessionItem`
+     * rewrites `order` on every row, so every row's record is new and every
+     * row's `position` is new - and the drag handle each row holds is built
+     * from its index, so a cached handle here would announce the wrong place.
+     */
+    const items = three();
+    seed(items);
+    list();
+    drawn.length = 0;
+
+    act(() => {
+      useGm.getState().moveSessionItem('c', 0);
+    });
+
+    expect([...drawn].sort()).toEqual([...ids(items)].sort());
+  });
+
+  it('wakes every row when the pointer moves, because that is not a prop', () => {
+    /*
+     * Stated so that nobody later "fixes" it. Each row reads `liveScene` out
+     * of the store for its own shut header - it has to, since each of them
+     * draws whether it is the one on the table - and `React.memo` compares
+     * props, not store reads. So the pointer moving is a repaint of the whole
+     * list on purpose, and the memo is not failing when it happens.
+     */
+    const items = three();
+    seed(items);
+    list();
+    drawn.length = 0;
+
+    act(() => {
+      useGm.setState({ liveScene: 'b' });
+    });
+
+    expect([...drawn].sort()).toEqual([...ids(items)].sort());
+  });
+
+  it('wakes a scoped clock when its own scene is renamed, and no other row', () => {
+    /*
+     * The selector that replaced `useGm((s) => s.session)` has to stay live:
+     * the clock's row does not change when its scene is renamed, so if the
+     * name were read anywhere but out of the store this row would go on
+     * naming a scene that no longer answers to it.
+     */
+    seed([
+      { ...base({ id: 's1', name: 'The dungeon', order: 0 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 's2', name: 'The forest', order: 1 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 'c1', name: 'The ritual', order: 2 }), kind: 'countdown', primary: false, sceneId: 's1', countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+    ]);
+    list();
+    expect(text()).toContain('4/6 · THE DUNGEON');
+    drawn.length = 0;
+
+    act(() => {
+      useGm.getState().patchSessionItem('s1', { name: 'The deep dungeon' });
+    });
+
+    expect(drawn).toEqual(['s1', 'c1']);
+    expect(text()).toContain('4/6 · THE DEEP DUNGEON');
+
+    // And a rename of the scene it does NOT belong to reaches it not at all.
+    drawn.length = 0;
+    act(() => {
+      useGm.getState().patchSessionItem('s2', { name: 'The burnt forest' });
+    });
+    expect(drawn).toEqual(['s2']);
+  });
+
+  it('names the scene a scoped clock belongs to, on the shut header', () => {
+    /*
+     * The list-level half of `session.test.ts`'s owner-name arm: that file
+     * asks `describeItem` for the sentence, and this one asks whether the row
+     * resolves the right name to put in it. A clock whose scope names no row
+     * says the clock and nothing else - the reader hands such a clock back to
+     * the campaign on the next load, and a placeholder for a scene that is not
+     * there would be a second thing to keep in step.
+     */
+    seed([
+      { ...base({ id: 's1', name: 'The dungeon', order: 0 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 'c1', name: 'The ritual', order: 1 }), kind: 'countdown', primary: false, sceneId: 's1', countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c2', name: 'The tide', order: 2 }), kind: 'countdown', primary: false, sceneId: 'gone', countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 'c3', name: 'The flood', order: 3 }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c3', name: 'The flood', kind: 'standard', start: 8, value: 8, notes: '', ...NO_CLOCK_PROSE } },
+    ]);
+    list();
+    const shut = rows().map((r) => r.textContent ?? '');
+    expect(shut[1], 'a scoped clock did not name its scene').toContain('4/6 · THE DUNGEON');
+    expect(shut[2], 'a dangling scope invented a scene').toContain('4/4');
+    expect(shut[2]).not.toContain('·');
+    expect(shut[3], 'a campaign clock named an owner').toContain('8/8');
+    expect(shut[3]).not.toContain('·');
+  });
+
+  it('mounts the row behind a memo, and that memo is this row', () => {
+    /*
+     * Kept, but it is not the proof and must never be read as one: this is
+     * true of a memo that skips nothing. The counts above are the proof. What
+     * this adds is that the seat wraps THIS component and not a copy of it,
+     * which the counts cannot see.
+     */
+    expect((MemoSessionRow as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    expect(MemoSessionRow.type).toBe(SessionRow);
   });
 });

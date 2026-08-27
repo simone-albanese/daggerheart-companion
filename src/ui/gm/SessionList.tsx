@@ -19,6 +19,20 @@
  * content is a campaign that is still being read. So there is a third state
  * between "nothing planned" and the rows, and it says which one it is.
  *
+ * ## The rows are memoised, and one prop had to change first
+ *
+ * This list re-renders whenever anything in `session` changes, because it
+ * subscribes to the array. Every writer in `gmStore` rebuilds that array, so
+ * *any* edit anywhere in the night used to re-render *every* row - and once a
+ * fight lives on a scene row rather than on the board, an HP mark is such an
+ * edit and the whole plan repaints under a thumb that is tapping a number.
+ *
+ * So the rows are `MemoSessionRow`, and every prop they are handed is either a
+ * value or an object that survives a render it had nothing to do with. The one
+ * that was not is the drag handle, and `useStableHandles` below is the whole
+ * of that fix; its docblock carries the argument, because that is where a
+ * reader will be standing when they wonder why a cache is here at all.
+ *
  * ## Scroll
  *
  * This is the scrolling part of the GM screen; the top bar above it and the
@@ -109,11 +123,72 @@
  * `auto`, on any screen, and the other four join this one inside their own
  * scroll instead of the other way round.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { SessionItem } from '../../../shared/campaigns.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
-import { SessionRow } from './SessionRow.tsx';
+import { MemoSessionRow } from './SessionRow.tsx';
 import { useGm, type GmRegion } from './gmStore.ts';
-import { useSessionDrag } from './useSessionDrag.ts';
+import { useSessionDrag, type DragHandleProps, type SessionDrag } from './useSessionDrag.ts';
+
+/** What one row's handle was built from, so the next render can tell it is unchanged. */
+interface HandleSeat {
+  item: SessionItem;
+  index: number;
+  build: SessionDrag['handleProps'];
+  props: DragHandleProps;
+}
+
+/**
+ * The drag handle of every row, rebuilt only for the rows whose own inputs
+ * changed.
+ *
+ * THIS IS WHAT MAKES `MemoSessionRow` WORTH ANYTHING, and without it the memo
+ * would be a lie that still passes a `$$typeof` check. `drag.handleProps` is
+ * `useCallback`'d and stable, but *calling* it mints a fresh object with two
+ * fresh closures in it - so `handle={drag.handleProps(item, i)}` inline in the
+ * list, which is what stood here, handed every row a prop that could never
+ * compare equal to the one it had last time. React's shallow comparison would
+ * have found a difference on every row on every render and skipped nothing.
+ *
+ * A handle is a pure function of exactly three things: the factory, the row,
+ * and the row's index. So it is cached on exactly those three, by row id, and
+ * a hit is returned by reference. `patchSessionItem` rebuilds only the row it
+ * is given, so every other row keeps its object identity and hits;
+ * `moveSessionItem` and `removeSessionItem` restamp `order` on all of them and
+ * therefore miss on all of them, which is correct, because every index moved
+ * and the index is what a handle announces.
+ *
+ * The alternative - hand the row the stable factory and let it build its own
+ * handle from the `item` and `position` it already has - is one prop lighter
+ * and was not taken. `tests/ui/screens.test.tsx` mounts `SessionRow` from a
+ * fixture that hands `handle` an object literal, and that file belongs to
+ * another pass; turning `handle` into a function is a change to it. The cache
+ * is local, it is provably the memoisation of a pure function of three
+ * arguments, and it costs one object per row.
+ *
+ * The map is swapped rather than pruned, so a deleted row's seat is dropped in
+ * the same render its row leaves. Writing it during the render is safe because
+ * it is a cache and nothing else: it cannot change what this function returns,
+ * and a render React throws away costs at most a miss on the next one.
+ */
+function useStableHandles(
+  items: readonly SessionItem[],
+  build: SessionDrag['handleProps'],
+): Array<{ item: SessionItem; handle: DragHandleProps }> {
+  const kept = useRef(new Map<string, HandleSeat>());
+  const held = new Map<string, HandleSeat>();
+  const seated = items.map((item, index) => {
+    const had = kept.current.get(item.id);
+    const seat: HandleSeat =
+      had !== undefined && had.item === item && had.index === index && had.build === build
+        ? had
+        : { item, index, build, props: build(item, index) };
+    held.set(item.id, seat);
+    return { item, handle: seat.props };
+  });
+  kept.current = held;
+  return seated;
+}
 
 export function SessionList({
   phone,
@@ -131,6 +206,7 @@ export function SessionList({
     move: moveSessionItem,
     announce: setAnnouncement,
   });
+  const seated = useStableHandles(session, drag.handleProps);
 
   return (
     <div
@@ -168,14 +244,14 @@ export function SessionList({
           // the DOM node rather than rewriting four of them, so focus - and a
           // held pointer - stay with the row they were on.
           <ol className="stack" style={{ gap: 8, margin: 0, padding: 0 }}>
-            {session.map((item, i) => (
-              <SessionRow
+            {seated.map(({ item, handle }, i) => (
+              <MemoSessionRow
                 key={item.id}
                 item={item}
                 position={i + 1}
                 total={session.length}
                 phone={phone}
-                handle={drag.handleProps(item, i)}
+                handle={handle}
                 lifted={drag.lifted === item.id}
                 onOpenTool={onOpenTool}
               />
