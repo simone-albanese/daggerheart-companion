@@ -127,7 +127,7 @@
  * on the type row, not on the name - and it costs no height, because the
  * header was already two lines tall.
  */
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { SessionItem } from '../../../shared/campaigns.ts';
 import { useApp } from '../../store/state.ts';
 import { NameField } from '../shared/RenameField.tsx';
@@ -221,8 +221,32 @@ export function SessionRow({
   const patch = useGm((s) => s.patchSessionItem);
   const remove = useGm((s) => s.removeSessionItem);
   const move = useGm((s) => s.moveSessionItem);
-  // Only so a scoped countdown's shut row can name the scene it belongs to.
-  const session = useGm((s) => s.session);
+  /*
+   * ONE STRING, never the list it was read out of.
+   *
+   * This used to be `useGm((s) => s.session)`, passed whole to `describeItem`
+   * so that a scoped countdown's shut row could name its scene. That made
+   * every row of the plan a subscriber to the whole session array, which is
+   * the one subscription that cannot be memoised away: `React.memo` compares
+   * props, and a store read is not a prop. So a change to any row - and, once
+   * a fight lives on a scene row, a single HP mark - woke every row in the
+   * list.
+   *
+   * A selector that returns a string or `null` is compared by value, so this
+   * row now wakes for a change to the name of the scene ITS OWN clock belongs
+   * to, and for nothing else. The `find` still runs on every store change; it
+   * is a scan, not a render, and it is skipped entirely on the six arms that
+   * have no scope to resolve.
+   *
+   * `sessionName` and not `row.name`: a scene with no name is called `Scene`
+   * everywhere else in this app, and a clock belonging to one has to say the
+   * same word its owner's own header says.
+   */
+  const ownerName = useGm((s) => {
+    if (item.kind !== 'countdown' || item.sceneId === null) return null;
+    const owner = s.session.find((i) => i.kind === 'scene' && i.id === item.sceneId);
+    return owner === undefined ? null : sessionName(owner);
+  });
   /*
    * Read here and nowhere else in this file, for the shut header's summary.
    * Until now this list never read the pointer at all, which is why two scene
@@ -243,7 +267,7 @@ export function SessionRow({
 
   const open = !item.collapsed;
   const title = sessionTitle(item);
-  const summary = describeItem(item, dataset, index, partySize, session, liveScene);
+  const summary = describeItem(item, dataset, index, partySize, ownerName, liveScene);
   const row = sessionName(item);
 
   return (
@@ -548,3 +572,60 @@ export function SessionRow({
     </li>
   );
 }
+
+/**
+ * The row as the plan list mounts it, and the reason this file has two exports
+ * for one component.
+ *
+ * `SessionList` renders this and never `SessionRow` directly. The property it
+ * buys - *a change to one row does not repaint the others* - is a property of
+ * the LIST and not of a row, which is also why the memo is applied here at the
+ * seam rather than folded into the declaration above.
+ *
+ * It has to be a second name rather than `export const SessionRow =
+ * memo(...)`, and the reason is worth writing down because it will catch the
+ * next person too. `tests/ui/screens.test.tsx` finds every component in
+ * `src/ui` by scanning the source with two regexes - one for `export
+ * function`/`export class`, one for `export const Name = (` - and mounts each
+ * one it finds from a fixture registry, so that no component ships on a render
+ * path no test has executed. `export const Name = memo(` matches neither.
+ * `SessionRow` would vanish from that scan and take its own fixture down with
+ * it, as a fixture for a component that no longer exists. Checked, not
+ * assumed: both patterns were run over both spellings. So the declaration
+ * above stays a plain `export function`, mounted by that harness exactly as it
+ * is today, and the memoised seat is this - which the scan does not see
+ * either, and does not need to, because mounting the list mounts it.
+ *
+ * ## What makes it bite, prop by prop
+ *
+ * A memo whose props are rebuilt on every render is a memo that never skips a
+ * render, and it passes every check that only asks whether `memo` was called.
+ * So all seven were audited, and one of them was exactly that defect:
+ *
+ *   - `item` - the row's own object out of `session`. `patchSessionItem`
+ *     rebuilds the one row it is given and passes the rest through its `.map`
+ *     untouched, so a row nobody edited keeps its identity. Not every writer
+ *     does, and must not: `moveSessionItem` and `removeSessionItem` restamp
+ *     `order` on all of them, because every row's place changed. This is the
+ *     prop the whole memo turns on;
+ *   - `position`, `total`, `phone`, `lifted` - a number, a number, a boolean
+ *     and a boolean, compared by value;
+ *   - `onOpenTool` - `Gm.tsx`'s `openTool`, `useCallback`'d on `[setRegion]`,
+ *     and a zustand action's identity never changes. Stable;
+ *   - `handle` - **was a fresh object literal on every render of the list.**
+ *     `SessionList` called `drag.handleProps(item, i)` inline, and that call
+ *     builds a new object with two new closures in it every time, so a shallow
+ *     comparison could never find two of them equal and this memo would have
+ *     skipped precisely nothing. `SessionList.tsx` now hands over the same
+ *     object for as long as its inputs are the same object; the argument for
+ *     how is there, beside the cache that does it.
+ *
+ * None of that gates a STORE read. Every row subscribes to `liveScene`, so the
+ * pointer moving still wakes all of them - correctly, since each of them is
+ * drawing whether it is the one on the table. What the memo removes is the
+ * repaint that carries no news.
+ *
+ * `tests/gm/sessionList.test.tsx` holds it by counting renders, not by asking
+ * whether `memo` was called.
+ */
+export const MemoSessionRow = memo(SessionRow);

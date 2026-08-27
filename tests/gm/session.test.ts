@@ -296,6 +296,103 @@ describe('what a shut row says about itself', () => {
     expect(describe_(at(0))).toBe('SPENT');
   });
 
+  /*
+   * The fifth parameter. It was the whole `session` array, and `describeItem`
+   * did the lookup itself; it is the resolved name now, so that `SessionRow`
+   * can select one string out of the store instead of subscribing to the list
+   * - see the parameter's own docblock, which overturns the argument that put
+   * the array there.
+   *
+   * These ask the function directly rather than through a mounted row, which
+   * is what the whole of this file is for: the sentence is this module's, and
+   * the lookup that feeds it is `sessionList.test.tsx`'s.
+   */
+  const scoped = (value: number, ownerName: string | null): string =>
+    describeItem(
+      {
+        ...base(),
+        kind: 'countdown',
+        primary: false,
+        sceneId: 's1',
+        countdown: { id: 'c', name: 'The ritual', kind: 'standard', start: 6, value, notes: '', ...NO_CLOCK_PROSE },
+      },
+      dataset,
+      index,
+      PARTY,
+      ownerName,
+    );
+
+  it('names the scene a scoped countdown belongs to, after the clock', () => {
+    // A shut plan that did not say so would let a GM look at a clock they
+    // cannot find on the glass with nothing anywhere to explain why.
+    expect(scoped(4, 'The dungeon')).toBe('4/6 · THE DUNGEON');
+    // And the word for zero does not stop being the word because of a scope.
+    expect(scoped(0, 'The dungeon')).toBe('SPENT · THE DUNGEON');
+  });
+
+  it('says the clock and nothing else when there is no scene to name', () => {
+    /*
+     * Null arrives from two places and they share this branch on purpose: a
+     * clock the campaign owns, and a scope pointing at a row that is gone. The
+     * row says the same thing about both, because a placeholder for a scene
+     * that is not there would be a second thing to keep in step.
+     */
+    expect(scoped(4, null)).toBe('4/6');
+    expect(scoped(0, null)).toBe('SPENT');
+  });
+
+  it('prints the name it was handed rather than looking one up', () => {
+    /*
+     * The point of the parameter change, said as behaviour. The name is not
+     * required to be a row's, is not checked against the dataset, and is not
+     * re-derived here - so a caller that resolves `Scene` for a scene with no
+     * name gets `SCENE`, which is the word that scene's own header draws.
+     */
+    expect(scoped(4, 'Scene')).toBe('4/6 · SCENE');
+    expect(scoped(4, 'a room in no dataset')).toBe('4/6 · A ROOM IN NO DATASET');
+  });
+
+  it('is read by the countdown arm and by no other', () => {
+    /*
+     * Every other arm, not a sample of them. The title claims a property over
+     * the whole switch, and it used to ask two of the six - so appending the
+     * countdown arm's ` · ${ownerName}` to `note`, or to `url`, or to the arm
+     * this app keeps precisely because it cannot read it, was a change no test
+     * in this repo objected to.
+     *
+     * `SessionRow`'s selector returns `null` for everything that is not a
+     * countdown, so nothing here is a shipped risk today. It is the sentence
+     * that is at risk: the day a second arm is given a name to say, this is
+     * where the decision has to be made deliberately instead of arriving.
+     */
+    const others: SessionItem[] = [
+      { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
+      { ...base(), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: ADJUSTMENTS, combatants: [] },
+      { ...base(), kind: 'link', target: { kind: 'rule', ref: rule.id } },
+      { ...base(), kind: 'url', href: 'https://a.example/' },
+      { ...base(), kind: 'note', note: [{ type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo', bold: false, italic: false }] }] },
+      { ...base(), kind: 'unreadable', why: 'this version of the app has no "photo" item', raw: '{"kind":"photo"}' },
+    ];
+
+    /*
+     * The set is asserted rather than trusted. `SESSION_KIND_LABEL` is typed
+     * `Record<SessionItem['kind'], string>`, so its keys are the whole union -
+     * an eighth kind arriving fails here rather than leaving the title one arm
+     * short in silence. `SESSION_ITEM_KINDS` would not do: it is what ADD
+     * offers, which is five of the seven.
+     */
+    expect([...others.map((i) => i.kind), 'countdown'].sort()).toEqual(
+      Object.keys(SESSION_KIND_LABEL).sort(),
+    );
+
+    for (const item of others) {
+      expect(
+        describeItem(item, dataset, index, PARTY, 'The dungeon'),
+        `the ${item.kind} arm read a name that is not its own`,
+      ).toBe(describeItem(item, dataset, index, PARTY));
+    }
+  });
+
   it('says an unreadable row is kept, and puts none of its bytes in the summary', () => {
     const raw = '{"kind":"photo","blob":"AAAA"}';
     const item: SessionItem = { ...base(), kind: 'unreadable', why: 'this version of the app has no "photo" item', raw };

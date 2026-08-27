@@ -171,11 +171,40 @@ per bump, in order, and none of them is a repair»*.
 ### Cosa è stato progettato e rifiutato
 
 **La rissa viva per riga** — cancellare `GmBoard.combatants` e darla alla riga. È il modello più
-pulito e non si spedisce: **~716 test**, il primo convertitore non puro di una catena il cui
+pulito e non si spedisce: **~716 test** *(cifra superata — vedi il riquadro qui sotto)*, il primo
+convertitore non puro di una catena il cui
 docblock dice che i convertitori non riparano, l'archivio che registrerebbe per sempre risse mai
 finite come «cosa è successo», e i tap del combattimento che scrivono nello stesso array che il
 drag riordina. La sua stessa sezione di ripiego dà le identiche tre frasi del §1 a un terzo del
 costo.
+
+> **SUPERATO — 27 agosto 2026, corsia A4.** Il **~716** non l'ho corretto ricopiandolo da un altro
+> documento: l'ho **rimisurato** io, sul ramo `lane-a4-row-memo` e con il Node del repo
+> (v24.19.0, `. ./env.sh`), con i test che quella corsia aggiunge già dentro il conteggio. Tre
+> numeri, e nessuno dei tre è 716.
+>
+> - **La suite intera: 161 file, 4197 test** — `npx vitest run`, che riporta
+>   `Test Files 160 passed | 1 skipped (161)` e `Tests 4190 passed | 7 skipped (4197)`.
+> - **Il raggio vero di questo modello: 27 file, 1167 test.** Sono i file di test che nominano
+>   `combatants` o `liveScene`, elencati con
+>   `{ grep -rl combatants tests --include='*.test.ts' --include='*.test.tsx'; grep -rl liveScene
+>   tests --include='*.test.ts' --include='*.test.tsx'; } | sort -u`, e contati passando quei 27
+>   percorsi a `npx vitest run`.
+> - **Separati: 25** nominano `combatants`, **24** `liveScene`.
+>
+> Chi ricontrolla su un albero diverso otterrà numeri diversi e va benissimo: quello che conta è
+> che sono comandi, non stime, e che i comandi sono qui sopra.
+>
+> Il 716 non corrisponde a nessuna di queste quantità. Altrove nell'albero compare solo come
+> *citazione di questa riga* — `HANDOFF-2026-08-27-parallelo.md` e
+> `PIANO-B-SCENE-PER-RIGA-2026-08-27.md`, entrambi per dire che non è supportato da niente — quindi
+> non c'è una seconda misura da cui venisse: era una stima scritta come se fosse una misura, ed è
+> esattamente la cosa che questo repo ha già pagato due volte, un numero ereditato che nessuno ha
+> ricontato. **Chi cita di nuovo il costo in test di questo modello rimisuri, oppure non lo citi.**
+>
+> **E il modello che questo paragrafo respinge è quello che si sta costruendo**, con le altre tre
+> obiezioni risposte una per una: `docs/handoff/PIANO-B-SCENE-PER-RIGA-2026-08-27.md`. Il costo in
+> test resta una ragione per fare la cosa in un commit solo, non per non farla.
 
 **RESUME / il parcheggio delle scene** batte sé stesso, e ha ragione: una rissa non è
 `SceneCombatant[]`, è anche PF, Stress e Speranza dei giocatori, che vivono in `src/store/state.ts`
