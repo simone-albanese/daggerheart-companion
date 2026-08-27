@@ -24,7 +24,9 @@ import type {
   Trait,
   Weapon,
 } from '@shared/types.ts';
+import type { SessionItem } from '@shared/campaigns.ts';
 import { MAX_LOADOUT, newCharacter, type DerivedStats } from '@engine/character.ts';
+import { makeCombatant } from '@engine/encounter.ts';
 import { emptyLedger } from '@engine/modifiers.ts';
 import type { Rng } from '@engine/dice.ts';
 
@@ -268,3 +270,104 @@ export const NO_CLOCK_PROSE = {
   owner: '',
   beats: [] as string[],
 };
+
+// ---------------------------------------------------------------------------
+// The scene row, when the fight is IN it
+// ---------------------------------------------------------------------------
+
+/**
+ * The one arm of `SessionItem` that holds a fight, given a name.
+ *
+ * `Extract<SessionItem, { kind: 'scene' }>` written out at a call site is
+ * unreadable, and written out twice it is two things that can drift.
+ */
+export type SceneRow = Extract<SessionItem, { kind: 'scene' }>;
+
+/**
+ * One body on the table, as the app itself would have minted it.
+ *
+ * The whole object is `makeCombatant`'s, with the id renamed. Not a nine-field
+ * literal copied out of `src/engine/encounter.ts`: `makeCombatant` is the only
+ * thing in the app that ever mints a combatant, so a fixture body it could not
+ * have produced is a fiction, and one that reimplements its derivation goes on
+ * passing after the derivation changes. Deriving it here means it cannot.
+ *
+ * The id is positional and is deliberately not reachable through the patch.
+ * `campaignRoundTrip.test.ts`, `names.test.tsx` and `sceneSwitcher.test.tsx`
+ * each hand-build the same nine fields to get a body they can name and point
+ * at, so the id is the argument; and two ways to set one field is one too many.
+ *
+ * Everything else is the patch's, including the fields the app never writes by
+ * hand: `hp.marked`, `spotlighted`, `minionsRemaining` and an `adversaryRef`
+ * naming nothing, which is how a test asks for a fight already in progress or
+ * for a body this dataset cannot resolve.
+ */
+export const combatant = (
+  id: string,
+  p: Partial<Omit<SceneCombatant, 'id'>> = {},
+): SceneCombatant => ({
+  ...makeCombatant(makeAdversary(), 0, 1),
+  id,
+  ...p,
+});
+
+/**
+ * A scene row that IS the fight, minted whole rather than typed out again.
+ *
+ * This and `NO_FIGHT` are the two halves of `CAMPAIGN_SCHEMA_VERSION` 3, and
+ * they are not the same shape of thing. `NO_FIGHT` is a *spread*: the three
+ * fields a row carries because the schema says it must, dropped into a literal
+ * by a test whose subject is a name and a place - it reads as *"no fight
+ * here"*. This is a *constructor*: the caller has bodies in hand and the row is
+ * where they live, so the fight is the argument and everything else is
+ * default - *"this row IS the fight"*. A seed that spreads `NO_FIGHT` and then
+ * writes `combatants:` over the top has said two contradictory things about
+ * itself in three lines; it wants this instead.
+ *
+ * One helper rather than a seed per file, because the seeds are about to be
+ * rewritten roughly a dozen at a time. Moving the GM's live fight off the board
+ * and onto the row it is fought in turns every `setState({ combatants: [...] })`
+ * in `tests/gm/` into a session row. A dozen rows hand-built from memory is a
+ * dozen chances to write a shape nothing can reach - and every one of them
+ * typechecks, because a row is a record of plain fields and a *plausible* one
+ * is indistinguishable from a reachable one until something reads it. Behind
+ * one function the dozen either all move or all fail to compile, once, here.
+ *
+ * That is also why `opts` is `Partial<Omit<SceneRow, …>>` rather than a hand-
+ * listed six: when the scene arm gains a seventh field, the object literal
+ * below stops compiling until somebody gives it a default, which is exactly the
+ * moment to decide what an unstated one means.
+ *
+ * Every array it hands back is its own. `NO_FIGHT` is a const spread, so the
+ * `[]` in one row and the `[]` in the next are the same array - harmless for a
+ * row that is empty by definition, and the wrong property for a row built to be
+ * filled and then mutated.
+ *
+ * Two defaults are choices rather than emptiness. `collapsed: false`, because a
+ * shut row draws only its header and the half of a row that resolves refs
+ * against the dataset - the half that can throw - is the open one.
+ * `tests/ui/screens.test.tsx` chose `collapsed: false` for its own scene
+ * fixture and gives that reason. And `environmentRef: null`, because this
+ * file's header promises every value in it is invented: a default that named a
+ * real place would be an SRD id living in the repo, and a test that means to
+ * pin one passes it.
+ */
+export const sceneWith = (
+  id: string,
+  combatants: SceneCombatant[],
+  opts: Partial<Omit<SceneRow, 'kind' | 'id' | 'combatants'>> = {},
+): SceneRow => ({
+  id,
+  kind: 'scene',
+  name: 'A scene',
+  order: 0,
+  collapsed: false,
+  environmentRef: null,
+  roster: [],
+  adjustments: { easier: false, harder: false, damageBump: false },
+  ...opts,
+  // Last, and copied. Last so no `opts` a caller widened past its type can
+  // contradict the argument the helper is named for; copied so two rows seeded
+  // from one array are two fights rather than one shared by both.
+  combatants: [...combatants],
+});
