@@ -4,7 +4,9 @@
  * backup and does not is worse off than one who knows they have none.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Campaign } from '../../shared/campaigns.ts';
 import type { Character } from '../../shared/types.ts';
+import type { CampaignLibrary } from '../../src/store/campaigns.ts';
 import { DEFAULT_PREFS, type Prefs } from '../../src/store/prefs.ts';
 import {
   INACTIVE_DAYS,
@@ -32,9 +34,20 @@ const daysAgo = (n: number): string => new Date(NOW.getTime() - n * DAY).toISOSt
 
 let prefs: Prefs;
 let library: Character[];
+/** The campaigns this device has. Empty in every test that predates them. */
+let tables: Campaign[];
+/** Records a newer build wrote: on the disk, never in the backup. */
+let held: CampaignLibrary['quarantined'];
 
 const deps = (patch: Partial<BackupDeps> = {}): Partial<BackupDeps> => ({
   listCharacters: () => Promise.resolve(library),
+  // Both campaign doors are injected, and they are two doors on purpose:
+  // `liveCampaigns` is what a backup is written from (memory, through the
+  // publish seam) and `listCampaigns` is what the seven-day check reads (the
+  // disk, which can throw, which is its only evidence).
+  liveCampaigns: () => Promise.resolve({ campaigns: tables, quarantined: held }),
+  listCampaigns: () =>
+    Promise.resolve({ campaigns: tables, quarantined: held, repaired: [], warnings: [] }),
   readPrefs: () => prefs,
   writePrefs: (p) => {
     prefs = { ...prefs, ...p };
@@ -43,19 +56,31 @@ const deps = (patch: Partial<BackupDeps> = {}): Partial<BackupDeps> => ({
   ...patch,
 });
 
-/** A folder handle that records what was written, like the real one would. */
+/**
+ * A folder handle that records what was written, like the real one would.
+ *
+ * Keyed on the **file name**, and that is not a tidy-up. This fake used to take
+ * no arguments at all and put every write under `'latest'`, so it could not tell
+ * two files apart - which was invisible while exactly one file was ever written
+ * and makes every multi-file assertion vacuous the moment a second one is. The
+ * run now writes one `.dhbackup` and one `.dhcampaign` per changed campaign, and
+ * a fake that conflated them would happily report a campaign file that had been
+ * overwritten by the next campaign as verified.
+ *
+ * `latest` is kept as a live alias of the last write, so the tests that predate
+ * the campaign leg keep asking the question they were written to ask.
+ */
 function fakeFolder(options: { fail?: boolean } = {}): Map<string, string> {
   const files = new Map<string, string>();
   const handle = {
     name: 'Daggerheart',
-    getFileHandle: () => {
+    getFileHandle: (name: string) => {
       if (options.fail === true) return Promise.reject(new Error('the folder is read-only'));
       return Promise.resolve({
         createWritable: () =>
           Promise.resolve({
             write: (text: string) => {
-              // The real API is told the file name up front; the fake records
-              // whatever the last write was, which is all these tests need.
+              files.set(name, text);
               files.set('latest', text);
               return Promise.resolve();
             },
@@ -64,7 +89,7 @@ function fakeFolder(options: { fail?: boolean } = {}): Map<string, string> {
         // `writeIntoDirectory` opens the file again and compares: an
         // unverified backup is not counted as one. A fake that could not be
         // read back would report every backup as a failure.
-        getFile: () => Promise.resolve({ text: () => Promise.resolve(files.get('latest') ?? '') }),
+        getFile: () => Promise.resolve({ text: () => Promise.resolve(files.get(name) ?? '') }),
       });
     },
   };
@@ -75,6 +100,8 @@ function fakeFolder(options: { fail?: boolean } = {}): Map<string, string> {
 beforeEach(() => {
   prefs = { ...DEFAULT_PREFS };
   library = [wizard()];
+  tables = [];
+  held = [];
   vi.stubGlobal('localStorage', new MemoryStorage());
 });
 
@@ -123,11 +150,14 @@ describe('the indicator', () => {
 });
 
 describe('running a backup', () => {
-  it('does nothing, loudly, when there is nothing to save', async () => {
+  it('does nothing, loudly, when there is nothing at all to save', async () => {
+    // Both stores empty, not just the library. A GM who runs the table and
+    // plays nobody is a normal user of this app, and the sentence that named
+    // characters alone was true and beside the point for them.
     library = [];
     const outcome = await runBackup('manual', {}, deps());
     expect(outcome).toMatchObject({ wrote: false, route: 'none' });
-    expect(outcome.reason).toMatch(/no characters to back up/);
+    expect(outcome.reason).toMatch(/nothing to back up yet/);
   });
 
   it('will not export automatically without a folder, and says why', async () => {

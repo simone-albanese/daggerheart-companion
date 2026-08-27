@@ -396,7 +396,16 @@ function Shell(): React.JSX.Element {
             }}
           >
             <span className="t-label" style={{ color: 'var(--text)' }}>
-              {integrity.missingIds.length > 0 ? 'SOMETHING IS MISSING' : 'THE LIBRARY DID NOT OPEN'}
+              {/*
+                Campaigns count towards this heading, or a device that lost only
+                its campaigns is headed "THE LIBRARY DID NOT OPEN" - which names
+                the wrong problem and points at the wrong store. The sentence
+                under it is `integrity.message`, verbatim, and it already says
+                which of the two it is.
+              */}
+              {integrity.missingIds.length + integrity.missingCampaignIds.length > 0
+                ? 'SOMETHING IS MISSING'
+                : 'THE LIBRARY DID NOT OPEN'}
             </span>
             <span className="t-dense" style={{ color: 'var(--text-2)' }}>
               {integrity.message}
@@ -436,6 +445,40 @@ function Shell(): React.JSX.Element {
                   }}
                 >
                   RESTORE FROM A BACKUP
+                </button>
+              )}
+              {/*
+                A second door, and only when there is a second problem.
+                RESTORE FROM A BACKUP lands on Settings, which knows about
+                characters and nothing at all about campaigns - its import
+                offers `.dhchar` and `.dhbackup` and that is deliberate. The GM
+                section is where a campaign file is named, saved and opened, so
+                this points at the screen that owns them rather than growing a
+                second copy of it in the shell.
+
+                Behind `prefs.gmSection` because `allowedScreen` sends 'gm' back
+                to 'play' when that switch is off - a chip that quietly landed
+                somewhere else is the defect the paragraph above was written
+                about. `setRoutedByAlert` for the same reason it is set there:
+                without it `<Onboarding/>` is drawn instead of all five screens
+                and the tap does nothing.
+              */}
+              {integrity.missingCampaignIds.length > 0 && prefs.gmSection && (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    setRoutedByAlert(true);
+                    setScreen('gm');
+                  }}
+                  style={{
+                    flex: 'none',
+                    minHeight: 'var(--control)',
+                    color: 'var(--text)',
+                    background: 'var(--raised)',
+                  }}
+                >
+                  OPEN THE GM TOOLS
                 </button>
               )}
               {/*

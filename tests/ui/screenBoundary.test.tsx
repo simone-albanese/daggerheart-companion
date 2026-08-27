@@ -147,6 +147,10 @@ describe('the way out of a screen that will not render', () => {
       route: 'download',
       fileName: 'daggerheart-2026-08-16.json',
       characters: 2,
+      campaigns: 0,
+      campaignNames: [],
+      notReadable: [],
+      notice: null,
       reason: null,
       at: '2026-08-16T10:00:00.000Z',
     });
@@ -176,7 +180,11 @@ describe('the way out of a screen that will not render', () => {
       route: 'none',
       fileName: null,
       characters: 0,
-      reason: 'There are no characters to back up yet.',
+      campaigns: 0,
+      campaignNames: [],
+      notReadable: [],
+      notice: null,
+      reason: 'There is nothing to back up yet.',
       at: null,
     });
 
@@ -190,7 +198,7 @@ describe('the way out of a screen that will not render', () => {
     });
 
     expect(shown(), 'a backup that wrote nothing was reported as a saved file').toContain(
-      'There are no characters to back up yet.',
+      'There is nothing to back up yet.',
     );
     expect(shown()).not.toMatch(/Saved /);
   });

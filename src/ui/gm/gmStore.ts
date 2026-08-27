@@ -64,7 +64,9 @@ import {
 } from '../../engine/encounter.ts';
 import { exportCampaign } from '../../transfer/campaignFile.ts';
 import type { SaveOptions, SaveResult } from '../../transfer/fileIo.ts';
+import { noteCampaignCopy } from '../../store/backup.ts';
 import { deleteCampaign, putCampaign, readCampaigns } from '../../store/campaigns.ts';
+import { publishCampaignSource, type CampaignSnapshot } from '../../store/campaignSource.ts';
 import { FIRST_CAMPAIGN_NAME, migrateLegacyGmState } from '../../store/campaignMigration.ts';
 import { CAMPAIGN_NAMES, freeName } from '../../store/names.ts';
 import type { QuarantinedRecord } from '../../store/db.ts';
@@ -426,6 +428,58 @@ export function flushGm(): Promise<void> {
   }
   queue = queue.then(writeAll, writeAll);
   return queue;
+}
+
+/**
+ * Every campaign as it stands right now, with the live board folded into the
+ * open one, and the records this build must not touch named beside them.
+ *
+ * This is what the automatic backup writes, and it is memory rather than the
+ * disk for one reason that is the whole design: `writeActive` updates
+ * `state.campaigns` only inside the `try` *after* `putCampaign` resolves, and on
+ * a throw deliberately leaves `dirty` true. So on the evening writes are failing
+ * - a full disk, an older build refusing a newer record, which is exactly the
+ * work about to be lost - a flush cannot make the disk fresh, and a
+ * disk-sourced backup would write the stale record, verify it happily (it is a
+ * valid `.dhcampaign` of the wrong record) and stamp "last backup: today" over
+ * an evening that exists nowhere.
+ *
+ * It lives here and can live nowhere else: `gather` and `dirty` are both
+ * module-private, and `backup.ts` may not import this file. It is published
+ * through `store/campaignSource.ts` instead, on the line beside the subscribe
+ * at the end of this file.
+ *
+ * **`c.updatedAt`, not a fresh stamp, and that is not a shortcut.**
+ * `writeActive` stamps `new Date().toISOString()` at the moment the record
+ * actually reaches the disk. Inventing a different time here would put a time
+ * in the backup file that no write ever happened at. It is also what forces the
+ * backup's skip gate to be `campaignChecksum` rather than `updatedAt`: a
+ * gathered dirty snapshot keeps that field still on purpose, so an `updatedAt`
+ * fingerprint would be blind to precisely the board the GM has been editing.
+ */
+export function snapshotCampaigns(): CampaignSnapshot | null {
+  const state = useGm.getState();
+  /*
+   * Null, not an empty list, while this store has nothing to say.
+   *
+   * `hydrateGm` sets `hydrated: true` on a read that *failed* as well as on one
+   * that worked - deliberately, so the screen stops waiting and says what went
+   * wrong - and leaves `campaigns` empty with `writeRetry: 'read'`. An empty
+   * list handed to the backup there would read as "this device has no
+   * campaigns" and quietly take every one of them out of the folder, on exactly
+   * the launch where storage is already misbehaving. The seam falls back to the
+   * disk instead.
+   *
+   * Only `'read'`. A `'write'` failure is the case this whole function exists
+   * for: the disk is stale and memory is the only copy of the evening.
+   */
+  if (!state.hydrated || state.writeRetry === 'read') return null;
+  return {
+    campaigns: state.campaigns.map((c) =>
+      c.id === state.activeCampaignId && dirty ? gather(c, state, c.updatedAt) : c,
+    ),
+    quarantined: state.quarantined.map(({ id, name }) => ({ id, name })),
+  };
 }
 
 /**
@@ -1277,7 +1331,20 @@ export const useGm = create<GmState>((set, get) => {
           reason: 'There is no campaign open to export.',
         };
       }
-      return exportCampaign(campaign, options);
+      const result = await exportCampaign(campaign, options);
+      /*
+       * A copy the GM made by hand, recorded so the backup indicator can stop
+       * lying to them - and recorded as a *copy*, never as a backup.
+       *
+       * `noteCampaignCopy` writes `{lastCopyAt, route}` and deliberately not the
+       * checksum that suppresses a folder write: `saveTextFile` reads nothing
+       * back, so a `download` or a `share` means the click happened, not that a
+       * file exists. On iOS, where there is no folder picker and no automatic
+       * backup at all, this is the only evidence the app will ever have that a
+       * campaign got out of it.
+       */
+      if (result.ok && result.route !== null) noteCampaignCopy(campaign.id, result.route);
+      return result;
     },
 
     async removeCampaign(id) {
@@ -1369,6 +1436,23 @@ export const useGm = create<GmState>((set, get) => {
     removePartyMember: (id) => commit({ party: get().party.filter((m) => m.id !== id) }),
   };
 });
+
+/*
+ * The freshest campaigns, in the slot `backup.ts` reads them from.
+ *
+ * Here rather than in `backupDeps.ts` because the edge only runs in this
+ * direction: this file starts a campaign read on its last line, and a static
+ * import of it from the backup deps - which `App.tsx`, `Settings.tsx` and both
+ * error boundaries pull into the first paint - would drag the lazy GM chunk and
+ * that read into the launch of every player who never opens this screen.
+ * `publishCampaignAlert` below is the same inversion for the other half.
+ *
+ * Unconditional: the seam falls back to the disk while it is empty, so the
+ * campaigns of a device whose GM screen was never opened are still backed up.
+ * What this line buys is that once the screen *has* been opened, the backup
+ * reads the board rather than the last write that succeeded.
+ */
+publishCampaignSource(snapshotCampaigns);
 
 /*
  * The failure, forwarded to the shell, from one place.
