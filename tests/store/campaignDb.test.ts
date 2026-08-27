@@ -472,3 +472,103 @@ describe('nothing here can reach the characters store', () => {
     expect(await database.count('characters')).toBe(1);
   });
 });
+
+/**
+ * `addCampaign`, which is the only way a file gets in.
+ *
+ * The whole import path rests on one property of this function: an occupied
+ * key is answered by IndexedDB *inside* the transaction, so there is no
+ * read-then-write window and no branch anywhere that can decide to overwrite.
+ * The three cases below are the three things it must never confuse - a free
+ * key, a key held by a record this build wrote, and a key held by a record it
+ * cannot read at all - plus the one failure that must not be mistaken for any
+ * of them.
+ */
+describe('adding a campaign only where nothing is', () => {
+  it('writes on a free id and says so', async () => {
+    const c = make({ name: 'Arriving' });
+    expect(await store.addCampaign(c)).toBe('added');
+    expect((await store.getCampaign(c.id))?.name).toBe('Arriving');
+  });
+
+  it('refuses an occupied id and leaves the occupant byte for byte', async () => {
+    // The assertion the import's whole design is for. `put` in this seat
+    // typechecks, returns, and destroys a season.
+    const mine = make({ name: 'A season of notes', fear: 9 });
+    await store.putCampaign(mine);
+    const before = JSON.stringify(await (await db.db()).get('campaigns', mine.id));
+
+    expect(await store.addCampaign({ ...mine, name: 'Arriving', fear: 0 })).toBe('taken');
+
+    expect(JSON.stringify(await (await db.db()).get('campaigns', mine.id))).toBe(before);
+    expect((await store.readCampaigns()).campaigns).toHaveLength(1);
+  });
+
+  it('refuses an id held by a record a newer build wrote, without reading it', async () => {
+    /*
+     * `readCampaigns` hides this record from every list, so `state.campaigns`
+     * cannot see it and the preview cannot compare against it - and `add`
+     * refuses it anyway, because it sees raw keys. `putCampaign` answers this
+     * case with a throw; `add` answers it with the outcome the import already
+     * knows how to handle.
+     */
+    const c = make({ name: 'Mine' });
+    await writeRaw({ ...c, schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1, name: 'Theirs', fear: 99 });
+
+    expect(await store.addCampaign(c)).toBe('taken');
+
+    const stored = (await (await db.db()).get('campaigns', c.id)) as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(stored['name']).toBe('Theirs');
+    expect(stored['fear']).toBe(99);
+    expect(stored['schemaVersion']).toBe(CAMPAIGN_SCHEMA_VERSION + 1);
+  });
+
+  it('throws a write failure that is not a collision rather than calling it one', async () => {
+    /*
+     * Kills `catch { return 'taken' }`. A `DataCloneError` reported as `'taken'`
+     * would send the import round its retry loop three times and then tell the
+     * GM their id was taken three times over - a sentence about a collision
+     * that never happened, for a record that never reached the disk.
+     */
+    const c = make({ name: 'Uncloneable' });
+    const impossible = { ...c, board: { ...c.board, onward: () => 1 } } as unknown as Campaign;
+
+    await expect(store.addCampaign(impossible)).rejects.toThrow(/could not be cloned/);
+    await expect(store.addCampaign(impossible)).rejects.toHaveProperty('name', 'DataCloneError');
+    expect(await store.getCampaign(c.id)).toBeNull();
+  });
+
+  it('emits no unhandled rejection on the refusal it is built around', async () => {
+    // The same AbortError trap `putCampaign` fell into: a refused `add` rolls
+    // the transaction back, and the rollback rejects `tx.done` into nobody's
+    // hands unless both absorptions stay.
+    const unhandled: unknown[] = [];
+    const onUnhandled = (e: PromiseRejectionEvent | { reason?: unknown }): void => {
+      unhandled.push(e);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const c = make({ name: 'Mine' });
+      await store.putCampaign(c);
+      expect(await store.addCampaign(c)).toBe('taken');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('leaves the store readable on the next line, so a caller is not racing the rollback', async () => {
+    // The `await tx.done.catch(...)` inside the catch is what makes the
+    // rollback *finish* before `'taken'` is returned. Without it this read can
+    // land mid-abort.
+    const mine = make({ name: 'Held' });
+    await store.putCampaign(mine);
+
+    expect(await store.addCampaign({ ...mine, name: 'Arriving' })).toBe('taken');
+    expect((await store.readCampaigns()).campaigns.map((c) => c.name)).toEqual(['Held']);
+  });
+});
