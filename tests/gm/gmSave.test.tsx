@@ -14,7 +14,7 @@
  * *becomes* of the record; this file is about what is said about it.
  */
 import 'fake-indexeddb/auto';
-import { act, createElement } from 'react';
+import { StrictMode, act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -346,6 +346,57 @@ describe('an id this tab still holds that the disk has lost', () => {
 
     expect(useGm.getState().campaigns.filter((c) => c.id === open.id)).toHaveLength(1);
     expect(useGm.getState().campaigns[0]?.name).toBe('A table from elsewhere');
+  });
+});
+
+describe('the door under StrictMode, which is every dev build', () => {
+  it('reaches the preview instead of freezing on READING THE FILE…', async () => {
+    /*
+     * `main.tsx` is verbatim `createRoot(root).render(<StrictMode><App/></
+     * StrictMode>)`, and `SaveSheet` renders `TakeIn` inside it - so this is not
+     * a contrived wrapper, it is the only way the door is ever mounted in
+     * `npm run dev`.
+     *
+     * StrictMode mounts, unmounts and remounts on the first render. `alive` is
+     * a ref rather than a closure, so it outlives all three: without the re-arm
+     * the first cleanup sets it false for the life of the component, `settle`
+     * stops doing anything, and `open()` - which sets `reading` directly and
+     * leaves it only through `settle` - strands the door on READING THE FILE…,
+     * disabled, with nothing able to take it out again.
+     *
+     * `useRetry.ts` argues no test of this is possible because "jsdom does not
+     * reproduce the double mount here". It does; this is the measurement.
+     */
+    const seen: string[] = [];
+    function Probe(): null {
+      useEffect(() => {
+        seen.push('setup');
+        return () => {
+          seen.push('cleanup');
+        };
+      }, []);
+      return null;
+    }
+    act(() => {
+      root.render(createElement(StrictMode, null, createElement(Probe)));
+    });
+    expect(seen, 'this jsdom does not double-mount, so the case below proves nothing').toEqual([
+      'setup',
+      'cleanup',
+      'setup',
+    ]);
+
+    picks(serializeCampaign(arriving('c-strict-1'), EXPORTED_AT));
+    act(() => {
+      root.render(createElement(StrictMode, null, createElement(SaveSheet)));
+    });
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+
+    expect(text()).toContain('Nothing on this device has that campaign');
+    expect(named('BRING IT IN').disabled).toBe(false);
   });
 });
 

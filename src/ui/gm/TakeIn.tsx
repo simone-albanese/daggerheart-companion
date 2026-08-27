@@ -317,14 +317,27 @@ export function TakeIn(): React.JSX.Element {
    * on a slow disk. `alive` is the same guard `SaveSheet`'s flush effect keeps,
    * in a ref rather than a closure because these start from an event and not
    * from the effect.
+   *
+   * **THE RE-ARM IS THE PRICE OF THE REF, AND IT IS NOT OPTIONAL.** Every
+   * closure-scoped version of this guard in `src/` gets a fresh binding on each
+   * effect setup, so StrictMode's mount-unmount-remount costs it nothing. A ref
+   * outlives all three: without the assignment below, the first cleanup sets it
+   * false for the life of the component, `settle` stops doing anything, and the
+   * door is stranded on READING THE FILE… - disabled, with every exit from
+   * `reading` routed through `settle` and nothing able to take it out again.
+   * `main.tsx` really does wrap the tree in StrictMode, so that is `npm run dev`
+   * as shipped, which is the only surface the 393x852 measurement pass this file
+   * still owes can happen on. `useRetry.ts` reached the same shape first; its
+   * docblock says jsdom does not reproduce the double mount, and the test beside
+   * this one measures that it does.
    */
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const settle = (next: Stage): void => {
     if (alive.current) setStage(next);
   };
