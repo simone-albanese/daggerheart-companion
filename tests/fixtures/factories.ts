@@ -282,33 +282,47 @@ export const NO_CLOCK_PROSE = {
  * unreadable, and written out twice it is two things that can drift.
  */
 export type SceneRow = Extract<SessionItem, { kind: 'scene' }>;
-
 /**
  * One body on the table, as the app itself would have minted it.
  *
  * The whole object is `makeCombatant`'s, with the id renamed. Not a nine-field
- * literal copied out of `src/engine/encounter.ts`: `makeCombatant` is the only
- * thing in the app that ever mints a combatant, so a fixture body it could not
- * have produced is a fiction, and one that reimplements its derivation goes on
- * passing after the derivation changes. Deriving it here means it cannot.
+ * literal copied out of `src/engine/encounter.ts`: `makeCombatant` is the one
+ * thing in `src/` that turns an adversary into a combatant, so a fixture that
+ * reimplemented its derivation would go on passing after the derivation moved.
+ * Deriving it here means it cannot. It is not the only thing that ever mints
+ * the type - `readCombatants` in `shared/campaigns.ts` builds one field by
+ * field out of whatever a saved campaign holds, and every body that came off
+ * disk is one of those - and that is not a hole in the argument but the other
+ * half of it, below.
  *
- * The id is positional and is deliberately not reachable through the patch.
- * `campaignRoundTrip.test.ts`, `names.test.tsx` and `sceneSwitcher.test.tsx`
- * each hand-build the same nine fields to get a body they can name and point
- * at, so the id is the argument; and two ways to set one field is one too many.
+ * The id is positional, and the patch cannot reach it because `p` is spread and
+ * then `id` is written over the top. `campaignRoundTrip.test.ts`,
+ * `names.test.tsx` and `sceneSwitcher.test.tsx` each hand-build the same nine
+ * fields to get a body they can name and point at, so the id is the argument;
+ * and two ways to set one field is one too many. It has to be the write order
+ * that settles it rather than `Omit<…, 'id'>`, because that type only turns
+ * away a fresh literal: a patch built by spreading another body carries an
+ * `id` straight past it and compiles.
  *
- * Everything else is the patch's, including the fields the app never writes by
- * hand: `hp.marked`, `spotlighted`, `minionsRemaining` and an `adversaryRef`
- * naming nothing, which is how a test asks for a fight already in progress or
- * for a body this dataset cannot resolve.
+ * Everything else is the patch's, including the four fields that say this body
+ * has a history. `makeCombatant` mints one at rest - `hp.marked` 0,
+ * `spotlighted` false, an `adversaryRef` naming the adversary it was made from,
+ * and, for the `Standard` role `makeAdversary` defaults to, no
+ * `minionsRemaining` at all - so the patch is how a test asks for a fight
+ * already in progress, or for a body this dataset cannot resolve. None of that
+ * is a shape the app cannot reach. Three of the four are what the GM's own
+ * controls in `Scene.tsx` write by hand: the spotlight toggle, the two buttons
+ * on the minion counter, and the HP track. And all four are what
+ * `readCombatants` hands back from a campaign saved mid-fight, which is the
+ * only kind of campaign worth reopening.
  */
 export const combatant = (
   id: string,
   p: Partial<Omit<SceneCombatant, 'id'>> = {},
 ): SceneCombatant => ({
   ...makeCombatant(makeAdversary(), 0, 1),
-  id,
   ...p,
+  id,
 });
 
 /**
@@ -338,10 +352,17 @@ export const combatant = (
  * below stops compiling until somebody gives it a default, which is exactly the
  * moment to decide what an unstated one means.
  *
- * Every array it hands back is its own. `NO_FIGHT` is a const spread, so the
- * `[]` in one row and the `[]` in the next are the same array - harmless for a
- * row that is empty by definition, and the wrong property for a row built to be
- * filled and then mutated.
+ * The arrays it *mints* are per-call. `NO_FIGHT` is a const spread, so the `[]`
+ * in one row and the `[]` in the next are the same array - harmless for a row
+ * that is empty by definition, and the wrong property for a row built to be
+ * filled and then mutated. The defaults below are fresh literals on every call
+ * and the fight is copied off the argument, so no two rows from here share
+ * either. What arrives through `opts` is not covered and is not meant to be:
+ * `roster` and `adjustments` are handed on by reference, so two rows given one
+ * module-scope roster do share that roster. It is the caller's array, named in
+ * the caller's own scope, where a shared one is visible; copying it here would
+ * be a second rule about who owns what, to buy back a hazard the caller can
+ * already see. The one array this helper is named for is the one it guards.
  *
  * Two defaults are choices rather than emptiness. `collapsed: false`, because a
  * shut row draws only its header and the half of a row that resolves refs
@@ -351,14 +372,19 @@ export const combatant = (
  * file's header promises every value in it is invented: a default that named a
  * real place would be an SRD id living in the repo, and a test that means to
  * pin one passes it.
+ *
+ * Nothing else in the suite calls this yet - the dozen seeds are still in
+ * flight - so `tests/fixtures/factories.test.ts` is what executes it. Without
+ * that file the whole guard here is `tsc`, and `tsc` checks the shape rather
+ * than the two orderings below: a body of `combatants: []` typechecks, and a
+ * helper whose first run arrives with twelve call sites at once is a helper
+ * whose defaults are wrong in twelve places before anyone looks.
  */
 export const sceneWith = (
   id: string,
   combatants: SceneCombatant[],
   opts: Partial<Omit<SceneRow, 'kind' | 'id' | 'combatants'>> = {},
 ): SceneRow => ({
-  id,
-  kind: 'scene',
   name: 'A scene',
   order: 0,
   collapsed: false,
@@ -366,8 +392,17 @@ export const sceneWith = (
   roster: [],
   adjustments: { easier: false, harder: false, damageBump: false },
   ...opts,
-  // Last, and copied. Last so no `opts` a caller widened past its type can
-  // contradict the argument the helper is named for; copied so two rows seeded
-  // from one array are two fights rather than one shared by both.
+  // Last, all three, and the fight copied. Last because `Omit` only turns away
+  // a *fresh* literal: the bag a per-file wrapper hands down is a variable, and
+  // a variable typed `Partial<SceneRow>` carries `id` straight past the
+  // signature and compiles - `kind` needs a bag widened further than that, but
+  // it sits here for the same reason. Whichever is written later wins, so the
+  // arguments the helper is named for are written after the bag rather than
+  // before it; otherwise a wrapper silently ignores its own id, two rows share
+  // one, and `readCampaignRecord` reads that back without a single warning.
+  // Copied so two rows seeded from one array are two fights rather than one
+  // shared by both.
+  id,
+  kind: 'scene',
   combatants: [...combatants],
 });
