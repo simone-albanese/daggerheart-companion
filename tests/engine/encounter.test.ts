@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AdversaryRole, Tier } from '@shared/types.ts';
+import type { Adversary, AdversaryRole, Tier } from '@shared/types.ts';
 import {
   MAX_FEAR,
   NO_ADJUSTMENTS,
@@ -272,15 +272,35 @@ describe('scene combatants', () => {
     expect(makeCombatant(makeAdversary({ thresholds: null }), 0, 4).thresholds).toBeNull();
   });
 
+  it('spawns an adversary whose thresholds key is missing entirely', () => {
+    /*
+     * Not a hypothetical shape, and not one the declared type can express.
+     * An adversary that exists only in an imported manual is assembled from
+     * the fields that manual contributed; `contributedFields` contributes no
+     * null, and the merge starts a record the SRD has never heard of from
+     * `{ id, provenance }`. So a manual Minion whose stat line said `None`
+     * reaches `makeCombatant` with the key ABSENT rather than null - and
+     * `undefined === null` is false, which sends it into the spread. Against
+     * `a.thresholds === null ? null : [...a.thresholds]` this goes red with
+     * `TypeError: a.thresholds is not iterable`.
+     */
+    const { thresholds: _absent, ...noKey } = makeAdversary({ role: 'Minion' });
+    expect(Object.hasOwn(noKey, 'thresholds')).toBe(false);
+    expect(makeCombatant(noKey as Adversary, 0, 4).thresholds).toBeNull();
+  });
+
   /*
    * The stat block is copied, not lent.
    *
    * `a` is the dataset's own record - one object per adversary for the whole
    * device - and `thresholds` is the only mutable field `makeCombatant` takes
    * off it. Handing it through by reference gave every combatant ever spawned
-   * from one adversary a handle on the array the bestiary draws from, and the
-   * only thing standing between that and an edited book was `runScene`'s
-   * `copy()`, which is being deleted with `runScene`.
+   * from one adversary a handle on the array the bestiary draws from. No
+   * copier on the way to the board ever stood in the way of that: `spawn`
+   * pushes a fresh combatant straight onto the live board, and `runScene`'s
+   * `copy()` runs only at park and resume, which a GM who spawns and marks
+   * never reaches. What has kept the book intact is that nothing writes
+   * through the handle - `makeCombatant` argues the rest.
    */
   it('hands out a thresholds tuple of its own, never the dataset array', () => {
     const a = makeAdversary({ thresholds: [9, 18] });
