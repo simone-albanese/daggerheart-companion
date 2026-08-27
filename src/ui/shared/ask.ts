@@ -139,7 +139,35 @@ export interface AskEntry {
    * thirty-three sections the SRD writes with no `## ` in them at all and for
    * the ones whose opening paragraphs are the answer.
    */
-  at: { section: Ref; heading: string | null };
+  at: {
+    section: Ref;
+    heading: string | null;
+    /**
+     * Which part of the anchored block answers, or `null` when no single one
+     * does.
+     *
+     * **An index and never a string, and that is a licence decision before it
+     * is a design one.** The standing rule this repo keeps is that an *address*
+     * may be typed here when it is asserted byte for byte against the dataset
+     * on every run, and an *answer* may not. An integer cannot carry a word of
+     * the book, so "this field quotes nothing" is a property of its type rather
+     * than a sweep somebody has to keep re-running - and the words that reach
+     * the glass come out of `dataset.rules` at draw time, which is the whole
+     * reason `AskEntry` has no `answer` field.
+     *
+     * `null` for the two entries whose anchored block has no paragraph to
+     * point at: one is a table, the other a list of sixteen moves. Neither is a
+     * sentence, and inventing one for them would be the app answering rather
+     * than pointing.
+     *
+     * It is an index into `SectionBlock.parts`, which is what `BlockTarget`
+     * already addresses - the search lands on a part today for the same reason.
+     * An index rots silently when the book reflows, so `ask.test.ts` pins the
+     * head of every resolved line: a shifted index goes red there instead of
+     * drawing the wrong sentence under the right address.
+     */
+    part: number | null;
+  };
   moment: Moment | null;
 }
 

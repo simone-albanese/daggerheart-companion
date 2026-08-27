@@ -1051,6 +1051,34 @@ const spoken = (
  */
 const ROW_NAME = { fontSize: 12, lineHeight: 1.3, letterSpacing: '0.1em', color: 'var(--text-2)' } as const;
 
+/**
+ * How the answer line is held to one line, and why it is not a character count.
+ *
+ * `preview` exists for the other case and cannot serve this one: it centres its
+ * window on the words that matched, and returns the whole line when nothing
+ * did - which for the five anchored paragraphs over 240 characters would be
+ * four lines of book on a row that has to stay one.
+ *
+ * **A character cut was tried first and measured wrong.** Cutting at 110 gave a
+ * row of **78.56** at 393x852: 110 characters of `.t-dense` do not fit a 363px
+ * column, so the "one line" was two. Any number picked here is a guess about a
+ * width this component does not know - the same line sits in a 363px sheet
+ * column, a 369px screen column and a 290px column at 320.
+ *
+ * So the browser cuts it, at the width it actually has. This is the same three
+ * declarations `Header.tsx` holds the character name with, and it has the
+ * property a count cannot: one line at every width, with the ellipsis where the
+ * glass really ends. The `title` carries the whole sentence for a pointer, and
+ * the row opens for everyone else.
+ */
+const ANSWER_LINE = {
+  width: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  color: 'var(--muted)',
+} as const;
+
 /** What the three group headers say, and which hits belong under each. */
 const GROUPS: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> = [
   { label: 'IN THE TITLE', holds: (hit) => hit.where === 'title' },
@@ -1959,8 +1987,44 @@ function AskRow({
     [rules, entry.at.section, open],
   );
   const heading = entry.at.heading;
-  const block = section === null || heading === null ? -1 : headingBlock(section, heading);
+  /*
+   * `heading === null` means the block before the first subhead, which is
+   * block 0 - not "no block".
+   *
+   * It read `-1` here and that was a defect with six victims: half the
+   * catalogue anchors with no heading, including both Difficulty questions,
+   * and every one of them opened at the top of its section with nothing landed
+   * and nothing lit. `checkEntry` has always resolved it to `blocks[0]`, so the
+   * test and the row disagreed about where a question pointed, and the test
+   * was right.
+   */
+  const block = section === null ? -1 : heading === null ? 0 : headingBlock(section, heading);
   const word = entry.also[0] ?? '';
+
+  /*
+   * The line that answers, resolved out of the dataset every time it is drawn
+   * and never stored anywhere.
+   *
+   * This is the whole of §2.4 and the whole of the licence rule at once. The
+   * catalogue holds three numbers and a slug - a section, a subhead, an index -
+   * and the words arrive here, so the repository quotes nothing and a homebrew
+   * layer that rewrites the paragraph changes what a GM reads without this file
+   * knowing. `at.part` is `null` for the two blocks that hold no paragraph at
+   * all - one is a table, one a list of sixteen moves - and those draw the
+   * app's own locator sentence instead, the way `Hit` already does for a table.
+   *
+   * Parsed here rather than reusing the `open` memo above, because the point is
+   * to have it while the row is *shut*. It is memoised on the section rather
+   * than on the row, so twelve rows over four sections parse four times.
+   */
+  const answer = useMemo((): string | null => {
+    if (entry.at.part === null) return null;
+    const view = ruleSection(rules, entry.at.section);
+    if (view === null) return null;
+    const at = heading === null ? 0 : headingBlock(view, heading);
+    const part = view.blocks[at]?.parts[entry.at.part];
+    return part !== undefined && part.kind === 'text' ? part.text : null;
+  }, [rules, entry.at.section, entry.at.part, heading]);
 
   // The same callback ref `Hit` uses, for the same reason: React hands the node
   // over when it is attached, so the scroll happens once per opening rather
@@ -2004,6 +2068,34 @@ function AskRow({
             </span>
           )}
         </span>
+        {/*
+          The book's own words, below the address rather than above the
+          question, and in the ink `Hit` gives the book.
+
+          Below, because the question is what a GM scans their own situation
+          against and it stays first - `ruleSearch.test.tsx` reads the row's
+          first `t-read` and expects the question, which is that rule written
+          down. Below the address too, so the order a GM reads is: is this my
+          situation, where does the answer live, what does it say. The address
+          still qualifies the sentence rather than the sentence standing on its
+          own.
+
+          `.t-dense` in `--muted` is what a shut `Hit` draws a previewed line
+          in, so the book reads the same on both kinds of row. Cut at the head
+          and not through `preview`: `preview` windows around the words that
+          matched, and nothing matched here - there is no query behind a
+          moment's chip at all.
+        */}
+        {answer !== null && (
+          <span className="t-dense" style={ANSWER_LINE} title={answer}>
+            {answer}
+          </span>
+        )}
+        {answer === null && named !== null && (
+          <span className="t-meta" style={{ width: '100%', color: 'var(--dim)' }}>
+            Inside this section, and not in one sentence.
+          </span>
+        )}
       </button>
       {open &&
         (section === null ? (
