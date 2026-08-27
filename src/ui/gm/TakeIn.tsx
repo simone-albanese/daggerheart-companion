@@ -385,13 +385,36 @@ export function TakeIn(): React.JSX.Element {
   const bringIn = (preview: CampaignImportPreview): void => {
     setStage({ kind: 'writing', preview });
     void (async () => {
-      await flushGm();
-      const outcome = await applyCampaignImport(preview, {
-        add: addCampaign,
-        read: getCampaign,
-        newId: () => crypto.randomUUID(),
-        now: () => new Date().toISOString(),
-      });
+      /*
+       * The catch the `unreadable` shape above argues for, applied to the other
+       * verb in this block. `applyCampaignImport` promises an outcome in every
+       * branch and keeps it; this is here because an `await` with no `catch` on
+       * the only verb the GM can press is a spinner that never stops over an
+       * unknown outcome - the exact thing that module refuses to allow on its
+       * own side of the call - and because a promise is a contract another
+       * module can break without this one being edited.
+       *
+       * It deliberately does NOT cover the post-landing leg. The record is on
+       * the disk by then, and printing "could not be written" over a campaign
+       * that is on this device is the one sentence worse than saying nothing.
+       */
+      let outcome: CampaignImportOutcome;
+      try {
+        await flushGm();
+        outcome = await applyCampaignImport(preview, {
+          add: addCampaign,
+          read: getCampaign,
+          newId: () => crypto.randomUUID(),
+          now: () => new Date().toISOString(),
+        });
+      } catch (error) {
+        settle({
+          kind: 'done',
+          preview,
+          outcome: { kind: 'write-failed', message: refusal(error) },
+        });
+        return;
+      }
 
       if (outcome.kind === 'landed') {
         const record = outcome.campaign;
@@ -405,7 +428,14 @@ export function TakeIn(): React.JSX.Element {
         useGm.setState({
           campaigns: [record, ...useGm.getState().campaigns.filter((c) => c.id !== record.id)],
         });
-        await useGm.getState().switchCampaign(record.id);
+        try {
+          await useGm.getState().switchCampaign(record.id);
+        } catch {
+          // It landed, and the read-back proved it. Say so. The board not
+          // having moved is a worse sentence than the campaign not existing
+          // would be, but it is not a lost campaign and must not be printed
+          // as one.
+        }
       }
       settle({ kind: 'done', preview, outcome });
     })();

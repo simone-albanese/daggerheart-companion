@@ -189,8 +189,17 @@ function oldestHandover(campaign: Campaign): string | null {
  * depends on which global made the request, and the name is the part that
  * survives the crossing. `QuotaExceededError` is the word the GM needs; losing
  * it to "an error occurred" is losing the only actionable thing in the sentence.
+ *
+ * The nullish line is not defensive clutter: it is the whole of §"Nothing here
+ * throws" for two values. `Promise.reject(undefined)` is legal, a dep is a thing
+ * a caller supplies, and reading `.name` off the cast threw a `TypeError` out
+ * through the `catch` that exists to make that impossible - a rejection escaping
+ * into a screen with three sentences and no fourth. `String(undefined)` would
+ * have been the other way to lose it, printing "undefined" at the GM inside a
+ * sentence about their campaign.
  */
 function why(error: unknown): string {
+  if (error === null || error === undefined) return 'the write failed without saying why';
   const e = error as { name?: unknown; message?: unknown };
   const name = typeof e.name === 'string' ? e.name : '';
   const message = typeof e.message === 'string' ? e.message : '';

@@ -693,6 +693,34 @@ describe('what happens when the write does not', () => {
     expect(outcome.kind).toBe('write-failed');
     expect(outcome.kind === 'write-failed' && outcome.message).toBe('the disk went away');
   });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+  ])('holds that promise for a dep that rejects with %s', async (_label, thrown) => {
+    /*
+     * The two values that broke it. `Promise.reject(undefined)` is legal, and
+     * `why` read `.name` straight off the cast - so the `TypeError` was thrown
+     * *inside* the `catch` that exists to make a rejection impossible, and went
+     * out to the caller. The module states "Nothing here throws" in as many
+     * words and the test above is named for it; for these two it was false.
+     *
+     * `String(undefined)` is the other way to lose it, and is not what happens
+     * either: a GM does not need the word "undefined" inside a sentence about
+     * their campaign.
+     */
+    const store = fakeStore({}, { add: () => Promise.reject(thrown) });
+    const preview = previewCampaignImport(fileOf(full()), here());
+
+    const outcome = await applyCampaignImport(preview, store.deps).catch(
+      (error: unknown) => ({ kind: 'THREW' as const, error }),
+    );
+
+    expect(outcome.kind).toBe('write-failed');
+    expect(outcome.kind === 'write-failed' && outcome.message).toBe(
+      'the write failed without saying why',
+    );
+  });
 });
 
 describe('two tabs importing the same file at the same moment', () => {

@@ -562,6 +562,91 @@ describe('a file the format will not have', () => {
   });
 });
 
+describe('BRING IT IN, when something under it breaks its own promise', () => {
+  /*
+   * `applyCampaignImport` returns an outcome in every branch, and its own
+   * docblock says so - but that is a promise another module can break without
+   * this one being edited, and the `await` on it was the only verb in the block
+   * with no `catch`. What that costs is measured rather than argued: the door
+   * sticks on BRINGING IT IN… with both controls disabled, no `role="alert"` at
+   * all, and the rejection becomes nobody's.
+   *
+   * The same argument the `unreadable` shape makes for `hydrateGm`, one verb
+   * along. The nullish rejection that made it reachable is pinned in
+   * `campaignImport.test.ts`; this pins the net under it.
+   */
+  const unhandledFree = async (run: () => Promise<void>): Promise<void> => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      await run();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  };
+
+  it('says the write failed and gives the controls back, rather than sticking', async () => {
+    await unhandledFree(async () => {
+      picks(serializeCampaign(arriving('c-rejecting-1'), EXPORTED_AT));
+      vi.spyOn(campaignImport, 'applyCampaignImport').mockRejectedValue(
+        new Error('the decision threw'),
+      );
+      sheet();
+      await settle();
+
+      click(named('OPEN A CAMPAIGN FILE'));
+      await settle();
+      click(named('BRING IT IN'));
+      await settle();
+
+      expect(alert()).toContain('could not be written');
+      expect(alert()).toContain('the decision threw');
+      expect(alert()).toContain('OPEN A CAMPAIGN FILE tries again');
+      expect(named('OPEN A CAMPAIGN FILE').disabled).toBe(false);
+    });
+  });
+
+  it('does not print "could not be written" over a campaign that is on the disk', async () => {
+    /*
+     * The other half, and the reason the catch stops short of the post-landing
+     * leg. `applyCampaignImport` has read the record back off the disk by the
+     * time `switchCampaign` runs; a failure there is a board that did not move,
+     * which is a worse sentence than the campaign not existing would be - but
+     * it is not a lost campaign and must not be printed as one.
+     */
+    await unhandledFree(async () => {
+      const file = arriving('c-landed-then-threw-1', 'A table from elsewhere');
+      picks(serializeCampaign(file, EXPORTED_AT));
+      // Restored by hand: `beforeEach` reseeds the data on this store, not its
+      // actions, so a broken one left behind would be a landmine for every
+      // test after this in the file.
+      const real = useGm.getState().switchCampaign;
+      useGm.setState({
+        switchCampaign: () => Promise.reject(new Error('the swap threw')),
+      });
+      try {
+        sheet();
+        await settle();
+
+        click(named('OPEN A CAMPAIGN FILE'));
+        await settle();
+        click(named('BRING IT IN'));
+        await settle();
+
+        expect(text()).toContain('is on this device and open.');
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+        expect(await getCampaign(file.id), 'and it really is on the disk').not.toBeNull();
+      } finally {
+        useGm.setState({ switchCampaign: real });
+      }
+    });
+  });
+});
+
 describe('the store refusing to open underneath the press', () => {
   it('says so and leaves the door open, rather than reading the file for ever', async () => {
     /*
