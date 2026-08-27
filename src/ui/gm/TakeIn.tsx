@@ -242,15 +242,40 @@ function arrival(p: CampaignImportPreview): string {
 /**
  * What landed, in the words State 7 owes.
  *
- * Three branches and no fourth, because there are three things that can be true
- * of a record that arrived: it is here, it is here beside one that was already
- * here, or it is here under a name it did not come in with.
+ * Four branches, because there are four things that can be true of a record
+ * that arrived: it is here, it is here beside one that was already here, it is
+ * here beside one this build must not touch, or it is here under a name it did
+ * not come in with.
+ *
+ * **The fourth branch is the promise the third one cannot keep.** `addCampaign`
+ * answers `'taken'` for a record a newer build wrote - `add` sees raw keys and
+ * does not care whether this build could read what is there - so `asCopy` is
+ * true on a collision with a quarantined record too. But the rows in MENU come
+ * from `useGm.campaigns`, which cannot see a quarantined record, and MENU draws
+ * it as text in the LEFT UNTOUCHED panel with no REMOVE beside it. Even with a
+ * row, `deleteCampaign` throws `StaleBuildError` on such a record. So "REMOVE
+ * in MENU takes either one away" would point at a control that is not on that
+ * sheet, over a record this build has just promised not to touch, two taps
+ * after the preview said so in as many words. `p.quarantinedSameId` is the fact
+ * that tells the two apart, and the preview already carries it.
+ *
+ * `asCopy` with neither collision keeps the generic sentence: that is the race
+ * - another tab landing the id between the preview and the press - where what
+ * holds the key is an ordinary readable campaign that MENU will draw a REMOVE
+ * for, and "either one" is true.
  */
 function landedSentence(
   landed: Extract<CampaignImportOutcome, { kind: 'landed' }>,
   p: CampaignImportPreview,
 ): string {
   const name = spokenName(landed.campaign.name, CAMPAIGN_NAMES);
+  if (landed.asCopy && p.quarantinedSameId) {
+    return (
+      `That id is held by a campaign a newer version of this app wrote. It has been left exactly ` +
+      `as it is and is not in the list, so the copy from the file has been added as "${name}" and ` +
+      `opened — REMOVE in MENU takes the copy away.`
+    );
+  }
   if (landed.asCopy) {
     return (
       `That campaign is already on this device, so the copy from the file has been added beside ` +

@@ -400,6 +400,65 @@ describe('the door under StrictMode, which is every dev build', () => {
   });
 });
 
+describe('an id held by a record this build must not touch', () => {
+  it('does not promise a REMOVE that MENU cannot draw for it', async () => {
+    /*
+     * `addCampaign` answers `'taken'` for a record a newer build wrote - `add`
+     * sees raw keys and does not care whether this build could read what is
+     * there - so `asCopy` is true here exactly as it is for an ordinary
+     * collision. The two are not the same on the screen: MENU's rows come from
+     * `useGm.campaigns`, which cannot see a quarantined record, and it draws
+     * that record as text in LEFT UNTOUCHED with no REMOVE beside it. Even with
+     * a row, `deleteCampaign` throws `StaleBuildError` on it.
+     *
+     * So the generic sentence pointed at a control that is not on that sheet,
+     * over a record the preview had promised two taps earlier not to touch.
+     */
+    const db = await import('../../src/store/db.ts');
+    const ahead = {
+      id: 'c-ahead-1',
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1,
+      name: 'Written by a newer build',
+    };
+    await (await db.db()).put('campaigns', ahead as unknown as Campaign);
+    useGm.setState({
+      quarantined: [
+        {
+          id: ahead.id,
+          name: ahead.name,
+          schemaVersion: ahead.schemaVersion,
+          reason: 'That campaign was written by a newer version of the app.',
+        },
+      ],
+    });
+
+    picks(serializeCampaign(arriving(ahead.id, 'The Sablewood Winter'), EXPORTED_AT));
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+    expect(text()).toContain('this build must not touch it');
+
+    click(named('BRING IT IN'));
+    await settle();
+
+    /*
+     * The result sentence and nothing else. RESTING is back on the sheet by
+     * now and carries "takes either one away" as generic copy for the ordinary
+     * case, which is a different sentence about a different situation - a
+     * whole-container match here would be reading it instead.
+     */
+    const landedSaid = (container.querySelector('[role="status"]')?.textContent ?? '').trim();
+    expect(landedSaid).toContain('REMOVE in MENU takes the copy away');
+    expect(landedSaid).toContain('is not in the list');
+    expect(landedSaid).not.toContain('takes either one away');
+    // And it really is the copy path, with the record left exactly as it is.
+    expect(useGm.getState().activeCampaignId).not.toBe(ahead.id);
+    expect(await (await db.db()).get('campaigns', ahead.id)).toEqual(ahead);
+  });
+});
+
 describe('a picker the GM closed', () => {
   it('says nothing at all, and changes nothing', async () => {
     /*
