@@ -267,7 +267,45 @@ describe('scene combatants', () => {
   });
 
   it('keeps a null threshold null - some adversaries have none', () => {
+    // Also the guard on the copy below: an unconditional spread of the tuple
+    // reads `[...null]` for a Minion, and this is the case that goes red.
     expect(makeCombatant(makeAdversary({ thresholds: null }), 0, 4).thresholds).toBeNull();
+  });
+
+  /*
+   * The stat block is copied, not lent.
+   *
+   * `a` is the dataset's own record - one object per adversary for the whole
+   * device - and `thresholds` is the only mutable field `makeCombatant` takes
+   * off it. Handing it through by reference gave every combatant ever spawned
+   * from one adversary a handle on the array the bestiary draws from, and the
+   * only thing standing between that and an edited book was `runScene`'s
+   * `copy()`, which is being deleted with `runScene`.
+   */
+  it('hands out a thresholds tuple of its own, never the dataset array', () => {
+    const a = makeAdversary({ thresholds: [9, 18] });
+    const c = makeCombatant(a, 0, 4);
+    expect(c.thresholds).toEqual([9, 18]);
+    expect(c.thresholds).not.toBe(a.thresholds);
+  });
+
+  it('cannot rewrite the bestiary through a combatant it spawned', () => {
+    const a = makeAdversary({ thresholds: [9, 18] });
+    const c = makeCombatant(a, 0, 4);
+    c.thresholds![0] = 99;
+    expect(a.thresholds).toEqual([9, 18]);
+  });
+
+  it('gives two combatants from one adversary a tuple each', () => {
+    // Two Acid Burrowers on one board. Marking the second must leave the first
+    // where the GM last read it.
+    const a = makeAdversary({ thresholds: [9, 18] });
+    const first = makeCombatant(a, 0, 4);
+    const second = makeCombatant(a, 1, 4);
+    expect(first.thresholds).not.toBe(second.thresholds);
+    second.thresholds![1] = 99;
+    expect(first.thresholds).toEqual([9, 18]);
+    expect(a.thresholds).toEqual([9, 18]);
   });
 });
 

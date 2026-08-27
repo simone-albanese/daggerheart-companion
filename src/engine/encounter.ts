@@ -187,7 +187,31 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
     name: a.name,
     hp: { marked: 0, max: a.hp },
     stress: { marked: 0, max: a.stress },
-    thresholds: a.thresholds,
+    /*
+     * COPIED, and the copy is the whole of this line.
+     *
+     * `a` is the dataset's own adversary record - one object per adversary for
+     * the whole device, shared by every campaign, every spawn and every scene
+     * on it. This read `a.thresholds`, and `thresholds` is a mutable tuple, so
+     * every combatant ever built from one adversary held a live handle on the
+     * one array the bestiary draws from: two Acid Burrowers on the same board,
+     * and the Burrower in a scene parked a month ago, all pointing at it. A
+     * single `c.thresholds[0] = ...` anywhere would have edited the book, for
+     * every campaign on the device, in a place no reader would look.
+     *
+     * Nothing writes through that handle today. That is the argument that
+     * stops being true later - and the cover it has been living under is going
+     * away: `runScene` deep-copied `hp`, `stress` and `thresholds` at both
+     * board crossings and said in as many words that thresholds rode along
+     * because it was harmless against today's writers, and that copier is
+     * deleted with `runScene`. The defence belongs where the alias is made,
+     * not at a crossing that can be removed.
+     *
+     * `null` stays `null`: Minions and some Solos have no thresholds, and a
+     * spread of nothing is not an empty copy, it is a crash. `keeps a null
+     * threshold null` is the case that holds this branch down.
+     */
+    thresholds: a.thresholds === null ? null : [...a.thresholds],
     difficulty: a.difficulty,
     spotlighted: false,
     ...(a.role === 'Minion' ? { minionsRemaining: partySize } : {}),
