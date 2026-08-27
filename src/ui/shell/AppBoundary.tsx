@@ -39,7 +39,7 @@
  * install, and a reflex tap is the last thing it wants.
  */
 import { Component, useCallback, useState, type ErrorInfo, type ReactNode } from 'react';
-import { runBackup } from '../../store/backup.ts';
+import { runBackup, savedFiles } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 
 interface Props {
@@ -123,8 +123,15 @@ function Fallback({ error, onRetry }: { error: Error; onRetry: () => void }): Re
  * come from `runBackup`'s answer rather than from the click. A button that
  * turns reassuring on being pressed would be this project's founding rule
  * broken on the one screen where a user has the least reason to trust it - and
- * `runBackup` has three honest ways to write nothing: no characters, a
- * cancelled picker, and a write that failed.
+ * `runBackup` has several honest ways to write nothing, which it names rather
+ * than counting here: an empty device, a library and every campaign unchanged
+ * since the last copy, a cancelled picker, a write that failed, and campaigns
+ * due on a browser with no folder to put them in. `reason` says which.
+ *
+ * It also has a way to write *some* of what was due, which is why the sentence
+ * comes from `savedFiles` rather than from `outcome.fileName` and a character
+ * count: a run that wrote a campaign and no `.dhbackup` would otherwise be
+ * reported here as a saved library.
  */
 function ExportEverything(): React.JSX.Element {
   const [busy, setBusy] = useState(false);
@@ -135,10 +142,14 @@ function ExportEverything(): React.JSX.Element {
     setNote(null);
     void runBackup('manual', { interactive: true }, appBackupDeps)
       .then((outcome) => {
+        // `savedFiles`, not a copy of the sentence: a campaigns-only run has no
+        // `.dhbackup` and a character count belonging to a file it did not
+        // write, and this button is the last thing between a crash and a lost
+        // library.
         setNote(
-          outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the copy'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}.`
-            : outcome.reason,
+          [outcome.wrote ? savedFiles(outcome) : outcome.reason, outcome.notice]
+            .filter((line): line is string => line !== null)
+            .join(' ') || null,
         );
       })
       .catch((cause: unknown) => {

@@ -46,6 +46,7 @@ import {
   installBackupHooks,
   integrityCheck,
   runBackup,
+  savedFiles,
   type IntegrityReport,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
@@ -396,7 +397,16 @@ function Shell(): React.JSX.Element {
             }}
           >
             <span className="t-label" style={{ color: 'var(--text)' }}>
-              {integrity.missingIds.length > 0 ? 'SOMETHING IS MISSING' : 'THE LIBRARY DID NOT OPEN'}
+              {/*
+                Campaigns count towards this heading, or a device that lost only
+                its campaigns is headed "THE LIBRARY DID NOT OPEN" - which names
+                the wrong problem and points at the wrong store. The sentence
+                under it is `integrity.message`, verbatim, and it already says
+                which of the two it is.
+              */}
+              {integrity.missingIds.length + integrity.missingCampaignIds.length > 0
+                ? 'SOMETHING IS MISSING'
+                : 'THE LIBRARY DID NOT OPEN'}
             </span>
             <span className="t-dense" style={{ color: 'var(--text-2)' }}>
               {integrity.message}
@@ -436,6 +446,40 @@ function Shell(): React.JSX.Element {
                   }}
                 >
                   RESTORE FROM A BACKUP
+                </button>
+              )}
+              {/*
+                A second door, and only when there is a second problem.
+                RESTORE FROM A BACKUP lands on Settings, which knows about
+                characters and nothing at all about campaigns - its import
+                offers `.dhchar` and `.dhbackup` and that is deliberate. The GM
+                section is where a campaign file is named, saved and opened, so
+                this points at the screen that owns them rather than growing a
+                second copy of it in the shell.
+
+                Behind `prefs.gmSection` because `allowedScreen` sends 'gm' back
+                to 'play' when that switch is off - a chip that quietly landed
+                somewhere else is the defect the paragraph above was written
+                about. `setRoutedByAlert` for the same reason it is set there:
+                without it `<Onboarding/>` is drawn instead of all five screens
+                and the tap does nothing.
+              */}
+              {integrity.missingCampaignIds.length > 0 && prefs.gmSection && (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    setRoutedByAlert(true);
+                    setScreen('gm');
+                  }}
+                  style={{
+                    flex: 'none',
+                    minHeight: 'var(--control)',
+                    color: 'var(--text)',
+                    background: 'var(--raised)',
+                  }}
+                >
+                  OPEN THE GM TOOLS
                 </button>
               )}
               {/*
@@ -639,10 +683,21 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
     setNote(null);
     void runBackup('manual', { interactive: true }, appBackupDeps)
       .then((outcome) => {
+        /*
+         * `savedFiles` rather than a sentence of this strip's own: the one
+         * that used to be here read `${outcome.fileName ?? 'the copy'} —
+         * ${outcome.characters} characters`, which was true only while a run
+         * that wrote anything had written the library. A campaigns-only run
+         * has no `.dhbackup` and a character count belonging to a file it did
+         * not write, and this strip appears at the moment the user is being
+         * told their work is unsaved - the worst place in the app to name a
+         * file that is not there. The notice comes with it for the same
+         * reason: campaigns left out of the copy is exactly this strip's news.
+         */
         setNote(
-          outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the copy'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}.`
-            : outcome.reason,
+          [outcome.wrote ? savedFiles(outcome) : outcome.reason, outcome.notice]
+            .filter((line): line is string => line !== null)
+            .join(' ') || null,
         );
       })
       .catch((cause: unknown) => {

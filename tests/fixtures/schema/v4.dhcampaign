@@ -1,0 +1,458 @@
+{
+  "format": "dhcampaign",
+  "schemaVersion": 4,
+  "app": "0.6.0",
+  "exportedAt": "2026-08-26T21:40:11.000Z",
+  "checksum": 2852303818,
+  "campaign": {
+    "id": "c8f0a6de-1f0b-4f21-9a2b-6b0f9a1c2d3e",
+    "schemaVersion": 4,
+    "name": "The Sablewood Winter",
+    "createdAt": "2026-02-01T19:30:00.000Z",
+    "updatedAt": "2026-08-26T21:40:11.000Z",
+    "fear": 7,
+    "session": [
+      {
+        "id": "item-scene-1",
+        "kind": "scene",
+        "name": "The frozen ford",
+        "order": 0,
+        "collapsed": false,
+        "environmentRef": "raging-river",
+        "roster": [
+          {
+            "ref": "jagged-knife-bandit",
+            "count": 2
+          }
+        ],
+        "adjustments": {
+          "easier": false,
+          "harder": true,
+          "damageBump": false
+        },
+        "combatants": []
+      },
+      {
+        "id": "item-encounter-1",
+        "kind": "encounter",
+        "name": "Ambush at the ford",
+        "order": 1,
+        "collapsed": false,
+        "roster": [
+          {
+            "ref": "acid-burrower",
+            "count": 1
+          },
+          {
+            "ref": "jagged-knife-bandit",
+            "count": 3
+          }
+        ],
+        "adjustments": {
+          "easier": false,
+          "harder": true,
+          "damageBump": false
+        },
+        "combatants": [
+          {
+            "id": "acid-burrower-0",
+            "adversaryRef": "acid-burrower",
+            "name": "Acid Burrower",
+            "hp": {
+              "marked": 3,
+              "max": 8
+            },
+            "stress": {
+              "marked": 1,
+              "max": 3
+            },
+            "thresholds": [
+              8,
+              15
+            ],
+            "difficulty": 14,
+            "spotlighted": true,
+            "notes": "burrowed on the far bank"
+          }
+        ]
+      },
+      {
+        "id": "item-countdown-1",
+        "kind": "countdown",
+        "name": "The ice gives way",
+        "order": 2,
+        "collapsed": false,
+        "primary": true,
+        "countdown": {
+          "id": "item-countdown-1",
+          "name": "The ice gives way",
+          "kind": "standard",
+          "start": 6,
+          "value": 4,
+          "notes": "advance on every failed crossing",
+          "activation": "the party first sets foot on the ice",
+          "advancement": "one tick per failed crossing roll",
+          "effect": "the ice gives way and everyone standing on it falls in",
+          "owner": "9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8",
+          "beats": [
+            "a crack runs out from the bank",
+            "water wells up over the boots"
+          ]
+        },
+        "sceneId": null
+      },
+      {
+        "id": "item-link-1",
+        "kind": "link",
+        "name": "How falling works",
+        "order": 3,
+        "collapsed": true,
+        "target": {
+          "kind": "rule",
+          "ref": "falling-and-collision"
+        }
+      },
+      {
+        "id": "item-link-2",
+        "kind": "link",
+        "name": "The bandit chief",
+        "order": 4,
+        "collapsed": true,
+        "target": {
+          "kind": "adversary",
+          "ref": "jagged-knife-lieutenant"
+        }
+      },
+      {
+        "id": "item-url-1",
+        "kind": "url",
+        "name": "The table's map board",
+        "order": 5,
+        "collapsed": true,
+        "href": "https://maps.example.org/sablewood/ford?layer=winter"
+      },
+      {
+        "id": "item-note-1",
+        "kind": "note",
+        "name": "If they parley",
+        "order": 6,
+        "collapsed": true,
+        "note": [
+          {
+            "type": "heading",
+            "align": "center",
+            "spans": [
+              {
+                "text": "Terms the bandits will take",
+                "bold": true,
+                "italic": false
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "align": "start",
+            "spans": [
+              {
+                "text": "Rhys wants the ",
+                "bold": false,
+                "italic": false
+              },
+              {
+                "text": "cargo",
+                "bold": true,
+                "italic": false
+              },
+              {
+                "text": ", not the fight. She will say so only if ",
+                "bold": false,
+                "italic": false
+              },
+              {
+                "text": "someone asks her name",
+                "bold": false,
+                "italic": true
+              },
+              {
+                "text": ".",
+                "bold": false,
+                "italic": false
+              }
+            ]
+          },
+          {
+            "type": "bullets",
+            "items": [
+              [
+                {
+                  "text": "Half the crates, and the ford stays open.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              [
+                {
+                  "text": "The lieutenant walks free.",
+                  "bold": false,
+                  "italic": false
+                }
+              ],
+              [
+                {
+                  "text": "No deal at all",
+                  "bold": true,
+                  "italic": false
+                },
+                {
+                  "text": " if the burrower has already surfaced.",
+                  "bold": false,
+                  "italic": false
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "item-countdown-2",
+        "kind": "countdown",
+        "name": "The ford thaws",
+        "order": 7,
+        "collapsed": true,
+        "primary": false,
+        "sceneId": "item-scene-1",
+        "countdown": {
+          "id": "item-countdown-2",
+          "name": "The ford thaws",
+          "kind": "standard",
+          "start": 6,
+          "value": 5,
+          "notes": "Only while they are still at the ford.",
+          "activation": "The first time someone stands in the water.",
+          "advancement": "One each time a bandit goes into the river.",
+          "effect": "The ice will not hold a body any more.",
+          "owner": "The GM",
+          "beats": []
+        }
+      }
+    ],
+    "party": [
+      {
+        "id": "9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8",
+        "importedAt": "2026-07-04T18:02:00.000Z",
+        "source": "file",
+        "markedAt": "2026-07-04T21:40:00.000Z",
+        "tracks": {
+          "hp": 2,
+          "stress": 4,
+          "hope": 3,
+          "armor": 1
+        },
+        "sheet": {
+          "id": "9a1f2b3c-4d5e-4f60-8712-a3b4c5d6e7f8",
+          "schemaVersion": 3,
+          "name": "Ilya of the Ninth",
+          "pronouns": "they/them",
+          "classRef": "bard",
+          "subclassRefs": [
+            "troubadour"
+          ],
+          "ancestryRefs": [
+            "clank"
+          ],
+          "communityRef": "highborne",
+          "multiclassRef": null,
+          "multiclassDomain": null,
+          "level": 3,
+          "traits": {
+            "agility": 1,
+            "strength": 2,
+            "finesse": 0,
+            "instinct": 1,
+            "presence": 0,
+            "knowledge": -1
+          },
+          "traitMarks": {},
+          "hp": {
+            "marked": 2,
+            "max": 5
+          },
+          "stress": {
+            "marked": 3,
+            "max": 6
+          },
+          "hope": {
+            "marked": 4,
+            "max": 5
+          },
+          "armorSlots": {
+            "marked": 1,
+            "max": 3
+          },
+          "evasionOverride": null,
+          "thresholdOverride": null,
+          "loadout": [
+            "book-of-ava",
+            "book-of-illiat",
+            "book-of-tyfar"
+          ],
+          "vault": [
+            "book-of-sitil",
+            "book-of-vagras",
+            "book-of-korvax"
+          ],
+          "activePrimaryWeapon": "broadsword",
+          "activeSecondaryWeapon": "shortsword",
+          "activeArmor": "gambeson-armor",
+          "inventory": [
+            {
+              "ref": "stride-potion",
+              "name": "Minor Health Potion",
+              "quantity": 2,
+              "note": "Clears 1d4 HP."
+            },
+            {
+              "ref": null,
+              "name": "A rope, forty feet",
+              "quantity": 1
+            }
+          ],
+          "experiences": [
+            {
+              "id": "5c1f8a90-3b2d-4e6f-9a71-0d8c2b4e6f13",
+              "name": "Ran with the wolves",
+              "bonus": 2
+            },
+            {
+              "id": "7e2a4b60-8c5d-41f2-b3a9-6d0e1f7c2a48",
+              "name": "",
+              "bonus": 2
+            }
+          ],
+          "gold": {
+            "handfuls": 4,
+            "bags": 1,
+            "chests": 0
+          },
+          "connections": [
+            "Owes the innkeeper an apology"
+          ],
+          "notes": "Notes that reach the sheet.",
+          "levelUpHistory": [],
+          "companion": null,
+          "beastform": null,
+          "scars": [
+            "A ledger of names"
+          ],
+          "createdAt": "2026-02-14T19:04:00.000Z",
+          "updatedAt": "2026-02-14T21:37:00.000Z"
+        }
+      }
+    ],
+    "board": {
+      "region": "scene",
+      "partyTier": 2,
+      "roster": [
+        {
+          "ref": "acid-burrower",
+          "count": 1
+        }
+      ],
+      "adjustments": {
+        "easier": false,
+        "harder": true,
+        "damageBump": false
+      },
+      "combatants": [],
+      "environmentRef": "raging-river",
+      "liveScene": "item-scene-1"
+    },
+    "archive": [
+      {
+        "id": "sitting-1",
+        "name": "The first night out",
+        "closedAt": "2026-07-04T23:10:00.000Z",
+        "items": [
+          {
+            "id": "archived-scene-1",
+            "kind": "scene",
+            "name": "The road north",
+            "order": 0,
+            "collapsed": true,
+            "environmentRef": null,
+            "roster": [],
+            "adjustments": {
+              "easier": false,
+              "harder": false,
+              "damageBump": false
+            },
+            "combatants": []
+          }
+        ],
+        "account": [
+          {
+            "type": "paragraph",
+            "align": "start",
+            "spans": [
+              {
+                "text": "They never went north.",
+                "bold": false,
+                "italic": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "register": [
+      {
+        "id": "reg-1",
+        "kind": "person",
+        "name": "Old Hessa, the ferrywoman",
+        "createdAt": "2026-07-04T19:00:00.000Z",
+        "updatedAt": "2026-07-04T19:00:00.000Z",
+        "body": [
+          {
+            "type": "paragraph",
+            "align": "start",
+            "spans": [
+              {
+                "text": "Owes the party a crossing.",
+                "bold": false,
+                "italic": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reg-2",
+        "kind": "agreement",
+        "name": "Lines and veils",
+        "createdAt": "2026-07-01T18:00:00.000Z",
+        "updatedAt": "2026-07-01T18:00:00.000Z",
+        "body": [
+          {
+            "type": "paragraph",
+            "align": "start",
+            "spans": [
+              {
+                "text": "No harm to animals on screen.",
+                "bold": false,
+                "italic": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reg-3",
+        "kind": "prophecy",
+        "name": "The drowned king returns",
+        "createdAt": "2026-07-01T18:00:00.000Z",
+        "updatedAt": "2026-07-01T18:00:00.000Z",
+        "body": []
+      }
+    ]
+  }
+}

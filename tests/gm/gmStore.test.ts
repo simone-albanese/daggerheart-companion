@@ -566,6 +566,194 @@ describe('exporting the open campaign', () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/no campaign open/);
   });
+
+  /**
+   * A copy saved by hand is evidence a click happened, never that a file
+   * exists: `saveTextFile` reads nothing back, and a `download` or a `share`
+   * route ends at an operating system this app cannot ask.
+   *
+   * It is recorded anyway, because an iOS GM - where there is no folder picker
+   * and so no automatic backup at all - who dutifully exports every week read
+   * "no backup yet" for ever, and that trains them to ignore the one indicator
+   * that matters. What it must not do is set the checksum that suppresses the
+   * folder write: only `writeIntoDirectory`, which opens the file again and
+   * compares it, has earned that.
+   */
+  it('records a copy saved by hand without letting it look like a backup', async () => {
+    const fileIo = await import('../../src/transfer/fileIo.ts');
+    const campaignFile = await import('../../src/transfer/campaignFile.ts');
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: true,
+      route: 'share',
+      fileName: 'the-sablewood-winter.dhcampaign',
+      cancelled: false,
+      reason: null,
+    });
+
+    const s = gm.useGm.getState();
+    s.renameCampaign(s.activeCampaignId!, 'The Sablewood Winter');
+    const id = s.activeCampaignId!;
+    expect(localStorage.getItem('dhc.backup.v1')).toBeNull();
+
+    expect((await s.exportActiveCampaign()).ok).toBe(true);
+
+    const note = (
+      JSON.parse(localStorage.getItem('dhc.backup.v1')!) as {
+        campaigns: Record<string, { lastCopyAt?: string; route?: string; checksum?: number }>;
+      }
+    ).campaigns[id]!;
+    expect(note.route).toBe('share');
+    expect(Date.parse(note.lastCopyAt!)).not.toBeNaN();
+    expect(
+      note.checksum,
+      'a share sheet was recorded as a verified write, so the folder copy will be skipped',
+    ).toBeUndefined();
+    // And it is not the checksum by accident either: that is the number the
+    // folder leg stores, and nothing here may have produced it.
+    expect(Object.values(note)).not.toContain(
+      campaignFile.campaignChecksum(gm.useGm.getState().campaigns.find((c) => c.id === id)!),
+    );
+    spy.mockRestore();
+  });
+
+  it('records nothing when the copy did not happen', async () => {
+    const fileIo = await import('../../src/transfer/fileIo.ts');
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: false,
+      route: null,
+      fileName: 'the-sablewood-winter.dhcampaign',
+      cancelled: true,
+      reason: null,
+    });
+
+    expect((await gm.useGm.getState().exportActiveCampaign()).ok).toBe(false);
+    expect(localStorage.getItem('dhc.backup.v1')).toBeNull();
+    spy.mockRestore();
+  });
+});
+
+/**
+ * What the automatic backup is written from, and why it cannot be the disk.
+ *
+ * `writeActive` updates `state.campaigns` only inside the `try` *after*
+ * `putCampaign` resolves, and on a throw deliberately leaves the record dirty.
+ * So on the evening writes are failing - a full disk, an older build refusing a
+ * newer record, which is exactly the work about to be lost - a flush cannot
+ * make the disk fresh, and a disk-sourced backup would write the stale record,
+ * verify it happily and stamp "last backup: today" over an evening that exists
+ * nowhere.
+ */
+describe('the snapshot the backup reads', () => {
+  it('folds the live board into the open campaign before it has been written', async () => {
+    const s = () => gm.useGm.getState();
+    s().setFear(9);
+    s().spawn(adversary, 2);
+
+    const snapshot = gm.snapshotCampaigns()!;
+    expect(snapshot.campaigns).toHaveLength(1);
+    expect(snapshot.campaigns[0]!.fear).toBe(9);
+    expect(snapshot.campaigns[0]!.board.combatants.map((c) => c.adversaryRef)).toEqual([
+      'acid-burrower',
+    ]);
+    // The debounce is 400 ms and nothing has flushed, so the disk still holds
+    // the campaign as it was created.
+    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(0);
+
+    await gm.flushGm();
+    expect(gm.snapshotCampaigns()!.campaigns[0]!.fear).toBe(9);
+    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(9);
+  });
+
+  it('still holds the evening after the write that should have saved it failed', async () => {
+    const spy = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+
+    const s = () => gm.useGm.getState();
+    s().setFear(9);
+    await gm.flushGm();
+    expect(s().writeError).not.toBeNull();
+
+    expect(gm.snapshotCampaigns()!.campaigns[0]!.fear).toBe(9);
+    expect((await store.readCampaigns()).campaigns[0]!.fear).toBe(0);
+    spy.mockRestore();
+  });
+
+  /**
+   * `writeActive` stamps `new Date().toISOString()` at the moment the record
+   * actually reaches the disk. Inventing a different time here would put a time
+   * in the backup file that no write ever happened at - and it would also make
+   * an `updatedAt` fingerprint look changed on every trigger, which is the
+   * mirror image of the bug the content checksum exists to avoid.
+   */
+  it('does not invent a time no write ever happened at', async () => {
+    const campaignFile = await import('../../src/transfer/campaignFile.ts');
+    const s = () => gm.useGm.getState();
+    await gm.flushGm();
+    const before = (await store.readCampaigns()).campaigns[0]!.updatedAt;
+
+    /*
+     * An hour later, with the evening still unwritten. The clock has to be
+     * moved for this assertion to have teeth at all: a snapshot that stamped
+     * itself in the same millisecond as the write it followed would agree with
+     * one that did not, and the test would pass over the bug.
+     */
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.parse(before) + 3_600_000));
+    try {
+      s().setFear(4);
+      const first = gm.snapshotCampaigns()!.campaigns[0]!;
+      s().setFear(5);
+      const second = gm.snapshotCampaigns()!.campaigns[0]!;
+
+      expect(first.updatedAt).toBe(before);
+      expect(second.updatedAt).toBe(before);
+      // Which is exactly why the backup's skip gate is the content and not this
+      // field: the board moved between the two snapshots and the clock did not.
+      expect(campaignFile.campaignChecksum(second)).not.toBe(
+        campaignFile.campaignChecksum(first),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('names the campaigns this build must not touch beside the ones it can', async () => {
+    await gm.flushGm();
+    const held = [
+      { id: 'held-1', name: 'The Sablewood Winter', schemaVersion: 99, reason: 'a newer build' },
+    ];
+    gm.useGm.setState({ quarantined: held });
+
+    const snapshot = gm.snapshotCampaigns()!;
+    expect(snapshot.quarantined).toEqual([{ id: 'held-1', name: 'The Sablewood Winter' }]);
+    // The reason belongs to the screen that renders it, not to a file.
+    expect(Object.keys(snapshot.quarantined[0]!).sort()).toEqual(['id', 'name']);
+  });
+
+  /**
+   * Null is a third answer, and it has to be.
+   *
+   * `hydrateGm` sets `hydrated: true` on a read that *failed* as well as on one
+   * that worked - so that the screen stops waiting and says what went wrong -
+   * and leaves `campaigns` empty with `writeRetry: 'read'`. Handing that empty
+   * list to the backup would read as "this device has no campaigns" and quietly
+   * take every one of them out of the folder, on precisely the launch where the
+   * storage is already misbehaving. Falling through to the disk can fail to
+   * notice a campaign; it can never invent one.
+   */
+  it('says nothing at all rather than "no campaigns" when it has no answer', () => {
+    gm.useGm.setState({ hydrated: false });
+    expect(gm.snapshotCampaigns()).toBeNull();
+
+    gm.useGm.setState({ hydrated: true, campaigns: [], writeRetry: 'read' });
+    expect(gm.snapshotCampaigns()).toBeNull();
+
+    // A *write* failure is the case the snapshot exists for: the disk is stale
+    // and memory is the only copy of the evening. It must still answer.
+    gm.useGm.setState({ writeRetry: 'write' });
+    expect(gm.snapshotCampaigns()).not.toBeNull();
+  });
 });
 
 describe('a write that did not happen', () => {

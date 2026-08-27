@@ -153,19 +153,23 @@ describe('a throw above every screen', () => {
   });
 
   it('says what the export actually did, rather than that it happened', async () => {
-    // No characters at all. `runBackup` writes nothing and says so, and the
-    // fallback has to repeat its answer rather than invent a reassuring one.
+    // Nothing at all - no characters and no campaigns. `runBackup` writes
+    // nothing and says so, and the fallback has to repeat its answer rather
+    // than invent a reassuring one. The sentence stopped being about characters
+    // alone when the campaign leg landed: a GM who runs the table and plays
+    // nobody was being told there were no characters, which was true and beside
+    // the point.
     await render(createElement(AppBoundary, null, createElement(Detonate, { message: 'boom' })));
 
     await act(async () => {
       press('Export everything');
     });
-    await settle(() => text().includes('no characters'));
+    await settle(() => text().includes('back up yet'));
 
     expect(
       text(),
       'the export button reported success over a file that was never written',
-    ).toContain('There are no characters to back up yet.');
+    ).toContain('There is nothing to back up yet.');
   });
 
   it('writes a real file when there is something to write', async () => {

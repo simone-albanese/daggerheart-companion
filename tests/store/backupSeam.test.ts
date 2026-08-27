@@ -21,8 +21,8 @@
  * `tests/pwa/wiring.test.ts` gives: the defect is not in what a function does,
  * it is in which one the app hands it.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -106,5 +106,172 @@ describe('the automatic backup is reached at all', () => {
 
   it('runs the seven-day check the architecture describes', () => {
     expect(app).toMatch(/\bintegrityCheck\s*\(/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The campaigns, and the edge that must keep pointing the other way
+// ---------------------------------------------------------------------------
+
+/**
+ * Every module a static import reaches from an entry point, following relative
+ * specifiers only. Type-only imports are skipped: they are erased and drag no
+ * chunk with them, and the whole question here is what arrives at first paint.
+ */
+function reachedFrom(entry: string): Set<string> {
+  const seen = new Set<string>();
+  const stack = [entry];
+  while (stack.length > 0) {
+    const file = stack.pop()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = read(file);
+    for (const found of source.matchAll(/(?:^|\n)\s*(?:import|export)\s+([^;]*?)from\s+'([^']+)'/g)) {
+      const clause = found[1] ?? '';
+      const specifier = found[2] ?? '';
+      if (/^type\s/.test(clause.trim())) continue;
+      if (!specifier.startsWith('.')) continue;
+      const resolved = resolve(dirname(file), specifier);
+      if (existsSync(resolved)) stack.push(resolved);
+    }
+  }
+  return seen;
+}
+
+const GM_STORE = join(SRC, 'ui/gm/gmStore.ts');
+
+/**
+ * One body of a function in `backup.ts`, from its signature to the next
+ * top-level `export`. Which door each entry point holds is the correctness
+ * question; a grep over the whole file would answer it for the file rather
+ * than for the function.
+ */
+function bodyOf(source: string, signature: string): string {
+  const start = source.indexOf(signature);
+  expect(start, `${signature} is not in backup.ts any more`).toBeGreaterThan(-1);
+  const rest = source.slice(start + signature.length);
+  const end = rest.indexOf('\nexport ');
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+describe('the backup never reaches into the GM store', () => {
+  /*
+   * `gmStore.ts` ends in a bare `void hydrateGm()` at module scope, on purpose,
+   * so that the GM chunk arriving *is* the hydration starting. `backup.ts` and
+   * `backupDeps.ts` are pulled into the first paint by `App.tsx`, `Settings.tsx`
+   * and both error boundaries - so an import from here into the GM store would
+   * drag that whole lazy chunk into the launch of every player who never opens
+   * the GM screen, and start a campaign read from a screen that has just
+   * crashed. The edge is inverted through `campaignSource.ts` instead: that
+   * module owns a slot and `gmStore` fills it.
+   */
+  for (const entry of ['store/backup.ts', 'store/backupDeps.ts', 'store/campaignSource.ts']) {
+    it(`${entry} cannot pull the GM chunk into the first paint`, () => {
+      const reached = [...reachedFrom(join(SRC, entry))];
+      expect(reached.length, `${entry} resolved no imports at all`).toBeGreaterThan(1);
+      expect(
+        reached.filter((file) => file === GM_STORE),
+        `${entry} reaches ui/gm/gmStore.ts, whose last line starts a campaign read`,
+      ).toEqual([]);
+    });
+  }
+
+  it('publishes the seam from the GM store, which is the only place that can', () => {
+    // The inversion is only real if the other end exists: a slot nobody fills
+    // silently falls back to the disk for ever, which is the fatal this whole
+    // design was built to close.
+    expect(read(GM_STORE)).toMatch(/\bpublishCampaignSource\s*\(\s*snapshotCampaigns\s*\)/);
+  });
+});
+
+describe('which campaign door each entry point holds', () => {
+  const backup = read(join(SRC, 'store/backup.ts'));
+
+  /*
+   * Two doors, and they answer different questions.
+   *
+   * `liveCampaigns` is memory, through the publish seam, and it is what a
+   * backup is written from: `writeActive` updates `state.campaigns` only after
+   * `putCampaign` resolves, so on the evening writes are failing a flush cannot
+   * make the disk fresh and a disk-sourced backup would write the stale record,
+   * verify it happily and stamp "last backup: today" over an evening that
+   * exists nowhere.
+   *
+   * `listCampaigns` is the disk, and the seven-day check may read nothing else:
+   * its only evidence is the difference between a read that can throw and a
+   * list in localStorage, and a store-sourced list can never throw.
+   */
+  it('writes a backup from the published seam, not from the disk', () => {
+    expect(backup).toMatch(/liveCampaigns:\s*currentCampaigns/);
+    expect(bodyOf(backup, 'export async function runBackup(')).toMatch(/d\.liveCampaigns\(\)/);
+  });
+
+  it('reads the disk for the seven-day check and for the session note', () => {
+    expect(backup).toMatch(/listCampaigns:\s*\(\)\s*=>\s*readCampaigns\(\)/);
+    for (const signature of [
+      'export async function integrityCheck(',
+      'export async function noteSession(',
+    ]) {
+      const body = bodyOf(backup, signature);
+      expect(body).toMatch(/d\.listCampaigns\(\)/);
+      expect(
+        body,
+        `${signature} takes the published snapshot, which can never throw — so a launch where the campaign store would not open gets reported as campaigns having vanished`,
+      ).not.toMatch(/liveCampaigns/);
+    }
+  });
+
+  it('never writes a backup from the door the seven-day check reads', () => {
+    expect(bodyOf(backup, 'export async function runBackup(')).not.toMatch(/listCampaigns/);
+  });
+});
+
+/**
+ * One sentence about what a run wrote, in one place, reached by all four.
+ *
+ * Settings, the unsaved-work strip, `ScreenBoundary` and `AppBoundary` each
+ * printed their own copy of `Saved ${outcome.fileName ?? 'the copy'} -
+ * ${outcome.characters} characters`. That was true only while a run that wrote
+ * anything had written the library: `runBackup` returned early on an empty
+ * one, so `fileName` could not be null on a success. The campaign leg makes it
+ * null twice over - a GM who plays nobody, and an unchanged library beside a
+ * board that moved - and all four would then have named a `.dhbackup` that was
+ * never written and counted characters into it.
+ *
+ * Source text rather than behaviour for this file's own reason: three of the
+ * four are crash screens, the sentence is one line inside a `.then`, and the
+ * defect is not in what the function does but in which one the screen reaches
+ * for. `savedFiles` is asserted on its own in `backup.test.ts`.
+ */
+describe('what a run wrote is said in one place', () => {
+  const SCREENS = [
+    'ui/settings/Settings.tsx',
+    'ui/shell/App.tsx',
+    'ui/shell/ScreenBoundary.tsx',
+    'ui/shell/AppBoundary.tsx',
+  ];
+
+  for (const screen of SCREENS) {
+    it(`${screen} says what was written through savedFiles`, () => {
+      const source = read(join(SRC, screen));
+      expect(source, `${screen} calls runBackup and is not in this list`).toMatch(
+        /\brunBackup\s*\(/,
+      );
+      expect(source).toMatch(/\bsavedFiles\s*\(\s*outcome\s*\)/);
+      for (const field of ['fileName', 'characters']) {
+        expect(
+          source,
+          `${screen} reads outcome.${field} to build its own sentence again. Both fields are null-blind on their own: a run that wrote a campaign and no library file has no file name, and a character count belonging to a file it did not write`,
+        ).not.toMatch(new RegExp(`outcome\\.${field}`));
+      }
+    });
+  }
+
+  it('leaves no fifth caller printing its own', () => {
+    const others = sourceFiles(SRC)
+      .filter((file) => /\brunBackup\s*\(/.test(read(file)))
+      .map((file) => relative(SRC, file).split(sep).join('/'))
+      .filter((file) => file !== 'store/backup.ts' && file !== 'store/backupDeps.ts');
+    expect(others.sort()).toEqual([...SCREENS].sort());
   });
 });

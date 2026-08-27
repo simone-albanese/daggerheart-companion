@@ -16,7 +16,7 @@
  * a person who can only retype a sentence sends back a sentence.
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { runBackup } from '../../store/backup.ts';
+import { runBackup, savedFiles } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { APP_VERSION } from '../../transfer/fileIo.ts';
 import { copyText } from '../../transfer/pasteboard.ts';
@@ -152,10 +152,16 @@ export class ScreenBoundary extends Component<Props, State> {
     this.setState({ saving: true, saved: null });
     void runBackup('manual', { interactive: true }, appBackupDeps)
       .then((outcome) => {
+        // `savedFiles`, not a copy of the sentence: a campaigns-only run has
+        // no `.dhbackup` and a character count belonging to a file it did not
+        // write, and this screen has already failed the user once.
         this.setState({
-          saved: outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the copy'} — ${String(outcome.characters)} character${outcome.characters === 1 ? '' : 's'}.`
-            : (outcome.reason ?? 'Nothing was written.'),
+          saved: [
+            outcome.wrote ? savedFiles(outcome) : (outcome.reason ?? 'Nothing was written.'),
+            outcome.notice,
+          ]
+            .filter((line): line is string => line !== null)
+            .join(' '),
         });
       })
       .catch((cause: unknown) => {
