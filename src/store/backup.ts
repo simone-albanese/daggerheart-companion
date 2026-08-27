@@ -1014,6 +1014,18 @@ export interface IntegrityReport {
   /** True when the gap was long enough for ITP to have been at work. */
   triggered: boolean;
   healthy: boolean;
+  /**
+   * False when the character store could not be read at all.
+   *
+   * Carried because the shell has a heading to choose and `healthy` on its own
+   * cannot tell it which store failed: a campaign store that would not open
+   * left `missingIds` and `missingCampaignIds` both empty - "an unanswered
+   * question is not a loss" - and the alert was then headed THE LIBRARY DID NOT
+   * OPEN over a character library that was intact and on screen beside it.
+   */
+  readable: boolean;
+  /** False when the campaign store could not be read at all. */
+  campaignsReadable: boolean;
   /** Characters at the end of the last session, and now. */
   expected: number;
   found: number;
@@ -1202,6 +1214,8 @@ export async function integrityCheck(deps?: Partial<BackupDeps>): Promise<Integr
     inactiveDays,
     triggered,
     healthy,
+    readable,
+    campaignsReadable,
     expected: known.length,
     found: characters.length,
     missingIds,

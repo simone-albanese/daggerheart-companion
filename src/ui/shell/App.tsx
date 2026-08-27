@@ -129,6 +129,9 @@ function Shell(): React.JSX.Element {
   const openCard = useApp((s) => s.openCard);
   const setOpenCard = useApp((s) => s.setOpenCard);
   const prefs = useApp((s) => s.prefs);
+  // Only the integrity alert's campaign door writes here, and only to open a
+  // section the GM had switched off - see the chip's own comment below.
+  const setPrefs = useApp((s) => s.setPrefs);
   const characters = useApp((s) => s.characters);
   const storageError = useApp((s) => s.storageError);
   const writeError = useApp((s) => s.writeError);
@@ -403,10 +406,21 @@ function Shell(): React.JSX.Element {
                 the wrong problem and points at the wrong store. The sentence
                 under it is `integrity.message`, verbatim, and it already says
                 which of the two it is.
+
+                Three arms, not two, and the third is the same defect one step
+                along: a campaign store that will not open leaves *both* id
+                lists empty on purpose ("an unanswered question is not a loss"),
+                so it fell to the else and was headed THE LIBRARY DID NOT OPEN
+                with "4 CHARACTERS" in the header chip beside it and four rows
+                on screen under it. `readable` and `campaignsReadable` say which
+                store answered; when neither did, the character store keeps the
+                heading, because its message takes precedence too.
               */}
               {integrity.missingIds.length + integrity.missingCampaignIds.length > 0
                 ? 'SOMETHING IS MISSING'
-                : 'THE LIBRARY DID NOT OPEN'}
+                : integrity.readable
+                  ? 'THE CAMPAIGNS DID NOT OPEN'
+                  : 'THE LIBRARY DID NOT OPEN'}
             </span>
             <span className="t-dense" style={{ color: 'var(--text-2)' }}>
               {integrity.message}
@@ -457,18 +471,34 @@ function Shell(): React.JSX.Element {
                 this points at the screen that owns them rather than growing a
                 second copy of it in the shell.
 
-                Behind `prefs.gmSection` because `allowedScreen` sends 'gm' back
-                to 'play' when that switch is off - a chip that quietly landed
-                somewhere else is the defect the paragraph above was written
-                about. `setRoutedByAlert` for the same reason it is set there:
-                without it `<Onboarding/>` is drawn instead of all five screens
-                and the tap does nothing.
+                It used to be behind `prefs.gmSection`, because `allowedScreen`
+                sends 'gm' back to 'play' when that switch is off and a chip
+                that quietly landed somewhere else is the defect the paragraph
+                above was written about. But the GM who has turned the section
+                off is not a GM who has no campaigns - Settings' own hint
+                promises "every campaign stays on this device and comes back the
+                moment this goes back on" - and hiding the chip left them the
+                restore chip as the only door, which lands on an import that
+                takes `.dhchar` and `.dhbackup` and throws a `.dhcampaign` back.
+                A campaign loss with no door at all.
+
+                So the route is legalised rather than avoided: the handler turns
+                the section back on, and the label says so first, because a chip
+                that silently changes a setting is its own small lie. `setPrefs`
+                writes synchronously and `allowedScreen` is applied at render
+                from the same store, so the pref lands before the route is
+                judged and the tap cannot bounce.
+
+                `setRoutedByAlert` for the same reason it is set above: without
+                it `<Onboarding/>` is drawn instead of all five screens and the
+                tap does nothing.
               */}
-              {integrity.missingCampaignIds.length > 0 && prefs.gmSection && (
+              {integrity.missingCampaignIds.length > 0 && (
                 <button
                   type="button"
                   className="chip"
                   onClick={() => {
+                    if (!prefs.gmSection) setPrefs({ gmSection: true });
                     setRoutedByAlert(true);
                     setScreen('gm');
                   }}
@@ -479,7 +509,7 @@ function Shell(): React.JSX.Element {
                     background: 'var(--raised)',
                   }}
                 >
-                  OPEN THE GM TOOLS
+                  {prefs.gmSection ? 'OPEN THE GM TOOLS' : 'TURN THE GM TOOLS BACK ON'}
                 </button>
               )}
               {/*
