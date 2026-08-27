@@ -22,10 +22,25 @@
  * ## The rows are memoised, and one prop had to change first
  *
  * This list re-renders whenever anything in `session` changes, because it
- * subscribes to the array. Every writer in `gmStore` rebuilds that array, so
- * *any* edit anywhere in the night used to re-render *every* row - and once a
- * fight lives on a scene row rather than on the board, an HP mark is such an
- * edit and the whole plan repaints under a thumb that is tapping a number.
+ * subscribes to the array. Every writer *of `session`* rebuilds it, so any
+ * edit to the plan used to re-render every row - and that is not every writer
+ * in `gmStore`. `commit` sets only the keys it is handed, and 17 of its 30
+ * call sites never hand it `session` at all: every party writer, every Fear
+ * writer, every combatant writer on the board. So a Fear tick costs this list
+ * nothing today, and an HP mark costs it nothing today either.
+ *
+ * That is precisely why the repaint was survivable, and precisely what stops
+ * being true: once a fight lives on a scene row rather than on the board, an
+ * HP mark *becomes* an edit to `session` and the whole plan repaints under a
+ * thumb that is tapping a number. `session.ts`'s `ownerName` docblock argues
+ * the same fact from the other side, and the two must not disagree - the
+ * sentence that stood here said "every writer in `gmStore`", which made the
+ * next clause say nothing, because a repaint that already happens on every
+ * edit cannot be made worse by a new kind of edit.
+ *
+ * The 30 and the 17 were counted on this branch: `grep -c 'commit({'
+ * src/ui/gm/gmStore.ts` for the call sites, then reading the object literal at
+ * each one for a `session` key.
  *
  * So the rows are `MemoSessionRow`, and every prop they are handed is either a
  * value or an object that survives a render it had nothing to do with. The one

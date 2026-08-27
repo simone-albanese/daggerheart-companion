@@ -2062,7 +2062,7 @@ describe('what a change to one row costs the rest of the list', () => {
     expect(text()).toContain('The broken bridge');
   });
 
-  it('re-renders every row when a row is added, because every row speaks the total', () => {
+  it('re-renders every row when a row is added, and rebuilds the handle each one holds', () => {
     /*
      * A row the memo must NOT skip, and the reason is on the row itself: every
      * drag handle announces `Reorder {name}, {position} of {total}`, and MOVE
@@ -2072,8 +2072,20 @@ describe('what a change to one row costs the rest of the list', () => {
      * screen reader counting to three on a list of four.
      *
      * `total` is a number, so the default comparison catches it without
-     * anybody having to remember. This is here to record that the pass is
-     * deliberate rather than a hole.
+     * anybody having to remember. The handle is not, and that is the second
+     * half of this test rather than a second test: `useStableHandles` caches a
+     * handle on the factory, the row and the index, and an add moves none of
+     * the three for a row already in the list - `addSessionItem` appends
+     * without restamping anybody's `order`. What moves is the factory:
+     * `onKeyDown` is `useCallback`'d on `items.length` and closes over `total`,
+     * so the seat's `had.build === build` is the only one of its three
+     * comparisons that can miss, and it is the only thing that gets the old
+     * rows a handle that knows a fourth row exists.
+     *
+     * The label above cannot see that. `SessionRow` draws `of {total}` from its
+     * own prop, so it reads `of 4` over a handle still closing over three. END
+     * is the assertion that reaches inside the cached closure: with a stale one
+     * the first row travels to index 2 and the region says `position 3 of 3`.
      */
     const items = three();
     seed(items);
@@ -2098,6 +2110,12 @@ describe('what a change to one row costs the rest of the list', () => {
         `of ${String(useGm.getState().session.length)}`,
       );
     }
+
+    press(spoken[0]!, 'End');
+    expect(useGm.getState().session.map((i) => i.id)).toEqual(['b', 'c', 'd', 'a']);
+    expect(container.querySelector('[aria-live]')?.textContent).toBe(
+      'The gate, position 4 of 4.',
+    );
   });
 
   it('re-renders every row when the plan is reordered, because every index moved', () => {
@@ -2179,12 +2197,24 @@ describe('what a change to one row costs the rest of the list', () => {
      * says the clock and nothing else - the reader hands such a clock back to
      * the campaign on the next load, and a placeholder for a scene that is not
      * there would be a second thing to keep in step.
+     *
+     * The pair at the end is the whole reason the selector says
+     * `sessionName(owner)` and not `owner.name`, and the empty name is the one
+     * input in this app that tells those two spellings apart:
+     * `SessionItemBase.name` promises an empty name stays empty, so a scene the
+     * GM never named holds `''` and is called `Scene` on its own header. Read
+     * raw, that row would hand the clock an empty string and the shut header
+     * would ship `4/6 · ` - a separator with nothing after it. Every other
+     * fixture in this file gives its scene a name, so nothing else here can
+     * fail when that line changes.
      */
     seed([
       { ...base({ id: 's1', name: 'The dungeon', order: 0 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
       { ...base({ id: 'c1', name: 'The ritual', order: 1 }), kind: 'countdown', primary: false, sceneId: 's1', countdown: { id: 'c1', name: 'The ritual', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ id: 'c2', name: 'The tide', order: 2 }), kind: 'countdown', primary: false, sceneId: 'gone', countdown: { id: 'c2', name: 'The tide', kind: 'loop', start: 4, value: 4, notes: '', ...NO_CLOCK_PROSE } },
       { ...base({ id: 'c3', name: 'The flood', order: 3 }), kind: 'countdown', primary: false, sceneId: null, countdown: { id: 'c3', name: 'The flood', kind: 'standard', start: 8, value: 8, notes: '', ...NO_CLOCK_PROSE } },
+      { ...base({ id: 's2', name: '', order: 4 }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
+      { ...base({ id: 'c4', name: 'The water rises', order: 5 }), kind: 'countdown', primary: false, sceneId: 's2', countdown: { id: 'c4', name: 'The water rises', kind: 'dynamic', start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE } },
     ]);
     list();
     const shut = rows().map((r) => r.textContent ?? '');
@@ -2193,6 +2223,9 @@ describe('what a change to one row costs the rest of the list', () => {
     expect(shut[2]).not.toContain('·');
     expect(shut[3], 'a campaign clock named an owner').toContain('8/8');
     expect(shut[3]).not.toContain('·');
+    // The word the unnamed scene's own header draws, said by the clock that
+    // belongs to it - not the empty string the record actually holds.
+    expect(shut[5], 'an unnamed scene left the separator dangling').toContain('4/6 · SCENE');
   });
 
   it('mounts the row behind a memo, and that memo is this row', () => {

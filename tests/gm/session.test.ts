@@ -353,19 +353,43 @@ describe('what a shut row says about itself', () => {
   });
 
   it('is read by the countdown arm and by no other', () => {
-    // Handed to a scene and to an encounter, it changes nothing they say.
-    const scene: SessionItem = { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT };
-    const encounter: SessionItem = {
-      ...base(),
-      kind: 'encounter',
-      roster: [{ ref: adversary.id, count: 2 }],
-      adjustments: ADJUSTMENTS,
-      combatants: [],
-    };
-    for (const item of [scene, encounter]) {
-      expect(describeItem(item, dataset, index, PARTY, 'The dungeon')).toBe(
-        describeItem(item, dataset, index, PARTY),
-      );
+    /*
+     * Every other arm, not a sample of them. The title claims a property over
+     * the whole switch, and it used to ask two of the six - so appending the
+     * countdown arm's ` · ${ownerName}` to `note`, or to `url`, or to the arm
+     * this app keeps precisely because it cannot read it, was a change no test
+     * in this repo objected to.
+     *
+     * `SessionRow`'s selector returns `null` for everything that is not a
+     * countdown, so nothing here is a shipped risk today. It is the sentence
+     * that is at risk: the day a second arm is given a name to say, this is
+     * where the decision has to be made deliberately instead of arriving.
+     */
+    const others: SessionItem[] = [
+      { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT },
+      { ...base(), kind: 'encounter', roster: [{ ref: adversary.id, count: 2 }], adjustments: ADJUSTMENTS, combatants: [] },
+      { ...base(), kind: 'link', target: { kind: 'rule', ref: rule.id } },
+      { ...base(), kind: 'url', href: 'https://a.example/' },
+      { ...base(), kind: 'note', note: [{ type: 'paragraph', align: 'start', spans: [{ text: 'Rhys wants the cargo', bold: false, italic: false }] }] },
+      { ...base(), kind: 'unreadable', why: 'this version of the app has no "photo" item', raw: '{"kind":"photo"}' },
+    ];
+
+    /*
+     * The set is asserted rather than trusted. `SESSION_KIND_LABEL` is typed
+     * `Record<SessionItem['kind'], string>`, so its keys are the whole union -
+     * an eighth kind arriving fails here rather than leaving the title one arm
+     * short in silence. `SESSION_ITEM_KINDS` would not do: it is what ADD
+     * offers, which is five of the seven.
+     */
+    expect([...others.map((i) => i.kind), 'countdown'].sort()).toEqual(
+      Object.keys(SESSION_KIND_LABEL).sort(),
+    );
+
+    for (const item of others) {
+      expect(
+        describeItem(item, dataset, index, PARTY, 'The dungeon'),
+        `the ${item.kind} arm read a name that is not its own`,
+      ).toBe(describeItem(item, dataset, index, PARTY));
     }
   });
 
