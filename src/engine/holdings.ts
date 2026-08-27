@@ -11,13 +11,19 @@
  * *what does this sheet name?* - is asked by anything that wants to line a
  * character up against the dataset.
  *
- * The second caller is what moved it, and the cost of leaving it was
- * measurable rather than aesthetic. `src/ui/search/Search.tsx` needs this walk
- * to narrow the SRD search to one player's own material; importing it from the
- * codec put the codec's whole chunk - 33.83 kB, and the QR machinery with it -
- * behind a screen that wants twenty-five lines of it. Here it is its own small
- * module that both sides share, and `codec.ts` re-exports the name so its own
- * callers and tests are untouched.
+ * **What moved it has since been removed, and that is worth saying rather than
+ * leaving to be inferred from the git log.** The search screen briefly narrowed
+ * its results to one character's own material and needed this walk; importing
+ * it from the codec put 33.83 kB of QR machinery behind a screen that wanted
+ * twenty-five lines of it, so it came here. The owner then made that search
+ * global, and `holdingsOf` - the set-shaped wrapper this file also carried -
+ * went with it.
+ *
+ * The walk stays here anyway, and not out of inertia. The reason it does not
+ * belong in the codec never depended on who the second caller was: it reads a
+ * `Character` and returns `Ref`s, and it knows nothing about frames,
+ * registries or encoding. `codec.ts` re-exports the name, so its own callers
+ * and tests never saw the move either way.
  */
 import type { Character, Ref } from '../../shared/types.ts';
 import type { DerivedStats } from './character.ts';
@@ -58,34 +64,4 @@ export function characterRefs(c: Character): Ref[] {
     }
   }
   return out;
-}
-
-/**
- * Everything this character holds, as a set of dataset ids.
- *
- * The domains are added beside the walk because they are the one piece of a
- * character's material that is not stored *on* the character: a class's two
- * domains, plus the multiclass domain if there is one, are computed into
- * `DerivedStats.domains`. `characterRefs` cannot know them and should not be
- * taught to - it takes a `Character` and nothing else.
- *
- * ## What is in here that names nothing, and why that is left alone
- *
- * Three kinds of entry survive into this set without a record behind them, and
- * all three are harmless because of the direction the caller filters in: the
- * index is asked which of *its* records this set names, not the set which
- * records it wants. A reference to something that does not exist selects
- * nothing.
- *
- * - **Free-text inventory** has `ref: null` and never gets in at all.
- * - **Companion upgrade slugs** are minted at runtime from list items inside a
- *   rules section and are not ids of any record; they are not walked here.
- * - **Unresolved refs** - the `?12` placeholders a sheet carries when it
- *   arrived by QR before its content did - do get in, and match nothing. They
- *   are deliberately not filtered with `isUnresolvedRef`: that would put a
- *   `transfer/` import into an engine module to buy a result the caller
- *   already gets for free.
- */
-export function holdingsOf(c: Character, stats: DerivedStats): ReadonlySet<Ref> {
-  return new Set<Ref>([...characterRefs(c), ...stats.domains]);
 }
