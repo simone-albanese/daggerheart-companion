@@ -223,20 +223,42 @@ export function describeItem(
   index: DatasetIndex,
   partySize: number,
   /**
-   * The list this row is in, only so a scoped countdown can name its scene.
+   * The name of the scene a scoped countdown belongs to, already resolved.
+   * Null when the clock is the campaign's, and null when its scope names no
+   * row of this list.
    *
-   * Optional and last, so neither of the two call sites that do not need it
-   * has to change and a test can go on calling this with four arguments. It
-   * is the list rather than a resolved name because the alternative - working
-   * the name out at the call site and appending it there - would split "what a
-   * shut row says" across two files, and this function is the one place that
-   * owns it.
+   * IT WAS THE WHOLE `session` ARRAY, and the argument for that is overturned
+   * here rather than deleted, because it was a real argument and it is worth
+   * knowing what beat it. It read: taking the list keeps *what a shut row
+   * says* in one file, where working the name out at the call site would split
+   * that sentence across two. True, and cheap, for as long as holding the list
+   * cost nothing.
+   *
+   * It stopped costing nothing. `SessionRow` is the only production caller,
+   * and to pass the array it had to subscribe to `session` whole - so every
+   * row of the plan repainted every time any row changed. That was survivable
+   * while the only writers of `session` were the GM's own edits to the plan.
+   * It stops being survivable the moment a fight lives on a scene row, because
+   * then a single HP mark allocates a new `session` and repaints the night.
+   * A `React.memo` on the row cannot save it: a store subscription is not a
+   * prop, and memo only compares props.
+   *
+   * What actually moved is smaller than the old argument assumed. The call
+   * site finds a row by id and reads `sessionName` off it - this module's own
+   * exported function, so the two files cannot disagree about what an unnamed
+   * scene is called. The SENTENCE is still built here: the separator, the
+   * upper case, and the decision to say nothing at all rather than invent a
+   * placeholder for a scope whose row is gone. Only the lookup left.
+   *
+   * Optional and last for the reason it always was - the six arms that are not
+   * `countdown` never read it, and `tests/gm/session.test.ts` goes on asking
+   * most of them with four arguments.
    */
-  session: readonly SessionItem[] = [],
+  ownerName: string | null = null,
   /**
    * Which row the table is on, so a scene row can say that it is the one.
    *
-   * Optional and last, for the reason `session` above is: a test may go on
+   * Optional and last, for the reason `ownerName` above is: a test may go on
    * calling this with four arguments, and the arms that are not `scene` never
    * read it. `SessionRow` is the one production call site and passes it.
    *
@@ -334,10 +356,16 @@ export function describeItem(
        * A scope naming a row that is gone prints nothing rather than a
        * placeholder: the reader hands such a clock back to the campaign on the
        * next load anyway, and inventing a word for a scene that is not there
-       * would be a second thing to keep in step.
+       * would be a second thing to keep in step. That case arrives here as
+       * `null`, which is the same value a campaign-wide clock arrives with,
+       * and the two share one branch on purpose: the row says the same thing
+       * about both, which is the clock and nothing after it.
+       *
+       * The name is uppercased HERE and not by the caller. It is the only
+       * half of this term that is a formatting decision rather than a lookup,
+       * and it belongs beside the separator it is joined with.
        */
-      const owner = session.find((i) => i.kind === 'scene' && i.id === item.sceneId);
-      return owner === undefined ? clock : `${clock} · ${sessionName(owner).toUpperCase()}`;
+      return ownerName === null ? clock : `${clock} · ${ownerName.toUpperCase()}`;
     }
     case 'url':
       // The host, not the whole address, and never the raw stored string:

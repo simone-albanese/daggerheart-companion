@@ -269,7 +269,7 @@ export interface Adversary extends Sourced {
   description: string;
   motives: string[];
   difficulty: number;
-  /** Minions and some Solos have no thresholds. */
+  /** `null` where the stat block says `None`: the SRD's 16 Minions, no others. */
   thresholds: [number, number] | null;
   hp: number;
   stress: number;

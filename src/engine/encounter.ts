@@ -187,7 +187,47 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
     name: a.name,
     hp: { marked: 0, max: a.hp },
     stress: { marked: 0, max: a.stress },
-    thresholds: a.thresholds,
+    /*
+     * COPIED, and the copy is the whole of this line.
+     *
+     * `a` is the dataset's own adversary record - one object per adversary for
+     * the whole device, shared by every campaign, every spawn and every scene
+     * on it. This read `a.thresholds`, and `thresholds` is a mutable tuple, so
+     * every combatant ever built from one adversary held a live handle on the
+     * one array the bestiary draws from: two Acid Burrowers on the same board,
+     * and every Burrower any campaign on this device spawns after them, all
+     * pointing at it. A single `c.thresholds[0] = ...` anywhere would have
+     * edited the book, for every campaign on the device, in a place no reader
+     * would look.
+     *
+     * Nothing writes through that handle today, and nothing else was ever
+     * standing behind that fact. `runScene` does deep-copy `hp`, `stress` and
+     * `thresholds` - but it defines that copier inside itself and runs it at
+     * its own two crossings, park and resume, while `spawn` pushes what this
+     * function returns straight onto the live board. A GM who spawns a Burrower
+     * and marks it has not crossed a copier at all. So the alias was never
+     * covered, by a crossing that may be deleted or by one that survives, and
+     * the defence belongs where the alias is made.
+     *
+     * `Array.isArray`, not `=== null`, and the gap between the two is a crash.
+     * Absent thresholds are real: counted in `data/srd-1.0.json`, 16 of the 129
+     * adversaries have none, and they are exactly its 16 Minions - all 20 Solos
+     * carry a tuple, which is the half `Adversary.thresholds` got wrong and
+     * this comment copied forward before it was measured. But `null` is only
+     * one of the two ways the field goes missing. An adversary that exists only
+     * in an imported manual is assembled from the fields that manual
+     * contributed, `contributedFields` contributes no null, and the merge
+     * starts a record the SRD has never heard of from `{ id, provenance }`: a
+     * manual Minion whose stat line said `None` arrives here with no
+     * `thresholds` key at all. `undefined === null` is false, spreading
+     * `undefined` throws, and a test for one exact absence is the wrong shape
+     * of guard for a value that has two. Asking what the value IS answers both,
+     * and it also settles the read in `Scene.tsx` that draws the threshold row
+     * behind `!== null` and would have indexed `undefined` one screen later.
+     * `keeps a null threshold null` and `spawns an adversary whose thresholds
+     * key is missing entirely` are the two cases holding this branch down.
+     */
+    thresholds: Array.isArray(a.thresholds) ? [...a.thresholds] : null,
     difficulty: a.difficulty,
     spotlighted: false,
     ...(a.role === 'Minion' ? { minionsRemaining: partySize } : {}),
