@@ -1307,6 +1307,48 @@ describe('a door that would not open', () => {
   });
 
   /**
+   * And a hand-save that fails outright must not erase the folder's reason
+   * either.
+   *
+   * The picker's sentence is the generic one - "The export failed." when the
+   * browser gives no reason at all - and it used to be assigned straight over
+   * `characterFailure`, so a folder that had already turned the file away went
+   * unnamed, and nothing left on the panel pointed at Settings, which is the
+   * only place that folder can be repaired. Same loss as the cancel above, one
+   * line along.
+   */
+  it('keeps the folder’s refusal when the hand-save fails as well', async () => {
+    fakeFolder({ fail: true });
+    await chooseBackupFolder(deps());
+    prefs = { ...prefs, lastBackupAt: daysAgo(3) };
+
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: false,
+      route: null,
+      fileName: BACKUP_FILE,
+      cancelled: false,
+      reason: 'The browser blocked the download.',
+    });
+    try {
+      const outcome = await runBackup('manual', {}, deps());
+
+      expect(outcome.ok).toBe(false);
+      expect(
+        outcome.reason,
+        'the picker\'s generic sentence replaced the folder\'s own, so nothing sent the GM to Settings',
+      ).toMatch(/the folder is read-only/);
+      expect(outcome.reason).toMatch(/The browser blocked the download\./);
+
+      expect(prefs.lastBackupAt).toBe(daysAgo(3));
+      const status = backupStatus(deps());
+      expect(status.level).toBe('failing');
+      expect(status.lastError).toMatch(/the folder is read-only/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /**
    * Two legs down at once, which is where the `??` used to lose one of them
    * whole: the campaign that never reached the folder was named in `reason`,
    * `detail`, `lastError`, `notice` and `campaignNames` nowhere at all, while

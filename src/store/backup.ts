@@ -770,16 +770,20 @@ export async function runBackup(
        * Cancelling is not an error, so no `lastError` - and not a backup
        * either, so no stamp.
        *
-       * But this branch is only ever reached because something *else* already
-       * failed: entering the fallback at all needs the folder leg to have gone
-       * wrong with somebody watching, so `characterFailure` is non-null on
-       * entry. It used to `remember()` and return here, ahead of the only line
-       * on this path that writes `lastError`, which threw the folder's own
-       * refusal away and left a device whose last run was clean reading "last
-       * backup: 3 days ago" over a folder that had just turned everything
-       * away. The cancel carries the refusal now instead of returning over it.
-       * With no folder configured there is nothing to carry and the "cancelling
-       * is not an error" intent is untouched.
+       * But the fallback is entered from two different states, and only one
+       * of them is a bare decision. With no usable folder at all there is
+       * nothing behind the cancel: `characterFailure` is null, no leg has
+       * failed, and closing the picker is the whole of what happened. With a
+       * folder that took the file and refused it - or that refused a campaign
+       * beside it - the refusal is already sitting in `characterFailure`,
+       * `refusedCampaigns` or `campaignFailures` before the picker ever opens.
+       * This branch used to `remember()` and return in both cases, ahead of
+       * the only line on this path that writes `lastError`, which threw the
+       * folder's own refusal away and left a device whose last run was clean
+       * reading "last backup: 3 days ago" over a folder that had just turned
+       * everything away. It carries whatever failed now instead of returning
+       * over it, and when nothing did the "cancelling is not an error" intent
+       * is untouched.
        */
       const failed = failedLegs();
       if (failed !== null) {
@@ -797,7 +801,21 @@ export async function runBackup(
         true,
       );
     } else {
-      characterFailure = saved.reason ?? 'The export failed.';
+      /*
+       * Both refusals, not the newer one.
+       *
+       * This assignment used to overwrite whatever the folder leg had already
+       * recorded, so a folder that had turned the file away and a hand-save
+       * that then failed on top of it came out as the picker's own generic
+       * sentence alone - "The export failed." - with nothing left pointing at
+       * Settings, which is the only place the folder can be fixed. It is the
+       * same loss the cancel branch above was repaired for, one line along.
+       */
+      const byHand = saved.reason ?? 'The export failed.';
+      characterFailure =
+        characterFailure === null
+          ? byHand
+          : `${characterFailure} Saving it by hand failed too: ${byHand}`;
     }
   }
 
