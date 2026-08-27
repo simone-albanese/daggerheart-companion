@@ -9,15 +9,21 @@ questa sessione ha finalmente reso falsa: **`.dhcampaign` adesso si rilegge.**
 
 ## 1. Cosa è stato spedito
 
-**Stato finale della sessione: `main` è `a0b18ff`.** Le tre PR sono unite e le due che portano
-codice sono verificate pubblicate scaricando `sw.js`, non dedotte.
+**L'ultimo commit di codice di questa sessione è `b0cb250` (#52), verificato pubblicato.** La
+punta di `main` è più avanti e continuerà a muoversi: i commit dopo `b0cb250` sono documentazione,
+questo file compreso. **Non fidarti di un SHA di punta scritto qui — leggi `git log -1`.** La
+prima stesura ne aveva scritto uno, e la PR che lo correggeva ha spostato la punta di nuovo: un
+documento non può nominare il commit a cui atterra.
 
 | | cosa | stato |
 |---|---|---|
 | **Indice** | l'indice per categorie nel search | **unita, #51, `f0af890`, in produzione** |
 | **C** | import delle campagne + backup automatico | **unita, #52, `b0cb250`, in produzione** |
-| **Questo documento** | il handoff | **unito, #53, `a0b18ff`** |
+| **Questo documento** | il handoff, e le sue due correzioni | **unito, #53 → #54 → #55** |
 | **B** | parallelo vero: ogni riga tiene la sua rissa, schema 4→5 | piano pronto, **non eseguito** |
+
+Entrambe le PR di codice sono verificate **scaricando `sw.js` dal sito pubblicato**, non dedotte
+da un run verde: `const BUILD` riportava `f0af890` e poi `b0cb250`, gli stessi SHA dei merge.
 
 ### 1a. La #51, e come è stata verificata
 
@@ -194,6 +200,10 @@ Quelle che questa sessione ha messo alla prova:
 - **Un mutante sopravvissuto va affrontato, non nascosto.** Due sopravvivono per costruzione in
   `addCampaign` — togliere `hold()` *oppure* l'`await tx.done.catch()` è invisibile, perché
   ciascuno basta da solo. Sono tenuti entrambi e la ragione è nel docblock, non allowlistata.
+- **Non scrivere in un handoff il SHA della punta di `main`.** Il commit che unisce il handoff
+  sposta la punta, quindi quel numero è sbagliato dal primo istante in cui qualcuno può leggerlo.
+  Nomina l'ultimo commit di **codice**, che è stabile, e manda il lettore a `git log -1` per il
+  resto.
 - **Un numero ereditato da un altro documento va rimisurato o tolto.** «86 commit, zero tag» è
   stato ricopiato in avanti una volta e sbagliato in entrambe le metà: vedi §7.3. Vale anche
   quando il numero non è il punto della frase.
