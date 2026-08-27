@@ -162,11 +162,13 @@ describe('the door to Settings', () => {
   });
 
   it('is the only permanent route to Settings on a phone, and a 44px target', () => {
-    // The tab bar is the other navigation a phone has, and it has four
-    // destinations, none of which is this one.
+    // The tab bar is the other navigation a phone has, and it has five
+    // destinations, none of which is this one. The loop below is the part that
+    // matters and it is unfiltered on purpose: it is what proves the newest
+    // tab is not a second door to Settings, whatever the newest tab is.
     mount(createElement(TabBar), { width: PHONE });
     const tabs = buttons();
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
     for (const tab of tabs) {
       expect(routesTo(tab), `the ${word(tab)} tab reaches Settings`).not.toBe('settings');
     }
@@ -228,17 +230,58 @@ describe('the nav and the readout share one line', () => {
    * 330px of content is allotted all 330 from 720 up, and every tab returns
    * itself from its own centre at 720, 744, 768, 802, 828, 856, 864 and 1179.
    */
-  it('draws the status readout only in the band whose line can hold it', () => {
-    const NAV = ['play', 'cards', 'build', 'gm'];
+  it('caps the identity by viewport, which is what keeps the fifth nav entry on its own side', () => {
+    /*
+     * jsdom cannot see the defect this guards. The failure is a `<nav>`
+     * painting outside its own box and being covered by a later sibling: the
+     * DOM is correct and only the pixels are wrong, which is what the docblock
+     * of the source says in its own words. So what is checkable here is the
+     * declaration, the way the 44s in `ruleSearch.test.tsx` are the numbers the
+     * source writes out.
+     *
+     * A flat pixel cap is what broke. Measured through the audit rig at 720x900
+     * with a cap-binding name, five nav entries and a flat `220`: the left
+     * group's clientWidth came back 69px under its scrollWidth and the nav
+     * painted 69.22px past its parent. With `min(220px, 19vw)` it is 0 at 720,
+     * 744 and 768. The A/B - the same name with four entries - was 0
+     * throughout, so the entry is what spent the slack and the cap is what
+     * paid it back.
+     */
+    for (const width of [TABLET, DESKTOP]) {
+      mount(header(), { width });
+      const capped = [...container.querySelectorAll<HTMLElement>('header span, header select')]
+        .map((el) => el.style.maxWidth)
+        .filter((w) => w !== '');
+      expect(capped.length, 'nothing in the header caps its width any more').toBeGreaterThan(0);
+      for (const cap of capped) {
+        expect(
+          cap.startsWith('min('),
+          `a flat cap (${cap}) cannot yield width to the nav in the 720-1179 band`,
+        ).toBe(true);
+        expect(cap, `${cap} has no viewport term, so it never yields`).toMatch(/vw\)/);
+      }
+    }
+  });
 
+  it('draws the status readout only in the band whose line can hold it', () => {
+    /*
+     * The nav is read out of the `<nav>` and not filtered through a list of
+     * the words expected back.
+     *
+     * It used to be `buttons().filter((b) => NAV.includes(…))` against a
+     * literal `['play','cards','build','gm']`, and that made this blind in the
+     * exact direction the file is about: a fifth entry would have been
+     * filtered out before the assertion and this test would have gone on
+     * passing while the left group grew a word - which is the collision the
+     * whole describe exists to watch. The element is the honest scope, because
+     * the header's own `SCREENS` is what fills it.
+     */
     for (const width of [PHONE, 719, 720, TABLET, 1179, 1180, DESKTOP]) {
       mount(header(), { width });
 
-      const tabs = buttons()
-        .filter((b) => NAV.includes(word(b).toLowerCase()))
-        .map((b) => word(b));
+      const tabs = [...container.querySelectorAll('nav button')].map((b) => word(b));
       expect(tabs, `the nav at ${width}px`).toEqual(
-        width >= 720 ? ['Play', 'Cards', 'Build', 'GM'] : [],
+        width >= 720 ? ['Play', 'Cards', 'Build', 'GM', 'Search'] : [],
       );
 
       // The dataset line and the library count, either wording of the first.

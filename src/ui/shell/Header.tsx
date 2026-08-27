@@ -10,7 +10,7 @@
  * left, the identity and the door to Settings on the right. The right group is
  * `flex: 'none'` and the left group carries `minWidth: 0`, so every pixel the
  * line is over-subscribed by comes off the left group's *box* - and none of it
- * off its contents, because a nav of four one-word buttons has nothing to give.
+ * off its contents, because a nav of one-word buttons has nothing to give.
  * The nav therefore paints outside its own box, and the right group, being the
  * later sibling in the same stacking context, is painted over it and wins the
  * hit test. Nothing is positioned, nothing is transformed, and no test in this
@@ -22,7 +22,7 @@
  * `document.elementFromPoint` at either button's own centre returns the span.
  * The centre of GM is dead from 720 through 828, the last covered pixel goes at
  * 856, and the line stops being over-subscribed at 864. Below 720 none of this
- * exists, because the nav is not drawn and `TabBar` carries the same four
+ * exists, because the nav is not drawn and `TabBar` carries the same
  * destinations - so the band where the collision lives is exactly the band where
  * `App.tsx` draws no tab bar and this nav is the only navigation the app has.
  *
@@ -272,11 +272,25 @@ import { CompatibleIcon } from '../shared/CompatibleMark.tsx';
 import { useLayout } from '../shared/useLayout.ts';
 import type { Screen } from '../../store/state.ts';
 
+/*
+ * The nav, and it is one of two hand-written lists over one type - `TABS` in
+ * `TabBar.tsx` is the other, and `SCREENS` in `prefs.ts` is the runtime gate
+ * both of them filter through. Adding to one and not the others is a
+ * divergence TypeScript cannot see: the type is satisfied either way.
+ *
+ * Search is here rather than phone-only, and the reason is this file's own
+ * rule. Above 719px there is no tab bar at all - `TabBar.tsx` records that
+ * `main > nav` comes back null at 852x393 - so a destination missing from
+ * this list is a destination a desktop or a tablet cannot reach. That is the
+ * same "door to an empty room" `allowedScreen` exists to prevent, arriving
+ * from the other side.
+ */
 const SCREENS: Array<{ id: Screen; label: string }> = [
   { id: 'play', label: 'Play' },
   { id: 'cards', label: 'Cards' },
   { id: 'build', label: 'Build' },
   { id: 'gm', label: 'GM' },
+  { id: 'search', label: 'Search' },
 ];
 
 export function Header({
@@ -426,31 +440,49 @@ export function Header({
          * and 27.8 at 812x375 with 44 per side, while 812 with 59 per side is
          * the one pair in the table that goes negative.
          *
-         * The left group's contents are a constant 330 (app mark
-         * 20.8 + gap 22 + nav 287.2), the gap between the groups is 8, and the
-         * right group is 485.7 with a ten-character name and 545.6 with
-         * "Bartholomew Ashworth". At 720 that line wants 823.7 of 680, so it is
-         * over-subscribed by 143.7 and the left group - the only one that may
-         * shrink - is allotted 186 for 330 of content. These four children and
-         * four of the row's 14px gaps are 301.5 of that, measured: dropping them
-         * below 1180 leaves a right group of 184.2 with a ten-character name,
-         * 244.1 with "Bartholomew Ashworth", and 318.4 at the 220px name cap
-         * where it stops growing. So the worst line the band can ask for is
+         * The left group's contents were a constant 330 (app mark 20.8 + gap 22
+         * + nav 287.2) and the worst line the band could ask for was
          * 330 + 8 + 318.4 = 656.4 against 680 at the narrowest tablet width -
-         * 23.6px of slack by content width, 23.8 measured between the two
-         * painted boxes, and 47.6 at 744. The over-subscription is not
-         * reduced, it is gone, at every width in the band and at any name.
+         * 23.6px of slack, and 47.6 at 744.
+         *
+         * ## The fifth nav entry spent all of that, and the cap is what paid it back
+         *
+         * SEARCH is 89.05px wide, the widest of the five, so the nav went from
+         * 287.2 to **380.01** and the left group from 330 to **423**. Against
+         * 23.6px of slack that is a 93px overdraft, and it is not theoretical:
+         * measured through the audit rig at 720x900 with a cap-binding name,
+         * the left group's `clientWidth` came back 69px under its `scrollWidth`
+         * and the `<nav>` painted **69.22px past its own parent**, under the
+         * right group - the exact defect the paragraphs above were written to
+         * remove. At 744 it was 45.22 and at 768, 21.22. **A/B against the same
+         * name with four entries: 0 at all three widths.** So it was this entry
+         * and nothing else.
+         *
+         * The name cap is what yields, and it yields by viewport rather than by
+         * band: `min(220px, 19vw)` for the name and `min(200px, 17vw)` for the
+         * picker, which is the `min(px, vw)` idiom this file already uses for
+         * the phone. At 720 that is 136.8 instead of 220 and the right group
+         * gives back ~83px; from 1158 up the pixel term binds again and nothing
+         * changes for a desktop at all. Re-measured, same case: leftOverflow
+         * **0** and navPaintsPast **0** at 720, 744 and 768, with **21.99**,
+         * **41.42** and **60.88** of slack between the two painted boxes.
+         *
+         * What that costs is said out loud rather than discovered: on a tablet
+         * a long character name ellipsises sooner than it did. The full name is
+         * still on the element's `title`, the phone has always capped harder
+         * than this, and the alternative was a navigation button that cannot be
+         * pressed - which this file already decided, once, is the worse trade.
          *
          * Ergonomics. The nav sits in a 52px bar at the very top of the glass:
          * y4-48, which on an iPad mini in portrait is ~1085px above the bottom
          * bezel and outside every thumb arc there is. That is the right home for
          * navigation you reach for deliberately and the wrong one for anything
          * mid-roll - but a target you have to reach for AND cannot hit is the
-         * worst of both, and that is what GM was. All four buttons are already
+         * worst of both, and that is what GM was. All five buttons are already
          * 44px tall (`minHeight: var(--control)`, which tokens.css resolves to
-         * --tap = 44 below 1180 and on any coarse pointer) and 53.8 to 79.9 wide
-         * - GM, the narrowest, clears the 44px floor in both axes - so nothing
-         * here needs to grow. It needs to stop being painted over.
+         * --tap = 44 below 1180 and on any coarse pointer) and 53.83 to 89.05
+         * wide - GM, the narrowest, clears the 44px floor in both axes - so
+         * nothing here needs to grow. It needs to stop being painted over.
          *
          * What is given up: a tablet no longer sees at a glance whether the
          * Core Rulebook import landed. The phone band has never shown it,
@@ -547,7 +579,7 @@ export function Header({
                 value={activeId ?? ''}
                 onChange={(e) => select(e.target.value)}
                 style={{
-                  maxWidth: phone ? 'min(150px, 38vw)' : 200,
+                  maxWidth: phone ? 'min(150px, 38vw)' : 'min(200px, 17vw)',
                   minHeight: 0,
                   padding: '2px 6px',
                   font: '700 13px/1 var(--sans)',
@@ -562,7 +594,7 @@ export function Header({
             ) : (
               <span
                 style={{
-                  maxWidth: phone ? 'min(168px, 42vw)' : 220,
+                  maxWidth: phone ? 'min(168px, 42vw)' : 'min(220px, 19vw)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -577,7 +609,7 @@ export function Header({
             <span
               className="t-meta"
               style={{
-                maxWidth: phone ? 'min(168px, 42vw)' : 220,
+                maxWidth: phone ? 'min(168px, 42vw)' : 'min(220px, 19vw)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

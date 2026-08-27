@@ -184,8 +184,24 @@ describe('the bottom of the GM screen', () => {
   });
 
   it('still has a way back to Play, Cards and Build, in MENU', async () => {
-    // The tab bar leaving is only defensible because this exists. A commit that
-    // did one without the other would strand a phone in the GM section.
+    /*
+     * The tab bar leaving is only defensible because this exists. A commit that
+     * did one without the other would strand a phone in the GM section.
+     *
+     * The list is read whole and no longer filtered through
+     * `['PLAY','CARDS','BUILD']` before being compared to it. That filter made
+     * this test structurally incapable of noticing a *fourth* way out - it
+     * would have stayed green through the addition of one, which is the
+     * opposite of what a test guarding the only exit from a screen is for.
+     *
+     * SEARCH is deliberately not among them, and that is the fact this now
+     * pins rather than hides. The search screen is reachable from the tab bar
+     * on every screen that draws one, and the GM screen draws none - but a GM
+     * has the rules search already, inside SHOW, on the sheet they are working
+     * on. A fourth way out would be a second door to a search this screen
+     * already has, and it would take MENU's three destinations from 115.67px
+     * across to 84.75.
+     */
     await onGm();
     const menu = [...container.querySelectorAll('button')].find((b) =>
       (b.textContent ?? '').startsWith('MENU'),
@@ -194,9 +210,9 @@ describe('the bottom of the GM screen', () => {
     act(() => {
       menu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    const ways = [...container.querySelectorAll('[role="dialog"] button')]
-      .map((b) => (b.textContent ?? '').trim())
-      .filter((t) => ['PLAY', 'CARDS', 'BUILD'].includes(t));
+    const ways = [
+      ...container.querySelectorAll('[role="dialog"] [role="group"][aria-label="Leave the GM tools"] button'),
+    ].map((b) => (b.textContent ?? '').trim());
     expect(ways).toEqual(['PLAY', 'CARDS', 'BUILD']);
 
     act(() => {
@@ -321,13 +337,13 @@ describe('the GM section, switched off', () => {
 
     expect(useApp.getState().screen, 'the app opened on a screen with no tab').toBe('play');
     expect(text()).toContain('EVASION');
-    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD']);
+    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD', 'SEARCH']);
   });
 
   it('draws Play rather than nothing if the store is told GM anyway', async () => {
     /*
      * The running half of the same rule, and it fails differently from the one
-     * above: `setScreen` accepts all five whatever the preferences say, and the
+     * above: `setScreen` accepts all six whatever the preferences say, and the
      * section can be switched off from Settings in the middle of a session. A
      * shell that only gated the *boot* would answer that with a header, a
      * bottom bar, and 700px of nothing between them.
@@ -353,22 +369,22 @@ describe('the GM section, switched off', () => {
     savePrefs({ ...DEFAULT_PREFS, gmSection: false });
     await boot();
 
-    expect(headerNav()).toEqual(['Play', 'Cards', 'Build']);
+    expect(headerNav()).toEqual(['Play', 'Cards', 'Build', 'Search']);
     // The door to Settings is not in that nav and has to survive: it is the
     // only permanent route there, and this is the screen a person switches the
     // section back on from.
     expect(text()).toContain('SETTINGS');
   });
 
-  it('is four tabs and a GM entry again with the default preferences', async () => {
+  it('is five tabs and a GM entry again with the default preferences', async () => {
     await boot();
-    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM']);
+    expect(tabs()).toEqual(['PLAY', 'CARDS', 'BUILD', 'GM', 'SEARCH']);
 
     act(() => root.unmount());
     root = createRoot(container);
     setDesktop();
     await boot();
-    expect(headerNav()).toEqual(['Play', 'Cards', 'Build', 'GM']);
+    expect(headerNav()).toEqual(['Play', 'Cards', 'Build', 'GM', 'Search']);
   });
 });
 

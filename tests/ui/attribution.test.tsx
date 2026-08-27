@@ -196,6 +196,7 @@ const text = (): string => container.textContent ?? '';
 const CHUNK: Partial<Record<Screen, () => Promise<unknown>>> = {
   build: () => import('../../src/ui/build/Build.tsx'),
   gm: () => import('../../src/ui/gm/Gm.tsx'),
+  search: () => import('../../src/ui/search/Search.tsx'),
   settings: () => import('../../src/ui/settings/Settings.tsx'),
 };
 
@@ -273,10 +274,10 @@ async function throughOnboarding(): Promise<void> {
  * that happen to carry the notice - that list *was* four of these, and Play's
  * absence from it is the defect P5-6 fixed. A new surface belongs here on the
  * day it is added, and this file failing is the correct way to find that out;
- * onboarding is the sixth, added the day it was.
+ * onboarding is the sixth, added the day it was, and `search` the seventh.
  *
  * `paysTheInset` is which single element is genuinely last in the window at a
- * given width. Four of the six answer differently at 393 and at 1024, because
+ * given width. Five of the seven answer differently at 393 and at 1024, because
  * `TabBar` is drawn on a phone and is last there. `gm` and `onboarding` answer
  * the same at both, for two different reasons: `GmBar` is drawn under the GM
  * scroll at every width and has been since before this branch, and onboarding
@@ -292,7 +293,17 @@ const SURFACES: Array<{
   mount: () => Promise<void>;
   paysTheInset: (width: number) => string;
 }> = [
-  ...(['play', 'cards', 'build', 'settings'] as const).map((screen: Screen) => ({
+  /*
+   * `search` takes the ordinary answer, and it is worth saying why rather
+   * than leaving it to be inferred from its being in this list. It draws a
+   * block of its own under its scroll - the scope chips and the field - but
+   * that block is not last in the window on a phone: `TabBar` is below it and
+   * is what pays. Above 720 there is no tab bar, the pinned block is still
+   * not last in the *scroll*, and the notice is - so `FOOTER`, like the other
+   * four. It is `gm` that is the exception here, because `GmBar` is drawn at
+   * every width.
+   */
+  ...(['play', 'cards', 'build', 'search', 'settings'] as const).map((screen: Screen) => ({
     name: screen,
     mount: () => mountOn(screen),
     paysTheInset: (width: number) => (width === 393 ? 'NAV' : 'FOOTER'),

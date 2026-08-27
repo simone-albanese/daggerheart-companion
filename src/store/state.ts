@@ -25,7 +25,7 @@ import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from '.
 import { CHARACTER_NAMES, freeName, nameHolder, spokenName } from './names.ts';
 import { loadPrefs, onboardedByDoing, openingScreen, savePrefs, type Prefs } from './prefs.ts';
 
-export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'settings';
+export type Screen = 'play' | 'cards' | 'build' | 'gm' | 'search' | 'settings';
 
 /** An arriving character the app refused to write over, and what is here now. */
 export interface ImportConflict {

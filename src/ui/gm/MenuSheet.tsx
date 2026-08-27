@@ -295,7 +295,14 @@ export function MenuSheet({
     <div className="scroll stack" style={{ flex: 1, minHeight: 0, gap: 16, padding: 14 }}>
       <div className="stack" style={{ flex: 'none', gap: 8 }}>
         <span className="t-label">LEAVE THE GM TOOLS</span>
-        <div className="row" style={{ gap: 8 }}>
+        {/*
+          Named as a group, the way SHOW's moment chips are. This is the only
+          exit from the GM screen - the tab bar is not drawn here - so the set
+          of destinations is a thing worth being able to address as a set,
+          both for a screen reader and for the test that guards it from
+          shrinking.
+        */}
+        <div role="group" aria-label="Leave the GM tools" className="row" style={{ gap: 8 }}>
           {WAYS_OUT.map((way) => (
             <button
               key={way.id}
