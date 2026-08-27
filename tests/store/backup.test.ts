@@ -1015,3 +1015,227 @@ describe('the seven-day check', () => {
     expect(report.missingCampaignIds).toEqual(['winter-1']);
   });
 });
+
+/*
+ * A door this run needed, and it would not open.
+ *
+ * Three doors: the campaign store, the folder's permission, and the picker the
+ * user closed. Every one of them used to be able to end a run that reported
+ * itself as fine - the campaign store by throwing out of an unguarded `await`
+ * before the character file was written at all, the lapsed permission by being
+ * read as "this device has no folder", and the cancelled picker by returning
+ * ahead of the only line that records why the folder had already refused.
+ *
+ * The rule they all break is the one at the top of `backup.ts`: never claim a
+ * backup happened. So each of these asserts the same three things - what still
+ * landed, that the clock did not move, and that the indicator is red with a
+ * sentence naming the door.
+ */
+describe('a door that would not open', () => {
+  /** The campaign store refusing to answer, the way a failed `db()` open does. */
+  const shutCampaigns = (): Partial<BackupDeps> =>
+    deps({ liveCampaigns: () => Promise.reject(new Error('the campaign store would not open')) });
+
+  /**
+   * A folder handle that carries the permission API and answers with it.
+   *
+   * `fakeFolder` deliberately has neither `queryPermission` nor
+   * `requestPermission`, so every folder test in this file runs the
+   * `unsupported` lane and the whole permission branch was untested. A
+   * remembered handle starts each new session at `prompt`, and Chrome answers
+   * `denied` when `requestPermission` runs without a transient activation -
+   * which is exactly what an automatic run has none of.
+   */
+  function folderThatSays(answer: 'granted' | 'prompt' | 'denied'): { flip: (to: 'granted' | 'prompt' | 'denied') => void } {
+    let state = answer;
+    const handle = {
+      name: 'Daggerheart',
+      queryPermission: () => Promise.resolve(state),
+      requestPermission: () => Promise.resolve(state),
+      getFileHandle: () => Promise.reject(new Error('nothing should have been offered to it')),
+    };
+    vi.stubGlobal('showDirectoryPicker', vi.fn().mockResolvedValue(handle));
+    return {
+      flip: (to) => {
+        state = to;
+      },
+    };
+  }
+
+  it('writes the character file even when the campaign store will not open, and goes red', async () => {
+    const files = fakeFolder();
+    await chooseBackupFolder(deps());
+    prefs = { ...prefs, lastBackupAt: daysAgo(3) };
+
+    const outcome = await runBackup('page-hide', {}, shutCampaigns());
+
+    // The characters were in hand before the campaign door was ever tried and
+    // they have nothing to do with it. They land.
+    expect(files.has(BACKUP_FILE)).toBe(true);
+    expect(outcome.reason).toMatch(/campaigns on this device could not be read/);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.wrote).toBe(false);
+
+    // Named, not stamped.
+    expect(prefs.lastBackupAt).toBe(daysAgo(3));
+    const status = backupStatus(shutCampaigns());
+    expect(status.level).toBe('failing');
+    expect(status.lastError).toMatch(/could not be read/);
+  });
+
+  it('does not call an unreadable campaign store "nothing to back up"', async () => {
+    library = [];
+
+    const outcome = await runBackup('manual', {}, shutCampaigns());
+
+    expect(outcome.reason).not.toMatch(/nothing to back up/i);
+    expect(outcome.reason).toMatch(/campaigns on this device could not be read/);
+    expect(outcome.ok).toBe(false);
+  });
+
+  /**
+   * A lapsed permission is not "this browser has no folder picker".
+   *
+   * The interactive fall-through is deliberate - the `.dhbackup` still goes out
+   * by hand - but it used to fall through with the reason discarded, so a
+   * Chrome user whose folder had gone back to `prompt` was handed the iOS
+   * sentence, stamped "last backup: today" and had a standing failure wiped.
+   */
+  it('names the folder that refused instead of saying the browser has none', async () => {
+    const folder = folderThatSays('granted');
+    await chooseBackupFolder(deps());
+    folder.flip('denied');
+    tables = [table('The Sablewood Winter', 'winter-1')];
+    prefs = { ...prefs, lastBackupAt: daysAgo(3) };
+
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: true,
+      route: 'download',
+      fileName: BACKUP_FILE,
+      cancelled: false,
+      reason: null,
+    });
+    try {
+      const outcome = await runBackup('manual', {}, deps());
+
+      // The characters still get out by hand, and the sentence says so without
+      // claiming a folder took them.
+      expect(spy).toHaveBeenCalledOnce();
+      expect(outcome.reason).toMatch(/did get out/);
+      expect(outcome.reason).not.toMatch(/did reach the folder/);
+
+      // The campaign missed the folder because the folder said no, so it is a
+      // failure and never a notice.
+      expect(outcome.ok).toBe(false);
+      expect(outcome.notice).toBeNull();
+      expect(outcome.reason).toMatch(/no longer has permission to write to "Daggerheart"/);
+      expect(outcome.reason).toMatch(/The Sablewood Winter/);
+      expect(outcome.reason).not.toMatch(/this browser has none/);
+      expect(outcome.reason).not.toMatch(/SAVE A COPY/);
+
+      expect(prefs.lastBackupAt).toBe(daysAgo(3));
+      const status = backupStatus(deps());
+      expect(status.level).toBe('failing');
+      expect(status.lastError).toMatch(/no longer has permission/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /** The iOS device with no picker at all keeps the notice, and keeps the stamp. */
+  it('still treats a device with no folder as a run that succeeded', async () => {
+    tables = [table('The Sablewood Winter', 'winter-1')];
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: true,
+      route: 'share',
+      fileName: BACKUP_FILE,
+      cancelled: false,
+      reason: null,
+    });
+    try {
+      const outcome = await runBackup('manual', {}, deps());
+      expect(outcome.ok).toBe(true);
+      expect(outcome.wrote).toBe(true);
+      expect(outcome.notice).toMatch(/this browser has none/);
+      expect(prefs.lastBackupAt).toBe(NOW.toISOString());
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps the folder’s refusal when the hand-save is cancelled', async () => {
+    fakeFolder({ fail: true });
+    await chooseBackupFolder(deps());
+    prefs = { ...prefs, lastBackupAt: daysAgo(3) };
+
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: false,
+      route: null,
+      fileName: BACKUP_FILE,
+      cancelled: true,
+      reason: null,
+    });
+    try {
+      const outcome = await runBackup('manual', {}, deps());
+
+      expect(outcome.ok).toBe(false);
+      expect(outcome.reason).toMatch(/the folder is read-only/);
+      expect(outcome.reason).toMatch(/cancelled/);
+      expect(prefs.lastBackupAt).toBe(daysAgo(3));
+
+      const status = backupStatus(deps());
+      expect(status.level).toBe('failing');
+      expect(status.lastError).toMatch(/the folder is read-only/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /**
+   * The other half of the same branch, and the reason the fix above is not
+   * "call every cancel a failure": with nothing behind it, closing the picker
+   * is a decision and not a fault.
+   */
+  it('leaves a plain cancel with nothing behind it as no error at all', async () => {
+    const spy = vi.spyOn(fileIo, 'saveTextFile').mockResolvedValue({
+      ok: false,
+      route: null,
+      fileName: BACKUP_FILE,
+      cancelled: true,
+      reason: null,
+    });
+    try {
+      const outcome = await runBackup('manual', {}, deps());
+      expect(outcome.ok).toBe(true);
+      expect(outcome.reason).toBe('The export was cancelled, so nothing was written.');
+      expect(backupStatus(deps()).lastError).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /**
+   * Two legs down at once, which is where the `??` used to lose one of them
+   * whole: the campaign that never reached the folder was named in `reason`,
+   * `detail`, `lastError`, `notice` and `campaignNames` nowhere at all, while
+   * the surviving sentence still listed which campaigns *did* land.
+   */
+  it('names the campaign that failed even when the character leg failed too', async () => {
+    const files = fakeFolder({
+      refuse: (name) => name.startsWith('daggerheart-the-sablewood'),
+      tamper: (name, written) => (name.endsWith('.dhbackup') ? `${written} ` : written),
+    });
+    await chooseBackupFolder(deps());
+    tables = [table('The Sablewood Winter', 'winter-1'), table('Bones of the Reach', 'reach-1')];
+
+    const outcome = await runBackup('session-end', {}, deps());
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toMatch(/came back different/);
+    expect(outcome.reason).toMatch(/The Sablewood Winter/);
+    expect(backupStatus(deps()).lastError).toMatch(/The Sablewood Winter/);
+
+    expect(files.has(WINTER_FILE)).toBe(false);
+    expect(campaignFiles(files)).toEqual([REACH_FILE]);
+  });
+});

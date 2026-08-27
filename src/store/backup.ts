@@ -467,7 +467,34 @@ export async function runBackup(
   const d = withDeps(deps);
   const at = d.now();
   const characters = await d.listCharacters();
-  const snapshot = await d.liveCampaigns();
+  /*
+   * Guarded on its own, the way `integrityCheck` and `noteSession` guard their
+   * reads of the same store, and for a stronger reason: this is the one that
+   * *writes*.
+   *
+   * Unguarded, this await was the second statement of the function, so a
+   * campaign store that would not open aborted the whole run - the character
+   * file included - from inside a `void … .finally()` with no `.catch`, which
+   * left the indicator green over a backup that never happened. The characters
+   * are already in hand at this point (`backupDeps.ts` serves them from memory)
+   * and they have nothing to do with the campaign store; before the campaign
+   * leg existed a broken campaign store could not cost them anything, and it
+   * must not start now.
+   *
+   * It degrades to a *named failure*, never to an empty list: the empty list is
+   * seeded into `campaignFailures` in the same breath, so the run takes the
+   * `lastError` exit, the `.dhbackup` still lands, the clock is not stamped and
+   * the indicator goes red with the reason on it.
+   */
+  let snapshot: CampaignSnapshot = { campaigns: [], quarantined: [] };
+  let campaignDoorFailure: string | null = null;
+  try {
+    snapshot = await d.liveCampaigns();
+  } catch {
+    campaignDoorFailure =
+      'The campaigns on this device could not be read, so none of them is in this backup. ' +
+      'Close every tab of this app and open it again, then back up.';
+  }
   const campaigns = snapshot.campaigns;
 
   const quarantine = notReadableNotice(snapshot.quarantined);
@@ -500,7 +527,11 @@ export async function runBackup(
    * nothing - while the folder they had chosen sat empty and the indicator
    * never moved.
    */
-  if (characters.length === 0 && campaigns.length === 0) {
+  // `campaignDoorFailure` exempts both "nothing to do" returns, or the guard
+  // above trades one lie for a quieter one: an unreadable campaign store on a
+  // character-less device would report "nothing to back up" over campaigns that
+  // are sitting right there.
+  if (characters.length === 0 && campaigns.length === 0 && campaignDoorFailure === null) {
     return none('There is nothing to back up yet.');
   }
 
@@ -514,7 +545,7 @@ export async function runBackup(
     (c) => trigger === 'manual' || notes[c.id]?.checksum !== sums.get(c.id),
   );
 
-  if (!charactersDue && campaignsDue.length === 0) {
+  if (!charactersDue && campaignsDue.length === 0 && campaignDoorFailure === null) {
     return none('Nothing has changed since the last backup.');
   }
 
@@ -524,29 +555,66 @@ export async function runBackup(
 
   const handle = await loadBackupFolder();
   let folder: FileSystemDirectoryHandle | null = null;
+  /**
+   * Why the folder is unusable, when there *is* one and it said no.
+   *
+   * Remembered rather than composed and thrown away inside the `!interactive`
+   * arm. An interactive run falls through here on purpose - the character file
+   * still goes out by hand - but it used to fall through with `folder` null and
+   * nothing else, and the line below then read that null as "this device has no
+   * folder". A Chrome user whose remembered handle had gone back to `prompt`
+   * was told their browser has no folder picker, handed the iOS remedy, stamped
+   * "last backup: today" and had a standing `lastError` wiped off the panel -
+   * the honest sentence the automatic run had already recorded, erased by the
+   * button pressed to fix it.
+   */
+  let folderRefused: string | null = null;
   if (handle !== null) {
     const access = await directoryAccess(handle, { request: interactive });
     sessionAccess = access;
     if (access === 'granted' || access === 'unsupported') {
       folder = handle;
-    } else if (!interactive) {
-      const reason =
+    } else {
+      folderRefused =
         access === 'denied'
           ? `This browser no longer has permission to write to "${handle.name}". Open Settings and choose the folder again.`
           : `"${handle.name}" needs your confirmation before it can be written to again. Open Settings and choose the folder.`;
-      writeRecord({ lastError: reason });
-      return { ...none(reason), ok: false };
+      if (!interactive) {
+        writeRecord({ lastError: folderRefused });
+        return { ...none(folderRefused), ok: false };
+      }
     }
   } else if (!interactive) {
     return none('No backup folder has been chosen, so nothing is exported automatically.');
   }
-  if (folder === null && campaignsDue.length > 0) noFolderSaid = noFolderNotice(campaignsDue);
+  /**
+   * Campaigns that missed the folder because it refused, not because there is
+   * none. A failure, and never a `notice`: `notice` is documented as a true
+   * sentence about a run that *succeeded*, which is what the device with no
+   * picker at all gets, and folding a broken permission into it is how a run
+   * over a dead folder came back green.
+   */
+  let refusedCampaigns: string | null = null;
+  if (folder === null && campaignsDue.length > 0) {
+    if (folderRefused === null) noFolderSaid = noFolderNotice(campaignsDue);
+    else {
+      const one = campaignsDue.length === 1;
+      refusedCampaigns =
+        `Campaign files can only be written into a folder. ${folderRefused} Until then ` +
+        `${campaignsDue.map((c) => `"${c.name || 'A campaign'}"`).join(', ')} ` +
+        `${one ? 'is' : 'are'} not in this backup.`;
+    }
+  }
 
   let charactersLanded = false;
   let characterFailure: string | null = null;
   let route: SaveRoute | null = null;
   const campaignNames: string[] = [];
-  const campaignFailures: string[] = [];
+  // Seeded with the campaign door, when it would not open. That is what routes
+  // the guard at the top of this function through the machinery already here:
+  // `lastError` is recorded, `partial(…, false)` is returned, the clock is not
+  // stamped - and the character file, written above, is kept.
+  const campaignFailures: string[] = campaignDoorFailure === null ? [] : [campaignDoorFailure];
   const landed: Record<string, CampaignNote> = {};
 
   /**
@@ -581,7 +649,15 @@ export async function runBackup(
     campaignNames,
   });
 
-  /** "…and this much did get through", so a failure never hides a success. */
+  /**
+   * "…and this much did get through", so a failure never hides a success.
+   *
+   * Route-aware, because the folder is no longer the only way anything leaves.
+   * When the folder refuses an interactive run the `.dhbackup` still goes out
+   * through a download or a share sheet, and this sentence is printed over that
+   * outcome - saying a file "did reach the folder" when the folder is precisely
+   * what turned it away is the same class of false claim as the stamp.
+   */
   const alsoLanded = (): string => {
     const said = [
       charactersLanded ? fileName : null,
@@ -591,9 +667,27 @@ export async function runBackup(
             .map((name) => `"${name}"`)
             .join(', ')})`,
     ].filter((line): line is string => line !== null);
-    return said.length === 0
-      ? ''
-      : ` ${said.join(' and ')} did reach the folder; the rest is written again on the next attempt.`;
+    if (said.length === 0) return '';
+    const where = route === 'file-system' ? 'did reach the folder' : 'did get out';
+    return ` ${said.join(' and ')} ${where}; the rest is written again on the next attempt.`;
+  };
+
+  /**
+   * Every leg that failed, character sentence first - not the first one.
+   *
+   * This was `characterFailure ?? campaignFailures.join(' ')`, and the `??`
+   * meant a failing character leg swallowed the campaign sentences whole: a
+   * campaign that never reached the folder was then named in `reason`, in
+   * `detail`, in `lastError`, in `notice` and in `campaignNames` nowhere at
+   * all, while the surviving sentence still appended which campaigns *did*
+   * land, which reads as reassurance. Single-leg runs are unchanged, so the two
+   * behaviours the suite already pins do not move.
+   */
+  const failedLegs = (): string | null => {
+    const failures = [characterFailure, refusedCampaigns, ...campaignFailures].filter(
+      (line): line is string => line !== null,
+    );
+    return failures.length === 0 ? null : failures.join(' ');
   };
 
   if (folder !== null) {
@@ -665,8 +759,29 @@ export async function runBackup(
       characterFailure = null;
       route = saved.route ?? 'download';
     } else if (saved.cancelled) {
-      // Cancelling is not an error, so no `lastError` - and not a backup
-      // either, so no stamp.
+      /*
+       * Cancelling is not an error, so no `lastError` - and not a backup
+       * either, so no stamp.
+       *
+       * But this branch is only ever reached because something *else* already
+       * failed: entering the fallback at all needs the folder leg to have gone
+       * wrong with somebody watching, so `characterFailure` is non-null on
+       * entry. It used to `remember()` and return here, ahead of the only line
+       * on this path that writes `lastError`, which threw the folder's own
+       * refusal away and left a device whose last run was clean reading "last
+       * backup: 3 days ago" over a folder that had just turned everything
+       * away. The cancel carries the refusal now instead of returning over it.
+       * With no folder configured there is nothing to carry and the "cancelling
+       * is not an error" intent is untouched.
+       */
+      const failed = failedLegs();
+      if (failed !== null) {
+        remember({ lastError: failed });
+        return partial(
+          `${failed} The export was cancelled, so nothing was written by hand either.${alsoLanded()}`,
+          false,
+        );
+      }
       remember();
       return partial(
         campaignNames.length === 0
@@ -679,8 +794,7 @@ export async function runBackup(
     }
   }
 
-  const lastError =
-    characterFailure ?? (campaignFailures.length === 0 ? null : campaignFailures.join(' '));
+  const lastError = failedLegs();
   if (lastError !== null) {
     remember({ lastError });
     return partial(`${lastError}${alsoLanded()}`, false);
