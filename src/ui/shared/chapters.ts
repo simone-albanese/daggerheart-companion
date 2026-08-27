@@ -34,8 +34,15 @@
  * no rules section, so the five below are every chapter the sixty-nine fall
  * into, and a section's chapter is the last opener at or before its
  * `sourcePage`. The table is generated from that rule and then frozen here;
- * `tests/ui/chapters.test.ts` recomputes it on every run, so the derivation is
- * a live assertion rather than a story about how the file was made.
+ * `tests/ui/chapters.test.ts` recomputes it on every run from the five folios,
+ * so the derivation is a live assertion rather than a story about how the file
+ * was made. **The folios live in that test and not here**, for the reason
+ * `moments.ts` keeps its own exclusion list in its guard: nothing in the
+ * running app has a use for them, and an export with no caller in `src/` is a
+ * feature that ships switched off - `tests/harness/orphans.test.ts` says so and
+ * fails on it. Keeping them there also makes the recomputation a genuinely
+ * second opinion instead of the table agreeing with the constant it was built
+ * from.
  *
  * ## Why the parser's own `drop` markers are NOT the boundary set
  *
@@ -175,24 +182,6 @@ export const CHAPTER_LABELS: Record<SrdChapter, string> = {
   'core-materials': 'CORE MATERIALS',
   'core-mechanics': 'CORE MECHANICS',
   'running-an-adventure': 'RUNNING AN ADVENTURE',
-};
-
-/**
- * The folio each chapter opens on - the 28pt heading's own page.
- *
- * Exported because the guard recomputes the whole table from it: a section's
- * chapter is the last opener at or before its `sourcePage`. That recomputation
- * is what makes the table below checked rather than merely written down, and it
- * is the assertion that fails the day `sourcePage` moves or somebody splits a
- * chapter on a subhead. It is five integers and no words of the book's, so it
- * is an address in `at.part`'s sense.
- */
-export const CHAPTER_OPENS: Record<SrdChapter, number> = {
-  introduction: 3,
-  'character-creation': 4,
-  'core-materials': 7,
-  'core-mechanics': 35,
-  'running-an-adventure': 63,
 };
 
 /**

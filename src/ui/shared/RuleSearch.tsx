@@ -461,10 +461,12 @@ import {
   SRD_KINDS,
   srdIndex,
   type SrdHit,
+  type SrdKind,
   type SrdRecord,
 } from './srdIndex.ts';
 import { askLoaded, loadAsk, MOMENTS, searchAsk, type AskEntry, type Moment } from './ask.ts';
 import { sectionsIn } from './moments.ts';
+import { CHAPTER_LABELS, sectionsInChapter, type SrdChapter } from './chapters.ts';
 import { BlockView, type BlockTarget } from './BlockView.tsx';
 
 /** How much of a long line to keep on either side of the marks. */
@@ -958,22 +960,36 @@ const spoken = (
   sections: number,
   records: number,
   asks: number,
-  moment: Moment | null,
+  belonging: Belonging | null,
 ): string => {
   /*
-   * A membership needs its own sentence because every wording below is about
-   * *matching*, and under a moment nothing matched: no words were typed, and
-   * `11 sections match` over a list nobody searched is the same defect the
-   * scope branch under this one exists to prevent, arriving from the other
-   * side. It names the moment because the moment is the whole of what the
-   * count is about, and because this is the one line a GM who cannot see the
-   * lit chip gets.
+   * A list nobody typed for needs its own sentence, because every wording below
+   * is about *matching*, and under a membership or a browse nothing matched: no
+   * words were typed, and `11 sections match` over a list nobody searched is
+   * the same defect the scope branch under this one exists to prevent, arriving
+   * from the other side. It names what the list is of, because that is the
+   * whole of what the count is about, and because this is the one line a GM who
+   * cannot see the lit control gets.
+   *
+   * **The unit is carried rather than inferred from the counts**, and that is
+   * what lets one branch serve three callers. A moment and a chapter are
+   * memberships of *sections*; a kind block on the search screen's index is a
+   * list of *records*, and `24 sections belong to WEAPONS` would be the wrong
+   * noun over the right number - the failure the third clause of this
+   * function's docblock describes, arriving one collection further out.
    */
-  if (moment !== null) {
-    const label = membershipBand(moment);
-    const secs = sections === 1 ? '1 section belongs to' : `${String(sections)} sections belong to`;
-    if (asks === 0) return `${secs} ${label}`;
-    return `${secs} ${label}, with ${asks === 1 ? '1 question' : `${String(asks)} questions`}`;
+  if (belonging !== null) {
+    const n = belonging.unit === 'section' ? sections : records;
+    const held =
+      belonging.unit === 'section'
+        ? n === 1
+          ? '1 section belongs to'
+          : `${String(n)} sections belong to`
+        : n === 1
+          ? '1 entry is filed under'
+          : `${String(n)} entries are filed under`;
+    if (asks === 0) return `${held} ${belonging.label}`;
+    return `${held} ${belonging.label}, with ${asks === 1 ? '1 question' : `${String(asks)} questions`}`;
   }
   /*
    * Two nouns in the wide sentence below are claims about the whole SRD, and
@@ -1118,6 +1134,42 @@ const membershipBand = (moment: Moment): string =>
   MOMENTS.find((m) => m.id === moment)?.label ?? '';
 
 /**
+ * What a list assembled without a query is a list *of*.
+ *
+ * Three controls now produce one: a moment chip on the GM's sheet, and on the
+ * search screen's index a kind block or a chapter row. They differ in the label
+ * over the band and in the noun the spoken line uses, and in nothing else -
+ * every one of them is a membership drawn through the row the search already
+ * uses. Carrying the pair rather than re-deriving it at each site is what keeps
+ * the three from drifting into three sentences.
+ */
+interface Belonging {
+  /** The band header, and the name in the spoken line. Never composed here. */
+  label: string;
+  /**
+   * Whether the rows are the book's *sections* or its *records*.
+   *
+   * Not inferable from the counts: a chapter fills `hits` and a kind fills
+   * `found`, and a sentence that guessed from whichever was non-empty would
+   * print the wrong noun the first time a browse came back empty.
+   */
+  unit: 'section' | 'entry';
+}
+
+/**
+ * A list to assemble instead of a query to search, on the search screen.
+ *
+ * Deliberately a second prop beside `moment` rather than a widening of it, and
+ * the redundancy is **a stated debt rather than a silent one**: both mean "no
+ * query, assemble a list", and folding them into one is the right end state.
+ * It is not done here because `moment` is `ShowSheet`'s, and this component is
+ * 2,000 lines under a test file of thousands - so folding them would put the
+ * risk of this change on a path that is shipped and working, to save a prop.
+ * The fold is a later pass, on its own, with `ShowSheet` in front of it.
+ */
+export type Browse = { chapter: SrdChapter } | { kind: SrdKind };
+
+/**
  * The band the app's own questions stand in, above every band of the book's.
  *
  * It is not a member of `GROUPS` and it cannot be: those three sort a
@@ -1230,6 +1282,8 @@ export function RuleSearchResults({
   onQuery,
   questions = true,
   moment = null,
+  browse = null,
+  banded = true,
 }: {
   query: string;
   /**
@@ -1242,6 +1296,37 @@ export function RuleSearchResults({
    * for under a list somebody did.
    */
   moment?: Moment | null;
+  /**
+   * A chapter of the book, or a kind of record, to list instead of searching.
+   *
+   * The search screen's index. Exclusive with `query` by the same construction
+   * `moment` uses and enforced by the same caller: typing clears the lit block
+   * and lighting a block clears the field, so this surface is never half an
+   * index and half a search. Exclusive with `moment` too, and that costs
+   * nothing to arrange - no screen mounts both controls.
+   *
+   * A **chapter** assembles sections and fills `hits`; a **kind** assembles
+   * records and fills `found`. Which one it is decides the noun in the spoken
+   * line, which is why `Belonging` carries the unit rather than guessing it.
+   */
+  browse?: Browse | null;
+  /**
+   * Whether this list draws its own header, or the caller has already drawn it.
+   *
+   * Every other list on this surface needs the band: the moment chips sit in a
+   * grid and the sections come out below the whole of it, so the band is the
+   * only place the list is named next to itself. **One caller is different.**
+   * The search screen's chapter rows are a single column, and a lit chapter's
+   * sections are inserted directly under its own row - so the band restated the
+   * row two lines above it, word for word and count for count. That was drawn
+   * and looked at before it was changed.
+   *
+   * It suppresses the band and nothing else. The count still reaches a GM who
+   * cannot see the list, because `spoken` puts it in the live region and that
+   * is where it always came from - so this is a duplicate leaving the glass,
+   * not an answer leaving the screen.
+   */
+  banded?: boolean;
   /**
    * Whether the app's own twelve questions are offered above the book's hits.
    *
@@ -1291,23 +1376,45 @@ export function RuleSearchResults({
    * It reuses `Hit` rather than growing a second row. There is one drawing of a
    * chosen section in this app and this is not going to be the second.
    */
+  /*
+   * The two halves of a browse, pulled apart once so nothing below has to ask
+   * the union which arm it is on twice.
+   */
+  const browsedChapter = browse !== null && 'chapter' in browse ? browse.chapter : null;
+  const browsedKind = browse !== null && 'kind' in browse ? browse.kind : null;
+  /**
+   * Is this surface answering a control rather than a query?
+   *
+   * Every guard that used to read `moment === null` reads this instead, and
+   * each of them was about the same thing all along: whether words were typed.
+   * A moment and a browse are both lists nobody typed for, so a guard that
+   * named only the moment would have gone false the day the second control
+   * arrived - silently, because what it protects is a *sentence* rather than a
+   * behaviour, and a wrong sentence throws nothing.
+   */
+  const browsing = moment !== null || browse !== null;
   const membership = useMemo(
-    (): RuleHit[] =>
-      moment === null
-        ? []
-        : sectionsIn(rules, moment).map((section) => ({
-            id: section.id,
-            title: section.title,
-            page: section.sourcePage ?? null,
-            where: 'title' as const,
-            line: null,
-            partial: false,
-          })),
-    [rules, moment],
+    (): RuleHit[] => {
+      const sections =
+        moment !== null
+          ? sectionsIn(rules, moment)
+          : browsedChapter !== null
+            ? sectionsInChapter(rules, browsedChapter)
+            : [];
+      return sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        page: section.sourcePage ?? null,
+        where: 'title' as const,
+        line: null,
+        partial: false,
+      }));
+    },
+    [rules, moment, browsedChapter],
   );
   const hits = useMemo(
-    () => (moment === null ? searchRules(searched, query) : membership),
-    [searched, query, moment, membership],
+    () => (browsing ? membership : searchRules(searched, query)),
+    [searched, query, browsing, membership],
   );
   // The 780 the rules search cannot reach. See the header for why the index is
   // filtered here rather than the hits it returns.
@@ -1323,9 +1430,39 @@ export function RuleSearchResults({
    * first sentence and not the second - and because today the opposite is what
    * buries the answer, with 322 record rows drawn over DAMAGE's own sections.
    */
+  /*
+   * A kind block's records, assembled the way a membership is.
+   *
+   * It reads `srdIndex(dataset)` rather than `beyondRules`, and the difference
+   * is load-bearing rather than tidiness: `beyondRules` drops `kind === 'rules'`
+   * because a rules section is searched by the function whose name says rules,
+   * and a browse of the RULES kind would come back empty through it. Nothing
+   * mounts that browse today - the index sends RULES to its five chapters
+   * instead - so this is the arm being right about a case the caller does not
+   * currently reach, which is cheaper than a caller that must not.
+   *
+   * `where: 'title'` and `line: null` for the reason `membership` gives above:
+   * no query landed anywhere, so there is no line to preview and none to light.
+   */
+  const browsedRecords = useMemo(
+    (): SrdHit[] =>
+      browsedKind === null
+        ? []
+        : srdIndex(dataset)
+            .filter((record) => record.kind === browsedKind)
+            .map((record) => ({
+              kind: record.kind,
+              id: record.id,
+              name: record.name,
+              page: record.page,
+              where: 'title' as const,
+              line: null,
+            })),
+    [dataset, browsedKind],
+  );
   const found = useMemo(
-    () => (moment === null ? searchSrd(beyondRules, query) : []),
-    [beyondRules, query, moment],
+    () => (browsing ? browsedRecords : searchSrd(beyondRules, query)),
+    [beyondRules, query, browsing, browsedRecords],
   );
   const catalogue = useAskCatalogue(questions);
   /*
@@ -1350,20 +1487,49 @@ export function RuleSearchResults({
    * held by an argument and by a proof of the argument, and not by a fixture -
    * which is worth knowing before anyone simplifies it back.
    */
+  /*
+   * No questions under a browse, and it is said rather than left to the empty
+   * query.
+   *
+   * A moment filters the catalogue because the catalogue *has* a moment on
+   * every entry - the twelve are written at the six moments, so pressing one
+   * has an answer. A chapter and a kind have no such field and could only be
+   * matched by their label, which is exactly the coincidence the comment below
+   * refuses to rely on for moments. And the search screen passes
+   * `questions={false}` anyway, so on the shipped surface this is belt and
+   * braces - it is here so the arm is right if the GM's sheet ever grows an
+   * index of its own.
+   */
   const asked = useMemo(
     () =>
-      moment === null
-        ? searchAsk(catalogue, query)
-        : catalogue.filter((entry) => entry.moment === moment),
-    [catalogue, query, moment],
+      browse !== null
+        ? []
+        : moment === null
+          ? searchAsk(catalogue, query)
+          : catalogue.filter((entry) => entry.moment === moment),
+    [catalogue, query, moment, browse],
   );
   const [openId, setOpenId] = useState<string | null>(null);
+  /**
+   * What this list is of, when it is not the answer to a query. See `Belonging`.
+   */
+  const belonging: Belonging | null =
+    moment !== null
+      ? { label: membershipBand(moment), unit: 'section' }
+      : browsedChapter !== null
+        ? { label: CHAPTER_LABELS[browsedChapter], unit: 'section' }
+        : browsedKind !== null
+          ? { label: SRD_KIND_LABELS[browsedKind], unit: 'entry' }
+          : null;
   let bands = GROUPS;
-  if (moment !== null) {
-    // One band, named for the moment. See `membershipBand` for why neither of
-    // the other two families can stand over this list.
-    bands = [{ label: membershipBand(moment), holds: () => true }];
-  } else if (hits.some((hit) => hit.partial)) {
+  if (belonging !== null && belonging.unit === 'section') {
+    // One band, named for the membership. See `membershipBand` for why neither
+    // of the other two families can stand over this list. A kind browse needs
+    // no entry here: its rows are records, and the band over records is already
+    // the kind's own, drawn by the `SRD_KINDS` map at the foot of this
+    // component.
+    bands = [{ label: belonging.label, holds: () => true }];
+  } else if (!browsing && hits.some((hit) => hit.partial)) {
     bands = SOME;
   }
 
@@ -1418,7 +1584,7 @@ export function RuleSearchResults({
         prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {spoken(hits.length, found.length, asked.length, moment)}
+        {spoken(hits.length, found.length, asked.length, belonging)}
       </span>
       {/*
         The honest silence, and it is now guarded on both lists rather than on
@@ -1440,7 +1606,7 @@ export function RuleSearchResults({
         the shipped data, which is exactly why the branch that would print
         nonsense has to be closed here rather than trusted not to run.
       */}
-      {moment === null && hits.length === 0 && asked.length === 0 && found.length === 0 && (
+      {!browsing && hits.length === 0 && asked.length === 0 && found.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
           Nothing in this dataset carries that. The search reads every section’s title, its
           subheads and its whole text, and the name and the words of every card, adversary,
@@ -1448,15 +1614,17 @@ export function RuleSearchResults({
           one of those words is in the book the app is holding.
         </p>
       )}
-      {moment === null && askedBand}
+      {!browsing && askedBand}
       {bands.map((group) => {
         const inGroup = hits.filter(group.holds);
         if (inGroup.length === 0) return null;
         return (
           <div key={group.label} className="stack" style={{ flex: 'none', gap: 10 }}>
-            <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-              {group.label} · {inGroup.length}
-            </span>
+            {banded && (
+              <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+                {group.label} · {inGroup.length}
+              </span>
+            )}
             {inGroup.map((hit) => (
               <Hit
                 key={hit.id}
@@ -1496,9 +1664,11 @@ export function RuleSearchResults({
         if (inKind.length === 0) return null;
         return (
           <div key={kind} className="stack" style={{ flex: 'none', gap: 10 }}>
-            <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-              {SRD_KIND_LABELS[kind]} · {inKind.length}
-            </span>
+            {banded && (
+              <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+                {SRD_KIND_LABELS[kind]} · {inKind.length}
+              </span>
+            )}
             {inKind.map((hit) => {
               // Keyed and opened on kind *and* id. Two collections of the
               // dataset may spell an id the same way, and a single open hit

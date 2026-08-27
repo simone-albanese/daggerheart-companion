@@ -44,7 +44,6 @@ import { describe, expect, it } from 'vitest';
 import { baseDataset } from '../../src/store/dataset.ts';
 import {
   CHAPTER_LABELS,
-  CHAPTER_OPENS,
   SECTION_CHAPTER,
   SRD_CHAPTERS,
   sectionsInChapter,
@@ -56,13 +55,28 @@ import type { RulesSection } from '../../shared/types.ts';
 const sections = baseDataset.rules;
 
 /**
- * The book's rule, applied rather than transcribed.
+ * The folio each chapter opens on - the 28pt heading's own page.
  *
- * Deliberately re-implemented here instead of imported from `chapters.ts`: a
- * guard that called the same function the table was built with would agree with
- * itself. `CHAPTER_OPENS` is five integers - an address, in `at.part`'s sense -
- * and re-implementing the walk over them is what makes this a second opinion.
+ * **Here and not in `src/`**, which is where `moments.test.ts` keeps `MOMENTLESS`
+ * and `dicePools.test.ts` keeps `NOT_A_POOL`, for the same reason: nothing in
+ * the running app reads these, and an export with no caller is a feature that
+ * ships switched off - `tests/harness/orphans.test.ts` fails on exactly that.
+ * It is also what makes the recomputation below a second opinion rather than
+ * the table agreeing with the constant it was generated from.
+ *
+ * Five integers and no words of the book's, so it is an address in `at.part`'s
+ * sense: an address may be written down when it is checked against the dataset
+ * every run, and this one is - by the very test it feeds.
  */
+const CHAPTER_OPENS: Record<SrdChapter, number> = {
+  introduction: 3,
+  'character-creation': 4,
+  'core-materials': 7,
+  'core-mechanics': 35,
+  'running-an-adventure': 63,
+};
+
+/** The book's rule, applied rather than transcribed. */
 const computed = (page: number | undefined): SrdChapter => {
   let chapter: SrdChapter = SRD_CHAPTERS[0];
   for (const candidate of SRD_CHAPTERS) {
