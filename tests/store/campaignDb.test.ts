@@ -561,10 +561,15 @@ describe('adding a campaign only where nothing is', () => {
     }
   });
 
-  it('leaves the store readable on the next line, so a caller is not racing the rollback', async () => {
-    // The `await tx.done.catch(...)` inside the catch is what makes the
-    // rollback *finish* before `'taken'` is returned. Without it this read can
-    // land mid-abort.
+  it('leaves the store readable on the next line, with the occupant still in it', async () => {
+    /*
+     * The rollback of a refused `add` must not take anything with it. This is
+     * what the two absorptions of `tx.done` are for between them - and it is
+     * measured that they are two: removing either one alone leaves every
+     * assertion in this file green, and removing both fails the case above.
+     * Neither line is separately provable, which is said out loud in
+     * `addCampaign`'s docblock rather than settled by deleting one at random.
+     */
     const mine = make({ name: 'Held' });
     await store.putCampaign(mine);
 

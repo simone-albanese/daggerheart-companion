@@ -32,6 +32,7 @@ import {
 } from '../../src/transfer/campaignFile.ts';
 import * as fileIo from '../../src/transfer/fileIo.ts';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
+import * as gmStore from '../../src/ui/gm/gmStore.ts';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 
 declare global {
@@ -134,6 +135,28 @@ const text = (): string => container.textContent ?? '';
 const paragraphs = (): string[] =>
   [...container.querySelectorAll('p')].map((p) => (p.textContent ?? '').trim());
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
+const alert = (): string => {
+  const found = container.querySelector('[role="alert"]');
+  if (found === null) throw new Error(`nothing is alerting. On screen: ${text()}`);
+  return (found.textContent ?? '').trim();
+};
+/**
+ * What the parser says about a file, in the parser's own words.
+ *
+ * Taken from the throw rather than written out here, so that these tests assert
+ * the screen prints what the format refused with - not that it prints whatever
+ * this file happened to expect. A refusal reworded on the way to the glass is
+ * the defect: one of these sentences carries the only remedy the GM is ever
+ * offered, and a softer paraphrase of it would be a dead end.
+ */
+const said = (file: string): string => {
+  try {
+    parseCampaignFile(file);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error('that file was supposed to be refused, and was not');
+};
 const named = (label: string): HTMLButtonElement => {
   const found = buttons().find((b) => (b.textContent ?? '').trim() === label);
   if (found === undefined) {
@@ -308,6 +331,108 @@ describe('the door while the device has not answered', () => {
       useGm.setState({ hydrated: true, writeRetry: 'read' });
     });
     expect(named('OPEN A CAMPAIGN FILE').disabled).toBe(true);
-    expect(text()).toContain('could not be read');
+    // The whole sentence, because the half of it that is worth anything is the
+    // half that names the control which reads the device again.
+    expect(text()).toContain(
+      'This device’s storage could not be read, so nothing can be brought in yet. TRY AGAIN above reads it again.',
+    );
+  });
+});
+
+describe('a file the format will not have', () => {
+  it('prints the parser’s own sentence, and adds the other door for a character file', async () => {
+    /*
+     * A `.dhchar` in this picker is the one wrong file a GM will actually pick,
+     * and it is not a mistake about the app - it is a mistake about which door.
+     * The parser cannot know there is another one, so this is the single
+     * sentence the screen is allowed to add to a refusal, and the test above
+     * this one is what keeps "allowed to add one" from becoming "adds one to
+     * everything".
+     */
+    const character = JSON.stringify({ format: 'dhchar', schemaVersion: 1, character: {} });
+    picks(character);
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+
+    expect(alert()).toBe(`${said(character)} Characters come in through Settings.`);
+    expect(alert()).toContain('not a Daggerheart campaign');
+    // The door is the retry, so it comes back open rather than spent.
+    expect(named('OPEN A CAMPAIGN FILE').disabled).toBe(false);
+    expect(useGm.getState().campaigns).toHaveLength(baseCampaigns.length);
+  });
+
+  it('adds nothing at all to a campaign file from a newer build', async () => {
+    /*
+     * The control, and the one that matters most: this refusal carries its own
+     * remedy - update the app, then open it again, it has not been changed -
+     * and a screen that paraphrased it, softened it or appended to it would be
+     * taking the only actionable sentence in the set and making it advice.
+     */
+    const ahead = JSON.stringify({
+      format: 'dhcampaign',
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1,
+      checksum: 0,
+      campaign: {},
+    });
+    picks(ahead);
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+
+    expect(alert()).toBe(said(ahead));
+    expect(alert()).toMatch(/newer version of the app.*Update the app/s);
+  });
+
+  it('says a damaged file is damaged, in the words that say nothing was imported', async () => {
+    const damaged = JSON.stringify({
+      ...JSON.parse(serializeCampaign(arriving('c-damaged-1'), EXPORTED_AT)),
+      checksum: 1,
+    });
+    picks(damaged);
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+
+    expect(alert()).toBe(said(damaged));
+    expect(useGm.getState().campaigns).toHaveLength(baseCampaigns.length);
+  });
+});
+
+describe('the store refusing to open underneath the press', () => {
+  it('says so and leaves the door open, rather than reading the file for ever', async () => {
+    /*
+     * `hydrateGm` can reject - `migrateLegacyGmState` is awaited outside its own
+     * `try`. Without the catch this asserts, the door is left reading READING
+     * THE FILE…, disabled, with nothing in the component able to take it out of
+     * that state again, and the rejection goes on to be nobody's: a spinner
+     * that never stops over an outcome the GM cannot find out.
+     */
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      vi.spyOn(gmStore, 'hydrateGm').mockRejectedValue(new Error('the legacy move threw'));
+      sheet();
+      await settle();
+
+      click(named('OPEN A CAMPAIGN FILE'));
+      await settle();
+
+      expect(alert()).toContain('could not be read');
+      expect(alert()).toContain('OPEN A CAMPAIGN FILE tries again');
+      expect(named('OPEN A CAMPAIGN FILE').disabled).toBe(false);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
   });
 });

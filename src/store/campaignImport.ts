@@ -44,7 +44,7 @@
  * moment the file was written, and the copy here may hold three sittings the
  * file has never seen. So it is printed and never branched on.
  *
- * ## Nine of the ten id spaces are kept byte-identical
+ * ## Every id except the key is kept byte-identical
  *
  * Only `campaign.id` can collide, because only it is a key of an object store.
  * Session rows, countdowns, archived sittings and their items, register

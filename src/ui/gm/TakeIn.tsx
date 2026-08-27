@@ -53,10 +53,10 @@
  * ## Ergonomics, 393x852
  *
  * A third block in `SaveSheet`'s 363px column, `gap: 9`, matching the two above
- * it. Reading above, touching below, in that order and in every state: the
- * paragraph that says what the verb does sits above the verb rather than under
- * it, because it is the sentence that decides whether the thumb should travel at
- * all. Every button is a full-width `.btn` at `minHeight: var(--tap)` = 44, so
+ * it. Reading above, touching below: everything that decides whether the thumb
+ * should travel at all sits above the verb - what the door does, why it is shut
+ * when it is shut, and what is in the file - and only what happened *after* a
+ * press sits under it. Every button is a full-width `.btn` at `minHeight: var(--tap)` = 44, so
  * nothing here makes the thumb aim. The sheet's root is already
  * `className="scroll stack"`, so the preview can grow - a state-5 preview of two
  * records with one warning per dropped party row can run past a screen, and
@@ -80,19 +80,58 @@ import { describeAge } from './party.ts';
 import { flushGm, hydrateGm, useGm } from './gmStore.ts';
 
 /**
- * The ten states of §2d, as six shapes.
+ * Every state of §2d, as seven shapes.
  *
- * State 2 - a cancelled picker - is `idle` and not a shape of its own, because
- * cancelling is not an error and has nothing to say. That is `describeSave`'s
- * precedent one block up: the word for "nothing happened" is nothing.
+ * Fewer shapes than states because two of the states are not shapes. State 2 -
+ * a cancelled picker - is `idle`, because cancelling is not an error and has
+ * nothing to say: that is `describeSave`'s precedent one block up, where the
+ * word for "nothing happened" is nothing. And State 0-blocked is not a stage at
+ * all but a reading of the store, except for the one case below that no reading
+ * of the store can see.
  */
 type Stage =
   | { kind: 'idle' }
   | { kind: 'reading' }
+  /*
+   * The store refused to open, underneath a press.
+   *
+   * `hydrateGm` can reject - `migrateLegacyGmState` is awaited outside its own
+   * `try`, and `retryGm`'s docblock says in as many words that the rejected path
+   * is a real one. It is hard to reach from this button today, because the
+   * button is already shut while `hydrated` is false; what makes it worth a
+   * shape of its own is that the alternative is an `await` with no `catch` on
+   * the only verb in the block, which strands it reading READING THE FILE… with
+   * nothing in the component able to take it out of that state again. That is
+   * the stuck spinner over an unknown outcome that `campaignImport.ts` refuses
+   * to allow on its own side of the call, arriving one module along instead.
+   *
+   * State 0-blocked's fact rather than a new one - the storage did not answer -
+   * carried by the one of the two sentences that names a control certainly on
+   * the screen. The door stays open: a read that failed once is retried by
+   * pressing it again.
+   */
+  | { kind: 'unreadable' }
   | { kind: 'refused'; message: string }
   | { kind: 'preview'; preview: CampaignImportPreview }
   | { kind: 'writing'; preview: CampaignImportPreview }
   | { kind: 'done'; preview: CampaignImportPreview; outcome: CampaignImportOutcome };
+
+const STILL_READING = 'This device is still being read.';
+const UNREADABLE =
+  'This device’s storage could not be read, so nothing can be brought in yet. TRY AGAIN above ' +
+  'reads it again.';
+/*
+ * The same fact, pointing at a different control, and that is the whole reason
+ * there are two of them. The sentence above is printed while the store is
+ * *known* to be unreadable, which is the state TRY AGAIN exists for and is
+ * showing in. The one below is printed when the read refused underneath a press,
+ * where nothing has necessarily set that flag and TRY AGAIN may not be on the
+ * sheet at all - so it names the control that is certainly there, which is the
+ * door itself. State 8's precedent: the door is the retry.
+ */
+const UNREADABLE_NOW =
+  'This device’s storage could not be read, so nothing can be brought in yet. OPEN A CAMPAIGN ' +
+  'FILE tries again.';
 
 const RESTING =
   'A campaign file from this app, on any device. It arrives as a campaign of its own and never ' +
@@ -222,9 +261,16 @@ function warnings(lines: readonly string[]): React.JSX.Element | null {
   if (lines.length === 0) return null;
   return (
     <div className="stack" style={{ flex: 'none', gap: 4 }}>
-      {lines.map((line) => (
+      {lines.map((line, at) => (
         <p
-          key={line}
+          /*
+           * Keyed by position as well as by text: two party rows belonging to
+           * players with the same name produce the same sentence twice, and the
+           * reader is right to say it twice - it is two sheets that will not be
+           * on the board. A key that collided there would be a console error
+           * printed at the GM instead.
+           */
+          key={`${String(at)} ${line}`}
           className="t-dense"
           style={{ margin: 0, color: 'var(--stress)', maxWidth: '62ch' }}
         >
@@ -258,16 +304,17 @@ export function TakeIn(): React.JSX.Element {
     if (alive.current) setStage(next);
   };
 
-  const blocked = !hydrated
-    ? 'This device is still being read.'
-    : writeRetry === 'read'
-      ? 'This device’s storage could not be read, so nothing can be brought in yet. TRY AGAIN above reads it again.'
-      : null;
+  const blocked = !hydrated ? STILL_READING : writeRetry === 'read' ? UNREADABLE : null;
 
   const open = (): void => {
     setStage({ kind: 'reading' });
     void (async () => {
-      await hydrateGm();
+      try {
+        await hydrateGm();
+      } catch {
+        settle({ kind: 'unreadable' });
+        return;
+      }
 
       let picked;
       try {
@@ -412,6 +459,12 @@ export function TakeIn(): React.JSX.Element {
         </div>
       )}
 
+      {blocked !== null && preview === null && (
+        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
+          {blocked}
+        </p>
+      )}
+
       {preview !== null ? (
         <>
           <button
@@ -449,12 +502,6 @@ export function TakeIn(): React.JSX.Element {
         </button>
       )}
 
-      {blocked !== null && preview === null && (
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-          {blocked}
-        </p>
-      )}
-
       {stage.kind === 'refused' && (
         <p
           role="alert"
@@ -462,6 +509,16 @@ export function TakeIn(): React.JSX.Element {
           style={{ margin: 0, color: 'var(--stress)', maxWidth: '62ch' }}
         >
           {stage.message}
+        </p>
+      )}
+
+      {stage.kind === 'unreadable' && (
+        <p
+          role="alert"
+          className="t-body"
+          style={{ margin: 0, color: 'var(--stress)', maxWidth: '62ch' }}
+        >
+          {UNREADABLE_NOW}
         </p>
       )}
 

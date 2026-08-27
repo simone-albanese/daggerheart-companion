@@ -419,7 +419,8 @@ describe('the version window the bump moved', () => {
  * can no longer answer once the reader has restamped it.
  *
  * Every payload below is checksum-correct on purpose. A file that fails the
- * checksum is refused three checks earlier and proves nothing about these.
+ * checksum is refused before the reader is ever called, and proves nothing
+ * about what the reader does with what it is given.
  */
 describe('the refusals that come from inside the record', () => {
   const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));

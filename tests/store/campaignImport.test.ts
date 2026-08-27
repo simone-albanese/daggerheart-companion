@@ -97,7 +97,7 @@ const member = (): PartyMember => ({
 });
 
 /**
- * A campaign with something in every one of the ten id spaces.
+ * A campaign with something in every id space the record has.
  *
  * Built rather than taken from a fixture because the point of it is the id
  * spaces, and the committed fixtures are frozen against schema drift rather
@@ -321,7 +321,7 @@ describe('a campaign already on this device is never written over', () => {
   });
 });
 
-describe('the nine id spaces that are not the key', () => {
+describe('the id spaces that are not the key', () => {
   it('keeps every internal id byte-identical, on the path that mints a new key', async () => {
     // Kills a blanket remap. The copy path is where one would be tempting -
     // the campaign id has just been replaced, so renumbering everything under

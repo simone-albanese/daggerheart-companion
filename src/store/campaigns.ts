@@ -181,13 +181,17 @@ export async function putCampaign(campaign: Campaign): Promise<void> {
  * crash. A check that is true today by coincidence is a check that goes quietly
  * false.
  *
- * **Both absorptions of `tx.done` are deliberate.** Each one is independently
- * enough to stop the `AbortError` that a refused `add` rolls the transaction
- * back with from surfacing as an unhandled rejection - measured, not assumed -
- * and the naive body with neither leaks exactly one. `hold()` covers the caller
- * that never enters the catch; the `await` inside it is what makes the rollback
- * *finish* before `'taken'` is returned, so a caller that reads the store on the
- * next line is not racing it. The occupant is byte-identical afterwards.
+ * **Both absorptions of `tx.done` are deliberately kept, and neither can be
+ * measured on its own.** A refused `add` rolls the transaction back, and the
+ * rollback rejects `tx.done` into nobody's hands. Removing both leaks exactly
+ * one unhandled rejection, and `campaignDb.test.ts` fails on it; removing
+ * either one alone changes nothing any test in this repo can see, because each
+ * is independently enough. That is measured, not assumed, and it is stated here
+ * rather than resolved by deleting one: `hold()` is what every other
+ * transaction in this file uses and covers the caller that never enters the
+ * catch, and the `await` inside the catch is what settles the rollback before
+ * `'taken'` is returned rather than after. The occupant is byte-identical
+ * afterwards either way.
  */
 export async function addCampaign(campaign: Campaign): Promise<'added' | 'taken'> {
   const database = await db();
