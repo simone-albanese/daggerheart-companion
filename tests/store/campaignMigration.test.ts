@@ -119,8 +119,30 @@ describe('the ordinary case', () => {
     expect(c.board.environmentRef).toBe('raging-river');
     expect(c.board.roster).toEqual([{ ref: 'acid-burrower', count: 1 }]);
     expect(c.board.adjustments.harder).toBe(true);
-    expect(c.board.combatants[0]?.hp).toEqual({ marked: 3, max: 8 });
-    expect(c.board.combatants[0]?.notes).toBe('on the far bank');
+    /*
+     * The fight, which no longer arrives on the board.
+     *
+     * `dhc.gm.v1` was written by a build whose fight lived in one list on the
+     * GM screen, and `campaignFromLegacy` still copies that list into
+     * `board.combatants` - a schema-4 board, by construction. At schema 5 the
+     * board has no such field, so the ONLY road from that blob to a fight the
+     * app can draw is the `from: 4` converter, which lands it on a scene row
+     * and points `openScene` at it.
+     *
+     * Asserted through the pointer rather than against a minted id, because
+     * which id the rescue row gets is the converter's business and is held
+     * against frozen bytes in `campaignSchema.test.ts`. What this file owns is
+     * the one-way door: these two marks are the only assertions in the suite
+     * that say a GM's fight survived the trip out of localStorage, and the key
+     * is deleted immediately afterwards.
+     */
+    const open = c.session.find((i) => i.id === c.board.openScene);
+    const fight = open?.kind === 'scene' ? open.combatants : [];
+    expect(fight[0]?.hp).toEqual({ marked: 3, max: 8 });
+    expect(fight[0]?.notes).toBe('on the far bank');
+    // The rescue row is the only place that fight can be drawn, so it has to
+    // carry the place the blob was being played in.
+    expect(open?.kind === 'scene' && open.environmentRef).toBe('raging-river');
     expect(c.party.map((m) => m.sheet.name)).toEqual(['Ilya of the Ninth']);
     expect(c.party[0]?.tracks).toEqual({ hp: 2, stress: 4, hope: 3, armor: 1 });
   });

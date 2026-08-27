@@ -60,6 +60,8 @@ import {
 } from '../../shared/campaigns.ts';
 import {
   applyChain,
+  checkReadable,
+  MIGRATIONS,
   missingConverters,
   readableVersions,
   SchemaError,
@@ -88,10 +90,35 @@ const bare = (patch: Record<string, unknown> = {}): Record<string, unknown> => (
 
 describe('the policy, applied to a second schema', () => {
   it('numbers campaigns separately from characters, on purpose', () => {
-    // Not an accident of ordering: folding campaigns into SCHEMA_VERSION would
-    // make every future campaign change a character migration, and force every
-    // committed character fixture to be rewritten for a field no character has.
-    expect(CAMPAIGN_SCHEMA_VERSION).not.toBe(SCHEMA_VERSION);
+    /*
+     * Not an accident of ordering: folding campaigns into `SCHEMA_VERSION`
+     * would make every future campaign change a character migration, and force
+     * every committed character fixture to be rewritten for a field no
+     * character has.
+     *
+     * This used to be `expect(CAMPAIGN_SCHEMA_VERSION).not.toBe(SCHEMA_VERSION)`
+     * and it cannot be any more: the 4 -> 5 campaign bump landed on the number
+     * the character schema is already standing on, and both constants read 5
+     * today. Inequality was only ever a proxy for independence, and two
+     * counters that move independently were always going to meet - the day
+     * they did, the proxy went red while the property it stood for was
+     * untouched. Re-measured rather than carried forward: `CAMPAIGN_MIGRATIONS`
+     * is `[1, 2, 3, 4]` and `MIGRATIONS` is `[3, 4]`, so the two chains cannot
+     * be one chain whatever the two numbers happen to say.
+     *
+     * The teeth this leaves behind are structural rather than numeric: two
+     * chain objects, two ranges, and no converter in common. `stamps itself
+     * with the campaign schema, never the character one` below is the test
+     * that goes vacuous while the two constants agree, and it says so.
+     */
+    expect(CAMPAIGN_MIGRATIONS).not.toBe(MIGRATIONS);
+    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).not.toEqual(MIGRATIONS.map((m) => m.from));
+    // Neither converter can be reached through the other chain: a `from` in one
+    // that also appears in the other would still be a different `apply`, and a
+    // single chain would have to answer both records with the same one.
+    for (const campaign of CAMPAIGN_MIGRATIONS) {
+      expect(MIGRATIONS).not.toContain(campaign);
+    }
   });
 
   it('has a converter for every step from the oldest readable version to this one', () => {
@@ -209,13 +236,20 @@ describe('the committed fixtures', () => {
      * neither field and asserting on them would only prove that the reader
      * supplies a default.
      *
-     * This is what the bump bought: a fight parked in the row it came from,
-     * and a clock that belongs to one scene rather than to the evening. A
-     * reader that dropped either would still pass every assertion above.
+     * This is what schema 4 bought: a clock that belongs to one scene rather
+     * than to the evening, and a board that remembered which row it was
+     * playing. A reader that dropped either would still pass every assertion
+     * above.
+     *
+     * The board's half of it is a `liveScene` on the frozen bytes and an
+     * `openScene` by the time it arrives here, because the 4 -> 5 entry renames
+     * it on the way through - which is the whole of what this file can observe
+     * of that entry from a fixture whose board holds no fight. The three
+     * branches that move one are held below, against fixtures of their own.
      */
     const { campaign, warnings } = readCampaignRecord(readFixture(4));
 
-    expect(campaign.board.liveScene).toBe('item-scene-1');
+    expect(campaign.board.openScene).toBe('item-scene-1');
     expect(campaign.session.some((i) => i.id === 'item-scene-1')).toBe(true);
 
     const thaw = campaign.session.find((i) => i.id === 'item-countdown-2');
@@ -245,6 +279,12 @@ describe('a campaign owns its own things, and not the player characters', () => 
   });
 
   it('stamps itself with the campaign schema, never the character one', () => {
+    // VACUOUS while the two constants agree, and they agree today - both read
+    // 5. `newCampaign` stamping `SCHEMA_VERSION` by mistake would pass this.
+    // Left standing rather than deleted because it stops being vacuous on its
+    // own the next time either schema moves without the other; what holds the
+    // property in the meantime is `numbers campaigns separately from
+    // characters`, which asks it of the chains instead of the numbers.
     const c = newCampaign('x', '2026-08-16T10:00:00.000Z', 'campaign-1');
     expect(c.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
   });
@@ -613,7 +653,17 @@ describe('countdowns, which live in the session list', () => {
   });
 });
 
-describe('the row the fight on the board came from', () => {
+/**
+   * The row the runner is drawing, which is all this pointer is now.
+   *
+   * It used to be `liveScene` and it used to own something: the fight stood on
+   * the board and this said which row it had come from, so a dangling one meant
+   * a fight with no home and the GM had to be told. `openScene` owns nothing.
+   * Every fight is on its own row whether or not anything points at it, so what
+   * dangles here is which screen you were on - and the repair is SILENT, which
+   * is the assertion each of these makes alongside the value.
+   */
+  describe('the row the runner has open', () => {
     const sceneRow = (id: string): Record<string, unknown> => ({
       id,
       kind: 'scene',
@@ -624,39 +674,65 @@ describe('the row the fight on the board came from', () => {
       combatants: [],
     });
 
-    it('starts at nothing, because a fresh board came from nowhere', () => {
-      expect(emptyBoard().liveScene).toBe(null);
+    it('starts at nothing, because a fresh board has no scene open', () => {
+      expect(emptyBoard().openScene).toBe(null);
     });
 
-    it('reads a schema-3 board as belonging to no row', () => {
+    it('reads a board written before the pointer existed as having none open', () => {
       const { campaign, warnings } = readCampaignRecord(bare());
-      expect(campaign.board.liveScene).toBe(null);
+      expect(campaign.board.openScene).toBe(null);
       expect(warnings).toEqual([]);
     });
 
-    it('keeps a pointer to a row this campaign still has', () => {
+    it('keeps a pointer to a scene row this campaign still has', () => {
       const { campaign, warnings } = readCampaignRecord(
-        bare({ session: [sceneRow('s1')], board: { liveScene: 's1' } }),
+        bare({ session: [sceneRow('s1')], board: { openScene: 's1' } }),
       );
-      expect(campaign.board.liveScene).toBe('s1');
+      expect(campaign.board.openScene).toBe('s1');
       expect(warnings).toEqual([]);
     });
 
-    it('lets the fight belong to no row when its row is gone, and does not empty the board', () => {
-      // The GM is playing that fight. Losing it because the plan row behind it
-      // was deleted is the silent loss this pass exists to refuse; it gets a
-      // home again the next time a scene is run.
-      const { campaign, warnings } = readCampaignRecord(
-        bare({ session: [sceneRow('s1')], board: { liveScene: 'a-row-that-was-deleted' } }),
-      );
-      expect(campaign.board.liveScene).toBe(null);
-      expect(warnings.join(' ')).toMatch(/came from a scene this campaign no longer has/);
-    });
+    /*
+     * The three ways it can dangle, and the same answer to all three: `null`,
+     * and not a word about it.
+     *
+     * A countdown's `sceneId` is checked against EVERY row's id and this one
+     * against SCENE rows only, and the difference is deliberate - the
+     * `unreadable` case below is where the two readings come apart. That row
+     * keeps its id precisely so a build that cannot parse it cannot lose it, so
+     * a clock scoped to it still resolves; but the runner cannot draw it, and a
+     * pointer left standing at it would open an empty scene with no explanation
+     * on it and no way back.
+     */
+    for (const [what, session] of [
+      ['a row this campaign no longer has', [sceneRow('s1')]],
+      [
+        'a countdown row',
+        [sceneRow('s1'), { id: 'gone', kind: 'countdown', name: 'a clock', primary: false }],
+      ],
+      ['a row this build cannot read', [sceneRow('s1'), { id: 'gone', kind: 'a-kind-from-2027' }]],
+    ] as const) {
+      it(`nulls a pointer at ${what}, in silence`, () => {
+        const { campaign, warnings } = readCampaignRecord(
+          bare({ session, board: { openScene: 'gone' } }),
+        );
+        expect(campaign.board.openScene).toBe(null);
+        /*
+         * Nothing said about the pointer, in any of the three. The one sentence
+         * that survives the filter is the unreadable ROW's own - "one item in
+         * the session list could not be read" - which is about a row being
+         * kept, not about a pointer being nulled, and which the other two cases
+         * do not produce at all. Any sentence the repair added would be a
+         * fourth thing here and would fail this.
+         */
+        expect(warnings.filter((w) => !/could not be read/.test(w))).toEqual([]);
+      });
+    }
 
     it('says nothing when there was no pointer to repair', () => {
       // A warning that fires on an ordinary launch is a warning that stops
       // being read, which is `readSessionItem`'s argument about empty rows.
-      const { warnings } = readCampaignRecord(bare({ board: { liveScene: null } }));
+      const { warnings } = readCampaignRecord(bare({ board: { openScene: null } }));
       expect(warnings).toEqual([]);
     });
   });
@@ -1044,9 +1120,9 @@ describe('the repairs, which never cost the record', () => {
       expect(warnings).toEqual([]);
     });
 
-    it('defends the legacy encounter row and the board’s own fight from the same line', () => {
+    it('defends the legacy encounter row from the same line as a scene row', () => {
       /*
-       * One function reads all three lists, so the repair is written once. The
+       * One function reads both lists, so the repair is written once. The
        * `encounter` arm is the one nothing can mint any more and every saved
        * campaign may still be carrying; its bodies are only counted on the
        * glass today rather than addressed, which is precisely why the repair
@@ -1054,6 +1130,14 @@ describe('the repairs, which never cost the record', () => {
        * it arrives holding whatever id this function gave it, under the same
        * id-keyed `map` and `filter` as the row this build mints. An `if` per
        * arm is how two policies for one invariant start.
+       *
+       * BOTH lists, where this said three until the fight left the board. The
+       * third was `board.combatants`, and it is not a list this reader has any
+       * more - the same argument now reaches exactly as far as there are places
+       * a fight can be, which is what deleting the third place was for. The two
+       * rows are seeded from ONE `bodies` array on purpose: a repair that
+       * fixed the scene row by mutating the array it was handed would show up
+       * as the encounter row's ids having moved under it.
        */
       const bodies = [
         body('acid-burrower-0', { name: 'one' }),
@@ -1070,13 +1154,16 @@ describe('the repairs, which never cost the record', () => {
               adjustments: { easier: false, harder: false, damageBump: false },
               combatants: bodies,
             },
+            sceneRow('s1', 'a scene', bodies),
           ],
-          board: { combatants: bodies },
         }),
         counter(),
       );
       expect(new Set(fightIn(campaign.session[0]).map((c) => c.id)).size).toBe(bodies.length);
-      expect(new Set(campaign.board.combatants.map((c) => c.id)).size).toBe(bodies.length);
+      expect(new Set(fightIn(campaign.session[1]).map((c) => c.id)).size).toBe(bodies.length);
+      // Once for the read, not once per row: `warn` refuses a sentence it has
+      // already said, so two fights repaired the same way are one thing the GM
+      // is told rather than a list they stop reading.
       expect(warnings.filter((w) => /two adversaries/.test(w))).toHaveLength(1);
     });
   });
@@ -1229,39 +1316,101 @@ describe('the bumps, and the record they must not touch', () => {
    * no row, hand every scene clock back to the campaign, and let the 400 ms
    * debounce write that reading back. Nothing in a v3 record is wrong, so that
    * converter changes no field either.
+   *
+   * ## Schema 5 is not that argument, and it is the first one that is not
+   *
+   * Every bump above guards an older build against TRUNCATION: the old reader
+   * drops a field it has no seat for and writes the reading back. The 4 -> 5
+   * bump guards against DESTRUCTION, and the loss lands the other way round -
+   * on a record the *older* build has already edited. `board.combatants` and
+   * `board.liveScene` are gone, so a schema-4 reader meeting a schema-5 record
+   * finds neither, supplies `[]` and `null`, and draws a coherent-looking
+   * screen with an empty runner on it. The GM taps `BACK TO THIS FIGHT`, the
+   * schema-4 `runScene` empties that row onto the board, the debounce writes
+   * it, and the fight is in the one place the schema-5 reader does not look.
+   *
+   * So this is also the first entry with anything to do. It MOVES a field it
+   * does not invent and does not reinterpret, which is the rule the chain's own
+   * header states; the three branches it moves through are held against frozen
+   * bytes further down this file.
    */
-  it('carries one converter per bump, in order, and none of them is a repair', () => {
-    // Derived from the constant rather than frozen as a literal: a third bump
-    // adds one entry here and does not have to remember to edit two lines.
-    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1, 2, 3]);
-    expect(CAMPAIGN_SCHEMA_VERSION).toBe(4);
+  it('carries one converter per bump, in order, and only the bump that deleted a field does any work', () => {
+    // The length is derived and costs a bump nothing. The two lines above it
+    // are frozen literals ON PURPOSE and a bump has to come here and edit them:
+    // derived on both sides, this passes for a chain with no converters in it
+    // at all. This bump paid that cost - [1, 2, 3] to [1, 2, 3, 4], 4 to 5 -
+    // which is what buys the teeth.
+    expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).toEqual([1, 2, 3, 4]);
+    expect(CAMPAIGN_SCHEMA_VERSION).toBe(5);
     expect(CAMPAIGN_MIGRATIONS).toHaveLength(CAMPAIGN_SCHEMA_VERSION - OLDEST_READABLE_CAMPAIGN);
   });
 
-  it('gives a v1 record back byte for byte, apart from the stamp, across all three bumps', () => {
-    // Deep equality against the fixture itself rather than against a list of
-    // fields somebody remembered to check: an `apply` that dropped `party`,
-    // renamed `board.partyTier`, or normalised a countdown on the way through
-    // fails here without anyone having to have predicted which field it was.
+  it('gives a v1 record back byte for byte apart from the stamp and the board’s two keys, across all four bumps', () => {
+    /*
+     * Deep equality against the fixture itself rather than against a list of
+     * fields somebody remembered to check: an `apply` that dropped `party`,
+     * renamed `board.partyTier`, or normalised a countdown on the way through
+     * fails here without anyone having to have predicted which field it was.
+     *
+     * The board is the exception now, and it is hand-written key by key
+     * BELOW rather than spread from the fixture, because the 4 -> 5 entry is
+     * the first converter in this chain whose output differs from its input.
+     * Hand-written, and not regenerated from the code: an expectation built by
+     * running the converter would agree with any converter, including one that
+     * dropped `roster` on the way past. The values still come from the fixture,
+     * so only the two keys this bump is about are stated as literals.
+     */
     const fixture = readFixture(1);
+    const board = fixture['board'] as Record<string, unknown>;
+    const moved = {
+      ...fixture,
+      schemaVersion: CAMPAIGN_SCHEMA_VERSION,
+      board: {
+        region: board['region'],
+        partyTier: board['partyTier'],
+        roster: board['roster'],
+        adjustments: board['adjustments'],
+        environmentRef: board['environmentRef'],
+        openScene: null,
+      },
+    };
     const { record, from, applied } = migrateCampaignRecord(fixture);
 
     expect(from).toBe(1);
     // Every converter ran, in order, and each said what it was for.
     expect(applied).toEqual(CAMPAIGN_MIGRATIONS.map((m) => m.note));
-    expect(record).toEqual({ ...fixture, schemaVersion: CAMPAIGN_SCHEMA_VERSION });
-    // Deep equality is not enough on its own to earn the words "byte for byte":
-    // `toEqual` ignores key order and treats an absent key and an
-    // `undefined`-valued one as the same. The `.dhcampaign` checksum is
-    // computed over `JSON.stringify`, so a converter that reordered keys or
-    // turned a value into `undefined` would pass the line above and still make
-    // the file this app writes fail to verify against the file it reads.
-    expect(JSON.stringify(record)).toBe(
-      JSON.stringify({ ...fixture, schemaVersion: CAMPAIGN_SCHEMA_VERSION }),
-    );
-    // Said separately, because the two assertions above would also pass if both
+    expect(record).toEqual(moved);
+    /*
+     * Deep equality is not enough on its own to earn the words "byte for byte":
+     * `toEqual` ignores key order and treats an absent key and an
+     * `undefined`-valued one as the same. The `.dhcampaign` checksum is
+     * computed over `JSON.stringify`, so a converter that reordered keys or
+     * turned a value into `undefined` would pass the line above and still make
+     * the file this app writes fail to verify against the file it reads.
+     *
+     * This half is what pins the ORDER the rename leaves behind. `const
+     * { combatants, liveScene, ...rest } = board` drops both keys where they
+     * stood and `{ ...rest, openScene }` puts the new one on the end, so v1's
+     * `region, partyTier, roster, adjustments, combatants, environmentRef`
+     * comes back as `region, partyTier, roster, adjustments, environmentRef,
+     * openScene`. Measured by walking the fixture, not read off the source.
+     */
+    expect(JSON.stringify(record)).toBe(JSON.stringify(moved));
+    expect(Object.keys(record['board'] as Record<string, unknown>)).toEqual([
+      'region',
+      'partyTier',
+      'roster',
+      'adjustments',
+      'environmentRef',
+      'openScene',
+    ]);
+    // Deleted, not emptied and not left holding `undefined`, which is the one
+    // difference `toEqual` above would let past.
+    expect(record['board']).not.toHaveProperty('combatants');
+    expect(record['board']).not.toHaveProperty('liveScene');
+    // Said separately, because the assertions above would also pass if both
     // sides were 1 and the bump had never happened.
-    expect(record['schemaVersion']).toBe(4);
+    expect(record['schemaVersion']).toBe(5);
   });
 
   it('hands the chain a copy rather than the record it was given', () => {
@@ -1295,6 +1444,325 @@ describe('the bumps, and the record they must not touch', () => {
     expect(campaign.session.map((i) => i.kind)).not.toContain('url');
     expect(campaign.session.map((i) => i.kind)).not.toContain('note');
     expect(campaign.session).toHaveLength(5);
+  });
+});
+
+/**
+ * The 4 -> 5 entry, against frozen bytes, one branch at a time.
+ *
+ * This is the only converter in the chain that moves a GM's data, and the only
+ * one where getting it wrong costs a fight rather than a stamp. So it is asked
+ * against committed files rather than against records built here: a fixture
+ * assembled beside its expectation proves only that whoever wrote the test and
+ * whoever wrote the converter had the same idea on the same afternoon.
+ *
+ * `v4.campaign.json` was already frozen and takes branch (1) - its board holds
+ * no fight, which is why the other two branches needed files of their own.
+ * `v4.parked.campaign.json` and `v4.orphan.campaign.json` are hand-written to
+ * the schema-4 shape and stamped 4, and like every fixture in this directory
+ * they are NEVER regenerated: one rewritten by a later build proves only that
+ * the later build agrees with itself. They differ in exactly one byte-level
+ * thing, `board.liveScene`, so which branch fires is the only variable between
+ * them.
+ *
+ * `applyChain` rather than `readCampaignRecord`, on purpose. The reader
+ * restamps, repairs and rebuilds every field it names, so it would hide a
+ * converter that dropped a key the reader supplies a default for. What comes
+ * back here is the record as the chain leaves it, which is what gets written to
+ * the disk.
+ */
+describe('the bump that moved a fight off the board', () => {
+  const named = (name: string): Record<string, unknown> =>
+    JSON.parse(readFileSync(join(FIXTURES, `${name}.campaign.json`), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+
+  /** One step, 4 -> 5, so nothing above it can be mistaken for this entry's work. */
+  const walk = (record: Record<string, unknown>): Record<string, unknown> =>
+    applyChain(record, 4, 5, CAMPAIGN_MIGRATIONS).record;
+
+  type Row = Record<string, unknown>;
+  const rows = (record: Record<string, unknown>): Row[] => record['session'] as Row[];
+  const rowAt = (record: Record<string, unknown>, id: string): Row =>
+    rows(record).find((i) => i['id'] === id)!;
+  const boardOf = (record: Record<string, unknown>): Row => record['board'] as Row;
+
+  describe('branch (1), a board with no fight on it', () => {
+    it('renames the pointer, drops the two keys, and moves nothing else', () => {
+      const before = readFixture(4);
+      const after = walk(before);
+
+      expect(boardOf(after)['openScene']).toBe('item-scene-1');
+      expect(boardOf(after)).not.toHaveProperty('combatants');
+      expect(boardOf(after)).not.toHaveProperty('liveScene');
+      // Nothing minted and nothing rewritten: the session list comes back the
+      // same length, the same ids in the same order, and deep-equal to what
+      // arrived. A branch that fired here would show up as a row with an empty
+      // name on the end.
+      expect(rows(after)).toEqual(before['session']);
+      // And the rest of the board is untouched, which is what keeping the
+      // builder's workbench on it means.
+      const wasBoard = boardOf(before);
+      for (const key of ['region', 'partyTier', 'roster', 'adjustments', 'environmentRef']) {
+        expect(boardOf(after)[key]).toEqual(wasBoard[key]);
+      }
+    });
+  });
+
+  describe('branch (2), a fight on the board and the row it came from standing empty', () => {
+    /*
+     * The ordinary state of a schema-4 record with a fight on the glass: the
+     * schema-4 `runScene` emptied the row it resumed, so the row the pointer
+     * names holds nothing and the board holds everything.
+     */
+    it('puts the fight on the row the pointer names, with every mark on it', () => {
+      const before = named('v4.parked');
+      const wasOnTheBoard = boardOf(before)['combatants'] as Row[];
+      const after = walk(before);
+
+      // The array as it stood, not a rebuilt one: this converter carries, and
+      // `readCombatants` is still the only thing that decides what a body is.
+      expect(rowAt(after, 'item-scene-1')['combatants']).toEqual(wasOnTheBoard);
+      // Named one at a time as well, because `toEqual` on two arrays that are
+      // both wrong in the same way is not evidence. These are the marks a GM
+      // would notice missing.
+      const first = (rowAt(after, 'item-scene-1')['combatants'] as Row[])[0]!;
+      expect(first['hp']).toEqual({ marked: 3, max: 8 });
+      expect(first['stress']).toEqual({ marked: 2, max: 3 });
+      expect(first['thresholds']).toEqual([8, 15]);
+      expect(first['spotlighted']).toBe(true);
+      const second = (rowAt(after, 'item-scene-1')['combatants'] as Row[])[1]!;
+      expect(second['minionsRemaining']).toBe(3);
+      expect(second['thresholds']).toBe(null);
+    });
+
+    it('names that row as the one open, and leaves the board with no fight', () => {
+      const after = walk(named('v4.parked'));
+      expect(boardOf(after)['openScene']).toBe('item-scene-1');
+      expect(boardOf(after)).not.toHaveProperty('combatants');
+      expect(boardOf(after)).not.toHaveProperty('liveScene');
+    });
+
+    it('mints nothing, and writes no row but that one', () => {
+      const before = named('v4.parked');
+      const after = walk(before);
+
+      expect(rows(after)).toHaveLength(rows(before).length);
+      // The decoy row holds a fight of its own and is not the one named. A
+      // converter that wrote every scene row, or picked the first one holding
+      // nothing, would move a fight into a scene the GM was not playing.
+      expect(rowAt(after, 'item-scene-2')).toEqual(rowAt(before, 'item-scene-2'));
+      expect(rowAt(after, 'item-countdown-1')).toEqual(rowAt(before, 'item-countdown-1'));
+    });
+
+    it('leaves the row’s own place alone rather than putting the board’s on it', () => {
+      /*
+       * The schema-4 app refused to write the board's environment onto a row it
+       * parked a fight into - a park that wrote the plan would let one row's
+       * `PUT THIS ENVIRONMENT ON THE BOARD` quietly rewrite another row's place
+       * - and an upgrade must not do what the app declined to do. The two
+       * fixtures disagree here on purpose: the board says `raging-river` and
+       * the row says `cliffside-ascent`.
+       */
+      const before = named('v4.parked');
+      const after = walk(before);
+      expect(boardOf(before)['environmentRef']).not.toBe(rowAt(before, 'item-scene-1')['environmentRef']);
+      expect(rowAt(after, 'item-scene-1')['environmentRef']).toBe(
+        rowAt(before, 'item-scene-1')['environmentRef'],
+      );
+    });
+  });
+
+  describe('branch (3), a fight the pointer cannot put anywhere', () => {
+    it('mints one row for it, carrying the fight whole', () => {
+      const before = named('v4.orphan');
+      const wasOnTheBoard = boardOf(before)['combatants'] as Row[];
+      const after = walk(before);
+
+      expect(rows(after)).toHaveLength(rows(before).length + 1);
+      const minted = rows(after)[rows(after).length - 1]!;
+      expect(minted['id']).toBe('board-fight-v4');
+      expect(minted['kind']).toBe('scene');
+      expect(minted['combatants']).toEqual(wasOnTheBoard);
+      expect(boardOf(after)['openScene']).toBe('board-fight-v4');
+    });
+
+    it('seeds the minted row with the board’s place, because nothing else has one', () => {
+      // The rescue row is what `openScene` names, so without this the runner
+      // would draw no place at all for a fight that had one. It is the one row
+      // the environment may be written onto, for the same reason branch (2)
+      // may not write it: this row did not exist to have a place of its own.
+      const before = named('v4.orphan');
+      const after = walk(before);
+      const minted = rows(after)[rows(after).length - 1]!;
+      expect(minted['environmentRef']).toBe(boardOf(before)['environmentRef']);
+    });
+
+    it('names six keys and no more, leaving the row’s defaults to the reader', () => {
+      // `readSessionItem` supplies `roster`, `adjustments` and `collapsed` on
+      // the way in. A default written here as well is the one nobody notices
+      // has gone stale - the `from: 2` entry's rule, honoured rather than
+      // stretched.
+      const minted = rows(walk(named('v4.orphan')))[3]!;
+      expect(Object.keys(minted)).toEqual([
+        'id',
+        'kind',
+        'name',
+        'order',
+        'environmentRef',
+        'combatants',
+      ]);
+    });
+
+    it('touches no row that was already there', () => {
+      const before = named('v4.orphan');
+      const after = walk(before);
+      for (const was of rows(before)) {
+        expect(rowAt(after, was['id'] as string)).toEqual(was);
+      }
+    });
+
+    it('mints for a pointer at a scene row that already holds a fight, and does not merge', () => {
+      /*
+       * Hand-built rather than frozen, because no schema-4 build could write
+       * it: `runScene` emptied the row it resumed, so a record with a fight in
+       * both places came from a hand-edit or a half-finished write. The answer
+       * is still a mint, and it must never be a merge - `makeCombatant` numbers
+       * from 0 in every fight, so `acid-burrower-0` is legal in the dungeon and
+       * in the forest at the same time, and a merge would put two bodies the
+       * runner cannot tell apart into one list.
+       */
+      const standing = { id: 'acid-burrower-0', adversaryRef: 'acid-burrower', name: 'in the row' };
+      const onTheBoard = { id: 'acid-burrower-0', adversaryRef: 'acid-burrower', name: 'on the glass' };
+      const after = walk({
+        id: 'c-1',
+        schemaVersion: 4,
+        session: [
+          {
+            id: 's1',
+            kind: 'scene',
+            name: 'the ford',
+            order: 0,
+            environmentRef: null,
+            roster: [],
+            adjustments: { easier: false, harder: false, damageBump: false },
+            combatants: [standing],
+          },
+        ],
+        board: { region: 'scene', environmentRef: null, combatants: [onTheBoard], liveScene: 's1' },
+      });
+
+      expect(rows(after)).toHaveLength(2);
+      expect(rowAt(after, 's1')['combatants']).toEqual([standing]);
+      expect(rowAt(after, 'board-fight-v4')['combatants']).toEqual([onTheBoard]);
+      expect(boardOf(after)['openScene']).toBe('board-fight-v4');
+    });
+  });
+
+  describe('the id the rescue row gets, and why it is a literal', () => {
+    it('gives the same record the same bytes twice, so a failed write costs nothing', () => {
+      /*
+       * `readCampaigns` writes a version-moved record back through
+       * `scheduleAside`. If that write fails - quota, a private window - the
+       * converter runs again on the same v4 bytes next launch, and a
+       * `crypto.randomUUID()` here would mint a second row holding a second
+       * copy of the same fight, every time, for as long as the write kept
+       * failing.
+       */
+      const before = named('v4.orphan');
+      expect(JSON.stringify(walk(before))).toBe(JSON.stringify(walk(before)));
+    });
+
+    it('steps the id aside rather than writing onto a row that already has it', () => {
+      const after = walk({
+        id: 'c-1',
+        schemaVersion: 4,
+        session: [
+          {
+            id: 'board-fight-v4',
+            kind: 'scene',
+            name: 'a row a previous rescue left here',
+            order: 0,
+            environmentRef: null,
+            roster: [],
+            adjustments: { easier: false, harder: false, damageBump: false },
+            combatants: [{ id: 'jagged-knife-bandit-0', adversaryRef: 'jagged-knife-bandit' }],
+          },
+        ],
+        board: {
+          region: 'scene',
+          environmentRef: null,
+          combatants: [{ id: 'acid-burrower-0', adversaryRef: 'acid-burrower' }],
+          liveScene: null,
+        },
+      });
+
+      expect(rows(after).map((i) => i['id'])).toEqual(['board-fight-v4', 'board-fight-v4-2']);
+      // The row that was already standing keeps its own fight, which is the
+      // whole point of stepping aside rather than of overwriting.
+      expect((rowAt(after, 'board-fight-v4')['combatants'] as Row[])[0]!['id']).toBe(
+        'jagged-knife-bandit-0',
+      );
+      expect(boardOf(after)['openScene']).toBe('board-fight-v4-2');
+    });
+  });
+
+  it('and the frozen v5 fixture is what that converter produces, key for key', () => {
+    /*
+     * The two pinning each other. `v5.campaign.json` is the v4 table with the
+     * two board keys replaced by `openScene` and the stamp moved, written by
+     * hand; this walks the v4 table through the chain and requires the same
+     * bytes out. A converter that renamed the key differently, or put it
+     * somewhere else in the board, breaks this without breaking anything above
+     * - and so does a fixture somebody regenerated from a later reader.
+     *
+     * `JSON.stringify` and not only `toEqual`, for the reason the v1 walk gives:
+     * the `.dhcampaign` checksum is computed over the bytes, so key order is
+     * part of what a fixture is for.
+     */
+    const walked = { ...walk(readFixture(4)), schemaVersion: 5 };
+    expect(walked).toEqual(readFixture(5));
+    expect(JSON.stringify(walked)).toBe(JSON.stringify(readFixture(5)));
+  });
+});
+
+/**
+ * The sentence a build one behind this one says about a record from this one.
+ *
+ * Held here rather than only at the `.dhcampaign` door, because the door is not
+ * where the hazard lives: `readCampaigns` runs this guard on every launch, and
+ * the 4 -> 5 bump is the first where being read by the older build costs the GM
+ * something. The numbers are derived, so this keeps meaning "this build's
+ * record, met by the build before it" across every bump after this one.
+ */
+describe('the refusal that keeps the older build off a record it would ruin', () => {
+  it('refuses, and the remedy is in the sentence', () => {
+    expect(() =>
+      checkReadable(CAMPAIGN_SCHEMA_VERSION, CAMPAIGN_SCHEMA_VERSION - 1, OLDEST_READABLE_CAMPAIGN),
+    ).toThrow(SchemaError);
+    expect(() =>
+      checkReadable(CAMPAIGN_SCHEMA_VERSION, CAMPAIGN_SCHEMA_VERSION - 1, OLDEST_READABLE_CAMPAIGN),
+    ).toThrow(/newer version of the app.*Update the app.*it has not been changed/s);
+  });
+
+  it('says which two numbers, so a GM can tell which device is behind', () => {
+    try {
+      checkReadable(CAMPAIGN_SCHEMA_VERSION, CAMPAIGN_SCHEMA_VERSION - 1, OLDEST_READABLE_CAMPAIGN);
+      expect.unreachable('a record from this build was handed to the one before it');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toContain(String(CAMPAIGN_SCHEMA_VERSION));
+      expect(message).toContain(String(CAMPAIGN_SCHEMA_VERSION - 1));
+    }
+  });
+
+  it('takes that same record at this build, which is what makes the refusal about the version', () => {
+    // The control. A guard that refused everything would pass both of the
+    // above and lock the GM out of their own campaign.
+    expect(() =>
+      checkReadable(CAMPAIGN_SCHEMA_VERSION, CAMPAIGN_SCHEMA_VERSION, OLDEST_READABLE_CAMPAIGN),
+    ).not.toThrow();
   });
 });
 

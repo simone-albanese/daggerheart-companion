@@ -122,9 +122,9 @@ describe('the round trip', () => {
     expect(file.exportedAt).toBe('2026-08-16T10:00:00.000Z');
   });
 
-  it('carries the parked fight and the scene a clock belongs to, out and back', () => {
+  it('carries the fight on its row and the scene a clock belongs to, out and back', () => {
     /*
-     * The assertion `CAMPAIGN_SCHEMA_VERSION` 4 exists for.
+     * The assertion `CAMPAIGN_SCHEMA_VERSION` 4 and 5 both exist for.
      *
      * Neither field costs the transfer layer a line - `serializeCampaign` is
      * `JSON.stringify` of the whole record - and that is exactly why it is
@@ -133,8 +133,12 @@ describe('the round trip', () => {
      * added the fields to the type and forgot one seat in `readCampaignRecord`
      * would typecheck, run, and lose the pointer on the first save and load.
      *
-     * The scene row carries a fight with a mark on it, because a parked fight
-     * that came back empty would pass a test that only looked at the pointer.
+     * The scene row carries a fight with a mark on it, because a fight that
+     * came back empty would pass a test that only looked at the pointer. At
+     * schema 4 that fight was on the board and this row was the one it had come
+     * from; at 5 the row is where it lives and `openScene` only says which row
+     * the runner has open. What the file has to carry is the same either way,
+     * which is why the test survived the change with one field renamed.
      */
     const before: Campaign = {
       ...campaign(),
@@ -182,14 +186,14 @@ describe('the round trip', () => {
           },
         },
       ],
-      board: { ...campaign().board, liveScene: 's1' },
+      board: { ...campaign().board, openScene: 's1' },
     };
 
     const { campaign: after, warnings } = parseCampaignFile(serializeCampaign(before, at));
 
     expect(warnings).toEqual([]);
     expect(after).toEqual(before);
-    expect(after.board.liveScene).toBe('s1');
+    expect(after.board.openScene).toBe('s1');
 
     const thaw = after.session.find((i) => i.id === 'i3');
     expect(thaw?.kind === 'countdown' && thaw.sceneId).toBe('s1');
@@ -201,6 +205,65 @@ describe('the round trip', () => {
     const ice = after.session.find((i) => i.id === 'i1');
     expect(ice?.kind === 'countdown' && ice.sceneId).toBe(null);
     expect(ice?.kind === 'countdown' && ice.primary).toBe(true);
+  });
+
+  it('carries two scene rows each holding its own fight, and which of them is open', () => {
+    /*
+     * The state schema 5 exists to make expressible, taken out to a file and
+     * back. Two fights standing at once was not a thing a schema-4 record could
+     * say: one board held the fight, `runScene` emptied a row to take one and
+     * filled it again to put one down, so the second fight only ever existed as
+     * a row nobody was playing.
+     *
+     * Both rows hold a body with the SAME id, which is the property that makes
+     * the file interesting rather than the pointer. `makeCombatant` numbers
+     * from 0 in every fight it builds, so `acid-burrower-0` in the ford and
+     * `acid-burrower-0` in the camp are two different adversaries with two
+     * different marks - and a reader that keyed a body by its id alone, or a
+     * writer that pooled the two lists, would bring back one of them twice.
+     */
+    const at2 = (id: string, marked: number, notes: string) => ({
+      id: 'acid-burrower-0',
+      adversaryRef: 'acid-burrower',
+      name: 'Acid Burrower',
+      hp: { max: 8, marked },
+      stress: { max: 3, marked: 0 },
+      thresholds: [8, 15] as [number, number],
+      difficulty: 14,
+      spotlighted: false,
+      notes: `${id}: ${notes}`,
+    });
+    const row = (id: string, name: string, marked: number, notes: string) => ({
+      id,
+      kind: 'scene' as const,
+      name,
+      order: 2,
+      collapsed: false,
+      environmentRef: null,
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [at2(id, marked, notes)],
+    });
+
+    const before: Campaign = {
+      ...campaign(),
+      session: [
+        ...campaign().session,
+        row('s1', 'The frozen ford', 3, 'on the far bank'),
+        { ...row('s2', 'The bandit camp', 1, 'still burrowed'), order: 3 },
+      ],
+      board: { ...campaign().board, openScene: 's2' },
+    };
+
+    const { campaign: after, warnings } = parseCampaignFile(serializeCampaign(before, at));
+
+    expect(warnings).toEqual([]);
+    expect(after).toEqual(before);
+    expect(after.board.openScene).toBe('s2');
+
+    const fights = after.session.flatMap((i) => (i.kind === 'scene' ? [i.combatants] : []));
+    expect(fights.map((f) => f[0]?.hp.marked)).toEqual([3, 1]);
+    expect(fights.map((f) => f[0]?.notes)).toEqual(['s1: on the far bank', 's2: still burrowed']);
   });
 });
 
@@ -363,7 +426,9 @@ describe('the version window the bump moved', () => {
 
   it('hands a file this build writes to a v1-only build as a refusal, not as damage', () => {
     /*
-     * The upper edge, and the whole reason the number moved - twice now.
+     * The upper edge, and the whole reason the number has moved every time it
+     * has moved. Four times, counted rather than carried: `CAMPAIGN_MIGRATIONS`
+     * holds one entry per move and its `from` values are 1, 2, 3 and 4.
      *
      * A build that predates `url` and `note` must refuse this file rather than
      * read it: its `readSessionItem` would wrap both new rows as `unreadable`
@@ -375,7 +440,14 @@ describe('the version window the bump moved', () => {
      * countdown's triad, owner and beats, and the whole `archive` and
      * `register` - and then writes that reading back. The refusal below is the
      * only thing between a GM and losing a season of notes to a device that has
-     * not updated.
+     * not updated. Schema 4 added the two pointers to that list.
+     *
+     * Schema 5 is the first one where the older build does not have to drop
+     * anything to do the damage. `board.combatants` and `board.liveScene` are
+     * GONE, so a schema-4 reader finds neither, supplies `[]` and `null`, and
+     * draws a screen that looks fine - and then its `runScene` empties a scene
+     * row onto a board no schema-5 reader will ever look at again. This refusal
+     * is what stops that file being opened at all.
      *
      * `CAMPAIGN_SCHEMA_VERSION` is a module constant and this suite cannot
      * lower it, so the guard is called with the old build's numbers - which is
