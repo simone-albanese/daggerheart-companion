@@ -426,8 +426,16 @@ function armFlush(): void {
  * resolves on the failing evening exactly as it does on the ordinary one, with
  * `dirty` still true and `state.campaigns` still holding the record from before
  * the failure. Every caller that follows a flush with something irreversible
- * has to read `dirty` or `writeError` itself - `exportActiveCampaign` does, and
- * `switchCampaign` does not.
+ * has to read `dirty` or `writeError` itself. Of the four that `await` it,
+ * exactly one does: `exportActiveCampaign`. `switchCampaign` and
+ * `createCampaign` both `spread` a different campaign over the live board
+ * immediately afterwards and discard an unlanded one - the KNOWN DEFECT
+ * docblock on `switchCampaign` covers both - and `removeCampaign` spreads only
+ * when the record it just deleted was the open one, so the board it discards
+ * belongs to a campaign the GM asked to be rid of. The fifth awaiting caller is
+ * outside this file - `TakeIn`'s `bringIn` - and it is add-only: it writes a new
+ * key and never over one, so a flush that did not land costs it nothing it was
+ * promising.
  */
 export function flushGm(): Promise<void> {
   if (flushTimer !== null) {
@@ -1292,11 +1300,23 @@ export const useGm = create<GmState>((set, get) => {
        * behaviour is buildable - and it is still not the better one. The tap
        * said NEW CAMPAIGN and a board arrives; the failure is a sentence on
        * that board rather than a screen that did not change, which reads as
-       * the tap having been ignored. Nothing is at risk either way: the
-       * campaign being left lands first, on the `flushGm` at the top of this
-       * function, so the only thing the failure can cost is a campaign that
-       * has nothing in it yet. Do not re-open this as "the campaign is made
-       * active either way" - that is true, and it is the answer.
+       * the tap having been ignored. Do not re-open this as "the campaign is
+       * made active even though its own write failed" - that is true, and it
+       * is the answer.
+       *
+       * WHAT THIS PARAGRAPH USED TO CLAIM ALONGSIDE THAT IS FALSE, AND HAS
+       * BEEN DELETED RATHER THAN SOFTENED. It said "Nothing is at risk either
+       * way: the campaign being left lands first, on the `flushGm` at the top
+       * of this function". The flush proves the write was *attempted*, never
+       * that it landed - see `flushGm`'s own docblock - so on an evening writes
+       * are failing the `spread` above discards the live board of the campaign
+       * being left, exactly as `switchCampaign` does. Measured in an isolated
+       * copy: flush Fear 3, make `putCampaign` reject, Fear 11, flush, then
+       * `createCampaign` - and the leaving campaign reads Fear 3 again in
+       * `state.campaigns`, with nothing on the glass naming the loss. It is the
+       * same defect and the same fix as the KNOWN DEFECT below, which names
+       * both; a repair that touches only `switchCampaign` leaves NEW CAMPAIGN
+       * open.
        */
       if (failed) dirty = true;
       return campaign;
@@ -1321,6 +1341,14 @@ export const useGm = create<GmState>((set, get) => {
      * in the change that owns this function, not in a repair of the door that
      * merely calls it. Do not close this by making `TakeIn` careful; that
      * leaves MENU open.
+     *
+     * **AND `createCampaign` CARRIES THE SAME LINE.** It flushes, then
+     * `spread`s the new campaign over the live board with no reading of
+     * `dirty`, and loses the unlanded evening identically - measured, and
+     * written up in that function. A fix applied only here closes MENU's
+     * campaign row and BRING IT IN and leaves NEW CAMPAIGN open, which is the
+     * same shape of half-fix this docblock exists to refuse. Whatever folds
+     * the board back has to be a step both functions call.
      */
     async switchCampaign(id) {
       if (id === get().activeCampaignId) return;

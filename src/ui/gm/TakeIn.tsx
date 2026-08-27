@@ -68,12 +68,14 @@
  * glass says so; the import's own sentence is green.
  *
  * That discard is `switchCampaign`'s, not this door's: MENU's campaign row
- * drives the same line on `main` today, and a bare `switchCampaign` with no
- * import at all loses the same board. It is written up in the handoff and is
- * owed a fix in the store, where MENU is covered too - not here, where fixing it
- * would leave the other entrance open. What this door adds meanwhile is a second
- * entrance to it, so do not read the green sentence as evidence the board that
- * was on screen a moment ago reached the disk.
+ * drives the same line on `main` today, a bare `switchCampaign` with no import
+ * at all loses the same board, and `createCampaign` loses it too. It is written
+ * up where it lives - the KNOWN DEFECT docblock on `switchCampaign` in
+ * `gmStore.ts`, which names both functions - and it is owed a fix there, where
+ * MENU and NEW CAMPAIGN are covered too, not here, where fixing it would leave
+ * the other entrances open. What this door adds meanwhile is one more entrance,
+ * so do not read the green sentence as evidence the board that was on screen a
+ * moment ago reached the disk.
  *
  * ## Ergonomics, 393x852
  *
@@ -247,9 +249,10 @@ function arrival(p: CampaignImportPreview): string {
  * here beside one this build must not touch, or it is here under a name it did
  * not come in with.
  *
- * **The fourth branch is the promise the third one cannot keep.** `addCampaign`
- * answers `'taken'` for a record a newer build wrote - `add` sees raw keys and
- * does not care whether this build could read what is there - so `asCopy` is
+ * **The third of those is new, and it is here because the second makes a
+ * promise that is false in exactly that case.** `addCampaign` answers `'taken'`
+ * for a record a newer build wrote - `add` sees raw keys and does not care
+ * whether this build could read what is there - so `asCopy` is
  * true on a collision with a quarantined record too. But the rows in MENU come
  * from `useGm.campaigns`, which cannot see a quarantined record, and MENU draws
  * it as text in the LEFT UNTOUCHED panel with no REMOVE beside it. Even with a
