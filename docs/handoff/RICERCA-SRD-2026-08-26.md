@@ -2,8 +2,9 @@
 
 > **CORRETTO IL 26 AGOSTO. Non eseguire questo file da solo.**
 >
-> `DECISIONI-2026-08-26.md` risponde alle tre domande della §6 e **corregge sette punti** di
-> questo piano. Due di quelle correzioni sono portanti, non cosmetiche:
+> `DECISIONI-2026-08-26.md` risponde alle tre domande della §6 e **i punti falsi di questo piano
+> sono nove**, non sette. Questa testata ne diceva sette, ed era ferma a prima della notte fra il
+> 26 e il 27. Due delle correzioni sono portanti, non cosmetiche:
 >
 > - **§2.1 e §4.4 dicono il falso.** *«`ask.ts` continua a chiamare `searchRules`»* — non lo
 >   chiama. Il pagliaio di `searchAsk` non contiene una parola del dataset. La conclusione della
@@ -16,9 +17,25 @@
 > sono elencate in `DECISIONI-2026-08-26.md` §1 e §2 e nel §5 di
 > `HANDOFF-2026-08-26-scene-wiring.md`.
 >
-> **Le §5.1 e §5.2 non sono più «da misurare».** La porta è misurata e decisa: una quinta voce
-> della TabBar, costo verticale 0.00px a 393×852 e a 375×667. Resta da misurare solo la lista dei
-> risultati dentro Play.
+> **L'ottavo e il nono**, trovati la notte fra il 26 e il 27 e registrati in
+> `HANDOFF-2026-08-27-notte.md` §6:
+>
+> - **§1.1 offriva `Rally` come carta di dominio.** Non lo è, e nessun record di nessun kind si
+>   chiama così: è la feature di classe del Bardo, più tre feature di sottoclasse che ne danno il
+>   dado. **Corretto sul posto qui sotto**, perché ciò che l'esempio doveva mostrare — la parola è
+>   nel libro e la ricerca non la vedeva — era vero comunque. `tests/ui/srdIndex.test.ts` pinna
+>   dove vive davvero.
+> - **§2.2 diceva che `RuleSearch.tsx` si sposta in `shared/`, punto.** Non poteva: niente in
+>   `src/ui/shared/` importava da `src/ui/gm/`, e la ricerca dipende da `BlockView`. `BlockView` è
+>   uscito per primo, in PR #43.
+>
+> **Le §5.1 e §5.2 non sono più «da misurare», e adesso nemmeno la §5.2.** La porta è misurata e
+> decisa — una quinta voce della TabBar, costo verticale 0.00px a 393×852 e a 375×667 — e la
+> lista dei risultati dentro Play è stata misurata in PR #45: colonna 369/351, finestra di lettura
+> 475/290 con una fascia di avviso aperta, 5 e 3 righe intere contro le 2-3 e 1 della scheda del
+> GM, `docOverflowX` 0.00 a entrambe le taglie.
+>
+> **La 2.2 è spedita per intero** (PR #43 e #45). Restano la 2.3 e la 2.4, in quest'ordine.
 
 Ancorato a `main` `5c9f1cc`, **150 file / 3941 test**. Le cifre qui sono lette da
 `data/srd-1.0.json` a quel commit; quelle marcate **(da misurare)** non sono mai state in un
@@ -49,8 +66,10 @@ resto del dataset è fuori dal pagliaio.
 | **totale** | **780** |
 
 69 su 849 è **8,1%**. Scrivere `Rally` dà il silenzio onesto che la ricerca disegna per una parola
-che non è nel libro — ed è una carta di dominio. Scrivere `Acid Burrower` idem, ed è un avversario
-nel bestiario di questa stessa app.
+che non è nel libro — ed è la feature di classe del Bardo, stampata sulla scheda di chiunque ne
+giochi uno. *(Questa riga diceva «una carta di dominio». Non lo è: nessun record di nessun kind si
+chiama `Rally`. L'ottavo punto falso, corretto sul posto — vedi la testata.)* Scrivere
+`Acid Burrower` idem, ed è un avversario nel bestiario di questa stessa app.
 
 ### 1.2 Un giocatore non ha una porta
 
