@@ -294,6 +294,34 @@ describe('a campaign already on this device is never written over', () => {
     expect(out.campaign.updatedAt).toBe('2026-01-01T00:00:00.000Z');
   });
 
+  it('never offers an id the list in memory holds, even when the disk has lost it', async () => {
+    /*
+     * `add` answers about the DISK. `state.campaigns` is memory, and the two
+     * part the moment a record leaves the disk without this tab noticing - a
+     * second tab's REMOVE, or the eviction the whole backup lane exists for.
+     * Nothing tells this tab: no `BroadcastChannel`, no `storage` listener, and
+     * `hydrateGm` is memoized so it never reads twice.
+     *
+     * Offer the file's own id there and the disk says `'added'`. The restore
+     * lands under the id the board is open on, `switchCampaign` early-returns
+     * on `id === activeCampaignId`, and the next flush gathers the stale board
+     * straight over it: the restore silently destroying what it restored,
+     * under a green sentence saying it is open. So memory gates the key too.
+     */
+    const mine = full({ name: 'My campaign' });
+    // The disk has forgotten it. Memory has not.
+    const store = fakeStore();
+
+    const { outcome } = await run(fileOf(full({ fear: 9 })), store, here([mine]));
+    const out = landed(outcome);
+
+    expect(store.offered.map((c) => c.id), 'the open board’s id was offered').not.toContain('c-1');
+    expect(out.campaign.id).toBe('minted-1');
+    expect(out.asCopy).toBe(true);
+    expect(store.records.has('c-1'), 'something landed under the open board’s id').toBe(false);
+    expect((store.records.get('minted-1') as Campaign).fear).toBe(9);
+  });
+
   it('lands beside a record a newer build wrote, and leaves it exactly as it is', async () => {
     /*
      * Kills the deletion of the `'taken'` branch. This record is invisible to

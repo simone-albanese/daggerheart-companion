@@ -25,12 +25,13 @@
  * `writeActive` gathers `activeCampaignId` only, and `writeAside` writes only
  * queued ids.
  *
- * **6 is an `add`, and that is what makes `aside` a non-issue.** `aside`
- * receives ids only from `patchCampaign` and from `hydrateGm`'s repair loop,
- * both for records already in `state.campaigns`; an id that `add` accepted was
- * demonstrably absent from the store, so it cannot be queued there. That
- * argument is a property of add-only, not of this component - see
- * `campaignImport.ts` for what breaks the day an overwrite verb exists.
+ * **6 is an `add` decided against `state.campaigns` as well as against the
+ * disk, and that is what makes `aside` a non-issue.** `aside` receives ids only
+ * from `patchCampaign` and from `hydrateGm`'s repair loop, both for records
+ * already in `state.campaigns`; `applyCampaignImport` refuses to offer an id
+ * that is in that list, so a landed id cannot be queued there. That argument is
+ * a property of add-only *plus* the memory gate - see `campaignImport.ts` for
+ * both, and for what breaks the day an overwrite verb exists.
  *
  * **7 is last, so a tab that dies mid-import can leave a whole campaign but
  * never a false claim.** One `add` in one transaction either commits or does
@@ -40,15 +41,39 @@
  * service-worker reload at any instant is a whole campaign that turns up in the
  * list next launch without an announcement.
  *
- * **`switchCampaign` is called rather than hand-rolled, and it is safe here.**
- * Its early return on `id === activeCampaignId` can never fire under add-only:
- * the landed id was either absent from this device or freshly minted, so it is
- * never the id already open. Do not "simplify" this into a `set` that skips it,
- * and do not let a future verb write onto an id already on the device - under
- * one, this call becomes a no-op and the pre-import board is gathered straight
- * back over the record that just arrived. It is also why step 7 puts the record
- * into `campaigns` *first*: `switchCampaign` looks the target up in that list and
- * does nothing when it is not there.
+ * **`switchCampaign` is called rather than hand-rolled, and what makes that
+ * safe lives in `campaignImport.ts`, not here.** Its early return on `id ===
+ * activeCampaignId` would be fatal on this path - the board would never move,
+ * the green sentence would claim it had, and the next flush would gather the
+ * pre-import board straight over the record that just arrived. It cannot fire
+ * only because the landed id is never an id in `state.campaigns`, which is a
+ * decision `applyCampaignImport` makes and could stop making. So step 7 does
+ * not rest on it: the prepend below drops any row carrying the landed id before
+ * putting the arriving record at the front, so the list cannot hold the same id
+ * twice whatever happens upstream. Do not "simplify" the prepend back into a
+ * blind one, and do not let a future verb write onto an id already on the
+ * device. The record goes into `campaigns` *first* because `switchCampaign`
+ * looks the target up in that list and does nothing when it is not there.
+ *
+ * ## WHAT STEP 7 STILL COSTS, AND WHY IT IS NOT PAID HERE
+ *
+ * "Never a false claim" above is about the *arriving* campaign. It is not a
+ * promise about the one being left. `switchCampaign` calls `flushGm` and then
+ * `spread`s the target over every live field, and `writeActive` updates
+ * `state.campaigns` only inside its `try` *after* `putCampaign` resolves - so on
+ * an evening when writes are failing (a full disk; an older build refusing a
+ * record a newer one wrote, which is `StaleBuildError` from `putCampaign` on an
+ * id `addCampaign` would have accepted) the flush at step 5 does not land, the
+ * live board is the only copy of it, and step 7 replaces it. Nothing on the
+ * glass says so; the import's own sentence is green.
+ *
+ * That discard is `switchCampaign`'s, not this door's: MENU's campaign row
+ * drives the same line on `main` today, and a bare `switchCampaign` with no
+ * import at all loses the same board. It is written up in the handoff and is
+ * owed a fix in the store, where MENU is covered too - not here, where fixing it
+ * would leave the other entrance open. What this door adds meanwhile is a second
+ * entrance to it, so do not read the green sentence as evidence the board that
+ * was on screen a moment ago reached the disk.
  *
  * ## Ergonomics, 393x852
  *
@@ -356,8 +381,18 @@ export function TakeIn(): React.JSX.Element {
       });
 
       if (outcome.kind === 'landed') {
-        useGm.setState({ campaigns: [outcome.campaign, ...useGm.getState().campaigns] });
-        await useGm.getState().switchCampaign(outcome.campaign.id);
+        const record = outcome.campaign;
+        /*
+         * Filtered, not blindly prepended. `applyCampaignImport` will not
+         * offer an id that is already in this list, so nothing should be
+         * dropped here - but a blind prepend is what turns a broken upstream
+         * decision into two rows under one id, one of which `switchCampaign`
+         * cannot open and `writeActive` writes over. See §7 above.
+         */
+        useGm.setState({
+          campaigns: [record, ...useGm.getState().campaigns.filter((c) => c.id !== record.id)],
+        });
+        await useGm.getState().switchCampaign(record.id);
       }
       settle({ kind: 'done', preview, outcome });
     })();

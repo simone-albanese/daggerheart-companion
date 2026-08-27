@@ -68,15 +68,39 @@
  * by the verb `readPartyMember` already prints. There is no spy asserting this -
  * there is no function to call.
  *
+ * ## THE KEY IS TAKEN IN MEMORY TOO, AND MEMORY IS THE HALF THAT BITES
+ *
+ * `add` answers about the disk. `state.campaigns` is memory, and the two
+ * diverge the moment a record leaves the disk without this tab noticing - a
+ * second tab's REMOVE (a state `campaigns.ts` designs for by name, which is why
+ * both `StaleBuildError` sentences say "Close every tab of this app"), or the
+ * storage eviction this whole backup lane exists for. Nothing in `src/` tells a
+ * tab about either: there is no `BroadcastChannel`, no `storage` listener and no
+ * re-hydrate on `visible`, and `hydrateGm` is memoized so it never reads twice.
+ *
+ * So the collision is decided against BOTH, here, before the first `add` - if
+ * `preview.taken` already holds the arriving id, the copy path starts straight
+ * away and the file's own id is never offered. A disk that has forgotten the
+ * record would otherwise say `'added'`, the import would land under the id the
+ * board is open on, `switchCampaign` would early-return on `id ===
+ * activeCampaignId`, and the next flush would gather the stale board straight
+ * over the campaign that had just been restored. That is the restore silently
+ * destroying what it restored, under a green sentence saying it is open.
+ *
+ * It is also what makes the preview's own promise true rather than nearly true:
+ * it says, in as many words, "the file arrives as a second campaign, under a new
+ * name", and it says it off `localSameId` - which is memory.
+ *
  * ## `aside` cannot hold a landed id, and the day that stops being true
  *
  * `gmStore`'s `aside` queue receives ids only from `patchCampaign` and from
- * `hydrateGm`'s repair loop, both for records already in `state.campaigns`. An
- * id that `add` accepted was demonstrably absent from the store, so it cannot be
- * in `aside` and a queued write cannot land on top of the import. **This holds
- * because the path is add-only.** Add a verb that writes onto an id already on
- * this device and `writeAside` fires on that id, `writeAll` reports success, and
- * the campaign the GM just brought in is gone under the board they were on.
+ * `hydrateGm`'s repair loop, both for records already in `state.campaigns`. A
+ * landed id was absent from `preview.taken` - the section above refuses to offer
+ * one that was not - so it cannot be in `aside` and a queued write cannot land
+ * on top of the import. **This holds because the path is add-only *and* because
+ * memory gates the key.** Add a verb that writes onto an id already on this
+ * device and `writeAside` fires on that id, `writeAll` reports success, and the
+ * campaign the GM just brought in is gone under the board they were on.
  *
  * ## Nothing here throws
  *
@@ -224,6 +248,18 @@ export function previewCampaignImport(
 /**
  * Write the campaign the preview described, and prove it arrived.
  *
+ * ## Memory is asked first, and it is asked in the same words the disk answers in
+ *
+ * `preview.taken` is `state.campaigns`. An arriving id that is already in it
+ * takes the copy path before a single `add` is attempted, exactly as a `'taken'`
+ * from the disk would - same fresh UUID, same minted name, same `asCopy`. The
+ * two gates are deliberately identical, so that the ordinary case (the record is
+ * in memory *and* on the disk) produces a byte-identical outcome whichever one
+ * catches it, and the only behaviour that changes is the one that was broken:
+ * memory holding a record the disk has lost. The disk `add` stays as the second
+ * gate for what memory cannot see - a quarantined record, or another tab landing
+ * one between the preview and the press.
+ *
  * ## The name is minted, never refused
  *
  * There is nobody at a keyboard to refuse to - the GM is holding a file, not
@@ -273,6 +309,20 @@ export async function applyCampaignImport(
       minted === null ? preview.incoming : { ...preview.incoming, name: minted };
     let asCopy = false;
 
+    const mint = (): void => {
+      asCopy = true;
+      minted ??= freeName(preview.incoming.name, preview.taken, CAMPAIGN_NAMES, {
+        suffix: 'imported',
+      });
+      candidate = { ...candidate, id: deps.newId(), name: minted, createdAt: deps.now() };
+    };
+
+    // Memory is a key holder too, and the disk cannot answer for it. See
+    // "THE KEY IS TAKEN IN MEMORY TOO" at the top of this file: skipping this
+    // is the restore landing under the open board's id and being overwritten
+    // by it, which is the worst thing this module could do.
+    if (preview.taken.some((c) => c.id === preview.incoming.id)) mint();
+
     for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
       const answer = await deps.add(candidate);
 
@@ -306,11 +356,7 @@ export async function applyCampaignImport(
         };
       }
 
-      asCopy = true;
-      minted ??= freeName(preview.incoming.name, preview.taken, CAMPAIGN_NAMES, {
-        suffix: 'imported',
-      });
-      candidate = { ...candidate, id: deps.newId(), name: minted, createdAt: deps.now() };
+      mint();
     }
 
     return {

@@ -31,6 +31,8 @@ import {
   serializeCampaign,
 } from '../../src/transfer/campaignFile.ts';
 import * as fileIo from '../../src/transfer/fileIo.ts';
+import * as campaignImport from '../../src/store/campaignImport.ts';
+import { getCampaign } from '../../src/store/campaigns.ts';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
 import * as gmStore from '../../src/ui/gm/gmStore.ts';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
@@ -240,6 +242,110 @@ describe('a file that lands', () => {
     expect(text()).toContain('has been added beside it');
     expect(text()).toContain('REMOVE in MENU takes either one away');
     expect(useGm.getState().activeCampaignId).not.toBe(mine.id);
+  });
+});
+
+describe('an id this tab still holds that the disk has lost', () => {
+  /*
+   * The worst thing this door could do, end to end.
+   *
+   * A second tab's REMOVE - or the storage eviction the backup lane exists for
+   * - takes a record off the disk while this tab keeps it in `state.campaigns`
+   * and keeps its board open. Nothing tells this tab: `grep` finds no
+   * `BroadcastChannel`, no `storage` listener and no re-hydrate on `visible`,
+   * and `hydrateGm` is memoized so it never reads twice.
+   *
+   * Bring that campaign's own backup in there and `addCampaign` says `'added'`,
+   * because the key really is free. The restore lands under the id the board is
+   * open on, `switchCampaign` early-returns on `id === activeCampaignId` so the
+   * board never moves, the sentence says it is open anyway - and the next flush
+   * gathers the stale board straight over the record that was just restored.
+   *
+   * The campaign below is in memory and has never been on the disk, which is
+   * that state exactly.
+   */
+  const ghost = (): Campaign => ({
+    ...newCampaign('The Sablewood Winter', '2026-02-01T19:30:00.000Z', 'campaign-from-gm-v1'),
+    updatedAt: THREE_HOURS_AGO,
+  });
+
+  it('restores it beside the open board instead of under it', async () => {
+    const open = ghost();
+    useGm.setState({
+      campaigns: [open, ...baseCampaigns],
+      activeCampaignId: open.id,
+      fear: 2,
+      session: [],
+    });
+    const file = { ...arriving(open.id, 'The Sablewood Winter'), session: [clock('i1', null, 0)] };
+    picks(serializeCampaign(file, EXPORTED_AT));
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+    click(named('BRING IT IN'));
+    await settle();
+
+    // It came in as a second campaign, under a new id and a minted name.
+    const landedId = useGm.getState().activeCampaignId;
+    expect(landedId).not.toBe(open.id);
+    expect(text()).toContain('has been added beside it');
+    expect(
+      useGm.getState().campaigns.filter((c) => c.id === open.id),
+      'the open board’s row was replaced by the import',
+    ).toHaveLength(1);
+
+    // And the board really is the restored one, rather than a green sentence
+    // over a board that never moved.
+    expect(useGm.getState().fear).toBe(7);
+    expect(useGm.getState().session).toHaveLength(1);
+
+    /*
+     * The half that destroys the evening: a change on the board after the
+     * import, flushed. Under the defect this writes the pre-import board -
+     * Fear 2, no plan rows - over the record that has just been restored.
+     */
+    act(() => {
+      useGm.getState().nudgeFear(1);
+    });
+    await act(async () => {
+      await gmStore.flushGm();
+    });
+    const back = await getCampaign(landedId!);
+    expect(back?.fear).toBe(8);
+    expect(back?.session, 'the restored plan was written over').toHaveLength(1);
+  });
+
+  it('cannot put two rows under one id, whatever the decision upstream says', async () => {
+    /*
+     * The door's own half of the same guarantee, asserted without the module
+     * that makes it true. `applyCampaignImport` refuses to hand back an id that
+     * is already in `state.campaigns`, so this outcome is not reachable through
+     * the app - and a blind prepend is exactly what turns the day that stops
+     * being true into two rows under one key, one of which `switchCampaign`
+     * cannot open and `writeActive` writes over.
+     */
+    const open = baseCampaigns[0]!;
+    const file = arriving(open.id, 'A table from elsewhere');
+    picks(serializeCampaign(file, EXPORTED_AT));
+    vi.spyOn(campaignImport, 'applyCampaignImport').mockResolvedValue({
+      kind: 'landed',
+      campaign: { ...file, name: 'A table from elsewhere' },
+      asCopy: false,
+      renamedFrom: null,
+      warnings: [],
+    });
+    sheet();
+    await settle();
+
+    click(named('OPEN A CAMPAIGN FILE'));
+    await settle();
+    click(named('BRING IT IN'));
+    await settle();
+
+    expect(useGm.getState().campaigns.filter((c) => c.id === open.id)).toHaveLength(1);
+    expect(useGm.getState().campaigns[0]?.name).toBe('A table from elsewhere');
   });
 });
 
