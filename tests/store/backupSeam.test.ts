@@ -225,3 +225,53 @@ describe('which campaign door each entry point holds', () => {
     expect(bodyOf(backup, 'export async function runBackup(')).not.toMatch(/listCampaigns/);
   });
 });
+
+/**
+ * One sentence about what a run wrote, in one place, reached by all four.
+ *
+ * Settings, the unsaved-work strip, `ScreenBoundary` and `AppBoundary` each
+ * printed their own copy of `Saved ${outcome.fileName ?? 'the copy'} -
+ * ${outcome.characters} characters`. That was true only while a run that wrote
+ * anything had written the library: `runBackup` returned early on an empty
+ * one, so `fileName` could not be null on a success. The campaign leg makes it
+ * null twice over - a GM who plays nobody, and an unchanged library beside a
+ * board that moved - and all four would then have named a `.dhbackup` that was
+ * never written and counted characters into it.
+ *
+ * Source text rather than behaviour for this file's own reason: three of the
+ * four are crash screens, the sentence is one line inside a `.then`, and the
+ * defect is not in what the function does but in which one the screen reaches
+ * for. `savedFiles` is asserted on its own in `backup.test.ts`.
+ */
+describe('what a run wrote is said in one place', () => {
+  const SCREENS = [
+    'ui/settings/Settings.tsx',
+    'ui/shell/App.tsx',
+    'ui/shell/ScreenBoundary.tsx',
+    'ui/shell/AppBoundary.tsx',
+  ];
+
+  for (const screen of SCREENS) {
+    it(`${screen} says what was written through savedFiles`, () => {
+      const source = read(join(SRC, screen));
+      expect(source, `${screen} calls runBackup and is not in this list`).toMatch(
+        /\brunBackup\s*\(/,
+      );
+      expect(source).toMatch(/\bsavedFiles\s*\(\s*outcome\s*\)/);
+      for (const field of ['fileName', 'characters']) {
+        expect(
+          source,
+          `${screen} reads outcome.${field} to build its own sentence again. Both fields are null-blind on their own: a run that wrote a campaign and no library file has no file name, and a character count belonging to a file it did not write`,
+        ).not.toMatch(new RegExp(`outcome\\.${field}`));
+      }
+    });
+  }
+
+  it('leaves no fifth caller printing its own', () => {
+    const others = sourceFiles(SRC)
+      .filter((file) => /\brunBackup\s*\(/.test(read(file)))
+      .map((file) => relative(SRC, file).split(sep).join('/'))
+      .filter((file) => file !== 'store/backup.ts' && file !== 'store/backupDeps.ts');
+    expect(others.sort()).toEqual([...SCREENS].sort());
+  });
+});

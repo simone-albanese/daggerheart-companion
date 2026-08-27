@@ -19,6 +19,7 @@ import {
   chooseBackupFolder,
   forgetBackupFolder,
   runBackup,
+  savedFiles,
   type BackupStatus,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
@@ -806,33 +807,17 @@ function Backup({
     void runBackup('manual', {}, appBackupDeps)
       .then((outcome) => {
         /*
-         * The files, then what is in them, then the notice.
+         * The files, then this screen's own tail, then the notice.
          *
-         * Composed here rather than in `backup.ts` because the module keeps
-         * `reason` null on a clean write and this screen is the one that has a
-         * sentence to make out of it - but every *fact* in it comes from the
-         * outcome, including the campaign names, because "and 2 campaign files"
-         * is the counting-not-naming failure one step from being reintroduced.
+         * `savedFiles` is shared with the three crash-and-strip screens rather
+         * than written out here, because the sentence it replaced was written
+         * out four times and the campaign leg made all four of them wrong in
+         * the same way. What stays here is the half that belongs to this
+         * screen: the reminder that a copy on the same device is not a backup.
          */
-        const files = [
-          outcome.fileName,
-          outcome.campaigns === 0
-            ? null
-            : `${outcome.campaigns} campaign file${outcome.campaigns === 1 ? '' : 's'}`,
-        ].filter((line): line is string => line !== null);
-        const held = [
-          // Only when the library file itself was written this run: an
-          // unchanged library is skipped, and counting its characters into a
-          // sentence about two campaign files would claim a file that is not
-          // there.
-          outcome.fileName === null
-            ? null
-            : `${outcome.characters} character${outcome.characters === 1 ? '' : 's'}`,
-          ...outcome.campaignNames.map((name) => `"${name}"`),
-        ].filter((line): line is string => line !== null);
         const said = [
           outcome.wrote
-            ? `Saved ${files.join(' and ')} — ${held.join(', ')}. Keep it somewhere that is not this device.`
+            ? `${savedFiles(outcome)} Keep it somewhere that is not this device.`
             : outcome.reason,
           outcome.notice,
         ].filter((line): line is string => line !== null);

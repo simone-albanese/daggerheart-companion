@@ -446,8 +446,9 @@ export function flushGm(): Promise<void> {
  *
  * It lives here and can live nowhere else: `gather` and `dirty` are both
  * module-private, and `backup.ts` may not import this file. It is published
- * through `store/campaignSource.ts` instead, on the line beside the subscribe
- * at the end of this file.
+ * through `store/campaignSource.ts` instead, from this file's module-scope
+ * epilogue, beside the alert publisher that inverts the same edge for the other
+ * half of this problem.
  *
  * **`c.updatedAt`, not a fresh stamp, and that is not a shortcut.**
  * `writeActive` stamps `new Date().toISOString()` at the moment the record

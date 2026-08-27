@@ -11,10 +11,13 @@
  *
  * So the direction is inverted, exactly as `ui/shell/campaignAlert.ts` inverts
  * it for the other half of this problem: this module owns a slot, `gmStore`
- * fills it on the line after it defines `snapshotCampaigns`, and the store is
- * the thing that knows the backup exists rather than the other way round. This
- * file imports the campaigns *store* and nothing else, so it costs a caller
- * only what `readCampaigns` costs.
+ * fills it from its own module-scope epilogue - beside the alert publisher it
+ * already had there - and the store is the thing that knows the backup exists
+ * rather than the other way round.
+ *
+ * The only value this file imports is `readCampaigns`; the rest is a type,
+ * which is erased. So it costs a caller exactly what the campaigns store costs
+ * and nothing beyond it.
  *
  * ## Why memory, and why a flush is not a substitute
  *

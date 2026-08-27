@@ -1,10 +1,11 @@
 /**
  * What the backup subsystem should read and write once the app has booted.
  *
- * `backup.ts` takes its library and its preferences through `BackupDeps` so it
- * can be tested without a database, and its defaults go straight to IndexedDB
- * and straight to localStorage. Every screen used those defaults, and both
- * halves of that were wrong once there was a running app:
+ * `backup.ts` takes its library, its campaigns and its preferences through
+ * `BackupDeps` so it can be tested without a database, and its defaults go
+ * straight to IndexedDB and straight to localStorage. Every screen used those
+ * defaults, and both of the halves this file overrides were wrong once there
+ * was a running app:
  *
  *   - **the library.** A backup read from IndexedDB is a backup of what
  *     survived the last write. When writes are failing - a full disk, an older
@@ -52,9 +53,15 @@
  * crashed, which is the one moment the app has least to spare.
  *
  * So the edge is inverted instead: `store/campaignSource.ts` owns a slot,
- * `gmStore` fills it with `snapshotCampaigns` on the line after it defines it,
- * and `backup.ts` reads the slot through its own default deps. `campaignAlert.ts`
- * states the same rule in the other direction and `gmStore.ts` already obeys it.
+ * `gmStore` fills it with `snapshotCampaigns` from its own module-scope
+ * epilogue - beside `publishCampaignAlert`, which is the same inversion for the
+ * other half of this problem - and `backup.ts` reads the slot through its own
+ * default deps. `campaignAlert.ts` states the rule in that direction and
+ * `gmStore.ts` already obeys it.
+ *
+ * The two campaign doors are therefore both defaulted in `backup.ts` and
+ * neither is overridden below. Nothing about them is a decision this file gets
+ * to make; what it owns is the reason it must not make one.
  */
 import type { BackupDeps } from './backup.ts';
 import * as db from './db.ts';

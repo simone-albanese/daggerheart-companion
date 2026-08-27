@@ -331,6 +331,48 @@ export interface BackupOutcome {
   at: string | null;
 }
 
+/**
+ * What a run that wrote something actually wrote, in words.
+ *
+ * Here rather than at the four screens that show it, because the campaign leg
+ * made the old one-liner a lie and it was copied four times. Every caller said
+ * `Saved ${outcome.fileName ?? 'the copy'} - ${outcome.characters} characters`,
+ * which was safe only while `wrote` implied a character file: `runBackup`
+ * returned early on an empty library, so `fileName` was never null on a run
+ * that succeeded. It can be now. A GM who plays nobody, and a run where the
+ * library was unchanged and only a board moved, both land here with
+ * `fileName: null` and a `characters` count of a file that was not written -
+ * and four screens would have said "Saved the copy - 4 characters" over a
+ * folder holding one `.dhcampaign`. That is the claim this module opens by
+ * forbidding, printed in four places.
+ *
+ * So the count is spoken only when the file holding it landed this run, and the
+ * campaigns are **named** rather than counted, because "and 2 campaign files"
+ * is exactly the naming-versus-counting failure one step from coming back.
+ *
+ * `notice` is not folded in: it is a true sentence about something that is not
+ * a failure, each screen has its own tail to put after this one, and a caller
+ * that dropped it would be silently deciding the user does not need to know.
+ */
+export function savedFiles(outcome: BackupOutcome): string {
+  const files = [
+    outcome.fileName,
+    outcome.campaigns === 0
+      ? null
+      : `${String(outcome.campaigns)} campaign file${outcome.campaigns === 1 ? '' : 's'}`,
+  ].filter((line): line is string => line !== null);
+  const held = [
+    outcome.fileName === null
+      ? null
+      : `${String(outcome.characters)} character${outcome.characters === 1 ? '' : 's'}`,
+    ...outcome.campaignNames.map((name) => `"${name}"`),
+  ].filter((line): line is string => line !== null);
+  // Unreachable through `runBackup`, which returns before the stamp when
+  // nothing landed - and said rather than left as `Saved  — .` if it ever is.
+  if (files.length === 0) return 'Nothing was written.';
+  return `Saved ${files.join(' and ')} — ${held.join(', ')}.`;
+}
+
 const fingerprintOf = (characters: readonly Character[]): string =>
   `${characters.length}:${characters.map((c) => c.updatedAt).sort().at(-1) ?? ''}`;
 

@@ -18,6 +18,7 @@ import {
   noteCampaignCopy,
   noteSession,
   runBackup,
+  savedFiles,
   type BackupDeps,
 } from '../../src/store/backup.ts';
 import { publishCampaignSource } from '../../src/store/campaignSource.ts';
@@ -681,6 +682,72 @@ describe('backing up the campaigns', () => {
     expect(outcome.notice).toMatch(/The Sablewood Winter/);
     expect(outcome.notice).toMatch(/close every tab/);
     expect(campaignFiles(files)).toEqual([REACH_FILE]);
+  });
+});
+
+/*
+ * The sentence four screens print, and the reason it is not written four times.
+ *
+ * Settings, the unsaved-work strip, `ScreenBoundary` and `AppBoundary` all say
+ * what a run did. Every one of them used to say
+ * `Saved ${outcome.fileName ?? 'the copy'} - ${outcome.characters} characters`,
+ * which was safe only while `wrote` implied a character file: `runBackup`
+ * returned early on an empty library, so `fileName` could not be null on a run
+ * that succeeded. The campaign leg makes it null twice over - a GM who plays
+ * nobody, and an unchanged library beside a board that moved - and those four
+ * screens would have named a file that was never written and counted
+ * characters into it. So it is one function, asserted here.
+ */
+describe('what a run says it wrote', () => {
+  it('names the library file and its characters when that is what happened', async () => {
+    fakeFolder();
+    await chooseBackupFolder(deps());
+
+    expect(savedFiles(await runBackup('session-end', {}, deps()))).toBe(
+      `Saved ${BACKUP_FILE} — 1 character.`,
+    );
+  });
+
+  it('names the campaigns rather than counting them', async () => {
+    fakeFolder();
+    await chooseBackupFolder(deps());
+    tables = [table('The Sablewood Winter', 'winter-1'), table('Bones of the Reach', 'reach-1')];
+
+    expect(savedFiles(await runBackup('session-end', {}, deps()))).toBe(
+      `Saved ${BACKUP_FILE} and 2 campaign files — 1 character, ` +
+        '"The Sablewood Winter", "Bones of the Reach".',
+    );
+  });
+
+  /**
+   * The two shapes that made the old sentence a lie, and they are the whole
+   * reason this function exists.
+   */
+  it('claims no library file on a run that wrote none', async () => {
+    fakeFolder();
+    await chooseBackupFolder(deps());
+    library = [];
+    tables = [table('The Sablewood Winter', 'winter-1')];
+
+    const noCharacters = await runBackup('manual', {}, deps());
+    expect(noCharacters.wrote).toBe(true);
+    const said = savedFiles(noCharacters);
+    expect(said).toBe('Saved 1 campaign file — "The Sablewood Winter".');
+    // The two halves of the sentence that was wrong: a file that does not
+    // exist, and a count of what is supposedly inside it.
+    expect(said).not.toMatch(/the copy/);
+    expect(said).not.toMatch(/character/);
+
+    // And the same again with a full library that simply did not change: the
+    // characters are all still here, and none of them was written this run.
+    library = [wizard()];
+    tables = [table('The Sablewood Winter', 'winter-1', { fear: 3 })];
+    await runBackup('page-hide', {}, deps());
+    tables = [table('The Sablewood Winter', 'winter-1', { fear: 4 })];
+
+    const boardOnly = await runBackup('page-hide', {}, deps());
+    expect(boardOnly).toMatchObject({ wrote: true, fileName: null, characters: 1 });
+    expect(savedFiles(boardOnly)).toBe('Saved 1 campaign file — "The Sablewood Winter".');
   });
 });
 

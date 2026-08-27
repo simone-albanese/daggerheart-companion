@@ -4,11 +4,18 @@
  *
  * A `.dhbackup` is only worth writing if it can be restored, and a
  * `.dhcampaign` written by tonight's build has to be restorable by next year's.
- * Nothing else in this repo asserts that end of it for a campaign: the schema
- * tests walk *records* forward through `CAMPAIGN_MIGRATIONS`, and the file
- * tests check the envelope, but the backup regime writes a whole file per
- * campaign per play night and the question it must answer is the one asked on
- * the day the device is gone.
+ *
+ * `campaignFile.test.ts`'s "the version window the bump moved" already walks a
+ * frozen file forward - it reads `v1.dhcampaign` and asserts the record comes
+ * back current, whole, with its session list in order. What it cannot assert is
+ * the *second* chain: that file's party row is a nine-field stand-in,
+ * `readPartyMember` refuses it, and its own test says so and asserts an empty
+ * party. So the sheets a campaign carries - the players' whole characters, the
+ * thing that makes a campaign restorable rather than merely readable - have
+ * never crossed a schema boundary through any committed fixture in this repo,
+ * file or record: every `vN.campaign.json` carries the same nine-key stub. That
+ * is what the fixture below is for, and it is the case the backup regime
+ * creates every play night.
  *
  * ## The frozen fixture, and the discipline around it
  *

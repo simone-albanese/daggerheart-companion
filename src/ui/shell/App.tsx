@@ -46,6 +46,7 @@ import {
   installBackupHooks,
   integrityCheck,
   runBackup,
+  savedFiles,
   type IntegrityReport,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
@@ -682,10 +683,21 @@ function UnsavedWork({ failure }: { failure: WriteFailure }): React.JSX.Element 
     setNote(null);
     void runBackup('manual', { interactive: true }, appBackupDeps)
       .then((outcome) => {
+        /*
+         * `savedFiles` rather than a sentence of this strip's own: the one
+         * that used to be here read `${outcome.fileName ?? 'the copy'} —
+         * ${outcome.characters} characters`, which was true only while a run
+         * that wrote anything had written the library. A campaigns-only run
+         * has no `.dhbackup` and a character count belonging to a file it did
+         * not write, and this strip appears at the moment the user is being
+         * told their work is unsaved - the worst place in the app to name a
+         * file that is not there. The notice comes with it for the same
+         * reason: campaigns left out of the copy is exactly this strip's news.
+         */
         setNote(
-          outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the copy'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}.`
-            : outcome.reason,
+          [outcome.wrote ? savedFiles(outcome) : outcome.reason, outcome.notice]
+            .filter((line): line is string => line !== null)
+            .join(' ') || null,
         );
       })
       .catch((cause: unknown) => {
