@@ -64,7 +64,7 @@ import {
   readableVersions,
   SchemaError,
 } from '../../shared/migrations.ts';
-import { MAX_FEAR, SCHEMA_VERSION } from '../../shared/types.ts';
+import { MAX_FEAR, SCHEMA_VERSION, type SceneCombatant } from '../../shared/types.ts';
 import { newCharacter } from '../../src/engine/character.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
@@ -737,6 +737,228 @@ describe('the repairs, which never cost the record', () => {
 
   it('does not accept a party tier the game has no tier for', () => {
     expect(readCampaignRecord(bare({ board: { partyTier: 9 } })).campaign.board.partyTier).toBe(1);
+  });
+
+  /*
+   * Two things that arrived carrying one id, and the repair that keeps both.
+   *
+   * `readSessionItem` fills an id that is MISSING and can do no more than
+   * that: it reads one row and cannot see the list the row is in. So a list
+   * where two rows carry the same id gets through whole, and so does a fight
+   * where two bodies do - and from there every `find` in the app answers a
+   * question every `map` answers differently. One row read, two rows written;
+   * one adversary drawn, two adversaries marked.
+   *
+   * These sit under the repairs that never cost the record because that is
+   * precisely the argument. Dropping the later row, or the later body, would
+   * restore the invariant in one line and cost the GM a row they typed or an
+   * adversary standing at the table, with no warning able to bring either
+   * back.
+   */
+  describe('two things that arrived sharing one id', () => {
+    /** Deterministic, so a test can say which id was minted and which was kept. */
+    const counter = (): (() => string) => {
+      let n = 0;
+      return () => `fresh-${String((n += 1))}`;
+    };
+
+    const sceneRow = (
+      id: string,
+      name: string,
+      combatants: unknown[] = [],
+    ): Record<string, unknown> => ({
+      id,
+      kind: 'scene',
+      name,
+      environmentRef: null,
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants,
+    });
+
+    const scopedClock = (id: string, sceneId: string): Record<string, unknown> => ({
+      id,
+      kind: 'countdown',
+      name: id,
+      primary: false,
+      sceneId,
+      countdown: { id, name: id, kind: 'standard', start: 4, value: 2, notes: '' },
+    });
+
+    const body = (id: string, patch: Record<string, unknown> = {}): Record<string, unknown> => ({
+      id,
+      adversaryRef: 'acid-burrower',
+      name: 'Acid Burrower',
+      hp: { marked: 0, max: 8 },
+      stress: { marked: 0, max: 3 },
+      thresholds: [8, 15],
+      difficulty: 14,
+      spotlighted: false,
+      notes: '',
+      ...patch,
+    });
+
+    const fightIn = (item: SessionItem | undefined): SceneCombatant[] =>
+      item?.kind === 'scene' || item?.kind === 'encounter' ? item.combatants : [];
+
+    it('gives the later row a new id, keeps both rows, and says so', () => {
+      const session = [sceneRow('s1', 'the first'), sceneRow('s1', 'the second')];
+      const { campaign, warnings } = readCampaignRecord(bare({ session }), counter());
+      expect(campaign.session.map((i) => i.name)).toEqual(['the first', 'the second']);
+      const ids = campaign.session.map((i) => i.id);
+      expect(new Set(ids).size).toBe(session.length);
+      expect(ids[0]).toBe('s1');
+      expect(warnings.filter((w) => /two rows/.test(w))).toHaveLength(1);
+    });
+
+    it('leaves a countdown scoped to that id on the row that kept it', () => {
+      const session = [
+        sceneRow('s1', 'the first'),
+        sceneRow('s1', 'the second'),
+        scopedClock('c1', 's1'),
+      ];
+      const { campaign, warnings } = readCampaignRecord(bare({ session }), counter());
+      const clock = campaign.session.find((i) => i.id === 'c1');
+      expect(clock?.kind === 'countdown' && clock.sceneId).toBe('s1');
+      expect(campaign.session.find((i) => i.id === 's1')?.name).toBe('the first');
+      // Nothing dangled: the id the clock names is still on a row.
+      expect(warnings.join(' ')).not.toMatch(/no longer has/);
+    });
+
+    it('re-numbers every later one, and still says it once', () => {
+      const session = [
+        sceneRow('s1', 'the first'),
+        sceneRow('s1', 'the second'),
+        sceneRow('s1', 'the third'),
+      ];
+      const { campaign, warnings } = readCampaignRecord(bare({ session }), counter());
+      expect(campaign.session).toHaveLength(session.length);
+      const ids = campaign.session.map((i) => i.id);
+      expect(new Set(ids).size).toBe(session.length);
+      expect(ids.filter((id) => id === 's1')).toHaveLength(1);
+      expect(warnings.filter((w) => /two rows/.test(w))).toHaveLength(1);
+    });
+
+    it('decides which row keeps the id by the order the list arrived in', () => {
+      /*
+       * Arrival, not `order`, and the difference is the whole reason this
+       * repair runs before the passes below it. Every pointer already written
+       * in the record - a countdown's `sceneId`, the board's own - was written
+       * against the list as it was stored, which is the list `find` reads.
+       * `order` is what the GM dragged the rows into, and it is re-sorted
+       * further down; deciding by it means the two rows here swap, and the
+       * scope lands on the other row without a word.
+       */
+      const session = [
+        { ...sceneRow('s1', 'first in the file'), order: 5 },
+        { ...sceneRow('s1', 'second in the file'), order: 1 },
+        { ...scopedClock('c1', 's1'), order: 3 },
+      ];
+      const { campaign } = readCampaignRecord(bare({ session }), counter());
+      expect(campaign.session.find((i) => i.id === 's1')?.name).toBe('first in the file');
+      const clock = campaign.session.find((i) => i.id === 'c1');
+      expect(clock?.kind === 'countdown' && clock.sceneId).toBe('s1');
+    });
+
+    it('re-numbers the second body in one fight and brings every mark with it', () => {
+      const bodies = [
+        body('acid-burrower-0', { name: 'the one in front', hp: { marked: 3, max: 8 } }),
+        body('acid-burrower-0', {
+          name: 'the one behind',
+          hp: { marked: 5, max: 8 },
+          stress: { marked: 2, max: 3 },
+          thresholds: [9, 16],
+          spotlighted: true,
+          minionsRemaining: 4,
+          notes: 'has the amulet',
+        }),
+      ];
+      const { campaign, warnings } = readCampaignRecord(
+        bare({ session: [sceneRow('s1', 's1', bodies)] }),
+        counter(),
+      );
+      const fight = fightIn(campaign.session[0]);
+      expect(fight).toHaveLength(bodies.length);
+      expect(fight.map((c) => c.name)).toEqual(bodies.map((b) => b['name']));
+      expect(new Set(fight.map((c) => c.id)).size).toBe(bodies.length);
+      expect(fight[0]?.id).toBe('acid-burrower-0');
+      // The body that moved, mark for mark: the id is the only thing that changed.
+      expect(fight[1]).toEqual({ ...bodies[1], id: fight[1]?.id });
+      expect(warnings.filter((w) => /two adversaries/.test(w))).toHaveLength(1);
+    });
+
+    it('picks a number nothing in that fight is already standing on', () => {
+      const bodies = [
+        body('acid-burrower-0', { name: 'one' }),
+        body('acid-burrower-0', { name: 'two' }),
+        body('acid-burrower-1', { name: 'three' }),
+      ];
+      const { campaign } = readCampaignRecord(
+        bare({ session: [sceneRow('s1', 's1', bodies)] }),
+        counter(),
+      );
+      const fight = fightIn(campaign.session[0]);
+      expect(new Set(fight.map((c) => c.id)).size).toBe(bodies.length);
+      // `-1` was already taken by a body further down, which keeps it: the
+      // repair steps past every id in the list rather than only the ones
+      // before it, so one collision cannot become two.
+      expect(fight.find((c) => c.name === 'three')?.id).toBe('acid-burrower-1');
+      expect(fight.find((c) => c.name === 'two')?.id).toBe('acid-burrower-2');
+    });
+
+    it('leaves the same id in two different rows alone, because that is what two fights look like', () => {
+      /*
+       * `makeCombatant` numbers from 0 in every fight it builds, so two rows
+       * that each opened with the same adversary both hold an
+       * `acid-burrower-0` and neither of them is wrong. This is the scope test
+       * for the whole repair: widened by one row it would renumber a fight
+       * nobody had touched, and every id the GM's own notes refer to would
+       * move under them.
+       */
+      const session = [
+        sceneRow('s1', 's1', [body('acid-burrower-0')]),
+        sceneRow('s2', 's2', [body('acid-burrower-0')]),
+      ];
+      const { campaign, warnings } = readCampaignRecord(bare({ session }), counter());
+      expect(campaign.session.flatMap((i) => fightIn(i).map((c) => c.id))).toEqual([
+        'acid-burrower-0',
+        'acid-burrower-0',
+      ]);
+      expect(warnings).toEqual([]);
+    });
+
+    it('defends the legacy encounter row and the board’s own fight from the same line', () => {
+      /*
+       * One function reads all three lists, so the repair is written once. The
+       * `encounter` arm is the one nothing can mint any more and every saved
+       * campaign may still be carrying, and it is read with the same
+       * `find`-then-`map` pair as the row this build mints; an `if` per arm is
+       * how two policies for one invariant start.
+       */
+      const bodies = [
+        body('acid-burrower-0', { name: 'one' }),
+        body('acid-burrower-0', { name: 'two' }),
+      ];
+      const { campaign, warnings } = readCampaignRecord(
+        bare({
+          session: [
+            {
+              id: 'legacy',
+              kind: 'encounter',
+              name: 'legacy',
+              roster: [],
+              adjustments: { easier: false, harder: false, damageBump: false },
+              combatants: bodies,
+            },
+          ],
+          board: { combatants: bodies },
+        }),
+        counter(),
+      );
+      expect(new Set(fightIn(campaign.session[0]).map((c) => c.id)).size).toBe(bodies.length);
+      expect(new Set(campaign.board.combatants.map((c) => c.id)).size).toBe(bodies.length);
+      expect(warnings.filter((w) => /two adversaries/.test(w))).toHaveLength(1);
+    });
   });
 });
 
