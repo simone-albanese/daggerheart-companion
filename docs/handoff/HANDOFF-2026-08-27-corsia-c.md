@@ -9,11 +9,15 @@ questa sessione ha finalmente reso falsa: **`.dhcampaign` adesso si rilegge.**
 
 ## 1. Cosa è stato spedito
 
+**Stato finale della sessione: `main` è `a0b18ff`.** Le tre PR sono unite e le due che portano
+codice sono verificate pubblicate scaricando `sw.js`, non dedotte.
+
 | | cosa | stato |
 |---|---|---|
-| **Indice** | l'indice per categorie nel search | **unito, PR #51, in produzione** |
-| **C** | import delle campagne + backup automatico | **PR #52** |
-| **B** | parallelo vero: ogni riga tiene la sua rissa, schema 4→5 | piano pronto, non eseguito |
+| **Indice** | l'indice per categorie nel search | **unita, #51, `f0af890`, in produzione** |
+| **C** | import delle campagne + backup automatico | **unita, #52, `b0cb250`, in produzione** |
+| **Questo documento** | il handoff | **unito, #53, `a0b18ff`** |
+| **B** | parallelo vero: ogni riga tiene la sua rissa, schema 4→5 | piano pronto, **non eseguito** |
 
 ### 1a. La #51, e come è stata verificata
 
@@ -155,11 +159,24 @@ già su `main`. Non è stato riparato qui per due ragioni, entrambe scritte nel 
 
 1. **La corsia B**, dal suo piano `PIANO-B-SCENE-PER-RIGA-2026-08-27.md`. Wave A (quattro corsie
    disgiunte) → Wave B (una corsia, un commit, atomica: non si può spezzare) → Wave C.
-   Il worktree si taglia da `main` **locale**, dopo che la #52 è unita.
+   Il worktree si taglia da `main` **locale**, cosa che adesso si può fare: la #52 è atterrata,
+   che era l'intera ragione dell'ordine C→B.
 2. Il difetto §6, nella stessa passata in cui la wave B tocca `gmStore.ts`.
-3. Debito minore ancora aperto, invariato da `HANDOFF-2026-08-27-parallelo.md` §6: `pdfjs-dist`
-   con un avviso HIGH; nessun linter in tutto il repo; gli stili inline che mescolano lo shorthand
-   `font` con `fontVariantNumeric`; e adesso 87 commit dal `0.6.0` del CHANGELOG, zero tag.
+3. Debito minore ancora aperto: `pdfjs-dist` con un avviso HIGH; nessun linter in tutto il repo;
+   gli stili inline che mescolano lo shorthand `font` con `fontVariantNumeric` (lo shorthand
+   resetta le cifre tabulari, e sono su Fear, HP, countdown e dadi).
+
+   **Due numeri di quel debito erano sbagliati e sono stati rimisurati, non ricopiati.**
+   `HANDOFF-2026-08-27-parallelo.md` §6 diceva «86 commit dal `0.6.0` del CHANGELOG e zero tag»,
+   e la prima stesura di questo documento ha ricopiato «87». Misurato contro `a0b18ff`:
+   `package.json` e la sezione `## 0.6.0` del CHANGELOG sono stati portati a 0.6.0 **nello stesso
+   commit**, `6e71200` del 24 agosto, e da lì sono **182 commit** (53 in first-parent, 115 senza i
+   merge). Nessuna delle quattro definizioni dà 86. E i tag **non sono zero: sono tre**, tutti
+   `safety/*` di metà agosto e **nessuno antenato di `main`**. Quello che è vero, e che il
+   CHANGELOG stesso dice, è che non esiste **nessun tag di release**.
+
+   La lezione, perché è costata due volte: un numero in un handoff va rimisurato quando lo si
+   riporta, oppure lasciato fuori. Vedi §8.
 
 ## 8. Regole che non si negoziano
 
@@ -177,6 +194,9 @@ Quelle che questa sessione ha messo alla prova:
 - **Un mutante sopravvissuto va affrontato, non nascosto.** Due sopravvivono per costruzione in
   `addCampaign` — togliere `hold()` *oppure* l'`await tx.done.catch()` è invisibile, perché
   ciascuno basta da solo. Sono tenuti entrambi e la ragione è nel docblock, non allowlistata.
+- **Un numero ereditato da un altro documento va rimisurato o tolto.** «86 commit, zero tag» è
+  stato ricopiato in avanti una volta e sbagliato in entrambe le metà: vedi §7.3. Vale anche
+  quando il numero non è il punto della frase.
 - **Refutare sempre le proprie correzioni.** Tre verificatori su otto avevano torto sul piano;
   tre rilievi su ventisei avevano torto sul codice. Senza quel giro entrambi i gruppi sarebbero
   entrati.
