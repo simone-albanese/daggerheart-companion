@@ -847,25 +847,95 @@ const readRoster = (v: unknown): RosterEntry[] =>
     return [{ ref: entry['ref'], count: Math.max(0, Math.round(num(entry['count'], 1))) }];
   });
 
-const readCombatants = (v: unknown): SceneCombatant[] =>
-  (Array.isArray(v) ? v : []).flatMap((entry) => {
-    if (!isRecord(entry) || typeof entry['id'] !== 'string') return [];
+/**
+ * The bodies in one fight, and the one repair that keeps every one of them.
+ *
+ * ## A combatant id is row-LOCAL, and widening that destroys a legal state
+ *
+ * `makeCombatant` mints `${adversaryRef}-${index}`, and the index restarts at
+ * 0 in every fight it builds. So two different scene rows both holding an
+ * `acid-burrower-0` is not a defect: it is the ordinary shape of two rows that
+ * each opened with the same adversary, and it is the invariant the whole
+ * scene-per-row model is written on. A repair that deduped across rows would
+ * renumber a fight nobody had touched, and every id the GM's own notes and
+ * every id a countdown or a screen had written down would move under them.
+ * Only a collision INSIDE one list is repaired, and that is the reason this
+ * repair lives here - in the function that reads exactly one list - rather
+ * than in `readCampaignRecord`, which can see all of them at once and would be
+ * one careless `flatMap` away from getting it wrong in the widening direction.
+ *
+ * ## Re-id, never drop
+ *
+ * Two bodies with one id is not a state a screen can act on. Nothing in the
+ * app reads this list by id - `Scene.tsx` maps it and draws BOTH cards - so
+ * an id here is only ever a WRITE address, and this one addresses two bodies
+ * at once. `patchCombatant` maps on `c.id === id`, so one tap on one card's
+ * HP marks both of them; `removeCombatant` filters on the same key, so one
+ * REMOVE on one card takes both off the table. That second one is the silent
+ * loss, and nothing anywhere says so. Dropping the later body is the one-line
+ * repair, and it is that same loss again with this file's name on it: the
+ * dropped body is an adversary standing at the table in front of somebody,
+ * and no warning could put it back. So the second and later collisions are
+ * re-numbered to the first free `${adversaryRef}-${n}` in this same list, and
+ * every mark they carry travels with them - `hp.marked`, `stress.marked`,
+ * `thresholds`, `spotlighted`, `minionsRemaining`, and the GM's own `notes`.
+ * The GM is told once, not once per body: `warn` collapses the repeat, and a
+ * sentence printed per adversary is how a real warning stops being read.
+ *
+ * The free id is searched against every id in the list, given or minted, so
+ * the repair can never land on a body further down that had that id first -
+ * which would turn one collision into two.
+ *
+ * ## Every caller, on purpose
+ *
+ * The scene row, the legacy `encounter` row and the board's own list all read
+ * their fight through this function, so all three get the repair from the one
+ * line that writes it. That is deliberate rather than incidental. The board's
+ * list is the one `patchCombatant` and `removeCombatant` hold, and a scene
+ * row's list becomes it verbatim on the next resume - the copy that carries it
+ * over keeps every id - so a duplicate left on a row is a duplicate under
+ * those two writers one flip later. The legacy row is the arm nothing can mint
+ * any more but every saved campaign may still carry, and its bodies are only
+ * counted today rather than addressed; the day anything puts one back in play
+ * it arrives holding exactly the id this function gave it. An `if` per arm is
+ * how two policies for one invariant start.
+ */
+const readCombatants = (v: unknown, warn: (s: string) => void): SceneCombatant[] => {
+  const entries = (Array.isArray(v) ? v : []).filter(
+    (entry): entry is Record<string, unknown> =>
+      isRecord(entry) && typeof entry['id'] === 'string',
+  );
+  const taken = new Set(entries.map((entry) => str(entry['id'])));
+  const seen = new Set<string>();
+  return entries.map((entry): SceneCombatant => {
+    const given = str(entry['id']);
+    const adversaryRef = str(entry['adversaryRef']);
+    let id = given;
+    if (seen.has(given)) {
+      warn(
+        'two adversaries in the same fight had the same id, so the later ones were re-numbered rather than dropped',
+      );
+      let n = 0;
+      while (taken.has(`${adversaryRef}-${String(n)}`)) n += 1;
+      id = `${adversaryRef}-${String(n)}`;
+      taken.add(id);
+    }
+    seen.add(id);
     const minions = entry['minionsRemaining'];
-    return [
-      {
-        id: entry['id'],
-        adversaryRef: str(entry['adversaryRef']),
-        name: str(entry['name']),
-        hp: readCounter(entry['hp']),
-        stress: readCounter(entry['stress']),
-        thresholds: readThresholds(entry['thresholds']),
-        difficulty: num(entry['difficulty'], 0),
-        spotlighted: bool(entry['spotlighted']),
-        ...(typeof minions === 'number' ? { minionsRemaining: minions } : {}),
-        notes: str(entry['notes']),
-      },
-    ];
+    return {
+      id,
+      adversaryRef,
+      name: str(entry['name']),
+      hp: readCounter(entry['hp']),
+      stress: readCounter(entry['stress']),
+      thresholds: readThresholds(entry['thresholds']),
+      difficulty: num(entry['difficulty'], 0),
+      spotlighted: bool(entry['spotlighted']),
+      ...(typeof minions === 'number' ? { minionsRemaining: minions } : {}),
+      notes: str(entry['notes']),
+    };
   });
+};
 
 const COUNTDOWN_KINDS: readonly CountdownKind[] = ['standard', 'dynamic', 'loop', 'long-term'];
 
@@ -1283,6 +1353,12 @@ function readSessionItem(
        * A schema-2 scene row carries none of the three and gets `[]`, the
        * shipped defaults and `[]` - which is what a scene with no fight in it
        * is, so nothing has to know whether it was written before the bump.
+       *
+       * That sharing has since become load-bearing rather than tidy:
+       * `readCombatants` carries the duplicate-id repair, so the legacy row
+       * below - the arm nothing can mint any more and every saved campaign may
+       * still hold - is defended by the same line as the row this build mints,
+       * and neither arm can drift into a second policy for one invariant.
        */
       return {
         ...base,
@@ -1290,7 +1366,7 @@ function readSessionItem(
         environmentRef: typeof r['environmentRef'] === 'string' ? r['environmentRef'] : null,
         roster: readRoster(r['roster']),
         adjustments: readAdjustments(r['adjustments']),
-        combatants: readCombatants(r['combatants']),
+        combatants: readCombatants(r['combatants'], warn),
       };
     case 'encounter':
       return {
@@ -1298,7 +1374,7 @@ function readSessionItem(
         kind: 'encounter',
         roster: readRoster(r['roster']),
         adjustments: readAdjustments(r['adjustments']),
-        combatants: readCombatants(r['combatants']),
+        combatants: readCombatants(r['combatants'], warn),
       };
     case 'link':
       return { ...base, kind: 'link', target: readLinkTarget(r['target']) };
@@ -1429,6 +1505,14 @@ export interface CampaignRead {
  * Everything else is repaired and reported, because the alternative - a
  * campaign that will not open because one countdown had a bad number in it -
  * is a worse outcome for the person holding the phone at the table.
+ *
+ * And every repair here keeps the thing it repairs. Where two things collide -
+ * two rows carrying one id, two bodies in one fight carrying one id - the
+ * later one is re-numbered, never removed. Removing it is the one-line repair
+ * and it costs a row the GM typed, or an adversary standing at the table in
+ * front of somebody, with no warning able to bring either back. That silent
+ * loss is what this whole file is written against, and no invariant is worth
+ * buying at that price.
  */
 export function readCampaignRecord(
   value: unknown,
@@ -1451,12 +1535,88 @@ export function readCampaignRecord(
     if (!warnings.includes(s)) warnings.push(s);
   };
 
-  const session = (Array.isArray(record['session']) ? record['session'] : []).map((item, i) =>
+  const rows = (Array.isArray(record['session']) ? record['session'] : []).map((item, i) =>
     readSessionItem(item, i, newId, warn),
   );
-  for (const item of session) {
+  for (const item of rows) {
     if (item.kind === 'unreadable') warn(`one item in the session list could not be read: ${item.why}`);
   }
+
+  /*
+   * Two rows with one id, repaired before anything is allowed to ask "which
+   * row is that?".
+   *
+   * `readSessionItem` fills a MISSING id and cannot do more than that: it
+   * reads one row and cannot see the list. So a list where two rows carry the
+   * same id arrives intact, and every id in this record is a question with two
+   * answers. `find` returns the first and `map` returns both - one row read,
+   * two rows written - and every pointer below, every countdown scope and
+   * every screen that goes looking for "the row with this id" is downstream of
+   * that disagreement. It is reachable the ordinary ways: a hand-edited file,
+   * two builds writing one campaign, a copy gesture that took the id along
+   * with everything else.
+   *
+   * RE-ID, NEVER DROP. Deleting the later row would restore the invariant in
+   * one line and cost the GM something they typed, with no warning able to put
+   * it back. The FIRST occurrence keeps the id - it is the one every pointer
+   * already written in this record resolves to, and the one `find` would have
+   * returned - and each later one gets a fresh id of its own. The fresh id is
+   * checked against every id in the list, so the repair cannot collide with a
+   * row further down that had it first.
+   *
+   * A countdown row carries its id TWICE, and the inner one is the one the
+   * store writes through. `gmStore.addCountdown` mints `item.id` and
+   * `item.countdown.id` as the same string on purpose, and `readCountdown`
+   * hands the row's id down to a clock that arrived without one - while
+   * `withCountdown`, behind advance and reset, and `removeCountdown` both key
+   * on `item.countdown.id`, and that is the id every screen passes them. So a
+   * pass that re-ids the row alone leaves the hazard one field down, and lies
+   * about it: two clocks still answer to one id, one tap ticks both, and one
+   * DELETE takes both - a row the GM typed, gone, seconds after `warnings`
+   * told them it had been repaired. The fresh id goes onto the clock as well,
+   * and only where the two ids still match: a clock already carrying an id of
+   * its own is a pointer somebody else minted, and this pass has no business
+   * moving it.
+   *
+   * **It runs before `deduped.sort`, and the order is not a preference.** The
+   * walk is over the list AS IT ARRIVED, and arrival is what decides which of
+   * two rows keeps the id. Run it after that sort and the decision is made
+   * instead by an `order` field that arrived in the same hand-edited file the
+   * duplicate did: the rows swap, the later one keeps the id, and every
+   * pointer already written against the list as it was stored - a countdown's
+   * `sceneId`, the board's own - lands on the other row without a word.
+   *
+   * The pointer passes below are NOT that boundary, and saying which is which
+   * is the point of saying it at all. Renaming a LATER duplicate cannot take
+   * an id out of a set the earlier row already put in, so moving this below
+   * the scope pass alone changes no reading and leaves the suite green. It
+   * stays up here regardless, so that every pass after this point - both
+   * pointers, the primary dedupe, the sort, and the third pointer this file
+   * says is coming - reads a list whose ids are already unique, instead of
+   * each having to decide for itself which of two rows a pointer meant.
+   *
+   * The archive is deliberately left out. Its rows go through
+   * `readSessionItem` for the same defence, but nothing points into an
+   * archived sitting: `sceneId` and `board.liveScene` are resolved against the
+   * live plan and nothing else, so there is no question there to answer yet.
+   */
+  const takenRowIds = new Set(rows.map((i) => i.id));
+  const seenRowIds = new Set<string>();
+  const session = rows.map((item) => {
+    if (!seenRowIds.has(item.id)) {
+      seenRowIds.add(item.id);
+      return item;
+    }
+    warn('two rows in the session list had the same id, so the later ones were given new ones');
+    let fresh = newId();
+    for (let n = 2; takenRowIds.has(fresh); n += 1) fresh = `${newId()}-${String(n)}`;
+    takenRowIds.add(fresh);
+    seenRowIds.add(fresh);
+    if (item.kind === 'countdown' && item.countdown.id === item.id) {
+      return { ...item, id: fresh, countdown: { ...item.countdown, id: fresh } };
+    }
+    return { ...item, id: fresh };
+  });
 
   /*
    * Two pointers into this list, answered together.
@@ -1569,7 +1729,7 @@ export function readCampaignRecord(
       partyTier: (tier >= 1 && tier <= 4 ? tier : 1) as Tier,
       roster: readRoster(board['roster']),
       adjustments: readAdjustments(board['adjustments']),
-      combatants: readCombatants(board['combatants']),
+      combatants: readCombatants(board['combatants'], warn),
       environmentRef:
         typeof board['environmentRef'] === 'string' ? board['environmentRef'] : null,
       liveScene,
