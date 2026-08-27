@@ -73,10 +73,11 @@
  * `add` answers about the disk. `state.campaigns` is memory, and the two
  * diverge the moment a record leaves the disk without this tab noticing - a
  * second tab's REMOVE (a state `campaigns.ts` designs for by name, which is why
- * both `StaleBuildError` sentences say "Close every tab of this app"), or the
- * storage eviction this whole backup lane exists for. Nothing in `src/` tells a
- * tab about either: there is no `BroadcastChannel`, no `storage` listener and no
- * re-hydrate on `visible`, and `hydrateGm` is memoized so it never reads twice.
+ * both of its `StaleBuildError` sentences say "Close every tab of this app"), or
+ * the storage eviction this whole backup lane exists for. Nothing in `src/`
+ * tells a tab about either: there is no `BroadcastChannel`, no `storage`
+ * listener and no re-hydrate on `visible`, and `hydrateGm` is memoized so it
+ * never reads twice.
  *
  * So the collision is decided against BOTH, here, before the first `add` - if
  * `preview.taken` already holds the arriving id, the copy path starts straight
