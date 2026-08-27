@@ -19,9 +19,11 @@ import {
   chooseBackupFolder,
   forgetBackupFolder,
   runBackup,
+  savedFiles,
   type BackupStatus,
 } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
+import { currentCampaigns } from '../../store/campaignSource.ts';
 import { requestPersistence } from '../../store/db.ts';
 import { useApp } from '../../store/state.ts';
 import {
@@ -664,6 +666,22 @@ function offlineWords(status: OfflineStatus | null): {
   }
 }
 
+/**
+ * The one thing about this folder the user has to be told, rather than find.
+ *
+ * A campaign holds whole copies of the players' character sheets, on purpose -
+ * that is what makes it restorable at all, and stripping them would leave a
+ * backup that cannot give back the thing it exists to give back. But it means a
+ * folder somebody picked once for their own characters quietly accumulates
+ * other people's, once per play night, possibly into a synced Drive or iCloud
+ * folder. That is a real change in what this app does with data that is not the
+ * user's, and it belongs on the screen beside the picker rather than in a
+ * release note nobody reads.
+ */
+const CAMPAIGNS_HOLD_SHEETS =
+  ' A campaign file holds the players’ character sheets as this table saw them, so a folder that' +
+  ' syncs somewhere is syncing other people’s characters too.';
+
 function Backup({
   innerRef,
   phone,
@@ -683,6 +701,16 @@ function Backup({
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<BackupStatus>(() => backupStatus(appBackupDeps));
+  /**
+   * How many campaigns this backup would carry.
+   *
+   * Through the same seam `runBackup` reads, not through `countCampaigns`: that
+   * one counts records a newer build wrote, and those are exactly the ones the
+   * backup cannot take. A number that told this screen there was something to
+   * back up when there was not would be the failure this section is written
+   * against, one indirection along.
+   */
+  const [campaignCount, setCampaignCount] = useState(0);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [installable, setInstallable] = useState(false);
   const install = useRef<InstallPromptHandle | null>(null);
@@ -700,6 +728,14 @@ function Backup({
       ?.persisted?.()
       .then(setPersisted)
       .catch(() => setPersisted(null));
+  }, []);
+
+  useEffect(() => {
+    void currentCampaigns()
+      .then((snapshot) => setCampaignCount(snapshot.campaigns.length))
+      // A campaign store that will not open is not this row's news to break.
+      // Zero is what the button already assumes and the backup itself says so.
+      .catch(() => setCampaignCount(0));
   }, []);
 
   useEffect(() => {
@@ -750,6 +786,32 @@ function Backup({
   const urgent = health.level !== 'fresh';
   const offlineSays = offlineWords(offline);
 
+  /**
+   * The hand-copy clock, in words. Null until there has been one.
+   *
+   * A separate sentence from the age above it, and never folded into it: the
+   * age is a file this app opened again and counted, and this is a click on a
+   * share sheet or a download that reported nothing back. Saying so is the
+   * point - it is the only line that makes the folderless hint's "SAVE A COPY
+   * in the GM section is the only way to get one out" answerable on screen.
+   */
+  const copySaid =
+    health.copyDaysSince === null
+      ? null
+      : `A copy of a campaign was saved by hand ${
+          health.copyDaysSince <= 0
+            ? 'today'
+            : health.copyDaysSince === 1
+              ? 'yesterday'
+              : `${health.copyDaysSince} days ago`
+        }${
+          health.copyRoute === 'share'
+            ? ', through the share sheet'
+            : health.copyRoute === 'download'
+              ? ', as a download'
+              : ''
+        }. The app cannot check that it arrived, so it does not count as a backup.`;
+
   // Every action in this section is a browser saying yes or no to a picker, a
   // permission or a quota, and any of them can reject. An unhandled rejection
   // here would leave a button that looks broken and a user who believes nothing
@@ -770,11 +832,22 @@ function Backup({
     setBusy(true);
     void runBackup('manual', {}, appBackupDeps)
       .then((outcome) => {
-        setStatus(
+        /*
+         * The files, then this screen's own tail, then the notice.
+         *
+         * `savedFiles` is shared with the three crash-and-strip screens rather
+         * than written out here, because the sentence it replaced was written
+         * out four times and the campaign leg made all four of them wrong in
+         * the same way. What stays here is the half that belongs to this
+         * screen: the reminder that a copy on the same device is not a backup.
+         */
+        const said = [
           outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the backup'} — ${outcome.characters} character${outcome.characters === 1 ? '' : 's'}. Keep it somewhere that is not this device.`
+            ? `${savedFiles(outcome)} Keep it somewhere that is not this device.`
             : outcome.reason,
-        );
+          outcome.notice,
+        ].filter((line): line is string => line !== null);
+        setStatus(said.length === 0 ? null : said.join(' '));
         setHealth(backupStatus(appBackupDeps));
       })
       .catch(failed)
@@ -903,7 +976,22 @@ function Backup({
               {health.detail ??
                 (urgent
                   ? 'A browser can clear local data on its own after about a week without a visit. A character is months of work, and the export is the only copy that survives that.'
-                  : 'One file with every character in it. Readable JSON, no rules text, safe to keep anywhere.')}
+                  : campaignCount === 0
+                    ? 'One file with every character in it. Readable JSON, no rules text, safe to keep anywhere.'
+                    : `One file with every character in it, and one more for each of your ${campaignCount === 1 ? 'campaign' : `${campaignCount} campaigns`}. Readable JSON, no rules text, safe to keep anywhere.`)}
+              {/*
+                And the copies the GM made by hand, which is a different clock
+                and says so. The age above it reads "Never" until a run this app
+                can verify has happened, and on an iPhone - no folder picker, so
+                no automatic backup at all - that can be for ever, while the GM
+                exports every campaign every week from the GM section. Reading
+                "Never" over a month of that trains them to ignore the whole
+                panel. It is the last sentence rather than the first because
+                `health.detail` is the only line that knows a write failed, and
+                it says explicitly what the app cannot check, because a share
+                sheet reports the click and not the file.
+              */}
+              {copySaid === null ? null : ` ${copySaid}`}
             </p>
           </div>
           {/*
@@ -919,7 +1007,12 @@ function Backup({
             className="btn btn-primary"
             aria-describedby={`${panel}-age ${panel}-why`}
             onClick={backupAll}
-            disabled={busy || characters.length === 0}
+            /*
+             * Both empty, not just the library. A GM who runs the table and
+             * plays nobody is a normal user of this app, and this button was
+             * greyed out for them while their campaigns had no copy anywhere.
+             */
+            disabled={busy || (characters.length === 0 && campaignCount === 0)}
           >
             Back up everything
           </button>
@@ -940,10 +1033,10 @@ function Backup({
              * so the newest copy is from the last time the app was left.
              */
             health.automatic
-              ? `A copy is written into "${health.targetName ?? 'the chosen folder'}" when you leave the app and when it closes. The app cannot write while it is in the background, so the newest copy is from the last time you left. One file per day, so a bad write can only ever spoil today's.`
+              ? `A copy is written into "${health.targetName ?? 'the chosen folder'}" when you leave the app and when it closes, plus one file for each campaign that changed. The app cannot write while it is in the background, so the newest copy is from the last time you left. One file per day, so a bad write can only ever spoil today's, and nothing there is ever deleted.${CAMPAIGNS_HOLD_SHEETS}`
               : canChooseDirectory()
-                ? 'Choose a folder and the app writes a copy into it every time you leave, without asking.'
-                : 'Only browsers with the File System Access API can write into a folder you choose, and iPhone and iPad have no folder picker at all — so here, the button above is the backup.'
+                ? `Choose a folder and the app writes a copy into it every time you leave, without asking — your characters in one file, and each campaign in one of its own.${CAMPAIGNS_HOLD_SHEETS}`
+                : 'Only browsers with the File System Access API can write into a folder you choose, and iPhone and iPad have no folder picker at all — so here, the button above is the backup. A campaign needs a folder, so on this device SAVE A COPY in the GM section is the only way to get one out.'
           }
         >
           {health.automatic ? (

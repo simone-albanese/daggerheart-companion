@@ -40,16 +40,28 @@
  * does help; and it reports a retry that failed rather than settling back into
  * the same panel.
  *
- * ## The copy, and what it is not
+ * ## The copy, and the way back in
  *
  * `.dhcampaign` is a real backup of the whole table - the plan, Fear, every
- * countdown and the party sheets as they arrived - and **nothing in this build
- * can read one back in**. `campaignFile.ts` has a parser and no import path,
- * on purpose: taking a campaign in raises a question about ids already on the
- * device and about party sheets meeting newer copies of the same people, and
- * half an import is worse than none. A GM who is handed a file and not told
- * that will discover it on the day they need it, so the sheet says it where
- * the button is, not in a release note.
+ * countdown and the party sheets as they arrived - and this build reads one back
+ * in. That is the third block, `TakeIn`, and it is on this sheet rather than in
+ * MENU or in Settings because SAVE is where the format is named at all: the
+ * thing that writes a file and the thing that reads one belong within a thumb's
+ * travel of each other, and the paragraph that used to sit here saying no such
+ * verb existed was the sentence a GM would otherwise discover on the day they
+ * needed it.
+ *
+ * The two questions that paragraph deferred are answered as rules, and neither
+ * of them is answered on this screen. **An id already on this device** is not
+ * compared and not judged by a clock: `addCampaign` hands the key to IndexedDB,
+ * a taken key lands the arrival beside the record that holds it under a fresh
+ * UUID and a minted name, and there is no overwrite verb on the path at all -
+ * so the worst a mistake costs is two campaigns in MENU and one armed REMOVE.
+ * **Party sheets meeting newer copies of the same people** is a prohibition
+ * rather than a policy: an imported campaign cannot reach the `characters`
+ * store, so a row is never refreshed from the local library and never written
+ * into it. `campaignImport.ts` argues both at length; this sheet only prints
+ * them.
  *
  * ## Ergonomics, 393x852
  *
@@ -60,16 +72,25 @@
  * 1px border (`GmSheet.tsx`). 363 is measured in Chrome at 393x852 and
  * recorded in `ShowSheet.tsx`, the sibling sheet in the same panel at the same
  * `padding: 14`. The two sentences run about 60 characters a line at `.t-body`,
- * inside this repo's 62ch reading maximum. TRY AGAIN and SAVE A COPY are
- * `minHeight: var(--tap)` = 44 and full width of that column, because a sheet
- * with one verb in it should not make the thumb aim. Everything else here -
- * the stamp, the file name, the two paragraphs - is read and not touched.
+ * inside this repo's 62ch reading maximum. Every button here - TRY AGAIN, SAVE
+ * A COPY, and the third block's - is `minHeight: var(--tap)` = 44 and full width
+ * of that column, because a sheet whose verbs are all the same size and all in
+ * the same place never makes the thumb aim. Everything else - the stamp, the
+ * file name, the paragraphs, the preview - is read and not touched.
+ *
+ * Three blocks now rather than two, and the sheet root is `scroll stack` so the
+ * third one may grow: a preview of two same-id records with one warning per
+ * dropped party row can run past a screen. Wrapping rather than shrinking is the
+ * answer, and the cost - a verb below a scroll the thumb has travelled - is what
+ * naming things before writing them is worth. That growth is owed a measured
+ * pass in Chrome at 393x852 before this is called finished.
  */
 import { useEffect, useState } from 'react';
 import type { SaveResult, SaveRoute } from '../../transfer/fileIo.ts';
 import { campaignFileName } from '../../transfer/campaignFile.ts';
 import { useRetry } from '../shared/useRetry.ts';
 import { describeAge } from './party.ts';
+import { TakeIn } from './TakeIn.tsx';
 import { flushGm, retryGm, useGm } from './gmStore.ts';
 
 /** Where the file went, in the words of the route that took it. */
@@ -247,12 +268,9 @@ export function SaveSheet(): React.JSX.Element {
             {saved.text}
           </p>
         )}
-        <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-          Nothing in this build can read a campaign file back in. It is a copy to keep somewhere
-          else, not a way to move a table onto another device — that part is not written yet, and
-          a file you cannot open is worth knowing about before you need it.
-        </p>
       </div>
+
+      <TakeIn />
     </div>
   );
 }

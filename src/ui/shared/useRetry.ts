@@ -53,21 +53,36 @@ export function useRetry(attempt: () => Promise<boolean>): Retry {
   const [failedAgain, setFailedAgain] = useState(false);
 
   /*
-   * The re-arm is for StrictMode, and no test covers it - both halves said out
-   * loud rather than left to be discovered.
+   * The re-arm is for StrictMode, and nothing in the suite reaches *this*
+   * file's copy of it - both halves said out loud rather than left to be
+   * discovered.
    *
-   * React 18's StrictMode mounts, unmounts and remounts on the first render, so
-   * the cleanup below runs once before the component is really alive; without
-   * the assignment the ref would stay false for the rest of its life and every
+   * StrictMode mounts, unmounts and remounts on the first render, so the
+   * cleanup below runs once before the component is really alive; without the
+   * assignment the ref would stay false for the rest of its life and every
    * retry would silently discard its own result. That is **development only**:
    * `main.tsx` wraps the tree in StrictMode and StrictMode's double-invoke does
    * not happen in a production build, so nothing a user runs depends on this
    * line.
    *
-   * Deleting it leaves the whole suite green, which is the honest state of it:
-   * jsdom does not reproduce the double mount here, and writing a test that
-   * fakes one would pin the fake rather than the behaviour. It stays because
-   * the cost is one assignment and the failure it prevents is invisible.
+   * **THIS PARAGRAPH USED TO SAY NO TEST WAS POSSIBLE. IT WAS WRONG, AND IT
+   * COST A DEFECT.** It said "jsdom does not reproduce the double mount here,
+   * and writing a test that fakes one would pin the fake rather than the
+   * behaviour". The first half is measured false in this repo's own harness:
+   * `tests/gm/gmSave.test.tsx`, in "the door under StrictMode, which is every
+   * dev build", renders a probe under `<StrictMode>` and asserts the effect
+   * sequence is setup -> cleanup -> setup *before* it asserts anything else,
+   * precisely so that a jsdom which stopped double-mounting would fail loudly
+   * rather than pass vacuously. The second half follows: nothing there is
+   * faked, so nothing there pins a fake. `TakeIn` copied this ref shape without
+   * the re-arm and stranded its import door - disabled, on READING THE FILE…,
+   * for the life of the component - on every `npm run dev`; that same test
+   * kills the mutant.
+   *
+   * Deleting the assignment below still leaves the whole suite green, and that
+   * is now a gap in this file's coverage rather than a fact about jsdom. The
+   * way to close it is a StrictMode mount of one of the three retry surfaces,
+   * modelled on the test named above - not a fake.
    */
   const alive = useRef(true);
   useEffect(() => {

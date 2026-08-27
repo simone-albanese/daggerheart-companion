@@ -406,3 +406,82 @@ describe('the version window the bump moved', () => {
     ).toBe(1);
   });
 });
+
+/**
+ * The reader's own refusals, and the envelope's own stamp.
+ *
+ * Two things the import path needed from this file and did not have. The first
+ * is a vocabulary: `readCampaignRecord` throws `CampaignReadError` and a second
+ * `SchemaError` of its own, and both used to escape as themselves past callers
+ * that had enumerated `ImportError` and nothing else - so a file with a payload
+ * that was not a record arrived on a screen as a stack trace or as silence. The
+ * second is a number: which schema the file was *written* at, which the record
+ * can no longer answer once the reader has restamped it.
+ *
+ * Every payload below is checksum-correct on purpose. A file that fails the
+ * checksum is refused before the reader is ever called, and proves nothing
+ * about what the reader does with what it is given.
+ */
+describe('the refusals that come from inside the record', () => {
+  const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
+
+  /** A well-formed envelope round a payload the type system would not allow. */
+  const envelope = (payload: unknown, schemaVersion = CAMPAIGN_SCHEMA_VERSION): string =>
+    JSON.stringify({
+      format: 'dhcampaign',
+      schemaVersion,
+      app: fileIo.APP_VERSION,
+      exportedAt: at.toISOString(),
+      checksum: campaignChecksum(payload as Campaign),
+      campaign: payload,
+    });
+
+  it('says a payload that is not a record is not one, in the format’s own voice', () => {
+    const file = envelope('a campaign, honestly');
+    expect(() => parseCampaignFile(file)).toThrow(fileIo.ImportError);
+    expect(() => parseCampaignFile(file)).toThrow(/is not a campaign record at all/);
+  });
+
+  it('says a payload with no id has nothing to write back to', () => {
+    const { id: _dropped, ...idless } = campaign();
+    const file = envelope(idless);
+    expect(() => parseCampaignFile(file)).toThrow(fileIo.ImportError);
+    expect(() => parseCampaignFile(file)).toThrow(/has no id/);
+  });
+
+  it('refuses a payload stamped ahead of its own envelope as an import failure, not a raw one', () => {
+    /*
+     * A file can carry one version on the envelope and another on the record -
+     * hand-edited, or written by something that assembled the two halves
+     * separately - so the envelope check cannot stand in for the reader's.
+     * `SchemaError` reaching a receive surface is the defect: it is the parent
+     * class of the one refusal that carries its own remedy, and a caller that
+     * catches `ImportError` would print nothing at all.
+     */
+    const ahead = { ...campaign(), schemaVersion: CAMPAIGN_SCHEMA_VERSION + 1 };
+    const file = envelope(ahead);
+
+    expect(() => parseCampaignFile(file)).toThrow(fileIo.ImportError);
+    expect(() => parseCampaignFile(file)).toThrow(/newer version of the app/);
+    // The window's other edge, for the same reason: below the oldest readable
+    // record, from inside the payload.
+    const behind = envelope({ ...campaign(), schemaVersion: OLDEST_READABLE_CAMPAIGN - 1 });
+    expect(() => parseCampaignFile(behind)).toThrow(fileIo.ImportError);
+  });
+
+  it('carries the envelope’s stamp out, not the record’s restamped one', () => {
+    /*
+     * Kills reading `schemaVersion` off the record. The reader has already
+     * moved that field to this build's number by the time anyone can ask, so a
+     * preview built on it would say "no conversion" about every file ever
+     * written, including the one below that walked three converters.
+     */
+    const v1 = parseCampaignFile(readFileSync(join(FIXTURES, 'v1.dhcampaign'), 'utf8'));
+    expect(v1.schemaVersion).toBe(1);
+    expect(v1.campaign.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
+
+    const ours = parseCampaignFile(serializeCampaign(campaign(), at));
+    expect(ours.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
+    expect(ours.schemaVersion).toBe(ours.campaign.schemaVersion);
+  });
+});

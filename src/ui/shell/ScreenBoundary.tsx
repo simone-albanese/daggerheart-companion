@@ -16,7 +16,7 @@
  * a person who can only retype a sentence sends back a sentence.
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { runBackup } from '../../store/backup.ts';
+import { runBackup, savedFiles } from '../../store/backup.ts';
 import { appBackupDeps } from '../../store/backupDeps.ts';
 import { APP_VERSION } from '../../transfer/fileIo.ts';
 import { copyText } from '../../transfer/pasteboard.ts';
@@ -152,10 +152,16 @@ export class ScreenBoundary extends Component<Props, State> {
     this.setState({ saving: true, saved: null });
     void runBackup('manual', { interactive: true }, appBackupDeps)
       .then((outcome) => {
+        // `savedFiles`, not a copy of the sentence: a campaigns-only run has
+        // no `.dhbackup` and a character count belonging to a file it did not
+        // write, and this screen has already failed the user once.
         this.setState({
-          saved: outcome.wrote
-            ? `Saved ${outcome.fileName ?? 'the copy'} — ${String(outcome.characters)} character${outcome.characters === 1 ? '' : 's'}.`
-            : (outcome.reason ?? 'Nothing was written.'),
+          saved: [
+            outcome.wrote ? savedFiles(outcome) : (outcome.reason ?? 'Nothing was written.'),
+            outcome.notice,
+          ]
+            .filter((line): line is string => line !== null)
+            .join(' '),
         });
       })
       .catch((cause: unknown) => {
@@ -278,8 +284,24 @@ export class ScreenBoundary extends Component<Props, State> {
             {copied}
           </span>
         )}
+        {/*
+          `.t-dense`, not `.t-meta`, and capped like the `copied` sibling above.
+          This line used to be a file name and a character count - 53 characters
+          of metadata, which is what `.t-meta` is: 10px mono at line-height 1,
+          no wrap allowance, no width. It carries prose now. `savedFiles` plus
+          `outcome.notice` naming three campaigns and a quarantined record
+          measures 483 characters, and on a 393px phone that is ten line boxes
+          of 13px glyphs stepping 10px - three pixels of overlap on every line -
+          and 1232px of unbroken width on a desktop. `.t-dense` is 11.5px/1.38
+          sans, the role the `retried` paragraph thirty lines above already uses
+          for exactly this kind of sentence.
+        */}
         {saved !== null && (
-          <span className="t-meta" role="status" style={{ color: 'var(--muted)' }}>
+          <span
+            className="t-dense"
+            role="status"
+            style={{ color: 'var(--muted)', maxWidth: 420, textAlign: 'center' }}
+          >
             {saved}
           </span>
         )}

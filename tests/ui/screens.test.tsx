@@ -102,6 +102,7 @@ import {
   TierBenchmarks,
 } from '../../src/ui/gm/ReferenceTables.tsx';
 import { SaveSheet } from '../../src/ui/gm/SaveSheet.tsx';
+import { TakeIn } from '../../src/ui/gm/TakeIn.tsx';
 import { RestControl } from '../../src/ui/gm/RestControl.tsx';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { SessionBody } from '../../src/ui/gm/SessionBody.tsx';
@@ -692,6 +693,9 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'gm/RestControl.tsx::RestControl': () => <RestControl phone={false} />,
   'gm/SaveSheet.tsx::SaveSheet': () => <SaveSheet />,
   'gm/Scene.tsx::Scene': () => <Scene phone={false} />,
+  // The door SAVE mounts below A COPY TO KEEP, on its own so the resting state
+  // is executed even when the sheet around it is not opened.
+  'gm/TakeIn.tsx::TakeIn': () => <TakeIn />,
   /*
    * Seeded live, because with nothing to flip between the strip draws the
    * plain title label instead and a fixture in that state would prove nothing

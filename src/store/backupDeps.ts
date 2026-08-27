@@ -1,10 +1,11 @@
 /**
  * What the backup subsystem should read and write once the app has booted.
  *
- * `backup.ts` takes its library and its preferences through `BackupDeps` so it
- * can be tested without a database, and its defaults go straight to IndexedDB
- * and straight to localStorage. Every screen used those defaults, and both
- * halves of that were wrong once there was a running app:
+ * `backup.ts` takes its library, its campaigns and its preferences through
+ * `BackupDeps` so it can be tested without a database, and its defaults go
+ * straight to IndexedDB and straight to localStorage. Every screen used those
+ * defaults, and both of the halves this file overrides were wrong once there
+ * was a running app:
  *
  *   - **the library.** A backup read from IndexedDB is a backup of what
  *     survived the last write. When writes are failing - a full disk, an older
@@ -35,6 +36,32 @@
  * Its own module rather than a block in `backup.ts`: `backupFolder.test.ts`
  * re-imports `backup.ts` under `vi.resetModules()`, and an import of `state.ts`
  * there would drag `dataset.ts` and the whole compiled SRD into it.
+ *
+ * ## Why there is no campaign entry here, and why adding one is a regression
+ *
+ * The campaigns want exactly the same treatment as the library - memory, not
+ * disk, for the reason the first bullet gives - and they deliberately do **not**
+ * get it through this file. There is no `import { useGm } from '../ui/gm/gmStore.ts'`
+ * below and there must not be one.
+ *
+ * `gmStore.ts` ends in a bare `void hydrateGm()` at module scope, on purpose, so
+ * that the GM chunk arriving *is* the hydration starting. This module is
+ * imported eagerly by `App.tsx`, `Settings.tsx` and both error boundaries. An
+ * import from here into the GM store would therefore drag the whole lazy GM
+ * chunk into the first paint and start a campaign read for every player who
+ * never opens the GM screen at all - including from a screen that has just
+ * crashed, which is the one moment the app has least to spare.
+ *
+ * So the edge is inverted instead: `store/campaignSource.ts` owns a slot,
+ * `gmStore` fills it with `snapshotCampaigns` from its own module-scope
+ * epilogue - beside `publishCampaignAlert`, which is the same inversion for the
+ * other half of this problem - and `backup.ts` reads the slot through its own
+ * default deps. `campaignAlert.ts` states the rule in that direction and
+ * `gmStore.ts` already obeys it.
+ *
+ * The two campaign doors are therefore both defaulted in `backup.ts` and
+ * neither is overridden below. Nothing about them is a decision this file gets
+ * to make; what it owns is the reason it must not make one.
  */
 import type { BackupDeps } from './backup.ts';
 import * as db from './db.ts';

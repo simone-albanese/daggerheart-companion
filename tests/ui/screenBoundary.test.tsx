@@ -147,6 +147,10 @@ describe('the way out of a screen that will not render', () => {
       route: 'download',
       fileName: 'daggerheart-2026-08-16.json',
       characters: 2,
+      campaigns: 0,
+      campaignNames: [],
+      notReadable: [],
+      notice: null,
       reason: null,
       at: '2026-08-16T10:00:00.000Z',
     });
@@ -169,6 +173,69 @@ describe('the way out of a screen that will not render', () => {
     expect(shown()).toContain('2 characters');
   });
 
+  /**
+   * A run that succeeded and still left something out says so here too.
+   *
+   * `notice` is a true sentence about a run that did *not* fail: campaigns a
+   * device with no folder cannot take, and records a newer build wrote. That
+   * run stamps the clock and clears `lastError`, so the panel afterwards reads
+   * "Last backup: Today" with no detail at all - `notice` is the only thing
+   * between the GM and a complete-looking backup that is missing every campaign
+   * they have. Both mocks above hardcode it to null, which is why deleting the
+   * field at all four render sites was silent under the whole suite.
+   */
+  it('says what the export left out, on a run that otherwise succeeded', async () => {
+    vi.spyOn(backup, 'runBackup').mockResolvedValue({
+      ok: true,
+      wrote: true,
+      route: 'download',
+      fileName: 'daggerheart-backup-2026-08-27.dhbackup',
+      characters: 3,
+      campaigns: 0,
+      campaignNames: [],
+      notReadable: [],
+      notice:
+        'Campaign files can only be written into a folder, and this browser has none, so ' +
+        '"The Sablewood Winter", "Bones of the Reach" are not in this backup. SAVE A COPY ' +
+        'in the GM section writes one campaign to a file by hand.',
+      reason: null,
+      at: '2026-08-27T10:00:00.000Z',
+    });
+
+    act(() => {
+      root.render(screen());
+    });
+    press('Try again');
+    press('Save a copy of everything');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(shown()).toContain('Saved daggerheart-backup-2026-08-27.dhbackup');
+    expect(
+      shown(),
+      'the screen said a backup was saved and never said the two campaigns are not in it',
+    ).toContain('are not in this backup');
+    expect(shown()).toContain('The Sablewood Winter');
+
+    /*
+     * And it is set as prose. `.t-meta` is 10px mono at line-height 1 with no
+     * width at all - right for the 53 characters this line used to carry, and
+     * for these 400-odd it is ten line boxes of 13px glyphs stepping 10px, so
+     * every line overlaps the one above it by three pixels; on a desktop it is
+     * one unbroken 1232px run. `.t-dense` is what the `retried` paragraph above
+     * already uses for the same kind of sentence.
+     */
+    const line = container.querySelector('[role="status"]');
+    expect(line?.textContent).toContain('are not in this backup');
+    expect(
+      line?.className,
+      'a 400-character sentence in the 10px/1 mono metadata role overlaps its own lines',
+    ).not.toContain('t-meta');
+    expect(line?.className).toContain('t-dense');
+    expect((line as HTMLElement | null)?.style.maxWidth).toBe('420px');
+  });
+
   it('repeats what the export said when the export did nothing', async () => {
     vi.spyOn(backup, 'runBackup').mockResolvedValue({
       ok: true,
@@ -176,7 +243,11 @@ describe('the way out of a screen that will not render', () => {
       route: 'none',
       fileName: null,
       characters: 0,
-      reason: 'There are no characters to back up yet.',
+      campaigns: 0,
+      campaignNames: [],
+      notReadable: [],
+      notice: null,
+      reason: 'There is nothing to back up yet.',
       at: null,
     });
 
@@ -190,7 +261,7 @@ describe('the way out of a screen that will not render', () => {
     });
 
     expect(shown(), 'a backup that wrote nothing was reported as a saved file').toContain(
-      'There are no characters to back up yet.',
+      'There is nothing to back up yet.',
     );
     expect(shown()).not.toMatch(/Saved /);
   });

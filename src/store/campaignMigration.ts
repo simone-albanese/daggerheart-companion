@@ -155,8 +155,14 @@ const defaults = (): LegacyDeps => ({
  * and a record that has been through a structured clone is not obliged to keep
  * it - so the comparison would fail on two identical campaigns and the
  * migration would refuse to finish for the rest of that device's life.
+ *
+ * Exported for the import path, which asks the same question of the same store
+ * one door along. Two implementations of "did what came back match what went
+ * in" would be two answers to the question the whole verified-write standard
+ * rests on, and the paragraph above - the one that explains why key order is
+ * not content - would then exist in only one of the two places.
  */
-function stable(value: unknown): string {
+export function stable(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
   const entries = Object.entries(value as Record<string, unknown>)
