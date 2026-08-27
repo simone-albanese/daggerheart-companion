@@ -463,7 +463,8 @@ import {
   type SrdHit,
   type SrdRecord,
 } from './srdIndex.ts';
-import { askLoaded, loadAsk, searchAsk, type AskEntry } from './ask.ts';
+import { askLoaded, loadAsk, MOMENTS, searchAsk, type AskEntry, type Moment } from './ask.ts';
+import { sectionsIn } from './moments.ts';
 import { BlockView, type BlockTarget } from './BlockView.tsx';
 
 /** How much of a long line to keep on either side of the marks. */
@@ -958,7 +959,23 @@ const spoken = (
   records: number,
   asks: number,
   scope: SearchScope,
+  moment: Moment | null,
 ): string => {
+  /*
+   * A membership needs its own sentence because every wording below is about
+   * *matching*, and under a moment nothing matched: no words were typed, and
+   * `11 sections match` over a list nobody searched is the same defect the
+   * scope branch under this one exists to prevent, arriving from the other
+   * side. It names the moment because the moment is the whole of what the
+   * count is about, and because this is the one line a GM who cannot see the
+   * lit chip gets.
+   */
+  if (moment !== null) {
+    const label = membershipBand(moment);
+    const secs = sections === 1 ? '1 section belongs to' : `${String(sections)} sections belong to`;
+    if (asks === 0) return `${secs} ${label}`;
+    return `${secs} ${label}, with ${asks === 1 ? '1 question' : `${String(asks)} questions`}`;
+  }
   /*
    * Two nouns in the wide sentence below are claims about the whole SRD, and
    * a scope can falsify each of them independently.
@@ -1126,6 +1143,22 @@ const SOME: ReadonlyArray<{ label: string; holds: (hit: RuleHit) => boolean }> =
 ];
 
 /**
+ * The header over a membership, and it is a third family beside `GROUPS` and
+ * `SOME` rather than a reuse of either.
+ *
+ * `GROUPS` sorts a hit by *where in the section the query landed*, and under a
+ * moment nothing landed anywhere: there is no query, every row carries
+ * `line: null`, and filing them under IN THE TITLE would be a header that is
+ * simply false about all of them. `SOME` is the apology for a failed AND and is
+ * further from the truth still.
+ *
+ * So the band says what the list actually is - the moment's own label, and the
+ * count - and it is built per render because the label is the moment's.
+ */
+const membershipBand = (moment: Moment): string =>
+  MOMENTS.find((m) => m.id === moment)?.label ?? '';
+
+/**
  * The band the app's own questions stand in, above every band of the book's.
  *
  * It is not a member of `GROUPS` and it cannot be: those three sort a
@@ -1237,8 +1270,19 @@ export function RuleSearchResults({
   query,
   onQuery,
   scope = WHOLE_BOOK,
+  moment = null,
 }: {
   query: string;
+  /**
+   * A moment to browse instead of a query to search.
+   *
+   * The two are exclusive by construction and the caller enforces it: typing
+   * clears the moment and pressing a chip clears the field. They are not two
+   * halves of one answer - a query asks *where are these words*, and a moment
+   * asks *what do I read now*, and merging them would put a list nobody asked
+   * for under a list somebody did.
+   */
+  moment?: Moment | null;
   /**
    * How much of the book this mount may reach. Defaults to all of it, which
    * is what the GM sheet has always had and what the bare fixture mount gets,
@@ -1265,7 +1309,37 @@ export function RuleSearchResults({
    * why searching and resolving must not be narrowed by the same array.
    */
   const searched = scope.sections ? rules : NO_SECTIONS;
-  const hits = useMemo(() => searchRules(searched, query), [searched, query]);
+  /*
+   * A membership is not a search result and is assembled rather than found.
+   *
+   * `where: 'title'` and `line: null` are the honest values, not a convenient
+   * pair: no query landed anywhere, so there is no line to preview and none to
+   * light. Both are already shipped states - `Hit` draws no preview line
+   * without one, and `landingIn` answers `null`, which opens the section at its
+   * top. That is exactly right here: the section *is* the answer, where under a
+   * query it would only be where the answer lives.
+   *
+   * It reuses `Hit` rather than growing a second row. There is one drawing of a
+   * chosen section in this app and this is not going to be the second.
+   */
+  const membership = useMemo(
+    (): RuleHit[] =>
+      moment === null
+        ? []
+        : sectionsIn(rules, moment).map((section) => ({
+            id: section.id,
+            title: section.title,
+            page: section.sourcePage ?? null,
+            where: 'title' as const,
+            line: null,
+            partial: false,
+          })),
+    [rules, moment],
+  );
+  const hits = useMemo(
+    () => (moment === null ? searchRules(searched, query) : membership),
+    [searched, query, moment, membership],
+  );
   // The 780 the rules search cannot reach, less whatever the scope keeps out.
   // See the header for why the index is filtered here rather than the hits it
   // returns - and `SearchScope` for why narrowing this one array narrows both
@@ -1278,12 +1352,82 @@ export function RuleSearchResults({
       ),
     [dataset, only],
   );
-  const found = useMemo(() => searchSrd(beyondRules, query), [beyondRules, query]);
+  /*
+   * No records under a moment, and it costs nothing to arrange: a moment is a
+   * judgement about *rules sections*, a weapon has no moment to belong to, and
+   * with no query there is nothing for `searchSrd` to match anyway. Saying it
+   * out loud rather than relying on the empty query, because the reason is the
+   * first sentence and not the second - and because today the opposite is what
+   * buries the answer, with 322 record rows drawn over DAMAGE's own sections.
+   */
+  const found = useMemo(
+    () => (moment === null ? searchSrd(beyondRules, query) : []),
+    [beyondRules, query, moment],
+  );
   const catalogue = useAskCatalogue(scope.questions);
-  const asked = useMemo(() => searchAsk(catalogue, query), [catalogue, query]);
+  /*
+   * Under a moment the catalogue is filtered on the field itself, not on the
+   * label the way `searchAsk` does it.
+   *
+   * The two agree today and the agreement is a coincidence worth not relying
+   * on: `searchAsk` puts the moment's *label* in its haystack, so pressing
+   * DAMAGE happens to return exactly the entries filed under `damage`. That
+   * holds only while no two labels share a word and no entry's own words
+   * contain another moment's label. `entry.moment === moment` is the same
+   * answer arrived at by construction, and it cannot drift when a label is
+   * reworded - which the label's own docblock says is a thing that may happen.
+   *
+   * **No test on the shipped catalogue can tell the two apart, and that is
+   * said here rather than left to be discovered.** A mutant that swapped this
+   * line back for `searchAsk` passes every test in the suite, because on the
+   * twelve entries as written the two agree exactly. What is tested is the
+   * claim rather than the wiring: `moments.test.ts` builds a catalogue where
+   * they differ and pins that the label match takes an entry filed under
+   * another moment and loses one whose label was reworded. So this line is
+   * held by an argument and by a proof of the argument, and not by a fixture -
+   * which is worth knowing before anyone simplifies it back.
+   */
+  const asked = useMemo(
+    () =>
+      moment === null
+        ? searchAsk(catalogue, query)
+        : catalogue.filter((entry) => entry.moment === moment),
+    [catalogue, query, moment],
+  );
   const [openId, setOpenId] = useState<string | null>(null);
   let bands = GROUPS;
-  if (hits.some((hit) => hit.partial)) bands = SOME;
+  if (moment !== null) {
+    // One band, named for the moment. See `membershipBand` for why neither of
+    // the other two families can stand over this list.
+    bands = [{ label: membershipBand(moment), holds: () => true }];
+  } else if (hits.some((hit) => hit.partial)) {
+    bands = SOME;
+  }
+
+  /*
+   * The app's own questions, drawn in one of two places. See the comment at
+   * the second call site for why a moment reverses the order.
+   */
+  const askedBand = asked.length > 0 && (
+    <div className="stack" style={{ flex: 'none', gap: 10 }}>
+          <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
+            {ASKED} · {asked.length}
+          </span>
+          {asked.map((entry) => (
+            <AskRow
+              key={entry.id}
+              entry={entry}
+              query={query}
+              rules={rules}
+              open={entry.id === openId}
+              onToggle={() => {
+                setOpenId(entry.id === openId ? null : entry.id);
+              }}
+              onQuery={onQuery}
+            />
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -1311,7 +1455,7 @@ export function RuleSearchResults({
         prove the utterance, and no test in this repo claims to.
       */}
       <span className="sr-only" role="status">
-        {spoken(hits.length, found.length, asked.length, scope)}
+        {spoken(hits.length, found.length, asked.length, scope, moment)}
       </span>
       {/*
         The honest silence, and it is now guarded on both lists rather than on
@@ -1324,7 +1468,16 @@ export function RuleSearchResults({
         direction - a query that finds sections and no question prints nothing
         about questions at all.
       */}
-      {hits.length === 0 && asked.length === 0 && found.length === 0 && (
+      {/*
+        `moment === null` guards it, and not as a formality. Both wordings
+        below are about words that were typed, and under a moment none were -
+        so a layer that stripped every section of a moment would otherwise be
+        answered with "not one of those words is in the book" over a query
+        that does not exist. A moment with nothing in it is not reachable on
+        the shipped data, which is exactly why the branch that would print
+        nonsense has to be closed here rather than trusted not to run.
+      */}
+      {moment === null && hits.length === 0 && asked.length === 0 && found.length === 0 && (
         <p className="t-body" style={{ flex: 'none', margin: 0, maxWidth: '62ch' }}>
           {scope.only === null ? (
             <>
@@ -1358,26 +1511,7 @@ export function RuleSearchResults({
           )}
         </p>
       )}
-      {asked.length > 0 && (
-        <div className="stack" style={{ flex: 'none', gap: 10 }}>
-          <span className="t-meta" style={{ flex: 'none', color: 'var(--dim)' }}>
-            {ASKED} · {asked.length}
-          </span>
-          {asked.map((entry) => (
-            <AskRow
-              key={entry.id}
-              entry={entry}
-              query={query}
-              rules={rules}
-              open={entry.id === openId}
-              onToggle={() => {
-                setOpenId(entry.id === openId ? null : entry.id);
-              }}
-              onQuery={onQuery}
-            />
-          ))}
-        </div>
-      )}
+      {moment === null && askedBand}
       {bands.map((group) => {
         const inGroup = hits.filter(group.holds);
         if (inGroup.length === 0) return null;
@@ -1401,6 +1535,25 @@ export function RuleSearchResults({
           </div>
         );
       })}
+      {/*
+        Under a moment the questions come *after* the sections, and that is the
+        one place this surface reverses its own order.
+        
+        The reason QUESTIONS stands above every band of the book's is written
+        where it is declared: a query that matched a question and no section
+        would otherwise print `No section matches` over a surface that had just
+        found something. **That case cannot arise under a moment** - the
+        smallest of the six carries seven sections - so the argument does not
+        reach here, and what is left is which of the two the GM asked for. They
+        pressed a moment: the sections are the answer and the questions are a
+        note beside it.
+        
+        It is also what buys back the rows. Measured at 393x852, the questions
+        band plus its two rows stood 148px above the first section in a 240.00
+        reading window, so nothing of the answer was on the glass -
+        `rowsFullyVisible` was 0. Moved below, the first sections are.
+      */}
+      {moment !== null && askedBand}
       {SRD_KINDS.map((kind) => {
         const inKind = found.filter((hit) => hit.kind === kind);
         if (inKind.length === 0) return null;

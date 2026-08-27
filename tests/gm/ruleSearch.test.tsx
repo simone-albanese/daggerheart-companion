@@ -56,6 +56,7 @@ import {
   srdIndex,
 } from '../../src/ui/shared/srdIndex.ts';
 import { loadAsk, MOMENTS, searchAsk } from '../../src/ui/shared/ask.ts';
+import { sectionsIn } from '../../src/ui/shared/moments.ts';
 import { ASK_CATALOGUE } from '../../src/ui/shared/askCatalogue.ts';
 import { Fold } from '../../src/ui/shared/Fold.tsx';
 import { dataset, index } from '../ui/fixture.ts';
@@ -323,6 +324,11 @@ const BAND_LABELS = [
   // drawn on the glass must not be a band this helper cannot see, which is the
   // whole reason the paragraph above names QUESTIONS.
   ...Object.values(SRD_KIND_LABELS),
+  // The membership bands, from the same source for the same reason. This
+  // helper filters what it can see, so a band family missing from here is a
+  // band no assertion in this file can fail on - and the six moments were
+  // exactly that until §2.3 drew them.
+  ...MOMENTS.map((moment) => moment.label),
 ];
 
 const groupHeaders = (): string[] =>
@@ -2014,6 +2020,39 @@ describe('the results', () => {
     expect(dialog().textContent).toContain('Do not talk over the quiet player.');
   });
 
+  it('draws no records under a moment even when a query is standing beside it', () => {
+    /*
+     * Mounted alone and given both, which `ShowSheet` never does: it clears one
+     * when the other is set. So this is the component's own contract rather
+     * than the sheet's discipline, and without it the suppression in
+     * `RuleSearchResults` is a line no test can fail on - the empty query a
+     * moment normally arrives with would find no records anyway, and the
+     * branch would be true for a reason that is not the reason it was written
+     * for.
+     *
+     * The query is a word the book beyond the rules really carries, so a
+     * suppression that stopped working would show as rows rather than as
+     * nothing.
+     */
+    const moment = MOMENTS[3]!;
+    act(() =>
+      root.render(createElement(RuleSearchResults, { query: 'dagger', moment: moment.id })),
+    );
+
+    const records = [
+      ...container.querySelectorAll('section[data-kind] > button[aria-expanded]'),
+    ];
+    expect(records, 'a moment drew the book beyond the rules').toEqual([]);
+
+    // And the same query with no moment does find them, so this proves a
+    // suppression rather than an empty dataset.
+    act(() => root.render(createElement(RuleSearchResults, { query: 'dagger' })));
+    expect(
+      [...container.querySelectorAll('section[data-kind] > button[aria-expanded]')].length,
+      'the control case found no records either',
+    ).toBeGreaterThan(0);
+  });
+
   it('subscribes to the dataset on its own, not through whatever mounted it', () => {
     /*
      * Mounted alone, deliberately. Inside the sheet this property is invisible:
@@ -2252,20 +2291,80 @@ describe('the moment chips, on the empty field', () => {
     for (const chip of chips) expect(chip.style.minHeight).toBe('44px');
   });
 
-  it('fills the field, and every one of the six finds its own questions', () => {
+  it('draws the sections that belong to it, and leaves the field alone', () => {
+    /*
+     * **This test used to assert the opposite, and the assertion was the
+     * feature.** A chip typed its own label into the field, so this read
+     * `expect(field().value).toBe(moment.label.toLowerCase())` and the list
+     * underneath was a text search for those words. That is what §2.3
+     * replaced: `MY TURN` really searched `turn` and `THIS PLACE` really
+     * searched `place`, because `my` and `this` are stopwords; `DAMAGE`
+     * returned twenty-four sections including `ranger-companion` under three
+     * hundred rows of weapons and cards; and two of the six found no section
+     * carrying all their words at all and drew the apology header instead.
+     *
+     * What is expected here is derived from the shipped membership rather than
+     * typed, so a chip that drew the wrong sections fails even if it drew a
+     * plausible number of them.
+     */
     for (const moment of MOMENTS) {
       openShow();
       click(named(moment.label));
-      expect(field().value).toBe(moment.label.toLowerCase());
-      // A chip that drew an empty band would be a control that answers
-      // nothing, which is worse than no chip.
-      expect(askRows().length, moment.label).toBeGreaterThan(0);
-      expect(groupHeaders()[0], moment.label).toBe(
-        `QUESTIONS · ${String(searchAsk(ASK_CATALOGUE, moment.label.toLowerCase()).length)}`,
-      );
+
+      expect(field().value, `${moment.label} typed into the field`).toBe('');
+      expect(named(moment.label).getAttribute('aria-pressed'), moment.label).toBe('true');
+
+      const want = sectionsIn(dataset.rules, moment.id).map((section) => section.title);
+      expect(want.length, `${moment.label} has no sections at all`).toBeGreaterThan(0);
+      expect(hitTitles(), moment.label).toEqual(want);
+
+      // The band says the moment, not where a query landed - nothing landed.
+      expect(groupHeaders(), moment.label).toContain(`${moment.label} · ${String(want.length)}`);
+
+      // The book beyond the rules has no moment to belong to, and today it is
+      // what buries these rows.
+      expect(recordNames(), `${moment.label} drew records`).toEqual([]);
+
+      // The questions are still there, and they are exactly this moment's.
+      const mine = ASK_CATALOGUE.filter((entry) => entry.moment === moment.id);
+      expect(askRows().length, moment.label).toBe(mine.length);
+
       act(() => root.unmount());
       root = createRoot(container);
     }
+  });
+
+  it('turns off when pressed again, and the doors come back', () => {
+    openShow();
+    const first = MOMENTS[0]!;
+    click(named(first.label));
+    expect(doors(), 'the doors stayed under a lit chip').toEqual([]);
+    expect(hitTitles().length).toBeGreaterThan(0);
+
+    click(named(first.label));
+    expect(named(first.label).getAttribute('aria-pressed')).toBe('false');
+    expect(hitTitles(), 'the list survived the chip being turned off').toEqual([]);
+    expect(doors()).toHaveLength(3);
+  });
+
+  it('only ever lights one, and typing puts it out', () => {
+    openShow();
+    const [a, b] = [MOMENTS[0]!, MOMENTS[3]!];
+    click(named(a.label));
+    click(named(b.label));
+    const lit = MOMENTS.filter((m) => named(m.label).getAttribute('aria-pressed') === 'true');
+    expect(lit.map((m) => m.label), 'two moments were lit at once').toEqual([b.label]);
+
+    // A query and a moment are two modes, and entering one leaves the other -
+    // so there is never a list on the glass that is half of each.
+    type('fear');
+    expect(chipGroup(), 'the chips stayed while a query was being typed').toBeNull();
+    type('');
+    expect(
+      MOMENTS.filter((m) => named(m.label).getAttribute('aria-pressed') === 'true'),
+      'a moment survived a query and came back lit',
+    ).toEqual([]);
+    expect(doors()).toHaveLength(3);
   });
 
   it('goes with the doors while a question is being typed, and comes back', () => {

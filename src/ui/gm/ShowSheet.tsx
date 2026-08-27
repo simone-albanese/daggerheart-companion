@@ -283,18 +283,34 @@
  * the three and it survives; what does not survive is the *position*, and this
  * is the one place that says so out loud rather than letting a GM find it.
  *
- * **A chip fills the field.** It creates no new state, no second list and no
- * overlay: tapping `DAMAGE` types `damage` where the GM could have typed it,
- * so what happens next is the surface they already know, the CLEAR beside the
- * field undoes it, and the words in the field are the words on the chip they
- * pressed. The words are the moment's own label because `searchAsk` indexes
- * each question under its moment as well as under `ask` and `also`, so every
- * chip is guaranteed to find its own questions rather than only whatever
- * sections happen to carry the same words.
+ * **A chip selects a moment. It used to fill the field, and that is what §2.3
+ * ended.**
+ *
+ * Typing `damage` where the GM could have typed it was cheap - no new state,
+ * no second list - and it bought a lie. `searchRules` has never heard of a
+ * moment, so the sections a chip returned were an accident of vocabulary:
+ * `my` and `this` are stopwords, so MY TURN really searched `turn` and THIS
+ * PLACE really searched `place`; DAMAGE returned **24** sections, among them
+ * `ranger-companion` and `leveling-up`, buried under **322** rows of weapons
+ * and cards; and THE DICE LANDED and BETWEEN SCENES found no section carrying
+ * all their words at all, so a third of the grid answered with
+ * `NO SECTION CARRIES ALL OF THOSE WORDS`.
+ *
+ * Now a chip lights (`aria-pressed`) and draws the sections ratified for that
+ * moment - DAMAGE is **11** - with no records over them, and is turned off by
+ * being pressed again. The field is left alone and stays free to search, which
+ * is what makes the two modes tellable apart: typing puts a lit chip out and
+ * pressing a chip empties the field, so nothing on the glass is ever half a
+ * search and half a moment. `moments.ts` carries the table and says where the
+ * judgement came from.
+ *
+ * The questions survive the change and are better for it: they are filtered on
+ * `entry.moment` rather than on the words of the label, which is the same
+ * answer today and stays the same answer when a label is reworded.
  */
 import { useEffect, useState } from 'react';
 import { useApp } from '../../store/state.ts';
-import { loadAsk, MOMENTS } from '../shared/ask.ts';
+import { loadAsk, MOMENTS, type Moment } from '../shared/ask.ts';
 import type { GmRegion } from './gmStore.ts';
 import { RuleSearchField, RuleSearchResults } from '../shared/RuleSearch.tsx';
 import { liveDoors } from './showDoors.ts';
@@ -307,7 +323,30 @@ export function ShowSheet({
   const prefs = useApp((s) => s.prefs);
   const rules = useApp((s) => s.dataset.rules);
   const [query, setQuery] = useState('');
+  const [moment, setMoment] = useState<Moment | null>(null);
   const searching = query.trim() !== '';
+
+  /*
+   * Typing and a lit chip are one mode each, and entering either leaves the
+   * other. That is what keeps every control on this sheet meaning one thing:
+   * CLEAR still empties the field and only the field, a lit chip is still
+   * turned off by pressing it again, and there is never a list on the glass
+   * that is half a search and half a moment.
+   *
+   * It also keeps the field honest, which is the property the old chip spent.
+   * A chip used to *type its own label*, so the field said `damage` over a
+   * list that was a text search for the word - 24 sections, among them
+   * `ranger-companion` and `leveling-up`, under 322 rows of weapons and cards.
+   * Now the field says what was typed and the chip says what was chosen.
+   */
+  const typed = (next: string): void => {
+    setQuery(next);
+    if (next.trim() !== '') setMoment(null);
+  };
+  const press = (id: Moment): void => {
+    setMoment((was) => (was === id ? null : id));
+    setQuery('');
+  };
 
   /*
    * Warm the catalogue's chunk when the sheet opens, and throw the result
@@ -327,6 +366,89 @@ export function ShowSheet({
     void loadAsk();
   }, []);
 
+  /*
+   * The chips, drawn in one of two places and never in both.
+   *
+   * With no moment lit they are the first thing in the scroll, above the
+   * doors, exactly where the owner's decision of 2026-08-25 put them and
+   * exactly as they were measured: a 3x2 grid 96.00 tall, chips 115.66 wide.
+   * Nothing about the empty sheet moves.
+   *
+   * **Pinning them above the scroll was tried, measured and refused**, and it
+   * is written down because it is the obvious repair and it is wrong. The
+   * complaint it answers is real: with a moment lit, the first section landed
+   * below the fold and `rowsFullyVisible` measured **0**. But this panel is
+   * capped at 85% of its stage, so its height is fixed - a `flex: 'none'`
+   * block above the scroller does not *free* the scroller's 96px, it *takes*
+   * them. Measured: the reading window went from **240.00 to 120.00** at
+   * 393x852 and from **83.00 to 14.00** at 375x667, and `rowsFullyVisible`
+   * stayed 0. Pinning converts chrome that scrolls away into chrome that
+   * never does, which on a short sheet is strictly worse. What actually
+   * bought the rows back is the band order below.
+   *
+   * The 240.00 is not a cost this change introduced and it is worth writing
+   * down where it will be found: measured against `main` with the same
+   * fixture, the empty sheet already ran 308 of content through a 240 window
+   * at 393x852 and through **83** at 375x667. The docblock above says this
+   * surface "no longer scrolls at all" with the field empty, and that has
+   * stopped being true - it is stale prose, not a regression, and the A/B
+   * that says so is in the pull request.
+   */
+  /*
+   * Three columns and two rows - the owner's decision of 2026-08-25 §6. The
+   * docblock at the head of this file carries every term of that, including
+   * the 16.33px the third column costs and the tracking that pays for it.
+   *
+   * A chip is drawn the way CLEAR is - a `t-label` with its words as its own
+   * text and no `<span>` inside - and that is load bearing rather than tidy:
+   * `merchant.test.tsx` enumerates the doors of this sheet by reading the
+   * first `<span>` of every button in the dialog, so a chip built like a door
+   * would join the list of doors in seven assertions that are about which
+   * tools SHOW opens.
+   */
+  const chipGrid = (
+          <div
+            role="group"
+            aria-label="What just happened"
+            style={{
+              flex: 'none',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 8,
+            }}
+          >
+            {MOMENTS.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                className="t-label"
+                aria-pressed={moment === chip.id}
+                onClick={() => {
+                  press(chip.id);
+                }}
+                style={{
+                  minHeight: 44,
+                  padding: '0 4px',
+                  // Half the label role's 0.16em, and the whole of what buys
+                  // a third column: fifteen characters at 1.6px is 24 of the
+                  // widest label's 114.00, and 16.33 of it had to go.
+                  letterSpacing: '0.08em',
+                  // Lit the way the search screen's scope chips are lit, and
+                  // for the same reason: a control that changes what is
+                  // below it has to say which way it is set without being
+                  // read twice.
+                  color: moment === chip.id ? 'var(--text)' : 'var(--text-2)',
+                  background: moment === chip.id ? 'var(--hope-wash)' : 'var(--panel)',
+                  border: `1px solid ${moment === chip.id ? 'var(--hope)' : 'var(--line)'}`,
+                  borderRadius: 'var(--r2)',
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+  );
+
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10 }}>
       <div
@@ -334,58 +456,25 @@ export function ShowSheet({
         style={{ flex: 1, minHeight: 0, gap: 10, padding: '14px 14px 0' }}
       >
         {searching ? (
-          <RuleSearchResults query={query} onQuery={setQuery} />
+          <RuleSearchResults query={query} onQuery={typed} />
         ) : (
           <>
+            {chipGrid}
             {/*
-              The moment chips, above the doors, in one scroll - the owner's
-              decision of 2026-08-25 §6. Three columns and two rows: the
-              docblock above carries every term of that, including the 16.33px
-              the third column costs and the tracking that pays for it.
-
-              A chip is drawn the way CLEAR is - a `t-label` with its words as
-              its own text and no `<span>` inside - and that is load bearing
-              rather than tidy: `merchant.test.tsx` enumerates the doors of
-              this sheet by reading the first `<span>` of every button in the
-              dialog, so a chip built like a door would join the list of doors
-              in seven assertions that are about which tools SHOW opens.
+              The doors, or the moment's own sections in their place.
+              
+              A lit chip is no longer an empty field, so the three doors stop
+              being what this surface has to say. They are what an empty sheet
+              offers; a chosen moment is an answer, and it takes the room. The
+              chips stay above it either way - that is the whole of the third
+              state this sheet grew, and it is what lets a GM read the list and
+              change their mind about which moment they meant without going
+              back through the field.
             */}
-            <div
-              role="group"
-              aria-label="What just happened"
-              style={{
-                flex: 'none',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 8,
-              }}
-            >
-              {MOMENTS.map((moment) => (
-                <button
-                  key={moment.id}
-                  type="button"
-                  className="t-label"
-                  onClick={() => {
-                    setQuery(moment.label.toLowerCase());
-                  }}
-                  style={{
-                    minHeight: 44,
-                    padding: '0 4px',
-                    // Half the label role's 0.16em, and the whole of what buys
-                    // a third column: fifteen characters at 1.6px is 24 of the
-                    // widest label's 114.00, and 16.33 of it had to go.
-                    letterSpacing: '0.08em',
-                    color: 'var(--text-2)',
-                    background: 'var(--panel)',
-                    border: '1px solid var(--line)',
-                    borderRadius: 'var(--r2)',
-                  }}
-                >
-                  {moment.label}
-                </button>
-              ))}
-            </div>
-            {liveDoors(prefs).map((choice) => (
+            {moment !== null ? (
+              <RuleSearchResults query="" moment={moment} onQuery={typed} />
+            ) : (
+              liveDoors(prefs).map((choice) => (
               /*
                 The label alone. `choice.body` is still in `showDoors.ts` and
                 still says what each tool is not - it is drawn beside that
@@ -415,12 +504,13 @@ export function ShowSheet({
                   {choice.label}
                 </span>
               </button>
-            ))}
+              ))
+            )}
           </>
         )}
       </div>
       <div className="stack" style={{ flex: 'none', padding: '0 14px 14px' }}>
-        <RuleSearchField value={query} onChange={setQuery} total={rules.length} />
+        <RuleSearchField value={query} onChange={typed} total={rules.length} />
       </div>
     </div>
   );
