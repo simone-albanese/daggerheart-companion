@@ -96,8 +96,15 @@ const RECORD_KEY = 'dhc.backup.v1';
  * `lastCopyAt` and `route` are a copy the GM saved by hand, and they
  * deliberately do **not** set `checksum`. `saveTextFile` reads nothing back: a
  * `download` or a `share` means the click happened, not that a file exists.
- * Recording it anyway is what lets an iOS GM who exports every week read
- * something other than "no backup yet" for ever.
+ *
+ * Their reader is `backupStatus`, which carries them as `lastCopyAt`,
+ * `copyDaysSince` and `copyRoute` - a second, weaker clock that Settings prints
+ * beside the age, so an iOS GM who exports every week stops reading "Never" for
+ * ever. Named here because a field written for a user-visible effect and read
+ * by nothing is a feature shipped switched off, and this one had no reader at
+ * all for a while: the write has a caller, so the orphan gate could not see it.
+ * That clock must never be folded into `daysSince`, `level` or `label` - see
+ * `backupStatus`.
  */
 interface CampaignNote {
   /** crc32 of the record last read back out of the folder. */
@@ -467,7 +474,34 @@ export async function runBackup(
   const d = withDeps(deps);
   const at = d.now();
   const characters = await d.listCharacters();
-  const snapshot = await d.liveCampaigns();
+  /*
+   * Guarded on its own, the way `integrityCheck` and `noteSession` guard their
+   * reads of the same store, and for a stronger reason: this is the one that
+   * *writes*.
+   *
+   * Unguarded, this await was the second statement of the function, so a
+   * campaign store that would not open aborted the whole run - the character
+   * file included - from inside a `void … .finally()` with no `.catch`, which
+   * left the indicator green over a backup that never happened. The characters
+   * are already in hand at this point (`backupDeps.ts` serves them from memory)
+   * and they have nothing to do with the campaign store; before the campaign
+   * leg existed a broken campaign store could not cost them anything, and it
+   * must not start now.
+   *
+   * It degrades to a *named failure*, never to an empty list: the empty list is
+   * seeded into `campaignFailures` in the same breath, so the run takes the
+   * `lastError` exit, the `.dhbackup` still lands, the clock is not stamped and
+   * the indicator goes red with the reason on it.
+   */
+  let snapshot: CampaignSnapshot = { campaigns: [], quarantined: [] };
+  let campaignDoorFailure: string | null = null;
+  try {
+    snapshot = await d.liveCampaigns();
+  } catch {
+    campaignDoorFailure =
+      'The campaigns on this device could not be read, so none of them is in this backup. ' +
+      'Close every tab of this app and open it again, then back up.';
+  }
   const campaigns = snapshot.campaigns;
 
   const quarantine = notReadableNotice(snapshot.quarantined);
@@ -500,7 +534,11 @@ export async function runBackup(
    * nothing - while the folder they had chosen sat empty and the indicator
    * never moved.
    */
-  if (characters.length === 0 && campaigns.length === 0) {
+  // `campaignDoorFailure` exempts both "nothing to do" returns, or the guard
+  // above trades one lie for a quieter one: an unreadable campaign store on a
+  // character-less device would report "nothing to back up" over campaigns that
+  // are sitting right there.
+  if (characters.length === 0 && campaigns.length === 0 && campaignDoorFailure === null) {
     return none('There is nothing to back up yet.');
   }
 
@@ -514,7 +552,7 @@ export async function runBackup(
     (c) => trigger === 'manual' || notes[c.id]?.checksum !== sums.get(c.id),
   );
 
-  if (!charactersDue && campaignsDue.length === 0) {
+  if (!charactersDue && campaignsDue.length === 0 && campaignDoorFailure === null) {
     return none('Nothing has changed since the last backup.');
   }
 
@@ -524,29 +562,66 @@ export async function runBackup(
 
   const handle = await loadBackupFolder();
   let folder: FileSystemDirectoryHandle | null = null;
+  /**
+   * Why the folder is unusable, when there *is* one and it said no.
+   *
+   * Remembered rather than composed and thrown away inside the `!interactive`
+   * arm. An interactive run falls through here on purpose - the character file
+   * still goes out by hand - but it used to fall through with `folder` null and
+   * nothing else, and the line below then read that null as "this device has no
+   * folder". A Chrome user whose remembered handle had gone back to `prompt`
+   * was told their browser has no folder picker, handed the iOS remedy, stamped
+   * "last backup: today" and had a standing `lastError` wiped off the panel -
+   * the honest sentence the automatic run had already recorded, erased by the
+   * button pressed to fix it.
+   */
+  let folderRefused: string | null = null;
   if (handle !== null) {
     const access = await directoryAccess(handle, { request: interactive });
     sessionAccess = access;
     if (access === 'granted' || access === 'unsupported') {
       folder = handle;
-    } else if (!interactive) {
-      const reason =
+    } else {
+      folderRefused =
         access === 'denied'
           ? `This browser no longer has permission to write to "${handle.name}". Open Settings and choose the folder again.`
           : `"${handle.name}" needs your confirmation before it can be written to again. Open Settings and choose the folder.`;
-      writeRecord({ lastError: reason });
-      return { ...none(reason), ok: false };
+      if (!interactive) {
+        writeRecord({ lastError: folderRefused });
+        return { ...none(folderRefused), ok: false };
+      }
     }
   } else if (!interactive) {
     return none('No backup folder has been chosen, so nothing is exported automatically.');
   }
-  if (folder === null && campaignsDue.length > 0) noFolderSaid = noFolderNotice(campaignsDue);
+  /**
+   * Campaigns that missed the folder because it refused, not because there is
+   * none. A failure, and never a `notice`: `notice` is documented as a true
+   * sentence about a run that *succeeded*, which is what the device with no
+   * picker at all gets, and folding a broken permission into it is how a run
+   * over a dead folder came back green.
+   */
+  let refusedCampaigns: string | null = null;
+  if (folder === null && campaignsDue.length > 0) {
+    if (folderRefused === null) noFolderSaid = noFolderNotice(campaignsDue);
+    else {
+      const one = campaignsDue.length === 1;
+      refusedCampaigns =
+        `Campaign files can only be written into a folder. ${folderRefused} Until then ` +
+        `${campaignsDue.map((c) => `"${c.name || 'A campaign'}"`).join(', ')} ` +
+        `${one ? 'is' : 'are'} not in this backup.`;
+    }
+  }
 
   let charactersLanded = false;
   let characterFailure: string | null = null;
   let route: SaveRoute | null = null;
   const campaignNames: string[] = [];
-  const campaignFailures: string[] = [];
+  // Seeded with the campaign door, when it would not open. That is what routes
+  // the guard at the top of this function through the machinery already here:
+  // `lastError` is recorded, `partial(…, false)` is returned, the clock is not
+  // stamped - and the character file, written above, is kept.
+  const campaignFailures: string[] = campaignDoorFailure === null ? [] : [campaignDoorFailure];
   const landed: Record<string, CampaignNote> = {};
 
   /**
@@ -581,7 +656,15 @@ export async function runBackup(
     campaignNames,
   });
 
-  /** "…and this much did get through", so a failure never hides a success. */
+  /**
+   * "…and this much did get through", so a failure never hides a success.
+   *
+   * Route-aware, because the folder is no longer the only way anything leaves.
+   * When the folder refuses an interactive run the `.dhbackup` still goes out
+   * through a download or a share sheet, and this sentence is printed over that
+   * outcome - saying a file "did reach the folder" when the folder is precisely
+   * what turned it away is the same class of false claim as the stamp.
+   */
   const alsoLanded = (): string => {
     const said = [
       charactersLanded ? fileName : null,
@@ -591,9 +674,27 @@ export async function runBackup(
             .map((name) => `"${name}"`)
             .join(', ')})`,
     ].filter((line): line is string => line !== null);
-    return said.length === 0
-      ? ''
-      : ` ${said.join(' and ')} did reach the folder; the rest is written again on the next attempt.`;
+    if (said.length === 0) return '';
+    const where = route === 'file-system' ? 'did reach the folder' : 'did get out';
+    return ` ${said.join(' and ')} ${where}; the rest is written again on the next attempt.`;
+  };
+
+  /**
+   * Every leg that failed, character sentence first - not the first one.
+   *
+   * This was `characterFailure ?? campaignFailures.join(' ')`, and the `??`
+   * meant a failing character leg swallowed the campaign sentences whole: a
+   * campaign that never reached the folder was then named in `reason`, in
+   * `detail`, in `lastError`, in `notice` and in `campaignNames` nowhere at
+   * all, while the surviving sentence still appended which campaigns *did*
+   * land, which reads as reassurance. Single-leg runs are unchanged, so the two
+   * behaviours the suite already pins do not move.
+   */
+  const failedLegs = (): string | null => {
+    const failures = [characterFailure, refusedCampaigns, ...campaignFailures].filter(
+      (line): line is string => line !== null,
+    );
+    return failures.length === 0 ? null : failures.join(' ');
   };
 
   if (folder !== null) {
@@ -665,8 +766,33 @@ export async function runBackup(
       characterFailure = null;
       route = saved.route ?? 'download';
     } else if (saved.cancelled) {
-      // Cancelling is not an error, so no `lastError` - and not a backup
-      // either, so no stamp.
+      /*
+       * Cancelling is not an error, so no `lastError` - and not a backup
+       * either, so no stamp.
+       *
+       * But the fallback is entered from two different states, and only one
+       * of them is a bare decision. With no usable folder at all there is
+       * nothing behind the cancel: `characterFailure` is null, no leg has
+       * failed, and closing the picker is the whole of what happened. With a
+       * folder that took the file and refused it - or that refused a campaign
+       * beside it - the refusal is already sitting in `characterFailure`,
+       * `refusedCampaigns` or `campaignFailures` before the picker ever opens.
+       * This branch used to `remember()` and return in both cases, ahead of
+       * the only line on this path that writes `lastError`, which threw the
+       * folder's own refusal away and left a device whose last run was clean
+       * reading "last backup: 3 days ago" over a folder that had just turned
+       * everything away. It carries whatever failed now instead of returning
+       * over it, and when nothing did the "cancelling is not an error" intent
+       * is untouched.
+       */
+      const failed = failedLegs();
+      if (failed !== null) {
+        remember({ lastError: failed });
+        return partial(
+          `${failed} The export was cancelled, so nothing was written by hand either.${alsoLanded()}`,
+          false,
+        );
+      }
       remember();
       return partial(
         campaignNames.length === 0
@@ -675,12 +801,25 @@ export async function runBackup(
         true,
       );
     } else {
-      characterFailure = saved.reason ?? 'The export failed.';
+      /*
+       * Both refusals, not the newer one.
+       *
+       * This assignment used to overwrite whatever the folder leg had already
+       * recorded, so a folder that had turned the file away and a hand-save
+       * that then failed on top of it came out as the picker's own generic
+       * sentence alone - "The export failed." - with nothing left pointing at
+       * Settings, which is the only place the folder can be fixed. It is the
+       * same loss the cancel branch above was repaired for, one line along.
+       */
+      const byHand = saved.reason ?? 'The export failed.';
+      characterFailure =
+        characterFailure === null
+          ? byHand
+          : `${characterFailure} Saving it by hand failed too: ${byHand}`;
     }
   }
 
-  const lastError =
-    characterFailure ?? (campaignFailures.length === 0 ? null : campaignFailures.join(' '));
+  const lastError = failedLegs();
   if (lastError !== null) {
     remember({ lastError });
     return partial(`${lastError}${alsoLanded()}`, false);
@@ -733,9 +872,16 @@ export async function runBackup(
  * Deliberately no `checksum`: that field is what suppresses a folder write, and
  * only `writeIntoDirectory` - which opens the file again and compares it - has
  * earned the right to set it. A `download` or a `share` route means the click
- * happened. Leaving it unrecorded, which is what this app did until now, leaves
- * an iOS GM who dutifully saves a copy every week reading "no backup yet" for
- * ever, and that trains them to ignore the one indicator that matters.
+ * happened.
+ *
+ * What reads it is `backupStatus`'s `lastCopyAt`/`copyDaysSince`/`copyRoute`,
+ * which Settings prints beside the age as its own sentence. That is the whole
+ * justification for the write, and it is named here rather than left implied:
+ * for a while this wrote a field no line of the app read, so an iOS GM who
+ * dutifully saved a copy every week for a month still read "Never", and three
+ * docblocks - this one among them - described an effect the build did not have.
+ * A write kept for a user-visible effect has to be able to point at the line
+ * that produces it.
  */
 export function noteCampaignCopy(id: string, route: SaveRoute, at: Date = new Date()): void {
   const notes = readRecord().campaigns ?? {};
@@ -830,6 +976,22 @@ export interface BackupStatus {
   /** True only when a folder is live *and* permitted right now. */
   automatic: boolean;
   lastError: string | null;
+  /**
+   * The newest copy of a campaign the GM saved by hand, and how it went out.
+   *
+   * A second clock, and a **weaker** one. It must never touch `lastBackupAt`,
+   * `daysSince`, `level` or `label`: `saveTextFile` reads nothing back, so a
+   * `download` or a `share` is evidence that a click happened and not that a
+   * file exists anywhere, and folding one into "last backup: today" is the
+   * precise claim this file opens by forbidding. What it is for is the other
+   * direction - an iOS GM has no folder picker, so a hand copy is the only
+   * evidence this app will ever have that a campaign got out of it, and
+   * printing "Never" over a month of dutiful weekly exports trains them to
+   * ignore the one indicator that matters.
+   */
+  lastCopyAt: string | null;
+  copyDaysSince: number | null;
+  copyRoute: SaveRoute | null;
 }
 
 /**
@@ -878,6 +1040,20 @@ export function backupStatus(deps?: Partial<BackupDeps>): BackupStatus {
     detail = 'Nothing is exported automatically until you choose a folder to keep backups in.';
   }
 
+  /*
+   * The hand-copy clock, read from the same record and deliberately kept out of
+   * everything above: `level` is already decided, `days` is already computed,
+   * and neither is allowed to see this.
+   */
+  const notes = Object.values(record.campaigns ?? {}).filter(
+    (note) => note.lastCopyAt !== undefined,
+  );
+  const newest = notes.reduce<CampaignNote | null>(
+    (best, note) =>
+      best === null || (note.lastCopyAt ?? '') > (best.lastCopyAt ?? '') ? note : best,
+    null,
+  );
+
   return {
     lastBackupAt: prefs.lastBackupAt ?? null,
     daysSince: days,
@@ -887,6 +1063,9 @@ export function backupStatus(deps?: Partial<BackupDeps>): BackupStatus {
     targetName: prefs.backupTarget ?? null,
     automatic,
     lastError: record.lastError ?? null,
+    lastCopyAt: newest?.lastCopyAt ?? null,
+    copyDaysSince: daysSince(newest?.lastCopyAt, d.now()),
+    copyRoute: newest?.route ?? null,
   };
 }
 
@@ -900,6 +1079,18 @@ export interface IntegrityReport {
   /** True when the gap was long enough for ITP to have been at work. */
   triggered: boolean;
   healthy: boolean;
+  /**
+   * False when the character store could not be read at all.
+   *
+   * Carried because the shell has a heading to choose and `healthy` on its own
+   * cannot tell it which store failed: a campaign store that would not open
+   * left `missingIds` and `missingCampaignIds` both empty - "an unanswered
+   * question is not a loss" - and the alert was then headed THE LIBRARY DID NOT
+   * OPEN over a character library that was intact and on screen beside it.
+   */
+  readable: boolean;
+  /** False when the campaign store could not be read at all. */
+  campaignsReadable: boolean;
   /** Characters at the end of the last session, and now. */
   expected: number;
   found: number;
@@ -1034,11 +1225,35 @@ export async function integrityCheck(deps?: Partial<BackupDeps>): Promise<Integr
    */
   if (missingCampaignIds.length > 0) {
     const one = missingCampaignIds.length === 1;
+    /*
+     * The remedy is a claim about a file, so it is made only where there is
+     * evidence of one - the same rule `triggered` enforces on the sentence
+     * above it.
+     *
+     * It used to be one hardcoded string, appended whenever a campaign was
+     * missing, sending the GM to look beside a character backup in a folder
+     * that on iOS cannot exist: `showDirectoryPicker` is not there, so `folder`
+     * is always null and no `.dhcampaign` was ever written. The evidence is
+     * already in `record.campaigns`, in the same localStorage the known-id list
+     * survives in - `fileName` is set only by a verified `writeIntoDirectory`,
+     * `lastCopyAt` only by a copy the GM saved by hand.
+     */
+    const notes = record.campaigns ?? {};
+    const inFolder = missingCampaignIds.some((id) => notes[id]?.fileName !== undefined);
+    const byHand = missingCampaignIds.some((id) => notes[id]?.lastCopyAt !== undefined);
+    const remedy = inFolder
+      ? ' A campaign is its own file: the .dhcampaign copies sit beside the character backup' +
+        ' in the same folder, one per campaign per day.'
+      : byHand
+        ? ' A campaign is its own file: the .dhcampaign copies are wherever SAVE A COPY put' +
+          ' them, which is usually the downloads folder.'
+        : ` A campaign is its own file, and no .dhcampaign copy of ${one ? 'it' : 'them'} was` +
+          ' ever written: campaign files go into a backup folder, and this device has never' +
+          ' had one.';
     message +=
       ` ${String(missingCampaignIds.length)} campaign${one ? '' : 's'} that ${one ? 'was' : 'were'}` +
       ` here at the end of the last session ${one ? 'is' : 'are'} not on this device now.` +
-      ' A campaign is its own file: the .dhcampaign copies sit beside the character backup' +
-      ' in the same folder, one per campaign per day.';
+      remedy;
   } else if (!campaignsReadable) {
     message += ' The campaign store could not be opened on this device.';
   }
@@ -1064,6 +1279,8 @@ export async function integrityCheck(deps?: Partial<BackupDeps>): Promise<Integr
     inactiveDays,
     triggered,
     healthy,
+    readable,
+    campaignsReadable,
     expected: known.length,
     found: characters.length,
     missingIds,

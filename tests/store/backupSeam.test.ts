@@ -258,6 +258,21 @@ describe('what a run wrote is said in one place', () => {
         /\brunBackup\s*\(/,
       );
       expect(source).toMatch(/\bsavedFiles\s*\(\s*outcome\s*\)/);
+      /*
+       * And the other half of the same sentence, which had no net at all:
+       * deleting `outcome.notice` at all four sites was silent under `tsc` and
+       * under the whole suite. `savedFiles`' own docblock explains why it is
+       * deliberately not folded in - "a caller that dropped it would be
+       * silently deciding the user does not need to know" - and that is exactly
+       * a thing prose alone cannot stop. A run that left every campaign out of
+       * the backup, or quarantined one a newer build wrote, still stamps the
+       * clock and clears `lastError`; `notice` is the only thing between that
+       * and a screen reporting it as a complete backup.
+       */
+      expect(
+        source,
+        `${screen} prints savedFiles(outcome) and drops outcome.notice, so a run that left campaigns out of the backup - or quarantined one a newer build wrote - reports itself to the user as a complete one`,
+      ).toMatch(/outcome\.notice/);
       for (const field of ['fileName', 'characters']) {
         expect(
           source,
