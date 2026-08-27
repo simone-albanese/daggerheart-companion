@@ -419,7 +419,15 @@ function armFlush(): void {
  * Chained rather than fired in parallel for the reason `state.ts` gives: a
  * second flush while the first is in flight must not resolve early, or a
  * `switchCampaign` awaiting it would swap the board out from under a write
- * that has not landed.
+ * that is still in flight.
+ *
+ * **Ordering, and not safety.** Awaiting this proves the write was *attempted*,
+ * never that it landed: `writeActive` catches its own rejection, so this
+ * resolves on the failing evening exactly as it does on the ordinary one, with
+ * `dirty` still true and `state.campaigns` still holding the record from before
+ * the failure. Every caller that follows a flush with something irreversible
+ * has to read `dirty` or `writeError` itself - `exportActiveCampaign` does, and
+ * `switchCampaign` does not.
  */
 export function flushGm(): Promise<void> {
   if (flushTimer !== null) {
@@ -1294,6 +1302,26 @@ export const useGm = create<GmState>((set, get) => {
       return campaign;
     },
 
+    /**
+     * KNOWN DEFECT, NAMED HERE RATHER THAN FIXED IN PASSING.
+     *
+     * `spread` replaces every live field, and the `flushGm` above proves only
+     * that the write was attempted. On an evening writes are failing - a full
+     * disk, or `putCampaign` throwing `StaleBuildError` because a second tab on
+     * a newer build got there first - `dirty` is still true and
+     * `state.campaigns` still holds the record from before the edit, so this
+     * line discards the live board of the campaign being left. Nothing on the
+     * glass says so.
+     *
+     * It is not new and it is not the import door's: MENU's campaign row drives
+     * this same line on `main` today, and a bare `switchCampaign` with no
+     * import at all loses the same board. The fix belongs here - fold the
+     * unlanded board back into `campaigns` and hand it to `scheduleAside`,
+     * which exists for exactly a record nobody is looking at - and it belongs
+     * in the change that owns this function, not in a repair of the door that
+     * merely calls it. Do not close this by making `TakeIn` careful; that
+     * leaves MENU open.
+     */
     async switchCampaign(id) {
       if (id === get().activeCampaignId) return;
       await flushGm();
