@@ -37,12 +37,42 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
    * `openCombatants` and `openEnvironment` are the store's own selectors and
    * not four lines of `find` written out here, because each carries an
    * argument this file would otherwise have to restate: the first returns the
-   * row's own array by reference, so an HP tap somewhere else in the plan does
-   * not repaint this grid, and the second refuses to fall back to
-   * `board.environmentRef`. That fallback is not a convenience - the board is
-   * the encounter builder's workbench, and a runner that borrowed its place
-   * would draw the fight in the PREVIOUS scene's terrain, which is the defect
-   * the scene row absorbed the fight to close.
+   * row's OWN array by reference and never a copy, and the second refuses to
+   * fall back to `board.environmentRef`. That fallback is not a convenience -
+   * the board is the encounter builder's workbench, and a runner that borrowed
+   * its place would draw the fight in the PREVIOUS scene's terrain, which is
+   * the defect the scene row absorbed the fight to close.
+   *
+   * ## What the by-reference return buys here, and what it does not
+   *
+   * It buys immunity to every commit that does not rebuild `session`. `useGm`
+   * compares by identity, so a fresh `[]` out of that selector would repaint
+   * this grid on every `+1` of Fear - `combatantsIn`'s docblock in
+   * `shared/campaigns.ts` is where that argument is made, and this file
+   * depends on it rather than restating it.
+   *
+   * It does NOT buy immunity to a combatant write. The line four below -
+   * `const session = useGm((s) => s.session)`, which `sceneClocks` and the
+   * open-row guard both need - subscribes to the whole array, and
+   * `withSceneFight` rebuilds `session` for every mark on every row. So a mark
+   * ANYWHERE repaints this component and, since neither `Scene` nor
+   * `CombatantCard` is memoised, every card under it.
+   *
+   * Counted rather than reasoned, because a memo is a lie until you count
+   * renders: a counter as the first statement of this function, two scene rows
+   * each holding one combatant, `openScene: 'A'`. `nudgeFear(1)` and
+   * `setRegion` give 0 renders each; `patchCombatant` gives 1 whether it lands
+   * on 'A' or on 'B' (the very first session write of a run costs 2, the extra
+   * one being `schedule()` flipping `dirty`); and `combatantsIn(session, 'A')`
+   * keeps its identity across all of them.
+   *
+   * That cost is small and it is stated rather than hidden, but do not write it
+   * up as an optimisation this component has. Nothing on the glass can mark a
+   * row the runner is not showing today - `patchCombatant` has no caller
+   * outside `CombatantCard`, which only ever passes the open row's id, and
+   * `Gm.tsx` draws the plan `inert` underneath the runner - so the day a
+   * control appears on some other row's fight, this is a real repaint and the
+   * fix is to stop subscribing to `session` whole, not to add a memo.
    */
   const openScene = useGm((s) => s.openScene);
   const combatants = useGm(openCombatants);
@@ -1137,16 +1167,16 @@ function CombatantCard({
        * number does two things and a GM must see both before committing.
        *
        * THE DIVISOR COMES FROM `byRef` WHILE THE THRESHOLDS BESIDE IT COME
-       * FROM THE BOARD, and that is the shape `sceneTruth.test.tsx` pins
+       * FROM THE COMBATANT, and that is the shape `sceneTruth.test.tsx` pins
        * *against* for Difficulty. It is not the same case. The disagreement
        * that test guards is two sources for ONE number: `makeCombatant` copies
-       * `difficulty` onto the board at spawn, so the dataset and the board can
-       * drift apart and the card must print the copy the GM can see. The board
-       * carries no divisor at all - `SceneCombatant` has `minionsRemaining` and
-       * nothing to divide by - so there is nothing here for `byRef` to
-       * contradict. And when the lookup misses, the arithmetic is simply
-       * absent: the card already says NOT IN THIS DATASET, and a guessed
-       * divisor would be worse than none.
+       * `difficulty` onto the combatant at spawn (`encounter.ts:231`), so the
+       * dataset and the scene row can drift apart and the card must print the
+       * copy the GM can see. The combatant record carries no divisor at all -
+       * `SceneCombatant` has `minionsRemaining` and nothing to divide by - so
+       * there is nothing here for `byRef` to contradict. And when the lookup
+       * misses, the arithmetic is simply absent: the card already says NOT IN
+       * THIS DATASET, and a guessed divisor would be worse than none.
        */}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <input

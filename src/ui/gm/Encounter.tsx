@@ -591,11 +591,25 @@ function Adjustments({
  * does not split by destination, because the defect it reports is the same one
  * either way.
  *
- * Neither string added here is longer than the one it stands in for - `THE
- * OPEN SCENE'S OWN PLACE` is shorter than `CARRIED OVER, NOT PICKED HERE`, and
- * `THE OPEN SCENE HAS NO ENVIRONMENT` shorter than `NO ENVIRONMENT ON THE
- * BOARD` - so the wrap this line was written to tolerate cannot have got
- * worse. Read off the literals, not measured.
+ * One of the two strings added here is shorter than the one it stands in for
+ * and one is longer, and the sentence that said "neither is longer" had the
+ * second comparison backwards. Counted with `len()`, not read off: `THE OPEN
+ * SCENE'S OWN PLACE` is 26 against `CARRIED OVER, NOT PICKED HERE`'s 29, so
+ * the whose-clause got shorter; but `THE OPEN SCENE HAS NO ENVIRONMENT` is 33
+ * against `NO ENVIRONMENT ON THE BOARD`'s 27, which takes the whole
+ * no-environment line from 58 characters to 64.
+ *
+ * So the wrap tolerance for that one branch has not been measured, and the old
+ * conclusion that it "cannot have got worse" is withdrawn rather than patched.
+ * What bounds it is that 64 is not the longest line this function puts on the
+ * glass: the longest environment name in the shipped dataset is `Burning Heart
+ * of the Woods` at 26, which makes `OPENS IN BURNING HEART OF THE WOODS ·
+ * CARRIED OVER, NOT PICKED HERE` 67 characters, and this commit does not
+ * touch that branch. So the new line sits three inside an envelope the span
+ * already carried. Both figures are `len()` over the literals and over
+ * `max(e['name'] for e in data/srd-1.0.json environments)`; neither is a
+ * rendered width, and the day this span's wrap actually matters it wants a
+ * measurement in Chrome rather than a longer arithmetic.
  */
 function opensIn(environment: Environment | undefined, ref: Ref | null, minting: boolean): string {
   const whose = minting ? 'CARRIED OVER, NOT PICKED HERE' : "THE OPEN SCENE'S OWN PLACE";
@@ -810,7 +824,7 @@ function Roster({
             would be false about the Solo - and a label that is false on a
             mixed roster is worse than a number that is bare on every one.
             SEND 3 CARDS names this app's furniture rather than the fiction,
-            and the thing that arrives on the board is an adversary.
+            and the thing that arrives in the scene is an adversary.
 
             The `AddButton` rule is not being broken here, which is the part
             worth saying out loud: that rule is about a number that counts

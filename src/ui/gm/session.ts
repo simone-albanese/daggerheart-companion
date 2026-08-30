@@ -439,10 +439,22 @@ export function describeItem(
  * `newEncounter` is **gone rather than deprecated**: a factory nothing calls is
  * how a kind that is supposed to be uncreatable gets created again.
  *
- * `combatants` is empty and has to be: the row's combatant list is the *fight
- * as it is being fought*, and nothing in `gmStore` sets one wholesale, so a
- * factory that invented one would write a field no control can ever change
- * again. The roster and the adjustments are **copied rather than aliased** -
+ * `combatants` is empty and has to be, and the reason is not the one this
+ * paragraph used to give. It argued that nothing in `gmStore` sets a combatant
+ * list wholesale, so an invented one would be a field no control could ever
+ * change again. That was false before this wave as well as after it - on
+ * `main` `clearScene` and both halves of park/resume already replaced a scene
+ * row's list outright, and today `spawn`, `patchCombatant`, `removeCombatant`
+ * and `clearScene` all hand `withSceneFight` a whole new array. It is deleted
+ * rather than re-derived, which is what `AddSheet.tsx` did with its own copy of
+ * the same dead argument.
+ *
+ * The fact that was doing the work is smaller and survives it: the row's
+ * combatant list is the *fight as it is being fought*, so a factory that
+ * invented one would put a fight on the plan that nobody has fought. ADD mints
+ * a beat of the evening, not a table mid-round.
+ *
+ * The roster and the adjustments are **copied rather than aliased** -
  * they come from the live board, and a plan that changed when the board changed
  * would not be a plan.
  *
