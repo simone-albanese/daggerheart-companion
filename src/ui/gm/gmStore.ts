@@ -4,9 +4,10 @@
  * This file used to open by arguing that a scene is not a character and could
  * therefore live in localStorage, written synchronously on every change. Half
  * of that was true and half of it was never checked. What is actually in here
- * is the live fight, the Fear pool, every countdown, the whole session list -
- * and the party board, which holds *whole copies of the players' character
- * sheets*, deliberately, for the reason `party.ts` gives. Keeping those in the
+ * is the Fear pool, every countdown, the whole session list - which is where
+ * the live fight lives, on the scene row it is fought in - and the party
+ * board, which holds *whole copies of the players' character sheets*,
+ * deliberately, for the reason `party.ts` gives. Keeping those in the
  * store iOS clears first, under a five-megabyte ceiling shared with everything
  * else on the origin, was the one place in this app where the durability
  * argument in Architecture 6 had never been applied.
@@ -23,10 +24,19 @@
  *   - writes on a 400 ms debounce instead of a synchronous `JSON.stringify` of
  *     the entire board on every `+1` of Fear.
  *
- * The screens above this file did not change. Every field they read - `fear`,
- * `countdowns`, `combatants`, `party` and the rest - is still here with the
- * same name and the same shape; what changed is where it is written and that
- * there is now a campaign under it. `countdowns` is the one field that is
+ * The screens above this file did not change when the campaign arrived under
+ * them. Every field they read then - `fear`, `countdowns`, `combatants`,
+ * `party` and the rest - kept its name and its shape, and only the place it
+ * was written moved.
+ *
+ * `combatants` is the one of those that has since stopped being a field of
+ * this store at all. Campaign schema 5 put the fight on the scene row it is
+ * fought in, so there is no board-wide combatant list left to read: the runner
+ * asks `openCombatants` for the fight in the row `openScene` names, and every
+ * writer of a fight is addressed by `(sceneId, id)`. What the board still
+ * holds is the builder's workbench - `region`, `partyTier`, `roster`,
+ * `adjustments`, `environmentRef` - plus `openScene`, which is navigation and
+ * not ownership. `countdowns` is the one field that is
  * derived rather than stored: countdowns are rows of the session list, because
  * that is where the wireframe draws them, and keeping a second array beside
  * the list would be two things to hold in step. It is recomputed in `commit`,
@@ -36,8 +46,10 @@ import { create } from 'zustand';
 import {
   COUNTDOWN_BEATS_MAX,
   COUNTDOWN_TEXT_MAX,
+  combatantsIn,
   countdownsOf,
   emptyBoard,
+  environmentIn,
   newCampaign,
   withPrimaryCountdown,
   withSceneScope,
@@ -188,47 +200,70 @@ export interface GmState extends GmLive {
   clearRoster: () => void;
   toggleAdjustment: (key: keyof EncounterAdjustments) => void;
 
-  /** Put `times` copies of an adversary into the live scene. */
-  spawn: (adversary: Adversary, partySize: number, times?: number) => void;
-  patchCombatant: (id: string, patch: Partial<SceneCombatant>) => void;
-  removeCombatant: (id: string) => void;
-  clearScene: () => void;
   /**
-   * Park the board into the row it came from, and put this row's fight on it.
+   * Put `times` copies of an adversary into one scene row's fight.
    *
-   * The one action in `gmStore` that sets a combatant list wholesale, and the
-   * founding rule at `SessionBody.tsx:53-58` is overturned for it deliberately
-   * rather than quietly - what that rule guards against is a fight *dropped*,
-   * and this is the one verb that puts a fight somewhere instead of on the
-   * floor. Every other writer still builds the list a combatant at a time.
+   * `sceneId` first, and on all four of these verbs, because that is the whole
+   * address of a combatant now: `SceneCombatant.id` is unique inside its row
+   * and means nothing outside it, so a writer that took an id alone would have
+   * to guess which fight it meant. The compiler asks every caller the question
+   * instead.
    *
-   * Only `kind: 'scene'` rows. See `liveScenes`.
+   * TOTAL, AND IT MINTS NOTHING. An id that names no `kind: 'scene'` row
+   * commits nothing at all. The verb that makes a row to fight in is
+   * `openNewScene`, it is a separate tap with its own label, and the split is
+   * the point: a store that minted a home behind the GM's back is how a fight
+   * used to end up on a board belonging to nobody, unnameable and undrawable
+   * on the plan.
+   *
+   * The free index is scanned over THAT ROW's array only - the same scope the
+   * board scan had when there was one array, now stated rather than accidental.
+   * Two rows may each hold an `acid-burrower-0`; `SessionItem`'s row-local id
+   * invariant says so in as many words.
    */
-  runScene: (sceneId: string) => void;
+  spawn: (sceneId: string, adversary: Adversary, partySize: number, times?: number) => void;
+  patchCombatant: (sceneId: string, id: string, patch: Partial<SceneCombatant>) => void;
+  removeCombatant: (sceneId: string, id: string) => void;
   /**
-   * Give the fight already on the board to a row, without moving anything.
+   * Empty one row's fight, and leave the runner where it is.
    *
-   * `runScene` is the verb that *swaps* tables; this is the verb for the state
-   * that had no verb at all - a board with combatants on it and
-   * `liveScene === null`, which is where the ordinary path through this app
-   * used to end up and where the bestiary and the builder still can. There the
-   * fight belongs to nobody: the plan cannot mark it, `liveScenes` returns
-   * nothing so the switcher draws no chip, and `countdownsIn(session, null)`
-   * hands the runner the campaign's clocks in place of the scene's.
-   *
-   * The machinery to give that fight a home already existed and fired only as a
-   * side effect of leaving it: `runScene` mints an untitled row for an
-   * unparkable board on the way past. That is the right repair arriving at the
-   * wrong moment, and it costs the GM the name - this lets them say whose fight
-   * it is while they are still looking at it.
-   *
-   * Nothing is copied, in either direction. The live row's own `combatants` is
-   * empty by the same invariant `runScene` maintains on resume, so adopting is
-   * the pointer and only the pointer. Refused when the target row is holding a
-   * parked fight of its own: two fights and one board is a state no screen can
-   * draw honestly, and the caller offers `BACK TO THIS FIGHT` there instead.
+   * `openScene` is deliberately untouched: ending the fight in the Foresta
+   * leaves you looking at the Foresta. It used to clear the pointer too, and
+   * its own words were "the board is empty and belongs to no row" - true while
+   * the pointer meant ownership of a fight that lived somewhere else. It means
+   * navigation now, and a GM who ends a fight has not asked to leave the
+   * scene.
    */
-  adoptBoard: (sceneId: string) => void;
+  clearScene: (sceneId: string) => void;
+  /**
+   * Point the runner at a scene row, or at none.
+   *
+   * Navigation, and one string written. It does NOT set `region`, and that is
+   * a division of labour rather than an omission: opening the runner is the
+   * caller's `onOpenTool('scene')`, and keeping the two apart is what lets a
+   * switcher chip change which fight is drawn without moving the screen
+   * underneath it. A door that wants both does both, in that order.
+   *
+   * Refuses an id that names no `kind: 'scene'` row, so nothing in this store
+   * can leave `openScene` dangling. `null` always lands - it is how the runner
+   * is closed.
+   */
+  showScene: (sceneId: string | null) => void;
+  /**
+   * Mint a scene row, open it, and hand back its id. One commit.
+   *
+   * The id comes back for the same reason `addCountdown`'s does: a caller that
+   * has to do something to the row it just made - `spawn` into it - has no
+   * other way to name it, and reading `session.at(-1)` would be the caller
+   * holding an opinion about how this function appends.
+   *
+   * It takes the board's `environmentRef`, which is what `newScene` does for
+   * every other door that mints a row. That is the builder's place being
+   * offered to a scene that has none yet, not the board owning anything: the
+   * row can be given a different one, and from then on the row's is what the
+   * runner draws.
+   */
+  openNewScene: (name?: string) => string;
 
   setEnvironment: (ref: Ref | null) => void;
 
@@ -336,9 +371,8 @@ const spread = (c: Campaign): GmLive => ({
   partyTier: c.board.partyTier,
   roster: c.board.roster,
   adjustments: c.board.adjustments,
-  combatants: c.board.combatants,
   environmentRef: c.board.environmentRef,
-  liveScene: c.board.liveScene,
+  openScene: c.board.openScene,
   fear: c.fear,
   session: c.session,
   party: c.party,
@@ -357,11 +391,34 @@ const gather = (base: Campaign, live: GmLive, at: string): Campaign => ({
     partyTier: live.partyTier,
     roster: live.roster,
     adjustments: live.adjustments,
-    combatants: live.combatants,
     environmentRef: live.environmentRef,
-    liveScene: live.liveScene,
+    openScene: live.openScene,
   },
 });
+
+/**
+ * The fight the runner is showing, and the place it is being fought in.
+ *
+ * Both read the open row and nothing else. There is no board array behind
+ * either of them to disagree with, which is the whole of what schema 5 bought,
+ * and neither falls back to the board: `board.environmentRef` is the builder's
+ * workbench, and a runner that borrowed it would open a fight silently in the
+ * *previous* scene's place - the defect the scene row absorbed the fight to
+ * close. `environmentIn`'s own docblock carries that argument.
+ *
+ * Referentially stable while `openScene` and the row are: `combatantsIn`
+ * returns the row's OWN array, never a copy, and one shared empty array for
+ * the two ways of having no fight. That is load-bearing rather than tidy -
+ * zustand 5 memoizes no selector, so a fresh `[]` here would repaint the
+ * runner on every `+1` of Fear - and it holds only while every writer of a
+ * fight rebuilds the array instead of marking it in place. In this store there
+ * is exactly one such writer, `withSceneFight`, and it rebuilds by spread.
+ */
+export const openCombatants = (s: GmState): SceneCombatant[] =>
+  combatantsIn(s.session, s.openScene);
+
+export const openEnvironment = (s: GmState): Ref | null =>
+  environmentIn(s.session, s.openScene);
 
 function clampFear(n: number): number {
   return Number.isFinite(n) ? Math.max(0, Math.min(MAX_FEAR, Math.round(n))) : 0;
@@ -895,6 +952,32 @@ export const useGm = create<GmState>((set, get) => {
     else scheduleAside(id);
   };
 
+  /**
+   * THE ONLY FUNCTION IN THIS STORE THAT WRITES A SCENE ROW'S COMBATANTS.
+   *
+   * Total: an id that names no `kind: 'scene'` row commits nothing, so no verb
+   * above has to guard for itself and none of them can mint a home by accident.
+   *
+   * It rebuilds only the row it changes. Every other row keeps its object
+   * identity, so the plan list does not re-render under an HP tap - and the
+   * row it does change gets a NEW array, never a marked one, which is the
+   * precondition `combatantsIn` is written against. One writer is what makes
+   * that discipline checkable: `patchSessionItem` strips `combatants` out of a
+   * general row patch for the same reason.
+   */
+  const withSceneFight = (
+    sceneId: string,
+    f: (row: Extract<SessionItem, { kind: 'scene' }>) => SceneCombatant[],
+  ): void => {
+    const session = get().session;
+    if (!session.some((i) => i.kind === 'scene' && i.id === sceneId)) return;
+    commit({
+      session: session.map((i) =>
+        i.kind === 'scene' && i.id === sceneId ? { ...i, combatants: f(i) } : i,
+      ),
+    });
+  };
+
   const withCountdown = (id: string, f: (c: Countdown) => Countdown): SessionItem[] =>
     get().session.map((item) =>
       item.kind === 'countdown' && item.countdown.id === id
@@ -944,152 +1027,82 @@ export const useGm = create<GmState>((set, get) => {
       commit({ adjustments: { ...adjustments, [key]: !adjustments[key] } });
     },
 
-    spawn(adversary, partySize, times = 1) {
-      const combatants = [...get().combatants];
-      // makeCombatant derives the id from an index; find free ones so a second
-      // Acid Burrower cannot collide with the first.
-      let index = 0;
-      for (let n = 0; n < times; n += 1) {
-        while (combatants.some((c) => c.id === `${adversary.id}-${index}`)) index += 1;
-        combatants.push(makeCombatant(adversary, index, partySize));
-        index += 1;
-      }
-      commit({ combatants });
-    },
-
-    patchCombatant(id, patch) {
-      commit({
-        combatants: get().combatants.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    spawn(sceneId, adversary, partySize, times = 1) {
+      withSceneFight(sceneId, (row) => {
+        const combatants = [...row.combatants];
+        // makeCombatant derives the id from an index; find free ones so a
+        // second Acid Burrower cannot collide with the first in THIS row. Ids
+        // are row-local, so a collision with another row's is not one.
+        let index = 0;
+        for (let n = 0; n < times; n += 1) {
+          while (combatants.some((c) => c.id === `${adversary.id}-${index}`)) index += 1;
+          combatants.push(makeCombatant(adversary, index, partySize));
+          index += 1;
+        }
+        return combatants;
       });
     },
 
-    removeCombatant: (id) => commit({ combatants: get().combatants.filter((c) => c.id !== id) }),
+    patchCombatant(sceneId, id, patch) {
+      withSceneFight(sceneId, (row) =>
+        row.combatants.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      );
+    },
+
+    removeCombatant: (sceneId, id) =>
+      withSceneFight(sceneId, (row) => row.combatants.filter((c) => c.id !== id)),
 
     /*
-     * END SCENE reaches the row as well as the glass, and that is an overturn
-     * of what `Scene.tsx` states on the glass beside the button.
+     * END SCENE empties the row, which is now the only place there is to empty,
+     * and leaves `openScene` alone.
      *
-     * It has to be. Once a fight can be parked, emptying only the board leaves
-     * the row still holding the copy it was parked with - so the GM ends the
-     * fight, flips to another scene, comes back, and the dead are all standing.
-     * "End" would be the only word in the runner that the parking made false.
+     * This comment used to argue the opposite half - that emptying the board
+     * was not enough, because a parked copy on the row would have the dead all
+     * standing again after a flip. There is no second copy to fall out of step
+     * any more, so the argument is retired rather than restated: one write to
+     * one array ends the fight everywhere it was.
      *
-     * `liveScene` goes with them: the board is empty and belongs to no row.
+     * What is deliberate is what does NOT happen. The pointer stays, so the
+     * runner keeps drawing the scene whose fight just ended - the GM said
+     * "this fight is over", not "take me away from this table".
      */
-    clearScene: () => {
-      const s = get();
-      commit({
-        session: s.session.map((i) =>
-          i.kind === 'scene' && i.id === s.liveScene ? { ...i, combatants: [] } : i,
-        ),
-        combatants: [],
-        liveScene: null,
-      });
+    clearScene: (sceneId) => withSceneFight(sceneId, () => []),
+
+    showScene(sceneId) {
+      /*
+       * Refused rather than written, and refused HERE rather than repaired on
+       * the way back off the disk.
+       *
+       * `readCampaignRecord` nulls a dangling pointer in silence on load,
+       * because a hand-edited file is not the app's fault. A dangling pointer
+       * written by this store would be: `liveScenes` would draw no chip for it
+       * and the runner would show an empty scene that the plan does not list.
+       */
+      if (sceneId !== null && !get().session.some((i) => i.kind === 'scene' && i.id === sceneId))
+        return;
+      commit({ openScene: sceneId });
     },
 
-    adoptBoard(sceneId) {
+    openNewScene(name) {
       const s = get();
-      if (s.liveScene !== null) return;
-      const target = s.session.find((i) => i.id === sceneId);
-      if (target === undefined || target.kind !== 'scene') return;
-      // A row already holding marks of its own would end up naming two fights.
-      if (target.combatants.length > 0) return;
-      commit({ liveScene: sceneId });
-    },
-
-    runScene(sceneId) {
-      const s = get();
-      if (sceneId === s.liveScene) return;
-      const target = s.session.find((i) => i.id === sceneId && i.kind === 'scene');
-      if (target === undefined || target.kind !== 'scene') return;
-
+      const row = newScene(name ?? '', s.environmentRef);
       /*
-       * Copy at BOTH crossings, and deeply enough to include `thresholds`.
+       * ONE commit for the mint and the open together. Two would leave a frame
+       * with a row on the plan that the runner is not showing, and the whole
+       * point of this verb is that the GM taps once and arrives somewhere.
        *
-       * `spread` hands the board's array in by reference and `gather` hands it
-       * back; every writer rebuilds the array today, and one edit is all that
-       * stands between that and a row holding a live handle on the fight that
-       * is being played. `thresholds` is a mutable tuple and rides along for
-       * the same reason `hp` and `stress` do - it is harmless against today's
-       * writers, which is exactly the argument that stops being true later.
-       */
-      const copy = (c: SceneCombatant): SceneCombatant => ({
-        ...c,
-        hp: { ...c.hp },
-        stress: { ...c.stress },
-        thresholds: c.thresholds === null ? null : [...c.thresholds],
-      });
-
-      /*
-       * A board that belongs to no row is a fight a GM started from the
-       * bestiary. It gets a home rather than being dropped: minting an untitled
-       * scene row is better than today's anonymous board, an empty name is
-       * legal and `sessionTitle` draws it as SCENE, and the row is renameable.
-       * The app makes a house instead of asking permission to destroy.
-       */
-      /*
-       * `liveScene` names a row, not necessarily a SCENE row.
-       *
-       * The reader's repair pass checks the pointer against every row's id on
-       * purpose - an `unreadable` row keeps its id so a build that cannot parse
-       * it cannot lose it - so a hand-edited file can leave the board pointing
-       * at a countdown row or an unreadable one. The park below only ever
-       * matches scene rows, so without this a fight would have nowhere to go
-       * and the commit would overwrite it: the silent loss in person.
-       *
-       * A pointer that names no scene row is treated exactly like no pointer:
-       * the fight gets a freshly minted home instead of the floor.
-       */
-      const parkable = s.session.some((i) => i.kind === 'scene' && i.id === s.liveScene);
-      const minted =
-        !parkable && s.combatants.length > 0 ? newScene('', s.environmentRef) : null;
-
-      const parkId = minted?.id ?? (parkable ? s.liveScene : null);
-      const base =
-        minted === null ? s.session : [...s.session, { ...minted, order: s.session.length }];
-
-      const session = base.map((item) => {
-        if (item.kind !== 'scene') return item;
-        // Park: the board goes back to the row it came from.
-        if (item.id === parkId) return { ...item, combatants: s.combatants.map(copy) };
-        /*
-         * Resume: the row hands its fight over and keeps no copy. Two copies of
-         * one fight with different marks is a state no screen can draw
-         * honestly, and the shut row would print the pre-flip count for the
-         * scene that is being played.
-         */
-        if (item.id === sceneId) return { ...item, combatants: [] };
-        return item;
-      });
-
-      /*
-       * ONE commit. Two leave a frame where the fight is in both places or in
-       * neither, and `commit` re-derives `countdowns` only on the call that
-       * carries `session`. And it must be `commit`, never a bare `set`: this
-       * changes the record AND the board, the opposite of the campaign-switch
-       * paths where the record loaded IS what is on disk.
+       * An empty name is legal and `sessionTitle` draws it as SCENE. That is
+       * the difference between this and the mint schema 4 did as a side effect
+       * of a flip: this one was asked for by a labelled button, and the row it
+       * makes is renameable while the GM is still looking at it.
        */
       commit({
-        session: session.map((item, order) => ({ ...item, order })),
-        liveScene: sceneId,
-        combatants: target.combatants.map(copy),
-        /*
-         * Only when the row has one, and never on the way out. The row is the
-         * plan; a park that wrote the plan would let
-         * `PUT THIS ENVIRONMENT ON THE BOARD` on one row quietly rewrite
-         * another row's place. That verb is disabled on exactly
-         * `environmentRef === null`, and resume must not walk through a door
-         * the app locks.
-         *
-         * The cost, accepted: an environment the GM swapped mid-fight from the
-         * bestiary or a link row is not carried back into the row, so flipping
-         * away and back restores the row's own place instead.
-         * `KEEP THE BOARD'S ENVIRONMENT HERE` is still the one verb that writes
-         * a row's place.
-         */
-        ...(target.environmentRef !== null ? { environmentRef: target.environmentRef } : {}),
+        session: [...s.session, { ...row, order: s.session.length }],
+        openScene: row.id,
       });
+      return row.id;
     },
+
     setEnvironment: (environmentRef) => commit({ environmentRef }),
 
     setFear: (value) => commit({ fear: clampFear(value) }),
@@ -1191,7 +1204,33 @@ export const useGm = create<GmState>((set, get) => {
         session: get().session.map((item) =>
           // The kind is not patchable: a `scene` becoming an `encounter` would
           // leave the fields of the one it stopped being sitting on the row.
-          item.id === id ? ({ ...item, ...patch, kind: item.kind } as SessionItem) : item,
+          //
+          // Neither is the fight, and for a sharper reason. `withSceneFight` is
+          // the one writer of a row's combatants, and "one writer" is not a
+          // tidiness claim - `combatantsIn` hands the runner the row's own
+          // array by reference, so its identity is what decides whether the
+          // whole runner repaints, and a caller reaching a fight through a
+          // general row patcher is exactly the shape that puts a marked array,
+          // or another row's array, onto a row. A patch that carries
+          // `combatants` is not refused, it is stripped: the rest of what it
+          // asked for is ordinary row editing and still lands.
+          //
+          // `'combatants' in item` and not `item.kind === 'scene'`, which is
+          // one clause wider than the change that brought this line. Two arms
+          // of `SessionItem` carry a fight - `scene` and the legacy
+          // `encounter` - and `withSceneFight` can rebuild only the first, so
+          // an `encounter` row's marks are the ones with no writer to put them
+          // back. Naming the kind would have left exactly those reachable, and
+          // would go stale in silence the day a third arm carries a fight.
+          // Rows that hold none spread nothing and are untouched.
+          item.id === id
+            ? ({
+                ...item,
+                ...patch,
+                kind: item.kind,
+                ...('combatants' in item ? { combatants: item.combatants } : {}),
+              } as SessionItem)
+            : item,
         ),
       });
     },
@@ -1217,14 +1256,27 @@ export const useGm = create<GmState>((set, get) => {
               : { ...item, order },
           ),
         /*
-         * The pointer goes, the fight stays. The GM deleted a row of the plan;
-         * they did not ask to end a fight. The board keeps what is on it with
-         * no row behind it, and the next `runScene` mints it a home.
+         * THE FIGHT GOES WITH THE ROW. This clause used to say the opposite,
+         * and the inversion is the change, not a tidy-up.
          *
-         * Without this the pointer dangles, and the next park is a `.map` that
-         * matches nothing and drops the fight on the floor.
+         * Under schema 4 the fight was on the board and the row only pointed at
+         * it, so deleting a row had to keep the fight and drop the pointer -
+         * "the GM deleted a row of the plan; they did not ask to end a fight" -
+         * and what was left was a fight belonging to nobody, which the next
+         * flip had to mint a home for. Schema 5 deleted that state. A scene
+         * row's `combatants` IS the fight, so deleting the row deletes it, in
+         * the `filter` above and with no clause of its own.
+         *
+         * That is what the control has always said: `SessionRow.tsx` arms this
+         * delete as TAP AGAIN TO DELETE THE FIGHT. The arming was already
+         * written for the behaviour this line now has.
+         *
+         * What is left here is navigation. `openScene` names a row that no
+         * longer exists, so the runner is closed rather than left pointing at
+         * nothing - the same repair `readCampaignRecord` makes in silence on
+         * the way in from disk, made warm, while the GM is looking at it.
          */
-        ...(s.liveScene === id ? { liveScene: null } : {}),
+        ...(s.openScene === id ? { openScene: null } : {}),
       });
     },
 
