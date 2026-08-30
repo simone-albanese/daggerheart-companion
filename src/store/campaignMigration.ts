@@ -87,11 +87,16 @@ const LEGACY_CAMPAIGN_ID = 'campaign-from-gm-v1';
  *
  * ## What the suite holds, and what it does not
  *
- * Measured, not assumed. Mutating this to 5 turns
+ * Measured, not assumed - and stated as a difference, because a total is a
+ * fact about the day it was written. What a mutant is worth here is the
+ * failure it ADDS to `npx vitest run tests/store/`, compared name for name;
+ * the number that run prints is not evidence of anything, and this paragraph
+ * has already carried one that a later commit in its own wave made false.
+ *
+ * Mutating this to 5 adds exactly one failure, and it is the right one:
  * `campaignMigration.test.ts`'s *brings across every part of it, not just the
- * Fear* red on the spot, which is the loss above caught the moment it happens.
- * Mutating it to 3 changes nothing: `npx vitest run tests/store/` gives the
- * same 534 passes, because the `from: 3` entry is a pure copy and 3 -> 4 -> 5
+ * Fear*, which is the loss above caught the moment it happens. Mutating it to
+ * 3 adds none, because the `from: 3` entry is a pure copy and 3 -> 4 -> 5
  * lands the fight in the same place 4 -> 5 does.
  *
  * So what the tests pin is the boundary - this number is BELOW
@@ -274,16 +279,18 @@ function campaignFromLegacy(
       environmentRef: legacy['environmentRef'],
       // Null, and named rather than omitted. `dhc.gm.v1` was written before
       // campaigns existed at all, so there is no row its board could name -
-      // which is what sends the fight above down the converter's third branch,
-      // onto a row minted for it.
+      // which is what sends a blob that HAS a fight down the converter's third
+      // branch, onto a row minted for it. A blob whose list is empty takes the
+      // first branch instead, where this same null is simply renamed.
       //
       // Named because this literal is a whole schema-4 board or it is nothing,
       // and NOT because the compiler insists: this function returns
       // `Record<string, unknown>` and its board has never been checked against
-      // `GmBoard`. Nothing holds this line either - deleting it leaves the
-      // suite at 534 passes, because the converter reads a missing `liveScene`
-      // and a null one the same way. It is here for the reader, and it is the
-      // reader who has to keep it.
+      // `GmBoard`. Nothing holds this line either - deleting it adds no failure
+      // to `npx vitest run tests/store/`, because the converter reads a missing
+      // `liveScene` and a null one the same way, so no test of behaviour could
+      // separate them. It is here for the reader, and it is the reader who has
+      // to keep it.
       liveScene: null,
     },
   };
