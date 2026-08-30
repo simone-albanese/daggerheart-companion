@@ -483,17 +483,18 @@ function armFlush(): void {
  * resolves on the failing evening exactly as it does on the ordinary one, with
  * `dirty` still true and `state.campaigns` still holding the record from before
  * the failure. Every caller that follows a flush with something irreversible
- * has to read `dirty` or `writeError` itself, and all four in this file now
- * do. `exportActiveCampaign` reads `dirty` and folds the live board into the
- * record it serializes. `switchCampaign` and `createCampaign` both `spread` a
- * different campaign over the live board immediately afterwards, and both call
- * `keepUnlandedBoard` first - one step, holding the reading of `dirty` for the
- * pair of them, where a KNOWN DEFECT notice used to stand instead of a call.
- * `removeCampaign` spreads only when the record it just deleted was the open
- * one, so the board it discards belongs to a campaign the GM asked to be rid
- * of. The fifth awaiting caller is
- * outside this file - `TakeIn`'s `bringIn` - and it is add-only: it writes a new
- * key and never over one, so a flush that did not land costs it nothing it was
+ * has to read `dirty` or `writeError` itself. Three of the four in this file
+ * now do. `exportActiveCampaign` reads `dirty` and folds the live board into
+ * the record it serializes. `switchCampaign` and `createCampaign` both
+ * `spread` a different campaign over the live board immediately afterwards,
+ * and both call `keepUnlandedBoard` first - one step, holding the reading of
+ * `dirty` for the pair of them, where a KNOWN DEFECT notice used to stand
+ * instead of a call. `removeCampaign` is the fourth and reads neither, which
+ * is the right answer rather than a gap: it spreads only when the record it
+ * just deleted was the open one, so the board it discards belongs to a
+ * campaign the GM asked to be rid of. The fifth awaiting caller is outside
+ * this file - `TakeIn`'s `bringIn` - and it is add-only: it writes a new key
+ * and never over one, so a flush that did not land costs it nothing it was
  * promising.
  */
 export function flushGm(): Promise<void> {
@@ -1004,13 +1005,17 @@ export const useGm = create<GmState>((set, get) => {
    * Two mutants hold it: delete the fold and both doors go red; delete one of
    * the two call sites and only that door does.
    *
-   * NOT PUT INSIDE `flushGm` INSTEAD, though both doors share that too.
-   * `flushGm` has five callers and three of them must not do this: `pagehide`
-   * and `visibilitychange` are not leaving the campaign at all,
-   * `removeCampaign` would be preserving a board the GM asked to be rid of, and
-   * `exportActiveCampaign` already folds the same board itself without touching
-   * the list. It would also fire on every 400 ms debounce of a failing evening,
-   * handing `writeAside` an id that is still the active one - which it
+   * NOT PUT INSIDE `flushGm` INSTEAD, though both doors share that too. Most
+   * of what calls `flushGm` must not do this: `pagehide` and
+   * `visibilitychange` are not leaving the campaign at all, `removeCampaign`
+   * would be preserving a board the GM asked to be rid of,
+   * `exportActiveCampaign` already folds the same board itself without
+   * touching the list, and the 400 ms debounce timer and `retryGm` are not
+   * doors at all. Names and no count, on purpose: a count would have to be
+   * remeasured on every caller added after this, and this paragraph is the
+   * recorded refusal whoever reopens the question will read. The timer is the
+   * worst of them - it would fire on every debounce of a failing evening,
+   * handing `writeAside` an id that is still the active one, which it
    * correctly refuses, setting `dirty` back to true and undoing the work. The
    * doors are where the loss happens, so the doors are where this goes.
    *
@@ -1441,11 +1446,12 @@ export const useGm = create<GmState>((set, get) => {
        * nothing on the glass naming the loss.
        *
        * THAT HALF IS NOW REPAIRED, in this door and in `switchCampaign` at
-       * once, by the `keepUnlandedBoard()` that now stands above that `spread`. The measurement above is a
-       * test rather than a memory - `tests/gm/gmStore.test.ts`, "a campaign
-       * being left while writes are failing" - so it cannot quietly become
-       * true again. The paragraph above it is untouched: making the campaign
-       * active even though its own write failed is still the decision.
+       * once, by the `keepUnlandedBoard()` that now stands above that
+       * `spread`. The measurement above is a test rather than a memory -
+       * `tests/gm/gmStore.test.ts`, "a campaign being left while writes are
+       * failing" - so it cannot quietly become true again. The paragraph above
+       * it is untouched: making the campaign active even though its own write
+       * failed is still the decision.
        */
       if (failed) dirty = true;
       return campaign;
