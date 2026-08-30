@@ -487,6 +487,94 @@ describe('more than one campaign', () => {
   });
 });
 
+/*
+ * The defect `switchCampaign`'s docblock used to name, now that it is closed.
+ *
+ * Both doors that replace the live board with another campaign's `await
+ * flushGm()` first, and a flush proves only that the write was *attempted*:
+ * `writeActive` catches its own rejection, assigns `state.campaigns` only
+ * inside the `try`, and leaves the store dirty. So on the evening
+ * `putCampaign` is rejecting - a full disk, an older build refusing a newer
+ * record - the flush changed nothing and the `spread` that followed discarded
+ * the evening, with `state.campaigns` still holding the record from before the
+ * edit and nothing on the glass saying so.
+ *
+ * TWO TESTS BECAUSE THERE ARE TWO DOORS, and the fix is one step both call. A
+ * repair of `switchCampaign` alone would close MENU's campaign row and BRING
+ * IT IN and leave NEW CAMPAIGN open, which is the half-fix that docblock
+ * existed to refuse - so a mutant that deletes one of the two calls has to be
+ * caught, and only a test per door catches it.
+ *
+ * Each one reads the edit back twice: out of `state.campaigns`, which is where
+ * it was being lost, and off the disk once writes work again, which is the
+ * half `scheduleAside` is doing. Asserting only the first would pass a fold
+ * that kept the board in memory and queued nothing - a record that is one
+ * reload from gone.
+ */
+describe('a campaign being left while writes are failing', () => {
+  it('keeps the unlanded board when the GM switches to another campaign', async () => {
+    const s = () => gm.useGm.getState();
+    const first = s().activeCampaignId!;
+    const second = await s().createCampaign('Ashes of Rivermarch');
+    await s().switchCampaign(first);
+    s().setFear(3);
+    await gm.flushGm();
+
+    const put = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    s().setFear(11);
+    await gm.flushGm();
+    // The flush resolved and landed nothing. This is the evening the repair is
+    // for, and without this line the test could pass on a store that is simply
+    // writing normally.
+    expect(s().writeError).not.toBeNull();
+    expect((await store.readCampaigns()).campaigns.find((c) => c.id === first)!.fear).toBe(3);
+
+    await s().switchCampaign(second.id);
+
+    expect(s().activeCampaignId).toBe(second.id);
+    expect(s().campaigns.find((c) => c.id === first)!.fear).toBe(11);
+
+    put.mockRestore();
+    await gm.flushGm();
+    expect((await store.readCampaigns()).campaigns.find((c) => c.id === first)!.fear).toBe(11);
+  });
+
+  it('keeps it through NEW CAMPAIGN, which carried the identical line', async () => {
+    const s = () => gm.useGm.getState();
+    const first = s().activeCampaignId!;
+    s().setFear(3);
+    await gm.flushGm();
+
+    const put = vi
+      .spyOn(store, 'putCampaign')
+      .mockRejectedValue(new Error('The quota has been exceeded.'));
+    s().setFear(11);
+    await gm.flushGm();
+    expect(s().writeError).not.toBeNull();
+
+    const made = await s().createCampaign('Ashes of Rivermarch');
+
+    expect(s().activeCampaignId).toBe(made.id);
+    expect(s().campaigns.find((c) => c.id === first)!.fear).toBe(11);
+
+    /*
+     * Both records are still owed to the disk here, and the two halves of that
+     * are owed for different reasons: the campaign being left through `aside`,
+     * because the fold cleared `dirty` and handed the promise over; the new
+     * campaign through `dirty` itself, which `createCampaign` sets again
+     * because its own `putCampaign` threw. A fold that cleared `dirty` and
+     * stopped there would lose the second one.
+     */
+    put.mockRestore();
+    await gm.flushGm();
+    const onDisk = (await store.readCampaigns()).campaigns;
+    expect(onDisk.find((c) => c.id === first)!.fear).toBe(11);
+    expect(onDisk.map((c) => c.name)).toContain('Ashes of Rivermarch');
+  });
+});
+
 describe('the party board, which holds other people’s sheets', () => {
   it('goes into the campaign, and comes back out of it', async () => {
     const s = () => gm.useGm.getState();

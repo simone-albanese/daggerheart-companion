@@ -483,13 +483,15 @@ function armFlush(): void {
  * resolves on the failing evening exactly as it does on the ordinary one, with
  * `dirty` still true and `state.campaigns` still holding the record from before
  * the failure. Every caller that follows a flush with something irreversible
- * has to read `dirty` or `writeError` itself. Of the four that `await` it,
- * exactly one does: `exportActiveCampaign`. `switchCampaign` and
- * `createCampaign` both `spread` a different campaign over the live board
- * immediately afterwards and discard an unlanded one - the KNOWN DEFECT
- * docblock on `switchCampaign` covers both - and `removeCampaign` spreads only
- * when the record it just deleted was the open one, so the board it discards
- * belongs to a campaign the GM asked to be rid of. The fifth awaiting caller is
+ * has to read `dirty` or `writeError` itself, and all four in this file now
+ * do. `exportActiveCampaign` reads `dirty` and folds the live board into the
+ * record it serializes. `switchCampaign` and `createCampaign` both `spread` a
+ * different campaign over the live board immediately afterwards, and both call
+ * `keepUnlandedBoard` first - one step, holding the reading of `dirty` for the
+ * pair of them, where a KNOWN DEFECT notice used to stand instead of a call.
+ * `removeCampaign` spreads only when the record it just deleted was the open
+ * one, so the board it discards belongs to a campaign the GM asked to be rid
+ * of. The fifth awaiting caller is
  * outside this file - `TakeIn`'s `bringIn` - and it is add-only: it writes a new
  * key and never over one, so a flush that did not land costs it nothing it was
  * promising.
@@ -978,6 +980,73 @@ export const useGm = create<GmState>((set, get) => {
     });
   };
 
+  /**
+   * Put the live board into `campaigns` before something spreads over it.
+   *
+   * THE REPAIR OF THE DEFECT `switchCampaign`'s docblock used to merely name.
+   * Both doors that replace the whole live board with another campaign's -
+   * MENU's campaign row and BRING IT IN through `switchCampaign`, NEW CAMPAIGN
+   * through `createCampaign` - `await flushGm()` first, and that await proves
+   * the write was *attempted*, never that it landed. `writeActive` catches its
+   * own rejection, assigns `state.campaigns` only inside the `try`, and leaves
+   * `dirty` true. So on the evening writes are failing - a full disk, an older
+   * build refusing a newer record - the flush changed nothing and the `spread`
+   * that followed threw the evening away with nothing on the glass to say so.
+   *
+   * `dirty` is the whole test, and it is the honest one: it is the same field
+   * `snapshotCampaigns` and `exportActiveCampaign` already read to decide that
+   * memory is ahead of the disk. When it is false there is nothing to keep and
+   * this does nothing, so the ordinary evening pays one boolean.
+   *
+   * ONE STEP, CALLED BY BOTH DOORS, which is not a style preference. A fix
+   * applied to `switchCampaign` alone would close MENU and BRING IT IN and
+   * leave NEW CAMPAIGN open - the half-repair the old notice existed to refuse.
+   * Two mutants hold it: delete the fold and both doors go red; delete one of
+   * the two call sites and only that door does.
+   *
+   * NOT PUT INSIDE `flushGm` INSTEAD, though both doors share that too.
+   * `flushGm` has five callers and three of them must not do this: `pagehide`
+   * and `visibilitychange` are not leaving the campaign at all,
+   * `removeCampaign` would be preserving a board the GM asked to be rid of, and
+   * `exportActiveCampaign` already folds the same board itself without touching
+   * the list. It would also fire on every 400 ms debounce of a failing evening,
+   * handing `writeAside` an id that is still the active one - which it
+   * correctly refuses, setting `dirty` back to true and undoing the work. The
+   * doors are where the loss happens, so the doors are where this goes.
+   *
+   * `c.updatedAt`, never a fresh stamp, for `snapshotCampaigns`' reason:
+   * `writeActive` stamps the moment a record actually reaches the disk, and a
+   * time invented here would be a time no write ever happened at.
+   *
+   * `dirty` IS CLEARED, and the guarantee is transferred rather than dropped.
+   * What `dirty` promised was "this board is not on the disk, try again"; after
+   * this the board is inside `campaigns` and the id is inside `aside`, and
+   * `writeAside` leaves a failed id in the set exactly as `dirty` stayed true -
+   * the same retry, on the same flush, from the next change or the next
+   * `pagehide`. It also buys a truer sentence: `writeAside`'s failure names the
+   * campaign, and this board is no longer the one on the screen. Leaving it
+   * true would be worse than redundant - the next `writeActive` would `gather`
+   * the campaign that just ARRIVED, which nobody has edited, and stamp it with
+   * a write time it did not earn. `createCampaign` sets it again afterwards
+   * when its own `putCampaign` threw; that line is about the new campaign, not
+   * this one.
+   *
+   * Scheduled BEFORE the switch, which only reads as unsafe: `writeAside` skips
+   * an id equal to the active one, and by the time the armed flush runs this id
+   * is no longer active, because the `set` that spreads follows with no `await`
+   * between.
+   */
+  const keepUnlandedBoard = (): void => {
+    if (!dirty) return;
+    const id = get().activeCampaignId;
+    if (id === null || !get().campaigns.some((c) => c.id === id)) return;
+    set((prev) => ({
+      campaigns: prev.campaigns.map((c) => (c.id === id ? gather(c, prev, c.updatedAt) : c)),
+    }));
+    scheduleAside(id);
+    dirty = false;
+  };
+
   const withCountdown = (id: string, f: (c: Countdown) => Countdown): SessionItem[] =>
     get().session.map((item) =>
       item.kind === 'countdown' && item.countdown.id === id
@@ -1330,6 +1399,10 @@ export const useGm = create<GmState>((set, get) => {
           writeRetry: 'write',
         });
       }
+      // The same step `switchCampaign` calls, in the same position: last thing
+      // before the board is replaced. It reads `get().campaigns` after the
+      // fold, so the record it folded is the one that goes into the list.
+      keepUnlandedBoard();
       set({
         campaigns: [campaign, ...get().campaigns],
         activeCampaignId: campaign.id,
@@ -1361,46 +1434,52 @@ export const useGm = create<GmState>((set, get) => {
        * way: the campaign being left lands first, on the `flushGm` at the top
        * of this function". The flush proves the write was *attempted*, never
        * that it landed - see `flushGm`'s own docblock - so on an evening writes
-       * are failing the `spread` above discards the live board of the campaign
-       * being left, exactly as `switchCampaign` does. Measured in an isolated
-       * copy: flush Fear 3, make `putCampaign` reject, Fear 11, flush, then
-       * `createCampaign` - and the leaving campaign reads Fear 3 again in
-       * `state.campaigns`, with nothing on the glass naming the loss. It is the
-       * same defect and the same fix as the KNOWN DEFECT below, which names
-       * both; a repair that touches only `switchCampaign` leaves NEW CAMPAIGN
-       * open.
+       * are failing the `spread` above discarded the live board of the campaign
+       * being left, exactly as `switchCampaign` did. Measured: flush Fear 3,
+       * make `putCampaign` reject, Fear 11, flush, then `createCampaign`, and
+       * the leaving campaign read Fear 3 again in `state.campaigns` with
+       * nothing on the glass naming the loss.
+       *
+       * THAT HALF IS NOW REPAIRED, in this door and in `switchCampaign` at
+       * once, by the `keepUnlandedBoard()` that now stands above that `spread`. The measurement above is a
+       * test rather than a memory - `tests/gm/gmStore.test.ts`, "a campaign
+       * being left while writes are failing" - so it cannot quietly become
+       * true again. The paragraph above it is untouched: making the campaign
+       * active even though its own write failed is still the decision.
        */
       if (failed) dirty = true;
       return campaign;
     },
 
     /**
-     * KNOWN DEFECT, NAMED HERE RATHER THAN FIXED IN PASSING.
+     * THE KNOWN DEFECT THIS DOCBLOCK USED TO NAME IS FIXED. What follows is
+     * the record of it, kept rather than deleted because the defect is one
+     * removed line away from being back.
      *
-     * `spread` replaces every live field, and the `flushGm` above proves only
-     * that the write was attempted. On an evening writes are failing - a full
-     * disk, or `putCampaign` throwing `StaleBuildError` because a second tab on
-     * a newer build got there first - `dirty` is still true and
-     * `state.campaigns` still holds the record from before the edit, so this
-     * line discards the live board of the campaign being left. Nothing on the
-     * glass says so.
+     * What it was: `spread` replaces every live field, and the `flushGm` above
+     * proves only that the write was attempted. On an evening writes are
+     * failing - a full disk, or `putCampaign` throwing `StaleBuildError`
+     * because a second tab on a newer build got there first - `dirty` is still
+     * true and `state.campaigns` still holds the record from before the edit,
+     * so this line discarded the live board of the campaign being left, and
+     * nothing on the glass said so. Not new, and not the import door's: MENU's
+     * campaign row drove the same line, and a bare `switchCampaign` with no
+     * import anywhere lost the same board - which is why it was not closed by
+     * making `TakeIn` careful.
      *
-     * It is not new and it is not the import door's: MENU's campaign row drives
-     * this same line on `main` today, and a bare `switchCampaign` with no
-     * import at all loses the same board. The fix belongs here - fold the
-     * unlanded board back into `campaigns` and hand it to `scheduleAside`,
-     * which exists for exactly a record nobody is looking at - and it belongs
-     * in the change that owns this function, not in a repair of the door that
-     * merely calls it. Do not close this by making `TakeIn` careful; that
-     * leaves MENU open.
+     * What was done: `keepUnlandedBoard()`, immediately before the `set`. It
+     * reads `dirty`, folds the live board back into `campaigns` through
+     * `gather`, and hands the id to `scheduleAside` - the writer that exists
+     * for exactly a record nobody is looking at. Its docblock carries the
+     * argument for each part, including why `dirty` is cleared and why this is
+     * not inside `flushGm`.
      *
-     * **AND `createCampaign` CARRIES THE SAME LINE.** It flushes, then
-     * `spread`s the new campaign over the live board with no reading of
-     * `dirty`, and loses the unlanded evening identically - measured, and
-     * written up in that function. A fix applied only here closes MENU's
-     * campaign row and BRING IT IN and leaves NEW CAMPAIGN open, which is the
-     * same shape of half-fix this docblock exists to refuse. Whatever folds
-     * the board back has to be a step both functions call.
+     * **AND `createCampaign` CALLS THE SAME STEP.** It carried the identical
+     * line and lost the identical evening. A repair applied only here would
+     * have closed MENU's campaign row and BRING IT IN and left NEW CAMPAIGN
+     * open, which is the shape of half-fix this notice existed to refuse - so
+     * the fold is one private step both doors call, and one of the two mutants
+     * that defends it deletes exactly one of the two calls.
      */
     async switchCampaign(id) {
       if (id === get().activeCampaignId) return;
@@ -1409,6 +1488,15 @@ export const useGm = create<GmState>((set, get) => {
       // Nothing happens rather than an empty board appearing: an id that is
       // not here is a bug in the caller, not a campaign the GM has emptied.
       if (target === undefined) return;
+      /*
+       * After the guard, so a switch that does not happen queues no write; and
+       * immediately before the `set`, with no `await` between the two, so
+       * nothing can flush while this id is still the active one. `target` is
+       * not the record the fold rewrites - the guard at the top of this
+       * function proves the two ids differ - so it is still the record to
+       * spread.
+       */
+      keepUnlandedBoard();
       set({ activeCampaignId: id, ...spread(target) });
     },
 
