@@ -26,18 +26,33 @@ import { useApp } from '../../store/state.ts';
 import { Counter } from '../shared/Counter.tsx';
 import { Fold } from '../shared/Fold.tsx';
 import { damageLabel, EnvironmentBand, FeatureList, signed } from './StatBlock.tsx';
-import { useGm } from './gmStore.ts';
+import { openCombatants, openEnvironment, useGm } from './gmStore.ts';
 
 export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
-  const combatants = useGm((s) => s.combatants);
-  const environmentRef = useGm((s) => s.environmentRef);
-  const liveScene = useGm((s) => s.liveScene);
+  /*
+   * Everything this runner draws comes off the OPEN ROW, and there is no second
+   * array behind any of it to disagree with. That is what campaign schema 5
+   * bought.
+   *
+   * `openCombatants` and `openEnvironment` are the store's own selectors and
+   * not four lines of `find` written out here, because each carries an
+   * argument this file would otherwise have to restate: the first returns the
+   * row's own array by reference, so an HP tap somewhere else in the plan does
+   * not repaint this grid, and the second refuses to fall back to
+   * `board.environmentRef`. That fallback is not a convenience - the board is
+   * the encounter builder's workbench, and a runner that borrowed its place
+   * would draw the fight in the PREVIOUS scene's terrain, which is the defect
+   * the scene row absorbed the fight to close.
+   */
+  const openScene = useGm((s) => s.openScene);
+  const combatants = useGm(openCombatants);
+  const environmentRef = useGm(openEnvironment);
   const session = useGm((s) => s.session);
   // Only this scene's. `countdownsOf` still means every clock in the campaign,
   // and the board and the long rest still read that one.
-  const sceneClocks = countdownsIn(session, liveScene);
-  const setRegion = useGm((s) => s.setRegion);
+  const sceneClocks = countdownsIn(session, openScene);
   const clearScene = useGm((s) => s.clearScene);
+  const openNewScene = useGm((s) => s.openNewScene);
   // `index.byRef` holds every kind of record under one key space, so reading an
   // adversary out of it is an unchecked assertion. The adversary list is the
   // only lookup that can actually promise the type.
@@ -95,19 +110,83 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
    * A flip disarms it, and the reason is the same one the paragraph above
    * gives for arming unconditionally.
    *
-   * This component does not unmount when the board's fight is swapped, so
-   * without this a GM who arms END SCENE, flips to another scene and taps
-   * again inside the four seconds destroys the fight they have just ARRIVED
-   * at rather than the one they armed. The sentence beside the button would
-   * have counted the old fight when the first tap landed and the new one when
-   * the second did, and the second tap is the one that acts.
+   * This component does not unmount when the switcher points the runner at
+   * another row, so without this a GM who arms END SCENE, flips to another
+   * scene and taps again inside the four seconds destroys the fight they have
+   * just ARRIVED at rather than the one they armed. The sentence beside the
+   * button would have counted the old fight when the first tap landed and the
+   * new one when the second did, and the second tap is the one that acts.
    *
    * It is not the tap count depending on unseen state - it is the arming
    * pointing at a table that is no longer there.
    */
   useEffect(() => {
     setArmed(false);
-  }, [liveScene]);
+  }, [openScene]);
+
+  /*
+   * TWO EMPTY STATES, AND THEY ARE NOT THE SAME ABSENCE.
+   *
+   * This one is "the runner is pointed at nothing"; the one further down is
+   * "the row it is pointed at holds no fight". They were one state until the
+   * fight moved onto the row, because the board's combatant list was the only
+   * thing there was to be empty and `Nothing in the scene` covered both. It
+   * cannot now: a GM who has opened this tool before any scene exists is being
+   * told what is missing (a scene) rather than what to put in it, and the two
+   * answers are different gestures.
+   *
+   * Everything above this point in the render is a fact about the open row -
+   * its place, its clocks, its count, and END SCENE, which takes the row's id
+   * and has none to take. So this returns rather than hiding four blocks: a
+   * band drawn from `null`, a clock list that `countdownsIn(session, null)`
+   * would fill with the CAMPAIGN's clocks under a scene heading, and an END
+   * SCENE with nothing to end.
+   *
+   * The guard is the pointer AND the row, not the pointer alone. `showScene`
+   * refuses an id naming no scene row and `readCampaignRecord` nulls a
+   * dangling one on load, so this second half should be unreachable - but the
+   * cost of being wrong about that is a runner drawing an empty fight the plan
+   * does not list, and the cost of the check is one `some` per render.
+   *
+   * The region padding below is written out again rather than hoisted into a
+   * `pad` const shared by the two returns. `tests/ui/gmGeometryProse.test.ts`
+   * reads `minHeight: 0, gap: 10, padding: phone ?` out of this file's SOURCE
+   * to prove the tool's column is what every measured width in that suite was
+   * measured inside, and a const makes that guard unfindable while changing
+   * nothing on the glass. One duplicated ternary is the cheaper of the two.
+   */
+  if (openScene === null || !session.some((i) => i.kind === 'scene' && i.id === openScene)) {
+    return (
+      <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: phone ? '10px 12px 0' : '14px 20px 0' }}>
+        <div className="panel stack" style={{ flex: 'none', padding: 18, gap: 12, alignItems: 'flex-start' }}>
+          <div className="t-vital">No scene is open</div>
+          <p className="t-body" style={{ margin: 0, maxWidth: 460 }}>
+            A fight is kept on the scene row it is fought in, with every mark on it, so there is
+            nothing to draw until one of those rows is open. Start one here, or open a scene from
+            the plan.
+          </p>
+          {/*
+            Its own row above the doors, and the only primary in this panel.
+            The two below open tools that build a roster; this one makes the
+            place the roster is going to land in, and it is the shorter path
+            from here to a table with something on it.
+          */}
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                openNewScene();
+              }}
+            >
+              Start a new scene
+            </button>
+          </div>
+          <BuilderDoors primary={false} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0, gap: 10, padding: phone ? '10px 12px 0' : '14px 20px 0' }}>
@@ -163,7 +242,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
                 setArmed(true);
                 return;
               }
-              clearScene();
+              clearScene(openScene);
               setArmed(false);
             }}
             style={{
@@ -296,14 +375,20 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         been taken belongs on the glass rather than left to be inferred from
         what happens to survive.
 
-        What that commit *is* changed with decision 18, and the sentence above
-        is the same either way. It used to be `commit({ combatants: [] })` and
-        nothing else; it now empties the scene ROW this fight was parked out of
-        as well, and lets go of the pointer. Nothing new is destroyed - the row
-        held a copy of exactly these combatants and exactly these marks - but
-        without it, ending a fight and then flipping back to its row would put
-        every one of them back on their feet, and "end" would be the only word
-        in this runner that the parking had made false.
+        WHAT THAT COMMIT IS, NOW THAT THERE IS ONE PLACE TO EMPTY. END SCENE
+        empties the open row and leaves you standing in it. There is no second
+        write and no pointer let go of: `clearScene(sceneId)` is one call to
+        the store's one writer of a row's combatants, and `openScene` is
+        deliberately untouched, because the GM said "this fight is over" and
+        not "take me away from this table".
+
+        This paragraph used to describe a second write - the board's list, then
+        the ROW the fight had been parked out of - and argued that without the
+        second one, ending a fight and flipping back to its row would put every
+        adversary back on their feet. That state cannot be built any more: the
+        row IS the fight, so there is no copy left over to fall out of step,
+        and the argument is retired here rather than restated somewhere it
+        would go stale again.
       */}
       <p
         className="t-dense"
@@ -327,13 +412,8 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
         <div className="panel stack" style={{ flex: 'none', padding: 18, gap: 12, alignItems: 'flex-start' }}>
           <div className="t-vital">Nothing in the scene</div>
           {/*
-            The sentence names the bestiary only while the bestiary is there.
-            It is switchable in Settings, and this empty state is the one place
-            in the app outside SHOW that offers it - a button here with the
-            preference off would be a door to a room the screen will not open,
-            and a sentence naming a tool that is gone is the same defect one
-            step quieter. The encounter builder is not switchable, which is what
-            keeps this state from ever being buttonless.
+            The sentence names the bestiary only while the bestiary is there,
+            for the reason `BuilderDoors` below states about its own button.
           */}
           <p className="t-body" style={{ margin: 0, maxWidth: 460 }}>
             Build an encounter and send the roster here
@@ -341,16 +421,7 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
             Whatever you add keeps its HP, Stress and spotlight through a reload — this screen
             survives the browser closing mid-fight.
           </p>
-          <div className="row" style={{ gap: 8 }}>
-            <button type="button" className="btn btn-primary" onClick={() => setRegion('encounter')}>
-              Build an encounter
-            </button>
-            {bestiary && (
-              <button type="button" className="btn" onClick={() => setRegion('bestiary')}>
-                Open the bestiary
-              </button>
-            )}
-          </div>
+          <BuilderDoors primary />
         </div>
       ) : (
         <div
@@ -391,20 +462,64 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
              * Keyed on the row as well as the combatant, because `c.id` alone
              * is not unique across a flip.
              *
-             * `spawn` scans for a free index over the BOARD's array only - the
-             * very fact that makes `liveScene` non-derivable - so the dungeon
-             * and the forest can both hold `acid-burrower-0`. With `c.id` as
-             * the key React reuses the same card component across a flip, and
-             * its local state goes with it: the half-typed damage number and
-             * the open fold cross from one fight into another.
+             * A combatant id is ROW-LOCAL, and that is now the stated invariant
+             * rather than a consequence of where the array happened to live:
+             * `spawn` scans for a free index over the row it is spawning into
+             * and says so in as many words, so the dungeon and the forest can
+             * both hold `acid-burrower-0` and neither is wrong. With `c.id`
+             * alone as the key React reuses the same card component across a
+             * flip and its local state goes with it - the half-typed damage
+             * number and the open fold cross from one fight into another.
+             *
+             * `openScene` is a string by the guard above, so the key has no
+             * empty-pointer case left to spell.
              */
             <CombatantCard
-              key={`${liveScene ?? ''}:${c.id}`}
+              key={`${openScene}:${c.id}`}
+              sceneId={openScene}
               combatant={c}
               adversary={byRef.get(c.adversaryRef)}
             />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The two doors out of an empty runner, drawn under both of its empty states.
+ *
+ * One component and not two copies, because the rule underneath them is one
+ * rule and it is a rule about a preference: the button names the bestiary only
+ * while the bestiary is there. It is switchable in Settings, and these two
+ * empty states are the only place in the app outside SHOW that offers it - a
+ * button here with the preference off would be a door to a room the screen
+ * will not open, and the sentence above it naming a tool that is gone is the
+ * same defect one step quieter. The encounter builder is not switchable, which
+ * is what keeps either state from ever being buttonless.
+ *
+ * `primary` is which absence is being answered, not a style choice. On an open
+ * row with nothing in it the encounter builder IS the next thing to do. With
+ * no row open at all it is the second thing, behind starting one, and two
+ * primary buttons in one panel is a panel that has not decided.
+ */
+function BuilderDoors({ primary = false }: { primary?: boolean }): React.JSX.Element {
+  const setRegion = useGm((s) => s.setRegion);
+  const bestiary = useApp((s) => s.prefs.gmBestiary);
+  return (
+    <div className="row" style={{ gap: 8 }}>
+      <button
+        type="button"
+        className={primary ? 'btn btn-primary' : 'btn'}
+        onClick={() => setRegion('encounter')}
+      >
+        Build an encounter
+      </button>
+      {bestiary && (
+        <button type="button" className="btn" onClick={() => setRegion('bestiary')}>
+          Open the bestiary
+        </button>
       )}
     </div>
   );
@@ -616,9 +731,21 @@ export function Scene({ phone }: { phone: boolean }): React.JSX.Element {
  * paragraph is here so nobody reads the 471.00 as though it had been.
  */
 function CombatantCard({
+  sceneId,
   combatant,
   adversary,
 }: {
+  /**
+   * The row this card's fight is on, passed down rather than read from the
+   * store here.
+   *
+   * Every write below names it, because the store's writers take the row
+   * first: there is no "current" fight for them to assume any more. Passing it
+   * also means the card cannot mark a combatant on a row the grid above is not
+   * drawing, which a second `useGm((s) => s.openScene)` in here could do for
+   * one render after a flip.
+   */
+  sceneId: string;
   combatant: SceneCombatant;
   adversary: Adversary | undefined;
 }): React.JSX.Element {
@@ -660,7 +787,7 @@ function CombatantCard({
 
   const applyHit = (): void => {
     if (hit === null) return;
-    patch(c.id, {
+    patch(sceneId, c.id, {
       hp: { ...c.hp, marked: hit.marked },
       ...(hit.minionsRemaining === undefined ? {} : { minionsRemaining: hit.minionsRemaining }),
     });
@@ -700,7 +827,7 @@ function CombatantCard({
           type="button"
           className="chip"
           aria-pressed={c.spotlighted}
-          onClick={() => patch(c.id, { spotlighted: !c.spotlighted })}
+          onClick={() => patch(sceneId, c.id, { spotlighted: !c.spotlighted })}
           style={{
             flex: 'none',
             minHeight: 'var(--control)',
@@ -714,7 +841,7 @@ function CombatantCard({
         </button>
         <button
           type="button"
-          onClick={() => remove(c.id)}
+          onClick={() => remove(sceneId, c.id)}
           aria-label={`Remove ${c.name} from the scene`}
           className="t-meta"
           style={{ flex: 'none', width: 'var(--control)', minHeight: 'var(--control)', color: 'var(--dim)' }}
@@ -772,14 +899,14 @@ function CombatantCard({
           label="HP"
           value={c.hp.marked}
           max={c.hp.max}
-          onChange={(v) => patch(c.id, { hp: { ...c.hp, marked: v } })}
+          onChange={(v) => patch(sceneId, c.id, { hp: { ...c.hp, marked: v } })}
         />
         <Counter
           kind="stress"
           label="STRESS"
           value={c.stress.marked}
           max={c.stress.max}
-          onChange={(v) => patch(c.id, { stress: { ...c.stress, marked: v } })}
+          onChange={(v) => patch(sceneId, c.id, { stress: { ...c.stress, marked: v } })}
         />
       </div>
 
@@ -936,7 +1063,7 @@ function CombatantCard({
                 type="button"
                 aria-label="Decrease Minions standing"
                 disabled={minions <= 0}
-                onClick={() => patch(c.id, { minionsRemaining: Math.max(0, minions - 1) })}
+                onClick={() => patch(sceneId, c.id, { minionsRemaining: Math.max(0, minions - 1) })}
                 style={{
                   width: 44,
                   minHeight: 44,
@@ -960,7 +1087,7 @@ function CombatantCard({
               <button
                 type="button"
                 aria-label="Increase Minions standing"
-                onClick={() => patch(c.id, { minionsRemaining: minions + 1 })}
+                onClick={() => patch(sceneId, c.id, { minionsRemaining: minions + 1 })}
                 style={{ width: 44, minHeight: 44, font: '700 17px/1 var(--sans)' }}
               >
                 +

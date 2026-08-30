@@ -22,8 +22,15 @@
  * that can drift.
  *
  * **`SESSION_ITEM_KINDS` is not `SessionItem['kind']`, and the gap is on
- * purpose.** It has never held `unreadable`, which is a reading rather than a
- * thing a GM adds, and that is the whole of the gap now.
+ * purpose.** It is two names wide, not one. `unreadable` has never been in it,
+ * because it is a reading rather than a thing a GM adds. `encounter` left it at
+ * `CAMPAIGN_SCHEMA_VERSION` 3, when the scene row took the fight: the arm stays
+ * in the union because saved campaigns carry it and it is still editable, but
+ * nothing may mint one, and the way this codebase says "no longer creatable" is
+ * to not be in that list. `shared/campaigns.ts` states both halves beside the
+ * literal. "That is the whole of the gap now" stood here and named only the
+ * first of them, which is exactly the sentence that would let a later reader
+ * believe `encounter` had never been excluded on purpose.
  *
  * It used to be wider, and the reason it closed is worth keeping: from campaign
  * schema 2 the list was also short of every kind whose form had not been built,
@@ -64,11 +71,20 @@
  * that was missing, and they are the encounter row's own two verbs on the row
  * that was skipped.
  *
- * An **encounter** can take the roster that is on the board right now, which
- * is how a GM who has just built a fight keeps it for later. It never takes
- * the combatants: those are the live fight, no action in `gmStore` sets a
- * combatant list wholesale, and a row that arrived carrying one would show a
- * number nothing could ever change again.
+ * An **encounter** is the one kind in this section with no form, and it is
+ * described here because rows of it are still read, still drawn and still
+ * editable - what it promised when ADD could still mint one is what an existing
+ * row still holds. It takes the roster that was on the board, which is how a GM
+ * who had just built a fight kept it for later. It never takes the combatants,
+ * and a row that arrived carrying one would show a number nothing could ever
+ * change again - `withSceneFight` is the store's one writer of a row's
+ * combatants and it refuses every kind but `scene`.
+ *
+ * That last clause used to be argued from "no action in `gmStore` sets a
+ * combatant list wholesale", which was false in both halves before this wave
+ * as well as after it: `spawn` and `clearScene` both replace a scene row's
+ * list outright. It is deleted rather than re-derived. The narrower fact above
+ * is the one that was doing the work, and it is checkable in one grep.
  *
  * A **link** points at something already inside this app - an adversary, an
  * environment, a card, a rule. Still never a URL, and that is now a fact about
@@ -412,8 +428,8 @@ function SceneForm({ onDone }: { onDone: () => void }): React.JSX.Element {
           : `CARRY THE ${String(planned)} INTO THIS SCENE`}
       </button>
       <p className="t-dense" style={{ margin: 0, color: 'var(--muted)', maxWidth: '62ch' }}>
-        The roster is the plan. The fight itself stays on the board — this build can put a roster
-        back, and cannot put a half-finished fight back, so a new row never carries one.
+        The roster is the plan. A fight stays on the scene it is fought in — this build can copy
+        a roster into a new scene, and cannot copy a fight, so a new row never arrives with one.
       </p>
       <Submit />
     </Form>

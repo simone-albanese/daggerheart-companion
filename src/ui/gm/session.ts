@@ -256,71 +256,91 @@ export function describeItem(
    */
   ownerName: string | null = null,
   /**
-   * Which row the table is on, so a scene row can say that it is the one.
+   * Which row the runner is showing, so a scene row can say that it is the
+   * one.
    *
    * Optional and last, for the reason `ownerName` above is: a test may go on
    * calling this with four arguments, and the arms that are not `scene` never
    * read it. `SessionRow` is the one production call site and passes it.
    *
-   * The plan is where a GM looks to find the row they are thinking of, and
-   * until this it was the one screen that could not answer *which fight is
-   * happening* - `grep liveScene src/ui/gm/SessionRow.tsx` was empty. Two
-   * scene rows with a fight running between them read identically.
+   * What it means has inverted, and the sentence it produces is the reason
+   * this parameter still exists at all. It used to distinguish the row whose
+   * fight was on the board - the one row that was NOT holding its own
+   * combatants - from every other. Now every scene row holds its own fight all
+   * the time, so a count is available for all of them and the pointer is the
+   * only fact a row cannot work out for itself: whether it is the one on the
+   * glass.
    */
-  liveScene: string | null = null,
+  openScene: string | null = null,
 ): string {
   switch (item.kind) {
     case 'scene': {
       /*
-       * A scene is a place *and* the fight in it since campaign schema 3, so a
-       * shut row has to be able to say both. The two halves are joined only
-       * when both exist: a row that read "NO ENVIRONMENT · NOTHING PLANNED"
-       * would spend the whole width of a phone saying nothing twice.
+       * A scene is a place *and* the fight in it, so a shut row has to be able
+       * to say both. The two halves are joined only when both exist: a row
+       * that read "NO ENVIRONMENT · NOTHING PLANNED" would spend the whole
+       * width of a phone saying nothing twice.
        *
        * The order is place first because that is the half a GM scans for - the
-       * plan is a list of *where tonight goes* - and because the fight half is
-       * the one that is usually absent.
+       * plan is a list of *where tonight goes*.
        */
       const planned = plannedAdversaries(item.roster, index, partySize);
-      const fight = planned === 0 ? '' : `${String(planned)} PLANNED`;
+      const held = item.combatants.length;
       /*
-       * A third term since decision 18, joined by the same rule as the other
-       * two: never two segments saying the same thing.
+       * TWO SEGMENTS, ALWAYS, NEVER THREE - AND THE PREMISE THAT USED TO ALLOW
+       * A THIRD HAS INVERTED.
        *
-       * A row can hold a fight that has been fought - parked out of the runner
-       * with every mark on it - and a shut plan that did not say so would let
-       * a GM delete it without ever being told what was inside. This counts
-       * bodies on the table, where `PLANNED` counts what the roster would
-       * spawn, so the two are different facts and both may appear.
+       * What stood here was: "the row the GM is playing reads
+       * `combatants.length === 0`, because resume empties it - so a running
+       * scene prints only PLANNED and there is never a stale number in the
+       * plan." Every clause of that is now false. Resume is gone, nothing
+       * empties a row on the way into the runner, and the row the GM is
+       * playing is the one row guaranteed to have bodies on it. Left standing,
+       * a played scene would print place · n ON THE TABLE · n PARKED - three
+       * segments, and one of them naming a mechanism that no longer exists, on
+       * the 393px phone the paragraph it replaced already refused a third
+       * segment for.
        *
-       * The row the GM is playing reads `combatants.length === 0`, because
-       * resume empties it - so a running scene prints only `PLANNED` and there
-       * is never a stale number in the plan. That is also why the signature
-       * does not move, and none of `describeItem`'s call sites do either.
+       * So the second term is one term with three readings, chosen in this
+       * order, and they cannot co-occur by construction:
+       *
+       *   this row is the open one   ->  `n ON THE TABLE`, or bare
+       *                                  `ON THE TABLE` when it is empty
+       *   it holds a fight           ->  `n IN THE FIGHT`
+       *   it holds only a plan       ->  `n PLANNED`
+       *
+       * `IN THE FIGHT` replaces `PARKED`, and the word had to go with the
+       * mechanism that named it: nothing is parked any more, because nothing
+       * was ever taken away to be given back.
+       *
+       * The open row says `ON THE TABLE` even at zero, where every other
+       * reading falls silent. That asymmetry is the point - a GM looking down
+       * the plan for the row they are in the middle of needs it to answer, and
+       * an empty table is a state they are usually one tap away from filling.
+       *
+       * `PLANNED` counts what the roster WOULD spawn and the other two count
+       * bodies that exist, so the readings are different facts and printing
+       * the wrong one is worse than printing none: `PLANNED` on a row that is
+       * being marked up on the glass describes a fight that already started.
        */
-      const parked =
-        item.combatants.length === 0 ? '' : `${String(item.combatants.length)} PARKED`;
-      /*
-       * The fourth term, and it stands IN PLACE OF the fight half rather than
-       * beside it.
-       *
-       * A running row is exactly the row whose `combatants` is empty - resume
-       * empties it, which the paragraph above relies on - so `PARKED` is
-       * already silent here and only `PLANNED` would print. `PLANNED` on the
-       * row being fought is the least useful thing this line can say: it counts
-       * what the roster WOULD spawn, about a fight that has already started and
-       * is being marked up on the glass. Replacing it costs the shut row no
-       * width, which is what a third segment on a 393px phone would have cost.
-       */
-      const live = item.id === liveScene ? 'ON THE TABLE' : '';
+      const second =
+        item.id === openScene
+          ? held === 0
+            ? 'ON THE TABLE'
+            : `${String(held)} ON THE TABLE`
+          : held > 0
+            ? `${String(held)} IN THE FIGHT`
+            : planned === 0
+              ? ''
+              : `${String(planned)} PLANNED`;
       let place: string;
       if (item.environmentRef === null) {
-        place = fight === '' && parked === '' && live === '' ? 'NO ENVIRONMENT' : '';
+        place = second === '' ? 'NO ENVIRONMENT' : '';
       } else {
         const found: unknown = index.byRef.get(item.environmentRef);
         place = namedRecord(found) ? found.name.toUpperCase() : NOT_HERE;
       }
-      return [place, live === '' ? fight : live, parked].filter((s) => s !== '').join(' · ');
+      return [place, second].filter((s) => s !== '').join(' · ');
     }
     case 'encounter': {
       // Adversaries, not roster rows and not the sum of the counts. A Minion

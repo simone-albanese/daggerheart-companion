@@ -59,8 +59,23 @@
  * delta is zero - but the two derived figures should not be quoted as if they
  * had been in a browser. Past four the strip scrolls horizontally - **zero vertical pixels** -
  * because wrapping to a second line would cost the scroller 44px and reflow
- * content under a thumb at the worst possible moment. A GM with five
- * simultaneous fights on a 393px phone has a problem design cannot solve.
+ * content under a thumb at the worst possible moment. What five simultaneous
+ * fights on a 393px phone cost, and why that stopped being a rare state, is
+ * the last section of this docblock.
+ *
+ * ## What the strip holds, and why it holds it unaided now
+ *
+ * The membership rule is `liveScenes`, and it got simpler underneath this file
+ * without a line here changing. A row is on the strip because it holds a fight
+ * or because it is the one the runner has open. Until campaign schema 5 the row
+ * being fought in held `combatants: []` - the fight was on the board - so the
+ * row a GM was actually playing reached the strip only through the second
+ * clause, and the first clause was about rows that had been deliberately
+ * parked. Now a row that has been fought in and left keeps its own fight, so it
+ * satisfies the first clause on its own merits and the second one covers only
+ * an open row with nothing in it yet. The header's first sentence - the scenes
+ * a GM is flipping between - is delivered by the filter rather than by the
+ * pointer propping it up.
  *
  * ## The order is `order`, never recency
  *
@@ -83,8 +98,13 @@
  *
  * ## No confirmation, and no arming
  *
- * The flip destroys nothing - that is the whole reason the storage exists - and
- * a confirmation would double the cost of the one gesture this file is for.
+ * The flip destroys nothing - and the reason is stronger than it was. It used
+ * to be that the parking storage put back what the swap took away, so nothing
+ * was lost on the round trip. Now nothing is taken away in the first place:
+ * `showScene` writes one string, `openScene`, and no fight moves, so there is
+ * no round trip to be made whole. A confirmation would double the cost of the
+ * one gesture this file is for, to protect against a write that does not
+ * happen.
  *
  * ## What it does NOT fix
  *
@@ -93,6 +113,22 @@
  * in the accessible name and in the runner, but on the glass they are
  * identical. There is no answer to that at 74.25px of width, and this file does
  * not pretend to have one.
+ *
+ * ## The strip grows by default now, and that is the standing risk
+ *
+ * "A GM with five simultaneous fights on a 393px phone has a problem design
+ * cannot solve" stood in the budget section above, and it was written when
+ * carrying a fight was the result of a deliberate park. It is the resting
+ * state of a played scene now: a scene fought in and left keeps its
+ * adversaries and therefore keeps its chip, so five chips is what four hours
+ * of play produces rather than a pathology. No geometry changes for it - the
+ * 44px floor holds, the cap still bottoms out at 74, and past four the strip
+ * scrolls horizontally for zero vertical pixels - but the seven-character
+ * truncation bites at four and above far more often, and the paragraph above
+ * is what it costs when it does. The
+ * only pruning gesture is `CLEAR THIS FIGHT` on the row itself. Flagged rather
+ * than fixed, because a cap that hid a scene the GM is in the middle of would
+ * be the worse of the two.
  */
 import { liveScenes } from '../../../shared/campaigns.ts';
 import { sessionName } from './session.ts';
@@ -113,17 +149,17 @@ const GAP = 6;
  * `title={tool === 'scene' ? <SceneSwitcher /> : undefined}` - an element,
  * always, for the runner - so `??` tests the element and never its output. A
  * strip that rendered `null` left the row with no title at all: on a campaign
- * with no live scene the runner's header was a bare `ESC ✕`, which is the state
+ * with no scene open the runner's header was a bare `ESC ✕`, which is the state
  * a GM reaches by opening the tool at all before a fight exists. The comment in
  * `Gm.tsx` promised the opposite and could not deliver it, because there is no
  * value a component can return that makes `??` fall through.
  */
 export function SceneSwitcher({ label }: { label: string }): React.JSX.Element {
   const session = useGm((s) => s.session);
-  const liveScene = useGm((s) => s.liveScene);
-  const runScene = useGm((s) => s.runScene);
+  const openScene = useGm((s) => s.openScene);
+  const showScene = useGm((s) => s.showScene);
 
-  const live = liveScenes(session, liveScene);
+  const live = liveScenes(session, openScene);
   // Nothing to flip between: the title row keeps the word it has always had.
   if (live.length === 0) {
     return (
@@ -142,7 +178,7 @@ export function SceneSwitcher({ label }: { label: string }): React.JSX.Element {
     >
       {live.map((item) => {
         const name = sessionName(item).toUpperCase();
-        const current = item.id === liveScene;
+        const current = item.id === openScene;
         /*
          * Not `GmTopBar`'s `Chip`: that one is `flex: 'none'` with no
          * `overflow` and no `textOverflow`, so it does not truncate - it grows,
@@ -179,9 +215,19 @@ export function SceneSwitcher({ label }: { label: string }): React.JSX.Element {
           <button
             key={item.id}
             type="button"
-            onClick={() => runScene(item.id)}
-            // The full name, as text. A truncated chip is still announced whole.
-            aria-label={`Run ${sessionName(item)}`}
+            onClick={() => showScene(item.id)}
+            /*
+             * The full name, as text. A truncated chip is still announced
+             * whole.
+             *
+             * `Open`, not `Run`. "Run" named a mode a scene was put INTO -
+             * one at a time, the others parked out of it - and there is no
+             * such mode any more: every scene on this strip is holding its own
+             * fight the whole time, and the tap only changes which one is
+             * drawn. A verb that promised to start something would be
+             * promising the one thing this control has stopped doing.
+             */
+            aria-label={`Open ${sessionName(item)}`}
             style={{ ...shape, background: 'var(--raised)', color: 'var(--muted)' }}
           >
             {name}

@@ -89,8 +89,8 @@
  * to a second line 52px lower, out from under the finger that has four seconds
  * to press it again. So RENAME was not drawn while `armed`.
  *
- * Decision 18 added a fourth wording. A scene row holding a parked fight arms
- * to "TAP AGAIN TO DELETE THE FIGHT" - 29 characters, and at the 7.0px per
+ * Decision 18 added a fourth wording. A scene row holding a fight arms to
+ * "TAP AGAIN TO DELETE THE FIGHT" - 29 characters, and at the 7.0px per
  * character this file's own two measured points give (DELETE 62 at 6, TAP
  * AGAIN TO DELETE 153 at 19), that is 223px. With MOVE UP and MOVE DOWN it is
  * 69 + 83 + 223 = 375 of 349, so arming the row would wrap it: the same defect,
@@ -249,10 +249,17 @@ export function SessionRow({
   });
   /*
    * Read here and nowhere else in this file, for the shut header's summary.
-   * Until now this list never read the pointer at all, which is why two scene
-   * rows with a fight running between them said the same thing.
+   * Until this list read the pointer, two scene rows with a fight between them
+   * said the same thing.
+   *
+   * It is the pointer and not a fight: the fight lives on the row, so every row
+   * can say how many bodies it holds without asking anything outside itself,
+   * and the one thing it still cannot work out alone is whether it is the row
+   * on the glass. That is the whole of what this subscription buys - and it
+   * yields a string, so this is not what wakes a row when a mark lands on some
+   * other one.
    */
-  const liveScene = useGm((s) => s.liveScene);
+  const openScene = useGm((s) => s.openScene);
   const [armed, setArmed] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
@@ -267,7 +274,7 @@ export function SessionRow({
 
   const open = !item.collapsed;
   const title = sessionTitle(item);
-  const summary = describeItem(item, dataset, index, partySize, ownerName, liveScene);
+  const summary = describeItem(item, dataset, index, partySize, ownerName, openScene);
   const row = sessionName(item);
 
   return (
@@ -620,7 +627,7 @@ export function SessionRow({
  *     object for as long as its inputs are the same object; the argument for
  *     how is there, beside the cache that does it.
  *
- * None of that gates a STORE read. Every row subscribes to `liveScene`, so the
+ * None of that gates a STORE read. Every row subscribes to `openScene`, so the
  * pointer moving still wakes all of them - correctly, since each of them is
  * drawing whether it is the one on the table. What the memo removes is the
  * repaint that carries no news.

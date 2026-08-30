@@ -153,13 +153,35 @@ export function Names({
    */
   rng?: Rng;
 }): React.JSX.Element {
-  const combatants = useGm((s) => s.combatants);
   const session = useGm((s) => s.session);
   const party = useGm((s) => s.party);
 
   const [kind, setKind] = useState<NameKind>('person');
   /** Newest first, which is the order the eye wants and the reverse of drawing. */
   const [drawn, setDrawn] = useState<string[]>([]);
+
+  /**
+   * EVERY fight in the campaign, not the one the runner has open.
+   *
+   * This read the board's single combatant list until the fight moved onto the
+   * scene row, and narrowing it to the OPEN row would have been the natural
+   * translation and a defect: the generator would hand out a name that is
+   * already on an adversary standing in a scene the GM is not looking at, and
+   * the collision would surface an hour later when they flipped back to it.
+   * The whole promise of this screen is that a drawn name is free, and "free"
+   * cannot mean "free in this room".
+   *
+   * Both fight-bearing arms, `scene` and the legacy `encounter`, because a
+   * name in use is in use whichever kind of row is holding it and an
+   * `encounter` row minted before campaign schema 3 can still carry one.
+   */
+  const fought = useMemo(
+    () =>
+      session.flatMap((i) =>
+        i.kind === 'scene' || i.kind === 'encounter' ? i.combatants : [],
+      ),
+    [session],
+  );
 
   /**
    * Everything already in play, so the generator can refuse to repeat it.
@@ -169,13 +191,13 @@ export function Names({
    */
   const taken = useMemo(() => {
     const names = [
-      ...combatants.map((c) => c.name),
+      ...fought.map((c) => c.name),
       ...session.map((item) => item.name),
       ...party.map((member) => member.sheet.name),
       ...drawn,
     ];
     return new Set(names.map((name) => name.trim()).filter((name) => name !== ''));
-  }, [combatants, session, party, drawn]);
+  }, [fought, session, party, drawn]);
 
   const draw = useCallback(() => {
     setDrawn((before) => [drawName(kind, rng, taken), ...before]);

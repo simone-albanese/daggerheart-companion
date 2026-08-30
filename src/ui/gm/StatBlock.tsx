@@ -364,14 +364,17 @@ export function AdversaryBlock({
  * adversary with the highest Difficulty" - so *that* a substitute exists is the
  * book's, not this app's, and the feature itself is already printed verbatim
  * behind the fold. What is this app's is the **scope**: `strongestHere` is the
- * highest Difficulty on the board this band is drawn above, and a GM whose
+ * highest Difficulty among the cards this band is drawn above, and a GM whose
  * ambush includes something they never added to the scene gets a number that
  * is too low. A chosen set is arithmetic, so the line takes this project's
  * rule for anything computed rather than quoted - `--dim`, prefixed `≈`, with
  * COMPUTED BY THIS APP in the same element as the number.
  *
  * `strongestHere` is optional because two callers draw this band and only one
- * of them has a board. `Scene.tsx` passes it. `Bestiary.tsx` is browsing, and
+ * of them has a fight under it. `Scene.tsx` passes it, off the OPEN row's own
+ * combatants - the same rule stated one layer up, since the runner reads its
+ * fight and its place from one row and could not mix two if it tried.
+ * `Bestiary.tsx` is browsing, and
  * a band that borrowed the number from a scene the reader is not looking at
  * would be the same defect one step quieter - so the browsing case has to be
  * the default rather than something a caller remembers to say. Absent, the
@@ -383,7 +386,7 @@ export function EnvironmentBand({
   strongestHere,
 }: {
   environment: Environment;
-  /** The highest Difficulty on the board below, when there is a board. */
+  /** The highest Difficulty among the cards below, when there are any. */
   strongestHere?: number;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
@@ -461,10 +464,34 @@ export function EnvironmentBlock({
   environment,
   active,
   onToggle,
+  disabled = false,
 }: {
   environment: Environment;
   active: boolean;
   onToggle: () => void;
+  /**
+   * SHIPPED WITH NO CALLER, DELIBERATELY, AND THIS SAYS SO RATHER THAN LEAVING
+   * IT TO BE DISCOVERED.
+   *
+   * Both render sites - `Bestiary.tsx` and the environment link row in
+   * `SessionBody.tsx` - pass nothing, and `setEnvironment` means exactly what
+   * it meant before the fight left the board: it sets the CAMPAIGN's one
+   * workbench place, which is what `SEND` carries into a scene it mints and
+   * what `KEEP THE BOARD'S ENVIRONMENT HERE` copies onto a row. Neither
+   * control has a state it must refuse in today.
+   *
+   * The seat is here because the two SET ACTIVE buttons are the only pair of
+   * identical controls in this app with two different owners, and the day one
+   * of them has to be refused, the refusal has to be drawn on the button
+   * rather than by the caller hiding it: a control that vanishes teaches the
+   * hand nothing, and a control that can be pressed and does nothing is, in
+   * `Countdowns.tsx`'s words, the worse of the two lies. `aria-disabled` is
+   * not used in its place, for the same reason.
+   *
+   * If a reader finds this still unused and no argument beside it has moved,
+   * that is a prop to delete rather than to find a use for.
+   */
+  disabled?: boolean;
 }): React.JSX.Element {
   const e = environment;
   return (
@@ -479,6 +506,7 @@ export function EnvironmentBlock({
             className="btn"
             onClick={onToggle}
             aria-pressed={active}
+            disabled={disabled}
             // Two link rows in a session list draw two of these, and what tells
             // them apart is the heading beside the button rather than anything
             // in it - which is a distinction a rotor's list of buttons does not
@@ -497,6 +525,10 @@ export function EnvironmentBlock({
               background: active ? 'var(--hope)' : 'var(--raised)',
               color: active ? 'var(--app)' : 'var(--text)',
               borderColor: active ? 'transparent' : 'var(--line)',
+              // The only thing `disabled` changes about the geometry: nothing.
+              // The 44px floor above it is unconditional, so a refused control
+              // stays exactly where the hand left it.
+              opacity: disabled ? 0.45 : undefined,
             }}
           >
             {active ? 'ACTIVE — CLEAR' : 'SET ACTIVE'}
