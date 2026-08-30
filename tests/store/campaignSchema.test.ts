@@ -22,18 +22,29 @@
  * build cannot read is kept rather than dropped, and a link that points at
  * something unrecognised is still a link.
  *
- * ## And, since 2026-08-18, the first bump
+ * ## And, since 2026-08-18, the bumps
  *
- * `CAMPAIGN_SCHEMA_VERSION` moved to 2, and the converter for it changes no
- * field on purpose: the number moved so that *older* builds refuse a record
- * carrying a `url` or a `note` row, not because anything in a v1 record is
- * wrong. That claim is only worth making if it is checked, so the last describe
- * here walks the frozen v1 fixture forward and requires it back deep-equal
- * apart from the stamp *and* byte-identical under `JSON.stringify`, which is
- * the comparison the `.dhcampaign` checksum actually makes. A converter that
- * quietly dropped a field, or reordered the keys, or renamed
- * one, or normalised a countdown on the way through would fail it - which is
- * the whole point of writing a converter that does nothing and saying so.
+ * The first three moved the number without moving a field. 1 -> 2 so that an
+ * *older* build refuses a record carrying a `url` or a `note` row; 2 -> 3 and
+ * 3 -> 4 make the same argument about what a schema-2 and a schema-3 reader
+ * would drop on the floor and then write back over. Nothing in the record any
+ * of those three converts is wrong, so none of them touches a field.
+ *
+ * That claim is only worth making if it is checked, so `the bumps, and the
+ * record they must not touch` walks the frozen v1 fixture forward and requires
+ * it back deep-equal *and* byte-identical under `JSON.stringify`, which is the
+ * comparison the `.dhcampaign` checksum actually makes.
+ *
+ * 4 -> 5 is the first entry in this chain with anything to do, and the walk
+ * says so rather than being relaxed to accommodate it: the record comes back
+ * identical apart from the stamp AND the board's two keys, `combatants` and
+ * `liveScene` gone from where they stood and `openScene` on the end. That board
+ * is the one part of the expectation written out key by key instead of spread
+ * from the fixture, so the rename is PINNED rather than tolerated - a converter
+ * that quietly dropped a field, reordered the keys, renamed anything the fourth
+ * entry does not rename, or normalised a countdown on the way through still
+ * fails it. `the bump that moved a fight off the board`, further down, holds
+ * that fourth entry against frozen bytes one branch at a time.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -653,7 +664,7 @@ describe('countdowns, which live in the session list', () => {
   });
 });
 
-/**
+  /**
    * The row the runner is drawing, which is all this pointer is now.
    *
    * It used to be `liveScene` and it used to own something: the fight stood on
@@ -1461,9 +1472,10 @@ describe('the bumps, and the record they must not touch', () => {
  * `v4.parked.campaign.json` and `v4.orphan.campaign.json` are hand-written to
  * the schema-4 shape and stamped 4, and like every fixture in this directory
  * they are NEVER regenerated: one rewritten by a later build proves only that
- * the later build agrees with itself. They differ in exactly one byte-level
- * thing, `board.liveScene`, so which branch fires is the only variable between
- * them.
+ * the later build agrees with itself. `diff` puts two lines between them - the
+ * campaign `id`, which neither this converter nor any test below reads, and
+ * `board.liveScene` - so which branch fires is the only variable that reaches
+ * the code under test.
  *
  * `applyChain` rather than `readCampaignRecord`, on purpose. The reader
  * restamps, repairs and rebuilds every field it names, so it would hide a
@@ -1481,6 +1493,23 @@ describe('the bump that moved a fight off the board', () => {
   /** One step, 4 -> 5, so nothing above it can be mistaken for this entry's work. */
   const walk = (record: Record<string, unknown>): Record<string, unknown> =>
     applyChain(record, 4, 5, CAMPAIGN_MIGRATIONS).record;
+
+  /*
+   * The pin every other fixture in this directory carries, which these two
+   * escape. `keeps each fixture at the version its name claims` iterates
+   * `versions()`, and that only ever opens `v1..v5.campaign.json`; these are
+   * read through `named`, and `walk` hard-codes 4 -> 5 without ever consulting
+   * the stamp. A fixture regenerated shape-first WOULD be caught here - branch
+   * (1) would fire and half this describe would go red - but one merely
+   * re-stamped to 5 with its schema-4 shape intact would sail through, and a
+   * current number on a previous shape is the exact defect this file exists to
+   * refuse.
+   */
+  for (const name of ['v4.parked', 'v4.orphan']) {
+    it(`keeps ${name}.campaign.json at the version its name claims`, () => {
+      expect(named(name)['schemaVersion']).toBe(4);
+    });
+  }
 
   type Row = Record<string, unknown>;
   const rows = (record: Record<string, unknown>): Row[] => record['session'] as Row[];
@@ -1537,11 +1566,50 @@ describe('the bump that moved a fight off the board', () => {
       expect(second['thresholds']).toBe(null);
     });
 
-    it('names that row as the one open, and leaves the board with no fight', () => {
-      const after = walk(named('v4.parked'));
+    it('names that row as the one open, takes the fight off, and keeps everything else', () => {
+      const before = named('v4.parked');
+      const after = walk(before);
+
       expect(boardOf(after)['openScene']).toBe('item-scene-1');
       expect(boardOf(after)).not.toHaveProperty('combatants');
       expect(boardOf(after)).not.toHaveProperty('liveScene');
+      /*
+       * The rest of the board, key by key - the assertion branch (1) has
+       * carried since this describe was written and this branch did not.
+       * Measured before this was added: mutate THIS branch alone to
+       * `board: { openScene: pointer }` and
+       * `. ./env.sh && npx vitest run tests/store/` comes back byte for byte
+       * the same as the unmutated run, while the record it walks loses its
+       * region, tier, roster, difficulty toggles and environment on the way
+       * through. So the branch a v4 record with a fight on the glass actually
+       * takes was the one branch that could discard a GM's whole board and
+       * ship green.
+       *
+       * The board is the encounter builder's workbench and it STAYS on the
+       * board; only the fight leaves. This is where that half of the change is
+       * proved, and branch (1) and branch (3) are held to the same thing.
+       */
+      const wasBoard = boardOf(before);
+      for (const key of ['region', 'partyTier', 'roster', 'adjustments', 'environmentRef']) {
+        expect(boardOf(after)[key]).toEqual(wasBoard[key]);
+      }
+      /*
+       * And nothing added and nothing reordered, which the loop above would let
+       * past. Same pin the v1 walk uses and for the same reason - the
+       * `.dhcampaign` checksum is computed over the bytes. Measured by walking
+       * the fixture rather than read off the source: its board arrives as
+       * `region, partyTier, roster, adjustments, combatants, environmentRef,
+       * liveScene`, and `{ ...rest, openScene }` drops the two where they stood
+       * and puts the new one on the end.
+       */
+      expect(Object.keys(boardOf(after))).toEqual([
+        'region',
+        'partyTier',
+        'roster',
+        'adjustments',
+        'environmentRef',
+        'openScene',
+      ]);
     });
 
     it('mints nothing, and writes no row but that one', () => {
@@ -1612,6 +1680,32 @@ describe('the bump that moved a fight off the board', () => {
         'order',
         'environmentRef',
         'combatants',
+      ]);
+    });
+
+    it('keeps the rest of the board, the same as the other two branches', () => {
+      /*
+       * Until this was written, branch (3)'s board was covered only by
+       * `campaignMigration.test.ts` happening to assert `c.board.roster` on a
+       * record that takes it. Coverage that depends on another file continuing
+       * to assert something incidental is not coverage, and this branch builds
+       * its board from the same `rest` the other two do, so it is held to the
+       * same thing here.
+       */
+      const before = named('v4.orphan');
+      const after = walk(before);
+
+      const wasBoard = boardOf(before);
+      for (const key of ['region', 'partyTier', 'roster', 'adjustments', 'environmentRef']) {
+        expect(boardOf(after)[key]).toEqual(wasBoard[key]);
+      }
+      expect(Object.keys(boardOf(after))).toEqual([
+        'region',
+        'partyTier',
+        'roster',
+        'adjustments',
+        'environmentRef',
+        'openScene',
       ]);
     });
 

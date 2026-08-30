@@ -561,7 +561,17 @@ src/ui/gm/GmTopBar.tsx              + all 25 test files that mention combatants 
 - `. ./env.sh && npx tsc --noEmit` clean and `npx vitest run` green on Node 24.
 - **The owner's repro, as one test that fails on `main`** (§6, test 1).
 - No source or test file anywhere in the tree contains the string `the board is running another scene` (case-insensitive).
-- `grep -rn "liveScene\|adoptBoard\|runScene" src shared tests` returns nothing.
+- `grep -rn "adoptBoard\|runScene" src shared tests` returns nothing **outside the five named survivors below**.
+
+  **Corrected 2026-08-30, during B2's repair pass.** This bullet said `grep -rn "liveScene\|adoptBoard\|runScene" src shared tests` returns nothing, and no correct execution of this plan can satisfy that — the plan itself mandates every surviving hit, so the gate as written either blocks the wave or pushes whoever runs it into deleting a line this lane exists to protect. Measured against `wave-b` at B2. The named survivors:
+
+  1. **The `from: 4` converter's own destructure** — `shared/campaigns.ts:351,354` (`const { combatants, liveScene, ...rest } = board`), which is §5's own listing at plan line 332. Deleting it is deleting the converter.
+  2. **The exported helper `liveScenes`** — `shared/campaigns.ts`, plus its import and call sites in `src/ui/gm/SceneSwitcher.tsx` and `tests/store/campaignSchema.test.ts`. Line 161 of this plan keeps its name, signature and body on purpose.
+  3. **The frozen schema-4 fixtures** — `tests/fixtures/schema/v4.campaign.json`, `v4.dhcampaign`, `v4.parked.campaign.json`, `v4.orphan.campaign.json`. Lines 486 and 491 forbid regenerating them; a fixture edited to satisfy a grep proves only that the later build agrees with itself.
+  4. **Live source this plan orders KEPT** — `liveScene: null` in `src/store/campaignMigration.ts`'s `LEGACY_BLOB_SCHEMA`, mandated at plan line 480 because the blob is a schema-4-shaped record by construction; and the converter's proofs, which must NAME the old field to assert its absence (`not.toHaveProperty('liveScene')` in `tests/store/campaignSchema.test.ts`, the frozen-board destructure in `tests/store/campaignBackup.test.ts`). This is the load-bearing one: `campaignMigration.ts`'s own comment records that deleting that line leaves the suite green, so the grep's wording is the only thing standing between an executor and removing it.
+  5. **Prose naming a schema-4 field or verb** — the `from: 4` converter's docblock in `shared/campaigns.ts`, which argues about what the schema-4 `runScene` did; `src/store/campaignImport.ts`; the docblocks in B2's own store tests; and `src/engine/encounter.ts`, which line 545 puts on this wave's **Must not touch** list and which mentions `runScene` in a comment. A wave cannot be gated on a string it is forbidden to edit.
+
+  Anything outside those five is a leak and the gate still catches it.
 
 ### WAVE C — follow (two lanes, concurrent, disjoint)
 

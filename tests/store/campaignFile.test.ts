@@ -546,7 +546,7 @@ describe('the refusals that come from inside the record', () => {
      * Kills reading `schemaVersion` off the record. The reader has already
      * moved that field to this build's number by the time anyone can ask, so a
      * preview built on it would say "no conversion" about every file ever
-     * written, including the one below that walked three converters.
+     * written, including the one below, which walked the whole chain.
      */
     const v1 = parseCampaignFile(readFileSync(join(FIXTURES, 'v1.dhcampaign'), 'utf8'));
     expect(v1.schemaVersion).toBe(1);
