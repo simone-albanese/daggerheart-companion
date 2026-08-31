@@ -10,7 +10,8 @@
  * table and punishes it at an empty one. Confirming always costs a tap at an
  * empty table. That price is the decision, not an oversight, so it is pinned
  * here: the mutation these tests exist to kill is putting `combatants.length >
- * 0 &&` back in front of the button.
+ * 0 &&` back in front of the button - where `combatants` is the OPEN ROW's
+ * fight now, read through `openCombatants`, and no longer a field of the board.
  *
  * The height assertion reads an inline style on purpose. jsdom resolves no
  * stylesheet, so a `min-height` that arrives from `.t-meta` or from a stretch
@@ -25,7 +26,8 @@ import type { SceneCombatant } from '../../src/engine/encounter.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
-import { useGm } from '../../src/ui/gm/gmStore.ts';
+import { openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 import { dataset, index } from '../ui/fixture.ts';
 
 declare global {
@@ -61,7 +63,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, combatants: [], liveScene: null, environmentRef: null, region: 'scene' });
+  useGm.setState({ hydrated: true, session: [], openScene: null, environmentRef: null, region: 'scene' });
 });
 
 afterEach(() => {
@@ -69,8 +71,19 @@ afterEach(() => {
   container.remove();
 });
 
+/** The one scene row this file ends, and the pointer that makes it drawable. */
+const OPEN = 'the-open-scene';
+
+/*
+ * The fight is the row's now, so the seed is a row and a pointer rather than a
+ * board field. `Scene` returns its no-scene-open panel unless `openScene` names
+ * a scene row that is in `session`, and that panel has no END SCENE on it at
+ * all - so a seed that wrote only the combatants would make every test in this
+ * file fail on the same missing button, which is the least informative red
+ * there is. Both halves go in one `setState`.
+ */
 const scene = (combatants: SceneCombatant[]): void => {
-  useGm.setState({ combatants });
+  useGm.setState({ session: [sceneWith(OPEN, combatants)], openScene: OPEN });
   act(() => root.render(createElement(Scene, { phone: true })));
 };
 
@@ -117,7 +130,7 @@ describe('ending a scene', () => {
     scene([burrower()]);
     click(named('END SCENE'));
     expect(named('TAP AGAIN TO END')).toBeDefined();
-    expect(useGm.getState().combatants).toHaveLength(1);
+    expect(openCombatants(useGm.getState())).toHaveLength(1);
   });
 
   /*
@@ -195,7 +208,7 @@ describe('ending a scene', () => {
     // Through the store rather than `scene`, because the tree is already
     // mounted here and a `setState` outside `act` re-renders it outside `act`.
     act(() => {
-      useGm.setState({ combatants: [burrower()] });
+      useGm.setState({ session: [sceneWith(OPEN, [burrower()])], openScene: OPEN });
     });
     click(named('END SCENE'));
     const occupied = named('TAP AGAIN TO END');
@@ -208,9 +221,9 @@ describe('ending a scene', () => {
     // Also a control: the two-tap sequence itself never changed.
     scene([burrower()]);
     click(named('END SCENE'));
-    expect(useGm.getState().combatants).toHaveLength(1);
+    expect(openCombatants(useGm.getState())).toHaveLength(1);
     click(named('TAP AGAIN TO END'));
-    expect(useGm.getState().combatants).toHaveLength(0);
+    expect(openCombatants(useGm.getState())).toHaveLength(0);
     // And it goes back to asking, rather than staying armed over an empty table.
     expect(named('END SCENE')).toBeDefined();
   });

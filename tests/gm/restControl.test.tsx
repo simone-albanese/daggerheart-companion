@@ -468,9 +468,15 @@ describe('a long-term clock that belongs to a scene', () => {
   const longTermButtons = (): HTMLButtonElement[] =>
     buttons().filter((b) => (b.textContent ?? '').includes('·'));
 
-  it('is still on the rest’s list while a different scene is running', () => {
-    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest')]);
-    act(() => useGm.setState({ liveScene: 's1' }));
+  it('is still on the rest’s list while the runner is showing a different scene', () => {
+    // A REAL other row, and the pointer at it. The seed used to be
+    // `liveScene: 's1'` against a session holding no `s1` at all, so the state
+    // it described - the runner in one room while the clock belongs to another
+    // - was never actually reached: the pointer named nothing. `showScene`
+    // refuses an id that names no scene row, so that seed is not a state the
+    // store can reach either.
+    seed([scoped('c1', 'The winter', 's2'), scene('s2', 'The forest'), scene('s3', 'The dungeon')]);
+    act(() => useGm.setState({ openScene: 's3' }));
     longRest();
     expect(longTermButtons().map((b) => (b.textContent ?? '').trim())).toContain(
       'The winter · 6 · The forest',

@@ -31,7 +31,8 @@ import { makeCombatant, type SceneCombatant } from '../../src/engine/encounter.t
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
-import { useGm } from '../../src/ui/gm/gmStore.ts';
+import { openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -70,7 +71,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, combatants: [], liveScene: null, environmentRef: null, region: 'scene' });
+  useGm.setState({ hydrated: true, session: [], openScene: null, environmentRef: null, region: 'scene' });
 });
 
 afterEach(() => {
@@ -78,9 +79,18 @@ afterEach(() => {
   container.remove();
 });
 
+/** The one scene row the damage is done in, and the pointer that draws it. */
+const OPEN = 'the-open-scene';
+
+/*
+ * A row and a pointer, in one write. `Scene` draws its cards only for the row
+ * `openScene` names, so the fight and the pointer are the same seed - and every
+ * write the card makes below goes back to that row, through
+ * `patchCombatant(sceneId, ...)`, which is why `hpOf` reads it there.
+ */
 const scene = (combatants: SceneCombatant[]): void => {
   act(() => {
-    useGm.setState({ combatants });
+    useGm.setState({ session: [sceneWith(OPEN, combatants)], openScene: OPEN });
     root.render(createElement(Scene, { phone: true }));
   });
 };
@@ -113,7 +123,7 @@ const press = (label: string): void => {
 
 /** The HP counter's own readout, which is what a GM actually reads. */
 const hpOf = (id: string): { marked: number; max: number } => {
-  const c = useGm.getState().combatants.find((x) => x.id === id)!;
+  const c = openCombatants(useGm.getState()).find((x) => x.id === id)!;
   return { marked: c.hp.marked, max: c.hp.max };
 };
 
@@ -186,7 +196,7 @@ describe('the damage field on the combatant card', () => {
     expect(hpOf(c.id).marked).toBe(a.hp);
     // Exactly two: `1 + floor(N / N)`. One would be the `+ 1` gone, three an
     // off-by-one the other way.
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(2);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(2);
   });
 
   it('never takes more Minions off the stepper than are standing', () => {
@@ -195,14 +205,14 @@ describe('the damage field on the combatant card', () => {
     scene([c]);
     type(a.name, String(a.minionGroup! * 10));
     press('APPLY');
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(0);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(0);
   });
 
   /*
    * A combatant whose adversary this dataset cannot resolve. The card already
    * says NOT IN THIS DATASET; what it must not do is invent a divisor, and what
-   * it must still do is apply the HP, because the thresholds are on the board
-   * copy and are the GM's own number.
+   * it must still do is apply the HP, because the thresholds are on the
+   * combatant's own copy and are the GM's own number.
    */
   it('still applies HP for a combatant the dataset has lost, and offers no Minion arithmetic', () => {
     const a = withThresholds();

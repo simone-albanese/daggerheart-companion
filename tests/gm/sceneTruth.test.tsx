@@ -35,7 +35,8 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { EnvironmentBand, EnvironmentBlock } from '../../src/ui/gm/StatBlock.tsx';
-import { useGm } from '../../src/ui/gm/gmStore.ts';
+import { openCombatants, openEnvironment, useGm } from '../../src/ui/gm/gmStore.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -68,7 +69,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, combatants: [], liveScene: null, environmentRef: null, region: 'scene' });
+  useGm.setState({ hydrated: true, session: [], openScene: null, environmentRef: null, region: 'scene' });
 });
 
 afterEach(() => {
@@ -78,14 +79,40 @@ afterEach(() => {
 
 const text = (): string => container.textContent ?? '';
 
+/** The one scene row every test below is fought in, and the pointer at it. */
+const OPEN = 'the-open-scene';
+
+/**
+ * A place the board holds and the runner must never draw.
+ *
+ * Chosen by not being the row's, rather than typed: the runner reads the OPEN
+ * ROW's `environmentRef` now, and `openEnvironment` has no fallback to
+ * `board.environmentRef` at all - so a band that had one would print this name
+ * instead of the row's, and a test that left the board null could not tell the
+ * two readings apart. Every assertion below about a place is therefore a
+ * two-sided one for free: the row's name present, and never this one.
+ */
+const decoyFor = (rowEnvironment: string | null): string =>
+  dataset.environments.find((e) => e.id !== rowEnvironment)!.id;
+
 const scene = (combatants: SceneCombatant[], environmentRef: string | null = null): void => {
   // Inside the `act`, not before it: the second call in a test finds the tree
   // already mounted, and a `setState` outside `act` re-renders it outside
   // `act`. React says so on stderr, and a warning nobody reads is how the next
   // real one gets missed. (`sceneConfirmation.test.tsx` avoids the same trap
   // by writing to the store inside an explicit `act`.)
+  //
+  // The fight is on the ROW now, and `openScene` is what makes `Scene` draw it:
+  // the component returns early unless the pointer names a scene row that is
+  // actually in `session`, so a seed that wrote only the combatants would
+  // render the no-scene-open panel and every assertion below would fail on the
+  // same missing string. One row, one pointer, seeded together.
   act(() => {
-    useGm.setState({ combatants, environmentRef });
+    useGm.setState({
+      session: [sceneWith(OPEN, combatants, { name: 'The live scene', environmentRef })],
+      openScene: OPEN,
+      environmentRef: decoyFor(environmentRef),
+    });
     root.render(createElement(Scene, { phone: true }));
   });
 };
@@ -234,8 +261,9 @@ describe('what the card says the thing wants, and where it says it', () => {
  * of the creature, like Difficulty, so it sits in the strip with DIF and the
  * thresholds instead of taking a row of its own. `Scene.tsx`'s band comment
  * argues it and costs it; these hold the two consequences a docblock cannot -
- * that the control is still there and still writes to the board, and that the
- * sentence it displaced is only displaced on the cards that have the count.
+ * that the control is still there and still writes to the combatant it counts,
+ * on the scene row that combatant lives on, and that the sentence it displaced
+ * is only displaced on the cards that have the count.
  *
  * The dataset facts these lean on are asserted rather than assumed: in the
  * shipped book `role === 'Minion'`, `thresholds === null` and a `minionGroup`
@@ -293,16 +321,16 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
 
   it('keeps that sentence for a combatant with no thresholds and no Minion group', () => {
     const a = minionAdversary();
-    // The board is the authority, and it can hold a combination the dataset
-    // does not: `makeCombatant` only writes `minionsRemaining` for a Minion, so
-    // this is the same adversary with the count taken off the board.
+    // The combatant record is the authority, and it can hold a combination the
+    // dataset does not: `makeCombatant` only writes `minionsRemaining` for a
+    // Minion, so this is the same adversary with the count taken off the body.
     const { minionsRemaining: _dropped, ...noGroup } = makeCombatant(a, 0, 4);
     scene([noGroup]);
 
     expect(text()).toContain('NO THRESHOLDS · ANY DAMAGE DEFEATS');
     expect(
       container.querySelector('button[aria-label="Decrease Minions standing"]'),
-      'a combatant the board gives no Minion count still drew the control',
+      'a combatant with no Minion count of its own still drew the control',
     ).toBeNull();
   });
 
@@ -317,16 +345,16 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
     expect(text()).not.toContain('One group.');
   });
 
-  it('still writes both ways to the board it was moved off a row for', () => {
+  it('still writes both ways to the fight it was moved off a row for', () => {
     const a = minionAdversary();
     scene([makeCombatant(a, 0, 4)]);
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(4);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(4);
 
     act(() => stepper('Decrease').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(3);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(3);
 
     act(() => stepper('Increase').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(4);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(4);
   });
 
   it('refuses to count below nothing, the way the row it replaces did', () => {
@@ -335,7 +363,7 @@ describe('a Minion group counts its bodies in the band, not in a row of its own'
 
     expect(stepper('Decrease').disabled).toBe(true);
     act(() => stepper('Decrease').dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(useGm.getState().combatants[0]!.minionsRemaining).toBe(0);
+    expect(openCombatants(useGm.getState())[0]!.minionsRemaining).toBe(0);
   });
 
   it('declares the touch floor on both of its buttons, where a test can read it', () => {
@@ -396,7 +424,7 @@ describe('the Difficulty of a place that prints none', () => {
     expect(text()).toContain('DIF SPECIAL');
   });
 
-  it('derives it from the strongest adversary on the board, and says the app did the arithmetic', () => {
+  it('derives it from the strongest adversary in the open scene, and says the app did the arithmetic', () => {
     const strong = dataset.adversaries.find((a) => a.difficulty === 14)!;
     const weak = dataset.adversaries.find((a) => a.difficulty === 10)!;
 
@@ -417,18 +445,18 @@ describe('the Difficulty of a place that prints none', () => {
   });
 
   /*
-   * The board's copy of the number, not the dataset's.
+   * The combatant's copy of the number, not the dataset's.
    *
    * `makeCombatant` copies `difficulty` off the adversary at spawn, so a
    * combatant built the normal way carries the two in agreement - and a test
    * built from one cannot tell which of them the band read. Swapping the
    * reduce to `byRef.get(c.adversaryRef)?.difficulty ?? 0` passed every test
    * in this repo. The decision is written down in `Scene.tsx` (the card
-   * beneath the band prints the board's copy, so the band has to agree with
-   * the board), and these two put the numbers in disagreement so that it is
+   * beneath the band prints the combatant's copy, so the band has to agree
+   * with it), and these two put the numbers in disagreement so that it is
    * held rather than only stated.
    */
-  it('reads the Difficulty on the board, not the one on the adversary behind it', () => {
+  it('reads the Difficulty on the combatant, not the one on the adversary behind it', () => {
     // A scene that outlived a dataset rebuild: the persisted combatant keeps
     // the number it was spawned with, and the card under the band prints it.
     const a = dataset.adversaries.find((x) => x.difficulty === 10)!;
@@ -471,10 +499,13 @@ describe('the Difficulty of a place that prints none', () => {
     expect(text()).not.toContain('≈ DIF 0');
   });
 
-  it('claims no number while browsing, where there is no board to read', () => {
+  it('claims no number while browsing, where there is no fight to read', () => {
     // `Bestiary.tsx` draws this band with no scene in front of the reader, and
-    // the store it could have reached into still holds last night's fight.
-    useGm.setState({ combatants: [makeCombatant(dataset.adversaries[0]!, 0, 4)] });
+    // the store it could have reached into still holds the open scene's fight.
+    useGm.setState({
+      session: [sceneWith(OPEN, [makeCombatant(dataset.adversaries[0]!, 0, 4)])],
+      openScene: OPEN,
+    });
     band(special()[0]!);
 
     expect(text()).toContain('DIF SPECIAL');
@@ -595,8 +626,9 @@ describe('END SCENE names what the second tap takes', () => {
     // costs is pinned in tests/gm/sceneConfirmation.test.tsx. What is pinned
     // here is that a resting END SCENE already says what it would take.
     //
-    // `clearScene` is `commit({ combatants: [] })`, so both halves are read off
-    // the same line: what is in the commit goes, what is not stays.
+    // `clearScene(id)` is `withSceneFight(id, () => [])` - it rebuilds one
+    // row's combatant list and writes nothing else - so both halves are read
+    // off the same line: what that writer touches goes, what it does not stays.
     expect(text()).toContain('Clears 2 adversaries and every HP and Stress mark on them.');
     expect(text()).toContain(`${e.name}, Fear and the countdowns stay.`);
   });
@@ -635,8 +667,8 @@ describe('END SCENE names what the second tap takes', () => {
     scene([makeCombatant(dataset.adversaries[0]!, 0, 4)], e.id);
     arm();
     arm();
-    expect(useGm.getState().combatants).toHaveLength(0);
-    expect(useGm.getState().environmentRef).toBe(e.id);
+    expect(openCombatants(useGm.getState())).toHaveLength(0);
+    expect(openEnvironment(useGm.getState())).toBe(e.id);
     // The environment survived the clear, so the line still names it - and the
     // count half has become the empty one.
     expect(costLine().textContent).toBe(`Nothing to clear. ${e.name}, Fear and the countdowns stay.`);
@@ -812,7 +844,7 @@ describe('the chip says which state the adversary is in', () => {
       chip().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(useGm.getState().combatants[0]!.spotlighted).toBe(true);
+    expect(openCombatants(useGm.getState())[0]!.spotlighted).toBe(true);
     expect(chip().textContent).toBe('SPOTLIT');
     expect(chip().getAttribute('aria-pressed')).toBe('true');
     // And the count above the list, which reads the same field.

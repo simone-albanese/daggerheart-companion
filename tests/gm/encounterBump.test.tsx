@@ -79,7 +79,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     environmentRef: null,
     roster: [],
     adjustments: { easier: false, harder: false, damageBump: false },

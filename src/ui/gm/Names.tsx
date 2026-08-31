@@ -22,9 +22,11 @@
  * ## What `taken` is, on this screen
  *
  * The generator refuses to repeat a name the caller says is in play, and this
- * component is what knows which those are: everyone on the live scene, every
- * row of tonight's session, every player sheet on the party board, and every
- * name this tool has already handed over in this sitting. That last one is the
+ * component is what knows which those are: everyone standing in EVERY fight in
+ * the campaign - not only the scene the runner has open, for the reason given
+ * at `fought` below - every row of tonight's session, every player sheet on the
+ * party board, and every name this tool has already handed over in this
+ * sitting. That last one is the
  * reason the sitting's list is state rather than a rolling single value - a
  * generator that forgets what it just said will say it again, and a GM who has
  * to notice that is doing the tool's job.

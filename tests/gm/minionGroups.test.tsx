@@ -18,16 +18,23 @@
  *     SCENE` now and counts what the row it mints will say.
  *
  * So the property is asserted across the surfaces at once rather than one file
- * at a time: the same roster, read four ways, has to carry the same two
- * numbers. A fifth surface that forgets is the whole point of the file.
+ * at a time: the same roster, read five ways, has to carry the same two
+ * numbers. A sixth surface that forgets is the whole point of the file.
  *
- * AND THERE IS A FIFTH THAT IS NOT WRONG, WHICH IS THE HARDER HALF. `SEND n TO
- * THE SCENE` was read as a sixth defect and it is not one: `spawn` runs once
- * per `count` and `makeCombatant` puts `minionsRemaining: partySize` on each,
- * so three groups of four are three CARDS holding twelve rats. SEND predicts
- * cards; the shut row counts rats; both are right, in different units, about
- * different questions. A reader who "corrected" SEND to 12 would put three
- * cards on the table under a label promising twelve.
+ * The fifth arrived with campaign schema 5 and had nothing to press before it:
+ * `START THIS FIGHT` on a scene row's own arm, which spawns that row's roster
+ * into that row. It reads the same `entry.count` through the same `spawn`, one
+ * file over from the builder, and until the fight moved off the board the arm's
+ * verbs moved a fight rather than starting one.
+ *
+ * AND THERE IS ONE THAT IS NOT WRONG, WHICH IS THE HARDER HALF. `SEND n TO THE
+ * SCENE` - or `TO A NEW SCENE`, depending on whether a row is open - was read
+ * as a further defect and it is not one: `spawn` runs once per `count` and
+ * `makeCombatant` puts `minionsRemaining: partySize` on each, so three groups
+ * of four are three CARDS holding twelve rats. SEND predicts cards; the shut
+ * row counts rats; both are right, in different units, about different
+ * questions. A reader who "corrected" SEND to 12 would put three cards on the
+ * table under a label promising twelve.
  *
  * That near-miss is why the SEND block below pins the UNIT and not the number:
  * it reads the label off the glass, taps it, and counts what arrives. Nothing
@@ -47,8 +54,9 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Encounter } from '../../src/ui/gm/Encounter.tsx';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
-import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
+import { hydrateGm, openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -92,7 +100,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     environmentRef: null,
     roster: [],
     adjustments: { easier: false, harder: false, damageBump: false },
@@ -264,12 +272,26 @@ describe('SEND, and the unit it is in', () => {
     return Number(found[1]);
   };
 
+  /*
+   * Press it and count what arrives, in ONE scene row.
+   *
+   * The row count is asserted here rather than in a test of its own because
+   * every roster below is a multi-entry one, which is the only shape that can
+   * catch the mutation: `send` is `const sceneId = openScene ?? openNewScene()`
+   * followed by one `spawn` per entry, so a mint moved inside the loop would
+   * put a roster of eight into eight scene rows, each holding one card, with
+   * every count assertion in this block still green. One row, and it is the one
+   * the runner is left pointing at.
+   */
   const tapped = (): number => {
     const promised = said();
     act(() => {
       sendButton().click();
     });
-    expect(useGm.getState().combatants).toHaveLength(promised);
+    const after = useGm.getState();
+    expect(after.session.filter((i) => i.kind === 'scene')).toHaveLength(1);
+    expect(after.openScene).toBe(after.session[0]?.id);
+    expect(openCombatants(after)).toHaveLength(promised);
     return promised;
   };
 
@@ -277,7 +299,7 @@ describe('SEND, and the unit it is in', () => {
     builder([{ ref: minion.id, count: 3 }], 4);
     expect(tapped()).toBe(3);
     // Every card carries the group, which is where the twelve is.
-    const rats = useGm.getState().combatants.map((c) => c.minionsRemaining);
+    const rats = openCombatants(useGm.getState()).map((c) => c.minionsRemaining);
     expect(rats).toEqual([4, 4, 4]);
   });
 
@@ -286,13 +308,13 @@ describe('SEND, and the unit it is in', () => {
     // A party of seven makes each group bigger, never adds a fourth card.
     builder([{ ref: minion.id, count: 3 }], 7);
     expect(tapped()).toBe(3);
-    expect(useGm.getState().combatants.map((c) => c.minionsRemaining)).toEqual([7, 7, 7]);
+    expect(openCombatants(useGm.getState()).map((c) => c.minionsRemaining)).toEqual([7, 7, 7]);
   });
 
   it('keeps its promise for a roster with no Minion in it', () => {
     builder([{ ref: solo.id, count: 3 }], 4);
     expect(tapped()).toBe(3);
-    expect(useGm.getState().combatants[0]?.minionsRemaining).toBeUndefined();
+    expect(openCombatants(useGm.getState())[0]?.minionsRemaining).toBeUndefined();
   });
 
   it('keeps its promise for a roster that mixes the two', () => {
@@ -341,7 +363,14 @@ describe('SEND, and the unit it is in', () => {
     );
     // Three cards, two of which are groups. There is no one noun for that, so
     // the button uses none.
-    expect(sendButton().textContent).toContain('SEND 3 TO THE SCENE');
+    //
+    // Whole string, not a substring. The tail is conditional now - `TO A NEW
+    // SCENE` with nothing open, `TO THE SCENE` with a row open - and a
+    // `toContain` on a conditional label is how a label ends up with no proof
+    // at all. Which tail belongs to which state is `sendCarry.test.tsx`'s
+    // claim; what is asserted here is that nothing has been inserted between
+    // the number and it.
+    expect(sendButton().textContent).toBe('SEND 3 TO A NEW SCENE');
     expect(sendButton().textContent).not.toContain('GROUP');
     expect(sendButton().textContent).not.toContain('CARD');
   });
@@ -352,7 +381,85 @@ describe('SEND, and the unit it is in', () => {
     // its neighbour: the sentence is on the glass a few pixels above it.
     builder([{ ref: minion.id, count: 3 }], 4);
     expect(text()).toContain('3 GROUPS OF 4');
-    expect(sendButton().textContent).toContain('SEND 3 TO THE SCENE');
+    expect(sendButton().textContent).toBe('SEND 3 TO A NEW SCENE');
+  });
+});
+
+describe('the row’s own verb, which is the fourth surface', () => {
+  /*
+   * THE SURFACE THE HEADER PREDICTED, NOW THAT A ROW CAN HOLD ITS OWN FIGHT.
+   *
+   * `SEND` is the builder's road onto the table and had three tests above it.
+   * `START THIS FIGHT` is the other road - a scene row's own roster, spawned
+   * into that row - and it reads the same `EncounterEntry.count` through the
+   * same `spawn(sceneId, adversary, partySize, count)`. Two writers of one
+   * arithmetic is exactly the shape this file was opened for, and until the
+   * fight moved onto the row there was nothing here to press: the arm's verbs
+   * moved a fight between the board and a row instead of starting one.
+   *
+   * The mutation it kills is `entry.count` → `1` at `SessionBody.tsx`'s spawn
+   * loop, which turns three groups into one card and leaves every count above
+   * green, because every count above goes through `Encounter.tsx` instead.
+   *
+   * A party of five throughout, never four: a `partySize` folded into a literal
+   * 4 is the other defect this file's header names, and a fixture of four
+   * cannot see it.
+   */
+  const PARTY = 5;
+
+  const plannedScene = (roster: { ref: string; count: number }[]): SessionItem =>
+    sceneWith('s1', [], { name: 'The ambush', order: 0, collapsed: false, roster });
+
+  const plan = (roster: { ref: string; count: number }[]): void => {
+    act(() => {
+      useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartySize: PARTY } });
+      useGm.setState({ session: [plannedScene(roster)] });
+    });
+    render(createElement(SessionList, { phone: true, onOpenTool: () => {} }));
+  };
+
+  /** By accessible name: three planned scenes draw the same three words. */
+  const start = (): void => {
+    const found = buttons().find(
+      (b) => b.getAttribute('aria-label') === 'START THIS FIGHT — The ambush',
+    );
+    if (found === undefined) {
+      throw new Error(
+        `no START THIS FIGHT on the row. Here: ${buttons()
+          .map((b) => b.getAttribute('aria-label') ?? (b.textContent ?? '').trim())
+          .join(' | ')}`,
+      );
+    }
+    act(() => {
+      found.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  };
+
+  it('puts one card per group on the row, each holding the party’s worth of bodies', () => {
+    plan([{ ref: minion.id, count: 3 }]);
+    start();
+
+    const after = useGm.getState();
+    expect(after.openScene).toBe('s1');
+    // Cards, in the unit SEND uses - and the group size on each of them, in the
+    // unit the shut row counts. Both from the one press.
+    expect(openCombatants(after)).toHaveLength(3);
+    expect(openCombatants(after).map((c) => c.minionsRemaining)).toEqual([PARTY, PARTY, PARTY]);
+  });
+
+  it('spends every entry of a mixed roster, rather than one card per line', () => {
+    plan([
+      { ref: minion.id, count: 2 },
+      { ref: solo.id, count: 1 },
+    ]);
+    start();
+
+    const bodies = openCombatants(useGm.getState());
+    expect(bodies).toHaveLength(3);
+    // Two groups and a Solo: the Solo carries no group at all, which is what
+    // says the count was spent per entry and not per row.
+    expect(bodies.filter((c) => c.minionsRemaining !== undefined)).toHaveLength(2);
+    expect(bodies.filter((c) => c.minionsRemaining === undefined)).toHaveLength(1);
   });
 });
 

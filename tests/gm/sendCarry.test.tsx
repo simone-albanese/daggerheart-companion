@@ -2,9 +2,18 @@
 /**
  * Where the fight opens, said on the button that opens it.
  *
- * `Roster`'s `send` spawns to the board and switches region. It has never
- * touched `environmentRef`, so the fight opens in whatever place the board was
- * already standing in, and nothing on the builder said which place that was.
+ * `Roster`'s `send` spawns into a scene row and switches region - the open one
+ * if there is one, a freshly minted one if there is not - and it has never
+ * touched `board.environmentRef`. So the fight opens in the open row's own
+ * place, or, when there is no open row, in the place the mint copies off the
+ * board; and nothing on the builder said which of those it was about to be.
+ *
+ * The sentence gained a second pair of readings when the fight moved onto the
+ * row (campaign schema 5). It used to have one destination and three branches;
+ * it has two destinations and six, and the tail is what tells them apart -
+ * `CARRIED OVER, NOT PICKED HERE` for the mint, `THE OPEN SCENE'S OWN PLACE`
+ * for the row. All six are asserted below, tail included, for the reason the
+ * paragraph on mutants further down gives.
  *
  * The builder is not unusual in carrying no control for it - that is the
  * ordinary case here. `GmRegion`, the union in `shared/campaigns.ts`, names
@@ -37,12 +46,16 @@
  * builder ought to pick a place of its own is the owner's open question; the
  * sentence is correct under either answer, which is why it could ship before
  * the answer did. What is pinned here is that the sentence and the behaviour
- * agree: the place named beside SEND is the place the board is standing in
- * after SEND has run.
+ * agree: the place named beside SEND is the place the fight is standing in
+ * after SEND has run - which is a fact about the ROW the adversaries arrived
+ * in, and is asserted there rather than on the board they may have been
+ * carried from.
  *
- * The last describe is the other end of the same wire: the bestiary's
- * environment list, which is the one region control that sets the ref this
- * sentence reads, and what its rows say about a Difficulty the book gives no
+ * The last two describes are the other end of the same wire, both in the
+ * bestiary: the `ADD TO …` button, which is the app's second control that puts
+ * a body on a table and carries the same two-destination split SEND does, and
+ * the environment list, which is the one region control that sets the ref this
+ * sentence reads - and what its rows say about a Difficulty the book gives no
  * number for.
  */
 import 'fake-indexeddb/auto';
@@ -53,8 +66,9 @@ import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Bestiary } from '../../src/ui/gm/Bestiary.tsx';
 import { Encounter } from '../../src/ui/gm/Encounter.tsx';
-import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
+import { hydrateGm, openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -98,7 +112,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     party: [],
     environmentRef: null,
     region: 'encounter',
@@ -119,12 +133,28 @@ const text = (): string => container.textContent ?? '';
 
 const environment = dataset.environments[0]!;
 
+/*
+ * The button wears one of two tails - `TO THE SCENE` with a row open, `TO A NEW
+ * SCENE` with none - so it is found by the word that does not change. Matching
+ * on a tail would make every test in this file silently about one destination,
+ * and the tail is the thing two of them are asserting.
+ */
 const sendButton = (): HTMLButtonElement => {
   const found = [...container.querySelectorAll('button')].find((b) =>
-    (b.textContent ?? '').includes('TO THE SCENE'),
+    (b.textContent ?? '').trim().startsWith('SEND '),
   );
   if (found === undefined) throw new Error('no SEND control on the screen');
   return found;
+};
+
+/** A scene row on the glass with a place of its own, and the runner on it. */
+const openRowIn = (ref: string | null): void => {
+  act(() => {
+    useGm.setState({
+      session: [sceneWith('open-row', [], { name: 'The dungeon', environmentRef: ref })],
+      openScene: 'open-row',
+    });
+  });
 };
 
 describe('what SEND says about where the fight opens', () => {
@@ -197,11 +227,18 @@ describe('the sentence and the button agree', () => {
   /*
    * THE CLAIM UNDER THE SENTENCE, PINNED.
    *
-   * The line says the fight opens in the environment on the board. That is only
-   * true because `send` leaves `environmentRef` alone. If the builder ever
-   * starts choosing a place of its own - which is one of the two live answers
-   * to the scene question - this test is the thing that will say the sentence
-   * has to move with it, rather than the sentence quietly becoming a lie.
+   * The line says the fight opens in a named place. With no row open that place
+   * is the board's, and it is only the board's because `openNewScene` seeds the
+   * row it mints off the board rather than minting a placeless one. If the
+   * builder ever starts choosing a place of its own - which is one of the two
+   * live answers to the scene question - this test is the thing that will say
+   * the sentence has to move with it, rather than the sentence quietly becoming
+   * a lie.
+   *
+   * The read is on the ROW the fight arrived in, not on the board it was
+   * carried from. Reading the board back would assert that `send` left a field
+   * alone, which it does, and would say nothing at all about where the
+   * adversaries are standing - and where they are standing is the claim.
    */
   it('opens the fight in exactly the place the line named', () => {
     act(() => {
@@ -216,22 +253,152 @@ describe('the sentence and the button agree', () => {
 
     const after = useGm.getState();
     expect(after.region).toBe('scene');
-    expect(after.combatants.length).toBeGreaterThan(0);
+    expect(openCombatants(after).length).toBeGreaterThan(0);
+    const opened = after.session.find((i) => i.id === after.openScene);
+    expect(opened, 'SEND left the runner pointing at nothing').toBeDefined();
     expect(
-      dataset.environments.find((e) => e.id === after.environmentRef)?.name,
+      dataset.environments.find((e) => e.id === (opened as { environmentRef: string | null })
+        .environmentRef)?.name,
       'the fight opened somewhere the line did not name',
     ).toBe(environment.name);
   });
 
-  it('does not empty the board of its environment on the way', () => {
+  /*
+   * The other destination, and the one the schema-4 build had no name for.
+   *
+   * With a row already open the adversaries go into THAT row - `send` is
+   * `openScene ?? openNewScene()`, so the mint is the fallback and not the
+   * path - and the builder's own place is untouched by the trip. Both halves
+   * are asserted here because either one alone is satisfied by a mutant: a
+   * `send` that always minted would still leave the board's ref standing, and a
+   * `send` that moved the board's ref onto the row would still put the bodies
+   * in the right place.
+   */
+  it('sends into the open scene and leaves the builder’s place standing', () => {
+    const elsewhere = dataset.environments.find((e) => e.id !== environment.id)!;
     act(() => {
       useGm.setState({ environmentRef: environment.id });
     });
+    openRowIn(elsewhere.id);
     render(createElement(Encounter, { phone: false }));
+
+    // The tail says which of the two destinations this press has.
+    expect(sendButton().textContent).toBe('SEND 1 TO THE SCENE');
+    expect(text()).toContain(`OPENS IN ${elsewhere.name.toUpperCase()}`);
+    expect(text()).toContain("THE OPEN SCENE'S OWN PLACE");
+    expect(text()).not.toContain('CARRIED OVER, NOT PICKED HERE');
+
     act(() => {
       sendButton().click();
     });
-    expect(useGm.getState().environmentRef).not.toBeNull();
+
+    const after = useGm.getState();
+    // One row, the one that was already there: nothing was minted.
+    expect(after.session.map((i) => i.id)).toEqual(['open-row']);
+    expect(after.openScene).toBe('open-row');
+    expect(openCombatants(after).length).toBeGreaterThan(0);
+    // The builder's place, still the builder's. It is what the NEXT mint will
+    // seed a row with, and a send that consumed it would leave the workbench
+    // holding nothing.
+    expect(after.environmentRef).toBe(environment.id);
+  });
+
+  it('says the open scene has no place, rather than falling back to the board’s', () => {
+    /*
+     * The branch with the most room to go quietly wrong. The board is standing
+     * in a real place the whole time, so a line that read `board.environmentRef`
+     * when the row has none would print a name - the right-looking name, of the
+     * place the GM last picked - for a fight that is about to open in no place
+     * at all. Both halves of the tail are asserted, for the reason the two
+     * tests above give: a mutant that cut the consequence and left the fact
+     * took the whole suite green once already.
+     */
+    act(() => {
+      useGm.setState({ environmentRef: environment.id });
+    });
+    openRowIn(null);
+    render(createElement(Encounter, { phone: false }));
+
+    expect(text()).toContain('THE OPEN SCENE HAS NO ENVIRONMENT');
+    expect(text()).toContain('THIS FIGHT OPENS WITHOUT ONE');
+    expect(text()).not.toContain('OPENS IN');
+    expect(text()).not.toContain(environment.name.toUpperCase());
+    expect(text()).not.toContain('NO ENVIRONMENT ON THE BOARD');
+  });
+});
+
+/*
+ * THE OTHER BUTTON THAT SAYS WHERE A FIGHT OPENS.
+ *
+ * The bestiary's `ADD TO …` is the second control in the app that puts a body
+ * on a table, and it carries the same two-destination split SEND does - one
+ * adversary into the open scene, or into a scene it makes. It is here rather
+ * than in `bestiaryFilter.test.tsx` because what is on trial is the DESTINATION
+ * and the word the button uses for it, which is this file's whole subject; the
+ * filtering, the party-size sentence and the Difficulty rows each have their
+ * own home and none of them presses this button.
+ *
+ * Both halves in one test, deliberately. The label alone is satisfied by a
+ * mutant that always mints, and the mint alone is satisfied by a mutant that
+ * always says `TO THE SCENE`; what the GM is promised is that the words and the
+ * landing place agree.
+ */
+describe('the bestiary’s own way onto the table', () => {
+  const adversary = dataset.adversaries[0]!;
+
+  const openTheCard = (): void => {
+    render(createElement(Bestiary, { phone: false }));
+    const row = [...container.querySelectorAll<HTMLElement>('li button')].find((b) =>
+      (b.textContent ?? '').includes(adversary.name),
+    );
+    if (row === undefined) throw new Error(`no bestiary row for ${adversary.name}`);
+    act(() => {
+      row.click();
+    });
+  };
+
+  const addButton = (): HTMLButtonElement => {
+    const found = [...container.querySelectorAll('button')].find((b) =>
+      (b.textContent ?? '').trim().startsWith('ADD TO '),
+    );
+    if (found === undefined) throw new Error('no ADD control on the card');
+    return found;
+  };
+
+  it('says it will make a scene when none is open, and makes exactly one', () => {
+    openTheCard();
+    expect(addButton().textContent).toBe('ADD TO A NEW SCENE');
+
+    act(() => {
+      addButton().click();
+    });
+
+    const after = useGm.getState();
+    // One row, minted here, and the runner pointed at it - not a fight left
+    // somewhere the GM would have to go looking for.
+    expect(after.session.filter((i) => i.kind === 'scene')).toHaveLength(1);
+    expect(after.openScene).toBe(after.session[0]?.id);
+    expect(openCombatants(after).map((c) => c.name)).toEqual([adversary.name]);
+    expect(after.region).toBe('scene');
+  });
+
+  it('says it will use the open one when there is one, and mints nothing', () => {
+    act(() => {
+      useGm.setState({
+        session: [sceneWith('open-row', [], { name: 'The dungeon' })],
+        openScene: 'open-row',
+      });
+    });
+    openTheCard();
+    expect(addButton().textContent).toBe('ADD TO THE SCENE');
+
+    act(() => {
+      addButton().click();
+    });
+
+    const after = useGm.getState();
+    expect(after.session.map((i) => i.id)).toEqual(['open-row']);
+    expect(openCombatants(after).map((c) => c.name)).toEqual([adversary.name]);
   });
 });
 

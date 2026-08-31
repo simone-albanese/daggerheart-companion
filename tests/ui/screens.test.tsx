@@ -172,7 +172,7 @@ import { ScreenBoundary } from '../../src/ui/shell/ScreenBoundary.tsx';
 import { ShellBanner } from '../../src/ui/shell/ShellBanner.tsx';
 import { TabBar } from '../../src/ui/shell/TabBar.tsx';
 import { UpdateBanner } from '../../src/ui/shell/UpdateBanner.tsx';
-import { NO_FIGHT } from '../fixtures/factories.ts';
+import { combatant, NO_FIGHT, sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -697,13 +697,23 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   // is executed even when the sheet around it is not opened.
   'gm/TakeIn.tsx::TakeIn': () => <TakeIn />,
   /*
-   * Seeded live, because with nothing to flip between the strip draws the
-   * plain title label instead and a fixture in that state would prove nothing
-   * about the chips. The store is the rest of what it reads, so the seeding
-   * happens in the factory rather than in the element.
+   * Seeded with two rows, because with nothing to flip between the strip draws
+   * the plain title label instead and a fixture in that state would prove
+   * nothing about the chips. The store is the rest of what it reads, so the
+   * seeding happens in the factory rather than in the element.
+   *
+   * TWO rows, not one, and the second holds a fight the pointer does not name.
+   * The strip's membership rule is "holds a fight, or is the one open", and its
+   * two arms draw different elements - a `<span>` for the current row, a
+   * `<button>` with an `Open …` accessible name for the others. One row
+   * exercises only the span, and the button arm is the one the `nameless()`
+   * sweep below has something to say about.
    */
   'gm/SceneSwitcher.tsx::SceneSwitcher': () => {
-    useGm.setState({ session: [sceneItem()], liveScene: 's1' });
+    useGm.setState({
+      session: [sceneItem(), sceneWith('s2', [combatant('c1')], { name: 'The mill', order: 1 })],
+      openScene: 's1',
+    });
     return <SceneSwitcher label="THE LIVE SCENE" />;
   },
   'gm/SessionBody.tsx::SessionBody': () => (

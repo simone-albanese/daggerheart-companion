@@ -3,13 +3,20 @@
  * Clocks that belong to a scene, on the three surfaces that read them.
  *
  * Decision 18's third part. What a scope buys is REACH: the runner draws the
- * running scene's clocks, so a GM with a split party stops scrolling the whole
- * campaign's list to find the one that is about the room they are in.
+ * clocks of the scene it is SHOWING, so a GM with a split party stops scrolling
+ * the whole campaign's list to find the one that is about the room they are in.
  *
  * What it must NOT buy is a filter anywhere else. The board still shows every
  * clock, grouped; the long rest still offers every long-term clock, labelled.
  * Narrowing either would take a clock off a list with no error message, which
  * is the regression that has no symptom.
+ *
+ * Nothing in this file changed its assertions at campaign schema 5, and that is
+ * the point of it: `showScene` writes one string, so what a flip costs is a
+ * re-read of `countdownsIn(session, openScene)` and nothing else. The tests
+ * that say a clock follows the pointer, and the one that says NOTHING ticks
+ * when the pointer moves, are the evidence the flip stayed that cheap - so they
+ * are stated in the new verbs and are otherwise byte-identical.
  */
 import 'fake-indexeddb/auto';
 import { act, createElement } from 'react';
@@ -25,7 +32,7 @@ import { useApp } from '../../src/store/state.ts';
 import { Scene } from '../../src/ui/gm/Scene.tsx';
 import { Countdowns } from '../../src/ui/gm/Countdowns.tsx';
 import { useGm } from '../../src/ui/gm/gmStore.ts';
-import { NO_CLOCK_PROSE, NO_FIGHT } from '../fixtures/factories.ts';
+import { NO_CLOCK_PROSE, sceneWith } from '../fixtures/factories.ts';
 
 const dataset = srd as unknown as Dataset;
 const index = indexDataset(dataset);
@@ -50,8 +57,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [],
-    liveScene: null,
+    openScene: null,
     environmentRef: null,
     region: 'scene',
   });
@@ -65,15 +71,9 @@ afterEach(() => {
 const text = (): string => container.textContent ?? '';
 const buttons = (): HTMLButtonElement[] => [...container.querySelectorAll('button')];
 
-const scene = (id: string, name: string, order: number): SessionItem => ({
-  id,
-  kind: 'scene',
-  name,
-  order,
-  collapsed: true,
-  environmentRef: null,
-  ...NO_FIGHT,
-});
+/** Every scene here is empty of adversaries: what is on trial is its clocks. */
+const scene = (id: string, name: string, order: number): SessionItem =>
+  sceneWith(id, [], { name, order, collapsed: true });
 
 const clock = (
   id: string,
@@ -92,15 +92,15 @@ const clock = (
   countdown: { id, name, kind, start: 6, value: 4, notes: '', ...NO_CLOCK_PROSE },
 });
 
-const show = (session: SessionItem[], liveScene: string | null, what: 'scene' | 'board'): void => {
+const show = (session: SessionItem[], openScene: string | null, what: 'scene' | 'board'): void => {
   act(() => {
-    useGm.setState({ session, countdowns: countdownsOf(session), liveScene });
+    useGm.setState({ session, countdowns: countdownsOf(session), openScene });
     root.render(createElement(what === 'scene' ? Scene : Countdowns, { phone: true }));
   });
 };
 
-describe('the runner draws the running scene’s clocks, and only those', () => {
-  it('puts a scoped clock on the glass while its scene is running', () => {
+describe('the runner draws the open scene’s clocks, and only those', () => {
+  it('puts a scoped clock on the glass while its scene is the one open', () => {
     show(
       [scene('s1', 'The dungeon', 0), clock('c1', 'The ritual', 1, 's1')],
       's1',
@@ -109,7 +109,7 @@ describe('the runner draws the running scene’s clocks, and only those', () => 
     expect(text()).toContain('The ritual');
   });
 
-  it('takes it off the glass when another scene is running', () => {
+  it('takes it off the glass when another scene is the one open', () => {
     // This is the whole feature: the tide is not in the dungeon.
     show(
       [
@@ -147,11 +147,17 @@ describe('the runner draws the running scene’s clocks, and only those', () => 
     expect(useGm.getState().countdowns.find((c) => c.id === 'c1')!.value).toBe(3);
   });
 
-  it('advances nothing on its own when a scene starts or ends', () => {
+  it('advances nothing on its own when the runner flips, or when a fight is cleared', () => {
     /*
      * "A countdown that ticks on its own is one you stop trusting. So: plus and
      * minus, and nothing else." Scope changes reach and attention, never
      * arithmetic - and this is the first optimisation somebody will propose.
+     *
+     * The assertion is unchanged from the schema-4 version of this test and the
+     * verbs under it are not: `runScene`/`clearScene()` moved a fight between
+     * the board and a row, `showScene`/`clearScene(id)` move a pointer and empty
+     * one row. A tick that survived the rename would be a tick nobody asked for
+     * in either model.
      */
     const session = [
       scene('s1', 'The dungeon', 0),
@@ -162,13 +168,13 @@ describe('the runner draws the running scene’s clocks, and only those', () => 
     const before = useGm.getState().countdowns.find((c) => c.id === 'c1')!.value;
 
     act(() => {
-      useGm.getState().runScene('s2');
+      useGm.getState().showScene('s2');
     });
     act(() => {
-      useGm.getState().runScene('s1');
+      useGm.getState().showScene('s1');
     });
     act(() => {
-      useGm.getState().clearScene();
+      useGm.getState().clearScene('s1');
     });
 
     expect(useGm.getState().countdowns.find((c) => c.id === 'c1')!.value).toBe(before);
@@ -195,12 +201,12 @@ describe('the runner draws the running scene’s clocks, and only those', () => 
 });
 
 describe('the board shows every clock, grouped by whose it is', () => {
-  it('keeps a parked scene’s clocks findable, under that scene’s name', () => {
+  it('keeps the clocks of a scene nobody is showing findable, under that scene’s name', () => {
     /*
      * Scope changes where a clock is reachable in a hurry, not whether it
-     * exists. Hiding a parked scene's clocks here would make them findable
-     * only by running that scene, which is worse than the scrolling this
-     * feature set out to end.
+     * exists. Hiding the clocks of a scene the runner is not showing would make
+     * them findable only by opening that scene, which is worse than the
+     * scrolling this feature set out to end.
      */
     show(
       [
