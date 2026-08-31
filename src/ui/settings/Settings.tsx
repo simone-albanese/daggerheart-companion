@@ -11,7 +11,7 @@
  * if this device loses the data, there is no copy of it in the world.
  */
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { DOMAINS, type Character } from '../../../shared/types.ts';
+import { DOMAINS_FOR_DISPLAY, type Character } from '../../../shared/types.ts';
 import { SEVERITY_HP } from '../../engine/damage.ts';
 import {
   backupStatus,
@@ -304,7 +304,7 @@ function Display({ innerRef }: { innerRef: (el: HTMLElement | null) => void }): 
           hint="Each domain has a silhouette as well as a colour, so the shape alone tells you which one it is. Shapes stay on — this switch only shows the difference."
           footer={
             <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-              {DOMAINS.map((domain) => (
+              {DOMAINS_FOR_DISPLAY.map((domain) => (
                 <span key={domain} className="row" style={{ gap: 6 }}>
                   <DomainMark domain={domain} size={16} shapes={demoShapes} />
                   <span className="t-meta" style={{ color: 'var(--muted)' }}>

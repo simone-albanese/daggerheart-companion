@@ -23,7 +23,7 @@
  * answer without anyone opening the book.
  */
 import { useDeferredValue, useMemo, useState } from 'react';
-import { DOMAINS, type DomainCardType, type DomainId } from '../../../shared/types.ts';
+import { DOMAINS_FOR_DISPLAY, type DomainCardType, type DomainId } from '../../../shared/types.ts';
 import type { DerivedStats } from '../../engine/character.ts';
 import { canAddToLoadout, cardAvailability, vaultCard } from '../../engine/loadout.ts';
 import { useActive, useApp } from '../../store/state.ts';
@@ -301,7 +301,7 @@ export function Cards({ stats }: { stats: DerivedStats }): React.JSX.Element | n
       <FilterChip active={domain === 'all'} onClick={() => setDomain('all')}>
         All
       </FilterChip>
-      {DOMAINS.map((d) => (
+      {DOMAINS_FOR_DISPLAY.map((d) => (
         <FilterChip key={d} active={domain === d} onClick={() => setDomain(d)}>
           <DomainMark domain={d} size={11} shapes={shapes} />
           <span style={{ textTransform: 'capitalize' }}>{d}</span>

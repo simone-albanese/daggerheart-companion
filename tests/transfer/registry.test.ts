@@ -115,6 +115,28 @@ describe('bands', () => {
     );
   });
 
+  it('gives every domain this build knows a window of its own', () => {
+    /*
+     * The GENERIC guard, restored. It was replaced by the two dread-specific
+     * tests above when dread arrived, and that was a mistake: those pin the
+     * tenth domain and say nothing about an eleventh, which would have reached
+     * the wire with no window and nothing red. This is the one that fires the
+     * day `DOMAINS` and `DOMAIN_CARD_BASES` stop agreeing, whichever domain
+     * does it.
+     */
+    for (const domain of DOMAINS) {
+      expect(DOMAIN_CARD_BASES[domain], `${domain} has no id window`).toBeTypeOf('number');
+    }
+    const bases = Object.values(DOMAIN_CARD_BASES);
+    expect(new Set(bases).size, 'two domains share a hundred').toBe(bases.length);
+    for (const base of bases) {
+      const home = BANDS.find(
+        (b) => b.collections.includes('domainCards') && base + 1 >= b.min && base + 99 <= b.max,
+      );
+      expect(home, `the hundred at ${base} is not inside any domain-card band`).toBeDefined();
+    }
+  });
+
   it('keeps dread out of the beastforms band, which the computed window fell into', () => {
     // The other half of the defect: whatever a tenth domain was called, the
     // computed window was 6001-6099, and 6001-6022 are beastform ids.

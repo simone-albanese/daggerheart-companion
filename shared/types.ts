@@ -81,12 +81,30 @@ export const DOMAINS = [
    * saved would decode a Grace multiclass as Midnight. Silently - the frame
    * carries an integer and nothing else.
    *
-   * Alphabetical order is a display concern. Anything that shows domains to a
-   * person sorts them at render time; nothing sorts this.
+   * Alphabetical order is a display concern, and `DOMAINS_FOR_DISPLAY` below is
+   * where it is served. Nothing sorts THIS.
    */
   'dread',
 ] as const;
+
+/**
+ * The domains in the order a person should meet them.
+ *
+ * Separate from `DOMAINS` because that one's order is the wire format and must
+ * never move, and because leaving the two implicit got it wrong immediately:
+ * the card grid already sorted its rows by `domain.localeCompare`, while the
+ * filter rail above it and the shape legend in Settings both mapped `DOMAINS`
+ * raw. Appending `dread` therefore put it between Codex and Grace in the grid
+ * and last, after Valor, in the chips over the same grid on the same screen.
+ *
+ * Sorted once here rather than at each call site so the next screen that lists
+ * domains cannot pick the wrong one by omission.
+ */
 export type DomainId = (typeof DOMAINS)[number];
+
+export const DOMAINS_FOR_DISPLAY: readonly DomainId[] = [...DOMAINS].sort((a, b) =>
+  a.localeCompare(b),
+);
 
 export const RANGES = ['Melee', 'Very Close', 'Close', 'Far', 'Very Far'] as const;
 export type Range = (typeof RANGES)[number];
