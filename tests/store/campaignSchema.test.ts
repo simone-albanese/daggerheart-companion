@@ -618,7 +618,7 @@ describe('countdowns, which live in the session list', () => {
     notes: '',
   };
 
-  it('counts a row live because it holds a fight, or because it is the one on the board', () => {
+  it('counts a row live because it holds a fight, or because it is the one the runner has open', () => {
     const { campaign } = readCampaignRecord(
       bare({ session: [sceneRow('a', [fighter]), sceneRow('b'), sceneRow('c')] }),
     );

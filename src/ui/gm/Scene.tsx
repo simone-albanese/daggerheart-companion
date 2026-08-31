@@ -1170,7 +1170,10 @@ function CombatantCard({
        * FROM THE COMBATANT, and that is the shape `sceneTruth.test.tsx` pins
        * *against* for Difficulty. It is not the same case. The disagreement
        * that test guards is two sources for ONE number: `makeCombatant` copies
-       * `difficulty` onto the combatant at spawn (`encounter.ts:231`), so the
+       * `difficulty` onto the combatant at spawn (the `difficulty: a.difficulty`
+       * line in `src/engine/encounter.ts` - named rather than numbered, because
+       * that citation read `:231` when it was written and 82972a1 moved it to
+       * 235 later in this same wave), so the
        * dataset and the scene row can drift apart and the card must print the
        * copy the GM can see. The combatant record carries no divisor at all -
        * `SceneCombatant` has `minionsRemaining` and nothing to divide by - so
