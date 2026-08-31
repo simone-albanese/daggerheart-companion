@@ -181,6 +181,14 @@ describe('the fight survives a reload, which is the promise this file has always
     s.setEnvironment('raging-river');
     s.setPartyTier(3);
     const dungeon = s.openNewScene('The dungeon');
+    /*
+     * The workbench moves on AFTER the row is minted, so the board and the
+     * open row carry different places across the reload. Without this line the
+     * two are the same string - `openNewScene` seeds the row from the board -
+     * and the assertion below that the runner reads the ROW would sit there
+     * green against a runner that read the board.
+     */
+    s.setEnvironment('ruined-hall');
     s.spawn(dungeon, adversary, 4);
     s.patchCombatant(dungeon, 'acid-burrower-0', { spotlighted: true, notes: 'far bank' });
     s.addCountdown('The ice gives way', 'standard', 6);
@@ -194,8 +202,11 @@ describe('the fight survives a reload, which is the promise this file has always
 
     expect(after.fear).toBe(7);
     // The BOARD's environment, which is the builder's workbench and is still
-    // the board's. The runner's place is the open row's, asserted below.
-    expect(after.environmentRef).toBe('raging-river');
+    // the board's; the runner's place is the open ROW's, and the two disagree
+    // here on purpose. This pair is the only reading of `openEnvironment` that
+    // crosses a write to disk and back.
+    expect(after.environmentRef).toBe('ruined-hall');
+    expect(reloaded.openEnvironment(after)).toBe('raging-river');
     expect(after.partyTier).toBe(3);
     expect(after.openScene).toBe(dungeon);
     expect(gm.openCombatants(after)[0]?.spotlighted).toBe(true);
@@ -1272,15 +1283,29 @@ describe('a campaign that is not the one on screen', () => {
  *
  * What stood here was three describes about a fight that lived on the board
  * and visited rows: `running a scene` (15 its), `ending a scene, once a fight
- * can be parked` (3) and `deleting a row a fight came from` (4). Fourteen of
+ * can be parked` (3) and `deleting a row a fight came from` (4). Twelve of
  * those twenty-two are gone rather than rewritten, because the states they
  * pinned cannot be reached any more - a board holding a fight no row owns, a
  * row holding a copy of a fight that is also on the glass, a mint that happens
  * behind the GM's back on the way past. Each was a real property of schema 4
  * and each is now unstateable.
  *
- * The rest inverted. Where the old file asserted that resume EMPTIES the row
- * it took the fight from, this one asserts that nothing moves at all.
+ * Twelve is counted, not quoted. The brief that ordered this work estimated
+ * "roughly 14" and this paragraph shipped saying fourteen; matching the old
+ * titles in `git show e9ef6bb~1:tests/gm/gmStore.test.ts` against the ones
+ * below gives ten survivors out of twenty-two, which is the number the commit
+ * message of e9ef6bb had right and this sentence had wrong.
+ *
+ * Three of those ten assert exactly what they always asserted and only moved
+ * their seeds into the new vocabulary: Fear, the countdowns and the party do
+ * not move for any of this, and a clock that belonged to a deleted row still
+ * goes back to the campaign in the same commit. The other seven inverted -
+ * `brings a parked fight back with every mark exactly where it was` is now
+ * `leaves both fights exactly as they were left, across a flip and back`,
+ * because the marks were never the fragile part and the MOVING was. The old
+ * sentence about resume EMPTYING the row it took a fight from is not one of
+ * the seven: nothing is taken away to be given back, so it is one of the
+ * twelve.
  */
 describe('two fights, two rows, and nothing in between', () => {
   const s = () => gm.useGm.getState();
@@ -1489,6 +1514,57 @@ describe('pointing the runner at a scene', () => {
     s().showScene('dungeon');
     expect(s().session).toBe(before);
     expect(s().openScene).toBe('dungeon');
+  });
+
+  it('hands the runner the open row’s place, and never the board’s', () => {
+    /*
+     * THE TWIN OF `openCombatants`, AND IT SHIPPED WITH NOTHING HOLDING IT.
+     *
+     * This selector is the stated reason both of schema 4's environment-carry
+     * `it`s could be deleted rather than rewritten - `runScene` used to copy a
+     * row's place onto the board on the way in, and nothing copies anything
+     * now because the runner reads the row directly. That reason was load-
+     * bearing and asserted nowhere: with the body replaced by
+     * `environmentIn(s.session, s.openScene) ?? s.environmentRef` in an
+     * rsync'd copy, `npx vitest run tests/gm tests/ui` printed the same
+     * `67 failed | 2501 passed (2568)` as the unmutated control - zero kills
+     * across both directories. Two components subscribe to it: `Scene.tsx`
+     * draws the runner's band from it, and `Encounter.tsx` names the place
+     * SEND would open into.
+     *
+     * The board holds a third value throughout, so a fallback to the board is
+     * a different string from either row's and cannot pass by coincidence.
+     */
+    s().setEnvironment('the-workbench');
+    s().addSessionItem(
+      sceneWith('dungeon', [], { name: 'The dungeon', environmentRef: 'ruined-hall' }),
+    );
+    s().addSessionItem(
+      sceneWith('forest', [], { name: 'The forest', environmentRef: 'raging-river' }),
+    );
+    s().addSessionItem(sceneWith('cellar', [], { name: 'The cellar' }));
+
+    const readings = [
+      ['dungeon', 'ruined-hall'],
+      ['forest', 'raging-river'],
+      /*
+       * A row with no place of its own draws no place. The board has one and
+       * it is not offered: a runner that borrowed the workbench would open
+       * this fight in the PREVIOUS scene's place, which is the defect the
+       * scene row absorbed the fight to close. `environmentIn`'s own docblock
+       * carries that argument.
+       */
+      ['cellar', null],
+    ] as const;
+    for (const [id, place] of readings) {
+      s().showScene(id);
+      expect(gm.openEnvironment(s()), id).toBe(place);
+      expect(s().environmentRef, id).toBe('the-workbench');
+    }
+
+    // Shut: no place at all, rather than the board's.
+    s().showScene(null);
+    expect(gm.openEnvironment(s())).toBeNull();
   });
 
   it('mints nothing when asked to spawn into a row that is not a scene', () => {

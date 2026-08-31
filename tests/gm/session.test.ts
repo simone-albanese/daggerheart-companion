@@ -149,10 +149,16 @@ describe('what a shut row says about itself', () => {
   it('counts the bodies a scene is holding, and drops the plan it outgrew', () => {
     /*
      * TWO SEGMENTS, AND THIS IS WHERE THE THIRD WOULD HAVE APPEARED. The row
-     * seeded here plans two and holds two, so every reading of the second term
-     * is available at once and the arm has to choose. It chooses the bodies:
-     * `PLANNED` counts what the roster WOULD spawn, and printing it about a
-     * fight already being marked up describes a scene that has not started.
+     * seeded here plans two and holds two, so both readings that can fire
+     * without the pointer are available at once and the arm has to choose. It
+     * chooses the bodies: `PLANNED` counts what the roster WOULD spawn, and
+     * printing it about a fight already being marked up describes a scene that
+     * has not started.
+     *
+     * Not all three: `describe_` passes four arguments, so `openScene` is
+     * `null` and `ON THE TABLE` cannot fire here at all. The test two below
+     * asks this same row with the pointer on it, which is the only way that
+     * reading is reachable.
      */
     const item = fought();
     const held = item.kind === 'scene' ? item.combatants.length : 0;

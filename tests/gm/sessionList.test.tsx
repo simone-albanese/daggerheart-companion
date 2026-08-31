@@ -151,6 +151,7 @@ beforeEach(() => {
   });
   useGm.setState({ hydrated: true, session: [], countdowns: [], openScene: null, environmentRef: null, roster: [] });
   drawn.length = 0;
+  opened.length = 0;
 });
 
 afterEach(() => {
@@ -164,6 +165,30 @@ const render = (element: ReactElement): void => {
 
 const list = (phone = true): void => {
   render(createElement(SessionList, { phone, onOpenTool: () => {} }));
+};
+
+/**
+ * Every tool this list was asked to open, in order, and the list rendered so
+ * that it records them.
+ *
+ * File-scope rather than inside one describe, because the property it exists
+ * to catch belongs to both arms. Half of what a primary verb does is write the
+ * pointer and half is `onOpenTool('scene')`, and the second half is invisible
+ * to every assertion about state: a build that dropped it would leave the GM
+ * standing on the plan while a fight started somewhere they cannot see, and
+ * pass everything else this file asks. `SceneArm`'s own docblock says exactly
+ * that, and until this was hoisted only the ENCOUNTER arm's call was pinned.
+ */
+const opened: string[] = [];
+const listWatching = (phone = true): void => {
+  render(
+    createElement(SessionList, {
+      phone,
+      onOpenTool: (tool) => {
+        opened.push(tool);
+      },
+    }),
+  );
 };
 
 const text = (): string => container.textContent ?? '';
@@ -615,13 +640,20 @@ describe('the scene arm', () => {
        * A second row is open throughout, so a verb that pointed at "the scene"
        * rather than at `item.id` would leave the pointer where it was and pass
        * every label assertion above.
+       *
+       * And each press is watched, because writing the pointer is only half of
+       * what these three verbs do. `showScene` does not open the runner, so a
+       * branch that forgot `onOpenTool('scene')` would move the pointer
+       * correctly and leave the GM on the plan - the owner's original
+       * complaint, arriving through a different door. This is the only test
+       * that walks all three branches, so it is where that half belongs.
        */
       for (const [state, items, label] of THREE_STATES) {
         seed([...items(), ...withFight(1, 'elsewhere', 'Scene two')]);
         act(() => {
           useGm.setState({ openScene: 'elsewhere' });
         });
-        list();
+        listWatching();
         // By accessible name, not by words: the second row draws the same
         // label in one of the three cases, and that is exactly the ambiguity
         // this test exists to resolve.
@@ -629,8 +661,12 @@ describe('the scene arm', () => {
           (b) => b.getAttribute('aria-label') === `${label} — Scene one`,
         );
         expect(verb, state).toBeDefined();
+        // Cleared per state: one array, three presses, and `['scene']` has to
+        // mean this branch's press rather than the sum of the ones before it.
+        opened.length = 0;
         click(verb!);
         expect(useGm.getState().openScene, state).toBe('s');
+        expect(opened, state).toEqual(['scene']);
       }
     });
 
@@ -699,7 +735,7 @@ describe('the scene arm', () => {
        * reading. It simply appends.
        */
       seed(planning(2));
-      list();
+      listWatching();
       expect(primary()?.textContent).toBe('START THIS FIGHT');
       click(primary()!);
 
@@ -708,6 +744,11 @@ describe('the scene arm', () => {
       expect(row.kind === 'scene' && row.combatants).toHaveLength(2);
       // The bodies are on the row, and there is nowhere else they could be.
       expect(openCombatants(useGm.getState())).toHaveLength(2);
+      // And the GM went with them. `startFight` is three lines - the pointer,
+      // the spawns, the tool - and the third is the one no assertion about
+      // state can see: a fight that starts on a screen the GM is not looking
+      // at is the complaint this whole change came from.
+      expect(opened).toEqual(['scene']);
     });
 
     it('goes to a fight that is already here without doubling it', () => {
@@ -1040,22 +1081,6 @@ describe('the encounter row at the table', () => {
         combatants: [],
       },
     ]);
-  };
-
-  /** Every tool this list was asked to open, in order. */
-  let opened: string[];
-  beforeEach(() => {
-    opened = [];
-  });
-  const listWatching = (): void => {
-    render(
-      createElement(SessionList, {
-        phone: true,
-        onOpenTool: (tool) => {
-          opened.push(tool);
-        },
-      }),
-    );
   };
 
   const partyOf = (n: number): void => {
