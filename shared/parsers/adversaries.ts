@@ -287,7 +287,16 @@ function splitChapter(pages: BookPage[]): { rosterLines: Sourced[]; blockLines: 
  *
  * A continuation is recognised on four measured facts at once - same page,
  * body type, the same size as its bullet, and indented past it but by less
- * than the column is wide. All four are needed because this slice is not only
+ * than the column is wide.
+ *
+ * This used to say "All four are needed". That was an assertion, not a
+ * measurement, and an independent pass refuted it: each of the conditions can
+ * be removed ON ITS OWN with the tests still 11/11 and SRD 1.0 still
+ * byte-identical. Only removing all of them together goes red. What is true is
+ * that the CONJUNCTION is what excludes the intruders below, and that no single
+ * one of them is load-bearing against the two books we have. Any of them may be
+ * the one that matters on the third, which is why they stay - but nobody should
+ * read this and believe there is a test behind each. The conjunction is needed
  * the list: SRD 2.0's benchmark table shares the roster's first page and the
  * layout pass emits its two right-hand columns AFTER the roster heading, so
  * `Tier 3`, `+3` and `Major 20/Severe 32` arrive here indented far past the

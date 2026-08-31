@@ -35,6 +35,24 @@ export interface Book {
   url: string | null;
   /** Searched in order. The first path that exists wins. */
   localPaths: readonly string[];
+  /**
+   * The committed dataset this book is the source of, or `null` for a book the
+   * app does not ship.
+   *
+   * It is a property of the BOOK because it was a constant in
+   * `tools/build-srd.ts` - `const OUT = 'data/srd-1.0.json'` - which `--pdf`
+   * did not touch. Once the parsers learned to read SRD 2.0, running the build
+   * against it would have written SRD 2.0's dataset over SRD 1.0's file: the
+   * very artifact whose byte-identity is the only proof that reading a second
+   * book changed nothing about the first. The footgun was harmless only while
+   * the SRD 2.0 run still threw in `equipment.ts`, which is to say it was armed
+   * by this wave succeeding.
+   *
+   * `null` is not "write it somewhere else". `data/srd-1.0.json` is a static
+   * import in `src/store/dataset.ts` and in ~20 test files, so which revision
+   * the app ships is a decision with a diff, not a side effect of a build flag.
+   */
+  datasetPath: string | null;
 }
 
 /**
@@ -62,14 +80,19 @@ export const BOOKS: readonly Book[] = [
     sourceDate: '2025-09-09T00:00:00.000Z',
     url: 'https://www.daggerheart.com/wp-content/uploads/2025/09/Daggerheart-SRD-9-09-25.pdf',
     localPaths: ['Manuali/Daggerheart-SRD-9-09-25.pdf', 'tools/.cache/Daggerheart-SRD-9-09-25.pdf'],
+    datasetPath: 'data/srd-1.0.json',
   },
   {
     /*
-     * SRD 2.0. Known, and NOT yet the default: the parsers are keyed to the
-     * 1.0 geometry - 67 spreads of 1224x792 against this book's 224 single
-     * 612x792 pages - so pointing the build here today produces wrong output,
-     * not an error. Listing it is what lets the geometry be measured against
-     * the real file without the escape hatch that used to lie about the name.
+     * SRD 2.0. Known, read end to end, and NOT the shipped dataset.
+     *
+     * The sentence that stood here said "pointing the build here today
+     * produces wrong output, not an error", because the parsers were keyed to
+     * the 1.0 geometry - 67 spreads of 1224x792 against this book's 224 single
+     * 612x792 pages. That is no longer true: every parser now takes its range
+     * from the book's own contents page or from a banner the page prints, and
+     * this revision parses to 14 populated collections. What keeps it out of
+     * `data/` is `datasetPath: null` and the reason above it.
      *
      * `sourceDate` is the date the file is published under, which is how the
      * revision is identified; the PDF's own CreationDate is 2026-08-21. They
@@ -82,6 +105,7 @@ export const BOOKS: readonly Book[] = [
     sourceDate: '2026-08-25T00:00:00.000Z',
     url: null,
     localPaths: ['Manuali/DH_SRD_2_2026_08_25.pdf', 'tools/.cache/DH_SRD_2_2026_08_25.pdf'],
+    datasetPath: null,
   },
 ];
 
@@ -134,6 +158,8 @@ export interface LoadedSrd {
   /** How the dataset should name this source on screen. */
   label: string;
   sourceDate: string;
+  /** The book's `datasetPath`; `null` for a revision the app does not ship. */
+  datasetPath: string | null;
   raw: RawPage[];
   pages: BookPage[];
   /** PUA codepoints that survived the remap. Non-empty means: stop. */
@@ -182,16 +208,41 @@ export async function loadSrd(options: LoadOptions = {}): Promise<LoadedSrd> {
 
   const pages = layoutPages(raw);
 
-  // Normalise the decorative digit glyphs before anything reads the text.
+  /*
+   * Normalise the decorative digit glyphs before anything reads the text, and
+   * take the invisible characters off in the same pass.
+   *
+   * ONE place, because there is no one downstream place. `normalizeText` in
+   * `shared/parsers/util.ts` is not on every paragraph's path: `joinLines` is a
+   * second builder, and `classes.ts` carries a third `join` of its own that
+   * handles dashes differently on purpose. Stripping in `normalizeText` left
+   * the Warlock's class feature on SRD 2.0 folio 26 reading "a supernatural
+   * entity<U+00AD>-such as a god"; stripping in `joinLines` too still left it,
+   * because that paragraph goes through neither. A character that is invisible
+   * on the page has no business surviving extraction, so it comes off here,
+   * where the text stream is already being repaired.
+   *
+   * What this is NOT worth: several documents in this repository call U+00AD
+   * and U+200B "the characters that actually break a name comparison". Measured
+   * on both books, they break nothing - SRD 2.0 holds one and four of them in
+   * 224 pages, none inside any parsed name, and folding them into an 849-name
+   * census buys zero extra hits. The character that buys hits is U+2011. This
+   * is a text repair worth three visible defects, not a matching fix.
+   *
+   * A no-op on SRD 1.0, which contains neither, so `data/srd-1.0.json` is
+   * byte-identical across this change.
+   */
+  const INVISIBLE = /[\u00AD\u200B]/g;
+  const clean = (t: string): string => remapGlyphs(t.replace(INVISIBLE, '')).text;
   const unknown = new Set<string>();
   for (const page of pages) {
     for (const line of page.lines) {
-      const res = remapGlyphs(line.text);
+      const res = remapGlyphs(line.text.replace(INVISIBLE, ''));
       line.text = res.text;
       res.unknown.forEach((u) => unknown.add(u));
-      for (const run of line.runs) run.text = remapGlyphs(run.text).text;
+      for (const run of line.runs) run.text = clean(run.text);
     }
-    for (const run of page.runs) run.text = remapGlyphs(run.text).text;
+    for (const run of page.runs) run.text = clean(run.text);
   }
 
   return {
@@ -206,6 +257,9 @@ export async function loadSrd(options: LoadOptions = {}): Promise<LoadedSrd> {
     revision: book?.revision ?? `unknown-${sha256.slice(0, 12)}`,
     label: book?.label ?? `Unrecognised (${sha256.slice(0, 12)})`,
     sourceDate: book?.sourceDate ?? '1970-01-01T00:00:00.000Z',
+    // An unrecognised book has no committed dataset by construction, so the
+    // write path refuses it for the same reason it refuses SRD 2.0.
+    datasetPath: book?.datasetPath ?? null,
     raw,
     pages,
     unknownGlyphs: [...unknown].sort(),

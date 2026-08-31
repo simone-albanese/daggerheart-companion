@@ -24,7 +24,6 @@ import { SCHEMA_VERSION, type Dataset } from '../shared/types.ts';
 import { loadSrd } from './loadSrd.ts';
 import { formatIssues, validate } from './validate.ts';
 
-const OUT = 'data/srd-1.0.json';
 
 const main = async (): Promise<void> => {
   const checkOnly = process.argv.includes('--check');
@@ -123,7 +122,32 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  /*
+   * Which file this build may write, taken from the BOOK and not from a
+   * constant. `const OUT = 'data/srd-1.0.json'` used to sit at the top of this
+   * file and `--pdf` did not touch it, so the moment the parsers could read
+   * SRD 2.0 end to end, `npm run build:srd -- --pdf <SRD 2>` would have written
+   * that book's dataset over SRD 1.0's - destroying the byte-identity that is
+   * the only evidence the second book was added rather than substituted.
+   */
+  const OUT = srd.datasetPath;
+
   if (checkOnly) {
+    /*
+     * A revision the app does not ship has nothing committed to compare
+     * against, and inventing a comparison would be theatre. Validation has
+     * already run above and an error there has already exited; reaching here
+     * means the book parsed and passed the gate, which is the whole of what
+     * `--check` can honestly assert about it.
+     */
+    if (OUT === null) {
+      console.log(
+        `\n${srd.revision} is not the committed revision, so there is nothing to compare against.` +
+          `\nThe dataset above passed validation. To make this revision the one the app ships,` +
+          `\nsee \`datasetPath\` in tools/loadSrd.ts - it is a decision with a diff, not a flag.`,
+      );
+      return;
+    }
     // CI path: compare against what is committed so a stale dataset is caught.
     try {
       const committed = JSON.parse(readFileSync(OUT, 'utf8')) as Dataset;
@@ -142,6 +166,23 @@ const main = async (): Promise<void> => {
       throw err;
     }
     return;
+  }
+
+  /*
+   * Refusing rather than choosing another name. `data/srd-1.0.json` is a static
+   * import in `src/store/dataset.ts` and in ~20 test files, so which revision
+   * the app ships is a change to those files. Writing `data/srd-2.0.json` here
+   * would produce an artifact nothing reads and a build that looks like it
+   * shipped something.
+   */
+  if (OUT === null) {
+    console.error(
+      `\nRefusing to write: ${srd.revision} has no committed dataset.` +
+        `\n${srd.pdfPath} parsed and validated, and this build has nowhere to put it.` +
+        `\nGive the book a \`datasetPath\` in tools/loadSrd.ts, and repoint the static` +
+        `\nimport in src/store/dataset.ts and the test files that read the old one.`,
+    );
+    process.exit(1);
   }
 
   mkdirSync('data', { recursive: true });

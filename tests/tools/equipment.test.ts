@@ -75,6 +75,23 @@ describe('a page in the range that carries no table', () => {
       /no Name\/Thresholds\/Score\/Feature table on folio 2/,
     );
   });
+
+  /*
+   * The price of the relaxation, and the backstop that pays it.
+   *
+   * Tolerating a prose page means a range that is ENTIRELY prose is tolerated
+   * too, and that is what a wrong range looks like: not a mangled table, an
+   * empty result. Before the relaxation the unconditional throw caught it - it
+   * is how SRD 2.0 announced itself in the first place. This is the assertion
+   * that keeps a wrong range loud now that a single quiet page is legal.
+   */
+  it('refuses a range that is prose all the way down, rather than returning nothing', () => {
+    const prose = (folio: number): BookPage =>
+      sheet(folio, [brun('Armor protects you. It has a base score and thresholds.', 60, 80)]);
+    expect(() => parseArmors([contentsPage(), prose(2), prose(3)])).toThrow(
+      /no Name\/Thresholds\/Score\/Feature table anywhere in folios 2-3/,
+    );
+  });
 });
 
 const have = (i: number): boolean => BOOKS[i]!.localPaths.some((p) => existsSync(p));

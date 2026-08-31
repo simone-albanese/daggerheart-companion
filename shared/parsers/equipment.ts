@@ -249,7 +249,18 @@ function readBands(
 ): Band[] {
   const out: Band[] = [];
   let pending: Line[] = [];
-  /** A table was still running at the foot of the previous page. */
+  /**
+   * Some earlier page in this range carried a table.
+   *
+   * NOT "a table was still running at the foot of the previous page", which is
+   * what this said and what the relaxed throw below is described as testing.
+   * It is set at the end of every page that had a heading and is never cleared,
+   * so it is a latch, not a state. The difference is not academic: it makes the
+   * throw STRICTER than advertised - a blank page in the middle of the chapter
+   * is refused, where the sentence promises it would be tolerated. Documented
+   * rather than changed, because strict is the side to err on here and the
+   * behaviour is what both books were measured against.
+   */
   let open = false;
 
   for (const page of pagesInFolios(pages, range.from, range.to)) {
@@ -313,6 +324,29 @@ function readBands(
     }
     pending.push(...bannersBetween(page, prevY, Infinity));
     open = true;
+  }
+
+  /*
+   * The backstop, and the price of the one relaxation in this file.
+   *
+   * `readTables` used to throw on ANY page in range that carried no table, and
+   * that unconditional throw was the thing that turned a wrong folio range into
+   * a loud failure - it is how the SRD 2.0 run announced itself in the first
+   * place ("no Name/Trait/Range/Damage/Burden/Feature table on folio 45").
+   * Relaxing it for the prose page both books open their Weapons chapter on
+   * bought a silent zero: a range landing entirely on pages with no table and
+   * no run in the header face returns an EMPTY list and no error. Proved by
+   * shifting every folio by +30, which pointed the derived range at Classes
+   * prose and yielded 0 weapons, 0 armors, exit 0.
+   *
+   * A chapter that the contents page names always has at least one table. None
+   * means the range is wrong, and that is worth more than the page it costs.
+   */
+  if (out.length === 0) {
+    throw new ParseError(
+      `no ${columns.join('/')} table anywhere in folios ${range.from}-${range.to}`,
+      `${pagesInFolios(pages, range.from, range.to).length} pages, none carrying a table header`,
+    );
   }
   return out;
 }

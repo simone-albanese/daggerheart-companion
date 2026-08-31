@@ -343,8 +343,13 @@ function splitTopLevel(s: string): string[] {
  *
  * The face is not usable as the signal here even though it looks like one: SRD
  * 1.0 sets every feature heading in QuestaSans, while SRD 2.0 sets some of them
- * in QuestaSans-Light and one - "It's Alive!" on folio 161 - in
- * QuestaSans-LightItalic, the same face as a block's flavour line.
+ * in QuestaSans-Light and TWO - "It's Alive!" on folio 161 and "The Dragon
+ * Wakes" on folio 175, in the Dragon's Lair - in QuestaSans-LightItalic, the
+ * same face as a block's flavour line. (This said "one" and named only the
+ * first; a probe listing every feature line whose family contains `Italic`
+ * across folios 159-182 returns both. The argument is unchanged and slightly
+ * stronger: a face that two headings share with the flavour text is even less
+ * usable as a signal than one.)
  */
 function parseFeatures(lines: Sourced[], columnX: number, name: string): Feature[] {
   const isStart = (l: Line): boolean =>

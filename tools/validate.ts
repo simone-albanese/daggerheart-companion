@@ -116,7 +116,7 @@ function numberFrom(word: string): number | null {
  * The characters that break a name comparison in these books are invisible:
  * SRD 2.0 carries U+00AD soft hyphens and U+200B zero-width spaces left behind
  * where a word was allowed to break, and they survive extraction. The visible
- * suspects mostly do not matter - SRD 2.0 has 1982 ASCII hyphens against 12
+ * suspects mostly do not matter - SRD 2.0 has 1993 ASCII hyphens against 12
  * U+2011 - but folding them costs nothing and a name is not case-significant.
  */
 const nameKey = (s: string): string =>
@@ -345,7 +345,18 @@ export interface RevisionCounts {
    * many `Recall Cost:` lines as level lines.
    */
   domainCardsPerDomain: number | null;
-  /** SRD 2.0 moves these into a `Transformations` chapter of its own (f42). */
+  /**
+   * Beastforms.
+   *
+   * The sentence that stood here - "SRD 2.0 moves these into a
+   * `Transformations` chapter of its own (f42)" - was wrong, and wrong in a way
+   * worth leaving a scar on. SRD 2.0 reprints the Druid's beastform cards where
+   * they were, inside `Classes`, word for word: folios 15-18 against SRD 1.0's
+   * 12-15, the same 22 records, the same book typo ("rough terain"). Folios
+   * 42-45 are a genuinely NEW chapter with six unrelated cards - DEMIGOD,
+   * GHOST, REANIMATED, SHAPESHIFTER, VAMPIRE, WEREWOLF - that no parser reads
+   * and no collection holds. Two different things with adjacent names.
+   */
   beastforms: number | null;
   environments: number | null;
   /**
@@ -370,20 +381,43 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
   'srd-2.0-2026-08-25': {
     domainCardsPerDomain: 21,
     /*
-     * Deliberately null, and deliberately not a guess.
+     * These three were null when this table was written, and the note here said
+     * they would stay null "until they are counted in the book". They have been.
      *
-     * `parseBeastforms` returns 1 on this book, `parseEnvironments` and
-     * `parseAdversaries` throw on it - the Transformations chapter is new and
-     * the adversary roster has moved - so nobody has a trustworthy number to
-     * write here yet. Writing the SRD 1.0 numbers forward, or a plausible
-     * range, would make the gate agree with whatever the first working parser
-     * happens to produce. These stay null until they are counted in the book,
-     * and until then this revision fails the gate by name.
+     * The null was right at the time and for the stated reason: the parsers
+     * were broken on this book, so any number written here would have agreed
+     * with whatever the first working parser happened to produce. The numbers
+     * below were measured the other way round - on the page first, and by more
+     * than one route - and the parser then agreed with them.
+     *
+     * beastforms 22: the book prints 24 cards on folios 15-18. LEGENDARY BEAST
+     * and MYTHIC BEAST are `(Upgraded ...)` templates with no trait, Evasion,
+     * attack or advantage line, so they are not `Beastform`s and are dropped -
+     * in BOTH books, which is why 22 is also SRD 1.0's number. That they are
+     * dropped at all is an open question, not a settled one.
+     *
+     * environments 47: three counts agree - the book's own index on folio 159
+     * (16+12+11+8 by tier), a hand count of the display banners on folios
+     * 160-182, and the parser.
      */
-    beastforms: null,
-    environments: null,
-    adversariesMin: null,
-    adversariesMax: null,
+    beastforms: 22,
+    environments: 47,
+    /*
+     * 264, exactly, where SRD 1.0 carries a 20-wide band.
+     *
+     * The band exists because it is "the coarse second belt on a number that is
+     * not in the dataset to be derived". On this book it can be tight, because
+     * the chapter prints its own roster and `shared/parsers/adversaries.ts`
+     * checks it in both directions: a stat block not on the roster throws, and
+     * a rostered name with no stat block throws. Four independent counts agree
+     * on 264 - the roster entries, the stat-block banners, the parser, and an
+     * independent verifier's re-count.
+     *
+     * SRD 1.0's 120-140 is left alone. It is an inherited number, and widening
+     * or tightening it is a measurement nobody in this wave made.
+     */
+    adversariesMin: 264,
+    adversariesMax: 264,
   },
 };
 

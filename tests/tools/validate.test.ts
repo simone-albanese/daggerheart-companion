@@ -227,9 +227,26 @@ describe('a revision nobody has measured fails loudly', () => {
 
   it('treats a count left null as a hole, not as a pass', () => {
     const ds = srd1();
-    // The real state of SRD 2.0 today: the per-domain card count is measured,
-    // the transformations chapter, the environments and the adversaries are not.
-    ds.revision = 'srd-2.0-2026-08-25';
+    /*
+     * A SYNTHETIC revision, not SRD 2.0.
+     *
+     * This test used to point at `srd-2.0-2026-08-25`, whose beastforms,
+     * environments and adversaries were genuinely null when it was written.
+     * They have since been counted - 22, 47 and 264 - so pointing at the real
+     * revision made the test fail for the best possible reason and took the
+     * PROPERTY down with it. The property is "a null is a hole in the gate",
+     * and it must outlive every revision anyone gets round to measuring, so it
+     * is now pinned against a row that exists only here and is null by
+     * construction.
+     */
+    REVISION_COUNTS['srd-test-null-row'] = {
+      domainCardsPerDomain: 21,
+      beastforms: null,
+      environments: null,
+      adversariesMin: null,
+      adversariesMax: null,
+    };
+    ds.revision = 'srd-test-null-row';
     const issues = errors(validate(ds));
     for (const where of ['beastforms', 'environments', 'adversaries']) {
       const hit = issues.find((i) => i.where === where);

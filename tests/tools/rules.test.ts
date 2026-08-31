@@ -52,8 +52,17 @@ describe.skipIf(path(0) === undefined || path(1) === undefined)('the rules on bo
     // SRD 2.0 sets BEASTFORM OPTIONS in the second column of a page whose
     // first column is the Warden of Renewal, and the Companion sheet beside
     // the Wayfinder and above the Rogue.
-    expect(body(two, 'beastform-options')).not.toContain('Warden of Renewal');
-    expect(body(two, 'beastform-options')).not.toContain('Clarity of Nature');
+    //
+    // These two assertions name `character-creation`, not `beastform-options`,
+    // and that is the whole point of them. They were written against the wrong
+    // section and could not fail: the leaked units PRECEDE the banner, so they
+    // land in the island before it, not in the one the banner opens. Measured
+    // by deleting `open: 'BEASTFORM OPTIONS'` from rules.ts and reading where
+    // the text went - `character-creation` 11021 -> 12655 chars, carrying both
+    // strings, while `beastform-options` did not move. A guard that is
+    // genuinely load-bearing on SRD 2.0 had no check that could go red.
+    expect(body(two, 'character-creation')).not.toContain('Warden of Renewal');
+    expect(body(two, 'character-creation')).not.toContain('Clarity of Nature');
     expect(body(two, 'ranger-companion')).not.toContain('Ruthless Predator');
     expect(body(two, 'leveling-up-your-companion')).not.toContain('Rogues are scoundrels');
     expect(body(two, 'leveling-up-your-companion')).toContain('Aware: Your companion gains a permanent +2 bonus');
@@ -63,7 +72,16 @@ describe.skipIf(path(0) === undefined || path(1) === undefined)('the rules on bo
     const two = await read(1);
     // Folio 158 carries two zombie stat blocks above the USING ENVIRONMENTS
     // banner, and folio 159 the environment roster below the last table.
-    expect(body(two, 'using-environments')).not.toContain('Perfected Zombie');
+    //
+    // `ZOMBIE LEGION` and not `Perfected Zombie`: the block that leaks is the
+    // one immediately above the banner, and it leaks as its heading. Measured
+    // by deleting `'USING ENVIRONMENTS'` from `SPLIT_ABOVE` - the body goes
+    // 1363 -> 1418 chars and opens `## ZOMBIE LEGION / ## Tier 4 Horde (3/HP)
+    // / ## FEATURES` ahead of "Environments represent everything in a scene".
+    // `Perfected Zombie` appears in no section under either the mutant or the
+    // real parser, so the assertion it replaces was unfailable.
+    expect(body(two, 'using-environments')).not.toContain('ZOMBIE LEGION');
+    expect(body(two, 'using-environments').startsWith('Environments represent')).toBe(true);
     expect(body(two, 'adapting-environments')).not.toContain('Abandoned Grove');
   });
 

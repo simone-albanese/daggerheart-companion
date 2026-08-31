@@ -88,13 +88,31 @@ function localRuns(page: BookPage): TextRun[] {
 /**
  * The x of the gutter between the two text columns, one value per page parity.
  *
- * Not a constant, and not per page either. Per page fails: folio 67 is three
- * benchmark tables and one rotated word, and has no gutter to find; folio 73's
- * roster sets a different grid and offers a convincing wrong one. Per book it
- * is stable to a point - the SRD prints its verso pages on a 57pt outer margin
- * and its recto pages on 71pt, and both books use the same two - so the median
- * over the whole stream is the grid, and the pages that show no gutter simply
- * do not vote.
+ * Not a constant, and not per page either. Per page fails: folio 73's roster
+ * sets a different grid and offers a convincing wrong one. Per book it is
+ * stable to a point - the SRD prints its verso pages on a 57pt outer margin and
+ * its recto pages on 71pt, and both books use the same two - so the median over
+ * the whole stream is the grid, and the pages that show no gutter simply do not
+ * vote.
+ *
+ * WHICH pages those are is worth stating exactly, because it is the only
+ * description of what the median is a median OF - and it has now been got wrong
+ * twice, in opposite directions, by people who did not instrument this loop.
+ *
+ * Measured by printing the abstention from inside the loop, on both books:
+ * NINE pages each. SRD 1.0 folios 3, 4, 6, 35, 62, 63, 67, 102, 103; SRD 2.0
+ * folios 3, 4, 6, 46, 84, 85, 89, 158, 159. They are the full-width
+ * single-column pages - covers, chapter openers, rosters - which is the
+ * reassuring shape: what abstains is what has no two columns to find a gutter
+ * between.
+ *
+ * The two abstentions are NOT the same abstention, and that is the part both
+ * wrong versions flattened. Seven per book fall out of the gap test with
+ * `best = 0`: there is no gap in the middle 40% because there is one column.
+ * Folios 67 and 89 - the benchmark tables - never reach it, dropping out at
+ * `runs.length < 6` because almost nothing on them is set at 9pt or larger.
+ * A reader checking this by re-implementing the gap test alone will conclude
+ * those two vote. They do not.
  *
  * Only the classification matters, not the value: no run is wide enough to
  * straddle the gutter, so any x strictly inside it sorts the columns the same
