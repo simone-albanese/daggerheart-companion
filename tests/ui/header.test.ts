@@ -287,10 +287,18 @@ describe('the nav and the readout share one line', () => {
         width >= 720 ? ['Play', 'Cards', 'Build', 'GM', 'Search'] : [],
       );
 
-      // The dataset line and the library count, either wording of the first.
-      // `SRD ONLY` matches what a device with no imported layer shows today;
-      // the alternative is what a device that imported one before the importer
-      // was removed still shows, and both are drawn by the same span.
+      // Is the readout drawn at all - that is the whole question, and the
+      // result below is compared against nothing but the width. So this is
+      // three ways of finding the same strip rather than an assertion about
+      // its wording: the dataset span, either wording of it, and the library
+      // count beside it.
+      //
+      // `SRD ONLY` is now a constant. `SRD + CORE RULEBOOK` was the other half
+      // of a conditional on an imported layer, and it went with `hasManual`
+      // when the Core Rulebook importer was removed - no device can draw it
+      // again. It stays in the pattern because narrowing the pattern would not
+      // buy this test anything it asks for, and would turn a question about
+      // whether the strip is drawn into one about what it says.
       const readout = /SRD ONLY|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
         container.textContent ?? '',
       );

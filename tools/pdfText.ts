@@ -8,8 +8,13 @@
  * control characters, so "Level 5 Arcana Spell / Recall Cost: 2" arrives as
  * "Level \x1C Arcana Spell / Recall Cost: \x12" - every card level and recall
  * cost in the book, silently destroyed. Poppler resolves the same glyphs from
- * the font's built-in encoding. pdf.js stays in `src/import/`, where the
- * Core Rulebook (produced by Quartz, with proper unicode maps) is handled.
+ * the font's built-in encoding.
+ *
+ * There is no second reader to divide the work with any more. pdf.js lived in
+ * `src/import/`, where the Core Rulebook - produced by Quartz, with proper
+ * unicode maps - was handled, and `b35523d` removed that importer and the
+ * dependency with it. Nothing above rests on that: the reason for poppler is
+ * what this book's fonts do to pdf.js, not what the rest of the tree ships.
  *
  * WHY TWO POPPLER INVOCATIONS
  * ---------------------------
