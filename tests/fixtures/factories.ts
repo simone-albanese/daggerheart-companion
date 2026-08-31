@@ -296,13 +296,13 @@ export type SceneRow = Extract<SessionItem, { kind: 'scene' }>;
  * half of it, below.
  *
  * The id is positional, and the patch cannot reach it because `p` is spread and
- * then `id` is written over the top. `campaignRoundTrip.test.ts`,
- * `names.test.tsx` and `sceneSwitcher.test.tsx` each hand-build the same nine
- * fields to get a body they can name and point at, so the id is the argument;
- * and two ways to set one field is one too many. It has to be the write order
- * that settles it rather than `Omit<…, 'id'>`, because that type only turns
- * away a fresh literal: a patch built by spreading another body carries an
- * `id` straight past it and compiles.
+ * then `id` is written over the top. `campaignRoundTrip.test.ts` hand-builds the
+ * same nine fields to get a body it can name and point at, and `names.test.tsx`
+ * and `sceneSwitcher.test.tsx` did until campaign schema 5 moved them onto this,
+ * so the id is the argument; and two ways to set one field is one too many. It
+ * has to be the write order that settles it rather than `Omit<…, 'id'>`,
+ * because that type only turns away a fresh literal: a patch built by spreading
+ * another body carries an `id` straight past it and compiles.
  *
  * Everything else is the patch's, including the four fields that say this body
  * has a history. `makeCombatant` mints one at rest - `hp.marked` 0,

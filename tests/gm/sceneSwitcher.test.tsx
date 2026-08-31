@@ -23,8 +23,8 @@ import { indexDataset } from '@engine/character.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { SceneSwitcher } from '../../src/ui/gm/SceneSwitcher.tsx';
-import { useGm } from '../../src/ui/gm/gmStore.ts';
-import { NO_FIGHT } from '../fixtures/factories.ts';
+import { openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
+import { combatant, sceneWith } from '../fixtures/factories.ts';
 
 const dataset = srd as unknown as Dataset;
 const index = indexDataset(dataset);
@@ -45,7 +45,7 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, session: [], combatants: [], liveScene: null, environmentRef: null });
+  useGm.setState({ hydrated: true, session: [], openScene: null, environmentRef: null });
 });
 
 afterEach(() => {
@@ -53,32 +53,25 @@ afterEach(() => {
   container.remove();
 });
 
-const fighter = (id: string) => ({
-  id,
-  adversaryRef: 'acid-burrower',
-  name: 'Acid Burrower',
-  hp: { max: 8, marked: 0 },
-  stress: { max: 3, marked: 0 },
-  thresholds: [8, 15] as [number, number],
-  difficulty: 14,
-  spotlighted: false,
-  notes: '',
-});
+const fighter = (id: string) => combatant(id);
 
-const scene = (id: string, name: string, order: number, fighters = 0): SessionItem => ({
-  id,
-  kind: 'scene',
-  name,
-  order,
-  collapsed: true,
-  environmentRef: null,
-  ...NO_FIGHT,
-  combatants: Array.from({ length: fighters }, (_, i) => fighter(`acid-burrower-${String(i)}`)),
-});
+/*
+ * A row that IS its fight, through the shared constructor rather than a literal
+ * with `...NO_FIGHT` and a `combatants:` written over the top - which is two
+ * contradictory sentences about the same three lines, and which is what this
+ * helper used to be. The strip reads `combatants.length` and nothing else off
+ * a body, so the bodies are whatever the factory mints.
+ */
+const scene = (id: string, name: string, order: number, fighters = 0): SessionItem =>
+  sceneWith(
+    id,
+    Array.from({ length: fighters }, (_, i) => fighter(`acid-burrower-${String(i)}`)),
+    { name, order, collapsed: true },
+  );
 
-const show = (session: SessionItem[], liveScene: string | null): void => {
+const show = (session: SessionItem[], openScene: string | null): void => {
   act(() => {
-    useGm.setState({ session, liveScene });
+    useGm.setState({ session, openScene });
     root.render(createElement(SceneSwitcher, { label: 'THE LIVE SCENE' }));
   });
 };
@@ -145,11 +138,16 @@ describe('what the strip draws', () => {
     expect([...container.querySelectorAll('button')].some((b) => b.disabled)).toBe(false);
   });
 
-  it('announces a parked chip with the whole name, as text rather than as a title', () => {
+  it('announces the chip it is not showing with the whole name, as text rather than as a title', () => {
     // A `title` is a mouse affordance on a device with no mouse.
+    //
+    // `Open`, not `Run`. There is no mode a scene is put INTO any more: every
+    // row on this strip is holding its own fight the whole time and the tap
+    // only changes which one is drawn, so a verb promising to START something
+    // would promise the one thing this control has stopped doing.
     show([scene('a', 'The dungeon below the mill', 0, 1), scene('b', 'The forest', 1)], 'b');
     const button = container.querySelector('button')!;
-    expect(button.getAttribute('aria-label')).toBe('Run The dungeon below the mill');
+    expect(button.getAttribute('aria-label')).toBe('Open The dungeon below the mill');
     expect(button.getAttribute('title')).toBe(null);
   });
 
@@ -157,19 +155,23 @@ describe('what the strip draws', () => {
     show([scene('a', '', 0, 1), scene('b', 'The forest', 1)], 'b');
     const button = container.querySelector('button')!;
     expect(button.textContent).toBe('SCENE');
-    expect(button.getAttribute('aria-label')).toBe('Run Scene');
+    expect(button.getAttribute('aria-label')).toBe('Open Scene');
   });
 
   it('flips in one tap, with no confirmation and no arming', () => {
-    // The flip destroys nothing - that is the whole reason the storage exists -
-    // and a confirmation would double the cost of the one gesture this file is
-    // for.
+    // The flip destroys nothing, and the reason is stronger than the one that
+    // used to be written here. It was that the parking storage put back what
+    // the swap took away, so nothing was lost on the round trip. Now nothing is
+    // taken away at all: `showScene` writes one string and no fight moves, so
+    // there is no round trip to make whole and a confirmation would double the
+    // cost of the one gesture this file is for to guard a write that does not
+    // happen.
     show([scene('a', 'The dungeon', 0, 2), scene('b', 'The forest', 1)], 'b');
     act(() => {
       container.querySelector('button')!.click();
     });
-    expect(useGm.getState().liveScene).toBe('a');
-    expect(useGm.getState().combatants).toHaveLength(2);
+    expect(useGm.getState().openScene).toBe('a');
+    expect(openCombatants(useGm.getState())).toHaveLength(2);
   });
 
   it('declares a 44px floor on every chip, at every width', () => {
@@ -203,8 +205,11 @@ describe('what the strip draws', () => {
   });
 
   it('never puts a legacy encounter row on the strip', () => {
-    // That arm has no `environmentRef`, so resuming one would open the fight in
-    // the previous scene's place.
+    // `liveScenes` asks for `kind === 'scene'` before it asks anything about a
+    // fight, and an `encounter` row holding bodies is exactly the state that
+    // makes the two questions differ. It is also the row with no
+    // `environmentRef` at all, so a strip that let one on would offer the GM a
+    // chip that opens a fight into no place.
     act(() => {
       useGm.setState({
         session: [
@@ -220,10 +225,48 @@ describe('what the strip draws', () => {
           },
           scene('b', 'The forest', 1, 1),
         ],
-        liveScene: 'b',
+        openScene: 'b',
       });
       root.render(createElement(SceneSwitcher, { label: 'THE LIVE SCENE' }));
     });
     expect(chips().map((c) => c.textContent)).toEqual(['THE FOREST']);
+  });
+
+  /*
+   * Two fights standing at once, and the tap that moves neither of them.
+   *
+   * This is the state schema 5 exists for and the one the strip could not
+   * reach before: two rows each holding their own adversaries while a third,
+   * empty one is the one being drawn. Under schema 4 the fight was the board's,
+   * so two rows carrying bodies at the same time meant somebody had parked one
+   * on purpose, and the open row was on the strip only through the pointer.
+   *
+   * The flip test above proves the pointer moves and the newly-open row's fight
+   * arrives with it. What is proved here is the other half - that NOTHING else
+   * did - and it is asserted on object identity rather than on lengths: a
+   * `showScene` that rebuilt the rows it did not open would still hand back two
+   * arrays of the right size. `toBe` is what tells a copy from the row itself.
+   */
+  it('draws a fight-holding row, another, and the empty one being shown, and moves no body on the tap', () => {
+    const rows = [scene('a', 'The dungeon', 0, 2), scene('b', 'The forest', 1, 1), scene('c', 'The gate', 2)];
+    show(rows, 'c');
+    expect(chips().map((c) => c.textContent)).toEqual(['THE DUNGEON', 'THE FOREST', 'THE GATE']);
+
+    const before = useGm.getState().session;
+    act(() => {
+      container.querySelector('button')!.click();
+    });
+
+    const after = useGm.getState().session;
+    expect(useGm.getState().openScene).toBe('a');
+    // Every row object, not just its contents: the tap wrote `openScene` and
+    // touched no row at all.
+    for (const [i, row] of after.entries()) expect(row).toBe(before[i]);
+    // And the runner is now looking at the fight that was already standing on
+    // the row it opened, with the bodies it already had.
+    expect(openCombatants(useGm.getState()).map((c) => c.id)).toEqual([
+      'acid-burrower-0',
+      'acid-burrower-1',
+    ]);
   });
 });

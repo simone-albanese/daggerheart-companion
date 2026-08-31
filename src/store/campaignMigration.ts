@@ -35,11 +35,7 @@
  * `dhc.gm.v1.unreadable` is a name, in a place they can find it, and nothing
  * has been thrown away.
  */
-import {
-  CAMPAIGN_SCHEMA_VERSION,
-  readCampaignRecord,
-  type Campaign,
-} from '../../shared/campaigns.ts';
+import { readCampaignRecord, type Campaign } from '../../shared/campaigns.ts';
 import { getCampaign, putCampaign } from './campaigns.ts';
 
 /** The key `src/ui/gm/gmStore.ts` wrote to before campaigns existed. */
@@ -57,6 +53,60 @@ const LEGACY_GM_QUARANTINE_KEY = 'dhc.gm.v1.unreadable';
  * tables and no way to know which one the app is going to use.
  */
 const LEGACY_CAMPAIGN_ID = 'campaign-from-gm-v1';
+
+/**
+ * The campaign schema the blob below is SHAPED like, and it is not this build's.
+ *
+ * `dhc.gm.v1` was written by a build whose fight lived in one list on the GM
+ * screen, and the literal below still copies that list into `board.combatants`
+ * and names `liveScene` beside it. That is a schema-4 board by construction,
+ * and it does not become a schema-5 board by being stamped as one.
+ *
+ * Stamping it `CAMPAIGN_SCHEMA_VERSION` is not a cosmetic lie, it is the one
+ * silent way this file can still lose everything it exists to save.
+ * `readCampaignRecord` reads the stamp, `applyChain` walks 5 to 5, no converter
+ * runs, and the schema-5 board reader - which names its own keys, and
+ * `combatants` is not one of them - drops the fight on the floor. Then the
+ * verified write agrees with itself, because it compares what was BUILT against
+ * what came BACK and never against what the blob HELD, and the localStorage key
+ * is deleted. Every HP and Stress mark on the table gone, and the only copy
+ * already thrown away.
+ *
+ * So the number stays where the shape is, and the chain does the moving: the
+ * `from: 4` entry in `shared/campaigns.ts` lands that fight on a scene row and
+ * points `openScene` at it. No mint is written here. A second one would be a
+ * second answer to "where does a board's fight go", and one fight with two
+ * homes is the defect schema 5 exists to delete - rebuilding it in the rescue
+ * path would be a poor place to start.
+ *
+ * It does not move with `CAMPAIGN_SCHEMA_VERSION`, and a bump that drags it
+ * along has broken this. The bytes sitting in a GM's localStorage do not change
+ * because this app did; a future schema adds a converter, not a restamp. The
+ * day this literal stops being a schema-4 board is the day this number moves,
+ * and there is no other.
+ *
+ * ## What the suite holds, and what it does not
+ *
+ * Measured, not assumed - and stated as a difference, because a total is a
+ * fact about the day it was written. What a mutant is worth here is the
+ * failure it ADDS to `npx vitest run tests/store/`, compared name for name;
+ * the number that run prints is not evidence of anything, and this paragraph
+ * has already carried one that a later commit in its own wave made false.
+ *
+ * Mutating this to 5 adds exactly one failure, and it is the right one:
+ * `campaignMigration.test.ts`'s *brings across every part of it, not just the
+ * Fear*, which is the loss above caught the moment it happens. Mutating it to
+ * 3 adds none, because the `from: 3` entry is a pure copy and 3 -> 4 -> 5
+ * lands the fight in the same place 4 -> 5 does.
+ *
+ * So what the tests pin is the boundary - this number is BELOW
+ * `CAMPAIGN_SCHEMA_VERSION`, so the chain always runs - and not the digit. The
+ * digit is 4 because that is the shape: `board.liveScene` is a schema-4 field
+ * and the literal below writes one. Stamping 3 would be a harmless lie today
+ * and a live one the day the `from: 3` entry stops being a copy, and no test
+ * would be there to say so.
+ */
+const LEGACY_BLOB_SCHEMA = 4;
 
 /**
  * What a GM's first table is called, until they rename it.
@@ -184,6 +234,13 @@ export function stable(value: unknown): string {
  * them. None of them is marked primary: the old store had no such idea, and
  * choosing one on the GM's behalf would be the app deciding which clock they
  * are watching.
+ *
+ * What comes out of here is a schema-4 record and says so - see
+ * `LEGACY_BLOB_SCHEMA`. The fight is left in `board.combatants` on purpose, and
+ * the chain inside `readCampaignRecord` is what moves it onto a scene row. That
+ * is the same road every `.dhcampaign` and every stored record takes, which is
+ * the whole point: one converter, proved once against frozen bytes, rather than
+ * a rescue written twice and read once.
  */
 function campaignFromLegacy(
   legacy: Record<string, unknown>,
@@ -206,7 +263,7 @@ function campaignFromLegacy(
 
   return {
     id,
-    schemaVersion: CAMPAIGN_SCHEMA_VERSION,
+    schemaVersion: LEGACY_BLOB_SCHEMA,
     name: FIRST_CAMPAIGN_NAME,
     createdAt: at,
     updatedAt: at,
@@ -220,10 +277,20 @@ function campaignFromLegacy(
       adjustments: legacy['adjustments'],
       combatants: legacy['combatants'],
       environmentRef: legacy['environmentRef'],
-      // A legacy record predates the pointer by two bumps, so its board came
-      // from no row. `readCampaignRecord` would supply the same `null`; it is
-      // named here because this literal builds a `GmBoard` field by field and
-      // an unnamed field is a compile error, not a default.
+      // Null, and named rather than omitted. `dhc.gm.v1` was written before
+      // campaigns existed at all, so there is no row its board could name -
+      // which is what sends a blob that HAS a fight down the converter's third
+      // branch, onto a row minted for it. A blob whose list is empty takes the
+      // first branch instead, where this same null is simply renamed.
+      //
+      // Named because this literal is a whole schema-4 board or it is nothing,
+      // and NOT because the compiler insists: this function returns
+      // `Record<string, unknown>` and its board has never been checked against
+      // `GmBoard`. Nothing holds this line either - deleting it adds no failure
+      // to `npx vitest run tests/store/`, because the converter reads a missing
+      // `liveScene` and a null one the same way, so no test of behaviour could
+      // separate them. It is here for the reader, and it is the reader who has
+      // to keep it.
       liveScene: null,
     },
   };

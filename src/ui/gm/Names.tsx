@@ -22,9 +22,11 @@
  * ## What `taken` is, on this screen
  *
  * The generator refuses to repeat a name the caller says is in play, and this
- * component is what knows which those are: everyone on the live scene, every
- * row of tonight's session, every player sheet on the party board, and every
- * name this tool has already handed over in this sitting. That last one is the
+ * component is what knows which those are: everyone standing in EVERY fight in
+ * the campaign - not only the scene the runner has open, for the reason given
+ * at `fought` below - every row of tonight's session, every player sheet on the
+ * party board, and every name this tool has already handed over in this
+ * sitting. That last one is the
  * reason the sitting's list is state rather than a rolling single value - a
  * generator that forgets what it just said will say it again, and a GM who has
  * to notice that is doing the tool's job.
@@ -153,13 +155,35 @@ export function Names({
    */
   rng?: Rng;
 }): React.JSX.Element {
-  const combatants = useGm((s) => s.combatants);
   const session = useGm((s) => s.session);
   const party = useGm((s) => s.party);
 
   const [kind, setKind] = useState<NameKind>('person');
   /** Newest first, which is the order the eye wants and the reverse of drawing. */
   const [drawn, setDrawn] = useState<string[]>([]);
+
+  /**
+   * EVERY fight in the campaign, not the one the runner has open.
+   *
+   * This read the board's single combatant list until the fight moved onto the
+   * scene row, and narrowing it to the OPEN row would have been the natural
+   * translation and a defect: the generator would hand out a name that is
+   * already on an adversary standing in a scene the GM is not looking at, and
+   * the collision would surface an hour later when they flipped back to it.
+   * The whole promise of this screen is that a drawn name is free, and "free"
+   * cannot mean "free in this room".
+   *
+   * Both fight-bearing arms, `scene` and the legacy `encounter`, because a
+   * name in use is in use whichever kind of row is holding it and an
+   * `encounter` row minted before campaign schema 3 can still carry one.
+   */
+  const fought = useMemo(
+    () =>
+      session.flatMap((i) =>
+        i.kind === 'scene' || i.kind === 'encounter' ? i.combatants : [],
+      ),
+    [session],
+  );
 
   /**
    * Everything already in play, so the generator can refuse to repeat it.
@@ -169,13 +193,13 @@ export function Names({
    */
   const taken = useMemo(() => {
     const names = [
-      ...combatants.map((c) => c.name),
+      ...fought.map((c) => c.name),
       ...session.map((item) => item.name),
       ...party.map((member) => member.sheet.name),
       ...drawn,
     ];
     return new Set(names.map((name) => name.trim()).filter((name) => name !== ''));
-  }, [combatants, session, party, drawn]);
+  }, [fought, session, party, drawn]);
 
   const draw = useCallback(() => {
     setDrawn((before) => [drawName(kind, rng, taken), ...before]);

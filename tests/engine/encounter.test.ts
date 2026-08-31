@@ -295,12 +295,14 @@ describe('scene combatants', () => {
    * `a` is the dataset's own record - one object per adversary for the whole
    * device - and `thresholds` is the only mutable field `makeCombatant` takes
    * off it. Handing it through by reference gave every combatant ever spawned
-   * from one adversary a handle on the array the bestiary draws from. No
-   * copier on the way to the board ever stood in the way of that: `spawn`
-   * pushes a fresh combatant straight onto the live board, and `runScene`'s
-   * `copy()` runs only at park and resume, which a GM who spawns and marks
-   * never reaches. What has kept the book intact is that nothing writes
-   * through the handle - `makeCombatant` argues the rest.
+   * from one adversary a handle on the array the bestiary draws from. No copier
+   * on the way to the table ever stood in the way of that: `spawn` pushes a
+   * fresh combatant straight into a scene row's own list, and the one other
+   * deep copier there used to be - the schema-4 `runScene`'s `copy()`, run at
+   * park and resume - was never reached by a GM who spawns and marks, and does
+   * not exist at all now that a fight lives on the row it is fought in. What
+   * has kept the book intact is that nothing writes through the handle -
+   * `makeCombatant` argues the rest.
    */
   it('hands out a thresholds tuple of its own, never the dataset array', () => {
     const a = makeAdversary({ thresholds: [9, 18] });

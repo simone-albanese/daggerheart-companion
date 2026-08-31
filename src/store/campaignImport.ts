@@ -51,10 +51,19 @@
  * entries, combatants and party rows are all scoped to the campaign, and a
  * blanket remap is prohibited rather than merely unnecessary: `readCampaignRecord`
  * repairs two pointers into the session list - a countdown's `sceneId` and
- * `board.liveScene` - by naming a row id, so renumbering rows would detach the
- * parked fight and every scene clock and report it as data the file no longer
- * has. The archive duplicating live row ids is deliberate too: an archived
- * sitting is a copy of the rows as they stood at closing.
+ * `board.openScene` - by naming a row id, so renumbering rows would detach both
+ * and report the detachment as data the file no longer has: every scene clock
+ * handed back to the campaign with a warning, and the scene the GM had open
+ * arriving with nothing open at all.
+ *
+ * The rule survives the rename because `openScene` is still a row id, and the
+ * fight it points at is no longer what is at stake - a fight lives on the scene
+ * row it is fought in, so it travels with the row whatever the id says. What a
+ * remap would still lose is the two pointers, and losing a pointer silently is
+ * the same defect one size smaller.
+ *
+ * The archive duplicating live row ids is deliberate too: an archived sitting
+ * is a copy of the rows as they stood at closing.
  *
  * ## The `characters` store is unreachable from here, at the type level
  *

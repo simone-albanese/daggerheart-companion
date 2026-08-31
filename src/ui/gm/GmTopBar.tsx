@@ -6,8 +6,10 @@
  * tables can see which one they are in. The **Fear pool**, spent from every
  * corner of this app. The **primary countdown**, which is the one the record
  * lets a GM pin precisely because they are watching it all evening. And the
- * live scene, but only while there is one - a chip that appears when adversaries
- * are on the board and is not there when they are not.
+ * open scene, but only while there is one - a chip that appears when the row
+ * the runner is showing has adversaries in it, and is not there when it has
+ * none or when nothing is open. What that narrowness costs is argued beside
+ * the chip itself.
  *
  * ## MENU, and why the whole row is the button
  *
@@ -85,7 +87,7 @@ import type { Layout } from '../shared/useLayout.ts';
 import type { Countdown } from '../../engine/encounter.ts';
 import { primaryCountdownOf } from '../../../shared/campaigns.ts';
 import { FearBar } from './FearPool.tsx';
-import { useGm, type GmRegion } from './gmStore.ts';
+import { openCombatants, useGm, type GmRegion } from './gmStore.ts';
 
 export function GmTopBar({
   layout,
@@ -101,13 +103,31 @@ export function GmTopBar({
   const oneRow = layout === 'desktop';
   const campaigns = useGm((s) => s.campaigns);
   const activeId = useGm((s) => s.activeCampaignId);
-  const combatants = useGm((s) => s.combatants);
+  const combatants = useGm(openCombatants);
   const session = useGm((s) => s.session);
 
   const active = campaigns.find((c) => c.id === activeId);
   const name = (active?.name ?? '').trim();
   const countdown = primaryCountdownOf(session);
 
+  /*
+   * IT COUNTS THE OPEN SCENE, AND NOT A TOTAL ACROSS SCENES.
+   *
+   * Every scene row can hold its own fight at the same time now, so a total
+   * across scenes is available for the first time and is deliberately not what
+   * this says. The chip is a door
+   * to ONE runner, and a number that does not match what opening it shows is
+   * worse than a number narrower than the truth: a GM who reads SCENE · 9 and
+   * taps into a table of three has been lied to by the only control that could
+   * have told them where the other six were.
+   *
+   * NAMED COST, so it is a decision and not a discovery: a GM who closes the
+   * runner while three rows hold fights sees no chip at all until one of them
+   * is open again. That is accepted because the plan list underneath now shows
+   * all three, each with its own count in its shut summary - which is exactly
+   * what it could not do while the fight was on the board and the plan had one
+   * number to share between every row.
+   */
   const scene = combatants.length > 0 && (
     <Chip onClick={() => onOpenTool('scene')} tone="var(--hope)">
       SCENE · {combatants.length}

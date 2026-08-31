@@ -187,7 +187,7 @@ const KINDS: Array<{ id: CountdownKind; label: string; hint: string }> = [
 export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
   const countdowns = useGm((s) => s.countdowns);
   const session = useGm((s) => s.session);
-  const liveScene = useGm((s) => s.liveScene);
+  const openScene = useGm((s) => s.openScene);
 
   /*
    * The campaign's clocks, then one group per scene that owns any, in list
@@ -254,14 +254,14 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
              * then one section per scene, in list order.
              *
              * The board still shows EVERY clock. Scope changes where a clock is
-             * reachable in a hurry - the runner draws the running scene's - and
+             * reachable in a hurry - the runner draws the open scene's - and
              * this screen is the one place a GM comes to think about all of
-             * them at once. Hiding a parked scene's clocks here would make them
-             * findable only by running that scene.
+             * them at once. Hiding a shut scene's clocks here would make them
+             * findable only by opening that scene.
              *
-             * The running scene's heading is in `var(--hope)`, the same colour
-             * its chip has on the runner's strip, so the two surfaces agree
-             * about which scene is on the board without either one saying it
+             * The open scene's heading is in `var(--hope)`, the same colour its
+             * chip has on the runner's strip, so the two surfaces agree about
+             * which scene the runner is showing without either one saying it
              * twice.
              */
             <div className="stack" style={{ gap: 14 }}>
@@ -273,14 +273,14 @@ export function Countdowns({ phone }: { phone: boolean }): React.JSX.Element {
                       /*
                        * `group.id !== null` first, and it is not defensive.
                        * `groups[0]` is the campaign's own group and its id IS
-                       * `null`, so with no scene running `null === null` lit
-                       * THE CAMPAIGN in the live-scene colour - the heading
-                       * that means "belongs to no scene" wearing the mark that
-                       * means "this is the scene on the table".
+                       * `null`, so with no scene open `null === null` lit THE
+                       * CAMPAIGN in the open-scene colour - the heading that
+                       * means "belongs to no scene" wearing the mark that means
+                       * "this is the scene the runner is showing".
                        */
                       style={{
                         color:
-                          group.id !== null && group.id === liveScene
+                          group.id !== null && group.id === openScene
                             ? 'var(--hope)'
                             : 'var(--muted)',
                       }}

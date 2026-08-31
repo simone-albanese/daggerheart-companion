@@ -24,7 +24,7 @@ import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { flushGm, hydrateGm, REPLACED_ON_LOAD, useGm } from '../../src/ui/gm/gmStore.ts';
 import { SESSION_KIND_LABEL } from '../../src/ui/gm/session.ts';
 import { dataset, index } from '../ui/fixture.ts';
-import { NO_CLOCK_PROSE, NO_FIGHT } from '../fixtures/factories.ts';
+import { combatant, NO_CLOCK_PROSE, NO_FIGHT, sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -94,7 +94,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     roster: [],
     environmentRef: null,
     fear: 0,
@@ -250,15 +250,17 @@ describe('the pinned top bar', () => {
     expect(buttons().some((b) => b.getAttribute('aria-label') === 'Advance The tide by one')).toBe(false);
   });
 
-  it('shows the live scene only while there is one, and opens it', () => {
+  it('shows the open scene only while there is a fight in one, and opens it', () => {
     gm();
     expect(text()).not.toContain('SCENE ·');
     act(() => root.unmount());
     root = createRoot(container);
+    // The chip counts `openCombatants`, so it takes BOTH halves: a row holding
+    // a fight, and the pointer at that row. A seed with only one of them is the
+    // state this chip is supposed to stay off for.
     useGm.setState({
-      combatants: [
-        { id: 'x', adversaryRef: 'a', name: 'Acid Burrower', hp: { marked: 0, max: 8 }, stress: { marked: 0, max: 3 }, thresholds: [8, 15], difficulty: 14, spotlighted: false, notes: '' },
-      ],
+      session: [sceneWith('s1', [combatant('x')], { name: 'The Sablewood gate' })],
+      openScene: 's1',
     });
     gm();
     const chip = buttons().find((b) => (b.textContent ?? '').startsWith('SCENE ·'))!;
@@ -583,8 +585,12 @@ describe('ADD', () => {
     const row = useGm.getState().session[0]!;
     expect(row.kind === 'scene' && row.roster).toEqual([{ ref: 'acid-burrower', count: 3 }]);
     expect(row.kind === 'scene' && row.adjustments.harder).toBe(true);
-    // No store action sets a combatant list wholesale, so a row that arrived
-    // carrying one would show a number nothing could ever change again.
+    // ADD copies a ROSTER and cannot copy a fight - the fight belongs to the
+    // scene it is fought in, and there is no verb anywhere that moves one to
+    // another row - so a new row never arrives with one. The claim that used to
+    // stand here, that no store action sets a combatant list wholesale, was
+    // false before this wave and is more false now: `clearScene` empties one and
+    // `spawn` fills one, both on the row they name.
     expect(row.kind === 'scene' && row.combatants).toEqual([]);
   });
 
@@ -757,7 +763,7 @@ describe('a tool that is switched off', () => {
   const openEmptyScene = (): void => {
     seed([sceneRow('s1', 'The Sablewood gate')]);
     gm();
-    click(named('OPEN THE SCENE'));
+    click(named('OPEN THIS SCENE'));
     expect(openTool()).toBe('The live scene');
   };
 

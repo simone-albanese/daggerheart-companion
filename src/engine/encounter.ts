@@ -201,13 +201,17 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
      * would look.
      *
      * Nothing writes through that handle today, and nothing else was ever
-     * standing behind that fact. `runScene` does deep-copy `hp`, `stress` and
-     * `thresholds` - but it defines that copier inside itself and runs it at
-     * its own two crossings, park and resume, while `spawn` pushes what this
-     * function returns straight onto the live board. A GM who spawns a Burrower
-     * and marks it has not crossed a copier at all. So the alias was never
-     * covered, by a crossing that may be deleted or by one that survives, and
-     * the defence belongs where the alias is made.
+     * standing behind that fact. There WAS one other deep copier: the schema-4
+     * `runScene` copied `hp`, `stress` and `thresholds` on its way between the
+     * board and a scene row - but it defined that copier inside itself and ran
+     * it at its own two crossings, park and resume, so a GM who spawned a
+     * Burrower and marked it never crossed it. That was the argument for
+     * defending the alias HERE rather than there, and campaign schema 5 has
+     * settled it: the fight lives on the scene row it is fought in, `runScene`
+     * and its two crossings are deleted, and `spawn` pushes what this function
+     * returns straight into a row's own list. There is now no copier anywhere
+     * on the path. The defence belongs where the alias is made, and it is the
+     * only one left.
      *
      * `Array.isArray`, not `=== null`, and the gap between the two is a crash.
      * Absent thresholds are real: counted in `data/srd-1.0.json`, 16 of the 129

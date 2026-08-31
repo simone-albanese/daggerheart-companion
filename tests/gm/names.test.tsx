@@ -9,7 +9,8 @@
  * engine the right `taken`: the engine cannot invent the campaign, and a
  * component that forgets to pass one of the four sources would keep every one
  * of the engine's tests green while handing a GM the name of the adversary
- * standing in front of the party.
+ * standing in front of the party - or, since the fight moved onto the scene row
+ * it is fought in, the name of one standing in the room next door.
  *
  * The trick each of those tests uses is the same. The place space is 336
  * strings, all of them enumerable, so the test fills it through *one* source at
@@ -18,8 +19,8 @@
  * these bite is that there is nothing else it could correctly return.
  *
  * **Two shapes, and the difference is not cosmetic.** Where the source under
- * test is `combatants` - which is also what `fill` uses - one string is left
- * free and one draw settles it. Where it is `session` or `party`, the string
+ * test is a row's `combatants` - which is also what `fill` uses - one string is
+ * left free and one draw settles it. Where it is `session` or `party`, the string
  * that source contributes has to be held out of the filler as well, or the test
  * would pass with the source ignored; that leaves **two** free strings under
  * the mutation, so a single draw is a coin flip. A first pass at this file
@@ -45,7 +46,7 @@ import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index, playedCharacter } from '../ui/fixture.ts';
-import { NO_FIGHT } from '../fixtures/factories.ts';
+import { combatant, sceneWith } from '../fixtures/factories.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -104,7 +105,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     party: [],
     roster: [],
     environmentRef: null,
@@ -185,27 +186,23 @@ const draw = (times = 1): void => {
 
 const PLACES = enumerateNames('place');
 
-const sceneRow = (name: string, at: number): SessionItem => ({
-  kind: 'scene',
-  id: `row-${String(at)}`,
-  name,
-  order: at,
-  collapsed: true,
-  environmentRef: null,
-  ...NO_FIGHT,
-});
+const sceneRow = (name: string, at: number): SessionItem =>
+  sceneWith(`row-${String(at)}`, [], { name, order: at, collapsed: true });
 
-const combatant = (name: string, at: number): SceneCombatant => ({
-  id: `foe-${String(at)}`,
-  adversaryRef: 'srd-1.0/adversaries/acid-burrower',
-  name,
-  hp: { marked: 0, max: 5 },
-  stress: { marked: 0, max: 3 },
-  thresholds: [7, 14],
-  difficulty: 14,
-  spotlighted: false,
-  notes: '',
-});
+/**
+ * A named body, positionally, so the filler below stays one `map`.
+ *
+ * The nine hand-built fields this used to be are gone - `tests/fixtures/
+ * factories.ts` mints them, and its own docblock names this file as one of the
+ * three that were writing them out again. What is kept is the ARGUMENT ORDER:
+ * the factory's is `(id, patch)`, and this one's is `(name, at)` because
+ * `Array.prototype.map` hands `(value, index)` in exactly that order and the
+ * filler is one `map` over 300-odd strings. Pushing the factory's signature out
+ * to the call sites would turn `.map(foe)` into `.map((name, at) => …)` at
+ * every one of them, which is a chance to write a different id at each.
+ */
+const foe = (name: string, at: number): SceneCombatant =>
+  combatant(`foe-${String(at)}`, { name });
 
 const member = (name: string, at: number): PartyMember => ({
   id: `pc-${String(at)}`,
@@ -216,20 +213,42 @@ const member = (name: string, at: number): PartyMember => ({
   markedAt: null,
 });
 
+/** The row the filler's bodies stand on. Shut, and never the open one. */
+const FILLER_ROW = 'the-filler-scene';
+
 /**
- * Take every place name but the ones listed, through the live scene.
+ * Take every place name but the ones listed, through one scene's fight.
  *
- * The bulk goes into `combatants` rather than into `session` because the scene
- * is not drawn while this dialog is over the list - a chip in the top bar
- * counts them and nothing else renders - whereas 336 session rows are 336
- * mounted components behind a dialog nobody is looking at, which cost this file
- * forty seconds of the suite for no assertion at all.
+ * The bulk goes into ONE row's `combatants` rather than into 336 session rows,
+ * for the reason it always did: the fight is not drawn while this dialog is
+ * over the list, whereas 336 rows are 336 mounted components behind a dialog
+ * nobody is looking at, which cost this file forty seconds of the suite for no
+ * assertion at all. The row is `collapsed`, so even its own body does not
+ * mount.
+ *
+ * What changed at campaign schema 5 is where that one list lives. It was the
+ * board's, and the board's list was the fight - so "everything in play" and
+ * "everything in the room the GM is in" were the same set and no test here
+ * could tell them apart. Now the fight is the ROW's, and `Names.tsx` reads
+ * every row rather than the open one, so this filler is deliberately seeded on
+ * a row that `openScene` does not name and `openScene` is left null. Every
+ * assertion below therefore runs against a fight the runner is NOT showing,
+ * which is the harder half of the claim; the pair of rows is asserted on its
+ * own further down.
  */
 const fill = (keepFree: readonly string[]): void => {
   const free = new Set(keepFree);
   act(() => {
     useGm.setState({
-      combatants: PLACES.filter((name) => !free.has(name)).map(combatant),
+      session: [
+        sceneWith(FILLER_ROW, PLACES.filter((name) => !free.has(name)).map(foe), {
+          // No name of its own: `taken` drops empty strings, so the filler
+          // contributes exactly the bodies it was built for and nothing else.
+          name: '',
+          order: 0,
+          collapsed: true,
+        }),
+      ],
     });
   });
 };
@@ -329,8 +348,10 @@ describe('the campaign is what `taken` is made of', () => {
     // if the session is ignored. One draw would then be right half the time.
     const [free, viaRow] = [PLACES[100] as string, PLACES[101] as string];
     fill([free, viaRow]);
+    // Appended, not written over: `fill` now seeds a scene row of its own, and
+    // a `session:` that replaced it would take 334 of the 336 names back out.
     act(() => {
-      useGm.setState({ session: [sceneRow(viaRow, 0)] });
+      useGm.setState((s) => ({ session: [...s.session, sceneRow(viaRow, 1)] }));
     });
     // Remounted between draws, not drawn twice: the screen adds its own draws
     // to `taken`, so after the first the space is exhausted and the repeat path
@@ -343,8 +364,8 @@ describe('the campaign is what `taken` is made of', () => {
     }
   });
 
-  it('will not hand back the name of something standing on the live scene', () => {
-    // The filler is combatants too, so this one is the source proving itself -
+  it('will not hand back the name of something standing in a fight', () => {
+    // The filler is a fight too, so this one is the source proving itself -
     // and it is the source `fill` leans on, which is why it is asserted first
     // of the four rather than taken on trust by the other three.
     const free = PLACES[7] as string;
@@ -378,11 +399,58 @@ describe('the campaign is what `taken` is made of', () => {
     const free = PLACES[3] as string;
     fill([free]);
     act(() => {
-      useGm.setState({ session: [sceneRow('', 0)] });
+      useGm.setState((s) => ({ session: [...s.session, sceneRow('', 1)] }));
     });
     openOnPlaces();
     draw();
     expect(shown()).toBe(free);
+  });
+
+  it('will not hand back a name from a fight in a scene nobody is looking at', () => {
+    /*
+     * THE ONE CLAIM CAMPAIGN SCHEMA 5 ADDED, AND THE ONE MISTRANSLATION IT
+     * INVITED.
+     *
+     * Until the fight moved onto the row, there was one combatant list in the
+     * campaign and it was the board's, so "in play" and "in the room the GM is
+     * in" were the same set. Now there is one per scene, and the natural
+     * translation of `board.combatants` is `openCombatants` - the OPEN row -
+     * which would be a defect with no symptom on the day it shipped: the
+     * generator hands out a name that is already on an adversary two rows away,
+     * and the GM meets the collision an hour later when they flip to it.
+     * `Names.tsx` reads every fight-bearing row instead, and this is what says
+     * so.
+     *
+     * Two rows, one open and one not, each holding one body, and BOTH their
+     * names held out of the filler along with `free`. Narrowed to the open row,
+     * `viaShut` comes back into the space and two strings are drawable, so a
+     * single draw would be a coin flip; twelve remounted draws take that to
+     * better than 1 in 4000. This is the second shape the header describes, for
+     * the reason the header gives.
+     */
+    const [free, viaOpen, viaShut] = [
+      PLACES[300] as string,
+      PLACES[301] as string,
+      PLACES[302] as string,
+    ];
+    fill([free, viaOpen, viaShut]);
+    act(() => {
+      useGm.setState((s) => ({
+        session: [
+          ...s.session,
+          sceneWith('open-row', [foe(viaOpen, 900)], { name: '', order: 1, collapsed: true }),
+          sceneWith('shut-row', [foe(viaShut, 901)], { name: '', order: 2, collapsed: true }),
+        ],
+        openScene: 'open-row',
+      }));
+    });
+
+    for (let i = 0; i < 12; i++) {
+      openOnPlaces();
+      draw();
+      expect(shown(), `draw ${String(i + 1)} handed back a name that is in a fight`).toBe(free);
+      remount();
+    }
   });
 
   it('repeats rather than refusing when the campaign has used every one', () => {

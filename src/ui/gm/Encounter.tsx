@@ -18,7 +18,7 @@ import {
 import { useApp } from '../../store/state.ts';
 import { damageBumpRule } from '../shared/ruleText.ts';
 import { AdversaryRow, FilterBar, NO_FILTER, useFiltered, type Filter } from './AdversaryList.tsx';
-import { useGm } from './gmStore.ts';
+import { openEnvironment, useGm } from './gmStore.ts';
 import { partySizeNote } from './partySize.ts';
 
 /**
@@ -551,31 +551,73 @@ function Adjustments({
 /**
  * Where the fight this button opens will actually be.
  *
- * `send` below spawns to the board and switches region. It does not touch
- * `environmentRef`, so the fight opens in whatever place the board was already
- * standing in - the last scene's, most of the time, because the only controls
- * that set it are the bestiary's environment block and a session row. Nothing
- * on this screen ever said so, and a GM sending eight adversaries had no way to
- * know which terrain they were sending them into short of opening another tool.
+ * `send` below spawns into the OPEN scene row when there is one and mints a
+ * row when there is not, so there are two places this roster can land and the
+ * sentence names whichever one it is. Nothing on this screen ever said so, and
+ * a GM sending eight adversaries had no way to know which terrain they were
+ * sending them into short of opening another tool.
  *
- * **This names that; it does not change it.** Whether the builder ought to pick
- * an environment of its own - or whether an encounter and a scene are the same
- * record, in which case the question dissolves - is the open one, and the
- * sentence below is true either way: it says where this roster lands, which is
- * the fact a GM needs at the moment they press the button and the fact that
- * makes the answer obvious at the table rather than in a document.
+ * ## The sentence is exact now, and it was only ever approximate before
  *
- * Three states and all three are honest. A resolved environment is named. No
- * environment is said as an absence rather than left blank, because a blank
- * beside a SEND reads as "nothing to say" and this has something to say. A ref
- * this dataset cannot resolve prints the ref and `NOT IN THIS DATASET`, the
- * same words the unresolved roster row above uses and for the same reason: the
- * board still carries it, the fight still opens with it, and inventing a name
- * for a record this build cannot read would be the one dishonest option.
+ * It used to read the board's `environmentRef` and say CARRIED OVER, and it
+ * had only one destination to describe, because the fight itself was on the
+ * board and the board had one place. That sentence was true by luck: the fight
+ * did open in whatever terrain the board happened to be standing in, and that
+ * was usually the last scene's, which is precisely why nothing on this screen
+ * could promise it. A fight lives on the row it is fought in now, so an open
+ * row draws ITS OWN environment (`openEnvironment`, which refuses to fall back
+ * to the board for exactly this reason), and only the minting case still
+ * carries the builder's place across - because that is what `openNewScene`
+ * seeds the new row with.
+ *
+ * **THE OPEN QUESTION THIS DOCBLOCK NAMED IS HALF ANSWERED.** It asked whether
+ * an encounter and a scene are the same record, "in which case the question
+ * dissolves". They are not the same record and the `encounter` kind can no
+ * longer be minted, but the half that mattered here has dissolved anyway: a
+ * scene row holds a roster, a fight and a place, so the destination has an
+ * environment of its own and this screen no longer has to borrow one to
+ * describe it. What is still open is the narrower half - whether the BUILDER
+ * ought to pick an environment of its own for the row it mints, rather than
+ * taking the board's.
+ *
+ * Four states and all four are honest. A resolved environment is named, and
+ * the clause after it says whose place it is. No environment is said as an
+ * absence rather than left blank, because a blank beside a SEND reads as
+ * "nothing to say" and this has something to say. A ref this dataset cannot
+ * resolve prints the ref and `NOT IN THIS DATASET`, the same words the
+ * unresolved roster row above uses and for the same reason: the record still
+ * carries it, the fight still opens with it, and inventing a name for a record
+ * this build cannot read would be the one dishonest option. That last state
+ * does not split by destination, because the defect it reports is the same one
+ * either way.
+ *
+ * One of the two strings added here is shorter than the one it stands in for
+ * and one is longer, and the sentence that said "neither is longer" had the
+ * second comparison backwards. Counted with `len()`, not read off: `THE OPEN
+ * SCENE'S OWN PLACE` is 26 against `CARRIED OVER, NOT PICKED HERE`'s 29, so
+ * the whose-clause got shorter; but `THE OPEN SCENE HAS NO ENVIRONMENT` is 33
+ * against `NO ENVIRONMENT ON THE BOARD`'s 27, which takes the whole
+ * no-environment line from 58 characters to 64.
+ *
+ * So the wrap tolerance for that one branch has not been measured, and the old
+ * conclusion that it "cannot have got worse" is withdrawn rather than patched.
+ * What bounds it is that 64 is not the longest line this function puts on the
+ * glass: the longest environment name in the shipped dataset is `Burning Heart
+ * of the Woods` at 26, which makes `OPENS IN BURNING HEART OF THE WOODS ·
+ * CARRIED OVER, NOT PICKED HERE` 67 characters, and this commit does not
+ * touch that branch. So the new line sits three inside an envelope the span
+ * already carried. Both figures are `len()` over the literals and over
+ * `max(e['name'] for e in data/srd-1.0.json environments)`; neither is a
+ * rendered width, and the day this span's wrap actually matters it wants a
+ * measurement in Chrome rather than a longer arithmetic.
  */
-function opensIn(environment: Environment | undefined, ref: Ref | null): string {
-  if (environment !== undefined) return `OPENS IN ${environment.name.toUpperCase()} · CARRIED OVER, NOT PICKED HERE`;
-  if (ref === null) return 'NO ENVIRONMENT ON THE BOARD · THIS FIGHT OPENS WITHOUT ONE';
+function opensIn(environment: Environment | undefined, ref: Ref | null, minting: boolean): string {
+  const whose = minting ? 'CARRIED OVER, NOT PICKED HERE' : "THE OPEN SCENE'S OWN PLACE";
+  if (environment !== undefined) return `OPENS IN ${environment.name.toUpperCase()} · ${whose}`;
+  if (ref === null)
+    return minting
+      ? 'NO ENVIRONMENT ON THE BOARD · THIS FIGHT OPENS WITHOUT ONE'
+      : 'THE OPEN SCENE HAS NO ENVIRONMENT · THIS FIGHT OPENS WITHOUT ONE';
   return `OPENS IN ${ref} · NOT IN THIS DATASET`;
 }
 
@@ -596,15 +638,47 @@ function Roster({
   const setRegion = useGm((s) => s.setRegion);
   const environments = useApp((s) => s.dataset.environments);
   const environmentRef = useGm((s) => s.environmentRef);
+  const openScene = useGm((s) => s.openScene);
+  const openNewScene = useGm((s) => s.openNewScene);
+  /*
+   * Value-typed, so this subscription is cheap: `openEnvironment` returns a
+   * `Ref | null` and zustand compares the result by identity, so an HP mark on
+   * the open row rewrites `session` and this selector still returns the same
+   * string. The builder does not repaint while the GM plays.
+   */
+  const openRef = useGm(openEnvironment);
 
+  /*
+   * One row, named once, so the label and the tap cannot disagree.
+   *
+   * `openNewScene` is called inside `send` rather than beside it: reading it
+   * here would mint a scene row on every render of this panel. The mint and
+   * the spawns land in that order and every spawn names the same id, so a
+   * roster of eight arrives in one row rather than eight.
+   *
+   * `setRegion('scene')` last, and it is not `onOpenTool`: this screen IS a
+   * region of the sheet, so the move is a region change. `showScene` is not
+   * called at all - `openNewScene` already points the runner at what it minted,
+   * and when a row was already open this button was never asked to change
+   * which one it is.
+   */
   const send = (): void => {
-    for (const e of entries) spawn(e.adversary, partySize, e.count);
+    const sceneId = openScene ?? openNewScene();
+    for (const e of entries) spawn(sceneId, e.adversary, partySize, e.count);
     setRegion('scene');
   };
 
+  /*
+   * The place the sentence below names: the OPEN ROW's when a row is open,
+   * because that is the row the adversaries are about to stand in, and the
+   * BOARD's when none is, because that is what `openNewScene` seeds the row it
+   * mints with. Two sources, one for each destination `send` has.
+   */
+  const ref = openScene === null ? environmentRef : openRef;
   const opens = opensIn(
-    environments.find((e) => e.id === environmentRef),
-    environmentRef,
+    environments.find((e) => e.id === ref),
+    ref,
+    openScene === null,
   );
 
   return (
@@ -750,7 +824,7 @@ function Roster({
             would be false about the Solo - and a label that is false on a
             mixed roster is worse than a number that is bare on every one.
             SEND 3 CARDS names this app's furniture rather than the fiction,
-            and the thing that arrives on the board is an adversary.
+            and the thing that arrives in the scene is an adversary.
 
             The `AddButton` rule is not being broken here, which is the part
             worth saying out loud: that rule is about a number that counts
@@ -764,7 +838,8 @@ function Roster({
             - which is why `plannedAdversaries` is not called here.
           */}
           <button type="button" className="btn btn-primary" onClick={send} style={{ marginTop: 2 }}>
-            SEND {entries.reduce((n, e) => n + e.count, 0)} TO THE SCENE
+            SEND {entries.reduce((n, e) => n + e.count, 0)}{' '}
+            {openScene === null ? 'TO A NEW SCENE' : 'TO THE SCENE'}
           </button>
           {/*
             Under the button rather than beside it: at 393 this section is one

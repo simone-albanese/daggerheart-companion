@@ -28,9 +28,23 @@
  * `readCampaignRecord` and a nine-field stub would be dropped before it could
  * prove anything.
  *
- * So it goes green today at 4 and it stays green at 5 without being edited -
- * or it goes red, which is precisely what a bump shipping without its `from: 4`
- * converter should do to a backup that is on a GM's disk already.
+ * ## What that discipline did and did not buy, now that the bump has happened
+ *
+ * This header used to promise that the file "goes green today at 4 and stays
+ * green at 5 without being edited". **That was wrong, and the assertion that
+ * proved it wrong is in this file.** `gives back every field the older build
+ * wrote` compared the read-back board against the frozen board key for key, and
+ * the 4 -> 5 converter renames two of those keys - so it went red on a bump
+ * that shipped its converter and worked correctly. A backup fixture cannot
+ * promise to be edit-free across a bump that changes the SHAPE of a record; it
+ * can only promise that every edit it needs is one a reader can justify, which
+ * is a smaller and honest claim. The edit that bump needed is one line, and it
+ * states the rename rather than deleting the comparison.
+ *
+ * The FIXTURE is untouched, which is the half that matters: no byte of
+ * `v4.dhcampaign` moved, and it still walks the whole chain. What a bump
+ * shipping without its `from: 4` converter would do to it is still exactly what
+ * should happen - `applyChain` refuses, and every test below goes red at once.
  *
  * No assertion here names a campaign schema number. Every one is written
  * against `CAMPAIGN_SCHEMA_VERSION`, so the bump moves them rather than
@@ -141,7 +155,24 @@ describe('a backup file written by an older build', () => {
     });
 
     expect(back.session).toEqual(raw['session']);
-    expect(back.board).toEqual(raw['board']);
+    /*
+     * The board is the one field the chain does not hand back as it found it,
+     * and this is the assertion that says exactly how much it moved.
+     *
+     * The 4 -> 5 entry drops `combatants` and `liveScene` and puts `openScene`
+     * where the pointer was. So the comparison is against the frozen board with
+     * that rename applied and NOTHING else - taken apart key by key from the
+     * bytes rather than rebuilt from a list, so a converter that also dropped
+     * `roster`, or normalised `adjustments`, still fails here. This fixture's
+     * `board.combatants` is `[]`, which is why the pointer survives the move
+     * unchanged: branch (1), the fight-free one.
+     */
+    const { combatants: wasOnTheBoard, liveScene, ...restOfBoard } = raw['board'] as Record<
+      string,
+      unknown
+    >;
+    expect(wasOnTheBoard).toEqual([]);
+    expect(back.board).toEqual({ ...restOfBoard, openScene: liveScene });
     expect(back.archive).toEqual(raw['archive']);
 
     // The party row minus the sheet, which walked its own chain above.
@@ -169,31 +200,74 @@ describe('a backup file written by an older build', () => {
 
 describe('the version window a backup has to survive', () => {
   /**
-   * What this holds today, and what it holds after the next bump - they are
-   * not the same thing, and saying so is the point.
+   * The window: the schema before this one is inside it. The day
+   * `CAMPAIGN_SCHEMA_VERSION` moves without its `from` converter, this and the
+   * frozen file above both go red with `applyChain`'s own sentence - which is
+   * exactly what should happen to a backup already on a GM's disk.
    *
-   * Today every campaign converter changes no field on purpose: the numbers
-   * move so that *older* builds refuse a record carrying something they cannot
-   * draw, not because anything in the older record is wrong. `readCampaignRecord`
-   * also restamps its output unconditionally. So nothing here can observe
-   * `applyChain` running - deleting the call leaves this green, which was
-   * checked rather than assumed, and the chain being reached at all is held by
-   * `tests/store/campaignSchema.test.ts` walking the frozen `vN.campaign.json`
-   * fixtures. This file must not add to that one.
+   * ## The payload is built by hand, and it was not always
    *
-   * What it holds today is the window: the schema before this one is inside it.
-   * The day `CAMPAIGN_SCHEMA_VERSION` moves without its `from` converter, this
-   * and the frozen file above both go red with `applyChain`'s own sentence -
-   * which is exactly what should happen to a backup already on a GM's disk.
+   * This used to be `{ ...newCampaign(…), schemaVersion: CAMPAIGN_SCHEMA_VERSION - 1 }`
+   * - a record of the CURRENT shape wearing the previous build's number. That
+   * was harmless for as long as every converter changed no field, and the 4 ->
+   * 5 entry ended it: `newCampaign` mints a schema-5 board, so the label handed
+   * a board with `openScene` already on it to the one converter in the chain
+   * that reads `combatants` and `liveScene`. It stayed green - it asserts only
+   * the stamp, the name and the id - while testing a record no build has ever
+   * written, which is the shape of a test that cannot fail.
+   *
+   * So the board below is a schema-4 board, written out. Nothing in this file
+   * may rebuild it from `emptyBoard()` or from `newCampaign`: those follow the
+   * current schema by definition, and a fixture for the previous one that
+   * tracks the current one is not a fixture.
+   *
+   * This is still not converter coverage - `tests/store/campaignSchema.test.ts`
+   * holds the three branches against frozen files, and this file must not add
+   * to that one. It is the window, asked of a record the window is actually
+   * about.
    */
   it('takes a record from the schema before this one and gives it back current', () => {
     const before = CAMPAIGN_SCHEMA_VERSION - 1;
-    const payload = { ...table('The Sablewood Winter', 'winter-1'), schemaVersion: before };
+    const { board: _current, session: _empty, ...rest } = table('The Sablewood Winter', 'winter-1');
+    const payload = {
+      ...rest,
+      schemaVersion: before,
+      session: [
+        {
+          id: 's1',
+          kind: 'scene',
+          name: 'The frozen ford',
+          order: 0,
+          collapsed: false,
+          environmentRef: null,
+          roster: [],
+          adjustments: { easier: false, harder: false, damageBump: false },
+          combatants: [],
+        },
+      ],
+      board: {
+        region: 'encounter',
+        partyTier: 1,
+        roster: [],
+        adjustments: { easier: false, harder: false, damageBump: false },
+        combatants: [],
+        environmentRef: null,
+        liveScene: 's1',
+      },
+    };
 
     const back = parseCampaignFile(envelope(payload, before)).campaign;
     expect(back.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
     expect(back.name).toBe('The Sablewood Winter');
     expect(back.id).toBe('winter-1');
+    /*
+     * The pointer names a row, so this can only be `'s1'` if the 4 -> 5 entry
+     * actually ran: the reader names its own keys and would answer `null` for a
+     * board that still called it `liveScene`. `null` would have proved nothing
+     * - it is what an unwalked record and a walked one both come back as.
+     */
+    expect(back.board.openScene).toBe('s1');
+    expect(back.board).not.toHaveProperty('combatants');
   });
 
   /**

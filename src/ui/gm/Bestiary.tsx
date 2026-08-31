@@ -28,6 +28,20 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
   const onTheBoard = useGm((s) => s.party).length;
   const spawn = useGm((s) => s.spawn);
   const setRegion = useGm((s) => s.setRegion);
+  /*
+   * The two halves of one door, read from the store together so the label and
+   * the tap cannot disagree about where the adversary is going.
+   *
+   * `openScene` is trusted to name a scene row without this file checking:
+   * `showScene` refuses an id that names none, `openNewScene` mints the row in
+   * the same commit that points at it, `removeSessionItem` nulls the pointer
+   * when it deletes the row it names, and `readCampaignRecord` nulls a
+   * dangling one on the way off the disk. The alternative - subscribing to
+   * `session` here to verify - would repaint the whole bestiary on every HP
+   * mark, now that a mark rewrites a session row.
+   */
+  const openScene = useGm((s) => s.openScene);
+  const openNewScene = useGm((s) => s.openNewScene);
 
   // Read, never written back: nothing here sets the preference from the board.
   const disagreement = partySizeNote(partySize, onTheBoard);
@@ -272,11 +286,11 @@ export function Bestiary({ phone }: { phone: boolean }): React.JSX.Element {
                     type="button"
                     className="btn"
                     onClick={() => {
-                      spawn(adversary, partySize);
+                      spawn(openScene ?? openNewScene(), adversary, partySize);
                       setRegion('scene');
                     }}
                   >
-                    ADD TO THE SCENE
+                    {openScene === null ? 'ADD TO A NEW SCENE' : 'ADD TO THE SCENE'}
                   </button>
                   <span className="t-meta" style={{ color: 'var(--dim)' }}>
                     {adversary.role === 'Minion'

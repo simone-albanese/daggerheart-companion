@@ -49,7 +49,11 @@
  * `CAMPAIGN_MIGRATIONS` was empty until 2026-08-18, and its emptiness was
  * argued here at length: the machinery had to be in place before the first
  * bump, because after it it is too late. That argument was right and it has
- * now been cashed. The version is 2, and the chain has one entry in it.
+ * now been cashed. The version is 5 now and the chain has four entries; this
+ * section is about the first of them, and each of the other three argues for
+ * itself at its own entry below. This read "the version is 2, and the chain has
+ * one entry in it" until 2026-08-31, having gone stale three bumps earlier - a
+ * bare present tense in a paragraph about a number whose whole job is to move.
  *
  * **The converter changes no field, and that is the point rather than an
  * embarrassment.** A v1 record is not wrong. Nothing in it needs repairing,
@@ -98,7 +102,7 @@ import {
   type Tier,
 } from './types.ts';
 
-export const CAMPAIGN_SCHEMA_VERSION = 4;
+export const CAMPAIGN_SCHEMA_VERSION = 5;
 
 /**
  * The lowest campaign schema any build has ever written.
@@ -116,25 +120,64 @@ export const CAMPAIGN_SCHEMA_VERSION = 4;
  * It stays 1 across the bump to 4 as well. Nothing older than 1 exists, and no
  * schema-1 field changes in that bump either - the two fields it adds are new
  * ones, and both readers below supply `null` for them.
+ *
+ * It stays 1 across the bump to 5, and that bump is the first where the second
+ * half of the sentence above does not hold: `board.combatants` is a schema-1
+ * field and this bump takes it away. That changes nothing here, because this
+ * constant is a fact about what has been WRITTEN and never about what survives
+ * a read. Every campaign in an IndexedDB and every `.dhcampaign` on a disk is a
+ * v1-v4 record, the chain below still starts at 1, and its fourth entry is
+ * precisely what carries a schema-1 field across its own removal. Raising this
+ * to 2 would make `checkReadable` tell a GM holding one of those files that no
+ * released version of this app has ever written schema 1, which is false.
  */
 export const OLDEST_READABLE_CAMPAIGN = 1;
 
 /**
  * The chain, one entry per campaign schema this build has left behind.
  *
- * **All three entries are deliberately empty of work, and that is the point
- * rather than an omission.** A converter in this chain exists to make an
- * *older* build refuse a record it would otherwise truncate in silence - not to
- * repair anything wrong with the record. In all three bumps there is no field
- * to rename and none to drop, so the honest converter is the one that copies
- * and says why.
+ * **A converter may MOVE. It may not INVENT and it may not REINTERPRET.**
  *
- * The 2 -> 3 entry carries the larger hazard of the two, and it is worth being
- * exact about what a schema-2 build would do to a schema-3 campaign if the
- * version had not moved. Every reader in this file rebuilds its object field by
- * field and drops what it does not name, so that build would not fail - it
- * would succeed, quietly, and then write its reading back on the next 400 ms
- * save:
+ * That is the rule, and it is written as a rule because the first three entries
+ * were never enough to need one. *"All three entries are deliberately empty of
+ * work, and that is the point rather than an omission"* stood here, and it was
+ * true of those three and read as the policy when it was only ever the
+ * arithmetic: no field was renamed and none was dropped in any of those bumps,
+ * so the honest converter was the one that copied and said why. The `from: 4`
+ * entry moves a fight off the board and onto the row it was fought in. It is
+ * the first that has to be judged rather than counted, and this is what it is
+ * judged against.
+ *
+ * Three tests separate a move from a repair. An entry that fails any of them
+ * does not belong in this chain:
+ *
+ * 1. **Could a reader supply it?** If yes, the reader supplies it and this
+ *    chain does not - a default written in two places is one place nobody
+ *    notices has gone stale, which is the `from: 2` entry's rule and the whole
+ *    reason the first three are copies. If no, what the converter carries is
+ *    *data*, not a default, and the readers below still decide what it means.
+ * 2. **Does it decide what the record means?** A converter may not change the
+ *    kind of a thing the GM named, nor a name, an id, a count or a mark. The
+ *    `encounter` arm below refuses exactly that, in its own words, and the next
+ *    migration that wants to rewrite somebody's data will cite whatever this
+ *    chain did.
+ * 3. **Is there anywhere else it could be done?** A key that goes away has
+ *    exactly one place its contents can cross, and that place is here. Doing it
+ *    in `readCampaignRecord` instead would mean the reader keeps naming the
+ *    dead key for ever - the field hidden rather than deleted, the whole
+ *    simplification undone - and the move re-running on every read instead of
+ *    once.
+ *
+ * Underneath all three, a converter in this chain exists to make an *older*
+ * build refuse a record it would otherwise truncate in silence. That has not
+ * changed, and it is why an entry that has nothing to do is still an entry.
+ *
+ * The 2 -> 3 entry carries the largest of the truncation hazards, and it is
+ * worth being exact about what a schema-2 build would do to a schema-3
+ * campaign if the version had not moved. Every reader in this file rebuilds
+ * its object field by field and drops what it does not name, so that build
+ * would not fail - it would succeed, quietly, and then write its reading back
+ * on the next 400 ms save:
  *
  * - a `scene` row's `roster`, `adjustments` and `combatants` - **the fight**
  *   - erased, because a schema-2 `scene` arm names only `environmentRef`;
@@ -147,7 +190,63 @@ export const OLDEST_READABLE_CAMPAIGN = 1;
  * That is a GM losing a season of notes by opening their campaign on a device
  * that has not updated. `checkReadable` turns it into a sentence asking them to
  * update instead, which is the entire job of the number.
+ *
+ * The `from: 4` entry's hazard is not that shape at all, and it is argued where
+ * it lives rather than here: what moves the number there is a *newer* record
+ * that an older build reads successfully, plays, and then destroys.
  */
+/**
+ * A raw record's own object, or an empty one.
+ *
+ * Local to the chain rather than the reader's `isRecord` far below in the
+ * reading half of this file. The converter runs on bytes and the reader runs on
+ * a reading, and the chain - the block in here that gets read most and edited
+ * least - should not forward-reference a helper whose job is the other half.
+ */
+const chainRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+/**
+ * The id the `from: 4` converter gives a fight whose row is gone.
+ *
+ * A literal and NOT `crypto.randomUUID()`, for two reasons that are both
+ * load-bearing.
+ *
+ * The chain is pure, and `tests/store/campaignSchema.test.ts` asserts it by
+ * walking a frozen fixture forward and requiring `JSON.stringify` equality -
+ * which a fresh uuid per run makes unassertable.
+ *
+ * And `readCampaigns` hands a version-moved record to `scheduleAside` to be
+ * written back. If that write fails - quota, a private window, a device with no
+ * room - the converter runs again on the next launch, and a random id would
+ * mint a *second* row holding a *second* copy of the same fight, every time.
+ * `LEGACY_CAMPAIGN_ID` in `src/store/campaignMigration.ts` is this repo's
+ * precedent and gives this exact argument for this exact failure.
+ */
+const RESCUED_FIGHT_ROW = 'board-fight-v4';
+
+/**
+ * `RESCUED_FIGHT_ROW`, or the first free suffix of it in this session list.
+ *
+ * The stable id above is only stable if nothing else already answers to it, and
+ * a record converted, written back, hand-edited and converted again is a way it
+ * could. Colliding would give the list two rows with one id, which the reader
+ * repairs by re-numbering - so the cost is not corruption, it is the rescued
+ * fight arriving under an id nothing points at. Cheaper to not collide.
+ */
+const freeRescueId = (session: readonly unknown[]): string => {
+  const taken = new Set(
+    session.flatMap((i) => {
+      const row = chainRecord(i);
+      return typeof row['id'] === 'string' ? [row['id']] : [];
+    }),
+  );
+  if (!taken.has(RESCUED_FIGHT_ROW)) return RESCUED_FIGHT_ROW;
+  let n = 2;
+  while (taken.has(`${RESCUED_FIGHT_ROW}-${String(n)}`)) n += 1;
+  return `${RESCUED_FIGHT_ROW}-${String(n)}`;
+};
+
 export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
   {
     from: 1,
@@ -203,6 +302,141 @@ export const CAMPAIGN_MIGRATIONS: readonly Migration[] = [
      * the number.
      */
     apply: (r) => ({ ...r }),
+  },
+  {
+    from: 4,
+    note: 'the fight left the board and lives on the scene row it was being fought in; the board kept the builder’s workbench and which scene is open',
+    /*
+     * The first entry in this chain that does work, and it passes the three
+     * tests the header states.
+     *
+     * (1) Could a reader supply it? No. `readSessionItem` supplies
+     * `combatants: []` for a scene row that has none, and for a v4 record whose
+     * fight is sitting in `board.combatants` that default is *wrong*. What this
+     * carries is data. `[]` stays the reader's and stays the reader's alone.
+     *
+     * (2) Does it decide what the record means? No. No kind, no name, no id, no
+     * count and no mark changes. `board.combatants` and a scene row's
+     * `combatants` are the same type, written by the same writers and read by
+     * the same `readCombatants`; the app itself copied a fight between the two
+     * on every resume for as long as both existed. This performs that same park
+     * once, on a record instead of on the glass.
+     *
+     * (3) Is there anywhere else? No. This is the first bump that DELETES a
+     * key, and a key that goes away has exactly one place its contents can
+     * cross.
+     *
+     * ## Why the number had to move, and it is a new shape of hazard
+     *
+     * Every bump before this one guarded against TRUNCATION by an older build.
+     * This one guards against DESTRUCTION, and the loss lands on the *newer*
+     * record read by the *older* build:
+     *
+     * 1. A schema-4 `readCampaignRecord` meets a schema-5 record.
+     *    `board.combatants` is absent, so `readCombatants(undefined)` gives
+     *    `[]`; `board.liveScene` is absent, so `null`. Every scene row reads
+     *    whole. **It does not fail.**
+     * 2. The screen is coherent-looking and wrong: an empty runner, and every
+     *    scene row holding a fight offering to resume it, none of them current.
+     * 3. The GM taps one. The schema-4 `runScene` EMPTIES that row into
+     *    `board.combatants`, and the 400 ms debounce writes it.
+     * 4. They open the campaign on a schema-5 build. The reader names its own
+     *    keys and `combatants` is not one of them. **The fight, and every HP and
+     *    Stress mark on it, is gone**, with nothing on any screen saying why.
+     *
+     * `checkReadable` turns all of that into one sentence asking them to update
+     * the app, and the three doors behind it are already built: `readCampaigns`
+     * quarantines, `putCampaign` and `deleteCampaign` throw, and
+     * `parseCampaignFile` refuses the file as a *version* rather than as
+     * damage.
+     */
+    apply: (r) => {
+      const board = chainRecord(r['board']);
+      const { combatants, liveScene, ...rest } = board;
+      const fight = Array.isArray(combatants) ? combatants : [];
+      // The pointer is CARRIED, not validated. Converters move; readers decide.
+      const pointer = typeof liveScene === 'string' ? liveScene : null;
+      const session = Array.isArray(r['session']) ? r['session'] : [];
+
+      /*
+       * (1) Nothing on the board. Rename the pointer, drop the two keys, touch
+       *     nothing else. Every committed `.campaign.json` fixture takes this
+       *     branch, which is why branches (2) and (3) need frozen fixtures of
+       *     their own.
+       */
+      if (fight.length === 0) return { ...r, board: { ...rest, openScene: pointer } };
+
+      /*
+       * (2) The pointer names a scene row holding no fight of its own. That is
+       *     the invariant the schema-4 `runScene` maintained on every resume, so
+       *     it is the ordinary state of a v4 record with a fight on the glass.
+       */
+      const at = session.findIndex((i) => {
+        const row = chainRecord(i);
+        return (
+          row['kind'] === 'scene' &&
+          row['id'] === pointer &&
+          (!Array.isArray(row['combatants']) || row['combatants'].length === 0)
+        );
+      });
+      if (at !== -1) {
+        return {
+          ...r,
+          session: session.map((i, k) => (k === at ? { ...chainRecord(i), combatants: fight } : i)),
+          board: { ...rest, openScene: pointer },
+        };
+      }
+
+      /*
+       * (3) Everything else, and it is the fallback so that no input ends in a
+       *     drop: no pointer at all; a pointer at a countdown, an `unreadable`
+       *     or an `encounter` row; a pointer at a scene row that ALREADY holds a
+       *     fight of its own. One row is minted and the board's fight goes into
+       *     it, whole.
+       *
+       *     NEVER merged. A merge invents a fight that stood at no table, and
+       *     `makeCombatant` mints `${adversaryRef}-${index}` from an index that
+       *     restarts at 0 in every row - so `acid-burrower-0` is legal in the
+       *     dungeon and in the forest at the same time, and a merge would put
+       *     two bodies the runner cannot tell apart into one list.
+       *
+       *     Six keys and no more. `readSessionItem` supplies `roster`,
+       *     `adjustments` and `collapsed` on the way in, and a default written
+       *     here as well is the one nobody notices has gone stale - the `from:
+       *     2` entry's rule, honoured rather than stretched.
+       *
+       *     `environmentRef` is SEEDED from the board on the MINTED row and
+       *     nowhere else, which is what the schema-4 app did with the same
+       *     input: a fight on the board belonging to no row got
+       *     `newScene('', environmentRef)`. The rescue row is what `openScene`
+       *     names, so without it the runner would draw no place for a fight
+       *     that had one.
+       *
+       *     A row that already exists keeps its own place, which is why branch
+       *     (2) writes `combatants` and nothing else. The schema-4 app refused
+       *     to write the board's environment onto a row when it parked a fight
+       *     there - a park that wrote the plan would let one row's
+       *     `PUT THIS ENVIRONMENT ON THE BOARD` quietly rewrite another row's
+       *     place - and an upgrade must not do what the app declined to do.
+       */
+      const id = freeRescueId(session);
+      return {
+        ...r,
+        session: [
+          ...session,
+          {
+            id,
+            kind: 'scene',
+            name: '',
+            order: session.length,
+            environmentRef:
+              typeof rest['environmentRef'] === 'string' ? rest['environmentRef'] : null,
+            combatants: fight,
+          },
+        ],
+        board: { ...rest, openScene: id },
+      };
+    },
   },
 ];
 
@@ -359,10 +593,25 @@ export type SessionItem =
    * fight to the board without carrying an environment, so the brawl opened
    * silently in the **previous** scene's place.
    *
-   * The app had been arguing for this shape on its own. `GmBoard` below has
-   * carried exactly these four fields together since it existed, unnamed, and
-   * `END SCENE` already emptied the combatants while leaving the environment
-   * standing.
+   * The app had been arguing for this shape on its own: `GmBoard` below carried
+   * exactly these four fields together, unnamed, from the day it existed until
+   * `CAMPAIGN_SCHEMA_VERSION` 5 took the fight off it. That is where the
+   * argument finished. The board keeps the builder's workbench; the fight is
+   * here, and it is here alone.
+   *
+   * INVARIANT (the fight is the row's): a scene row's `combatants` is the fight
+   * in that scene at all times - planned, being played, or left standing.
+   * Nothing empties it but `clearScene` and deleting the row. There is no
+   * second copy anywhere for it to fall out of step with, and deleting that
+   * second copy is the whole of what schema 5 bought.
+   *
+   * INVARIANT (row-local ids): a `SceneCombatant.id` is unique inside its own
+   * row and means nothing outside it. Two rows may both hold
+   * `acid-burrower-0`, and that is the ordinary shape of two rows that opened
+   * with the same adversary rather than a collision. Every writer is addressed
+   * by `(sceneId, id)`, and no code may look a combatant up by id alone.
+   * `readCombatants` below repairs a collision INSIDE one row, and its docblock
+   * is written against ever widening that.
    */
   | (SessionItemBase & {
       kind: 'scene';
@@ -377,10 +626,13 @@ export type SessionItem =
    * Kept in the union rather than converted, and the difference matters. The
    * cheaper option was to rewrite every stored `encounter` row into a `scene`
    * row, and it was refused for one reason: it changes the kind of a thing the
-   * GM named. This chain has never done that - its only other converter changes
-   * no field at all - and doing it once sets a precedent that is hard to walk
-   * back, because the next migration that wants to rewrite somebody's data will
-   * cite this one.
+   * GM named. This chain has never done that. Three of its four converters copy
+   * and change no field at all; the fourth moves a fight from one key to
+   * another and changes no kind, no name, no id, no count and no mark - which
+   * is the second of the three tests the chain's header states, and this arm is
+   * where that test came from. Doing it once sets a precedent that is hard to
+   * walk back, because the next migration that wants to rewrite somebody's data
+   * will cite this one.
    *
    * So no saved campaign changes shape, nothing in `src/` may construct one,
    * and the arm stays until a build can prove no stored campaign still carries
@@ -541,41 +793,54 @@ const REGION_KEYS: Record<GmRegion, true> = {
 export const GM_REGIONS = Object.keys(REGION_KEYS) as readonly GmRegion[];
 
 /**
- * The live table: what is in front of the GM right now, in this campaign.
+ * The builder's workbench, and which scene the runner is showing.
  *
- * Separate from the session list because it is the *fight*, not the plan. The
- * one promise `gmStore` has always made is that a GM who reloads mid-combat
- * keeps the combat, and that promise now has to survive switching campaign as
- * well - so the board belongs to the campaign rather than to the app.
+ * **NOT "the live table" any more.** A fight lives on the scene row it is
+ * fought in, always, and nothing here holds one. What is left is the encounter
+ * builder's draft - a roster, three adjustments, a tier, a place - plus two
+ * navigation fields.
+ *
+ * The one promise `gmStore` has always made is unchanged, and is now kept
+ * somewhere else: a GM who reloads mid-combat keeps the combat, because the
+ * combat is on the row and the row is in `session`. What that promise stopped
+ * needing is a second home for a fight to be copied into and back out of, which
+ * is what this interface used to be.
  */
 export interface GmBoard {
   region: GmRegion;
   partyTier: Tier;
   roster: RosterEntry[];
   adjustments: EncounterAdjustments;
-  combatants: SceneCombatant[];
+  /**
+   * The place the BUILDER is standing in - never the runner's.
+   *
+   * The runner reads the open scene row's own `environmentRef`, through
+   * `environmentIn` below. This is what `SEND n TO THE SCENE` names before the
+   * tap and what a freshly minted scene takes: `PUT THIS ENVIRONMENT ON THE
+   * BOARD` writes it, `KEEP THE BOARD'S ENVIRONMENT HERE` reads it onto a row,
+   * and an environment link row's SET ACTIVE writes it with no scene row
+   * anywhere in reach - which is the reason this field stays when the fight
+   * goes. Its writers are unchanged.
+   */
   environmentRef: Ref | null;
   /**
-   * The session row this fight came from, or null when it came from nowhere.
+   * The scene row the runner is showing, or null when it is showing none.
    *
-   * Not derivable. `spawn` scans for a free index over the board's own
-   * combatants only, so the dungeon and the forest can both hold
-   * `acid-burrower-0` and an id intersection is ambiguous by construction. It
-   * is a `GmBoard` field and not a flag on the row because `GmLive` is exactly
-   * `GmBoard` plus four, and `spread`/`gather` carry `GmBoard`'s fields and
-   * nothing else. A `live: boolean` on the row would need a dedupe pass on
-   * read, the way `primary` does below, and would need this same schema bump
-   * anyway.
+   * NAVIGATION, beside `region`, and never ownership: nothing is stored here
+   * that a row does not already hold. A dangling value costs the GM the memory
+   * of which scene was open and never a mark, which is why the reader nulls it
+   * in silence where `liveScene` had to warn.
    *
-   * NOT the `board.region` exemption argued further down. That exemption
-   * bounds itself - "whether they are widening THIS field or a different
-   * one" - and this is a different one.
+   * NOT the `board.region` exemption argued above. That exemption bounds
+   * itself - "whether they are widening THIS field or a different one" - and
+   * this is a different one. Nor is the bump that brought this field a bump for
+   * it: what moved the number is the fight leaving the board.
    *
    * Never an index into `session`. `readCampaignRecord` re-sorts by `order`
    * and renumbers on every load, so `order` is not stable identity across a
    * reload and only `id` is.
    */
-  liveScene: string | null;
+  openScene: string | null;
 }
 
 /**
@@ -672,9 +937,8 @@ export const emptyBoard = (): GmBoard => ({
   partyTier: 1,
   roster: [],
   adjustments: { easier: false, harder: false, damageBump: false },
-  combatants: [],
   environmentRef: null,
-  liveScene: null,
+  openScene: null,
 });
 
 export function newCampaign(name: string, at: string, id: string): Campaign {
@@ -758,10 +1022,18 @@ export const withSceneScope = (
  * The scene rows a GM is flipping between.
  *
  * Derived, never stored, and that is the whole of its argument. A row is live
- * because it holds a fight or because it is the one on the board - so the set
- * cannot go stale, it survives an export for free, a row that is correctly
- * archived is not in `session` and therefore not live, and deleting a row
- * takes it off the strip with no cleanup anywhere.
+ * because it holds a fight or because it is the one the runner has open - so
+ * the set cannot go stale, it survives an export for free, a row that is
+ * correctly archived is not in `session` and therefore not live, and deleting a
+ * row takes it off the strip with no cleanup anywhere.
+ *
+ * The second clause now does one job and used to do two. It kept an OPEN row
+ * with no fight in it on the strip, and it also covered a state that no longer
+ * exists: before `CAMPAIGN_SCHEMA_VERSION` 5, the row being fought in held
+ * `combatants: []` - the fight was on the board - so without that clause the
+ * live row was the one row the strip dropped. Schema 5 deleted the state rather
+ * than the clause: a row being fought in holds its own fight and satisfies the
+ * first clause unaided.
  *
  * **Only `kind: 'scene'`, never `encounter`.** That arm has no
  * `environmentRef`, so resuming one would open the fight in the *previous*
@@ -770,11 +1042,70 @@ export const withSceneScope = (
  */
 export const liveScenes = (
   session: readonly SessionItem[],
-  liveScene: string | null,
+  openScene: string | null,
 ): SessionItem[] =>
   session.filter(
-    (i) => i.kind === 'scene' && (i.combatants.length > 0 || i.id === liveScene),
+    (i) => i.kind === 'scene' && (i.combatants.length > 0 || i.id === openScene),
   );
+
+/**
+ * One array, module-level, so the empty case has a stable identity.
+ *
+ * Load-bearing rather than tidy. zustand 5 calls `useSyncExternalStore` with no
+ * selector memoization (`node_modules/zustand/react.js`), so a selector that
+ * built a fresh `[]` on every call would make React declare the snapshot
+ * uncached and loop - on the ordinary state of a fresh campaign, which is a
+ * campaign with no fight open.
+ *
+ * **It is not `tests/fixtures/factories.ts`'s `NO_FIGHT`**, which the test
+ * suite imports widely and which means something else entirely: the three empty
+ * fields a scene row absorbed at campaign schema 3, spread into a row literal.
+ * This is one empty combatant list, and its whole point is that it is always
+ * the same one. Two names, because one name for two things is how a reader
+ * stops trusting either.
+ */
+const NO_COMBATANTS: SceneCombatant[] = [];
+
+/**
+ * The fight in one scene row. `NO_COMBATANTS` when the id names no scene row.
+ *
+ * Returns the row's OWN array by reference and never a copy. `useGm` compares
+ * by identity, so a copy here would repaint the whole runner on every `+1` of
+ * Fear. That is safe exactly while every writer rebuilds the array instead of
+ * marking it in place, and unsafe the day one does not - so that discipline is
+ * not a style preference over in the store, it is the precondition of this one
+ * line, and a `combatants` patch that arrives through a general row patcher is
+ * the shape that breaks it.
+ *
+ * The null case and the not-found case return the same object rather than two
+ * empty arrays, for the reason `NO_COMBATANTS` exists.
+ */
+export const combatantsIn = (
+  session: readonly SessionItem[],
+  sceneId: string | null,
+): SceneCombatant[] => {
+  if (sceneId === null) return NO_COMBATANTS;
+  const row = session.find((i) => i.id === sceneId);
+  return row !== undefined && row.kind === 'scene' ? row.combatants : NO_COMBATANTS;
+};
+
+/**
+ * The place the runner draws: the open row's own, never the board's.
+ *
+ * `board.environmentRef` is the builder's and stays the builder's. Falling back
+ * to it here would rebuild decision 1's original defect one layer down - a
+ * fight opening silently in the *previous* scene's place - which is the defect
+ * the scene row absorbed the fight to close. A scene with no place of its own
+ * draws no place.
+ */
+export const environmentIn = (
+  session: readonly SessionItem[],
+  sceneId: string | null,
+): Ref | null => {
+  if (sceneId === null) return null;
+  const row = session.find((i) => i.id === sceneId);
+  return row !== undefined && row.kind === 'scene' ? row.environmentRef : null;
+};
 
 export const primaryCountdownOf = (session: readonly SessionItem[]): Countdown | null => {
   const item = session.find((i) => i.kind === 'countdown' && i.primary);
@@ -886,19 +1217,23 @@ const readRoster = (v: unknown): RosterEntry[] =>
  * the repair can never land on a body further down that had that id first -
  * which would turn one collision into two.
  *
- * ## Every caller, on purpose
+ * ## Both callers, on purpose
  *
- * The scene row, the legacy `encounter` row and the board's own list all read
- * their fight through this function, so all three get the repair from the one
- * line that writes it. That is deliberate rather than incidental. The board's
- * list is the one `patchCombatant` and `removeCombatant` hold, and a scene
- * row's list becomes it verbatim on the next resume - the copy that carries it
- * over keeps every id - so a duplicate left on a row is a duplicate under
- * those two writers one flip later. The legacy row is the arm nothing can mint
+ * The scene row and the legacy `encounter` row read their fight through this
+ * function, so both get the repair from the one line that writes it. That is
+ * deliberate rather than incidental. The legacy row is the arm nothing can mint
  * any more but every saved campaign may still carry, and its bodies are only
  * counted today rather than addressed; the day anything puts one back in play
  * it arrives holding exactly the id this function gave it. An `if` per arm is
  * how two policies for one invariant start.
+ *
+ * There were three callers until `CAMPAIGN_SCHEMA_VERSION` 5, and the third was
+ * the board's own list - the one `patchCombatant` and `removeCombatant` held,
+ * which a scene row's list became verbatim on every resume. The argument for
+ * repairing it here was that a duplicate left on a row was a duplicate under
+ * those two writers one flip later. Both halves of that are gone: the row's
+ * list *is* the one the writers hold, and there is no flip. The fight is
+ * repaired once, in the only place it lives.
  */
 const readCombatants = (v: unknown, warn: (s: string) => void): SceneCombatant[] => {
   const entries = (Array.isArray(v) ? v : []).filter(
@@ -1597,7 +1932,7 @@ export function readCampaignRecord(
    *
    * The archive is deliberately left out. Its rows go through
    * `readSessionItem` for the same defence, but nothing points into an
-   * archived sitting: `sceneId` and `board.liveScene` are resolved against the
+   * archived sitting: `sceneId` and `board.openScene` are resolved against the
    * live plan and nothing else, so there is no question there to answer yet.
    */
   const takenRowIds = new Set(rows.map((i) => i.id));
@@ -1619,23 +1954,27 @@ export function readCampaignRecord(
   });
 
   /*
-   * Two pointers into this list, answered together.
+   * Two pointers into this list, answered under one policy.
    *
-   * `board.liveScene` and a countdown row's `sceneId` both name a row by id,
+   * A countdown row's `sceneId` and `board.openScene` both name a row by id,
    * and both are reachable dangling: a hand-edited file, a row deleted by a
    * build that did not know about the pointer, two builds writing one
-   * campaign. ONE pass rather than an `if` beside each field, because the
-   * third pointer is coming - an archived sitting's source, a nested row's
-   * parent - and three policies in three places is how they diverge.
+   * campaign. ONE policy rather than an `if` beside each field deciding for
+   * itself, because the third pointer is coming - an archived sitting's source,
+   * a nested row's parent - and three policies in three places is how they
+   * diverge.
    *
    * DEGRADE, NEVER VANISH: a clock whose scene is gone becomes the campaign's,
    * visible everywhere, which is `readLinkTarget`'s `unknown` policy and
    * `Countdown.owner`'s.
    *
-   * The set is EVERY row's id, not every scene row's. An `unreadable` row
-   * keeps its id precisely so a build that cannot parse it still cannot lose
-   * it; nulling a pointer at one, and letting `writeAside` write that back, is
-   * how that arm's whole purpose gets defeated.
+   * This pointer's set is EVERY row's id, not every scene row's. An
+   * `unreadable` row keeps its id precisely so a build that cannot parse it
+   * still cannot lose it; nulling a pointer at one, and letting `writeAside`
+   * write that back, is how that arm's whole purpose gets defeated. The board's
+   * pointer below takes a NARROWER set, and the two differing is the policy
+   * being applied rather than abandoned - the argument for the difference is
+   * written where that pointer is repaired.
    */
   const rowIds = new Set(session.map((i) => i.id));
   const scoped = session.map((item) => {
@@ -1689,18 +2028,27 @@ export function readCampaignRecord(
   const tier = Math.round(num(board['partyTier'], 1));
 
   /*
-   * The second pointer, answered by the same set and the same policy.
+   * The second pointer, in this same repair pass and under a DIFFERENT set, and
+   * the difference is the point rather than a divergence.
    *
-   * A board whose row is gone belongs to no row - it is not emptied. The fight
-   * on the glass is what the GM is playing, and losing it because the plan row
-   * behind it was deleted is exactly the silent loss this pass exists to
-   * refuse. It gets a home again the next time a scene is run.
+   * A countdown's `sceneId` is checked against EVERY row's id, because an
+   * `unreadable` row keeps its id precisely so a build that cannot parse it
+   * cannot lose it. `openScene` is checked against SCENE rows only, because it
+   * names the row the RUNNER has to draw: pointed at a countdown row, or at an
+   * `unreadable` one, it would open an empty scene with no explanation on it
+   * and no way back.
+   *
+   * SILENT, where `liveScene` had to warn. `liveScene` owned a fight, so a
+   * dangling one meant a fight with no home and the GM had to be told about it.
+   * This owns nothing at all: what dangles is which screen you were on, and
+   * every fight is on its own row either way. The sentence that stood here -
+   * *"the fight on the board came from a scene this campaign no longer has, so
+   * it belongs to no row"* - is deleted rather than reworded, because a warning
+   * that fires when nothing was lost is how a real warning stops being read.
    */
-  const rawLive = board['liveScene'];
-  const liveScene = typeof rawLive === 'string' && rowIds.has(rawLive) ? rawLive : null;
-  if (typeof rawLive === 'string' && liveScene === null) {
-    warn('the fight on the board came from a scene this campaign no longer has, so it belongs to no row');
-  }
+  const sceneIds = new Set(session.flatMap((i) => (i.kind === 'scene' ? [i.id] : [])));
+  const rawOpen = board['openScene'];
+  const openScene = typeof rawOpen === 'string' && sceneIds.has(rawOpen) ? rawOpen : null;
 
   const campaign: Campaign = {
     id,
@@ -1729,10 +2077,9 @@ export function readCampaignRecord(
       partyTier: (tier >= 1 && tier <= 4 ? tier : 1) as Tier,
       roster: readRoster(board['roster']),
       adjustments: readAdjustments(board['adjustments']),
-      combatants: readCombatants(board['combatants'], warn),
       environmentRef:
         typeof board['environmentRef'] === 'string' ? board['environmentRef'] : null,
-      liveScene,
+      openScene,
     },
   };
 

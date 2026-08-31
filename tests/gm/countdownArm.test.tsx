@@ -97,7 +97,7 @@ beforeEach(() => {
     hydrated: true,
     session: [],
     countdowns: [],
-    combatants: [], liveScene: null,
+    openScene: null,
     environmentRef: null,
     roster: [],
   });

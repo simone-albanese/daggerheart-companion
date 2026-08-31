@@ -40,26 +40,35 @@
  * the second reason they stayed. What is left here is the dispatch: the switch
  * below still answers every kind, and the two `case` lines name imports.
  *
- * ## The plan is not the table, and the row says so
+ * ## The plan is not the workbench, and the fight is on the row
  *
- * A campaign has one live board: one roster, one combatant list, one active
- * environment (`GmBoard`). A session row carries its *own* roster, adjustments,
- * combatants and environment ref, and nothing in the store copies one into the
- * other. So opening the encounter builder from row 3 shows the same board as
- * row 5, and that is not a bug to hide behind a sentence - it is two different
- * things with the same shape.
+ * A campaign has one board, and since schema 5 it is the encounter builder's
+ * workbench and nothing else: one roster, one set of adjustments, one active
+ * environment (`GmBoard`). It holds no combatant list at all. A session row
+ * carries its *own* roster, adjustments and environment ref - and a scene row
+ * carries its own fight, every combatant and every mark on it - and nothing in
+ * the store copies one into the other. So opening the encounter builder from
+ * row 3 shows the same workbench as row 5, and that is not a bug to hide
+ * behind a sentence: the workbench and a plan are two different things with
+ * the same shape.
  *
  * The rows therefore carry the crossing explicitly, in both directions, built
  * only out of actions the store already has: PUT THIS <thing> ON THE BOARD and
- * KEEP THE BOARD'S <thing> HERE, for both things a row can hold - its
- * environment and its roster. Every one of those verbs names the noun it moves,
- * because four buttons about "the board" on one strip are four buttons a GM has
- * to open one at a time to tell apart, and one of them overwrites a plan.
- * What has no verb is stated as a fact with no control:
- * a row's stored `combatants` cannot be put back with their marks, because no
- * action in `gmStore` sets the combatant list wholesale, and inventing a button
- * that silently dropped them would be exactly the kind of quiet wrongness the
- * founding rule is about.
+ * KEEP THE BOARD'S <thing> HERE, for the two things a row and the workbench
+ * both hold - an environment and a roster. Every one of those verbs names the
+ * noun it moves, because four buttons about "the board" on one strip are four
+ * buttons a GM has to open one at a time to tell apart, and one of them
+ * overwrites a plan.
+ *
+ * A fight has no crossing verb because it has nowhere to cross to. It is on
+ * the scene row it is fought in, always; `withSceneFight` in `gmStore` is the
+ * only writer of one, and `CLEAR THIS FIGHT` on this arm is the only control
+ * that empties it. This paragraph used to argue the reverse - that a row's
+ * stored combatants could not be put back with their marks, so the row said so
+ * as a fact with no control - and that was an argument about a fight kept
+ * somewhere else and copied here. There is no somewhere else now, and no
+ * "back": the marks a GM makes are already on the row, at the moment they make
+ * them.
  *
  * ## OPEN THE FIGHT is a third direction, and it crosses nothing
  *
@@ -70,12 +79,13 @@
  * "otherwise you effectively cannot use it".
  *
  * OPEN THE FIGHT is that route in one tap, and it is deliberately *not* built
- * on top of PUT THIS ROSTER ON THE BOARD. It calls `spawn` for the row's own
- * entries and opens the scene; the board's roster and the board's adjustments
- * are left exactly as they were. Folding the board write into it would have
- * meant one button quietly overwriting a roster the GM was in the middle of
- * building, which is the same defect as a button that silently drops a saved
- * fight - and the row says out loud that it does not do it.
+ * on top of PUT THIS ROSTER ON THE BOARD. It spawns the row's own entries into
+ * the open scene, or into a scene it mints when none is open, and says which
+ * in its own label; the workbench's roster and adjustments are left exactly as
+ * they were. Folding the board write into it would have meant one button
+ * quietly overwriting a roster the GM was in the middle of building, which is
+ * the same defect as a button that silently drops a saved fight - and the row
+ * says out loud that it does not do it.
  *
  * ## A card is drawn here, not in the reader - and so is a stat block
  *
@@ -206,7 +216,7 @@ import { BlockView } from '../shared/BlockView.tsx';
 import { CountdownChart } from './ReferenceTables.tsx';
 import { AdversaryBlock, EnvironmentBlock } from './StatBlock.tsx';
 import { UrlArm } from './UrlArm.tsx';
-import { useGm } from './gmStore.ts';
+import { openCombatants, useGm } from './gmStore.ts';
 import { COUNTDOWN_KIND_COLOR, LINK_KIND_LABEL, sessionName } from './session.ts';
 
 /**
@@ -235,10 +245,12 @@ const NOT_HERE = 'NOT IN THIS DATASET';
  * `row` is not decoration. `SessionRow` already argues this for DELETE, MOVE UP
  * and the drag handle - "a list of identical DELETE buttons is a list a screen
  * reader cannot tell apart" - and the arms make the same list one level down: a
- * planned night with three scenes in it draws OPEN THE SCENE three times, and a
+ * planned night with three scenes in it draws OPEN THIS SCENE three times, and a
  * VoiceOver user pulling up the rotor's button list hears the same three words
  * with nothing to choose between them, on the one screen whose whole point is
- * an ordered list of similar rows.
+ * an ordered list of similar rows. THIS rather than THE is the fix one level
+ * up and it is not this one: it tells the GM the verb is about the row it sits
+ * on, and still tells three rows apart by nothing.
  *
  * The label comes first and the row's name after it, so the accessible name
  * still begins with the visible words (WCAG 2.5.3) - and `label` is a string
@@ -316,10 +328,8 @@ function SceneArm({
   const boardRoster = useGm((s) => s.roster);
   const boardAdjustments = useGm((s) => s.adjustments);
   const rosterToBoard = useRosterToBoard();
-  const liveScene = useGm((s) => s.liveScene);
-  const runScene = useGm((s) => s.runScene);
-  const adoptBoard = useGm((s) => s.adoptBoard);
-  const onTable = useGm((s) => s.combatants.length);
+  const showScene = useGm((s) => s.showScene);
+  const clearScene = useGm((s) => s.clearScene);
   const spawn = useGm((s) => s.spawn);
 
   // The same index `EncounterArm` builds, for the same one lookup.
@@ -329,8 +339,42 @@ function SceneArm({
   const onBoard = item.environmentRef !== null && item.environmentRef === live;
   const row = sessionName(item);
 
-  const isLive = item.id === liveScene;
-  const parked = item.combatants.length;
+  /*
+   * THIS ARM DOES NOT READ `openScene`, AND THAT IS THE DESIGN RATHER THAN AN
+   * OVERSIGHT.
+   *
+   * Every verb, every sentence and every count below is about `item`. There is
+   * no branch for "the runner is already showing this row" and no branch for
+   * "it is showing a different one", so there is no state in which a control
+   * on this row can be about another row - which is what the old `isLive`,
+   * `orphan` and `claimable` flags each were, one state each. The chain is
+   * idempotent on the row already open: pressing OPEN THIS FIGHT on the scene
+   * you are looking at points the runner at the scene you are looking at.
+   *
+   * It also means a flip of the switcher repaints nothing here. A subscription
+   * to `openScene` on this arm would repaint every open row of the plan on
+   * every flip, to change nothing on any of them but one - and that is
+   * measured rather than reasoned: with a counter on `sessionName`, the one
+   * call this function makes once per render, two scene arms rendered directly
+   * take 0 renders on a write of `openScene` and 0 on `fear`. Nothing here
+   * reads `session` either, so a fight written into another row arrives only as
+   * a new `item`, which is the memoised row's business rather than this one's.
+   *
+   * WHAT DOES WAKE IT IS THE BOARD, and the sentence that stood here denied it.
+   * `environmentRef`, `roster` and `adjustments` are subscribed at the top of
+   * this function, and `useRosterToBoard` reads `adjustments` a fourth time, so
+   * a GM who adds one adversary in the encounter builder repaints every open
+   * scene arm on the plan - 2 of 2, in the same measurement, on a real
+   * `addToRoster`. Two of the three are the crossing pair's own price: `live`
+   * decides `onBoard` and both environment verbs' `disabled`, and `boardRoster`
+   * decides KEEP THE BOARD'S ROSTER HERE's. The third is not. `boardAdjustments`
+   * is read nowhere but inside that same verb's `onClick`, where a `getState`
+   * read would do, so it is the one wake on this arm that buys nothing.
+   *
+   * The three `useApp` reads above are the dataset and one pref, which move on
+   * a load and on a settings change rather than during play.
+   */
+  const inTheFight = item.combatants.length;
   /*
    * The same filter `EncounterArm` applies, for the same reason: a roster
    * entry whose ref this dataset does not carry cannot be turned into a
@@ -338,56 +382,29 @@ function SceneArm({
    */
   const spawnable = item.roster.filter((entry) => byId.has(entry.ref));
 
-  /**
-   * Nobody owns the fight that is on the board, and this row could.
-   *
-   * `liveScene === null` with combatants on the glass is the state the plan
-   * cannot describe: no row is marked, `liveScenes` is empty so the runner's
-   * strip draws nothing, and the fight is one END SCENE away from being marks
-   * that existed nowhere else. It is reachable from the bestiary and from the
-   * builder opened out of MENU, neither of which has a row to write to.
-   *
-   * Offered only on a row with nothing parked - `adoptBoard` refuses the rest,
-   * and `BACK TO THIS FIGHT` is the honest verb there.
-   */
-  const orphan = liveScene === null && onTable > 0 && parked === 0;
-
-  /**
-   * The table is empty and belongs to nobody, so opening this row can claim it.
-   *
-   * This is what `OPEN THE SCENE` was missing. The verb opened the runner and
-   * wrote no pointer, so a GM who planned a row, opened it, built an encounter
-   * and sent it to "the scene" ended with a fight on a board that named no row
-   * at all - and the row they had been looking at the whole time stayed empty.
-   * Claiming an empty board costs nothing and destroys nothing: `runScene`
-   * mints no home when there is no fight to house, so this writes the pointer
-   * and nothing else.
-   *
-   * It is deliberately NOT extended to a board that has a fight on it. There
-   * the same call would park somebody else's fight and swap the table under a
-   * word that says «open» - the defect this is repairing rather than a second
-   * helping of it. `orphan` above offers that case its own verb, named.
-   */
-  const claimable = liveScene === null && onTable === 0;
-
   /*
    * One tap, and no arming, and that is a decision rather than an omission.
    *
    * «Conferma sempre» (`DECISIONI-2026-08-18` §A point 2) was decided about a
-   * button that threw marks away. Running a scene throws nothing away - the
-   * fight on the board is parked into the row it came from, which is the
-   * entire reason the storage exists - and a confirmation would double the
-   * cost of the one gesture this feature was built for, on every beat. It is
-   * the ratified reading "arm what replaces, not what appends", extended to
-   * "nor what moves".
+   * button that threw marks away. This one appends to an empty fight and takes
+   * nothing from anywhere - `spawn` writes into THIS row and touches no other,
+   * and no fight is moved, parked or swapped by any verb on this arm any more -
+   * and a confirmation would double the cost of the one gesture this feature
+   * was built for, on every beat. It is the ratified reading "arm what
+   * replaces, not what appends".
+   *
+   * `showScene` first, then the spawns, then the tool. `showScene` writes the
+   * pointer and nothing else - it does not open the runner and it does not set
+   * `region` - so the third line is not decoration: without it the GM stays on
+   * the plan while a fight starts somewhere they cannot see.
    */
   const startFight = (): void => {
-    runScene(item.id);
-    for (const entry of spawnable) spawn(byId.get(entry.ref)!, partySize, entry.count);
+    showScene(item.id);
+    for (const entry of spawnable) spawn(item.id, byId.get(entry.ref)!, partySize, entry.count);
     onOpenTool('scene');
   };
 
-  /** Clearing a parked fight IS destruction, so this one arms. */
+  /** Clearing a fight IS destruction - these marks exist nowhere else - so this one arms. */
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return undefined;
@@ -425,74 +442,96 @@ function SceneArm({
       </label>
 
       {/*
-        The old sentence said the runner shows "whatever environment is on the
-        board right now, which is one per campaign". The board is still one,
-        but a scene now remembers its own fight and its own place, so the
-        clause about the campaign stopped being true with decision 18. It was
-        pinned by no test, which is exactly why it had to be rewritten by hand
-        rather than left to rot.
+        THIS SENTENCE HAS NOW BEEN REWRITTEN TWICE, AND THE SECOND TIME DELETED
+        THE MECHANISM THE FIRST ONE WAS CORRECTING.
+
+        It first said the runner shows "whatever environment is on the board
+        right now, which is one per campaign", which decision 18 falsified. The
+        replacement said "Running this scene puts its environment on the board;
+        parking it leaves whatever is there" - true of a fight that lived on
+        the board and was parked into a row on the way out. There is no such
+        trip now: `openEnvironment` reads the open ROW's ref, `showScene`
+        writes a pointer and nothing else, and no verb on this arm writes an
+        environment except the two the GM presses by name. Both older sentences
+        were pinned by no test, which is why each had to be rewritten by hand
+        rather than left to rot; that is still true of this one.
       */}
       <Fact>
-        This is the plan. Running this scene puts its environment on the board;
-        parking it leaves whatever is there.
+        This is the plan and the table. This scene keeps its own place and its
+        own fight, with every mark on it, until you clear them — opening
+        another scene moves nothing.
       </Fact>
 
-      {isLive && (
-        <Fact>
-          This scene is on the board. Its adversaries and their marks are on the
-          table, not in the plan, until you run another scene or end this one.
-        </Fact>
-      )}
+      {inTheFight > 0 && (
+        /*
+          "Parked" survives here only in the negative, and that is deliberate.
 
-      {!isLive && parked > 0 && (
-        <Fact>
-          Parked here: {parked} adversar{parked === 1 ? 'y' : 'ies'}, with their
-          marks. BACK TO THIS FIGHT puts them back exactly as they were, and
-          parks whatever is on the board into its own row.
-        </Fact>
-      )}
+          The word must not survive the mechanism it named, so it is gone from
+          every guard, every verb and every other sentence on the glass. The
+          comments in this file that still use it are recording what it used to
+          name, so that nobody rebuilds it - no count of them is given here
+          because a count is a thing that goes stale on the next edit. This is
+          the only place a GM can read the word.
 
-      {/*
-        The sentence that was written for this and shipped on the wrong arm.
+          It is kept here because the GM upgrading a campaign HAS seen a fight
+          taken off a row and put back, and the sentence they need is that it
+          does not happen any more - said in the word they learned it in. A new
+          campaign's GM reads it as "nothing is put away", which is also what
+          it means.
 
-        `EncounterArm` has said it since decision 18 - "The board is running
-        another scene. Run that row instead, or end that fight first." - and
-        `encounter` is the kind `SESSION_ITEM_KINDS` no longer lets anybody
-        make. So the app's clearest explanation of the one state where a verb
-        on this row is about a different row has been unreachable in every
-        campaign this build can create. It is here now, on the arm that can be.
-      */}
-      {!isLive && parked === 0 && liveScene !== null && (
+          The guard is `inTheFight > 0` and nothing else, so this draws on the
+          row the runner is showing as well. That is correct rather than
+          sloppy: the fight IS on this row while it is being fought, and the
+          sentence is about where the marks live rather than about which screen
+          is in front of the GM.
+        */
         <Fact>
-          The board is running another scene, so OPEN THE SCENE shows that one
-          and not this. Run this row instead, or end that fight first.
-        </Fact>
-      )}
-
-      {orphan && (
-        <Fact>
-          There {onTable === 1 ? 'is 1 adversary' : `are ${String(onTable)} adversaries`} on the
-          board belonging to no row of the plan. TAKE THE FIGHT ON THE BOARD
-          makes them this scene’s, exactly as they stand — nothing moves and no
-          mark is lost.
+          In this scene: {inTheFight} adversar{inTheFight === 1 ? 'y' : 'ies'},
+          with their marks. OPEN THIS FIGHT goes to them exactly as they stand;
+          nothing is parked and nothing is swapped.
         </Fact>
       )}
 
       {/*
-        One primary at most, first match wins, and the list is exhaustive.
+        ONE PRIMARY, FIRST MATCH WINS, AND ALL THREE ARE ABOUT THIS ROW.
 
-        `OPEN THE SCENE` is not PRIMARY on a row that is neither live nor
-        holding a fight. There it opens a runner showing a different scene, and
-        as the row's headline verb it lies about which row it belongs to - the
-        defect of a button whose word is about this row and whose action is
-        about another.
+        The paragraph that stood here argued the opposite way round and was
+        right at the time. `OPEN THE SCENE` was not primary on a row that was
+        neither live nor holding a fight, because there it opened a runner
+        showing a DIFFERENT scene, and as the row's headline verb it lied about
+        which row it belonged to. The answer then was to demote it rather than
+        delete it - the row stopped shouting a verb it could not honour, and
+        the room kept its door.
 
-        It is still drawn, plainly, and that is not a hedge. The runner's empty
-        state is the only door in the app to the bestiary from here, and the
-        top bar's `SCENE · n` chip appears only once something is on the board -
-        so deleting this verb outright would leave "Nothing in the scene"
-        unreachable from a campaign that has not started a fight yet. Demoted,
-        not removed: the row stops shouting it, and the room still has a door.
+        A verb here cannot be about another row any more, so there is nothing
+        left to demote. `showScene(item.id)` points the runner at this row
+        whatever it was pointed at before, and the three branches below differ
+        only in what they do to this row's own fight on the way: open it, start
+        it, or neither. All three are primary because all three are the one
+        thing to do next on the row the GM is looking at.
+
+        The constraint the demotion was protecting still holds and is now held
+        by the third branch rather than by a plain button: `OPEN THIS SCENE`
+        opens the runner on a row with nothing in it, and `Scene.tsx` draws
+        `BuilderDoors` in both of its empty states - so the encounter builder,
+        and the bestiary when the preference is on, stay reachable from here on
+        a campaign that has not started a fight yet. That mattered because the
+        top bar's `SCENE · n` chip appears only once the open scene has
+        something in it.
+
+        ERGONOMICS: THE STRIP RETURNS NOTHING, AND THAT IS COUNTED RATHER THAN
+        MEASURED. Three labels were retired, but the primary is a single slot -
+        one ternary, one `<Verb>` out of it, before and after - so what left is
+        three branches and zero rendered elements. The four crossing verbs are
+        untouched, labels and measured widths both. `CLEAR THIS FIGHT`'s
+        condition is the same expression it always was; what changed is how
+        often a row satisfies it, which is the schema and not this arm.
+
+        What the arm does lose is prose: four `<Fact>` sentences went with the
+        states they described. Nobody has measured that height and it is not
+        guessed here - the Chrome pass at 393x852 and 375x667 is where a number
+        in this repo comes from. The 104px below is the ROSTER pair's own cost
+        when it landed, and is not this.
       */}
       {/*
         The plan this row carries, on the row that carries it.
@@ -513,71 +552,64 @@ function SceneArm({
         along; this is the same two verbs on the row that was missed.
       */}
       <Fact>
-        To change this plan: put it on the board, edit it in the builder, then bring it back with
-        KEEP THE BOARD’S ROSTER HERE. The board is the campaign’s one workbench — this row is a
-        copy, and neither writes to the other until you tap one of these.
+        To change this plan: put its ROSTER on the board, edit it in the builder, then bring it
+        back with KEEP THE BOARD’S ROSTER HERE. The board is the campaign’s one workbench for
+        building an encounter — this row is a copy, and neither writes to the other until you tap
+        one of these. The fight itself is never on the board: it is on this row.
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        {isLive ? (
-          <Verb onClick={() => onOpenTool('scene')} primary label="OPEN THE SCENE" row={row} />
-        ) : parked > 0 ? (
+        {inTheFight > 0 ? (
+          /*
+           * The fight is already here, so this only goes to it. No spawn: a
+           * second tap must not double the pile, and a row a GM left mid-beat
+           * has to come back with exactly what it had.
+           */
           <Verb
             onClick={() => {
-              runScene(item.id);
+              showScene(item.id);
               onOpenTool('scene');
             }}
             primary
-            label="BACK TO THIS FIGHT"
+            label="OPEN THIS FIGHT"
             row={row}
           />
         ) : spawnable.length > 0 ? (
           /*
            * The bootstrap none of the three designs had. A row planned and
-           * never fought holds no combatants, so it is not live and not on the
-           * switcher's strip - and without this verb, starting the second
+           * never fought holds no combatants, so it is on the switcher's strip
+           * only while the runner is showing it: `liveScenes` keeps a row that
+           * holds a fight OR the row the pointer names, and a planned one is
+           * the second kind at best. Without this verb, starting the second
            * fight of a split party still costs the five gestures it costs
            * today. With it, that is five gestures once per split and one tap
            * per beat after.
+           *
+           * It cannot be reached twice on one fight: the first tap fills
+           * `item.combatants`, and the branch above takes the row from then
+           * on. That is the ordering doing the work a guard would otherwise
+           * have to, and it is why the chain tests `combatants` before
+           * `roster` rather than the other way round.
            */
           <Verb onClick={startFight} primary label="START THIS FIGHT" row={row} />
-        ) : orphan ? (
+        ) : (
           /*
-           * The verb for the fight nobody owns, and the one state on this arm
-           * that used to have no verb at all.
+           * Nothing in the fight and nothing spawnable to put in it: a row
+           * with an empty roster, or one whose every ref this dataset has
+           * lost. The verb still opens the runner on THIS row, which is what
+           * makes the builder and the bestiary reachable from a campaign that
+           * has not started a fight yet - see the paragraph above the strip.
            *
-           * It appends nothing and moves nothing - `adoptBoard` writes the
-           * pointer - so the marks on the glass are the same marks after the
-           * tap, now belonging to this row. No arming, by the rule the flip
-           * already follows: it destroys nothing.
+           * `OPEN THIS SCENE`, not `OPEN THE SCENE`. "The" meant the one
+           * board's scene, and that is the word that lied.
            */
           <Verb
             onClick={() => {
-              adoptBoard(item.id);
+              showScene(item.id);
               onOpenTool('scene');
             }}
             primary
-            label="TAKE THE FIGHT ON THE BOARD"
-            row={row}
-          />
-        ) : (
-          /*
-           * Demoted, and now it claims an empty unowned table on the way.
-           *
-           * The demotion stays for the case it was written for - a row that is
-           * not live while somebody else is, where the runner really is showing
-           * another scene and this verb really is about a different row. What
-           * has changed is that on a campaign whose board belongs to nobody,
-           * this no longer walks the GM into that state: `claimable` makes the
-           * row they pressed the row the runner is about.
-           */
-          <Verb
-            onClick={() => {
-              if (claimable) runScene(item.id);
-              onOpenTool('scene');
-            }}
-            primary={claimable}
-            label="OPEN THE SCENE"
+            label="OPEN THIS SCENE"
             row={row}
           />
         )}
@@ -625,11 +657,28 @@ function SceneArm({
           row={row}
         />
 
-        {parked > 0 && (
+        {inTheFight > 0 && (
           /*
-           * Nothing else empties a parked fight, so without this the strip
-           * grows for the whole evening. This one arms, because unlike the
-           * flip it destroys the only copy of those marks.
+           * The only pruning gesture in the app, and it arms.
+           *
+           * Holding a fight is the resting state of a played scene now rather
+           * than the result of a deliberate park, so the switcher's strip
+           * grows by default and this is the one control that shrinks it. It
+           * arms because it destroys the only copy of those marks - there is
+           * no board holding a second one and no undo.
+           *
+           * It is deliberately NOT hidden on the row the runner is already
+           * showing, even though END SCENE in the runner clears the same
+           * fight. Hiding it there would make a control appear and disappear
+           * according to which screen the GM was last on, which is the tap
+           * count depending on unseen state that `Scene.tsx` rejects in its
+           * own arming paragraph - the one that keeps END SCENE arming at an
+           * empty table. Two armed destructions reachable from two screens,
+           * both arming, both naming the same fight, is not a defect.
+           *
+           * `clearScene(item.id)`, not a row patch: `patchSessionItem` refuses
+           * to write `combatants` at all, so this row's fight has exactly one
+           * writer and it is the store's.
            */
           <Verb
             onClick={() => {
@@ -637,7 +686,7 @@ function SceneArm({
                 setArmed(true);
                 return;
               }
-              patch(item.id, { combatants: [] });
+              clearScene(item.id);
               setArmed(false);
             }}
             label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
@@ -852,13 +901,42 @@ function EncounterArm({
   const patch = useGm((s) => s.patchSessionItem);
   const boardRoster = useGm((s) => s.roster);
   const boardAdjustments = useGm((s) => s.adjustments);
-  const inTheScene = useGm((s) => s.combatants.length);
-  const liveScene = useGm((s) => s.liveScene);
   const rosterToBoard = useRosterToBoard();
   const spawn = useGm((s) => s.spawn);
+  const openScene = useGm((s) => s.openScene);
+  const openNewScene = useGm((s) => s.openNewScene);
+  const inTheScene = useGm(openCombatants).length;
+  /*
+   * The open scene's NAME, and the selector returns a string so that reading
+   * it costs this arm nothing.
+   *
+   * Two sentences and one label below name the room the fight is going to,
+   * because "the scene" is the word this whole change exists to stop using: it
+   * meant the one board's scene, and there is no such thing now. A row that
+   * says which scene it will pour a roster into is a row a GM can disagree
+   * with before pressing it.
+   *
+   * `useGm` compares with `Object.is` and memoizes no selector, so returning
+   * the row itself would repaint every encounter row on the plan on every mark
+   * made anywhere. A string is equal to itself.
+   */
+  const openName = useGm((s) => {
+    const open = s.session.find((i) => i.kind === 'scene' && i.id === s.openScene);
+    return open === undefined ? null : sessionName(open);
+  });
 
   const byId = new Map(adversaries.map((a) => [a.id, a]));
   const row = sessionName(item);
+
+  /*
+   * What the verb says it will do, in the two rooms it can do it in.
+   *
+   * `OPEN THE FIGHT` with nothing open would have opened a fight in a scene
+   * the GM never asked for and cannot see the name of - so the label says the
+   * scene is being made, and every sentence about the verb below uses this
+   * same string rather than a second copy that could drift from it.
+   */
+  const openLabel = openScene === null ? 'OPEN THE FIGHT IN A NEW SCENE' : 'OPEN THE FIGHT';
 
   /*
    * What OPEN THE FIGHT can actually put in the scene. A ref this dataset
@@ -872,12 +950,18 @@ function EncounterArm({
   /*
    * The row straight to the table, without going through the builder - and
    * without going through the board either. `spawn` is the same call the
-   * builder's SEND makes, with the same two arguments, so a Minion entry
-   * becomes `count` groups of `partySize` here exactly as it does there.
+   * builder's SEND makes, with the same arguments, so a Minion entry becomes
+   * `count` groups of `partySize` here exactly as it does there.
    * `putOnBoard` is deliberately not called: see the docblock.
+   *
+   * `openNewScene` is called INSIDE this function rather than beside it, the
+   * same way `Encounter.tsx`'s SEND does it: it mints a row and commits, so
+   * calling it while rendering would make a scene every time this arm drew.
+   * Read once into `sceneId` so every spawn of one press names the same row.
    */
   const openFight = (): void => {
-    for (const entry of spawnable) spawn(byId.get(entry.ref)!, partySize, entry.count);
+    const sceneId = openScene ?? openNewScene();
+    for (const entry of spawnable) spawn(sceneId, byId.get(entry.ref)!, partySize, entry.count);
     onOpenTool('scene');
   };
 
@@ -888,31 +972,52 @@ function EncounterArm({
       <AdjustmentNotes adjustments={item.adjustments} />
 
       {/*
-        A fact, with no control beside it, because there is no action in the
-        store that puts a combatant list back. Saying "3 adversaries mid-fight"
-        beside a button that dropped them silently is the failure this app is
-        written not to have.
+        A fact, with no control beside it, because nothing writes an encounter
+        row's combatants. `patchSessionItem` refuses the field on every arm,
+        and `withSceneFight` - the store's one writer of a fight - rebuilds
+        `kind: 'scene'` rows only. Saying "3 adversaries mid-fight" beside a
+        button that dropped them silently is the failure this app is written
+        not to have.
+
+        This is the arm nothing can mint any more, so the only rows that reach
+        it are older than the ban and older than schema 5. Their stored fight
+        is the one fight in the app with no home of its own: a scene row's is
+        drawn in the runner and cleared by a labelled verb, and this one can
+        only be read here.
       */}
       {item.combatants.length > 0 && (
         <Fact>
           This row was saved with {item.combatants.length} adversar
           {item.combatants.length === 1 ? 'y' : 'ies'} already in the fight, with their marks. No
-          control here brings those marks back — OPEN THE FIGHT starts the plan again from full HP
-          — so they are kept on the row and nothing here touches them.
+          control here brings those marks back — {openLabel} starts the plan again from full
+          HP — so they are kept on the row and nothing here touches them.
         </Fact>
       )}
 
+      {/*
+        Two conditions, not three. `openName !== null` stood here as a third and
+        could never be false beside the second: `combatantsIn` returns the
+        shared `NO_COMBATANTS` when `openScene` is null and when it names no
+        scene row, so `inTheScene > 0` already carries "the open row exists and
+        is a scene", which is what the name selector tests. It was
+        not narrowing either: taking it out changes nothing `tsc --noEmit`
+        says, here or anywhere else. So it was an assertion about a state that
+        cannot occur, in the one arm this change has just emptied of exactly
+        those.
+      */}
       {spawnable.length > 0 && inTheScene > 0 && (
         <Fact>
-          The scene already holds {inTheScene} adversar{inTheScene === 1 ? 'y' : 'ies'}. Opening
+          {openName} already holds {inTheScene} adversar{inTheScene === 1 ? 'y' : 'ies'}. Opening
           the fight from here adds this roster to them rather than replacing them; END SCENE, in
-          the scene, is what empties it.
+          that scene, is what empties it.
         </Fact>
       )}
 
       <Fact>
-        The encounter builder works on the campaign’s one board, not on this row. OPEN THE FIGHT
-        goes straight to the scene with this row’s roster and leaves the board’s roster alone.
+        The encounter builder works on the campaign’s one board, not on this row. {openLabel}{' '}
+        {openName === null
+          ? 'makes a scene of its own for this row’s roster and leaves the board’s roster alone.'
+          : `goes straight to ${openName} with this row’s roster and leaves the board’s roster alone.`}
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -930,40 +1035,49 @@ function EncounterArm({
         />
         <Verb onClick={() => onOpenTool('encounter')} label="OPEN THE BUILDER" row={row} />
         {/*
-          Last and primary, the way OPEN THE SCENE is on a scene row: the verb
-          that leaves the row sits at the end of the wrapped strip, and there is
-          only one of them, because two primaries in one row is none. The
-          builder loses its fill to it - a GM who has finished planning wants the
-          fight, and the builder is now the second choice on a configured row.
+          Last and primary. The verb that leaves the row sits at the end of this
+          wrapped strip, and there is only one of them, because two primaries in
+          one row is none. The builder loses its fill to it - a GM who has
+          finished planning wants the fight, and the builder is now the second
+          choice on a configured row.
+
+          "The way the scene arm's own chain is" stood here, and it was true
+          of only half of what it was attached to. `SceneArm` does draw exactly
+          one primary - its three branches are one ternary - but it draws that
+          one FIRST: the ternary opens its strip and `CLEAR THIS FIGHT` closes
+          it, before this change and after it. The plan's ergonomics paragraph
+          makes the same claim and rests a thumb-reach argument on it; the
+          correction is written there. Whether the two arms should agree, and
+          which of them should move, is a reach question with a measurement
+          behind it, so it belongs to the Chrome pass rather than to a comment.
         */}
         <Verb
           onClick={openFight}
           /*
-           * Guarded since decision 18, and this is the ONE path that appends.
+           * ONE GUARD LEFT, AND THE SECOND ONE WENT WITH THE STATE IT WATCHED.
            *
-           * `openFight` spawns this row's entries onto the board without
-           * clearing it, which was harmless when the board was the only fight
-           * there was. With another scene running, pressing it here pours this
-           * row's adversaries into that scene - and the flip would then park
-           * the merged pile into the wrong row. A scene row cannot reach this
-           * verb; this is `encounter`, the arm nothing can mint any more, so
-           * the decision survives on the type that cannot be created and is
-           * superseded only on the one that can.
+           * This verb appends: it spawns this row's entries into the open
+           * scene without clearing it. Decision 18 guarded it a second time,
+           * on the schema-4 pointer naming some OTHER row, because the board
+           * was the one fight and pressing this while another scene was
+           * running poured this row's adversaries into that scene - and the
+           * flip would then park the merged pile into the wrong row. There is
+           * no flip, no park and no wrong row to be poured into: the fight is
+           * on the scene it is fought in, the destination is named on the
+           * button, and the sentence above says what is already in it. So the
+           * guard is gone rather than rewritten, and with it the Fact that
+           * explained why the button was dead.
+           *
+           * What is left is the honest one. An unresolvable roster makes no
+           * combatant, so pressing this would open an empty scene and look
+           * like it had worked.
            */
-          disabled={
-            spawnable.length === 0 || (liveScene !== null && liveScene !== item.id)
-          }
+          disabled={spawnable.length === 0}
           primary
-          label="OPEN THE FIGHT"
+          label={openLabel}
           row={row}
         />
       </div>
-      {liveScene !== null && liveScene !== item.id && (
-        <Fact>
-          The board is running another scene. Run that row instead, or end that
-          fight first.
-        </Fact>
-      )}
     </div>
   );
 }
@@ -1293,9 +1407,9 @@ function CountdownArm({
 
       {item.sceneId !== null && (
         <Fact>
-          This clock belongs to {ownerName}. It is on the glass while that scene
-          is running, and it is not on the top bar — the top bar is the
-          campaign’s.
+          This clock belongs to {ownerName}. It is on the glass while the runner
+          is showing that scene, and it is not on the top bar — the top bar is
+          the campaign’s.
         </Fact>
       )}
 

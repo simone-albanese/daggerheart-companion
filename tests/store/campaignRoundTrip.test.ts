@@ -40,6 +40,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  combatantsIn,
   newCampaign,
   type Campaign,
   type SessionItem,
@@ -57,6 +58,7 @@ import { stable } from '../../src/store/campaignMigration.ts';
 import { parseCampaignFile } from '../../src/transfer/campaignFile.ts';
 import { DEFAULT_PREFS, type Prefs } from '../../src/store/prefs.ts';
 import type { BackupDeps } from '../../src/store/backup.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 type Backup = typeof import('../../src/store/backup.ts');
 type Campaigns = typeof import('../../src/store/campaigns.ts');
@@ -171,8 +173,45 @@ const prose = (text: string): NoteDoc => [
   { type: 'paragraph', align: 'start', spans: [{ text, bold: false, italic: false }] },
 ];
 
-const combatant = (id: string): SceneCombatant => ({
-  id,
+/**
+ * A body with marks on it, and the nine fields written out on purpose.
+ *
+ * `tests/fixtures/factories.ts`'s docblock names this file as one that hand-
+ * builds them and gives the reason as "a body it can name and point at". That
+ * reason is spent - the factory's `combatant` takes the id positionally now -
+ * and this is the reason that replaces it, which is about what this file is
+ * for rather than about naming.
+ *
+ * Every assertion here is `stable(x) === stable(y)` across a real
+ * `.dhcampaign`, so the fixture has to be a value that came from nowhere but
+ * this file. The factory's `combatant` spreads
+ * `makeCombatant(makeAdversary(), …)` out of `src/engine/`: the right property
+ * for a test about what the app does with a body, and the wrong one for a test
+ * about which bytes reached the folder, because a fixture regenerated out of
+ * `src/` on every run cannot say *these* bytes went into the file.
+ *
+ * The exception is a choice and not a fear, and it is measured: at this commit
+ * the factory's body round-trips through `readCombatants` byte-identically -
+ * the same nine keys, `minionsRemaining` absent on both sides. Moving this
+ * file onto it is safe today; what it would cost is this file's independence
+ * from the engine tomorrow.
+ *
+ * It is also not the last hand-built one, which a reader tidying up should know
+ * before they start: `grep -rln 'adversaryRef:' tests/ | grep -v factories`
+ * returns 11 files at this commit, `tests/store/campaignImport.test.ts` among
+ * them with the same nine fields for the same reason. The other nine were not
+ * looked at here and are not claimed to be whole bodies; the number is a floor
+ * on the work, not a description of it.
+ *
+ * `marks` is `Omit<…, 'id'>` and `id` is written last, for the reason the
+ * factory gives at greater length: a patch built by spreading another body
+ * carries an `id` straight past a signature that only turns away a fresh
+ * literal, and two ways to set one field is one too many.
+ */
+const combatant = (
+  id: string,
+  marks: Partial<Omit<SceneCombatant, 'id'>> = {},
+): SceneCombatant => ({
   adversaryRef: 'jagged-knife-bandit',
   name: 'Jagged Knife Bandit',
   hp: { max: 4, marked: 3 },
@@ -181,19 +220,24 @@ const combatant = (id: string): SceneCombatant => ({
   difficulty: 10,
   spotlighted: false,
   notes: '',
+  ...marks,
+  id,
 });
 
-const scene = (id: string, name: string, order: number): SessionItem => ({
-  id,
-  kind: 'scene',
-  name,
-  order,
-  collapsed: false,
-  environmentRef: 'raging-river',
-  roster: [],
-  adjustments: { easier: false, harder: false, damageBump: false },
-  combatants: [combatant('jagged-knife-bandit-0')],
-});
+/**
+ * A scene row that IS a fight, through the one factory that mints them.
+ *
+ * The fight is an argument now rather than a constant inside. At campaign
+ * schema 5 there is no `board.combatants` left to hold the live one, so a
+ * campaign with two scenes in it has two fights, each on the row it is fought
+ * in - and this file's whole claim is that a `.dhcampaign` gives them back.
+ */
+const scene = (
+  id: string,
+  name: string,
+  order: number,
+  fight: SceneCombatant[],
+): SessionItem => sceneWith(id, fight, { name, order, environmentRef: 'raging-river' });
 
 /**
  * One whole sheet, stamped once.
@@ -235,13 +279,25 @@ const member = (sheet: Character, tracks: PartyMember['tracks']): PartyMember =>
  * `readPartyMember` refuses that, and a round trip whose party is dropped on
  * the way in proves nothing about the sheets, which are the part of a campaign
  * that cannot be typed again from memory.
+ *
+ * TWO FIGHTS, AND THEY SHARE AN ID. Both scene rows hold a body called
+ * `jagged-knife-bandit-0`, and the two bodies are not the same body: one is at
+ * three marks of HP and the other at one and spotlighted. That is legal and it
+ * is the invariant `SessionItem` states in as many words - a combatant id is
+ * unique inside its row and means nothing outside it, and `makeCombatant`
+ * numbers from 0 in every row - so a reader, a converter or an import that
+ * merged the two rows' fights, swapped them, or handed back whichever it found
+ * first would be caught here rather than in a GM's evening. Before campaign
+ * schema 5 this campaign could not be expressed: one of those two fights would
+ * have had to sit in `board.combatants`, and the row it was fought in would
+ * have been empty.
  */
 const played = (patch: Partial<Campaign> = {}): Campaign => ({
   ...newCampaign('The Sablewood Winter', '2026-02-01T19:30:00.000Z', 'c-1'),
   updatedAt: '2026-08-27T20:40:00.000Z',
   fear: 7,
   session: [
-    scene('s1', 'The frozen ford', 0),
+    scene('s1', 'The frozen ford', 0, [combatant('jagged-knife-bandit-0')]),
     {
       id: 'i1',
       kind: 'countdown',
@@ -265,14 +321,16 @@ const played = (patch: Partial<Campaign> = {}): Campaign => ({
       },
     },
     { id: 'n1', kind: 'note', name: 'What Hessa wants', order: 2, collapsed: false, note: prose('A crossing, paid back.') },
-    scene('s2', 'The long hall', 3),
+    scene('s2', 'The long hall', 3, [
+      combatant('jagged-knife-bandit-0', { hp: { max: 4, marked: 1 }, spotlighted: true }),
+    ]),
   ],
   archive: [
     {
       id: 'sitting-1',
       name: 'The first night out',
       closedAt: '2026-07-04T23:10:00.000Z',
-      items: [scene('s1', 'The frozen ford', 0)],
+      items: [scene('s1', 'The frozen ford', 0, [combatant('jagged-knife-bandit-0')])],
       account: prose('They never went north.'),
     },
     {
@@ -305,11 +363,18 @@ const played = (patch: Partial<Campaign> = {}): Campaign => ({
     member(SHEET, { hp: 2, stress: 4, hope: 3, armor: 1 }),
     member(SECOND_SHEET, { hp: 0, stress: 1, hope: 5, armor: 0 }),
   ],
+  /*
+   * The workbench, and which scene the runner was left showing. No fight: at
+   * campaign schema 5 the board carries the encounter builder's roster, its
+   * adjustments, its own place, and a row id - and nothing that a row does not
+   * already hold. `openScene` names the SECOND scene row on purpose, so a
+   * reader that handed back "the first scene row" for any pointer at all would
+   * fail rather than pass by coincidence.
+   */
   board: {
     ...newCampaign('x', '2026-02-01T19:30:00.000Z', 'x').board,
-    combatants: [combatant('acid-burrower-0')],
     environmentRef: 'raging-river',
-    liveScene: 's2',
+    openScene: 's2',
   },
   ...patch,
 });
@@ -443,14 +508,38 @@ describe('a file the automatic backup wrote, taken back in', () => {
       ['s2', 'scene', 3],
     ]);
 
-    // The two pointers into that list. `campaignImport.ts` prohibits a blanket
-    // remap precisely because these two name a row id.
+    /*
+     * The two pointers into that list, and they are still the reason
+     * `campaignImport.ts` prohibits a blanket remap: both name a row id. What
+     * changed at campaign schema 5 is what a lost one costs. A countdown's
+     * `sceneId` still owns the scoping of a clock and the reader warns when it
+     * dangles; `openScene` owns nothing at all - a dangling one costs the
+     * memory of which screen the GM was on - so the reader nulls it in silence.
+     * Neither of them carries a fight any more.
+     */
     const countdownRow = back.session[1]!;
     expect(countdownRow.kind === 'countdown' ? countdownRow.sceneId : null).toBe('s1');
     expect(countdownRow.kind === 'countdown' ? countdownRow.countdown.value : null).toBe(4);
-    expect(back.board.liveScene).toBe('s2');
-    expect(back.board.combatants.map((c) => c.id)).toEqual(['acid-burrower-0']);
+    expect(back.board.openScene).toBe('s2');
     expect(back.board.environmentRef).toBe('raging-river');
+
+    /*
+     * The fights, which is where the pointers used to point and where the
+     * evening actually lives. Both rows, each read on its own, because they
+     * hold bodies under one id and the marks are the only thing telling them
+     * apart: a restore that gave back one row's fight twice, or gave either of
+     * them back at full HP, would be a GM reopening a Sunday at the wrong
+     * table. `combatantsIn` is the app's own reader for the open row, so the
+     * runner's side is asserted through the same function the runner calls.
+     */
+    expect(combatantsIn(back.session, back.board.openScene).map((c) => c.id)).toEqual([
+      'jagged-knife-bandit-0',
+    ]);
+    expect(combatantsIn(back.session, 's2')[0]?.hp).toEqual({ max: 4, marked: 1 });
+    expect(combatantsIn(back.session, 's2')[0]?.spotlighted).toBe(true);
+    expect(combatantsIn(back.session, 's1').map((c) => c.id)).toEqual(['jagged-knife-bandit-0']);
+    expect(combatantsIn(back.session, 's1')[0]?.hp).toEqual({ max: 4, marked: 3 });
+    expect(combatantsIn(back.session, 's1')[0]?.spotlighted).toBe(false);
 
     expect(back.archive.map((a) => a.id)).toEqual(['sitting-1', 'sitting-2']);
     expect(back.archive[0]!.items.map((i) => i.id)).toEqual(['s1']);
@@ -555,8 +644,25 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
    * from the moment of the edit so that timer cannot fire, and the disk is
    * asserted stale on *both* sides of the backup - a run where the flush landed
    * anyway would go red here rather than pass while proving nothing.
+   *
+   * ## What the unwritten edit is, now that the fight is on the row
+   *
+   * A MARK ON AN ADVERSARY, and it is the sharpest form this case has ever
+   * had. It used to be Fear, a party track and a note row - three fields on a
+   * record - and the board's own state was represented only by which scene the
+   * pointer named, which no gesture in the dirty window moved. The fight was
+   * out of reach: it sat in `board.combatants`, and putting it there took
+   * `runScene`, a flip the test ran *before* the flush.
+   *
+   * `patchCombatant` is now an ordinary write to a scene row, so the evening's
+   * most perishable thing - four HP marked on a bandit at 21:40, which exists
+   * in no one's memory and on no one's paper - is reachable inside the window
+   * where the disk has stopped answering. That is precisely the state this
+   * whole seam exists for, and it is asserted at all four stations: the disk
+   * before, the disk after, the bytes in the folder, and the record read back
+   * on a device that has never seen this campaign.
    */
-  it('backs up the edit, not the disk, and the import gives back the edited board', async () => {
+  it('backs up the edit, not the disk, and gives back the marks nobody had written down', async () => {
     globalThis.indexedDB = new IDBFactory();
     installStorage();
     vi.resetModules();
@@ -575,16 +681,29 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
     await gm.hydrateGm();
     const id = gm.useGm.getState().activeCampaignId!;
 
-    // An evening, written to the disk the ordinary way.
+    /*
+     * An evening, written to the disk the ordinary way. The row arrives
+     * holding its fight, because that is where a fight is: `addSessionItem`
+     * and `showScene` are two verbs doing two things - one puts a scene on the
+     * plan, the other points the runner at it. Schema 4 spelled the first one
+     * the same way and needed `runScene` for the second; what `runScene` did
+     * that `showScene` does not is empty the row into `board.combatants` on the
+     * way past, and that is the job with no verb now, because there is nowhere
+     * left to move the bodies to.
+     */
     gm.useGm.getState().setFear(3);
     gm.useGm.getState().importParty([SHEET], 'file');
-    gm.useGm.getState().addSessionItem(scene('s1', 'The frozen ford', 0));
-    gm.useGm.getState().runScene('s1');
+    gm.useGm
+      .getState()
+      .addSessionItem(scene('s1', 'The frozen ford', 0, [combatant('jagged-knife-bandit-0')]));
+    gm.useGm.getState().showScene('s1');
     await gm.flushGm();
 
     const flushed = await campaigns.getCampaign(id);
     expect(flushed?.fear).toBe(3);
     expect(flushed?.party).toHaveLength(1);
+    expect(flushed?.board.openScene).toBe('s1');
+    expect(combatantsIn(flushed?.session ?? [], 's1')[0]?.hp).toEqual({ max: 4, marked: 3 });
 
     // From here the disk must not move.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -600,10 +719,18 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
       collapsed: false,
       note: prose('A crossing, paid back.'),
     });
+    // The fourth mark on the bandit, which is the one that exists nowhere else.
+    gm.useGm.getState().patchCombatant('s1', 'jagged-knife-bandit-0', {
+      hp: { max: 4, marked: 4 },
+    });
 
     const stale = await campaigns.getCampaign(id);
     expect(stale?.fear, 'the flush fired: this case is no longer about a dirty store').toBe(3);
     expect(stale?.session.map((i) => i.id)).toEqual(['s1']);
+    expect(
+      combatantsIn(stale?.session ?? [], 's1')[0]?.hp,
+      'the flush fired: the mark is already on the disk',
+    ).toEqual({ max: 4, marked: 3 });
 
     // The backup leg, through the seam `gmStore` published at module scope.
     // Nothing about `liveCampaigns` is injected.
@@ -618,6 +745,10 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
 
     // Still stale, so the file below is not the disk's by accident.
     expect((await campaigns.getCampaign(id))?.fear).toBe(3);
+    expect(combatantsIn((await campaigns.getCampaign(id))?.session ?? [], 's1')[0]?.hp).toEqual({
+      max: 4,
+      marked: 3,
+    });
 
     const written = [...files.keys()].filter((n) => n.endsWith('.dhcampaign'));
     expect(written).toHaveLength(1);
@@ -629,6 +760,10 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
     expect(inFile.campaign.fear, 'the backup was written from the disk, not the seam').toBe(9);
     expect(inFile.campaign.session.map((i) => i.id)).toEqual(['s1', 'n1']);
     expect(inFile.campaign.party[0]!.tracks).toMatchObject({ hp: 4, stress: 5 });
+    expect(
+      combatantsIn(inFile.campaign.session, 's1')[0]?.hp,
+      'the backup was written from the disk, not the seam',
+    ).toEqual({ max: 4, marked: 4 });
 
     // And the import gives it back on a device that has never seen it.
     vi.useRealTimers();
@@ -638,7 +773,8 @@ describe('a campaign the GM has edited and the disk has not caught up with', () 
     expect(back.fear).toBe(9);
     expect(back.id).toBe(id);
     expect(back.session.map((i) => i.id)).toEqual(['s1', 'n1']);
-    expect(back.board.liveScene).toBe('s1');
+    expect(back.board.openScene).toBe('s1');
+    expect(combatantsIn(back.session, 's1')[0]?.hp).toEqual({ max: 4, marked: 4 });
     expect(back.party[0]!.tracks).toMatchObject({ hp: 4, stress: 5 });
     expect(back.party[0]!.sheet.name).toBe('Ilya of the Ninth');
     expect(stable(await target.campaigns.getCampaign(id))).toBe(stable(back));

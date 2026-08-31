@@ -52,16 +52,18 @@ import { act, createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LinkTarget, SessionItem, SessionItemBase } from '../../shared/campaigns.ts';
+import type { SceneCombatant } from '../../shared/types.ts';
 import { countdownsOf } from '../../shared/campaigns.ts';
 import { DEFAULT_PREFS } from '../../src/store/prefs.ts';
 import { useApp } from '../../src/store/state.ts';
 import { Gm } from '../../src/ui/gm/Gm.tsx';
 import { damageBumpRule } from '../../src/ui/shared/ruleText.ts';
 import { SessionList } from '../../src/ui/gm/SessionList.tsx';
+import { newScene } from '../../src/ui/gm/session.ts';
 import { MemoSessionRow, SessionRow } from '../../src/ui/gm/SessionRow.tsx';
-import { hydrateGm, useGm } from '../../src/ui/gm/gmStore.ts';
+import { hydrateGm, openCombatants, useGm } from '../../src/ui/gm/gmStore.ts';
 import { dataset, index } from '../ui/fixture.ts';
-import { NO_FIGHT, NO_CLOCK_PROSE } from '../fixtures/factories.ts';
+import { NO_FIGHT, NO_CLOCK_PROSE, combatant, sceneWith } from '../fixtures/factories.ts';
 
 /**
  * A render counter for the rows, and the reason it is a module mock.
@@ -147,8 +149,9 @@ beforeEach(() => {
     prefs: { ...DEFAULT_PREFS },
     openCard: null,
   });
-  useGm.setState({ hydrated: true, session: [], countdowns: [], combatants: [], liveScene: null, environmentRef: null, roster: [] });
+  useGm.setState({ hydrated: true, session: [], countdowns: [], openScene: null, environmentRef: null, roster: [] });
   drawn.length = 0;
+  opened.length = 0;
 });
 
 afterEach(() => {
@@ -162,6 +165,30 @@ const render = (element: ReactElement): void => {
 
 const list = (phone = true): void => {
   render(createElement(SessionList, { phone, onOpenTool: () => {} }));
+};
+
+/**
+ * Every tool this list was asked to open, in order, and the list rendered so
+ * that it records them.
+ *
+ * File-scope rather than inside one describe, because the property it exists
+ * to catch belongs to both arms. Half of what a primary verb does is write the
+ * pointer and half is `onOpenTool('scene')`, and the second half is invisible
+ * to every assertion about state: a build that dropped it would leave the GM
+ * standing on the plan while a fight started somewhere they cannot see, and
+ * pass everything else this file asks. `SceneArm`'s own docblock says exactly
+ * that, and until this was hoisted only the ENCOUNTER arm's call was pinned.
+ */
+const opened: string[] = [];
+const listWatching = (phone = true): void => {
+  render(
+    createElement(SessionList, {
+      phone,
+      onOpenTool: (tool) => {
+        opened.push(tool);
+      },
+    }),
+  );
 };
 
 const text = (): string => container.textContent ?? '';
@@ -512,108 +539,236 @@ describe('the scene arm', () => {
   });
 
   /*
-   * The fight the row holds, decision 18.
+   * The fight the row holds, decision 18 and the overturn that followed it.
    *
-   * A scene row can be planned, running, or parked with a fight in it, and the
-   * arm has to say which - the only primary verb it offers is a different verb
-   * in each case, and one of them destroys marks.
+   * The premise here has inverted. It read: "A scene row can be planned,
+   * running, or parked with a fight in it, and the arm has to say which - the
+   * only primary verb it offers is a different verb in each case, and one of
+   * them destroys marks." Two of those three states are gone. A row is not
+   * "running": the runner points at one row and that is a fact about the
+   * runner, not about the row. Nothing is "parked": a fight is on the row it
+   * is fought in from the moment it starts.
+   *
+   * What survives whole is the last clause. The arm still offers exactly one
+   * primary verb, it is still a different verb in three cases, and one control
+   * on the strip still destroys marks and still arms.
    */
   describe('the fight it is holding', () => {
-    const withFight = (n: number, id = 's'): SessionItem[] => [
-      {
-        ...base({ id, name: 'Scene one', collapsed: false }),
-        kind: 'scene',
+    /** A scene row holding `n` bodies, seeded through the fixture factory. */
+    const withFight = (n: number, id = 's', name = 'Scene one'): SessionItem[] => [
+      sceneWith(
+        id,
+        Array.from({ length: n }, (_, i) =>
+          combatant(`${adversary.id}-${String(i)}`, {
+            adversaryRef: adversary.id,
+            name: adversary.name,
+            hp: { max: 6, marked: 2 },
+          }),
+        ),
+        { ...base({ id, name, collapsed: false }), environmentRef: null },
+      ),
+    ];
+
+    /** A scene row with a roster it has not spawned yet. */
+    const planning = (count = 2, id = 's', name = 'Scene one'): SessionItem[] => [
+      sceneWith(id, [], {
+        ...base({ id, name, collapsed: false }),
         environmentRef: null,
-        roster: [],
-        adjustments: NO_ADJUSTMENTS,
-        combatants: Array.from({ length: n }, (_, i) => ({
-          id: `${adversary.id}-${String(i)}`,
-          adversaryRef: adversary.id,
-          name: adversary.name,
-          hp: { max: 6, marked: 2 },
-          stress: { max: 3, marked: 0 },
-          thresholds: [4, 8] as [number, number],
-          difficulty: 12,
-          spotlighted: false,
-          notes: '',
-        })),
-      },
+        roster: [{ ref: adversary.id, count }],
+      }),
     ];
 
     const primary = (): HTMLButtonElement | undefined =>
       buttons().find((b) => b.className.includes('btn-primary'));
 
-    it('never draws two primary verbs, however the conditions overlap', () => {
+    /**
+     * The three states of a scene row, named once, so the two tests that walk
+     * all of them cannot walk different sets.
+     *
+     * There is no fourth. The old chain had five branches and two of them -
+     * `isLive` and the orphan board - were about state that is not the row's,
+     * which is exactly what this change deleted.
+     */
+    const THREE_STATES: [string, () => SessionItem[], string][] = [
+      ['holding a fight', () => withFight(2), 'OPEN THIS FIGHT'],
+      ['planning one', () => planning(), 'START THIS FIGHT'],
+      ['neither', () => scene(), 'OPEN THIS SCENE'],
+    ];
+
+    // §6 test 27 -----------------------------------------------------------
+
+    it('draws exactly one primary verb in all three states, and it always names this row', () => {
       /*
-       * Two primaries in one row is none, and the conditions overlap on their
-       * own: a row that is live still has its roster, and a parked row can
-       * have one too. The arm resolves them first-match-wins rather than by
-       * drawing every verb whose condition is true.
+       * Two primaries in one row is none, and the conditions still overlap on
+       * their own: a row holding a fight can have a roster too.
        *
-       * A bare row on an unowned, empty board draws ONE, and that is an
-       * overturn of what this test pinned before it.
+       * The demotion this used to pin is gone with the state that justified
+       * it. `OPEN THE SCENE` was NOT primary on a row that was neither live
+       * nor holding a fight, because there it opened a runner showing a
+       * DIFFERENT scene and as the row's headline verb it lied about which row
+       * it belonged to. No verb here can be about another row now, so there is
+       * nothing left to demote and all three take the fill.
        *
-       * It used to read: "A bare row draws NONE, and that is the decision
-       * rather than an oversight: there is nothing of that row's to open, and
-       * the only verb that would fit opens somebody else's scene." The second
-       * clause is the whole of the argument and it is false in exactly this
-       * state - `beforeEach` leaves `liveScene: null` with an empty board, so
-       * there is no somebody else's scene for the verb to open. `OPEN THE
-       * SCENE` now claims that board for the row it is drawn on, which is what
-       * it always looked like it did, so on this state it is the row's own verb
-       * and takes the fill. The demotion survives where the sentence is true,
-       * and the test below is what holds it there.
+       * The accessible name carries the row, so "it names this row" is checked
+       * on the button rather than inferred from the press below.
        */
-      const cases: [SessionItem[], number][] = [
-        [scene(), 1],
-        [scene(environment.id), 1],
-        [withFight(2), 1],
-      ];
-      for (const [items, expected] of cases) {
-        seed(items);
+      for (const [state, items, label] of THREE_STATES) {
+        seed(items());
         list();
-        expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(expected);
+        const fills = buttons().filter((b) => b.className.includes('btn-primary'));
+        expect(fills.map((b) => b.textContent), state).toEqual([label]);
+        expect(fills[0]!.getAttribute('aria-label'), state).toBe(`${label} — Scene one`);
       }
 
-      // Live, and holding a roster it could still start: one primary, not two.
+      // And the overlap, explicitly: a fight AND a roster is still one verb.
       seed([
-        {
-          ...base({ id: 's', name: 'Scene one', collapsed: false }),
-          kind: 'scene',
-          environmentRef: null,
-          roster: [{ ref: adversary.id, count: 1 }],
-          adjustments: NO_ADJUSTMENTS,
-          combatants: [],
-        },
+        sceneWith(
+          's',
+          [combatant('acid-burrower-0')],
+          { ...base({ id: 's', name: 'Scene one', collapsed: false }), environmentRef: null, roster: [{ ref: adversary.id, count: 1 }] },
+        ),
       ]);
-      useGm.setState({ liveScene: 's' });
       list();
       expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(1);
     });
 
-    it('says how many are parked, and what bringing them back costs', () => {
-      seed(withFight(3));
+    it('opens this row from every one of the three states, whatever the runner was showing', () => {
+      /*
+       * The other half of test 27, and the half that has teeth: the label is
+       * cheap to get right and the target is what the old chain got wrong.
+       *
+       * A second row is open throughout, so a verb that pointed at "the scene"
+       * rather than at `item.id` would leave the pointer where it was and pass
+       * every label assertion above.
+       *
+       * And each press is watched, because writing the pointer is only half of
+       * what these three verbs do. `showScene` does not open the runner, so a
+       * branch that forgot `onOpenTool('scene')` would move the pointer
+       * correctly and leave the GM on the plan - the owner's original
+       * complaint, arriving through a different door. This is the only test
+       * that walks all three branches, so it is where that half belongs.
+       */
+      for (const [state, items, label] of THREE_STATES) {
+        seed([...items(), ...withFight(1, 'elsewhere', 'Scene two')]);
+        act(() => {
+          useGm.setState({ openScene: 'elsewhere' });
+        });
+        listWatching();
+        // By accessible name, not by words: the second row draws the same
+        // label in one of the three cases, and that is exactly the ambiguity
+        // this test exists to resolve.
+        const verb = buttons().find(
+          (b) => b.getAttribute('aria-label') === `${label} — Scene one`,
+        );
+        expect(verb, state).toBeDefined();
+        // Cleared per state: one array, three presses, and `['scene']` has to
+        // mean this branch's press rather than the sum of the ones before it.
+        opened.length = 0;
+        click(verb!);
+        expect(useGm.getState().openScene, state).toBe('s');
+        expect(opened, state).toEqual(['scene']);
+      }
+    });
+
+    // The fight, said in words --------------------------------------------
+
+    it('says how many are in the scene, and that nothing is put away', () => {
+      // The count is read back off the seeded row rather than typed beside the
+      // expectation, so a fixture that stopped seeding three cannot leave this
+      // green by agreeing with itself.
+      const items = withFight(3);
+      const seeded = items[0]!;
+      seed(items);
       list();
-      expect(text()).toContain('Parked here: 3 adversaries');
-      expect(primary()?.textContent).toBe('BACK TO THIS FIGHT');
+      const n = seeded.kind === 'scene' ? seeded.combatants.length : 0;
+      expect(n).toBeGreaterThan(1);
+      expect(text()).toContain(`In this scene: ${String(n)} adversaries, with their marks.`);
+      expect(text()).toContain('nothing is parked and nothing is swapped');
+      expect(primary()?.textContent).toBe('OPEN THIS FIGHT');
     });
 
     it('says one adversary rather than one adversaries', () => {
       seed(withFight(1));
       list();
-      expect(text()).toContain('Parked here: 1 adversary,');
+      expect(text()).toContain('In this scene: 1 adversary, with their marks.');
+      expect(text()).not.toContain('adversaries');
     });
 
-    it('puts a parked fight back on the board, and parks whatever was there', () => {
-      seed([...withFight(2, 'dungeon'), ...withFight(1, 'forest').map((i) => ({ ...i, order: 1 }))]);
-      useGm.setState({ liveScene: null, combatants: [] });
+    it('says the same sentence on the row the runner is already showing', () => {
+      /*
+       * The guard is the count and nothing else, so this Fact draws on the
+       * open row too. That is correct rather than sloppy: the fight IS on this
+       * row while it is being fought, and the sentence is about where the
+       * marks live rather than about which screen the GM is looking at.
+       *
+       * This replaces "says what a live row is holding, and does not call it
+       * parked", which asserted the sentence `This scene is on the board` -
+       * deleted with the board that made it true.
+       */
+      seed(withFight(2));
+      act(() => {
+        useGm.setState({ openScene: 's' });
+      });
       list();
+      expect(text()).toContain('In this scene: 2 adversaries');
+      expect(text()).not.toContain('Parked here');
+      expect(primary()?.textContent).toBe('OPEN THIS FIGHT');
+    });
 
-      const back = buttons().filter((b) => (b.textContent ?? '') === 'BACK TO THIS FIGHT');
-      click(back[0]!);
+    it('says the scene keeps its own fight, and that opening another moves nothing', () => {
+      // The one sentence on this arm that states the whole schema change, and
+      // it draws whether or not the row has a fight in it.
+      seed(scene());
+      list();
+      expect(text()).toContain('This scene keeps its own place and its own fight');
+      expect(text()).toContain('opening another scene moves nothing');
+    });
 
-      expect(useGm.getState().liveScene).toBe('dungeon');
-      expect(useGm.getState().combatants).toHaveLength(2);
+    // Starting, opening, clearing -----------------------------------------
+
+    it('starts a planned fight in one tap, without arming, into this row', () => {
+      /*
+       * One tap and no arming. «Conferma sempre» was decided about a button
+       * that threw marks away; this one appends to an empty fight and takes
+       * nothing from anywhere - and now that no fight is moved, parked or
+       * swapped by any verb here, "nor what moves" is not even needed as a
+       * reading. It simply appends.
+       */
+      seed(planning(2));
+      listWatching();
+      expect(primary()?.textContent).toBe('START THIS FIGHT');
+      click(primary()!);
+
+      expect(useGm.getState().openScene).toBe('s');
+      const row = useGm.getState().session[0]!;
+      expect(row.kind === 'scene' && row.combatants).toHaveLength(2);
+      // The bodies are on the row, and there is nowhere else they could be.
+      expect(openCombatants(useGm.getState())).toHaveLength(2);
+      // And the GM went with them. `startFight` is three lines - the pointer,
+      // the spawns, the tool - and the third is the one no assertion about
+      // state can see: a fight that starts on a screen the GM is not looking
+      // at is the complaint this whole change came from.
+      expect(opened).toEqual(['scene']);
+    });
+
+    it('goes to a fight that is already here without doubling it', () => {
+      // A second tap must not spawn again: a row a GM left mid-beat has to
+      // come back with exactly what it had. The branch order is what holds
+      // this - `combatants` is tested before `roster`.
+      seed([
+        sceneWith(
+          's',
+          [combatant('acid-burrower-0', { hp: { max: 6, marked: 4 } })],
+          { ...base({ id: 's', name: 'Scene one', collapsed: false }), environmentRef: null, roster: [{ ref: adversary.id, count: 3 }] },
+        ),
+      ]);
+      list();
+      expect(primary()?.textContent).toBe('OPEN THIS FIGHT');
+      click(primary()!);
+      click(primary()!);
+
+      expect(openCombatants(useGm.getState())).toHaveLength(1);
+      expect(openCombatants(useGm.getState())[0]!.hp.marked).toBe(4);
     });
 
     it('offers no way to clear a fight that is not there', () => {
@@ -623,9 +778,14 @@ describe('the scene arm', () => {
     });
 
     it('arms CLEAR THIS FIGHT, because it destroys the only copy of those marks', () => {
-      // The flip is one tap and this is two, and that is the whole line:
-      // running a scene moves a fight, clearing one ends it.
+      // Two taps, and the reason is sharper than it was: there is no board
+      // holding a second copy of these marks and no undo. It is also NOT
+      // hidden on the row the runner is showing, so the tap count does not
+      // depend on which screen the GM was last on.
       seed(withFight(2));
+      act(() => {
+        useGm.setState({ openScene: 's' });
+      });
       list();
       const clear = buttons().find((b) => (b.textContent ?? '') === 'CLEAR THIS FIGHT')!;
       click(clear);
@@ -636,158 +796,177 @@ describe('the scene arm', () => {
       click(buttons().find((b) => (b.textContent ?? '') === 'TAP AGAIN TO CLEAR')!);
       const after = useGm.getState().session[0]!;
       expect(after.kind === 'scene' && after.combatants).toEqual([]);
+      // And the runner stays where it was: ending a fight is not leaving the
+      // table.
+      expect(useGm.getState().openScene).toBe('s');
     });
 
-    it('says what a live row is holding, and does not call it parked', () => {
-      seed(scene());
-      useGm.setState({ liveScene: 's' });
+    it('clears this row and no other, when two rows are holding fights', () => {
+      seed([...withFight(2, 's', 'Scene one'), ...withFight(3, 'other', 'Scene two')]);
       list();
-      expect(text()).toContain('This scene is on the board');
-      expect(text()).not.toContain('Parked here');
-      expect(primary()?.textContent).toBe('OPEN THE SCENE');
+      // Two rows are open, so two CLEAR verbs are on the screen; the one for
+      // this row is found by the accessible name the `Verb` carries.
+      const mine = buttons().find(
+        (b) => b.getAttribute('aria-label') === 'CLEAR THIS FIGHT — Scene one',
+      )!;
+      click(mine);
+      click(
+        buttons().find((b) => b.getAttribute('aria-label') === 'TAP AGAIN TO CLEAR — Scene one')!,
+      );
+
+      const held = (id: string): number => {
+        const row = useGm.getState().session.find((i) => i.id === id);
+        return row?.kind === 'scene' ? row.combatants.length : -1;
+      };
+      expect(held('s')).toBe(0);
+      expect(held('other')).toBe(3);
     });
 
-    it('starts a planned fight in one tap, without arming', () => {
-      /*
-       * Running a scene destroys nothing - the fight on the board is parked
-       * into the row it came from - so this is one tap. «Conferma sempre» was
-       * decided about a button that threw marks away, and this is the ratified
-       * reading "arm what replaces, not what appends", extended to "nor what
-       * moves".
-       */
-      seed([
-        {
-          ...base({ id: 's', name: 'Scene one', collapsed: false }),
-          kind: 'scene',
-          environmentRef: null,
-          roster: [{ ref: adversary.id, count: 2 }],
-          adjustments: NO_ADJUSTMENTS,
-          combatants: [],
-        },
-      ]);
-      list();
-      expect(primary()?.textContent).toBe('START THIS FIGHT');
-      click(primary()!);
-      expect(useGm.getState().liveScene).toBe('s');
-      expect(useGm.getState().combatants.length).toBeGreaterThan(0);
-    });
+    // The shut header ------------------------------------------------------
 
-    it('does not make OPEN THE SCENE the headline of a row whose scene is elsewhere', () => {
+    it('says which row is on the table, and what every other row is holding', () => {
       /*
-       * On a row that is neither live nor holding a fight WHILE ANOTHER SCENE
-       * IS ON THE TABLE, that button opens a runner showing a DIFFERENT scene -
-       * so as the row's primary verb it lies about which row it belongs to. It
-       * is still drawn, plainly: the runner's empty state is the only door to
-       * the bestiary from here, and the top bar's chip appears only once
-       * something is on the board.
+       * The complaint this whole lane came from: the plan never read the
+       * pointer at all, so two scene rows with a fight between them read
+       * identically.
        *
-       * The second scene is the premise, and it used not to be here. This
-       * seeded one bare row on an empty unowned board and asserted the
-       * demotion there, which is the one state where the sentence above is not
-       * true of anything - and where the missing claim was the defect that made
-       * a fight belong to no row at all.
+       * What it says has inverted with the mechanism. `ON THE TABLE` used to
+       * stand in place of a count because a running row's `combatants` was
+       * empty by resume's own invariant. Every row holds its own fight now, so
+       * the count is available everywhere and the pointer chooses the WORD:
+       * `n ON THE TABLE` for the row the runner is showing, `n IN THE FIGHT`
+       * for the rest.
        */
       seed([
-        ...scene(),
-        {
-          ...base({ id: 'other', name: 'Scene two', collapsed: true }),
-          kind: 'scene',
-          environmentRef: null,
-          roster: [],
-          adjustments: NO_ADJUSTMENTS,
-          combatants: [],
-        },
+        sceneWith('s', [combatant('acid-burrower-0')], {
+          ...base({ id: 's', name: 'Scene one', collapsed: true }),
+          environmentRef: environment.id,
+        }),
+        sceneWith('other', [combatant('acid-burrower-0'), combatant('acid-burrower-1')], {
+          ...base({ id: 'other', name: 'Scene two', order: 1, collapsed: true }),
+          environmentRef: environment.id,
+        }),
       ]);
-      useGm.setState({ liveScene: 'other' });
       list();
-      const open = buttons().find((b) => (b.textContent ?? '') === 'OPEN THE SCENE');
-      expect(open, 'the only door to the empty runner was walled up').toBeDefined();
-      expect(open!.className).not.toContain('btn-primary');
-      // And the row says why, in the sentence that shipped on `encounter`.
-      expect(text()).toContain('The board is running another scene');
-    });
+      expect(text()).toContain('1 IN THE FIGHT');
+      expect(text()).toContain('2 IN THE FIGHT');
+      expect(text()).not.toContain('ON THE TABLE');
 
-    it('claims an unowned, empty board for the row the GM pressed', () => {
-      /*
-       * The repair, at the point where it was missing. `OPEN THE SCENE` called
-       * `onOpenTool` and wrote no pointer, so a GM who planned a row, opened
-       * it, built an encounter and sent it "to the scene" ended with a fight on
-       * a board naming no row - and the row they had been looking at the whole
-       * time still empty. Nothing anywhere married the two.
-       */
-      seed(scene());
-      list();
-      expect(useGm.getState().liveScene).toBeNull();
-      act(() => buttons().find((b) => (b.textContent ?? '') === 'OPEN THE SCENE')!.click());
-      expect(useGm.getState().liveScene).toBe('s');
-      // Claiming an empty board moves nothing and mints nothing.
-      expect(useGm.getState().combatants).toEqual([]);
-      expect(useGm.getState().session).toHaveLength(1);
-    });
-
-    it('gives the fight that belongs to no row a way to become this row’s', () => {
-      /*
-       * The bestiary and the builder opened out of MENU both spawn onto the
-       * board without a row to write to, so `liveScene` stays null with marks
-       * on the glass. `liveScenes` returns nothing there, so the runner draws
-       * no chip and the plan cannot mark anything: the fight is nobody's until
-       * it is ended. This is the verb that state had none of.
-       */
-      seed(scene());
-      useGm.setState({
-        combatants: [
-          {
-            id: `${adversary.id}-0`,
-            adversaryRef: adversary.id,
-            name: adversary.name,
-            hp: { max: 6, marked: 3 },
-            stress: { max: 3, marked: 0 },
-            thresholds: [4, 8] as [number, number],
-            difficulty: 12,
-            spotlighted: false,
-            notes: '',
-          },
-        ],
+      act(() => {
+        useGm.setState({ openScene: 'other' });
       });
       list();
-      const take = buttons().find((b) => (b.textContent ?? '') === 'TAKE THE FIGHT ON THE BOARD');
-      expect(take, 'the orphan fight had no door back into the plan').toBeDefined();
-      expect(take!.className).toContain('btn-primary');
-      expect(text()).toContain('belonging to no row of the plan');
-      act(() => take!.click());
-      expect(useGm.getState().liveScene).toBe('s');
-      // Adoption is the pointer and only the pointer: the marks are untouched.
-      expect(useGm.getState().combatants[0]?.hp.marked).toBe(3);
-      expect(useGm.getState().session).toHaveLength(1);
+      expect(text()).toContain('1 IN THE FIGHT');
+      expect(text()).toContain('2 ON THE TABLE');
     });
 
-    it('says which row is on the table, on the shut header', () => {
+    // §6 test 28 -----------------------------------------------------------
+
+    it('never says the board is running another scene, in any state two rows can reach', () => {
       /*
-       * The plan never read `liveScene` at all, so two scene rows with a fight
-       * running between them read identically - the complaint this whole lane
-       * came from. `ON THE TABLE` stands in place of `PLANNED` rather than
-       * beside it: a running row's `combatants` is empty by resume's own
-       * invariant, so the only other term is a count of what its roster WOULD
-       * spawn, about a fight already being marked up on the glass.
+       * THE ABSENCE TEST, and it is the deliverable's other half.
+       *
+       * Four `<Fact>` sentences on this screen existed only to explain that a
+       * control was about somebody else's fight: SceneArm's isLive Fact, its
+       * "the board is running another scene, so OPEN THE SCENE shows that one
+       * and not this", its orphan Fact, and EncounterArm's "The board is
+       * running another scene. Run that row instead." All four are gone,
+       * because the state each described is gone.
+       *
+       * A test for four deleted strings would be four greps against nothing.
+       * This walks the states instead - every combination of two scene rows,
+       * one encounter row, a fight, and each of the three pointer positions -
+       * and asserts that the vocabulary of a shared board never reaches the
+       * glass from any of them.
        */
-      seed([
+      const FORBIDDEN = [
+        'the board is running another scene',
+        'The board is running another scene',
+        'belonging to no row of the plan',
+        'Parked here',
+        'TAKE THE FIGHT ON THE BOARD',
+        'OPEN THE SCENE',
+        'BACK TO THIS FIGHT',
+      ];
+      const rows: SessionItem[] = [
+        ...withFight(2, 's', 'Scene one'),
+        ...withFight(1, 'other', 'Scene two'),
         {
-          ...base({ id: 's', name: 'Scene one', collapsed: true }),
-          kind: 'scene',
-          environmentRef: environment.id,
+          ...base({ id: 'e', name: 'The ambush', order: 2, collapsed: false }),
+          kind: 'encounter',
           roster: [{ ref: adversary.id, count: 1 }],
           adjustments: NO_ADJUSTMENTS,
           combatants: [],
         },
-      ]);
-      list();
-      expect(text()).toContain('1 PLANNED');
-      expect(text()).not.toContain('ON THE TABLE');
+      ];
+      for (const pointer of [null, 's', 'other']) {
+        seed(rows);
+        act(() => {
+          useGm.setState({ openScene: pointer });
+        });
+        list();
+        for (const phrase of FORBIDDEN) {
+          expect(text(), `${String(pointer)} / ${phrase}`).not.toContain(phrase);
+        }
+      }
+    });
 
-      useGm.setState({ liveScene: 's' });
+    // §6 test 1 ------------------------------------------------------------
+
+    it('opens Pub while Foresta keeps its fight, which is the repro this change came from', () => {
+      /*
+       * THE OWNER'S REPRO, AS ONE TEST, AND THE PROOF THE FIX LANDED.
+       *
+       * Two ordinary scene rows and one fight. On `main` the primary verb on
+       * the second row is `OPEN THE SCENE`, it is NOT primary, and pressing it
+       * opens the runner on Foresta - the row the GM was not looking at -
+       * because there was one board and the pointer said whose it was. The GM
+       * could not start a second fight without ending the first.
+       *
+       * Everything below is seeded the way the app itself would: two rows made
+       * by `newScene`, a pointer written by `showScene`, and the fight spawned
+       * by the store's own verb rather than typed into a literal. A seed that
+       * hand-built the fight could describe a state the app cannot reach, and
+       * this test's whole value is that its starting state is an ordinary
+       * evening.
+       */
+      const foresta = newScene('Foresta', null, { id: 'foresta' });
+      const pub = newScene('Pub', null, { id: 'pub' });
+      seed([
+        { ...foresta, collapsed: false, order: 0 },
+        { ...pub, collapsed: false, order: 1 },
+      ]);
+      const spawned = 2;
+      const wound = 5;
+      act(() => {
+        const s = useGm.getState();
+        s.showScene('foresta');
+        s.spawn('foresta', adversary, 4, spawned);
+        s.patchCombatant('foresta', `${adversary.id}-0`, { hp: { max: 8, marked: wound } });
+      });
+
       list();
-      expect(text()).toContain('ON THE TABLE');
-      expect(text()).not.toContain('1 PLANNED');
+
+      // Pub's own arm: the verb is there, it is the headline, and it is live.
+      const verb = buttons().find(
+        (b) => b.getAttribute('aria-label') === 'OPEN THIS SCENE — Pub',
+      );
+      expect(verb, 'Pub has no verb of its own').toBeDefined();
+      expect(verb!.className).toContain('btn-primary');
+      expect(verb!.disabled).toBe(false);
+
+      click(verb!);
+
+      // It opened Pub, and Pub is empty.
+      expect(useGm.getState().openScene).toBe('pub');
+      expect(openCombatants(useGm.getState())).toEqual([]);
+
+      // And Foresta is exactly as it was left, marks included. `spawned` and
+      // `wound` are the numbers the gesture above used, named once, so the
+      // assertion cannot agree with a seed that changed under it.
+      const row = useGm.getState().session.find((i) => i.id === 'foresta')!;
+      expect(row.kind === 'scene' && row.combatants).toHaveLength(spawned);
+      expect(row.kind === 'scene' && row.combatants[0]!.hp.marked).toBe(wound);
     });
   });
 });
@@ -829,16 +1008,31 @@ describe('the encounter arm', () => {
     expect(text()).toContain('No control here brings those marks back');
     /*
      * This used to assert that no verb on the row said the word FIGHT at all,
-     * which OPEN THE FIGHT now does. That string was never the point: what
-     * cannot be restored is the *marks*, because no action in `gmStore` sets a
-     * combatant list wholesale. OPEN THE FIGHT starts the plan again from full
-     * HP, and on a row whose plan is empty there is nothing for it to start -
-     * so it is disabled here, and the saved fight is still untouched afterwards.
+     * which the primary verb now does. That string was never the point: what
+     * cannot be restored is the *marks*.
+     *
+     * The reason they cannot has been rewritten once already and is rewritten
+     * again here. It said "no action in `gmStore` sets a combatant list
+     * wholesale", which is false and was false before this wave - `clearScene`
+     * sets one to `[]`. The true reason is narrower and stronger: an
+     * `encounter` row's fight has no writer at all. `withSceneFight` rebuilds
+     * `kind: 'scene'` rows only, and `patchSessionItem` strips `combatants`
+     * off every arm that carries one. The primary verb starts the plan again
+     * from full HP somewhere else entirely.
+     *
+     * The label is asserted exactly rather than by `named`'s `includes`: with
+     * nothing open it reads OPEN THE FIGHT IN A NEW SCENE, and a test that
+     * matched the prefix would pass on either of the two strings.
      */
     const fight = named('OPEN THE FIGHT');
+    expect(fight.textContent).toBe('OPEN THE FIGHT IN A NEW SCENE');
     expect(fight.disabled).toBe(true);
     click(fight);
-    expect(useGm.getState().combatants).toEqual([]);
+    // Nothing minted, nothing opened, and the saved fight is where it was.
+    expect(useGm.getState().session).toHaveLength(1);
+    expect(useGm.getState().openScene).toBeNull();
+    const row = useGm.getState().session[0]!;
+    expect(row.kind === 'encounter' && row.combatants).toHaveLength(1);
     const verbs = buttons()
       .filter((b) => b.getAttribute('aria-expanded') === null)
       .map((b) => (b.textContent ?? '').trim());
@@ -889,25 +1083,20 @@ describe('the encounter row at the table', () => {
     ]);
   };
 
-  /** Every tool this list was asked to open, in order. */
-  let opened: string[];
-  beforeEach(() => {
-    opened = [];
-  });
-  const listWatching = (): void => {
-    render(
-      createElement(SessionList, {
-        phone: true,
-        onOpenTool: (tool) => {
-          opened.push(tool);
-        },
-      }),
-    );
-  };
-
   const partyOf = (n: number): void => {
     useApp.setState({ prefs: { ...DEFAULT_PREFS, gmPartySize: n } });
   };
+
+  /**
+   * What the verb put on the table, read off the row it made.
+   *
+   * There is no board array to read any more. With nothing open the verb mints
+   * a scene and spawns into it, so the destination is `openScene` - and going
+   * through the pointer rather than through `session.at(-1)` is what makes
+   * these tests hold the *whole* of what the button promises: it opened one,
+   * and it opened the one it filled.
+   */
+  const onTheTable = (): SceneCombatant[] => openCombatants(useGm.getState());
 
   // ③(a) -----------------------------------------------------------------
 
@@ -986,7 +1175,7 @@ describe('the encounter row at the table', () => {
     // promise: the entry's own disclosure is the only control inside the item.
     const item = entry.closest('li')!;
     expect([...item.querySelectorAll('button, input, select, textarea')]).toEqual([entry]);
-    expect(useGm.getState().combatants).toEqual([]);
+    expect(openCombatants(useGm.getState())).toEqual([]);
     expect(useGm.getState().roster).toEqual([]);
 
     click(entry);
@@ -1018,9 +1207,16 @@ describe('the encounter row at the table', () => {
   it('opens the fight from the row, with the roster the row was planned with', () => {
     plan([{ ref: adversary.id, count: 2 }]);
     listWatching();
+    // Nothing is open, so this row's verb has to make somewhere to fight and
+    // say so on its own face.
+    expect(named('OPEN THE FIGHT').textContent).toBe('OPEN THE FIGHT IN A NEW SCENE');
     click(named('OPEN THE FIGHT'));
 
-    const combatants = useGm.getState().combatants;
+    // One row minted, opened, and holding the fight - not a fight on a board
+    // belonging to nobody, which is what this used to assert.
+    expect(useGm.getState().session).toHaveLength(2);
+    expect(useGm.getState().openScene).toBe(useGm.getState().session[1]!.id);
+    const combatants = onTheTable();
     expect(combatants).toHaveLength(2);
     expect(combatants.every((c) => c.adversaryRef === adversary.id)).toBe(true);
     // `spawn` derives an id from an index; two of the same adversary must not
@@ -1035,7 +1231,7 @@ describe('the encounter row at the table', () => {
     listWatching();
     click(named('OPEN THE FIGHT'));
 
-    const combatants = useGm.getState().combatants;
+    const combatants = onTheTable();
     expect(combatants).toHaveLength(2);
     expect(combatants.map((c) => c.minionsRemaining)).toEqual([5, 5]);
   });
@@ -1061,7 +1257,7 @@ describe('the encounter row at the table', () => {
       harder: false,
       damageBump: false,
     });
-    expect(useGm.getState().combatants).toHaveLength(1);
+    expect(onTheTable()).toHaveLength(1);
   });
 
   it('will not open a fight it has no stat block to fill', () => {
@@ -1072,20 +1268,73 @@ describe('the encounter row at the table', () => {
     const fight = named('OPEN THE FIGHT');
     expect(fight.disabled).toBe(true);
     click(fight);
-    expect(useGm.getState().combatants).toEqual([]);
+    // And it mints no home for the fight it could not open, which is the
+    // second half now that the verb is the thing that makes one.
+    expect(useGm.getState().session).toHaveLength(1);
+    expect(useGm.getState().openScene).toBeNull();
     expect(opened).toEqual([]);
   });
 
-  it('says the scene is not empty before it adds to it', () => {
-    useGm.setState({
-      combatants: [
-        { id: 'x-0', adversaryRef: adversary.id, name: adversary.name, hp: { marked: 3, max: 8 }, stress: { marked: 0, max: 3 }, thresholds: [8, 15], difficulty: 14, spotlighted: false, notes: '' },
-      ],
-    });
+  it('names the scene it would add to, and says it is not empty', () => {
+    /*
+     * The sentence has gained the destination's name, because the destination
+     * is now a choice this row can be wrong about. It used to read "The scene
+     * already holds 1 adversary" - the definite article of a single board.
+     */
     plan([{ ref: adversary.id, count: 1 }]);
+    seed([
+      ...useGm.getState().session,
+      sceneWith('s', [combatant('x-0', { hp: { marked: 3, max: 8 } })], {
+        name: 'The gate',
+        order: 1,
+      }),
+    ]);
+    act(() => {
+      useGm.setState({ openScene: 's' });
+    });
     list();
-    expect(text()).toContain('The scene already holds 1 adversary');
+    expect(text()).toContain('The gate already holds 1 adversary');
     expect(text()).toContain('adds this roster to them');
+    // And the verb says where it is going, rather than making a second scene.
+    expect(named('OPEN THE FIGHT').textContent).toBe('OPEN THE FIGHT');
+  });
+
+  it('adds to the scene that is open rather than minting a second one', () => {
+    /*
+     * The destination, pressed rather than read. The sentence above and the
+     * label are both about where this verb goes, and both of them are cheap to
+     * get right while the verb goes somewhere else - `openFight` is
+     * `openScene ?? openNewScene()`, and a build that dropped the left half
+     * would mint a fresh scene on every press, leave the GM's open fight
+     * behind, and pass every assertion in the test above.
+     *
+     * So this one counts the rows before and after and reads the fight off the
+     * pointer.
+     */
+    plan([{ ref: adversary.id, count: 2 }]);
+    seed([
+      ...useGm.getState().session,
+      sceneWith('s', [combatant('x-0')], { name: 'The gate', order: 1 }),
+    ]);
+    act(() => {
+      useGm.setState({ openScene: 's' });
+    });
+    const before = useGm.getState().session.length;
+    listWatching();
+
+    click(named('OPEN THE FIGHT'));
+
+    expect(useGm.getState().session, 'it minted a scene instead of using the open one').toHaveLength(
+      before,
+    );
+    expect(useGm.getState().openScene).toBe('s');
+    // The body that was already there, plus the two this row planned.
+    expect(onTheTable().map((c) => c.id)).toEqual([
+      'x-0',
+      `${adversary.id}-0`,
+      `${adversary.id}-1`,
+    ]);
+    expect(opened).toEqual(['scene']);
   });
 });
 
@@ -1353,7 +1602,7 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
       // `oneOfEach` above has always drawn one.
       { ...base({ id: 'u1', name: 'The map board', collapsed: false }), kind: 'url', href: 'https://example.com/board' },
     ]);
-    useGm.setState({ combatants: [], liveScene: null });
+    useGm.setState({ openScene: null });
     render(createElement(Gm));
     /*
      * The one thing on this screen that is open and still not in the DOM. The
@@ -1416,6 +1665,18 @@ describe('the whole GM screen, at 393x852, with every row open', () => {
      * that this sweep cannot reach is a control it cannot hold, and shrinking
      * one leaves the assertion below green - which is exactly what the
      * environment select did under `button, a`.
+     *
+     * RE-MEASURED when the fight moved onto the scene row, because the
+     * expectation was that this list would move: the scene arm retired three
+     * verb labels and the plan called it a control leaving the screen. It is
+     * not. Dumping `targets()` from `openEverything()` against `main` and
+     * against this branch gives 89 entries on both, with exactly two
+     * differences and both of them renames - `OPEN THE SCENE — Scene one` to
+     * `OPEN THIS SCENE — Scene one`, and `OPEN THE FIGHT — The ambush` to
+     * `OPEN THE FIGHT IN A NEW SCENE — The ambush`. The primary is a single
+     * ternary slot on both arms, so retiring a branch removes no element. The
+     * exact list below is therefore unchanged rather than re-derived, and this
+     * paragraph is here so that nobody assumes it moved.
      */
     expect(
       floorsOutsideTheSweep(),
@@ -1773,7 +2034,9 @@ describe('renaming a row', () => {
      * from under the finger that has four seconds to press it again.
      *
      * Decision 18 added a fourth wording and pushed the same defect one step
-     * further. A scene row holding a parked fight arms to "TAP AGAIN TO DELETE
+     * further, and the schema-5 overturn made it the common case rather than
+     * the rare one: a fight is on the row it is fought in, so any row that has
+     * been played holds one. Such a row arms to "TAP AGAIN TO DELETE
      * THE FIGHT" - 29 characters, ~223px at the 7.0px per character this
      * footer's own two measured points give - and 69 + 83 + 223 is 375 of 349,
      * which wraps with the move verbs alone. So they leave too, beside RENAME,
@@ -1792,10 +2055,17 @@ describe('renaming a row', () => {
 
   it('says it is deleting a fight when the row is holding one', () => {
     /*
-     * The third arm of the armed wording, decision 18. Every other row in this
-     * list can be rebuilt from the dataset; a scene row holding a parked fight
-     * holds HP and Stress marks that exist nowhere else once the row is gone -
-     * the same reason the `unreadable` row gets its own sentence.
+     * The third arm of the armed wording, decision 18, and what it warns about
+     * has teeth it did not have. Every other row in this list can be rebuilt
+     * from the dataset; a scene row holding a fight holds HP and Stress marks
+     * that exist nowhere else once the row is gone - the same reason the
+     * `unreadable` row gets its own sentence.
+     *
+     * It used to say "a parked fight", and under schema 4 the sentence was
+     * about a copy: the board held the live one, so deleting the row cost the
+     * marks only of a fight nobody was in the middle of. The fight is on the
+     * row now and `removeSessionItem` takes it with the row, so this arming is
+     * the only thing between a mis-tap and the fight on the table.
      */
     seed([
       {
@@ -1824,7 +2094,7 @@ describe('renaming a row', () => {
     expect(text()).toContain('TAP AGAIN TO DELETE THE FIGHT');
   });
 
-  it('says the ordinary thing on a scene row with nothing parked in it', () => {
+  it('says the ordinary thing on a scene row with no fight in it', () => {
     seed([
       { ...base({ id: 's', name: 'Scene one', collapsed: false }), kind: 'scene', environmentRef: null, ...NO_FIGHT },
     ]);
@@ -2140,11 +2410,15 @@ describe('what a change to one row costs the rest of the list', () => {
 
   it('wakes every row when the pointer moves, because that is not a prop', () => {
     /*
-     * Stated so that nobody later "fixes" it. Each row reads `liveScene` out
+     * Stated so that nobody later "fixes" it. Each row reads `openScene` out
      * of the store for its own shut header - it has to, since each of them
      * draws whether it is the one on the table - and `React.memo` compares
      * props, not store reads. So the pointer moving is a repaint of the whole
      * list on purpose, and the memo is not failing when it happens.
+     *
+     * The field is `openScene` now and the pointer means navigation rather
+     * than ownership, but what this test holds is unchanged: the cost of a
+     * flip is one repaint of the plan, and it is the store read that buys it.
      */
     const items = three();
     seed(items);
@@ -2152,7 +2426,7 @@ describe('what a change to one row costs the rest of the list', () => {
     drawn.length = 0;
 
     act(() => {
-      useGm.setState({ liveScene: 'b' });
+      useGm.setState({ openScene: 'b' });
     });
 
     expect([...drawn].sort()).toEqual([...ids(items)].sort());
