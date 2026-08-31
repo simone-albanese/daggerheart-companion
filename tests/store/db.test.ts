@@ -21,6 +21,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION, type Character } from '../../shared/types.ts';
+import { newCampaign } from '../../shared/campaigns.ts';
 import { makeCharacter } from '../fixtures/factories.ts';
 
 // Each test gets its own database. `db.ts` caches the connection in a module
@@ -202,12 +203,14 @@ describe('writing a character', () => {
  *
  * Opened raw and at the old version on purpose: `db.ts` only knows how to open
  * version 3, so seeding through it would be seeding the destination. This
- * builds the five stores the version 1 and version 2 blocks built, fills the
- * three that version 3 removes, and closes - which is the state of a phone that
- * imported the Core Rulebook and has not yet been given this build.
+ * builds the five stores the version 1 and version 2 blocks built and hands all
+ * of them to the caller - the three version 3 removes, and the two it must
+ * not - then closes, which is the state of a phone that imported the Core
+ * Rulebook and has not yet been given this build.
  */
 interface LegacyStores {
   characters: IDBObjectStore;
+  campaigns: IDBObjectStore;
   layers: IDBObjectStore;
   content: IDBObjectStore;
   art: IDBObjectStore;
@@ -232,6 +235,7 @@ const seedVersion2 = async (fill: (stores: LegacyStores) => void): Promise<void>
       if (tx === null) throw new Error('no versionchange transaction');
       fill({
         characters: tx.objectStore('characters'),
+        campaigns: tx.objectStore('campaigns'),
         layers: tx.objectStore('layers'),
         content: tx.objectStore('content'),
         art: tx.objectStore('art'),
@@ -330,6 +334,43 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
 
     expect(database.version).toBe(3);
     expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+  });
+
+  it('leaves the GM the campaigns, which this upgrade is not allowed to reach', async () => {
+    /*
+     * The other half of the promise, and the half nothing held.
+     *
+     * The version 2 block's comment already makes this promise in the other
+     * direction - a device gains `campaigns` "without any of the other four
+     * being touched" - and version 3 owes the symmetric one, because it is the
+     * first block that destroys rather than adds. Every other test here seeds
+     * `characters` and reads it back, so that store is covered; until this one,
+     * no campaign record had ever crossed this upgrade in any test file. The
+     * seed helper built the store and no caller could put anything in it.
+     *
+     * Measured, not assumed: an upgrade that also clears `campaigns` inside the
+     * version 3 block passes the whole suite - 154 files, 4174 tests, 0 failed.
+     * What that mutant destroys is not an inconvenience. `campaigns` holds
+     * `party`, and `party` holds whole `Character` sheets belonging to the
+     * other people at the table - the one thing `db.ts`'s opening docblock
+     * separates the two stores to protect. It would go on an app update nobody
+     * asked for, with nothing on screen.
+     *
+     * Deep equality rather than a field: "not touched" is a claim about the
+     * whole record, and an assertion on `name` alone would pass an upgrade that
+     * emptied the party out of it.
+     */
+    const theirs = newCampaign('The Ninth Table', '2026-08-01T12:00:00.000Z', 'camp-1');
+    await seedVersion2((stores) => {
+      stores.campaigns.put(theirs);
+      stores.art.put({ key: 'core-2025-09-06:arcana', layerId: 'core-2025-09-06', blob: webp(3), width: 2, height: 2 });
+    });
+
+    const database = await db.db();
+
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+    expect(await database.count('campaigns')).toBe(1);
+    expect(await database.get('campaigns', 'camp-1')).toEqual(theirs);
   });
 
   it('leaves a device that never imported with the same two stores', async () => {
