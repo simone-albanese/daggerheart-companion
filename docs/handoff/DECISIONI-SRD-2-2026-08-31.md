@@ -83,9 +83,38 @@ Il secondo accoppiamento — la finestra di id delle carte, che si calcolava da 
 già stato tolto in `baeaeb8`: il decimo dominio ci finiva a 6001-6099, **dentro la banda dei
 beastform**, e una carta di dominio si sarebbe decodificata come `bear`.
 
+## 8. I tre glifi nuovi: letti sulla pagina, non dedotti
+
+**Fatto**, in `<COMMIT>`. E547=7, E548=8, E549=9 — che è la continuazione della serie, ed è
+esattamente per questo che non è stata presa su quella base. Una cifra indovinata è il guasto che
+`glyphs.ts` esiste per impedire: passa i parser, passa la validazione, ed è sbagliata su numeri che
+un GM legge al tavolo.
+
+Ogni glifo è stato reso in immagine e guardato, e due portano anche il riscontro in prosa che il
+docblock del modulo chiede:
+
+- **E547**, p122: `Minion (7)`, e la riga dopo *«For every 7 damage a PC deals to the Recruit»*
+- **E548**, p99: `Tier 1 Horde (8/HP)` (Darkweave Swarmlings); di nuovo a p112 (Will-o'-the-Wisps)
+- **E549**, p135: `Minion (9)`, e la riga dopo *«For every 9 damage a PC deals to the Elemental»*
+
+Il metodo è stato validato prima su due glifi il cui valore era già fissato: E545 rende
+`Tier 1 Horde (5/HP)` e E546 rende `Horde (1d6+3)`, con la stessa riga che ripete `1d6+3`.
+
+## 9. Le altre tre risposte, per quando la misura arriverà
+
+- **Slug delle regole:** gli slug seguono il libro, e una **tabella di alias vecchio→nuovo**
+  scritta a mano tiene in piedi il catalogo delle domande e i momenti. La tabella è anche il posto
+  dove si legge cosa il libro ha rinominato.
+- **I 208 record fissati nei test:** quando uno sparisce o cambia nome, il test **ri-punta sul
+  successore con una nota** che dice quale ha sostituito quale. Non si cancella l'asserzione: ogni
+  cancellazione porta via anche la proprietà che quel test difendeva.
+- **Le 135 schede avversario:** se usano campi che lo schema non ha, lo schema **si estende con
+  campi opzionali** e `SCHEMA_VERSION` sale, col suo converter e la sua fixture. Non si scartano
+  campi in silenzio: una scheda mutilata al tavolo è peggio di un bump.
+
 ---
 
-## 8. Numeri misurati in questa sessione, con la loro definizione
+## 10. Numeri misurati in questa sessione, con la loro definizione
 
 | | SRD 1 | SRD 2 |
 |---|---|---|
@@ -102,7 +131,7 @@ beastform**, e una carta di dominio si sarebbe decodificata come `bear`.
 sezioni di regole **rinominate, non rimosse** (`Companion: Taking Damage as Stress` →
 `TAKING DAMAGE AS STRESS`; `Making GM Moves` → `GM MOVES AND ADVERSARY ACTIONS`).
 
-## 9. Tre affermazioni di documenti precedenti che sono sbagliate
+## 11. Tre affermazioni di documenti precedenti che sono sbagliate
 
 1. **«772 voci su 780»** — il denominatore escludeva le 69 sezioni di regole. Con esse è 849, e le
    assenze vanno riesaminate contro il testo perché due sono rinomine.
@@ -112,7 +141,7 @@ sezioni di regole **rinominate, non rimosse** (`Companion: Taking Damage as Stre
    nessun documento nomina.
 3. **«68 pagine contro 224»** — confronta spread con pagine singole. Il rapporto onesto è 135 → 224.
 
-## 10. Il lavoro di geometria è più piccolo di quanto detto
+## 12. Il lavoro di geometria è più piccolo di quanto detto
 
 `layoutPages` divide una pagina **solo se è più larga che alta**, e l'SRD 2 non lo è: passa intera,
 senza modifiche. Le colonne non sono numeri fissi, le trova dal bianco.
