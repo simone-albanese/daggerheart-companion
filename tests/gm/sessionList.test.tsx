@@ -632,6 +632,108 @@ describe('the scene arm', () => {
       expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(1);
     });
 
+    /**
+     * The C1 reorder, pinned, because it is an ergonomic decision with a
+     * measurement behind it and nothing else would notice it going away.
+     *
+     * `SceneArm` drew its primary FIRST through all of Wave B while the plan
+     * and a comment in this arm's own file both said it drew it last. The
+     * Chrome pass measured both arrangements at 393x852 and at 375x667 and
+     * moved it: the primary's centre goes from 282.00px above the foot of the
+     * strip to 22.00px, 260.00px of reach at both sizes.
+     *
+     * The order asserted below is the SECOND arrangement C1 tried, and the
+     * first one it shipped is the one this file used to pin. That first one
+     * put `CLEAR THIS FIGHT` between the crossing verbs and the primary, so
+     * the two shared a line - and the repair pass measured what the reorder
+     * had never measured, the state where `CLEAR` is armed. `TAP AGAIN TO
+     * CLEAR` is 165.72 where `CLEAR THIS FIGHT` is 148.63, so arming reflowed
+     * the strip under the thumb: the primary slid 17.09px right at 393x852 and
+     * 375x667, which left 1.08px of the 331.00 column, and at 360px the strip
+     * wrapped 252.00 -> 304.00 between the two taps of a destructive
+     * confirmation. `CLEAR` first costs the 52.00px back, keeps the primary's
+     * 22.00, and moves `CLEAR` itself from 22.00px above the strip's foot to
+     * 282.00 - the destructive verb leaves the thumb's line and the primary
+     * takes it. jsdom cannot see any of that, so what is asserted here is the
+     * only half it can hold: the primary is the LAST child of the strip and
+     * `CLEAR` is the FIRST, which is the thing a later edit could quietly
+     * undo.
+     */
+    it('puts its one primary verb last in the strip, in all three states', () => {
+      for (const [state, items] of THREE_STATES) {
+        seed(items());
+        list();
+        const fill = primary();
+        expect(fill, state).toBeDefined();
+        const strip = fill!.parentElement!;
+        expect(strip.lastElementChild, state).toBe(fill);
+      }
+      /*
+       * And with `CLEAR THIS FIGHT` on the strip, which is the state both
+       * reorders were measured in: the primary is still last, and the four
+       * crossing verbs are what stand between it and the destructive one.
+       */
+      seed(withFight(2));
+      list();
+      const strip = primary()!.parentElement!;
+      expect(
+        [...strip.children].map((b) => b.textContent),
+        'the strip no longer runs CLEAR THIS FIGHT first and the primary last',
+      ).toEqual([
+        'CLEAR THIS FIGHT',
+        'PUT THIS ENVIRONMENT ON THE BOARD',
+        'KEEP THE BOARD\u2019S ENVIRONMENT HERE',
+        'PUT THIS ROSTER ON THE BOARD',
+        'KEEP THE BOARD\u2019S ROSTER HERE',
+        'OPEN THIS FIGHT',
+      ]);
+    });
+
+    /*
+     * The wrapper, pinned, because the arming argument above rests on it and
+     * because it is one line of style that reads like decoration.
+     *
+     * `CLEAR THIS FIGHT` is the only control in this arm that changes width
+     * under the thumb - `TAP AGAIN TO CLEAR` is 165.72 where it was 148.63 -
+     * and it is the only one that destroys without an undo. Wherever it SHARES
+     * a flex line, arming it reflows that line between the two taps of the one
+     * gesture that cannot be taken back, and the glass a thumb was aiming at
+     * becomes the confirmation. That was measured, at 360px, before the
+     * wrapper existed.
+     *
+     * Until the wrapper, `CLEAR` sat alone only because at phone widths no
+     * second verb fitted beside it in the column - an emergent property of two
+     * label widths, not a rule, and one that stops holding at every column
+     * wide enough for a second verb. That includes these same phones turned
+     * landscape.
+     *
+     * `flex: 0 0 100%` on its parent takes the whole line at every width, so
+     * there is no column in which a second verb can join it. jsdom lays
+     * nothing out, so it cannot watch a reflow; what it CAN hold is that the
+     * declaration is still there, which is the half a later edit could quietly
+     * drop while every other assertion in this file stayed green.
+     */
+    it('reserves a whole flex line for the one verb that changes width as it arms', () => {
+      seed(withFight(2));
+      list();
+      const clear = buttons().find((b) => (b.textContent ?? '') === 'CLEAR THIS FIGHT');
+      expect(clear, 'CLEAR THIS FIGHT is not on the strip').toBeDefined();
+
+      const line = clear!.parentElement!;
+      expect(
+        line.style.flex.replace(/\s+/g, ' ').trim(),
+        'CLEAR THIS FIGHT no longer owns its flex line, so arming it can reflow the strip',
+      ).toBe('0 0 100%');
+
+      /*
+       * And the line is a wrapper around this one verb, not the strip itself:
+       * if the strip ever took the declaration the assertion above would still
+       * pass while every verb shared a line again.
+       */
+      expect(line.children.length, 'the reserved line holds more than the destructive verb').toBe(1);
+      expect(line).not.toBe(primary()!.parentElement);
+    });
+
     it('opens this row from every one of the three states, whatever the runner was showing', () => {
       /*
        * The other half of test 27, and the half that has teeth: the label is

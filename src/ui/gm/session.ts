@@ -322,6 +322,17 @@ export function describeItem(
        * bodies that exist, so the readings are different facts and printing
        * the wrong one is worse than printing none: `PLANNED` on a row that is
        * being marked up on the glass describes a fight that already started.
+       *
+       * MEASURED, because the two-segment rule is a width argument and a width
+       * argument owes a width. The worst realistic row - `RAGING RIVER · 12 IN
+       * THE FIGHT`, 30 characters - is **198.00px** of glyph in the type row's
+       * 10px IBM Plex Mono at 0.6px of tracking, i.e. 6.60px a character, and
+       * it sits inside a 242.00px box at 393x852 and a 224.00px one at
+       * 375x667 without being ellipsised at either. Chrome, `pointer: coarse`,
+       * insets 47/34: `AUDIT_ORIGIN=http://localhost:5207 node run.mjs
+       * cases-row.json`, ids `shut-fight-393x852` and `shut-fight-375x667`.
+       * A third segment is what there is no room for; this one has 26px of
+       * slack at the tighter size.
        */
       const second =
         item.id === openScene

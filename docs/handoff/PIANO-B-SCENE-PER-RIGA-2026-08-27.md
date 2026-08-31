@@ -813,7 +813,7 @@ There is no `isOpen` branch and **SceneArm no longer reads `openScene` at all** 
 - **`BACK TO THIS FIGHT` is deleted.** "Back" named a return trip that no longer happens.
 - **`TAKE THE FIGHT ON THE BOARD` is deleted**, with `orphan`, `claimable`, `onTable`, and `adoptBoard`.
 - **`CLEAR THIS FIGHT` / `TAP AGAIN TO CLEAR` stays, unconditional on `item.combatants.length > 0`**, and now calls `clearScene(item.id)`. It is deliberately *not* hidden on the open row: making a control appear and disappear according to which screen the GM was last on is exactly the "tap count depending on unseen state" that `Scene.tsx:66‑79` objects to. Two armed destructions reachable from two screens, both arming, both naming the same fight, is not a defect.
-- **The four crossing verbs are untouched**, labels, disabled conditions and measured widths (246.41 / 251.23 for the roster pair, 289.06 / 293.89 for the environment pair, against a 363px column): `PUT THIS ENVIRONMENT ON THE BOARD`, `KEEP THE BOARD'S ENVIRONMENT HERE`, `PUT THIS ROSTER ON THE BOARD`, `KEEP THE BOARD'S ROSTER HERE`.
+- **The four crossing verbs are untouched**, labels, disabled conditions and measured widths (246.41 / 251.23 for the roster pair, 289.06 / 293.89 for the environment pair; C1 re-measured all four and they are exact, but **the column is 349.00 at 393×852 and 331.00 at 375×667, not 363**): `PUT THIS ENVIRONMENT ON THE BOARD`, `KEEP THE BOARD'S ENVIRONMENT HERE`, `PUT THIS ROSTER ON THE BOARD`, `KEEP THE BOARD'S ROSTER HERE`.
 
 > **CORRETTO — 27 ago 2026 · CORR-19.** `Scene.tsx:66‑79` is the wrong range. The objection to a control whose *"tap count depends on unseen state"* is at **`src/ui/gm/Scene.tsx:75‑86`**, restated at `:105‑106`. Lines `66‑69` are a different paragraph about a different decision entirely — `undefined` on an empty board, never 0, for the environment band's `strongestHere` — and `:70‑73` is the `strongestHere` expression itself. The cited range covers that unrelated paragraph plus only the first five lines of the comment, **cutting the objection sentence in half**. `Scene.tsx` is unchanged since `14c995a`, so this was wrong when written. The argument stands and the file does make it; only the citation moves.
 
@@ -833,9 +833,83 @@ There is no `isOpen` branch and **SceneArm no longer reads `openScene` at all** 
 
 **Corrected 2026-08-31, during B6's repair pass.** Two of the sentences in the paragraph above are false. B6 refuted the first before writing and said so in `11348fc`'s message; the second went unchallenged and is still being read as ratified.
 
-1. **The 88px.** No verb leaves the strip. `SceneArm`'s primary is a single slot — the `<Verb>` elements in that block are the arms of one ternary, so exactly one of them has ever rendered — and the four crossing verbs and `CLEAR THIS FIGHT` are untouched, `CLEAR` on the same expression it always had (`parked > 0` was `item.combatants.length` under its old name). Counted on both sides of `11348fc`: **10** `<Verb>` elements in `SceneArm` before, **8** after, **6** renderable at once in either. Retiring three labels removes three branches and zero rendered elements, so the strip returns **0px**. What the arm loses is prose height, from four deleted `<Fact>`s — nobody has measured that, and no figure for it is invented in the source or here. It is C1's.
+1. **The 88px.** No verb leaves the strip. `SceneArm`'s primary is a single slot — the `<Verb>` elements in that block are the arms of one ternary, so exactly one of them has ever rendered — and the four crossing verbs and `CLEAR THIS FIGHT` are untouched, `CLEAR` on the same expression it always had (`parked > 0` was `item.combatants.length` under its old name). Counted on both sides of `11348fc`: **10** `<Verb>` elements in `SceneArm` before, **8** after, **6** renderable at once in either. Retiring three labels removes three branches and zero rendered elements, so the strip returns **0px**. What the arm loses is prose height, from **three** deleted `<Fact>`s in this arm — the fourth was `EncounterArm`'s, which is item 9 and not this section. **C1 measured it, and the repair pass corrected the generalisation: on a row holding its own fight the arm GAINS 47.58px of prose at both sizes, but across the four seeded states the prose delta runs from −15.86 to +63.44 and the arm's from −25.86 to +115.43 — in the `orphan` state it shrinks.** The per-state table is in the C1 block below.
 
-2. **"The primary is last in the wrapped strip, which keeps it lowest on the row and nearest the thumb, exactly where `EncounterArm` already puts its own."** True of `EncounterArm` — its `label={openLabel}` verb is `primary` and the last child of the strip. False of `SceneArm`, before this change and after it: the primary ternary is the **first** child and `CLEAR THIS FIGHT` is the last. So the thumb-reach rationale describes an arrangement the arm this section is about does not have, and a later lane reading it as ratified would be inheriting a reach argument for a strip the app has never drawn. Moving the ternary to the end is a **C1** item, not a B6 one: the reorder is nowhere in B6's brief, and the strip's height and reach are the Chrome pass's to measure. `SessionBody.tsx` carried the same claim in a comment over `EncounterArm`'s last verb ("Last and primary, the way the scene arm's own chain is"); that copy is corrected in the source.
+2. **"The primary is last in the wrapped strip, which keeps it lowest on the row and nearest the thumb, exactly where `EncounterArm` already puts its own."** True of `EncounterArm` — its `label={openLabel}` verb is `primary` and the last child of the strip. False of `SceneArm`, before this change and after it: the primary ternary is the **first** child and `CLEAR THIS FIGHT` is the last. So the thumb-reach rationale describes an arrangement the arm this section is about does not have, and a later lane reading it as ratified would be inheriting a reach argument for a strip the app has never drawn. Moving the ternary to the end is a **C1** item, not a B6 one: the reorder is nowhere in B6's brief, and the strip's height and reach are the Chrome pass's to measure. `SessionBody.tsx` carried the same claim in a comment over `EncounterArm`'s last verb ("Last and primary, the way the scene arm's own chain is"); that copy is corrected in the source. **C1 measured the reach and moved it: the sentence is now true of both arms** — see the C1 block below.
+> **C1 — MISURATO IN CHROME, 31 ago 2026.** Rig: `~/.claude/projects/-Users-simonealbanese-Documents-Daggerheart-Companion/audit-harness`, `pointer: coarse`, insets 47/34, `docOverflowX` **0.00** in every case below. Wave C's tree on **5207** and a read-only `ab66cf2` on **5208**; 5199 was never touched. The same **schema-4** campaign was written into each build's own IndexedDB record and the page reloaded into it, so both builds read one table through their own reader — the after tree through its `from: 4` converter — instead of two hand-written campaigns that only look alike. Seed: one scene row holding a fight (2 adversaries, 2 roster entries), a second scene row (1 roster entry), one countdown row, every row open.
+>
+> ```
+> AUDIT_ORIGIN=http://localhost:5207 AUDIT_PORT=9520 node run.mjs cases-c1.json   # after
+> AUDIT_ORIGIN=http://localhost:5208 AUDIT_PORT=9521 node run.mjs cases-c1.json   # before
+> ```
+>
+> **1. The verb strip: `CORR-17` and point 1 above are CONFIRMED, to the pixel.** `arm-parked-*`: the strip is **349.00 × 304.00 before and after** on the row holding the fight and **349.00 × 252.00 before and after** on the planned one; **331.00 × 304.00 / 331.00 × 252.00** at 375×667, again identical. **0.00px.** Exactly one primary rendered in every state measured. The one place a strip does change height is the *live* row — `252 → 304` — and that is `CLEAR THIS FIGHT`'s guard being satisfied where schema 4 did not satisfy it, which the source already argues is the schema and not the arm.
+>
+> **2. The prose: the arm does not lose height, it GAINS 47.58px.** Three `<Fact>`s left `SceneArm`, not four — item 9's is `EncounterArm`'s — and the three are mutually exclusive by their own guards (`isLive` / `!isLive && parked === 0 && liveScene !== null` / `orphan`, which needs `liveScene === null`), so **at most one of them ever drew on a row**. Measured on `ab66cf2` in the states that draw them:
+>
+> | plan item | arm | 393×852 | 375×667 |
+> |---|---|---|---|
+> | 2 `isLive` | SceneArm | 31.72 (2 righe) | 47.58 (3) |
+> | 4 the headline | SceneArm | 31.72 (2) | 47.58 (3) |
+> | 5 `orphan` | SceneArm | 47.58 (3) | 63.44 (4) |
+> | 9 | EncounterArm | 31.72 (2) | 31.72 (2) |
+>
+> Each sat in a 10px gap, so the most a scene row could lose is one paragraph plus 10. Against that, the two unconditional sentences grew: the opener 31.72 → 47.58 (2 righe → 3) and *To change this plan* 63.44 → 95.16 (4 → 6), at **both** sizes; *Parked here* → *In this scene* is 47.58 either way. Net **+47.58px on a `parked` row, at both sizes** — which is the seeded state, and the state the list total below is about. The arm: **667.73 → 715.31** holding a fight, **510.16 → 557.73** planned. The three-row list: **1802.39 → 1897.54, +95.15px**.
+>
+> **CORRETTO — 31 ago 2026, repair pass. «in every state» era falso, e i file di risultato di C1 lo dicevano già.** Il guadagno è incondizionato, la perdita è il paragrafo che quello stato disegnava più i suoi 10px di gap: i due non si annullano allo stesso modo in tutti e quattro gli stati seminati. Rimisurato dagli stessi file (`scratchpad/c1/{before,after}`, `node facts.mjs`), prosa = somma delle altezze dei `<Fact>` dell'arm, due cifre per stato perché le righe scena seminate sono due:
+>
+> | stato | cosa c'è sulla board | prosa 393×852 | prosa 375×667 | arm 393×852 | arm 375×667 |
+> |---|---|---|---|---|---|
+> | `parked` | niente; il fight è sulla riga | +47.58 / +47.58 | +47.58 / +47.58 | +47.58 / +47.57 | +47.58 / +47.57 |
+> | `live` | il fight, questa riga nominata | +63.44 / +15.86 | +47.58 / 0.00 | **+115.43** / +5.85 | +99.58 / −10.00 |
+> | `orphan` | il fight, nessuna riga | 0.00 / 0.00 | **−15.86 / −15.86** | −10.00 / −10.00 | **−25.86 / −25.86** |
+> | `enc` | come `live`, più una riga encounter | +63.44 / +15.86 | +47.58 / 0.00 | +115.43 / +5.85 | +99.58 / −10.00 |
+>
+> Gli arm si muovono più della prosa perché su una riga `live` la striscia guadagna anche la riga di `CLEAR THIS FIGHT` (+52.00). Lo stato `orphan` non ha una controparte su questo albero per costruzione — il convertitore `from: 4` di `shared/campaigns.ts` porta un fight della board su una riga scena — quindi lì la riga perde il paragrafo e il suo gap e basta: **è l'unico posto in cui Wave B ha davvero tolto altezza misurabile**, che è la domanda che il brief poneva. Il messaggio del commit `d4ddf98` porta lo stesso «ON EVERY SCENE ROW» e non è emendabile; vale questa tabella.
+>
+> **3. The strip order: measured, and the primary MOVED.** Both arrangements were built in the live DOM of the same page, so one layout engine drew both. On the row holding a fight, at 393×852 **and** at 375×667:
+>
+> | | strip | righe | primary | centro sopra il piede dello scroller | sopra il fondo dello schermo |
+> |---|---|---|---|---|---|
+> | primary **first** (as shipped by B6) | 304.00 | 6 | riga 1 | 282.00 | 376.69 |
+> | primary **last** | 252.00 | 5 | riga 5 | **22.00** | **116.69** |
+> | `CLEAR` first, primary last | 304.00 | 6 | riga 6 | 22.00 | 116.69 |
+>
+> **260.00px of reach at both sizes, and 52.00px of row with it.** The 52.00 era di Wave B **solo a 375×667**: `OPEN THIS FIGHT` è 156.20 dove `BACK TO THIS FIGHT` era 178.67, quindi si appaia con `CLEAR THIS FIGHT` (148.63) — 156.20 + 8 + 148.63 = **312.83**, dentro 349.00 e dentro 331.00, dove l'etichetta vecchia chiedeva 335.30 e andava a capo a 375×667. **A 393×852 no: 335.30 sta dentro 349.00, e i file di C1 lo mostrano** — sull'albero `ab66cf2`, `arm-parked-393x852`, la sonda *primary-last* dà striscia **252.00 su 5 righe** con l'etichetta vecchia, contro 304.00 su 6 a 375×667. Su quel viewport i 52.00 li avrebbe comprati il riordino da solo. On a row with no fight there is no `CLEAR` to pair with: the strip stays 252.00 and the reorder buys reach only, 230.00 → 22.00. The third arrangement puts the primary in the same place and costs the 52.00 back, and it puts the arm's one destructive verb at the top of the strip. C1's decision was *«the primary goes last, `CLEAR THIS FIGHT` stays where it is»*, with the 8px neighbour as the price — **e quella decisione è stata ribaltata dal repair pass**, che ha misurato lo stato che C1 non aveva mai toccato. Vedi il blocco qui sotto.
+
+> **C1-REPAIR — MISURATO IN CHROME, 31 ago 2026. Lo stato ARMATO, che era l'unico pezzo di questa decisione ragionato invece che misurato.** Stesso rig, stesso seme schema-4, `pointer: coarse`, insets 47/34, albero wave-c su **5207** (5199 mai toccata), tre larghezze perché 360 è una che l'harness di questo repo già spazza:
+>
+> ```
+> AUDIT_ORIGIN=http://localhost:5207 AUDIT_PORT=9530 node run.mjs cases-armed.json    # tre disposizioni, riposo e armato
+> AUDIT_ORIGIN=http://localhost:5207 AUDIT_PORT=9530 node run.mjs cases-shipped.json  # il DOM così come esce dal sorgente
+> ```
+>
+> `CLEAR` **arma**, quindi la sua etichetta cambia larghezza sotto il pollice: `TAP AGAIN TO CLEAR` è **165.72**, `CLEAR THIS FIGHT` è **148.63**. Nella disposizione di C1 i due condividono una riga, e armare un controllo distruttivo **rifluiva la striscia**:
+>
+> | | colonna | coppia a riposo | coppia armata | cosa fa l'arming |
+> |---|---|---|---|---|
+> | 393×852 | 349.00 | 312.83 | 329.92 | il primary scivola a destra di **+17.09** |
+> | 375×667 | 331.00 | 312.83 | 329.92 | idem, su **1.08px** di margine |
+> | 360×800 | 316.00 | 312.83 | 329.92 | **VA A CAPO**, striscia 252.00 → 304.00 |
+>
+> Due cose, quindi. Il margine a 375×667 era **1.08px** e non era scritto da nessuna parte; e a 360px la striscia cresceva di una riga **fra i due tap** dell'unico gesto di questa app che distrugge senza undo. E l'argomento di affidabilità era rovesciato: una volta che `CLEAR` è armato il secondo tap **è** il tap dell'errore, il vicino a 8px è il verbo più usato della riga, e l'arming lo ha appena spostato di 17.09px — la banda di **9.09px** fra x=179.63 e x=188.72 era `OPEN THIS FIGHT` prima del tap e `TAP AGAIN TO CLEAR` dopo, per i 4 secondi del disarmo.
+>
+> Distanze del centro di ogni controllo **sopra il piede della striscia**, che è dove sta il pollice:
+>
+> | disposizione | striscia | primary | `CLEAR` | riflusso armando |
+> |---|---|---|---|---|
+> | primary **first** (Wave B) | 304.00 | 282.00 | 22.00 | nessuno |
+> | primary **last**, `CLEAR` prima (C1) | **252.00** | **22.00** | 22.00 | **sì, a tutte e tre le larghezze** |
+> | **`CLEAR` first, primary last** | 304.00 | **22.00** | **282.00** | **nessuno** |
+>
+> **Decisione ribaltata: `CLEAR THIS FIGHT` va in testa alla striscia, il primary resta in coda.** Tiene tutti i 260.00px di reach — che era lo scopo del riordino — e restituisce i 52.00, che erano un di più. E l'obiezione di C1 al terzo assetto (*«mette il verbo distruttivo in cima, dove il pollice che scende la riga lo incontra per primo»*) è sull'ordine di lettura ed è smentita dalla stessa misura: `CLEAR` passa da 22.00px sopra il piede della striscia a 282.00, cioè **260.00px più LONTANO** dal pollice a riposo. Le altre due disposizioni lo lasciano sulla riga del pollice.
+>
+> Rimisurato sull'albero così com'è, a 393×852, 375×667 **e** 360×800, a riposo e armato, identico in tutti e sei i casi: i quattro verbi trasversali **invariati** (289.06 / 293.89 / 246.41 / 251.23), `CLEAR` 148.63 → 165.72 su una riga sua, `OPEN THIS FIGHT` 156.20, `START THIS FIGHT` 162.61, striscia **349×304 / 331×304 / 316×304**, `docOverflowX` **0.00**, arm **715.31**, lista **1897.54** (841.31 + 683.73 + 372.50). Quindi Wave B e C1 insieme costano i **+95.15px** del punto 2 e il riordino compra **solo reach**. Il punto 3 del messaggio di `d4ddf98` descrive l'assetto precedente e non è emendabile; vale questo blocco.
+>
+> **4. The 44px sweep, and `floorsOutsideTheSweep`: CONFIRMED in a real browser.** GM plan screen, one row of every kind, every row open, at both sizes and on both trees: **95 targets** (101 with the dynamic clock's `ADVANCE BY A ROLL` chart open), **nothing declared under 44px, nothing PAINTED under 44px**, `docOverflowX` 0.00, and `floorsOutsideTheSweep` is **`['DIV 200px']`** in all eight runs — exactly what `tests/gm/sessionList.test.tsx` pins. The runner (`region: 'scene'`) with a fight: 50 targets before, **51** after, `floorsOutsideTheSweep` empty, nothing under the floor. The one net control is `CLEAR THIS FIGHT — <row>`, which the arm now draws on the open row.
+>
+> **5. Two inherited numbers, re-measured because they were owed.** `CORR-21` and `SessionRow.tsx`'s standing *"re-measure in Chrome before treating the 223 as anything but derived"*: the four footer verbs are **62 / 69 / 83 / 62** on one 44px line in a **349.00** footer (331.00 at 375×667), and `TAP AGAIN TO DELETE THE FIGHT` is **223.00** — the derivation is exact, and it fits on one line at both sizes. And the worst realistic shut row, `RAGING RIVER · 12 IN THE FIGHT`: **198.00px** intrinsic at **6.60px per character** (10px IBM Plex Mono, 0.6px tracking), inside a 242.00 box at 393×852 and a 224.00 one at 375×667, **not truncated at either**. The `{n} HERE` fallback is not needed. The repo's 7.0px/char is the *footer button* rate — slope 7.0, intercept 20px of padding, from `DELETE` 62@6 and `TAP AGAIN TO DELETE` 153@19 — and it is right where it lives; it is not the type row's glyph rate.
+
 
 ### Every `<Fact>` sentence and label that becomes false
 
@@ -888,11 +962,13 @@ There is no `isOpen` branch and **SceneArm no longer reads `openScene` at all** 
 | else `combatants.length > 0` | `{n} IN THE FIGHT` (replacing `{n} PARKED`) |
 | else `planned > 0` | `{n} PLANNED` |
 
-`[place, second].filter(s => s !== '').join(' · ')`. Worst realistic row: `RAGING RIVER · 12 IN THE FIGHT`, 30 characters ≈ 210px at the 7.0px/char this repo has measured twice, inside the 363px column. **C1 measures it anyway**; `{n} HERE` is the pre-agreed fallback.
+`[place, second].filter(s => s !== '').join(' · ')`. Worst realistic row: `RAGING RIVER · 12 IN THE FIGHT`, 30 characters — **MISURATO 31 ago 2026 · C1: 198.00px a 6.60px/carattere, dentro una scatola di 242.00 a 393×852 e di 224.00 a 375×667, non troncato a nessuna delle due.** Non 210 a 7.0 dentro 363: i 7.0px/char sono il passo del *bottone del footer* (pendenza 7.0 su 20px di padding), non il passo dei glifi della type row, e la colonna 363 è stata corretta a 349.00 / 331.00 nel punto che comincia *«The four crossing verbs are untouched»*, in questo stesso documento. `{n} HERE` non serve. Vedi il punto 5 del blocco C1.
 
 **`src/ui/gm/SessionRow.tsx`** — `armedLabel`'s `TAP AGAIN TO DELETE THE FIGHT` is **kept verbatim** (29 characters, 223px in a 349px footer, already measured) and becomes strictly more correct: deleting the row now takes the fight with it, which is what the label has always promised.
 
 > **RAGIONE STANTIA — 27 ago 2026 · CORR-21.** Keeping the label verbatim is still right, and the literal, the 29, the 223 and the 349 are all in `SessionRow.tsx`. But **the 223 is explicitly not measured** — the file's own last word on it is a standing instruction to re-measure. Only the **349** and the **62 / 69 / 83 / 62** verb widths were read in Chrome; the 223 is extrapolated from two points at 7.0px/char. Do not carry *"already measured"* forward: **C1 measures it, or the parenthesis comes out** (MEMORY: reason about screen ergonomics; un numero ereditato va rimisurato).
+>
+> **CHIUSO — 31 ago 2026 · C1.** Misurato in Chrome: **223.00**, esatto sulla pixel, su una riga sola in un footer di 349.00 a 393×852 e di 331.00 a 375×667 (`cases-row.json`, id `foot-393x852` / `foot-375x667`). Le due frasi qui sopra sono ora entrambe false e restano solo come storia: **il 223 è misurato**, e **l'istruzione permanente a rimisurarlo è stata tolta da `SessionRow.tsx`** in `d4ddf98` — l'ultima parola del file su quel numero è adesso la misura. Vedi il punto 5 del blocco C1.
 
 **`src/ui/gm/Countdowns.tsx`** — `liveScene` → `openScene` at `:190` and `:283`. The `var(--hope)` heading's meaning restates from "the scene on the board" to "the scene the runner is showing". The `group.id !== null` guard stays for the reason its comment gives.
 
