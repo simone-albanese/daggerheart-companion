@@ -96,14 +96,24 @@
  * 69 + 83 + 223 = 375 of 349, so arming the row would wrap it: the same defect,
  * one wording later.
  *
+ * **The 223 is no longer derived: it was measured, and it is 223.00.** Chrome,
+ * `pointer: coarse`, insets 47/34, a scene row holding twelve adversaries,
+ * armed by tapping DELETE - `AUDIT_ORIGIN=http://localhost:5207 node run.mjs
+ * cases-row.json`, ids `foot-393x852` and `foot-375x667`. The plain footer is
+ * 62.00 / 69.00 / 83.00 / 62.00 on one 44.00px line, and the armed one is a
+ * single 223.00 x 44.00 button, on one line in a 349.00 footer at 393x852 and
+ * in a 331.00 one at 375x667. The slope-and-intercept the two points give -
+ * 7.0px a character over 20px of padding - lands on the pixel, so it may be
+ * used for a fifth wording; the emptying rule above is what it is checked
+ * against.
+ *
  * So MOVE UP and MOVE DOWN leave while armed too, unconditionally, beside
  * RENAME. The armed footer becomes the single button in every case - 223 fits,
  * today's 153 fits, and the unreadable row's "TAP AGAIN TO DELETE THE ONLY
  * COPY" at 251px stops wrapping, which it has done since it was written. The
  * rule is unconditional so that the shape of this footer never depends on
  * state the GM is not looking at, which is the objection `Scene.tsx` raises
- * against a control whose tap count varies. **Re-measure in Chrome before
- * treating the 223 as anything but derived.**
+ * against a control whose tap count varies.
  *
  * No rule is passed to the field. A night is *expected* to hold rows with no
  * name and rows with the same name - `judgeName`'s sentences are about a

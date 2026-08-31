@@ -493,7 +493,8 @@ function SceneArm({
       )}
 
       {/*
-        ONE PRIMARY, FIRST MATCH WINS, AND ALL THREE ARE ABOUT THIS ROW.
+        ONE PRIMARY, LAST IN THE STRIP, FIRST MATCH WINS, AND ALL THREE ARE
+        ABOUT THIS ROW.
 
         The paragraph that stood here argued the opposite way round and was
         right at the time. `OPEN THE SCENE` was not primary on a row that was
@@ -519,19 +520,52 @@ function SceneArm({
         top bar's `SCENE · n` chip appears only once the open scene has
         something in it.
 
-        ERGONOMICS: THE STRIP RETURNS NOTHING, AND THAT IS COUNTED RATHER THAN
-        MEASURED. Three labels were retired, but the primary is a single slot -
-        one ternary, one `<Verb>` out of it, before and after - so what left is
-        three branches and zero rendered elements. The four crossing verbs are
-        untouched, labels and measured widths both. `CLEAR THIS FIGHT`'s
-        condition is the same expression it always was; what changed is how
-        often a row satisfies it, which is the schema and not this arm.
+        ERGONOMICS, MEASURED. The strip returned 0px. The prose did not: it
+        grew by 47.58px on every scene row.
 
-        What the arm does lose is prose: four `<Fact>` sentences went with the
-        states they described. Nobody has measured that height and it is not
-        guessed here - the Chrome pass at 393x852 and 375x667 is where a number
-        in this repo comes from. The 104px below is the ROSTER pair's own cost
-        when it landed, and is not this.
+        Chrome, `pointer: coarse`, insets 47/34, `0370586` against `ab66cf2`,
+        the same schema-4 campaign seeded into both so each build reads its own
+        version of one table - one scene row holding a fight, a second scene
+        row, one countdown row. From the audit harness, with the two trees on
+        ports of their own and never on 5199:
+
+          AUDIT_ORIGIN=http://localhost:5207 AUDIT_PORT=9520 node run.mjs \
+            cases-c1.json          # ids arm-parked-393x852, arm-parked-375x667
+
+        Those two ran before the reorder argued further down, so what follows
+        is the WAVE B delta on its own; this tree's own totals close the
+        paragraph.
+
+        THE STRIP. 349.00 x 304.00 before and after on the row holding the
+        fight; 349.00 x 252.00 before and after on the planned one; the same
+        two heights at 375x667 in a 331.00 column. **0.00px**, exactly as it
+        was counted: the primary is one ternary slot, so retiring three labels
+        removed three branches and no element. The four crossing verbs measure
+        what they always did, 289.06 / 293.89 / 246.41 / 251.23, at both sizes.
+
+        THE PROSE WENT THE OTHER WAY, and three `<Fact>`s left this arm rather
+        than four - the fourth deletion was `EncounterArm`'s. The three are the
+        arms of a state machine no row can satisfy twice: `isLive`, `!isLive &&
+        parked === 0 && liveScene !== null`, and `orphan` (which needs
+        `liveScene === null`) exclude one another, so at most ONE of them ever
+        drew on a row. Measured on `ab66cf2` in the states that draw them, they
+        are 31.72 / 31.72 / 47.58 at 393x852 and 47.58 / 47.58 / 63.44 at
+        375x667, each in a 10px gap. So the most any row could lose is one
+        paragraph, and in the state above it loses none, because none of them
+        was drawing in it.
+
+        What arrived is unconditional. The opening sentence went from 2 lines
+        to 3 - 31.72 to 47.58 - and `To change this plan` from 4 to 6 - 63.44
+        to 95.16 - at both sizes; `Parked here` to `In this scene` is 47.58
+        either way. Every scene row is therefore **+47.58px** whatever state it
+        is in: the arm is 667.73 -> 715.31 holding a fight and 510.16 -> 557.73
+        planned, and the three-row list is 1802.39 -> 1897.54, +95.15px.
+
+        AND THEN THE REORDER TOOK 52.00 BACK, on the row holding a fight only.
+        As this tree draws it that arm is 663.31 and the list is 1845.54, so
+        what a GM pays for Wave B and C1 together is +43.15px over three rows
+        rather than +95.15. The 104px below is the ROSTER pair's own cost when
+        it landed, and is still not this.
       */}
       {/*
         The plan this row carries, on the row that carries it.
@@ -559,61 +593,6 @@ function SceneArm({
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        {inTheFight > 0 ? (
-          /*
-           * The fight is already here, so this only goes to it. No spawn: a
-           * second tap must not double the pile, and a row a GM left mid-beat
-           * has to come back with exactly what it had.
-           */
-          <Verb
-            onClick={() => {
-              showScene(item.id);
-              onOpenTool('scene');
-            }}
-            primary
-            label="OPEN THIS FIGHT"
-            row={row}
-          />
-        ) : spawnable.length > 0 ? (
-          /*
-           * The bootstrap none of the three designs had. A row planned and
-           * never fought holds no combatants, so it is on the switcher's strip
-           * only while the runner is showing it: `liveScenes` keeps a row that
-           * holds a fight OR the row the pointer names, and a planned one is
-           * the second kind at best. Without this verb, starting the second
-           * fight of a split party still costs the five gestures it costs
-           * today. With it, that is five gestures once per split and one tap
-           * per beat after.
-           *
-           * It cannot be reached twice on one fight: the first tap fills
-           * `item.combatants`, and the branch above takes the row from then
-           * on. That is the ordering doing the work a guard would otherwise
-           * have to, and it is why the chain tests `combatants` before
-           * `roster` rather than the other way round.
-           */
-          <Verb onClick={startFight} primary label="START THIS FIGHT" row={row} />
-        ) : (
-          /*
-           * Nothing in the fight and nothing spawnable to put in it: a row
-           * with an empty roster, or one whose every ref this dataset has
-           * lost. The verb still opens the runner on THIS row, which is what
-           * makes the builder and the bestiary reachable from a campaign that
-           * has not started a fight yet - see the paragraph above the strip.
-           *
-           * `OPEN THIS SCENE`, not `OPEN THE SCENE`. "The" meant the one
-           * board's scene, and that is the word that lied.
-           */
-          <Verb
-            onClick={() => {
-              showScene(item.id);
-              onOpenTool('scene');
-            }}
-            primary
-            label="OPEN THIS SCENE"
-            row={row}
-          />
-        )}
-
         {/*
           Every verb here names the noun it moves, and that is what adding the
           roster pair cost. `PUT THIS ON THE BOARD` and `KEEP WHAT IS ON THE
@@ -625,12 +604,17 @@ function SceneArm({
           Measured in Chrome at 393x852 and 375x667, `pointer: coarse`: each of
           the four is 44px tall and takes a line of its own - 246.41 and 251.23
           wide for the roster pair, 289.06 and 293.89 for the longer
-          environment words, against a 363px column. Two to a line would need
-          every label under about 177px, which is not a length these verbs can
-          be written in and stay unambiguous. So the fix costs this arm two more
-          lines, 104px, and that is what a GM pays to be able to change a plan
-          at all. `docOverflowX` is 0.00 at both sizes and nothing is under the
-          tap floor.
+          environment words. The four widths are re-measured and exact; the
+          COLUMN they were set against is not 363. It is **349.00** at 393x852
+          and **331.00** at 375x667 - 393 less the list's 12px page padding
+          either side, less the panel's stripe, border and padding, less the
+          open block's own - and neither viewport gives 363 for anything on
+          this row. Two to a line would need every label under about 170px,
+          which is not a length these verbs can be written in and stay
+          unambiguous. So the fix costs this arm two more lines, 104px, and
+          that is what a GM pays to be able to change a plan at all.
+          `docOverflowX` is 0.00 at both sizes and nothing is under the tap
+          floor.
         */}
         <Verb
           onClick={() => setEnvironment(item.environmentRef)}
@@ -690,6 +674,98 @@ function SceneArm({
               setArmed(false);
             }}
             label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
+            row={row}
+          />
+        )}
+
+        {/*
+          THE PRIMARY IS LAST, AND THAT IS THE C1 REORDER RATHER THAN THE
+          ARRANGEMENT THIS ARM SHIPPED.
+
+          It was FIRST, before this change and through all of Wave B, while
+          the plan's ergonomics paragraph claimed it was last and rested a
+          thumb-reach argument on the claim. B6 caught the claim and handed the
+          reorder here, because a reach is a browser measurement and not a
+          reading. Measured, in Chrome, `pointer: coarse`, insets 47/34, at
+          393x852 and 375x667, both arrangements built in the live DOM of the
+          same page so one layout engine drew both:
+
+            primary first   strip 304.00, six lines, primary's centre 282.00px
+                            above the foot of the scroll window
+            primary last    strip 252.00, five lines, primary's centre 22.00px
+                            above it
+
+          260.00px of reach at BOTH sizes, and 52.00px of row with it. The
+          52.00 is Wave B's own doing: `OPEN THIS FIGHT` is 156.20 where `BACK
+          TO THIS FIGHT` was 178.67, so it fits beside `CLEAR THIS FIGHT`
+          (148.63) - 156.20 + 8 + 148.63 = 312.83 inside the 349.00 column and
+          inside the 331.00 one, where the old label at 375x667 needed 335.30
+          and wrapped. On a row with no fight there is no `CLEAR` to pair with,
+          so the strip stays 252.00 and the reorder buys reach only: 230.00 ->
+          22.00.
+
+          The price is that `CLEAR THIS FIGHT` is what shares the primary's
+          line, 8px away, on the row where both are drawn. The third
+          arrangement that separates them - `CLEAR` first, primary last - was
+          measured too: it puts the primary in the same place (22.00) and costs
+          the 52.00 back, because `CLEAR` then holds a line of its own. It also
+          puts the one destructive verb on this arm at the TOP of the strip,
+          where a thumb coming down the row meets it first. So the 8px
+          neighbour is kept, and what makes it affordable is that `CLEAR` arms:
+          a mis-tap changes a label and the second tap is the one that
+          destroys.
+        */}
+        {inTheFight > 0 ? (
+          /*
+           * The fight is already here, so this only goes to it. No spawn: a
+           * second tap must not double the pile, and a row a GM left mid-beat
+           * has to come back with exactly what it had.
+           */
+          <Verb
+            onClick={() => {
+              showScene(item.id);
+              onOpenTool('scene');
+            }}
+            primary
+            label="OPEN THIS FIGHT"
+            row={row}
+          />
+        ) : spawnable.length > 0 ? (
+          /*
+           * The bootstrap none of the three designs had. A row planned and
+           * never fought holds no combatants, so it is on the switcher's strip
+           * only while the runner is showing it: `liveScenes` keeps a row that
+           * holds a fight OR the row the pointer names, and a planned one is
+           * the second kind at best. Without this verb, starting the second
+           * fight of a split party still costs the five gestures it costs
+           * today. With it, that is five gestures once per split and one tap
+           * per beat after.
+           *
+           * It cannot be reached twice on one fight: the first tap fills
+           * `item.combatants`, and the branch above takes the row from then
+           * on. That is the ordering doing the work a guard would otherwise
+           * have to, and it is why the chain tests `combatants` before
+           * `roster` rather than the other way round.
+           */
+          <Verb onClick={startFight} primary label="START THIS FIGHT" row={row} />
+        ) : (
+          /*
+           * Nothing in the fight and nothing spawnable to put in it: a row
+           * with an empty roster, or one whose every ref this dataset has
+           * lost. The verb still opens the runner on THIS row, which is what
+           * makes the builder and the bestiary reachable from a campaign that
+           * has not started a fight yet - see the paragraph above the strip.
+           *
+           * `OPEN THIS SCENE`, not `OPEN THE SCENE`. "The" meant the one
+           * board's scene, and that is the word that lied.
+           */
+          <Verb
+            onClick={() => {
+              showScene(item.id);
+              onOpenTool('scene');
+            }}
+            primary
+            label="OPEN THIS SCENE"
             row={row}
           />
         )}
@@ -1041,15 +1117,15 @@ function EncounterArm({
           finished planning wants the fight, and the builder is now the second
           choice on a configured row.
 
-          "The way the scene arm's own chain is" stood here, and it was true
-          of only half of what it was attached to. `SceneArm` does draw exactly
-          one primary - its three branches are one ternary - but it draws that
-          one FIRST: the ternary opens its strip and `CLEAR THIS FIGHT` closes
-          it, before this change and after it. The plan's ergonomics paragraph
-          makes the same claim and rests a thumb-reach argument on it; the
-          correction is written there. Whether the two arms should agree, and
-          which of them should move, is a reach question with a measurement
-          behind it, so it belongs to the Chrome pass rather than to a comment.
+          "The way the scene arm's own chain is" stood here, was false when it
+          was written, and is true again - which is why the history is kept
+          rather than the sentence restored. `SceneArm` drew its one primary
+          FIRST, before Wave B and after it, while this comment and the plan
+          both said otherwise. The Chrome pass measured the two arrangements
+          and moved `SceneArm`'s ternary to the end of its own strip: 260.00px
+          of reach at 393x852 and at 375x667, and 52.00px of row on a scene
+          holding a fight. The argument and the numbers are in `SceneArm`'s
+          strip, above its ternary; this arm has not moved.
         */}
         <Verb
           onClick={openFight}

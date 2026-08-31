@@ -632,6 +632,51 @@ describe('the scene arm', () => {
       expect(buttons().filter((b) => b.className.includes('btn-primary'))).toHaveLength(1);
     });
 
+    /**
+     * The C1 reorder, pinned, because it is an ergonomic decision with a
+     * measurement behind it and nothing else would notice it going away.
+     *
+     * `SceneArm` drew its primary FIRST through all of Wave B while the plan
+     * and a comment in this arm's own file both said it drew it last. The
+     * Chrome pass measured both arrangements at 393x852 and at 375x667 and
+     * moved it: the primary's centre goes from 282.00px above the foot of the
+     * scroll window to 22.00px, and on a row holding a fight the strip drops
+     * 304.00 -> 252.00 because `OPEN THIS FIGHT` (156.20) then fits beside
+     * `CLEAR THIS FIGHT` (148.63) inside the 349.00 column. jsdom cannot see
+     * any of that, so what is asserted here is the only half it can hold: the
+     * primary is the LAST child of the strip, in every state, which is the
+     * thing a later edit could quietly undo.
+     */
+    it('puts its one primary verb last in the strip, in all three states', () => {
+      for (const [state, items] of THREE_STATES) {
+        seed(items());
+        list();
+        const fill = primary();
+        expect(fill, state).toBeDefined();
+        const strip = fill!.parentElement!;
+        expect(strip.lastElementChild, state).toBe(fill);
+      }
+      /*
+       * And with `CLEAR THIS FIGHT` on the strip, which is the state the
+       * reorder was measured in: the primary is still last, and CLEAR is the
+       * one it shares its line with rather than the one below it.
+       */
+      seed(withFight(2));
+      list();
+      const strip = primary()!.parentElement!;
+      expect(
+        [...strip.children].map((b) => b.textContent),
+        'the strip no longer ends with CLEAR THIS FIGHT then the primary',
+      ).toEqual([
+        'PUT THIS ENVIRONMENT ON THE BOARD',
+        'KEEP THE BOARD\u2019S ENVIRONMENT HERE',
+        'PUT THIS ROSTER ON THE BOARD',
+        'KEEP THE BOARD\u2019S ROSTER HERE',
+        'CLEAR THIS FIGHT',
+        'OPEN THIS FIGHT',
+      ]);
+    });
+
     it('opens this row from every one of the three states, whatever the runner was showing', () => {
       /*
        * The other half of test 27, and the half that has teeth: the label is
