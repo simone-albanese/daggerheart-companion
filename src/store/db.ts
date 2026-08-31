@@ -101,14 +101,14 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
        * schema, so the historical branches talk to the database through a view
        * that does not know about it.
        *
-       * The version 1 block keeps creating three stores it will lose again four
-       * lines later, which on a device that has never run the app is a real
-       * create-then-drop. It costs microseconds and it was left deliberately:
-       * these branches are a history, and a history that has been tidied is no
-       * longer evidence of what shipped. Rewriting version 1 to match today
-       * would tell the next reader that `art` never existed - and it is the
-       * question "did this device ever hold art?" that the version 3 block
-       * exists to answer yes to.
+       * The version 1 block keeps creating three stores the version 3 block
+       * below loses again, which on a device that has never run the app is a
+       * real create-then-drop. It costs microseconds and it was left
+       * deliberately: these branches are a history, and a history that has been
+       * tidied is no longer evidence of what shipped. Rewriting version 1 to
+       * match today would tell the next reader that `art` never existed - and
+       * it is the question "did this device ever hold art?" that the version 3
+       * block exists to answer yes to.
        */
       const historical = database as unknown as IDBPDatabase;
 

@@ -563,13 +563,21 @@ telefono non faccia, perché non lo fa più nemmeno il desktop.)*
 | Cosa | Dove | Perché |
 |---|---|---|
 | Dataset SRD | Precache del service worker (~97 KB gzip) | Immutabile, versionato col deploy |
-| Strato manuale | IndexedDB, store separato | Rimuoverlo non tocca l'SRD |
-| Arte | IndexedDB `art` | Blob nativi, niente base64 |
+| ~~Strato manuale~~ | ~~IndexedDB, store separato~~ | ~~Rimuoverlo non tocca l'SRD~~ |
+| ~~Arte~~ | ~~IndexedDB `art`~~ | ~~Blob nativi, niente base64~~ |
 | Personaggi | IndexedDB `characters` | Multi-personaggio |
 | Campagne | IndexedDB `campaigns` | Multi-campagna, e contengono schede altrui |
 | Preferenze | localStorage | Piccole e sincrone |
 | Modelli di countdown | localStorage (`dhc.gm.countdownTemplates.v1`) | Piccoli, sincroni, del dispositivo e non della campagna |
 | I PDF | **mai salvati** | Si ri-importano |
+
+*(Le due righe barrate sono **cadute** con `ab5b75a`, versione 3 del database. E la
+versione è ciò che le fa cadere davvero: `b35523d` aveva già tolto `art`, `content` e
+`layers` dal tipo `CompanionDB`, ma uno store che il tipo non nomina è uno store che
+`db.ts` ha smesso di guardare, non uno che il browser ha smesso di tenere — su ogni
+telefono che aveva importato, le decine di MB di WebP restavano lì, raggiungibili solo
+da «cancella tutto», che porta via anche i personaggi. Il blocco `oldVersion < 3` fa
+`deleteObjectStore` sui tre store: i byte escono dal dispositivo, non solo dal tipo.)*
 
 Le campagne stavano in una sola chiave di localStorage, `dhc.gm.v1`, riscritta
 in modo sincrono a ogni `+1` di Fear. Misurato su un tavolo reale — quattro PG

@@ -2,9 +2,13 @@
  * The database path, which no test in this repository had ever opened.
  *
  * `tests/store/` was two backup files, `package.json` had no `fake-indexeddb`,
- * and so `upgrade`, `listCharacters`, `removeLayer` and `clearAll` were
- * entirely unexercised - on the four stores that hold the one copy of the
- * user's work that exists anywhere.
+ * and so `upgrade`, `listCharacters`, the since-deleted `removeLayer` and
+ * `clearAll` were entirely unexercised - on the four stores of the time, two
+ * now, that hold the one copy of the user's work that exists anywhere. Marked
+ * rather than tidied: at `dd4c5e5`, where this paragraph was written,
+ * `DB_VERSION` was 1, the database really did have those four stores, and
+ * `removeLayer` really was one of the four functions nothing called. A history
+ * that has been rewritten is no longer evidence of what shipped.
  *
  * What this is really about is `schemaVersion`. It is written into every
  * record in three places and, until now, read in exactly one: the *file* path.
@@ -21,8 +25,8 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCHEMA_VERSION, type Character } from '../../shared/types.ts';
-import { newCampaign } from '../../shared/campaigns.ts';
-import { makeCharacter } from '../fixtures/factories.ts';
+import { newCampaign, type Campaign } from '../../shared/campaigns.ts';
+import { advancement, makeCharacter } from '../fixtures/factories.ts';
 
 // Each test gets its own database. `db.ts` caches the connection in a module
 // variable, so the module has to be re-imported alongside a fresh factory or
@@ -292,10 +296,14 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
      * and never wrote a `Layer` beside it - `putLayer` was only ever called by
      * the import worker, and installing a pack did not run one. So the obvious
      * migration, the one that walks `listLayers()` and sweeps each id's
-     * `layerId` index exactly as the deleted `removeLayer` did, would have left
-     * every pack-installed illustration on the device and reported success.
-     * There is no list to walk that is guaranteed to name them; there is only
-     * the store.
+     * `layerId` index exactly as `removeLayer` did, would have left every
+     * pack-installed illustration on the device and reported success. There is
+     * no list to walk that is guaranteed to name them; there is only the store.
+     *
+     * All three of those names are history: `putLayer`, `listLayers` and
+     * `removeLayer` went with the importer in `b35523d`. Written in the past
+     * tense rather than tidied away, because the reason this upgrade deletes
+     * stores instead of sweeping layers is a fact about the code that shipped.
      */
     await seedVersion2((stores) => {
       stores.art.put({ key: 'art-pack:midnight', layerId: 'art-pack', blob: webp(2), width: 4, height: 4 });
@@ -336,6 +344,64 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
     expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
   });
 
+  it('leaves a character record whole, and not merely still named', async () => {
+    /*
+     * The same promise as the campaigns test below, on the store `db.ts`'s
+     * opening docblock calls "the user's work of months. The only truly
+     * precious data" - and, until this test, the half that nothing held at the
+     * grain that matters.
+     *
+     * Coarse damage was already caught: delete the store, clear it, corrupt
+     * `schemaVersion`, and the name assertions above and below go red. What
+     * survived was damage that leaves the record readable and its name intact -
+     * six months of session notes gone on an app update nobody asked for, with
+     * nothing on screen and no second copy.
+     *
+     * TWO THINGS HAD TO CHANGE TOGETHER, which is the part worth writing down.
+     * The assertions were name-only: `listCharacters().map(c => c.name)` above
+     * and below, and `count('characters')` in `campaignDb.test.ts`. But the
+     * record they carry across the upgrade was `makeCharacter()`, which is
+     * `newCharacter` - and that mints `loadout`, `inventory`, `experiences`,
+     * `levelUpHistory` and `scars` empty and `notes` as `''`. There was nothing
+     * in it for a mutant to take, so deep equality alone would not have helped.
+     * The seed is half of this test and the assertion is the other.
+     *
+     * MEASURED, in an rsync copy with `node_modules`/`.tools` symlinked, Node
+     * 24.19.0, the mutant grepped in before and out after. A version 3 block
+     * that also blanks `inventory`, `experiences` and `notes` on every
+     * character record - a cursor walk over `unwrap(transaction)
+     * .objectStore('characters')`, placed after the delete loop, since before
+     * it the write aborts the versionchange transaction and confounds the red -
+     * turns this test red and nothing else in the suite: 1 failed of 4176. The
+     * control that proves the seed is load-bearing: with `ch` left as
+     * `makeCharacter({ name: 'Kept' })`, that same mutant against that same
+     * `toEqual` on the raw record goes green, 22 passed / 0 failed.
+     *
+     * Read raw through `database.get` rather than through `listCharacters`:
+     * that path goes through `readCharacterRecord`, which repairs a damaged
+     * record into a readable one. A reader that repairs launders the damage
+     * instead of reporting it, so it cannot be the witness here.
+     */
+    const ch = makeCharacter({
+      name: 'Six months of Thursdays',
+      notes: 'The bargain with the Sable Court, and what it cost her.',
+      loadout: ['blade:whirlwind', 'valor:bold-presence'],
+      inventory: [{ ref: null, name: "A dead friend's compass", quantity: 1 }],
+      experiences: [{ id: 'exp-1', name: 'Sailor', bonus: 2 }],
+      levelUpHistory: [advancement('trait', 'trait-1', 1)],
+      scars: ['The left eye'],
+    });
+    await seedVersion2((stores) => {
+      stores.characters.put(ch);
+      stores.art.put({ key: 'core-2025-09-06:arcana', layerId: 'core-2025-09-06', blob: webp(4), width: 2, height: 2 });
+    });
+
+    const database = await db.db();
+
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+    expect(await database.get('characters', ch.id)).toEqual(ch);
+  });
+
   it('leaves the GM the campaigns, which this upgrade is not allowed to reach', async () => {
     /*
      * The other half of the promise, and the half nothing held.
@@ -343,24 +409,61 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
      * The version 2 block's comment already makes this promise in the other
      * direction - a device gains `campaigns` "without any of the other four
      * being touched" - and version 3 owes the symmetric one, because it is the
-     * first block that destroys rather than adds. Every other test here seeds
-     * `characters` and reads it back, so that store is covered; until this one,
-     * no campaign record had ever crossed this upgrade in any test file. The
-     * seed helper built the store and no caller could put anything in it.
+     * first block that destroys rather than adds. Two of the other tests here
+     * seed `characters` and read a name back, and the one directly above reads
+     * a whole record back, so that store is covered; until this one, no
+     * campaign record had ever crossed this upgrade in any test file. The seed
+     * helper built the store and no caller could put anything in it.
      *
      * Measured, not assumed: an upgrade that also clears `campaigns` inside the
-     * version 3 block passes the whole suite - 154 files, 4174 tests, 0 failed.
-     * What that mutant destroys is not an inconvenience. `campaigns` holds
-     * `party`, and `party` holds whole `Character` sheets belonging to the
-     * other people at the table - the one thing `db.ts`'s opening docblock
-     * separates the two stores to protect. It would go on an app update nobody
-     * asked for, with nothing on screen.
+     * version 3 block passed the whole suite as it stood - 154 files, 4174
+     * tests, 0 failed. What that mutant destroys is not an inconvenience.
+     * `campaigns` holds `party`, and `party` holds whole `Character` sheets
+     * belonging to the other people at the table - the one thing `db.ts`'s
+     * opening docblock separates the two stores to protect. It would go on an
+     * app update nobody asked for, with nothing on screen.
      *
      * Deep equality rather than a field: "not touched" is a claim about the
      * whole record, and an assertion on `name` alone would pass an upgrade that
      * emptied the party out of it.
+     *
+     * That last sentence is only true of a record that has a party to lose,
+     * which is why `theirs` is seeded with one instead of being left as
+     * `newCampaign` mints it. That function returns `party`, `session`,
+     * `archive` and `register` all `[]`, so on the bare fixture `toEqual` did
+     * exactly as much work against a party-emptying upgrade as the `name` check
+     * it rejects. It was a sentence about coverage the test did not have.
+     *
+     * MEASURED, same isolated copy as the test above. A version 3 block that
+     * sets `party = []` on every campaign record turns this test red and
+     * nothing else in the suite - 1 failed of 4176, on the `toEqual` line.
+     * Control: with `theirs` left as bare `newCampaign(...)`, that same mutant
+     * goes green, 22 passed / 0 failed. And the `campaigns.clear()` mutant this
+     * test was written for dies one line up, on the `count`, with `expected +0
+     * to be 1` - so before the seeded party there was no measured mutant that
+     * the deep-equality line killed on its own.
      */
-    const theirs = newCampaign('The Ninth Table', '2026-08-01T12:00:00.000Z', 'camp-1');
+    const sheet = makeCharacter({
+      name: 'Someone else at the table',
+      notes: 'Not mine, and not mine to lose.',
+    });
+    const theirs: Campaign = {
+      ...newCampaign('The Ninth Table', '2026-08-01T12:00:00.000Z', 'camp-1'),
+      fear: 3,
+      party: [
+        {
+          id: sheet.id,
+          sheet,
+          importedAt: '2026-08-01T12:05:00.000Z',
+          source: 'file',
+          tracks: { hp: 2, stress: 1, hope: 4, armor: 0 },
+          markedAt: '2026-08-02T20:11:00.000Z',
+        },
+      ],
+      session: [
+        { id: 'row-1', name: 'The Sable Court', order: 0, collapsed: false, kind: 'url', href: 'https://example.invalid/notes' },
+      ],
+    };
     await seedVersion2((stores) => {
       stores.campaigns.put(theirs);
       stores.art.put({ key: 'core-2025-09-06:arcana', layerId: 'core-2025-09-06', blob: webp(3), width: 2, height: 2 });
@@ -388,7 +491,7 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
   });
 });
 
-describe('the rest of the stores, which nothing had ever opened', () => {
+describe('clearAll and deleteCharacter, the two writes that remove things', () => {
   it('wipes everything, which is what the reset button promises', async () => {
     await db.putCharacter(makeCharacter({ name: 'Gone' }));
 

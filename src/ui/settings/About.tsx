@@ -424,9 +424,11 @@ export function About({
           that also enumerated "every imported source, all art". Database
           version 3 deletes those three stores, so `clearAll` reaches two stores
           and naming five would be a promise about bytes that are not there. The
-          sentence lost 30 characters and gained nothing, so every conclusion
-          here is now an upper bound that still holds - fewer lines, never more,
-          and a wrap that fitted cannot stop fitting. The figures are NOT
+          sentence lost 32 characters - 152 to 120. Not 30: what came out is
+          ", every imported source, all art", and the joining comma and space
+          went with the phrase. It gained nothing, so every conclusion here is
+          now an upper bound that still holds - fewer lines, never more, and a
+          wrap that fitted cannot stop fitting. The figures are NOT
           re-derived, because none of them was re-measured: they are marked as
           belonging to the sentence they were taken from. Anyone who lengthens
           this hint again measures it again from scratch.
