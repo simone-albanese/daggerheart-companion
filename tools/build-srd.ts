@@ -30,7 +30,21 @@ const main = async (): Promise<void> => {
   const checkOnly = process.argv.includes('--check');
   const started = Date.now();
 
-  const srd = await loadSrd();
+  /*
+   * `--pdf <path>` points the pipeline at a specific book. It does NOT skip the
+   * hash gate: the file still has to be one of `BOOKS`, so this selects among
+   * known revisions rather than waving an unknown one through. Without it the
+   * only way to read a second book was `allowUnknownRevision`, which had no CLI
+   * plumbing at all and used to misname whatever it read.
+   */
+  const pdfFlag = process.argv.indexOf('--pdf');
+  const pdfPath = pdfFlag === -1 ? undefined : process.argv[pdfFlag + 1];
+  if (pdfFlag !== -1 && pdfPath === undefined) {
+    console.error('--pdf needs a path.');
+    process.exit(1);
+  }
+
+  const srd = await loadSrd(pdfPath === undefined ? {} : { pdfPath });
   console.log(`source   ${srd.pdfPath}`);
   console.log(`sha256   ${srd.sha256}`);
   console.log(`revision ${srd.revision}`);
@@ -56,7 +70,10 @@ const main = async (): Promise<void> => {
     // every time it is regenerated turns `git diff` into noise and makes CI's
     // "does this still match the PDF" check impossible to write honestly.
     generatedAt: srd.sourceDate,
-    layers: [{ id: srd.revision, label: 'SRD 1.0', priority: 0 }],
+    // Both halves from the book. The label used to be the literal 'SRD 1.0'
+    // beside a variable id, so a second revision would have shipped a dataset
+    // labelled as the first one on every screen that draws it.
+    layers: [{ id: srd.revision, label: srd.label, priority: 0 }],
     domains: parseDomains(pages),
     domainCards: parseDomainCards(pages),
     classes,
