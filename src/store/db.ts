@@ -149,7 +149,24 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
          * guaranteed to name them.
          */
         for (const store of ['art', 'content', 'layers'] as const) {
-          historical.deleteObjectStore(store);
+          /*
+           * Guarded, and the asymmetry is the whole argument. `deleteObjectStore`
+           * on a name that is not there throws `NotFoundError`, and a throw in
+           * here aborts the versionchange transaction, which rejects `openDB` -
+           * on every subsequent open, because every one of them re-runs this
+           * block. The cost of the guard is a lookup. The cost of not having it,
+           * on any device whose database is not shaped the way these branches
+           * assume, is an app that can never reach the characters again.
+           *
+           * Nothing in this file can produce that device: the version 1 block
+           * creates all three unconditionally. That is exactly why the guard is
+           * here rather than an assertion - it is protecting against the case
+           * this file cannot see, and a case this file cannot see is not one it
+           * gets to be confident about.
+           */
+          if (historical.objectStoreNames.contains(store)) {
+            historical.deleteObjectStore(store);
+          }
         }
       }
     },

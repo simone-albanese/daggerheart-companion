@@ -302,6 +302,36 @@ describe('version 3, which takes the Core Rulebook off the device', () => {
     expect([...database.objectStoreNames]).not.toContain('art');
   });
 
+  it('still opens when a store it is told to delete is not there', async () => {
+    /*
+     * The case none of this file's branches can produce, which is why it is
+     * worth a test rather than an assertion. A throw inside the versionchange
+     * transaction rejects `openDB`, and it does so on every later open too,
+     * because each one re-runs the upgrade - so an unguarded delete would take
+     * the characters out of reach permanently on any device whose database is
+     * not shaped the way these branches assume. The upgrade has to survive a
+     * shape it did not build.
+     */
+    const request = indexedDB.open(db.DB_NAME, 2);
+    await new Promise((resolve, reject) => {
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        database.createObjectStore('characters', { keyPath: 'id' }).createIndex('updatedAt', 'updatedAt');
+        database.createObjectStore('campaigns', { keyPath: 'id' }).createIndex('updatedAt', 'updatedAt');
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve(null);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const database = await db.db();
+
+    expect(database.version).toBe(3);
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+  });
+
   it('leaves a device that never imported with the same two stores', async () => {
     // The overwhelming majority, and every new install. The upgrade has to be a
     // no-op for them in everything except the schema - three empty stores stop
