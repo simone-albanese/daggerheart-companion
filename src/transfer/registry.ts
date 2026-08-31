@@ -132,6 +132,16 @@ export const DOMAIN_CARD_BASES: Readonly<Record<string, number>> = Object.freeze
   sage: 5700,
   splendor: 5800,
   valor: 5900,
+  /*
+   * Dread's hundred is in the continuation band, not at 6000.
+   *
+   * 5000-5999 was exactly full at nine hundreds when this domain arrived, and
+   * the computed window a tenth domain would have taken - 6001-6099 - is inside
+   * the beastforms band, where 6001-6022 are real ids already on the wire. This
+   * is the first entry that could not have been derived, which is the whole
+   * reason the table stopped deriving them.
+   */
+  dread: 12_100,
 });
 
 export const bandFor = (collection: BandedCollection): Band =>

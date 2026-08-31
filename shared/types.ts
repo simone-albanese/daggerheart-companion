@@ -70,6 +70,21 @@ export const DOMAINS = [
   'sage',
   'splendor',
   'valor',
+  /*
+   * SRD 2.0's tenth domain, APPENDED and not sorted into place.
+   *
+   * `dread` belongs between `codex` and `grace` alphabetically, and putting it
+   * there would be a data-loss bug. `src/transfer/codec.ts` writes
+   * `DOMAINS.indexOf(domain) + 1` as a u8 and reads it back positionally, so
+   * this array's ORDER IS THE WIRE FORMAT: inserting in the middle shifts every
+   * later domain by one, and every QR ever generated and every `.dhchar` ever
+   * saved would decode a Grace multiclass as Midnight. Silently - the frame
+   * carries an integer and nothing else.
+   *
+   * Alphabetical order is a display concern. Anything that shows domains to a
+   * person sorts them at render time; nothing sorts this.
+   */
+  'dread',
 ] as const;
 export type DomainId = (typeof DOMAINS)[number];
 

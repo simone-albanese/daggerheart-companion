@@ -99,9 +99,23 @@ export function validate(ds: Dataset): Issue[] {
     });
   }
 
-  // Every domain must carry exactly 21 cards, levels 1 to 10.
+  /*
+   * Every domain THE BOOK SHIPS must carry exactly 21 cards, levels 1 to 10.
+   *
+   * Seeded from `ds.domains` and not from the `DOMAINS` constant, which are two
+   * different lists and were being treated as one. `DOMAINS` is what this build
+   * can represent; `ds.domains` is what this printing contains. They are equal
+   * today and stop being equal the moment the code learns a domain before the
+   * committed dataset has it - which is exactly the state a revision lands in,
+   * and seeding from the constant turned that state into
+   * `domainCards/dread: expected 21 cards, got 0` on a dataset that is correct.
+   *
+   * The check that a card's domain is one this build KNOWS stays against
+   * `DOMAINS` below, because that one really is about the constant: a card
+   * naming a domain the code cannot represent is unrenderable.
+   */
   const perDomain = new Map<DomainId, number>();
-  for (const d of DOMAINS) perDomain.set(d, 0);
+  for (const d of ds.domains) perDomain.set(d.id as DomainId, 0);
   for (const card of ds.domainCards) {
     if (!DOMAINS.includes(card.domain)) {
       issues.push({

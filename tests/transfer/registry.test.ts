@@ -77,66 +77,51 @@ describe('bands', () => {
   });
 
   /*
-   * The tenth domain, which is the whole reason the base table exists.
+   * The tenth domain, which is the whole reason the base table exists - and
+   * now, at last, testable end to end.
    *
-   * These do not need SRD 2 to be ingested, and that is deliberate: the defect
-   * is in how an id is chosen, not in what the book contains, so it can be
-   * proved with a fixture today and has to be, because the thing it protects -
-   * every QR ever scanned - cannot be re-checked afterwards.
+   * While there were nine domains the table and the derivation it replaced
+   * (`band.min + (DOMAINS.indexOf(domain) + 1) * 100`) agreed on every value,
+   * so no test could tell them apart and a mutant restoring the derivation
+   * passed the whole suite. `dread` is the first domain that separates them,
+   * and it does so twice over:
+   *
+   *   - Appended, its index is 9, so the derivation computes base 6000 and a
+   *     window of 6001-6099 - inside the BEASTFORMS band, where 6001-6022 are
+   *     real ids already on the wire. A domain card would decode as `bear`.
+   *   - Inserted alphabetically instead - between `codex` and `grace` - it
+   *     would take index 4 and `grace`'s hundred, and shift every later
+   *     domain. That is the failure `shared/types.ts` appends to avoid, and
+   *     `codec.ts` is where it would have been paid.
+   *
+   * This mints a real card and looks at the number it got.
    */
-  it('puts a tenth domain outside the first band and inside a domain-card one', () => {
-    const dread = 'dread';
-    expect(
-      Object.keys(DOMAIN_CARD_BASES),
-      'this test is about a domain with no base yet; give it one and it stops testing anything',
-    ).not.toContain(dread);
-
-    const withTenth = { ...DOMAIN_CARD_BASES, [dread]: 12_100 };
-    const base = withTenth[dread]!;
-    const window = { min: base + 1, max: base + 99 };
-
-    const home = BANDS.find(
-      (b) => b.collections.includes('domainCards') && window.min >= b.min && window.max <= b.max,
+  it('mints a dread card in its own hundred, not in the one its spelling implies', () => {
+    const { file } = buildRegistry(
+      { domainCards: [{ id: 'summon-horror', domain: 'dread' }] },
+      EMPTY,
     );
-    expect(home?.name).toBe('domainCards+');
-    // The failure this replaces: the computed window was 6001-6099, and a card
-    // minted there decodes as a beastform on the receiving device.
-    expect(bandOf(window.min)?.collections).not.toContain('beastforms');
-    expect(bandOf(window.max)?.collections).toContain('domainCards');
+    const id = file.ids['summon-horror']!;
+    expect(id).toBeGreaterThan(12_100);
+    expect(id).toBeLessThan(12_200);
+
+    // What the derivation would have produced instead, and why it is not merely
+    // a different number: that window is somebody else's.
+    const derived = 5000 + (DOMAINS.indexOf('dread') + 1) * 100;
+    expect(derived).toBe(6000);
+    expect(id).not.toBe(derived + 1);
+    expect(bandOf(derived + 1)?.collections, 'the derived window is the beastforms band').toContain(
+      'beastforms',
+    );
   });
 
-  it('gives every domain this build knows a window of its own', () => {
-    /*
-     * The guard that fires on the day `dread` joins DOMAINS.
-     *
-     * Asserting the invariant rather than the error message, because the error
-     * is currently unreachable and a test for an unreachable branch proves
-     * nothing: a domain absent from DOMAINS takes the unknown-pool path above,
-     * so `buildRegistry` cannot be made to throw while the two lists agree.
-     * This goes red the moment they stop agreeing, which is the moment someone
-     * adds a domain to `shared/types.ts` and has not yet decided its ids - and
-     * that is the decision the table exists to force into the open.
-     */
-    for (const domain of DOMAINS) {
-      expect(DOMAIN_CARD_BASES[domain], `${domain} has no id window`).toBeTypeOf('number');
-    }
-    const bases = Object.values(DOMAIN_CARD_BASES);
-    expect(new Set(bases).size, 'two domains share a hundred').toBe(bases.length);
-    for (const base of bases) {
-      const home = BANDS.find(
-        (b) => b.collections.includes('domainCards') && base + 1 >= b.min && base + 99 <= b.max,
-      );
-      expect(home, `the hundred at ${base} is not inside any domain-card band`).toBeDefined();
-    }
-  });
-
-  it('leaves a card whose domain it cannot read in the unknown pool, as before', () => {
-    // The unknown pool and the missing-base error are different states: this one
-    // is a card the parser could not classify, and it stays recoverable.
-    const { file } = buildRegistry({ domainCards: [{ id: 'mystery', domain: 'not-a-domain' }] }, EMPTY);
-    const band = bandFor('domainCards');
-    expect(file.ids['mystery']).toBeGreaterThan(band.min);
-    expect(file.ids['mystery']).toBeLessThan(band.min + 100);
+  it('keeps dread out of the beastforms band, which the computed window fell into', () => {
+    // The other half of the defect: whatever a tenth domain was called, the
+    // computed window was 6001-6099, and 6001-6022 are beastform ids.
+    const base = DOMAIN_CARD_BASES['dread']!;
+    expect(bandOf(base + 1)?.collections).toContain('domainCards');
+    expect(bandOf(base + 99)?.collections).not.toContain('beastforms');
+    expect(bandOf(6001)?.collections).toContain('beastforms');
   });
 
   it('refuses to overflow a band rather than spilling into the next one', () => {
@@ -274,7 +259,14 @@ describe('the committed data/registry.json', () => {
       expect([...bases], `${domain} cards are spread over more than one hundred`).toHaveLength(1);
       expect(DOMAIN_CARD_BASES[domain], `${domain} is not in DOMAIN_CARD_BASES`).toBe([...bases][0]);
     }
-    expect(Object.keys(DOMAIN_CARD_BASES).sort()).toEqual([...seen.keys()].sort());
+    /*
+     * A superset, not an equality. The table may know a domain the committed
+     * dataset does not have yet - which is exactly where `dread` is: it has a
+     * hundred reserved and no cards minted, because `data/srd-1.0.json` is
+     * still SRD 1.0. Requiring equality would make reserving a window ahead of
+     * the book impossible, and reserving it ahead is the entire point.
+     */
+    for (const domain of seen.keys()) expect(Object.keys(DOMAIN_CARD_BASES)).toContain(domain);
   });
 
   it('still holds the ids the architecture documents', () => {

@@ -150,15 +150,35 @@ export function parseDomains(pages: BookPage[]): Domain[] {
     domains.push({ id, name: titleCase(head.text), description, sourcePage: head.folio });
   }
 
-  const missing = DOMAINS.filter((d) => !domains.some((x) => x.id === d));
-  if (missing.length > 0) {
-    throw new ParseError(`missing domains on folio ${folio}`, missing.join(', '));
-  }
-  if (domains.length !== DOMAINS.length) {
+  /*
+   * Every domain the PAGE announces must have been read, and none twice. What
+   * this does NOT require is that the page announce every domain in `DOMAINS`.
+   *
+   * Those are two different lists and were being treated as one. `DOMAINS` is
+   * what this build can represent; the folio is what this printing ships. They
+   * are equal for a book the constant was written against and stop being equal
+   * the moment the code learns a domain a printing does not have - which is the
+   * state every revision lands in, and which made this throw `expected 10
+   * domains, found 9` on SRD 1.0, a book it parses perfectly.
+   *
+   * The guarantee that mattered here - a heading silently skipped - is kept by
+   * counting headings on the page rather than members of the constant. How many
+   * domains a DATASET ought to contain is `tools/validate.ts`'s question, and
+   * it already asks it.
+   */
+  const headings = lines.filter(isHeading).length;
+  if (domains.length !== headings) {
     throw new ParseError(
-      `expected ${DOMAINS.length} domains on folio ${folio}, found ${domains.length}`,
+      `folio ${folio} shows ${headings} domain headings but ${domains.length} were read`,
       domains.map((d) => d.id).join(', '),
     );
+  }
+  if (domains.length === 0) {
+    throw new ParseError(`no domains found on folio ${folio}`, lines.slice(0, 6).map((l) => l.text).join(' | '));
+  }
+  const dupes = domains.map((d) => d.id).filter((d, i, a) => a.indexOf(d) !== i);
+  if (dupes.length > 0) {
+    throw new ParseError(`domain read twice on folio ${folio}`, dupes.join(', '));
   }
   return domains;
 }
@@ -246,13 +266,38 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
 
   // The domain a card belongs to is the banner it is printed under; the card's
   // own `Level N <Domain>` line is then a cross-check on the reading order.
-  const banners: Array<DomainId | undefined> = [];
-  let current: DomainId | undefined;
-  for (const f of lines) {
+  /*
+   * A banner claims everything BELOW IT ON THE PAGE, in both columns - it is a
+   * rule across the full measure, not a heading inside one column. So a card's
+   * domain is the last banner at or above it on its own folio, and reading
+   * order is the wrong question to ask.
+   *
+   * This used to walk the de-columnised lines and remember the last banner
+   * seen, which is the same thing only when no banner falls mid-page with cards
+   * beside it. Measured on both books: in SRD 1.0 the two rules agree on every
+   * appendix page - 5 and 5 on folio 122, 4 and 4 on 126, 1 and 1 on 132 - so
+   * this is a widening and `data/srd-1.0.json` does not move. In SRD 2.0 they
+   * disagree on five of ten: folio 209 has 2 cards before the BONE banner in
+   * reading order and 5 above it on the page, and the three in between are
+   * Blade cards sitting in the right-hand column, which the old rule handed to
+   * Bone. It threw - `card sits under the bone banner but reads blade` - and
+   * that throw is the only reason this was not a silent mis-filing.
+   */
+  const flags = lines.map((f) => {
     const m = f.family.startsWith('Eveleth') ? BANNER_RE.exec(f.text) : null;
-    if (m) {
-      current = DOMAIN_WORDS.get(m[1]!);
-      if (!current) throw new ParseError('unknown domain banner', f.text);
+    if (m === null) return null;
+    const domain = DOMAIN_WORDS.get(m[1]!);
+    if (!domain) throw new ParseError('unknown domain banner', f.text);
+    return { domain, folio: f.folio, bottom: f.bottom };
+  });
+  const flagged = flags.filter((b): b is NonNullable<typeof b> => b !== null);
+
+  const banners: Array<DomainId | undefined> = [];
+  for (const f of lines) {
+    let current: DomainId | undefined;
+    for (const b of flagged) {
+      if (b.folio < f.folio || (b.folio === f.folio && b.bottom <= f.bottom)) current = b.domain;
+      else break;
     }
     banners.push(current);
   }
