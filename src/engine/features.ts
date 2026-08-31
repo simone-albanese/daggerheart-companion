@@ -115,8 +115,16 @@ export function characterFeatures(c: Character, index: DatasetIndex): HeldFeatur
     }
   }
 
+  /*
+   * `index.collections.ancestries`, not `index.byRef`. The bare-slug map holds
+   * twelve kinds under one key space, so `byRef.get(r) as Ancestry` was an
+   * assertion nothing checked - and since SRD 2.0 prints two records that
+   * slugify alike, the shape of a ref no longer implies its collection. An
+   * `ancestryRef` names an ancestry; this is the map that can only answer with
+   * one.
+   */
   const ancestries = c.ancestryRefs
-    .map((r) => index.byRef.get(r) as Ancestry | undefined)
+    .map((r) => index.collections.ancestries.get(r))
     .filter((a): a is Ancestry => a !== undefined);
   if (ancestries.length === 1) {
     push('ancestry', ancestries[0]!.id, ancestries[0]!.name, ancestries[0]!.features);
@@ -126,7 +134,7 @@ export function characterFeatures(c: Character, index: DatasetIndex): HeldFeatur
     if (bottom?.features[1]) push('ancestry', bottom.id, `${bottom.name} · Mixed`, [bottom.features[1]]);
   }
 
-  const community = index.byRef.get(c.communityRef ?? '') as Community | undefined;
+  const community = index.collections.communities.get(c.communityRef ?? '');
   if (community) push('community', community.id, community.name, [community.feature]);
 
   const hopeFeature: HeldFeature | null = klass

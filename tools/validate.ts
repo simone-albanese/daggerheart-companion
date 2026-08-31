@@ -1127,11 +1127,20 @@ export function validate(ds: Dataset): Issue[] {
    *
    * The cross-collection case is still worth a warning rather than silence:
    * `indexDataset` in src/engine/character.ts keys its `byRef` map by the bare
-   * slug and the last collection written wins, so the two records do collapse
-   * into one entry there. Every character-facing lookup goes through a typed
-   * map (`cards`, `classes`, `weapons`, ...) and is unaffected; the warning is
-   * for whoever owns `byRef`, and it names the pair rather than guessing what
-   * they should do about it.
+   * slug, so the two records still collapse into one entry there. What has
+   * changed is which one survives and whether a caller has to accept it. It
+   * used to be whichever collection `indexDataset` happened to write LAST -
+   * environments after domain cards, so `byRef.get('hold-the-line')` returned
+   * the Event environment and the Valor card a loadout can hold was the one
+   * lost. It is now the first collection in `INDEXED_COLLECTIONS`, which is
+   * `BANDED_COLLECTIONS` order, so `byRef` and the registry agree about the
+   * bare name; and `index.collections` gives every caller that knows its kind
+   * a map that cannot answer with the other one.
+   *
+   * So the warning no longer describes a wrong answer. It describes a slug
+   * whose bare-name resolution is decided by a precedence rather than by the
+   * book, which is worth saying out loud once per pair, and it names the pair
+   * rather than guessing what anyone should do about it.
    */
   const seen = new Map<string, string>();
   const collections: Array<[string, Array<{ id: string }>]> = [
@@ -1185,7 +1194,9 @@ export function validate(ds: Dataset): Issue[] {
           where: `${name}/${item.id}`,
           message:
             `the slug is also ${prior}/${item.id}; the registry gives each its own id, but ` +
-            `indexDataset keys byRef by the slug alone and keeps only one of them`,
+            `indexDataset keys byRef by the slug alone, so a bare lookup resolves to whichever ` +
+            `comes first in INDEXED_COLLECTIONS - index.collections is the exact lookup for a ` +
+            `caller that knows its kind`,
         });
       }
       seen.set(item.id, name);

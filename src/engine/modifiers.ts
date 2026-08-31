@@ -418,7 +418,9 @@ export function collectModifiers(
           ]
         : [];
   for (const [ref, slot] of grantedSlots) {
-    const named = ix.byRef.get(ref) as { name?: string } | undefined;
+    // The ancestries map rather than `byRef`: an `ancestryRef` names an
+    // ancestry, and the bare-slug map cannot promise that is what comes back.
+    const named = ix.collections.ancestries.get(ref);
     if (named === undefined) continue;
     for (const row of ANCESTRY_MODS[ref] ?? []) {
       if (row.slot === slot) add('ancestry', ref, named.name ?? ref, row);
@@ -426,7 +428,7 @@ export function collectModifiers(
   }
 
   if (c.communityRef !== null) {
-    const community = ix.byRef.get(c.communityRef) as { name?: string } | undefined;
+    const community = ix.collections.communities.get(c.communityRef);
     if (community !== undefined) {
       for (const row of COMMUNITY_MODS[c.communityRef] ?? []) {
         add('community', c.communityRef, community.name ?? c.communityRef, row);

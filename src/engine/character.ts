@@ -7,13 +7,18 @@
  */
 import { SCHEMA_VERSION, TRAITS } from '../../shared/types.ts';
 import type {
+  Adversary,
+  Ancestry,
   Armor,
   Beastform,
   CharClass,
   Character,
+  Community,
   Dataset,
   DomainCard,
   DomainId,
+  Environment,
+  Item,
   Ref,
   Subclass,
   Tier,
@@ -113,6 +118,112 @@ export function baseProficiency(level: number): number {
   return 1 + [2, 5, 8].filter((l) => level >= l).length;
 }
 
+/**
+ * The collections `byRef` carries, in the order that decides a bare-slug lookup.
+ *
+ * ## Why an order is needed at all
+ *
+ * A `Ref` is a bare slug and always has been, so one key space holds every
+ * kind of record. SRD 2.0 ends the assumption that a bare slug names one
+ * thing: it prints an Event environment called *Hold the Line* (folio 164)
+ * beside the Valor domain card of the same name (folio 223), and `slugify`
+ * reduces both to `hold-the-line`. Measured on the parsed book, that is the
+ * only collision among these twelve collections: 1336 entries in `byRef`
+ * against 1337 records across the twelve, one key short. There are none at all
+ * in `data/srd-1.0.json`, so this order changes nothing about the dataset the
+ * app ships today.
+ *
+ * `npm run build:srd -- --check --pdf Manuali/DH_SRD_2_2026_08_25.pdf` is the
+ * command that names the colliding pairs out loud; it reports two, because
+ * `tools/validate.ts` walks all fifteen collections and the second pair is in
+ * a collection this map does not carry.
+ *
+ * ## Why THIS order
+ *
+ * It is `BANDED_COLLECTIONS` from `src/transfer/registry.ts`, minus the one
+ * entry that is not indexed (see below), and it is deliberately the same
+ * decision rather than a second opinion: that docblock says the collection
+ * coming first "runs character-facing content first and GM-only content last,
+ * so `hold-the-line` resolves to the domain card a loadout can hold rather
+ * than to the environment a sheet can never point at". A ref that encodes to
+ * the domain card's registry id and reads back as an environment through
+ * `byRef` would be one app disagreeing with itself about one slug.
+ *
+ * The list is duplicated here rather than imported because `src/engine` does
+ * not depend on `src/transfer`, and importing it would pull all 771 rows of
+ * `data/registry.json` into every consumer of this module - including the
+ * parsers and the build tools, which have no wire format in them. The two
+ * lists are held together by a test instead
+ * (`tests/engine/byRefPrecedence.test.ts`), which fails if either moves.
+ *
+ * ## First wins, and it used to be last
+ *
+ * `put` used to write into `byRef` as it filled each typed map, so the LAST
+ * collection written won and the effective precedence was the reverse of the
+ * call order: consumables beat loot beat environments beat adversaries beat
+ * communities beat ancestries beat domain cards. Nothing chose that; it was
+ * the order the six returned maps happened to be needed in. Measured, it made
+ * `indexDataset(srd2).byRef.get('hold-the-line')` return the ENVIRONMENT - the
+ * record a `Character` has no field for - and lose the card a loadout holds.
+ *
+ * `transformations` is absent because `indexDataset` has never carried it, and
+ * this is not the lane that adds it. That absence is why the second collision
+ * SRD 2.0 prints - the Vampire adversary (folio 142) against the VAMPIRE
+ * transformation card (folio 45) - is not a collision *here*: measured,
+ * `byRef.get('vampire')` returns the adversary, which is also what
+ * `BANDED_COLLECTIONS` decides, so adding transformations later at the end of
+ * this list would not move it.
+ */
+export const INDEXED_COLLECTIONS = [
+  'classes',
+  'subclasses',
+  'ancestries',
+  'communities',
+  'domainCards',
+  'beastforms',
+  'weapons',
+  'armors',
+  'loot',
+  'consumables',
+  'adversaries',
+  'environments',
+] as const;
+
+export type IndexedCollection = (typeof INDEXED_COLLECTIONS)[number];
+
+/**
+ * One typed map per collection: the exact lookup for a caller that knows its
+ * kind.
+ *
+ * This is the `idIn` of the runtime index. `byRef` answers "whatever this slug
+ * names", which is the right question for an inventory row (it can hold a
+ * weapon, an armor, a loot item or a consumable) and the wrong one for a GM
+ * scene's `environmentRef`, a `LinkTarget` that already carries its own kind,
+ * or a character's `ancestryRefs` - those callers know the collection, and
+ * asking the whole key space is how they end up holding a domain card and
+ * calling it an environment.
+ *
+ * It also retires four unchecked casts. `features.ts` wrote
+ * `index.byRef.get(r) as Ancestry`, which is an assertion the map could not
+ * support: `byRef` is `Map<Ref, unknown>` precisely because it holds twelve
+ * kinds, so the cast said "trust me" about the one thing the collision makes
+ * untrue. These maps make the same lookups type-check on their own.
+ */
+export interface CollectionIndex {
+  classes: Map<Ref, CharClass>;
+  subclasses: Map<Ref, Subclass>;
+  ancestries: Map<Ref, Ancestry>;
+  communities: Map<Ref, Community>;
+  domainCards: Map<Ref, DomainCard>;
+  beastforms: Map<Ref, Beastform>;
+  weapons: Map<Ref, Weapon>;
+  armors: Map<Ref, Armor>;
+  loot: Map<Ref, Item>;
+  consumables: Map<Ref, Item>;
+  adversaries: Map<Ref, Adversary>;
+  environments: Map<Ref, Environment>;
+}
+
 export interface DatasetIndex {
   classes: Map<Ref, CharClass>;
   subclasses: Map<Ref, Subclass>;
@@ -120,32 +231,62 @@ export interface DatasetIndex {
   armors: Map<Ref, Armor>;
   cards: Map<Ref, DomainCard>;
   beastforms: Map<Ref, Beastform>;
+  /**
+   * Every indexed record under its bare slug, first collection in
+   * `INDEXED_COLLECTIONS` winning a slug two of them print.
+   *
+   * Ask this only when the caller genuinely does not know the kind. When it
+   * does, `collections` below is the lookup that cannot answer with the wrong
+   * one.
+   */
   byRef: Map<Ref, unknown>;
+  /** The same records, kept apart by collection. See `CollectionIndex`. */
+  collections: CollectionIndex;
 }
 
 export function indexDataset(ds: Dataset): DatasetIndex {
-  const byRef = new Map<Ref, unknown>();
   const put = <T extends { id: Ref }>(items: T[]): Map<Ref, T> => {
     const m = new Map<Ref, T>();
-    for (const it of items) {
-      m.set(it.id, it);
-      byRef.set(it.id, it);
-    }
+    for (const it of items) m.set(it.id, it);
     return m;
   };
-  const classes = put(ds.classes);
-  const subclasses = put(ds.subclasses);
-  const weapons = put(ds.weapons);
-  const armors = put(ds.armors);
-  const cards = put(ds.domainCards);
-  const beastforms = put(ds.beastforms);
-  put(ds.ancestries);
-  put(ds.communities);
-  put(ds.adversaries);
-  put(ds.environments);
-  put(ds.loot);
-  put(ds.consumables);
-  return { classes, subclasses, weapons, armors, cards, beastforms, byRef };
+  const collections: CollectionIndex = {
+    classes: put(ds.classes),
+    subclasses: put(ds.subclasses),
+    ancestries: put(ds.ancestries),
+    communities: put(ds.communities),
+    domainCards: put(ds.domainCards),
+    beastforms: put(ds.beastforms),
+    weapons: put(ds.weapons),
+    armors: put(ds.armors),
+    loot: put(ds.loot),
+    consumables: put(ds.consumables),
+    adversaries: put(ds.adversaries),
+    environments: put(ds.environments),
+  };
+  /*
+   * The bare-slug view, filled in `INDEXED_COLLECTIONS` order and never
+   * overwritten. The loop reads the exported list rather than the literal
+   * above so the precedence is stated in exactly one place - the object's own
+   * key order is a coincidence a refactor can break silently, and a test can
+   * only hold this file to the registry by reading a value.
+   */
+  const byRef = new Map<Ref, unknown>();
+  for (const name of INDEXED_COLLECTIONS) {
+    for (const [ref, record] of collections[name]) {
+      if (!byRef.has(ref)) byRef.set(ref, record);
+    }
+  }
+  return {
+    classes: collections.classes,
+    subclasses: collections.subclasses,
+    weapons: collections.weapons,
+    armors: collections.armors,
+    cards: collections.domainCards,
+    beastforms: collections.beastforms,
+    byRef,
+    collections,
+  };
 }
 
 /**
