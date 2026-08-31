@@ -72,7 +72,7 @@ describe('reading a contents page', () => {
 
   it('refuses a range whose ends are in the wrong order', () => {
     const entries = parseContents(page([line('CONTENTS'), line('Later', '90'), line('Earlier', '10')]));
-    expect(() => rangeBetween(entries, 'Later', 'Earlier')).toThrow(/does not follow/);
+    expect(() => rangeBetween(entries, ['Later'], ['Earlier'])).toThrow(/does not follow/);
   });
 });
 
@@ -96,7 +96,7 @@ describe.skipIf(!have(0))('against SRD 1, whose answer is already known', () => 
       ['loot.ts', 'Loot', 'RUNNING AN ADVENTURE', 58, 62],
     ];
     for (const [who, from, before, wantFrom, wantTo] of cases) {
-      expect(rangeBetween(toc, from, before), who).toEqual({ from: wantFrom, to: wantTo });
+      expect(rangeBetween(toc, [from], [before]), who).toEqual({ from: wantFrom, to: wantTo });
     }
     expect(folioOf(toc, 'APPENDIX'), 'domainCards.ts APPENDIX_FROM').toBe(119);
   }, 120_000);

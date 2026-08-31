@@ -22,9 +22,14 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
+import { parseContents, sectionRange } from './contents.ts';
 
-const FROM = 27;
-const TO = 31;
+/*
+ * The folio range comes from the book's own contents page. It used to be
+ * written here, `FROM = 27` / `TO = 31`, which is right for SRD 1.0 and wrong for
+ * every other printing - SRD 2.0 reflows 135 printed pages into 224.
+ */
+const SECTION = 'Ancestries';
 
 /** The book states every ancestry grants two ancestry features. */
 const FEATURE_COUNT = 2;
@@ -44,6 +49,7 @@ const COLUMN_X_TOL = 30;
 type Sourced = Line & { folio: number };
 
 export function parseAncestries(pages: BookPage[]): Ancestry[] {
+  const range = sectionRange(parseContents(pages), SECTION);
   const lines = sourcedLines(pages);
   const roster = parseRoster(lines);
 
@@ -76,8 +82,9 @@ function isBanner(l: Line): boolean {
 }
 
 function sourcedLines(pages: BookPage[]): Sourced[] {
+  const range = sectionRange(parseContents(pages), SECTION);
   const out: Sourced[] = [];
-  for (const page of pagesInFolios(pages, FROM, TO)) {
+  for (const page of pagesInFolios(pages, range.from, range.to)) {
     for (const l of unmergeBanners(page)) out.push({ ...l, folio: page.folio! });
   }
   return out;
@@ -167,7 +174,15 @@ function joinRuns(runs: readonly TextRun[]): string {
  */
 function parseRoster(lines: Sourced[]): Set<string> {
   const at = lines.findIndex((l) => /following ancestries:/i.test(l.text));
-  if (at < 0) throw new ParseError('ancestry roster sentence not found', `folios ${FROM}-${TO}`);
+  if (at < 0) {
+    // The folios actually read, rather than the ones asked for: when this fires
+    // the interesting question is which pages arrived, not which were wanted.
+    const folios = lines.map((l) => l.folio);
+    throw new ParseError(
+      'ancestry roster sentence not found',
+      `folios ${Math.min(...folios)}-${Math.max(...folios)}`,
+    );
+  }
   const sentence = normalizeText(joinLines(lines.slice(at, at + 8).map((l) => l.text)));
   const m = /following ancestries:\s*([^.]+)\./i.exec(sentence);
   if (!m) throw new ParseError('ancestry roster sentence does not end in a period', sentence);

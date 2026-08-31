@@ -20,9 +20,14 @@ import {
   ParseError,
   splitOn,
 } from './util.ts';
+import { parseContents, sectionRange } from './contents.ts';
 
-const FROM_FOLIO = 8;
-const TO_FOLIO = 26;
+/*
+ * The folio range comes from the book's own contents page. It used to be
+ * written here, `FROM_FOLIO = 8` / `TO_FOLIO = 26`, which is right for SRD 1.0 and wrong for
+ * every other printing - SRD 2.0 reflows 135 printed pages into 224.
+ */
+const SECTION = 'Classes';
 
 /** Sub-section banners are set at 11.3pt against 9.3pt body. */
 const HEADING_SIZE = 10.5;
@@ -358,12 +363,16 @@ const parseClass = (
  * the reader's order for a plain two-column page, and a no-op on the other
  * eighteen.
  */
-const readingOrder = (pages: BookPage[]): FLine[] =>
-  pagesInFolios(pages, FROM_FOLIO, TO_FOLIO).flatMap((p) =>
+const readingOrder = (pages: BookPage[]): FLine[] => {
+  const range = sectionRange(parseContents(pages), SECTION);
+  return (
+  pagesInFolios(pages, range.from, range.to).flatMap((p) =>
     [...p.lines]
       .sort((a, b) => a.column - b.column || a.y - b.y || a.x - b.x)
       .map((l) => ({ ...l, folio: p.folio! })),
+    )
   );
+};
 
 export function parseClasses(pages: BookPage[]): { classes: CharClass[]; subclasses: Subclass[] } {
   const lines = readingOrder(pages);

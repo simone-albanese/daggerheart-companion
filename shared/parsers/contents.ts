@@ -88,16 +88,60 @@ export function parseContents(pages: BookPage[]): ChapterEntry[] {
   return out;
 }
 
-/** The folio a titled section starts on. Throws rather than guessing. */
-export function folioOf(entries: readonly ChapterEntry[], title: string): number {
-  const hit = entries.find((e) => key(e.title) === key(title));
-  if (hit === undefined) {
+/**
+ * The folio a titled section starts on. Throws rather than guessing.
+ *
+ * Takes ALTERNATIVES because the books do not always agree on a title: SRD 1.0
+ * prints `Loot` where SRD 2.0 prints `Loot & Items`. That is the only rename
+ * between the two contents pages - every other shared section keeps its
+ * wording - and listing both at the call site keeps the fact where the caller
+ * can see it, rather than in a translation table one indirection away.
+ *
+ * The first alternative that exists wins, so the order is oldest-first and a
+ * later book's rename never shadows the name a current one still uses.
+ */
+export function folioOf(entries: readonly ChapterEntry[], ...titles: string[]): number {
+  for (const title of titles) {
+    const hit = entries.find((e) => key(e.title) === key(title));
+    if (hit !== undefined) return hit.folio;
+  }
+  throw new ParseError(
+    `contents has no entry ${titles.map((t) => `"${t}"`).join(' or ')}`,
+    entries.map((e) => `${e.title} ${e.folio}`).join(' | '),
+  );
+}
+
+/**
+ * A section, from its folio to the one before whatever comes next.
+ *
+ * For the common case, where a chapter really does end where the next contents
+ * entry begins - and where WHICH entry that is differs between books. SRD 1.0
+ * follows Communities with CORE MECHANICS and SRD 2.0 follows it with
+ * Transformations, so naming the far end explicitly would need a different call
+ * per book. Reading it off the contents needs neither.
+ *
+ * `rangeBetween` stays for the case this cannot serve: a range that spans
+ * several entries, like `loot.ts` covering Loot and Consumables together.
+ */
+export function sectionRange(
+  entries: readonly ChapterEntry[],
+  ...titles: string[]
+): { from: number; to: number } {
+  const at = entries.findIndex((e) => titles.some((t) => key(e.title) === key(t)));
+  if (at < 0) {
     throw new ParseError(
-      `contents has no entry "${title}"`,
+      `contents has no entry ${titles.map((t) => `"${t}"`).join(' or ')}`,
       entries.map((e) => `${e.title} ${e.folio}`).join(' | '),
     );
   }
-  return hit.folio;
+  const next = entries.slice(at + 1).find((e) => e.folio > entries[at]!.folio);
+  if (next === undefined) {
+    throw new ParseError(
+      `"${entries[at]!.title}" is the last entry in the contents`,
+      'use rangeToEnd for a section that runs to the back of the book',
+    );
+  }
+  return { from: entries[at]!.folio, to: next.folio - 1 };
 }
 
 /**
@@ -109,14 +153,14 @@ export function folioOf(entries: readonly ChapterEntry[], title: string): number
  */
 export function rangeBetween(
   entries: readonly ChapterEntry[],
-  from: string,
-  before: string,
+  from: readonly string[],
+  before: readonly string[],
 ): { from: number; to: number } {
-  const start = folioOf(entries, from);
-  const end = folioOf(entries, before) - 1;
+  const start = folioOf(entries, ...from);
+  const end = folioOf(entries, ...before) - 1;
   if (end < start) {
     throw new ParseError(
-      `"${before}" (folio ${end + 1}) does not follow "${from}" (folio ${start})`,
+      `"${before.join('/')}" (folio ${end + 1}) does not follow "${from.join('/')}" (folio ${start})`,
       'the two ends are in the wrong order, or name the wrong sections',
     );
   }
