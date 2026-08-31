@@ -77,7 +77,8 @@ import {
   readableVersions,
   SchemaError,
 } from '../../shared/migrations.ts';
-import { MAX_FEAR, SCHEMA_VERSION, type SceneCombatant } from '../../shared/types.ts';
+import { MAX_FEAR, type SceneCombatant } from '../../shared/types.ts';
+import { declarations, references, stripComments } from '../harness/reachability.ts';
 import { newCharacter } from '../../src/engine/character.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
@@ -118,9 +119,13 @@ describe('the policy, applied to a second schema', () => {
      * be one chain whatever the two numbers happen to say.
      *
      * The teeth this leaves behind are structural rather than numeric: two
-     * chain objects, two ranges, and no converter in common. `stamps itself
-     * with the campaign schema, never the character one` below is the test
-     * that goes vacuous while the two constants agree, and it says so.
+     * chain objects, two ranges, and no converter in common.
+     *
+     * What it does NOT leave behind is any check on what `newCampaign` stamps.
+     * `stamps itself with the campaign schema, never the character one` below
+     * used to say this test held that in the meantime, and a mutant refuted it:
+     * `newCampaign` stamping `SCHEMA_VERSION` passes everything here. That test
+     * now asks the source instead, and explains why.
      */
     expect(CAMPAIGN_MIGRATIONS).not.toBe(MIGRATIONS);
     expect(CAMPAIGN_MIGRATIONS.map((m) => m.from)).not.toEqual(MIGRATIONS.map((m) => m.from));
@@ -290,12 +295,74 @@ describe('a campaign owns its own things, and not the player characters', () => 
   });
 
   it('stamps itself with the campaign schema, never the character one', () => {
-    // VACUOUS while the two constants agree, and they agree today - both read
-    // 5. `newCampaign` stamping `SCHEMA_VERSION` by mistake would pass this.
-    // Left standing rather than deleted because it stops being vacuous on its
-    // own the next time either schema moves without the other; what holds the
-    // property in the meantime is `numbers campaigns separately from
-    // characters`, which asks it of the chains instead of the numbers.
+    /*
+     * ASKED OF THE SOURCE, because the value cannot carry it.
+     *
+     * `CAMPAIGN_SCHEMA_VERSION` and `SCHEMA_VERSION` both read 5 today, so
+     * `expect(c.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION)` alone passes just
+     * as well when `newCampaign` stamps the character constant. That is not a
+     * worry, it is a measurement: `newCampaign` was edited to
+     * `schemaVersion: SCHEMA_VERSION` and the whole suite stayed green -
+     * 162 files, 4257 tests, `npx vitest run` on Node v24.19.0 - and
+     * `npx tsc --noEmit` stayed clean with it.
+     *
+     * The same mutant refutes the sentence that used to stand here, which said
+     * that what held the property in the meantime was `numbers campaigns
+     * separately from characters`. It does not. That test asks the two CHAINS
+     * to be separate objects with separate ranges and says nothing whatever
+     * about what `newCampaign` writes; it survived the mutant along with
+     * everything else. Nothing in the suite held this.
+     *
+     * So it is asked where the two constants still differ while their values
+     * agree: in the text. `campaignUrlRow.test.ts` already reads `shared/` and
+     * asserts on what is written there, and this is the same move for the same
+     * reason - a property no runtime observation can distinguish is either
+     * checked in the source or not checked at all. It stops being a source
+     * assertion the day the two numbers part, and the value assertion at the
+     * bottom is the one that takes over then.
+     */
+    const source = stripComments(
+      readFileSync(fileURLToPath(new URL('../../shared/campaigns.ts', import.meta.url)), 'utf8'),
+    );
+    const body = declarations('shared/campaigns.ts', source).decls.find(
+      (d) => d.name === 'newCampaign',
+    )?.body;
+    expect(body, '`newCampaign` is no longer a top-level declaration').toBeDefined();
+
+    /*
+     * The scanner first, against the one string that could fool it. `\b` does
+     * not fire between `CAMPAIGN_` and `SCHEMA_VERSION` - `_` is a word
+     * character - so looking for the character constant does not find the
+     * campaign one inside it. An assertion built on a matcher that cannot tell
+     * the two apart would be the vacuity this test is replacing, one level
+     * down.
+     */
+    expect(references('schemaVersion: CAMPAIGN_SCHEMA_VERSION,', 'SCHEMA_VERSION')).toBe(false);
+    expect(references('schemaVersion: SCHEMA_VERSION,', 'SCHEMA_VERSION')).toBe(true);
+
+    expect(references(body!, 'CAMPAIGN_SCHEMA_VERSION')).toBe(true);
+    expect(references(body!, 'SCHEMA_VERSION')).toBe(false);
+
+    /*
+     * And then the PAIR, because naming the constant is not stamping it. The
+     * two assertions above are only as strong as `newCampaign` naming
+     * `CAMPAIGN_SCHEMA_VERSION` exactly once, which it does today, at
+     * `schemaVersion: CAMPAIGN_SCHEMA_VERSION,`. A body that stamps a literal
+     * and names the constant somewhere else in a value position - a
+     * comparison, a fallback - satisfies both of them, and satisfies the value
+     * assertion below too while the numbers agree. That is the same vacuity
+     * this test was rewritten to escape, one storey lower.
+     *
+     * Measured, not feared. `newCampaign` was edited to stamp
+     * `schemaVersion: 5` while keeping the constant in a value position -
+     * `fear: CAMPAIGN_SCHEMA_VERSION < 0 ? 1 : 0`, which is still 0, and a
+     * value position because the symbol is a const and cannot appear in a
+     * type. With this line deleted, `npx tsc --noEmit` is clean and
+     * `npx vitest run` is green at 162 files / 4258 tests on that mutant. With
+     * this line back, the mutant fails here and in no other file.
+     */
+    expect(/schemaVersion:\s*CAMPAIGN_SCHEMA_VERSION\b/.test(body!)).toBe(true);
+
     const c = newCampaign('x', '2026-08-16T10:00:00.000Z', 'campaign-1');
     expect(c.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
   });
@@ -1274,6 +1341,96 @@ describe('what campaign schema 3 added, held down', () => {
     expect(campaign.archive[0]!.name).toBe('The first night out');
     expect(campaign.archive[0]!.items.map((i) => i.kind)).toEqual(['scene']);
     expect(campaign.register.map((e) => e.name)).toContain('Old Hessa, the ferrywoman');
+  });
+
+  it('gives an archived sitting its own fight, even when the record hands it the live row', () => {
+    /*
+     * The promise above `ArchivedSession` - a copy of the rows, never a list of
+     * references into the live plan - carries a whole fight since schema 5, and
+     * NOTHING IN THIS BUILD CLOSES A SITTING. `archive` is written by
+     * `newCampaign`, which seeds it `[]`, and by `readCampaignRecord`, and by
+     * nothing else. So the reader is the only thing that can hold the promise,
+     * and this asks it of the reader.
+     *
+     * The shape it has to survive is the one a `close()` would produce -
+     * `archive.push({ items: campaign.session })` shares the row objects - and
+     * the one an imported file can already contain. `campaignImport.ts` says
+     * the archive repeating a live row's id is deliberate; this asks the harder
+     * half of that, which is that repeating the id must not mean sharing the
+     * object.
+     *
+     * `readSessionItem` naming its fields one at a time and `readCombatants`
+     * rebuilding every body is what makes it true. Mutating the scene arm's
+     * `combatants: readCombatants(r['combatants'], warn)` into
+     * `combatants: (Array.isArray(r['combatants']) ? r['combatants'] : []) as SceneCombatant[]`
+     * turns the identity assertions below red; that mutant was applied and run
+     * before this was committed.
+     */
+    const shared = {
+      id: 'scene-1',
+      kind: 'scene',
+      name: 'The frozen ford',
+      order: 0,
+      collapsed: false,
+      environmentRef: 'raging-river',
+      roster: [{ ref: 'acid-burrower', count: 1 }],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [
+        {
+          id: 'acid-burrower-0',
+          adversaryRef: 'acid-burrower',
+          name: 'Acid Burrower',
+          hp: { marked: 0, max: 8 },
+          stress: { marked: 0, max: 3 },
+          thresholds: [8, 15],
+          difficulty: 14,
+          spotlighted: false,
+          notes: '',
+        },
+      ],
+    };
+
+    const { campaign } = readCampaignRecord(
+      bare({
+        session: [shared],
+        archive: [
+          {
+            id: 'sitting-1',
+            name: 'Last week',
+            closedAt: '2026-08-11T23:40:00.000Z',
+            // The same object, not a second one shaped like it.
+            items: [shared],
+            account: [],
+          },
+        ],
+      }),
+    );
+
+    const live = campaign.session[0];
+    const kept = campaign.archive[0]?.items[0];
+    if (live?.kind !== 'scene' || kept?.kind !== 'scene') {
+      throw new Error('both rows should have read back as scenes');
+    }
+
+    // The archive repeats the live row's id, and shares not one object with it.
+    expect(kept.id).toBe(live.id);
+    expect(kept).not.toBe(live);
+    expect(kept.roster).not.toBe(live.roster);
+    expect(kept.adjustments).not.toBe(live.adjustments);
+    expect(kept.combatants).not.toBe(live.combatants);
+    expect(kept.combatants[0]).not.toBe(live.combatants[0]);
+    expect(kept.combatants[0]?.hp).not.toBe(live.combatants[0]?.hp);
+    expect(kept.combatants[0]?.stress).not.toBe(live.combatants[0]?.stress);
+    expect(kept.combatants[0]?.thresholds).not.toBe(live.combatants[0]?.thresholds);
+
+    // And the consequence, which is the whole reason the promise exists:
+    // running this week's fight leaves last week's record where it stood.
+    live.combatants[0]!.hp.marked = 7;
+    live.combatants[0]!.spotlighted = true;
+    live.roster[0]!.count = 4;
+    expect(kept.combatants[0]?.hp.marked).toBe(0);
+    expect(kept.combatants[0]?.spotlighted).toBe(false);
+    expect(kept.roster[0]?.count).toBe(1);
   });
 
   it('wraps a register entry whose kind this build has never heard of', () => {
