@@ -1,0 +1,124 @@
+/**
+ * The book's own table of contents, read as data.
+ *
+ * Every other parser in this directory selects its material by a folio number
+ * written into its source: `const FROM = 27` for ancestries, `APPENDIX_FROM =
+ * 119` for the domain-card reference. Those numbers are correct and were
+ * measured, and they are correct **for one book**. SRD 2.0 reflows 135 printed
+ * pages into 224, so every one of them points somewhere else - and the failure
+ * is not always loud. `parseDomainCards` throws, because an adversary where the
+ * appendix should be does not look like a card; a range that happens to land on
+ * plausible material would not throw at all.
+ *
+ * Both books print a contents page, and both print it in the same shape: a
+ * title, a run of leaders, and the folio. So the numbers do not have to be
+ * carried in the source at all - the book states them, and this reads them.
+ *
+ * ## Why the folio is taken from the runs and not from the line
+ *
+ * `line.text` is truncated before the number on every sub-entry: the leaders
+ * are wide enough that the text is cut while the runs are not. Measured on both
+ * books - SRD 1 line "Classes . . . ." with a final run `".8"`, SRD 2 line
+ * "Ancestries........" with a final run `"32"`. The last run is where the folio
+ * is, in both, and in SRD 1 it may arrive fused to the last leader dot.
+ *
+ * ## What this deliberately does not do
+ *
+ * It does not decide any parser's range. A chapter's material does not always
+ * end where the next TOC entry begins - `loot.ts` covers Loot and Consumables
+ * together, so its range runs from one sub-entry to the next top-level chapter -
+ * and guessing that from indentation would be a rule with exceptions nobody
+ * wrote down. `rangeBetween` takes both ends by name and each parser says which
+ * two it means.
+ */
+import type { BookPage } from '../textLayout.ts';
+import { ParseError } from './util.ts';
+
+export interface ChapterEntry {
+  /** As printed, minus the leaders. */
+  title: string;
+  /** The printed folio, which is what every parser's range is expressed in. */
+  folio: number;
+}
+
+/** Fold the punctuation the two books disagree about, so a title can be matched. */
+const key = (s: string): string =>
+  s
+    .normalize('NFKC')
+    .replace(/[‐‑‒–—−]/g, '-')
+    .replace(/[‘’ʼ]/g, "'")
+    .replace(/[­​]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/** Read the contents page. Order is the book's, which is reading order. */
+export function parseContents(pages: BookPage[]): ChapterEntry[] {
+  const page = pages.find((p) => p.lines.some((l) => /^contents$/i.test(l.text.trim())));
+  if (page === undefined) throw new ParseError('no contents page found', 'looked for a line reading CONTENTS');
+
+  const out: ChapterEntry[] = [];
+  for (const line of page.lines) {
+    /*
+     * The whole line, rebuilt from its runs, then split at the tail.
+     *
+     * Not "the last run is the folio, the rest is the title": that is what this
+     * did first and it lost two entries per book. How a line divides into runs
+     * is the extractor's business, not the book's - SRD 1 breaks every leader
+     * dot into its own run and fuses the last one to the digit (`".8"`), while
+     * SRD 2 can put title, leaders and folio in a SINGLE run
+     * (`"INTRODUCTION.....3"`), which left nothing before it to be the title.
+     * Rebuilding first and splitting on the shape of the text is the same rule
+     * for both.
+     */
+    const joined = line.runs
+      .map((r) => r.text)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const m = /^(.*?)[\s.]*(\d{1,3})$/.exec(joined);
+    if (m === null) continue;
+
+    const title = m[1]!.replace(/[.\s]+$/, '').trim();
+    if (title.length === 0) continue;
+    out.push({ title, folio: Number(m[2]) });
+  }
+
+  if (out.length === 0) throw new ParseError('contents page has no entries', 'no line ended in a folio');
+  return out;
+}
+
+/** The folio a titled section starts on. Throws rather than guessing. */
+export function folioOf(entries: readonly ChapterEntry[], title: string): number {
+  const hit = entries.find((e) => key(e.title) === key(title));
+  if (hit === undefined) {
+    throw new ParseError(
+      `contents has no entry "${title}"`,
+      entries.map((e) => `${e.title} ${e.folio}`).join(' | '),
+    );
+  }
+  return hit.folio;
+}
+
+/**
+ * From one section's first folio to the folio before another's.
+ *
+ * Both ends are named because a chapter does not always end where the next TOC
+ * entry begins - see the docblock. `to` is inclusive, matching the `FROM`/`TO`
+ * constants this replaces.
+ */
+export function rangeBetween(
+  entries: readonly ChapterEntry[],
+  from: string,
+  before: string,
+): { from: number; to: number } {
+  const start = folioOf(entries, from);
+  const end = folioOf(entries, before) - 1;
+  if (end < start) {
+    throw new ParseError(
+      `"${before}" (folio ${end + 1}) does not follow "${from}" (folio ${start})`,
+      'the two ends are in the wrong order, or name the wrong sections',
+    );
+  }
+  return { from: start, to: end };
+}
