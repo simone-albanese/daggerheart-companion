@@ -4,6 +4,14 @@
 > ogni ondata che atterra prima, e un rebase riscrive ogni hash: questo documento ne ha già portati
 > due morti per un'ora. Un oggetto sopravvive al rebase, un hash no.
 
+> **NOTA, 31 agosto 2026, dopo l'integrazione.** Le §7, §8, §10 e §11 reggono. La §12 regge sul
+> punto principale (un solo file portava coordinate assolute; non ne porta più). **Ciò che NON regge
+> è nella §4 di `HANDOFF-SRD-2-2026-08-31.md`:** «~135 avversari» sono 264; le due sezioni di regole
+> «rinominate» non lo sono, quei nomi li ha inventati `rules.ts`; U+00AD e U+200B non valgono
+> nulla per il confronto per nome; i trattini ASCII sono 1993, non 1982. La §3 (le 9 armi) resta
+> **rinviata** ed è confermata dal parser: 9 record spariti, tutti primary/t3/Magic, tutti dal
+> folio 49 dell'SRD 1.
+
 **Questo documento è l'autorità sulle decisioni.** Il piano di lavoro sta nei messaggi di commit
 del ramo `srd-2`. I numeri qui sono stati **misurati in questa sessione**, non ereditati: dove un
 documento precedente dice altro, quel documento è sbagliato e la §7 dice in cosa.
