@@ -122,11 +122,24 @@ export function folioOf(entries: readonly ChapterEntry[], ...titles: string[]): 
  *
  * `rangeBetween` stays for the case this cannot serve: a range that spans
  * several entries, like `loot.ts` covering Loot and Consumables together.
+ *
+ * ## `to` INCLUDES the next section's first folio, and `next` says whose it is
+ *
+ * A chapter can end on the page where the next one begins, and in SRD 2.0 the
+ * ancestries do: SIMIAH is printed on folio 38 above the COMMUNITIES banner,
+ * and the contents says Communities starts at 38. Stopping at 37 loses an
+ * ancestry - loudly, because the roster names it, but a chapter without a
+ * roster would have lost it in silence.
+ *
+ * So the range overlaps by one page and the caller is told which title marks
+ * the end, to cut its own lines there. Which is the caller's job rather than
+ * this function's: where a chapter stops on a shared page is a question about
+ * banners and faces, and this module only reads the contents page.
  */
 export function sectionRange(
   entries: readonly ChapterEntry[],
   ...titles: string[]
-): { from: number; to: number } {
+): { from: number; to: number; next: string } {
   const at = entries.findIndex((e) => titles.some((t) => key(e.title) === key(t)));
   if (at < 0) {
     throw new ParseError(
@@ -141,7 +154,7 @@ export function sectionRange(
       'use rangeToEnd for a section that runs to the back of the book',
     );
   }
-  return { from: entries[at]!.folio, to: next.folio - 1 };
+  return { from: entries[at]!.folio, to: next.folio, next: next.title };
 }
 
 /**
@@ -191,4 +204,31 @@ export function rangeToEnd(
     );
   }
   return { from: start, to: last };
+}
+
+/**
+ * The lines that belong to one section, cut at both ends by its own banner and
+ * the next one's.
+ *
+ * `sectionRange` deliberately overlaps the next section by a page, because a
+ * chapter can end on the page the next one begins - SRD 2.0 prints SIMIAH above
+ * the COMMUNITIES banner on folio 38. That overlap means the page arrives
+ * carrying both chapters, at BOTH ends of a range, so a reader that only
+ * trimmed the tail would take the previous chapter's last entries as its own
+ * first ones. It happened: communities read `Simiah` and asked why an ancestry
+ * had no COMMUNITY FEATURE.
+ *
+ * A missing head is not an error - a section that starts a page has nothing
+ * above it, and requiring the banner would break every chapter that does.
+ */
+export function sliceSection<T extends { text: string }>(
+  lines: readonly T[],
+  section: string,
+  next: string,
+): T[] {
+  const same = (a: string, b: string): boolean => key(a) === key(b);
+  const head = lines.findIndex((l) => same(l.text, section));
+  const from = head < 0 ? 0 : head + 1;
+  const tail = lines.slice(from).findIndex((l) => same(l.text, next));
+  return tail < 0 ? [...lines.slice(from)] : [...lines.slice(from, from + tail)];
 }

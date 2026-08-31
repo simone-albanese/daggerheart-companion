@@ -19,7 +19,7 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
-import { parseContents, sectionRange } from './contents.ts';
+import { parseContents, sectionRange, sliceSection } from './contents.ts';
 
 /*
  * The folio range comes from the book's own contents page. It used to be
@@ -35,10 +35,13 @@ type Sourced = Line & { folio: number };
 
 export function parseCommunities(pages: BookPage[]): Community[] {
   const range = sectionRange(parseContents(pages), SECTION);
-  const lines: Sourced[] = [];
+  const all: Sourced[] = [];
   for (const page of pagesInFolios(pages, range.from, range.to)) {
-    for (const line of readingOrder(page)) lines.push({ ...line, folio: page.folio! });
+    for (const line of readingOrder(page)) all.push({ ...line, folio: page.folio! });
   }
+  // Cut at both ends: the range overlaps a page into the next section, and in
+  // SRD 2.0 the page it starts on carries the last ancestry above this banner.
+  const lines = sliceSection(all, SECTION, range.next);
 
   // The section title "COMMUNITIES" is set at 17pt; the banners at 12pt.
   const blocks = splitOn(lines, (l) => isDisplay(l) && l.size < 15);

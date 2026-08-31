@@ -126,10 +126,31 @@ export interface Layer {
 /** Field name -> id of the layer that defined it. */
 export type Provenance = Record<string, string>;
 
+/**
+ * Which printed product an entry comes from.
+ *
+ * `core` is the Daggerheart Core Set - the box on a shelf. `expansion` is the
+ * Hope & Fear Expansion Set. SRD 2.0 fences the two explicitly, four times, in
+ * sentences of the form "the Daggerheart Core Set includes only the following
+ * ancestries: ..."; SRD 1.0 makes no such distinction anywhere, which is why
+ * this is optional rather than defaulted. Absent means THE BOOK DID NOT SAY,
+ * and that is a different fact from `core`.
+ */
+export type ProductSet = 'core' | 'expansion';
+
 export interface Sourced {
   provenance?: Provenance;
   /** Printed folio in the source book, for "look it up" affordances. */
   sourcePage?: number;
+  /** Which product carries this. Absent when the source book does not fence them. */
+  set?: ProductSet;
+  /**
+   * The optional rules module this belongs to, for content that is not part of
+   * the base rules at all - SRD 2.0's Everyday Hero, Western and Monster
+   * Hunting chapters print weapons and armor that a table using the base rules
+   * never sees. Absent means base content, which is the overwhelming majority.
+   */
+  module?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +219,17 @@ export interface Ancestry extends Sourced {
   name: string;
   description: string;
   features: [Feature, Feature];
+  /**
+   * The group an ancestry is printed under, when the book prints one.
+   *
+   * SRD 2.0 gathers Earthkin, Emberkin, Skykin and Tidekin beneath an ELEMENTAL
+   * KIN heading that has its own prose and NO features of its own - the four
+   * carry theirs individually. So the family is real and is not a fifth
+   * ancestry, which is why it is a field here rather than a record of its own:
+   * a `families` collection would be one entry, no mechanics, and a second
+   * thing for every consumer to learn.
+   */
+  family?: string;
 }
 
 export interface Community extends Sourced {
