@@ -520,8 +520,10 @@ function SceneArm({
         top bar's `SCENE · n` chip appears only once the open scene has
         something in it.
 
-        ERGONOMICS, MEASURED. The strip returned 0px. The prose did not: it
-        grew by 47.58px on every scene row.
+        ERGONOMICS, MEASURED. The strip returned 0px. The prose did not: on a
+        row holding its own fight it grew by 47.58px, and in the other three
+        states it did something between -15.86 and +63.44. The range is the
+        finding; the 47.58 alone was not.
 
         Chrome, `pointer: coarse`, insets 47/34, `0370586` against `ab66cf2`,
         the same schema-4 campaign seeded into both so each build reads its own
@@ -557,15 +559,51 @@ function SceneArm({
         What arrived is unconditional. The opening sentence went from 2 lines
         to 3 - 31.72 to 47.58 - and `To change this plan` from 4 to 6 - 63.44
         to 95.16 - at both sizes; `Parked here` to `In this scene` is 47.58
-        either way. Every scene row is therefore **+47.58px** whatever state it
-        is in: the arm is 667.73 -> 715.31 holding a fight and 510.16 -> 557.73
-        planned, and the three-row list is 1802.39 -> 1897.54, +95.15px.
+        either way.
 
-        AND THEN THE REORDER TOOK 52.00 BACK, on the row holding a fight only.
-        As this tree draws it that arm is 663.31 and the list is 1845.54, so
-        what a GM pays for Wave B and C1 together is +43.15px over three rows
-        rather than +95.15. The 104px below is the ROSTER pair's own cost when
-        it landed, and is still not this.
+        SO THE NET IS +47.58 ONLY WHERE NOTHING WAS DRAWING, AND THE FOUR
+        STATES DISAGREE. The gain is unconditional; the loss is whichever of
+        the three deleted paragraphs that state drew, plus its 10px gap. Both
+        halves were measured in all four seeded states at both sizes, and this
+        is the whole of it. Prose is the sum of the arm's `<Fact>` heights, and
+        the two figures in a cell are the two scene rows the seed carries - the
+        one the state is ABOUT first, the other one second:
+
+          state    what is on the board            393x852          375x667
+          parked   nothing, the fight is here    +47.58  +47.58   +47.58  +47.58
+          live     the fight, this row named     +63.44  +15.86   +47.58    0.00
+          orphan   the fight, no row named         0.00    0.00   -15.86  -15.86
+          enc      as `live`, plus an enc row    +63.44  +15.86   +47.58    0.00
+
+        The two negatives are not typos: in the orphan state at 375x667 this
+        tree draws LESS prose than `ab66cf2` did. The arm totals swing further
+        still, because on a `live` row the strip also gains `CLEAR THIS
+        FIGHT`'s line - +115.43 / +5.85 at 393x852 and +99.58 / -10.00 at
+        375x667 - against -10.00 / -25.86 in the orphan state, where the whole
+        arm is shorter than it was.
+
+        `orphan` has no counterpart here by construction: `shared/campaigns.ts`'s
+        `from: 4` converter lands a board fight on a scene row, so the state
+        that drew that paragraph cannot be reached on this tree, and what the
+        row loses is the paragraph and its gap - the one place Wave B did
+        remove measurable height, which is the question the brief asked.
+
+        The headline the seeded three-row list is about is the `parked` one,
+        and there it is exact at both sizes: the arm is 667.73 -> 715.31
+        holding a fight and 510.16 -> 557.73 planned, and the list is
+        1802.39 -> 1897.54, +95.15px.
+
+        AND THE REORDER BELOW TAKES NOTHING BACK. Its first arrangement did -
+        it pulled the strip 304 -> 252 on the row holding a fight, and this
+        paragraph used to end on a 1845.54 list and +43.15px - but that saving
+        was the primary sharing a line with `CLEAR THIS FIGHT`, and the armed
+        state condemned it. The arrangement that shipped instead keeps the
+        strip at 304.00: measured on this tree at 393x852, 375x667 AND 360x800,
+        the arm is 715.31 and the list is 1897.54 (841.31 + 683.73 + 372.50),
+        resting and armed alike. So Wave B and C1 together cost the +95.15px
+        above and the reorder buys reach only, which is what it was for. The
+        104px below is the ROSTER pair's own cost when it landed, and is still
+        not this.
       */}
       {/*
         The plan this row carries, on the row that carries it.
@@ -593,6 +631,51 @@ function SceneArm({
       </Fact>
 
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        {inTheFight > 0 && (
+          /*
+           * The only pruning gesture in the app, and it arms.
+           *
+           * Holding a fight is the resting state of a played scene now rather
+           * than the result of a deliberate park, so the switcher's strip
+           * grows by default and this is the one control that shrinks it. It
+           * arms because it destroys the only copy of those marks - there is
+           * no board holding a second one and no undo.
+           *
+           * It is deliberately NOT hidden on the row the runner is already
+           * showing, even though END SCENE in the runner clears the same
+           * fight. Hiding it there would make a control appear and disappear
+           * according to which screen the GM was last on, which is the tap
+           * count depending on unseen state that `Scene.tsx` rejects in its
+           * own arming paragraph - the one that keeps END SCENE arming at an
+           * empty table. Two armed destructions reachable from two screens,
+           * both arming, both naming the same fight, is not a defect.
+           *
+           * `clearScene(item.id)`, not a row patch: `patchSessionItem` refuses
+           * to write `combatants` at all, so this row's fight has exactly one
+           * writer and it is the store's.
+           *
+           * IT IS FIRST IN THE STRIP FOR A MEASURED REASON, and the block
+           * below the crossing verbs carries the numbers: because it arms, its
+           * label changes width under the thumb (148.63 -> 165.72), so
+           * wherever it shares a line it reflows that line mid-gesture. On its
+           * own line it cannot, and it ends up 282.00px above the foot of the
+           * strip instead of 22.00 - the furthest control from the thumb
+           * rather than one of the two nearest. Do not pair it with anything.
+           */
+          <Verb
+            onClick={() => {
+              if (!armed) {
+                setArmed(true);
+                return;
+              }
+              clearScene(item.id);
+              setArmed(false);
+            }}
+            label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
+            row={row}
+          />
+        )}
+
         {/*
           Every verb here names the noun it moves, and that is what adding the
           roster pair cost. `PUT THIS ON THE BOARD` and `KEEP WHAT IS ON THE
@@ -609,9 +692,15 @@ function SceneArm({
           and **331.00** at 375x667 - 393 less the list's 12px page padding
           either side, less the panel's stripe, border and padding, less the
           open block's own - and neither viewport gives 363 for anything on
-          this row. Two to a line would need every label under about 170px,
-          which is not a length these verbs can be written in and stay
-          unambiguous. So the fix costs this arm two more lines, 104px, and
+          this row. Two to a line would need every label under about **161px**:
+          a pair has to fit the NARROWER column to pair on both, and
+          (331 - 8) / 2 = 161.5. Half of 349 is 170.5, and taking the threshold
+          from the wide column is the same slip as the 363 this paragraph just
+          corrected - (363 - 8) / 2 = 177.5 is exactly where the old 177 came
+          from. The conclusion holds either way, because the narrowest of the
+          four is 246.41 and that is not a length these verbs can be written in
+          and stay unambiguous; it is the number that was wrong, not the
+          argument. So the fix costs this arm two more lines, 104px, and
           that is what a GM pays to be able to change a plan at all.
           `docOverflowX` is 0.00 at both sizes and nothing is under the tap
           floor.
@@ -641,79 +730,71 @@ function SceneArm({
           row={row}
         />
 
-        {inTheFight > 0 && (
-          /*
-           * The only pruning gesture in the app, and it arms.
-           *
-           * Holding a fight is the resting state of a played scene now rather
-           * than the result of a deliberate park, so the switcher's strip
-           * grows by default and this is the one control that shrinks it. It
-           * arms because it destroys the only copy of those marks - there is
-           * no board holding a second one and no undo.
-           *
-           * It is deliberately NOT hidden on the row the runner is already
-           * showing, even though END SCENE in the runner clears the same
-           * fight. Hiding it there would make a control appear and disappear
-           * according to which screen the GM was last on, which is the tap
-           * count depending on unseen state that `Scene.tsx` rejects in its
-           * own arming paragraph - the one that keeps END SCENE arming at an
-           * empty table. Two armed destructions reachable from two screens,
-           * both arming, both naming the same fight, is not a defect.
-           *
-           * `clearScene(item.id)`, not a row patch: `patchSessionItem` refuses
-           * to write `combatants` at all, so this row's fight has exactly one
-           * writer and it is the store's.
-           */
-          <Verb
-            onClick={() => {
-              if (!armed) {
-                setArmed(true);
-                return;
-              }
-              clearScene(item.id);
-              setArmed(false);
-            }}
-            label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
-            row={row}
-          />
-        )}
-
         {/*
-          THE PRIMARY IS LAST, AND THAT IS THE C1 REORDER RATHER THAN THE
-          ARRANGEMENT THIS ARM SHIPPED.
+          THE PRIMARY IS LAST AND `CLEAR THIS FIGHT` IS FIRST, AND THAT IS THE
+          C1 REORDER PLUS THE REPAIR PASS THAT MEASURED ITS ARMED STATE.
 
-          It was FIRST, before this change and through all of Wave B, while
-          the plan's ergonomics paragraph claimed it was last and rested a
+          The primary was FIRST, before C1 and through all of Wave B, while the
+          plan's ergonomics paragraph claimed it was last and rested a
           thumb-reach argument on the claim. B6 caught the claim and handed the
           reorder here, because a reach is a browser measurement and not a
-          reading. Measured, in Chrome, `pointer: coarse`, insets 47/34, at
-          393x852 and 375x667, both arrangements built in the live DOM of the
-          same page so one layout engine drew both:
+          reading. Measured, in Chrome, `pointer: coarse`, insets 47/34, all
+          three arrangements built in the live DOM of the same page so one
+          layout engine drew them all. Distances are the control's centre above
+          the FOOT OF THE STRIP, which is where a thumb rests:
 
-            primary first   strip 304.00, six lines, primary's centre 282.00px
-                            above the foot of the scroll window
-            primary last    strip 252.00, five lines, primary's centre 22.00px
-                            above it
+            primary first (Wave B)      strip 304.00, 6 lines
+                                        primary 282.00   CLEAR  22.00
+            primary last, CLEAR before  strip 252.00, 5 lines
+                                        primary  22.00   CLEAR  22.00
+            CLEAR first, primary last   strip 304.00, 6 lines
+                                        primary  22.00   CLEAR 282.00
 
-          260.00px of reach at BOTH sizes, and 52.00px of row with it. The
-          52.00 is Wave B's own doing: `OPEN THIS FIGHT` is 156.20 where `BACK
-          TO THIS FIGHT` was 178.67, so it fits beside `CLEAR THIS FIGHT`
-          (148.63) - 156.20 + 8 + 148.63 = 312.83 inside the 349.00 column and
-          inside the 331.00 one, where the old label at 375x667 needed 335.30
-          and wrapped. On a row with no fight there is no `CLEAR` to pair with,
-          so the strip stays 252.00 and the reorder buys reach only: 230.00 ->
-          22.00.
+          260.00px of reach at both sizes, and the second and third arrangements
+          buy all of it. C1 took the second, for the 52.00px of row that comes
+          with it. This is the third, and the 52.00 is given back, because the
+          second one was measured in only one of its two states.
 
-          The price is that `CLEAR THIS FIGHT` is what shares the primary's
-          line, 8px away, on the row where both are drawn. The third
-          arrangement that separates them - `CLEAR` first, primary last - was
-          measured too: it puts the primary in the same place (22.00) and costs
-          the 52.00 back, because `CLEAR` then holds a line of its own. It also
-          puts the one destructive verb on this arm at the TOP of the strip,
-          where a thumb coming down the row meets it first. So the 8px
-          neighbour is kept, and what makes it affordable is that `CLEAR` arms:
-          a mis-tap changes a label and the second tap is the one that
-          destroys.
+          THE ARMED STATE IS WHY. `CLEAR` arms, so its label changes under the
+          thumb: `TAP AGAIN TO CLEAR` is 165.72 where `CLEAR THIS FIGHT` is
+          148.63. In the second arrangement those two share a line, so arming a
+          destructive control REFLOWED THE STRIP. The pair is `CLEAR` + 8 + the
+          primary: 148.63 + 8 + 156.20 resting, 165.72 + 8 + 156.20 armed,
+          17.09 wider. Measured by tapping it - the seed above, `pointer:
+          coarse`, at three widths, as what the column has LEFT OVER:
+
+                     column   slack resting   slack armed   what arming did
+            393x852  349.00       36.17          19.08      primary slides +17.09
+            375x667  331.00       18.17           1.08      the same, on 1.08 left
+            360x800  316.00        3.17          WRAPS      strip 252.00 -> 304.00
+
+          So at 375x667 the armed pair left **1.08px** of the column - a margin
+          no one had written down, which any label edit or font-metric change
+          would spend - and at 360px, a width this repo's own harness already
+          sweeps, the strip grew a line BETWEEN THE TWO TAPS of the one gesture
+          in this app that destroys without an undo.
+
+          And the affordability argument was backwards. It said a mis-tap only
+          changes a label, because the second tap is the one that destroys -
+          but once `CLEAR` is armed the second tap IS the mis-tap's tap, the
+          neighbour 8px away is the row's most-used verb, and arming had just
+          moved that verb 17.09px right. The 9.09px band from x=179.63 to
+          x=188.72 was `OPEN THIS FIGHT` before the tap and `TAP AGAIN TO
+          CLEAR` after it, for the four seconds until the disarm above fires.
+          A control that moves according to state the GM did not choose is the
+          objection `Scene.tsx` raises about tap counts, and it applies here.
+
+          `CLEAR` first answers all of it and gives up only the 52.00. The
+          primary keeps its 22.00; nothing on the strip moves when `CLEAR`
+          arms, at any of the three widths, because `CLEAR` has a line to grow
+          into - 148.63 and then 165.72 in a 316.00 column with 150.28 to
+          spare. And the objection to this arrangement, that it puts the one
+          destructive verb at the TOP of the strip where a thumb coming down
+          the row meets it first, is about reading order and is answered by the
+          same measurement: CLEAR goes from 22.00px above the strip's foot to
+          282.00, which is 260.00px FURTHER from the resting thumb. Both of the
+          other arrangements leave it on the thumb's own line. The most-used
+          verb takes that line instead.
         */}
         {inTheFight > 0 ? (
           /*
@@ -1121,11 +1202,17 @@ function EncounterArm({
           was written, and is true again - which is why the history is kept
           rather than the sentence restored. `SceneArm` drew its one primary
           FIRST, before Wave B and after it, while this comment and the plan
-          both said otherwise. The Chrome pass measured the two arrangements
-          and moved `SceneArm`'s ternary to the end of its own strip: 260.00px
-          of reach at 393x852 and at 375x667, and 52.00px of row on a scene
-          holding a fight. The argument and the numbers are in `SceneArm`'s
-          strip, above its ternary; this arm has not moved.
+          both said otherwise. The Chrome pass measured three arrangements and
+          moved `SceneArm`'s ternary to the end of its own strip: 260.00px of
+          reach at 393x852 and at 375x667. It bought 52.00px of row with it at
+          first, by pairing the primary with `CLEAR THIS FIGHT`; the repair
+          pass measured the armed state, found the pair reflowing mid-gesture,
+          and gave the 52.00 back by sending `CLEAR` to the front instead. The
+          argument and the numbers are in `SceneArm`'s strip, above its
+          ternary; this arm has not moved.
+
+          `EncounterArm` is not exposed to any of that, because it has no
+          `CLEAR` and nothing on its strip arms.
         */}
         <Verb
           onClick={openFight}

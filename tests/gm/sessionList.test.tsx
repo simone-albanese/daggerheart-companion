@@ -640,12 +640,24 @@ describe('the scene arm', () => {
      * and a comment in this arm's own file both said it drew it last. The
      * Chrome pass measured both arrangements at 393x852 and at 375x667 and
      * moved it: the primary's centre goes from 282.00px above the foot of the
-     * scroll window to 22.00px, and on a row holding a fight the strip drops
-     * 304.00 -> 252.00 because `OPEN THIS FIGHT` (156.20) then fits beside
-     * `CLEAR THIS FIGHT` (148.63) inside the 349.00 column. jsdom cannot see
-     * any of that, so what is asserted here is the only half it can hold: the
-     * primary is the LAST child of the strip, in every state, which is the
-     * thing a later edit could quietly undo.
+     * strip to 22.00px, 260.00px of reach at both sizes.
+     *
+     * The order asserted below is the SECOND arrangement C1 tried, and the
+     * first one it shipped is the one this file used to pin. That first one
+     * put `CLEAR THIS FIGHT` between the crossing verbs and the primary, so
+     * the two shared a line - and the repair pass measured what the reorder
+     * had never measured, the state where `CLEAR` is armed. `TAP AGAIN TO
+     * CLEAR` is 165.72 where `CLEAR THIS FIGHT` is 148.63, so arming reflowed
+     * the strip under the thumb: the primary slid 17.09px right at 393x852 and
+     * 375x667, which left 1.08px of the 331.00 column, and at 360px the strip
+     * wrapped 252.00 -> 304.00 between the two taps of a destructive
+     * confirmation. `CLEAR` first costs the 52.00px back, keeps the primary's
+     * 22.00, and moves `CLEAR` itself from 22.00px above the strip's foot to
+     * 282.00 - the destructive verb leaves the thumb's line and the primary
+     * takes it. jsdom cannot see any of that, so what is asserted here is the
+     * only half it can hold: the primary is the LAST child of the strip and
+     * `CLEAR` is the FIRST, which is the thing a later edit could quietly
+     * undo.
      */
     it('puts its one primary verb last in the strip, in all three states', () => {
       for (const [state, items] of THREE_STATES) {
@@ -657,22 +669,22 @@ describe('the scene arm', () => {
         expect(strip.lastElementChild, state).toBe(fill);
       }
       /*
-       * And with `CLEAR THIS FIGHT` on the strip, which is the state the
-       * reorder was measured in: the primary is still last, and CLEAR is the
-       * one it shares its line with rather than the one below it.
+       * And with `CLEAR THIS FIGHT` on the strip, which is the state both
+       * reorders were measured in: the primary is still last, and the four
+       * crossing verbs are what stand between it and the destructive one.
        */
       seed(withFight(2));
       list();
       const strip = primary()!.parentElement!;
       expect(
         [...strip.children].map((b) => b.textContent),
-        'the strip no longer ends with CLEAR THIS FIGHT then the primary',
+        'the strip no longer runs CLEAR THIS FIGHT first and the primary last',
       ).toEqual([
+        'CLEAR THIS FIGHT',
         'PUT THIS ENVIRONMENT ON THE BOARD',
         'KEEP THE BOARD\u2019S ENVIRONMENT HERE',
         'PUT THIS ROSTER ON THE BOARD',
         'KEEP THE BOARD\u2019S ROSTER HERE',
-        'CLEAR THIS FIGHT',
         'OPEN THIS FIGHT',
       ]);
     });
