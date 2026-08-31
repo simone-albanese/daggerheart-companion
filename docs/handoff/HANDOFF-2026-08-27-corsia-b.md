@@ -229,6 +229,50 @@ una riga della tabella §6 che la passata ha lasciato in piedi non marcata.
    togliere**: `pdfjs-dist` con un avviso HIGH; nessun linter in tutto il repo; gli stili inline che
    mescolano lo shorthand `font` con `fontVariantNumeric`.
 
+   **RIMISURATI nella corsia C2, ramo `wave-c-debt`, tagliato da `0370586`. Tutti e tre, con il
+   comando accanto al numero. Node v24.19.0 via `. ./env.sh`.**
+
+   - **`pdfjs-dist`: l'avviso è aperto, ed è codice che arriva al browser.** `npm audit` dà una
+     sola vulnerabilità: `pdfjs-dist >=5.6.83 <6.2.108`, HIGH, GHSA-hq66-cqwq-w95j, *«arbitrary
+     JavaScript execution upon opening a malicious PDF»*. Installata **5.7.284**, dentro
+     l'intervallo. `npm audit --json`: `isDirect: true`, `nodes: ["node_modules/pdfjs-dist"]` —
+     dipendenza diretta di primo livello, e sta in `dependencies`, non in `devDependencies`.
+     **Non è solo il tooling SRD**, che era l'altra metà del dubbio: `src/import/worker.ts`
+     importa `getDocument` e `pdfjs-dist/build/pdf.worker.mjs`, `src/import/art.ts` fa
+     `await import('pdfjs-dist')`, e `App.tsx` carica `import/index.ts` a ogni avvio per
+     scaldare la cache. `npm run build` emette `dist/assets/import-worker-PyN0xwyy.js`,
+     **1 665 579 byte**, ed è pdf.js. L'importer apre un PDF scelto dalla persona che lo usa:
+     è esattamente il percorso che l'avviso descrive.
+     `npm audit fix --dry-run` **non** lo chiude, e neanche `--force --dry-run`: entrambi
+     lasciano `pdfjs-dist 5.7.284 => 5.7.284`. Il registry ha `6.2.108` e `6.3.289`, quindi le
+     uscite sono due: salto di major oltre `^5.4.149`, oppure scendere a `5.5.207`, l'ultima
+     5.x fuori dall'intervallo. **È una decisione, ed è del proprietario: non toccata qui.**
+
+   - **Nessun linter: confermato.** Nove script in `package.json` e `lint` non è fra loro;
+     nessun `eslint.config.*` e nessun `.eslintrc*` fuori da `node_modules`; `npx eslint .`
+     risponde *«ESLint couldn't find an eslint.config.* file»*. Scritto **dentro
+     `.github/workflows/ci.yml`**, sopra il passo `Typecheck`, perché tre passi della Wave B
+     l'hanno riscoperto uno alla volta e un quarto lo rifarebbe. Lì accanto c'è anche cosa
+     resta scoperto e chi lo tiene al posto suo. **Nessun linter installato: è una decisione
+     del proprietario, non una faccenda da sbrigare.**
+
+   - **`font` + `fontVariantNumeric`: il rischio è reale, le occorrenze rotte sono ZERO.**
+     `HANDOFF-2026-08-27-parallelo.md` §6 diceva «~20 stili inline … lo shorthand resetta le
+     cifre tabulari»: **il numero e la conclusione sono superati.** Contate con l'AST di
+     TypeScript su tutto `src/`: **31** letterali nominano `fontVariantNumeric`, **28** di
+     questi condividono l'oggetto con uno shorthand `font`, e in **tutti e 28** `font` è
+     scritto **prima** — quindi la longhand arriva dopo e vince. **Rotte: 0.** Nessuno spread
+     dopo la longhand da nessuna parte.
+     Che il reset esista non è preso dalla specifica ma misurato su **Chrome 151**: `font` e
+     poi `fontVariantNumeric` dà `font-variant-numeric: tabular-nums`; l'ordine inverso dà
+     `normal`, in entrambe le forme (due assegnazioni a `el.style` e un solo `cssText`). E
+     l'ordine sorgente **è** l'ordine di applicazione, perché React serializza `style`
+     nell'ordine delle chiavi: `renderToStaticMarkup` di questo repo dà
+     `style="font:800 17px/1 var(--sans);font-variant-numeric:tabular-nums"` e, invertito,
+     l'inverso. **Niente da riparare. Resta vero che nessun test tiene quest'ordine**: la
+     prossima persona che scrive `fontVariantNumeric` sopra un `font` non trova nessun
+     cancello che la fermi.
+
 ---
 
 ## 7. Regole che non si negoziano

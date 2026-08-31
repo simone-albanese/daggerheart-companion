@@ -854,10 +854,84 @@ export interface GmBoard {
  * down *"they never went north"* - which is the whole of the between-sessions
  * loop.
  *
- * `items` is a **copy of the rows as they stood at the moment of closing**, not
- * a list of references into the live plan. A row carried forward into next
- * week's plan and then rewritten must not silently rewrite what the archive
- * says happened last week; an archive that changes under you is not a record.
+ * `items` is a **copy of the rows, never a list of references into the live
+ * plan**. A row carried forward into next week's plan and then rewritten must
+ * not silently rewrite what the archive says happened last week; an archive
+ * that changes under you is not a record.
+ *
+ * ## NOTHING IN THIS BUILD CLOSES A SITTING
+ *
+ * Said here because the sentence above used to read "as they stood at the
+ * moment of closing", and there is no such moment in the code. `archive` is
+ * written in exactly two places - `newCampaign`, which seeds it `[]`, and
+ * `readCampaignRecord`, which reads it off a record - and `gmStore.ts` does not
+ * name it at all. Its only other readers count it: `TakeIn.tsx`'s diagnostic
+ * line and `campaignImport.ts`'s preview. So every sitting in every archive
+ * this build has ever seen arrived through the READER, and the reader is the
+ * only thing holding the promise.
+ *
+ * ## Since schema 5 that promise carries the fight
+ *
+ * A scene row absorbed `combatants`, so an archived sitting can hold every
+ * adversary, every HP and Stress mark and every spotlight as they stood. That
+ * is what makes the promise worth more and makes breaking it worse: an aliased
+ * archive would mean marking this week's Acid Burrower moves a mark in last
+ * week's record.
+ *
+ * It is not aliased, and the line that makes it so is not the one a reader
+ * expects. `readArchivedSession` sends every row through `readSessionItem`,
+ * which names its fields one at a time and never spreads; and inside that,
+ * `readCombatants` rebuilds every body while `readCounter`, `readThresholds`,
+ * `readRoster` and `readAdjustments` each CONSTRUCT rather than hand back the
+ * input or a shared default. So a record that puts the SAME row object in
+ * `session` and in `archive[].items` - the shape a `close()` written as
+ * `archive.push({ items: campaign.session })` produces, and the shape
+ * `campaignImport.ts` already expects when it says the archive deliberately
+ * repeats live row ids - reads back as two independent rows.
+ *
+ * Proved rather than asserted from the type. Mutating one line of
+ * `readCombatants`, `hp: readCounter(entry['hp'])` into
+ * `hp: entry['hp'] as { marked: number; max: number }`, leaves the whole suite
+ * as it stood before this was written green - 162 files, 4257 tests on
+ * `npx vitest run`, Node v24.19.0 - and `npx tsc --noEmit` clean with it. The
+ * duplicate-id repair tests do not catch it, because id repair is a different
+ * property. `gives an archived sitting its own fight, even when the record
+ * hands it the live row`, in `tests/store/campaignSchema.test.ts`, is the one
+ * test that dies on it.
+ *
+ * **Whoever writes the close is who this warns.** The reader runs on a load,
+ * not on a write. An aliasing `close()` would alias only until the next
+ * reload, and the reload would quietly launder it - so the bug passes every
+ * test that saves and reads back, and shows up only as a GM's record of last
+ * week changing while they play this week. The copy has to be made at the
+ * moment of closing; the reader is a second line, not the first.
+ *
+ * ## What it weighs
+ *
+ * Nothing yet, and that is measured rather than assumed: the one archived scene
+ * row in `tests/fixtures/schema/v3`, `v4` and `v5.campaign.json` carries
+ * `combatants: []` - the key is there and empty, not absent - and all three
+ * files' `archive` serialises to the same 425 bytes. Schema 5 bought the
+ * archive capacity, not bytes. Three archived rows in the whole tree hold a
+ * body at all, one apiece in `campaignImport.test.ts`,
+ * `campaignRoundTrip.test.ts` and `campaignSchema.test.ts`; every other archive
+ * here belongs to a fixture file whose row carries `combatants: []`, or is
+ * empty. The first two are older than this docblock and compare ids on the way
+ * back rather than asking whether the bodies are the plan's, which is why the
+ * mutant above walks past them. The third arrived WITH this docblock: `gives an
+ * archived sitting its own fight, even when the record hands it the live row`
+ * hands `session` and `archive[].items` the same row object and then does ask,
+ * and it is the one test the mutant kills.
+ *
+ * Used, the capacity is not small. `makeCombatant` over the shipped dataset's
+ * 129 adversaries mints a body of 171 to 267 bytes of JSON, median 208; the
+ * Acid Burrower is 201. A scene row with a roster and no fight is 253 bytes,
+ * and the same row with five bodies on it is 1262 - the fight is four times the
+ * row it is fought in. A modelled sitting of six rows, four of them fought
+ * scenes, goes from 1453 bytes to 5370, and thirty of those are 157 KiB of
+ * archive against 43 KiB of the same sittings' plans. A campaign is one
+ * IndexedDB value and one `.dhcampaign` file, nothing here bounds the archive,
+ * and the close is the only place a bound could go.
  */
 export interface ArchivedSession {
   id: string;
@@ -865,7 +939,11 @@ export interface ArchivedSession {
   name: string;
   /** When it was closed. The archive is ordered by this on read. */
   closedAt: string;
-  /** The rows as they stood when it closed. A copy, never a reference. */
+  /**
+   * The rows as they stood when it closed. A copy, never a reference - and
+   * since schema 5 that copy has to reach every combatant, every counter and
+   * every threshold, not just the row.
+   */
   items: SessionItem[];
   /** What happened, in the GM's own words. */
   account: NoteDoc;
@@ -1771,6 +1849,13 @@ function readSessionItem(
  * uses, so an archived row gets exactly the same defence: field by field, never
  * a spread, and an unreadable row wrapped rather than dropped. An archive that
  * read its rows more loosely than the plan would be a way in through the back.
+ *
+ * Since campaign schema 5 that sharing does a second job, and `ArchivedSession`
+ * argues it at length: a scene row carries its fight, so this is also the
+ * function that decides whether an archived sitting holds its OWN bodies or a
+ * handle on the live plan's. It holds its own, because `readSessionItem` and
+ * `readCombatants` construct rather than pass through - not because anything
+ * here copies.
  */
 function readArchivedSession(
   v: unknown,

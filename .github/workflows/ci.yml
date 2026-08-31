@@ -77,6 +77,44 @@ jobs:
             exit 1
           fi
 
+      # WHAT GATES THIS REPO, AND WHAT DOES NOT
+      #
+      # There is no linter anywhere in this tree. That is a fact worth writing
+      # down rather than an oversight for the next reader to correct in passing,
+      # because three separate steps have now rediscovered it one at a time.
+      # Measured on this commit: `package.json` declares nine scripts - dev,
+      # build, preview, build:srd, build:registry, build:icons, test, test:watch,
+      # typecheck - and `lint` is not among them; there is no `eslint.config.*`
+      # and no `.eslintrc*` at any depth outside `node_modules`; and `npx eslint .`
+      # answers "ESLint couldn't find an eslint.config.* file".
+      #
+      # So everything a linter would ordinarily hold is held by the steps in
+      # this job and by nothing else. On a stock runner that is five: the
+      # dataset check above, `tsc --noEmit` under this repo's strict options,
+      # `vitest run`, `node --check public/sw.js` with its placeholder grep, and
+      # `vite build`. The sixth, the SRD re-extraction, is gated on a PDF that
+      # the first line of `.gitignore` keeps out of the repo, so it does not run
+      # here.
+      #
+      # What that leaves uncovered is real, and larger than "tsc catches most of
+      # it": `tsconfig.json` sets neither `noUnusedLocals` nor
+      # `noUnusedParameters`, so dead locals and dead imports pass this job in
+      # silence. One was standing in `tests/store/campaignSchema.test.ts` when
+      # this comment was written - `SCHEMA_VERSION` was imported and named only
+      # inside comment prose - and it was found by reading the file, not by any
+      # gate. Add import hygiene, accessibility rules and every React-hooks rule
+      # to the list.
+      #
+      # Some of that ground is held instead by tests written against this repo's
+      # own source, which is why those tests are shaped the way they are rather
+      # than being ordinary unit tests: `campaignUrlRow.test.ts` scans `src/` and
+      # `shared/` for HTML sinks, `orphans.test.ts` hunts exports nothing
+      # reaches, and `campaignSchema.test.ts` reads `newCampaign` to check which
+      # of the two schema constants it stamps - a property no runtime assertion
+      # can see while both constants read 5.
+      #
+      # Installing a linter is a decision, and it is the owner's. Do not add one
+      # in order to close this comment.
       - name: Typecheck
         run: npx tsc --noEmit
 
