@@ -1,11 +1,19 @@
 /**
  * The domain card, in the two jobs it has to do, plus the reader.
  *
- * SHOWCASE is a card you are looking at. It has two appearances - with the
- * manual's illustration, and text only - and both have to look deliberate.
- * Without the manual, text-only *is* the normal state, so it gets a real
- * design of its own: an oversized domain wordmark and the domain's silhouette
- * bled off the corner, not an apologetic grey box where a picture should be.
+ * SHOWCASE is a card you are looking at. It has one appearance and it is
+ * text, so that appearance has to look deliberate rather than deprived. It
+ * gets a design of its own: an oversized domain wordmark and the domain's
+ * silhouette bled off the corner, not an apologetic grey box where a picture
+ * should be.
+ *
+ * That design was drawn when text-only was the state a card fell back to
+ * without the Core Rulebook, and the argument for it was that a fallback seen
+ * by most people is not a fallback. Removing the importer did not weaken that
+ * argument, it finished it: there is no other state to fall back from, the
+ * `artKey` branch that used to draw an illustration over this head is gone,
+ * and nothing here is correct merely because a branch stopped firing. This is
+ * the card.
  *
  * READING is a card you are choosing between. That is a different job and the
  * banner is actively in the way of it: it announces a domain the player has
@@ -24,32 +32,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { DomainCard } from '../../../shared/types.ts';
-import { getArt } from '../../store/db.ts';
 import { DOMAIN_MARKS, DomainMark, domainColor } from './DomainMark.tsx';
 import { useDialog } from './useDialog.ts';
-
-function useArt(key: string | undefined): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (key === undefined) {
-      setUrl(null);
-      return;
-    }
-    let revoked = false;
-    let objectUrl: string | null = null;
-    void getArt(key).then((record) => {
-      if (revoked || !record) return;
-      objectUrl = URL.createObjectURL(record.blob);
-      setUrl(objectUrl);
-    });
-    return () => {
-      revoked = true;
-      if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
-      setUrl(null);
-    };
-  }, [key]);
-  return url;
-}
 
 /**
  * Card text, with its named effects set in bold.
@@ -172,10 +156,9 @@ interface HeadProps {
   card: DomainCard;
   shapes: boolean;
   height: number;
-  art: string | null;
 }
 
-function CardHead({ card, shapes, height, art }: HeadProps): React.JSX.Element {
+function CardHead({ card, shapes, height }: HeadProps): React.JSX.Element {
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
 
@@ -183,30 +166,6 @@ function CardHead({ card, shapes, height, art }: HeadProps): React.JSX.Element {
   // still has to say what it *does*; a bigger domain wordmark is worth nothing
   // if the feature underneath it has been squeezed to zero.
   const headBox = { height, maxHeight: '34%', flex: '0 0 auto' } as const;
-
-  if (art !== null) {
-    return (
-      <div style={{ ...headBox, position: 'relative', overflow: 'hidden' }}>
-        <img
-          src={art}
-          alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-        <span
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 20,
-            height: 20,
-            background: color,
-            clipPath: shapes ? mark.clip : 'none',
-            borderRadius: shapes ? mark.radius : '3px',
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div
@@ -296,9 +255,6 @@ export function DomainCardView({
   variant = 'showcase',
 }: Props): React.JSX.Element {
   const reading = variant === 'reading';
-  // No head, so no illustration to fetch. Asking for one anyway would decode a
-  // blob and mint an object URL for a picture this variant never draws.
-  const art = useArt(reading ? undefined : card.artKey);
   const color = domainColor(card.domain);
 
   /*
@@ -389,7 +345,7 @@ export function DomainCardView({
           }}
         />
       )}
-      {!reading && <CardHead card={card} shapes={shapes} height={headHeight} art={art} />}
+      {!reading && <CardHead card={card} shapes={shapes} height={headHeight} />}
 
       <div
         style={{
@@ -608,7 +564,6 @@ export function CardReader({
   shapes?: boolean;
   onClose: () => void;
 }): React.JSX.Element {
-  const art = useArt(card.artKey);
   const mark = DOMAIN_MARKS[card.domain];
   const color = domainColor(card.domain);
   const dialog = useDialog(card.name, onClose);
@@ -646,23 +601,9 @@ export function CardReader({
             padding: '16px 18px',
             position: 'relative',
             overflow: 'hidden',
-            background: art !== null ? undefined : tint(card.domain),
+            background: tint(card.domain),
           }}
         >
-          {art !== null && (
-            <img
-              src={art}
-              alt=""
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                opacity: 0.35,
-              }}
-            />
-          )}
           <span
             style={{
               position: 'absolute',

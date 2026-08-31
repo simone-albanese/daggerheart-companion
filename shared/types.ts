@@ -137,8 +137,6 @@ export interface DomainCard extends Sourced {
   recallCost: number;
   /** Rules text, verbatim. Never executed. */
   text: string;
-  /** Key into the art store once a Core Rulebook has been imported. */
-  artKey?: string;
   flavorText?: string;
 }
 

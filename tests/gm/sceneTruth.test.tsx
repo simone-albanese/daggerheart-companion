@@ -703,11 +703,16 @@ describe('END SCENE names what the second tap takes', () => {
  *   `shared/parsers/adversaries.ts` will not produce it: `requireText` throws
  *   "stat block has no motives" when the `Motives & Tactics:` line is absent,
  *   and `splitList` throws "empty motives list" when it is there with nothing
- *   in it. And even if one arrived, `contributedFields` in
- *   `src/import/reconcile.ts` drops every empty array before an overlay is
- *   written, for the reason its own comment gives - a defined-but-empty field
- *   reads downstream as "the manual says this is blank". `putOverlays` has
- *   exactly one caller, the import worker, so there is no third way in.
+ *   in it. And the layer half is now unreachable outright: the Core Rulebook
+ *   importer was the only thing that ever wrote an overlay, and it has been
+ *   removed, so `putOverlays` has no caller at all and no new layer can be
+ *   created on any device. (It used to be reachable and still safe, because
+ *   `contributedFields` in `src/import/reconcile.ts` dropped every empty array
+ *   before an overlay was written - a defined-but-empty field reads downstream
+ *   as "the manual says this is blank". That file is gone; what remains is the
+ *   overlay data already sitting in IndexedDB on a device that imported before
+ *   the removal, which the same parser rules produced and which therefore
+ *   cannot carry an empty motives list either.)
  *
  * So no adversary this component can resolve has `motives.length === 0`, the
  * two forms cannot differ on any reachable input, and it is an equivalent

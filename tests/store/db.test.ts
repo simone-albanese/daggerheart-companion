@@ -206,10 +206,34 @@ describe('the rest of the stores, which nothing had ever opened', () => {
       { key: 'srd:card-a', layerId: 'srd', entityId: 'card-a', kind: 'domainCards', fields: { text: 'z' } },
     ]);
 
+    /*
+     * And its pictures, which are the half of "everything it contributed" that
+     * no longer has an API to write or read it. `removeLayer` still names
+     * `art` in its transaction and still sweeps it by `layerId`; without this
+     * record that clause would be a line no test can tell from a no-op, on a
+     * store that legacy devices are still carrying.
+     */
+    const raw = await db.db();
+    await raw.put('art', {
+      key: 'manual:card-a',
+      layerId: 'manual',
+      blob: new Blob([new Uint8Array([1])], { type: 'image/webp' }),
+      width: 2,
+      height: 2,
+    } as never);
+    await raw.put('art', {
+      key: 'srd:card-a',
+      layerId: 'srd',
+      blob: new Blob([new Uint8Array([2])], { type: 'image/webp' }),
+      width: 2,
+      height: 2,
+    } as never);
+
     await db.removeLayer('manual');
 
     expect((await db.listLayers()).map((l) => l.id)).toEqual(['srd']);
     expect((await db.listOverlays()).map((o) => o.key)).toEqual(['srd:card-a']);
+    expect(await (await db.db()).getAllKeys('art')).toEqual(['srd:card-a']);
   });
 
   it('wipes everything, which is what the reset button promises', async () => {
@@ -218,13 +242,32 @@ describe('the rest of the stores, which nothing had ever opened', () => {
     await db.putOverlays([
       { key: 'manual:a', layerId: 'manual', entityId: 'a', kind: 'domainCards', fields: {} },
     ]);
+    /*
+     * Art is written through the raw store because there is no longer an API
+     * that can write one: the importer that filled this store is gone, and so
+     * are `putArt` and `artKeys`. That is exactly why this line has to stay.
+     * The bytes are still on the devices that imported before the removal, the
+     * version 1 `upgrade` block still creates the store, and `clearAll` is the
+     * only thing standing between "the feature was removed" and "the pictures
+     * were left on your phone with nothing able to reach them". Asserting
+     * through the raw store keeps the guarantee checkable after the API that
+     * used to check it was deleted.
+     */
+    await (await db.db()).put('art', {
+      key: 'manual:arcana',
+      layerId: 'manual',
+      blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' }),
+      width: 4,
+      height: 4,
+    } as never);
+    expect(await (await db.db()).getAllKeys('art')).toEqual(['manual:arcana']);
 
     await db.clearAll();
 
     expect(await db.listCharacters()).toEqual([]);
     expect(await db.listLayers()).toEqual([]);
     expect(await db.listOverlays()).toEqual([]);
-    expect(await db.artKeys()).toEqual([]);
+    expect(await (await db.db()).getAllKeys('art')).toEqual([]);
   });
 
   it('deletes one character without touching the others', async () => {

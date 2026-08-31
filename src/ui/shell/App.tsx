@@ -59,7 +59,7 @@ import { useIsPhone } from '../shared/useLayout.ts';
 import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
-import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
+import { createWakeLock, registerServiceWorker } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { SHELL_BLOCK_MARGIN } from './gutter.ts';
 import { AppBoundary } from './AppBoundary.tsx';
@@ -248,21 +248,6 @@ function Shell(): React.JSX.Element {
       lock.dispose();
     };
   }, [prefs.wakeLock]);
-
-  // The importer's pdf.js worker is not in the install-time precache; a device
-  // that could actually run the importer asks for it here, once, so the
-  // feature still works offline without charging every phone half a megabyte
-  // for something it is not allowed to use. Loaded dynamically so the check
-  // itself costs the shell nothing.
-  useEffect(() => {
-    void import('../../import/index.ts')
-      .then(({ importCapability }) => {
-        if (importCapability().supported) warmImporterCache();
-      })
-      .catch(() => {
-        // The importer is optional; failing to pre-warm it is not an error.
-      });
-  }, []);
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = prefs.theme;

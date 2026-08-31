@@ -218,8 +218,11 @@ describe('the nav and the readout share one line', () => {
    * buttons kept their size and painted outside it. The right group is the later
    * sibling in the same stacking context, so it was painted over the nav and won
    * the hit test. Measured in Chrome at 744x1133: GM 100% covered, BUILD 73%,
-   * and `document.elementFromPoint` at either centre returning the "SRD ONLY ·
-   * NO ART" span. jsdom computes no layout, so it can see none of that, and the
+   * and `document.elementFromPoint` at either centre returning the dataset
+   * span, which then read "SRD ONLY · NO ART" and reads "SRD ONLY" since the
+   * Core Rulebook importer was removed - one word narrower than what was
+   * measured, in a band where it is not drawn at all. jsdom computes no layout,
+   * so it can see none of that, and the
    * whole occlusion is exactly why it survived a repo with 2292 tests.
    *
    * What jsdom *can* hold is the rule the fix is made of, which is a rule about
@@ -285,7 +288,10 @@ describe('the nav and the readout share one line', () => {
       );
 
       // The dataset line and the library count, either wording of the first.
-      const readout = /SRD ONLY · NO ART|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
+      // `SRD ONLY` matches what a device with no imported layer shows today;
+      // the alternative is what a device that imported one before the importer
+      // was removed still shows, and both are drawn by the same span.
+      const readout = /SRD ONLY|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
         container.textContent ?? '',
       );
       expect(

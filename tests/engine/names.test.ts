@@ -24,9 +24,13 @@
  * list that nothing in the app is bound to.
  *
  * The last block reads the Core Book, when the owner's copy happens to be on
- * the machine, and skips itself everywhere else - the same arrangement
- * `tests/import/coreRulebook.test.ts` already uses, and for the same reason: no
- * PDF is committed and none ever will be. Nothing it extracts is written
+ * the machine, and skips itself everywhere else. The reason is that no PDF is
+ * committed and none ever will be, so a test that needs one has to be able to
+ * find nothing and still pass. `tests/import/coreRulebook.test.ts` used the
+ * same arrangement and was the place this borrowed it from; it went with the
+ * Core Rulebook importer, which leaves this file as the only one that reads a
+ * book the repository does not contain - so the arrangement is described here
+ * rather than cited from somewhere else. Nothing it extracts is written
  * anywhere; the four lists exist inside this process for the length of one
  * assertion and are never transcribed into the tree.
  */

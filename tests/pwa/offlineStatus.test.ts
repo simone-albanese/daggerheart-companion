@@ -21,7 +21,7 @@
  * The counts are read from Cache Storage directly rather than asked of the
  * worker. Cache Storage is per-origin, so the page can open the very caches the
  * worker filled - and `public/sw.js` has exactly one message handler, taking
- * `skip-waiting` and `warm-importer`, which never replies to anything.
+ * `skip-waiting` and `hello`, which never replies to anything.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readOfflineStatus } from '../../src/pwa/register.ts';

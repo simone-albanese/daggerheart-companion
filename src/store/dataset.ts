@@ -1,11 +1,20 @@
 /**
  * The layered dataset.
  *
- * The SRD is always present and ships with the app. Optional layers (today:
- * the Core Rulebook) resolve **field by field** on top of it - the highest
- * priority layer that defines a property wins, and a layer that only carries
- * `art` and `flavorText` cannot erase anything the SRD already had. Removing a
- * layer therefore restores the SRD exactly, with no re-parsing.
+ * The SRD is always present and ships with the app. Optional layers resolve
+ * **field by field** on top of it - the highest priority layer that defines a
+ * property wins, and a layer that only carries `art` and `flavorText` cannot
+ * erase anything the SRD already had. Removing a layer therefore restores the
+ * SRD exactly, with no re-parsing.
+ *
+ * There was exactly one source of such a layer, the Core Rulebook importer, and
+ * it has been removed: nothing can write a layer or an overlay any more, so on
+ * a device that never imported one this composes the SRD with nothing and is a
+ * pass-through. It is not dead code. A device that imported before the removal
+ * still holds its layer and its overlays in IndexedDB, and this is what still
+ * lays them over the SRD - which is why the read half survives the write half,
+ * and why the migration that drops those stores has to be a deliberate step
+ * rather than a side effect of deleting the importer.
  */
 import srd from '../../data/srd-1.0.json';
 import type { Dataset, Layer } from '../../shared/types.ts';

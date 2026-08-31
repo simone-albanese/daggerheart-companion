@@ -66,7 +66,25 @@ export interface ContentOverlay {
   fields: Record<string, unknown>;
 }
 
-export interface ArtRecord {
+/**
+ * An illustration, on a device that imported one before the importer was
+ * removed.
+ *
+ * Nothing writes these any more and nothing draws them: the Core Rulebook
+ * import and the `.dhart` packs that carried its pictures are gone, and
+ * `DomainCardView` no longer has a branch that asks for one. The shape is kept
+ * rather than narrowed because it is what is actually on those devices, and
+ * narrowing it here would be a type that quietly disagrees with the disk.
+ *
+ * It is not exported, because there is no longer a caller entitled to read one.
+ * The store itself stays declared for exactly as long as it stays on disk: it
+ * is still created by the version 1 `upgrade` block above, so `STORES` must
+ * still name it or `clearAll` would stop reaching it, and `removeLayer` must
+ * still sweep it or a removed layer would leave its pictures behind. Deleting
+ * the store is a migration, and it is the next step's - not this file's to fake
+ * by looking away from bytes that are still there.
+ */
+interface ArtRecord {
   key: string;
   layerId: string;
   blob: Blob;
@@ -359,7 +377,7 @@ export async function deleteCharacter(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Layers, content overlays and art
+// Layers and content overlays
 // ---------------------------------------------------------------------------
 
 export const listLayers = async (): Promise<Layer[]> => (await db()).getAll('layers');
@@ -392,18 +410,6 @@ export async function putOverlays(overlays: ContentOverlay[]): Promise<void> {
   await Promise.all(overlays.map((o) => tx.store.put(o)));
   await tx.done;
 }
-
-export const getArt = async (key: string): Promise<ArtRecord | undefined> =>
-  (await db()).get('art', key);
-
-export async function putArt(records: ArtRecord[]): Promise<void> {
-  const database = await db();
-  const tx = hold(database.transaction('art', 'readwrite'));
-  await Promise.all(records.map((r) => tx.store.put(r)));
-  await tx.done;
-}
-
-export const artKeys = async (): Promise<string[]> => (await db()).getAllKeys('art');
 
 // ---------------------------------------------------------------------------
 // Durability

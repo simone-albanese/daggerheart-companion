@@ -17,8 +17,29 @@ import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
 import { ATTRIBUTION } from '../shared/CompatibleMark.tsx';
-import { formatBytes } from './binaryFiles.ts';
 import { Field, Note, Rows, Section } from './parts.tsx';
+
+/**
+ * Sizes a person can read.
+ *
+ * Rounded whole megabytes call a 400 KB store "0 MB", which is the one thing
+ * this must not print on a screen whose job is to tell someone how much of
+ * their device their characters are using.
+ *
+ * It lived in `settings/binaryFiles.ts` until the Core Rulebook importer was
+ * removed. That file's other two functions - a picker that took a 319 MB PDF
+ * without reading it, and a saver that handed back a 20 MB art pack - existed
+ * for the importer alone and went with it. This is not about binary files at
+ * all; it is about the storage estimate a few lines below, which is its only
+ * caller, so it lives here now rather than in a module named for an argument
+ * that no longer applies to it.
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1_048_576) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1_073_741_824) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+  return `${(bytes / 1_073_741_824).toFixed(1)} GB`;
+}
 /*
  * The two licence texts, compiled into this chunk rather than fetched.
  *

@@ -60,19 +60,20 @@
  *    and it re-validates the href on the way out - defence in depth for a value
  *    that reached storage before this file existed, or was hand-edited into
  *    IndexedDB afterwards. **"From a stored href" is the whole of the scope,
- *    and it is not the whole app.** `src/` builds three anchors and not one of
+ *    and it is not the whole app.** `src/` builds two anchors and neither of
  *    them has a stored href. The only `<a>` written as markup is at
  *    `src/ui/settings/About.tsx`, and its href is the literal
  *    `https://daggerheart.com/buy` written into the source. It is built by hand
  *    and carries `target="_blank" rel="noreferrer noopener"`, without
  *    `nofollow` - correct for it, because `nofollow` is about content this app
- *    did not write and that address is content this app did write. The other
- *    two are `document.createElement('a')`, in `src/ui/settings/binaryFiles.ts`
- *    and in `src/transfer/fileIo.ts`, and they are the same anchor twice: a
- *    detached element appended, `click()`ed and removed to save a file. Each
- *    href is a `blob:` URL this app minted a line earlier, and neither
- *    navigates anywhere, because both carry `download`. Nothing in this file
- *    governs any of the three. In the other direction, `externalLinkAttrs` has no
+ *    did not write and that address is content this app did write. The other is
+ *    `document.createElement('a')` in `src/transfer/fileIo.ts`: a detached
+ *    element appended, `click()`ed and removed to save a file. Its href is a
+ *    `blob:` URL this app minted a line earlier, and it navigates nowhere,
+ *    because it carries `download`. (There were three until the Core Rulebook
+ *    importer was removed; the second `createElement('a')` was the art pack's
+ *    saver in `src/ui/settings/binaryFiles.ts`, and it was the same anchor as
+ *    this one.) Nothing in this file governs either of the two. In the other direction, `externalLinkAttrs` has no
  *    production caller at all yet: the URL row draws its address as text and
  *    builds no anchor, so this mitigation protects nothing shipping today and
  *    is here for the lane that builds the row. `noopener` is the load-bearing

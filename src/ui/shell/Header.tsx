@@ -18,7 +18,9 @@
  *
  * Measured in Chrome at 744x1133 with a one-character library: the left group's
  * contents want a constant 330px and are allotted 210, GM is painted x295.9-349.8
- * and is 100% covered by the "SRD ONLY · NO ART" span, BUILD is 73% covered, and
+ * and is 100% covered by the dataset span - which then read "SRD ONLY · NO ART",
+ * and reads "SRD ONLY" since the Core Rulebook importer was removed, so the
+ * measurement is of a span one word wider than today's - BUILD is 73% covered, and
  * `document.elementFromPoint` at either button's own centre returns the span.
  * The centre of GM is dead from 720 through 828, the last covered pixel goes at
  * 856, and the line stops being over-subscribed at 864. Below 720 none of this
@@ -31,9 +33,11 @@
  * clean width is 856 and inventing an 856 or an 864 breakpoint here is precisely
  * the drift `useLayout.ts` was written to stop, so this uses the band boundary
  * that already exists. What a tablet loses is said out loud rather than
- * discovered: Settings > Rulebook prints the same total, `CompatibleIcon` is
- * unconditional at every width, and `LicenceFooter` still ends every screen's
- * own scroll.
+ * discovered: the library count is the one number in the readout a tablet no
+ * longer sees, and Settings > Characters is where it is counted anyway;
+ * `CompatibleIcon` is unconditional at every width, and `LicenceFooter` still
+ * ends every screen's own scroll. (This used to point at Settings > Rulebook,
+ * which printed the dataset total. That screen went with the importer.)
  *
  * ## The display cutout, which this bar has never paid for
  *
@@ -484,14 +488,34 @@ export function Header({
          * wide - GM, the narrowest, clears the 44px floor in both axes - so
          * nothing here needs to grow. It needs to stop being painted over.
          *
-         * What is given up: a tablet no longer sees at a glance whether the
-         * Core Rulebook import landed. The phone band has never shown it,
-         * Settings > Rulebook prints the same total, and the alternative was
-         * shrinking or wrapping a nav that is 44px on purpose.
+         * What is given up: a tablet no longer sees the dataset line or the
+         * library count at a glance. The phone band has never shown either, and
+         * the alternative was shrinking or wrapping a nav that is 44px on
+         * purpose. This paragraph used to say the tablet lost sight of whether
+         * the Core Rulebook import had landed, and pointed at Settings >
+         * Rulebook for the same total; there is no import and no such screen
+         * now, and what the span still answers is the smaller question below.
          */}
         {desktop && (
           <>
-            <span className="t-meta">{hasManual ? 'SRD + CORE RULEBOOK' : 'SRD ONLY · NO ART'}</span>
+            {/*
+             * Still a question with two answers, and still worth asking - just
+             * a narrower one than it was. Nothing can import a Core Rulebook
+             * any more, so no device will ever newly say the first thing; a
+             * device that imported one before the removal still has the layer
+             * in IndexedDB and `dataset.ts` still lays it over the SRD, so the
+             * readout would be lying if it flatly claimed SRD only.
+             *
+             * "· NO ART" is gone from the second answer. It used to separate
+             * the two - the manual was where pictures came from - and it
+             * separates nothing now that neither branch can draw one, while
+             * still implying to the reader that some other state has art and
+             * inviting them to look for the screen that produced it. There is
+             * no such screen. Removing the layer that makes this say the first
+             * thing is the next step's; until then this reports what is
+             * actually composed rather than what the app can still do.
+             */}
+            <span className="t-meta">{hasManual ? 'SRD + CORE RULEBOOK' : 'SRD ONLY'}</span>
             <span style={{ color: 'var(--line)' }}>|</span>
             <span className="t-meta">
               LOCAL · {characters.length} CHARACTER{characters.length === 1 ? '' : 'S'}

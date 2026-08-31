@@ -95,7 +95,6 @@ const picks = (text: string): ReturnType<typeof vi.spyOn> =>
   vi.spyOn(fileIo, 'pickFile').mockResolvedValue({
     name: 'a-table.dhcampaign',
     text,
-    file: new File([text], 'a-table.dhcampaign'),
   }) as ReturnType<typeof vi.spyOn>;
 
 beforeAll(async () => {
