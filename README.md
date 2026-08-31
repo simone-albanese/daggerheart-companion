@@ -249,7 +249,7 @@ tools/          runs in Node, never shipped to the browser
 data/           the only committed content: srd-1.0.json, registry.json
 shared/         used by both tools/ and src/: textLayout, slugify, parsers
 src/engine/     pure rules arithmetic. No UI, no I/O, fully tested
-src/store/      IndexedDB, the layered dataset, preferences, backup
+src/store/      IndexedDB, the dataset, preferences, backup
 src/transfer/   the .dhchar file, the binary codec, animated QR
 src/pwa/        service worker registration, the update prompt, the wake lock
 src/ui/         shell, player, build, gm, settings, print, and what they share

@@ -17,7 +17,7 @@ sotto, e resta scritta perché è la decisione che è stata presa e poi disfatta
 |---|---|---|
 | Dati SRD | **Estratti in build, committati** | Avvio istantaneo, dati deterministici, parser testabile in CI |
 | ~~Dati manuale~~ | ~~Parsing in-app, opzionale, **desktop**~~ | **Caduta con `b35523d`**: il parser fragile non blocca più nessuno perché non c'è più. Resta un solo parser, in build |
-| Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla. **Resta vera al contrario**: `dataset.ts` compone ancora lo strato di chi aveva importato prima di `b35523d`, e quello strato non ha mai sottratto niente |
+| Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla — **ed è stato tolto**: lo strato non sottraeva mai, quindi `ab5b75a` ha potuto cancellare i tre store alla versione 3 del database senza che nessuna scheda cambiasse forma. La separazione ha pagato esattamente ciò che prometteva |
 | Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
 | Scroll | **Ovunque**; su Play non è fisso più niente | La regola «niente scroll su Play» è caduta con `91097eb`, e con P5-5 è caduto anche il blocco fisso che l'aveva sostituita: nell'ordine di Giorgio ROLL arriva a **306 di 730** a 393×852 e a **306 di 545** a 375×667, senza pin — lo stesso numero alle due larghezze, perché tutto ciò che gli sta sopra è alto uguale (`Play.tsx:2382-2386`, e `playSheet.test.tsx` lo porta come asserzione). *(~~385 di 730 e 385 di 545~~: **superati** dalle decisioni 1-7 dell'audit, `0cdf42f` — vedi § 9.1, dove il numero vecchio resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)* § 9.1 dice cosa resta fisso sulle altre schermate |
 | Mobile | **Ciclo di vita completo della scheda** | *(~~Solo l'import dell'arte è da desktop~~: **caduto** con `b35523d`. Non c'è più niente che il telefono non faccia)* |
@@ -345,15 +345,21 @@ type Layer = { id: string; label: string; priority: number; importedAt?: string 
 
 const layers = [
   { id: 'srd-1.0-2025-09-09', label: 'SRD 1.0',       priority: 0 },  // sempre presente
-  { id: 'core-2025-09-07',    label: 'Core Rulebook', priority: 1 },  // non più creabile
+  { id: 'core-2025-09-07',    label: 'Core Rulebook', priority: 1 },  // cancellato: DB v3
 ];
 ```
 
-Lo strato `core` non si può più creare: l'importer che era il suo unico scrittore è
-stato rimosso con `b35523d`. Il tipo resta, e `dataset.ts` compone ancora lo strato
-già in IndexedDB su un dispositivo che aveva importato prima della rimozione —
-toglierlo di lì è il passo R2, e finché non esiste una gestualità che lo toglie,
-cancellare lo store sarebbe abbandonare i byte invece di rimuoverli.
+Lo strato `core` non esiste più. L'importer che era il suo unico scrittore è stato
+rimosso con `b35523d`, e la versione 3 del database (`ab5b75a`) cancella dal
+dispositivo i tre store che aveva scritto — `layers`, `content` e `art` — perché
+smettere di leggerli non è toglierli: uno store fuori dallo schema è uno store che
+questo file ha smesso di guardare, non uno che il browser ha smesso di tenere.
+`dataset.ts` non compone più niente: il dataset è l'SRD e basta.
+
+Il campo `layers` del dataset resta, e non è di questo capitolo: lo scrive la build
+dell'SRD dentro `data/srd-1.0.json`, nomina la revisione dell'SRD stesso, e fa parte
+di `SCHEMA_VERSION`. Toglierlo è una ricostruzione del dataset più un bump di schema,
+che è un'altra modifica.
 
 **Niente homebrew.** Solo contenuto ufficiale: il dataset è immutabile, non serve
 un editor, né validazione dei contenuti utente, né allocazione dinamica di ID.
