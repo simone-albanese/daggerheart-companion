@@ -10,10 +10,28 @@
  *
  * The sentence gained a second pair of readings when the fight moved onto the
  * row (campaign schema 5). It used to have one destination and three branches;
- * it has two destinations and six, and the tail is what tells them apart -
- * `CARRIED OVER, NOT PICKED HERE` for the mint, `THE OPEN SCENE'S OWN PLACE`
- * for the row. All six are asserted below, tail included, for the reason the
- * paragraph on mutants further down gives.
+ * it has two destinations and the same three branches, so six presses reach it
+ * - and what tells the two destinations apart is a different half of the line
+ * on each branch, which is why all six are pressed below rather than one per
+ * branch:
+ *
+ *   - the environment resolves: the TAIL splits them - `CARRIED OVER, NOT
+ *     PICKED HERE` for the mint, `THE OPEN SCENE'S OWN PLACE` for the row;
+ *   - there is no environment: the tails are identical, both `THIS FIGHT OPENS
+ *     WITHOUT ONE`, and the HEAD splits them - `NO ENVIRONMENT ON THE BOARD`
+ *     against `THE OPEN SCENE HAS NO ENVIRONMENT`;
+ *   - the ref will not resolve: NEITHER half splits them. `opensIn` computes
+ *     `whose` and does not print it on that branch, so the two destinations
+ *     print one sentence - which is what the source docblock means by "that
+ *     last state does not split by destination", and is why the sixth press
+ *     below asserts a string the third press has already seen.
+ *
+ * That sixth press is what this file was missing, and the gap had teeth. A
+ * mutant giving the unresolvable branch a second reading - `minting ? 'NOT IN
+ * THIS DATASET' : <anything else>` - ran the whole suite with the failure count
+ * unmoved from the unmutated run. Measured in an rsync'd copy with `npx vitest
+ * run`, not reasoned about; the press that closes it is the last `it` in the
+ * second describe.
  *
  * The builder is not unusual in carrying no control for it - that is the
  * ordinary case here. `GmRegion`, the union in `shared/campaigns.ts`, names
@@ -324,6 +342,39 @@ describe('the sentence and the button agree', () => {
     expect(text()).not.toContain('OPENS IN');
     expect(text()).not.toContain(environment.name.toUpperCase());
     expect(text()).not.toContain('NO ENVIRONMENT ON THE BOARD');
+  });
+
+  /*
+   * The reading with no half of its own, pressed for exactly that.
+   *
+   * A row carries a ref this build cannot resolve when it came off a campaign
+   * saved against a dataset this one is not - the row-side twin of the board's
+   * case in the describe above. `opensIn` computes `whose` and never prints it
+   * on that branch, so this press and that one produce the SAME sentence, and
+   * the pair of them is the only thing that pins the non-split. Until this one
+   * was written, a mutant handing the branch a second reading ran the whole
+   * suite with the failure count unmoved from the unmutated run.
+   *
+   * The board is standing in a real place throughout, so a line that fell back
+   * to `board.environmentRef` would print a name here instead of the ref - the
+   * same fallback the test above guards, on the branch where it would look
+   * most plausible.
+   */
+  it('prints the row’s own unresolvable ref, and no more than the board’s', () => {
+    act(() => {
+      useGm.setState({ environmentRef: environment.id });
+    });
+    openRowIn('a-layer-not-loaded');
+    render(createElement(Encounter, { phone: false }));
+
+    const seen = text();
+    expect(seen).toContain('OPENS IN a-layer-not-loaded');
+    expect(seen).toContain('NOT IN THIS DATASET');
+    // Neither destination's clause. This is the branch that does not split,
+    // and asserting the absence of both is what says so.
+    expect(seen).not.toContain("THE OPEN SCENE'S OWN PLACE");
+    expect(seen).not.toContain('CARRIED OVER, NOT PICKED HERE');
+    expect(seen).not.toContain(environment.name.toUpperCase());
   });
 });
 

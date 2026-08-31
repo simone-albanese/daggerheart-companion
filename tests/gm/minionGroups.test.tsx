@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * One Minion entry, three surfaces, and the number they have to agree on.
+ * One Minion entry, five surfaces, and the number they have to agree on.
  *
  * `EncounterEntry.count` is *groups* for a Minion, each the size of the party,
  * and `ROLE_COST` charges one battle point per group - "per group of Minions
@@ -275,13 +275,26 @@ describe('SEND, and the unit it is in', () => {
   /*
    * Press it and count what arrives, in ONE scene row.
    *
-   * The row count is asserted here rather than in a test of its own because
-   * every roster below is a multi-entry one, which is the only shape that can
-   * catch the mutation: `send` is `const sceneId = openScene ?? openNewScene()`
-   * followed by one `spawn` per entry, so a mint moved inside the loop would
-   * put a roster of eight into eight scene rows, each holding one card, with
-   * every count assertion in this block still green. One row, and it is the one
-   * the runner is left pointing at.
+   * `send` is `const sceneId = openScene ?? openNewScene()` followed by one
+   * `spawn` per entry, so there are two ways it can leave more rows behind than
+   * it promised, and they are NOT caught by the same line. The claim that the
+   * row count caught both is withdrawn rather than patched: what follows is
+   * what each mutant did, run as `npx vitest run tests/gm/minionGroups.test.tsx`
+   * in an rsync'd copy.
+   *
+   * A mint moved INSIDE the loop needs no help from the row count. A roster of
+   * two entries lands in two rows holding one card each, `openCombatants` reads
+   * the open one, so the count of what arrived fails on its own - measured with
+   * the row count deleted, same test, same message about a length of 3. And
+   * only the mixed roster can see it at all: three of the four presses in this
+   * block send a single-entry roster, and a single entry mints once either way.
+   *
+   * A SECOND mint left standing BESIDE the first is what the row count is for,
+   * and nothing else in the file sees it. Every spawn still lands in the open
+   * row, so every count stays right and an empty row is left behind: `void
+   * openNewScene()` above the `sceneId` line fails all four presses here at the
+   * row count, and takes the file green the moment the row count is deleted.
+   * That stray row is the failure the comment over `send` warns about.
    */
   const tapped = (): number => {
     const promised = said();
@@ -385,11 +398,11 @@ describe('SEND, and the unit it is in', () => {
   });
 });
 
-describe('the row’s own verb, which is the fourth surface', () => {
+describe('the row’s own verb, which is the fifth surface', () => {
   /*
    * THE SURFACE THE HEADER PREDICTED, NOW THAT A ROW CAN HOLD ITS OWN FIGHT.
    *
-   * `SEND` is the builder's road onto the table and had three tests above it.
+   * `SEND` is the builder's road onto the table and the block above presses it.
    * `START THIS FIGHT` is the other road - a scene row's own roster, spawned
    * into that row - and it reads the same `EncounterEntry.count` through the
    * same `spawn(sceneId, adversary, partySize, count)`. Two writers of one
