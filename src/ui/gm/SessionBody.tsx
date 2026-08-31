@@ -40,7 +40,7 @@
  * the second reason they stayed. What is left here is the dispatch: the switch
  * below still answers every kind, and the two `case` lines name imports.
  *
- * ## The plan is not the workbench, and the fight is on neither of them
+ * ## The plan is not the workbench, and the fight is on the row
  *
  * A campaign has one board, and since schema 5 it is the encounter builder's
  * workbench and nothing else: one roster, one set of adjustments, one active
@@ -351,9 +351,28 @@ function SceneArm({
    * idempotent on the row already open: pressing OPEN THIS FIGHT on the scene
    * you are looking at points the runner at the scene you are looking at.
    *
-   * It also means this arm re-renders for nothing but its own row's data. A
-   * subscription to `openScene` here would repaint every open row of the plan
-   * on every switcher flip, to change nothing on any of them but one.
+   * It also means a flip of the switcher repaints nothing here. A subscription
+   * to `openScene` on this arm would repaint every open row of the plan on
+   * every flip, to change nothing on any of them but one - and that is
+   * measured rather than reasoned: with a counter on `sessionName`, the one
+   * call this function makes once per render, two scene arms rendered directly
+   * take 0 renders on a write of `openScene` and 0 on `fear`. Nothing here
+   * reads `session` either, so a fight written into another row arrives only as
+   * a new `item`, which is the memoised row's business rather than this one's.
+   *
+   * WHAT DOES WAKE IT IS THE BOARD, and the sentence that stood here denied it.
+   * `environmentRef`, `roster` and `adjustments` are subscribed at the top of
+   * this function, and `useRosterToBoard` reads `adjustments` a fourth time, so
+   * a GM who adds one adversary in the encounter builder repaints every open
+   * scene arm on the plan - 2 of 2, in the same measurement, on a real
+   * `addToRoster`. Two of the three are the crossing pair's own price: `live`
+   * decides `onBoard` and both environment verbs' `disabled`, and `boardRoster`
+   * decides KEEP THE BOARD'S ROSTER HERE's. The third is not. `boardAdjustments`
+   * is read nowhere but inside that same verb's `onClick`, where a `getState`
+   * read would do, so it is the one wake on this arm that buys nothing.
+   *
+   * The three `useApp` reads above are the dataset and one pref, which move on
+   * a load and on a settings change rather than during play.
    */
   const inTheFight = item.combatants.length;
   /*
@@ -558,10 +577,13 @@ function SceneArm({
         ) : spawnable.length > 0 ? (
           /*
            * The bootstrap none of the three designs had. A row planned and
-           * never fought holds no combatants, so it is not on the switcher's
-           * strip - and without this verb, starting the second fight of a
-           * split party still costs the five gestures it costs today. With it,
-           * that is five gestures once per split and one tap per beat after.
+           * never fought holds no combatants, so it is on the switcher's strip
+           * only while the runner is showing it: `liveScenes` keeps a row that
+           * holds a fight OR the row the pointer names, and a planned one is
+           * the second kind at best. Without this verb, starting the second
+           * fight of a split party still costs the five gestures it costs
+           * today. With it, that is five gestures once per split and one tap
+           * per beat after.
            *
            * It cannot be reached twice on one fight: the first tap fills
            * `item.combatants`, and the branch above takes the row from then
@@ -972,7 +994,18 @@ function EncounterArm({
         </Fact>
       )}
 
-      {spawnable.length > 0 && inTheScene > 0 && openName !== null && (
+      {/*
+        Two conditions, not three. `openName !== null` stood here as a third and
+        could never be false beside the second: `combatantsIn` returns the
+        shared `NO_COMBATANTS` when `openScene` is null and when it names no
+        scene row, so `inTheScene > 0` already carries "the open row exists and
+        is a scene", which is what the name selector tests. It was
+        not narrowing either: taking it out changes nothing `tsc --noEmit`
+        says, here or anywhere else. So it was an assertion about a state that
+        cannot occur, in the one arm this change has just emptied of exactly
+        those.
+      */}
+      {spawnable.length > 0 && inTheScene > 0 && (
         <Fact>
           {openName} already holds {inTheScene} adversar{inTheScene === 1 ? 'y' : 'ies'}. Opening
           the fight from here adds this roster to them rather than replacing them; END SCENE, in
@@ -1002,11 +1035,21 @@ function EncounterArm({
         />
         <Verb onClick={() => onOpenTool('encounter')} label="OPEN THE BUILDER" row={row} />
         {/*
-          Last and primary, the way the scene arm's own chain is: the verb that
-          leaves the row sits at the end of the wrapped strip, and there is only
-          one of them, because two primaries in one row is none. The builder
-          loses its fill to it - a GM who has finished planning wants the fight,
-          and the builder is now the second choice on a configured row.
+          Last and primary. The verb that leaves the row sits at the end of this
+          wrapped strip, and there is only one of them, because two primaries in
+          one row is none. The builder loses its fill to it - a GM who has
+          finished planning wants the fight, and the builder is now the second
+          choice on a configured row.
+
+          "The way the scene arm's own chain is" stood here, and it was true
+          of only half of what it was attached to. `SceneArm` does draw exactly
+          one primary - its three branches are one ternary - but it draws that
+          one FIRST: the ternary opens its strip and `CLEAR THIS FIGHT` closes
+          it, before this change and after it. The plan's ergonomics paragraph
+          makes the same claim and rests a thumb-reach argument on it; the
+          correction is written there. Whether the two arms should agree, and
+          which of them should move, is a reach question with a measurement
+          behind it, so it belongs to the Chrome pass rather than to a comment.
         */}
         <Verb
           onClick={openFight}

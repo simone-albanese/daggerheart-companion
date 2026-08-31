@@ -49,7 +49,11 @@
  * `CAMPAIGN_MIGRATIONS` was empty until 2026-08-18, and its emptiness was
  * argued here at length: the machinery had to be in place before the first
  * bump, because after it it is too late. That argument was right and it has
- * now been cashed. The version is 2, and the chain has one entry in it.
+ * now been cashed. The version is 5 now and the chain has four entries; this
+ * section is about the first of them, and each of the other three argues for
+ * itself at its own entry below. This read "the version is 2, and the chain has
+ * one entry in it" until 2026-08-31, having gone stale three bumps earlier - a
+ * bare present tense in a paragraph about a number whose whole job is to move.
  *
  * **The converter changes no field, and that is the point rather than an
  * embarrassment.** A v1 record is not wrong. Nothing in it needs repairing,
