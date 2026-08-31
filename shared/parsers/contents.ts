@@ -122,3 +122,29 @@ export function rangeBetween(
   }
   return { from: start, to: end };
 }
+
+/**
+ * From one section's first folio to the last folio in the book.
+ *
+ * For the section that has no next one. The domain-card appendix is the whole
+ * tail of both books - folios 119-135 of SRD 1, 206-224 of SRD 2 - so there is
+ * no entry to stop before, and taking the end from the contents page is not
+ * possible. It comes from the pages instead, which is the only place that knows
+ * where the book stops.
+ */
+export function rangeToEnd(
+  entries: readonly ChapterEntry[],
+  pages: readonly BookPage[],
+  from: string,
+): { from: number; to: number } {
+  const start = folioOf(entries, from);
+  let last = -1;
+  for (const page of pages) if (page.folio !== null && page.folio > last) last = page.folio;
+  if (last < start) {
+    throw new ParseError(
+      `"${from}" starts on folio ${start}, past the last folio read (${last})`,
+      'the contents and the pages disagree about how long the book is',
+    );
+  }
+  return { from: start, to: last };
+}

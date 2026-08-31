@@ -26,10 +26,23 @@ import {
   splitOn,
   titleCase,
 } from './util.ts';
+import { folioOf, parseContents, rangeToEnd } from './contents.ts';
 
-const DOMAINS_FOLIO = 7;
-const APPENDIX_FROM = 119;
-const APPENDIX_TO = 135;
+/*
+ * The two ranges this file reads come from the book's own contents page rather
+ * than from constants here. They used to be `DOMAINS_FOLIO = 7`,
+ * `APPENDIX_FROM = 119`, `APPENDIX_TO = 135` - correct for SRD 1.0 and wrong
+ * for every other printing. SRD 2.0 puts the appendix on 206-224, and the
+ * symptom was this file throwing `no domain cards found in the appendix` over
+ * an adversary stat block.
+ *
+ * `Domains` and `Domain Card Reference` are the titles both books print. Where
+ * a title has changed the lookup throws and names every entry the contents does
+ * have - a better failure than a range landing on real material that happens to
+ * be the wrong chapter.
+ */
+const DOMAINS_SECTION = 'Domains';
+const APPENDIX_SECTION = 'Domain Card Reference';
 
 /** Line leading is 9.8-11pt; a paragraph adds a further 1.5pt or more. */
 const PARAGRAPH_GAP = 11.5;
@@ -114,7 +127,8 @@ function cardName(caps: string): string {
 }
 
 export function parseDomains(pages: BookPage[]): Domain[] {
-  const lines = readPages(pages, DOMAINS_FOLIO, DOMAINS_FOLIO);
+  const folio = folioOf(parseContents(pages), DOMAINS_SECTION);
+  const lines = readPages(pages, folio, folio);
   const isHeading = (f: Row): boolean =>
     f.family.startsWith('Eveleth') && DOMAIN_WORDS.has(f.text.toUpperCase());
 
@@ -138,11 +152,11 @@ export function parseDomains(pages: BookPage[]): Domain[] {
 
   const missing = DOMAINS.filter((d) => !domains.some((x) => x.id === d));
   if (missing.length > 0) {
-    throw new ParseError(`missing domains on folio ${DOMAINS_FOLIO}`, missing.join(', '));
+    throw new ParseError(`missing domains on folio ${folio}`, missing.join(', '));
   }
   if (domains.length !== DOMAINS.length) {
     throw new ParseError(
-      `expected ${DOMAINS.length} domains on folio ${DOMAINS_FOLIO}, found ${domains.length}`,
+      `expected ${DOMAINS.length} domains on folio ${folio}, found ${domains.length}`,
       domains.map((d) => d.id).join(', '),
     );
   }
@@ -168,18 +182,44 @@ function cardText(body: readonly Row[]): string {
     .join('\n\n');
 }
 
+/** `[from, to)` as indices, for the ownership check below. */
+const range = (from: number, to: number): number[] =>
+  Array.from({ length: to - from }, (_u, k) => from + k);
+
 const isCardTitle = (f: Row): boolean =>
   f.bold && f.size >= TITLE_SIZE && f.family.startsWith('QuestaSans');
 
 export function parseDomainCards(pages: BookPage[]): DomainCard[] {
-  const lines = readPages(pages, APPENDIX_FROM, APPENDIX_TO);
+  const appendix = rangeToEnd(parseContents(pages), pages, APPENDIX_SECTION);
+  const lines = readPages(pages, appendix.from, appendix.to);
 
-  // A card is announced by its `Level N <Domain> <Type>` / `Recall Cost: N`
-  // pair; the line above the pair is the title. Nothing else in the appendix
-  // matches, so this needs no font heuristics to find the boundaries.
-  const starts: number[] = [];
+  /*
+   * A card is announced by its `Level N <Domain> <Type>` / `Recall Cost: N`
+   * pair; the title is what stands above it. Nothing else in the appendix
+   * matches, so the boundaries need no font heuristics.
+   *
+   * The title is a RANGE and not a line, which SRD 2 is what taught: its
+   * columns are narrower, and `SUMMON HORROR` sets over two. Reading only the
+   * line directly above the pair would have named that card `HORROR` - not a
+   * crash, a wrong name, on a card the search and every saved loadout key by
+   * slug. So the title walks upward while the face still says title.
+   *
+   * For SRD 1 every title fits one line, the walk stops immediately, and the
+   * output is byte-identical - which is the check that says this is a widening
+   * and not a change.
+   */
+  interface Start {
+    /** First line of the title. */
+    title: number;
+    /** The `Level N ...` line; the title is everything from `title` to here. */
+    level: number;
+  }
+  const starts: Start[] = [];
   for (let i = 1; i + 1 < lines.length; i++) {
-    if (LEVEL_RE.test(lines[i]!.text) && RECALL_RE.test(lines[i + 1]!.text)) starts.push(i - 1);
+    if (!LEVEL_RE.test(lines[i]!.text) || !RECALL_RE.test(lines[i + 1]!.text)) continue;
+    let title = i - 1;
+    while (title > 0 && isCardTitle(lines[title - 1]!)) title -= 1;
+    starts.push({ title, level: i });
   }
   if (starts.length === 0) {
     throw new ParseError(
@@ -187,14 +227,20 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
       lines.slice(0, 6).map((l) => l.text).join(' | '),
     );
   }
-  // Losing a card silently is the failure that matters here: a title that never
-  // paired with a level line would just be swallowed by the card above it. The
-  // title face is used nowhere else in the appendix, so counting it catches that.
-  const titles = lines.filter(isCardTitle).length;
-  if (titles !== starts.length) {
+  /*
+   * Losing a card silently is the failure that matters: a title that never
+   * paired with a level line would be swallowed by the card above it. The title
+   * face is used nowhere else in the appendix, so every title-face line must be
+   * accounted for by exactly one card - which is the same guarantee as before,
+   * now counted over multi-line titles rather than assuming one line each.
+   */
+  const titleLines = lines.filter(isCardTitle).length;
+  const claimed = starts.reduce((n, st) => n + (st.level - st.title), 0);
+  if (titleLines !== claimed) {
+    const owned = new Set(starts.flatMap((st) => range(st.title, st.level)));
     throw new ParseError(
-      `found ${titles} card titles but ${starts.length} cards`,
-      lines.filter((l, i) => isCardTitle(l) && !starts.includes(i)).map((l) => l.text).join(', '),
+      `found ${titleLines} title lines but ${claimed} belong to the ${starts.length} cards`,
+      lines.filter((l, i) => isCardTitle(l) && !owned.has(i)).map((l) => l.text).join(', '),
     );
   }
 
@@ -214,18 +260,25 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
   const cards: DomainCard[] = [];
   const seen = new Map<string, string>();
   starts.forEach((start, n) => {
-    const title = lines[start]!;
-    const level = lines[start + 1]!;
-    const recall = lines[start + 2]!;
+    const titleLine = lines[start.title]!;
+    const titleText = lines
+      .slice(start.title, start.level)
+      .map((l) => l.text.trim())
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const level = lines[start.level]!;
+    const recall = lines[start.level + 1]!;
+    const title = { ...titleLine, text: titleText };
 
-    if (!isCardTitle(title)) {
-      throw new ParseError('card title is not bold sans', `${title.text} / ${title.family}`);
+    if (!isCardTitle(titleLine)) {
+      throw new ParseError('card title is not bold sans', `${titleText} / ${titleLine.family}`);
     }
-    if (title.text !== title.text.toUpperCase()) {
-      throw new ParseError('card title is not set in caps', title.text);
+    if (titleText !== titleText.toUpperCase()) {
+      throw new ParseError('card title is not set in caps', titleText);
     }
 
-    const banner = banners[start];
+    const banner = banners[start.title];
     if (!banner) throw new ParseError('card appears before any domain banner', title.text);
 
     const lm = LEVEL_RE.exec(level.text)!;
@@ -245,8 +298,8 @@ export function parseDomainCards(pages: BookPage[]): DomainCard[] {
       throw new ParseError('card level out of range', `${title.text}: ${level.text}`);
     }
 
-    const end = starts[n + 1] ?? lines.length;
-    const body = lines.slice(start + 3, end).filter((f) => !f.family.startsWith('Eveleth'));
+    const end = starts[n + 1]?.title ?? lines.length;
+    const body = lines.slice(start.level + 2, end).filter((f) => !f.family.startsWith('Eveleth'));
     const text = cardText(body);
     if (text.length === 0) throw new ParseError('card has no rules text', title.text);
 
