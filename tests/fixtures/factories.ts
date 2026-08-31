@@ -138,6 +138,8 @@ export const makeDataset = (p: Partial<Dataset> = {}): Dataset => ({
   beastforms: [],
   ancestries: [],
   communities: [],
+  // SRD 1.0 has no Transformations chapter, and no test needs one yet.
+  transformations: [],
   weapons: [makeWeapon()],
   armors: [makeArmor()],
   loot: [],

@@ -329,9 +329,16 @@ export function readBookClaims(
  * forward from the one before it.
  *
  * A revision that is not here is an ERROR, not a free pass, and a `null` is an
- * error too: "nobody has counted this yet" is the truth about SRD 2.0's
- * transformations, environments and adversaries today, and a gate that shrugs
- * at it would let the first wrong number through on the day the parsers land.
+ * error too - "nobody has counted this yet" must fail the build rather than
+ * pass it, or the first wrong number goes through on the day a parser lands.
+ *
+ * No field is null today. The sentence that stood here said `null` was "the
+ * truth about SRD 2.0's transformations, environments and adversaries", and it
+ * has been overtaken twice: environments (47) and adversaries (264) were
+ * counted last wave and transformations (6) this one. It is corrected rather
+ * than deleted because the rule it states is still the rule, and because a
+ * docblock naming three holes that are all closed is how a gate stops being
+ * read.
  */
 export interface RevisionCounts {
   /**
@@ -360,6 +367,29 @@ export interface RevisionCounts {
   beastforms: number | null;
   environments: number | null;
   /**
+   * Transformation cards. Zero is a MEASUREMENT here, not a default.
+   *
+   * SRD 1.0 has no Transformations chapter: its contents page carries no such
+   * entry and no page in it prints a `TRANSFORMATION FEATURES` banner, or any
+   * heading matching /transformation/i at all. SRD 2.0 opens the chapter on
+   * folio 42 and prints six cards over folios 43-45, two to a page, one per
+   * column.
+   *
+   * Six was counted three ways before it was written down: the display banners
+   * on folios 43-45 (DEMIGOD, GHOST, REANIMATED, SHAPESHIFTER, VAMPIRE,
+   * WEREWOLF), the six pairs of `TRANSFORMATION FEATURES` /
+   * `TRANSFORMATION QUESTIONS` banners those folios carry, and the parser.
+   *
+   * The zero earns its own gate rather than being skipped. `null` here would
+   * mean "nobody has counted this", and on a book with no chapter that reads
+   * exactly like the count that IS zero - so a parser that started returning
+   * cards for SRD 1.0, or that stopped returning them for SRD 2.0, would have
+   * nothing to fail against. Unlike `beastforms` or `environments` there is no
+   * printed roster sentence to derive this from: folio 42 says "A PC can\'t
+   * have more than one transformation" and never says how many there are.
+   */
+  transformations: number | null;
+  /**
    * Adversaries as a range, because the chapter's own roster - not the contents
    * page - is the thing that actually pins the count, and it is checked where
    * it is readable: `shared/parsers/adversaries.ts` refuses a stat block that
@@ -368,6 +398,21 @@ export interface RevisionCounts {
    */
   adversariesMin: number | null;
   adversariesMax: number | null;
+  /**
+   * Records carrying `Sourced.module`: the equipment the optional-module
+   * chapters print, which is in the `weapons` and `armors` collections beside
+   * the base rules and marked with the chapter it came from.
+   *
+   * `0` is a real measurement here and not an unfilled hole, which is why these
+   * two are not `number | null` like the four above. `shared/parsers/equipment.ts`
+   * finds module equipment by looking for an equipment table header outside the
+   * three main equipment ranges, and a book with no such chapter yields none:
+   * a correct empty answer that no throw inside the parser can distinguish from
+   * a broken selection. This is the thing that can tell them apart, so a book
+   * whose module haul silently went to zero fails the build here.
+   */
+  moduleWeapons: number;
+  moduleArmors: number;
 }
 
 export const REVISION_COUNTS: Record<string, RevisionCounts> = {
@@ -375,8 +420,18 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
     domainCardsPerDomain: 21,
     beastforms: 22,
     environments: 19,
+    transformations: 0,
     adversariesMin: 120,
     adversariesMax: 140,
+    /*
+     * Zero, measured rather than assumed absent. SRD 1.0's contents page names
+     * no `Supplemental Campaign Mechanics` chapter, and - the check that does
+     * not depend on a title - not one of its 135 folios prints a `Name`-led
+     * equipment table header outside folios 44-57, where the Weapons, Combat
+     * Wheelchair and Armor chapters are.
+     */
+    moduleWeapons: 0,
+    moduleArmors: 0,
   },
   'srd-2.0-2026-08-25': {
     domainCardsPerDomain: 21,
@@ -402,6 +457,7 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
      */
     beastforms: 22,
     environments: 47,
+    transformations: 6,
     /*
      * 264, exactly, where SRD 1.0 carries a 20-wide band.
      *
@@ -418,6 +474,32 @@ export const REVISION_COUNTS: Record<string, RevisionCounts> = {
      */
     adversariesMin: 264,
     adversariesMax: 264,
+    /*
+     * 76 and 16, from 43 and 7 printed rows. Both halves were counted on the
+     * page before the parser was allowed to agree with them.
+     *
+     * The four folios that carry module equipment are 191, 192, 197 and 201 -
+     * every folio of the book was checked for a `Name`-led equipment header
+     * outside the main ranges, and those are the only ones. The rows on them:
+     * Everyday Hero 15 + 10 primary and 7 secondary weapons and 4 armors
+     * (folios 191-192), Western 3 primary and 2 secondary weapons and NO armor
+     * (folio 197), Monster Hunting 3 primary and 3 secondary weapons and 3
+     * armors (folio 201). That is 43 weapon rows and 7 armor rows.
+     *
+     * The record counts are larger than the row counts because Western and
+     * Monster Hunting print the whole tier ladder inside one cell - `Tier 1:
+     * d8+1 phy Tier 2: d8+4 phy ...` - where the main chapter prints four rows
+     * in four tier tables. Their 11 weapon rows and 3 armor rows are therefore
+     * 44 and 12 records, and Everyday Hero's 32 and 4 are 32 and 4, because it
+     * prints no tier at all. 32 + 44 = 76, 4 + 12 = 16.
+     *
+     * The 7 armor rows are worth a sentence, because the number this wave was
+     * handed was 4. Four is the Everyday Hero table alone (folio 192); Monster
+     * Hunting prints three more on folio 201 under its own `Armor` banner -
+     * Coffinwood Armor, Leather Longcoat, Silverweave Armor.
+     */
+    moduleWeapons: 76,
+    moduleArmors: 16,
   },
 };
 
@@ -536,8 +618,9 @@ export function validate(ds: Dataset): Issue[] {
       message:
         `no counts for revision "${ds.revision}". Add an entry to REVISION_COUNTS in ` +
         `tools/validate.ts keyed by that exact string, with domainCardsPerDomain, beastforms, ` +
-        `environments, adversariesMin and adversariesMax measured on THIS printing. This build ` +
-        `produced beastforms ${ds.beastforms.length}, environments ${ds.environments.length}, ` +
+        `environments, transformations, adversariesMin and adversariesMax measured on THIS ` +
+        `printing. This build produced beastforms ${ds.beastforms.length}, environments ` +
+        `${ds.environments.length}, transformations ${ds.transformations.length}, ` +
         `adversaries ${ds.adversaries.length} - check each against the book before writing it ` +
         `down. domains, classes, subclasses, ancestries and communities need no entry: they are ` +
         `read from the book's own Character Creation text.`,
@@ -663,6 +746,60 @@ export function validate(ds: Dataset): Issue[] {
       counts.environments,
       `counted in ${ds.revision}`,
     );
+  }
+
+  if (counts !== undefined && counts.transformations === null) {
+    issues.push({
+      severity: 'error',
+      where: 'transformations',
+      message: UNMEASURED(ds.revision, 'transformations', `${ds.transformations.length}`),
+    });
+  } else if (counts !== undefined && counts.transformations !== null) {
+    expectCount(
+      issues,
+      'transformations',
+      ds.transformations.length,
+      counts.transformations,
+      `counted in ${ds.revision}`,
+    );
+  }
+
+  for (const t of ds.transformations) {
+    /*
+     * Shape, not a number. Every card THIS printing sets carries two features
+     * and six questions, and that is in the test file where it can be read
+     * against the page; what is checked here is that a card is a card at all -
+     * a mis-split leaves one side empty, and an empty side is not something a
+     * count of six cards can see.
+     */
+    if (t.features.length === 0) {
+      issues.push({
+        severity: 'error',
+        where: `transformations/${t.id}`,
+        message: 'no features under TRANSFORMATION FEATURES',
+      });
+    }
+    if (t.questions.length === 0) {
+      issues.push({
+        severity: 'error',
+        where: `transformations/${t.id}`,
+        message: 'no questions under TRANSFORMATION QUESTIONS',
+      });
+    }
+    if (t.description.trim().length < 20) {
+      issues.push({
+        severity: 'error',
+        where: `transformations/${t.id}`,
+        message: `description is only ${t.description.trim().length} characters - the parser probably stopped early`,
+      });
+    }
+    checkText(issues, `transformations/${t.id}`, t.description);
+    checkText(issues, `transformations/${t.id}/name`, t.name);
+    for (const f of t.features) {
+      checkText(issues, `transformations/${t.id}/${f.name}`, f.text);
+      checkText(issues, `transformations/${t.id}/${f.name}/name`, f.name);
+    }
+    for (const q of t.questions) checkText(issues, `transformations/${t.id}/questions`, q);
   }
 
   if (counts !== undefined && (counts.adversariesMin === null || counts.adversariesMax === null)) {
@@ -870,6 +1007,23 @@ export function validate(ds: Dataset): Issue[] {
     }
   }
 
+  if (counts !== undefined) {
+    expectCount(
+      issues,
+      'weapons/module',
+      ds.weapons.filter((w) => w.module !== undefined).length,
+      counts.moduleWeapons,
+      `counted in ${ds.revision}`,
+    );
+    expectCount(
+      issues,
+      'armors/module',
+      ds.armors.filter((a) => a.module !== undefined).length,
+      counts.moduleArmors,
+      `counted in ${ds.revision}`,
+    );
+  }
+
   for (const w of ds.weapons) {
     // "spellcast" is legitimate: the arcane-frame wheelchairs defer to
     // whatever Spellcast trait the wielder's subclass names.
@@ -958,8 +1112,27 @@ export function validate(ds: Dataset): Issue[] {
     checkText(issues, `environments/${env.id}`, env.description);
   }
 
-  // Ids must be unique across the whole dataset: the registry maps them to
-  // integers, and a collision would silently alias two entities on the wire.
+  /*
+   * Ids must be unique WITHIN a collection, and each (collection, slug) pair
+   * must name one record. Across collections they may repeat, and since SRD 2.0
+   * one does: the Valor domain card *Hold the Line* (folio 223) and the Event
+   * environment of the same name (folio 164) both slugify to `hold-the-line`.
+   *
+   * This check used to say "unique across the whole dataset", which was true of
+   * `data/registry.json` version 1 - one id per bare slug - and stopped the
+   * SRD 2.0 build dead. Version 2 keys the registry by `collection/slug`, so
+   * the two are two rows with two numbers and nothing is aliased on the wire.
+   * What WOULD alias two entities is one collection printing the same slug
+   * twice, and that is what is an error below.
+   *
+   * The cross-collection case is still worth a warning rather than silence:
+   * `indexDataset` in src/engine/character.ts keys its `byRef` map by the bare
+   * slug and the last collection written wins, so the two records do collapse
+   * into one entry there. Every character-facing lookup goes through a typed
+   * map (`cards`, `classes`, `weapons`, ...) and is unaffected; the warning is
+   * for whoever owns `byRef`, and it names the pair rather than guessing what
+   * they should do about it.
+   */
   const seen = new Map<string, string>();
   const collections: Array<[string, Array<{ id: string }>]> = [
     ['domains', ds.domains],
@@ -969,6 +1142,19 @@ export function validate(ds: Dataset): Issue[] {
     ['beastforms', ds.beastforms],
     ['ancestries', ds.ancestries],
     ['communities', ds.communities],
+    /*
+     * `transformations` is in this list, and putting it here found a second
+     * cross-collection collision on the wire: SRD 2.0 prints an ADVERSARY
+     * called Vampire (folio 142) and a TRANSFORMATION card called VAMPIRE
+     * (folio 45), and both slugify to `vampire`. That is the same defect as
+     * `hold-the-line` - a Valor domain card in SRD 1.0 and an Event
+     * environment in SRD 2.0 - and it is reported here rather than avoided by
+     * leaving the new collection out, because a collection exempt from the
+     * dataset's own uniqueness check is exactly the silent hole this file
+     * exists to close. Both errors are the registry's to resolve; neither is
+     * resolvable by renaming a card the book names.
+     */
+    ['transformations', ds.transformations],
     ['weapons', ds.weapons],
     ['armors', ds.armors],
     ['loot', ds.loot],
@@ -978,17 +1164,28 @@ export function validate(ds: Dataset): Issue[] {
     ['rules', ds.rules],
   ];
   for (const [name, items] of collections) {
+    const within = new Set<string>();
     for (const item of items) {
       if (item.id === '' || item.id === undefined) {
         issues.push({ severity: 'error', where: name, message: 'an entry has an empty id' });
         continue;
       }
-      const prior = seen.get(item.id);
-      if (prior !== undefined) {
+      if (within.has(item.id)) {
         issues.push({
           severity: 'error',
           where: `${name}/${item.id}`,
-          message: `duplicate id, already used by ${prior}`,
+          message: `duplicate id inside ${name}: two records, one key, and no way to tell them apart`,
+        });
+      }
+      within.add(item.id);
+      const prior = seen.get(item.id);
+      if (prior !== undefined && prior !== name) {
+        issues.push({
+          severity: 'warning',
+          where: `${name}/${item.id}`,
+          message:
+            `the slug is also ${prior}/${item.id}; the registry gives each its own id, but ` +
+            `indexDataset keys byRef by the slug alone and keeps only one of them`,
         });
       }
       seen.set(item.id, name);

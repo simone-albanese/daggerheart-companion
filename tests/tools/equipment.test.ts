@@ -130,8 +130,15 @@ describe.skipIf(!have(0))('SRD 1.0, whose answer is already known', () => {
 describe.skipIf(!have(1))('SRD 2.0, 224 pages where the constants pointed at 135', () => {
   it('reads every weapon and armor, including the ones no header announces', async () => {
     const pages = await load(1);
-    const weapons = parseWeapons(pages);
-    const armors = parseArmors(pages);
+    /*
+     * The BASE rules only. `parseWeapons` and `parseArmors` also return the
+     * optional-module equipment of folios 191-201, marked with `module`; every
+     * count in this test was measured against the Weapons, Combat Wheelchair
+     * and Armor chapters and is about them, so the population is named rather
+     * than the numbers moved. `tests/tools/modules.test.ts` has the other half.
+     */
+    const weapons = parseWeapons(pages).filter((w) => w.module === undefined);
+    const armors = parseArmors(pages).filter((a) => a.module === undefined);
 
     expect(weapons.length).toBe(315);
     expect(armors.length).toBe(69);

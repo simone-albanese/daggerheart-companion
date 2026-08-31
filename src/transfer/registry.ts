@@ -14,22 +14,104 @@
  * to grow. Everything from 60000 up is reserved for the user content that does
  * not exist yet (Architecture 4): the encoder must never mint an id there, and
  * the decoder treats one as unresolvable rather than guessing.
+ *
+ * ## The key is `collection/slug`, and the numbers did not move
+ *
+ * Version 1 of the file was keyed by the bare slug, one id per slug across the
+ * whole dataset. SRD 2.0 ends that: it prints an Event environment called
+ * *Hold the Line* (folio 164) beside the Valor domain card of the same name
+ * (folio 223), and `slugify` reduces both to `hold-the-line`. Two different
+ * records, one key, and `tools/validate.ts` stopped the build.
+ *
+ * So the key is namespaced. **Every number stayed exactly where it was**: the
+ * migration in `tools/buildRegistry.ts` only rewrites keys, which is what makes
+ * it safe - the wire carries the integer, so a QR generated before the re-key
+ * decodes to the same record after it.
+ *
+ * ## Bare names still resolve, because a `Ref` is a bare slug
+ *
+ * A `Character` stores refs as bare slugs and always has; `indexDataset` keys
+ * its `byRef` map the same way. Namespacing the registry does not namespace
+ * that ref space, and this lane deliberately did not try to - so `idOf` and
+ * `slugOf` still speak bare slugs and the codec did not change.
+ *
+ * When one bare slug carries more than one id, `idOf` hands back the one whose
+ * collection comes first in `BANDED_COLLECTIONS`. That order is therefore
+ * load-bearing now, where before it only decided which of two colliding slugs
+ * got warned about; it runs character-facing content first and GM-only content
+ * last, so `hold-the-line` resolves to the domain card a loadout can hold
+ * rather than to the environment a sheet can never point at. `idIn` is the
+ * exact lookup for a caller that knows its collection.
  */
 import registryFile from '../../data/registry.json';
 import type { Ref } from '../../shared/types.ts';
 
 export interface RegistryFile {
   version: number;
-  /** slug -> id. */
+  /**
+   * `collection/slug` -> id. The collection is one of `BANDED_COLLECTIONS`;
+   * the slug never contains a `/`, because `slugify` only emits `[a-z0-9-]`.
+   */
   ids: Record<string, number>;
 }
 
-export const REGISTRY_VERSION = 1;
+/**
+ * What this number gates, now that it gates something.
+ *
+ * 1 -> 2 is the re-key described above. It has to be a version and not a
+ * silent change of shape, because the two files are indistinguishable by type
+ * (`Record<string, number>` either way) and a version-1 file read by this
+ * build would resolve nothing: every lookup goes through `collection/slug`
+ * and every key in that file is a bare slug. The app would come up with an
+ * empty-looking registry and export characters with every ref missing.
+ *
+ * `tests/harness/orphans.test.ts` has said since the constant was written that
+ * it is "checked by createRegistry on load". That was not true - `createRegistry`
+ * copied `file.version` onto the registry and looked at it no further. It is
+ * true now: a file at any other version is refused below, loudly, at load.
+ */
+export const REGISTRY_VERSION = 2;
+
+/** The one character that separates a key's two halves. Never inside a slug. */
+export const KEY_SEPARATOR = '/';
+
+/** `('domainCards', 'hold-the-line')` -> `'domainCards/hold-the-line'`. */
+export const registryKey = (collection: string, slug: Ref): string =>
+  `${collection}${KEY_SEPARATOR}${slug}`;
+
+/**
+ * The inverse. `null` for anything that is not exactly one separator with a
+ * non-empty half on each side - a bare version-1 key, or a slug that somehow
+ * carries a separator of its own.
+ */
+export const parseRegistryKey = (key: string): { collection: string; slug: Ref } | null => {
+  const cut = key.indexOf(KEY_SEPARATOR);
+  if (cut <= 0 || cut === key.length - 1) return null;
+  const slug = key.slice(cut + 1);
+  if (slug.includes(KEY_SEPARATOR)) return null;
+  return { collection: key.slice(0, cut), slug };
+};
 
 /** Ids at or above this belong to user content. Never emitted, never assumed. */
 export const RESERVED_MIN = 60_000;
 
-/** Dataset collections that get ids. Domains and rules are never referenced by a character. */
+/**
+ * Dataset collections that get ids. Domains and rules are never referenced by a
+ * character.
+ *
+ * **This order is load-bearing.** It is the order `buildRegistry` walks, and
+ * since the re-key it is also the precedence `idOf` uses when one bare slug
+ * carries several ids: first entry wins the bare name. It runs the collections
+ * a `Character` can point at first and the GM-only ones last, which is why
+ * `hold-the-line` resolves to the Valor domain card and not to the SRD 2.0
+ * environment - a loadout can hold the card, and no field on a sheet has ever
+ * been able to hold an environment.
+ *
+ * `transformations` is appended rather than placed beside `communities` (where
+ * `Dataset` keeps it, following the book's contents page) for exactly that
+ * reason: nothing on a character references one yet, so it must not be able to
+ * take a bare name away from something that is referenced.
+ */
 export const BANDED_COLLECTIONS = [
   'classes',
   'subclasses',
@@ -43,6 +125,7 @@ export const BANDED_COLLECTIONS = [
   'consumables',
   'adversaries',
   'environments',
+  'transformations',
 ] as const;
 
 export type BandedCollection = (typeof BANDED_COLLECTIONS)[number];
@@ -82,6 +165,20 @@ export const BANDS: readonly Band[] = [
    * a glance in a diff, which is what the bands are for.
    */
   { name: 'domainCards+', min: 12_000, max: 13_999, collections: ['domainCards'] },
+  /*
+   * Transformations, the collection SRD 2.0 adds (folios 42-45, six cards).
+   *
+   * 14_000-14_999 because it is the first thousand no band claims: the bands
+   * above run to 13_999 and the reserved range starts at 60_000. Nothing is
+   * squeezed in below, and nothing needed to be - the highest id ever minted is
+   * 11_019 (`max(data/registry.json)`, measured, not remembered), so the gap
+   * between 11_019 and 14_000 is empty on purpose and stays that way.
+   *
+   * A band of its own rather than a lodger in somebody else's: a transformation
+   * is not an item and not a card, and the whole point of the bands is that a
+   * wrong-kind reference is obvious in a diff.
+   */
+  { name: 'transformations', min: 14_000, max: 14_999, collections: ['transformations'] },
 ];
 
 /**
@@ -182,13 +279,37 @@ export const unresolvedIdOf = (ref: string): number | null =>
 
 export interface Registry {
   version: number;
+  /** Rows in the file, which is keys and not bare slugs. */
   size: number;
+  /**
+   * The exact lookup, for a caller that knows which collection it means. This
+   * is the one the build tool and the dataset speak.
+   */
+  idIn(collection: string, slug: Ref): number | null;
+  /**
+   * The bare-slug lookup the codec speaks, because a `Ref` on a character is a
+   * bare slug. When several collections carry the slug, the one that comes
+   * first in `BANDED_COLLECTIONS` wins; see that array's docblock.
+   */
   idOf(slug: Ref): number | null;
+  /** id -> the BARE slug, which is what a `Ref` field can hold. */
   slugOf(id: number): Ref | null;
+  /** id -> the full `collection/slug`, for diagnostics and for tests. */
+  keyOf(id: number): string | null;
   has(slug: Ref): boolean;
-  /** Every entry, for the build tool and for tests. */
-  entries(): ReadonlyMap<Ref, number>;
+  /** Every row, keyed as the file is. For the build tool and for tests. */
+  entries(): ReadonlyMap<string, number>;
 }
+
+/**
+ * Where a collection sits in the bare-name precedence. An unknown collection -
+ * a row left over from a collection this build no longer has - sorts last, so
+ * it can never take a bare name from a collection that still exists.
+ */
+const collectionRank = (collection: string): number => {
+  const i = (BANDED_COLLECTIONS as readonly string[]).indexOf(collection);
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+};
 
 /**
  * Wrap a registry file, checking the invariants the codec depends on. A broken
@@ -197,38 +318,115 @@ export interface Registry {
  * value and quietly corrupt somebody's character.
  */
 export function createRegistry(file: RegistryFile): Registry {
-  const bySlug = new Map<Ref, number>();
-  const byId = new Map<number, Ref>();
+  /*
+   * The version gate. It is first because every check below reads a key, and a
+   * version-1 file has no keys - only bare slugs. Letting one through would
+   * not throw anywhere: `parseRegistryKey` would return null for every row and
+   * the app would come up with a registry that resolves nothing, which is the
+   * failure that looks like working software right up until somebody exports a
+   * character and every reference is missing.
+   */
+  if (file.version !== REGISTRY_VERSION) {
+    throw new RegistryError(
+      `data/registry.json is version ${String(file.version)}, this build reads version ${REGISTRY_VERSION}. ` +
+        `Version 2 keys every row by "collection/slug" instead of by the bare slug; no id changed. ` +
+        `Run: npm run build:registry`,
+    );
+  }
 
-  for (const [slug, id] of Object.entries(file.ids)) {
+  const byKey = new Map<string, number>();
+  const bySlug = new Map<Ref, number>();
+  const rankOfSlug = new Map<Ref, number>();
+  const byId = new Map<number, Ref>();
+  const keyById = new Map<number, string>();
+
+  for (const [key, id] of Object.entries(file.ids)) {
+    const parsed = parseRegistryKey(key);
+    if (parsed === null) {
+      throw new RegistryError(
+        `Registry key "${key}" is not "collection/slug". Every row is namespaced since version 2.`,
+      );
+    }
     if (!Number.isSafeInteger(id) || id <= 0) {
-      throw new RegistryError(`Registry id for "${slug}" is not a positive integer: ${String(id)}`);
+      throw new RegistryError(`Registry id for "${key}" is not a positive integer: ${String(id)}`);
     }
     if (isReserved(id)) {
       throw new RegistryError(
-        `Registry id ${id} for "${slug}" is in the reserved range (>= ${RESERVED_MIN}), which is kept free for user content.`,
+        `Registry id ${id} for "${key}" is in the reserved range (>= ${RESERVED_MIN}), which is kept free for user content.`,
       );
     }
     if (bandOf(id) === null) {
-      throw new RegistryError(`Registry id ${id} for "${slug}" falls outside every band.`);
+      throw new RegistryError(`Registry id ${id} for "${key}" falls outside every band.`);
     }
-    const clash = byId.get(id);
+    const clash = keyById.get(id);
     if (clash !== undefined) {
-      throw new RegistryError(`Registry id ${id} is used by both "${clash}" and "${slug}".`);
+      throw new RegistryError(`Registry id ${id} is used by both "${clash}" and "${key}".`);
     }
-    bySlug.set(slug, id);
-    byId.set(id, slug);
+    byKey.set(key, id);
+    keyById.set(id, key);
+    byId.set(id, parsed.slug);
+
+    /*
+     * The bare name. Lowest collection rank wins, and a tie - which can only
+     * happen if the same collection somehow appears twice - falls to the lower
+     * id, so the result never depends on `Object.entries` order.
+     */
+    const rank = collectionRank(parsed.collection);
+    const heldRank = rankOfSlug.get(parsed.slug);
+    const held = bySlug.get(parsed.slug);
+    if (heldRank === undefined || rank < heldRank || (rank === heldRank && id < held!)) {
+      rankOfSlug.set(parsed.slug, rank);
+      bySlug.set(parsed.slug, id);
+    }
   }
 
   return {
     version: file.version,
-    size: bySlug.size,
+    size: byKey.size,
+    idIn: (collection, slug) => byKey.get(registryKey(collection, slug)) ?? null,
     idOf: (slug) => bySlug.get(slug) ?? null,
     slugOf: (id) => byId.get(id) ?? null,
+    keyOf: (id) => keyById.get(id) ?? null,
     has: (slug) => bySlug.has(slug),
-    entries: () => bySlug,
+    entries: () => byKey,
   };
 }
 
-/** The committed registry. Empty until `tools/buildRegistry.ts` has run. */
-export const registry: Registry = createRegistry(registryFile as unknown as RegistryFile);
+/**
+ * The committed registry. Empty until `tools/buildRegistry.ts` has run.
+ *
+ * ## Why this is built on first use and not at import
+ *
+ * It used to be `createRegistry(...)` at module scope, and the version gate
+ * turned that into a trap door the moment the gate had something to reject:
+ * `tools/buildRegistry.ts` imports `BANDS` and `REGISTRY_VERSION` from this
+ * file, so importing it evaluated this line, so the one tool that can bring an
+ * out-of-date `data/registry.json` up to date crashed on the very file it
+ * exists to rewrite - with a message telling the developer to run the tool
+ * that had just crashed. Measured, not imagined: that is exactly what
+ * `npm run build:registry` did on the first run after the gate went in.
+ *
+ * Deferring to first use costs the app nothing it was actually getting. The
+ * registry is read on the first encode, decode or pre-flight, all of which
+ * happen long after start-up, and a throw there is every bit as loud as a
+ * throw at import - `createRegistry` is still the only thing that builds it
+ * and it still refuses everything it refused before.
+ */
+let committed: Registry | null = null;
+const loadCommitted = (): Registry =>
+  (committed ??= createRegistry(registryFile as unknown as RegistryFile));
+
+export const registry: Registry = {
+  get version(): number {
+    return loadCommitted().version;
+  },
+  get size(): number {
+    return loadCommitted().size;
+  },
+  idIn: (collection, slug) => loadCommitted().idIn(collection, slug),
+  idOf: (slug) => loadCommitted().idOf(slug),
+  slugOf: (id) => loadCommitted().slugOf(id),
+  keyOf: (id) => loadCommitted().keyOf(id),
+  has: (slug) => loadCommitted().has(slug),
+  entries: () => loadCommitted().entries(),
+};

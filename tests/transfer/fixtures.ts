@@ -6,7 +6,13 @@
  * tests print are the sizes a real sheet takes on the wire.
  */
 import { SCHEMA_VERSION, type Character, type LevelUpChoice } from '../../shared/types.ts';
-import { createRegistry, registry, type Registry } from '../../src/transfer/registry.ts';
+import {
+  createRegistry,
+  parseRegistryKey,
+  registry,
+  REGISTRY_VERSION,
+  type Registry,
+} from '../../src/transfer/registry.ts';
 import type { SlugSource } from '../../tools/buildRegistry.ts';
 
 // ---------------------------------------------------------------------------
@@ -63,11 +69,22 @@ export const percentile = (sorted: number[], p: number): number =>
 /** The committed registry: what a device actually has. */
 export const testRegistry: Registry = registry;
 
-/** The same registry minus a few entries: a device with older content. */
+/**
+ * The same registry minus a few entries: a device with older content.
+ *
+ * Takes BARE slugs, because that is what a caller has: a `Character` field
+ * holds `'rune-ward'` and nothing else. Since version 2 the registry file is
+ * keyed by `collection/slug`, so removing "the content named X" means removing
+ * every row whose slug is X - which is also the right meaning, a device that
+ * has not got a card has not got it under any collection.
+ */
 export function registryWithout(...slugs: string[]): Registry {
-  const ids = Object.fromEntries(registry.entries());
-  for (const slug of slugs) delete ids[slug];
-  return createRegistry({ version: 1, ids });
+  const gone = new Set(slugs);
+  const ids: Record<string, number> = {};
+  for (const [key, id] of registry.entries()) {
+    if (!gone.has(parseRegistryKey(key)?.slug ?? key)) ids[key] = id;
+  }
+  return createRegistry({ version: REGISTRY_VERSION, ids });
 }
 
 /** A small invented dataset for the id-allocation tests, which need no SRD. */

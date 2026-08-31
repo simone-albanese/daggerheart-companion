@@ -243,12 +243,17 @@ describe('a revision nobody has measured fails loudly', () => {
       domainCardsPerDomain: 21,
       beastforms: null,
       environments: null,
+      transformations: null,
       adversariesMin: null,
       adversariesMax: null,
+      // Not nullable, and 0 is this dataset's true module haul, so they take no
+      // part in the property under test. See `RevisionCounts.moduleWeapons`.
+      moduleWeapons: 0,
+      moduleArmors: 0,
     };
     ds.revision = 'srd-test-null-row';
     const issues = errors(validate(ds));
-    for (const where of ['beastforms', 'environments', 'adversaries']) {
+    for (const where of ['beastforms', 'environments', 'transformations', 'adversaries']) {
       const hit = issues.find((i) => i.where === where);
       expect(hit, `expected an error at ${where}`).toBeDefined();
       expect(hit!.message).toContain('is null in tools/validate.ts');

@@ -186,7 +186,21 @@ export function makeCombatant(a: Adversary, index: number, partySize: number): S
     adversaryRef: a.id,
     name: a.name,
     hp: { marked: 0, max: a.hp },
-    stress: { marked: 0, max: a.stress },
+    /*
+     * `?? 0` because a board can only draw boxes, and no boxes is what "no
+     * Stress track" looks like on one. `Adversary.stress` became
+     * `number | null` when `Stress: None` (Spellbound Armor) stopped being
+     * stored as a `0` that meant two things; this line is the one place the two
+     * meanings collapse back together, and they collapse to the same pixels
+     * they always did - a zero-max `Counter` has nothing to mark.
+     *
+     * It is NOT the same collapse the type undid. There it lost the fact on the
+     * bestiary page, where a GM reads `Stress 0` and infers a track they can
+     * fill; here the combatant simply has no boxes, which is the truth.
+     * `SceneCombatant.stress` is a persisted campaign shape and widening THAT
+     * is `CAMPAIGN_SCHEMA_VERSION`'s chain, not this one's.
+     */
+    stress: { marked: 0, max: a.stress ?? 0 },
     /*
      * COPIED, and the copy is the whole of this line.
      *

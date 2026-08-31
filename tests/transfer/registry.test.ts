@@ -20,6 +20,8 @@ import {
   createRegistry,
   isUnresolvedRef,
   registry,
+  registryKey,
+  REGISTRY_VERSION,
   unresolvedIdOf,
   unresolvedRef,
   type RegistryFile,
@@ -27,7 +29,11 @@ import {
 import { buildRegistry, serializeRegistry, type SlugSource } from '../../tools/buildRegistry.ts';
 import { SOURCE } from './fixtures.ts';
 
-const EMPTY: RegistryFile = { version: 1, ids: {} };
+const EMPTY: RegistryFile = { version: REGISTRY_VERSION, ids: {} };
+
+/** Every row is keyed `collection/slug` since version 2; these read one. */
+const idOf = (file: RegistryFile, collection: string, slug: string): number | undefined =>
+  file.ids[registryKey(collection, slug)];
 const REPO = new URL('../../', import.meta.url);
 const SRD_PATH = fileURLToPath(new URL('data/srd-1.0.json', REPO));
 const REGISTRY_PATH = fileURLToPath(new URL('data/registry.json', REPO));
@@ -43,37 +49,37 @@ describe('bands', () => {
 
   it('puts each kind in its own band', () => {
     const { file } = buildRegistry(SOURCE, EMPTY);
-    const inBand = (slug: string, name: string): boolean => {
+    const inBand = (collection: string, slug: string, name: string): boolean => {
       const band = BANDS.find((b) => b.name === name)!;
-      const id = file.ids[slug]!;
+      const id = idOf(file, collection, slug)!;
       return id >= band.min && id <= band.max;
     };
-    expect(inBand('wizard', 'classes')).toBe(true);
-    expect(inBand('school-of-war', 'subclasses')).toBe(true);
-    expect(inBand('elf', 'ancestries')).toBe(true);
-    expect(inBand('loreborne', 'communities')).toBe(true);
-    expect(inBand('rune-ward', 'domainCards')).toBe(true);
-    expect(inBand('nimble-grazer', 'beastforms')).toBe(true);
-    expect(inBand('improved-wand', 'weapons')).toBe(true);
-    expect(inBand('chainmail-armor', 'armors')).toBe(true);
-    expect(inBand('arcane-cloak', 'items')).toBe(true);
-    expect(inBand('attune-potion', 'items')).toBe(true);
-    expect(inBand('jagged-knife-lackey', 'adversaries')).toBe(true);
-    expect(inBand('abandoned-grove', 'environments')).toBe(true);
+    expect(inBand('classes', 'wizard', 'classes')).toBe(true);
+    expect(inBand('subclasses', 'school-of-war', 'subclasses')).toBe(true);
+    expect(inBand('ancestries', 'elf', 'ancestries')).toBe(true);
+    expect(inBand('communities', 'loreborne', 'communities')).toBe(true);
+    expect(inBand('domainCards', 'rune-ward', 'domainCards')).toBe(true);
+    expect(inBand('beastforms', 'nimble-grazer', 'beastforms')).toBe(true);
+    expect(inBand('weapons', 'improved-wand', 'weapons')).toBe(true);
+    expect(inBand('armors', 'chainmail-armor', 'armors')).toBe(true);
+    expect(inBand('loot', 'arcane-cloak', 'items')).toBe(true);
+    expect(inBand('consumables', 'attune-potion', 'items')).toBe(true);
+    expect(inBand('adversaries', 'jagged-knife-lackey', 'adversaries')).toBe(true);
+    expect(inBand('environments', 'abandoned-grove', 'environments')).toBe(true);
   });
 
   it('hands out ids in slug order, so the file reads like an index', () => {
     const { file } = buildRegistry({ classes: [{ id: 'wizard' }, { id: 'bard' }] }, EMPTY);
-    expect(file.ids['bard']).toBeLessThan(file.ids['wizard']!);
+    expect(idOf(file, 'classes', 'bard')).toBeLessThan(idOf(file, 'classes', 'wizard')!);
   });
 
   it('sub-bands domain cards by domain', () => {
     const { file } = buildRegistry(SOURCE, EMPTY);
     const band = bandFor('domainCards');
     // arcana is the first domain, so its cards sit in the first hundred.
-    expect(file.ids['rune-ward']).toBeGreaterThan(band.min + 100);
-    expect(file.ids['rune-ward']).toBeLessThan(band.min + 200);
-    expect(file.ids['book-of-ava']).toBeGreaterThan(band.min + 400);
+    expect(idOf(file, 'domainCards', 'rune-ward')).toBeGreaterThan(band.min + 100);
+    expect(idOf(file, 'domainCards', 'rune-ward')).toBeLessThan(band.min + 200);
+    expect(idOf(file, 'domainCards', 'book-of-ava')).toBeGreaterThan(band.min + 400);
   });
 
   /*
@@ -101,7 +107,7 @@ describe('bands', () => {
       { domainCards: [{ id: 'summon-horror', domain: 'dread' }] },
       EMPTY,
     );
-    const id = file.ids['summon-horror']!;
+    const id = idOf(file, 'domainCards', 'summon-horror')!;
     expect(id).toBeGreaterThan(12_100);
     expect(id).toBeLessThan(12_200);
 
@@ -162,12 +168,14 @@ describe('append-only', () => {
     };
     const second = buildRegistry(grown, first);
 
-    for (const [slug, id] of Object.entries(first.ids)) {
-      expect(second.file.ids[slug], `${slug} moved`).toBe(id);
+    for (const [key, id] of Object.entries(first.ids)) {
+      expect(second.file.ids[key], `${key} moved`).toBe(id);
     }
     // Even a slug that sorts first gets a new id, at the end of its sub-band.
-    const arcana = ['rune-ward', 'unleash-chaos'].map((slug) => first.ids[slug]!);
-    expect(second.file.ids['aaa-first-alphabetically']).toBeGreaterThan(Math.max(...arcana));
+    const arcana = ['rune-ward', 'unleash-chaos'].map((slug) => idOf(first, 'domainCards', slug)!);
+    expect(idOf(second.file, 'domainCards', 'aaa-first-alphabetically')).toBeGreaterThan(
+      Math.max(...arcana),
+    );
     expect(second.added.map((a) => a.slug).sort()).toEqual([
       'aaa-first-alphabetically',
       'aardvark-tamer',
@@ -180,11 +188,11 @@ describe('append-only', () => {
     const shrunk: SlugSource = { ...SOURCE, classes: [{ id: 'wizard' }] };
     const second = buildRegistry(shrunk, first);
 
-    expect(second.file.ids['bard']).toBe(first.ids['bard']);
-    expect(second.retired).toContain('bard');
+    expect(idOf(second.file, 'classes', 'bard')).toBe(idOf(first, 'classes', 'bard'));
+    expect(second.retired).toContain('classes/bard');
     // And the freed number is never handed to somebody else.
     const third = buildRegistry({ ...shrunk, classes: [{ id: 'wizard' }, { id: 'newcomer' }] }, second.file);
-    expect(third.file.ids['newcomer']).not.toBe(first.ids['bard']);
+    expect(idOf(third.file, 'classes', 'newcomer')).not.toBe(idOf(first, 'classes', 'bard'));
   });
 
   it('is idempotent: running it twice writes the same bytes', () => {
@@ -193,36 +201,59 @@ describe('append-only', () => {
     expect(serializeRegistry(twice)).toBe(serializeRegistry(once));
   });
 
-  it('reports a slug claimed by two collections instead of renumbering it', () => {
+  /*
+   * Rewritten for version 2. This used to assert that a slug in two collections
+   * got ONE id and a warning, which is exactly what SRD 2.0's `hold-the-line`
+   * broke: a Valor domain card and an Event environment are two records and
+   * cannot share a number. Now each gets its own, and what is worth pinning is
+   * which of them the BARE name still resolves to.
+   */
+  it('gives a slug in two collections two ids, and the bare name to the first collection', () => {
     const clash: SlugSource = {
       classes: [{ id: 'shared-name' }],
       weapons: [{ id: 'shared-name' }],
     };
     const result = buildRegistry(clash, EMPTY);
-    expect(result.warnings.join(' ')).toMatch(/more than one collection/);
-    expect(bandOf(result.file.ids['shared-name']!)!.name).toBe('classes');
+    const asClass = idOf(result.file, 'classes', 'shared-name')!;
+    const asWeapon = idOf(result.file, 'weapons', 'shared-name')!;
+    expect(asClass).not.toBe(asWeapon);
+    expect(bandOf(asClass)!.name).toBe('classes');
+    expect(bandOf(asWeapon)!.name).toBe('weapons');
+
+    // `classes` comes before `weapons` in BANDED_COLLECTIONS, so it wins.
+    const loaded = createRegistry(result.file);
+    expect(loaded.idOf('shared-name')).toBe(asClass);
+    expect(loaded.idIn('weapons', 'shared-name')).toBe(asWeapon);
+    expect(result.warnings.join(' ')).toMatch(/each keeps its own id/);
   });
 });
 
 describe('createRegistry', () => {
+  const V = REGISTRY_VERSION;
+
   it('rejects a duplicate id', () => {
-    expect(() => createRegistry({ version: 1, ids: { a: 1001, b: 1001 } })).toThrow(/used by both/);
+    expect(() => createRegistry({ version: V, ids: { 'classes/a': 1001, 'classes/b': 1001 } })).toThrow(
+      /used by both/,
+    );
   });
 
   it('rejects an id in the reserved range', () => {
-    expect(() => createRegistry({ version: 1, ids: { a: RESERVED_MIN } })).toThrow(/reserved/);
+    expect(() => createRegistry({ version: V, ids: { 'classes/a': RESERVED_MIN } })).toThrow(/reserved/);
   });
 
   it('rejects an id outside every band', () => {
-    expect(() => createRegistry({ version: 1, ids: { a: 42 } })).toThrow(/outside every band/);
+    expect(() => createRegistry({ version: V, ids: { 'classes/a': 42 } })).toThrow(/outside every band/);
   });
 
   it('resolves both ways', () => {
-    const r = createRegistry({ version: 1, ids: { wizard: 1009 } });
+    const r = createRegistry({ version: V, ids: { 'classes/wizard': 1009 } });
     expect(r.idOf('wizard')).toBe(1009);
+    expect(r.idIn('classes', 'wizard')).toBe(1009);
     expect(r.slugOf(1009)).toBe('wizard');
+    expect(r.keyOf(1009)).toBe('classes/wizard');
     expect(r.idOf('nobody')).toBeNull();
     expect(r.slugOf(9999)).toBeNull();
+    expect(r.idIn('weapons', 'wizard')).toBeNull();
   });
 });
 
@@ -254,8 +285,10 @@ describe('the committed data/registry.json', () => {
    * file back into the generator and of course the ids come out unchanged.
    * Only a literal written down here fails when somebody edits the file.
    *
-   * `wizard` and `elf` are the two Architecture 5.1 prints; `rune-ward` is the
-   * `arcana-rune-ward -> 5101` example, and arcana's window is where it sits.
+   * `wizard` and `elf` are the two Architecture 5.1 prints. The third print in
+   * that section, `arcana-rune-ward -> 5101`, is fiction: no such slug is in
+   * the dataset or the registry, and 5101 is `domainCards/adjust-reality`. The
+   * real card is `rune-ward` at 5117, and arcana's window is where it sits.
    */
   it('agrees with DOMAIN_CARD_BASES, which is what makes that table the wire', () => {
     /*
@@ -271,7 +304,7 @@ describe('the committed data/registry.json', () => {
     };
     const seen = new Map<string, Set<number>>();
     for (const card of srd.domainCards) {
-      const id = committed.ids[card.id];
+      const id = committed.ids[registryKey('domainCards', card.id)];
       if (id === undefined) continue;
       const bases = seen.get(card.domain) ?? new Set<number>();
       bases.add(Math.floor(id / 100) * 100);
@@ -312,9 +345,9 @@ describe('the committed data/registry.json', () => {
       const committed = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as RegistryFile;
       const rebuilt = buildRegistry(source, committed).file;
 
-      for (const [slug, id] of Object.entries(committed.ids)) {
-        expect(rebuilt.ids[slug], `${slug} disappeared`).toBeDefined();
-        expect(rebuilt.ids[slug], `${slug} moved from ${id} to ${rebuilt.ids[slug]}`).toBe(id);
+      for (const [key, id] of Object.entries(committed.ids)) {
+        expect(rebuilt.ids[key], `${key} disappeared`).toBeDefined();
+        expect(rebuilt.ids[key], `${key} moved from ${id} to ${rebuilt.ids[key]}`).toBe(id);
       }
     });
 
@@ -327,11 +360,11 @@ describe('the committed data/registry.json', () => {
       for (const collection of BANDED_COLLECTIONS) {
         const band = bandFor(collection);
         for (const entity of source[collection] ?? []) {
-          const id = committed.ids[entity.id];
+          const id = committed.ids[registryKey(collection, entity.id)];
           expect(id, `${collection}/${entity.id} has no id`).toBeDefined();
           expect(
             id! >= band.min && id! <= band.max,
-            `${entity.id} holds ${id}, outside the ${band.name} band`,
+            `${collection}/${entity.id} holds ${id}, outside the ${band.name} band`,
           ).toBe(true);
         }
       }

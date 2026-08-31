@@ -343,7 +343,8 @@ describe('newCharacter', () => {
     expect(c.consecutiveShortRests).toBe(0);
     // The literal, not the constant: `toBe(SCHEMA_VERSION)` would agree with
     // whatever the constant said, and this assertion exists to notice a bump.
-    expect(c.schemaVersion).toBe(5);
+    // It noticed this one: 5 -> 6, for the SRD 2.0 dataset contract.
+    expect(c.schemaVersion).toBe(6);
   });
 
   it('lets a caller override any field', () => {

@@ -20,6 +20,7 @@ import { parseEnvironments } from '../shared/parsers/environments.ts';
 import { parseArmors, parseWeapons } from '../shared/parsers/equipment.ts';
 import { parseConsumables, parseLoot } from '../shared/parsers/loot.ts';
 import { parseRules } from '../shared/parsers/rules.ts';
+import { parseTransformations } from '../shared/parsers/transformations.ts';
 import { SCHEMA_VERSION, type Dataset } from '../shared/types.ts';
 import { loadSrd } from './loadSrd.ts';
 import { formatIssues, validate } from './validate.ts';
@@ -80,6 +81,15 @@ const main = async (): Promise<void> => {
     beastforms: parseBeastforms(pages),
     ancestries: parseAncestries(pages),
     communities: parseCommunities(pages),
+    /*
+     * SRD 1.0 has no Transformations chapter; SRD 2.0 prints six cards on
+     * folios 43-45 under a `Transformations` contents entry at folio 42. The
+     * parser returns `[]` for a book whose contents does not list the chapter
+     * and throws for one whose pages print it anyway, so `[]` here is the
+     * book's answer rather than a placeholder - see the docblock in
+     * `shared/parsers/transformations.ts`.
+     */
+    transformations: parseTransformations(pages),
     weapons: parseWeapons(pages),
     armors: parseArmors(pages),
     loot: parseLoot(pages),
@@ -98,6 +108,7 @@ const main = async (): Promise<void> => {
     ['beastforms', dataset.beastforms.length],
     ['ancestries', dataset.ancestries.length],
     ['communities', dataset.communities.length],
+    ['transformations', dataset.transformations.length],
     ['weapons', dataset.weapons.length],
     ['armors', dataset.armors.length],
     ['loot', dataset.loot.length],

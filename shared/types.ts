@@ -13,7 +13,53 @@
 /** A stable slug, e.g. `arcana-rune-ward`. Produced by `slugify`. */
 export type Ref = string;
 
-export const SCHEMA_VERSION = 5 as const;
+/**
+ * The contract's version. It governs `.dhchar`, `.dhbackup`, the `characters`
+ * store **and** `Dataset` - `Dataset.schemaVersion` is typed `typeof
+ * SCHEMA_VERSION` and `data/srd-1.0.json` carries the number.
+ *
+ * ## Six, and why one bump and not four
+ *
+ * SRD 2.0 needs four things this contract could not say, and every one of them
+ * was reaching the dataset today through a cast, which is to say invisibly:
+ *
+ *   1. `DamageKind` could not hold `phy or mag` or `phy/mag`;
+ *   2. `Feature.kind` could not hold `Evolution`;
+ *   3. `Adversary.stress` could not hold `Stress: None`;
+ *   4. `Feature` could not nest, so seven sub-features were flattened into
+ *      their parent's prose.
+ *
+ * Plus one new collection, `transformations`. Five changes, one number: the
+ * version is not a changelog, it is the answer to "can this build read that
+ * record", and the answer moves once however many fields moved with it.
+ * `shared/campaigns.ts` made the same call for the URL row and the note row -
+ * "two new kinds create exactly one hazard, and the hazard is answered once".
+ *
+ * ## The character converter changes no field, and here is the price of that
+ *
+ * Nothing above is on `Character`. A schema-5 sheet is a valid schema-6 sheet
+ * byte for byte, so `MIGRATIONS`' `from: 5` entry copies and seeds nothing -
+ * the shape `CAMPAIGN_MIGRATIONS` already uses four times over.
+ *
+ * The price is real and is not hidden: a schema-6 `.dhchar` is refused by a
+ * schema-5 build, and for a character that refusal buys nothing, because a
+ * schema-5 build would have read it perfectly. It is bought by the DATASET
+ * half. `data/srd-1.0.json` is a static import, so a stale dataset cannot
+ * reach a new build - but the reverse happens on every build, and
+ * `baseDataset.schemaVersion === SCHEMA_VERSION`
+ * (`tests/store/migrations.test.ts`) is the only thing standing between a moved
+ * constant and a dataset that still has the old shape, because the JSON reaches
+ * the app through `srd as unknown as Dataset` and the cast believes whatever
+ * number it finds.
+ *
+ * Whether the dataset should have a number of its own - the way campaigns do,
+ * for the reason `shared/campaigns.ts` gives at length - is a live question and
+ * is the owner's. It is not answered here; what is answered here is that while
+ * `Dataset.schemaVersion` is typed off THIS constant, a `Dataset` change that
+ * left the constant still would make the number lie about the artifact it is
+ * stamped on.
+ */
+export const SCHEMA_VERSION = 6 as const;
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -109,7 +155,31 @@ export const DOMAINS_FOR_DISPLAY: readonly DomainId[] = [...DOMAINS].sort((a, b)
 export const RANGES = ['Melee', 'Very Close', 'Close', 'Far', 'Very Far'] as const;
 export type Range = (typeof RANGES)[number];
 
-export type DamageKind = 'phy' | 'mag';
+/**
+ * The damage-type cell, in the spellings the books print.
+ *
+ * Four members for three states, and the fourth is not redundant. A weapon that
+ * deals EITHER kind is printed two ways: SRD 1.0's one such weapon says
+ * `d10+7 phy or mag` (Ghostblade, folio 49) and SRD 2.0's four say `d8 phy/mag`
+ * (Shadowblade and three more). They are one game state in two typographies.
+ *
+ * **They are kept apart rather than folded**, and that is a decision with a
+ * cost on each side. Folding them into a single `either` member would be this
+ * contract inventing a spelling neither book prints - the exact move that put
+ * two rules sections into `data/srd-1.0.json` under names our own parser made
+ * up, which then took a measurement to disprove. Keeping them apart means a
+ * consumer that wants "does this deal magic damage" has two strings to know
+ * about instead of one, and every consumer today asks `=== 'mag'`, so both
+ * either-kind spellings read as physical.
+ *
+ * That last sentence is a defect, not a design: a Ghostblade CAN be swung as a
+ * magic weapon and the app says it cannot. It is out of this lane's reach
+ * because the fix is a choice on the character sheet, not a shape here. What
+ * this bump changes is only that the state is now sayable and `tsc` can see it;
+ * before, `shared/parsers/equipment.ts` reached the dataset through
+ * `m[2] as DamageKind` and the contract was quietly wrong on four records.
+ */
+export type DamageKind = 'phy' | 'mag' | 'phy or mag' | 'phy/mag';
 
 export const ADVERSARY_ROLES = [
   'Bruiser',
@@ -167,6 +237,53 @@ export interface Sourced {
    * the base rules at all - SRD 2.0's Everyday Hero, Western and Monster
    * Hunting chapters print weapons and armor that a table using the base rules
    * never sees. Absent means base content, which is the overwhelming majority.
+   *
+   * ## The value is the book's own contents-page title, verbatim
+   *
+   * Exactly three strings occur in SRD 2.0, and they are what
+   * `parseContents(pages)` already hands back:
+   *
+   *     'Everyday Hero Starting Equipment'   folio 191
+   *     'Western Campaigns'                  folio 197
+   *     'Monster Hunting Campaigns'          folio 201
+   *
+   * Pinned here because two lanes need to agree on it and because the tidier
+   * answer is a trap. The obvious move is to store `'Everyday Hero'`,
+   * `'Western'` and `'Monster Hunting'` - which is how every document in this
+   * repository, including the decision that ordered this field, writes them.
+   * Those three names are not in the book. Producing them means trimming
+   * `Starting Equipment` off one entry and `Campaigns` off two, which is a
+   * parser renaming its source: the same move that put two sections into
+   * `data/srd-1.0.json` under headings our own `rules.ts` invented, went
+   * unnoticed for a printing, and had to be disproved by measurement rather
+   * than by reading.
+   *
+   * Not a slug, for the same reason `Ancestry.family` is not one: this is drawn
+   * on screen, and a slug would need a slug-to-label table somewhere to be
+   * drawable - a second place holding the same three strings, and the one that
+   * goes stale.
+   *
+   * Not a union type either. A closed union is what the CODE can represent; a
+   * fourth module in SRD 3 would then reach the dataset through a cast or not
+   * at all, which is the failure mode this whole bump is repairing.
+   *
+   * ## A module is a different axis from `set`, not a third member of it
+   *
+   * `set` answers *which box did I buy* - Core Set or Hope & Fear Expansion -
+   * and SRD 2.0 fences it in prose, four times, for content that is in play at
+   * every table that owns it. `module` answers *is this subsystem switched on
+   * at our table*, which is the GM's call and has nothing to do with what
+   * anyone owns: the Western chapter is in the same free SRD as the Core Set
+   * ancestries.
+   *
+   * They intersect rather than nest, and a filter needs both. Folding a module
+   * into `ProductSet` would put "I do not own this" and "we are not playing
+   * with this" on one switch, so a player who owns only the Core Set and whose
+   * table is running Monster Hunting could not express their situation at all -
+   * and the ownership filter that DECISIONI §4 asks Settings for would silently
+   * become a rules filter as well. Their shapes differ for the same reason:
+   * `set` is a closed two-member union the book states, `module` is an open
+   * list of chapters a later printing can add to.
    */
   module?: string;
 }
@@ -198,10 +315,56 @@ export interface DomainCard extends Sourced {
 export interface Feature {
   name: string;
   text: string;
-  /** Adversary/environment features carry a kind in their heading. */
-  kind?: 'Action' | 'Reaction' | 'Passive';
+  /**
+   * Adversary/environment features carry a kind in their heading.
+   *
+   * `Evolution` is SRD 2.0's fourth, and it is a different sort of word from
+   * the other three. Action, Reaction and Passive say WHEN a feature fires; an
+   * Evolution says the stat block becomes a different creature - the Roc's
+   * `Nest Warden`, the Vampire Lord's `Hellwing`, the Mountain Troll's enraged
+   * form, Adonix's `Alpha to Omega`, the Phoenix's `Resurrection`, the
+   * Cephilith Titan's `It's Here…`. Six blocks carry one.
+   *
+   * It goes in this union anyway rather than becoming a field of its own,
+   * because the BOOK sets it in the same slot with the same punctuation
+   * (`Nest Warden - Evolution: ...`), and a parser that had to sort the fourth
+   * word into a different field would be reading a distinction the typography
+   * does not make. What the Evolution being a state change buys is the field
+   * below.
+   */
+  kind?: 'Action' | 'Reaction' | 'Passive' | 'Evolution';
   /** Level at which a class/subclass feature is gained, when stated. */
   level?: number;
+  /**
+   * Features the book sets INDENTED beneath this one, and which the creature
+   * does not have until the parent fires.
+   *
+   * Seven of them in SRD 2.0, under four Evolutions - Mountain Troll x1, Roc
+   * x2, Vampire Lord x2, Adonix x2 - and none in SRD 1.0. `shared/parsers/
+   * adversaries.ts` measured the signal and it is indent and nothing else: 417
+   * of 417 feature headings in SRD 1.0 sit exactly on the block's column, and
+   * 905 of 912 in SRD 2.0; the seven that do not are indented by 6pt and every
+   * one of them sits under an Evolution.
+   *
+   * Until this field existed they were appended to the parent's text as extra
+   * paragraphs, which is a wrong record that nothing throws on: the block
+   * parses, the roster agrees, and at the table a GM reads `Wrathful` as
+   * something the Roc has had since initiative rather than something it gains.
+   *
+   * ## Why `features` and not `subfeatures`
+   *
+   * Because the book's own sentence is "it gains the following features:" - a
+   * nested feature IS a feature, with a name, a body and sometimes a kind of
+   * its own. Same word and same type means one renderer, applied recursively,
+   * where a second name would invite a second renderer that drifts from the
+   * first. The recursion is not a promise of arbitrary depth; it is a promise
+   * that whatever depth a book prints, this can hold without another bump.
+   *
+   * Optional, and absent rather than `[]` when there is no nesting, so a
+   * schema-5 record and a schema-6 record of an unnested feature are the same
+   * bytes. That is what keeps `data/srd-1.0.json` free of 417 empty arrays.
+   */
+  features?: Feature[];
 }
 
 export interface CharClass extends Sourced {
@@ -257,6 +420,67 @@ export interface Community extends Sourced {
   /** Adjective list from "you likely..." prose. */
   traits: string[];
   feature: Feature;
+}
+
+/**
+ * One of SRD 2.0's transformation cards. Six of them, folios 43-45.
+ *
+ * Read off the page before this shape was chosen, not from a summary of it.
+ * The chapter opens on folio 42 with a `TRANSFORMATIONS` chapter head and a
+ * `GRANTING TRANSFORMATIONS` subhead - both of which are prose for the GM and
+ * belong in `rules`, not here - and then prints six cards on three folios, two
+ * to a page, one per column: DEMIGOD and GHOST (43), REANIMATED and
+ * SHAPESHIFTER (44), VAMPIRE and WEREWOLF (45). The contents page lists
+ * `Transformations` at folio 42 among CORE MATERIALS, beside `Ancestries` (32)
+ * and `Communities` (38), which is why this is a collection of its own rather
+ * than a shape hung off one of those.
+ *
+ * Each card is, in the book's own order: a display name; two or three
+ * paragraphs of prose; a `TRANSFORMATION FEATURES` banner; a
+ * `TRANSFORMATION QUESTIONS` banner over a bulleted list. Every one of the six
+ * prints exactly two features and exactly six questions - measured on the
+ * three folios, twelve features and thirty-six questions in all.
+ *
+ * ## Why `features` is an array and not `[Feature, Feature]`
+ *
+ * `Ancestry` uses the tuple, so the tuple was the obvious move and is the wrong
+ * one. Two features per card is what THIS printing does; two features per
+ * ancestry is what both printings do, in the chapter character creation cannot
+ * be completed without. A tuple here would make the first card that prints one
+ * feature or three into a parser that must either invent a feature or throw -
+ * and this whole chapter is content the book itself calls optional and hands
+ * the GM to give out. It is one book old. `Feature[]` costs a consumer an
+ * `.length` check it would want anyway.
+ *
+ * ## Why the questions are `string[]` and not `Feature[]`
+ *
+ * They are prompts with no name and no mechanics, exactly like
+ * `CharClass.backgroundQuestions` and `CharClass.connectionQuestions`, and they
+ * are stored the way those are. Named `questions` rather than
+ * `transformationQuestions` because the banner's first word is the record's own
+ * type; repeating it would be the only stutter in this file.
+ *
+ * ## What is NOT here
+ *
+ * Anything about a character HAVING one. Folio 42 states two rules that will
+ * need somewhere to live - "Transformation cards do not count toward your
+ * loadout maximum" and "A PC can't have more than one transformation" - and
+ * both are facts about `Character`, not about the card. Adding a field to
+ * `Character` for them means a codec decision (`src/transfer/codec.ts` carries
+ * refs as registry ids on a wire that has no room reserved) and a screen to
+ * choose one on, neither of which is this lane's. A field nobody writes and
+ * nobody reads is decoration, and this repository has already shipped one of
+ * those and had it named in review.
+ */
+export interface Transformation extends Sourced {
+  id: Ref;
+  name: string;
+  /** The card's prose, verbatim. */
+  description: string;
+  /** Under `TRANSFORMATION FEATURES`. Two on every card the book prints. */
+  features: Feature[];
+  /** Under `TRANSFORMATION QUESTIONS`; the bulleted prompts, one per entry. */
+  questions: string[];
 }
 
 export interface Beastform extends Sourced {
@@ -335,7 +559,25 @@ export interface Adversary extends Sourced {
   /** `null` where the stat block says `None`: the SRD's 16 Minions, no others. */
   thresholds: [number, number] | null;
   hp: number;
-  stress: number;
+  /**
+   * `null` where the stat block says `Stress: None` - one block in SRD 2.0,
+   * none in SRD 1.0.
+   *
+   * Spellbound Armor (SRD 2.0 folio 110) prints it, and its own Tireless
+   * feature says why: *"The Armor can't be forced to mark Stress."* It was
+   * stored as `0` behind a `NO_STRESS_TRACK` constant in
+   * `shared/parsers/adversaries.ts`, whose own docblock asked for this bump and
+   * said the honest fix was `number | null`.
+   *
+   * Zero and absent are different states and the difference shows on a GM's
+   * screen: a zero-box Stress track is a creature whose Stress you have not
+   * been able to mark YET - it is what every Minion looks like a moment before
+   * the roll - while `None` is a creature that has no such track at all. The
+   * shape is the one `thresholds` two lines up already uses for the same word
+   * on the same printed line, which is the strongest argument available for it:
+   * one stat block, one spelling of `None`, one representation.
+   */
+  stress: number | null;
   attackBonus: number;
   attack: AdversaryAttack;
   experiences: Array<{ name: string; bonus: number }>;
@@ -387,6 +629,19 @@ export interface Dataset {
   beastforms: Beastform[];
   ancestries: Ancestry[];
   communities: Community[];
+  /**
+   * SRD 2.0's six transformation cards. **Empty for SRD 1.0**, which has no
+   * such chapter, and empty is the honest value: it is the same fact as an
+   * empty `Dataset.layers` would be, not a hole.
+   *
+   * Required rather than optional, unlike every field this bump adds to an
+   * existing record type. A `Dataset` is not a stored record - it is rebuilt by
+   * `npm run build:srd` from a book and shipped inside the bundle, so there is
+   * no old one to stay valid - and making it optional would buy nothing except
+   * a `?? []` at every call site forever, in the one collection out of fifteen
+   * that has one.
+   */
+  transformations: Transformation[];
   weapons: Weapon[];
   armors: Armor[];
   loot: Item[];

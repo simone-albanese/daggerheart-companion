@@ -115,6 +115,43 @@ export const MIGRATIONS: readonly Migration[] = [
       return { ...r, companion: { ...(companion as Record<string, unknown>), damageType: 'phy' } };
     },
   },
+  {
+    from: 5,
+    note: 'the dataset grew a transformations collection and four widened fields; no schema-5 character field changed',
+    /*
+     * A copy, and the first character converter that seeds nothing.
+     *
+     * The 5 -> 6 bump is entirely about `Dataset`: `transformations`,
+     * `DamageKind`, `Feature.kind`, `Feature.features` and `Adversary.stress`.
+     * Not one of them is on `Character`, so a schema-5 sheet is already a valid
+     * schema-6 sheet, field for field, and there is nothing here to repair or
+     * to fill. Inventing work for this function - restamping a field, seeding a
+     * default some reader already supplies - would be the kind of converter
+     * that looks diligent and is the one nobody notices has gone stale.
+     *
+     * `{ ...r }` rather than `r` itself, for the reason `CAMPAIGN_MIGRATIONS`
+     * gives at its own first entry: `migrateCharacterRecord` spreads a
+     * `schemaVersion` onto whatever comes back, and returning the argument
+     * would leave that spread as the only thing standing between a caller's
+     * record and being restamped in place. One allocation buys a pure chain,
+     * and purity is what a test can assert.
+     *
+     * **What the number buys, since the field list is empty.** Not the usual
+     * thing. `shared/campaigns.ts` bumps so that old builds REFUSE new records,
+     * because an old build would silently truncate one; here an old build would
+     * read a schema-6 sheet perfectly, and the refusal it now gets is a cost
+     * rather than a benefit. It is paid for the dataset half of what this
+     * constant names: `Dataset.schemaVersion` is typed `typeof SCHEMA_VERSION`
+     * and the shipped JSON carries the number, so a `Dataset` whose shape moved
+     * under a constant that did not is an artifact stamped with a version that
+     * no longer identifies it - and the only check that can see that
+     * (`baseDataset.schemaVersion === SCHEMA_VERSION`) is the one that fires
+     * when the constant moves and the JSON is not rebuilt. The argument in full
+     * is at `SCHEMA_VERSION` in `shared/types.ts`, including the question it
+     * leaves open.
+     */
+    apply: (r) => ({ ...r }),
+  },
 ];
 
 export class SchemaError extends Error {
