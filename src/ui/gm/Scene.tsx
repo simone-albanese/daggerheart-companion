@@ -1256,10 +1256,17 @@ function CombatantCard({
 
         THE LABEL IS BUILT AND NOT WRITTEN, because two of its three arms are
         reachable. The book ships motives and features on all 129 adversaries,
-        so `MOTIVES & FEATURES` is what a GM will see - but the dataset is
-        replaceable (Settings can load a rulebook of the table's own), and a
-        fold labelled for what is not inside it is worse than one word longer.
-        The guard is the same shape: no motives and no features, no fold.
+        so `MOTIVES & FEATURES` is what a GM will see - but the SRD alone does
+        not fix what is in here. Settings can no longer load a rulebook of the
+        table's own, and no new layer can be made on any device; a device that
+        imported before the Core Rulebook importer was removed still carries
+        the layer it made, and `store/dataset.ts` still composes it over the
+        SRD. That layer only ever added and overwrote, never subtracted, so it
+        cannot take motives or features off one of the 129 - the single-word
+        arms are reached through an adversary the layer added and the SRD does
+        not have. A fold labelled for what is not inside it is worse than one
+        word longer. The guard is the same shape: no motives and no features,
+        no fold.
 
         THE SUMMARY COUNTS RATHER THAN NAMES. That is the one thing the fold
         takes away - the chip row of feature names that used to sit under the

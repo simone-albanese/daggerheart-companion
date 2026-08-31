@@ -322,19 +322,25 @@ const CSS_URLS = /url\(\s*["']?([^"')]+?)["']?\s*\)/g;
 /**
  * Every same-origin file a chunk names.
  *
- * Three shapes, and the third is the one that bites: `import("./Gm-1a2b.js")`
+ * Three shapes, and the third is the one that bit: `import("./Gm-1a2b.js")`
  * for a lazy screen, `from"./chunk-3c4d.js"` for a shared chunk, and
- * `new URL("/assets/worker-5e6f.js", import.meta.url)` for a Web Worker -
- * which is how the Core Rulebook importer's worker is named, and is named
- * nowhere else at all. Matching only `import(...)` left that chunk out of the
- * precache, so the app booted offline and then dead-ended the first time
- * anyone opened the importer.
+ * `new URL("/assets/worker-5e6f.js", import.meta.url)` for a Web Worker. The
+ * third is how the Core Rulebook importer's worker WAS named: matching only
+ * `import(...)` left that chunk out of the precache, so the app booted offline
+ * and then dead-ended the first time anyone opened the importer. Nothing names
+ * that shape today - `new Worker` and `?worker` appear nowhere in `src/`,
+ * `shared/`, `tools/` or `tests/`, and `vite.config.ts` no longer carries a
+ * `worker:` block - but the rule it forced is about how Vite names a worker
+ * rather than about that file, so the third shape stays as a guard for the next
+ * worker and not as a description of today.
  *
  * A string that merely looks like a path costs nothing: `tryFill` skips what it
- * cannot fetch, and remembers. (pdf.js carries a literal `"./qcms_bg.js"` that
- * is no file of ours - matching only hash-shaped names would exclude it, at the
- * price of a worker that silently skips any chunk Vite names differently, which
- * is the more expensive mistake by far.)
+ * cannot fetch, and remembers. (pdf.js WAS the one dependency that carried a
+ * literal `"./qcms_bg.js"`, no file of ours - matching only hash-shaped names
+ * would have excluded it, at the price of a worker that silently skips any
+ * chunk Vite names differently, which is the more expensive mistake by far.
+ * `pdfjs-dist` went with the importer and nothing emits that string now; being
+ * generous is the rule, and it outlived the example that forced it.)
  */
 const JS_IMPORTS = /["']((?:\.{1,2}\/|\/)[^"'\s]*\.(?:js|css))["']/g;
 
@@ -395,15 +401,15 @@ function urlsIn(text, pattern, base = ROOT) {
  *                     among them, which is why the build keeps it a separate
  *                     chunk - and a <link rel="stylesheet"> for the CSS.
  *   the stylesheet    the fonts, which nothing else names.
- *   the chunks        the lazily loaded screens, the Core Rulebook importer's
- *                     worker, and the Daggerheart Compatible mark, which is an
- *                     `<img src>` inside a component. None of the three is
- *                     named in the document, and precaching only what the
+ *   the chunks        the lazily loaded screens and the Daggerheart Compatible
+ *                     mark, which is an `<img src>` inside a component. Neither
+ *                     is named in the document, and precaching only what the
  *                     document names leaves the app booting offline and then
- *                     dead-ending on the first tap into one of them. The worker
- *                     is 1.6 MB, half a megabyte gzipped, and every client pays
- *                     it: worth knowing, since the architecture calls that
- *                     importer optional and desktop-only.
+ *                     dead-ending on the first tap into one of them. The Core
+ *                     Rulebook importer's 1.6 MB worker was the third until it
+ *                     was removed; `installUpdate`'s docblock carries that
+ *                     number now, where it is the weight being swept off the
+ *                     devices that cached it.
  *
  * Breadth-first, so each chunk is read once however many others point at it.
  * `fetchMissing` is what separates the two callers: the precache passes one and

@@ -1367,9 +1367,13 @@ an explicit choice rather than an accident.
       shipped files, 66 KB, matching neither `isShell` nor `isImmutable`, and
       `JS_IMPORTS` only matches `.js`/`.css` so the scanner never sees them.
       Offline, the compatibility mark in the header is a broken image.
-- [ ] **Activation prunes the cached importer chunk before refetching it**
+- [x] ~~**Activation prunes the cached importer chunk before refetching it**
       (`sw.js:106`), so accepting an update while offline loses the offline
-      importer until the next online launch.
+      importer until the next online launch.~~ — **closed by removal,
+      `b35523d`**: the importer, its worker chunk and `pdfjs-dist` are gone, so
+      there is no deferred chunk for activation to prune. That same prune is now
+      what sweeps the stale 1.6 MB off a device that cached it before the
+      removal, which `tests/pwa/serviceWorker.test.ts` asserts offline.
 - [ ] **The "no skipWaiting, the user decides" comment is not what the code
       does** (`sw.js:85`). Make it true or correct the comment.
 - [ ] **The SRD is a static import of the entry chunk**: 909,900 B raw /

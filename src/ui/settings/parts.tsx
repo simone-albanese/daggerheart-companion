@@ -114,9 +114,12 @@ export function Field({
   const hintId = hint === undefined ? undefined : `${generated}-hint`;
 
   return (
-    // The provider wraps the whole row, footer included: Rulebook puts a
-    // checkbox and a button down there, and they are as much this row's
-    // controls as the ones on its right-hand side.
+    // The provider wraps the whole row, footer included: a control that sits
+    // in the footer is as much this row's control as the ones on its
+    // right-hand side, and `aria-describedby` has to reach it there too. No
+    // footer carries one today - the row that did was Settings > Rulebook, and
+    // it went with the Core Rulebook importer - so the rule is written down
+    // rather than shown, which is the only reason it is written down at all.
     <FieldHint value={hintId}>
       <div style={{ background: 'var(--panel)', padding: '13px 14px' }}>
         <div

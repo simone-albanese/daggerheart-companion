@@ -199,8 +199,7 @@ const PROBE_TIMEOUT_MS = 3000;
  * Cache Storage is per-origin, not per-client: the caches the worker filled are
  * the same objects this page can open, so the counts need no protocol and no
  * round trip through the worker. Which is just as well - `sw.js` has exactly
- * one message handler, it takes `skip-waiting` and nothing else since the Core
- * Rulebook importer's `warm-importer` went with the importer, and it never
+ * one message handler, it takes `skip-waiting` and `hello`, and it never
  * replies to anything.
  *
  * Two things are read, and both are needed: the entry document, which is what a

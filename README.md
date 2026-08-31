@@ -130,8 +130,8 @@ this project — the Core Book's lists are not in this app), and the reference.
 
 ### Settings
 
-Export and import, printing, the rulebook, and the switches for the GM tools
-and the GM section as a whole.
+Export and import, printing, and the switches for the GM tools and the GM
+section as a whole.
 
 ---
 
@@ -195,25 +195,31 @@ CI runs, so the mismatch surfaces on the machine that has it.
 
 ---
 
-## Two parsers, two risk profiles
+## One parser, and it runs at build time
 
-The most important structural decision in the project.
+The most important structural decision in the project, and the reason the app
+no longer has a second one.
 
 ```
 BUILD TIME (your machine, CI)         RUNTIME (the user's browser)
 ─────────────────────────────         ────────────────────────────
-tools/build-srd.ts                    src/import/
-     ↓                                     ↓
-SRD 1.0 (68 pp, 0.9 MB)               Core Rulebook (397 pp, 318 MB)
-     ↓                                     ↓
-data/srd-1.0.json, committed          an optional layer in IndexedDB
-     ↓                                     ↓
-precached by the service worker       art, flavour, campaign frames
+tools/build-srd.ts                    nothing parses anything
+     ↓
+SRD 1.0 (68 pp, 0.9 MB)
+     ↓
+data/srd-1.0.json, committed
+     ↓
+precached by the service worker
 ```
 
-If the build parser is wrong, CI says so. If the runtime parser were wrong,
+If the build parser is wrong, CI says so. If a runtime parser were wrong,
 a player would find out at a table, mid-session, on a device you cannot
-reproduce. That asymmetry justifies the whole separation.
+reproduce. That asymmetry justified the whole separation while there were two
+parsers, and in the end it is what removed the second. `src/import/` used to
+put the 397-page Core Rulebook through pdf.js in a Web Worker, on the user's
+own desktop, and lay its illustrations and flavour over the SRD as an optional
+layer in IndexedDB. It has been deleted: domain cards are text-only, and the
+browser parses nothing.
 
 Three things the SRD does that break a naive parser, all handled and all
 regression-tested:
@@ -245,7 +251,6 @@ shared/         used by both tools/ and src/: textLayout, slugify, parsers
 src/engine/     pure rules arithmetic. No UI, no I/O, fully tested
 src/store/      IndexedDB, the layered dataset, preferences, backup
 src/transfer/   the .dhchar file, the binary codec, animated QR
-src/import/     the optional Core Rulebook importer (desktop only)
 src/pwa/        service worker registration, the update prompt, the wake lock
 src/ui/         shell, player, build, gm, settings, print, and what they share
 ```
@@ -333,8 +338,7 @@ the app's own `db.ts` wrote, and fails if the hardcoded names drift.
 
    The price, in full, because it is not small. Every installed client
    re-downloads the entire app: document, bundle, the SRD chunk, the fonts, the
-   icons. Every client that ever ran the Core Rulebook importer re-downloads
-   its pdf.js worker as well, 1.6 MB of it. And it is not immediate: the worker
+   icons. And it is not immediate: the worker
    deliberately does not call `skipWaiting()`, so the replacement sits in
    `waiting` until the user accepts the update prompt or closes every tab of
    the app. That is the right trade for a table mid-session and the wrong one
@@ -376,8 +380,8 @@ working document.
 
 The SRD 1.0 is Public Game Content under the DPCGL and is redistributable with
 attribution — which is why `data/srd-1.0.json` is committed. The full Core
-Rulebook is not: it stays on the owner's device, and an art pack made from it
-is personal, for their own devices, not for sharing.
+Rulebook is not, and this app has no way to take one in: the importer that read
+a copy off the owner's own machine, and the art packs it made, were removed.
 
 The one piece of official artwork here is Darrington Press's "Daggerheart
 Compatible" mark, in `public/brand/`, supplied with the DPCGL for exactly this
@@ -424,7 +428,7 @@ that fit. It covers content in which the Public Game Content is *"translated,
 altered, rearranged, transformed, or otherwise modified"*.
 
 - `data/srd-1.0.json` is the book **rearranged**. `tools/build-srd.ts` pulls
-  the text out of the PDF with `pdfjs-dist` and restructures it into typed
+  the text out of the PDF with poppler and restructures it into typed
   records — which is the entire reason that file is generated and not written
   by hand.
 - `deriveStats` **transforms**. It reads the SRD's own numbers and returns
@@ -490,8 +494,8 @@ wording is the owner's call, not a drive-by edit.
 **The position.** The risk is accepted knowingly, with the objection above read
 and not dismissed. What sits on the other side of the ledger are mitigations,
 and they are named as mitigations rather than as an answer: the app is free and
-unmonetized; it ships SRD content only and never the Core Rulebook, which stays
-on the owner's device; it carries the attribution on every screen; it keeps the
+unmonetized; it ships SRD content only and never the Core Rulebook, and has no
+way to take one in; it carries the attribution on every screen; it keeps the
 Name Marks out of its own title and off its home-screen icon; and it holds no
 Prohibited Content. If DRP reads §2.1(b) the way this section concedes they
 might, there are two answers and both stay available: ask for written approval,

@@ -60,9 +60,18 @@
  *    and it re-validates the href on the way out - defence in depth for a value
  *    that reached storage before this file existed, or was hand-edited into
  *    IndexedDB afterwards. **"From a stored href" is the whole of the scope,
- *    and it is not the whole app.** `src/` builds two anchors and neither of
- *    them has a stored href. The only `<a>` written as markup is at
- *    `src/ui/settings/About.tsx`, and its href is the literal
+ *    and it is not the whole app.** `src/` builds three anchors and this file
+ *    governs exactly one of them - the one whose href came out of somebody
+ *    else's file.
+ *
+ *    That one is `src/ui/gm/UrlArm.tsx`: the OPEN IN A NEW TAB control on an
+ *    open web link row, mounted from `SessionBody.tsx`'s `url` case. It spreads
+ *    `externalLinkAttrs(item.href)` rather than writing `target` and `rel` by
+ *    hand, which is what "the only sanctioned way" means in practice, and it
+ *    prints the reader's warning instead when that returns `null`.
+ *
+ *    The other two are out of scope and stay out of it. One is the `<a>` in
+ *    `src/ui/settings/About.tsx`, whose href is the literal
  *    `https://daggerheart.com/buy` written into the source. It is built by hand
  *    and carries `target="_blank" rel="noreferrer noopener"`, without
  *    `nofollow` - correct for it, because `nofollow` is about content this app
@@ -70,17 +79,16 @@
  *    `document.createElement('a')` in `src/transfer/fileIo.ts`: a detached
  *    element appended, `click()`ed and removed to save a file. Its href is a
  *    `blob:` URL this app minted a line earlier, and it navigates nowhere,
- *    because it carries `download`. (There were three until the Core Rulebook
+ *    because it carries `download`. (There were four until the Core Rulebook
  *    importer was removed; the second `createElement('a')` was the art pack's
  *    saver in `src/ui/settings/binaryFiles.ts`, and it was the same anchor as
- *    this one.) Nothing in this file governs either of the two. In the other direction, `externalLinkAttrs` has no
- *    production caller at all yet: the URL row draws its address as text and
- *    builds no anchor, so this mitigation protects nothing shipping today and
- *    is here for the lane that builds the row. `noopener` is the load-bearing
- *    part of it: without it the opened page gets `window.opener` and can
- *    navigate this tab to a copy of itself while the GM is looking away from
- *    the phone. `noreferrer` keeps the campaign's URL out of somebody else's
- *    logs; `nofollow` is simply honest about content this app did not write.
+ *    `fileIo.ts`'s.)
+ *
+ *    `noopener` is the load-bearing part of the `rel`: without it the opened
+ *    page gets `window.opener` and can navigate this tab to a copy of itself
+ *    while the GM is looking away from the phone. `noreferrer` keeps the
+ *    campaign's URL out of somebody else's logs; `nofollow` is simply honest
+ *    about content this app did not write.
  * 5. **Nothing navigates without a tap, and the destination is legible before
  *    it.** Three separate things, and each one is a hole on its own:
  *     - The reader hands back data and never an affordance. It rebuilds the row

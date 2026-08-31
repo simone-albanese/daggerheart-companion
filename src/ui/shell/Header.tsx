@@ -20,8 +20,9 @@
  * contents want a constant 330px and are allotted 210, GM is painted x295.9-349.8
  * and is 100% covered by the dataset span - which then read "SRD ONLY · NO ART",
  * and reads "SRD ONLY" since the Core Rulebook importer was removed, so the
- * measurement is of a span one word wider than today's - BUILD is 73% covered, and
- * `document.elementFromPoint` at either button's own centre returns the span.
+ * measurement is of a span a separator and two words wider than today's - BUILD
+ * is 73% covered, and `document.elementFromPoint` at either button's own centre
+ * returns the span.
  * The centre of GM is dead from 720 through 828, the last covered pixel goes at
  * 856, and the line stops being over-subscribed at 864. Below 720 none of this
  * exists, because the nav is not drawn and `TabBar` carries the same

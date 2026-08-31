@@ -2,8 +2,12 @@
 
 Scheda personaggio digitale e strumenti da GM. Locale-first, offline, senza account.
 L'app **nasce già con tutte le regole**: l'SRD 1.0 è contenuto pubblico ridistribuibile
-e viene estratto una volta sola in fase di build. Il manuale completo è un'aggiunta
-facoltativa, importata dall'utente per avere le illustrazioni.
+e viene estratto una volta sola in fase di build. *(~~Il manuale completo è un'aggiunta
+facoltativa, importata dall'utente per avere le illustrazioni.~~: **rimosso** con
+`b35523d` — l'importer del Core Rulebook, le buste `.dhart`, lo store `art` e il ramo
+illustrazione delle carte sono stati cancellati; le carte sono di solo testo e nel
+browser non si parsa più niente. Ogni sezione che descrive quella funzione è marcata
+sotto, e resta scritta perché è la decisione che è stata presa e poi disfatta.)*
 
 ---
 
@@ -12,11 +16,11 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 | Scelta | Valore | Conseguenza |
 |---|---|---|
 | Dati SRD | **Estratti in build, committati** | Avvio istantaneo, dati deterministici, parser testabile in CI |
-| Dati manuale | Parsing in-app, opzionale, **desktop** | Il parser fragile non blocca più nessuno |
-| Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla |
+| ~~Dati manuale~~ | ~~Parsing in-app, opzionale, **desktop**~~ | **Caduta con `b35523d`**: il parser fragile non blocca più nessuno perché non c'è più. Resta un solo parser, in build |
+| Sovrapposizione | Il manuale sovrascrive l'SRD, campo per campo | Togliere il manuale non perde nulla. **Resta vera al contrario**: `dataset.ts` compone ancora lo strato di chi aveva importato prima di `b35523d`, e quello strato non ha mai sottratto niente |
 | Motore regole | Solo aritmetica non ambigua | Le feature sono testo, le applica il giocatore |
 | Scroll | **Ovunque**; su Play non è fisso più niente | La regola «niente scroll su Play» è caduta con `91097eb`, e con P5-5 è caduto anche il blocco fisso che l'aveva sostituita: nell'ordine di Giorgio ROLL arriva a **306 di 730** a 393×852 e a **306 di 545** a 375×667, senza pin — lo stesso numero alle due larghezze, perché tutto ciò che gli sta sopra è alto uguale (`Play.tsx:2382-2386`, e `playSheet.test.tsx` lo porta come asserzione). *(~~385 di 730 e 385 di 545~~: **superati** dalle decisioni 1-7 dell'audit, `0cdf42f` — vedi § 9.1, dove il numero vecchio resta scritto perché era la cifra su cui si è argomentata la rimozione del pin.)* § 9.1 dice cosa resta fisso sulle altre schermate |
-| Mobile | **Ciclo di vita completo della scheda** | Solo l'import dell'arte è da desktop |
+| Mobile | **Ciclo di vita completo della scheda** | *(~~Solo l'import dell'arte è da desktop~~: **caduto** con `b35523d`. Non c'è più niente che il telefono non faccia)* |
 | Trasferimento | File `.dhchar` **e** QR animato | Il file è affidabilità, il QR è comodità |
 | Persistenza | IndexedDB + export automatico | iOS può cancellare i dati locali |
 | Campagne | Store IndexedDB e schema propri | Più tavoli, e le schede altrui fuori da localStorage |
@@ -27,28 +31,30 @@ facoltativa, importata dall'utente per avere le illustrazioni.
 
 ---
 
-## 1. Le due pipeline
+## 1. Le due pipeline — e oggi una sola
 
 La distinzione più importante del progetto: **due parser diversi, in due momenti diversi,
-con due profili di rischio opposti.**
+con due profili di rischio opposti.** Con `b35523d` la colonna di destra è vuota: il
+parser runtime è stato cancellato, non riparato.
 
 ```
 BUILD TIME (la tua macchina, CI)          RUNTIME (browser dell'utente)
 ─────────────────────────────────         ─────────────────────────────────
-tools/build-srd.ts                        src/import/*
+tools/build-srd.ts                        nessun parser
      ↓                                         ↓
-SRD 1.0 (68 pp, 0,9 MB)                   Core Rulebook (397 pp, 318 MB)
+SRD 1.0 (68 pp, 0,9 MB)                   ~~Core Rulebook (397 pp, 318 MB)~~
      ↓                                         ↓
-data/srd-1.0.json  (~341 KB)              strato "core" in IndexedDB
+data/srd-1.0.json  (~341 KB)              ~~strato "core" in IndexedDB~~
      ↓                                         ↓
-committato nel repo                       arte + flavour + campaign frame
+committato nel repo                       ~~arte + flavour + campaign frame~~
      ↓                                         ↓
-precache del service worker               facoltativo, solo desktop
+precache del service worker               ~~facoltativo, solo desktop~~
 ```
 
 Se il parser di build sbaglia, **se ne accorge la CI**. Se sbagliasse il parser
 runtime, se ne accorgerebbe l'utente a tavolo, mentre gioca, e tu non riusciresti
-a riprodurre il caso. Questa asimmetria giustifica da sola tutta la separazione.
+a riprodurre il caso. Questa asimmetria giustificava da sola tutta la separazione —
+ed è la stessa che alla fine ha tolto la metà runtime invece di tenerla.
 
 ### 1.1 Build time — `tools/build-srd.ts`
 
@@ -130,19 +136,23 @@ expect(text).toMatch(/\bDifficulty\b/);
 Le fixture ricavate dall'SRD **si possono committare**: è Public Game Content.
 Quelle ricavate dal manuale no.
 
-### 1.4 Runtime — solo il manuale
+### 1.4 ~~Runtime — solo il manuale~~ — **cancellata con `b35523d`**
 
-`src/import/` gestisce esclusivamente il Core Rulebook, con pdf.js in un Web Worker.
-Riusa `textLayout.ts` e i `parsers/` dalla pipeline di build, ma non ha più bisogno
-di `glyphs.ts`: il manuale usa cifre vere.
+`src/import/` non esiste più, e con lui la schermata `Settings > Rulebook` che la
+descrizione qui sotto cita. Resta scritta perché è la funzione che è stata costruita,
+spedita e poi rimossa; niente qui descrive l'app di oggi.
 
-Compiti: estrarre l'arte delle carte, il flavour text più ricco, i campaign frame,
-e i contenuti presenti nel manuale ma non nell'SRD.
-
-**Solo desktop.** Renderizzare 30 pagine a scala 2.0 e ricomprimere 200 ritagli in
-WebP da un file di 318 MB è un candidato serio all'out-of-memory su mobile.
-Dalla schermata su telefono l'opzione appare disabilitata, con una riga che spiega
-perché e come portare l'arte dal computer (§ 5.4).
+> ~~`src/import/` gestisce esclusivamente il Core Rulebook, con pdf.js in un Web Worker.
+> Riusa `textLayout.ts` e i `parsers/` dalla pipeline di build, ma non ha più bisogno
+> di `glyphs.ts`: il manuale usa cifre vere.~~
+>
+> ~~Compiti: estrarre l'arte delle carte, il flavour text più ricco, i campaign frame,
+> e i contenuti presenti nel manuale ma non nell'SRD.~~
+>
+> ~~**Solo desktop.** Renderizzare 30 pagine a scala 2.0 e ricomprimere 200 ritagli in
+> WebP da un file di 318 MB è un candidato serio all'out-of-memory su mobile.
+> Dalla schermata su telefono l'opzione appare disabilitata, con una riga che spiega
+> perché e come portare l'arte dal computer (§ 5.4).~~
 
 ---
 
@@ -191,14 +201,19 @@ Si può saltare a ogni passo, e il salto finisce sulla stessa scheda
 riassuntiva di ogni altro percorso, coi default: uscire per sbaglio è il modo in
 cui una funzione diventa una che nessuno ha mai visto.
 
-L'invito all'acquisto resta, ma smette di essere un pedaggio e diventa un'offerta:
-una riga discreta e persistente nelle impostazioni, più una comparsa contestuale
-la prima volta che apri una carta senza illustrazione.
+L'invito all'acquisto resta, ma smette di essere un pedaggio e diventa un'offerta.
+*(~~una riga discreta e persistente nelle impostazioni, più una comparsa contestuale
+la prima volta che apri una carta senza illustrazione~~: **caduto** con `b35523d`,
+che ha cancellato sia la riga — `Settings > Rulebook` — sia la nozione di carta
+«senza illustrazione». La copia qui sotto non è mai stata spedita in questa forma;
+quello che l'app dice oggi è la riga di `About.tsx`, che è diventata **più** vera,
+non meno: l'SRD è tutto il motore di regole ed è gratis, il manuale si compra per
+l'ambientazione e l'arte, e dietro di esso non aspetta niente.)*
 
-> Cards here are text-only — the free SRD doesn't include artwork.
+> ~~Cards here are text-only — the free SRD doesn't include artwork.
 > Own the **Daggerheart Core Rulebook** PDF? Load it from a computer and the app
 > will use the official illustrations. Don't own it? Buying it supports the people
-> who made the game → daggerheart.com/buy
+> who made the game → daggerheart.com/buy~~
 
 Attribuzione richiesta, **in fondo allo scroll di ogni schermata** e nel README:
 
@@ -330,9 +345,15 @@ type Layer = { id: string; label: string; priority: number; importedAt?: string 
 
 const layers = [
   { id: 'srd-1.0-2025-09-09', label: 'SRD 1.0',       priority: 0 },  // sempre presente
-  { id: 'core-2025-09-07',    label: 'Core Rulebook', priority: 1 },  // facoltativo
+  { id: 'core-2025-09-07',    label: 'Core Rulebook', priority: 1 },  // non più creabile
 ];
 ```
+
+Lo strato `core` non si può più creare: l'importer che era il suo unico scrittore è
+stato rimosso con `b35523d`. Il tipo resta, e `dataset.ts` compone ancora lo strato
+già in IndexedDB su un dispositivo che aveva importato prima della rimozione —
+toglierlo di lì è il passo R2, e finché non esiste una gestualità che lo toglie,
+cancellare lo store sarebbe abbandonare i byte invece di rimuoverli.
 
 **Niente homebrew.** Solo contenuto ufficiale: il dataset è immutabile, non serve
 un editor, né validazione dei contenuti utente, né allocazione dinamica di ID.
@@ -362,8 +383,9 @@ const slugify = (s: string) => s
   .replace(/^-|-$/g, '');
 ```
 
-Dopo l'import del manuale, **schermata di riconciliazione**: quanti abbinati, quanti
-solo nel manuale, quanti solo nell'SRD, con abbinamento manuale per i casi dubbi.
+*(~~Dopo l'import del manuale, **schermata di riconciliazione**: quanti abbinati, quanti
+solo nel manuale, quanti solo nell'SRD, con abbinamento manuale per i casi dubbi.~~:
+**cancellata** con `b35523d`, insieme a `src/import/reconcile.ts`.)*
 
 ---
 
@@ -496,22 +518,25 @@ avviene è una perdita che nessuno accorge quando smette di essere deliberata.
 e segnala. I riferimenti ignoti restano nella scheda come `unresolvedRefs` e si
 risolvono da soli quando arriva la fonte mancante. Non scartare mai nulla.
 
-### 5.4 Portare l'arte dal computer al telefono
+### 5.4 ~~Portare l'arte dal computer al telefono~~ — **cancellata con `b35523d`**
 
-L'import dell'arte è da desktop, ma l'arte deve poter arrivare sul telefono.
-Stesso principio del trasferimento schede: un file.
+Non c'è più arte da portare: le buste `.dhart`, il loro lettore e il loro scrittore
+sono stati cancellati con l'importer. Il testo resta come record della decisione.
 
-**Art pack** (`.dhart`) — generato dal desktop dopo l'import del manuale.
-Contiene solo le WebP a 600 px indicizzate per slug, senza testo.
-
-- Pacchetto completo: ~20 MB
-- Per singolo dominio: ~2 MB — chi gioca un Wizard scarica Codex e Splendor e basta
-
-Sul telefono si importa dal file picker come qualsiasi altro file. Nessun PDF,
-nessun parsing, nessun rischio di memoria.
-
-> ⚠️ L'art pack contiene illustrazioni del manuale: è per uso personale sui propri
-> dispositivi, non si condivide. L'app lo dice esplicitamente al momento della creazione.
+> ~~L'import dell'arte è da desktop, ma l'arte deve poter arrivare sul telefono.
+> Stesso principio del trasferimento schede: un file.~~
+>
+> ~~**Art pack** (`.dhart`) — generato dal desktop dopo l'import del manuale.
+> Contiene solo le WebP a 600 px indicizzate per slug, senza testo.~~
+>
+> - Pacchetto completo: ~20 MB
+> - Per singolo dominio: ~2 MB — chi gioca un Wizard scarica Codex e Splendor e basta
+>
+> ~~Sul telefono si importa dal file picker come qualsiasi altro file. Nessun PDF,
+> nessun parsing, nessun rischio di memoria.~~
+>
+> ~~⚠️ L'art pack contiene illustrazioni del manuale: è per uso personale sui propri
+> dispositivi, non si condivide. L'app lo dice esplicitamente al momento della creazione.~~
 
 ### 5.5 Il telefono deve bastare
 
@@ -521,8 +546,9 @@ creare un personaggio · giocare · salire di livello · gestire loadout e vault
 inventario e oro · esportare e importare via file o QR · backup e ripristino ·
 usare gli strumenti da GM
 
-L'unica cosa che il telefono non fa è **estrarre l'arte da un PDF di 318 MB**.
-Riceverla in un art pack, sì.
+*(~~L'unica cosa che il telefono non fa è **estrarre l'arte da un PDF di 318 MB**.
+Riceverla in un art pack, sì.~~: **caduto** con `b35523d`. Non c'è più niente che il
+telefono non faccia, perché non lo fa più nemmeno il desktop.)*
 
 ---
 
@@ -870,7 +896,7 @@ Perciò `index.html` non è più `<div id="root"></div>` e basta:
 `dhc-shell-<VERSION>` e `dhc-assets-<VERSION>` — quindi `takeOver()` le vede
 vecchie, le cancella, e `ensurePrecached()` ricostruisce dalla rete. Costa un
 download completo a ogni client installato (documento, bundle, chunk SRD, font,
-icone) più 1.6 MB di worker pdf.js a chi aveva usato l'importer, e non è
+icone), e non è
 immediato: il worker non chiama `skipWaiting()`, quindi il rimpiazzo resta in
 `waiting` finché l'utente non accetta il prompt o non chiude ogni scheda. Nella
 maggior parte dei casi non serve — una build corretta viene adottata da sola,
@@ -900,7 +926,6 @@ interface DomainCard {
   id: Ref; name: string; domain: Ref;
   level: number; type: 'Spell' | 'Ability' | 'Grimoire';
   recallCost: number; text: string;
-  artKey?: string;
   provenance: Record<string, string>;   // campo → strato che lo definisce
 }
 
@@ -983,9 +1008,7 @@ daggerheart-companion/
 │     ├─ classes.ts      ancestries.ts   communities.ts
 │     └─ beastforms.ts   equipment.ts    loot.ts
 ├─ src/
-│  ├─ import/                  # SOLO manuale, solo desktop
-│  │  ├─ worker.ts  detectSource.ts  reconcile.ts  art.ts  artPack.ts
-│  ├─ engine/                  # PURO: zero UI, zero pdf.js
+│  ├─ engine/                  # PURO: zero UI, zero I/O
 │  │  ├─ character.ts  levelUp.ts  loadout.ts  damage.ts  dice.ts  encounter.ts
 │  ├─ transfer/
 │  │  ├─ codec.ts  frames.ts  qrOut.tsx  qrIn.tsx  fileIo.ts  campaignFile.ts
@@ -1564,8 +1587,10 @@ export automatico, ripristino.
 
 **Fase 7 — PWA.** Service worker, installazione, wake lock, `persist()`.
 
-**Fase 8 — Manuale completo (facoltativa).** Parser runtime, riconciliazione,
-pipeline arte, art pack. Se non la fai mai, l'app resta completa.
+**Fase 8 — ~~Manuale completo (facoltativa)~~.** Parser runtime, riconciliazione,
+pipeline arte, art pack. *(«Se non la fai mai, l'app resta completa»: fatta, spedita
+e poi **disfatta** con `b35523d`. L'app è completa senza, che è la stessa frase letta
+dall'altro capo.)*
 
 ---
 
@@ -1573,7 +1598,8 @@ pipeline arte, art pack. Se non la fai mai, l'app resta completa.
 
 - Nel repo: codice, `data/srd-1.0.json`, `data/registry.json`. Nessun PDF, nessuna arte.
 - L'SRD 1.0 è Public Game Content sotto DPCGL: ridistribuibile con attribuzione.
-- Il manuale completo no: resta sul dispositivo dell'utente, l'art pack è personale.
+- Il manuale completo no, e l'app non ha più modo di riceverlo: l'importer e le buste
+  `.dhart` sono stati rimossi con `b35523d`.
 - Nessun logo ufficiale. Per un marchio, usa i loghi "Daggerheart Compatible" della
   licenza: `https://darringtonpress.com/license/`
 - Attribuzione SRD in fondo allo scroll di ogni schermata — le cinque, Play
@@ -1592,7 +1618,7 @@ pipeline arte, art pack. Se non la fai mai, l'app resta completa.
 | De-colonnazione fragile su certe pagine | Fixture committabili + validazione sui conteggi |
 | Safari iOS cancella IndexedDB | `persist()` + export automatico + indicatore di backup |
 | Scansione QR difficile schermo-fotocamera | Luminosità automatica, ECC M, quiet zone, e il file come alternativa |
-| Import del manuale che esaurisce la memoria | Solo desktop, dichiarato; l'arte viaggia in art pack |
-| Abbinamento sbagliato fra SRD e manuale | Schermata di riconciliazione con abbinamento manuale |
+| ~~Import del manuale che esaurisce la memoria~~ | **Chiuso** con `b35523d`: non c'è più import |
+| ~~Abbinamento sbagliato fra SRD e manuale~~ | **Chiuso** con `b35523d`: non c'è più niente da abbinare |
 | Aspettativa che l'app "esegua" le regole | Confine dichiarato nel README e nell'onboarding |
 | Richieste di homebrew (arriveranno) | `priority: 2` e ID ≥ 60000 già riservati: aggiungerlo non richiede migrazioni |

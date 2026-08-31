@@ -220,10 +220,10 @@ describe('the nav and the readout share one line', () => {
    * the hit test. Measured in Chrome at 744x1133: GM 100% covered, BUILD 73%,
    * and `document.elementFromPoint` at either centre returning the dataset
    * span, which then read "SRD ONLY · NO ART" and reads "SRD ONLY" since the
-   * Core Rulebook importer was removed - one word narrower than what was
-   * measured, in a band where it is not drawn at all. jsdom computes no layout,
-   * so it can see none of that, and the
-   * whole occlusion is exactly why it survived a repo with 2292 tests.
+   * Core Rulebook importer was removed - a separator and two words narrower
+   * than what was measured, in a band where it is not drawn at all. jsdom
+   * computes no layout, so it can see none of that, and the whole occlusion is
+   * exactly why it survived a repo with 2292 tests.
    *
    * What jsdom *can* hold is the rule the fix is made of, which is a rule about
    * what is rendered rather than about where: the two things that were fighting

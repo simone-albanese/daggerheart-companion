@@ -74,8 +74,8 @@ import { UpdateBanner } from './UpdateBanner.tsx';
 
 // Play and Cards are what a session actually uses, so they ship in the shell.
 // Build, GM and Settings are large, rarely open at the table, and each pulls in
-// something heavy of its own (the wizard, the bestiary, pdf.js and the QR
-// codec). Splitting them keeps first paint small and - just as usefully - means
+// something heavy of its own (the wizard, the bestiary and the QR codec).
+// Splitting them keeps first paint small and - just as usefully - means
 // a failure inside one of them cannot take the sheet down with it.
 // Search is split with them and not with Play, and it is the one that sits
 // across the stated line: it *is* opened at the table, which is the whole
