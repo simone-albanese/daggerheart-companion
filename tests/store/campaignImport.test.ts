@@ -40,6 +40,7 @@ import {
   type ImportedCampaign,
 } from '../../src/transfer/campaignFile.ts';
 import { ImportError } from '../../src/transfer/fileIo.ts';
+import { sceneWith } from '../fixtures/factories.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
 const EXPORTED_AT = new Date('2026-08-16T10:00:00.000Z');
@@ -60,17 +61,23 @@ const combatant = (id: string): SceneCombatant => ({
   notes: '',
 });
 
-const scene = (order: number): SessionItem => ({
-  id: 's1',
-  kind: 'scene',
-  name: 'The frozen ford',
-  order,
-  collapsed: true,
-  environmentRef: 'raging-river',
-  roster: [],
-  adjustments: { easier: false, harder: false, damageBump: false },
-  combatants: [combatant('jagged-knife-bandit-0')],
-});
+/**
+ * A scene row that IS a fight, through the one factory that mints them.
+ *
+ * `collapsed: true` is passed rather than taken, because `sceneWith`'s own
+ * default is `false` and the value is part of what this file's id assertions
+ * carry across a file unchanged. The fight is an argument now: at campaign
+ * schema 5 there is no `board.combatants` for one to sit in, so every fight in
+ * this record is on the row it is fought in and `idsOf` below has a per-row id
+ * space to walk rather than a flat one.
+ */
+const scene = (
+  id: string,
+  name: string,
+  order: number,
+  fight: SceneCombatant[],
+): SessionItem =>
+  sceneWith(id, fight, { name, order, collapsed: true, environmentRef: 'raging-river' });
 
 /**
  * One whole sheet, stamped once.
@@ -104,12 +111,31 @@ const member = (): PartyMember => ({
  * than against this: `v4.campaign.json`'s party row is a nine-field stub the
  * reader drops, which is exactly the row an id test must not be asserting
  * about. The archive deliberately repeats the live scene's row id.
+ *
+ * TWO SCENE ROWS, AND THE COMBATANT IDS REPEAT ACROSS THEM. `s1` holds
+ * `jagged-knife-bandit-0` and `-1`, `s2` holds a `jagged-knife-bandit-0` of its
+ * own, and `board.openScene` names `s2`. All three are load-bearing:
+ *
+ *   - the repeat is legal, and `SessionItem` says so in as many words: a
+ *     combatant id is unique inside its row and means nothing outside it,
+ *     because `makeCombatant` numbers from 0 in every row. A fixture with one
+ *     scene row cannot state that invariant, let alone defend it.
+ *   - there is a move of one body between these two rows that a FLAT list of
+ *     combatant ids cannot see, which is what makes `idsOf`'s per-row shape
+ *     below a measurement rather than a formatting choice. The move and the
+ *     two runs that establish it are named there rather than here, so the
+ *     claim sits beside the code it is about.
+ *   - the pointer names the SECOND scene row, so a reader that resolved any
+ *     pointer to "the first scene row" would pass on a one-row fixture.
  */
 const full = (patch: Partial<Campaign> = {}): Campaign => ({
   ...newCampaign('The Sablewood Winter', '2026-02-01T19:30:00.000Z', 'c-1'),
   fear: 7,
   session: [
-    scene(0),
+    scene('s1', 'The frozen ford', 0, [
+      combatant('jagged-knife-bandit-0'),
+      combatant('jagged-knife-bandit-1'),
+    ]),
     {
       id: 'i1',
       kind: 'countdown',
@@ -132,13 +158,19 @@ const full = (patch: Partial<Campaign> = {}): Campaign => ({
         beats: [],
       },
     },
+    scene('s2', 'The long hall', 2, [combatant('jagged-knife-bandit-0')]),
   ],
   archive: [
     {
       id: 'sitting-1',
       name: 'The first night out',
       closedAt: '2026-07-04T23:10:00.000Z',
-      items: [scene(0)],
+      items: [
+        scene('s1', 'The frozen ford', 0, [
+          combatant('jagged-knife-bandit-0'),
+          combatant('jagged-knife-bandit-1'),
+        ]),
+      ],
       account: prose('They never went north.'),
     },
   ],
@@ -155,24 +187,56 @@ const full = (patch: Partial<Campaign> = {}): Campaign => ({
   party: [member()],
   board: {
     ...newCampaign('x', '2026-02-01T19:30:00.000Z', 'x').board,
-    combatants: [combatant('acid-burrower-0')],
     environmentRef: 'raging-river',
-    liveScene: 's1',
+    openScene: 's2',
   },
   ...patch,
 });
 
-/** Every id in the record, by the space it lives in. */
+/**
+ * Every id in the record, by the space it lives in.
+ *
+ * `combatantsByRow` is a list of pairs and not a flat list of ids, and that is
+ * the shape the id space actually has since campaign schema 5. A combatant id
+ * is unique inside its row and nowhere else, so a body's address is the pair -
+ * flatten it and this helper stops being able to say a body is where it was.
+ *
+ * Measured rather than argued, because a flat list catches most moves and the
+ * question is whether it catches all of them. It does not: take
+ * `jagged-knife-bandit-1` off the end of `s1` and put it on the FRONT of `s2`
+ * and the flat list is `['jagged-knife-bandit-0', 'jagged-knife-bandit-1',
+ * 'jagged-knife-bandit-0']` either way, while the pairs go from
+ * `[['s1', [0, 1]], ['s2', [0]]]` to `[['s1', [0]], ['s2', [1, 0]]]`. A reader
+ * mutant doing exactly that move takes the two `drops a pointer that…` tests
+ * below red with these pairs and leaves them green with a flat list - both
+ * halves run, in a copy, at this commit.
+ *
+ * Note which tests those are, because it is not the obvious one. The whole-
+ * helper comparison this file has always had - `expect(idsOf(stored)).toEqual(
+ * idsOf(arriving.campaign))`, in `keeps every internal id byte-identical` -
+ * holds two records that have BOTH been through `readCampaignRecord`, since
+ * its subject is what `applyCampaignImport` does on the copy path. No reader
+ * mutant can reach it, and that is right for what it is for. The two new cases
+ * below are the only ones here that hold a record off a file against the
+ * fixture that went into it, so they are where the per-row shape earns its
+ * keep.
+ *
+ * `boardCombatants` is gone rather than renamed, because the space it named is
+ * gone: the board holds the encounter builder's roster and no bodies at all.
+ * The ids that used to be in it are in `combatantsByRow` now, which is the
+ * whole of what schema 5 did to this record.
+ */
 const idsOf = (c: Campaign): Record<string, unknown> => ({
   rows: c.session.map((i) => i.id),
   countdowns: c.session.flatMap((i) => (i.kind === 'countdown' ? [i.countdown.id] : [])),
-  rowCombatants: c.session.flatMap((i) => (i.kind === 'scene' ? i.combatants.map((x) => x.id) : [])),
+  combatantsByRow: c.session.flatMap((i) =>
+    i.kind === 'scene' ? [[i.id, i.combatants.map((x) => x.id)]] : [],
+  ),
   archive: c.archive.map((a) => a.id),
   archiveItems: c.archive.flatMap((a) => a.items.map((i) => i.id)),
   register: c.register.map((r) => r.id),
-  boardCombatants: c.board.combatants.map((x) => x.id),
   party: c.party.map((p) => p.id),
-  liveScene: c.board.liveScene,
+  openScene: c.board.openScene,
   scopedTo: c.session.flatMap((i) => (i.kind === 'countdown' ? [i.sceneId] : [])),
 });
 
@@ -381,10 +445,18 @@ describe('the id spaces that are not the key', () => {
   it('keeps the two pointers standing, and the reader reports no repair', async () => {
     /*
      * The load-bearing assertion of the whole id decision. `readCampaignRecord`
-     * repairs a countdown whose `sceneId` names no row, and detaches a
-     * `board.liveScene` that names no row - each with a warning. A remap that
-     * renumbered rows before the pointers would surface here as two sentences
-     * telling the GM their parked fight and their scene clock are gone.
+     * hands a countdown whose `sceneId` names no row back to the campaign, with
+     * a warning, and nulls a `board.openScene` that names no scene row, in
+     * silence. A remap that renumbered rows before the pointers would surface
+     * here as a sentence telling the GM their scene clock is gone, and as a
+     * runner that opens on nothing.
+     *
+     * The two pointers name DIFFERENT rows - `s1` and `s2` - so a repair that
+     * fired on one and was reported against the other cannot pass. They are
+     * also the only two things a remap could still break: the fights moved onto
+     * the rows at campaign schema 5, so they travel with the row whatever its
+     * id says, which is `campaignImport.ts`'s own argument for why the
+     * prohibition survived the rename.
      */
     const arriving = fileOf(full());
     const store = fakeStore();
@@ -395,8 +467,7 @@ describe('the id spaces that are not the key', () => {
 
     expect(preview.warnings).toEqual([]);
     expect(said).not.toMatch(/belonged to a scene this campaign no longer has/);
-    expect(said).not.toMatch(/live scene|no longer has that scene/i);
-    expect(stored.board.liveScene).toBe('s1');
+    expect(stored.board.openScene).toBe('s2');
     const clock = stored.session.find((i) => i.id === 'i1');
     expect(clock?.kind === 'countdown' && clock.sceneId).toBe('s1');
     /*
@@ -405,6 +476,43 @@ describe('the id spaces that are not the key', () => {
      * This is the assertion that says so about every field at once.
      */
     expect(stable(stored)).toBe(stable(arriving.campaign));
+  });
+
+  it.each([
+    ['names no row at all', 'a-row-this-campaign-no-longer-has'],
+    ['names a row that is not a scene', 'i1'],
+  ])('drops a pointer that %s, and says nothing about it', async (_label, pointer) => {
+    /*
+     * The other half of the pointer rule, and the half that changed shape at
+     * campaign schema 5. `board.liveScene` owned a fight, so a dangling one
+     * meant a fight with no home and the reader had to say so out loud - the
+     * sentence was "the fight on the board came from a scene this campaign no
+     * longer has, so it belongs to no row". `openScene` owns nothing at all:
+     * what dangles is which screen the GM was on, and every fight is on its own
+     * row either way. So the repair is silent, and a warning here would be a
+     * sentence about a loss that did not happen, which is how a real warning
+     * stops being read.
+     *
+     * The second case is the one an id test is for. `i1` is a row this campaign
+     * really has, so a reader that checked the pointer against every row id -
+     * which is exactly what a countdown's `sceneId` is checked against, three
+     * lines away in the same pass - would keep it and open the runner on a
+     * countdown row: an empty scene with no explanation on it and no way back.
+     *
+     * Both fights are asserted still on their rows afterwards, because
+     * "silent" is only safe if it is also true.
+     */
+    const gone = full({ board: { ...full().board, openScene: pointer } });
+    const store = fakeStore();
+
+    const { preview, outcome } = await run(fileOf(gone), store, here());
+    const out = landed(outcome);
+    const stored = store.records.get(out.campaign.id) as Campaign;
+
+    expect(preview.warnings).toEqual([]);
+    expect(out.warnings).toEqual([]);
+    expect(stored.board.openScene).toBeNull();
+    expect(idsOf(stored).combatantsByRow).toEqual(idsOf(gone).combatantsByRow);
   });
 
   it('never reaches the characters store, so a party row arrives exactly as it was', async () => {
@@ -623,7 +731,7 @@ describe('two GMs off the localStorage build, colliding by construction', () => 
     expect(preview.localSameId?.name).toBe('My campaign');
     expect(preview.localSameId?.updatedAt).toBe('2026-04-02T19:05:00.000Z');
     expect(preview.incoming.updatedAt).toBe('2026-03-12T21:40:00.000Z');
-    expect(preview.counts).toEqual({ session: 2, archive: 1, register: 1, party: 1 });
+    expect(preview.counts).toEqual({ session: 3, archive: 1, register: 1, party: 1 });
     /*
      * And the name is minted *because* of the record that shares the id, which
      * is why `nameHolder` is asked with no `except`. Every other door in this
@@ -752,7 +860,7 @@ describe('two tabs importing the same file at the same moment', () => {
     ]);
     for (const out of [first, second]) {
       const stored = store.records.get(out.campaign.id) as Campaign;
-      expect(stored.session).toHaveLength(2);
+      expect(stored.session).toHaveLength(3);
       expect(stored.party).toHaveLength(1);
       expect(stored.fear).toBe(7);
     }
@@ -823,7 +931,7 @@ describe('what the preview says, and what it never decides', () => {
 
     const preview = previewCampaignImport(file, here());
 
-    expect(preview.counts).toEqual({ session: 2, archive: 1, register: 1, party: 2 });
+    expect(preview.counts).toEqual({ session: 3, archive: 1, register: 1, party: 2 });
     expect(preview.oldestPartyImportedAt).toBe('2026-01-02T00:00:00.000Z');
   });
 
