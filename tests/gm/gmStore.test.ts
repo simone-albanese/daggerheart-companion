@@ -20,10 +20,10 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Campaign } from '../../shared/campaigns.ts';
+import type { Campaign, SessionItem } from '../../shared/campaigns.ts';
 import { COUNTDOWN_BEATS_MAX, COUNTDOWN_TEXT_MAX } from '../../shared/campaigns.ts';
 import type { Adversary, Character } from '../../shared/types.ts';
-import { NO_FIGHT } from '../fixtures/factories.ts';
+import { NO_FIGHT, combatant, sceneWith } from '../fixtures/factories.ts';
 import { newCharacter } from '../../src/engine/character.ts';
 
 type Gm = typeof import('../../src/ui/gm/gmStore.ts');
@@ -175,13 +175,14 @@ describe('hydration', () => {
 });
 
 describe('the fight survives a reload, which is the promise this file has always made', () => {
-  it('writes the board and reads it back into the same numbers', async () => {
+  it('writes the row the fight is on and reads it back into the same numbers', async () => {
     const s = gm.useGm.getState();
     s.setFear(7);
     s.setEnvironment('raging-river');
     s.setPartyTier(3);
-    s.spawn(adversary, 4);
-    s.patchCombatant('acid-burrower-0', { spotlighted: true, notes: 'far bank' });
+    const dungeon = s.openNewScene('The dungeon');
+    s.spawn(dungeon, adversary, 4);
+    s.patchCombatant(dungeon, 'acid-burrower-0', { spotlighted: true, notes: 'far bank' });
     s.addCountdown('The ice gives way', 'standard', 6);
     await gm.flushGm();
 
@@ -192,11 +193,49 @@ describe('the fight survives a reload, which is the promise this file has always
     const after = reloaded.useGm.getState();
 
     expect(after.fear).toBe(7);
+    // The BOARD's environment, which is the builder's workbench and is still
+    // the board's. The runner's place is the open row's, asserted below.
     expect(after.environmentRef).toBe('raging-river');
     expect(after.partyTier).toBe(3);
-    expect(after.combatants[0]?.spotlighted).toBe(true);
-    expect(after.combatants[0]?.notes).toBe('far bank');
+    expect(after.openScene).toBe(dungeon);
+    expect(gm.openCombatants(after)[0]?.spotlighted).toBe(true);
+    expect(gm.openCombatants(after)[0]?.notes).toBe('far bank');
     expect(after.countdowns.map((c) => c.name)).toEqual(['The ice gives way']);
+  });
+
+  it('brings back two fights and the pointer that says which one is on the glass', async () => {
+    /*
+     * The promise the schema bump exists to make, and the one a single board
+     * could not make at all. Under schema 4 the second fight did not survive
+     * being left - it was parked into its row as a copy and the board carried
+     * only one - so "both fights, both sets of marks, after a reload" is a
+     * sentence that had no state to be true of.
+     */
+    const s = gm.useGm.getState();
+    const foresta = s.openNewScene('Foresta');
+    s.spawn(foresta, adversary, 4, 2);
+    s.patchCombatant(foresta, 'acid-burrower-1', { hp: { max: 8, marked: 5 } });
+    const pub = s.openNewScene('Pub');
+    s.spawn(pub, adversary, 4, 1);
+    s.patchCombatant(pub, 'acid-burrower-0', { stress: { max: 3, marked: 2 } });
+    s.showScene(foresta);
+    await gm.flushGm();
+
+    vi.resetModules();
+    const reloaded = (await import('../../src/ui/gm/gmStore.ts')) as Gm;
+    await reloaded.hydrateGm();
+    const after = reloaded.useGm.getState();
+
+    const held = (id: string): number => {
+      const row = after.session.find((i) => i.id === id);
+      return row?.kind === 'scene' ? row.combatants.length : -1;
+    };
+    expect(held(foresta)).toBe(2);
+    expect(held(pub)).toBe(1);
+    expect(after.openScene).toBe(foresta);
+    expect(reloaded.openCombatants(after)[1]?.hp.marked).toBe(5);
+    const other = after.session.find((i) => i.id === pub);
+    expect(other?.kind === 'scene' && other.combatants[0]?.stress.marked).toBe(2);
   });
 
   it('does not write inside the tap, nor in the turn after it', async () => {
@@ -392,17 +431,59 @@ describe('the session list', () => {
     s().patchSessionItem('a', { name: 'The frozen ford' });
     expect(s().session[0]!.name).toBe('The frozen ford');
   });
+
+  it('will not write a fight through a general row patch, on either arm that has one', () => {
+    /*
+     * The same argument as the kind above, one field along. `withSceneFight`
+     * is the one writer of a row's combatants and the runner holds that array
+     * by reference, so a caller reaching a fight through the general patcher
+     * is how a marked array - or another row's - ends up on a row.
+     *
+     * BOTH ARMS, because two of them carry a fight: `scene`, and the legacy
+     * `encounter` that `SESSION_ITEM_KINDS` no longer lets anybody make. The
+     * store's guard is written `'combatants' in item` rather than against the
+     * kind, and the encounter row is the sharper half of the two - there is no
+     * verb anywhere that could put its marks back.
+     *
+     * The patch is not refused, it is stripped: the ordinary half of it lands.
+     */
+    const s = () => gm.useGm.getState();
+    const body = combatant('acid-burrower-0');
+    s().addSessionItem(sceneWith('a', [body], { name: 'A' }));
+    s().addSessionItem({
+      id: 'b',
+      kind: 'encounter',
+      name: 'B',
+      order: 1,
+      collapsed: false,
+      roster: [],
+      adjustments: { easier: false, harder: false, damageBump: false },
+      combatants: [body],
+    });
+
+    for (const id of ['a', 'b']) {
+      s().patchSessionItem(id, { combatants: [], name: 'Renamed' } as Partial<SessionItem>);
+      const row = s().session.find((i) => i.id === id)!;
+      expect(row.kind !== 'link' && 'combatants' in row && row.combatants, id).toHaveLength(1);
+      expect(row.name, id).toBe('Renamed');
+    }
+  });
 });
 
 describe('more than one campaign', () => {
-  it('keeps each one’s board to itself', async () => {
+  it('keeps each one’s fight to itself', async () => {
     const s = () => gm.useGm.getState();
     s().setFear(9);
-    s().spawn(adversary, 4);
+    const dungeon = s().openNewScene('The dungeon');
+    s().spawn(dungeon, adversary, 4);
 
     const second = await s().createCampaign('Ashes of Rivermarch');
     expect(s().fear).toBe(0);
-    expect(s().combatants).toEqual([]);
+    // A new campaign has no plan, so it has nowhere a fight could be: the
+    // pointer is null and the selector answers for it rather than throwing.
+    expect(s().session).toEqual([]);
+    expect(s().openScene).toBeNull();
+    expect(gm.openCombatants(s())).toEqual([]);
     expect(s().activeCampaignId).toBe(second.id);
 
     s().setFear(2);
@@ -411,11 +492,12 @@ describe('more than one campaign', () => {
     const first = s().campaigns.find((c) => c.id !== second.id)!;
     await s().switchCampaign(first.id);
     expect(s().fear).toBe(9);
-    expect(s().combatants).toHaveLength(1);
+    expect(s().openScene).toBe(dungeon);
+    expect(gm.openCombatants(s())).toHaveLength(1);
 
     await s().switchCampaign(second.id);
     expect(s().fear).toBe(2);
-    expect(s().combatants).toEqual([]);
+    expect(gm.openCombatants(s())).toEqual([]);
   });
 
   it('lands the campaign being left before the switch, not after', async () => {
@@ -783,15 +865,27 @@ describe('exporting the open campaign', () => {
  * nowhere.
  */
 describe('the snapshot the backup reads', () => {
-  it('folds the live board into the open campaign before it has been written', async () => {
+  it('folds the live evening into the open campaign before it has been written', async () => {
+    /*
+     * The fight moved off the board and onto a row, so the leg this test
+     * stands on moved with it: what has to be in the snapshot is the SESSION
+     * list, not `board.combatants`, and a bare `spawn` no longer has anywhere
+     * to go. The row is opened first, by the same verb the glass uses.
+     *
+     * The claim is unchanged and is the one the whole backup rests on: what is
+     * in memory and not yet on the disk is what gets backed up.
+     */
     const s = () => gm.useGm.getState();
     s().setFear(9);
-    s().spawn(adversary, 2);
+    const dungeon = s().openNewScene('The dungeon');
+    s().spawn(dungeon, adversary, 2);
 
     const snapshot = gm.snapshotCampaigns()!;
     expect(snapshot.campaigns).toHaveLength(1);
     expect(snapshot.campaigns[0]!.fear).toBe(9);
-    expect(snapshot.campaigns[0]!.board.combatants.map((c) => c.adversaryRef)).toEqual([
+    expect(snapshot.campaigns[0]!.board.openScene).toBe(dungeon);
+    const row = snapshot.campaigns[0]!.session.find((i) => i.id === dungeon);
+    expect(row?.kind === 'scene' && row.combatants.map((c) => c.adversaryRef)).toEqual([
       'acid-burrower',
     ]);
     // The debounce is 400 ms and nothing has flushed, so the disk still holds
@@ -1172,286 +1266,177 @@ describe('a campaign that is not the one on screen', () => {
 
 // ---------------------------------------------------------------------------
 
-/**
- * Park and resume, decision 18.
+/*
+ * THE FIGHT IS ON THE ROW IT IS FOUGHT IN, AND THERE IS NOWHERE ELSE FOR IT
+ * TO BE.
  *
- * Two scenes can be half-fought at once, so the fight on the board has to be
- * able to go back where it came from and come out again with every mark on it.
- * The rules being asserted here are the ones that are cheap to break later: one
- * commit, a copy at both crossings, and never a fight on the floor.
+ * What stood here was three describes about a fight that lived on the board
+ * and visited rows: `running a scene` (15 its), `ending a scene, once a fight
+ * can be parked` (3) and `deleting a row a fight came from` (4). Fourteen of
+ * those twenty-two are gone rather than rewritten, because the states they
+ * pinned cannot be reached any more - a board holding a fight no row owns, a
+ * row holding a copy of a fight that is also on the glass, a mint that happens
+ * behind the GM's back on the way past. Each was a real property of schema 4
+ * and each is now unstateable.
+ *
+ * The rest inverted. Where the old file asserted that resume EMPTIES the row
+ * it took the fight from, this one asserts that nothing moves at all.
  */
-describe('running a scene', () => {
-  const scene = (id: string, name: string, environmentRef: string | null = null) =>
-    ({
-      id,
-      kind: 'scene',
-      name,
-      order: 0,
-      collapsed: false,
-      environmentRef,
-      ...NO_FIGHT,
-    }) as const;
-
+describe('two fights, two rows, and nothing in between', () => {
   const s = () => gm.useGm.getState();
-  const parkedIn = (id: string): number => {
+  const held = (id: string): number => {
     const row = s().session.find((i) => i.id === id);
     return row?.kind === 'scene' ? row.combatants.length : -1;
   };
+  /** The row object itself, for the identity assertions below. */
+  const rowOf = (id: string): SessionItem => s().session.find((i) => i.id === id)!;
 
-  /*
-   * `adoptBoard` is the verb for the state `runScene` could only repair on the
-   * way past: a board with combatants on it and no row behind them. `runScene`
-   * mints an untitled home for such a board when a GM runs some OTHER row, so
-   * the fight was kept - but only as a side effect of leaving it, and with a
-   * name nobody chose. This claims it in place.
-   */
-  it('gives the board’s fight to a row without moving a single mark', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    // A fight from the bestiary: spawned straight onto the board, no pointer.
-    s().spawn(adversary, 4, 2);
-    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 5 } });
-    expect(s().liveScene).toBeNull();
+  /** Two named rows, in order, with the runner showing neither. */
+  const twoRows = (): void => {
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().addSessionItem(sceneWith('forest', [], { name: 'The forest' }));
+  };
 
-    s().adoptBoard('dungeon');
+  it('spawns into the row it is told and into no other', () => {
+    // Both rows already hold a body with the SAME id, which is legal: a
+    // combatant id is unique inside its row and means nothing outside it.
+    s().addSessionItem(sceneWith('dungeon', [combatant('acid-burrower-0')]));
+    s().addSessionItem(sceneWith('forest', [combatant('acid-burrower-0')]));
+    const before = rowOf('forest');
 
-    expect(s().liveScene).toBe('dungeon');
-    // Nothing moved: the marks on the glass are the marks on the glass.
-    expect(s().combatants).toHaveLength(2);
-    expect(s().combatants[0]?.hp.marked).toBe(5);
-    // And no home was minted, because the fight already has one now.
-    expect(s().session).toHaveLength(1);
-    // The live row keeps no copy, which is resume's own invariant.
-    expect(parkedIn('dungeon')).toBe(0);
+    s().spawn('dungeon', adversary, 4, 2);
+
+    expect(held('dungeon')).toBe(3);
+    expect(held('forest')).toBe(1);
+    // Deep-equal AND identical: the untouched row is not rebuilt at all, which
+    // is what `MemoSessionRow` rests on.
+    expect(rowOf('forest')).toEqual(before);
+    expect(rowOf('forest')).toBe(before);
   });
 
-  it('refuses to adopt when a scene is already running, or onto a parked row', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-
-    // (a) Another scene owns the board: adopting would give one fight two rows.
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    s().adoptBoard('forest');
-    expect(s().liveScene).toBe('dungeon');
-
-    // (b) The target is holding a parked fight of its own. Two fights and one
-    //     board is a state no screen can draw honestly, so the row keeps its
-    //     own and `BACK TO THIS FIGHT` stays the honest verb there.
-    s().runScene('forest');
-    expect(parkedIn('dungeon')).toBe(1);
-    gm.useGm.setState({ liveScene: null });
-    s().spawn(adversary, 4, 1);
-    s().adoptBoard('dungeon');
-    expect(s().liveScene).toBeNull();
-    expect(parkedIn('dungeon')).toBe(1);
-  });
-
-  it('refuses a row that is not a scene', () => {
-    s().addSessionItem({
-      id: 'clock',
-      kind: 'countdown',
-      name: 'The tide',
-      order: 0,
-      collapsed: true,
-      value: 3,
-      start: 3,
-      loop: false,
-      pinned: false,
-      sceneId: null,
-    } as never);
-    s().spawn(adversary, 4, 1);
-    s().adoptBoard('clock');
-    expect(s().liveScene).toBeNull();
-  });
-
-  it('parks the board into the row it came from, and puts the new row’s fight on it', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 2);
-    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 5 } });
-
-    s().runScene('forest');
-
-    // The dungeon's fight went into the dungeon's row, marks and all.
-    expect(parkedIn('dungeon')).toBe(2);
-    const parked = s().session.find((i) => i.id === 'dungeon');
-    expect(parked?.kind === 'scene' && parked.combatants[0]?.hp.marked).toBe(5);
-
-    // The board is the forest's, which had no fight.
-    expect(s().combatants).toEqual([]);
-    expect(s().liveScene).toBe('forest');
-  });
-
-  it('brings a parked fight back with every mark exactly where it was', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    const id = s().combatants[0]!.id;
-    s().patchCombatant(id, { hp: { max: 8, marked: 6 }, stress: { max: 3, marked: 2 } });
-
-    s().runScene('forest');
-    s().runScene('dungeon');
-
-    expect(s().combatants).toHaveLength(1);
-    expect(s().combatants[0]!.hp.marked).toBe(6);
-    expect(s().combatants[0]!.stress.marked).toBe(2);
-  });
-
-  it('leaves the row it resumed from empty, so one fight is never in two places', () => {
-    // Two copies of one fight with different marks is a state no screen can
-    // draw honestly, and the shut row would print a count from before the flip.
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    s().runScene('forest');
-    expect(parkedIn('dungeon')).toBe(1);
-
-    s().runScene('dungeon');
-    expect(parkedIn('dungeon')).toBe(0);
-    expect(s().combatants).toHaveLength(1);
-  });
-
-  it('copies rather than aliases, so marking the board does not reach into the plan', () => {
+  it('patches and removes inside one row when both hold the same combatant id', () => {
     /*
-     * `spread` hands the board's array in by reference and `gather` hands it
-     * back. Every writer rebuilds the array today, so an alias is invisible
-     * until one of them stops - which is exactly the kind of defect that
-     * arrives years later in an unrelated commit.
+     * The id-collision property, stated as a test because it is what keeps
+     * `openScene` non-derivable: you cannot find the fight by looking for a
+     * combatant, so the pointer has to be written down, and `Scene.tsx`'s card
+     * key has to carry the row id as well as the body's.
      */
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    s().runScene('forest');
+    s().addSessionItem(sceneWith('dungeon', [combatant('acid-burrower-0')]));
+    s().addSessionItem(sceneWith('forest', [combatant('acid-burrower-0')]));
 
-    const row = s().session.find((i) => i.id === 'dungeon');
-    const parkedCombatant = row?.kind === 'scene' ? row.combatants[0]! : undefined;
-    expect(parkedCombatant).toBeDefined();
+    s().patchCombatant('dungeon', 'acid-burrower-0', { hp: { max: 8, marked: 5 } });
+    const dungeonBody = rowOf('dungeon');
+    const forestBody = rowOf('forest');
+    expect(dungeonBody.kind === 'scene' && dungeonBody.combatants[0]!.hp.marked).toBe(5);
+    expect(forestBody.kind === 'scene' && forestBody.combatants[0]!.hp.marked).toBe(0);
 
-    s().runScene('dungeon');
-    s().patchCombatant(s().combatants[0]!.id, { hp: { max: 8, marked: 7 } });
-
-    // The object the row was holding before the resume is untouched.
-    expect(parkedCombatant!.hp.marked).not.toBe(7);
+    s().removeCombatant('dungeon', 'acid-burrower-0');
+    expect(held('dungeon')).toBe(0);
+    expect(held('forest')).toBe(1);
   });
 
-  it('copies `thresholds` too, which is a mutable tuple riding along', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    const before = s().combatants[0]!.thresholds;
-    s().runScene('forest');
-
-    const row = s().session.find((i) => i.id === 'dungeon');
-    const parkedThresholds = row?.kind === 'scene' ? row.combatants[0]!.thresholds : null;
-    expect(parkedThresholds).toEqual(before);
-    expect(parkedThresholds).not.toBe(before);
-  });
-
-  it('mints a row for a fight that came from nowhere, rather than dropping it', () => {
-    // Reachable normally: the bestiary spawns straight onto the board with no
-    // row behind it. The app makes a house instead of asking permission to
-    // destroy.
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().spawn(adversary, 4, 2);
-    expect(s().liveScene).toBe(null);
-
-    s().runScene('forest');
-
-    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
-    expect(minted, 'the bestiary fight was dropped instead of being given a row').toBeDefined();
-    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(2);
-    // An empty name is legal, and `sessionTitle` draws it as SCENE.
-    expect(minted?.name).toBe('');
-  });
-
-  it('mints a row when the pointer names something that is not a scene row', () => {
+  it('leaves both fights exactly as they were left, across a flip and back', () => {
     /*
-     * The reader checks `liveScene` against EVERY row's id, not every scene
-     * row's - an `unreadable` row keeps its id so a build that cannot parse it
-     * cannot lose it. So a hand-edited file can leave the board pointing at a
-     * countdown row, and the park below only ever matches scene rows. Without
-     * a guard the fight would have nowhere to go and the commit would overwrite
-     * it: the silent loss, in person.
+     * The owner's complaint, at store level. Two fights stand at once now;
+     * neither is copied, parked, swapped or emptied by moving between them.
      */
-    s().addSessionItem(scene('forest', 'The forest'));
+    twoRows();
+    s().spawn('dungeon', adversary, 4, 2);
+    s().patchCombatant('dungeon', 'acid-burrower-1', { hp: { max: 8, marked: 6 } });
+    s().spawn('forest', adversary, 4, 1);
+    s().patchCombatant('forest', 'acid-burrower-0', { stress: { max: 3, marked: 2 } });
+
+    s().showScene('dungeon');
+    s().showScene('forest');
+    s().showScene('dungeon');
+
+    expect(gm.openCombatants(s())).toHaveLength(2);
+    expect(gm.openCombatants(s())[1]!.hp.marked).toBe(6);
+    const forest = rowOf('forest');
+    expect(forest.kind === 'scene' && forest.combatants[0]!.stress.marked).toBe(2);
+    expect(forest.kind === 'scene' && forest.combatants).toHaveLength(1);
+  });
+
+  it('moves nothing on a flip, in either direction, object for object', () => {
+    /*
+     * ONE TEST IN PLACE OF THREE. Schema 4 needed a deep-copy case for the
+     * park, one for the resume and one for `thresholds` riding along as a
+     * mutable tuple, because a flip carried an array between two homes and an
+     * alias between them was invisible until a writer stopped rebuilding.
+     *
+     * There is no carry to alias now. `showScene` writes one string, so the
+     * strongest statement available is also the simplest: the row objects
+     * either side of a flip are the same objects.
+     */
+    twoRows();
+    s().spawn('dungeon', adversary, 4, 1);
+    s().spawn('forest', adversary, 4, 1);
+    s().showScene('dungeon');
+
+    const dungeonBefore = rowOf('dungeon');
+    const forestBefore = rowOf('forest');
+
+    s().showScene('forest');
+    expect(rowOf('dungeon')).toBe(dungeonBefore);
+    expect(rowOf('forest')).toBe(forestBefore);
+
+    s().showScene('dungeon');
+    expect(rowOf('dungeon')).toBe(dungeonBefore);
+    expect(rowOf('forest')).toBe(forestBefore);
+  });
+
+  it('rebuilds only the row a mark lands on, and leaves every other row’s object alone', () => {
+    /*
+     * What `MemoSessionRow` rests on, held here rather than assumed there. A
+     * memo compares props, and the prop is the row object; if `withSceneFight`
+     * rebuilt the array by `map` over the whole list without the identity
+     * check, every row of the plan would be a new object on every HP tap and
+     * the memo would skip nothing.
+     */
+    twoRows();
     const clockId = s().addCountdown('The tide', 'standard', 6);
-    s().spawn(adversary, 4, 1);
-    gm.useGm.setState({ liveScene: clockId });
+    s().spawn('dungeon', adversary, 4, 1);
+    const untouched = s().session.filter((i) => i.id !== 'dungeon');
 
-    s().runScene('forest');
+    s().patchCombatant('dungeon', 'acid-burrower-0', { hp: { max: 8, marked: 1 } });
 
-    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
-    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(1);
+    expect(untouched).toHaveLength(2);
+    for (const before of untouched) expect(rowOf(before.id)).toBe(before);
+    expect(rowOf(clockId).kind).toBe('countdown');
   });
 
-  it('takes the row’s environment on the way in, and never writes one on the way out', () => {
+  it('hands the runner the row’s own array, and the same empty one twice when nothing is open', () => {
     /*
-     * The row IS the plan. A park that wrote the plan would let three ungated
-     * controls quietly rewrite another row's place: with the dungeon live,
-     * putting the forest's environment on the board and then flipping would
-     * park Forest into the dungeon's row.
+     * THE ZUSTAND TRAP, HELD BY A TEST. zustand 5 memoizes no selector: it
+     * calls the function on every commit and re-renders when the result fails
+     * `Object.is`. A selector that built a fresh array - or a fresh `[]` for
+     * "no fight" - would repaint the whole runner on every `+1` of Fear.
      */
-    s().addSessionItem(scene('dungeon', 'The dungeon', 'ruined-hall'));
-    s().addSessionItem(scene('forest', 'The forest', 'raging-river'));
+    twoRows();
+    s().spawn('dungeon', adversary, 4, 1);
+    s().showScene('dungeon');
 
-    s().runScene('dungeon');
-    expect(s().environmentRef).toBe('ruined-hall');
+    const before = gm.openCombatants(s());
+    s().nudgeFear(1);
+    expect(gm.openCombatants(s())).toBe(before);
 
-    s().setEnvironment('somewhere-else');
-    s().runScene('forest');
+    s().patchCombatant('dungeon', 'acid-burrower-0', { spotlighted: true });
+    expect(gm.openCombatants(s())).not.toBe(before);
 
-    expect(s().environmentRef).toBe('raging-river');
-    const row = s().session.find((i) => i.id === 'dungeon');
-    expect(row?.kind === 'scene' && row.environmentRef).toBe('ruined-hall');
-  });
-
-  it('leaves the board’s environment alone when the row has none', () => {
-    // Resume must not walk through a door the app locks: PUT THIS ENVIRONMENT ON THE BOARD
-    // is disabled on exactly `environmentRef === null`.
-    s().addSessionItem(scene('dungeon', 'The dungeon', 'ruined-hall'));
-    s().addSessionItem(scene('forest', 'The forest', null));
-    s().runScene('dungeon');
-    s().runScene('forest');
-    expect(s().environmentRef).toBe('ruined-hall');
-  });
-
-  it('does nothing at all when asked for the scene already running', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    const before = s().combatants;
-    s().runScene('dungeon');
-    expect(s().combatants).toBe(before);
-  });
-
-  it('refuses a row that is not a scene, because that arm has no place to open in', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    const clockId = s().addCountdown('The tide', 'standard', 6);
-
-    s().runScene(clockId);
-
-    expect(s().liveScene).toBe('dungeon');
-    expect(s().combatants).toHaveLength(1);
+    // And the two ways of having no fight share one array rather than minting.
+    s().showScene(null);
+    expect(gm.openCombatants(s())).toBe(gm.openCombatants(s()));
+    expect(gm.openCombatants(s())).toEqual([]);
   });
 
   it('leaves Fear, the countdowns and the party where they are', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
+    twoRows();
     s().setFear(5);
     s().addCountdown('The tide', 'standard', 6);
+    s().spawn('dungeon', adversary, 4, 1);
 
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 1);
-    s().runScene('forest');
+    s().showScene('dungeon');
+    s().showScene('forest');
 
     expect(s().fear).toBe(5);
     expect(s().countdowns).toHaveLength(1);
@@ -1459,58 +1444,156 @@ describe('running a scene', () => {
   });
 });
 
-describe('ending a scene, once a fight can be parked', () => {
-  const scene = (id: string, name: string) =>
-    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null, ...NO_FIGHT }) as const;
+describe('pointing the runner at a scene', () => {
   const s = () => gm.useGm.getState();
 
-  it('empties the row as well as the glass, so the dead do not stand back up', () => {
+  it('refuses an id that names no scene row, rather than leaving the pointer dangling', () => {
     /*
-     * The overturn decision 18 forced. END SCENE used to be `commit({
-     * combatants: [] })` and nothing else, which was complete when the board
-     * was the only place a fight could be. Now the row holds a copy, and
-     * emptying only the board would let a GM end a fight, flip away, flip back,
-     * and find every one of them on their feet.
+     * `readCampaignRecord` nulls a dangling pointer in silence on the way in
+     * from disk, because a hand-edited file is not the app's fault. One
+     * written by this store would be: `liveScenes` draws no chip for it and
+     * the runner would show a scene the plan does not list.
+     *
+     * Three shapes of wrong id, because the reader checks `openScene` against
+     * every row's id rather than every SCENE row's - an `unreadable` row keeps
+     * its id so a build that cannot parse it cannot lose it.
      */
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 2);
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    const clockId = s().addCountdown('The tide', 'standard', 6);
+    s().addSessionItem({
+      id: 'mystery',
+      kind: 'unreadable',
+      name: '',
+      order: 2,
+      collapsed: true,
+      why: 'this version of the app has no “photo” item',
+      raw: '{"kind":"photo"}',
+    });
+    s().showScene('dungeon');
 
-    s().clearScene();
+    for (const bad of [clockId, 'mystery', 'no-such-row']) {
+      s().showScene(bad);
+      expect(s().openScene, bad).toBe('dungeon');
+    }
 
-    expect(s().combatants).toEqual([]);
-    expect(s().liveScene).toBe(null);
-    const row = s().session.find((i) => i.id === 'dungeon');
-    expect(row?.kind === 'scene' && row.combatants).toEqual([]);
-
-    s().runScene('dungeon');
-    expect(s().combatants).toEqual([]);
+    // Null always lands: it is how the runner is closed.
+    s().showScene(null);
+    expect(s().openScene).toBeNull();
   });
 
-  it('does not reach into a scene that is only parked', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 2);
-    s().runScene('forest');
-    s().spawn(adversary, 4, 1);
+  it('does nothing at all when asked for the scene already open', () => {
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().showScene('dungeon');
+    s().spawn('dungeon', adversary, 4, 1);
+    const before = s().session;
+    s().showScene('dungeon');
+    expect(s().session).toBe(before);
+    expect(s().openScene).toBe('dungeon');
+  });
 
-    s().clearScene();
+  it('mints nothing when asked to spawn into a row that is not a scene', () => {
+    /*
+     * The split that used to be a side effect. Schema 4's flip minted an
+     * untitled home for a fight that had none, so a fight was kept - but only
+     * by leaving it, and under a name nobody chose. `spawn` is total and
+     * mints nothing at all; the verb that makes a row to fight in is
+     * `openNewScene`, and it is a separate tap with its own label.
+     */
+    const clockId = s().addCountdown('The tide', 'standard', 6);
+    const before = s().session;
 
-    const row = s().session.find((i) => i.id === 'dungeon');
-    expect(row?.kind === 'scene' && row.combatants).toHaveLength(2);
+    s().spawn(clockId, adversary, 4, 2);
+    s().spawn('no-such-row', adversary, 4, 2);
+
+    expect(s().session).toBe(before);
+    expect(s().session).toHaveLength(1);
+  });
+});
+
+describe('minting a scene to fight in', () => {
+  const s = () => gm.useGm.getState();
+
+  it('makes exactly one row, puts it last, opens it and hands back its id', () => {
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    const before = s().session.length;
+
+    const id = s().openNewScene('Ambush at the ford');
+
+    expect(s().session).toHaveLength(before + 1);
+    const minted = s().session.at(-1)!;
+    expect(minted.id).toBe(id);
+    expect(minted.name).toBe('Ambush at the ford');
+    expect(minted.order).toBe(before);
+    expect(s().openScene).toBe(id);
+    expect(gm.openCombatants(s())).toEqual([]);
+  });
+
+  it('offers the board’s place to a scene that has none yet', () => {
+    // The workbench's environment, handed to a row that can then be given a
+    // different one. `newScene` does this for every other door that mints.
+    s().setEnvironment('raging-river');
+    const id = s().openNewScene();
+    const row = s().session.find((i) => i.id === id)!;
+    expect(row.kind === 'scene' && row.environmentRef).toBe('raging-river');
+    // An empty name is legal, and `sessionTitle` draws it as SCENE.
+    expect(row.name).toBe('');
+  });
+});
+
+describe('ending a fight', () => {
+  const s = () => gm.useGm.getState();
+  const held = (id: string): number => {
+    const row = s().session.find((i) => i.id === id);
+    return row?.kind === 'scene' ? row.combatants.length : -1;
+  };
+
+  it('empties the row it is told and leaves the runner looking at it', () => {
+    /*
+     * INVERTED. END SCENE used to clear the pointer as well, and its own words
+     * were "the board is empty and belongs to no row" - true while the pointer
+     * meant ownership of a fight that lived somewhere else. It means
+     * navigation now, and a GM who ends a fight has not asked to leave the
+     * table.
+     */
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().addSessionItem(sceneWith('forest', [], { name: 'The forest' }));
+    s().showScene('dungeon');
+    s().spawn('dungeon', adversary, 4, 2);
+    s().spawn('forest', adversary, 4, 1);
+
+    s().clearScene('dungeon');
+
+    expect(held('dungeon')).toBe(0);
+    expect(s().openScene).toBe('dungeon');
+    expect(gm.openCombatants(s())).toEqual([]);
+    // And the dead do not stand back up on the way back: there is no second
+    // copy anywhere to fall out of step with this one.
+    s().showScene('forest');
+    s().showScene('dungeon');
+    expect(gm.openCombatants(s())).toEqual([]);
+  });
+
+  it('does not reach into any other row’s fight', () => {
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().addSessionItem(sceneWith('forest', [], { name: 'The forest' }));
+    s().spawn('dungeon', adversary, 4, 2);
+    s().spawn('forest', adversary, 4, 1);
+
+    s().clearScene('forest');
+
+    expect(held('dungeon')).toBe(2);
+    expect(held('forest')).toBe(0);
   });
 
   it('leaves the environment, Fear and the countdowns standing, as it always has', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().runScene('dungeon');
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().showScene('dungeon');
     s().setEnvironment('ruined-hall');
     s().setFear(4);
     s().addCountdown('The tide', 'standard', 6);
-    s().spawn(adversary, 4, 1);
+    s().spawn('dungeon', adversary, 4, 1);
 
-    s().clearScene();
+    s().clearScene('dungeon');
 
     expect(s().environmentRef).toBe('ruined-hall');
     expect(s().fear).toBe(4);
@@ -1518,47 +1601,37 @@ describe('ending a scene, once a fight can be parked', () => {
   });
 });
 
-describe('deleting a row a fight came from', () => {
-  const scene = (id: string, name: string) =>
-    ({ id, kind: 'scene', name, order: 0, collapsed: false, environmentRef: null, ...NO_FIGHT }) as const;
+describe('deleting a row that is holding a fight', () => {
   const s = () => gm.useGm.getState();
 
-  it('lets go of the pointer and keeps the fight on the glass', () => {
-    // The GM deleted a row of the plan; they did not ask to end a fight.
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 2);
+  it('takes the fight with it and lets go of the pointer', () => {
+    /*
+     * INVERTED, AND THIS IS THE CLAUSE THE WHOLE CHANGE TURNS ON. What stood
+     * here was "lets go of the pointer and keeps the fight on the glass": the
+     * GM deleted a row of the plan, they did not ask to end a fight, so the
+     * fight was kept and became nobody's. That homeless state is what schema 5
+     * deletes, and the control has always said so - `SessionRow.tsx` arms this
+     * delete as TAP AGAIN TO DELETE THE FIGHT.
+     */
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().showScene('dungeon');
+    s().spawn('dungeon', adversary, 4, 2);
 
     s().removeSessionItem('dungeon');
 
-    expect(s().liveScene).toBe(null);
-    expect(s().combatants).toHaveLength(2);
-  });
-
-  it('gives that homeless fight a row the next time a scene is run', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
-    s().spawn(adversary, 4, 2);
-    s().removeSessionItem('dungeon');
-
-    s().runScene('forest');
-
-    const minted = s().session.find((i) => i.kind === 'scene' && i.id !== 'forest');
-    expect(minted?.kind === 'scene' && minted.combatants).toHaveLength(2);
+    expect(s().openScene).toBeNull();
+    expect(s().session).toEqual([]);
+    expect(gm.openCombatants(s())).toEqual([]);
   });
 
   it('hands a clock that belonged to it back to the campaign, in the same commit', () => {
-    // Without this the clock is invisible until some scene happens to be run
-    // again. The reader repairs a dangling scope on the way in from disk, but
-    // that is cold, and this is a GM deleting a row with the app open.
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
+    // Without this the clock is invisible until some scene happens to be
+    // opened again. The reader repairs a dangling scope on the way in from
+    // disk, but that is cold, and this is a GM deleting a row with the app
+    // open.
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
     const clockId = s().addCountdown('The tide', 'standard', 6);
-    gm.useGm.setState({
-      session: s().session.map((i) =>
-        i.kind === 'countdown' && i.id === clockId ? { ...i, sceneId: 'dungeon' } : i,
-      ),
-    });
+    s().setCountdownScene(clockId, 'dungeon');
 
     s().removeSessionItem('dungeon');
 
@@ -1568,11 +1641,15 @@ describe('deleting a row a fight came from', () => {
     expect(clock?.kind === 'countdown' && clock.primary).toBe(false);
   });
 
-  it('does not touch the pointer when a different row is deleted', () => {
-    s().addSessionItem(scene('dungeon', 'The dungeon'));
-    s().addSessionItem(scene('forest', 'The forest'));
-    s().runScene('dungeon');
+  it('does not touch the pointer, or any other fight, when a different row is deleted', () => {
+    s().addSessionItem(sceneWith('dungeon', [], { name: 'The dungeon' }));
+    s().addSessionItem(sceneWith('forest', [], { name: 'The forest' }));
+    s().spawn('dungeon', adversary, 4, 2);
+    s().showScene('dungeon');
+
     s().removeSessionItem('forest');
-    expect(s().liveScene).toBe('dungeon');
+
+    expect(s().openScene).toBe('dungeon');
+    expect(gm.openCombatants(s())).toHaveLength(2);
   });
 });

@@ -111,65 +111,98 @@ describe('what a shut row says about itself', () => {
   });
 
   /*
-   * The third term, decision 18. A scene row can hold a fight that has been
-   * FOUGHT - parked out of the runner with every mark on it - and a shut plan
-   * that did not say so would let a GM delete it without ever being told what
-   * was inside.
+   * The second term, and its premise inverted with decision 18's overturn.
+   *
+   * What stood here was: "A scene row can hold a fight that has been FOUGHT -
+   * parked out of the runner with every mark on it - and a shut plan that did
+   * not say so would let a GM delete it without ever being told what was
+   * inside." The warning survives whole; the mechanism in it does not. Nothing
+   * is parked out of anything now - the fight is on the row from the moment it
+   * starts - so the word is `IN THE FIGHT` and the state it names is the
+   * resting state of a played scene rather than the residue of a flip.
+   *
+   * The counts below are all read off the seed rather than typed beside the
+   * expectation where they could drift from it.
    */
-  it('counts a parked fight beside what the row plans, because they are two facts', () => {
-    const fighter = {
-      id: `${adversary.id}-0`,
-      adversaryRef: adversary.id,
-      name: adversary.name,
-      hp: { max: 6, marked: 3 },
-      stress: { max: 3, marked: 0 },
-      thresholds: [4, 8] as [number, number],
-      difficulty: 12,
-      spotlighted: false,
-      notes: '',
-    };
-    const item: SessionItem = {
-      ...base(),
-      kind: 'scene',
-      environmentRef: environment.id,
-      roster: [{ ref: adversary.id, count: 2 }],
-      adjustments: { easier: false, harder: false, damageBump: false },
-      combatants: [fighter, { ...fighter, id: `${adversary.id}-1` }],
-    };
-    expect(describe_(item)).toBe(`${environment.name.toUpperCase()} · 2 PLANNED · 2 PARKED`);
+  const fighter = (id: string) => ({
+    id,
+    adversaryRef: adversary.id,
+    name: adversary.name,
+    hp: { max: 6, marked: 3 },
+    stress: { max: 3, marked: 0 },
+    thresholds: [4, 8] as [number, number],
+    difficulty: 12,
+    spotlighted: false,
+    notes: '',
   });
 
-  it('says PARKED on its own when the row plans nothing and has no place', () => {
-    // Never "NO ENVIRONMENT · 1 PARKED": the row is not saying nothing, so the
-    // clause that exists to fill an empty line does not fire.
-    const item: SessionItem = {
-      ...base(),
-      kind: 'scene',
+  const fought = (patch: Partial<Extract<SessionItem, { kind: 'scene' }>> = {}): SessionItem => ({
+    ...base(),
+    kind: 'scene',
+    environmentRef: environment.id,
+    roster: [{ ref: adversary.id, count: 2 }],
+    adjustments: ADJUSTMENTS,
+    combatants: [fighter(`${adversary.id}-0`), fighter(`${adversary.id}-1`)],
+    ...patch,
+  });
+
+  it('counts the bodies a scene is holding, and drops the plan it outgrew', () => {
+    /*
+     * TWO SEGMENTS, AND THIS IS WHERE THE THIRD WOULD HAVE APPEARED. The row
+     * seeded here plans two and holds two, so every reading of the second term
+     * is available at once and the arm has to choose. It chooses the bodies:
+     * `PLANNED` counts what the roster WOULD spawn, and printing it about a
+     * fight already being marked up describes a scene that has not started.
+     */
+    const item = fought();
+    const held = item.kind === 'scene' ? item.combatants.length : 0;
+    expect(describe_(item)).toBe(`${environment.name.toUpperCase()} · ${String(held)} IN THE FIGHT`);
+    expect(describe_(item).split(' · ')).toHaveLength(2);
+  });
+
+  it('says the count on its own when the row plans nothing and has no place', () => {
+    // Never "NO ENVIRONMENT · 1 IN THE FIGHT": the row is not saying nothing,
+    // so the clause that exists to fill an empty line does not fire.
+    const item = fought({
       environmentRef: null,
       roster: [],
-      adjustments: { easier: false, harder: false, damageBump: false },
-      combatants: [
-        {
-          id: `${adversary.id}-0`,
-          adversaryRef: adversary.id,
-          name: adversary.name,
-          hp: { max: 6, marked: 0 },
-          stress: { max: 3, marked: 0 },
-          thresholds: [4, 8] as [number, number],
-          difficulty: 12,
-          spotlighted: false,
-          notes: '',
-        },
-      ],
-    };
-    expect(describe_(item)).toBe('1 PARKED');
+      combatants: [fighter(`${adversary.id}-0`)],
+    });
+    const held = item.kind === 'scene' ? item.combatants.length : 0;
+    expect(describe_(item)).toBe(`${String(held)} IN THE FIGHT`);
   });
 
-  it('says nothing about a fight for the row that is being played', () => {
-    // Resume EMPTIES the row it took the fight from, so a running scene reads
-    // zero here and the plan never shows a stale number.
+  it('says ON THE TABLE for the row the runner is showing, and only for that row', () => {
+    /*
+     * The one fact a scene row cannot work out for itself. Every row holds its
+     * own fight now, so the count is available everywhere and the pointer is
+     * the only thing that separates the row being played from the rest.
+     *
+     * The seed is one item asked twice, so the difference in the answer can
+     * only be the sixth argument.
+     */
+    const item = fought();
+    const held = item.kind === 'scene' ? item.combatants.length : 0;
+    const place = environment.name.toUpperCase();
+    expect(describeItem(item, dataset, index, PARTY, null, item.id)).toBe(
+      `${place} · ${String(held)} ON THE TABLE`,
+    );
+    expect(describeItem(item, dataset, index, PARTY, null, 'some-other-row')).toBe(
+      `${place} · ${String(held)} IN THE FIGHT`,
+    );
+  });
+
+  it('answers with a bare ON THE TABLE when the open row is empty, where every other reading is silent', () => {
+    /*
+     * The asymmetry is the point. A row holding nothing and planning nothing
+     * says only its place; the SAME row, once the runner is showing it, says
+     * so at zero - because a GM scanning the plan for the row they are in the
+     * middle of needs it to answer, and an empty table is one tap from full.
+     */
     const item: SessionItem = { ...base(), kind: 'scene', environmentRef: environment.id, ...NO_FIGHT };
-    expect(describe_(item)).toBe(environment.name.toUpperCase());
+    const place = environment.name.toUpperCase();
+    expect(describe_(item)).toBe(place);
+    expect(describeItem(item, dataset, index, PARTY, null, item.id)).toBe(`${place} · ON THE TABLE`);
   });
 
   it('counts the bodies in an encounter, not the lines in its roster', () => {
@@ -559,7 +592,15 @@ describe('the rows ADD mints through a factory', () => {
    * whatever used to be true of minting a fight has to stay true of minting a
    * scene that has one.
    */
-  it('gives a new scene no fight in progress, because nothing could ever change one', () => {
+  /*
+   * The title used to end "because nothing could ever change one", and that
+   * clause is dead: `spawn`, `patchCombatant`, `removeCombatant` and
+   * `clearScene` all write a scene row's fight now, addressed by row id. What
+   * the test pins is unchanged and still worth pinning - a row arrives empty,
+   * and a roster it was planned with is a plan rather than a fight already
+   * standing.
+   */
+  it('gives a new scene an empty fight, however much it was planned with', () => {
     const item = newScene('The ambush', null, {
       roster: [{ ref: adversary.id, count: 3 }],
       adjustments: ADJUSTMENTS,
