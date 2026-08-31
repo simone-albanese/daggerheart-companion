@@ -520,10 +520,13 @@ function SceneArm({
         top bar's `SCENE · n` chip appears only once the open scene has
         something in it.
 
-        ERGONOMICS, MEASURED. The strip returned 0px. The prose did not: on a
-        row holding its own fight it grew by 47.58px, and in the other three
-        states it did something between -15.86 and +63.44. The range is the
-        finding; the 47.58 alone was not.
+        ERGONOMICS, MEASURED, AND NEITHER HALF IS ONE NUMBER. The strip kept
+        the two heights it always had and changed which rows draw which. The
+        prose moved in both directions, somewhere between -15.86 and +63.44,
+        and which way depends on the STATE and the size and not on whether the
+        row holds a fight. The eight-cell table below is the finding; no single
+        figure lifted out of it is, and every earlier attempt to name one has
+        had to be withdrawn.
 
         Chrome, `pointer: coarse`, insets 47/34, `0370586` against `ab66cf2`,
         the same schema-4 campaign seeded into both so each build reads its own
@@ -538,12 +541,21 @@ function SceneArm({
         is the WAVE B delta on its own; this tree's own totals close the
         paragraph.
 
-        THE STRIP. 349.00 x 304.00 before and after on the row holding the
-        fight; 349.00 x 252.00 before and after on the planned one; the same
-        two heights at 375x667 in a 331.00 column. **0.00px**, exactly as it
-        was counted: the primary is one ternary slot, so retiring three labels
-        removed three branches and no element. The four crossing verbs measure
-        what they always did, 289.06 / 293.89 / 246.41 / 251.23, at both sizes.
+        THE STRIP LOST NO ELEMENT. The primary is one ternary slot, so
+        retiring three labels retired three branches and nothing that draws,
+        and the four crossing verbs measure what they always did - 289.06 /
+        293.89 / 246.41 / 251.23, at both sizes. So the strip still has the
+        same two heights it had before, 304.00 with `CLEAR THIS FIGHT`'s line
+        on a row holding a fight and 252.00 without it on a row that is not,
+        at both sizes.
+
+        WHAT WAVE B CHANGED IS WHICH ROWS ARE IN WHICH OF THOSE TWO STATES. A
+        fight lives on its row now instead of on the board, so a row the
+        runner is showing draws the taller strip here where it drew the
+        shorter one before. Reading that difference as a cost of the strip is
+        reading a state change as a layout change - which is exactly what
+        quoting one of these two heights as THE strip figure does, and why
+        neither of them is quoted alone.
 
         THE PROSE WENT THE OTHER WAY, and three `<Fact>`s left this arm rather
         than four - the fourth deletion was `EncounterArm`'s. The three are the
@@ -579,8 +591,10 @@ function SceneArm({
         tree draws LESS prose than `ab66cf2` did. The arm totals swing further
         still, because on a `live` row the strip also gains `CLEAR THIS
         FIGHT`'s line - +115.43 / +5.85 at 393x852 and +99.58 / -10.00 at
-        375x667 - against -10.00 / -25.86 in the orphan state, where the whole
-        arm is shorter than it was.
+        375x667. In the `orphan` state neither tree draws that line on either
+        of the two rows, so nothing is added to the prose delta and both rows
+        come out shorter than they were, by the same amount as each other at
+        each size.
 
         `orphan` has no counterpart here by construction: `shared/campaigns.ts`'s
         `from: 4` converter lands a board fight on a scene row, so the state
@@ -599,8 +613,11 @@ function SceneArm({
         was the primary sharing a line with `CLEAR THIS FIGHT`, and the armed
         state condemned it. The arrangement that shipped instead keeps the
         strip at 304.00: measured on this tree at 393x852, 375x667 AND 360x800,
-        the arm is 715.31 and the list is 1897.54 (841.31 + 683.73 + 372.50),
-        resting and armed alike. So Wave B and C1 together cost the +95.15px
+        the arm is 715.31 and the list is 841.31 + 683.73 + 372.50, resting
+        and armed alike. Both list totals here are each row height rounded
+        once and then added, which is how the baseline above was taken; a
+        probe that rounds the sum instead lands a hundredth higher, and that
+        hundredth is a rounding and not a disagreement. So Wave B and C1 together cost the +95.15px
         above and the reorder buys reach only, which is what it was for. The
         104px below is the ROSTER pair's own cost when it landed, and is still
         not this.
@@ -654,26 +671,52 @@ function SceneArm({
            * to write `combatants` at all, so this row's fight has exactly one
            * writer and it is the store's.
            *
-           * IT IS FIRST IN THE STRIP FOR A MEASURED REASON, and the block
-           * below the crossing verbs carries the numbers: because it arms, its
-           * label changes width under the thumb (148.63 -> 165.72), so
-           * wherever it shares a line it reflows that line mid-gesture. On its
-           * own line it cannot, and it ends up 282.00px above the foot of the
-           * strip instead of 22.00 - the furthest control from the thumb
-           * rather than one of the two nearest. Do not pair it with anything.
+           * IT IS FIRST IN THE STRIP, IT OWNS ITS LINE, AND THE SECOND HALF
+           * OF THAT IS THE WRAPPER RATHER THAN A HOPE. Because it arms, its
+           * label changes width under the thumb, so wherever it SHARES a line
+           * it reflows that line between the two taps of the one gesture in
+           * this app that destroys without an undo. Until this wrapper it
+           * shared no line only because at phone widths nothing else fitted
+           * beside it - an emergent property of the column, not a rule - and
+           * it stopped holding at every column wide enough to take a second
+           * verb, which includes these same phones turned landscape. There the
+           * crossing verb next to it slid sideways as `CLEAR` armed, and the
+           * strip of glass it vacated became `TAP AGAIN TO CLEAR`: a thumb
+           * going for the verb it could see destroyed the fight instead.
+           *
+           * `flex: 0 0 100%` takes the whole flex line at every column, so
+           * there is no width at which a second verb can join it. The button
+           * keeps its own width inside the wrapper - the LINE is what is
+           * reserved, not the target, so the destructive verb does not grow
+           * into a full-width one. Do not pair it with anything: the wrapper
+           * is what turns that from a request into a fact, and the test that
+           * pins the declaration is the half of it jsdom can hold.
+           *
+           * THE ARRANGEMENT'S COST IS PAID AFTER THE GESTURE RATHER THAN
+           * DURING IT, and that is the trade, not an oversight. When the
+           * second tap succeeds this line unmounts - and so does the sentence
+           * above the strip that counts the fight - so everything below moves
+           * up under a thumb that has just tapped twice in one place. A third,
+           * momentum tap lands on whichever crossing verb arrives there. All
+           * four of them are reversible and none of them destroys, which is
+           * why this is a cost and not a second defect; reserving the line
+           * against the case would leave dead space on every row that is not
+           * holding a fight, which is most of them.
            */
-          <Verb
-            onClick={() => {
-              if (!armed) {
-                setArmed(true);
-                return;
-              }
-              clearScene(item.id);
-              setArmed(false);
-            }}
-            label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
-            row={row}
-          />
+          <div className="row" style={{ flex: '0 0 100%' }}>
+            <Verb
+              onClick={() => {
+                if (!armed) {
+                  setArmed(true);
+                  return;
+                }
+                clearScene(item.id);
+                setArmed(false);
+              }}
+              label={armed ? 'TAP AGAIN TO CLEAR' : 'CLEAR THIS FIGHT'}
+              row={row}
+            />
+          </div>
         )}
 
         {/*
@@ -692,18 +735,24 @@ function SceneArm({
           and **331.00** at 375x667 - 393 less the list's 12px page padding
           either side, less the panel's stripe, border and padding, less the
           open block's own - and neither viewport gives 363 for anything on
-          this row. Two to a line would need every label under about **161px**:
-          a pair has to fit the NARROWER column to pair on both, and
-          (331 - 8) / 2 = 161.5. Half of 349 is 170.5, and taking the threshold
-          from the wide column is the same slip as the 363 this paragraph just
-          corrected - (363 - 8) / 2 = 177.5 is exactly where the old 177 came
-          from. The conclusion holds either way, because the narrowest of the
-          four is 246.41 and that is not a length these verbs can be written in
-          and stay unambiguous; it is the number that was wrong, not the
-          argument. So the fix costs this arm two more lines, 104px, and
-          that is what a GM pays to be able to change a plan at all.
-          `docOverflowX` is 0.00 at both sizes and nothing is under the tap
-          floor.
+          this row. Two to a line needs both labels AND the 8px gap between
+          them inside one column, so the test is (column - 8) / 2 taken in the
+          narrower of the two - and the old 177 is that same formula run on a
+          column this row never has, (363 - 8) / 2. It was the number that was
+          wrong, not the argument: the narrowest of the four verbs is 246.41,
+          neither 349.00 nor 331.00 is twice that, and 246.41 is not a length
+          these verbs can be written in and stay unambiguous either. So each
+          takes a line of its own here, the fix costs this arm two more lines,
+          104px, and that is what a GM pays to be able to change a plan at
+          all. `docOverflowX` is 0.00 at both sizes and nothing is under the
+          tap floor.
+
+          NONE OF THAT IS A STATEMENT ABOUT EVERY WIDTH. The column follows
+          the window up to the list's own cap, and past some width these verbs
+          DO pair - they pair on these same phones turned landscape. That is
+          why `CLEAR THIS FIGHT` above is wrapped in a line of its own rather
+          than left to a column that happens to be narrow, and why no
+          threshold derived here is carried anywhere near that argument.
         */}
         <Verb
           onClick={() => setEnvironment(item.environmentRef)}

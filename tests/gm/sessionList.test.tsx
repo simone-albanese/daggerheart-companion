@@ -689,6 +689,51 @@ describe('the scene arm', () => {
       ]);
     });
 
+    /*
+     * The wrapper, pinned, because the arming argument above rests on it and
+     * because it is one line of style that reads like decoration.
+     *
+     * `CLEAR THIS FIGHT` is the only control in this arm that changes width
+     * under the thumb - `TAP AGAIN TO CLEAR` is 165.72 where it was 148.63 -
+     * and it is the only one that destroys without an undo. Wherever it SHARES
+     * a flex line, arming it reflows that line between the two taps of the one
+     * gesture that cannot be taken back, and the glass a thumb was aiming at
+     * becomes the confirmation. That was measured, at 360px, before the
+     * wrapper existed.
+     *
+     * Until the wrapper, `CLEAR` sat alone only because at phone widths no
+     * second verb fitted beside it in the column - an emergent property of two
+     * label widths, not a rule, and one that stops holding at every column
+     * wide enough for a second verb. That includes these same phones turned
+     * landscape.
+     *
+     * `flex: 0 0 100%` on its parent takes the whole line at every width, so
+     * there is no column in which a second verb can join it. jsdom lays
+     * nothing out, so it cannot watch a reflow; what it CAN hold is that the
+     * declaration is still there, which is the half a later edit could quietly
+     * drop while every other assertion in this file stayed green.
+     */
+    it('reserves a whole flex line for the one verb that changes width as it arms', () => {
+      seed(withFight(2));
+      list();
+      const clear = buttons().find((b) => (b.textContent ?? '') === 'CLEAR THIS FIGHT');
+      expect(clear, 'CLEAR THIS FIGHT is not on the strip').toBeDefined();
+
+      const line = clear!.parentElement!;
+      expect(
+        line.style.flex.replace(/\s+/g, ' ').trim(),
+        'CLEAR THIS FIGHT no longer owns its flex line, so arming it can reflow the strip',
+      ).toBe('0 0 100%');
+
+      /*
+       * And the line is a wrapper around this one verb, not the strip itself:
+       * if the strip ever took the declaration the assertion above would still
+       * pass while every verb shared a line again.
+       */
+      expect(line.children.length, 'the reserved line holds more than the destructive verb').toBe(1);
+      expect(line).not.toBe(primary()!.parentElement);
+    });
+
     it('opens this row from every one of the three states, whatever the runner was showing', () => {
       /*
        * The other half of test 27, and the half that has teeth: the label is
