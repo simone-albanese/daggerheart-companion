@@ -94,6 +94,16 @@ const DELIBERATE: Record<string, string> = {
   'transfer/fileIo.ts::parseCharacterFile': 'Every UI path calls parseTransferFile, which handles both shapes.',
   'transfer/fileIo.ts::parseBackupFile': 'Same.',
 
+  // --- Wire-format truth that only the build tool reads. It lives beside
+  //     `BANDS` because that is what it is: the half of the id scheme that says
+  //     which hundred a domain's cards occupy. `bandOf` and the decoder are the
+  //     other half and are in the same file, so splitting the two would put the
+  //     answer and the question in different trees. `tools/buildRegistry.ts` is
+  //     the only caller because minting is a build-time act; the runtime only
+  //     ever reads ids back, and it does that through `registry`.
+  'transfer/registry.ts::DOMAIN_CARD_BASES':
+    'Build-time seam: tools/buildRegistry.ts mints card ids from it. Kept in src/ because it is wire-format truth and belongs beside BANDS, which the decoder uses.',
+
   // --- P4 dead weight. Delete or adopt; either is a decision, silence is not.
   'engine/dice.ts::outcomeLabel':
     'P4: both roll surfaces index OUTCOME_LABEL, which this only wraps - there is no reaction case in the label the way there is in the detail.',

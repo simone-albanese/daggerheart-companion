@@ -21,6 +21,7 @@ import {
   BANDED_COLLECTIONS,
   BANDS,
   bandFor,
+  DOMAIN_CARD_BASES,
   REGISTRY_VERSION,
   type Band,
   type BandedCollection,
@@ -44,22 +45,69 @@ export interface BuildResult {
  * Domain cards are sub-banded by domain, a hundred ids each: `arcana-rune-ward`
  * lands at 5101 and stays legible in a diff. 5001-5099 is the pool for a card
  * whose domain this build does not recognise.
+ *
+ * The base comes from `DOMAIN_CARD_BASES`, which is written down rather than
+ * derived from `DOMAINS.indexOf`. That table's docblock carries the argument;
+ * the short version is that alphabetical order was deciding wire ids, and the
+ * tenth domain's computed window landed inside the beastforms band.
+ *
+ * A domain this build knows about but that has no base is a HARD ERROR and not
+ * a fallback into the unknown pool. Falling back would mint an id for a real
+ * card in the window reserved for cards whose domain could not be read - the
+ * two are different states and only one of them is recoverable. The message
+ * names the next free hundred so that adding the line is mechanical.
  */
 function cardWindow(domain: string | undefined): { min: number; max: number } {
   const band = bandFor('domainCards');
-  const index = DOMAINS.indexOf(domain as (typeof DOMAINS)[number]);
-  if (index < 0) return { min: band.min + 1, max: band.min + 99 };
-  const base = band.min + (index + 1) * 100;
+  if (domain === undefined || !DOMAINS.includes(domain as (typeof DOMAINS)[number])) {
+    return { min: band.min + 1, max: band.min + 99 };
+  }
+  const base = DOMAIN_CARD_BASES[domain];
+  if (base === undefined) {
+    throw new Error(
+      `Domain "${domain}" has no id window. Add it to DOMAIN_CARD_BASES in ` +
+        `src/transfer/registry.ts - the next free hundred is ${nextFreeBase()} - ` +
+        `and renumber nothing: every value already in that table is on the wire.`,
+    );
+  }
   return { min: base + 1, max: base + 99 };
 }
 
+/** The lowest hundred in a domain-card band that no domain has claimed yet. */
+function nextFreeBase(): number {
+  const taken = new Set(Object.values(DOMAIN_CARD_BASES));
+  for (const band of BANDS.filter((b) => b.collections.includes('domainCards'))) {
+    for (let base = band.min + 100; base + 99 <= band.max; base += 100) {
+      if (!taken.has(base)) return base;
+    }
+  }
+  throw new Error('Every domain-card hundred is claimed. Add a band in src/transfer/registry.ts.');
+}
+
+/**
+ * The band a window actually falls in, which for domain cards is no longer the
+ * first band naming the collection: the continuation band holds the tenth
+ * domain onwards, and the out-of-band warning below compares against this.
+ */
 function windowFor(collection: BandedCollection, entity: { domain?: string }): {
   band: Band;
   min: number;
   max: number;
 } {
+  if (collection === 'domainCards') {
+    const window = cardWindow(entity.domain);
+    const band = BANDS.find(
+      (b) => b.collections.includes('domainCards') && window.min >= b.min && window.max <= b.max,
+    );
+    if (band === undefined) {
+      throw new Error(
+        `Domain "${entity.domain}" is mapped to ${window.min}-${window.max}, which is not inside ` +
+          `any domain-card band. Fix DOMAIN_CARD_BASES or add a band in src/transfer/registry.ts.`,
+      );
+    }
+    return { band, ...window };
+  }
   const band = bandFor(collection);
-  if (collection === 'domainCards') return { band, ...cardWindow(entity.domain) };
   return { band, min: band.min + 1, max: band.max };
 }
 

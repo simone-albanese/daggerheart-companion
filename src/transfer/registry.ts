@@ -69,7 +69,70 @@ export const BANDS: readonly Band[] = [
   { name: 'items', min: 9000, max: 9999, collections: ['loot', 'consumables'] },
   { name: 'adversaries', min: 10_000, max: 10_999, collections: ['adversaries'] },
   { name: 'environments', min: 11_000, max: 11_999, collections: ['environments'] },
+  /*
+   * Domain cards, continued. A second band rather than a wider first one,
+   * because the first one cannot be widened: 5000-5999 is exactly full at nine
+   * hundreds, and 6001-6022 are beastforms that are already on the wire. There
+   * is no room above `domainCards` and there is nothing to move - an id that
+   * changes invalidates every QR ever scanned.
+   *
+   * 12_000 rather than anywhere nearer: everything from 60_000 is reserved for
+   * user content, nothing has ever been minted above 11_019, and starting the
+   * continuation on a fresh ten-thousand keeps a domain-card id recognisable at
+   * a glance in a diff, which is what the bands are for.
+   */
+  { name: 'domainCards+', min: 12_000, max: 13_999, collections: ['domainCards'] },
 ];
+
+/**
+ * Domain -> the first id of its hundred. **Append-only: every value here is on
+ * the wire.**
+ *
+ * This used to be computed, `DOMAINS.indexOf(domain) * 100`, and that was a
+ * defect waiting for its tenth domain. Two of them, in fact. A domain that
+ * sorts into the MIDDLE of the list - `dread`, between codex and grace - would
+ * have shifted the window of every domain after it, so the same card would be
+ * minted at a different id depending on which book the build had read. And the
+ * tenth window computed to 6001-6099 whatever its name, which is inside the
+ * beastforms band: a domain card would have decoded as a beastform on the
+ * receiving device.
+ *
+ * Neither failure announces itself. The wire format carries integers precisely
+ * so it can be small, which means there is nothing in a scanned frame to say
+ * that 6007 was meant as a card rather than as `bear`.
+ *
+ * So the mapping is written down instead of derived. Alphabetical order is a
+ * display concern; it has no business deciding what goes on the wire. Adding a
+ * domain is now one deliberate line here, and `buildRegistry` refuses to mint a
+ * card for a domain that has not got one.
+ *
+ * ## No test can currently tell this table from what it replaced
+ *
+ * Measured, not assumed: restoring `DOMAINS.indexOf(domain) * 100` in
+ * `buildRegistry` passes all 4264 tests. With nine domains the two agree on
+ * every value, so the change is preventive and the suite is blind to it. Both
+ * of the other mutants do die - deleting the `domainCards+` band reddens one
+ * named test, moving `valor` off 5900 reddens four - which pins the band and
+ * pins the values, but not the mechanism.
+ *
+ * The mechanism becomes testable the moment `dread` joins `DOMAINS`, because
+ * that is the first domain whose alphabetical position and whose id window
+ * disagree. The test that must exist by then: build a registry from a fixture
+ * carrying a `dread` card and assert its id is in 12_101-12_199. Until then the
+ * guard is `gives every domain this build knows a window of its own`, which
+ * goes red the moment the two lists stop agreeing.
+ */
+export const DOMAIN_CARD_BASES: Readonly<Record<string, number>> = Object.freeze({
+  arcana: 5100,
+  blade: 5200,
+  bone: 5300,
+  codex: 5400,
+  grace: 5500,
+  midnight: 5600,
+  sage: 5700,
+  splendor: 5800,
+  valor: 5900,
+});
 
 export const bandFor = (collection: BandedCollection): Band =>
   BANDS.find((b) => b.collections.includes(collection))!;

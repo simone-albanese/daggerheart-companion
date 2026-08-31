@@ -9,10 +9,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { DOMAINS } from '../../shared/types.ts';
 import {
   BANDED_COLLECTIONS,
   BANDS,
   RESERVED_MIN,
+  DOMAIN_CARD_BASES,
   bandFor,
   bandOf,
   createRegistry,
@@ -72,6 +74,69 @@ describe('bands', () => {
     expect(file.ids['rune-ward']).toBeGreaterThan(band.min + 100);
     expect(file.ids['rune-ward']).toBeLessThan(band.min + 200);
     expect(file.ids['book-of-ava']).toBeGreaterThan(band.min + 400);
+  });
+
+  /*
+   * The tenth domain, which is the whole reason the base table exists.
+   *
+   * These do not need SRD 2 to be ingested, and that is deliberate: the defect
+   * is in how an id is chosen, not in what the book contains, so it can be
+   * proved with a fixture today and has to be, because the thing it protects -
+   * every QR ever scanned - cannot be re-checked afterwards.
+   */
+  it('puts a tenth domain outside the first band and inside a domain-card one', () => {
+    const dread = 'dread';
+    expect(
+      Object.keys(DOMAIN_CARD_BASES),
+      'this test is about a domain with no base yet; give it one and it stops testing anything',
+    ).not.toContain(dread);
+
+    const withTenth = { ...DOMAIN_CARD_BASES, [dread]: 12_100 };
+    const base = withTenth[dread]!;
+    const window = { min: base + 1, max: base + 99 };
+
+    const home = BANDS.find(
+      (b) => b.collections.includes('domainCards') && window.min >= b.min && window.max <= b.max,
+    );
+    expect(home?.name).toBe('domainCards+');
+    // The failure this replaces: the computed window was 6001-6099, and a card
+    // minted there decodes as a beastform on the receiving device.
+    expect(bandOf(window.min)?.collections).not.toContain('beastforms');
+    expect(bandOf(window.max)?.collections).toContain('domainCards');
+  });
+
+  it('gives every domain this build knows a window of its own', () => {
+    /*
+     * The guard that fires on the day `dread` joins DOMAINS.
+     *
+     * Asserting the invariant rather than the error message, because the error
+     * is currently unreachable and a test for an unreachable branch proves
+     * nothing: a domain absent from DOMAINS takes the unknown-pool path above,
+     * so `buildRegistry` cannot be made to throw while the two lists agree.
+     * This goes red the moment they stop agreeing, which is the moment someone
+     * adds a domain to `shared/types.ts` and has not yet decided its ids - and
+     * that is the decision the table exists to force into the open.
+     */
+    for (const domain of DOMAINS) {
+      expect(DOMAIN_CARD_BASES[domain], `${domain} has no id window`).toBeTypeOf('number');
+    }
+    const bases = Object.values(DOMAIN_CARD_BASES);
+    expect(new Set(bases).size, 'two domains share a hundred').toBe(bases.length);
+    for (const base of bases) {
+      const home = BANDS.find(
+        (b) => b.collections.includes('domainCards') && base + 1 >= b.min && base + 99 <= b.max,
+      );
+      expect(home, `the hundred at ${base} is not inside any domain-card band`).toBeDefined();
+    }
+  });
+
+  it('leaves a card whose domain it cannot read in the unknown pool, as before', () => {
+    // The unknown pool and the missing-base error are different states: this one
+    // is a card the parser could not classify, and it stays recoverable.
+    const { file } = buildRegistry({ domainCards: [{ id: 'mystery', domain: 'not-a-domain' }] }, EMPTY);
+    const band = bandFor('domainCards');
+    expect(file.ids['mystery']).toBeGreaterThan(band.min);
+    expect(file.ids['mystery']).toBeLessThan(band.min + 100);
   });
 
   it('refuses to overflow a band rather than spilling into the next one', () => {
@@ -185,6 +250,33 @@ describe('the committed data/registry.json', () => {
    * `wizard` and `elf` are the two Architecture 5.1 prints; `rune-ward` is the
    * `arcana-rune-ward -> 5101` example, and arcana's window is where it sits.
    */
+  it('agrees with DOMAIN_CARD_BASES, which is what makes that table the wire', () => {
+    /*
+     * The table is only true if the committed file already says so. Every base
+     * here was read off `data/registry.json` rather than chosen, so this test is
+     * the one that would have caught the transcription going wrong - and it is
+     * the guard that keeps a later edit from moving a hundred that is already
+     * on scanned frames.
+     */
+    const committed = JSON.parse(readFileSync(REGISTRY_PATH, 'utf8')) as RegistryFile;
+    const srd = JSON.parse(readFileSync(SRD_PATH, 'utf8')) as {
+      domainCards: { id: string; domain: string }[];
+    };
+    const seen = new Map<string, Set<number>>();
+    for (const card of srd.domainCards) {
+      const id = committed.ids[card.id];
+      if (id === undefined) continue;
+      const bases = seen.get(card.domain) ?? new Set<number>();
+      bases.add(Math.floor(id / 100) * 100);
+      seen.set(card.domain, bases);
+    }
+    for (const [domain, bases] of seen) {
+      expect([...bases], `${domain} cards are spread over more than one hundred`).toHaveLength(1);
+      expect(DOMAIN_CARD_BASES[domain], `${domain} is not in DOMAIN_CARD_BASES`).toBe([...bases][0]);
+    }
+    expect(Object.keys(DOMAIN_CARD_BASES).sort()).toEqual([...seen.keys()].sort());
+  });
+
   it('still holds the ids the architecture documents', () => {
     expect(registry.idOf('wizard')).toBe(1009);
     expect(registry.idOf('elf')).toBe(3004);
