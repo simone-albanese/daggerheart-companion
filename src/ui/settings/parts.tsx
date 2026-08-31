@@ -4,7 +4,7 @@
  * A settings screen is the one place in this app that is genuinely a list of
  * rows, so it gets a row: a name, a sentence saying what it does, and one
  * control on the right. The sentence is not decoration - most of what this
- * screen decides (persistent storage, physical dice, removing the manual) is
+ * screen decides (persistent storage, physical dice, erasing the device) is
  * only a sensible choice if you know what it costs.
  *
  * Hairlines come from a 1px grid gap over a line-coloured panel, so the first

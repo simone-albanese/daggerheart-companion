@@ -1,24 +1,25 @@
 /**
- * IndexedDB. Five stores, deliberately separate:
+ * IndexedDB. Two stores, deliberately separate:
  *
  *   characters  the user's work of months. The only truly precious data.
  *   campaigns   the GM's: one per table, with its own schema and own chain
- *   layers      imported source layers (the Core Rulebook), removable
- *   content     per-layer field overlays, keyed `<layerId>:<entityId>`
- *   art         card illustrations as Blobs, keyed by slug
  *
- * Keeping the manual's content and art out of the character store means
- * removing the manual can never damage a character, and re-importing it never
- * has to touch one. `campaigns` is separate for the harder version of the same
- * reason: a campaign holds whole copies of other people's sheets, and the one
- * thing that must never happen is a campaign write reaching the store those
- * sheets actually live in. Nothing here writes across the two.
+ * `campaigns` is separate because a campaign holds whole copies of other
+ * people's sheets, and the one thing that must never happen is a campaign
+ * write reaching the store those sheets actually live in. Nothing here writes
+ * across the two.
+ *
+ * There were five. `layers`, `content` and `art` were the Core Rulebook
+ * import's, and version 3 deletes all three - see `DB_VERSION`. Keeping the
+ * manual's contribution out of the character store was what made that deletion
+ * cost a character nothing, which is the argument paying off rather than
+ * ending: the same separation is why `campaigns` can be reasoned about alone.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Campaign } from '../../shared/campaigns.ts';
 import { checkReadable, versionOf } from '../../shared/migrations.ts';
 import { readCharacterRecord } from '../transfer/fileIo.ts';
-import { SCHEMA_VERSION, type Character, type Layer } from '../../shared/types.ts';
+import { SCHEMA_VERSION, type Character } from '../../shared/types.ts';
 
 export const DB_NAME = 'daggerheart-companion';
 
@@ -36,13 +37,24 @@ export const DB_NAME = 'daggerheart-companion';
  * `CAMPAIGN_SCHEMA_VERSION` moved to 2 on 2026-08-18 for two new session-list
  * kinds, and this number stayed at 2 because no store and no index changed.
  *
+ * Three, because `layers`, `content` and `art` are deleted. Removing the Core
+ * Rulebook importer stopped anything writing them; it did not take one byte
+ * off a device that had already imported, and dropping them from the schema
+ * alone would have taken even less - a store absent from `CompanionDB` is a
+ * store this file has stopped looking at, not one the browser has stopped
+ * holding. `art` in particular is full-size WebP, tens of megabytes against a
+ * quota the About screen prints. Neither `SCHEMA_VERSION` nor
+ * `CAMPAIGN_SCHEMA_VERSION` moves with it: no character and no campaign record
+ * changes shape, which is the same independence the paragraph above claims and
+ * this is the third demonstration of it.
+ *
  * The cost of raising it is real and is already handled: a build still on
  * version 1 that meets a version 2 database gets `VersionError` from `openDB`,
  * which becomes the `StaleBuildError` below - "close every tab and open it
  * again" - rather than a blank screen. That is the same coexistence the whole
  * schema policy is written around.
  */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 /**
  * The database refused to open because it is newer than this build.
@@ -56,52 +68,13 @@ export class StaleBuildError extends Error {
   override name = 'StaleBuildError';
 }
 
-/** One entity's fields as contributed by one layer. */
-export interface ContentOverlay {
-  /** `<layerId>:<entityId>` */
-  key: string;
-  layerId: string;
-  entityId: string;
-  kind: string;
-  fields: Record<string, unknown>;
-}
-
-/**
- * An illustration, on a device that imported one before the importer was
- * removed.
- *
- * Nothing writes these any more and nothing draws them: the Core Rulebook
- * import and the `.dhart` packs that carried its pictures are gone, and
- * `DomainCardView` no longer has a branch that asks for one. The shape is kept
- * rather than narrowed because it is what is actually on those devices, and
- * narrowing it here would be a type that quietly disagrees with the disk.
- *
- * It is not exported, because there is no longer a caller entitled to read one.
- * The store itself stays declared for exactly as long as it stays on disk: it
- * is still created by the version 1 `upgrade` block above, so `STORES` must
- * still name it or `clearAll` would stop reaching it, and `removeLayer` must
- * still sweep it or a removed layer would leave its pictures behind. Deleting
- * the store is a migration, and it is the next step's - not this file's to fake
- * by looking away from bytes that are still there.
- */
-interface ArtRecord {
-  key: string;
-  layerId: string;
-  blob: Blob;
-  width: number;
-  height: number;
-}
-
 interface CompanionDB extends DBSchema {
   characters: { key: string; value: Character; indexes: { updatedAt: string } };
   campaigns: { key: string; value: Campaign; indexes: { updatedAt: string } };
-  layers: { key: string; value: Layer };
-  content: { key: string; value: ContentOverlay; indexes: { layerId: string } };
-  art: { key: string; value: ArtRecord; indexes: { layerId: string } };
 }
 
 /** Every store, for the two places that must not miss one. */
-export const STORES = ['characters', 'campaigns', 'layers', 'content', 'art'] as const;
+export const STORES = ['characters', 'campaigns'] as const;
 
 let dbPromise: Promise<IDBPDatabase<CompanionDB>> | null = null;
 
@@ -119,13 +92,33 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
      * which is the ordinary case for an app people open every few weeks.
      */
     upgrade(database, oldVersion) {
+      /*
+       * `CompanionDB` describes the database this build wants, and the blocks
+       * below describe the ones it may find. Those two disagree on purpose from
+       * version 3 on: the version 1 block still creates `layers`, `content` and
+       * `art`, and the version 3 block deletes them, and neither name is in the
+       * schema any more. `idb` types every store name against the current
+       * schema, so the historical branches talk to the database through a view
+       * that does not know about it.
+       *
+       * The version 1 block keeps creating three stores it will lose again four
+       * lines later, which on a device that has never run the app is a real
+       * create-then-drop. It costs microseconds and it was left deliberately:
+       * these branches are a history, and a history that has been tidied is no
+       * longer evidence of what shipped. Rewriting version 1 to match today
+       * would tell the next reader that `art` never existed - and it is the
+       * question "did this device ever hold art?" that the version 3 block
+       * exists to answer yes to.
+       */
+      const historical = database as unknown as IDBPDatabase;
+
       if (oldVersion < 1) {
         const chars = database.createObjectStore('characters', { keyPath: 'id' });
         chars.createIndex('updatedAt', 'updatedAt');
-        database.createObjectStore('layers', { keyPath: 'id' });
-        const content = database.createObjectStore('content', { keyPath: 'key' });
+        historical.createObjectStore('layers', { keyPath: 'id' });
+        const content = historical.createObjectStore('content', { keyPath: 'key' });
         content.createIndex('layerId', 'layerId');
-        const art = database.createObjectStore('art', { keyPath: 'key' });
+        const art = historical.createObjectStore('art', { keyPath: 'key' });
         art.createIndex('layerId', 'layerId');
       }
       if (oldVersion < 2) {
@@ -135,6 +128,29 @@ export function db(): Promise<IDBPDatabase<CompanionDB>> {
         // device that has never run the app runs both blocks in order.
         const campaigns = database.createObjectStore('campaigns', { keyPath: 'id' });
         campaigns.createIndex('updatedAt', 'updatedAt');
+      }
+      if (oldVersion < 3) {
+        /*
+         * The Core Rulebook's three stores, deleted rather than cleared.
+         *
+         * Cleared would have been enough for the bytes and wrong for the
+         * schema: an empty store nothing declares is one `STORES` no longer
+         * reaches, so `clearAll` would stop iterating it and the next reader of
+         * this file would find three stores on real devices that the type says
+         * do not exist. Deleting them makes the disk and `CompanionDB` agree.
+         *
+         * Deleting the *stores* rather than sweeping by layer is also the only
+         * complete answer, and the reason is a seam the importer left. `.dhart`
+         * art packs wrote `art` records under the fixed layerId `art-pack` and
+         * never wrote a `Layer` beside them, so a migration that walked
+         * `layers` and swept each one's `layerId` index - which is exactly what
+         * the deleted `removeLayer` did - would have left every pack-installed
+         * illustration on the device. There is no list to walk that is
+         * guaranteed to name them.
+         */
+        for (const store of ['art', 'content', 'layers'] as const) {
+          historical.deleteObjectStore(store);
+        }
       }
     },
 
@@ -374,41 +390,6 @@ export async function putCharacter(c: Character): Promise<void> {
 
 export async function deleteCharacter(id: string): Promise<void> {
   await (await db()).delete('characters', id);
-}
-
-// ---------------------------------------------------------------------------
-// Layers and content overlays
-// ---------------------------------------------------------------------------
-
-export const listLayers = async (): Promise<Layer[]> => (await db()).getAll('layers');
-
-export async function putLayer(layer: Layer): Promise<void> {
-  await (await db()).put('layers', layer);
-}
-
-/** Remove a layer and everything it contributed. The SRD is untouched. */
-export async function removeLayer(layerId: string): Promise<void> {
-  const database = await db();
-  const tx = hold(database.transaction(['layers', 'content', 'art'], 'readwrite'));
-  await tx.objectStore('layers').delete(layerId);
-  for (const store of ['content', 'art'] as const) {
-    const index = tx.objectStore(store).index('layerId');
-    let cursor = await index.openCursor(layerId);
-    while (cursor) {
-      await cursor.delete();
-      cursor = await cursor.continue();
-    }
-  }
-  await tx.done;
-}
-
-export const listOverlays = async (): Promise<ContentOverlay[]> => (await db()).getAll('content');
-
-export async function putOverlays(overlays: ContentOverlay[]): Promise<void> {
-  const database = await db();
-  const tx = hold(database.transaction('content', 'readwrite'));
-  await Promise.all(overlays.map((o) => tx.store.put(o)));
-  await tx.done;
 }
 
 // ---------------------------------------------------------------------------

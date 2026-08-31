@@ -419,10 +419,21 @@ export function About({
           nothing here is pinned, no target shrank, and the only 44px control on
           the row is the one the sentence explains. Headroom before a sixth line
           on the 194px column: 28 characters.
+
+          EVERY FIGURE ABOVE WAS MEASURED AGAINST THE LONGER SENTENCE, the one
+          that also enumerated "every imported source, all art". Database
+          version 3 deletes those three stores, so `clearAll` reaches two stores
+          and naming five would be a promise about bytes that are not there. The
+          sentence lost 30 characters and gained nothing, so every conclusion
+          here is now an upper bound that still holds - fewer lines, never more,
+          and a wrap that fitted cannot stop fitting. The figures are NOT
+          re-derived, because none of them was re-measured: they are marked as
+          belonging to the sentence they were taken from. Anyone who lengthens
+          this hint again measures it again from scratch.
         */}
         <Field
           label="Reset everything"
-          hint="Deletes every character, every campaign, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
+          hint="Deletes every character, every campaign and every preference on this device. There is no undo and no copy anywhere else."
         >
           {!confirming && (
             <button

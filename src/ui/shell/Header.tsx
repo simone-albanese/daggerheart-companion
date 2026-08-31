@@ -337,7 +337,6 @@ export function Header({
   const characters = useApp((s) => s.characters);
   const activeId = useApp((s) => s.activeId);
   const select = useApp((s) => s.select);
-  const layers = useApp((s) => s.layers);
   const active = useActive();
   const index = useApp((s) => s.index);
   const prefs = useApp((s) => s.prefs);
@@ -347,7 +346,6 @@ export function Header({
   const phone = layout === 'phone';
   const desktop = layout === 'desktop';
 
-  const hasManual = layers.some((l) => l.priority > 0);
   /*
    * The same filter the tab bar applies, for the same reason and by the same
    * rule: this nav is the desktop's only navigation, so an entry pointing at a
@@ -500,23 +498,25 @@ export function Header({
         {desktop && (
           <>
             {/*
-             * Still a question with two answers, and still worth asking - just
-             * a narrower one than it was. Nothing can import a Core Rulebook
-             * any more, so no device will ever newly say the first thing; a
-             * device that imported one before the removal still has the layer
-             * in IndexedDB and `dataset.ts` still lays it over the SRD, so the
-             * readout would be lying if it flatly claimed SRD only.
+             * A constant now, and kept as a line rather than deleted.
              *
-             * "· NO ART" is gone from the second answer. It used to separate
-             * the two - the manual was where pictures came from - and it
-             * separates nothing now that neither branch can draw one, while
-             * still implying to the reader that some other state has art and
-             * inviting them to look for the screen that produced it. There is
-             * no such screen. Removing the layer that makes this say the first
-             * thing is the next step's; until then this reports what is
-             * actually composed rather than what the app can still do.
+             * It was a question with two answers: `SRD + CORE RULEBOOK` when a
+             * layer sat over the SRD, `SRD ONLY` when none did. Nothing could
+             * write a layer after the importer went, and version 3 of the
+             * database deletes the ones already written, so no device can
+             * answer the first thing again and the conditional was a branch
+             * with one reachable side - the kind that reads as though some
+             * other state exists and invites a search for the screen that
+             * produces it. There is none.
+             *
+             * The sentence stays because it is not about the manual: it tells
+             * the reader which body of rules the app in front of them is
+             * drawing from, and that is worth saying plainly at the moment it
+             * has become a single answer. It is also the line the SRD 2 work
+             * will edit rather than reintroduce, and a literal is a clearer
+             * thing to edit than a predicate over an empty array.
              */}
-            <span className="t-meta">{hasManual ? 'SRD + CORE RULEBOOK' : 'SRD ONLY'}</span>
+            <span className="t-meta">SRD ONLY</span>
             <span style={{ color: 'var(--line)' }}>|</span>
             <span className="t-meta">
               LOCAL · {characters.length} CHARACTER{characters.length === 1 ? '' : 'S'}

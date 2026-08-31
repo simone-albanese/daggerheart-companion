@@ -42,18 +42,18 @@ const writeRaw = async (record: Record<string, unknown>): Promise<void> => {
 };
 
 describe('opening the database', () => {
-  it('creates all five stores on a device that has never run the app', async () => {
-    // Five since `campaigns` joined them at DB_VERSION 2. The upgrade path
-    // that adds it to a device already holding the four is exercised in
-    // `tests/store/campaignDb.test.ts`, next to the store it belongs to.
+  it('creates two stores on a device that has never run the app', async () => {
+    /*
+     * Two, and it takes all three `oldVersion` blocks to get there. A device
+     * that has never run the app runs them in order, so version 1 creates
+     * `layers`, `content` and `art` and version 3 deletes them again inside the
+     * same versionchange transaction. That is deliberate - the blocks are a
+     * history and version 1 really did create those stores - and this assertion
+     * is what keeps the round trip honest: if the deletion stopped happening,
+     * a brand-new install would quietly carry three stores nothing declares.
+     */
     const database = await db.db();
-    expect([...database.objectStoreNames].sort()).toEqual([
-      'art',
-      'campaigns',
-      'characters',
-      'content',
-      'layers',
-    ]);
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
   });
 
   it('does not try to create a store that is already there', async () => {
@@ -196,78 +196,138 @@ describe('writing a character', () => {
   });
 });
 
-describe('the rest of the stores, which nothing had ever opened', () => {
-  it('removes a layer and everything it contributed, and leaves the SRD alone', async () => {
-    await db.putLayer({ id: 'manual', label: 'Core Rulebook', priority: 1 });
-    await db.putLayer({ id: 'srd', label: 'SRD', priority: 0 });
-    await db.putOverlays([
-      { key: 'manual:card-a', layerId: 'manual', entityId: 'card-a', kind: 'domainCards', fields: { text: 'x' } },
-      { key: 'manual:card-b', layerId: 'manual', entityId: 'card-b', kind: 'domainCards', fields: { text: 'y' } },
-      { key: 'srd:card-a', layerId: 'srd', entityId: 'card-a', kind: 'domainCards', fields: { text: 'z' } },
-    ]);
+/**
+ * Version 2 as a device actually holds it, so the upgrade under test is the one
+ * that ships rather than one the test invented.
+ *
+ * Opened raw and at the old version on purpose: `db.ts` only knows how to open
+ * version 3, so seeding through it would be seeding the destination. This
+ * builds the five stores the version 1 and version 2 blocks built, fills the
+ * three that version 3 removes, and closes - which is the state of a phone that
+ * imported the Core Rulebook and has not yet been given this build.
+ */
+interface LegacyStores {
+  characters: IDBObjectStore;
+  layers: IDBObjectStore;
+  content: IDBObjectStore;
+  art: IDBObjectStore;
+}
 
+const seedVersion2 = async (fill: (stores: LegacyStores) => void): Promise<void> => {
+  const request = indexedDB.open(db.DB_NAME, 2);
+  await new Promise((resolve, reject) => {
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      const chars = database.createObjectStore('characters', { keyPath: 'id' });
+      chars.createIndex('updatedAt', 'updatedAt');
+      database.createObjectStore('layers', { keyPath: 'id' });
+      const content = database.createObjectStore('content', { keyPath: 'key' });
+      content.createIndex('layerId', 'layerId');
+      const art = database.createObjectStore('art', { keyPath: 'key' });
+      art.createIndex('layerId', 'layerId');
+      const campaigns = database.createObjectStore('campaigns', { keyPath: 'id' });
+      campaigns.createIndex('updatedAt', 'updatedAt');
+
+      const tx = request.transaction;
+      if (tx === null) throw new Error('no versionchange transaction');
+      fill({
+        characters: tx.objectStore('characters'),
+        layers: tx.objectStore('layers'),
+        content: tx.objectStore('content'),
+        art: tx.objectStore('art'),
+      });
+    };
+    request.onsuccess = () => {
+      request.result.close();
+      resolve(null);
+    };
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const webp = (byte: number): Blob => new Blob([new Uint8Array([byte])], { type: 'image/webp' });
+
+describe('version 3, which takes the Core Rulebook off the device', () => {
+  it('deletes the layer, its overlays and its art from a device that imported one', async () => {
     /*
-     * And its pictures, which are the half of "everything it contributed" that
-     * no longer has an API to write or read it. `removeLayer` still names
-     * `art` in its transaction and still sweeps it by `layerId`; without this
-     * record that clause would be a line no test can tell from a no-op, on a
-     * store that legacy devices are still carrying.
+     * The lane's whole claim, asserted where it is judged: on the device, not
+     * in the repository. Removing the importer stopped anything writing these
+     * three stores and took nothing off a phone that had already used it - the
+     * layer went on being merged over the SRD by `dataset.ts`, the WebP went on
+     * occupying quota the About screen prints, and the only control that could
+     * still reach any of it was "reset everything", which takes the characters
+     * too. This upgrade is what makes the removal true for the user.
      */
-    const raw = await db.db();
-    await raw.put('art', {
-      key: 'manual:card-a',
-      layerId: 'manual',
-      blob: new Blob([new Uint8Array([1])], { type: 'image/webp' }),
-      width: 2,
-      height: 2,
-    } as never);
-    await raw.put('art', {
-      key: 'srd:card-a',
-      layerId: 'srd',
-      blob: new Blob([new Uint8Array([2])], { type: 'image/webp' }),
-      width: 2,
-      height: 2,
-    } as never);
+    await seedVersion2((stores) => {
+      stores.characters.put(makeCharacter({ name: 'Kept' }));
+      stores.layers.put({ id: 'core-2025-09-06', label: 'Core Rulebook', priority: 1 });
+      stores.content.put({
+        key: 'core-2025-09-06:arcana',
+        layerId: 'core-2025-09-06',
+        entityId: 'arcana',
+        kind: 'domains',
+        fields: { sourcePage: 214 },
+      });
+      stores.art.put({ key: 'core-2025-09-06:arcana', layerId: 'core-2025-09-06', blob: webp(1), width: 2, height: 2 });
+    });
 
-    await db.removeLayer('manual');
+    const database = await db.db();
 
-    expect((await db.listLayers()).map((l) => l.id)).toEqual(['srd']);
-    expect((await db.listOverlays()).map((o) => o.key)).toEqual(['srd:card-a']);
-    expect(await (await db.db()).getAllKeys('art')).toEqual(['srd:card-a']);
+    expect(database.version).toBe(3);
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+    // The half that must survive: the upgrade is next to the only copy of the
+    // user's work that exists anywhere, and it must not be within reach of it.
+    expect((await db.listCharacters()).map((c) => c.name)).toEqual(['Kept']);
   });
 
+  it('reaches art an art pack wrote, which no layer record names', async () => {
+    /*
+     * Why this deletes stores instead of sweeping by layer.
+     *
+     * `.dhart` art packs wrote into `art` under the fixed layerId `art-pack`
+     * and never wrote a `Layer` beside it - `putLayer` was only ever called by
+     * the import worker, and installing a pack did not run one. So the obvious
+     * migration, the one that walks `listLayers()` and sweeps each id's
+     * `layerId` index exactly as the deleted `removeLayer` did, would have left
+     * every pack-installed illustration on the device and reported success.
+     * There is no list to walk that is guaranteed to name them; there is only
+     * the store.
+     */
+    await seedVersion2((stores) => {
+      stores.art.put({ key: 'art-pack:midnight', layerId: 'art-pack', blob: webp(2), width: 4, height: 4 });
+    });
+
+    const database = await db.db();
+
+    expect([...database.objectStoreNames]).not.toContain('art');
+  });
+
+  it('leaves a device that never imported with the same two stores', async () => {
+    // The overwhelming majority, and every new install. The upgrade has to be a
+    // no-op for them in everything except the schema - three empty stores stop
+    // existing, and nothing they can see changes.
+    await seedVersion2((stores) => {
+      stores.characters.put(makeCharacter({ name: 'Only mine' }));
+    });
+
+    const database = await db.db();
+
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
+    expect((await db.listCharacters()).map((c) => c.name)).toEqual(['Only mine']);
+  });
+});
+
+describe('the rest of the stores, which nothing had ever opened', () => {
   it('wipes everything, which is what the reset button promises', async () => {
     await db.putCharacter(makeCharacter({ name: 'Gone' }));
-    await db.putLayer({ id: 'manual', label: 'Core Rulebook', priority: 1 });
-    await db.putOverlays([
-      { key: 'manual:a', layerId: 'manual', entityId: 'a', kind: 'domainCards', fields: {} },
-    ]);
-    /*
-     * Art is written through the raw store because there is no longer an API
-     * that can write one: the importer that filled this store is gone, and so
-     * are `putArt` and `artKeys`. That is exactly why this line has to stay.
-     * The bytes are still on the devices that imported before the removal, the
-     * version 1 `upgrade` block still creates the store, and `clearAll` is the
-     * only thing standing between "the feature was removed" and "the pictures
-     * were left on your phone with nothing able to reach them". Asserting
-     * through the raw store keeps the guarantee checkable after the API that
-     * used to check it was deleted.
-     */
-    await (await db.db()).put('art', {
-      key: 'manual:arcana',
-      layerId: 'manual',
-      blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' }),
-      width: 4,
-      height: 4,
-    } as never);
-    expect(await (await db.db()).getAllKeys('art')).toEqual(['manual:arcana']);
 
     await db.clearAll();
 
     expect(await db.listCharacters()).toEqual([]);
-    expect(await db.listLayers()).toEqual([]);
-    expect(await db.listOverlays()).toEqual([]);
-    expect(await (await db.db()).getAllKeys('art')).toEqual([]);
+    // Over `STORES` rather than a list written again here, which is the point
+    // of that constant: the two stores it names are the two the database has.
+    const database = await db.db();
+    expect([...db.STORES].sort()).toEqual([...database.objectStoreNames].sort());
   });
 
   it('deletes one character without touching the others', async () => {

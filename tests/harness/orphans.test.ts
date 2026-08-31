@@ -94,20 +94,6 @@ const DELIBERATE: Record<string, string> = {
   'transfer/fileIo.ts::parseCharacterFile': 'Every UI path calls parseTransferFile, which handles both shapes.',
   'transfer/fileIo.ts::parseBackupFile': 'Same.',
 
-  // --- Left standing by the Core Rulebook importer's removal, and deleted by
-  //     the migration that finishes it. The importer was the only writer of
-  //     layers and overlays, so nothing in `src/` calls these any more - but
-  //     the stores are still on the devices that imported before it went, and
-  //     `dataset.ts` still lays those overlays over the SRD. Deleting the two
-  //     writers is easy; deleting `removeLayer` would leave a device holding a
-  //     layer with nothing able to take it off, which is the difference between
-  //     removing a feature and abandoning its data. R2 deletes the store and
-  //     these three lines together.
-  'store/db.ts::removeLayer':
-    'R2: the only thing that can take a pre-removal Core Rulebook layer, its overlays and its art off a device. Nothing in src calls it because the screen that did was deleted with the importer.',
-  'store/db.ts::putLayer': 'R2: the import worker was the only caller, and it is gone.',
-  'store/db.ts::putOverlays': 'R2: the import worker was the only caller, and it is gone.',
-
   // --- P4 dead weight. Delete or adopt; either is a decision, silence is not.
   'engine/dice.ts::outcomeLabel':
     'P4: both roll surfaces index OUTCOME_LABEL, which this only wraps - there is no reaction case in the label the way there is in the detail.',

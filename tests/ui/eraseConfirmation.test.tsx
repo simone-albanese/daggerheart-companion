@@ -2,15 +2,21 @@
 /**
  * Does the button that erases everything say what "everything" is?
  *
- * `clearAll` opens one transaction over all five object stores and clears them
- * - characters, campaigns, layers, content, art - and then About sweeps every
- * `dhc.` key out of localStorage. The two sentences a person reads before that
- * happens named four of the five and counted one: the arming hint enumerated
- * "every character, every imported source, all art and every preference" with
- * no campaign in the list, and the armed confirmation counted characters and
- * swept the rest into "everything else this device holds". A campaign holds
- * whole copies of other people's sheets, so it is the one record on the device
- * whose loss the owner cannot repair alone.
+ * `clearAll` opens one transaction over every object store and clears them,
+ * and then About sweeps every `dhc.` key out of localStorage. The two sentences
+ * a person reads before that happens named four of the five stores there were
+ * then and counted one: the arming hint enumerated "every character, every
+ * imported source, all art and every preference" with no campaign in the list,
+ * and the armed confirmation counted characters and swept the rest into
+ * "everything else this device holds". A campaign holds whole copies of other
+ * people's sheets, so it is the one record on the device whose loss the owner
+ * cannot repair alone.
+ *
+ * There are two stores now. Database version 3 deletes `layers`, `content` and
+ * `art`, so the hint no longer names an imported source or art - not because
+ * the sentence was shortened for room, but because a reset that promised to
+ * delete them would be promising something about bytes the upgrade already
+ * took. The test that used to hold those two words now holds their absence.
  *
  * Two numbers here are deliberately not the numbers already on the screen, and
  * that is most of what these tests are for:
@@ -393,8 +399,7 @@ describe('the list read before the button is armed', () => {
       text(),
       'the list of what the reset deletes leaves out the store holding other tables',
     ).toContain(
-      'Deletes every character, every campaign, every imported source, all art and every ' +
-        'preference on this device.',
+      'Deletes every character, every campaign and every preference on this device.',
     );
   });
 
