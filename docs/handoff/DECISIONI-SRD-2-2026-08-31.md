@@ -1,5 +1,9 @@
 # Decisioni — l'ondata SRD 2, 31 agosto 2026
 
+> **I commit di questo ramo si citano per OGGETTO, mai per SHA.** Il ramo si ribasa su `main` a
+> ogni ondata che atterra prima, e un rebase riscrive ogni hash: questo documento ne ha già portati
+> due morti per un'ora. Un oggetto sopravvive al rebase, un hash no.
+
 **Questo documento è l'autorità sulle decisioni.** Il piano di lavoro sta nei messaggi di commit
 del ramo `srd-2`. I numeri qui sono stati **misurati in questa sessione**, non ereditati: dove un
 documento precedente dice altro, quel documento è sbagliato e la §7 dice in cosa.
@@ -80,12 +84,13 @@ Appeso in indice 9, gli indici 0-8 non si muovono e tutto ciò che è già stato
 decodificarsi identico. **L'ordine alfabetico è una cosa da fare al momento di disegnare.**
 
 Il secondo accoppiamento — la finestra di id delle carte, che si calcolava da `DOMAINS.indexOf` — è
-già stato tolto in `baeaeb8`: il decimo dominio ci finiva a 6001-6099, **dentro la banda dei
+già stato tolto in *«Take the wire id off the alphabet»*: il decimo dominio ci finiva a
+6001-6099, **dentro la banda dei
 beastform**, e una carta di dominio si sarebbe decodificata come `bear`.
 
 ## 8. I tre glifi nuovi: letti sulla pagina, non dedotti
 
-**Fatto**, in `<COMMIT>`. E547=7, E548=8, E549=9 — che è la continuazione della serie, ed è
+**Fatto**, in *«Read 7, 8 and 9 off the page»*. E547=7, E548=8, E549=9 — che è la continuazione della serie, ed è
 esattamente per questo che non è stata presa su quella base. Una cifra indovinata è il guasto che
 `glyphs.ts` esiste per impedire: passa i parser, passa la validazione, ed è sbagliata su numeri che
 un GM legge al tavolo.
