@@ -9,7 +9,7 @@
  * Counts come from the SRD itself, not from folklore: they are asserted, and
  * when the source changes the build stops rather than shipping a guess.
  */
-import type { Dataset, DomainId } from '../shared/types.ts';
+import type { Dataset, DomainId, RulesSection } from '../shared/types.ts';
 import { ADVERSARY_ROLES, DOMAINS, RANGES, TRAITS } from '../shared/types.ts';
 import { hasPua } from './glyphs.ts';
 
@@ -19,21 +19,378 @@ export interface Issue {
   message: string;
 }
 
-/** Counts the SRD must produce. A mismatch fails the build. */
-export const EXPECTED = {
-  domains: 9,
-  domainCardsPerDomain: 21,
-  domainCards: 189,
-  classes: 9,
-  subclasses: 18,
-  ancestries: 18,
-  communities: 9,
-  beastforms: 22,
-  environments: 19,
-  /** Adversaries are the one count the book does not state; asserted as a range. */
-  adversariesMin: 120,
-  adversariesMax: 140,
-} as const;
+// ---------------------------------------------------------------------------
+// How much a dataset must contain
+// ---------------------------------------------------------------------------
+
+/**
+ * Nine numbers used to live here as one `EXPECTED` block - `domains: 9`,
+ * `classes: 9`, `ancestries: 18` - and every one of them was an SRD 1.0 fact
+ * asserted as a fatal error. A second printing was therefore rejected on
+ * arrival with nine failures even when every parser had read it perfectly.
+ *
+ * The fix is NOT to loosen the gate. A range wide enough to admit both books
+ * admits a parser that dropped four ancestries; a `revision === ...` skip is a
+ * gate that stops guarding exactly when a new book makes it matter most. Two
+ * honest shapes exist, and this file uses both:
+ *
+ *   (a) THE BOOK STATES IT. Character Creation prints its own rosters, in
+ *       prose, in both printings:
+ *
+ *         SRD 1.0 f4  "There are nine classes in this SRD: Bard, Druid, ...
+ *                      Wizard."
+ *         SRD 2.0 f4  "There are 13 classes in this SRD: Assassin, Bard, ...
+ *                      Witch, and Wizard."
+ *         both    f4  "Take the card for one of the following ancestries, then
+ *                      write its name in the Heritage field of your character
+ *                      sheet: Clank, Drakona, ... Simiah."
+ *         both    f4  "... one of the following communities ...: Highborne,
+ *                      ... Wildborne."
+ *         both    f4  "Each class comprises two subclasses."
+ *         SRD 1.0 f6  "two of the nine Domains included in the core set"
+ *         SRD 2.0 f6  "two of the ten domains"
+ *
+ *       Those sentences are already in the dataset, as `rules`, parsed out of
+ *       a DIFFERENT chapter from the collections they describe - Character
+ *       Creation is folio 4, the ancestries themselves are folio 27 (SRD 1) and
+ *       32 (SRD 2). So this is not the dataset agreeing with itself: it is two
+ *       independent readings of two separate parts of the book being made to
+ *       agree, which is the strongest check available here and the only one
+ *       that will still be right for SRD 3 without anybody editing this file.
+ *
+ *       Measured, this session, on both PDFs: each of those five sentences
+ *       occurs EXACTLY ONCE in each book, so a reader that requires one
+ *       unambiguous match is not being optimistic.
+ *
+ *   (b) PARAMETERISED PER REVISION, in `REVISION_COUNTS` below, for the counts
+ *       no printing states in words. An unknown revision is a hard error and a
+ *       count left `null` is a hard error - a hole in the gate is not a pass.
+ *
+ * `domainCards` and `subclasses` are then arithmetic on top of (a) and need no
+ * number of their own: 21 cards times however many domains THIS BOOK prints,
+ * two subclasses times however many classes it prints.
+ */
+
+/** Number words the SRD spells out. SRD 2.0 also prints numerals ("13 classes"). */
+const NUMBER_WORDS = new Map<string, number>([
+  ['one', 1],
+  ['two', 2],
+  ['three', 3],
+  ['four', 4],
+  ['five', 5],
+  ['six', 6],
+  ['seven', 7],
+  ['eight', 8],
+  ['nine', 9],
+  ['ten', 10],
+  ['eleven', 11],
+  ['twelve', 12],
+  ['thirteen', 13],
+  ['fourteen', 14],
+  ['fifteen', 15],
+  ['sixteen', 16],
+  ['seventeen', 17],
+  ['eighteen', 18],
+  ['nineteen', 19],
+  ['twenty', 20],
+]);
+
+/**
+ * The count a printing states, however it states it.
+ *
+ * Both forms are real and they are in the same sentence in the two books: SRD
+ * 1.0 sets "There are nine classes in this SRD", SRD 2.0 sets "There are 13
+ * classes in this SRD". Reading only one of them would have made the mechanism
+ * work on exactly the book it was written against, which is the defect this
+ * whole file is repairing.
+ */
+function numberFrom(word: string): number | null {
+  const w = word.trim().toLowerCase();
+  if (/^\d{1,3}$/.test(w)) return Number(w);
+  return NUMBER_WORDS.get(w) ?? null;
+}
+
+/**
+ * Fold what typography does to a name, so two printings of it compare equal.
+ *
+ * The characters that break a name comparison in these books are invisible:
+ * SRD 2.0 carries U+00AD soft hyphens and U+200B zero-width spaces left behind
+ * where a word was allowed to break, and they survive extraction. The visible
+ * suspects mostly do not matter - SRD 2.0 has 1982 ASCII hyphens against 12
+ * U+2011 - but folding them costs nothing and a name is not case-significant.
+ */
+const nameKey = (s: string): string =>
+  s
+    .normalize('NFKC')
+    .replace(/[­​]/g, '')
+    .replace(/[‐‑‒–—−]/g, '-')
+    .replace(/[‘’ʼ]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/**
+ * A printed roster, split into names.
+ *
+ * "Bard, Druid, ... Wizard" in SRD 1.0 and "Assassin, Bard, ... Witch, and
+ * Wizard" in SRD 2.0: the serial comma is present in both, and the second book
+ * additionally sets an `and` on the last item. So the separator is the comma
+ * and the `and` is a prefix to strip, not a separator of its own. A printing
+ * that dropped the serial comma would fuse its last two names into one and be
+ * caught by the name comparison, loudly, which is the failure to prefer.
+ */
+const rosterNames = (list: string): string[] =>
+  list
+    .split(',')
+    .map((n) => n.replace(/^\s*(?:and|&)\s+/i, '').trim())
+    .filter((n) => n.length > 0);
+
+/** What a printing says about its own contents, read out of its rules text. */
+export interface BookClaims {
+  /** From "two of the nine Domains" / "two of the ten domains". */
+  domains: number | null;
+  /** From "There are nine classes in this SRD: ..." - the count AND the roster. */
+  classes: { count: number; names: string[] } | null;
+  /** From "Each class comprises two subclasses." */
+  subclassesPerClass: number | null;
+  /** From "one of the following ancestries ...: Clank, ..." */
+  ancestries: string[] | null;
+  /** From "one of the following communities ...: Highborne, ..." */
+  communities: string[] | null;
+}
+
+/**
+ * Where each claim is printed, for an error message that can be acted on.
+ *
+ * A missing claim is a hard error, and the only useful thing such an error can
+ * say is which sentence it looked for and where that sentence lives, so the
+ * next person can open the book at that folio rather than reverse-engineer a
+ * regular expression.
+ */
+const CLAIM_SITES: Record<keyof BookClaims, string> = {
+  domains: '"...two of the nine|ten domains..." in Character Creation step 8 (folio 6 in both books)',
+  classes: '"There are N classes in this SRD: ..." in Character Creation step 1 (folio 4 in both books)',
+  subclassesPerClass: '"Each class comprises two subclasses." in Character Creation step 1 (folio 4 in both books)',
+  ancestries: '"...one of the following ancestries...: ..." in Character Creation step 2 (folio 4 in both books)',
+  communities: '"...one of the following communities...: ..." in Character Creation step 2 (folio 4 in both books)',
+};
+
+/**
+ * Every match of one claim across the whole rules corpus.
+ *
+ * All of them, not the first: two sections that both state a count and state it
+ * DIFFERENTLY is a real defect - a rules parser that split one chapter's prose
+ * across two sections and mangled one copy would otherwise be invisible - and
+ * measured on both books each of these sentences occurs exactly once, so
+ * requiring agreement costs nothing today and refuses to guess tomorrow.
+ */
+function claimMatches(rules: readonly RulesSection[], re: RegExp): RegExpMatchArray[] {
+  const out: RegExpMatchArray[] = [];
+  for (const rule of rules) {
+    for (const m of rule.body.matchAll(re)) out.push(m);
+  }
+  return out;
+}
+
+function soleClaim(
+  issues: Issue[],
+  field: keyof BookClaims,
+  rules: readonly RulesSection[],
+  re: RegExp,
+): RegExpMatchArray | null {
+  const hits = claimMatches(rules, re);
+  if (hits.length === 0) {
+    issues.push({
+      severity: 'error',
+      where: `counts/${field}`,
+      message:
+        `this printing does not state it where the gate looks. Expected ${CLAIM_SITES[field]}. ` +
+        `Read that page, then WIDEN the pattern in tools/validate.ts to cover both wordings - ` +
+        `do not replace the reading with a constant, and do not drop the check.`,
+    });
+    return null;
+  }
+  const distinct = new Set(hits.map((h) => nameKey(h[0])));
+  if (distinct.size > 1) {
+    issues.push({
+      severity: 'error',
+      where: `counts/${field}`,
+      message:
+        `the book states it more than once and the statements disagree: ` +
+        hits.map((h) => JSON.stringify(h[0].slice(0, 120))).join(' vs '),
+    });
+    return null;
+  }
+  return hits[0]!;
+}
+
+/**
+ * Read a printing's claims about itself.
+ *
+ * Exported so a test can put a book's literal sentences in and check what comes
+ * out, which is how the SRD 2.0 wordings are covered while its rules parser is
+ * still being taught the new geometry.
+ */
+export function readBookClaims(
+  rules: readonly RulesSection[],
+  issues: Issue[] = [],
+): BookClaims {
+  const claims: BookClaims = {
+    domains: null,
+    classes: null,
+    subclassesPerClass: null,
+    ancestries: null,
+    communities: null,
+  };
+
+  const domains = soleClaim(issues, 'domains', rules, /two of the (\S+) domains?\b/gi);
+  if (domains !== null) {
+    const n = numberFrom(domains[1] ?? '');
+    if (n === null) {
+      issues.push({
+        severity: 'error',
+        where: 'counts/domains',
+        message: `the book says "${domains[0]}" and "${domains[1] ?? ''}" is not a number this reads`,
+      });
+    } else claims.domains = n;
+  }
+
+  const classes = soleClaim(
+    issues,
+    'classes',
+    rules,
+    /There (?:are|is) (\S+) classes in this SRD:\s*([^.]+)\./gi,
+  );
+  if (classes !== null) {
+    const n = numberFrom(classes[1] ?? '');
+    const names = rosterNames(classes[2] ?? '');
+    if (n === null) {
+      issues.push({
+        severity: 'error',
+        where: 'counts/classes',
+        message: `the book says "${classes[1] ?? ''}" classes and that is not a number this reads`,
+      });
+    } else if (n !== names.length) {
+      /*
+       * The sentence states the count AND lists the names, so they check each
+       * other - and they check this file's reading of them. A roster split that
+       * fused two names, or a period inside the list that cut it short, shows
+       * up here instead of silently lowering the bar the dataset has to clear.
+       */
+      issues.push({
+        severity: 'error',
+        where: 'counts/classes',
+        message: `the book says ${n} classes and then lists ${names.length}: ${names.join(', ')}`,
+      });
+    } else claims.classes = { count: n, names };
+  }
+
+  const subs = soleClaim(
+    issues,
+    'subclassesPerClass',
+    rules,
+    /Each class comprises (\S+) subclasses/gi,
+  );
+  if (subs !== null) {
+    const n = numberFrom(subs[1] ?? '');
+    if (n === null) {
+      issues.push({
+        severity: 'error',
+        where: 'counts/subclassesPerClass',
+        message: `the book says "${subs[0]}" and "${subs[1] ?? ''}" is not a number this reads`,
+      });
+    } else claims.subclassesPerClass = n;
+  }
+
+  const anc = soleClaim(
+    issues,
+    'ancestries',
+    rules,
+    /one of the following ancestries[^:.]*:\s*([^.]+)\./gi,
+  );
+  if (anc !== null) claims.ancestries = rosterNames(anc[1] ?? '');
+
+  const com = soleClaim(
+    issues,
+    'communities',
+    rules,
+    /one of the following communities[^:.]*:\s*([^.]+)\./gi,
+  );
+  if (com !== null) claims.communities = rosterNames(com[1] ?? '');
+
+  return claims;
+}
+
+/**
+ * The counts no printing states in words, per revision.
+ *
+ * Shape (b). Each key is a `Dataset.revision` exactly as `tools/loadSrd.ts`
+ * mints it, and each number was measured on that book rather than carried
+ * forward from the one before it.
+ *
+ * A revision that is not here is an ERROR, not a free pass, and a `null` is an
+ * error too: "nobody has counted this yet" is the truth about SRD 2.0's
+ * transformations, environments and adversaries today, and a gate that shrugs
+ * at it would let the first wrong number through on the day the parsers land.
+ */
+export interface RevisionCounts {
+  /**
+   * Cards per domain. Not stated anywhere in either book, so it is counted.
+   *
+   * Measured twice this session, and the second time WITHOUT the card parser:
+   * counting the printed `Level N <Domain> <Type>` lines in the appendix folios
+   * gives 21 per domain in both books - 189 over 9 domains in SRD 1.0
+   * (f119-135), 210 over 10 in SRD 2.0 (f206-224) - with the identical ladder
+   * of three level-1 cards and two at each of levels 2 to 10, and exactly as
+   * many `Recall Cost:` lines as level lines.
+   */
+  domainCardsPerDomain: number | null;
+  /** SRD 2.0 moves these into a `Transformations` chapter of its own (f42). */
+  beastforms: number | null;
+  environments: number | null;
+  /**
+   * Adversaries as a range, because the chapter's own roster - not the contents
+   * page - is the thing that actually pins the count, and it is checked where
+   * it is readable: `shared/parsers/adversaries.ts` refuses a stat block that
+   * is not rostered AND a rostered name with no stat block. This range is the
+   * coarse second belt on a number that is not in the dataset to be derived.
+   */
+  adversariesMin: number | null;
+  adversariesMax: number | null;
+}
+
+export const REVISION_COUNTS: Record<string, RevisionCounts> = {
+  'srd-1.0-2025-09-09': {
+    domainCardsPerDomain: 21,
+    beastforms: 22,
+    environments: 19,
+    adversariesMin: 120,
+    adversariesMax: 140,
+  },
+  'srd-2.0-2026-08-25': {
+    domainCardsPerDomain: 21,
+    /*
+     * Deliberately null, and deliberately not a guess.
+     *
+     * `parseBeastforms` returns 1 on this book, `parseEnvironments` and
+     * `parseAdversaries` throw on it - the Transformations chapter is new and
+     * the adversary roster has moved - so nobody has a trustworthy number to
+     * write here yet. Writing the SRD 1.0 numbers forward, or a plausible
+     * range, would make the gate agree with whatever the first working parser
+     * happens to produce. These stay null until they are counted in the book,
+     * and until then this revision fails the gate by name.
+     */
+    beastforms: null,
+    environments: null,
+    adversariesMin: null,
+    adversariesMax: null,
+  },
+};
+
+const UNMEASURED = (revision: string, field: string, actual: string): string =>
+  `revision "${revision}" has no measured ${field}: REVISION_COUNTS['${revision}'].${field} ` +
+  `is null in tools/validate.ts. This build produced ${actual}. Count it in the printed ` +
+  `book, then replace the null - a null is a hole in the gate, not a pass.`;
 
 /** Ligature damage from the extractor, in the form it actually takes. */
 const LIGATURE_TRAPS =
@@ -61,17 +418,67 @@ function checkText(issues: Issue[], where: string, text: string | undefined): vo
   }
 }
 
+/**
+ * A count, against a number and against WHERE THAT NUMBER CAME FROM.
+ *
+ * The provenance is in the message rather than in a comment because the message
+ * is what a failing build prints, and `expected 18, got 17` sends the reader to
+ * this file to find out who decided 18. `expected 18 (the book's own roster in
+ * Character Creation), got 17` sends them to the book, which is where the
+ * answer is.
+ */
 function expectCount(
   issues: Issue[],
   where: string,
   actual: number,
   expected: number,
+  source: string,
 ): void {
   if (actual !== expected) {
     issues.push({
       severity: 'error',
       where,
-      message: `expected ${expected}, got ${actual}`,
+      message: `expected ${expected} (${source}), got ${actual}`,
+    });
+  }
+}
+
+/**
+ * A collection against the roster the book prints for it, by name.
+ *
+ * Strictly stronger than counting, and it costs the same read: `Elemental Kin`
+ * was once attached to twenty ancestries by a parser that threw nothing, and a
+ * count of 18 would have gone on being 18 while the wrong entry rode along. The
+ * comparison is on SETS - the ancestries chapter in SRD 2.0 prints Earthkin,
+ * Emberkin, Skykin and Tidekin together under their family heading while the
+ * Character Creation roster lists them alphabetically, so order is a property
+ * of the page and not of the book.
+ */
+function expectRoster(
+  issues: Issue[],
+  where: string,
+  actual: ReadonlyArray<{ name: string }>,
+  claimed: readonly string[] | null,
+  source: string,
+): void {
+  if (claimed === null) return;
+  expectCount(issues, where, actual.length, claimed.length, source);
+  const have = new Map(actual.map((a) => [nameKey(a.name), a.name]));
+  const want = new Map(claimed.map((n) => [nameKey(n), n]));
+  const missing = [...want].filter(([k]) => !have.has(k)).map(([, n]) => n);
+  const extra = [...have].filter(([k]) => !want.has(k)).map(([, n]) => n);
+  if (missing.length > 0) {
+    issues.push({
+      severity: 'error',
+      where,
+      message: `${source} names ${missing.length} the dataset does not have: ${missing.join(', ')}`,
+    });
+  }
+  if (extra.length > 0) {
+    issues.push({
+      severity: 'error',
+      where,
+      message: `the dataset has ${extra.length} the book's roster does not name: ${extra.join(', ')}`,
     });
   }
 }
@@ -79,28 +486,172 @@ function expectCount(
 export function validate(ds: Dataset): Issue[] {
   const issues: Issue[] = [];
 
-  expectCount(issues, 'domains', ds.domains.length, EXPECTED.domains);
-  expectCount(issues, 'domainCards', ds.domainCards.length, EXPECTED.domainCards);
-  expectCount(issues, 'classes', ds.classes.length, EXPECTED.classes);
-  expectCount(issues, 'subclasses', ds.subclasses.length, EXPECTED.subclasses);
-  expectCount(issues, 'ancestries', ds.ancestries.length, EXPECTED.ancestries);
-  expectCount(issues, 'communities', ds.communities.length, EXPECTED.communities);
-  expectCount(issues, 'beastforms', ds.beastforms.length, EXPECTED.beastforms);
-  expectCount(issues, 'environments', ds.environments.length, EXPECTED.environments);
-
-  if (
-    ds.adversaries.length < EXPECTED.adversariesMin ||
-    ds.adversaries.length > EXPECTED.adversariesMax
-  ) {
+  /*
+   * (a) What this printing says about itself, and (b) what had to be counted.
+   *
+   * Both are fatal when absent. A dataset whose rules text does not carry the
+   * Character Creation rosters cannot be checked against the book at all, and
+   * "cannot be checked" is the state this gate exists to refuse.
+   */
+  const claims = readBookClaims(ds.rules, issues);
+  const counts = REVISION_COUNTS[ds.revision];
+  if (counts === undefined) {
     issues.push({
       severity: 'error',
-      where: 'adversaries',
-      message: `expected ${EXPECTED.adversariesMin}-${EXPECTED.adversariesMax}, got ${ds.adversaries.length}`,
+      where: 'revision',
+      message:
+        `no counts for revision "${ds.revision}". Add an entry to REVISION_COUNTS in ` +
+        `tools/validate.ts keyed by that exact string, with domainCardsPerDomain, beastforms, ` +
+        `environments, adversariesMin and adversariesMax measured on THIS printing. This build ` +
+        `produced beastforms ${ds.beastforms.length}, environments ${ds.environments.length}, ` +
+        `adversaries ${ds.adversaries.length} - check each against the book before writing it ` +
+        `down. domains, classes, subclasses, ancestries and communities need no entry: they are ` +
+        `read from the book's own Character Creation text.`,
     });
   }
 
+  if (claims.domains !== null) {
+    expectCount(
+      issues,
+      'domains',
+      ds.domains.length,
+      claims.domains,
+      "the book's own \"two of the N domains\"",
+    );
+  }
+  expectRoster(
+    issues,
+    'classes',
+    ds.classes,
+    claims.classes?.names ?? null,
+    "the book's own \"There are N classes in this SRD\" roster",
+  );
+  if (claims.subclassesPerClass !== null) {
+    /*
+     * Times the number of classes THE BOOK has, not the number the parser
+     * returned. Multiplying by `ds.classes.length` looks equivalent and is not:
+     * a class parser that dropped a class drops its two subclasses with it, so
+     * both sides of the comparison move together and the subclass check goes
+     * quiet on exactly the dataset it exists to reject. Anchoring on the
+     * printed roster keeps the two failures independent.
+     */
+    const classCount = claims.classes?.count ?? ds.classes.length;
+    expectCount(
+      issues,
+      'subclasses',
+      ds.subclasses.length,
+      claims.subclassesPerClass * classCount,
+      `${claims.subclassesPerClass} per class, which the book states, times the ${classCount} classes it lists`,
+    );
+  }
+  expectRoster(
+    issues,
+    'ancestries',
+    ds.ancestries,
+    claims.ancestries,
+    "the book's own \"one of the following ancestries\" roster",
+  );
+  expectRoster(
+    issues,
+    'communities',
+    ds.communities,
+    claims.communities,
+    "the book's own \"one of the following communities\" roster",
+  );
+
   /*
-   * Every domain THE BOOK SHIPS must carry exactly 21 cards, levels 1 to 10.
+   * A card may only name a domain THIS PRINTING opens a chapter for.
+   *
+   * The third reading of the same roster: folio 7 sets the domain chapter, the
+   * appendix sets a banner per domain, and the card's own `Level N <Domain>`
+   * line names it a third time. `parseDomainCards` already reconciles the last
+   * two. This reconciles them with the first, and it is the `DOMAINS` versus
+   * `ds.domains` distinction again - `DOMAINS` has known `dread` since before
+   * any book in this repo printed it, so a stray Dread card in an SRD 1.0 build
+   * passes the constant and fails here, which is the right way round.
+   */
+  const printedDomains = new Set<string>(ds.domains.map((d) => d.id));
+  for (const domain of new Set(ds.domainCards.map((c) => c.domain))) {
+    if (!printedDomains.has(domain)) {
+      issues.push({
+        severity: 'error',
+        where: `domainCards/${domain}`,
+        message: `cards name domain "${domain}", which this printing's domain chapter does not open`,
+      });
+    }
+  }
+
+  const perDomainExpected = counts?.domainCardsPerDomain ?? null;
+  if (counts !== undefined && perDomainExpected === null) {
+    issues.push({
+      severity: 'error',
+      where: 'domainCards',
+      message: UNMEASURED(ds.revision, 'domainCardsPerDomain', `${ds.domainCards.length} cards`),
+    });
+  }
+  if (perDomainExpected !== null) {
+    expectCount(
+      issues,
+      'domainCards',
+      ds.domainCards.length,
+      perDomainExpected * ds.domains.length,
+      `${perDomainExpected} per domain times the ${ds.domains.length} domains this book prints`,
+    );
+  }
+
+  if (counts !== undefined && counts.beastforms === null) {
+    issues.push({
+      severity: 'error',
+      where: 'beastforms',
+      message: UNMEASURED(ds.revision, 'beastforms', `${ds.beastforms.length}`),
+    });
+  } else if (counts !== undefined && counts.beastforms !== null) {
+    expectCount(
+      issues,
+      'beastforms',
+      ds.beastforms.length,
+      counts.beastforms,
+      `counted in ${ds.revision}`,
+    );
+  }
+
+  if (counts !== undefined && counts.environments === null) {
+    issues.push({
+      severity: 'error',
+      where: 'environments',
+      message: UNMEASURED(ds.revision, 'environments', `${ds.environments.length}`),
+    });
+  } else if (counts !== undefined && counts.environments !== null) {
+    expectCount(
+      issues,
+      'environments',
+      ds.environments.length,
+      counts.environments,
+      `counted in ${ds.revision}`,
+    );
+  }
+
+  if (counts !== undefined && (counts.adversariesMin === null || counts.adversariesMax === null)) {
+    issues.push({
+      severity: 'error',
+      where: 'adversaries',
+      message: UNMEASURED(ds.revision, 'adversariesMin/adversariesMax', `${ds.adversaries.length}`),
+    });
+  } else if (counts !== undefined && counts.adversariesMin !== null && counts.adversariesMax !== null) {
+    if (
+      ds.adversaries.length < counts.adversariesMin ||
+      ds.adversaries.length > counts.adversariesMax
+    ) {
+      issues.push({
+        severity: 'error',
+        where: 'adversaries',
+        message: `expected ${counts.adversariesMin}-${counts.adversariesMax} (counted in ${ds.revision}), got ${ds.adversaries.length}`,
+      });
+    }
+  }
+  /*
+   * Every domain THE BOOK SHIPS must carry as many cards as this revision was
+   * measured to carry, on levels 1 to 10.
    *
    * Seeded from `ds.domains` and not from the `DOMAINS` constant, which are two
    * different lists and were being treated as one. `DOMAINS` is what this build
@@ -150,13 +701,59 @@ export function validate(ds: Dataset): Issue[] {
     checkText(issues, `domainCards/${card.id}`, card.text);
     checkText(issues, `domainCards/${card.id}/name`, card.name);
   }
-  for (const [domain, n] of perDomain) {
-    if (n !== EXPECTED.domainCardsPerDomain) {
-      issues.push({
-        severity: 'error',
-        where: `domainCards/${domain}`,
-        message: `expected ${EXPECTED.domainCardsPerDomain} cards, got ${n}`,
-      });
+  if (perDomainExpected !== null) {
+    for (const [domain, n] of perDomain) {
+      if (n !== perDomainExpected) {
+        issues.push({
+          severity: 'error',
+          where: `domainCards/${domain}`,
+          message: `expected ${perDomainExpected} cards (counted in ${ds.revision}), got ${n}`,
+        });
+      }
+    }
+  }
+
+  /*
+   * Every domain's ladder must be the SAME ladder, and this one the book does
+   * state - by printing it, ten times over in SRD 2.0 and nine in SRD 1.0.
+   *
+   * Measured off the printed `Level N <Domain> <Type>` lines in both appendices
+   * without going through the card parser: three level-1 cards and two at each
+   * of levels 2 to 10, identically, for all nineteen domain-printings across
+   * the two books. So this is not a house rule imposed on the SRD, it is the
+   * shape the SRD sets.
+   *
+   * It is here because the per-domain COUNT cannot see a swap: 21 cards that
+   * are two level-3s and no level-4 still counts 21. And because it is derived
+   * from the book rather than from a number in this file, it keeps working on a
+   * printing whose ladder is a different one - it only insists the domains
+   * agree with each other.
+   */
+  const ladderOf = (domain: DomainId): Map<number, number> => {
+    const h = new Map<number, number>();
+    for (const c of ds.domainCards) {
+      if (c.domain !== domain) continue;
+      h.set(c.level, (h.get(c.level) ?? 0) + 1);
+    }
+    return h;
+  };
+  const show = (h: Map<number, number>): string =>
+    [...h]
+      .sort((a, b) => a[0] - b[0])
+      .map(([lvl, n]) => `L${lvl}:${n}`)
+      .join(' ');
+  const first = ds.domains[0];
+  if (first !== undefined) {
+    const reference = ladderOf(first.id);
+    for (const d of ds.domains.slice(1)) {
+      const mine = show(ladderOf(d.id));
+      if (mine !== show(reference)) {
+        issues.push({
+          severity: 'error',
+          where: `domainCards/${d.id}`,
+          message: `level ladder ${mine} does not match ${first.id}'s ${show(reference)}`,
+        });
+      }
     }
   }
 

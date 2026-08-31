@@ -1,0 +1,115 @@
+/**
+ * The rules stream, read out of two books whose folios agree about nothing.
+ *
+ * `npm run build:srd -- --check` already guards SRD 1.0 byte for byte, so the
+ * assertions worth writing here are the ones it cannot make: that the same
+ * manifest lands on the same 69 sections in SRD 2.0, that the material the
+ * second book prints BESIDE the rules stays out, and that a reference table
+ * found by its own first row is the table it was meant to be.
+ *
+ * The book-gated halves cannot run in CI: the manuals are the owner's and are
+ * not in the repository.
+ */
+import { existsSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parseRules } from '../../shared/parsers/rules.ts';
+import { BOOKS, loadSrd } from '../../tools/loadSrd.ts';
+import type { RulesSection } from '../../shared/types.ts';
+
+const path = (i: number): string | undefined => BOOKS[i]!.localPaths.find((p) => existsSync(p));
+const read = async (i: number): Promise<RulesSection[]> =>
+  parseRules((await loadSrd({ pdfPath: path(i)! })).pages);
+const body = (rules: RulesSection[], id: string): string => {
+  const hit = rules.find((r) => r.id === id);
+  if (hit === undefined) throw new Error(`no section ${id}; have ${rules.map((r) => r.id).join(', ')}`);
+  return hit.body;
+};
+
+describe.skipIf(path(0) === undefined || path(1) === undefined)('the rules on both books', () => {
+  it('reads the same 69 sections, in the same order, out of both', async () => {
+    const one = await read(0);
+    const two = await read(1);
+    expect(one).toHaveLength(69);
+    expect(two.map((r) => r.id)).toEqual(one.map((r) => r.id));
+    expect(two.map((r) => r.title)).toEqual(one.map((r) => r.title));
+  });
+
+  it('finds each island on the folio the second book actually prints it on', async () => {
+    const two = await read(1);
+    const at = (id: string): number | undefined => two.find((r) => r.id === id)?.sourcePage;
+    // Measured on SRD 2.0: the contents page and the banners, not constants.
+    expect(at('introduction')).toBe(3);
+    expect(at('beastform-options')).toBe(15);
+    expect(at('ranger-companion')).toBe(21);
+    expect(at('flow-of-the-game')).toBe(46);
+    expect(at('gold')).toBe(84);
+    expect(at('using-environments')).toBe(158);
+    expect(at('additional-gm-guidance')).toBe(183);
+  });
+
+  it('keeps the class chapter out of the two pages it shares with the rules', async () => {
+    const two = await read(1);
+    // SRD 2.0 sets BEASTFORM OPTIONS in the second column of a page whose
+    // first column is the Warden of Renewal, and the Companion sheet beside
+    // the Wayfinder and above the Rogue.
+    expect(body(two, 'beastform-options')).not.toContain('Warden of Renewal');
+    expect(body(two, 'beastform-options')).not.toContain('Clarity of Nature');
+    expect(body(two, 'ranger-companion')).not.toContain('Ruthless Predator');
+    expect(body(two, 'leveling-up-your-companion')).not.toContain('Rogues are scoundrels');
+    expect(body(two, 'leveling-up-your-companion')).toContain('Aware: Your companion gains a permanent +2 bonus');
+  });
+
+  it('keeps the adversary roster out of the environments preamble', async () => {
+    const two = await read(1);
+    // Folio 158 carries two zombie stat blocks above the USING ENVIRONMENTS
+    // banner, and folio 159 the environment roster below the last table.
+    expect(body(two, 'using-environments')).not.toContain('Perfected Zombie');
+    expect(body(two, 'adapting-environments')).not.toContain('Abandoned Grove');
+  });
+
+  it('reads a line whose two columns are set on grids 6.5pt apart', async () => {
+    const two = await read(1);
+    /*
+     * The word boxes SRD 2.0's extraction reports are 10.87pt tall for the
+     * same 9.3pt face SRD 1.0 reports at 8.91pt, which lifts `bands`'s
+     * tolerance past the offset between folio 50's two columns. Banded across
+     * the page, the line came out as "represent a character's ability to
+     * withstand Hit Points (HP) physical injury".
+     */
+    expect(body(two, 'combat')).toContain(
+      'Hit Points (HP) represent a character’s ability to withstand physical injury.',
+    );
+    expect(body(two, 'maps-range-and-movement')).toContain(
+      'If you’re not already making an action roll, or if you want to move farther than your Close range, you need to succeed on an Agility Roll to safely reposition yourself.',
+    );
+  });
+
+  it('finds every reference table by its own first row', async () => {
+    const two = await read(1);
+    expect(body(two, 'adversary-stat-block-benchmarks')).toContain(
+      '| Damage Thresholds | Major 7/Severe 12 | Major 10/Severe 20 | Major 20/Severe 32 | Major 25/Severe 45 |',
+    );
+    expect(body(two, 'adapting-environments')).toContain('| Difficulty | 11 | 14 | 17 | 20 |');
+    expect(body(two, 'giving-out-gold-equipment-and-loot')).toContain(
+      '| Tier 4 equipment (weapons, armor) | 1-2 Chests |',
+    );
+    expect(body(two, 'countdowns')).toContain('| Critical Success | Tick down 3 | No advancement |');
+    expect(body(two, 'engaging-your-players')).toContain('| 12 | Investigate a situation to confirm or deny existing information. |');
+    expect(body(two, 'using-fear')).toContain('| Climactic |');
+    // The six trait benchmarks, each under the heading its own spec names.
+    for (const t of ['Agility', 'Strength', 'Finesse', 'Instinct', 'Presence', 'Knowledge']) {
+      expect(body(two, 'difficulty-benchmarks')).toContain(`## ${t}`);
+    }
+    expect(body(two, 'difficulty-benchmarks')).toContain(
+      '| 30 | Recall secret information about an obscure historical group.',
+    );
+    // The flowed list is read column by column, not row by row.
+    expect(body(two, 'using-adversaries')).toContain('- Acrobatics\n- Ambusher\n- Bartering\n- Blademaster');
+  });
+
+  it('reads SRD 2.0’s second-level bullet as a bullet', async () => {
+    const two = await read(1);
+    expect(body(two, 'making-gm-moves')).toContain('- An adversary attacks\n- The PC marks a Stress');
+    expect(body(two, 'making-gm-moves')).not.toContain('◦');
+  });
+});

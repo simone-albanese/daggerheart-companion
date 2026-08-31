@@ -3,7 +3,7 @@
  * creation, the core mechanics, combat, downtime, levelling and the GM
  * chapter. The Witherwild campaign frame is read and dropped; see the manifest.
  *
- * Two things make this harder than reading `page.lines` in order.
+ * Three things make this harder than reading `page.lines` in order.
  *
  * 1. The XY-cut in `textLayout` is tuned for cards and stat blocks. Where a
  *    page sets two *independent* columns - folio 3's sidebar, folio 102's
@@ -16,30 +16,256 @@
  *    because of its face and size. The manifest below names every heading
  *    that opens a section, in book order, so a layout change fails loudly
  *    instead of silently merging two topics.
+ * 3. The rules are not one chapter. They are eight islands scattered through
+ *    the book - two pages out of the class chapter, one out of the
+ *    environments chapter - and the reference tables inside them are the only
+ *    material in this directory that has to be selected by GEOMETRY rather
+ *    than by text, because a table's cells are only a table by where they sit.
+ *
+ * ## Nothing here is a coordinate carried in the source
+ *
+ * It used to be. Eight folio ranges and thirteen boxes of absolute x/y, all
+ * measured on SRD 1.0, all correct for exactly one book. Seven of the thirteen
+ * boxes were worse than wrong: `layoutPages` splits a 1224pt spread into two
+ * `BookPage`s but leaves the runs in SPREAD coordinates, so a right-hand page's
+ * text sits at x 612-1224. Those seven boxes were written in that frame and
+ * select **zero runs** on SRD 2.0's 612pt single pages; the other six select
+ * whatever the same rectangle happens to cover on a different page, which on
+ * SRD 2.0 is weapon tables and adversary features.
+ *
+ * So every number is now read off the book:
+ *
+ * - **Page-local x.** `originX` is the page's own left edge in the coordinates
+ *   its runs carry: `page.width` for the right half of a spread, 0 otherwise.
+ *   Translated by it, SRD 1.0 folio 67 and SRD 2.0 folio 89 are the same page
+ *   to within a point and a half.
+ * - **The column gutter** is measured from the book: the widest whitespace
+ *   column in the middle of each page, taken over every page of the stream and
+ *   reduced to one value per page parity, because the SRD sets recto and verso
+ *   on margins 14pt apart.
+ * - **The islands** come from the contents page (`contents.ts`) where the
+ *   chapter is in it, and from a banner the page prints where it is not:
+ *   `BEASTFORM OPTIONS` and `RANGER COMPANION` have no contents entry.
+ * - **The tables** are found by the text of their own first row and end at the
+ *   first band below it that is a heading, or is set in a different size.
+ *   Their `rows`/`cols`/`verify` gates are unchanged and still checks, not
+ *   inputs: nothing below counts rows in order to decide where to stop.
  */
 import type { BookPage, TextRun } from '../textLayout.ts';
 import { WORD_JOIN_RATIO } from '../textLayout.ts';
 import type { RulesSection } from '../types.ts';
 import { slugify } from '../slugify.ts';
 import { ParseError, normalizeText } from './util.ts';
+import { folioOf, parseContents, rangeBetween, sectionRange, type ChapterEntry } from './contents.ts';
 
-/** Folio ranges that make up the rules stream, in book order. */
-const RANGES: ReadonlyArray<readonly [number, number]> = [
-  [3, 3],
-  [4, 6],
-  // Two pages out of the class chapter that are rules and not stat blocks.
-  // Folio 12 opens the Beastform list with the paragraphs that say how a form
-  // is *used* - the Proficiency sentence among them - and folio 18 is the whole
-  // Ranger Companion sheet. Both were unreachable prose until this range
-  // existed, and `engine/companion.ts` carried a copy of folio 18 because of
-  // it. Folio 19 is deliberately NOT here: it is the Rogue, and the companion
-  // text ends with folio 18's second column.
-  [12, 12],
-  [18, 18],
-  [35, 43],
-  [62, 74],
-  [102, 102],
-  [112, 118],
+// ---------------------------------------------------------------------------
+// Where the page is
+// ---------------------------------------------------------------------------
+
+/**
+ * The page's own left edge, in the coordinates `page.runs` are given in.
+ *
+ * `layoutPages` cuts a spread in two and records each half as a `BookPage` of
+ * half the width - but it does not translate the runs, so the right-hand half
+ * carries x 612-1224 while its `width` is 612. That is the single fact that
+ * made seven of this file's boxes select nothing on a single-page book.
+ */
+const originX = (page: BookPage): number => (page.side === 'right' ? page.width : 0);
+
+const LOCAL = new WeakMap<BookPage, TextRun[]>();
+
+/** `page.runs` with x measured from the page's own left edge. */
+function localRuns(page: BookPage): TextRun[] {
+  let hit = LOCAL.get(page);
+  if (hit === undefined) {
+    const ox = originX(page);
+    hit = ox === 0 ? page.runs : page.runs.map((r) => ({ ...r, x: r.x - ox }));
+    LOCAL.set(page, hit);
+  }
+  return hit;
+}
+
+/**
+ * The x of the gutter between the two text columns, one value per page parity.
+ *
+ * Not a constant, and not per page either. Per page fails: folio 67 is three
+ * benchmark tables and one rotated word, and has no gutter to find; folio 73's
+ * roster sets a different grid and offers a convincing wrong one. Per book it
+ * is stable to a point - the SRD prints its verso pages on a 57pt outer margin
+ * and its recto pages on 71pt, and both books use the same two - so the median
+ * over the whole stream is the grid, and the pages that show no gutter simply
+ * do not vote.
+ *
+ * Only the classification matters, not the value: no run is wide enough to
+ * straddle the gutter, so any x strictly inside it sorts the columns the same
+ * way. That is what makes this an exact replacement for the 294/920 it
+ * replaces rather than a re-tuning.
+ */
+function gutterGrid(pages: readonly BookPage[]): [number, number] {
+  const votes: [number[], number[]] = [[], []];
+  for (const page of pages) {
+    const runs = localRuns(page).filter((r) => r.size >= 9);
+    if (runs.length < 6) continue;
+    const lo = Math.floor(Math.min(...runs.map((r) => r.x)));
+    const hi = Math.ceil(Math.max(...runs.map((r) => r.x + r.w)));
+    const filled = new Uint8Array(hi - lo + 1);
+    for (const r of runs) {
+      filled.fill(1, Math.max(0, Math.floor(r.x - lo)), Math.min(filled.length, Math.ceil(r.x + r.w - lo) + 1));
+    }
+    let best = 0;
+    let centre = NaN;
+    let gap = 0;
+    for (let i = 0; i <= filled.length; i++) {
+      if (i === filled.length || filled[i]) {
+        const c = lo + i - gap / 2;
+        // Only the middle of the block can be the gutter: a wide margin or a
+        // roster's own grid is not one.
+        if (gap > best && c > lo + (hi - lo) * 0.3 && c < lo + (hi - lo) * 0.7) {
+          best = gap;
+          centre = c;
+        }
+        gap = 0;
+      } else gap++;
+    }
+    if (best >= MIN_COLUMN_GUTTER - 3) votes[page.folio! % 2 === 0 ? 0 : 1]!.push(centre);
+  }
+  const of = (xs: number[], what: string): number => {
+    if (xs.length < 5) {
+      throw new ParseError(`too few pages show a column gutter (${what})`, `${xs.length} of the stream`);
+    }
+    return median(xs);
+  };
+  return [of(votes[0]!, 'even folios'), of(votes[1]!, 'odd folios')];
+}
+
+/**
+ * The folio a banner is printed on, for the sections the contents page does
+ * not list. Exactly one page must carry it, which is the gate: an ambiguous
+ * banner stops the build instead of choosing.
+ */
+function bannerFolio(pages: readonly BookPage[], text: string): number {
+  const hits = pages.filter((p) => p.folio !== null && p.lines.some((l) => l.text.trim() === text));
+  if (hits.length !== 1) {
+    throw new ParseError(
+      `"${text}" is printed on ${hits.length} pages, not one`,
+      hits.map((p) => `folio ${p.folio}`).join(', ') || 'nowhere in the book',
+    );
+  }
+  return hits[0]!.folio!;
+}
+
+// ---------------------------------------------------------------------------
+// The eight islands
+// ---------------------------------------------------------------------------
+
+interface Island {
+  /** What this island is, for an error message. */
+  what: string;
+  /** Its folios, read off this book's contents page and banners. */
+  folios: (entries: ChapterEntry[], pages: readonly BookPage[]) => { from: number; to: number };
+  /**
+   * The banner that opens it. Units before it on the first page are not rules
+   * - SRD 2.0 sets `BEASTFORM OPTIONS` in the second column of a page whose
+   * first column is a druid subclass. Required to be found when stated.
+   */
+  open?: string;
+  /** The banner that closes it; it and everything after are not rules. */
+  close?: string;
+}
+
+/**
+ * The rules stream, island by island, in book order.
+ *
+ * Each end is either a contents entry or a banner the page prints. Folio
+ * numbers appear only in this comment, as the measurement they came from:
+ *
+ *   island                     SRD 1.0    SRD 2.0
+ *   Introduction                   3-3        3-3
+ *   Character Creation             4-6        4-6
+ *   Beastform preamble           12-12      15-15
+ *   Ranger Companion             18-19      21-22
+ *   Core Mechanics               35-43      46-54
+ *   Gold + the GM chapter        62-73      84-95
+ *   Using Environments         102-103    158-159
+ *   Additional GM Guidance     112-118    183-189
+ */
+const ISLANDS: readonly Island[] = [
+  {
+    what: 'the introduction',
+    folios: (e) => rangeBetween(e, ['INTRODUCTION'], ['CHARACTER CREATION']),
+  },
+  {
+    what: 'character creation',
+    folios: (e) => rangeBetween(e, ['CHARACTER CREATION'], ['CORE MATERIALS']),
+  },
+  /*
+   * Two pages out of the class chapter that are rules and not stat blocks.
+   * The first opens the Beastform list with the paragraphs that say how a form
+   * is *used* - the Proficiency sentence among them - and the second is the
+   * whole Ranger Companion sheet. Both were unreachable prose until this
+   * existed, and `engine/companion.ts` carried a copy of the sheet because of
+   * it. Neither has a contents entry; both print a banner.
+   */
+  {
+    what: 'the Beastform preamble',
+    folios: (e, p) => {
+      const f = bannerFolio(p, 'BEASTFORM OPTIONS');
+      return { from: f, to: f };
+    },
+    open: 'BEASTFORM OPTIONS',
+  },
+  {
+    /*
+     * Ends at the Rogue, who follows the sheet in both books - on the next
+     * page in SRD 1.0, in the next column in SRD 2.0. Naming the class rather
+     * than counting pages is what lets one range serve both.
+     */
+    what: 'the Ranger Companion sheet',
+    folios: (e, p) => ({ from: bannerFolio(p, 'RANGER COMPANION'), to: bannerFolio(p, 'ROGUE') }),
+    open: 'RANGER COMPANION',
+    close: 'ROGUE',
+  },
+  {
+    what: 'the core mechanics',
+    folios: (e) => rangeBetween(e, ['CORE MECHANICS'], ['Equipment']),
+  },
+  {
+    /*
+     * Gold closes the equipment chapter and has no contents entry of its own;
+     * the GM chapter runs from there to the adversary roster, which is where
+     * `parseAdversaries`'s material starts and this one's stops.
+     */
+    what: 'Gold and the GM chapter',
+    folios: (e, p) => ({ from: bannerFolio(p, 'GOLD'), to: bannerFolio(p, 'ADVERSARIES BY TIER') }),
+  },
+  {
+    /*
+     * The environments chapter's own prose, ahead of its roster. In SRD 2.0
+     * the first of these two pages also carries the last two adversary stat
+     * blocks, above the banner - hence `open`.
+     */
+    what: 'the environments preamble',
+    folios: (e, p) => ({
+      from: bannerFolio(p, 'USING ENVIRONMENTS'),
+      to: bannerFolio(p, 'ENVIRONMENT STAT BLOCKS BY TIER'),
+    }),
+    open: 'USING ENVIRONMENTS',
+    close: 'ENVIRONMENT STAT BLOCKS BY TIER',
+  },
+  {
+    /*
+     * Additional GM Guidance and the campaign frame that follows it, up to
+     * whatever the contents page says comes after the frame: the appendix in
+     * SRD 1.0, the supplemental campaign mechanics in SRD 2.0. Reading the far
+     * end off the contents rather than naming it is what keeps a chapter that
+     * only one book has from being either swallowed or hardcoded.
+     */
+    what: 'additional GM guidance',
+    folios: (e) => ({
+      from: folioOf(e, 'Additional GM Guidance'),
+      to: sectionRange(e, 'The Witherwild Campaign Frame').to - 1,
+    }),
+  },
 ];
 
 /**
@@ -234,24 +460,28 @@ const SPECS: readonly Spec[] = [
   { start: 'The Witherwild', drop: true },
 ];
 
+// ---------------------------------------------------------------------------
+// The reference tables
+// ---------------------------------------------------------------------------
+
+/** Which of the page's two columns a table sits in, or neither. */
+type Region = 'left' | 'right' | 'full';
+
 interface TableSpec {
-  folio: number;
-  /** Box whose runs belong to the table and never to the prose stream. */
-  x0: number;
-  x1: number;
-  y0: number;
-  y1: number;
   /**
-   * Left edge of the cells, when the box has to reach further left to catch
-   * something that is not one: the trait benchmarks set their trait name
-   * sideways, and a rotated word's box is tall enough to swallow a whole row.
+   * The text of the table's own first row, as the book prints it, joined the
+   * way `lineUnit` joins a band. This is the whole address: exactly one band
+   * in the whole stream may carry it, in this table's region, which is a
+   * tighter gate than a rectangle ever was - a box can land on the wrong page
+   * and still be full of plausible runs, and on SRD 2.0 six of them did.
    */
-  cellX0?: number;
+  anchor: string;
+  region: Region;
   cols: number;
   /** Rows the grid must yield, header rows included. */
   rows: number;
   /** Column whose presence in a band opens a new row; other bands wrap it. */
-  anchor: number;
+  anchorCol: number;
   /** Cells of the first row, to pin the box to the table it is meant for. */
   verify?: readonly string[];
   /** Leading rows that are the book's own header, and are replaced by it. */
@@ -265,28 +495,16 @@ interface TableSpec {
 
 /**
  * One trait's difficulty benchmarks: a roll column and three action columns,
- * under a trait name the book sets sideways down the left edge.
+ * under a trait name the book sets sideways down the left edge. The rotated
+ * word is not a cell and is dropped by `cellX0`; see `findTable`.
  */
-function trait(
-  folio: number,
-  heading: string,
-  x0: number,
-  x1: number,
-  y0: number,
-  y1: number,
-  cellX0: number,
-  head: readonly string[],
-): TableSpec {
+function trait(heading: string, head: readonly string[]): TableSpec {
   return {
-    folio,
-    x0,
-    x1,
-    y0,
-    y1,
-    cellX0,
+    anchor: head.join(' '),
+    region: 'full',
     cols: 4,
     rows: 7,
-    anchor: 0,
+    anchorCol: 0,
     verify: head,
     headerRows: 1,
     header: ['Roll', ...head.slice(1).map((h) => h[0]!.toUpperCase() + h.slice(1))],
@@ -295,103 +513,179 @@ function trait(
 }
 
 /**
- * The tables, by geometry. Column boundaries are found from the whitespace
- * inside each box, so only the box and the shape have to be stated here.
+ * The tables, by the row each one starts with. Column boundaries are still
+ * found from the whitespace inside the table, so only the first row and the
+ * shape have to be stated here.
  */
 const TABLES: readonly TableSpec[] = [
   {
-    folio: 66,
-    x0: 50,
-    x1: 300,
-    y0: 92,
-    y1: 400,
+    anchor: 'Incidental A catch-up between PCs 0-1 Fear',
+    region: 'left',
     cols: 3,
     rows: 5,
-    anchor: 0,
+    anchorCol: 0,
     header: ['Scene', 'Examples', 'Fear to Spend'],
   },
-  trait(66, 'Agility', 55, 575, 505, 700, 85, ['roll', 'sprint', 'leap', 'Maneuver']),
-  trait(67, 'Strength', 675, 1185, 50, 205, 712, ['roll', 'lift', 'smash', 'grapple']),
-  trait(67, 'Finesse', 675, 1185, 205, 400, 712, ['roll', 'control', 'hide', 'tinker']),
-  trait(67, 'Instinct', 675, 1185, 405, 600, 712, ['roll', 'perceive', 'sense', 'navigate']),
-  trait(68, 'Presence', 55, 575, 50, 250, 85, ['roll', 'charm', 'perform', 'deceive']),
-  trait(68, 'Knowledge', 55, 575, 250, 450, 85, ['roll', 'recall', 'analyze', 'comprehend']),
+  trait('Agility', ['roll', 'sprint', 'leap', 'Maneuver']),
+  trait('Strength', ['roll', 'lift', 'smash', 'grapple']),
+  trait('Finesse', ['roll', 'control', 'hide', 'tinker']),
+  trait('Instinct', ['roll', 'perceive', 'sense', 'navigate']),
+  trait('Presence', ['roll', 'charm', 'perform', 'deceive']),
+  trait('Knowledge', ['roll', 'recall', 'analyze', 'comprehend']),
   {
-    folio: 69,
-    x0: 680,
-    x1: 915,
-    y0: 308,
-    y1: 425,
+    anchor: 'Roll Result Progress Consequence',
+    region: 'left',
     cols: 3,
     rows: 7,
-    anchor: 2,
+    anchorCol: 2,
     verify: ['Roll Result', 'Progress', 'Consequence'],
     headerRows: 2,
     header: ['Roll Result', 'Progress Advancement', 'Consequence Advancement'],
   },
   {
-    folio: 69,
-    x0: 925,
-    x1: 1170,
-    y0: 118,
-    y1: 315,
+    anchor: 'Meals for a party of adventurers per 1 Handful',
+    region: 'right',
     cols: 2,
     rows: 12,
-    anchor: 1,
+    anchorCol: 1,
     header: ['Expense', 'Cost'],
   },
-  { folio: 71, x0: 925, x1: 1170, y0: 285, y1: 392, cols: 3, rows: 6, anchor: 0, list: true },
   {
-    folio: 73,
-    x0: 675,
-    x1: 1185,
-    y0: 75,
-    y1: 180,
+    anchor: 'Acrobatics Hunt from Above Navigation',
+    region: 'right',
+    cols: 3,
+    rows: 6,
+    anchorCol: 0,
+    list: true,
+  },
+  {
+    anchor: 'Adversary Statistic Tier 1 Tier 2 Tier 3 Tier 4',
+    region: 'full',
     cols: 5,
     rows: 5,
-    anchor: 0,
+    anchorCol: 0,
     verify: ['Adversary Statistic', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'],
     headerRows: 1,
     header: ['Adversary Statistic', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'],
   },
   {
-    folio: 112,
-    x0: 300,
-    x1: 590,
-    y0: 222,
-    y1: 495,
+    anchor: '1d12 Objective',
+    region: 'right',
     cols: 2,
     rows: 13,
-    anchor: 0,
+    anchorCol: 0,
     verify: ['1d12', 'Objective'],
     headerRows: 1,
     header: ['1d12', 'Objective'],
   },
   {
-    folio: 102,
-    x0: 55,
-    x1: 560,
-    y0: 545,
-    y1: 600,
+    anchor: 'Environment Statistic Tier 1 Tier 2 Tier 3 Tier 4',
+    region: 'full',
     cols: 5,
     rows: 3,
-    anchor: 0,
+    anchorCol: 0,
     verify: ['Environment Statistic', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'],
     headerRows: 1,
     header: ['Environment Statistic', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'],
   },
 ];
 
-/**
- * Pages that stack two independent multi-column regions. Everywhere else a
- * page is one region and reads left column then right column; on these the
- * lower region would otherwise be pulled up into the left column's stream.
- */
-const REGION_SPLITS: Record<number, readonly number[]> = {
-  66: [400, 500],
-  102: [400, 520],
-};
+/** A table, once the book has said where it is. */
+interface FoundTable {
+  spec: TableSpec;
+  page: BookPage;
+  /** The region's own bounds: what belongs to the table and not to the prose. */
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  /**
+   * Left edge of the cells, when the region reaches further left to catch
+   * something that is not one: the trait benchmarks set their trait name
+   * sideways, and a rotated word's band would otherwise be a row of its own.
+   * Nothing in a table's first column starts a whole cell gutter to the left
+   * of its own header row, so one gutter in front of that edge is the cut.
+   */
+  cellX0: number;
+}
 
+/**
+ * Where a table is, from the row it starts with rather than from a rectangle.
+ *
+ * Its foot is the first band below the head that is either a heading or set in
+ * a different size from the head. Both are needed and neither is enough: the
+ * six trait tables are separated only by a heading, because a table and the
+ * next table's header are the same 8pt face; the Knowledge table is separated
+ * only by a size, because the two-column banner that follows it welds an
+ * Eveleth line to a text-face one and stops reading as display.
+ */
+function findTable(spec: TableSpec, pages: readonly BookPage[], cutOf: (p: BookPage) => number): FoundTable {
+  const hits: FoundTable[] = [];
+  for (const page of pages) {
+    const cut = cutOf(page);
+    const x0 = spec.region === 'right' ? cut : -Infinity;
+    const x1 = spec.region === 'left' ? cut : Infinity;
+    const inRegion = localRuns(page).filter((r) => r.x >= x0 && r.x < x1);
+    const at = bands(inRegion).findIndex((b) => lineUnit(b, 0, 0).text === spec.anchor);
+    if (at < 0) continue;
+
+    const head = bands(inRegion)[at]!;
+    const y0 = Math.min(...head.map((r) => r.y));
+    const face = Math.max(...head.map((r) => r.size));
+    const cellX0 = Math.min(...head.map((r) => r.x)) - MIN_CELL_GUTTER;
+
+    // The foot is read off the cells, not off the region: on folio 67 the
+    // rotated word INSTINCT sits inside the Instinct table and is set 1.3pt
+    // larger than it, so a region-wide scan would end the table on its own
+    // second band.
+    let y1 = Infinity;
+    for (const band of bands(inRegion.filter((r) => r.x >= cellX0))) {
+      const top = Math.min(...band.map((r) => r.y));
+      if (top <= y0) continue;
+      const size = Math.max(...band.map((r) => r.size));
+      if (isHeadingBand(band) || Math.abs(size - face) > 0.5) {
+        y1 = top;
+        break;
+      }
+    }
+    hits.push({ spec, page, x0, x1, y0, y1, cellX0 });
+  }
+  if (hits.length !== 1) {
+    throw new ParseError(
+      `the table row "${spec.anchor}" is printed ${hits.length} times, not once`,
+      hits.map((h) => `folio ${h.page.folio}`).join(', ') || 'nowhere in the rules stream',
+    );
+  }
+  return hits[0]!;
+}
+
+/** Display type at any size, or bold at 10pt and up: the test `markHeadings` uses. */
+function isHeadingBand(band: readonly TextRun[]): boolean {
+  const byFamily = new Map<string, number>();
+  for (const r of band) byFamily.set(r.family, (byFamily.get(r.family) ?? 0) + r.text.length);
+  const family = [...byFamily].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  if (family.startsWith('Eveleth')) return true;
+  return band.every((r) => r.bold) && Math.max(...band.map((r) => r.size)) > 9.9;
+}
+
+/**
+ * Pages that stack two independent multi-column regions, named by the banner
+ * that opens the lower one. Everywhere else a page is one region and reads
+ * left column then right column; on these the lower region would otherwise be
+ * pulled up into the left column's stream.
+ *
+ * Named rather than measured in points, because the same four bands are 1 to
+ * 2pt lower in SRD 1.0 than in SRD 2.0 and on a different page in two cases -
+ * and because a page can carry a full-width whitespace break that is not one
+ * of these, so a gap threshold would over-cut.
+ */
+const SPLIT_ABOVE: readonly string[] = [
+  'DIFFICULTY BENCHMARKS',
+  'roll sprint leap Maneuver',
+  'USING ENVIRONMENTS',
+  'ADAPTING ENVIRONMENTS',
+  'BENCHMARK STATISTICS FOR ENVIRONMENTS BY TIER',
+];
 /** Points of whitespace that separate two cells of a table. */
 const MIN_CELL_GUTTER = 6;
 /**
@@ -410,8 +704,15 @@ const paragraphGap = (size: number): number => size * (size >= 11 ? 1.5 : 1.34);
 const HEADING_GAP = 1.7;
 /** The book labels a step on its own line and names it on the next one. */
 const STEP_LABEL = /^STEP\b/i;
-/** Bullet glyphs the book uses, plus the arrow of the tier list on folio 42. */
-const BULLET = /^\s*[•‣▪●→]\s*/;
+/**
+ * Bullet glyphs the book uses, plus the arrow of the tier list on folio 42.
+ *
+ * U+25E6 is SRD 2.0's second-level bullet and appears nowhere in SRD 1.0,
+ * which set both levels with U+2022: the twelve lines it opens are the GM's
+ * move lists on folios 86 and 87, and without it here they are read as the
+ * continuation of the sentence above and welded into it.
+ */
+const BULLET = /^\s*[•‣▪●◦→]\s*/;
 /**
  * The SRD is set with hyphenation off, so a line-final hyphen, slash or dash
  * is part of the word: "two-" + "handed", "(she/" + "her)".
@@ -438,14 +739,41 @@ interface Unit {
 }
 
 export function parseRules(pages: BookPage[]): RulesSection[] {
-  const stream: Unit[] = [];
-  for (const [from, to] of RANGES) {
+  const entries = parseContents(pages);
+
+  const islands = ISLANDS.map((island) => {
+    const { from, to } = island.folios(entries, pages);
+    if (to < from) throw new ParseError(`${island.what} runs backwards`, `folios ${from}-${to}`);
     const inRange = pages
       .filter((p) => p.folio !== null && p.folio >= from && p.folio <= to)
       .sort((a, b) => a.index - b.index);
-    for (const page of inRange) stream.push(...pageUnits(page));
+    if (inRange.length === 0) throw new ParseError(`no pages for ${island.what}`, `folios ${from}-${to}`);
+    return { island, pages: inRange };
+  });
+  const streamPages = islands.flatMap((i) => i.pages);
+
+  const grid = gutterGrid(streamPages);
+  const cutOf = (p: BookPage): number => grid[p.folio! % 2 === 0 ? 0 : 1]!;
+
+  const boxes = new Map<BookPage, FoundTable[]>();
+  for (const spec of TABLES) {
+    const hit = findTable(spec, streamPages, cutOf);
+    boxes.set(hit.page, [...(boxes.get(hit.page) ?? []), hit]);
   }
-  if (stream.length === 0) throw new ParseError('no rules pages found', RANGES.join(' '));
+
+  const splitsUsed = new Set<string>();
+  const stream: Unit[] = [];
+  for (const { island, pages: inRange } of islands) {
+    const units: Unit[] = [];
+    for (const page of inRange) {
+      units.push(...pageUnits(page, cutOf(page), boxes.get(page) ?? [], splitsUsed));
+    }
+    stream.push(...trimIsland(units, island));
+  }
+  for (const text of SPLIT_ABOVE) {
+    if (!splitsUsed.has(text)) throw new ParseError('a region split anchor is not printed', text);
+  }
+  if (stream.length === 0) throw new ParseError('no rules pages found', ISLANDS.map((i) => i.what).join(', '));
 
   const out: RulesSection[] = [];
   let spec = 0;
@@ -482,6 +810,29 @@ export function parseRules(pages: BookPage[]): RulesSection[] {
   return out;
 }
 
+/**
+ * Cut an island at the banners that open and close it.
+ *
+ * A stated banner must be there. That is the whole gate: SRD 2.0 sets the
+ * Beastform preamble beside a druid subclass and the Companion sheet beside a
+ * ranger one, so without this the class chapter's stat text flows into the
+ * rules; with a silent fallback it would flow in whenever the banner moved.
+ */
+function trimIsland(units: Unit[], island: Island): Unit[] {
+  let out = units;
+  if (island.open !== undefined) {
+    const at = out.findIndex((u) => u.text === island.open);
+    if (at < 0) throw new ParseError(`${island.what} never opens`, island.open);
+    out = out.slice(at);
+  }
+  if (island.close !== undefined) {
+    const at = out.findIndex((u) => u.text === island.close);
+    if (at < 0) throw new ParseError(`${island.what} never closes`, island.close);
+    out = out.slice(0, at);
+  }
+  return out;
+}
+
 function section(spec: Spec & { id: string; title: string }, units: Unit[]): RulesSection {
   const id = slugify(spec.id);
   if (id !== spec.id) throw new ParseError('rules section id is not a slug', spec.id);
@@ -497,29 +848,34 @@ function section(spec: Spec & { id: string; title: string }, units: Unit[]): Rul
 // Page -> ordered units
 // ---------------------------------------------------------------------------
 
-/** x of the gutter between the two text columns of a book page. */
-function gutterX(page: BookPage): number {
-  if (page.side === 'right') return 920;
-  if (page.side === 'left') return 294;
-  return page.width / 2;
-}
-
-function pageUnits(page: BookPage): Unit[] {
+function pageUnits(
+  page: BookPage,
+  cut: number,
+  boxes: readonly FoundTable[],
+  splitsUsed: Set<string>,
+): Unit[] {
   const folio = page.folio!;
-  const boxes = TABLES.filter((t) => t.folio === folio);
+  const local = localRuns(page);
   const inBox = (r: TextRun): boolean =>
-    boxes.some((b) => r.x >= b.x0 && r.x <= b.x1 && r.y >= b.y0 && r.y <= b.y1);
+    boxes.some((b) => r.x >= b.x0 && r.x < b.x1 && r.y >= b.y0 && r.y < b.y1);
 
   // 8pt is the book's table face; every 8pt grid on these folios is either
   // parsed as a table below or belongs to another parser's dataset.
-  const runs = page.runs.filter((r) => r.size >= 9 && !inBox(r));
-  const cut = gutterX(page);
-  const splits = REGION_SPLITS[folio] ?? [];
+  const runs = local.filter((r) => r.size >= 9 && !inBox(r));
+
+  const splits: number[] = [];
+  for (const band of bands(local)) {
+    const text = lineUnit(band, folio, 0).text;
+    if (!SPLIT_ABOVE.includes(text)) continue;
+    splitsUsed.add(text);
+    splits.push(Math.min(...band.map((r) => r.y)) - 1);
+  }
+  splits.sort((a, b) => a - b);
 
   const tables: Unit[] = boxes.map((b) => ({
     folio,
     column: b.x0 >= cut ? 1 : 0,
-    x: b.x0,
+    x: b.cellX0,
     y: b.y0,
     size: 0,
     display: false,
@@ -527,7 +883,7 @@ function pageUnits(page: BookPage): Unit[] {
     bold: false,
     heading: false,
     text: '',
-    table: table(page, b),
+    table: table(b),
   }));
 
   const ordered: Unit[] = [];
@@ -569,6 +925,24 @@ function bands(runs: TextRun[]): TextRun[][] {
  * Left column, then right column - except that a band whose words run
  * uninterrupted across the gutter is genuinely full width and acts as a
  * barrier, flushing what came before it.
+ *
+ * ## Why each column is banded a second time, on its own
+ *
+ * A page-wide band is the wrong unit for a line. The two columns are not set
+ * on the same grid - on SRD 2.0 folio 50 the right column's baselines run
+ * 6.5pt below the left's - so a page-wide band can weld one column's line to
+ * the OTHER column's neighbour and leave part of the first line behind. It
+ * did: `bands`'s tolerance is 0.6 of the median word-box height, and the same
+ * 9.3pt face measures 8.91pt tall in SRD 1.0's extraction and 10.87pt in SRD
+ * 2.0's, which lifts the tolerance from 5.35 to 6.52 and puts that 6.5pt
+ * offset inside it. "Hit Points (HP) represent a character's ability to
+ * withstand physical injury" came out as "represent a character's ability to
+ * withstand Hit Points (HP) physical injury".
+ *
+ * So the page-wide band is kept for the one thing it is right about - whether
+ * a line runs across the gutter - and everything that does not is pooled by
+ * column and banded again inside it, where one grid governs and the
+ * tolerance cannot reach a neighbour.
  */
 function orderRegion(
   regionBands: TextRun[][],
@@ -577,9 +951,15 @@ function orderRegion(
   folio: number,
 ): Unit[] {
   const out: Unit[] = [];
-  const cols: Unit[][] = [[], []];
+  const pools: TextRun[][][] = [[], []];
+  const pending: Unit[][] = [[], []];
   const flush = (): void => {
-    out.push(...cols[0]!.splice(0), ...cols[1]!.splice(0));
+    for (let c = 0; c < 2; c++) {
+      const lines = bands(pools[c]!.flat()).map((band) => lineUnit(band, folio, c));
+      out.push(...[...lines, ...pending[c]!].sort((a, b) => a.y - b.y));
+      pools[c] = [];
+      pending[c] = [];
+    }
   };
 
   const items: Array<{ y: number; unit?: Unit; band?: TextRun[] }> = [
@@ -589,7 +969,7 @@ function orderRegion(
 
   for (const item of items) {
     if (item.unit) {
-      cols[item.unit.column]!.push(item.unit);
+      pending[item.unit.column]!.push(item.unit);
       continue;
     }
     const band = item.band!;
@@ -605,8 +985,8 @@ function orderRegion(
       out.push({ ...lineUnit(band, folio, 0), spans: true });
       continue;
     }
-    if (left.length > 0) cols[0]!.push(lineUnit(left, folio, 0));
-    if (right.length > 0) cols[1]!.push(lineUnit(right, folio, 1));
+    if (left.length > 0) pools[0]!.push(left);
+    if (right.length > 0) pools[1]!.push(right);
   }
   flush();
   return out;
@@ -699,7 +1079,6 @@ function mergeHeadings(units: Unit[]): Unit[] {
   }
   return out;
 }
-
 // ---------------------------------------------------------------------------
 // Units -> markdown
 // ---------------------------------------------------------------------------
@@ -784,17 +1163,18 @@ function paragraph(para: Para): string {
 // Tables
 // ---------------------------------------------------------------------------
 
-function table(page: BookPage, spec: TableSpec): string {
-  const runs = page.runs.filter(
-    (r) =>
-      r.x >= (spec.cellX0 ?? spec.x0) && r.x <= spec.x1 && r.y >= spec.y0 && r.y <= spec.y1,
+function table(found: FoundTable): string {
+  const spec = found.spec;
+  const where = `folio ${found.page.folio}`;
+  const runs = localRuns(found.page).filter(
+    (r) => r.x >= found.cellX0 && r.x < found.x1 && r.y >= found.y0 && r.y < found.y1,
   );
-  if (runs.length === 0) throw new ParseError('table box is empty', `folio ${spec.folio}`);
+  if (runs.length === 0) throw new ParseError('table is empty', where);
 
   const cuts = cellCuts(runs);
   if (cuts.length + 1 !== spec.cols) {
     throw new ParseError(
-      `folio ${spec.folio} table: expected ${spec.cols} columns, found ${cuts.length + 1}`,
+      `${where} table: expected ${spec.cols} columns, found ${cuts.length + 1}`,
       cuts.map((c) => c.toFixed(0)).join(', '),
     );
   }
@@ -809,17 +1189,17 @@ function table(page: BookPage, spec: TableSpec): string {
     }
     const text = cells.map((cell) => (cell.length === 0 ? '' : lineUnit(cell, 0, 0).text));
     const last = rows[rows.length - 1];
-    if (text[spec.anchor]!.length > 0 || last === undefined) rows.push(text);
+    if (text[spec.anchorCol]!.length > 0 || last === undefined) rows.push(text);
     else last.forEach((cell, i) => (last[i] = join(cell, text[i]!)));
   }
   if (rows.length !== spec.rows) {
     throw new ParseError(
-      `folio ${spec.folio} table: expected ${spec.rows} rows, found ${rows.length}`,
-      rows.map((r) => r[spec.anchor]).join(' / '),
+      `${where} table: expected ${spec.rows} rows, found ${rows.length}`,
+      rows.map((r) => r[spec.anchorCol]).join(' / '),
     );
   }
   if (spec.verify && rows[0]!.join('|').toLowerCase() !== spec.verify.join('|').toLowerCase()) {
-    throw new ParseError(`folio ${spec.folio} table: unexpected header`, rows[0]!.join(' | '));
+    throw new ParseError(`${where} table: unexpected header`, rows[0]!.join(' | '));
   }
 
   const body = rows.slice(spec.headerRows ?? 0);
