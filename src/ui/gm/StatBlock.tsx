@@ -473,12 +473,22 @@ export function EnvironmentBlock({
    * SHIPPED WITH NO CALLER, DELIBERATELY, AND THIS SAYS SO RATHER THAN LEAVING
    * IT TO BE DISCOVERED.
    *
-   * Both render sites - `Bestiary.tsx` and the environment link row in
-   * `SessionBody.tsx` - pass nothing, and `setEnvironment` means exactly what
-   * it meant before the fight left the board: it sets the CAMPAIGN's one
+   * ## The four sites, so the next reader does not have to grep
+   *
+   * Every one of them passes nothing, measured at the commit this sentence was
+   * written in. Two are the app: `Bestiary`'s environments tab, and `LinkArm`
+   * in `SessionBody.tsx`, which is the environment link row. Two are tests:
+   * the `COMPONENTS` sweep in `tests/ui/screens.test.tsx`, and the Difficulty
+   * assertion in `tests/gm/sceneTruth.test.tsx`. Named rather than numbered -
+   * a line number in a file somebody else is editing is a claim that goes
+   * stale between commits.
+   *
+   * They pass nothing because `setEnvironment` means exactly what it meant
+   * before the fight left the board: it commits one field, the CAMPAIGN's one
    * workbench place, which is what `SEND` carries into a scene it mints and
-   * what `KEEP THE BOARD'S ENVIRONMENT HERE` copies onto a row. Neither
-   * control has a state it must refuse in today.
+   * what `KEEP THE BOARD'S ENVIRONMENT HERE` copies onto a row. Both buttons
+   * write that same field for the same campaign, so neither has a state it
+   * must refuse in.
    *
    * The seat is here because the two SET ACTIVE buttons are the only pair of
    * identical controls in this app with two different owners, and the day one
@@ -488,8 +498,25 @@ export function EnvironmentBlock({
    * `Countdowns.tsx`'s words, the worse of the two lies. `aria-disabled` is
    * not used in its place, for the same reason.
    *
-   * If a reader finds this still unused and no argument beside it has moved,
-   * that is a prop to delete rather than to find a use for.
+   * ## What would have to become true for it to earn the seat
+   *
+   * One of two things, and both are already named elsewhere in this tree:
+   *
+   *  1. **The archive gets a screen.** `Campaign.archive` is read by nothing
+   *     today but two counters, so a closed sitting is drawn nowhere. Draw one
+   *     and its rows are these rows, an environment link row among them - and
+   *     `ArchivedSession`'s whole promise is that a record does not change
+   *     under you. A SET ACTIVE inside last week's sitting must be REFUSED,
+   *     visibly, on the button; hiding it would make an archived row and a live
+   *     row look like different kinds of thing when they are the same row.
+   *  2. **A row owns its own place.** If the environment link row is ever
+   *     wired to a scene row's `environmentRef` rather than the board's, the
+   *     two buttons stop being one control with two doors, and the one with no
+   *     row under it is the one that has to say so.
+   *
+   * Until one of those lands, this is a prop with an argument and no caller.
+   * Do not delete it on that ground alone - the merged plan asks for it, and
+   * that is the owner's call - but do not go looking for a use for it either.
    */
   disabled?: boolean;
 }): React.JSX.Element {
