@@ -28,6 +28,11 @@ import {
   type Transformation,
 } from '../../shared/types.ts';
 import { migrateCharacterRecord, MIGRATIONS } from '../../shared/migrations.ts';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { makeCombatant } from '../../src/engine/encounter.ts';
+import { AdversaryBlock } from '../../src/ui/gm/StatBlock.tsx';
+import { makeAdversary } from '../fixtures/factories.ts';
 import { baseDataset } from '../../src/store/dataset.ts';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/schema', import.meta.url));
@@ -239,5 +244,36 @@ describe('the v6 fixtures', () => {
       const companion = records[0]?.['companion'] as Record<string, unknown> | undefined;
       expect(companion?.['damageType'], name).toBe('mag');
     }
+  });
+});
+
+/*
+ * `Adversary.stress` became `number | null` in this bump, and `null` has to
+ * survive the two places it flows into: the encounter engine, which turns an
+ * adversary into a combatant, and the GM's stat block, which draws it.
+ *
+ * Neither was covered. An independent verifier changed `a.stress ?? 0` in
+ * `src/engine/encounter.ts` to `?? 99` and the whole composed suite passed at
+ * 4370: a combatant with ninety-nine Stress boxes, and nothing red. The value
+ * is unreachable today only because `shared/parsers/adversaries.ts` still
+ * writes `0` for `Stress: None` - which the schema lane's own openQuestion asks
+ * it to stop doing.
+ */
+describe('an adversary with no Stress track', () => {
+  const noTrack = makeAdversary({ id: 'spellbound-armor', name: 'Spellbound Armor', stress: null });
+
+  it('becomes a combatant with no boxes, not with some other number', () => {
+    const c = makeCombatant(noTrack, 0, 4);
+    expect(c.stress).toEqual({ marked: 0, max: 0 });
+  });
+
+  it('still gives an ordinary adversary the boxes the book prints', () => {
+    expect(makeCombatant(makeAdversary({ stress: 5 }), 0, 4).stress).toEqual({ marked: 0, max: 5 });
+  });
+
+  it('draws an em dash on the stat block, not the word "null"', () => {
+    const html = renderToStaticMarkup(createElement(AdversaryBlock, { adversary: noTrack }));
+    expect(html).not.toContain('null');
+    expect(html).toContain('STRESS');
   });
 });

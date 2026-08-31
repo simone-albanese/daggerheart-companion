@@ -51,6 +51,7 @@ import {
   type DomainCard,
   type Ref,
   type Trait,
+  damageKindLong,
 } from '../../../shared/types.ts';
 import { weaponDamage, type DatasetIndex, type DerivedStats } from '../../engine/character.ts';
 import { formatDamage } from '../../engine/dice.ts';
@@ -1952,7 +1953,7 @@ function Equipped({
             >
               {isArmed ? 'ARMED · ' : ''}
               {(w.trait === 'spellcast' ? 'SPELLCAST' : TRAIT_LABELS[w.trait].toUpperCase())} ·{' '}
-              {reach} · {w.damageType === 'mag' ? 'MAGIC' : 'PHYSICAL'}
+              {reach} · {damageKindLong(w.damageType).toUpperCase()}
             </span>
             {/*
              * THE WEAPON'S OWN FEATURE, WHICH THIS ROW HAS NEVER DRAWN.

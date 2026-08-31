@@ -105,9 +105,9 @@ const ROLE_LINE = /^Tier ([1-4]) (.+)$/;
  * `Evolution` is new in SRD 2.0 - six blocks carry one (the Phoenix's
  * Resurrection, the Roc's Nest Warden, the Vampire Lord's Hellwing, the
  * Mountain Troll's Enraged form, the Cephilith Titan's "It’s Here…", Adonix's
- * Alpha to Omega). `Feature.kind` in shared/types.ts does not have the word,
- * and this lane may not widen it, so the kind is carried through as the book
- * prints it and reported. Leaving `Evolution` OUT of this alternation is the
+ * Alpha to Omega). `Feature.kind` in shared/types.ts HAS the word since schema
+ * 6 - it did not when this was written, and the cast that carried it through is
+ * gone. Leaving `Evolution` OUT of this alternation is the
  * one option that must not be taken: the heading would then fail to start a
  * feature and its whole body would be appended to the feature above it, which
  * is a wrong record that nothing throws on.
@@ -568,8 +568,12 @@ function parseExperiences(lines: string[], ctx: string): Array<{ name: string; b
  * seven that do not are indented by 6pt and every one of them is nested under
  * an Evolution (Mountain Troll, Roc x2, Vampire Lord x2, Adonix x2).
  *
- * The schema has no room for a sub-feature - `Feature` is name, text, kind -
- * so the nested heading stays in the parent's text, on a paragraph of its own.
+ * The schema HAS room for a sub-feature since schema 6: `Feature` gained
+ * `features?: Feature[]`, and `FeatureList` in `src/ui/gm/StatBlock.tsx` draws
+ * it. This parser still does not use it - the nested heading stays in the
+ * parent's text, on a paragraph of its own - so the seven are flattened, not
+ * lost. Filling `features` is a change to this function and to the seven
+ * records it produces, which is a measurement, not a type edit.
  */
 function parseFeatures(lines: Sourced[], columnX: number, ctx: string): Feature[] {
   const out: Feature[] = [];

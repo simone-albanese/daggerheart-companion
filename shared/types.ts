@@ -181,6 +181,32 @@ export type Range = (typeof RANGES)[number];
  */
 export type DamageKind = 'phy' | 'mag' | 'phy or mag' | 'phy/mag';
 
+/**
+ * Can this weapon deal magic damage? True for `mag` AND for both either-kind
+ * spellings.
+ *
+ * It exists because `=== 'mag'` was the question every consumer asked, and on a
+ * two-member union that was a total function. It stopped being one the moment
+ * the union grew, and the failure is silent in the worst place: a Ghostblade
+ * whose own printed feature reads *"you can deal physical or magic damage"* was
+ * labelled PHYSICAL on four screens, on the SHIPPED SRD 1.0 dataset, before this
+ * book arrived. SRD 2.0 adds four more such weapons.
+ *
+ * Ask this, or `damageKindShort`/`damageKindLong`, and never the raw comparison.
+ */
+export const dealsMagic = (k: DamageKind): boolean => k !== 'phy';
+
+/** Can it deal physical damage? True for `phy` and both either-kind spellings. */
+export const dealsPhysical = (k: DamageKind): boolean => k !== 'mag';
+
+/** `PHY`, `MAG`, `PHY/MAG` - the book's own either-kind, in the app's own case. */
+export const damageKindShort = (k: DamageKind): string =>
+  k === 'phy' ? 'PHY' : k === 'mag' ? 'MAG' : 'PHY/MAG';
+
+/** `Physical`, `Magic`, `Physical or magic`. */
+export const damageKindLong = (k: DamageKind): string =>
+  k === 'phy' ? 'Physical' : k === 'mag' ? 'Magic' : 'Physical or magic';
+
 export const ADVERSARY_ROLES = [
   'Bruiser',
   'Horde',

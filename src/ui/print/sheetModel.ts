@@ -26,7 +26,9 @@ import type {
   Trait,
   Weapon,
 } from '../../../shared/types.ts';
-import { TRAITS, TRAIT_LABELS, TRAIT_VERBS } from '../../../shared/types.ts';
+import { TRAITS, TRAIT_LABELS, TRAIT_VERBS,
+  damageKindLong,
+} from '../../../shared/types.ts';
 import {
   BASE_HOPE,
   deriveStats,
@@ -504,7 +506,7 @@ function describeWeapon(weapon: Weapon, stats: DerivedStats): SheetWeapon {
       weapon.slot === 'primary' ? 'Primary' : 'Secondary',
       weapon.trait === 'spellcast' ? 'Spellcast' : TRAIT_LABELS[weapon.trait],
       weapon.range,
-      weapon.damageType === 'mag' ? 'Magic' : 'Physical',
+      damageKindLong(weapon.damageType),
       `Burden ${weapon.burden}`,
     ].join(' · '),
     feature: weapon.feature,

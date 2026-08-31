@@ -716,10 +716,17 @@ function toBurden(s: string, where: string): 1 | 2 {
  * A weapon that deals either kind prints it three ways across the two books:
  * SRD 1.0's one such weapon (Ghostblade, "d10+7 phy or mag") and SRD 2.0's four
  * ("d8 phy/mag" - Shadowblade, and three more). The book's own spelling is kept
- * rather than folded into one, the way `toTrait` keeps "Spellcast": `DamageKind`
- * is `phy | mag` and cannot hold either of them, so inventing a third spelling
- * the source never prints would only make the lie harder to find. Everything
- * downstream tests `=== 'mag'`, so both read as physical, as they did before.
+ * rather than folded into one, the way `toTrait` keeps "Spellcast": inventing a
+ * spelling the source never prints would only make the lie harder to find.
+ *
+ * The two sentences that stood here are now false and are worth the scar.
+ * `DamageKind` DOES hold both spellings since schema 6. And "everything
+ * downstream tests `=== 'mag'`, so both read as physical" was true when written
+ * and described a real defect on the SHIPPED SRD 1.0 dataset - the Ghostblade
+ * labelled PHYSICAL on four screens beside its own feature line saying it need
+ * not be. The three display sites now ask `damageKindShort`/`damageKindLong`.
+ * `src/ui/player/attack.ts` still applies the physical half, and now says that
+ * is a default awaiting a control on the sheet, not a reading of the field.
  */
 function toDamage(s: string, where: string): { damage: string; damageType: DamageKind } {
   const m = /^(d\d+(?:[+-]\d+)?) (phy|mag|phy or mag|phy\/mag)$/.exec(s);

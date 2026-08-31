@@ -217,6 +217,22 @@ export function sourceFromWeapon(weapon: Weapon, stats: DerivedStats): AttackSou
     name: weapon.name,
     trait: weapon.trait,
     damage: { count: scaled.count, sides: scaled.sides, modifier: scaled.modifier },
+    /*
+     * An either-kind weapon deals the physical half, and that is a DEFAULT
+     * rather than a reading.
+     *
+     * The book gives the choice to the wielder - the Ghostblade's own feature
+     * says *"you can deal physical or magic damage"* - and this app has no
+     * control for it, so a roll has to pick one and picks the one that was
+     * already being picked. What changed is that it says so. Written as
+     * `=== 'mag' ? 'mag' : 'phy'` it read as a total function over a two-member
+     * union, which is what it was until `DamageKind` grew, and afterwards it
+     * silently answered "physical" for a weapon that can be swung either way.
+     *
+     * The real fix is a control on the sheet, which is a feature and not this
+     * function's to invent. `dealsMagic` is deliberately NOT used here: the
+     * question this line answers is "what is applied", not "what is possible".
+     */
     damageType: weapon.damageType === 'mag' ? 'mag' : 'phy',
   };
 }

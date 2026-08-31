@@ -134,6 +134,30 @@ const LADDER = {
 
 const TOC = ['Armor 2', 'Loot 3', 'Test Module 6', 'Next Section 9'];
 
+/**
+ * A module WEAPON table. Weapons need a slot, and no contents entry names one:
+ * it comes from a `Primary Weapons` / `Secondary Weapons` banner the page
+ * prints. `withBanner: false` is a page that carries the table and not the
+ * banner, which is what the throw below exists for.
+ */
+const moduleWeapon = (folio: number, withBanner: boolean): BookPage =>
+  sheet(folio, [
+    ...(withBanner ? [banner('Primary Weapons', 56, 40)] : []),
+    banner('TIER 1', 56, 60, 12),
+    head('Name', 60, 100),
+    head('Trait', 150, 100),
+    head('Range', 210, 100),
+    head('Damage', 270, 100),
+    head('Burden', 340, 100),
+    head('Feature', 410, 100),
+    cell('Module Blade', 60, 120),
+    cell('Agility', 150, 120),
+    cell('Melee', 210, 120),
+    cell('d8 phy', 270, 120),
+    cell('One-Handed', 340, 120),
+    cell('Reliable: +1 to attack rolls', 410, 120),
+  ]);
+
 describe('which pages carry module equipment', () => {
   it('takes a table outside the base ranges, and names it after the section it starts in', () => {
     const armors = parseArmors([contents(...TOC), baseArmor(2), moduleArmor(6, PLAIN)]);
@@ -458,4 +482,67 @@ describe.skipIf(!have(1))('SRD 2.0 folios 191, 192, 197 and 201', () => {
     const ids = [...parseWeapons(pages), ...parseArmors(pages)].map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   }, 120_000);
+});
+
+/*
+ * A THROW WITH NO CHECK BEHIND IT, until now.
+ *
+ * The module weapon reader refuses a weapon table it cannot give a slot to. An
+ * independent verifier demoted that throw to `slot = 'primary'` -- removing
+ * exactly one behaviour -- and the entire composed suite stayed green at 4370
+ * passing, with both build gates unchanged. A guard nothing can fail is a
+ * comment with a `throw` in it.
+ *
+ * The consequence it guards is not an exception: it is 43 module weapons
+ * silently filed as primary, on a page where the book prints Secondary.
+ */
+describe('a module weapon table with no slot banner above it', () => {
+  /*
+   * `parseWeapons` reads three base ranges before it ever looks at a module, so
+   * the fixture has to give it a whole small book: Weapons, Combat Wheelchair
+   * and Armor, each with one table, then the module folio outside all three.
+   */
+  const TOC_W = ['Weapons 2', 'Combat Wheelchair 3', 'Armor 4', 'Loot 5', 'Test Module 6', 'Next Section 9'];
+
+  const baseWeapons = (folio: number): BookPage =>
+    sheet(folio, [
+      banner('PRIMARY WEAPON TABLES', 56, 30, 12),
+      banner('TIER 1', 56, 45, 11.5),
+      banner('Physical Weapons', 56, 60),
+      head('Name', 60, 100), head('Trait', 150, 100), head('Range', 210, 100),
+      head('Damage', 270, 100), head('Burden', 340, 100), head('Feature', 410, 100),
+      cell('Base Blade', 60, 120), cell('Agility', 150, 120), cell('Melee', 210, 120),
+      cell('d8 phy', 270, 120), cell('One-Handed', 340, 120), cell('Reliable: +1', 410, 120),
+    ]);
+
+  const wheelchair = (folio: number): BookPage =>
+    sheet(folio, [
+      banner('Light Frame Models', 56, 60),
+      head('Name', 60, 100), head('Tier', 130, 100), head('Trait', 175, 100),
+      head('Range', 235, 100), head('Damage', 290, 100), head('Burden', 355, 100),
+      head('Feature', 420, 100),
+      cell('Base Chair', 60, 120), cell('1', 133, 120), cell('Agility', 175, 120),
+      cell('Melee', 235, 120), cell('d6 phy', 290, 120), cell('One-Handed', 355, 120),
+      cell('Rolling: +1', 420, 120),
+    ]);
+
+  const book = (moduleFolio: BookPage): BookPage[] => [
+    contents(...TOC_W), baseWeapons(2), wheelchair(3), baseArmor(4), moduleFolio,
+  ];
+
+  it('is refused, and the message names the module and the folio', () => {
+    expect(() => parseWeapons(book(moduleWeapon(6, false)))).toThrow(
+      /no Primary\/Secondary Weapons banner above a module weapon table/,
+    );
+    expect(() => parseWeapons(book(moduleWeapon(6, false)))).toThrow(/Test Module.*folio 6/s);
+  });
+
+  it('reads the same table when the banner is there, so the refusal is about the banner', () => {
+    const weapons = parseWeapons(book(moduleWeapon(6, true)));
+    expect(weapons.map((w) => [w.name, w.slot, w.module])).toEqual([
+      ['Base Blade', 'primary', undefined],
+      ['Base Chair', 'primary', undefined],
+      ['Module Blade', 'primary', 'Test Module'],
+    ]);
+  });
 });

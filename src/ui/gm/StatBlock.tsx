@@ -57,6 +57,11 @@ const KIND_COLOR: Record<string, string> = {
   Action: 'var(--damage)',
   Reaction: 'var(--stress)',
   Passive: 'var(--muted)',
+  // SRD 2.0's fourth kind. Without a row here the border falls back through
+  // `?? 'var(--muted)'` and looks deliberate, but the chip below reads
+  // `KIND_COLOR[f.kind]` with no fallback and renders `color: undefined` - so
+  // six Evolutions would print an uncoloured chip beside three coloured ones.
+  Evolution: 'var(--hope)',
 };
 
 export function FeatureList({ features }: { features: Feature[] }): React.JSX.Element {
@@ -83,6 +88,23 @@ export function FeatureList({ features }: { features: Feature[] }): React.JSX.El
           <p className="t-body" style={{ margin: '5px 0 0', whiteSpace: 'pre-line' }}>
             {f.text}
           </p>
+          {/*
+            * A feature's own features, which SRD 2.0 nests under an Evolution.
+            *
+            * Nothing emits these yet - `shared/parsers/adversaries.ts` still
+            * flattens the seven sub-features it finds into the parent's text -
+            * so this renders for no record today. It is here anyway, and that
+            * is the point: the alternative is that the day the parser stops
+            * flattening, the Roc's Wrathful and Electrifying Aura become
+            * INVISIBLE rather than merely run together, and nothing goes red.
+            * A shape the schema can hold and the screen cannot draw is worse
+            * than one it cannot hold at all.
+            */}
+          {f.features !== undefined && f.features.length > 0 && (
+            <div style={{ marginTop: 9, marginLeft: 11 }}>
+              <FeatureList features={f.features} />
+            </div>
+          )}
         </div>
       ))}
       {features.length === 0 && (
@@ -183,7 +205,17 @@ export function AdversaryBlock({
           color={a.thresholds ? undefined : 'var(--dim)'}
         />
         <Stat label="HP" value={String(a.hp)} color="var(--damage)" />
-        <Stat label="STRESS" value={String(a.stress)} color="var(--stress)" />
+        {/*
+          * `a.stress` is `number | null` since schema 6, and `String(null)` is
+          * the four letters "null" on a GM's screen mid-session. `thresholds`
+          * three lines up already had this shape and already guarded it; this
+          * one did not, because until the bump it could not be null.
+          */}
+        <Stat
+          label="STRESS"
+          value={a.stress === null ? '—' : String(a.stress)}
+          color={a.stress === null ? 'var(--dim)' : 'var(--stress)'}
+        />
       </div>
       {a.thresholds === null && (
         <span className="t-meta" style={{ color: 'var(--dim)', marginTop: -8 }}>

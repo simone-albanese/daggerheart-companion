@@ -124,6 +124,41 @@ describe('migrateKeys', () => {
   });
 
   /*
+   * FIRST COLLECTION WINS, and this is the assertion that says so.
+   *
+   * Under version 1 a slug had one id, so when two collections printed the same
+   * name the build warned and the first one kept it. Under version 2 both get a
+   * key, and the migration still has to decide which collection owns the id the
+   * OLD file minted - because that id is on somebody's saved character.
+   *
+   * An independent verifier deleted the `!owner.has()` guard, making the LAST
+   * collection win instead. Every test passed. Fed the committed version-1 file
+   * it moves 681 rows, and it flips both of the book's real collisions:
+   * `hold-the-line` becomes the environment and `vampire` the transformation.
+   * The pinned digest cannot see it either, because it hashes id -> BARE slug
+   * and the bare slug is exactly what does not change.
+   */
+  it('gives a colliding slug to the first collection, so an old id keeps its meaning', () => {
+    const both: SlugSource = {
+      domainCards: [{ id: 'hold-the-line', domain: 'valor' }],
+      environments: [{ id: 'hold-the-line' }],
+    };
+    const v1: RegistryFile = { version: 1, ids: { 'hold-the-line': 5910 } };
+    const { file } = migrateKeys(v1, both);
+    expect(file.ids).toEqual({ 'domainCards/hold-the-line': 5910 });
+    expect(file.ids['environments/hold-the-line']).toBeUndefined();
+  });
+
+  it('does the same for the second collision the book prints', () => {
+    const both: SlugSource = {
+      adversaries: [{ id: 'vampire' }],
+      transformations: [{ id: 'vampire' }],
+    };
+    const v1: RegistryFile = { version: 1, ids: { vampire: 10117 } };
+    expect(migrateKeys(v1, both).file.ids).toEqual({ 'adversaries/vampire': 10117 });
+  });
+
+  /*
    * The rule `tools/buildRegistry.ts` opens with: a slug that has left the
    * dataset keeps its id forever. It has to survive the re-key too, and a
    * retired slug is the one case where the dataset cannot say which collection

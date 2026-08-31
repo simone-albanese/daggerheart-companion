@@ -40,6 +40,7 @@ import {
   type Ref,
   type Weapon,
   type WeaponTrait,
+  damageKindShort,
 } from '../../../shared/types.ts';
 import { deriveStats, weaponDamage, type DerivedStats } from '../../engine/character.ts';
 import type { Rng } from '../../engine/dice.ts';
@@ -86,7 +87,7 @@ export const weaponTraitLabel = (t: WeaponTrait): string =>
 export function weaponSummary(w: Weapon, stats: DerivedStats): string {
   const damage = weaponDamage(w, stats)?.spec ?? w.damage;
   return [
-    `${damage} ${w.damageType === 'mag' ? 'MAG' : 'PHY'}`,
+    `${damage} ${damageKindShort(w.damageType)}`,
     w.range.toUpperCase(),
     weaponTraitLabel(w.trait),
     w.burden === 2 ? 'TWO-HANDED' : 'ONE-HANDED',
