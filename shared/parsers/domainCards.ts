@@ -58,6 +58,29 @@ const RECALL_RE = /^Recall Cost: (\d+)$/;
 const BANNER_RE = /^([A-Z]+) DOMAIN$/;
 const BULLET_RE = /^[••▪●]/;
 
+/**
+ * SRD 2.0's second bullet, folded onto the one the shared helpers know.
+ *
+ * SRD 1.0 opens every option list on a card with U+2022. SRD 2.0 keeps U+2022
+ * for the question lists in the class chapter and opens a card's options with
+ * U+25E6, a hollow ring - 172 lines of it across the book, 65 of them in this
+ * appendix, none at all in SRD 1.0. Rendered PDF page 220 shows the ring on the
+ * page, so it is the book's own typography and not extraction damage.
+ *
+ * Neither `BULLET_RE` above nor `joinWithBullets` recognised it, and nothing
+ * threw. `cardText` read each ring line as a fresh PARAGRAPH rather than a list
+ * item, so all twenty-four SRD 2.0 cards with options shipped their rules text as
+ * "...gain the following benefits:\n\n◦ +1 bonus to your Spellcast Rolls\n\n◦
+ * Once per rest..." where SRD 1.0 ships "...benefits:\n- +1 bonus...". The two
+ * books disagreed about the shape of the same card.
+ *
+ * Folding the character here rather than widening the class in `joinWithBullets`
+ * is a scope decision, not a design one: `shared/parsers/util.ts` is shared with
+ * every other parser and is not this lane's to change. The one-line widening it
+ * wants is recorded in the handoff.
+ */
+const RING_BULLET = /^◦[ \t]*/;
+
 interface Row {
   text: string;
   size: number;
@@ -96,7 +119,7 @@ function readPages(pages: BookPage[], from: number, to: number): Row[] {
       }
       previous = { folio, column: line.column, bottom };
       out.push({
-        text: normalizeText(line.text),
+        text: normalizeText(line.text).replace(RING_BULLET, '• '),
         size: line.size,
         family: line.family,
         bold: line.bold,
