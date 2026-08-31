@@ -48,7 +48,6 @@ import { usePrefersReducedMotion } from '../shared/useMedia.ts';
 import { LicenceFooter } from '../shell/LicenceFooter.tsx';
 import { About } from './About.tsx';
 import { Action, Choice, Field, Note, Rows, Section, Switch } from './parts.tsx';
-import { Rulebook } from './Rulebook.tsx';
 import { Transfer } from './Transfer.tsx';
 
 const SECTIONS = [
@@ -64,7 +63,6 @@ const SECTIONS = [
   ['gm', 'GM tools'],
   ['backup', 'Characters'],
   ['transfer', 'Transfer'],
-  ['rulebook', 'Rulebook'],
   ['about', 'About'],
 ] as const;
 
@@ -224,7 +222,6 @@ export function Settings(): React.JSX.Element {
             <GmTools innerRef={bind('gm')} />
             <Backup innerRef={bind('backup')} phone={phone} />
             <Transfer innerRef={bind('transfer')} />
-            <Rulebook innerRef={bind('rulebook')} phone={phone} />
             <About innerRef={bind('about')} />
             {/*
               The notice, at the end of the last section rather than pinned

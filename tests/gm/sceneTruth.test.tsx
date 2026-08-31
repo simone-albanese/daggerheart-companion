@@ -687,34 +687,44 @@ describe('END SCENE names what the second tap takes', () => {
  *
  * The sibling mutant on the same component - `motives.length > 0` widened to
  * `>= 0` - also survives the whole suite, re-run this round at 136 files and
- * 3334 tests, and is still deliberately left alone - but not for the reason
- * that stood here. "`Scene.tsx` only ever resolves
- * adversaries out of that dataset", meaning `data/srd-1.0.json`, was false:
- * `Scene` reads `useApp((s) => s.dataset.adversaries)`, and `state.ts` fills
- * `dataset` from `resolveDataset` in `src/store/dataset.ts` - the SRD merged
- * field by field with every imported layer. That merge can introduce an
- * adversary the SRD has never heard of: an overlay whose `entityId` misses the
- * bucket gets `{ id, provenance: {} }` pushed into the collection. So the
- * premise has to be about the merged dataset, and it survives there:
+ * 3334 tests, and is still deliberately left alone. The reason has been round
+ * tripped since, and all three positions are written down, because a premise
+ * that was corrected and then un-corrected is the one a reader is most likely
+ * to get wrong from either end alone.
  *
- * - The SRD half is as counted - 129 of 129 carry motives, and the test above
- *   asserts that rather than trusting it.
- * - The layer half cannot contribute an empty one. The adversary parser in
- *   `shared/parsers/adversaries.ts` will not produce it: `requireText` throws
- *   "stat block has no motives" when the `Motives & Tactics:` line is absent,
- *   and `splitList` throws "empty motives list" when it is there with nothing
- *   in it. And even if one arrived, `contributedFields` in
- *   `src/import/reconcile.ts` drops every empty array before an overlay is
- *   written, for the reason its own comment gives - a defined-but-empty field
- *   reads downstream as "the manual says this is blank". `putOverlays` has
- *   exactly one caller, the import worker, so there is no third way in.
+ * WHAT STOOD HERE FIRST: "`Scene.tsx` only ever resolves adversaries out of
+ * that dataset", meaning `data/srd-1.0.json`.
+ *
+ * WHY THAT WAS CORRECTED: `Scene` reads `useApp((s) => s.dataset.adversaries)`,
+ * and `state.ts` filled `dataset` from `resolveDataset` - the SRD merged field
+ * by field with every imported layer. That merge could introduce an adversary
+ * the SRD has never heard of: an overlay whose `entityId` missed the bucket got
+ * `{ id, provenance: {} }` pushed into the collection. So the premise had to be
+ * about the merged dataset - and it survived there, because the layer half
+ * could not contribute an empty `motives` either. The adversary parser in
+ * `shared/parsers/adversaries.ts` will not produce one: `requireText` throws
+ * "stat block has no motives" when the `Motives & Tactics:` line is absent, and
+ * `splitList` throws "empty motives list" when it is there with nothing in it.
+ * `contributedFields` in `src/import/reconcile.ts` then dropped every empty
+ * array before an overlay was written, for the reason its own comment gave - a
+ * defined-but-empty field reads downstream as "the manual says this is blank".
+ *
+ * WHY THE FIRST SENTENCE IS TRUE AGAIN, AND MORE NARROWLY THAN IT WAS: there is
+ * no merge left to be about. The importer went with `b35523d`, `resolveDataset`
+ * and its `COLLECTIONS` with `ab5b75a`, and database version 3 deletes `layers`,
+ * `content` and `art` from the device - so the overlay data this paragraph used
+ * to reason about is not sitting on a phone somewhere, it is gone. `loadDataset`
+ * returns `baseDataset` unchanged, `state.ts` sets `dataset` once in `init` and
+ * nothing writes it again, so `s.dataset.adversaries` IS `data/srd-1.0.json`'s
+ * and can be nothing else. Measured against the shipped dataset rather than
+ * counted from memory: 129 adversaries, 0 with an empty `motives`, 0 with an
+ * empty `features`. `Scene.tsx`'s own fold comment carries the same finding for
+ * the label it builds out of those two fields.
  *
  * So no adversary this component can resolve has `motives.length === 0`, the
  * two forms cannot differ on any reachable input, and it is an equivalent
- * mutant rather than a hole. (A layer-added adversary with no `motives` field
- * at all would throw on `.length` under both forms alike, which is a different
- * subject and not this one's.) A test written to kill it would still be
- * asserting on a combatant neither the book nor an import can produce.
+ * mutant rather than a hole. A test written to kill it would be asserting on a
+ * combatant the book does not contain and nothing on the device can add.
  */
 /*
  * VULNERABLE, DERIVED FROM THE STRESS TRACK THE GM IS TAPPING.

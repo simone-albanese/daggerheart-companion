@@ -680,9 +680,13 @@ const hasDownload = (): boolean =>
   typeof document !== 'undefined' && typeof URL.createObjectURL === 'function';
 
 /**
- * The same conservative test `import/index.ts` uses, and for the same reason:
- * a device counts as a phone when it says so, or when the only pointer it has
- * is a finger. Never a user-agent string.
+ * A deliberately conservative test: a device counts as a phone when it says so,
+ * or when the only pointer it has is a finger. Never a user-agent string.
+ *
+ * This used to cite the Core Rulebook importer, which asked the same question
+ * in the same way and has since been removed. The technique outlived it and is
+ * the point: a user-agent string is a claim anything can make, and the two
+ * signals here are the browser answering about itself.
  */
 function looksLikeAPhone(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -824,12 +828,10 @@ export interface PickedFile {
   name: string;
   /** Decoded as text, which is what both file formats here are. */
   text: string;
-  /** The file itself, for callers whose payload is binary (an art pack). */
-  file: File;
 }
 
 export interface PickOptions {
-  /** Extensions offered in the picker, e.g. `['.dhart']`. */
+  /** Extensions offered in the picker, e.g. `['.dhchar']`. */
   extensions?: string[];
   description?: string;
   mime?: string;
@@ -859,7 +861,7 @@ export async function pickFile(options: PickOptions = {}): Promise<PickedFile | 
       });
       if (handle === undefined) return null;
       const file = await handle.getFile();
-      return { name: file.name, text: await file.text(), file };
+      return { name: file.name, text: await file.text() };
     } catch (err) {
       if (isAbort(err)) return null;
       throw new ImportError(`The file could not be opened: ${why(err)}`);
@@ -872,7 +874,7 @@ export async function pickFile(options: PickOptions = {}): Promise<PickedFile | 
 
   const file = await promptForFile([...extensions, mime].join(','));
   if (file === null) return null;
-  return { name: file.name, text: await file.text(), file };
+  return { name: file.name, text: await file.text() };
 }
 
 function promptForFile(accept: string): Promise<File | null> {

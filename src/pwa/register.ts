@@ -45,6 +45,18 @@ export function registerServiceWorker(options: RegisterOptions = {}): ServiceWor
   const inert: ServiceWorkerHandle = { check: async () => {}, dispose: () => {} };
   if (!supportsServiceWorker()) return inert;
 
+  // Tell the worker a page has loaded, so it can notice a Cache Storage the
+  // browser reclaimed while it was activated and rebuild it - see the `hello`
+  // handler in `sw.js` for why nothing else is in a position to. This is the
+  // same postMessage the removed `warmImporterCache` made; what it asked for
+  // afterwards was the importer's pdf.js chunk, and only that part is gone.
+  navigator.serviceWorker.ready
+    .then((reg) => reg.active?.postMessage({ type: 'hello' }))
+    .catch(() => {
+      // No worker, or the browser refused it. Nothing here is load-bearing for
+      // a page that is already on screen.
+    });
+
   const abort = new AbortController();
   const { signal } = abort;
 
@@ -187,8 +199,8 @@ const PROBE_TIMEOUT_MS = 3000;
  * Cache Storage is per-origin, not per-client: the caches the worker filled are
  * the same objects this page can open, so the counts need no protocol and no
  * round trip through the worker. Which is just as well - `sw.js` has exactly
- * one message handler, it takes `skip-waiting` and `warm-importer`, and it
- * never replies to anything.
+ * one message handler, it takes `skip-waiting` and `hello`, and it never
+ * replies to anything.
  *
  * Two things are read, and both are needed: the entry document, which is what a
  * navigation offline resolves to, and a count of the hashed files behind it. A
@@ -285,24 +297,6 @@ interface BeforeInstallPromptEvent extends Event {
   readonly platforms: readonly string[];
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
   prompt(): Promise<void>;
-}
-
-/**
- * Ask the service worker to cache the Core Rulebook importer.
- *
- * The importer's worker is pdf.js - more than half of everything this app
- * ships - and it is deliberately left out of the install-time precache,
- * because on a phone the importer is disabled and those bytes could never be
- * used. A device that can run it says so here, once, and gets it in the
- * background so the feature still works offline.
- */
-export function warmImporterCache(): void {
-  navigator.serviceWorker?.ready
-    .then((reg) => reg.active?.postMessage({ type: 'warm-importer' }))
-    .catch(() => {
-      // No worker, or the browser refused it. The importer still works; it
-      // just fetches its chunk the first time someone opens it.
-    });
 }
 
 export type InstallOutcome = 'accepted' | 'dismissed' | 'unavailable';

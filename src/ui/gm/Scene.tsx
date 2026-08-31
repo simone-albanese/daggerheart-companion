@@ -1254,11 +1254,30 @@ function CombatantCard({
         the SHOW n / HIDE button it replaces had put its own `minHeight: 44` on
         the same job by hand.
 
-        THE LABEL IS BUILT AND NOT WRITTEN, because two of its three arms are
-        reachable. The book ships motives and features on all 129 adversaries,
-        so `MOTIVES & FEATURES` is what a GM will see - but the dataset is
-        replaceable (Settings can load a rulebook of the table's own), and a
-        fold labelled for what is not inside it is worse than one word longer.
+        THE LABEL IS BUILT AND NOT WRITTEN, and as of database version 3 only
+        one of its three arms is reachable. MARKED RATHER THAN COLLAPSED - see
+        below for why it is still built.
+
+        The argument used to be that the SRD alone did not fix what is in here:
+        the book ships motives and features on all 129 adversaries, so
+        `MOTIVES & FEATURES` is what a GM sees, but a Core Rulebook layer could
+        add an adversary the SRD does not have, and that one might carry only
+        the one field. Every step of that is now gone. Nothing can import a
+        rulebook, no new layer can be made, and version 3 deletes the layers
+        devices were still carrying, so `s.dataset.adversaries` is exactly the
+        129 - verified, and none of the 129 has an empty `motives` or an empty
+        `features`. Both single-word arms are dead, and so is the outer guard's
+        false side.
+
+        Kept because collapsing them would be a bet on the dataset, and there
+        is a known change to it in flight: the SRD 2 work brings 311 statblocks
+        against these 148, on parsers that do not exist yet. A branch that is
+        unreachable because of what the data happens to hold is not the same as
+        one that is unreachable by construction, and this is the first kind.
+        Deleting it would have to be undone by whoever finds the first statblock
+        that carries one field.
+
+        A fold labelled for what is not inside it is worse than one word longer.
         The guard is the same shape: no motives and no features, no fold.
 
         THE SUMMARY COUNTS RATHER THAN NAMES. That is the one thing the fold

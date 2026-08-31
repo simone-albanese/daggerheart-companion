@@ -133,7 +133,6 @@ import { CharacterSheet } from '../../src/ui/print/CharacterSheet.tsx';
 import { buildSheet } from '../../src/ui/print/sheetModel.ts';
 import { CoinRow, PrintDomainMark, TickRow } from '../../src/ui/print/marks.tsx';
 import { About } from '../../src/ui/settings/About.tsx';
-import { ReconciliationReport, Rulebook } from '../../src/ui/settings/Rulebook.tsx';
 import { Settings } from '../../src/ui/settings/Settings.tsx';
 import { Receiver, Transfer } from '../../src/ui/settings/Transfer.tsx';
 import {
@@ -845,18 +844,6 @@ const COMPONENTS: Record<string, () => ReactElement> = {
   'print/marks.tsx::CoinRow': () => <CoinRow count={3} />,
 
   'settings/About.tsx::About': () => <About />,
-  'settings/Rulebook.tsx::Rulebook': () => <Rulebook phone={false} />,
-  'settings/Rulebook.tsx::ReconciliationReport': () => (
-    <ReconciliationReport
-      report={{
-        kinds: [],
-        totals: { matched: 0, manualOnly: 0, srdOnly: 0, suggested: 0 },
-        unread: [],
-        empty: true,
-      }}
-      onDismiss={noop}
-    />
-  ),
   'settings/Settings.tsx::Settings': () => <Settings />,
   'settings/Transfer.tsx::Transfer': () => <Transfer />,
   // The camera half on its own, which the first run's import door mounts

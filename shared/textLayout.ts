@@ -2,8 +2,16 @@
  * De-columnisation: turn positioned words into a correctly ordered line
  * stream, one entry per printed book page.
  *
- * Shared by the build pipeline (SRD) and the runtime importer (Core Rulebook),
- * so it must not import anything Node-specific.
+ * Written to be shared by the build pipeline (SRD) and the runtime Core
+ * Rulebook importer, which is why it imports nothing Node-specific.
+ *
+ * The importer has been removed, so today every consumer - `tools/loadSrd.ts`,
+ * `tools/dumpLayout.ts` and `shared/parsers/*` - runs under Node at build time,
+ * and nothing in `src/` reaches this file at all. The constraint is therefore
+ * no longer load-bearing; it is left standing rather than relaxed, because
+ * relaxing it is a decision about where this module lives (it and the parsers
+ * under it are now build-time code sitting in `shared/`), and that is a
+ * separate question from removing an importer.
  *
  * THE THREE THINGS THAT MAKE THIS NON-TRIVIAL
  * -------------------------------------------

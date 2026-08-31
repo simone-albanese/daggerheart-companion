@@ -218,9 +218,12 @@ describe('the nav and the readout share one line', () => {
    * buttons kept their size and painted outside it. The right group is the later
    * sibling in the same stacking context, so it was painted over the nav and won
    * the hit test. Measured in Chrome at 744x1133: GM 100% covered, BUILD 73%,
-   * and `document.elementFromPoint` at either centre returning the "SRD ONLY ·
-   * NO ART" span. jsdom computes no layout, so it can see none of that, and the
-   * whole occlusion is exactly why it survived a repo with 2292 tests.
+   * and `document.elementFromPoint` at either centre returning the dataset
+   * span, which then read "SRD ONLY · NO ART" and reads "SRD ONLY" since the
+   * Core Rulebook importer was removed - a separator and two words narrower
+   * than what was measured, in a band where it is not drawn at all. jsdom
+   * computes no layout, so it can see none of that, and the whole occlusion is
+   * exactly why it survived a repo with 2292 tests.
    *
    * What jsdom *can* hold is the rule the fix is made of, which is a rule about
    * what is rendered rather than about where: the two things that were fighting
@@ -284,8 +287,19 @@ describe('the nav and the readout share one line', () => {
         width >= 720 ? ['Play', 'Cards', 'Build', 'GM', 'Search'] : [],
       );
 
-      // The dataset line and the library count, either wording of the first.
-      const readout = /SRD ONLY · NO ART|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
+      // Is the readout drawn at all - that is the whole question, and the
+      // result below is compared against nothing but the width. So this is
+      // three ways of finding the same strip rather than an assertion about
+      // its wording: the dataset span, either wording of it, and the library
+      // count beside it.
+      //
+      // `SRD ONLY` is now a constant. `SRD + CORE RULEBOOK` was the other half
+      // of a conditional on an imported layer, and it went with `hasManual`
+      // when the Core Rulebook importer was removed - no device can draw it
+      // again. It stays in the pattern because narrowing the pattern would not
+      // buy this test anything it asks for, and would turn a question about
+      // whether the strip is drawn into one about what it says.
+      const readout = /SRD ONLY|SRD \+ CORE RULEBOOK|LOCAL ·/.test(
         container.textContent ?? '',
       );
       expect(

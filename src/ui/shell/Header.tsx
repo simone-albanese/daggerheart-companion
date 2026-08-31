@@ -18,8 +18,11 @@
  *
  * Measured in Chrome at 744x1133 with a one-character library: the left group's
  * contents want a constant 330px and are allotted 210, GM is painted x295.9-349.8
- * and is 100% covered by the "SRD ONLY · NO ART" span, BUILD is 73% covered, and
- * `document.elementFromPoint` at either button's own centre returns the span.
+ * and is 100% covered by the dataset span - which then read "SRD ONLY · NO ART",
+ * and reads "SRD ONLY" since the Core Rulebook importer was removed, so the
+ * measurement is of a span a separator and two words wider than today's - BUILD
+ * is 73% covered, and `document.elementFromPoint` at either button's own centre
+ * returns the span.
  * The centre of GM is dead from 720 through 828, the last covered pixel goes at
  * 856, and the line stops being over-subscribed at 864. Below 720 none of this
  * exists, because the nav is not drawn and `TabBar` carries the same
@@ -31,9 +34,11 @@
  * clean width is 856 and inventing an 856 or an 864 breakpoint here is precisely
  * the drift `useLayout.ts` was written to stop, so this uses the band boundary
  * that already exists. What a tablet loses is said out loud rather than
- * discovered: Settings > Rulebook prints the same total, `CompatibleIcon` is
- * unconditional at every width, and `LicenceFooter` still ends every screen's
- * own scroll.
+ * discovered: the library count is the one number in the readout a tablet no
+ * longer sees, and Settings > Characters is where it is counted anyway;
+ * `CompatibleIcon` is unconditional at every width, and `LicenceFooter` still
+ * ends every screen's own scroll. (This used to point at Settings > Rulebook,
+ * which printed the dataset total. That screen went with the importer.)
  *
  * ## The display cutout, which this bar has never paid for
  *
@@ -332,7 +337,6 @@ export function Header({
   const characters = useApp((s) => s.characters);
   const activeId = useApp((s) => s.activeId);
   const select = useApp((s) => s.select);
-  const layers = useApp((s) => s.layers);
   const active = useActive();
   const index = useApp((s) => s.index);
   const prefs = useApp((s) => s.prefs);
@@ -342,7 +346,6 @@ export function Header({
   const phone = layout === 'phone';
   const desktop = layout === 'desktop';
 
-  const hasManual = layers.some((l) => l.priority > 0);
   /*
    * The same filter the tab bar applies, for the same reason and by the same
    * rule: this nav is the desktop's only navigation, so an entry pointing at a
@@ -484,14 +487,36 @@ export function Header({
          * wide - GM, the narrowest, clears the 44px floor in both axes - so
          * nothing here needs to grow. It needs to stop being painted over.
          *
-         * What is given up: a tablet no longer sees at a glance whether the
-         * Core Rulebook import landed. The phone band has never shown it,
-         * Settings > Rulebook prints the same total, and the alternative was
-         * shrinking or wrapping a nav that is 44px on purpose.
+         * What is given up: a tablet no longer sees the dataset line or the
+         * library count at a glance. The phone band has never shown either, and
+         * the alternative was shrinking or wrapping a nav that is 44px on
+         * purpose. This paragraph used to say the tablet lost sight of whether
+         * the Core Rulebook import had landed, and pointed at Settings >
+         * Rulebook for the same total; there is no import and no such screen
+         * now, and what the span still answers is the smaller question below.
          */}
         {desktop && (
           <>
-            <span className="t-meta">{hasManual ? 'SRD + CORE RULEBOOK' : 'SRD ONLY · NO ART'}</span>
+            {/*
+             * A constant now, and kept as a line rather than deleted.
+             *
+             * It was a question with two answers: `SRD + CORE RULEBOOK` when a
+             * layer sat over the SRD, `SRD ONLY` when none did. Nothing could
+             * write a layer after the importer went, and version 3 of the
+             * database deletes the ones already written, so no device can
+             * answer the first thing again and the conditional was a branch
+             * with one reachable side - the kind that reads as though some
+             * other state exists and invites a search for the screen that
+             * produces it. There is none.
+             *
+             * The sentence stays because it is not about the manual: it tells
+             * the reader which body of rules the app in front of them is
+             * drawing from, and that is worth saying plainly at the moment it
+             * has become a single answer. It is also the line the SRD 2 work
+             * will edit rather than reintroduce, and a literal is a clearer
+             * thing to edit than a predicate over an empty array.
+             */}
+            <span className="t-meta">SRD ONLY</span>
             <span style={{ color: 'var(--line)' }}>|</span>
             <span className="t-meta">
               LOCAL · {characters.length} CHARACTER{characters.length === 1 ? '' : 'S'}

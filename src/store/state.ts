@@ -7,7 +7,7 @@
  * instant, and a lost 400ms of typing is not worth a synchronous write.
  */
 import { create } from 'zustand';
-import type { Character, Counter, Dataset, DomainCard, Layer } from '../../shared/types.ts';
+import type { Character, Counter, Dataset, DomainCard } from '../../shared/types.ts';
 import {
   COUNTER_CEILINGS,
   deriveStats,
@@ -20,7 +20,7 @@ import {
 import { dropFormOnLastHitPoint } from '../engine/beastform.ts';
 import type { DualityResult } from '../engine/dice.ts';
 import * as db from './db.ts';
-import { baseDataset, loadDataset, SRD_LAYER } from './dataset.ts';
+import { baseDataset, loadDataset } from './dataset.ts';
 import { decideImport, duplicateFor, type ImportChoice, type MergeMode } from './merge.ts';
 import { CHARACTER_NAMES, freeName, nameHolder, spokenName } from './names.ts';
 import { loadPrefs, onboardedByDoing, openingScreen, savePrefs, type Prefs } from './prefs.ts';
@@ -95,7 +95,6 @@ interface AppState {
   quarantined: db.QuarantinedRecord[];
   dataset: Dataset;
   index: DatasetIndex;
-  layers: Layer[];
 
   characters: Character[];
   activeId: string | null;
@@ -121,7 +120,6 @@ interface AppState {
   pushLog: (entry: Omit<LogEntry, 'id' | 'at'>) => void;
   clearLog: () => void;
   setOpenCard: (card: DomainCard | null) => void;
-  reloadDataset: () => Promise<void>;
 }
 
 const LOG_LIMIT = 60;
@@ -306,7 +304,6 @@ export const useApp = create<AppState>((set, get) => ({
   quarantined: [],
   dataset: baseDataset,
   index: indexDataset(baseDataset),
-  layers: [SRD_LAYER],
   characters: [],
   activeId: null,
   screen: 'play',
@@ -374,13 +371,15 @@ export const useApp = create<AppState>((set, get) => ({
         error instanceof Error ? error.message : 'This browser’s storage could not be read';
     }
 
-    let resolved;
-    try {
-      resolved = await withDeadline(loadDataset(), 'The dataset');
-    } catch {
-      // The SRD is compiled into the bundle; only the optional layers are lost.
-      resolved = { dataset: baseDataset, index: indexDataset(baseDataset), layers: [SRD_LAYER] };
-    }
+    /*
+     * No deadline and no catch, because there is no longer anything here that
+     * can be slow or absent. This awaited `loadDataset()` behind the same
+     * eight-second timer as the library and fell back to the bare SRD when it
+     * expired - a fallback that was reading `layers` and `content` out of
+     * IndexedDB. Version 3 deletes those stores, so the dataset is the bundle
+     * and the bundle is already in memory by the time this line runs.
+     */
+    const resolved = loadDataset();
 
     set({
       ready: true,
@@ -388,7 +387,6 @@ export const useApp = create<AppState>((set, get) => ({
       quarantined,
       dataset: resolved.dataset,
       index: resolved.index,
-      layers: resolved.layers,
       characters,
       activeId: characters.find((c) => c.id === prefs.lastCharacterId)?.id ?? characters[0]?.id ?? null,
       prefs,
@@ -677,11 +675,6 @@ export const useApp = create<AppState>((set, get) => ({
 
   setOpenCard(card) {
     set({ openCard: card });
-  },
-
-  async reloadDataset() {
-    const resolved = await loadDataset();
-    set({ dataset: resolved.dataset, index: resolved.index, layers: resolved.layers });
   },
 }));
 

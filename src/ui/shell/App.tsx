@@ -59,7 +59,7 @@ import { useIsPhone } from '../shared/useLayout.ts';
 import { Play } from '../player/Play.tsx';
 import { Cards } from '../player/Cards.tsx';
 import { Onboarding } from '../onboarding/Onboarding.tsx';
-import { createWakeLock, registerServiceWorker, warmImporterCache } from '../../pwa/register.ts';
+import { createWakeLock, registerServiceWorker } from '../../pwa/register.ts';
 import { needsPasteboardBridge } from '../../transfer/pasteboard.ts';
 import { SHELL_BLOCK_MARGIN } from './gutter.ts';
 import { AppBoundary } from './AppBoundary.tsx';
@@ -74,8 +74,8 @@ import { UpdateBanner } from './UpdateBanner.tsx';
 
 // Play and Cards are what a session actually uses, so they ship in the shell.
 // Build, GM and Settings are large, rarely open at the table, and each pulls in
-// something heavy of its own (the wizard, the bestiary, pdf.js and the QR
-// codec). Splitting them keeps first paint small and - just as usefully - means
+// something heavy of its own (the wizard, the bestiary and the QR codec).
+// Splitting them keeps first paint small and - just as usefully - means
 // a failure inside one of them cannot take the sheet down with it.
 // Search is split with them and not with Play, and it is the one that sits
 // across the stated line: it *is* opened at the table, which is the whole
@@ -248,21 +248,6 @@ function Shell(): React.JSX.Element {
       lock.dispose();
     };
   }, [prefs.wakeLock]);
-
-  // The importer's pdf.js worker is not in the install-time precache; a device
-  // that could actually run the importer asks for it here, once, so the
-  // feature still works offline without charging every phone half a megabyte
-  // for something it is not allowed to use. Loaded dynamically so the check
-  // itself costs the shell nothing.
-  useEffect(() => {
-    void import('../../import/index.ts')
-      .then(({ importCapability }) => {
-        if (importCapability().supported) warmImporterCache();
-      })
-      .catch(() => {
-        // The importer is optional; failing to pre-warm it is not an error.
-      });
-  }, []);
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = prefs.theme;

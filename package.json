@@ -22,7 +22,6 @@
   "dependencies": {
     "idb": "^8.0.3",
     "jsqr": "^1.4.0",
-    "pdfjs-dist": "^5.4.149",
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

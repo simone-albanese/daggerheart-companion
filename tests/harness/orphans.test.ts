@@ -83,7 +83,6 @@ const DELIBERATE: Record<string, string> = {
   'engine/dice.ts::seededRng': 'Injected by tests and tools/simulate.ts; the app must use the real RNG.',
   'transfer/registry.ts::bandFor': 'tools/buildRegistry.ts builds registry.json; the app only reads it.',
   'transfer/registry.ts::REGISTRY_VERSION': 'Written by tools/buildRegistry.ts, checked by createRegistry on load.',
-  'import/pdfRuns.ts::pageText': 'A probe for the parser tests; the importer reads positioned runs.',
   'transfer/codec.ts::isDeflated': 'Diagnostics: it tells a test which branch the encoder took.',
   'transfer/qr.ts::qrModulesForVersion': 'Arithmetic the QR tests assert against directly.',
   'transfer/frames.ts::MAX_PAYLOAD_BYTES': 'The derived ceiling; the offer-a-file threshold is FILE_PREFERRED_ABOVE.',

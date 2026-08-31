@@ -17,8 +17,29 @@ import { clearAll, type StorageHealth } from '../../store/db.ts';
 import { DEFAULT_PREFS, savePrefs } from '../../store/prefs.ts';
 import { useApp } from '../../store/state.ts';
 import { ATTRIBUTION } from '../shared/CompatibleMark.tsx';
-import { formatBytes } from './binaryFiles.ts';
 import { Field, Note, Rows, Section } from './parts.tsx';
+
+/**
+ * Sizes a person can read.
+ *
+ * Rounded whole megabytes call a 400 KB store "0 MB", which is the one thing
+ * this must not print on a screen whose job is to tell someone how much of
+ * their device their characters are using.
+ *
+ * It lived in `settings/binaryFiles.ts` until the Core Rulebook importer was
+ * removed. That file's other two functions - a picker that took a 319 MB PDF
+ * without reading it, and a saver that handed back a 20 MB art pack - existed
+ * for the importer alone and went with it. This is not about binary files at
+ * all; it is about the storage estimate a few lines below, which is its only
+ * caller, so it lives here now rather than in a module named for an argument
+ * that no longer applies to it.
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1_048_576) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1_073_741_824) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+  return `${(bytes / 1_073_741_824).toFixed(1)} GB`;
+}
 /*
  * The two licence texts, compiled into this chunk rather than fetched.
  *
@@ -398,10 +419,23 @@ export function About({
           nothing here is pinned, no target shrank, and the only 44px control on
           the row is the one the sentence explains. Headroom before a sixth line
           on the 194px column: 28 characters.
+
+          EVERY FIGURE ABOVE WAS MEASURED AGAINST THE LONGER SENTENCE, the one
+          that also enumerated "every imported source, all art". Database
+          version 3 deletes those three stores, so `clearAll` reaches two stores
+          and naming five would be a promise about bytes that are not there. The
+          sentence lost 32 characters - 152 to 120. Not 30: what came out is
+          ", every imported source, all art", and the joining comma and space
+          went with the phrase. It gained nothing, so every conclusion here is
+          now an upper bound that still holds - fewer lines, never more, and a
+          wrap that fitted cannot stop fitting. The figures are NOT
+          re-derived, because none of them was re-measured: they are marked as
+          belonging to the sentence they were taken from. Anyone who lengthens
+          this hint again measures it again from scratch.
         */}
         <Field
           label="Reset everything"
-          hint="Deletes every character, every campaign, every imported source, all art and every preference on this device. There is no undo and no copy anywhere else."
+          hint="Deletes every character, every campaign and every preference on this device. There is no undo and no copy anywhere else."
         >
           {!confirming && (
             <button

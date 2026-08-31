@@ -101,21 +101,14 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           // The dataset is the one asset worth its own chunk: immutable,
-          // large, and precached independently of the app shell. pdf.js is
-          // deliberately absent - it lives only inside the import worker,
-          // which rollup already emits as its own bundle, so naming a chunk
-          // for it here only produced an empty file.
+          // large, and precached independently of the app shell. It is now the
+          // only one. pdf.js used to be the other large thing this build
+          // emitted and it was never named here either - it lived inside the
+          // import worker, which rollup emitted as its own bundle - and the
+          // importer, the worker and the dependency have all been removed.
           return id.includes('data/srd-1.0.json') ? 'srd' : undefined;
         },
       },
     },
-  },
-  worker: {
-    format: 'es',
-    // Name it for what it is. The service worker holds this chunk back from
-    // the install-time precache - it is pdf.js, and the importer it serves is
-    // desktop-only - and a rule keyed on "worker-" would quietly catch any
-    // future worker too. The intent belongs in the filename.
-    rollupOptions: { output: { entryFileNames: 'assets/import-worker-[hash].js' } },
   },
 });

@@ -31,10 +31,21 @@ function stubEnvironment(options: { controller?: boolean; failRegister?: boolean
   const registration = emitter();
   const worker = emitter();
   const posted: unknown[] = [];
+  // Kept apart from `posted` on purpose. `posted` is the update seam's channel
+  // and the tests below assert it holds exactly one message; the hello goes to
+  // a different worker for a different reason, and folding the two together
+  // would cost those assertions their exactness.
+  const greetings: unknown[] = [];
   const state = { worker: 'installing' as ServiceWorkerState };
   const reg = {
     ...registration,
     installing: { ...worker, postMessage: (m: unknown) => posted.push(m), get state() { return state.worker; } },
+    // The worker already running. `ready` resolves to the registration in every
+    // browser that has service workers at all, and the module posts its `hello`
+    // through it - so a fixture without one is not a stricter environment, it is
+    // an impossible one, and it was failing every test in this file on a
+    // `.then` of undefined rather than on anything the module got wrong.
+    active: { postMessage: (m: unknown) => greetings.push(m) },
     waiting: null,
     update: vi.fn(async () => {}),
   };
@@ -46,6 +57,7 @@ function stubEnvironment(options: { controller?: boolean; failRegister?: boolean
     serviceWorker: {
       ...container,
       controller: options.controller === false ? null : {},
+      ready: Promise.resolve(reg),
       register: vi.fn(async () => {
         if (options.failRegister) throw new Error('registration refused');
         return reg;
@@ -56,6 +68,7 @@ function stubEnvironment(options: { controller?: boolean; failRegister?: boolean
   return {
     reg,
     posted,
+    greetings,
     reloads,
     container,
     /** The browser's sequence: a worker appears, installs, then waits. */
@@ -68,6 +81,38 @@ function stubEnvironment(options: { controller?: boolean; failRegister?: boolean
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('saying hello, which is what rebuilds a reclaimed precache', () => {
+  /*
+   * The worker can only check its own caches when something wakes it, and a
+   * browser that reclaims Cache Storage does not install a new worker
+   * afterwards - so `activate`, the only other caller of `ensurePrecached`, is
+   * never coming round again. The page that has just loaded is not controlled
+   * by it either, so its navigation did not reach the worker.
+   *
+   * This post is therefore the whole of the fix for a production case where an
+   * activated worker sat on an empty `dhc-shell-v1`, one flight from a white
+   * screen. It used to ride on `warm-importer`, posted only by a desktop that
+   * had decided it could run the Core Rulebook importer; the importer is gone
+   * and this is not, which is the point of asserting it here rather than
+   * leaving it to be deleted as importer leftovers next time someone greps.
+   */
+  it('posts hello to the active worker as soon as the registration is ready', async () => {
+    const env = stubEnvironment();
+    const handle = registerServiceWorker();
+    await handle.check();
+    await Promise.resolve();
+
+    expect(env.greetings).toEqual([{ type: 'hello' }]);
+    handle.dispose();
+  });
+
+  it('does not post it where there are no service workers at all', async () => {
+    vi.stubGlobal('self', { isSecureContext: true });
+    vi.stubGlobal('navigator', {});
+    expect(() => registerServiceWorker()).not.toThrow();
+  });
+});
 
 describe('registerServiceWorker', () => {
   it('offers the update once a new worker is installed behind a live controller', async () => {

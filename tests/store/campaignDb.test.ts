@@ -55,21 +55,28 @@ const writeRaw = async (record: Record<string, unknown>): Promise<void> => {
 };
 
 describe('the upgrade that adds the store', () => {
-  it('creates all five stores on a device that has never run the app', async () => {
+  it('creates two stores on a device that has never run the app', async () => {
+    // Asserted here as well as in `db.test.ts` because this file is about the
+    // store that arrived, and the list is the one place the two halves of a
+    // schema change - what version 2 added and what version 3 took away - are
+    // visible as a single answer.
     const database = await db.db();
-    expect([...database.objectStoreNames].sort()).toEqual([
-      'art',
-      'campaigns',
-      'characters',
-      'content',
-      'layers',
-    ]);
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
   });
 
-  it('adds campaigns to a device that already has the version 1 database', async () => {
-    // The case the `oldVersion` branch exists for, and the one no test could
-    // reach before there was a second version. A device with a character on it
-    // must arrive at version 2 with that character still in it.
+  it('adds campaigns and drops the manual on a device still at version 1', async () => {
+    /*
+     * The case the `oldVersion` branch exists for, and the one no test could
+     * reach before there was a second version. A device with a character on it
+     * must arrive at the current version with that character still in it.
+     *
+     * It is also the release-skipping path, which is the ordinary case for an
+     * app people open every few weeks: this device never ran version 2, so both
+     * the block that adds `campaigns` and the block that deletes the manual's
+     * three stores have to run, in order, in one versionchange transaction. A
+     * device that goes 1 -> 3 in a single open is not the same code path as one
+     * that went 1 -> 2 -> 3 across two releases, and only this test walks it.
+     */
     const first = indexedDB.open(db.DB_NAME, 1);
     await new Promise((resolve, reject) => {
       first.onupgradeneeded = () => {
@@ -92,8 +99,9 @@ describe('the upgrade that adds the store', () => {
     });
 
     const database = await db.db();
-    expect(database.version).toBe(2);
+    expect(database.version).toBe(3);
     expect([...database.objectStoreNames]).toContain('campaigns');
+    expect([...database.objectStoreNames].sort()).toEqual(['campaigns', 'characters']);
     expect(await database.count('characters')).toBe(1);
   });
 

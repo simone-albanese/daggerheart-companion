@@ -1367,9 +1367,13 @@ an explicit choice rather than an accident.
       shipped files, 66 KB, matching neither `isShell` nor `isImmutable`, and
       `JS_IMPORTS` only matches `.js`/`.css` so the scanner never sees them.
       Offline, the compatibility mark in the header is a broken image.
-- [ ] **Activation prunes the cached importer chunk before refetching it**
+- [x] ~~**Activation prunes the cached importer chunk before refetching it**
       (`sw.js:106`), so accepting an update while offline loses the offline
-      importer until the next online launch.
+      importer until the next online launch.~~ — **closed by removal,
+      `b35523d`**: the importer, its worker chunk and `pdfjs-dist` are gone, so
+      there is no deferred chunk for activation to prune. That same prune is now
+      what sweeps the stale 1.6 MB off a device that cached it before the
+      removal, which `tests/pwa/serviceWorker.test.ts` asserts offline.
 - [ ] **The "no skipWaiting, the user decides" comment is not what the code
       does** (`sw.js:85`). Make it true or correct the comment.
 - [ ] **The SRD is a static import of the entry chunk**: 909,900 B raw /
@@ -3761,16 +3765,30 @@ or a scope the gate had no mandate to open. They are here so they are visible as
 Verified, and listed so effort goes where it is needed.
 
 - **The privacy promise is literally true.** Exactly one `fetch()` family in the
-  whole tree (`public/sw.js:189, 209, 385`), all inside the service worker, all
-  gated on same-origin and same-path. Zero `XMLHttpRequest`, `WebSocket`,
-  `sendBeacon`, `EventSource`, remote `import()`, external fonts, external
-  images, analytics. pdf.js is given a range transport with no `cMapUrl` and no
-  `standardFontDataUrl`, so it never fetches either. The strongest claim in the
-  README, and it holds.
+  whole tree — three call sites, all inside `public/sw.js`, all gated on
+  same-origin and same-path. Zero `XMLHttpRequest`, `WebSocket`, `sendBeacon`,
+  `EventSource`, remote `import()`, external fonts, external images, analytics.
+  The strongest claim in the README, and it holds. *(The line numbers that stood
+  here named the wrong lines and had done for some time — they are not replaced
+  with today's, because that is the same mistake with a longer fuse. The
+  sentence that followed them, ~~pdf.js is given a range transport with no
+  `cMapUrl` and no `standardFontDataUrl`, so it never fetches either~~, was the
+  one dependency this bullet had to make an exception for; `b35523d` removed it,
+  so the count is now three and the exception is gone.)*
 - **Not one HTML injection sink.** Zero hits for `dangerouslySetInnerHTML`,
   `innerHTML`, `insertAdjacentHTML`, `DOMParser`, `document.write`, `eval`,
-  `new Function`. Every decoded string reaches the DOM as a React child. Art
-  blobs are pinned to `image/webp` before `createObjectURL`.
+  `new Function`. Every decoded string reaches the DOM as a React child.
+  *(~~Art blobs are pinned to `image/webp` before `createObjectURL`~~ —
+  **moot since `b35523d`**: the two calls that minted an object URL for a
+  picture were the art pipeline's and the card view's, and both went with the
+  importer. **Two** `createObjectURL` calls are left in the tree, not one: the
+  save route in `src/transfer/fileIo.ts` and the rescue hatch in `index.html`.
+  Both mint a `blob:` for a file the user is saving, hand it to an
+  `<a download>`, and never render it; `fileIo.ts` names the API once more in a
+  `typeof` capability probe, which mints nothing. No line numbers, for the
+  reason the bullet above gives. The scope here is the whole tree, `index.html`
+  included — it carries no sink from the list above either, its only two `eval`
+  matches being the words "evaluating" and "evaluate" in its own comments.)*
 - **The binary decoders resist the classic attacks.** Every count-driven loop
   consumes at least one byte, so a declared count of 2^50 terminates with a
   `CodecError` instead of allocating. Offsets are checked against the payload
@@ -3786,8 +3804,11 @@ Verified, and listed so effort goes where it is needed.
   prevented. ~~Fix the `brand/` gap in P3-3~~ — **done, `13981ff`..`38372ae`**
   (the reference was to P3-4, not P3-3). `brand/` is precached and routed, the
   precache test now derives its expectation from what Vite emitted rather than
-  from three guesses, and the importer chunk is refetched before it is pruned.
-  This file is finished.
+  from three guesses. ~~and the importer chunk is refetched before it is
+  pruned~~ — **undone by `b35523d`, on purpose**: there is no importer chunk to
+  hold back, so nothing is deferred and nothing is refetched, and the prune that
+  used to be the hazard is now the mechanism that takes the stranded 1.6 MB of
+  pdf.js off a device that had cached it. This file is finished.
 - **The transfer format has room to spare.** Over all 3240 buildable characters:
   median 540 bytes, p95 687, max 842. Not one needs more than 5 QR frames of the
   15 the architecture allows — the worst case would have to grow 221 % to reach

@@ -197,10 +197,11 @@ function redeploy(app: ReturnType<typeof world>): void {
     [...app.files.keys()]
       .filter((path) => /\/assets\/.+\.(js|css)$/.test(path))
       .map((path, i) => {
-        // Only the hash moves. Cutting from the first hyphen would rename
-        // `import-worker-<hash>.js` to `import-<n>.js` and the fixture would
-        // stop modelling a real deploy: a Vite hash can itself contain a
-        // hyphen, so the boundary is the last one before the extension.
+        // Only the hash moves, and the boundary is the last hyphen before the
+        // extension rather than the first: a Vite hash can itself contain a
+        // hyphen, and cutting at the first would rename `import-worker-<hash>.js`
+        // to `import-<n>.js`. That chunk went with the Core Rulebook importer,
+        // but the rule it forced is about hashes, not about that file.
         const name = path.split('/').pop()!;
         const dot = name.indexOf('.');
         const stem = name.slice(0, dot);
@@ -251,18 +252,24 @@ describe('service worker, against what the build actually emitted', () => {
     // Not "the chunks index.html names" - all of them. A screen behind a lazy
     // import is named nowhere in the document and is still part of the app.
     //
-    // The one exception is the importer's worker, which is pdf.js and more
-    // than half of everything shipped. It is held back until a client that can
-    // actually run the importer asks for it, so a phone - where the importer
-    // is disabled outright - never pays for it.
+    // Every one, with no exception. There used to be one: the Core Rulebook
+    // importer's worker was pdf.js, more than half of everything shipped, and
+    // it was held back until a client that could actually run the importer
+    // asked for it. The importer, the chunk and the dependency are gone, so the
+    // precache and the build agree exactly, and this asserts that rather than
+    // an emptied-out exception nobody would notice going stale.
     const emitted = app.emitted(/\/assets\/.+\.(js|css)$/);
-    const deferred = emitted.filter((url) => /\/import-worker-/.test(url));
-    expect(deferred, 'this build emits no importer worker; the split below is untested').toHaveLength(1);
-    expect(app.cached(ASSETS)).toEqual(emitted.filter((url) => !deferred.includes(url)));
+    expect(emitted.length, 'this build emitted no assets; the assertion below is empty').toBeGreaterThan(0);
+    expect(app.cached(ASSETS)).toEqual(emitted);
     expect(app.cached(ASSETS).filter((url) => /\/srd-/.test(url)), 'the SRD chunk is the whole point').toHaveLength(1);
-    // pdf.js names "./qcms_bg.js", which is no file of ours - and holding the
-    // worker back means its strings are never scanned, so the app never asks
-    // about it at all. That is the deferral paying for itself twice.
+    expect(
+      emitted.filter((url) => /\/import-worker-/.test(url)),
+      'the importer worker is still being emitted; the removal is incomplete',
+    ).toHaveLength(0);
+    // pdf.js was the one dependency that named a file this app does not ship
+    // ("./qcms_bg.js"), and the name scanner asked the server about it once it
+    // was cached. Nothing emits that string now, so no navigation can produce
+    // the request - which is the deferral's second job outliving the deferral.
     await app.dispatch('activate');
     await app.navigate(BASE);
     await app.navigate(BASE);
@@ -290,7 +297,6 @@ describe('service worker, against what the build actually emitted', () => {
     const indexHtml = readFileSync(join(dist, 'index.html'), 'utf8');
     const unnamed = app
       .emitted(/\/assets\/.+\.js$/)
-      .filter((url) => !/\/import-worker-/.test(url))
       .filter((url) => !indexHtml.includes(url.split('/').pop()!));
     expect(
       unnamed.length,
@@ -383,8 +389,7 @@ describe('service worker, against what the build actually emitted', () => {
     expect((await app.navigate(`${BASE}play/some-character`)).response?.status).toBe(200);
 
     const lazy = app
-      .emitted(/\/assets\/(?!index-|srd-)[A-Za-z]+-.+\.js$/)
-      .filter((url) => !/\/import-worker-/.test(url));
+      .emitted(/\/assets\/(?!index-|srd-)[A-Za-z]+-.+\.js$/);
     expect(lazy.length, 'this build has no lazy chunks; the assertion below is empty').toBeGreaterThan(0);
     for (const url of lazy) {
       const hit = await app.get(new URL(url).pathname);
@@ -408,6 +413,14 @@ describe('service worker, against what the build actually emitted', () => {
    * nothing had precached in that profile for days. The empty cache was opened
    * by `warmImporter` - a *read* - and the app was one flight away from being
    * a white screen.
+   *
+   * The client event that carried the fix was `warm-importer`, posted by a
+   * desktop that had just decided it could run the Core Rulebook importer. The
+   * importer has been removed; this had nothing to do with it beyond sharing
+   * its message, so the message is now `hello` and every page posts it. The
+   * property is unchanged and so is the reason it cannot be tested through a
+   * navigation: the page that has just loaded is not controlled by this worker
+   * yet, so its navigation never reached it.
    */
   it('rebuilds a precache the browser reclaimed, rather than sit on an empty cache', async () => {
     const app = world(dist);
@@ -416,16 +429,12 @@ describe('service worker, against what the build actually emitted', () => {
     expect(app.cached(SHELL)).toContain(`${ORIGIN}${BASE}index.html`);
 
     app.reclaimStorage();
-    // A desktop client saying hello, which is every event this worker gets
-    // while it is activated but not yet controlling the page that just loaded.
-    await app.post({ type: 'warm-importer' });
+    // A client saying hello, which is every event this worker gets while it is
+    // activated but not yet controlling the page that just loaded.
+    await app.post({ type: 'hello' });
 
     expect(app.cached(SHELL), 'the document is back').toContain(`${ORIGIN}${BASE}index.html`);
     expect(app.cached(ASSETS).some((url) => /\/srd-/.test(url)), 'and the dataset with it').toBe(true);
-    expect(
-      app.cached(ASSETS).some((url) => /\/import-worker-/.test(url)),
-      'and the client got the importer it actually asked for',
-    ).toBe(true);
 
     app.net.online = false;
     expect((await app.navigate(BASE)).response?.status, 'so the app still opens in flight mode').toBe(200);
@@ -449,41 +458,9 @@ describe('service worker, against what the build actually emitted', () => {
     app.reclaimStorage();
     app.net.online = false;
 
-    await app.post({ type: 'warm-importer' });
+    await app.post({ type: 'hello' });
 
     expect(app.warnings.join(' ')).toContain('precache');
-  });
-
-  it('fetches the importer worker only when a client says it can use it', async () => {
-    const app = world(dist);
-    await app.dispatch('install');
-    await app.dispatch('activate');
-
-    const worker = app.emitted(/\/assets\/import-worker-.+\.js$/)[0]!;
-    const path = new URL(worker).pathname;
-
-    // Before anyone asks: not cached, and offline it is simply absent - which
-    // is correct, because the device that did not ask is the device that
-    // cannot run the importer anyway.
-    expect(app.cached(ASSETS)).not.toContain(worker);
-    app.net.online = false;
-    expect((await app.get(path)).response?.status).toBeUndefined();
-
-    // A desktop client asks. After that it is offline-complete like the rest.
-    app.net.online = true;
-    await app.post({ type: 'warm-importer' });
-    expect(app.cached(ASSETS)).toContain(worker);
-
-    app.net.online = false;
-    expect((await app.get(path)).response?.status).toBe(200);
-
-    // Now that pdf.js is cached, its "./qcms_bg.js" string is in reach of the
-    // name scanner. Asking the server about it once is the cost; asking on
-    // every navigation would not be.
-    app.net.online = true;
-    await app.navigate(BASE);
-    await app.navigate(BASE);
-    expect(app.net.requests.filter((p) => p.includes('qcms')).length).toBeLessThanOrEqual(1);
   });
 
   it('leaves alone everything that is not the app', async () => {
@@ -517,9 +494,6 @@ describe('service worker, against what the build actually emitted', () => {
     const app = world(dist);
     await app.dispatch('install');
     await app.dispatch('activate');
-    // Warm the importer first, so the update path is tested with it present:
-    // a device that asked for it once must not lose it to a deploy.
-    await app.post({ type: 'warm-importer' });
     const first = app.cached(ASSETS);
 
     redeploy(app);
@@ -534,44 +508,55 @@ describe('service worker, against what the build actually emitted', () => {
     expect(after).toHaveLength(first.length);
     expect(after.every((url) => /-next\d+\./.test(url))).toBe(true);
     expect(after.some((url) => /\/srd-/.test(url)), 'the dataset is not collateral').toBe(true);
-    expect(after.some((url) => /\/import-worker-/.test(url)), 'nor is the importer').toBe(true);
   });
 
   /**
-   * Downloading an update and accepting one are two different moments, and the
-   * network is only guaranteed at the first.
+   * Removing a feature is not the same as removing it from the device.
    *
-   * A worker installs while the user is online - it cannot do otherwise, the
-   * precache is fetched - and then sits in `waiting` for as long as it takes the
-   * user to tap the prompt. That tap can land in a tunnel. Activation prunes
-   * every hashed file the new document does not name, and the importer's chunk
-   * is the one file the precache deliberately skips, so it was the one file the
-   * prune could drop with nothing left to put it back: the device came out of
-   * the tunnel with a working app and an importer that had quietly stopped
-   * existing until the next online launch.
+   * This test used to be the opposite of itself. It asserted that the Core
+   * Rulebook importer's pdf.js chunk *survived* an update accepted offline:
+   * the chunk was deliberately held out of the precache, so it was the one
+   * file activation could prune with nothing left to refetch it, and a user who
+   * took an update in a tunnel came out with an importer that had quietly
+   * stopped existing.
    *
-   * Keeping the old chunk instead would have been no fix at all - the new
-   * bundle asks for the new hash and would not have looked at it.
+   * The importer has now been removed on purpose, which turns that hazard into
+   * the mechanism. 1.6 MB of pdf.js is sitting in the asset cache of every
+   * device that ever asked for it, and no source change can reach into it. What
+   * takes it off is the ordinary prune: `pruneAssets` keeps only what the new
+   * document names, the new document names no importer, and the first
+   * activation after the update sweeps it out with the rest of the superseded.
+   *
+   * So this asserts on a cache seeded the way such a device's actually is,
+   * rather than on a build artefact - there is no longer a build that emits
+   * one. Offline, because that is the update this app has already been bitten
+   * by once, and because a sweep that needs the network is a sweep that does
+   * not happen on the device that most needs it.
    */
-  it('carries the importer through an update accepted in flight mode', async () => {
+  it('sweeps the removed importer off a device that had cached it, offline', async () => {
     const app = world(dist);
     await app.dispatch('install');
     await app.dispatch('activate');
-    await app.post({ type: 'warm-importer' });
+
+    // The device as it was left by the last build that had an importer.
+    const stranded = `${ORIGIN}${BASE}assets/import-worker-B1oldHash.js`;
+    await app.caches.get(ASSETS)!.put(stranded, new Response('/* pdf.js */'));
+    expect(app.cached(ASSETS), 'the fixture did not seed').toContain(stranded);
 
     redeploy(app);
     await app.dispatch('install'); // Downloaded on the platform,
     app.net.online = false;
     await app.dispatch('activate'); // and accepted in the tunnel.
 
-    const worker = app.emitted(/\/assets\/import-worker-.+\.js$/)[0]!;
-    expect(app.cached(ASSETS), 'this build\'s copy is there to serve').toContain(worker);
+    expect(app.cached(ASSETS), 'the bytes are still on the device').not.toContain(stranded);
     expect(
       app.cached(ASSETS).filter((url) => /\/import-worker-/.test(url)),
-      'and only this build\'s: the prune still ran',
-    ).toHaveLength(1);
-    expect((await app.get(new URL(worker).pathname)).response?.status).toBe(200);
-    expect((await app.navigate(BASE)).response?.status, 'and the app itself came through').toBe(200);
+      'nor under any other hash',
+    ).toHaveLength(0);
+    expect(
+      (await app.navigate(BASE)).response?.status,
+      'and the app itself came through the same activation',
+    ).toBe(200);
   });
 
   it('never stores a document whose bundle it could not fetch', async () => {
@@ -651,7 +636,7 @@ describe('service worker, against what the build actually emitted', () => {
     await app.dispatch('install');
     await app.dispatch('activate');
 
-    const emitted = app.emitted(/\/assets\/.+\.(js|css)$/).filter((url) => !/\/import-worker-/.test(url));
+    const emitted = app.emitted(/\/assets\/.+\.(js|css)$/);
     expect(app.cached(ASSETS)).toEqual(emitted);
     expect(app.cached(SHELL).filter((url) => url.endsWith('.woff2')).length).toBeGreaterThan(0);
 
