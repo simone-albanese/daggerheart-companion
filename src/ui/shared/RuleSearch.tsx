@@ -1728,13 +1728,19 @@ export function RuleSearchResults({
  * requires `active` and `onToggle` and draws a SET ACTIVE button that writes to
  * the GM session - a control this list has no business growing, and one that
  * cannot exist at all on the Play screen part 2.2 moves this file to.
- * `DomainCardView` draws a 322px illustrated card and decodes art for it; the
+ * `DomainCardView` draws a 322px card (`height = 322`, its own default); the
  * column it would open into on Play is the one measurement the whole plan is
  * still gated on, and dropping an unmeasured 322px into it is exactly the move
- * the owner's readability constraint was written against. `AdversaryBlock` is
- * the closest fit and drawing one kind through its own renderer while twelve go
- * through another would be the fork this file's header spends a paragraph
- * refusing.
+ * the owner's readability constraint was written against. That sentence used
+ * to read "a 322px illustrated card and decodes art for it", and both halves
+ * went with `b35523d`: the `artKey` branch that drew a picture over the head is
+ * gone and nothing here decodes anything, so the showcase card is a wordmark
+ * and a silhouette. The size is what the argument rested on and it is
+ * unchanged - said rather than quietly deleted, because a reader who checks the
+ * decode claim, finds it false and stops will distrust the 322 too.
+ * `AdversaryBlock` is the closest fit and drawing one kind through its own
+ * renderer while twelve go through another would be the fork this file's
+ * header spends a paragraph refusing.
  *
  * So every record opens the same way, through its own fields: the label in the
  * app's ink and the book's words under it, marked with the same walk the

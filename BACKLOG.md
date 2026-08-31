@@ -3781,8 +3781,14 @@ Verified, and listed so effort goes where it is needed.
   *(~~Art blobs are pinned to `image/webp` before `createObjectURL`~~ —
   **moot since `b35523d`**: the two calls that minted an object URL for a
   picture were the art pipeline's and the card view's, and both went with the
-  importer. The one `createObjectURL` left in the tree mints a `blob:` for a
-  file the user is saving, and `<a download>` never renders it.)*
+  importer. **Two** `createObjectURL` calls are left in the tree, not one: the
+  save route in `src/transfer/fileIo.ts` and the rescue hatch in `index.html`.
+  Both mint a `blob:` for a file the user is saving, hand it to an
+  `<a download>`, and never render it; `fileIo.ts` names the API once more in a
+  `typeof` capability probe, which mints nothing. No line numbers, for the
+  reason the bullet above gives. The scope here is the whole tree, `index.html`
+  included — it carries no sink from the list above either, its only two `eval`
+  matches being the words "evaluating" and "evaluate" in its own comments.)*
 - **The binary decoders resist the classic attacks.** Every count-driven loop
   consumes at least one byte, so a declared count of 2^50 terminates with a
   `CodecError` instead of allocating. Offsets are checked against the payload
