@@ -912,11 +912,16 @@ export interface GmBoard {
  * row in `tests/fixtures/schema/v3`, `v4` and `v5.campaign.json` carries
  * `combatants: []` - the key is there and empty, not absent - and all three
  * files' `archive` serialises to the same 425 bytes. Schema 5 bought the
- * archive capacity, not bytes. The only archived rows in this tree holding a
- * body at all are fixtures in `campaignImport.test.ts` and
- * `campaignRoundTrip.test.ts`, and both compare ids on the way back rather than
- * asking whether the bodies are the plan's - which is why the mutant above
- * walks past them.
+ * archive capacity, not bytes. Three archived rows in the whole tree hold a
+ * body at all, one apiece in `campaignImport.test.ts`,
+ * `campaignRoundTrip.test.ts` and `campaignSchema.test.ts`; every other archive
+ * here belongs to a fixture file whose row carries `combatants: []`, or is
+ * empty. The first two are older than this docblock and compare ids on the way
+ * back rather than asking whether the bodies are the plan's, which is why the
+ * mutant above walks past them. The third arrived WITH this docblock: `gives an
+ * archived sitting its own fight, even when the record hands it the live row`
+ * hands `session` and `archive[].items` the same row object and then does ask,
+ * and it is the one test the mutant kills.
  *
  * Used, the capacity is not small. `makeCombatant` over the shipped dataset's
  * 129 adversaries mints a body of 171 to 267 bytes of JSON, median 208; the

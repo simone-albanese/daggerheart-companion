@@ -343,6 +343,26 @@ describe('a campaign owns its own things, and not the player characters', () => 
     expect(references(body!, 'CAMPAIGN_SCHEMA_VERSION')).toBe(true);
     expect(references(body!, 'SCHEMA_VERSION')).toBe(false);
 
+    /*
+     * And then the PAIR, because naming the constant is not stamping it. The
+     * two assertions above are only as strong as `newCampaign` naming
+     * `CAMPAIGN_SCHEMA_VERSION` exactly once, which it does today, at
+     * `schemaVersion: CAMPAIGN_SCHEMA_VERSION,`. A body that stamps a literal
+     * and names the constant somewhere else in a value position - a
+     * comparison, a fallback - satisfies both of them, and satisfies the value
+     * assertion below too while the numbers agree. That is the same vacuity
+     * this test was rewritten to escape, one storey lower.
+     *
+     * Measured, not feared. `newCampaign` was edited to stamp
+     * `schemaVersion: 5` while keeping the constant in a value position -
+     * `fear: CAMPAIGN_SCHEMA_VERSION < 0 ? 1 : 0`, which is still 0, and a
+     * value position because the symbol is a const and cannot appear in a
+     * type. With this line deleted, `npx tsc --noEmit` is clean and
+     * `npx vitest run` is green at 162 files / 4258 tests on that mutant. With
+     * this line back, the mutant fails here and in no other file.
+     */
+    expect(/schemaVersion:\s*CAMPAIGN_SCHEMA_VERSION\b/.test(body!)).toBe(true);
+
     const c = newCampaign('x', '2026-08-16T10:00:00.000Z', 'campaign-1');
     expect(c.schemaVersion).toBe(CAMPAIGN_SCHEMA_VERSION);
   });
